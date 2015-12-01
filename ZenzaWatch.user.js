@@ -4,16 +4,11 @@
 // @description    Ginzaに行かなくても動画を再生
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/*
-// @match          http://localhost/Zenza/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.1
+// @version        0.1.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
-
-// @require        http://res.nimg.jp/js/watch/lib/lib.js
-// @require        http://requirejs.org/docs/release/2.1.20/minified/require.js
-// @require        https://raw.githubusercontent.com/component/emitter/master/index.js
 
 (function() {
 
@@ -2490,7 +2485,6 @@ body {
         win.addEventListener('resize', function() {
           var w = win.innerWidth, h = win.innerHeight;
           var targetHeight = Math.min(h, w /16 * 9);
-          console.log('commentLayer resized', w, h, targetHeight);
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
         });
         
@@ -2510,9 +2504,8 @@ body {
     _onResize: function(e) {
       this._adjust(e);
     },
-    // リサイズをイベントを発動させる
+    // リサイズイベントを発動させる
     _adjust: function() {
-      console.log('adjust...');
       if (!this._view) {
         return;
       }
@@ -2520,7 +2513,6 @@ body {
       $view.css({ width: 1, height: 1 }).offset();
       window.setTimeout(function() {
         $view.css({width: '', height: ''});
-        console.log('adjusted...');
       }, 0);
     },
     getView: function() {
