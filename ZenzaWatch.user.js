@@ -492,9 +492,24 @@ var monkey = function() {
         console.log('%c initialize GetComment', 'background: lightgreen;');
       };
 
-      var load = function(server, threadId) {
+      /**
+       * 動画の長さに応じて取得するコメント数を変える
+       * 本家よりちょっと盛ってる
+       */
+      var getRequestCountByDuration = function(duration) {
+        if (duration < 60) { return 200;}
+        if (duration < 300) { return 500;}
+        return 1000;
+      };
+
+      var load = function(server, threadId, duration) {
         initialize();
-        var postXml = '<thread thread="' + threadId + '" version="20061206" res_from="-1000" />';
+        var resCount = getRequestCountByDuration(duration);
+
+        var postXml = [
+          '<thread thread="', threadId,
+          '" version="20061206" res_from="-', resCount,
+          '" />'].join('');
 
         console.log('post xml...', server, postXml);
 
@@ -1120,8 +1135,9 @@ var monkey = function() {
     },
     close: function() {
       this._video.pause();
-      //this._video.src    = ''; //'http://example.com/';// undefined;
-      //this._video.poster = ''; //'http://example.com/';//undefined;
+      // ISSUE: srcを空にする方法はないものか。data schemeで何かつっこむ？
+      this._video.src    = 'http://example.com/';// undefined;
+      this._video.poster = 'http://example.com/';//undefined;
     }
   });
 
@@ -2431,6 +2447,11 @@ body {
   height: 385px;
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+}
+
+.debug .commentLayer {
+  border: 1px dotted #800;
 }
 
 .nicoChat {
@@ -2978,9 +2999,15 @@ body {
       height: 100%;
       border: 0;
       z-index: 100;
+      cursor: none;
     }
 
-    .zenzaScreenMode_small .videoPlayer {
+    .mouseMoving .videoPlayer {
+      cursor: auto;
+    }
+
+    .zenzaScreenMode_small .videoPlayer,
+    .zenzaScreenMode_wide  .videoPlayer {
       left: 0;
       width: 100%;
     }
@@ -3029,11 +3056,14 @@ body {
       transition: opacity 1s ease, height 0.4s ease;
       pointer-events: none;
       transform: translateZ(0);
+      cursor: none;
     }
 
-    .zenzaPlayerContainer:hover .commentLayerFrame {
+    .mouseMoving .commentLayerFrame {
       height: calc(100% - 50px);
+      cursor: auto;
     }
+
 
     .closeButton {
       position: absolute;
@@ -3054,6 +3084,7 @@ body {
       pointer-events: auto;
     }
 
+    .mouseMoving .closeButton,
     .closeButton:hover {
       opacity: 0.9;
     }
@@ -3087,13 +3118,21 @@ body {
       this._$playerContainer.on('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-      });
+      })
+        .on('mousemove', $.proxy(this._onMouseMove, this))
+        .on('mousemove', _.debounce($.proxy(this._onMouseMoveEnd, this), 2000));
 
       $dialog.on('click', $.proxy(this._onClick, this));
       $dialog.find('.closeButton')
         .on('click', $.proxy(this._onCloseButtonClick, this));
 
       $('body').append($dialog);
+    },
+    _onMouseMove: function() {
+      this._$playerContainer.addClass('mouseMoving');
+    },
+    _onMouseMoveEnd: function() {
+      this._$playerContainer.removeClass('mouseMoving');
     },
     _updateScreenMode: function(mode) {
       this._clearClass();
@@ -3163,7 +3202,11 @@ body {
       this._nicoVideoPlayer.setVideo(videoInfo.url);
 
       console.time('GetComment');
-      GetComment.load(videoInfo.ms, videoInfo.optional_thread_id || videoInfo.thread_id);
+      GetComment.load(
+        videoInfo.ms,
+        videoInfo.optional_thread_id || videoInfo.thread_id,
+        videoInfo.l
+        );
     },
     _onGetCommentLoad: function(xmlText) {
       console.timeEnd('GetComment');
@@ -3235,7 +3278,7 @@ body {
         nicoVideoPlayer.setVideo(videoInfo.url);
 
         console.time('GetComment');
-        GetComment.load(videoInfo.ms, videoInfo.thread_id);
+        GetComment.load(videoInfo.ms, videoInfo.thread_id, videoInfo.l);
       });
 
       GetComment.on('load', function(xmlText) {
