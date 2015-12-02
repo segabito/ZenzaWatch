@@ -125,7 +125,7 @@ var monkey = function() {
           } else {
             $('body').removeClass('fullScreen');
           }
-          ZenzaWatch.emitter.on('fullScreenStatusChange', isFullScreen);
+          ZenzaWatch.emitter.emit('fullScreenStatusChange', isFullScreen);
         };
         document.addEventListener("webkitfullscreenchange", handle, false);
         document.addEventListener("mozfullscreenchange", handle, false);
@@ -587,6 +587,7 @@ var monkey = function() {
     _initializeEvents: function() {
       this._videoPlayer.on('volumeChange', $.proxy(this._onVolumeChange, this));
       this._videoPlayer.on('dblclick', $.proxy(this.toggleFullScreen, this));
+      this._videoPlayer.on('aspectRatioFix', $.proxy(this._onAspectRatioFix, this));
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
     _onVolumeChange: function(vol) {
@@ -619,6 +620,9 @@ var monkey = function() {
     _onTimer: function() {
       var currentTime = this._videoPlayer.getCurrentTime();
       this._commentPlayer.setCurrentTime(currentTime);
+    },
+    _onAspectRatioFix: function(ratio) {
+      this._commentPlayer.setAspectRatio(ratio);
     },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
@@ -940,6 +944,8 @@ var monkey = function() {
       this.setPlaybackRate(this.getPlaybackRate());
       this._canPlay = true;
       this.emit('canPlay');
+      this.emit('aspectRatioFix',
+        this._video.videoHeight / Math.max(1, this._video.videoWidth));
     },
     _onCanPlayThrough: function() {
       console.log('%c_onCanPlayThrough:', 'background: cyan;', arguments);
@@ -1218,6 +1224,9 @@ var monkey = function() {
       if (this._view && this._view.setPlaybackRate) {
         this._view.setPlaybackRate(playbackRate);
       }
+    },
+    setAspectRatio: function(ratio) {
+      this._view.setAspectRatio(ratio);
     },
     appendTo: function($node) {
       this._view.appendTo($node);
@@ -2480,6 +2489,8 @@ body {
       this._lastCurrentTime = 0;
       this._isShow = true;
 
+      this._aspectRatio = 9 / 16;
+
       this._inViewTable = {};
       this._playbackRate = params.playbackRate || 1.0;
 
@@ -2487,6 +2498,12 @@ body {
       console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 
       this._initializeView(params);
+
+      // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
+      // ここに書いてるのは手抜き
+      ZenzaWatch.emitter.on('fullScreenStatusChange',
+        _.debounce($.proxy(this.refresh, this), 1000)
+      );
 
       ZenzaWatch.debug.css3Player = this;
     },
@@ -2520,7 +2537,7 @@ body {
 
         win.addEventListener('resize', function() {
           var w = win.innerWidth, h = win.innerHeight;
-          var targetHeight = Math.min(h, w / 16 * 9);
+          var targetHeight = Math.min(h, w * self._aspectRatio);
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
         });
         
@@ -2557,6 +2574,10 @@ body {
     setPlaybackRate: function(playbackRate) {
       this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
       this.refresh();
+    },
+    setAspectRatio: function(ratio) {
+      this._aspectRatio = ratio;
+      this._adjust();
     },
     _onSetXml: function() {
       this.clear();
@@ -2628,7 +2649,7 @@ body {
         this._viewModel.getGroup(NicoChat.TYPE.TOP)
       ];
 
-      var css = [], html = [], inView = [];
+      var css = [], inView = [], dom = [];
       var i, len;
       // 表示状態にあるchatを集める
       for(i = 0, len = groups.length; i < len; i++) {
@@ -2646,18 +2667,15 @@ body {
         // 新規に表示状態になったchatがあればdom生成
         this._inViewTable[domId] = nicoChat;
         var type = nicoChat.getType();
-        html.push(this._buildChatHtml(nicoChat , type /*, ct*/));
+        dom.push(this._buildChatDom(nicoChat , type /*, ct*/));
         css .push(this._buildChatCss (nicoChat, type, ct));
       }
 
       // DOMへの追加
-      if (html.length > 0) {
-        var div = document.createElement('div');
-        //var fragment = document.createDocumentFragment();
-        div.innerHTML = html.join('');
-        this._commentLayer.appendChild(div);
-        //while (div.childNodes.length > 0) { fragment.appendChild(div.childNodes[0]); }
-        //this._commentLayer.appendChild(fragment);
+      if (css.length > 0) {
+        var fragment = document.createDocumentFragment();
+        while (dom.length > 0) { fragment.appendChild(dom.shift()); }
+        this._commentLayer.appendChild(fragment);
         this._style.innerHTML += css.join('');
         this._gcInviewElements();
       }
@@ -2728,7 +2746,19 @@ body {
       }
       return result.join('\n');
     },
-    _buildChatHtml: function(chat , type /*, currentTime */) {
+    _buildChatDom: function(chat , type /*, currentTime */) {
+      var span = document.createElement('span');
+      var className = 'nicoChat ' + type;
+      if (chat.isOverflow()) {
+        className += ' overflow';
+      }
+      //if (chat.isMine()) { className += ' mine'; }
+      span.className = className;
+      span.id = chat.getId();
+      span.innerHTML = chat.getHtmlText();
+      return span;
+    },
+     _buildChatHtml: function(chat , type /*, currentTime */) {
       var className = 'nicoChat ' + type;
       if (chat.isOverflow()) {
         className += ' overflow';
