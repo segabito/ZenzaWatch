@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.6
+// @version        0.1.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -705,8 +705,9 @@ var monkey = function() {
 
 
 
-    var ShortcutKeyHandler = (function() {
+    var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
+
       var initialize = function() {
         initialize = _.noop;
         $('body').on('keydown.zenzaWatch', onKeyDown);
@@ -719,36 +720,43 @@ var monkey = function() {
           return;
         }
         var target = e.target;
+        var key = '';
         switch (e.keyCode) {
           case 178:
           case 179:
-            emitter.emit('PAUSE', target);
+            key = 'PAUSE';
             break;
           case 177:
-            emitter.emit('PREV', target);
+            key = 'PREV';
             break;
           case 176:
-            emitter.emit('NEXT', target);
+            key = 'NEXT';
             break;
           case 27:
-            emitter.emit('ESC', target);
+            key = 'ESC';
             break;
-          case 70:
-            emitter.emit('FULL', target); // F
+          case 70: // F
+            key = 'FULL';
             break;
-          case 80:
-            emitter.emit('FULL', target); // V
+          case 86: // V
+            key = 'VIEW_COMMENT';
+            break;
+          case 32:
+            key = 'SPACE';
             break;
           default:
-//            console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
+            //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
             break;
+        }
+        if (key) {
+          emitter.emit('keyDown', key, target);
         }
       };
 
       initialize();
       return emitter;
-    })();
-  
+    })(Config);
+  ZenzaWatch.util.ShortcutKeyEmitter = ShortcutKeyEmitter;
   
   
   
@@ -819,6 +827,10 @@ var monkey = function() {
       this._videoPlayer.on('pause', $.proxy(this._onPause, this));
       this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
 
+      // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
+      this._videoPlayer.on('mouseWheel',
+        _.throttle($.proxy(this._onMouseWheel, this), 50));
+
       this._videoPlayer.on('abort', $.proxy(this._onAbort, this));
       this._videoPlayer.on('error', $.proxy(this._onError, this));
 
@@ -850,6 +862,22 @@ var monkey = function() {
           this._videoPlayer.setMute(value);
           break;
       }
+    },
+    _onMouseWheel: function(e, delta) {
+      var v = this._videoPlayer.getVolume();
+      var r;
+
+      // 下げる時は「うわ音でけぇ」
+      // 上げる時は「ちょっと上げようかな」
+      // なので下げる速度のほうが速い
+      if (delta > 0) { // up
+        v = Math.max(v, 0.01);
+        r = (v < 0.05) ? 1.3 : 1.1;
+        this._videoPlayer.setVolume(v * r);
+      } else {         // down
+        this._videoPlayer.setVolume(v / 1.2);
+      }
+//      this._playerConfig.setValue('volume', this._videoPlayer.getVolume());
     },
     _onTimer: function() {
       var currentTime = this._videoPlayer.getCurrentTime();
@@ -888,6 +916,9 @@ var monkey = function() {
     },
     pause: function() {
       this._videoPlayer.pause();
+    },
+    togglePlay: function() {
+      this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
       playbackRate = Math.max(0, Math.min(playbackRate, 10));
@@ -1061,6 +1092,8 @@ var monkey = function() {
       this._playerConfig = params.playerConfig;
       this._player = params.player;
       this._initializeDom();
+
+      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
     _initializeDom: function() {
       var conf = this._playerConfig;
@@ -1115,6 +1148,19 @@ var monkey = function() {
       this._playerConfig.setValue(settingName, val);
       $target.closest('.control').toggleClass('checked', val);
     },
+    _onPlayerConfigUpdate: function(key, value) {
+      switch (key) {
+        case 'mute':
+        case 'loop':
+        case 'autoPlay':
+        case 'showComment':
+        case 'debug':
+          this._$panel
+            .find('.' + key + 'Control').toggleClass('checked', value)
+            .find('input[type=checkbox]').prop('checked', value);
+          break;
+      }
+    },
     show: function() {
       this._$panel.addClass('show');
     },
@@ -1152,6 +1198,8 @@ var monkey = function() {
       this._$video = $('<video class="videoPlayer nico"/>').attr(options);
       this._video = this._$video[0];
 
+      this._isPlaying = false;
+      this._canPlay = false;
 
       var emitter = new AsyncEmitter();
       this.on        = $.proxy(emitter.on,        emitter);
@@ -1167,6 +1215,7 @@ var monkey = function() {
     },
     _reset: function() {
       this._$video.removeClass('play pause abort error');
+      this._isPlaying = false;
     },
     _initializeEvents: function() {
       this._$video
@@ -1262,16 +1311,20 @@ var monkey = function() {
       console.log('%c_onPause:', 'background: cyan;', arguments);
       this._$video.removeClass('play');
 
+      this._isPlaying = false;
       this.emit('pause');
     },
     _onPlay: function() {
       console.log('%c_onPlay:', 'background: cyan;', arguments);
       this._$video.addClass('play');
+      this._isPlaying = true;
 
       this.emit('play');
     },
+    // ↓↑の違いがよくわかってない
     _onPlaying: function() {
       console.log('%c_onPlaying:', 'background: cyan;', arguments);
+      this._isPlaying = true;
       this.emit('playing');
     },
     _onSeeking: function() {
@@ -1295,12 +1348,17 @@ var monkey = function() {
       // Firefoxはここに関係なくプレイヤー自体がフルスクリーンになってしまう。
       // 手前に透明なレイヤーを被せるしかない？
       e.preventDefault();
+      e.stopPropagation();
       this.emit('dblclick');
     },
-    _onMouseWheel: function(e, delta) {
-      console.log('%c_onMouseWheel:', 'background: cyan;', arguments);
+    _onMouseWheel: function(e) {
+      //console.log('%c_onMouseWheel:', 'background: cyan;', e, delta);
       e.preventDefault();
-      this.emit('mouseWheel', e, delta);
+      e.stopPropagation();
+      var delta = parseInt(e.originalEvent.wheelDelta, 10);
+      if (delta !== 0) {
+        this.emit('mouseWheel', e, delta);
+      }
     },
     canPlay: function() {
       return !!this._canPlay;
@@ -1330,8 +1388,7 @@ var monkey = function() {
     },
     setVolume: function(vol) {
       vol = Math.max(Math.min(1, vol), 0);
-      //var cvol = this.getVolume();
-      console.log('setVolume', vol);
+      //console.log('setVolume', vol);
       this._video.volume = vol;
     },
     getVolume: function() {
@@ -1349,6 +1406,13 @@ var monkey = function() {
       if (cur !== sec) {
         this._video.currentTime = sec;
         this.emit('seek', this._video.currentTime);
+      }
+    },
+    togglePlay: function() {
+      if (this._isPlaying) {
+        this.pause();
+      } else {
+        this.play();
       }
     },
     getVpos: function() {
@@ -2793,10 +2857,9 @@ body {
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
       // ここに書いてるのは手抜き
       ZenzaWatch.emitter.on('fullScreenStatusChange',
-        _.debounce($.proxy(function(status) {
-          console.log('onFullScreenStatusChange', status);
+        _.debounce($.proxy(function() {
           this.refresh();
-        }, this), 1000)
+        }, this), 3000)
       );
 
       ZenzaWatch.debug.css3Player = this;
@@ -3395,9 +3458,12 @@ body {
     initialize: function(params) {
       this._offScreenLayer = params.offScreenLayer;
       this._playerConfig = params.playerConfig;
+      this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
 
       this._playerConfig.on('update-screenMode', $.proxy(this._updateScreenMode, this));
       this._initializeDom(params);
+
+      this._keyEmitter.on('keyDown', $.proxy(this._onKeyDown, this));
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
@@ -3416,6 +3482,29 @@ body {
         .on('click', $.proxy(this._onCloseButtonClick, this));
 
       $('body').append($dialog);
+    },
+    _onKeyDown: function(name /*, target */) {
+      if (!this._isOpen) {
+        return;
+      }
+      switch (name) {
+        case 'SPACE':
+        case 'PAUSE':
+          this._nicoVideoPlayer.togglePlay();
+          break;
+        case 'ESC':
+          if (!FullScreen.now()) {
+            this.close();
+          }
+          break;
+        case 'FULL':
+          this._nicoVideoPlayer.requestFullScreen();
+          break;
+        case 'VIEW_COMMENT':
+          var v = this._playerConfig.getValue('showComment');
+          this._playerConfig.setValue('showComment', !v);
+          break;
+      }
     },
     _onMouseMove: function() {
       this._$playerContainer.addClass('mouseMoving');
@@ -3439,7 +3528,6 @@ body {
       $('body').removeClass(modes);
     },
     _onClick: function(e) {
-      console.log('onclick', e);
     },
     _onCloseButtonClick: function(e) {
       if (FullScreen.now()) {
