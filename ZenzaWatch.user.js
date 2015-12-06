@@ -139,6 +139,9 @@ var monkey = function() {
     var Config = (function() {
       var prefix = 'ZenzaWatch_';
       var emitter = new AsyncEmitter();
+
+      // 直接変更する時はコンソールで
+      // ZenzaWatch.config.setValue('hogehoge' fugafuga);
       var defaultConfig = {
         debug: false,
         volume:       0.1,
@@ -465,6 +468,10 @@ var monkey = function() {
     };
     ZenzaWatch.util.isSameOrigin = isSameOrigin;
 
+    var hasFlashPlayer = function() {
+      return !!navigator.mimeTypes['application/x-shockwave-flash'];
+    };
+    ZenzaWatch.util.hasFlashPlayer = hasFlashPlayer;
 
 
     var VideoInfoLoader = (function() {
@@ -698,7 +705,49 @@ var monkey = function() {
 
 
 
+    var ShortcutKeyHandler = (function() {
+      var emitter = new AsyncEmitter();
+      var initialize = function() {
+        initialize = _.noop;
+        $('body').on('keydown.zenzaWatch', onKeyDown);
+      };
 
+      var onKeyDown = function(e) {
+        if (e.target.tagName === 'SELECT' ||
+            e.target.tagName === 'INPUT' ||
+            e.target.tagName === 'TEXTAREA') {
+          return;
+        }
+        var target = e.target;
+        switch (e.keyCode) {
+          case 178:
+          case 179:
+            emitter.emit('PAUSE', target);
+            break;
+          case 177:
+            emitter.emit('PREV', target);
+            break;
+          case 176:
+            emitter.emit('NEXT', target);
+            break;
+          case 27:
+            emitter.emit('ESC', target);
+            break;
+          case 70:
+            emitter.emit('FULL', target); // F
+            break;
+          case 80:
+            emitter.emit('FULL', target); // V
+            break;
+          default:
+//            console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
+            break;
+        }
+      };
+
+      initialize();
+      return emitter;
+    })();
   
   
   
@@ -1140,9 +1189,12 @@ var monkey = function() {
         .on('playing',        $.proxy(this._onPlaying, this))
         .on('seeking',        $.proxy(this._onSeeking, this))
         .on('seeked',         $.proxy(this._onSeeked, this))
-        .on('volumechange',   _.debounce($.proxy(this._onVolumeChange, this), 500))
+        .on('volumechange',
+            _.debounce($.proxy(this._onVolumeChange, this), 500)
+        )
 
         .on('dblclick',       $.proxy(this._onDoubleClick, this))
+        .on('mousewheel',     $.proxy(this._onMouseWheel, this))
         ;
     },
     _onCanPlay: function() {
@@ -1240,10 +1292,17 @@ var monkey = function() {
     },
     _onDoubleClick: function(e) {
       console.log('%c_onDoubleClick:', 'background: cyan;', arguments);
+      // Firefoxはここに関係なくプレイヤー自体がフルスクリーンになってしまう。
+      // 手前に透明なレイヤーを被せるしかない？
       e.preventDefault();
       this.emit('dblclick');
     },
-     canPlay: function() {
+    _onMouseWheel: function(e, delta) {
+      console.log('%c_onMouseWheel:', 'background: cyan;', arguments);
+      e.preventDefault();
+      this.emit('mouseWheel', e, delta);
+    },
+    canPlay: function() {
       return !!this._canPlay;
     },
     play: function() {
@@ -3181,7 +3240,7 @@ body {
       background: #000;
       width: 672px;
       height: 385px;
-      transition: width 0.5s ease-in, height 0.5s ease-in 0.7s;
+      transition: width 0.5s ease-in 0.7s, height 0.5s ease-in;
     }
 
     .zenzaScreenMode_small .zenzaPlayerContainer,
@@ -3397,11 +3456,13 @@ body {
       }
       $('body').addClass('showNicoVideoPlayerDialog');
       this._updateScreenMode(this._playerConfig.getValue('screenMode'));
+      this._isOpen = true;
     },
     hide: function() {
       this._$dialog.removeClass('show');
       $('body').removeClass('showNicoVideoPlayerDialog');
       this._clearClass();
+      this._isOpen = false;
     },
     open: function(watchId, options) {
       var nicoVideoPlayer = this._nicoVideoPlayer;
@@ -3493,7 +3554,10 @@ body {
         // watchページか？
         if (location.href.match('\/www.nicovideo.jp\/watch\/')) {
           if (isLogin()) {
-            initializeDialogPlayer(Config, offScreenLayer);
+            var dialog = initializeDialogPlayer(Config, offScreenLayer);
+            if (!hasFlashPlayer()) {
+              initializeGinzaSlayer(dialog);
+            }
           } else {
           // 非ログイン画面用プレイヤーをセットアップ
             initializeNoLoginWatchPagePlayer(Config, offScreenLayer);
@@ -3544,6 +3608,13 @@ body {
       initializeHoverMenu(dialog);
       return dialog;
     };
+
+    var initializeGinzaSlayer = function(dialog) {
+      $('.notify_update_flash_player').remove();
+
+      dialog.open(getWatchId());
+    };
+
 
     var initializeHoverMenu = function(dialog) {
       var $menu = $([
