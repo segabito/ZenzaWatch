@@ -719,6 +719,8 @@ var monkey = function() {
     initialize: function(params) {
       var conf = this._playerConfig = params.playerConfig;
 
+      this._fullScreenNode = params.fullScreenNode;
+
       this._videoPlayer = new VideoPlayer({
         volume:       conf.getValue('volume'),
         loop:         conf.getValue('loop'),
@@ -737,6 +739,7 @@ var monkey = function() {
 
       this._controlPanel = new VideoControlPanel({
         player: this,
+        panelNode: params.panelNode,
         playerConfig: conf
       });
 
@@ -763,6 +766,13 @@ var monkey = function() {
       this._videoPlayer.on('volumeChange', $.proxy(this._onVolumeChange, this));
       this._videoPlayer.on('dblclick', $.proxy(this.toggleFullScreen, this));
       this._videoPlayer.on('aspectRatioFix', $.proxy(this._onAspectRatioFix, this));
+      this._videoPlayer.on('play',  $.proxy(this._onPlay, this));
+      this._videoPlayer.on('pause', $.proxy(this._onPause, this));
+      this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
+
+      this._videoPlayer.on('abort', $.proxy(this._onAbort, this));
+      this._videoPlayer.on('error', $.proxy(this._onError, this));
+
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
     _onVolumeChange: function(vol) {
@@ -799,9 +809,27 @@ var monkey = function() {
     _onAspectRatioFix: function(ratio) {
       this._commentPlayer.setAspectRatio(ratio);
     },
+    _onPlay: function() {
+      this._isPlaying = true;
+    },
+    _onPause: function() {
+      this._isPlaying = false;
+    },
+    _onEnded: function() {
+      this._isPlaying = false;
+      this._isEnded = true;
+      if (FullScreen.now()) {
+        FullScreen.cancel();
+      }
+    },
+    _onError: function() {
+    },
+    _onAbort: function() {
+    },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
       this._controlPanel.show();
+      this._isEnded = false;
     },
     setThumbnail: function(url) {
       this._videoPlayer.setThumbnail(url);
@@ -816,6 +844,9 @@ var monkey = function() {
       playbackRate = Math.max(0, Math.min(playbackRate, 10));
       this._videoPlayer.setPlaybackRate(playbackRate);
       this._commentPlayer.setPlaybackRate(playbackRate);
+    },
+    currentTime: function() {
+      return this._videoPlayer.currentTime;
     },
     setComment: function(xmlText) {
       this._commentPlayer.setComment(xmlText);
@@ -835,11 +866,11 @@ var monkey = function() {
       if (FullScreen.now()) {
         FullScreen.cancel();
       } else {
-        FullScreen.request(this._$parentNode[0]);
+        this.requestFullScreen();
       }
     },
     requestFullScreen: function() {
-      FullScreen.request(this._$parentNode[0]);
+      FullScreen.request(this._fullScreenNode || this._$parentNode[0]);
     }
   });
 
@@ -1109,7 +1140,7 @@ var monkey = function() {
         .on('playing',        $.proxy(this._onPlaying, this))
         .on('seeking',        $.proxy(this._onSeeking, this))
         .on('seeked',         $.proxy(this._onSeeked, this))
-        .on('volumechange',   $.proxy(this._onVolumeChange, this))
+        .on('volumechange',   _.debounce($.proxy(this._onVolumeChange, this), 500))
 
         .on('dblclick',       $.proxy(this._onDoubleClick, this))
         ;
@@ -3259,7 +3290,7 @@ body {
     }
 
     .mouseMoving .commentLayerFrame {
-      height: calc(100% - 50px);
+      {* height: calc(100% - 50px); *}
       cursor: auto;
     }
 
@@ -3372,7 +3403,7 @@ body {
       $('body').removeClass('showNicoVideoPlayerDialog');
       this._clearClass();
     },
-    open: function(watchId) {
+    open: function(watchId, options) {
       var nicoVideoPlayer = this._nicoVideoPlayer;
       if (!nicoVideoPlayer) {
         console.log('new nicovideoPlayer');
@@ -3392,7 +3423,7 @@ body {
       console.time('VideoInfoLoader');
       VideoInfoLoader.load(watchId);
 
-      this.show();
+      this.show(options);
     },
     _onVideoInfoLoaderLoad: function(videoInfo, type) {
       console.timeEnd('VideoInfoLoader');
