@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.5
+// @version        0.1.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -582,6 +582,7 @@ var monkey = function() {
             PopupMessage.alert('この動画は再生できません');
           } else if (data.isMp4) {
             videoInfoLoader.emitAsync('load', data, 'WATCH_API');
+            ZenzaWatch.emitter.emitAsync('loadVideoInfo', data, 'WATCH_API'); // 外部連携用
           } else {
             PopupMessage.alert('この動画は再生できません');
           }
@@ -2024,34 +2025,46 @@ var monkey = function() {
 
       var cmd = this._cmd;
       if (cmd.length > 0) {
-        // TODO: もうちょっと真面目にパース
-        var cmdc = cmd.replace(NicoChat._CMD_REPLACE, '');
+        var pcmd = this._parseCmd(cmd);
 
-        if (NicoChat._COLOR_MATCH.test(cmdc))  {
-          this._color = RegExp.$1;
-        } else if (NicoChat._COLOR_NAME_MATCH.test(cmdc)) {
-          this._color = NicoChat.COLORS[RegExp.$1] || '#FFF';
+        if (pcmd['COLOR']) {
+          this._color = pcmd['COLOR'];
         }
 
-        if (cmd.indexOf('big') >= 0) {
+        // TODO: 両方指定されてたらどっちが優先されるのかを検証
+        if (pcmd['big']) {
           this._size = NicoChat.SIZE.BIG;
-        } else if (cmd.indexOf('small') >= 0) {
+        } else if (pcmd['small']) {
           this._size = NicoChat.SIZE.SMALL;
         }
 
-        if (cmd.indexOf('ue') >= 0) {
+        if (pcmd['ue']) {
           this._type = NicoChat.TYPE.TOP;
-        } else if (cmd.indexOf('shita') >= 0) {
+        } else if (pcmd['shita']) {
           this._type = NicoChat.TYPE.BOTTOM;
         }
 
-        if (cmd.indexOf('ender') >= 0) {
+        if (pcmd['ender']) {
           this._isEnder = true;
         }
-        if (cmd.indexOf('full') >= 0) {
+        if (pcmd['full']) {
           this._isFull = true;
         }
       }
+    },
+    _parseCmd: function(cmd) {
+      var tmp = cmd.split(/ +/);
+      var result = {};
+      $(tmp).each(function(i, c) {
+        if (NicoChat.COLORS[c]) {
+          result['COLOR'] = NicoChat.COLORS[c];
+        } else if (NicoChat._COLOR_MATCH.test(c)) {
+          result['COLOR'] = c;
+        } else {
+          result[c] = true;
+        }
+      });
+      return result;
     },
     setCurrentTime: function(sec) {
       this._currentTime = sec;
@@ -2392,6 +2405,7 @@ var monkey = function() {
     /**
      * (衝突判定に引っかかったので)自分自身を一段ずらす.
      *
+     * @param NicoChat others 示談相手
      */
     moveToNextLine: function(others) {
       var margin = NicoChatViewModel.CHAT_MARGIN;
@@ -2558,7 +2572,7 @@ var monkey = function() {
    */
   var NicoCommentCss3PlayerView = function() { this.initialize.apply(this, arguments); };
 
-  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 30;
+  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 50;
 
   NicoCommentCss3PlayerView.__TPL__ = ZenzaWatch.util.hereDoc(function() {/*
 <!DOCTYPE html>
@@ -2722,7 +2736,7 @@ body {
         // Config直接参照してるのは手抜き
         doc.body.className = Config.getValue('debug') ? 'debug' : '';
         Config.on('update-debug', function(val) {
-           doc.body.className = val ? 'debug' : '';
+          doc.body.className = val ? 'debug' : '';
         });
 
         win.addEventListener('resize', function() {
@@ -2786,7 +2800,7 @@ body {
         }
       } else
       if (this._currentTime < this._lastCurrentTime ||
-          Math.abs(this._currentTime - this._lastCurrentTime) > REFRESH_THRESHOLD) {
+        Math.abs(this._currentTime - this._lastCurrentTime) > REFRESH_THRESHOLD) {
         // 後方へのシーク、または 境界値以上の前方シーク時は全体を再描画
         this.refresh();
       } else {
@@ -2858,8 +2872,8 @@ body {
         // 新規に表示状態になったchatがあればdom生成
         this._inViewTable[domId] = nicoChat;
         var type = nicoChat.getType();
-        dom.push(this._buildChatDom(nicoChat , type /*, ct*/));
-        css .push(this._buildChatCss (nicoChat, type, ct));
+        dom.push(this._buildChatDom(nicoChat, type /*, ct*/));
+        css.push(this._buildChatCss(nicoChat, type, ct));
       }
 
       // DOMへの追加
@@ -2886,13 +2900,6 @@ body {
       for (var i = inViewElements.length - max - 1; i >= 0; i--) {
         inViewElements[i].remove();
       }
-//      while (inViewElements.length > max) {
-//        var elm = inViewElements[0];
-//        elm.remove();
-//
-//        // TODO: 毎回引くのは効率が悪いので改善したい
-//        inViewElements = commentLayer.getElementsByClassName('nicoChat');
-//      }
     },
 
     buildHtml: function(currentTime) {
@@ -2920,6 +2927,7 @@ body {
       console.timeEnd('buildHtml');
       return tpl;
     },
+
     _buildGroupHtml: function(group, currentTime) {
       var m = group.getMembers();
       var type = group.getType();
@@ -2952,7 +2960,7 @@ body {
       span.innerHTML = chat.getHtmlText();
       return span;
     },
-     _buildChatHtml: function(chat , type /*, currentTime */) {
+    _buildChatHtml: function(chat , type /*, currentTime */) {
       var className = 'nicoChat ' + type;
       if (chat.isOverflow()) {
         className += ' overflow';
@@ -3211,15 +3219,19 @@ body {
 
     .zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
       transform: perspective(600px) rotateX(10deg);
-      opacity: 0.8;
       height: 100%;
     }
 
+    .fullScreen.zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
+      transform: perspective(700px) rotateX(10deg);
+      margin-top: -5%;
+    }
+
     .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
-      transform: perspective(600px) rotateY(30deg);
+      transform: perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
       opacity: 0.8;
       height: 100%;
-      margin-left: 15%;
+      margin-left: 20%;
     }
 
     .fullScreen .zenzaPlayerContainer {
@@ -3333,7 +3345,7 @@ body {
         'zenzaScreenMode_small',
         'zenzaScreenMode_big',
         'zenzaScreenMode_wide',
-        ].join(' ');
+      ].join(' ');
       $('body').removeClass(modes);
     },
     _onClick: function(e) {
@@ -3395,7 +3407,7 @@ body {
           videoInfo.optional_thread_id || videoInfo.thread_id,
           videoInfo.l,
           videoInfo.user_id
-          );
+        );
       } else {
         var flvInfo   = videoInfo.flvInfo;
         var videoUrl  = flvInfo.url;
@@ -3413,7 +3425,7 @@ body {
         );
       }
       ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
-   },
+    },
     _onCommentLoaderLoad: function(xmlText) {
       console.timeEnd('CommentLoader');
       this._nicoVideoPlayer.setComment(xmlText);
