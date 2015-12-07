@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.8
+// @version        0.1.9
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -825,6 +825,11 @@ var monkey = function() {
         playerConfig: conf
       });
 
+      this._contextMenu = new VideoContextMenu({
+        player: this,
+        playerConfig: conf
+      });
+
       if (params.node) {
         this.appendTo(params.node);
       }
@@ -858,6 +863,9 @@ var monkey = function() {
 
       this._videoPlayer.on('abort', $.proxy(this._onAbort, this));
       this._videoPlayer.on('error', $.proxy(this._onError, this));
+
+      this._videoPlayer.on('click', $.proxy(this._onClick, this));
+      this._videoPlayer.on('contextMenu', $.proxy(this._onContextMenu, this));
 
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
@@ -928,6 +936,12 @@ var monkey = function() {
     },
     _onAbort: function() {
     },
+    _onClick: function(e) {
+      this._contextMenu.hide();
+    },
+    _onContextMenu: function(e) {
+      this._contextMenu.show(e.offsetX, e.offsetY);
+    },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
       this._controlPanel.show();
@@ -950,8 +964,11 @@ var monkey = function() {
       this._videoPlayer.setPlaybackRate(playbackRate);
       this._commentPlayer.setPlaybackRate(playbackRate);
     },
-    currentTime: function() {
-      return this._videoPlayer.currentTime;
+    setCurrentTime: function(t) {
+      this._videoPlayer.setCurrentTime(Math.max(0, t));
+    },
+    getCurrentTime: function() {
+      return this._videoPlayer.getCurrentTime();
     },
     setComment: function(xmlText) {
       this._commentPlayer.setComment(xmlText);
@@ -961,6 +978,7 @@ var monkey = function() {
       this._$parentNode = node;
       this._videoPlayer.appendTo($node);
       this._commentPlayer.appendTo($node);
+      this._contextMenu.appendTo($node);
     },
     close: function() {
       this._videoPlayer.close();
@@ -1184,6 +1202,12 @@ var monkey = function() {
             .find('.' + key + 'Control').toggleClass('checked', value)
             .find('input[type=checkbox]').prop('checked', value);
           break;
+        case 'playbackRate':
+          this._$playbackRate.val(value);
+          break;
+        case 'screenMode':
+          this._$screenMode.val(value);
+          break;
       }
     },
     show: function() {
@@ -1191,6 +1215,162 @@ var monkey = function() {
     },
     hide: function() {
       this._$panel.removeClass('show');
+    }
+  });
+
+  var VideoContextMenu = function() { this.initialize.apply(this, arguments); };
+  VideoContextMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .zenzaPlayerContextMenu {
+      position: fixed;
+      background: #fff;
+      overflow: visible;
+      padding: 8px;
+      border: 1px outset #333;
+      box-shadow: 2px 2px 4px #000;
+      transition: opacity 0.3s ease;
+      z-index: 150000;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+    }
+    .zenzaPlayerContextMenu:not(.show) {
+      left: -9999px;
+      top: -9999px;
+      opacity: 0;
+    }
+    .zenzaPlayerContextMenu ul li {
+      position: relative;
+      line-height: 120%;
+      margin: 2px 8px;
+      overflow-y: visible;
+      white-space: nowrap;
+      cursor: pointer;
+      padding: 2px 8px;
+    }
+    .zenzaPlayerContextMenu ul li.selected {
+      font-weight: bolder;
+    }
+    .zenzaPlayerContextMenu ul li:hover {
+      background: #336;
+      color: #fff;
+    }
+    .zenzaPlayerContextMenu ul li.separator {
+      border: 1px outset;
+      height: 2px;
+    }
+    .zenzaPlayerContextMenu.show {
+      opacity: 1;
+    }
+    .zenzaPlayerContextMenu .listInner {
+    }
+  */});
+
+  VideoContextMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="zenzaPlayerContextMenu">
+      <div class="listInner">
+        <ul>
+          <li data-command="togglePlay">停止/再開</li>
+          <!--<li data-command="showComment">コメント表示/非表示</li>-->
+          <li data-command="restart">先頭に戻る</li>
+
+          <hr class="separator">
+
+          <li class="seek" data-command="seek" data-param="-10">10秒戻る</li>
+          <li class="seek" data-command="seek" data-param="10" >10秒進む</li>
+          <li class="seek" data-command="seek" data-param="-30">30秒戻る</li>
+          <li class="seek" data-command="seek" data-param="30" >30秒進む</li>
+
+          <hr class="separator">
+
+          <li class="playbackRate" data-command="playbackRate" data-param="0.01">コマ送り(0.01x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.3">スロー再生(0.3x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.5">スロー再生(0.5x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="1.0">標準速度</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="1.2">高速(1.2x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="1.4">高速(1.4x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="1.5">高速(1.5x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="2">倍速(2x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="4">4倍速(4x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
+        </ul>
+      </div>
+    </div>
+  */});
+
+
+  _.assign(VideoContextMenu.prototype, {
+    initialize: function(params) {
+      this._playerConfig = params.playerConfig;
+      this._player = params.player;
+      this._initializeDom(params);
+
+      //this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+    },
+    _initializeDom: function(params) {
+      ZenzaWatch.util.addStyle(VideoContextMenu.__css__);
+      var $view = this._$view = $(VideoContextMenu.__tpl__);
+      $view.on('click', $.proxy(this._onMouseDown, this));
+    },
+    _onMouseDown: function(e) {
+      var target = e.target, $target = jQuery(target);
+      var command = $target.attr('data-command');
+      var param = $target.attr('data-param');
+      this.hide();
+      e.preventDefault();
+      var player = this._player;
+      var playerConfig = this._playerConfig;
+      switch (command) {
+        case 'togglePlay':
+          player.togglePlay();
+          break;
+//        case 'showComment':
+//          break;
+        case 'restart':
+          player.setCurrentTime(0);
+          break;
+        case 'seek':
+          var ct = player.getCurrentTime();
+          player.setCurrentTime(ct + parseInt(param, 10));
+          break;
+        case 'playbackRate':
+          playerConfig.setValue('playbackRate', parseFloat(param, 10));
+          break;
+      }
+    },
+    _onBodyClick: function() {
+      this.hide();
+    },
+    _onBeforeShow: function() {
+      // チェックボックスなどを反映させるならココ
+      var pr = this._playerConfig.getValue('playbackRate');
+      this._$view.find('.selected').removeClass('selected');
+      this._$view.find('.playbackRate').each(function(i, elm) {
+        var $elm = $(elm);
+        var p = parseFloat($elm.attr('data-param'), 10);
+        if (p == pr) {
+          $elm.addClass('selected');
+        }
+      });
+    },
+    appendTo: function($node) {
+      this._$node = $node;
+      $node.append(this._$view);
+    },
+    show: function(x, y) {
+      $('body').on('click.ZenzaMenuOnBodyClick', $.proxy(this._onBodyClick, this));
+      var $view = this._$view, $window = $(window);
+
+      this._onBeforeShow(x, y);
+
+      $view.css({
+        left: Math.max(0, Math.min(x, $window.innerWidth()  - $view.outerWidth())),
+        top:  Math.max(0, Math.min(y, $window.innerHeight() - $view.outerHeight())),
+      });
+      this._$view.addClass('show');
+    },
+    hide: function() {
+      $('body').off('click.ZenzaMenuOnBodyClick', this._onBodyClick);
+      this._$view.css({top: '', left: ''}).removeClass('show');
     }
   });
 
@@ -1267,6 +1447,7 @@ var monkey = function() {
             _.debounce($.proxy(this._onVolumeChange, this), 500)
         )
 
+        .on('click',          $.proxy(this._onClick, this))
         .on('dblclick',       $.proxy(this._onDoubleClick, this))
         .on('mousewheel',     $.proxy(this._onMouseWheel, this))
         .on('contextmenu',    $.proxy(this._onContextMenu, this))
@@ -1369,6 +1550,9 @@ var monkey = function() {
       console.log('%c_onVolumeChange:', 'background: cyan;', arguments);
       this.emit('volumeChange', this.getVolume());
     },
+    _onClick: function(e) {
+      this.emit('click');
+    },
     _onDoubleClick: function(e) {
       console.log('%c_onDoubleClick:', 'background: cyan;', arguments);
       // Firefoxはここに関係なくプレイヤー自体がフルスクリーンになってしまう。
@@ -1378,7 +1562,7 @@ var monkey = function() {
       this.emit('dblclick');
     },
     _onMouseWheel: function(e) {
-      //console.log('%c_onMouseWheel:', 'background: cyan;', e, delta);
+      //console.log('%c_onMouseWheel:', 'background: cyan;', e);
       e.preventDefault();
       e.stopPropagation();
       var delta = parseInt(e.originalEvent.wheelDelta, 10);
@@ -1387,8 +1571,10 @@ var monkey = function() {
       }
     },
     _onContextMenu: function(e) {
+      //console.log('%c_onContextMenu:', 'background: cyan;', e);
       e.preventDefault();
       e.stopPropagation();
+      this.emit('contextMenu', e);
     },
     canPlay: function() {
       return !!this._canPlay;
