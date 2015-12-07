@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.7
+// @version        0.1.8
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -43,9 +43,21 @@ var monkey = function() {
         this._events[name].push(callback);
       };
 
-      AsyncEmitter.prototype.clear = function(eventName) {
-        if (eventName) {
-          this._events[eventName] = [];
+      AsyncEmitter.prototype.off = function(name, func) {
+        if (!func) {
+          this._events[name] = [];
+          return;
+        }
+
+        if (!this._events[name]) {
+          this._events[name] = [];
+        }
+        _.pull(this._events[name], func);
+      }
+
+      AsyncEmitter.prototype.clear = function(name) {
+        if (name) {
+          this._events[name] = [];
         } else {
           this._events = {};
         }
@@ -158,7 +170,12 @@ var monkey = function() {
       for (var key in defaultConfig) {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
-          config[key] = JSON.parse(localStorage[storageKey]);
+          try {
+            config[key] = JSON.parse(localStorage[storageKey]);
+          } catch (e) {
+            console.error('config parse error: ', e);
+            config[key] = defaultConfig[key];
+          }
         } else {
           config[key] = defaultConfig[key];
         }
@@ -184,6 +201,14 @@ var monkey = function() {
     })();
 
     ZenzaWatch.config = Config;
+
+    var dummyConsole = {
+      log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop
+    };
+    var console = Config.getValue('debug') ? window.console : dummyConsole;
+    Config.on('update-debug', function(v) {
+      console = v ? window.console : dummyConsole;
+    });
 
     var PopupMessage = (function() {
       var __view__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -1244,6 +1269,7 @@ var monkey = function() {
 
         .on('dblclick',       $.proxy(this._onDoubleClick, this))
         .on('mousewheel',     $.proxy(this._onMouseWheel, this))
+        .on('contextmenu',    $.proxy(this._onContextMenu, this))
         ;
     },
     _onCanPlay: function() {
@@ -1359,6 +1385,10 @@ var monkey = function() {
       if (delta !== 0) {
         this.emit('mouseWheel', e, delta);
       }
+    },
+    _onContextMenu: function(e) {
+      e.preventDefault();
+      e.stopPropagation();
     },
     canPlay: function() {
       return !!this._canPlay;
@@ -3251,6 +3281,9 @@ body {
       margin-left: 424px;
       width: auto;
     }
+    body.zenzaScreenMode_wide {
+      overflow: hidden;
+    }
 
     .zenzaVideoPlayerDialog {
       display: none;
@@ -3326,14 +3359,19 @@ body {
     .zenzaPlayerContainer .videoPlayer {
       position: absolute;
       top: 0;
-      left: 2.5%;
-      width: 95%;
+      left: 2.38%;
+      width: 95.23%;
       right: 0;
       bottom: 0;
       height: 100%;
       border: 0;
       z-index: 100;
       cursor: none;
+    }
+
+    .zenzaScreenMode_big .zenzaPlayerContainer .videoPlayer {
+      width: 95.31%;
+      left: 2.34%;
     }
 
     .mouseMoving .videoPlayer {
@@ -3357,11 +3395,12 @@ body {
       border: 0 !important;
       z-index: 100 !important;
      }
-
+    {*
     .zenzaScreenMode_big .zenzaPlayerContainer {
       width: 854px;
       height: 480px;
     }
+    *}
 
     .zenzaScreenMode_wide .zenzaPlayerContainer {
       left: 0;
@@ -3563,16 +3602,29 @@ body {
           loop: Config.getValue('loop'),
           playerConfig: Config
         });
-        VideoInfoLoader.on('load', $.proxy(this._onVideoInfoLoaderLoad, this));
-        CommentLoader.on('load',   $.proxy(this._onCommentLoaderLoad, this));
       } else {
         nicoVideoPlayer.close();
       }
+
+      this._bindLoaderEvents();
 
       console.time('VideoInfoLoader');
       VideoInfoLoader.load(watchId);
 
       this.show(options);
+    },
+    /**
+     *  ロード時のイベントを貼り直す
+     */
+    _bindLoaderEvents: function() {
+      if (this._onVideoInfoLoaderLoad_proxy) {
+        VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
+        CommentLoader  .off('load', this._onCommentLoaderLoad_proxy);
+      }
+      this._onVideoInfoLoaderLoad_proxy = $.proxy(this._onVideoInfoLoaderLoad, this);
+      this._onCommentLoaderLoad_proxy   = $.proxy(this._onCommentLoaderLoad,   this);
+      VideoInfoLoader.on('load', this._onVideoInfoLoaderLoad_proxy);
+      CommentLoader  .on('load', this._onCommentLoaderLoad_proxy);
     },
     _onVideoInfoLoaderLoad: function(videoInfo, type) {
       console.timeEnd('VideoInfoLoader');
@@ -3614,6 +3666,12 @@ body {
       this.hide();
       if (this._nicoVideoPlayer) {
         this._nicoVideoPlayer.close();
+      }
+      if (this._onVideoInfoLoaderLoad_proxy) {
+        VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
+        CommentLoader  .off('load', this._onCommentLoaderLoad_proxy);
+        this._onVideoInfoLoaderLoad_proxy = null;
+        this._onCommentLoaderLoad_proxy = null;
       }
     }
   });
