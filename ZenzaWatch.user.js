@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.9
+// @version        0.1.10
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1246,6 +1246,7 @@ var monkey = function() {
       white-space: nowrap;
       cursor: pointer;
       padding: 2px 8px;
+      list-style-type: none;
     }
     .zenzaPlayerContextMenu ul li.selected {
       font-weight: bolder;
@@ -1920,7 +1921,11 @@ var monkey = function() {
       .mincho2  {font-family: "ＭＳ 明朝", Simsun; }
       .gulim2   {font-family: "ＭＳ 明朝", Gulim; }
       .mingLiu2 {font-family: "ＭＳ 明朝", mingLiu; }
-     </style>
+
+      .nicoChat .zen_space {
+        {*font-family: monospace;*}
+      }
+    </style>
     <body style="pointer-events: none;" >
     <div id="offScreenLayer"
       style="
@@ -2575,6 +2580,9 @@ var monkey = function() {
       var htmlText =
         text
           .replace(/[\t \xA0]/g , '&nbsp;')
+          //.replace(/[\t \xA0]/g , '')
+          .replace(/　/g , '<span class="zen_space">、</span>')
+//          .replace(/　/g , '<span class="zen_space">□</span>')
           .replace(/[\r\n]+$/g, '')
           .replace(/[\n]/g, '&nbsp;<br>');
 //          .replace(/[\n]/g, '#<br>');
@@ -2602,8 +2610,8 @@ var monkey = function() {
       field.setText(htmlText);
       field.setFontSizePixel(this._fontSizePixel);
       
-      this._width = field.getWidth();
-      this._height = this._calculateHeight();
+      this._width  = this._originalWidth  = field.getWidth();
+      this._height = this._originalHeight = this._calculateHeight();
 
       if (!this._isFixed) {
         var speed =
@@ -2711,12 +2719,16 @@ var monkey = function() {
       // 画面の高さの1/3を超える場合は大きさを半分にする
       if (this._height > screenHeight / 3) {
         this._setScale(this._scale * 0.5);
+        var speed =
+          this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        this._endLeftTiming    = this._endRightTiming  - this._width / speed;
+        this._beginRightTiming = this._beginLeftTiming + this._width / speed;
       }
     },
 
     _setScale: function(scale) {
       this._scale = scale;
-      this._width = (this._width * scale);
+      this._width = (this._originalWidth * scale);
       this._height = this._calculateHeight(); // 再計算
     },
 
@@ -3014,7 +3026,19 @@ body {
 .nicoChat.ue,
 .nicoChat.shita {
   display: inline-block;
-  text-align: center;
+  {*text-align: center;*}
+}
+
+.nicoChat .zen_space {
+  opacity: 0;
+  {*font-family: monospace;*}
+}
+.debug .nicoChat .zen_space {
+  color: yellow;
+  opacity: 0.3;
+}
+.nicoChat .spacer {
+  opacity: 0;
 }
 
 .debug .nicoChat.ue {
