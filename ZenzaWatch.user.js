@@ -1941,7 +1941,7 @@ var monkey = function() {
         overflow: visible;
         background: #fff;
 
-        font-family: Arial, 'ＭＳ Ｐゴシック';
+        font-family: 'ＭＳ Ｐゴシック';
         letter-spacing: 1px;
         margin: 2px 1px 1px 1px;
         white-space: nowrap;
@@ -2486,7 +2486,7 @@ var monkey = function() {
     BOTTOM: 3
   };
 
-  NicoChatViewModel.FONT = 'Arial, \'ＭＳ Ｐゴシック\''; // &#xe7cd;
+  NicoChatViewModel.FONT = '\'ＭＳ Ｐゴシック\''; // &#xe7cd;
   NicoChatViewModel.FONT_SIZE_PIXEL = {
     BIG: 39,
     NORMAL: 24,
@@ -3069,7 +3069,7 @@ body {
   opacity: 0;
   text-shadow: 0 0 3px #000;
 
-  font-family: Arial, 'ＭＳ Ｐゴシック';
+  font-family: 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
   margin: 2px 1px 1px 1px;
   white-space: nowrap;
