@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.14
+// @version        0.1.15
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2623,7 +2623,7 @@ var monkey = function() {
       }
       htmlText = htmlText
         .replace(/[\r\n]+$/g, '')
-        .replace(/[\n]/g, '<span class="han_space">_</span><br>');
+        .replace(/[\n]/g, '<br><span class="han_space">|</span>');
 
       this._htmlText = htmlText;
       this._text = text;
