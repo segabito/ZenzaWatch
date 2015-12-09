@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.10
+// @version        0.1.12
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -837,6 +837,8 @@ var monkey = function() {
       this._initializeEvents();
 
       this._beginTimer();
+
+      ZenzaWatch.debug.nicoVideoPlayer = this;
     },
     _beginTimer: function() {
       this._stopTimer();
@@ -1907,6 +1909,7 @@ var monkey = function() {
   });
 
   // フォントサイズ計算用の非表示レイヤーを取得
+  // 変なCSSの影響を受けないように、DOM的に隔離されたiframe内で計算する。
   NicoComment.offScreenLayer = (function() {
     var __offscreen_tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <!DOCTYPE html>
@@ -1918,9 +1921,13 @@ var monkey = function() {
       .mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun; }
       .gulim   {font-family: "ＭＳ Ｐ明朝", monospace, Gulim; }
       .mingLiu {font-family: "ＭＳ Ｐ明朝", monospace, mingLiu; }
-      .mincho2  {font-family: "ＭＳ 明朝", Simsun; }
-      .gulim2   {font-family: "ＭＳ 明朝", Gulim; }
-      .mingLiu2 {font-family: "ＭＳ 明朝", mingLiu; }
+      .mincho2  {font-family: "ＭＳ 明朝", monospace, Simsun; }
+      .gulim2   {font-family: "ＭＳ 明朝", Gmonospace, ulim; }
+      .mingLiu2 {font-family: "ＭＳ 明朝", mmonospace, ingLiu; }
+
+      .ue .mincho  , .shita .mincho {font-family: "ＭＳ 明朝", monospace, Simsun; }
+      .ue .gulim   , .shita .gulim  {font-family: "ＭＳ 明朝", monospace, Gulim; }
+      .ue .mingLiu , .shita .mingLiu{font-family: "ＭＳ 明朝", monospace, mingLiu; }
 
       .nicoChat .zen_space {
         {*font-family: monospace;*}
@@ -1934,7 +1941,7 @@ var monkey = function() {
         overflow: visible;
         background: #fff;
 
-        font-family: Arial 'MS Pゴシック' Simsun Gulim;
+        font-family: Arial, 'ＭＳ Ｐゴシック';
         letter-spacing: 1px;
         margin: 2px 1px 1px 1px;
         white-space: nowrap;
@@ -2018,6 +2025,9 @@ var monkey = function() {
       textField = {
         setText: function(text) {
           span.innerHTML = text;
+        },
+        setType: function(type) {
+          span.className = type;
         },
         setFontSizePixel: function(pixel) {
           span.style.fontSize = pixel + 'px';
@@ -2476,7 +2486,7 @@ var monkey = function() {
     BOTTOM: 3
   };
 
-  NicoChatViewModel.FONT = '\'MS Pゴシック\' Arial Simsun Gulim'; // &#xe7cd;
+  NicoChatViewModel.FONT = 'Arial, \'ＭＳ Ｐゴシック\''; // &#xe7cd;
   NicoChatViewModel.FONT_SIZE_PIXEL = {
     BIG: 39,
     NORMAL: 24,
@@ -2493,7 +2503,7 @@ var monkey = function() {
   
   NicoChatViewModel._FONT_REG = {
     // [^ -~。-゜]* は半角以外の文字の連続
-    MINCHO: /([^ -~。-゜]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫]+[^ -~。-゜]*)/g,
+    MINCHO: /([^ -~。-゜]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓]+[^ -~。-゜]*)/g,
     GULIM: /([^ -~。-゜]*[㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]+[^ -~。-゜]*)/g,
     MING_LIU: /([^ -~。-゜]*[]+[^ -~。-゜]*)/g
   };
@@ -2532,6 +2542,14 @@ var monkey = function() {
         this._setupMarqueeMode();
       }
 
+      // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
+      // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
+      // 画面からはみ出すよりはマシだろうという判断
+      if (this._height > NicoCommentViewModel.SCREEN.HEIGHT) {
+        this._isOverflow = true;
+        this._y = 0;
+        this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
+      }
     },
     _setType: function(type) {
       this._type = type;
@@ -2579,12 +2597,10 @@ var monkey = function() {
     _setText: function(text) {
       var htmlText =
         text
-          .replace(/[\t \xA0]/g , '&nbsp;')
+          .replace(/[ \xA0]/g , '<span class="han_space">_</span>')
+          .replace(/[\t]/g , '&nbsp;');
           //.replace(/[\t \xA0]/g , '')
-          .replace(/　/g , '<span class="zen_space">、</span>')
 //          .replace(/　/g , '<span class="zen_space">□</span>')
-          .replace(/[\r\n]+$/g, '')
-          .replace(/[\n]/g, '&nbsp;<br>');
 //          .replace(/[\n]/g, '#<br>');
 
       // 特殊文字と、その前後の全角文字のフォントが変わるらしい
@@ -2592,7 +2608,9 @@ var monkey = function() {
         htmlText
           .replace(NicoChatViewModel._FONT_REG.MINCHO,   '<span class="mincho">$1</span>')
           .replace(NicoChatViewModel._FONT_REG.GULIM,    '<span class="gulim">$1</span>')
-          .replace(NicoChatViewModel._FONT_REG.MING_LIU, '<span class="mingLiu">$1</span>');
+          .replace(NicoChatViewModel._FONT_REG.MING_LIU, '<span class="mingLiu">$1</span>')
+          .replace(/　/g , '<span class="zen_space">、</span>')
+          .replace(/ /g , '<span class="zen_space">＃</span>');
 
       // 最初の一文字目が特殊文字だった場合は全体のフォントが変わるらしい
       var firstLetter = text.charAt(0);
@@ -2603,12 +2621,17 @@ var monkey = function() {
       } else if (firstLetter.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
         htmlText = '<span class="mingLiu">' + htmlText + '</span>';
       }
+      htmlText = htmlText
+        .replace(/[\r\n]+$/g, '')
+        .replace(/[\n]/g, '<span class="han_space">_</span><br>');
+
       this._htmlText = htmlText;
       this._text = text;
 
       var field = this._offScreen.getTextField();
       field.setText(htmlText);
       field.setFontSizePixel(this._fontSizePixel);
+      field.setType(this._type);
       
       this._width  = this._originalWidth  = field.getWidth();
       this._height = this._originalHeight = this._calculateHeight();
@@ -2635,21 +2658,21 @@ var monkey = function() {
       var lc = this._htmlText.split('<br>').length;
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
-      var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL;
+      var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
       var size = this._size;
       switch (size) {
         case NicoChat.SIZE.BIG:
-          lineHeight = NicoChatViewModel.LINE_HEIGHT.BIG;
+          lineHeight = NicoChatViewModel.LINE_HEIGHT.BIG;    // 45
           break;
         case NicoChat.SIZE.SMALL:
-          lineHeight = NicoChatViewModel.LINE_HEIGHT.SMALL;
+          lineHeight = NicoChatViewModel.LINE_HEIGHT.SMALL;  // 18
           break;
         default:
           break;
       }
 
       this._lineHeight = lineHeight;
-      if (!this._isFixed || this._scale === 1.0) {
+      if (!this._isFixed) {
         switch (size) {
           case NicoChat.SIZE.BIG:
             return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3)) - 1;
@@ -2657,6 +2680,26 @@ var monkey = function() {
             return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3)) - 1;
           default:
             return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3)) - 1;
+        }
+      }
+      if (this._scale === 1.0) {
+        switch (size) {
+          case NicoChat.SIZE.BIG:
+            return (45 * lc + 5) - 1;
+          case NicoChat.SIZE.SMALL:
+            return (18 * lc + 5) - 1;
+          default:
+            return (29 * lc + 5) - 1;
+        }
+      }
+      if (this._scale === 0.5) {
+        switch (size) {
+          case NicoChat.SIZE.BIG:
+            return (24 * lc + 3) - 1;
+          case NicoChat.SIZE.SMALL:
+            return (10 * lc + 3) - 1;
+          default:
+            return (15 * lc + 3) - 1;
         }
       }
       // 縮小後はmarginの量も減るのでscaleの内側だと思われる
@@ -2674,6 +2717,10 @@ var monkey = function() {
           NicoCommentViewModel.SCREEN.WIDTH_FULL :
           NicoCommentViewModel.SCREEN.WIDTH;
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
+      //メモ
+      //█　　　　　　　　　　　　　　　　　　　　　　　　　　　█
+      // メモ
+      // "        "
 
       // 改行リサイズ
       // 参考: http://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
@@ -2787,7 +2834,7 @@ var monkey = function() {
     /**
      * (衝突判定に引っかかったので)自分自身を一段ずらす.
      *
-     * @param NicoChat others 示談相手
+     * @param NicoChatViewModel others 示談相手
      */
     moveToNextLine: function(others) {
       var margin = NicoChatViewModel.CHAT_MARGIN;
@@ -2913,31 +2960,34 @@ var monkey = function() {
       return this._nicoChat.isFull();
     },
     toString: function() { // debug用
-      var chat = ['\t\t<chat ',
-        'vpos="',      this.getVpos(), '" ',
-        'xpos="',      this.getXpos(), '" ',
-        'ypos="',      this.getYpos(), '" ',
-        'width="',     this.getWidth(), '" ',
-        'height="',    this.getHeight(), '" ',
-        'begin="',     this.getBeginLeftTiming(), '" ',
-        'end="',       this.getEndRightTiming(), '" ',
-        'speed="',     this.getSpeed(), '" ',
-        'color="',     this.getColor(), '" ',
-        'size="',      this.getSize(), '" ',
-        'type="',      this.getType(), '" ',
-        'duration="',  this.getDuration(), '" ',
-        'inView="',    this.isInView(), '" ',
-        'fontSize="',  this.getFontSizePixel(), '" ',
-        'scale="',     this.getScale(), '" ',
+      // コンソールから
+      // ZenzaWatch.debug.getInViewElements()
+      // 叩いた時にmeta中に出る奴
+      var chat = JSON.stringify({
+        width:    this.getWidth(),
+        height:   this.getHeight(),
+        scale:    this.getScale(),
+        fontSize: this.getFontSizePixel(),
+        vpos:     this.getVpos(),
+        xpos:     this.getXpos(),
+        ypos:     this.getYpos(),
+        type:     this.getType(),
+        begin:    this.getBeginLeftTiming(),
+        end:      this.getEndRightTiming(),
+        speed:    this.getSpeed(),
+        color:    this.getColor(),
+        size:     this.getSize(),
+        duration: this.getDuration(),
+        inView:   this.isInView(),
 
-        'ender="',     this._nicoChat.isEnder(), '" ',
-        'full="',      this._nicoChat.isFull(), '" ',
-        'userId="',    this._nicoChat.getUserId(), '" ',
-        'date="',      this._nicoChat.getDate(), '" ',
-        'cmd="',       this._nicoChat.getCmd(), '" ',
-        'deleted="',   this._nicoChat.isDeleted(), '" ',
-
-        '>', this.getHtmlText() , '</chat>'].join('');
+        ender:    this._nicoChat.isEnder(),
+        full:     this._nicoChat.isFull(),
+        userId:   this._nicoChat.getUserId(),
+        date:     this._nicoChat.getDate(),
+        deleted:  this._nicoChat.isDeleted(),
+        cmd:      this._nicoChat.getCmd(),
+        text:     this.getText()
+      });
       return chat;
     }
   });
@@ -2965,11 +3015,17 @@ var monkey = function() {
 <style type="text/css">
 
 .mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun;  }
-.gulim   {font-family: "ＭＳ Ｐ明朝", monospace, Gulim;   }
-.mingLiu {font-family: "ＭＳ Ｐ明朝", monospace, mingLiu; }
-.mincho2  {font-family: "ＭＳ 明朝", Simsun;  }
-.gulim2   {font-family: "ＭＳ 明朝", Gulim;   }
-.mingLiu2 {font-family: "ＭＳ 明朝", mingLiu; }
+.mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun;  }
+.mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun;  }
+.gulim   {font-family: "ＭＳ 明朝", monospace, Gulim;   }
+.mingLiu {font-family: "ＭＳ 明朝", monospace, mingLiu; }
+.mincho2  {font-family: "ＭＳ 明朝", monospace, Simsun;  }
+.gulim2   {font-family: "ＭＳ 明朝", monospace, Gulim;   }
+.mingLiu2 {font-family: "ＭＳ 明朝", monospace, mingLiu; }
+
+.ue .mincho  , .shita .mincho {font-family: "ＭＳ 明朝", monospace, Simsun; }
+.ue .gulim   , .shita .gulim  {font-family: "ＭＳ 明朝", monospace, Gulim; }
+.ue .mingLiu , .shita .mingLiu{font-family: "ＭＳ 明朝", monospace, mingLiu; }
 
 .debug .mincho  { background: rgba(128, 0, 0, 0.3); }
 .debug .gulim   { background: rgba(0, 128, 0, 0.3); }
@@ -3011,9 +3067,9 @@ body {
 .nicoChat {
   position: absolute;
   opacity: 0;
-  text-shadow: 1.5px 1.5px #000;
+  text-shadow: 0 0 3px #000;
 
-  font-family: Arial 'MS Pゴシック' Simsun Gulim;
+  font-family: Arial, 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
   margin: 2px 1px 1px 1px;
   white-space: nowrap;
@@ -3023,22 +3079,27 @@ body {
   animation-timing-function: linear;
 }
 
+.nicoChat.overflow {
+  {*mix-blend-mode: overlay;*}
+}
+
+
 .nicoChat.ue,
 .nicoChat.shita {
   display: inline-block;
   {*text-align: center;*}
 }
 
+.nicoChat .han_space,
 .nicoChat .zen_space {
   opacity: 0;
   {*font-family: monospace;*}
 }
+
+.debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
   color: yellow;
   opacity: 0.3;
-}
-.nicoChat .spacer {
-  opacity: 0;
 }
 
 .debug .nicoChat.ue {
@@ -3089,6 +3150,8 @@ body {
       this._inViewTable = {};
       this._playbackRate = params.playbackRate || 1.0;
 
+      this._isStalled = undefined;
+      this._isPaused  = undefined;
 
       console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 
@@ -3138,6 +3201,10 @@ body {
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
         });
         //win.addEventListener('resize', _.debounce($.proxy(self._onResizeEnd, self), 500);
+        //
+        ZenzaWatch.debug.getInViewElements = function() {
+          return doc.getElementsByClassName('nicoChat');
+        };
 
         if (self._isPaused) {
           self.pause();
@@ -3201,30 +3268,42 @@ body {
         this._updateInviewElements();
       }
     },
+    _addClass: function(name) {
+      if (!this._commentLayer) { return; }
+      var cn = this._commentLayer.className.split(/ +/);
+      if (_.indexOf(cn, name) >= 0) { return; }
+
+      cn.push(name);
+      this._commentLayer.className = cn.join(' ');
+    },
+    _removeClass: function(name) {
+      if (!this._commentLayer) { return; }
+      var cn = this._commentLayer.className.split(/ +/);
+      if (_.indexOf(cn, name) < 0) { return; }
+
+      _.pull(cn, name);
+      this._commentLayer.className = cn.join(' ');
+    },
     _setStall: function(v) {
       if (this._commentLayer) {
-        this._commentLayer.className =
-          this._commentLayer.className.replace(/ *stalled */, ' ');
-        if (v) { this._commentLayer.className += ' stalled'; }
+        if (v) { this._addClass('stalled'); }
+        else   { this._removeClass('stalled'); }
       }
       this._isStalled = v;
     },
     pause: function() {
       if (this._commentLayer) {
-        this._commentLayer.className =
-          this._commentLayer.className.replace(/ *paused */, ' ') + ' paused';
+        this._addClass('paused');
       }
       this._isPaused = true;
     },
     play: function() {
       if (this._commentLayer) {
-        this._commentLayer.className =
-          this._commentLayer.className.replace(/ *paused */, ' ');
+        this._removeClass('paused');
       }
       this._isPaused = false;
     },
     clear: function() {
-
       if (this._commentLayer) {
         this._commentLayer.innerHTML = '';
       }
@@ -3351,6 +3430,7 @@ body {
       span.className = className;
       span.id = chat.getId();
       span.innerHTML = chat.getHtmlText();
+      span.setAttribute('data-meta', chat.toString());
       return span;
     },
     _buildChatHtml: function(chat , type /*, currentTime */) {
@@ -3376,13 +3456,18 @@ body {
       var beginL = chat.getBeginLeftTiming();
       var screenWidth = NicoCommentViewModel.SCREEN.WIDTH;
       var width = chat.getWidth();
+//      var height = chat.getHeight();
       var ypos = chat.getYpos();
       var color = chat.getColor();
       var fontSizePx = chat.getFontSizePixel();
       var lineHeight = chat.getLineHeight();
+      var speed = chat.getSpeed();
       var delay = (beginL - currentTime) / this._playbackRate;
       // 本家は「古いコメントほど薄くなる」という仕様だが、特に再現するメリットもなさそうなので
       var opacity = chat.isOverflow() ? 0.8 : 1;
+      //var zid = parseInt(id.substr('4'), 10);
+      //var zIndex = 10000 - (zid % 5000);
+      //var zIndex = zid;
 
       if (type === NicoChat.TYPE.NORMAL) {
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
@@ -3394,7 +3479,7 @@ body {
           ' }\n',
           '',
           ' #', id, ' {\n',
-          '  z-index: ', (id + 100) , ';\n',
+//          '  z-index: ', zIndex , ';\n',
           '  top:', ypos, 'px;\n',
           '  left:', screenWidth, 'px;\n',
           '  color:', color,';\n',
@@ -3415,17 +3500,18 @@ body {
         result = ['',
           ' @keyframes fixed', id, ' {\n',
           '    0% {opacity: ', opacity, ';}\n',
-          '  100% {opacity: ', opacity * 0.5, ';}\n',
+          '  100% {opacity: ', 0.5, ';}\n',
           ' }\n',
           '',
           ' #', id, ' {\n',
-          '  z-index: ', (id + 100) , ';\n',
+//          '  z-index: ', zIndex, ';\n',
           '  top:', ypos, 'px;\n',
           '  left: 50% ;\n',
           '  color:',  color, ';\n',
           '  font-size:', fontSizePx,  'px;\n',
           '  line-height:', lineHeight,  'px;\n',
           '  width:', width, 'px;\n',
+//          '  height:', height, 'px;\n',
           scaleCss,
           '  animation-name: fixed', id, ';\n',
           '  animation-duration: ', duration, 's;\n',
