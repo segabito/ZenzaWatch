@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.13
+// @version        0.1.14
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -3067,7 +3067,7 @@ body {
 .nicoChat {
   position: absolute;
   opacity: 0;
-  text-shadow: 0 0 3px #000;
+  text-shadow: 1px 1px 0 #000;
 
   font-family: 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
@@ -3087,6 +3087,7 @@ body {
 .nicoChat.ue,
 .nicoChat.shita {
   display: inline-block;
+  text-shadow: 0 0 3px #000; {* 全部こっちにしたいが重いので *}
   {*text-align: center;*}
 }
 
