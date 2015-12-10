@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.15
+// @version        0.1.16
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -203,7 +203,7 @@ var monkey = function() {
     ZenzaWatch.config = Config;
 
     var dummyConsole = {
-      log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop
+      log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop
     };
     var console = Config.getValue('debug') ? window.console : dummyConsole;
     Config.on('update-debug', function(v) {
@@ -448,6 +448,7 @@ var monkey = function() {
 
         var onMessage = function(event) {
           if (event.origin.indexOf('nicovideo.jp') < 0) return;
+          if (event.origin === 'http://ads.nicovideo.jp') return;
           try {
             var data = JSON.parse(event.data);
             if (data.id !== 'NicoCommentLayer') { return; }
@@ -514,6 +515,10 @@ var monkey = function() {
       };
 
       // jsの壁を越えてクロス†ドメイン通信するための 異世界の"門"(ゲート) を広げる
+      // ログインなしで動画を視聴出来る禁呪を発動させるための魔方陣であるが、現在は封印されている。
+      // "フォース" の力によって封印を解いた者だけが異世界の"門"をうんたらかんたら
+      //
+      // iframeごしに外部サイト貼り付け用の動画プレイヤーのAPIを叩いてるだけ
       var initializeCrossDomainGate = function() {
         initializeCrossDomainGate = _.noop;
 
@@ -662,52 +667,119 @@ var monkey = function() {
         return 1000;
       };
 
-      var load = function(server, threadId, duration, userId, threadKey, force184) {
-        initialize();
-        var resCount = getRequestCountByDuration(duration);
+      var getThreadKey = function(threadId) {
+        // memo:
+        // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+        var url =
+          'http://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
+          '&language_id=0';
+
+        return $.ajax({
+          url: url,
+          contentType: 'text/plain',
+          crossDomain: true,
+          cache: false,
+          xhrFields: {
+            withCredentials: true
+          }
+        }).then(function(e) {
+          return ZenzaWatch.util.parseQuery(e);
+        }, function() {
+          PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
+        });
+      };
+
+      var buildPacket =
+        function(threadId, duration, userId, threadKey, force184, optionalThreadId)
+      {
         var version = '20090904'; // '20061206'
+        var resCount = getRequestCountByDuration(duration);
+        var threadLeavesParam = '0-' + (Math.floor(duration / 60) + 1) + ':100,' + resCount;
+        
+        var createThreadXml =
+          function(threadId, version, userId, threadKey, force184)
+        {
+          var thread = document.createElement('thread');
+          thread.setAttribute('thread', threadId);
+          thread.setAttribute('version', version);
+          if (typeof userId !== 'undefined') {
+            thread.setAttribute('user_id', userId);
+          }
+          if (typeof threadKey !== 'undefined') {
+            thread.setAttribute('threadkey', threadKey);
+          }
+          if (typeof force184 !== 'undefined') {
+            thread.setAttribute('force_184', force184);
+          }
+          thread.setAttribute('scores', '1');
+          thread.setAttribute('nicoru', '1');
+          thread.setAttribute('with_global', '1');
 
-        var user_id = userId ? ('user_id="' + userId + '" ') : '';
-        var thread_leaves = '0-' + (Math.floor(duration / 60) + 1) + ':100,' + resCount;
-        var tkey = threadKey ? ('threadkey="' + threadKey + '" ') : '';
+          return thread;
+        };
 
-        // 要調査 なにかが足りないらしい
-        var postXml = [
-          '<packet>',
-            '<thread ',
-              'thread="', threadId, '" ',
-              'version="', version, '" ',
-              user_id,
-              tkey,
-              'force_184="1" ',
-              'scores="1" ',
-              'nicoru="1" ',
-              'with_global="1"',
-            '/>',
-            '<thread_leaves ',
-              'thread="', threadId, '" ',
-              user_id,
-              tkey,
-              'force_184="1" ',
-              'scores="1" ',
-              'nicoru="1"',
-              '>',
-              thread_leaves,
-            '</thread_leaves>',
-          '</packet>'].join('');
+        var createThreadLeavesXml =
+          function(threadId, version, userId, threadKey, force184)
+        {
 
-        postXml =
-          '<thread res_from="-' + resCount +
-          '" version="20061206"  thread="'+ threadId+'" />';
-        console.log('post xml...', server, postXml);
+          var thread_leaves = document.createElement('thread_leaves');
+          thread_leaves.setAttribute('thread', threadId);
+          if (typeof userId !== 'undefined') {
+            thread_leaves.setAttribute('user_id', userId);
+          }
+          if (typeof threadKey !== 'undefined') {
+            thread_leaves.setAttribute('threadkey', threadKey);
+          }
+          if (typeof force184 !== 'undefined') {
+            thread_leaves.setAttribute('force_184', force184);
+          }
+          thread_leaves.setAttribute('scores', '1');
+          thread_leaves.setAttribute('nicoru', '1');
 
+          thread_leaves.innerText = threadLeavesParam;
+
+          return thread_leaves;
+        };
+        var span = document.createElement('span');
+        var packet = document.createElement('packet');
+
+        if (typeof optionalThreadId !== 'undefined') {
+          packet.appendChild(
+            createThreadXml(optionalThreadId, version, userId, threadKey, force184)
+          );
+          packet.appendChild(
+            createThreadLeavesXml(optionalThreadId, version, userId, threadKey, force184)
+          );
+        }
+
+        packet.appendChild(
+          createThreadXml(threadId, version, userId, threadKey, force184)
+        );
+        packet.appendChild(
+          createThreadLeavesXml(threadId, version, userId, threadKey, force184)
+        );
+
+        span.appendChild(packet);
+        var packet = span.innerHTML;
+        packet = packet.replace(/><\/[^>]*>/, '/>');
+
+//      var packet =
+//          '<thread res_from="-' + resCount +
+//          '" version="20061206"  thread="'+ threadId+'" />';
+
+        return packet;
+      };
+
+      var post = function(server, xml) {
         $.ajax({
           url: server,
+          data: xml,
           type: 'POST',
-//          dataType: 'xml',
-          data: postXml,
-//          headers: {'Content-Type': 'text/xml'},
+          contentType: server.indexOf('nmsg.nicovideo.jp') >= 0 ? 'text/xml' : 'text/plain',
+          dataType: 'xml',
 //          xhrFields: { withCredentials: true },
+          crossDomain: true,
+          cache: false,
           complete: function(result) {
             if (result.status !== 200) {
               PopupMessage.alert('コメントの取得失敗 ' + server);
@@ -718,7 +790,27 @@ var monkey = function() {
             commentLoader.emitAsync('load', result.responseText);
           }
         });
-     };
+      };
+
+      var load = function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
+        initialize();
+        var packet;
+        
+        if (isNeedKey) {
+          getThreadKey(threadId).then(function(info) {
+            console.log('threadkey: ', info);
+            packet = buildPacket(
+              threadId, duration, userId, info.threadkey, info.force_184);//, optionalThreadId);
+            console.log('post xml...', server, packet);
+            post(server, packet);
+          });
+        } else {
+          packet = buildPacket(
+              threadId, duration, userId);
+          console.log('post xml...', server, packet);
+          post(server, packet);
+        }
+      };
 
 
       _.assign(commentLoader, {
@@ -1696,6 +1788,8 @@ var monkey = function() {
    *  あらかじめ全て計算済みなので、静的なHTMLを吐き出す事もできる。
    *  将来的にはChromecastのようなデバイスに描画したりすることも。
    *
+   *  コメントを静的なCSS3アニメーションとして保存
+   *  console.log(ZenzaWatch.debug.css3Player.toString())*
    */
   var NicoCommentPlayer = function() { this.initialize.apply(this, arguments); };
   _.assign(NicoCommentPlayer.prototype, {
@@ -2623,7 +2717,8 @@ var monkey = function() {
       }
       htmlText = htmlText
         .replace(/[\r\n]+$/g, '')
-        .replace(/[\n]/g, '<br><span class="han_space">|</span>');
+        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
+        .replace(/[\n]/g, '<br>');
 
       this._htmlText = htmlText;
       this._text = text;
@@ -2649,7 +2744,6 @@ var monkey = function() {
     },
     /**
      * 高さ計算。 リサイズ後が怪しいというか多分間違ってる。
-     * 下手に計算するよりテーブル化した方がいいかもしれない
      */
     _calculateHeight: function() {
       // ブラウザから取得したouterHeightを使うより、職人の実測値のほうが信頼できる
@@ -2658,11 +2752,11 @@ var monkey = function() {
       var lc = this._htmlText.split('<br>').length;
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
-      var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
+      var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL + 3; // 29  (+3は目視で調整した奴...)
       var size = this._size;
       switch (size) {
         case NicoChat.SIZE.BIG:
-          lineHeight = NicoChatViewModel.LINE_HEIGHT.BIG;    // 45
+          lineHeight = NicoChatViewModel.LINE_HEIGHT.BIG + 3;    // 45
           break;
         case NicoChat.SIZE.SMALL:
           lineHeight = NicoChatViewModel.LINE_HEIGHT.SMALL;  // 18
@@ -2810,7 +2904,8 @@ var monkey = function() {
       if (this._isFixed) {
 
         // 左にあるやつの終了より右にあるやつの開始が早いなら、衝突する
-        if (lt.getEndRightTiming() >= rt.getBeginLeftTiming()) {
+        // > か >= で挙動が変わるCAがあったりして正解がわからない
+        if (lt.getEndRightTiming() > rt.getBeginLeftTiming()) {
           return true;
         }
 
@@ -3004,7 +3099,7 @@ var monkey = function() {
    */
   var NicoCommentCss3PlayerView = function() { this.initialize.apply(this, arguments); };
 
-  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 50;
+  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
 
   NicoCommentCss3PlayerView.__TPL__ = ZenzaWatch.util.hereDoc(function() {/*
 <!DOCTYPE html>
@@ -3038,6 +3133,11 @@ body {
   pointer-events: none;
 }
 
+{* 稀に変な広告が紛れ込む *}
+iframe {
+  display: none !important;
+}
+
 .commentLayerOuter {
   position: fixed;
   top: 50%;
@@ -3067,7 +3167,9 @@ body {
 .nicoChat {
   position: absolute;
   opacity: 0;
-  text-shadow: 1px 1px 0 #000;
+  text-shadow:
+  {*-1px -1px 0 #ccc, *}
+     1px  1px 0 #000;
 
   font-family: 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
@@ -3198,7 +3300,9 @@ body {
 
         win.addEventListener('resize', function() {
           var w = win.innerWidth, h = win.innerHeight;
-          var targetHeight = Math.min(h, w * self._aspectRatio);
+          // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
+          var aspectRatio = Math.max(self._aspectRatio, 16 / 9);
+          var targetHeight = Math.min(h, w * aspectRatio);
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
         });
         //win.addEventListener('resize', _.debounce($.proxy(self._onResizeEnd, self), 500);
@@ -3468,7 +3572,7 @@ body {
       var opacity = chat.isOverflow() ? 0.8 : 1;
       //var zid = parseInt(id.substr('4'), 10);
       //var zIndex = 10000 - (zid % 5000);
-      //var zIndex = zid;
+      var zIndex = beginL;
 
       if (type === NicoChat.TYPE.NORMAL) {
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
@@ -3480,7 +3584,7 @@ body {
           ' }\n',
           '',
           ' #', id, ' {\n',
-//          '  z-index: ', zIndex , ';\n',
+          '  z-index: ', zIndex , ';\n',
           '  top:', ypos, 'px;\n',
           '  left:', screenWidth, 'px;\n',
           '  color:', color,';\n',
@@ -3505,7 +3609,7 @@ body {
           ' }\n',
           '',
           ' #', id, ' {\n',
-//          '  z-index: ', zIndex, ';\n',
+          '  z-index: ', zIndex, ';\n',
           '  top:', ypos, 'px;\n',
           '  left: 50% ;\n',
           '  color:',  color, ';\n',
@@ -3933,9 +4037,11 @@ body {
         console.time('CommentLoader');
         CommentLoader.load(
           videoInfo.ms,
-          videoInfo.optional_thread_id || videoInfo.thread_id,
+          videoInfo.thread_id,
           videoInfo.l,
-          videoInfo.user_id
+          videoInfo.user_id,
+          videoInfo.needs_key === '1',
+          videoInfo.optional_thread_id
         );
       } else {
         var flvInfo   = videoInfo.flvInfo;
@@ -3949,8 +4055,8 @@ body {
           flvInfo.thread_id,
           flvInfo.l,
           flvInfo.user_id,
-          flvInfo.hmstk || ''
-          //flvInfo.force184
+          flvInfo.needs_key === '1',
+          flvInfo.optional_thread_id
         );
       }
       ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
