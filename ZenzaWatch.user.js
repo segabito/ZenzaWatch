@@ -518,7 +518,8 @@ var monkey = function() {
       // ログインなしで動画を視聴出来る禁呪を発動させるための魔方陣であるが、現在は封印されている。
       // "フォース" の力によって封印を解いた者だけが異世界の"門"をうんたらかんたら
       //
-      // iframeごしに外部サイト貼り付け用の動画プレイヤーのAPIを叩いてるだけ
+      // やってることはiframeごしに外部サイト用動画プレイヤーのAPIを叩いてるだけ
+      // 原理的には、http://〜のサイトならどこでもZenzaWatchを起動できる。
       var initializeCrossDomainGate = function() {
         initializeCrossDomainGate = _.noop;
 
@@ -689,10 +690,12 @@ var monkey = function() {
         });
       };
 
+      var version_old = '20061206'
+      var version = '20090904'; // '20061206'
+
       var buildPacket =
         function(threadId, duration, userId, threadKey, force184, optionalThreadId)
       {
-        var version = '20090904'; // '20061206'
         var resCount = getRequestCountByDuration(duration);
         var threadLeavesParam = '0-' + (Math.floor(duration / 60) + 1) + ':100,' + resCount;
         
@@ -753,44 +756,74 @@ var monkey = function() {
         }
 
         packet.appendChild(
-          createThreadXml(threadId, version, userId, threadKey, force184)
+          createThreadXml(threadId, version_old, userId, threadKey, force184)
         );
-        packet.appendChild(
-          createThreadLeavesXml(threadId, version, userId, threadKey, force184)
-        );
+        // TODO: thread_leavesを使えるようにする。
+//        packet.appendChild(
+//          createThreadLeavesXml(threadId, version, userId, threadKey, force184)
+//        );
 
         span.appendChild(packet);
-        var packet = span.innerHTML;
-        packet = packet.replace(/><\/[^>]*>/, '/>');
+        var packetXml = span.innerHTML;
 
-//      var packet =
+//      packetXml =
 //          '<thread res_from="-' + resCount +
 //          '" version="20061206"  thread="'+ threadId+'" />';
 
-        return packet;
+        return packetXml;
+      };
+
+      var onComplete = function(result) {
+        if (result.status !== 200) {
+          PopupMessage.alert('コメントの取得失敗 ');
+          return;
+        }
+        ZenzaWatch.debug.lastMsgApiResult = result;
+        PopupMessage.notify('コメントの取得成功');
+        commentLoader.emitAsync('load', result.responseText);
       };
 
       var post = function(server, xml) {
-        $.ajax({
+        var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
+       $.ajax({
           url: server,
           data: xml,
           type: 'POST',
-          contentType: server.indexOf('nmsg.nicovideo.jp') >= 0 ? 'text/xml' : 'text/plain',
+          contentType: isNmsg ? 'text/xml' : 'text/plain',
           dataType: 'xml',
 //          xhrFields: { withCredentials: true },
           crossDomain: true,
           cache: false,
-          complete: function(result) {
-            if (result.status !== 200) {
-              PopupMessage.alert('コメントの取得失敗 ' + server);
-              return;
-            }
-            ZenzaWatch.debug.lastMsgApiResult = result;
-            PopupMessage.notify('コメントの取得成功');
-            commentLoader.emitAsync('load', result.responseText);
-          }
+          complete: onComplete
         });
       };
+
+      var get = function(server, thread, duration, threadKey, force184) {
+        // nmsg.nicovideo.jpでググったら出てきた。
+        // http://favstar.fm/users/koizuka/status/23032783744012288
+        // xmlじゃなくてもいいのかよ!
+
+        var resCount = getRequestCountByDuration(duration);
+
+        var url = server +
+          'thread?version=' + version +
+          '&thread=' + thread +
+          '&res_from=-' + resCount;
+        if (threadKey) {
+          url += '&threadkey=' + threadKey;
+        }
+        if (force184) {
+          url += '&force_184=' + force184;
+        }
+
+        console.log('%cthread url:', 'background: cyan;', url);
+        $.ajax({
+          url: url,
+          crossDomain: true,
+          cache: false,
+          complete: onComplete
+        });
+       };
 
       var load = function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
         initialize();
@@ -802,13 +835,20 @@ var monkey = function() {
             packet = buildPacket(
               threadId, duration, userId, info.threadkey, info.force_184);//, optionalThreadId);
             console.log('post xml...', server, packet);
+            //get(server, threadId, duration, info.threadkey, info.force_184);
             post(server, packet);
           });
         } else {
-          packet = buildPacket(
-              threadId, duration, userId);
-          console.log('post xml...', server, packet);
-          post(server, packet);
+          var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
+          if (isNmsg) {
+            get(server, threadId, duration);
+          } else {
+            // nmsgもできればこっちでやりたい。 うまく取れないので調査中。
+            packet = buildPacket(
+                threadId, duration, userId);
+            console.log('post xml...', server, packet);
+            post(server, packet);
+          }
         }
       };
 
@@ -1941,10 +1981,10 @@ var monkey = function() {
       }
 
       console.timeEnd('NicoComment.setXml');
-      //console.log('chats: ', chats.length);
-      //console.log('top: ',    this._topGroup   .getMembers().length);
-      //console.log('normal: ', this._normalGroup.getMembers().length);
-      //console.log('bottom: ', this._bottomGroup.getMembers().length);
+      console.log('chats: ', chats.length);
+      console.log('top: ',    this._topGroup   .getMembers().length);
+      console.log('normal: ', this._normalGroup.getMembers().length);
+      console.log('bottom: ', this._bottomGroup.getMembers().length);
       this.emit('setXml');
     },
     addChat: function(nicoChat) {
