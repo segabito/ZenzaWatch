@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.17
+// @version        0.1.18
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2054,16 +2054,13 @@ var monkey = function() {
     <meta charset="utf-8">
     <title>CommentLayer</title>
     <style type="text/css">
-      .mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun; }
-      .gulim   {font-family: "ＭＳ Ｐ明朝", monospace, Gulim; }
-      .mingLiu {font-family: "ＭＳ Ｐ明朝", monospace, mingLiu; }
-      .mincho2  {font-family: "ＭＳ 明朝", monospace, Simsun; }
-      .gulim2   {font-family: "ＭＳ 明朝", Gmonospace, ulim; }
-      .mingLiu2 {font-family: "ＭＳ 明朝", mmonospace, ingLiu; }
+      .mincho  {font-family:  Simsun, monospace; }
+      .gulim   {font-family:  Gulim,  monospace; }
+      .mingLiu {font-family:  mingLiu,monospace; }
 
-      .ue .mincho  , .shita .mincho {font-family: "ＭＳ 明朝", monospace, Simsun; }
-      .ue .gulim   , .shita .gulim  {font-family: "ＭＳ 明朝", monospace, Gulim; }
-      .ue .mingLiu , .shita .mingLiu{font-family: "ＭＳ 明朝", monospace, mingLiu; }
+      .ue .mincho  , .shita .mincho {font-family:  Simsun, monospace; }
+      .ue .gulim   , .shita .gulim  {font-family:  Gulim,  monospace; }
+      .ue .mingLiu , .shita .mingLiu{font-family:  mingLiu,monospace; }
 
       .nicoChat .zen_space {
         {*font-family: monospace;*}
@@ -3170,18 +3167,13 @@ var monkey = function() {
 <title>CommentLayer</title>
 <style type="text/css">
 
-.mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun;  }
-.mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun;  }
-.mincho  {font-family: "ＭＳ Ｐ明朝", monospace, Simsun;  }
-.gulim   {font-family: "ＭＳ 明朝", monospace, Gulim;   }
-.mingLiu {font-family: "ＭＳ 明朝", monospace, mingLiu; }
-.mincho2  {font-family: "ＭＳ 明朝", monospace, Simsun;  }
-.gulim2   {font-family: "ＭＳ 明朝", monospace, Gulim;   }
-.mingLiu2 {font-family: "ＭＳ 明朝", monospace, mingLiu; }
+.mincho  {font-family: Simsun, monospace; }
+.gulim   {font-family: Gulim,  monospace; }
+.mingLiu {font-family: mingLiu,monospace; }
 
-.ue .mincho  , .shita .mincho {font-family: "ＭＳ 明朝", monospace, Simsun; }
-.ue .gulim   , .shita .gulim  {font-family: "ＭＳ 明朝", monospace, Gulim; }
-.ue .mingLiu , .shita .mingLiu{font-family: "ＭＳ 明朝", monospace, mingLiu; }
+.ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
+.ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
+.ue .mingLiu , .shita .mingLiu{font-family: mingLiu,monospace; }
 
 .debug .mincho  { background: rgba(128, 0, 0, 0.3); }
 .debug .gulim   { background: rgba(0, 128, 0, 0.3); }
