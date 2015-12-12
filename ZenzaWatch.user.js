@@ -3620,14 +3620,18 @@ iframe {
       return span;
     },
     _buildChatHtml: function(chat , type /*, currentTime */) {
-      var className = 'nicoChat ' + type;
-      if (chat.isOverflow()) {
-        className += ' overflow';
+      var size = chat.getSize();
+      var className = ['nicoChat',type, size];
+      if (chat.getColor() === '#000000') {
+        className.push('black');
       }
-      //if (chat.isMine()) { className += ' mine'; }
+      if (chat.isOverflow()) {
+        className.push('overflow');
+      }
+      //if (chat.isMine()) { className.push('mine'); }
 
       var result = [
-        '<span id="', chat.getId(), '" class="', className, '">',
+        '<span id="', chat.getId(), '" class="', className.join(' '), '">',
           chat.getHtmlText(),
         '</span>'
       ];
