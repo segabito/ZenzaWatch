@@ -1593,6 +1593,7 @@ var monkey = function() {
 
       this.setPlaybackRate(this.getPlaybackRate());
       this._canPlay = true;
+      this._$video.removeClass('loading');
       this.emit('canPlay');
       this.emit('aspectRatioFix',
         this._video.videoHeight / Math.max(1, this._video.videoWidth));
@@ -1736,6 +1737,7 @@ var monkey = function() {
       this._$video.attr('src', url);
       this._canPlay = false;
       //this.emit('setSrc', url);
+      this._$video.addClass('loading');
     },
     setVolume: function(vol) {
       vol = Math.max(Math.min(1, vol), 0);
@@ -2633,7 +2635,7 @@ var monkey = function() {
     SMALL: 18
   };
 
-  NicoChatViewModel.CHAT_MARGIN = 1;//4;
+  NicoChatViewModel.CHAT_MARGIN = 5;
   
   NicoChatViewModel._FONT_REG = {
     // [^ -~。-゜]* は半角以外の文字の連続
@@ -2681,7 +2683,7 @@ var monkey = function() {
       // 画面からはみ出すよりはマシだろうという判断
       if (this._height > NicoCommentViewModel.SCREEN.HEIGHT) {
         this._isOverflow = true;
-        this._y = 0;
+        //this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
         this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
       }
     },
@@ -2792,52 +2794,71 @@ var monkey = function() {
       var lc = this._htmlText.split('<br>').length;
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
-      var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL + 3; // 29  (+3は目視で調整した奴...)
-      var size = this._size;
+      var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
+      var size       = this._size;
       switch (size) {
         case NicoChat.SIZE.BIG:
-          lineHeight = NicoChatViewModel.LINE_HEIGHT.BIG + 3;    // 45
+          lineHeight = NicoChatViewModel.LINE_HEIGHT.BIG;    // 45
+          break;
+        default:
           break;
         case NicoChat.SIZE.SMALL:
           lineHeight = NicoChatViewModel.LINE_HEIGHT.SMALL;  // 18
           break;
-        default:
-          break;
+      }
+
+      if (!this._isFixed) {
+        // 流れるコメント
+        // 中の数字は職人の実測値
+        switch (size) {
+          case NicoChat.SIZE.BIG:
+            lineHeight = lc <= 2 ? lineHeight : 24;
+            margin     = lc <= 2 ? margin : 3;
+            //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3)) - 1;
+            break;
+          default:
+            lineHeight = lc <= 4 ? lineHeight : 15;
+            margin     = lc <= 4 ? margin : 3;
+            //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3)) - 1;
+            break;
+          case NicoChat.SIZE.SMALL:
+            lineHeight = lc <= 6 ? lineHeight : 10;
+            margin     = lc <= 6 ? margin : 3;
+            //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3)) - 1;
+            break;
+        }
+      } else if (this._scale === 0.5) {
+        switch (size) {
+          case NicoChat.SIZE.BIG: // 16行 = (24 * 16 + 3 - 1) = 386
+            lineHeight = 24;
+            margin     = 3;
+            //return (24 * lc + 3) - 1;
+            break;
+          default:
+            lineHeight = 15;
+            margin     = 3;
+            //return (15 * lc + 3) - 1;
+            break;
+          case NicoChat.SIZE.SMALL:
+            lineHeight = 10;
+            margin     = 3;
+            //return (10 * lc + 3) - 1;
+            break;
+        }
+      } else if (this._scale !== 1.0) {
+        /**
+         *  上の実測に合うようなCSSを書ければ色々解決する。今後の課題
+         */
+        //console.log(calc(39,1)==45,calc(24,1)==29,calc(15,1)==18,calc(39,.5)==24,calc(24,.5)==15,calc(15,.5)==10)
+        //  45 -> 24
+        //  29 -> 15
+        //  18 -> 10
+        lineHeight = Math.floor((lineHeight + Math.ceil(lineHeight / 15)) * this._scale);
+        margin     = Math.round(margin * this._scale);
       }
 
       this._lineHeight = lineHeight;
-      if (!this._isFixed) {
-        switch (size) {
-          case NicoChat.SIZE.BIG:
-            return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3)) - 1;
-          case NicoChat.SIZE.SMALL:
-            return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3)) - 1;
-          default:
-            return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3)) - 1;
-        }
-      }
-      if (this._scale === 1.0) {
-        switch (size) {
-          case NicoChat.SIZE.BIG:
-            return (45 * lc + 5) - 1;
-          case NicoChat.SIZE.SMALL:
-            return (18 * lc + 5) - 1;
-          default:
-            return (29 * lc + 5) - 1;
-        }
-      }
-      if (this._scale === 0.5) {
-        switch (size) {
-          case NicoChat.SIZE.BIG:
-            return (24 * lc + 3) - 1;
-          case NicoChat.SIZE.SMALL:
-            return (10 * lc + 3) - 1;
-          default:
-            return (15 * lc + 3) - 1;
-        }
-      }
-      // 縮小後はmarginの量も減るのでscaleの内側だと思われる
-      return ((lineHeight * lc + margin) * this._scale);
+      return lineHeight * lc  + margin - 1;
     },
 
     /**
@@ -2885,7 +2906,7 @@ var monkey = function() {
       // BOTTOMの時だけy座標を画面の下端に合わせる
       // 内部的には0 originで表示の際に下から詰むだけでもいいような気がしてきた。
       if (this._type === NicoChat.TYPE.BOTTOM) {
-        var margin = NicoChatViewModel.CHAT_MARGIN;
+        var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
         var outerHeight = this._height + margin;
         this._y = screenHeight - outerHeight;
       }
@@ -2972,7 +2993,7 @@ var monkey = function() {
      * @param NicoChatViewModel others 示談相手
      */
     moveToNextLine: function(others) {
-      var margin = NicoChatViewModel.CHAT_MARGIN;
+      var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
       var othersHeight = others.getHeight() + margin;
       var yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height; //lineHeight;
 
@@ -3217,8 +3238,27 @@ iframe {
   white-space: nowrap;
   font-weight: bolder;
 
+{*line-height: 123.5%;*}
+  padding: 0;
+
   transform-origin: 0% 0%;
   animation-timing-function: linear;
+}
+
+.nicoChat.black {
+  text-shadow: -1px -1px 0 #888, 1px  1px 0 #888;
+}
+
+.nicoChat.big {
+  line-height: 48px;
+}
+
+.nicoChat.medium {
+  line-height: 31px;
+}
+
+.nicoChat.small {
+  line-height: 18px;
 }
 
 .nicoChat.overflow {
@@ -3231,6 +3271,10 @@ iframe {
   display: inline-block;
   text-shadow: 0 0 3px #000; {* 全部こっちにしたいが重いので *}
   {*text-align: center;*}
+}
+.nicoChat.ue.black,
+.nicoChat.shita.black {
+  text-shadow: 0 0 3px #fff; {* 全部こっちにしたいが重いので *}
 }
 
 .nicoChat .han_space,
@@ -3341,7 +3385,7 @@ iframe {
         win.addEventListener('resize', function() {
           var w = win.innerWidth, h = win.innerHeight;
           // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
-          var aspectRatio = Math.max(self._aspectRatio, 16 / 9);
+          var aspectRatio = Math.max(self._aspectRatio, 9 / 16);
           var targetHeight = Math.min(h, w * aspectRatio);
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
         });
@@ -3489,7 +3533,8 @@ iframe {
         // 新規に表示状態になったchatがあればdom生成
         this._inViewTable[domId] = nicoChat;
         var type = nicoChat.getType();
-        dom.push(this._buildChatDom(nicoChat, type /*, ct*/));
+        var size = nicoChat.getSize();
+        dom.push(this._buildChatDom(nicoChat, type, size));
         css.push(this._buildChatCss(nicoChat, type, ct));
       }
 
@@ -3565,14 +3610,18 @@ iframe {
       }
       return result.join('\n');
     },
-    _buildChatDom: function(chat , type /*, currentTime */) {
+    _buildChatDom: function(chat , type, size) {
       var span = document.createElement('span');
-      var className = 'nicoChat ' + type;
-      if (chat.isOverflow()) {
-        className += ' overflow';
+      var className = ['nicoChat',type, size];
+      if (chat.getColor() === '#000000') {
+        className.push('black');
       }
-      //if (chat.isMine()) { className += ' mine'; }
-      span.className = className;
+      if (chat.isOverflow()) {
+        className.push('overflow');
+      }
+      //if (chat.isMine()) { className.push('mine'); }
+
+      span.className = className.join(' ');
       span.id = chat.getId();
       span.innerHTML = chat.getHtmlText();
       span.setAttribute('data-meta', chat.toString());
@@ -3629,7 +3678,7 @@ iframe {
           '  left:', screenWidth, 'px;\n',
           '  color:', color,';\n',
           '  font-size:', fontSizePx, 'px;\n',
-          '  line-height:',  lineHeight, 'px;\n',
+//          '  line-height:',  lineHeight, 'px;\n',
           '  animation-name: idou', id, ';\n',
           '  animation-duration: ', duration, 's;\n',
           '  animation-delay: ', delay, 's;\n',
@@ -3654,7 +3703,7 @@ iframe {
           '  left: 50% ;\n',
           '  color:',  color, ';\n',
           '  font-size:', fontSizePx,  'px;\n',
-          '  line-height:', lineHeight,  'px;\n',
+//          '  line-height:', lineHeight,  'px;\n',
           '  width:', width, 'px;\n',
 //          '  height:', height, 'px;\n',
           scaleCss,
@@ -3955,7 +4004,7 @@ iframe {
         e.stopPropagation();
       })
         .on('mousemove', $.proxy(this._onMouseMove, this))
-        .on('mousemove', _.debounce($.proxy(this._onMouseMoveEnd, this), 1000));
+        .on('mousemove', _.debounce($.proxy(this._onMouseMoveEnd, this), 2000));
 
       $dialog.on('click', $.proxy(this._onClick, this));
       $dialog.find('.closeButton')
