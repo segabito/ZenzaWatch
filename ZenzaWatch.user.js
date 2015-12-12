@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.1.18
+// @version        0.1.19
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2393,7 +2393,12 @@ var monkey = function() {
      */
     _createVSortedMembers: function() {
       this._vSortedMembers = this._members.concat().sort(function(a, b) {
-        return a.getVpos() - b.getVpos();
+        var av = a.getVpos(), bv = b.getVpos();
+        if (av !== bv) {
+          return av - bv;
+        } else {
+          return a.getId() < b.getId() ? -1 : 1;
+        }
       });
       return this._vSortedMembers;
     },
