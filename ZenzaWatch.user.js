@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.3.2
+// @version        0.3.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1537,6 +1537,11 @@ var monkey = function() {
       padding: 8px;
       line-height: 150%;
       text-align; center;
+      color: #333;
+    }
+    .zenzaWatchVideoInfoPanel .publicStatus .column {
+      display: inline-block;
+      white-space: nowrap;
     }
     .zenzaWatchVideoInfoPanel .publicStatus .count {
       font-weight: bold;
@@ -1545,7 +1550,11 @@ var monkey = function() {
     .zenzaWatchVideoInfoPanel .publicStatus .postedAtOuter {
       display: block;
     }
-    .zenzaWatchVideoInfoPanel .videoTags ul {
+    .zenzaWatchVideoInfoPanel .publicStatus .postedAt {
+      font-weight: bolder;
+    }
+
+    .zenzaWatchVideoInfoPanel .videoTags {
       padding: 0;
     }
     .zenzaWatchVideoInfoPanel .videoTags li {
@@ -1861,7 +1870,14 @@ var monkey = function() {
     .zenzaWatchVideoHaderPanel .postedAtOuter {
       margin-right: 24px;
     }
+    .zenzaWatchVideoHaderPanel .postedAt {
+      font-weight: bold
+    }
 
+    .zenzaWatchVideoHaderPanel .countOuter .column {
+      display: inline-block;
+      white-space: nowrap;
+    }
     .zenzaWatchVideoHaderPanel .count {
       font-weight: bolder;
     }
@@ -1870,15 +1886,16 @@ var monkey = function() {
       padding: 8px 0 0;
     }
 
-    .zenzaWatchVideoHaderPanel .videoTags ul {
+    .zenzaWatchVideoHaderPanel .videoTags {
       padding: 0;
+      margin: 0;
     }
 
     .zenzaWatchVideoHaderPanel .videoTags li {
       list-style-type: none;
       display: inline-block;
-      margin-right: 4px;
-      padding: 4px;
+      margin-right: 8px;
+      padding: 0;
     }
 
     .zenzaWatchVideoHaderPanel .videoTags li .nicodic {
@@ -1908,9 +1925,9 @@ var monkey = function() {
         </span>
 
         <span class="countOuter">
-          再生数:     <span class="count viewCount"></span>
-          コメント:   <span class="count commentCount"></span>
-          マイリスト: <span class="count mylistCount"></span>
+          <span class="column">再生数:     <span class="count viewCount"></span></span>
+          <span class="column">コメント:   <span class="count commentCount"></span></span>
+          <span class="column">マイリスト: <span class="count mylistCount"></span></span>
         </span>
       </p>
       <div class="videoTagsContainer">
@@ -1952,7 +1969,7 @@ var monkey = function() {
     update: function(videoInfo) {
       this._videoInfo = videoInfo;
 
-      this._$videoTitle.text(videoInfo.getTitle()).attr('title', videoInfo.getTitle());
+      this._$videoTitle.html(videoInfo.getTitle()).attr('title', videoInfo.getTitle());
       this._$postedAt.text(videoInfo.getPostedAt());
 
       var link = 'http://www.nicovideo.jp/watch/' + videoInfo.getWatchId();
@@ -3589,15 +3606,15 @@ var monkey = function() {
 
   NicoChatViewModel.FONT = '\'ＭＳ Ｐゴシック\''; // &#xe7cd;
   NicoChatViewModel.FONT_SIZE_PIXEL = {
-    BIG: 39,
-    NORMAL: 24,
-    SMALL: 15
+    BIG:    39,
+    NORMAL: 24, // + 1,
+    SMALL:  15, // + 1
   };
 
   NicoChatViewModel.LINE_HEIGHT = {
-    BIG: 45,
+    BIG:    45,
     NORMAL: 29,
-    SMALL: 18
+    SMALL:  18
   };
 
   NicoChatViewModel.CHAT_MARGIN = 5;
@@ -3696,13 +3713,24 @@ var monkey = function() {
       }
     },
     _setText: function(text) {
+      var han_replace = function(m) {
+        var bar = '________________________________________';
+        return ['<span class="han_space">', bar.substr(0, m.length), '</span>'].join('');
+      };
+      var zen_replace = function(m) {
+        var bar = '＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃';
+        return ['<span class="zen_space">', bar.substr(0, m.length), '</span>'].join('');
+      };
+      var zen_replace2 = function(m) {
+        var bar = '、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、';
+        return ['<span class="zen_space">', bar.substr(0, m.length), '</span>'].join('');
+      };
+
       var htmlText =
         text
-          .replace(/[ \xA0]/g , '<span class="han_space">_</span>')
+          .replace(/( |　|\t)+([\n$])/g , '$1')
+          .replace(/( |\xA0){1,30}/g , han_replace)
           .replace(/[\t]/g , '&nbsp;');
-          //.replace(/[\t \xA0]/g , '')
-//          .replace(/　/g , '<span class="zen_space">□</span>')
-//          .replace(/[\n]/g, '#<br>');
 
       // 特殊文字と、その前後の全角文字のフォントが変わるらしい
       htmlText =
@@ -3710,8 +3738,10 @@ var monkey = function() {
           .replace(NicoChatViewModel._FONT_REG.MINCHO,   '<span class="mincho">$1</span>')
           .replace(NicoChatViewModel._FONT_REG.GULIM,    '<span class="gulim">$1</span>')
           .replace(NicoChatViewModel._FONT_REG.MING_LIU, '<span class="mingLiu">$1</span>')
-          .replace(/　/g , '<span class="zen_space">、</span>')
-          .replace(/ /g , '<span class="zen_space">＃</span>');
+//          .replace(/ /g , '<span class="zen_space">＃</span>')
+          .replace(/[ ]{1,20}/g ,  zen_replace)
+//          .replace(/　/g , '<span class="zen_space">、</span>');
+          .replace(/[　]{1,20}/g , zen_replace2);
 
       // 最初の一文字目が特殊文字だった場合は全体のフォントが変わるらしい
       var firstLetter = text.charAt(0);
@@ -3725,7 +3755,9 @@ var monkey = function() {
       htmlText = htmlText
         .replace(/[\r\n]+$/g, '')
         .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
-        .replace(/[\n]/g, '<br>');
+        .replace(/[\n]/g, '<br>')
+        .replace(/(\x0323|\x200b|\x2029|\x202a|\x200c)+/g , '<span class="zero_space">[0]</span>')
+        ;
 
       this._htmlText = htmlText;
       this._text = text;
@@ -4247,6 +4279,20 @@ iframe {
 .debug .nicoChat .zen_space {
   color: yellow;
   opacity: 0.3;
+}
+
+.nicoChat .zero_space {
+  display: none;
+}
+.debug .nicoChat .zero_space {
+  display: inline;
+  position: absolute;
+}
+
+
+
+.nicoChat .zero_space {
+  display: none;
 }
 
 .debug .nicoChat.ue {
@@ -5307,11 +5353,15 @@ iframe {
           PlayerSession.save(dialog.getPlayingStatus());
         });
 
-        if (Config.getValue('continueNextPage') && PlayerSession.hasRecord()) {
-            var lastSession = PlayerSession.restore();
-            if (lastSession.playing) {
-              dialog.open(lastSession.watchId, lastSession);
-            }
+        var lastSession = PlayerSession.restore();
+        var screenMode = Config.getValue('screenMode');
+        if (
+          lastSession.playing &&
+          (screenMode === 'small'    ||
+           screenMode === 'sideView' ||
+           Config.getValue('continueNextPage'))
+        ) {
+          dialog.open(lastSession.watchId, lastSession);
         }
       });
 
