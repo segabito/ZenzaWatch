@@ -6,7 +6,8 @@
 // @match          http://ext.nicovideo.jp/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.3.5
+// @license        public domain
+// @version        0.3.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -610,6 +611,12 @@ var monkey = function() {
       return !!navigator.mimeTypes['application/x-shockwave-flash'];
     };
     ZenzaWatch.util.hasFlashPlayer = hasFlashPlayer;
+
+    var isFirefox = function() {
+      return !!navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
+    };
+    ZenzaWatch.util.isFirefox = isFirefox;
+
 
 
     var VideoInfoLoader = (function() {
@@ -1384,10 +1391,17 @@ var monkey = function() {
 
     .zenzaWatchVideoInfoPanel.initializing {
     }
-
+    
     .zenzaWatchVideoInfoPanel>* {
       transition: opacity 0.4s ease;
+      pointer-events: none;
     }
+
+    .mouseMoving .zenzaWatchVideoInfoPanel>*,
+                 .zenzaWatchVideoInfoPanel:hover>* {
+      pointer-events: auto;
+    }
+
 
     .zenzaWatchVideoInfoPanel.initializing>* {
       opacity: 0;
@@ -1424,7 +1438,7 @@ var monkey = function() {
       top: 0;
     }
 
-    @media screen and (min-width: 1000px) {
+    @media screen and (min-width: 992px) {
       body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
         display: inherit;
       }
@@ -1454,12 +1468,29 @@ var monkey = function() {
         z-index: 1;
       }
 
+      .zenzaScreenMode_big .zenzaPlayerContainer.backComment .commentLayerFrame {
+        top:  calc(-50vh + 50% + 120px);
+        left: calc(-50vw + 50%);
+        width:  100vw;
+        height: 100vh;
+        right: auto;
+        bottom: auto;
+        z-index: 1;
+      }
     }
+
 
 
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel>*,
     .fullScreen            .zenzaWatchVideoInfoPanel>* {
       display: none;
+      pointer-events: none;
+    }
+
+    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover>*,
+    .fullScreen           .zenzaWatchVideoInfoPanel:hover>* {
+      display: inherit;
+      pointer-events: auto;
     }
 
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel,
@@ -1491,17 +1522,6 @@ var monkey = function() {
       border: none;
       opacity: 0.9;
       transition: opacity 0.4s ease, right 0.4s ease;
-    }
-
-    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel>*,
-    .fullScreen           .zenzaWatchVideoInfoPanel>* {
-      pointer-events: none;
-    }
-
-    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover>*,
-    .fullScreen           .zenzaWatchVideoInfoPanel:hover>* {
-      display: inherit;
-      pointer-events: auto;
     }
 
     .zenzaWatchVideoInfoPanel .owner {
@@ -1657,6 +1677,79 @@ var monkey = function() {
     body:not(.fullScreen).zenzaScreenMode_big    .backComment .zenzaWatchVideoInfoPanel {
       opacity: 0.7;
     }
+
+    {* 縦長モニター *}
+    @media
+      screen and
+      (max-width: 991px) and (min-height: 700px)
+    {
+      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
+        display: inherit;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        height: 240px;
+        z-index: 120000;
+      }
+      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+        box-sizing: border-box;
+        width: 150px;
+        float: left;
+        text-align: center;
+      }
+      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .owner {
+        white-space: inherit;
+        display: inline-block;
+      }
+      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .ownerIcon {
+        margin-right: none;
+      }
+
+      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoDescription {
+        margin-left: 150px;
+      }
+
+      .zenzaScreenMode_normal .zenzaPlayerContainer.backComment .commentLayerFrame {
+        top:  calc(-50vh + 50% + 120px);
+        left: calc(-50vw + 50%);
+        width:  100vw;
+        height: 100vh;
+        right: auto;
+        bottom: auto;
+        z-index: 1;
+      }
+    }
+
+    @media
+      screen and
+      (max-width: 1215px) and (min-height: 700px)
+    {
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
+        display: inherit;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        height: 240px;
+        z-index: 120000;
+      }
+
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+        box-sizing: border-box;
+        width: 150px;
+        float: left;
+        text-align: center;
+      }
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .owner {
+        white-space: inherit;
+        display: inline-block;
+      }
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .ownerIcon {
+        margin-right: none;
+      }
+
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoDescription {
+        margin-left: 150px;
+      }
 
 
   */});
@@ -1825,6 +1918,15 @@ var monkey = function() {
       color: #ccc;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
+    }
+
+    .zenzaWatchVideoHeaderPanel>* {
+      pointer-events: none;
+    }
+
+    .mouseMoving .zenzaWatchVideoHeaderPanel>*,
+                 .zenzaWatchVideoHeaderPanel:hover>* {
+      pointer-events: auto;
     }
 
     .zenzaWatchVideoHeaderPanel.initializing {
@@ -2680,7 +2782,7 @@ var monkey = function() {
       this.emit('volumeChange', this.getVolume());
     },
     _onClick: function(e) {
-      this.emit('click');
+      this.emit('click', e);
     },
     _onDoubleClick: function(e) {
       console.log('%c_onDoubleClick:', 'background: cyan;', arguments);
@@ -3678,6 +3780,11 @@ var monkey = function() {
   /**
    * 個別のコメントの表示位置・タイミング計算
    * コメントアート互換は大体こいつにかかっている
+   *
+   * コメントのサイズ計算まわりが意味不明なコードだらけだが、
+   * 仕様書にもない本家のバグを再現しようとするとこうなるので仕方ない。
+   * (しかも、これでも全然足りない)
+   * 互換性にこだわらないのであれば7割くらいが不要。
    */
   var NicoChatViewModel = function() { this.initialize.apply(this, arguments); };
   // ここの値はレイアウト計算上の仮想領域の物であり、実際の表示はviewに依存
@@ -4447,11 +4554,13 @@ iframe {
 
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
       // ここに書いてるのは手抜き
-      ZenzaWatch.emitter.on('fullScreenStatusChange',
-        _.debounce($.proxy(function() {
-          this.refresh();
-        }, this), 3000)
-      );
+      if (ZenzaWatch.util.isFirefox()) {
+        ZenzaWatch.emitter.on('fullScreenStatusChange',
+          _.debounce($.proxy(function() {
+            this.refresh();
+          }, this), 3000)
+        );
+      }
 
       ZenzaWatch.debug.css3Player = this;
     },
@@ -5064,8 +5173,12 @@ iframe {
       height: 100vh !important;
     }
 
-    .showComment.backComment .videoPlayer:hover {
+    .showComment.backComment .videoPlayer {
       opacity: 0.90;
+    }
+
+    .showComment.backComment .videoPlayer:hover {
+      opacity: 1;
     }
 
 
@@ -5149,7 +5262,8 @@ iframe {
       z-index: 102;
     }
 
-    @media screen and (min-width: 1000px) {
+    {* 右パネル分の幅がある時は右パネルを出す *}
+    @media screen and (min-width: 992px) {
       .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
         padding-right: 320px;
         background: none;
@@ -5162,6 +5276,30 @@ iframe {
         background: none;
       }
     }
+
+    {* 縦長モニター *}
+    @media
+      screen and
+      (max-width: 991px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
+        padding-bottom: 240px;
+        top: calc(50% + 60px);
+        background: none;
+      }
+    }
+
+    @media
+      screen and
+      (max-width: 1215px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
+        padding-bottom: 240px;
+        top: calc(50% + 60px);
+        background: none;
+      }
+    }
+
 
     {* 960x540 *}
     @media
@@ -5201,7 +5339,7 @@ iframe {
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
-      z-index: 300;
+      z-index: 130000;
     }
 
     .mouseMoving .menuButton {
