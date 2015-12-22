@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.3.6
+// @version        0.3.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -3175,6 +3175,10 @@ var monkey = function() {
         line-height: 45px;
       }
 
+      .backslash {
+        font-family: Arial;
+      }
+
 
       .nicoChat.medium {
         line-height: 30px;
@@ -3920,7 +3924,7 @@ var monkey = function() {
         text
           .replace(/( |　|\t)+([\n$])/g , '$1')
           .replace(/( |\xA0){1,30}/g , han_replace)
-          .replace(/[\t]/g , '&nbsp;');
+          .replace(/[\t]/g , '<span class="tab_space">&nbsp;</span>');
 
       // 特殊文字と、その前後の全角文字のフォントが変わるらしい
       htmlText =
@@ -3946,6 +3950,7 @@ var monkey = function() {
         .replace(/[\r\n]+$/g, '')
         .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
         .replace(/[\n]/g, '<br>')
+        .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
         .replace(/(\x0323|\x200b|\x2029|\x202a|\x200c)+/g , '<span class="zero_space">[0]</span>')
         ;
 
@@ -4347,7 +4352,7 @@ var monkey = function() {
    */
   var NicoCommentCss3PlayerView = function() { this.initialize.apply(this, arguments); };
 
-  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
+  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 60;
 
   NicoCommentCss3PlayerView.__TPL__ = ZenzaWatch.util.hereDoc(function() {/*
 <!DOCTYPE html>
@@ -4368,6 +4373,11 @@ var monkey = function() {
 .debug .mincho  { background: rgba(128, 0, 0, 0.3); }
 .debug .gulim   { background: rgba(0, 128, 0, 0.3); }
 .debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
+
+ .backslash {
+   font-family: Arial;
+ }
+
 
 body {
   marign: 0;
@@ -4896,7 +4906,7 @@ iframe {
       var opacity = chat.isOverflow() ? 0.8 : 1;
       //var zid = parseInt(id.substr('4'), 10);
       //var zIndex = 10000 - (zid % 5000);
-      var zIndex = beginL;
+      var zIndex = beginL * 1000;
 
       if (type === NicoChat.TYPE.NORMAL) {
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
@@ -5500,7 +5510,9 @@ iframe {
           lastY = e.screenY;
           onMouseMove(e);
           onMouseMoveEnd(e);
-        }, this));
+        }, this))
+      .on('mouseown', onMouseMove)
+      .on('mouseown', onMouseMoveEnd);
 
       $dialog.on('click', $.proxy(this._onClick, this));
       $dialog.find('.closeButton')
