@@ -783,8 +783,9 @@ var monkey = function() {
        * 本家よりちょっと盛ってる
        */
       var getRequestCountByDuration = function(duration) {
-        if (duration < 60) { return 200;}
-        if (duration < 300) { return 500;}
+        if (duration < 60)  { return 150;}
+        if (duration < 240) { return 200;}
+        if (duration < 300) { return 400;}
         return 1000;
       };
 
@@ -1467,16 +1468,6 @@ var monkey = function() {
         bottom: auto;
         z-index: 1;
       }
-
-      .zenzaScreenMode_big .zenzaPlayerContainer.backComment .commentLayerFrame {
-        top:  calc(-50vh + 50% + 120px);
-        left: calc(-50vw + 50%);
-        width:  100vw;
-        height: 100vh;
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
     }
 
 
@@ -1750,7 +1741,16 @@ var monkey = function() {
       body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoDescription {
         margin-left: 150px;
       }
-
+      .zenzaScreenMode_big .zenzaPlayerContainer.backComment .commentLayerFrame {
+        top:  calc(-50vh + 50% + 120px);
+        left: calc(-50vw + 50%);
+        width:  100vw;
+        height: 100vh;
+        right: auto;
+        bottom: auto;
+        z-index: 1;
+      }
+    }
 
   */});
 
@@ -5935,6 +5935,7 @@ iframe {
 
         if ($target.hasClass('noPopup')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
+        if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
         $('.zenzaWatching').removeClass('zenzaWatching');
         $target.addClass('.zenzaWatching');
         $menu
