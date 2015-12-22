@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.3.7
+// @version        0.3.8
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -23,6 +23,13 @@ var monkey = function() {
       util: {
         hereDoc: function(func) { // えせヒアドキュメント
           return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/');
+        },
+        callAsync: function(func, self) {
+          if (self) {
+            window.setTimeout($.proxy(func, self), 0);
+          } else {
+            window.setTimeout(func, 0);
+          }
         }
       }
     };
@@ -401,6 +408,7 @@ var monkey = function() {
 
     ZenzaWatch.util.parseQuery = parseQuery;
 
+
     var hasLargeThumbnail = function(videoId) { // return true;
       // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
       // ※この数字以降でもごく稀に例外はある。
@@ -416,6 +424,21 @@ var monkey = function() {
 
     ZenzaWatch.util.hasLargeThumbnail = hasLargeThumbnail;
 
+    var videoIdReg = /^[a-z]{2}\d+$/;
+    /**
+     * 動画IDからサムネのURLを逆算する。
+     * 実際はどのサーバーでもサムネ自体はあるっぽい。
+     */
+    var getThumbnailUrlByVideoId = function(videoId) {
+      if (!videoIdReg.test(videoId)) {
+        return null;
+      }
+      var fileId = parseInt(videoId.substr(2), 10);
+      var num = (fileId % 4) + 1;
+      var large = hasLargeThumbnail(videoId) ? '.L' : '';
+      return 'http://tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
+    };
+    ZenzaWatch.util.getThumbnailUrlByVideoId = getThumbnailUrlByVideoId;
 
     var __css__ = ZenzaWatch.util.hereDoc(function() {/*
       .xDomainLoaderFrame {
@@ -700,6 +723,7 @@ var monkey = function() {
             thumbnail: thumbnail,
             csrfToken: watchApiData.flashvars.csrfToken
           };
+          ZenzaWatch.emitter.emit('csrfToken', watchApiData.flashvars.csrfToken);
           return result;
 
         } catch (e) {
@@ -876,13 +900,18 @@ var monkey = function() {
           );
         }
 
-        packet.appendChild(
-          createThreadXml(threadId, version_old, userId, threadKey, force184)
-        );
-        // TODO: thread_leavesを使えるようにする。
-//        packet.appendChild(
-//          createThreadLeavesXml(threadId, version, userId, threadKey, force184)
-//        );
+        if (duration < 60) {
+          packet.appendChild(
+            createThreadXml(threadId, version_old, userId, threadKey, force184)
+          );
+        } else {
+          packet.appendChild(
+            createThreadXml(threadId, version, userId, threadKey, force184)
+          );
+          packet.appendChild(
+            createThreadLeavesXml(threadId, version, userId, threadKey, force184)
+          );
+        }
 
         span.appendChild(packet);
         var packetXml = span.innerHTML;
@@ -1557,6 +1586,7 @@ var monkey = function() {
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription a {
+      display: inline-block;
       font-weight: bold;
       text-decoration: none;
       color: #ff9;
@@ -1564,6 +1594,24 @@ var monkey = function() {
     .zenzaWatchVideoInfoPanel .videoDescription a:visited {
       color: #ffc;
     }
+
+    .zenzaWatchVideoInfoPanel .videoDescription .watch .videoThumbnail {
+      position: absolute;
+      width: 160px;
+      height: 120px;
+      right: 4px;
+      margin-top: -60px;
+      opacity: 0;
+      z-index: 100;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover .videoThumbnail {
+      opacity: 1;
+      box-shadow: 4px 4px 0 #000;
+      transition: opacity 0.3s ease 0.4s;
+    }
+
 
 
     .zenzaWatchVideoInfoPanel .publicStatus,
@@ -1862,7 +1910,19 @@ var monkey = function() {
 
       html = html.split(' <br /> ').join('<br />');
 
-      this._$description.html(html).find('a').addClass('noPopup');
+      this._$description.html(html).find('a').addClass('noHoverMenu');
+
+      ZenzaWatch.util.callAsync(function() {
+        this._$description.find('.watch').each(function(i, watchLink) {
+          var $watchLink = $(watchLink);
+          var videoId = $watchLink.text();
+          var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(videoId);
+          if (thumbnail) {
+            var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
+            $watchLink.addClass('popupThumbnail').append($img);
+          }
+        });
+      }, this);
     },
     _onDescriptionClick: function(e) {
       if (e.button !== 0 || e.metaKey || e.shiftKey || e.altKey || e.ctrlKey) return true;
@@ -2055,7 +2115,7 @@ var monkey = function() {
 
   VideoHeaderPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="zenzaWatchVideoHeaderPanel show initializing">
-      <h2><a class="ginzaLink noPopup" target="_blank">
+      <h2><a class="ginzaLink noHoverMenu" target="_blank">
         <span class="videoTitle"></span></a>
       </h2>
       <p class="publicStatus">
@@ -2262,7 +2322,6 @@ var monkey = function() {
         再生速度
         <select class="playbackRate">
           <option value="1.0" selected>標準(1.0)</option>
-          <option value="0.01">0.01倍</option>
           <option value="0.1">0.1倍</option>
           <option value="0.3">0.3倍</option>
           <option value="0.5">0.5倍</option>
@@ -2496,7 +2555,7 @@ var monkey = function() {
 
           <hr class="separator">
 
-          <li class="playbackRate" data-command="playbackRate" data-param="0.01">コマ送り(0.01x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
           <li class="playbackRate" data-command="playbackRate" data-param="0.3">超スロー(0.3x)</li>
           <li class="playbackRate" data-command="playbackRate" data-param="0.5">スロー再生(0.5x)</li>
           <li class="playbackRate" data-command="playbackRate" data-param="1.0">標準速度</li>
@@ -3030,7 +3089,7 @@ var monkey = function() {
 
 
   var NicoComment = function() { this.initialize.apply(this, arguments); };
-  NicoComment.MAX_COMMENT = 1000;
+  NicoComment.MAX_COMMENT = 5000;
 
   _.assign(NicoComment.prototype, {
     initialize: function() {
@@ -5933,7 +5992,7 @@ iframe {
 //        var bottom = offset.top  + $target.outerHeight();
 //        var right  = offset.left + $target.outerWidth();
 
-        if ($target.hasClass('noPopup')) { return; }
+        if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
         if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
         $('.zenzaWatching').removeClass('zenzaWatching');
