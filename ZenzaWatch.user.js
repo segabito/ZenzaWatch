@@ -4411,7 +4411,7 @@ var monkey = function() {
    */
   var NicoCommentCss3PlayerView = function() { this.initialize.apply(this, arguments); };
 
-  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 60;
+  NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
 
   NicoCommentCss3PlayerView.__TPL__ = ZenzaWatch.util.hereDoc(function() {/*
 <!DOCTYPE html>
@@ -4952,7 +4952,8 @@ iframe {
       var duration = chat.getDuration() / this._playbackRate;
       var scale = chat.getScale();
       var beginL = chat.getBeginLeftTiming();
-      var screenWidth = NicoCommentViewModel.SCREEN.WIDTH;
+      var screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
+      var screenWidthFull = NicoCommentViewModel.SCREEN.WIDTH_FULL;
       var width = chat.getWidth();
 //      var height = chat.getHeight();
       var ypos = chat.getYpos();
@@ -4968,18 +4969,24 @@ iframe {
       var zIndex = beginL * 1000;
 
       if (type === NicoChat.TYPE.NORMAL) {
+        // 4:3ベースに計算されたタイミングを16:9に補正する
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
+        var screenDiff = screenWidthFull - screenWidth;
+        var leftPos = screenWidth + screenDiff / 2;
+        var durationDiff = screenDiff / speed;
+        duration += durationDiff;
+        delay -= (durationDiff * 0.5);
 
         result = ['',
           ' @keyframes idou', id, ' {\n',
           '    0%  {opacity: ', opacity, '; transform: translate(0px, 0px) ', scaleCss, ';}\n',
-          '  100%  {opacity: ', opacity, '; transform: translate(', - (screenWidth + width), 'px, 0px) ', scaleCss, ';}\n',
+          '  100%  {opacity: ', opacity, '; transform: translate(', - (screenWidthFull + width), 'px, 0px) ', scaleCss, ';}\n',
           ' }\n',
           '',
           ' #', id, ' {\n',
           '  z-index: ', zIndex , ';\n',
           '  top:', ypos, 'px;\n',
-          '  left:', screenWidth, 'px;\n',
+          '  left:', leftPos, 'px;\n',
           '  color:', color,';\n',
           '  font-size:', fontSizePx, 'px;\n',
 //          '  line-height:',  lineHeight, 'px;\n',
