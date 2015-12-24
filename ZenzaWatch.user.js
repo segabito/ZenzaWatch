@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.3.8
+// @version        0.3.9
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -440,6 +440,20 @@ var monkey = function() {
     };
     ZenzaWatch.util.getThumbnailUrlByVideoId = getThumbnailUrlByVideoId;
 
+
+    var getSubColor = function(color) {
+      var result = ['#'];
+      $(color.match(/#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})/)).each(
+        function(i, cl) {
+          if (i) {
+            result.push((parseInt(cl, 16) + 384).toString(16).substr(1))
+          }
+        }
+      );
+      return result.join('');
+    };
+    ZenzaWatch.util.getSubColor = getSubColor;
+
     var __css__ = ZenzaWatch.util.hereDoc(function() {/*
       .xDomainLoaderFrame {
         border: 0;
@@ -723,7 +737,7 @@ var monkey = function() {
             thumbnail: thumbnail,
             csrfToken: watchApiData.flashvars.csrfToken
           };
-          ZenzaWatch.emitter.emit('csrfToken', watchApiData.flashvars.csrfToken);
+          ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', watchApiData.flashvars.csrfToken);
           return result;
 
         } catch (e) {
@@ -794,59 +808,54 @@ var monkey = function() {
       return videoInfoLoader;
     })();
 
-    var CommentLoader = (function() {
-      var commentLoader = new AsyncEmitter();
+    var MessageApiLoader = (function() {
+      var VERSION_OLD = '20061206';
+      var VERSION     = '20090904';
 
-      var initialize = function() {
-        initialize = _.noop;
-        console.log('%c initialize CommentLoader', 'background: lightgreen;');
+      var MessageApiLoader = function() {
+        this.initialize.apply(this, arguments);
       };
 
-      /**
-       * 動画の長さに応じて取得するコメント数を変える
-       * 本家よりちょっと盛ってる
-       */
-      var getRequestCountByDuration = function(duration) {
-        if (duration < 60)  { return 150;}
-        if (duration < 240) { return 200;}
-        if (duration < 300) { return 400;}
-        return 1000;
-      };
+      _.assign(MessageApiLoader.prototype, {
+        initialize: function() {
+        },
+        /**
+         * 動画の長さに応じて取得するコメント数を変える
+         * 本家よりちょっと盛ってる
+         */
+        getRequestCountByDuration: function(duration) {
+          if (duration < 60)  { return 150;}
+          if (duration < 240) { return 200;}
+          if (duration < 300) { return 400;}
+          return 1000;
+        },
+        getThreadKey: function(threadId) {
+          // memo:
+          // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          var url =
+            'http://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
+            '&language_id=0';
 
-      var getThreadKey = function(threadId) {
-        // memo:
-        // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
-        var url =
-          'http://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
-          '&language_id=0';
-
-        return $.ajax({
-          url: url,
-          contentType: 'text/plain',
-          crossDomain: true,
-          cache: false,
-          xhrFields: {
-            withCredentials: true
-          }
-        }).then(function(e) {
-          return ZenzaWatch.util.parseQuery(e);
-        }, function() {
-          PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
-        });
-      };
-
-      var version_old = '20061206'
-      var version = '20090904'; // '20061206'
-
-      var buildPacket =
-        function(threadId, duration, userId, threadKey, force184, optionalThreadId)
-      {
-        var resCount = getRequestCountByDuration(duration);
-        var threadLeavesParam = '0-' + (Math.floor(duration / 60) + 1) + ':100,' + resCount;
-        
-        var createThreadXml =
-          function(threadId, version, userId, threadKey, force184)
-        {
+          var d = new $.Deferred();
+          $.ajax({
+            url: url,
+            contentType: 'text/plain',
+            crossDomain: true,
+            cache: false,
+            xhrFields: {
+              withCredentials: true
+            }
+          }).then(function(e) {
+            d.resolve(ZenzaWatch.util.parseQuery(e));
+          }, function() {
+            //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
+            d.reject({
+              message: 'ThreadKeyの取得失敗 ' + threadId
+            });
+          });
+          return d.promise();
+        },
+        _createThreadXml: function(threadId, version, userId, threadKey, force184) {
           var thread = document.createElement('thread');
           thread.setAttribute('thread', threadId);
           thread.setAttribute('version', version);
@@ -864,13 +873,13 @@ var monkey = function() {
           thread.setAttribute('with_global', '1');
 
           return thread;
-        };
-
-        var createThreadLeavesXml =
-          function(threadId, version, userId, threadKey, force184)
-        {
-
+        },
+        _createThreadLeavesXml:
+          function(threadId, version, userId, threadKey, force184, duration) {
           var thread_leaves = document.createElement('thread_leaves');
+          var resCount = this.getRequestCountByDuration(duration);
+          var threadLeavesParam =
+            ['0-', (Math.floor(duration / 60) + 1), ':100,', resCount].join('');
           thread_leaves.setAttribute('thread', threadId);
           if (typeof userId !== 'undefined') {
             thread_leaves.setAttribute('user_id', userId);
@@ -887,129 +896,166 @@ var monkey = function() {
           thread_leaves.innerText = threadLeavesParam;
 
           return thread_leaves;
-        };
-        var span = document.createElement('span');
-        var packet = document.createElement('packet');
+        },
 
-        if (typeof optionalThreadId !== 'undefined') {
-          packet.appendChild(
-            createThreadXml(optionalThreadId, version, userId, threadKey, force184)
-          );
-          packet.appendChild(
-            createThreadLeavesXml(optionalThreadId, version, userId, threadKey, force184)
-          );
-        }
+        buildPacket: function(threadId, duration, userId, threadKey, force184, optionalThreadId)
+        {
+          var span = document.createElement('span');
+          var packet = document.createElement('packet');
 
-        if (duration < 60) {
-          packet.appendChild(
-            createThreadXml(threadId, version_old, userId, threadKey, force184)
-          );
-        } else {
-          packet.appendChild(
-            createThreadXml(threadId, version, userId, threadKey, force184)
-          );
-          packet.appendChild(
-            createThreadLeavesXml(threadId, version, userId, threadKey, force184)
-          );
-        }
-
-        span.appendChild(packet);
-        var packetXml = span.innerHTML;
-
-//      packetXml =
-//          '<thread res_from="-' + resCount +
-//          '" version="20061206"  thread="'+ threadId+'" />';
-
-        return packetXml;
-      };
-
-      var onComplete = function(result, threadId) {
-        if (result.status !== 200) {
-          PopupMessage.alert('コメントの取得失敗 ');
-          return;
-        }
-        ZenzaWatch.debug.lastMsgApiResult = result;
-        PopupMessage.notify('コメントの取得成功');
-        commentLoader.emitAsync('load', result.responseText, threadId);
-      };
-
-      var post = function(server, xml, threadId) {
-        var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
-        $.ajax({
-          url: server,
-          data: xml,
-          type: 'POST',
-          contentType: isNmsg ? 'text/xml' : 'text/plain',
-          dataType: 'xml',
-//          xhrFields: { withCredentials: true },
-          crossDomain: true,
-          cache: false,
-          complete: function(result) { onComplete(result, threadId); }
-        });
-      };
-
-      var get = function(server, threadId, duration, threadKey, force184) {
-        // nmsg.nicovideo.jpでググったら出てきた。
-        // http://favstar.fm/users/koizuka/status/23032783744012288
-        // xmlじゃなくてもいいのかよ!
-
-        var resCount = getRequestCountByDuration(duration);
-
-        var url = server +
-          'thread?version=' + version +
-          '&thread=' + threadId +
-          '&res_from=-' + resCount;
-        if (threadKey) {
-          url += '&threadkey=' + threadKey;
-        }
-        if (force184) {
-          url += '&force_184=' + force184;
-        }
-
-        console.log('%cthread url:', 'background: cyan;', url);
-        $.ajax({
-          url: url,
-          crossDomain: true,
-          cache: false,
-          complete: function(result) { onComplete(result, threadId); }
-        });
-       };
-
-      var load = function(server, threadId, duration, userId, isNeedKey/*, optionalThreadId */) {
-        initialize();
-        var packet;
-        
-        if (isNeedKey) {
-          getThreadKey(threadId).then(function(info) {
-            console.log('threadkey: ', info);
-            packet = buildPacket(
-              threadId, duration, userId, info.threadkey, info.force_184);//, optionalThreadId);
-            console.log('post xml...', server, packet);
-            //get(server, threadId, duration, info.threadkey, info.force_184);
-            post(server, packet, threadId);
-          });
-        } else {
-          var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
-          if (isNmsg) {
-            get(server, threadId, duration);
-          } else {
-            // nmsgもできればこっちでやりたい。 うまく取れないので調査中。
-            packet = buildPacket(
-                threadId, duration, userId);
-            console.log('post xml...', server, packet);
-            post(server, packet, threadId);
+          if (typeof optionalThreadId !== 'undefined') {
+            packet.appendChild(
+              this._createThreadXml(optionalThreadId, VERSION, userId, threadKey, force184)
+            );
+            packet.appendChild(
+              this._createThreadLeavesXml(optionalThreadId, VERSION, userId, threadKey, force184, duration)
+            );
           }
+
+          if (duration < 60) {
+            packet.appendChild(
+              this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184)
+            );
+          } else {
+            packet.appendChild(
+              this._createThreadXml(threadId, VERSION, userId, threadKey, force184)
+            );
+            packet.appendChild(
+              this._createThreadLeavesXml(threadId, VERSION, userId, threadKey, force184, duration)
+            );
+          }
+
+          span.appendChild(packet);
+          var packetXml = span.innerHTML;
+
+          return packetXml;
+        },
+        _post: function(server, xml) {
+          var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
+          return $.ajax({
+            url: server,
+            data: xml,
+            type: 'POST',
+            contentType: isNmsg ? 'text/xml' : 'text/plain',
+            dataType: 'xml',
+  //          xhrFields: { withCredentials: true },
+            crossDomain: true,
+            cache: false,
+            complete: this._onComplete
+          });
+        },
+        _get: function(server, threadId, duration, threadKey, force184) {
+          // nmsg.nicovideo.jpでググったら出てきた。
+          // http://favstar.fm/users/koizuka/status/23032783744012288
+          // xmlじゃなくてもいいのかよ!
+
+          var resCount = this.getRequestCountByDuration(duration);
+
+          var url = server +
+            'thread?version=' + VERSION +
+            '&thread=' + threadId +
+            '&scores=1' +
+            '&res_from=-' + resCount;
+          if (threadKey) {
+            url += '&threadkey=' + threadKey;
+          }
+          if (force184) {
+            url += '&force_184=' + force184;
+          }
+
+          console.log('%cthread url:', 'background: cyan;', url);
+          return $.ajax({
+            url: url,
+            crossDomain: true,
+            cache: false
+          });
+        },
+        _load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
+          var packet, self = this;
+          if (isNeedKey) {
+            return this.getThreadKey(threadId).then(function(info) {
+              console.log('threadkey: ', info);
+              packet = self.buildPacket(
+                threadId,
+                duration,
+                userId,
+                info.threadkey,
+                info.force_184,
+                optionalThreadId
+              );
+              console.log('post xml...', server, packet);
+              //get(server, threadId, duration, info.threadkey, info.force_184);
+              return self._post(server, packet, threadId);
+            });
+          } else {
+            var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
+            if (isNmsg) {
+              console.log('load from nmsg.nicovideo.jp...');
+              return this._get(server, threadId, duration);
+            } else {
+              // nmsg.nicovideo.jpもできればこっちでやりたい。 うまく取れないので調査中。
+              packet = this.buildPacket(
+                threadId,
+                duration,
+                userId
+              );
+              console.log('post xml...', server, packet);
+              return this._post(server, packet, threadId);
+            }
+          }
+        },
+        load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
+          var d = new $.Deferred();
+
+          var timeKey = 'loadComment server: ' + server + ' thread: ' + threadId;
+          window.console.time(timeKey);
+          this._load(
+            server,
+            threadId,
+            duration,
+            userId,
+            isNeedKey,
+            optionalThreadId
+          ).then(
+            function(result) {
+              window.console.timeEnd(timeKey);
+              ZenzaWatch.debug.lastMessageServerResult = result;
+
+              var resultCode = null;
+              try {
+                var thread = result.documentElement.getElementsByTagName('thread')[0];
+                resultCode = thread.getAttribute('resultcode');
+              } catch (e) {
+                console.error(e);
+              }
+
+              if (resultCode !== '0') {
+                window.console.log(result.xml);
+                return d.reject({
+                  message: 'コメント取得失敗' + resultCode
+                });
+              }
+
+              return d.resolve({
+                resultCode: parseInt(resultCode, 10),
+                xml: result.documentElement
+              });
+            },
+            function(e) {
+              window.console.timeEnd(timeKey);
+              window.console.error('loadComment fail: ', e);
+              return d.reject({
+                message: 'コメント通信失敗'
+              });
+            }
+          );
+
+          return d.promise();
         }
-      };
-
-
-      _.assign(commentLoader, {
-        load: load
       });
 
-      return commentLoader;
+      return MessageApiLoader;
     })();
-
 
 
     var ShortcutKeyEmitter = (function() {
@@ -1146,6 +1192,7 @@ var monkey = function() {
       this._videoPlayer.on('pause', $.proxy(this._onPause, this));
       this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
       this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
+      this._videoPlayer.on('canPlay', $.proxy(this._onVideoCanPlay, this));
 
       // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
       this._videoPlayer.on('mouseWheel',
@@ -1159,8 +1206,10 @@ var monkey = function() {
 
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
-    _onVolumeChange: function(vol) {
+    _onVolumeChange: function(vol, mute) {
       this._playerConfig.setValue('volume', vol);
+      this._playerConfig.setValue('mute', mute);
+      this.emit('volumeChange', vol, mute);
     },
     _onPlayerConfigUpdate: function(key, value) {
       switch (key) {
@@ -1212,6 +1261,9 @@ var monkey = function() {
     _onLoadedMetaData: function() {
       this.emit('loadedMetaData');
     },
+    _onVideoCanPlay: function() {
+      this.emit('canPlay');
+    },
     _onPlay: function() {
       this._isPlaying = true;
     },
@@ -1224,12 +1276,13 @@ var monkey = function() {
       if (FullScreen.now() && this._playerConfig.getValue('autoCloseFullScreen')) {
         FullScreen.cancel();
       }
+      this.emit('ended');
     },
     _onError: function() {
     },
     _onAbort: function() {
     },
-    _onClick: function(e) {
+    _onClick: function() {
       this._contextMenu.hide();
     },
     _onContextMenu: function(e) {
@@ -1263,8 +1316,14 @@ var monkey = function() {
     getCurrentTime: function() {
       return this._videoPlayer.getCurrentTime();
     },
+    getVpos: function() {
+      return Math.floor(this._videoPlayer.getCurrentTime() * 100);
+    },
     setComment: function(xmlText) {
       this._commentPlayer.setComment(xmlText);
+    },
+    setVolume: function(v) {
+      this._videoPlayer.setVolume(v);
     },
     appendTo: function(node) {
       var $node = typeof node === 'string' ? $(node) : node;
@@ -1290,6 +1349,14 @@ var monkey = function() {
     },
     isPlaying: function() {
       return !!this._isPlaying;
+    },
+    addChat: function(text, cmd, vpos, options) {
+      if (!this._commentPlayer) {
+        return;
+      }
+      var nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
+      console.log('addChat:', text, cmd, vpos, options, nicoChat);
+      return nicoChat;
     }
   });
 
@@ -1445,7 +1512,7 @@ var monkey = function() {
       width: 320px;
       height: 100%;
       box-sizing: border-box;
-      z-index: 140000;
+      z-index: 120000;
       background: #333;
       color: #ccc;
       overflow-x: hidden;
@@ -1858,7 +1925,7 @@ var monkey = function() {
 
       this._$view.on('click', function(e) {
         e.stopPropagation();
-        ZenzaWatch.emitter.emit('hideHover'); // 手抜き
+        ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
       }).on('mousewheel', function(e) {
         e.stopPropagation();
       });
@@ -1944,6 +2011,7 @@ var monkey = function() {
         dialog.setCurrentTime(sec);
       }
     },
+
     appendTo: function(node) {
       var $node = $(node);
       this._initializeDom();
@@ -1969,7 +2037,7 @@ var monkey = function() {
     .zenzaWatchVideoHeaderPanel {
       position: fixed;
       width: 100%;
-      z-index: 140000;
+      z-index: 120000;
       box-sizing: border-box;
       padding: 8px;
       bottom: calc(100% + 8px);
@@ -2360,12 +2428,14 @@ var monkey = function() {
           <input type="checkbox" class="checkbox" data-setting-name="mute">
         </label>
       </div>-->
+      <!--
       <div class="loopControl control toggle">
         <label>
           リピート
           <input type="checkbox" class="checkbox" data-setting-name="loop">
         </label>
       </div>
+      -->
       <div class="autoPlayControl control toggle">
         <label>
           自動再生
@@ -2697,6 +2767,7 @@ var monkey = function() {
       this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
       this.setVolume(volume);
+      this.setMute(params.mute);
       this.setPlaybackRate(playbackRate);
 
       this._initializeEvents();
@@ -2729,9 +2800,8 @@ var monkey = function() {
         .on('playing',        $.proxy(this._onPlaying, this))
         .on('seeking',        $.proxy(this._onSeeking, this))
         .on('seeked',         $.proxy(this._onSeeked, this))
-        .on('volumechange',
-            _.debounce($.proxy(this._onVolumeChange, this), 500)
-        )
+        .on('volumechange',   $.proxy(this._onVolumeChange, this))
+
 
         .on('click',          $.proxy(this._onClick, this))
         .on('dblclick',       $.proxy(this._onDoubleClick, this))
@@ -2838,7 +2908,7 @@ var monkey = function() {
     },
     _onVolumeChange: function() {
       console.log('%c_onVolumeChange:', 'background: cyan;', arguments);
-      this.emit('volumeChange', this.getVolume());
+      this.emit('volumeChange', this.getVolume(), this.isMuted());
     },
     _onClick: function(e) {
       this.emit('click', e);
@@ -2905,7 +2975,12 @@ var monkey = function() {
       return parseFloat(this._video.volume);
     },
     setMute: function(v) {
-      this._video.muted = v;
+      if (this._video.muted !== !!v) {
+        this._video.muted = !!v;
+      }
+    },
+    isMuted: function() {
+      return this._video.muted;
     },
     getCurrentTime: function() {
       if (!this._canPlay) { return 0; }
@@ -3010,16 +3085,29 @@ var monkey = function() {
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
-    setComment: function(xmlText) {
+    setComment: function(xml) {
       var parser = new DOMParser();
-      var xml = parser.parseFromString(xmlText, 'text/xml');
-      this._model.setXml(xml);
-    },
-    loadFromXmlText: function(xmlText) {
-      console.log('load from XmlText...');
-      var parser = new DOMParser();
-      var xml = parser.parseFromString(xmlText, 'text/xml');
-      return this._model.setXml(xml);
+      if (typeof xml.getElementsByTagName === 'function') {
+        this._model.setXml(xml);
+      } else if (typeof xml === 'string') {
+        xml = parser.parseFromString(xml, 'text/xml');
+        this._model.setXml(xml);
+      } else {
+        PopupMessage.alert('コメントの読み込み失敗');
+      }
+
+      var thread = xml.getElementsByTagName('thread')[0];
+      var lastRes = parseInt(thread.getAttribute('last_res'));
+      this._theradInfo = {
+        resultCode: thread.getAttribute('resultcode'),
+        thread:     thread.getAttribute('thread'),
+        serverTime: thread.getAttribute('server_time'),
+        lastRes:    lastRes,
+        blockNo:    Math.floor(lastRes+1),
+        ticket:     thread.getAttribute('ticket'),
+        revision:   thread.getAttribute('revision')
+      };
+
     },
     getCss3PlayerHtml: function() {
       console.log('createCss3PlayerHtml...');
@@ -3052,12 +3140,13 @@ var monkey = function() {
         this._view.hide();
       }
     },
-    addComment: function(text, cmd, vpos, options) {
+    addChat: function(text, cmd, vpos, options) {
       if (typeof vpos !== 'number') {
         vpos = this.getVpos();
       }
       var nicoChat = NicoChat.create(text, cmd, vpos, options);
       this._model.addChat(nicoChat);
+
       return nicoChat;
     },
     setPlaybackRate: function(playbackRate) {
@@ -3079,6 +3168,9 @@ var monkey = function() {
     },
     close: function() {
       this._model.clear();
+    },
+    getThreadInfo: function() {
+      return this._threadInfo || {};
     },
     toString: function() {
       return this._viewModel.toString();
@@ -3110,6 +3202,7 @@ var monkey = function() {
       this._topGroup.reset();
       this._normalGroup.reset();
       this._bottomGroup.reset();
+
       var chats = xml.getElementsByTagName('chat');
 
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
@@ -3474,6 +3567,7 @@ var monkey = function() {
       var members = this._members;
       $(nicoChatArray).each(function(i, nicoChat) {
         members.push(nicoChat);
+        nicoChat.setGroup(this);
       });
       this.emit('addChatArray', nicoChatArray);
     },
@@ -3678,7 +3772,7 @@ var monkey = function() {
     for (var v in options) {
       dom.setAttribute(v, options[v]);
     }
-    return dom;
+    return new NicoChat(dom);
   };
 
   NicoChat.id = 1000000;
@@ -3760,7 +3854,7 @@ var monkey = function() {
       this._size = NicoChat.SIZE.MEDIUM;
       this._type = NicoChat.TYPE.NORMAL;
       this._duration = NicoChatViewModel.DURATION.NORMAL;
-      this._isMine = !!chat.isMine;
+      this._isMine = chat.getAttribute('mine') === '1';
 
       if (this._deleted) { return; }
 
@@ -3825,6 +3919,7 @@ var monkey = function() {
     },
     getId: function() { return this._id; },
     getText: function() { return this._text; },
+    setText: function(v) { this._text = v; this.onChange(); },
     getDate: function() { return this._date; },
     getCmd: function() { return this._cmd; },
     isPremium: function() { return !!this._isPremium; },
@@ -4100,16 +4195,23 @@ var monkey = function() {
         /**
          *  上の実測に合うようなCSSを書ければ色々解決する。今後の課題
          */
-        //console.log(calc(39,1)==45,calc(24,1)==29,calc(15,1)==18,calc(39,.5)==24,calc(24,.5)==15,calc(15,.5)==10)
         //  45 -> 24   39 + 6
         //  29 -> 15   24 + 5
         //  18 -> 10   15 + 3
         lineHeight = Math.floor((lineHeight + Math.ceil(lineHeight / 15)) * this._scale);
         margin     = Math.round(margin * this._scale);
+        //margin = 5;
+        //switch (size) {
+        //  case NicoChat.SIZE.BIG:   lineHeight = 48; break;
+        //  default:                  lineHeight = 30; break;
+        //  case NicoChat.SIZE.SMALL: lineHeight = 20; break;
+        //}
+        //this._lineHeight = lineHeight;
+        //return Math.ceil((lineHeight * lc + margin) * this._scale) - 1;
       }
 
       this._lineHeight = lineHeight;
-      return lineHeight * lc  + margin - 1;
+      return lineHeight * lc + margin - 1;
     },
 
     /**
@@ -4949,7 +5051,8 @@ iframe {
       var result;
       var scaleCss;
       var id = chat.getId();
-      var duration = chat.getDuration() / this._playbackRate;
+      var playbackRate = this._playbackRate;
+      var duration = chat.getDuration() / playbackRate;
       var scale = chat.getScale();
       var beginL = chat.getBeginLeftTiming();
       var screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
@@ -4961,7 +5064,7 @@ iframe {
       var fontSizePx = chat.getFontSizePixel();
       var lineHeight = chat.getLineHeight();
       var speed = chat.getSpeed();
-      var delay = (beginL - currentTime) / this._playbackRate;
+      var delay = (beginL - currentTime) / playbackRate;
       // 本家は「古いコメントほど薄くなる」という仕様だが、特に再現するメリットもなさそうなので
       var opacity = chat.isOverflow() ? 0.8 : 1;
       //var zid = parseInt(id.substr('4'), 10);
@@ -4971,16 +5074,17 @@ iframe {
       if (type === NicoChat.TYPE.NORMAL) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
-        var screenDiff = screenWidthFull - screenWidth;
+        var outerScreenWidth = screenWidthFull * 1.05;
+        var screenDiff = outerScreenWidth - screenWidth;
         var leftPos = screenWidth + screenDiff / 2;
-        var durationDiff = screenDiff / speed;
+        var durationDiff = screenDiff / speed / playbackRate;
         duration += durationDiff;
         delay -= (durationDiff * 0.5);
 
         result = ['',
           ' @keyframes idou', id, ' {\n',
           '    0%  {opacity: ', opacity, '; transform: translate(0px, 0px) ', scaleCss, ';}\n',
-          '  100%  {opacity: ', opacity, '; transform: translate(', - (screenWidthFull + width), 'px, 0px) ', scaleCss, ';}\n',
+          '  100%  {opacity: ', opacity, '; transform: translate(', - (outerScreenWidth + width), 'px, 0px) ', scaleCss, ';}\n',
           ' }\n',
           '',
           ' #', id, ' {\n',
@@ -5090,6 +5194,11 @@ iframe {
       z-index: 100001;
       box-shadow: 4px 4px 4px #000;
       transition: top 0.4s ease-in, left 0.4s ease-in;
+    }
+
+    .noVideoInfoPanel .zenzaVideoPlayerDialogInner {
+      padding-right: 0 !important;
+      padding-bottom: 0 !important;
     }
 
     .zenzaPlayerContainer {
@@ -5363,6 +5472,10 @@ iframe {
         top: calc(50% + 60px);
         background: none;
       }
+
+      body:not(.fullScreen).zenzaScreenMode_normal .menuItemContainer.leftBottom {
+        bottom: 304px;
+      }
     }
 
     @media
@@ -5373,6 +5486,10 @@ iframe {
         padding-bottom: 240px;
         top: calc(50% + 60px);
         background: none;
+      }
+
+      body:not(.fullScreen).zenzaScreenMode_big   .menuItemContainer.leftBottom {
+        bottom: 304px;
       }
     }
 
@@ -5405,26 +5522,453 @@ iframe {
 
 
 
-    .menuButton {
+
+  */});
+
+  NicoVideoPlayerDialog.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="zenzaVideoPlayerDialog">
+      <div class="zenzaVideoPlayerDialogInner">
+        <div class="menuContainer"></div>
+        <div class="zenzaPlayerContainer">
+          <div class="closeButton">×</div>
+
+          <div class="popupMessageContainer"></div>
+        </div>
+      </div>
+    </div>
+  */});
+
+  _.assign(NicoVideoPlayerDialog.prototype, {
+    initialize: function(params) {
+      this._offScreenLayer = params.offScreenLayer;
+      this._playerConfig = params.playerConfig;
+      this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
+
+      this._playerConfig.on('update-screenMode', $.proxy(this._updateScreenMode, this));
+      this._initializeDom(params);
+
+      this._keyEmitter.on('keyDown', $.proxy(this._onKeyDown, this));
+
+      this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
+      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+
+      var emitter = new AsyncEmitter();
+      this.on        = $.proxy(emitter.on,        emitter);
+      this.emit      = $.proxy(emitter.emit,      emitter);
+      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+    },
+    _initializeDom: function() {
+      ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
+      var $dialog = this._$dialog = $(NicoVideoPlayerDialog.__tpl__);
+
+      this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
+      this._$playerContainer.on('click', function(e) {
+        ZenzaWatch.emitter.emitAsync('hideHover');
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      this.setIsBackComment(this._playerConfig.getValue('backComment'));
+      this._$playerContainer.toggleClass('showComment',
+        this._playerConfig.getValue('showComment'));
+      this._$playerContainer.toggleClass('mute',
+        this._playerConfig.getValue('mute'));
+      this._$playerContainer.toggleClass('loop',
+        this._playerConfig.getValue('loop'));
+
+
+      // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
+      var lastX = 0, lastY = 0;
+      var onMouseMove    = $.proxy(this._onMouseMove, this);
+      var onMouseMoveEnd = _.debounce($.proxy(this._onMouseMoveEnd, this), 1500);
+      this._$playerContainer.on('mousemove', $.proxy(function(e) {
+          if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
+            return;
+          }
+          lastX = e.screenX;
+          lastY = e.screenY;
+          onMouseMove(e);
+          onMouseMoveEnd(e);
+        }, this))
+      .on('mouseown', onMouseMove)
+      .on('mouseown', onMouseMoveEnd);
+
+      $dialog.on('click', $.proxy(this._onClick, this));
+      $dialog.find('.closeButton')
+        .on('click', $.proxy(this._onCloseButtonClick, this));
+
+      this._hoverMenu = new VideoHoverMenu({
+        $playerContainer: this._$playerContainer,
+        playerConfig: this._playerConfig
+      });
+      this._hoverMenu.on('volume', $.proxy(function(vol) {
+        this.setVolume(vol);
+      }, this));
+
+      $('body').append($dialog);
+    },
+    _onKeyDown: function(name /*, target */) {
+      if (!this._isOpen) {
+        return;
+      }
+      switch (name) {
+        case 'SPACE':
+        case 'PAUSE':
+          this._nicoVideoPlayer.togglePlay();
+          break;
+        case 'ESC':
+          if (!FullScreen.now()) {
+            this.close();
+          }
+          break;
+        case 'FULL':
+          this._nicoVideoPlayer.requestFullScreen();
+          break;
+        case 'VIEW_COMMENT':
+          var v = this._playerConfig.getValue('showComment');
+          this._playerConfig.setValue('showComment', !v);
+          break;
+      }
+    },
+    _onPlayerConfigUpdate: function(key, value) {
+      switch (key) {
+        case 'backComment':
+          this.setIsBackComment(value);
+          break;
+        case 'showComment':
+          PopupMessage.notify('コメント表示: ' + (value ? 'ON' : 'OFF'));
+          this._$playerContainer.toggleClass('showComment', value);
+          break;
+        case 'loop':
+          PopupMessage.notify('リピート再生: ' + (value ? 'ON' : 'OFF'));
+          this._$playerContainer.toggleClass('loop', value);
+          break;
+        case 'mute':
+          PopupMessage.notify('ミュート: ' + (value ? 'ON' : 'OFF'));
+          this._$playerContainer.toggleClass('mute', value);
+          break;
+        case 'debug':
+          PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
+          break;
+      }
+    },
+    setIsBackComment: function(v) {
+      this._$playerContainer.toggleClass('backComment', !!v);
+    },
+    _onMouseMove: function() {
+      this._$playerContainer.addClass('mouseMoving');
+    },
+    _onMouseMoveEnd: function() {
+      this._$playerContainer.removeClass('mouseMoving');
+    },
+    _updateScreenMode: function(mode) {
+      this._clearClass();
+      $('body').addClass('zenzaScreenMode_' + mode);
+    },
+    _clearClass: function() {
+      var modes = [
+        'zenzaScreenMode_3D',
+        'zenzaScreenMode_small',
+        'zenzaScreenMode_sideView',
+        'zenzaScreenMode_normal',
+        'zenzaScreenMode_big',
+        'zenzaScreenMode_wide',
+      ].join(' ');
+      $('body').removeClass(modes);
+    },
+    _onClick: function() {
+    },
+    _onCloseButtonClick: function() {
+      if (FullScreen.now()) {
+        FullScreen.cancel();
+      } else {
+        this.close();
+      }
+    },
+
+    show: function() {
+      this._$dialog.addClass('show');
+      if (!FullScreen.now()) {
+        $('body').removeClass('fullScreen');
+      }
+      $('body').addClass('showNicoVideoPlayerDialog');
+      this._updateScreenMode(this._playerConfig.getValue('screenMode'));
+      this._isOpen = true;
+    },
+    hide: function() {
+      this._$dialog.removeClass('show');
+      $('body').removeClass('showNicoVideoPlayerDialog');
+      this._clearClass();
+      this._isOpen = false;
+    },
+    open: function(watchId, options) {
+      window.console.time('動画選択から再生可能までの時間 watchId=' + watchId);
+
+      var nicoVideoPlayer = this._nicoVideoPlayer;
+      if (!nicoVideoPlayer) {
+        this._nicoVideoPlayer = nicoVideoPlayer = new NicoVideoPlayer({
+          offScreenLayer: this._offScreenLayer,
+          node: this._$playerContainer,
+          volume: Config.getValue('volume'),
+          loop: Config.getValue('loop'),
+          playerConfig: Config
+        });
+
+        this._messageApiLoader = new MessageApiLoader();
+
+        window.setTimeout($.proxy(function() {
+          this._videoInfoPanel = new VideoInfoPanel({
+            dialog: this,
+            player: nicoVideoPlayer,
+            node: this._$playerContainer
+          });
+        }, this), 0);
+
+        nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
+        nicoVideoPlayer.on('ended',          $.proxy(this._onVideoEnded,     this));
+        nicoVideoPlayer.on('canPlay',        $.proxy(this._onVideoCanPlay,   this));
+
+        nicoVideoPlayer.on('volumeChange',
+          $.proxy(this._onVolumeChange, this));
+        nicoVideoPlayer.on('volumeChange',
+          _.debounce($.proxy(this._onVolumeChangeEnd, this), 1500));
+      } else {
+        nicoVideoPlayer.close();
+        this._videoInfoPanel.clear();
+      }
+
+      this._bindLoaderEvents();
+
+      this._videoWatchOptions = options || {};
+
+      this._playerConfig.setValue('lastPlayerId', this.getId());
+
+      // watchIdからサムネイルを逆算できる時は最速でセットする
+      var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(watchId);
+      if (thumbnail) {
+        nicoVideoPlayer.setThumbnail(thumbnail);
+      }
+
+      this._watchId = watchId;
+      window.console.time('VideoInfoLoader');
+      VideoInfoLoader.load(watchId);
+
+      this.show(options);
+      ZenzaWatch.emitter.emitAsync('DialogPlayerOpen');
+    },
+    getCurrentTime: function() {
+      if (!this._nicoVideoPlayer) {
+        return 0;
+      }
+      return this._nicoVideoPlayer.getCurrentTime();
+    },
+    setCurrentTime: function(sec) {
+      if (!this._nicoVideoPlayer) {
+        return;
+      }
+      this._nicoVideoPlayer.setCurrentTime(sec);
+    },
+    getId: function() {
+      return this._id;
+    },
+    /**
+     *  ロード時のイベントを貼り直す
+     */
+    _bindLoaderEvents: function() {
+      if (this._onVideoInfoLoaderLoad_proxy) {
+        VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
+      }
+      this._onVideoInfoLoaderLoad_proxy = $.proxy(this._onVideoInfoLoaderLoad, this);
+      VideoInfoLoader.on('load', this._onVideoInfoLoaderLoad_proxy);
+    },
+    _onVideoInfoLoaderLoad: function(videoInfo, type, watchId) {
+      window.console.timeEnd('VideoInfoLoader');
+      console.log('VideoInfoLoader.load!', watchId, type, videoInfo);
+
+      if (type !== 'WATCH_API') {
+        this._nicoVideoPlayer.setThumbnail(videoInfo.thumbImage);
+        this._nicoVideoPlayer.setVideo(videoInfo.url);
+
+        this._threadId = videoInfo.thread_id;
+
+        this._messageApiLoader.load(
+          videoInfo.ms,
+          videoInfo.thread_id,
+          videoInfo.l,
+          videoInfo.user_id,
+          videoInfo.needs_key === '1',
+          videoInfo.optional_thread_id
+        ).then(
+          $.proxy(this._onCommentLoadSuccess, this, watchId),
+          $.proxy(this._onCommentLoadFail, this, watchId)
+        );
+
+        this._$playerContainer.addClass('noVideoInfoPanel');
+
+      } else {
+        if (this._watchId !== watchId) {
+          return;
+        }
+        var flvInfo   = videoInfo.flvInfo;
+        var videoUrl  = flvInfo.url;
+
+        this._videoInfo = new VideoInfoModel(videoInfo);
+        this._nicoVideoPlayer.setThumbnail(videoInfo.thumbnail);
+        this._nicoVideoPlayer.setVideo(videoUrl);
+
+        this._threadId = flvInfo.thread_id;
+
+        
+        this._messageApiLoader.load(
+          flvInfo.ms,
+          flvInfo.thread_id,
+          flvInfo.l,
+          flvInfo.user_id,
+          flvInfo.needs_key === '1',
+          flvInfo.optional_thread_id
+        ).then(
+          $.proxy(this._onCommentLoadSuccess, this, watchId),
+          $.proxy(this._onCommentLoadFail, this, watchId)
+        );
+
+        if (this._videoInfoPanel) {
+          this._videoInfoPanel.update(this._videoInfo);
+        }
+      }
+      ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
+    },
+    _onCommentLoadSuccess: function(watchId, result) {
+      if (watchId !== this._watchId) {
+        return;
+      }
+      PopupMessage.notify('コメント取得成功');
+      this._nicoVideoPlayer.setComment(result.xml);
+    },
+     _onCommentLoadFail: function(e) {
+      PopupMessage.alert(e.message);
+    },
+    _onLoadedMetaData: function() {
+      // パラメータで開始秒数が指定されていたらそこにシーク
+      if (this._videoWatchOptions.currentTime) {
+        this._nicoVideoPlayer.setCurrentTime(this._videoWatchOptions.currentTime);
+      }
+    },
+    _onVideoCanPlay: function() {
+      window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
+    },
+    _onVideoEnded: function() {
+      // ループ再生中は飛んでこない
+      this.emit('ended');
+      ZenzaWatch.emitter.emitAsync('videoEnded');
+    },
+    _onVolumeChange: function(vol, mute) {
+      this.emit('volumeChange', vol, mute);
+      this._$playerContainer.addClass('volumeChanging');
+    },
+    _onVolumeChangeEnd: function(vol, mute) {
+      this.emit('volumeChangeEnd', vol, mute);
+      this._$playerContainer.removeClass('volumeChanging');
+    },
+    close: function() {
+      this.hide();
+      if (this._nicoVideoPlayer) {
+        this._nicoVideoPlayer.close();
+      }
+      if (this._onVideoInfoLoaderLoad_proxy) {
+        VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
+        this._onVideoInfoLoaderLoad_proxy = null;
+      }
+      ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
+    },
+    play: function() {
+      if (this._nicoVideoPlayer) {
+        this._nicoVideoPlayer.play();
+      }
+    },
+    pause: function() {
+      if (this._nicoVideoPlayer) {
+        this._nicoVideoPlayer.pause();
+      }
+    },
+    setVolume: function(v) {
+      if (this._nicoVideoPlayer) {
+        this._nicoVideoPlayer.setVolume(v);
+      }
+    },
+    addChat: function(text, cmd, vpos, options) {
+      if (!this._nicoVideoPlayer) {
+        return;
+      }
+
+      options = options || {};
+      options.mine = '1';
+      vpos = vpos || this._nicoVideoPlayer.getVpos();
+      var nicoChat = this._nicoVideoPlayer.addChat('通信中...', cmd, vpos, options);
+      var onSuccess = function() {
+        nicoChat.setText(text);
+        PopupMessage.notify('コメントの投稿成功');
+      };
+
+      window.setTimeout(onSuccess, 1500);
+    },
+    getPlayingStatus: function() {
+      if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
+        return {};
+      }
+      return {
+        playing: true,
+        watchId: this._watchId,
+        currentTime: this._nicoVideoPlayer.getCurrentTime()
+      };
+    }
+  });
+
+  var VideoHoverMenu = function() { this.initialize.apply(this, arguments); };
+  VideoHoverMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .menuItemContainer {
+      box-sizing: border-box;
       position: fixed;
+      z-index: 130000;
+      {*border: 1px solid #ccc;*}
+      overflow: visible;
+    }
+
+    .menuItemContainer.leftBottom {
+      width: 72px;
+      height: 112px;
+      left: 8px;
+      bottom: 64px;
+    }
+
+    .zenzaScreenMode_sideView .menuItemContainer.leftBottom {
+      position: absolute;
+    }
+
+
+    .menuButton {
+      position: absolute;
       opacity: 0;
       transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
       box-sizing: border-box;
       text-align: center;
+      pointer-events: none;
 
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
-      z-index: 130000;
+    }
+
+    .menuItemContainer:hover .menuButton {
+      pointer-events: auto;
     }
 
     .mouseMoving .menuButton {
-      opacity: 0.5;
+      opacity: 0.8;
       background: rgba(0xcc, 0xcc, 0xcc, 0.5);
       border: 1px solid #888;
     }
     .mouseMoving .menuButton .menuButtonInner {
-      opacity: 0.5;
+      opacity: 0.8;
     }
 
     .menuButton:hover {
@@ -5433,8 +5977,8 @@ iframe {
     }
 
     .showCommentSwitch {
-      left: 8px;
-      bottom: 64px;
+      left: 0;
+      bottom: 0;
       width:  32px;
       height: 32px;
       color: #000;
@@ -5458,10 +6002,61 @@ iframe {
       text-shadow: 0 0 6px orange;
     }
 
+    .loopSwitch {
+      left: 0;
+      bottom: 40px;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 30px;
+      font-size: 18px;
+      background:#888;
+    }
+    .loopSwitch:hover {
+      box-shadow: 4px 4px 0 #000;
+    }
+    .loopSwitch:active {
+      box-shadow: none;
+      margin-left: 4px;
+      margin-top:  4px;
+    }
+
+    .loop .loopSwitch {
+      background:#888;
+      color: #fff;
+      text-shadow: 0 0 6px orange;
+    }
+
+    .muteSwitch {
+      left: 0;
+      bottom: 80px;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 30px;
+      font-size: 18px;
+      background:#888;
+    }
+    .muteSwitch:hover {
+      box-shadow: 4px 4px 0 #000;
+    }
+    .muteSwitch:active {
+      box-shadow: none;
+      margin-left: 4px;
+      margin-top:  4px;
+    }
+
+    .zenzaPlayerContainer:not(.mute) .muteSwitch .mute-on,
+                              .mute  .muteSwitch .mute-off {
+      display: none;
+    }
+
     .commentLayerOrderSwitch {
       display: none;
-      left: 48px;
-      bottom: 64px;
+      left: 40px;
+      bottom: 0;
       width:  32px;
       height: 32px;
     }
@@ -5511,156 +6106,138 @@ iframe {
     }
 
 
+    .menuItemContainer .volumeControl {
+      position: absolute;
+      left: 40px;
+      bottom: 40px;
+      width: 32px;
+      height: 72px;
+      box-sizing: border-box;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+    .menuItemContainer:hover .volumeControl {
+      pointer-events: auto;
+    }
+    .volumeControl:hover {
+      pointer-events: auto;
+      background: rgba(0x33, 0x33, 0x33, 0.8);
+      opacity: 1;
+    }
 
+    .mute .volumeControl {
+      border: 1px solid #600;
+      background: none !important;
+      pointer-events: none !important;
+    }
+    .mute .volumeControl>* {
+      display: none;
+    }
+
+    .volumeChanging  .menuItemContainer .volumeControl,
+    .mouseMoving     .menuItemContainer .volumeControl {
+      opacity: 0.5;
+      border: 1px solid #888;
+    }
+
+
+    .volumeControl .volumeControlInner {
+      position: relative;
+      box-sizing: border-box;
+      width: 16px;
+      height: 64px;
+      border: 1px solid #888;
+      margin: 4px 8px;
+      cursor: pointer;
+    }
+
+    .volumeControl .volumeControlInner .slideBar {
+      position: absolute;
+      width: 100%;
+      height: 50%;
+      left: 0;
+      bottom: 0;
+      background: rgba(255,255,255, 0.8);
+      pointer-events: none;
+      mix-blend-mode: difference;
+    }
   */});
 
-  NicoVideoPlayerDialog.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="zenzaVideoPlayerDialog">
-      <div class="zenzaVideoPlayerDialogInner">
-        <div class="menuContainer"></div>
-        <div class="zenzaPlayerContainer">
-          <div class="closeButton">×</div>
+  VideoHoverMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="menuItemContainer leftBottom">
+      <div class="loopSwitch menuButton" data-command="loop" title="リピート">
+        <div class="menuButtonInner">&#x27F3;</div>
+      </div>
 
-          <div class="showCommentSwitch menuButton" data-command="showComment" title="コメントの表示ON/OFF">
-            <div class="menuButtonInner">C</div>
-          </div>
+      <div class="muteSwitch menuButton" data-command="mute" title="ミュート">
+        <div class="menuButtonInner mute-off">&#x1F50A;</div>
+        <div class="menuButtonInner mute-on">&#x1F507;</div>
+      </div>
 
-          <div class="commentLayerOrderSwitch menuButton" data-command="backComment" title="コメントの表示順">
-            <div class="layer comment">C</div>
-            <div class="layer video">V</div>
-          </div>
-
-          <div class="popupMessageContainer"></div>
+      <div class="volumeControl">
+        <div class="volumeControlInner">
+          <div class="slideBar"></div>
         </div>
+      </div>
+
+      <div class="showCommentSwitch menuButton" data-command="showComment" title="コメントの表示ON/OFF">
+        <div class="menuButtonInner">C</div>
+      </div>
+
+      <div class="commentLayerOrderSwitch menuButton" data-command="backComment" title="コメントの表示順">
+        <div class="layer comment">C</div>
+        <div class="layer video">V</div>
       </div>
     </div>
   */});
 
-  _.assign(NicoVideoPlayerDialog.prototype, {
+  _.assign(VideoHoverMenu.prototype, {
     initialize: function(params) {
-      this._offScreenLayer = params.offScreenLayer;
-      this._playerConfig = params.playerConfig;
-      this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
+      this._$playerContainer = params.$playerContainer;
+      this._playerConfig     = params.playerConfig;
 
-      this._playerConfig.on('update-screenMode', $.proxy(this._updateScreenMode, this));
-      this._initializeDom(params);
+      var emitter = new AsyncEmitter();
+      this.on        = $.proxy(emitter.on,        emitter);
+      this.emit      = $.proxy(emitter.emit,      emitter);
+      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
-      this._keyEmitter.on('keyDown', $.proxy(this._onKeyDown, this));
-
-      this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._initializeDom();
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
-      var $dialog = this._$dialog = $(NicoVideoPlayerDialog.__tpl__);
+      ZenzaWatch.util.addStyle(VideoHoverMenu.__css__);
+      this._$playerContainer.append(VideoHoverMenu.__tpl__);
 
-      this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
-      this._$playerContainer.on('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-
-      this.setIsBackComment(this._playerConfig.getValue('backComment'));
-      this._$playerContainer.toggleClass('showComment',
-        this._playerConfig.getValue('showComment'));
-
-      // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
-      var lastX = 0, lastY = 0;
-      var onMouseMove    = $.proxy(this._onMouseMove, this);
-      var onMouseMoveEnd = _.debounce($.proxy(this._onMouseMoveEnd, this), 2000);
-      this._$playerContainer.on('mousemove', $.proxy(function(e) {
-          if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
-            return;
-          }
-          lastX = e.screenX;
-          lastY = e.screenY;
-          onMouseMove(e);
-          onMouseMoveEnd(e);
-        }, this))
-      .on('mouseown', onMouseMove)
-      .on('mouseown', onMouseMoveEnd);
-
-      $dialog.on('click', $.proxy(this._onClick, this));
-      $dialog.find('.closeButton')
-        .on('click', $.proxy(this._onCloseButtonClick, this));
-
-      $dialog.find('.menuButton')
+      var $container = this._$playerContainer;
+      $container.find('.menuButton')
         .on('click', $.proxy(this._onMenuButtonClick, this));
 
-      $('body').append($dialog);
+      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._initializeVolumeCotrol();
     },
-    _onKeyDown: function(name /*, target */) {
-      if (!this._isOpen) {
-        return;
-      }
-      switch (name) {
-        case 'SPACE':
-        case 'PAUSE':
-          this._nicoVideoPlayer.togglePlay();
-          break;
-        case 'ESC':
-          if (!FullScreen.now()) {
-            this.close();
-          }
-          break;
-        case 'FULL':
-          this._nicoVideoPlayer.requestFullScreen();
-          break;
-        case 'VIEW_COMMENT':
-          var v = this._playerConfig.getValue('showComment');
-          this._playerConfig.setValue('showComment', !v);
-          break;
-      }
-    },
-    _onPlayerConfigUpdate: function(key, value) {
-      switch (key) {
-        case 'backComment':
-          this.setIsBackComment(value);
-          break;
-        case 'showComment':
-          PopupMessage.notify('コメント表示: ' + (value ? 'ON' : 'OFF'));
-          this._$playerContainer.toggleClass('showComment', value);
-          break;
-        case 'loop':
-          PopupMessage.notify('リピート再生: ' + (value ? 'ON' : 'OFF'));
-          break;
-        case 'debug':
-          PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
-          break;
-       }
-    },
-    setIsBackComment: function(v) {
-      this._$playerContainer.toggleClass('backComment', !!v);
-    },
-    _onMouseMove: function() {
-      this._$playerContainer.addClass('mouseMoving');
-    },
-    _onMouseMoveEnd: function() {
-      this._$playerContainer.removeClass('mouseMoving');
-    },
-    _updateScreenMode: function(mode) {
-      this._clearClass();
-      $('body').addClass('zenzaScreenMode_' + mode);
-    },
-    _clearClass: function() {
-      var modes = [
-        'zenzaScreenMode_3D',
-        'zenzaScreenMode_small',
-        'zenzaScreenMode_sideView',
-        'zenzaScreenMode_normal',
-        'zenzaScreenMode_big',
-        'zenzaScreenMode_wide',
-      ].join(' ');
-      $('body').removeClass(modes);
-    },
-    _onClick: function(e) {
-    },
-    _onCloseButtonClick: function() {
-      if (FullScreen.now()) {
-        FullScreen.cancel();
-      } else {
-        this.close();
-      }
+    _initializeVolumeCotrol: function() {
+      var $container = this._$playerContainer.find('.volumeControl');
+      var $bar = this._$playerContainer.find('.volumeControl .slideBar');
+
+      this._setVolumeBar = function(v) {
+        var per = Math.round(v * 100);
+        $bar.css({ height: per + '%'});
+        $container.attr('title', '音量 (' + per + '%)');
+      };
+
+      var $inner = this._$playerContainer.find('.volumeControlInner');
+      $inner.on('mousedown', $.proxy(function(e) {
+        var height = $inner.outerHeight();
+        var y = (height - e.offsetY);
+        var vol = y / height;
+
+        this.emit('volume', vol);
+
+        e.preventDefault();
+        e.stopPropagation();
+      }, this));
+
+      this._setVolumeBar(this._playerConfig.getValue('volume'));
     },
     _onMenuButtonClick: function(e) {
       e.preventDefault();
@@ -5672,191 +6249,22 @@ iframe {
         case 'close':
           this._onCloseButtonClick();
           break;
+        case 'loop':
+        case 'mute':
         case 'backComment':
-          this._playerConfig.setValue('backComment',
-            !this._playerConfig.getValue('backComment'));
-          break;
         case 'showComment':
-          this._playerConfig.setValue('showComment',
-            !this._playerConfig.getValue('showComment'));
+          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
        }
     },
-    show: function() {
-      this._$dialog.addClass('show');
-      if (!FullScreen.now()) {
-        $('body').removeClass('fullScreen');
-      }
-      $('body').addClass('showNicoVideoPlayerDialog');
-      this._updateScreenMode(this._playerConfig.getValue('screenMode'));
-      this._isOpen = true;
-    },
-    hide: function() {
-      this._$dialog.removeClass('show');
-      $('body').removeClass('showNicoVideoPlayerDialog');
-      this._clearClass();
-      this._isOpen = false;
-    },
-    open: function(watchId, options) {
-      var nicoVideoPlayer = this._nicoVideoPlayer;
-      if (!nicoVideoPlayer) {
-        this._nicoVideoPlayer = nicoVideoPlayer = new NicoVideoPlayer({
-          offScreenLayer: this._offScreenLayer,
-          node: this._$playerContainer,
-          volume: Config.getValue('volume'),
-          loop: Config.getValue('loop'),
-          playerConfig: Config
-        });
-
-        window.setTimeout($.proxy(function() {
-          this._videoInfoPanel = new VideoInfoPanel({
-            dialog: this,
-            player: nicoVideoPlayer,
-            node: this._$playerContainer
-          });
-        }, this), 0);
-
-        nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
-      } else {
-        nicoVideoPlayer.close();
-        this._videoInfoPanel.clear();
-      }
-
-      this._bindLoaderEvents();
-
-      this._videoWatchOptions = options || {};
-
-      this._playerConfig.setValue('lastPlayerId', this.getId());
-
-      this._watchId = watchId;
-      window.console.time('VideoInfoLoader');
-      VideoInfoLoader.load(watchId);
-
-      this.show(options);
-    },
-    getCurrentTime: function() {
-      if (!this._nicoVideoPlayer) {
-        return 0;
-      }
-      return this._nicoVideoPlayer.getCurrentTime();
-    },
-    setCurrentTime: function(sec) {
-      if (!this._nicoVideoPlayer) {
-        return;
-      }
-      this._nicoVideoPlayer.setCurrentTime(sec);
-    },
-    getId: function() {
-      return this._id;
-    },
-    /**
-     *  ロード時のイベントを貼り直す
-     */
-    _bindLoaderEvents: function() {
-      if (this._onVideoInfoLoaderLoad_proxy) {
-        VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
-        CommentLoader  .off('load', this._onCommentLoaderLoad_proxy);
-      }
-      this._onVideoInfoLoaderLoad_proxy = $.proxy(this._onVideoInfoLoaderLoad, this);
-      this._onCommentLoaderLoad_proxy   = $.proxy(this._onCommentLoaderLoad,   this);
-      VideoInfoLoader.on('load', this._onVideoInfoLoaderLoad_proxy);
-      CommentLoader  .on('load', this._onCommentLoaderLoad_proxy);
-    },
-    _onVideoInfoLoaderLoad: function(videoInfo, type, watchId) {
-      window.console.timeEnd('VideoInfoLoader');
-      console.log('VideoInfoLoader.load!', watchId, type, videoInfo);
-
-      if (type !== 'WATCH_API') {
-        this._nicoVideoPlayer.setThumbnail(videoInfo.thumbImage);
-        this._nicoVideoPlayer.setVideo(videoInfo.url);
-        window.console.time('CommentLoader');
-
-        this._threadId = videoInfo.thread_id;
-
-        CommentLoader.load(
-          videoInfo.ms,
-          videoInfo.thread_id,
-          videoInfo.l,
-          videoInfo.user_id,
-          videoInfo.needs_key === '1',
-          videoInfo.optional_thread_id
-        );
-      } else {
-        if (this._watchId !== watchId) {
-          return;
-        }
-        var flvInfo   = videoInfo.flvInfo;
-        var videoUrl  = flvInfo.url;
-
-        this._videoInfo = new VideoInfoModel(videoInfo);
-        this._nicoVideoPlayer.setThumbnail(videoInfo.thumbnail);
-        this._nicoVideoPlayer.setVideo(videoUrl);
-
-        this._threadId = flvInfo.thread_id;
-
-        window.console.time('CommentLoader');
-        CommentLoader.load(
-          flvInfo.ms,
-          flvInfo.thread_id,
-          flvInfo.l,
-          flvInfo.user_id,
-          flvInfo.needs_key === '1',
-          flvInfo.optional_thread_id
-        );
-        if (this._videoInfoPanel) {
-          this._videoInfoPanel.update(this._videoInfo);
-        }
-      }
-      ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
-    },
-    _onCommentLoaderLoad: function(xmlText, threadId) {
-      window.console.timeEnd('CommentLoader');
-      if (this._threadId !== threadId) {
-        return;
-      }
-      this._nicoVideoPlayer.setComment(xmlText);
-    },
-    _onLoadedMetaData: function() {
-      // パラメータで開始秒数が指定されていたらそこにシーク
-      if (this._videoWatchOptions.currentTime) {
-        this._nicoVideoPlayer.setCurrentTime(this._videoWatchOptions.currentTime);
+    _onPlayerConfigUpdate: function(key, value) {
+      switch (key) {
+        case 'volume':
+          this._setVolumeBar(value);
+          break;
       }
     },
-    close: function() {
-      this.hide();
-      if (this._nicoVideoPlayer) {
-        this._nicoVideoPlayer.close();
-      }
-      if (this._onVideoInfoLoaderLoad_proxy) {
-        VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
-        CommentLoader  .off('load', this._onCommentLoaderLoad_proxy);
-        this._onVideoInfoLoaderLoad_proxy = null;
-        this._onCommentLoaderLoad_proxy = null;
-      }
-    },
-    play: function() {
-      if (this._nicoVideoPlayer) {
-        this._nicoVideoPlayer.play();
-      }
-    },
-    pause: function() {
-      if (this._nicoVideoPlayer) {
-        this._nicoVideoPlayer.pause();
-      }
-    },
-    getPlayingStatus: function() {
-      if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
-        return {};
-      }
-      return {
-        playing: true,
-        watchId: this._watchId,
-        currentTime: this._nicoVideoPlayer.getCurrentTime()
-      };
-    }
-  });
-
-
+   });
 
 
 
@@ -5864,6 +6272,7 @@ iframe {
 
     var initialize = function() {
       console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
+      initialize = _.noop;
       addStyle(__css__);
 
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
@@ -5945,13 +6354,17 @@ iframe {
         nicoVideoPlayer.setThumbnail(videoInfo.thumbImage);
         nicoVideoPlayer.setVideo(videoInfo.url);
 
-        window.console.time('CommentLoader');
-        CommentLoader.load(videoInfo.ms, videoInfo.thread_id, videoInfo.l);
-      });
-
-      CommentLoader.on('load', function(xmlText) {
-        window.console.timeEnd('CommentLoader');
-        nicoVideoPlayer.setComment(xmlText);
+        window.console.time('loadComment');
+        var messageApiLoader = new MessageApiLoader();
+        messageApiLoader.load(videoInfo.ms, videoInfo.thread_id, videoInfo.l).then(
+          function(result) {
+            window.console.timeEnd('loadComment');
+            nicoVideoPlayer.setComment(result.xml);
+          },
+          function() {
+            PopupMessage.alert('コメントの取得失敗 ' + videoInfo.ms);
+          }
+        );
       });
 
       window.console.time('VideoInfoLoader');
