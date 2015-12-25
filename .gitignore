@@ -1,4 +1,7 @@
 setting.json
 *cp.sh*
 .jshintrc
+*.swp
+*.bk
+./test.js
 
