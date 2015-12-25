@@ -1708,11 +1708,13 @@ var monkey = function() {
           <option value="wide">ワイド</option>
        </select>
       </div>
+      <!--
       <div class="fullScreenControl control toggle">
         <button class="fullScreen">
           フルスクリーン
         </button>
       </div>
+      -->
         <!--<div class="muteControl control toggle">
         <label>
           ミュート
@@ -1727,12 +1729,14 @@ var monkey = function() {
         </label>
       </div>
       -->
+      <!--
       <div class="autoPlayControl control toggle">
         <label>
           自動再生
           <input type="checkbox" class="checkbox" data-setting-name="autoPlay">
         </label>
       </div>
+      -->
       <!--
       <div class="showCommentControl control toggle">
         <label>
@@ -1741,12 +1745,14 @@ var monkey = function() {
         </label>
       </div>
       -->
+      <!--
       <div class="debugControl control toggle">
         <label>
           デバッグ
           <input type="checkbox" class="checkbox" data-setting-name="debug">
         </label>
       </div>
+      -->
      </div>
   */});
 
@@ -1874,6 +1880,7 @@ var monkey = function() {
       cursor: pointer;
       padding: 2px 8px;
       list-style-type: none;
+      float: inherit;
     }
     .zenzaPlayerContextMenu ul li.selected {
     }
@@ -1889,6 +1896,7 @@ var monkey = function() {
     .zenzaPlayerContextMenu ul li.separator {
       border: 1px outset;
       height: 2px;
+      width: 90%;
     }
     .zenzaPlayerContextMenu.show {
       opacity: 0.8;
@@ -1906,6 +1914,7 @@ var monkey = function() {
           <li data-command="restart">先頭に戻る</li>
           <li class="loop"        data-command="loop">リピート再生</li>
           <li class="showComment" data-command="showComment">コメントを表示</li>
+          <li class="autoPlay"    data-command="autoPlay">自動再生</li>
 
           <hr class="separator">
 
@@ -1928,6 +1937,8 @@ var monkey = function() {
           <li class="playbackRate" data-command="playbackRate" data-param="4">4倍速(4x)</li>
           <li class="playbackRate" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
           -->
+          <hr class="separator">
+          <li class="debug"        data-command="debug">デバッグ</li>
         </ul>
       </div>
     </div>
@@ -1948,7 +1959,7 @@ var monkey = function() {
       $view.on('click', $.proxy(this._onMouseDown, this));
     },
     _onMouseDown: function(e) {
-      var target = e.target, $target = jQuery(target);
+      var target = e.target, $target = $(target);
       var command = $target.attr('data-command');
       var param = $target.attr('data-param');
       this.hide();
@@ -1960,12 +1971,10 @@ var monkey = function() {
           player.togglePlay();
           break;
         case 'showComment':
-          this._playerConfig.setValue('showComment',
-            !this._playerConfig.getValue('showComment'));
-          break;
         case 'loop':
-          this._playerConfig.setValue('loop',
-            !this._playerConfig.getValue('loop'));
+        case 'autoPlay':
+        case 'debug':
+          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
         case 'restart':
           player.setCurrentTime(0);
@@ -1997,6 +2006,10 @@ var monkey = function() {
         .toggleClass('selected', this._playerConfig.getValue('showComment'));
       this._$view.find('.loop')
         .toggleClass('selected', this._playerConfig.getValue('loop'));
+      this._$view.find('.autoPlay')
+        .toggleClass('selected', this._playerConfig.getValue('autoPlay'));
+      this._$view.find('.debug')
+        .toggleClass('selected', this._playerConfig.getValue('debug'));
     },
     appendTo: function($node) {
       this._$node = $node;
@@ -2316,7 +2329,7 @@ var monkey = function() {
       return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;
     },
     setIsAutoPlay: function(v) {
-      this._video.autoPlay = v;
+      this._video.autoplay = v;
     },
     getIsAutoPlay: function() {
       return this._video.autoPlay;
@@ -4453,9 +4466,6 @@ iframe {
 
 
 
-//==================================================
-//==================================================
-//==================================================
 
   var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
  NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -4765,10 +4775,6 @@ iframe {
         top: calc(50% + 60px);
         background: none;
       }
-
-      body:not(.fullScreen).zenzaScreenMode_normal .menuItemContainer.leftBottom {
-        bottom: 304px;
-      }
     }
 
     @media
@@ -4779,10 +4785,6 @@ iframe {
         padding-bottom: 240px;
         top: calc(50% + 60px);
         background: none;
-      }
-
-      body:not(.fullScreen).zenzaScreenMode_big   .menuItemContainer.leftBottom {
-        bottom: 304px;
       }
     }
 
@@ -4897,6 +4899,10 @@ iframe {
       this._hoverMenu.on('volume', $.proxy(function(vol) {
         this.setVolume(vol);
       }, this));
+      this._hoverMenu.on('fullScreen', $.proxy(function() {
+        this._nicoVideoPlayer.toggleFullScreen();
+      }, this));
+
 
       $('body').append($dialog);
     },
@@ -5220,7 +5226,7 @@ iframe {
   VideoHoverMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .menuItemContainer {
       box-sizing: border-box;
-      position: fixed;
+      position: absolute;
       z-index: 130000;
       {*border: 1px solid #ccc;*}
       overflow: visible;
@@ -5236,6 +5242,18 @@ iframe {
     .zenzaScreenMode_sideView .menuItemContainer.leftBottom {
       position: absolute;
     }
+
+    .menuItemContainer.rightBottom {
+      width: 32px;
+      height: 32px;
+      right:  0;
+      bottom: 0px;
+    }
+
+    .zenzaScreenMode_sideView .menuItemContainer.rightBottom {
+      position: absolute;
+    }
+
 
 
     .menuButton {
@@ -5280,6 +5298,7 @@ iframe {
       font-size: 18px;
     }
     .showCommentSwitch:hover {
+      font-size: 120%;
       box-shadow: 4px 4px 0 #000;
     }
     .showCommentSwitch:active {
@@ -5455,6 +5474,53 @@ iframe {
       pointer-events: none;
       mix-blend-mode: difference;
     }
+
+
+    .fullScreenSwitch {
+      left: 0;
+      bottom: 0;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 32px;
+      font-size: 24px;
+    }
+    .fullScreenSwitch .menuButtonInner {
+      position: absolute;
+      font-size: 10px;
+      width: 16px;
+      height: 16px;
+      right: 1px;
+      bottom: 8px;
+    }
+    .fullScreen .fullScreenSwitch .menuButtonInner {
+      top: -6px;
+      left: 0;
+      right: auto;
+      bottom: auto;
+    }
+
+             .fullScreen  .fullScreenSwitch .menuButtonInner .toFull,
+    body:not(.fullScreen) .fullScreenSwitch .menuButtonInner .returnFull {
+      display: none;
+    }
+
+    .fullScreenSwitch:hover {
+      background: #888;
+      box-shadow: 4px 4px 0 #000;
+    }
+    .fullScreenSwitch:active {
+      box-shadow: none;
+      margin-left: 4px;
+      margin-top:  4px;
+    }
+    .fullScreen .fullScreenSwitch:hover {
+    }
+    .fullScreen .fullScreenSwitch {
+      font-size: 16px;
+    }
+
   */});
 
   VideoHoverMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -5482,6 +5548,15 @@ iframe {
         <div class="layer comment">C</div>
         <div class="layer video">V</div>
       </div>
+    </div>
+    <div class="menuItemContainer rightBottom">
+      <div class="fullScreenSwitch menuButton" data-command="fullScreen" title="フルスクリーン">
+        <div class="menuButtonInner">
+          <span class="toFull">&#9698;</span>
+          <span class="returnFull">&#9700;</span>
+        </div>
+      </div>
+
     </div>
   */});
 
@@ -5541,6 +5616,9 @@ iframe {
       switch (command) {
         case 'close':
           this._onCloseButtonClick();
+          break;
+        case 'fullScreen':
+          this.emit('fullScreen');
           break;
         case 'loop':
         case 'mute':

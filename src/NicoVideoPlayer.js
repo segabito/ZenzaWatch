@@ -462,11 +462,13 @@ var NicoCommentPlayer = function() {};
           <option value="wide">ワイド</option>
        </select>
       </div>
+      <!--
       <div class="fullScreenControl control toggle">
         <button class="fullScreen">
           フルスクリーン
         </button>
       </div>
+      -->
         <!--<div class="muteControl control toggle">
         <label>
           ミュート
@@ -481,12 +483,14 @@ var NicoCommentPlayer = function() {};
         </label>
       </div>
       -->
+      <!--
       <div class="autoPlayControl control toggle">
         <label>
           自動再生
           <input type="checkbox" class="checkbox" data-setting-name="autoPlay">
         </label>
       </div>
+      -->
       <!--
       <div class="showCommentControl control toggle">
         <label>
@@ -495,12 +499,14 @@ var NicoCommentPlayer = function() {};
         </label>
       </div>
       -->
+      <!--
       <div class="debugControl control toggle">
         <label>
           デバッグ
           <input type="checkbox" class="checkbox" data-setting-name="debug">
         </label>
       </div>
+      -->
      </div>
   */});
 
@@ -628,6 +634,7 @@ var NicoCommentPlayer = function() {};
       cursor: pointer;
       padding: 2px 8px;
       list-style-type: none;
+      float: inherit;
     }
     .zenzaPlayerContextMenu ul li.selected {
     }
@@ -643,6 +650,7 @@ var NicoCommentPlayer = function() {};
     .zenzaPlayerContextMenu ul li.separator {
       border: 1px outset;
       height: 2px;
+      width: 90%;
     }
     .zenzaPlayerContextMenu.show {
       opacity: 0.8;
@@ -660,6 +668,7 @@ var NicoCommentPlayer = function() {};
           <li data-command="restart">先頭に戻る</li>
           <li class="loop"        data-command="loop">リピート再生</li>
           <li class="showComment" data-command="showComment">コメントを表示</li>
+          <li class="autoPlay"    data-command="autoPlay">自動再生</li>
 
           <hr class="separator">
 
@@ -682,6 +691,8 @@ var NicoCommentPlayer = function() {};
           <li class="playbackRate" data-command="playbackRate" data-param="4">4倍速(4x)</li>
           <li class="playbackRate" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
           -->
+          <hr class="separator">
+          <li class="debug"        data-command="debug">デバッグ</li>
         </ul>
       </div>
     </div>
@@ -702,7 +713,7 @@ var NicoCommentPlayer = function() {};
       $view.on('click', $.proxy(this._onMouseDown, this));
     },
     _onMouseDown: function(e) {
-      var target = e.target, $target = jQuery(target);
+      var target = e.target, $target = $(target);
       var command = $target.attr('data-command');
       var param = $target.attr('data-param');
       this.hide();
@@ -714,12 +725,10 @@ var NicoCommentPlayer = function() {};
           player.togglePlay();
           break;
         case 'showComment':
-          this._playerConfig.setValue('showComment',
-            !this._playerConfig.getValue('showComment'));
-          break;
         case 'loop':
-          this._playerConfig.setValue('loop',
-            !this._playerConfig.getValue('loop'));
+        case 'autoPlay':
+        case 'debug':
+          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
         case 'restart':
           player.setCurrentTime(0);
@@ -751,6 +760,10 @@ var NicoCommentPlayer = function() {};
         .toggleClass('selected', this._playerConfig.getValue('showComment'));
       this._$view.find('.loop')
         .toggleClass('selected', this._playerConfig.getValue('loop'));
+      this._$view.find('.autoPlay')
+        .toggleClass('selected', this._playerConfig.getValue('autoPlay'));
+      this._$view.find('.debug')
+        .toggleClass('selected', this._playerConfig.getValue('debug'));
     },
     appendTo: function($node) {
       this._$node = $node;
@@ -1070,7 +1083,7 @@ var NicoCommentPlayer = function() {};
       return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;
     },
     setIsAutoPlay: function(v) {
-      this._video.autoPlay = v;
+      this._video.autoplay = v;
     },
     getIsAutoPlay: function() {
       return this._video.autoPlay;
