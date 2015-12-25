@@ -1348,7 +1348,7 @@ var FullScreen = {};
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription {
-      padding: 8px;
+      padding: 8px 8px 64px;
       margin: 4px 0px;
       line-height: 150%;
     }
@@ -1502,6 +1502,7 @@ var FullScreen = {};
         z-index: 120000;
       }
       body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+        position: fixed;
         box-sizing: border-box;
         width: 150px;
         float: left;
@@ -1544,6 +1545,7 @@ var FullScreen = {};
       }
 
       body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+        position: fixed;
         box-sizing: border-box;
         width: 150px;
         float: left;
