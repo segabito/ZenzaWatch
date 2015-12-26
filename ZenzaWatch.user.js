@@ -902,9 +902,10 @@ var monkey = function() {
               }
             }).then(function(e) {
               resolve(ZenzaWatch.util.parseQuery(e));
-            }, function() {
+            }, function(result) {
               //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
+                result: result,
                 message: 'ThreadKeyの取得失敗 ' + threadId
               });
             });
@@ -986,6 +987,7 @@ var monkey = function() {
           return packetXml;
         },
         _post: function(server, xml) {
+          // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
           var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
           return new Promise(function(resolve, reject) {
             $.ajax({
@@ -1003,7 +1005,8 @@ var monkey = function() {
             }, function(result) {
               //console.log('post fail: ', result);
               reject({
-                message: 'コメントの取得失敗'
+                result: result,
+                message: 'コメントの取得失敗' + server
               });
             });
           });
@@ -1028,10 +1031,21 @@ var monkey = function() {
           }
 
           console.log('%cthread url:', 'background: cyan;', url);
-          return $.ajax({
-            url: url,
-            crossDomain: true,
-            cache: false
+          return new Promise(function(resolve, reject) {
+            $.ajax({
+              url: url,
+              crossDomain: true,
+              cache: false
+            }).then(function(result) {
+              //console.log('post success: ', result);
+              resolve(result);
+            }, function(result) {
+              //console.log('post fail: ', result);
+              reject({
+                result: result,
+                message: 'コメントの取得失敗' + server
+              });
+            });
           });
         },
         _load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
