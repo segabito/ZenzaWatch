@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {}
 };
 var FullScreen = {};
+var PopupMessage = {};
 
 //===BEGIN===
 
@@ -685,7 +686,7 @@ var FullScreen = {};
       PopupMessage.notify('コメント取得成功');
       this._nicoVideoPlayer.setComment(result.xml);
     },
-     _onCommentLoadFail: function(e) {
+    _onCommentLoadFail: function(e) {
       PopupMessage.alert(e.message);
     },
     _onLoadedMetaData: function() {

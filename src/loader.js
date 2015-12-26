@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
+var AsyncEmitter = function() {};
 
 //===BEGIN===
     var VideoInfoLoader = (function() {
@@ -187,24 +188,24 @@ var ZenzaWatch = {
             'http://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
             '&language_id=0';
 
-          var d = new $.Deferred();
-          $.ajax({
-            url: url,
-            contentType: 'text/plain',
-            crossDomain: true,
-            cache: false,
-            xhrFields: {
-              withCredentials: true
-            }
-          }).then(function(e) {
-            d.resolve(ZenzaWatch.util.parseQuery(e));
-          }, function() {
-            //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
-            d.reject({
-              message: 'ThreadKeyの取得失敗 ' + threadId
+          return new Promise(function(resolve, reject) {
+            $.ajax({
+              url: url,
+              contentType: 'text/plain',
+              crossDomain: true,
+              cache: false,
+              xhrFields: {
+                withCredentials: true
+              }
+            }).then(function(e) {
+              resolve(ZenzaWatch.util.parseQuery(e));
+            }, function() {
+              //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
+              reject({
+                message: 'ThreadKeyの取得失敗 ' + threadId
+              });
             });
           });
-          return d.promise();
         },
         _createThreadXml: function(threadId, version, userId, threadKey, force184) {
           var thread = document.createElement('thread');
@@ -254,14 +255,14 @@ var ZenzaWatch = {
           var span = document.createElement('span');
           var packet = document.createElement('packet');
 
-          if (typeof optionalThreadId !== 'undefined') {
-            packet.appendChild(
-              this._createThreadXml(optionalThreadId, VERSION, userId, threadKey, force184)
-            );
-            packet.appendChild(
-              this._createThreadLeavesXml(optionalThreadId, VERSION, userId, threadKey, force184, duration)
-            );
-          }
+//          if (typeof optionalThreadId !== 'undefined') {
+//            packet.appendChild(
+//              this._createThreadXml(optionalThreadId, VERSION, userId, threadKey, force184)
+//            );
+//            packet.appendChild(
+//              this._createThreadLeavesXml(optionalThreadId, VERSION, userId, threadKey, force184, duration)
+//            );
+//          }
 
           if (duration < 60) {
             packet.appendChild(
@@ -283,16 +284,25 @@ var ZenzaWatch = {
         },
         _post: function(server, xml) {
           var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
-          return $.ajax({
-            url: server,
-            data: xml,
-            type: 'POST',
-            contentType: isNmsg ? 'text/xml' : 'text/plain',
-            dataType: 'xml',
-  //          xhrFields: { withCredentials: true },
-            crossDomain: true,
-            cache: false,
-            complete: this._onComplete
+          return new Promise(function(resolve, reject) {
+            $.ajax({
+              url: server,
+              data: xml,
+              type: 'POST',
+              contentType: isNmsg ? 'text/xml' : 'text/plain',
+              dataType: 'xml',
+    //          xhrFields: { withCredentials: true },
+              crossDomain: true,
+              cache: false
+            }).then(function(result) {
+              //console.log('post success: ', result);
+              resolve(result);
+            }, function(result) {
+              //console.log('post fail: ', result);
+              reject({
+                message: 'コメントの取得失敗'
+              });
+            });
           });
         },
         _get: function(server, threadId, duration, threadKey, force184) {
@@ -356,52 +366,54 @@ var ZenzaWatch = {
           }
         },
         load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
-          var d = new $.Deferred();
 
           var timeKey = 'loadComment server: ' + server + ' thread: ' + threadId;
           window.console.time(timeKey);
-          this._load(
-            server,
-            threadId,
-            duration,
-            userId,
-            isNeedKey,
-            optionalThreadId
-          ).then(
-            function(result) {
-              window.console.timeEnd(timeKey);
-              ZenzaWatch.debug.lastMessageServerResult = result;
+          var self = this;
 
-              var resultCode = null;
-              try {
-                var thread = result.documentElement.getElementsByTagName('thread')[0];
-                resultCode = thread.getAttribute('resultcode');
-              } catch (e) {
-                console.error(e);
-              }
+          return new Promise(function(resolve, reject) {
+            self._load(
+              server,
+              threadId,
+              duration,
+              userId,
+              isNeedKey,
+              optionalThreadId
+            ).then(
+              function(result) {
+                window.console.timeEnd(timeKey);
+                ZenzaWatch.debug.lastMessageServerResult = result;
 
-              if (resultCode !== '0') {
-                window.console.log(result.xml);
-                return d.reject({
-                  message: 'コメント取得失敗' + resultCode
+                var resultCode = null;
+                try {
+                  var thread = result.documentElement.getElementsByTagName('thread')[0];
+                  resultCode = thread.getAttribute('resultcode');
+                } catch (e) {
+                  console.error(e);
+                }
+
+                if (resultCode !== '0') {
+                  window.console.log(result.xml);
+                  reject({
+                    message: 'コメント取得失敗' + resultCode
+                  });
+                  return;
+                }
+
+                resolve({
+                  resultCode: parseInt(resultCode, 10),
+                  xml: result.documentElement
+                });
+              },
+              function(e) {
+                window.console.timeEnd(timeKey);
+                window.console.error('loadComment fail: ', e);
+                reject({
+                  message: 'コメント通信失敗'
                 });
               }
-
-              return d.resolve({
-                resultCode: parseInt(resultCode, 10),
-                xml: result.documentElement
-              });
-            },
-            function(e) {
-              window.console.timeEnd(timeKey);
-              window.console.error('loadComment fail: ', e);
-              return d.reject({
-                message: 'コメント通信失敗'
-              });
-            }
-          );
-
-          return d.promise();
+            );
+          });
         }
       });
 
@@ -551,3 +563,5 @@ var ZenzaWatch = {
  */
 
 //===END===
+
+console.log(VideoInfoLoader);
