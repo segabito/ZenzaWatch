@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.3.10
+// @version        0.3.12
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -565,7 +565,7 @@ var monkey = function() {
     */});
 
 
-    var windowMessageEmitter = (function() {
+    var WindowMessageEmitter = (function() {
       var asyncEmitter = new AsyncEmitter();
 
         var onMessage = function(event) {
@@ -743,7 +743,7 @@ var monkey = function() {
 
         loaderWindow = loaderFrame.contentWindow;
 
-        windowMessageEmitter.on('onMessage', onMessage);
+        WindowMessageEmitter.on('onMessage', onMessage);
       };
 
       var loadFromThumbWatch = function(watchId) {
@@ -949,7 +949,7 @@ var monkey = function() {
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
 
-          thread_leaves.innerText = threadLeavesParam;
+          thread_leaves.innerHTML = threadLeavesParam;
 
           return thread_leaves;
         },
@@ -1179,13 +1179,24 @@ var monkey = function() {
       });
 
       return CacheStorage;
-    });
+    })();
+    ZenzaWatch.api.CacheStorage = CacheStorage;
 
-/*
+
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = 5 * 60 * 1000;
       var token = '';
       var cacheStorage = null;
+
+      var ajax = function(params) {
+        return new Promise(function(resolve, reject) {
+          $.ajax(params).then(function(result) {
+            resolve(result);
+          }, function(err) {
+            reject(err);
+          });
+        });
+      };
 
       function MylistApiLoader() {
         this.initialize.apply(this, arguments);
@@ -1203,16 +1214,15 @@ var monkey = function() {
         },
         getDeflistItems: function() {
           var url = 'http://www.nicovideo.jp/api/deflist/list';
-          var d = new $.Deferred();
           var cacheKey = 'deflistItems';
-          var cacheData = cacheStorage.getItem(cacheKey);
 
+          var cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
-            ZenzaWatch.util.callAsync(function() { return d.resolve(cacheData); });
-            return d.promise();
+            ZenzaWatch.util.callAsync(function() { this.resolve(cacheData); }, this);
+            return;
           }
 
-          $.ajax({
+          return ajax({
             url: url,
             cache: false,
             xhrFields: { withCredentials: true }
@@ -1226,29 +1236,33 @@ var monkey = function() {
             }
             window.console.log(result, data);
             if (data.status !== 'ok' || !data.mylistitem) {
-              return d.reject();
+              this.reject({
+                result: data,
+                message: ''
+              });
             }
 
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-            return d.resolve(data);
-          }, function() {
-            return d.reject();
+            this.resolve(data);
+          }, function(err) {
+            this.reject({
+              result: err,
+              message: ''
+            });
           });
 
-          return d.promise();
         },
         getMylistItems: function(groupId) {
-          var url = 'http://' + host + '/api/mylist/list?group_id=' + groupId;
-          var d = new $.Deferred();
+          var url = 'http://www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
-          var cacheData = cacheStorage.getItem(cacheKey);
 
+          var cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
-            ZenzaWatch.util.callAsync(function() { return d.resolve(cacheData); });
-            return d.promise();
+            ZenzaWatch.util.callAsync(function() { this.resolve(cacheData); }, this);
+            return;
           }
 
-          $.ajax({
+          return ajax({
             url: url,
             cache: false,
             xhrFields: { withCredentials: true }
@@ -1262,14 +1276,17 @@ var monkey = function() {
             }
             window.console.log(result, data);
             if (data.status !== 'ok' || !data.mylistitem) {
-              return d.reject();
+              return this.reject();
             }
 
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-            d.resolve(data);
+            this.resolve(data);
+          }, function(err) {
+            this.reject({
+              result: err,
+              message: ''
+            });
           });
-
-          return d.promise();
         }
       });
 
@@ -1277,7 +1294,7 @@ var monkey = function() {
     })();
 
     ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
- */
+
 
 
 
@@ -4070,7 +4087,16 @@ iframe {
       this._style = null;
       this._commentLayer = null;
       this._view = null;
-      var iframe = document.createElement('iframe');
+      var iframe;
+      var reserved = document.getElementsByClassName('commentLayerFrameReserve');
+      if (reserved && reserved.length > 0) {
+        iframe = reserved[0];
+        document.body.removeChild(iframe);
+        iframe.style.position = '';
+        iframe.style.left = '';
+      } else {
+        iframe = document.createElement('iframe');
+      }
       iframe.className = 'commentLayerFrame';
 
       var html =
@@ -5242,6 +5268,7 @@ iframe {
       return {
         playing: true,
         watchId: this._watchId,
+        url: location.href,
         currentTime: this._nicoVideoPlayer.getCurrentTime()
       };
     }
@@ -6520,7 +6547,7 @@ iframe {
     var initialize = function() {
       console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
-      addStyle(__css__);
+      ZenzaWatch.util.addStyle(__css__);
 
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
@@ -6536,9 +6563,9 @@ iframe {
 
         // watchページか？
         if (location.href.match('\/www.nicovideo.jp\/watch\/')) {
-          if (isLogin()) {
+          if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (!hasFlashPlayer()) {
+            if (!ZenzaWatch.util.hasFlashPlayer()) {
               initializeGinzaSlayer(dialog);
             }
           } else {
@@ -6575,7 +6602,9 @@ iframe {
           lastSession.playing &&
           (screenMode === 'small'    ||
            screenMode === 'sideView' ||
-           Config.getValue('continueNextPage'))
+           location.href === lastSession.url ||
+           Config.getValue('continueNextPage')
+           )
         ) {
           dialog.open(lastSession.watchId, lastSession);
         }
@@ -6585,7 +6614,7 @@ iframe {
 
     // 非ログイン状態のwatchページ用のプレイヤー生成
     var initializeNoLoginWatchPagePlayer = function(conf, offScreenLayer) {
-      addStyle(__no_login_watch_css__);
+      ZenzaWatch.util.addStyle(__no_login_watch_css__);
       var nicoVideoPlayer = new NicoVideoPlayer({
         offScreenLayer: offScreenLayer,
         node: '.logout-video-thumb-box',
@@ -6654,7 +6683,7 @@ iframe {
         if (e.target !== hoverElement) { return; }
         var $target = $(e.target).closest('a');
         var href = $target.attr('data-href') || $target.attr('href');
-        var watchId = getWatchId(href);
+        var watchId = ZenzaWatch.util.getWatchId(href);
         var offset = $target.offset();
 //        var bottom = offset.top  + $target.outerHeight();
 //        var right  = offset.left + $target.outerWidth();
@@ -6821,6 +6850,14 @@ iframe {
   if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
     exApi();
   } else {
+    // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
+    // 先にiframeだけ作っておく
+    var iframe = document.createElement('iframe');
+    iframe.className = 'commentLayerFrameReserve';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    document.body.appendChild(iframe);
+
     var script = document.createElement('script');
     script.id = 'ZenzaWatchLoader';
     script.setAttribute('type', 'text/javascript');

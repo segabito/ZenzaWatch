@@ -7,6 +7,7 @@ var ZenzaWatch = {
 };
 var AsyncEmitter = function() {};
 var PopupMessage = function() {};
+var WindowMessageEmitter = function() {};
 
 //===BEGIN===
     var VideoInfoLoader = (function() {
@@ -41,7 +42,7 @@ var PopupMessage = function() {};
 
         loaderWindow = loaderFrame.contentWindow;
 
-        windowMessageEmitter.on('onMessage', onMessage);
+        WindowMessageEmitter.on('onMessage', onMessage);
       };
 
       var loadFromThumbWatch = function(watchId) {
@@ -247,7 +248,7 @@ var PopupMessage = function() {};
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
 
-          thread_leaves.innerText = threadLeavesParam;
+          thread_leaves.innerHTML = threadLeavesParam;
 
           return thread_leaves;
         },
@@ -477,13 +478,24 @@ var PopupMessage = function() {};
       });
 
       return CacheStorage;
-    });
+    })();
+    ZenzaWatch.api.CacheStorage = CacheStorage;
 
-/*
+
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = 5 * 60 * 1000;
       var token = '';
       var cacheStorage = null;
+
+      var ajax = function(params) {
+        return new Promise(function(resolve, reject) {
+          $.ajax(params).then(function(result) {
+            resolve(result);
+          }, function(err) {
+            reject(err);
+          });
+        });
+      };
 
       function MylistApiLoader() {
         this.initialize.apply(this, arguments);
@@ -501,16 +513,15 @@ var PopupMessage = function() {};
         },
         getDeflistItems: function() {
           var url = 'http://www.nicovideo.jp/api/deflist/list';
-          var d = new $.Deferred();
           var cacheKey = 'deflistItems';
-          var cacheData = cacheStorage.getItem(cacheKey);
 
+          var cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
-            ZenzaWatch.util.callAsync(function() { return d.resolve(cacheData); });
-            return d.promise();
+            ZenzaWatch.util.callAsync(function() { this.resolve(cacheData); }, this);
+            return;
           }
 
-          $.ajax({
+          return ajax({
             url: url,
             cache: false,
             xhrFields: { withCredentials: true }
@@ -524,29 +535,33 @@ var PopupMessage = function() {};
             }
             window.console.log(result, data);
             if (data.status !== 'ok' || !data.mylistitem) {
-              return d.reject();
+              this.reject({
+                result: data,
+                message: ''
+              });
             }
 
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-            return d.resolve(data);
-          }, function() {
-            return d.reject();
+            this.resolve(data);
+          }, function(err) {
+            this.reject({
+              result: err,
+              message: ''
+            });
           });
 
-          return d.promise();
         },
         getMylistItems: function(groupId) {
-          var url = 'http://' + host + '/api/mylist/list?group_id=' + groupId;
-          var d = new $.Deferred();
+          var url = 'http://www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
-          var cacheData = cacheStorage.getItem(cacheKey);
 
+          var cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
-            ZenzaWatch.util.callAsync(function() { return d.resolve(cacheData); });
-            return d.promise();
+            ZenzaWatch.util.callAsync(function() { this.resolve(cacheData); }, this);
+            return;
           }
 
-          $.ajax({
+          return ajax({
             url: url,
             cache: false,
             xhrFields: { withCredentials: true }
@@ -560,14 +575,17 @@ var PopupMessage = function() {};
             }
             window.console.log(result, data);
             if (data.status !== 'ok' || !data.mylistitem) {
-              return d.reject();
+              return this.reject();
             }
 
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-            d.resolve(data);
+            this.resolve(data);
+          }, function(err) {
+            this.reject({
+              result: err,
+              message: ''
+            });
           });
-
-          return d.promise();
         }
       });
 
@@ -575,7 +593,7 @@ var PopupMessage = function() {};
     })();
 
     ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
- */
+
 
 //===END===
 

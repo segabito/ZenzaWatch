@@ -5,6 +5,9 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
+var Config = {};
+var AsyncEmitter = {};
+var PopupMessage = {};
 
 //===BEGIN===
   /**
@@ -1704,7 +1707,16 @@ iframe {
       this._style = null;
       this._commentLayer = null;
       this._view = null;
-      var iframe = document.createElement('iframe');
+      var iframe;
+      var reserved = document.getElementsByClassName('commentLayerFrameReserve');
+      if (reserved && reserved.length > 0) {
+        iframe = reserved[0];
+        document.body.removeChild(iframe);
+        iframe.style.position = '';
+        iframe.style.left = '';
+      } else {
+        iframe = document.createElement('iframe');
+      }
       iframe.className = 'commentLayerFrame';
 
       var html =

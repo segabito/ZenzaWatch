@@ -535,7 +535,7 @@ var console;
     */});
 
 
-    var windowMessageEmitter = (function() {
+    var WindowMessageEmitter = (function() {
       var asyncEmitter = new AsyncEmitter();
 
         var onMessage = function(event) {

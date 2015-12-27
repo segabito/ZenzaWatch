@@ -760,6 +760,7 @@ var PopupMessage = {};
       return {
         playing: true,
         watchId: this._watchId,
+        url: location.href,
         currentTime: this._nicoVideoPlayer.getCurrentTime()
       };
     }

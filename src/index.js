@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.3.10
+// @version        0.3.12
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -57,6 +57,14 @@ var monkey = function() {
   if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
     exApi();
   } else {
+    // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
+    // 先にiframeだけ作っておく
+    var iframe = document.createElement('iframe');
+    iframe.className = 'commentLayerFrameReserve';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    document.body.appendChild(iframe);
+
     var script = document.createElement('script');
     script.id = 'ZenzaWatchLoader';
     script.setAttribute('type', 'text/javascript');

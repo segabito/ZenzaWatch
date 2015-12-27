@@ -5,12 +5,22 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
+var PlayerSession = {};
+var Config = {};
+var NicoComment = {};
+var localStorageEmitter = {};
+var PopupMessage = {};
+var VideoInfoLoader = {};
+
+var MessageApiLoader = function() {};
+var NicoVideoPlayer = function() {};
+var NicoVideoPlayerDialog = function() {};
 
 //===BEGIN===
     var initialize = function() {
       console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
-      addStyle(__css__);
+      ZenzaWatch.util.addStyle(__css__);
 
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
@@ -26,9 +36,9 @@ var ZenzaWatch = {
 
         // watchページか？
         if (location.href.match('\/www.nicovideo.jp\/watch\/')) {
-          if (isLogin()) {
+          if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (!hasFlashPlayer()) {
+            if (!ZenzaWatch.util.hasFlashPlayer()) {
               initializeGinzaSlayer(dialog);
             }
           } else {
@@ -65,7 +75,9 @@ var ZenzaWatch = {
           lastSession.playing &&
           (screenMode === 'small'    ||
            screenMode === 'sideView' ||
-           Config.getValue('continueNextPage'))
+           location.href === lastSession.url ||
+           Config.getValue('continueNextPage')
+           )
         ) {
           dialog.open(lastSession.watchId, lastSession);
         }
@@ -75,7 +87,7 @@ var ZenzaWatch = {
 
     // 非ログイン状態のwatchページ用のプレイヤー生成
     var initializeNoLoginWatchPagePlayer = function(conf, offScreenLayer) {
-      addStyle(__no_login_watch_css__);
+      ZenzaWatch.util.addStyle(__no_login_watch_css__);
       var nicoVideoPlayer = new NicoVideoPlayer({
         offScreenLayer: offScreenLayer,
         node: '.logout-video-thumb-box',
@@ -144,7 +156,7 @@ var ZenzaWatch = {
         if (e.target !== hoverElement) { return; }
         var $target = $(e.target).closest('a');
         var href = $target.attr('data-href') || $target.attr('href');
-        var watchId = getWatchId(href);
+        var watchId = ZenzaWatch.util.getWatchId(href);
         var offset = $target.offset();
 //        var bottom = offset.top  + $target.outerHeight();
 //        var right  = offset.left + $target.outerWidth();
