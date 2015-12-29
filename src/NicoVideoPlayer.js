@@ -311,7 +311,7 @@ var NicoCommentPlayer = function() {};
       return this._videoDetail.id;
     },
     getWatchId: function() { // sm12345だったりスレッドIDだったり
-      return this._videoDetail.id;
+      return this._videoDetail.v;
     },
     getThreadId: function() { // watchIdと同一とは限らない
       return this._videoDetail.thread_id;
@@ -360,7 +360,7 @@ var NicoCommentPlayer = function() {};
           icon: u.icon_url || 'http://res.nimg.jp/img/user/thumb/blank.jpg',
           url:  u.id ? ('http://www.nicovideo.jp/user/' + u.id) : '#',
           id:   u.id || '',
-          name: u.nickname || '(退会済ユーザー)',
+          name: u.nickname || '(非公開ユーザー)',
           favorite: !!u.is_favorited, // こっちはbooleanという
           type: 'user'
         };

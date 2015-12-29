@@ -6,6 +6,7 @@ var ZenzaWatch = {
 };
 var FullScreen = {};
 var PopupMessage = {};
+var AsyncEmitter = function() {};
 
 //===BEGIN===
 
@@ -152,6 +153,7 @@ var PopupMessage = {};
       cursor: pointer;
       width: 32px;
       height: 32px;
+      box-sizing: border-box;
       text-align: center;
       line-height: 32px;
       top: 0;
@@ -466,6 +468,14 @@ var PopupMessage = {};
       this._hoverMenu.on('fullScreen', $.proxy(function() {
         this._nicoVideoPlayer.toggleFullScreen();
       }, this));
+      this._hoverMenu.on('deflistAdd', $.proxy(this._onDeflistAdd, this));
+      this._hoverMenu.on('mylistAdd',  $.proxy(this._onMylistAdd, this));
+      this._hoverMenu.on('mylistWindow',  $.proxy(function() {
+        window.open(
+         '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
+         'mylist_add',
+         'width=450, height=340, menubar=no, scrollbars=no');
+      },this));
 
 
       $('body').append($dialog);
@@ -548,7 +558,56 @@ var PopupMessage = {};
         this.close();
       }
     },
+    _onDeflistAdd: function() {
+      var $container = this._$playerContainer;
+      $container.addClass('updatingDeflist');
+      var timer = window.setTimeout(function() {
+        $container.removeClass('updatingDeflist');
+      }, 10000);
 
+      var owner = this._videoInfo.getOwnerInfo();
+      var watchId = this._videoInfo.getWatchId();
+      var description = '投稿者: ' + owner.name;
+      if (!this._mylistApiLoader) {
+        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      }
+
+      return this._mylistApiLoader.addDeflistItem(watchId, description)
+        .then(function(result) {
+        window.clearTimeout(timer);
+        $container.removeClass('updatingDeflist');
+        PopupMessage.notify(result.message);
+      }, function(err) {
+        window.clearTimeout(timer);
+        $container.removeClass('updatingDeflist');
+        PopupMessage.alert(err.message);
+      });
+    },
+    _onMylistAdd: function(groupId, mylistName) {
+      var $container = this._$playerContainer;
+      $container.addClass('updatingMylist');
+      var timer = window.setTimeout(function() {
+        $container.removeClass('updatingMylist');
+      }, 10000);
+
+      var owner = this._videoInfo.getOwnerInfo();
+      var watchId = this._videoInfo.getWatchId();
+      var description = '投稿者: ' + owner.name;
+      if (!this._mylistApiLoader) {
+        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      }
+
+      return this._mylistApiLoader.addMylistItem(watchId, groupId, description)
+        .then(function(result) {
+        window.clearTimeout(timer);
+        $container.removeClass('updatingMylist');
+        PopupMessage.notify(result.message + ': ' + mylistName);
+      }, function(err) {
+        window.clearTimeout(timer);
+        $container.removeClass('updatingMylist');
+        PopupMessage.alert(err.message + ': ' + mylistName);
+      });
+    },
     show: function() {
       this._$dialog.addClass('show');
       if (!FullScreen.now()) {
@@ -797,15 +856,28 @@ var PopupMessage = {};
       overflow: visible;
     }
 
+    .menuItemContainer.rightTop {
+      width: 72px;
+      height: 40px;
+      right: 40px;
+      {*border: 1px solid #ccc;*}
+      top: 0;
+    }
+
+    .updatingDeflist .menuItemContainer.rightTop,
+    .updatingMylist .menuItemContainer.rightTop {
+      cursor: wait;
+    }
+    .updatingDeflist .menuItemContainer.rightTop>*,
+    .updatingMylist .menuItemContainer.rightTop>* {
+      pointer-events: none;
+    }
+
     .menuItemContainer.leftBottom {
       width: 72px;
       height: 112px;
       left: 8px;
       bottom: 64px;
-    }
-
-    .zenzaScreenMode_sideView .menuItemContainer.leftBottom {
-      position: absolute;
     }
 
     .menuItemContainer.rightBottom {
@@ -814,11 +886,6 @@ var PopupMessage = {};
       right:  0;
       bottom: 0px;
     }
-
-    .zenzaScreenMode_sideView .menuItemContainer.rightBottom {
-      position: absolute;
-    }
-
 
 
     .menuButton {
@@ -1086,9 +1153,186 @@ var PopupMessage = {};
       font-size: 16px;
     }
 
+    .mylistButton {
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #000;
+      border-radius: 4px;
+      line-height: 30px;
+      font-size: 21px;
+    }
+    .mouseMoving .mylistButton {
+      background: rgba(0x80, 0x80, 0x80, 0.5);
+    }
+
+    .mylistButton.mylistAddMenu {
+      left: 0;
+      top: 0;
+    }
+    .mylistButton.deflistAdd {
+      left: 40px;
+      top: 0;
+    }
+
+    .mylistButton:hover {
+      box-shadow: 2px 4px 2px #000;
+      background: #888;
+    }
+    .mylistButton:active {
+      box-shadow: none;
+      margin-left: 2px;
+      margin-top:  4px;
+    }
+
+    .updatingDeflist .mylistButton.deflistAdd {
+      pointer-events: none;
+      border: 1px inset !important;
+      box-shadow: none !important;
+      margin-left: 2px !important;
+      margin-top:  4px !important;
+    }
+
+    .updatingMylist  .mylistButton.mylistAddMenu {
+      pointer-events: none;
+      border: 1px inset !important;
+      box-shadow: none !important;
+    }
+
+    .mylistSelectMenu {
+      position: absolute;
+      top: 32px;
+      right: 32px;
+      background: #fff;
+      overflow: visible;
+      padding: 8px;
+      border: 1px outset #333;
+      opacity: 0.8;
+      box-shadow: 2px 2px 4px #000;
+      transition: opacity 0.3s ease;
+      z-index: 150000;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+    }
+
+    .mylistSelectMenu:not(.show) {
+      left: -9999px;
+      top: -9999px;
+      opacity: 0;
+    }
+
+    .mylistSelectMenu ul {
+      padding: 0;
+    }
+
+    .mylistSelectMenu ul li {
+      position: relative;
+      line-height: 120%;
+      margin: 2px 8px;
+      overflow-y: visible;
+      white-space: nowrap;
+      cursor: pointer;
+      padding: 2px 8px;
+      list-style-type: none;
+      float: inherit;
+    }
+    .mylistSelectMenu ul li.selected {
+    }
+    .mylistSelectMenu ul li.selected:before {
+      content: '✔';
+      left: -10px;
+      position: absolute;
+    }
+    .mylistSelectMenu ul li:hover {
+      background: #336;
+      color: #fff;
+    }
+    .mylistSelectMenu ul li.separator {
+      border: 1px outset;
+      height: 2px;
+      width: 90%;
+    }
+    .mylistSelectMenu.show {
+      opacity: 0.8;
+      {*mix-blend-mode: luminosity;*}
+    }
+    .mylistSelectMenu .listInner {
+    }
+
+    .mylistSelectMenu .mylistIcon {
+      display: inline-block;
+      width: 18px;
+      height: 14px;
+      margin: -4px 4px 0 0;
+      vertical-align: middle;
+      margin-right: 15px;
+      background: url("http://uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
+      transform: scale(1.5); -webkit-transform: scale(1.5);
+      transform-origin: 0 0 0; -webkit-transform-origin: 0 0 0;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      -webkit-transition: -webkit-transform 0.1s ease, box-shadow 0.1s ease;
+      cursor: pointer;
+    }
+    .mylistSelectMenu .mylistIcon:hover {
+      background-color: #ff9;
+      transform: scale(2); -webkit-transform: scale(2);
+    }
+    .mylistSelectMenu .mylistIcon:hover::after {
+      background: #fff;
+      z-index: 100;
+      opacity: 1;
+    }
+    .mylistSelectMenu .deflist .mylistIcon { background-position: 0 -253px;}
+    .mylistSelectMenu .folder1 .mylistIcon { background-position: 0 -23px;}
+    .mylistSelectMenu .folder2 .mylistIcon { background-position: 0 -46px;}
+    .mylistSelectMenu .folder3 .mylistIcon { background-position: 0 -69px;}
+    .mylistSelectMenu .folder4 .mylistIcon { background-position: 0 -92px;}
+    .mylistSelectMenu .folder5 .mylistIcon { background-position: 0 -115px;}
+    .mylistSelectMenu .folder6 .mylistIcon { background-position: 0 -138px;}
+    .mylistSelectMenu .folder7 .mylistIcon { background-position: 0 -161px;}
+    .mylistSelectMenu .folder8 .mylistIcon { background-position: 0 -184px;}
+    .mylistSelectMenu .folder9 .mylistIcon { background-position: 0 -207px;}
+
+
+    .mylistSelectMenu .name {
+      display: inline-block;
+      vertical-align: middle;
+      font-size: 110%;
+      color: #666;
+      text-derocation: none !important;
+    }
+    .mylistSelectMenu .name:hover {
+      color: #000;
+      background-color: #ff9;
+    }
+    .mylistSelectMenu .name::after {
+      content: ' に登録';
+      font-size: 75%;
+      color: #fff;
+    }
+    .mylistSelectMenu .name.exist::after {
+      content: ' に登録済';
+      color: #933;
+    }
+    .mylistSelectMenu .name:hover::after {
+      color: #666;
+    }
+
+
   */});
 
   VideoHoverMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="menuItemContainer rightTop">
+      <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu" title="マイリスト">
+        <div class="menuButtonInner">My</div>
+      </div>
+      <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd" title="とりあえずマイリスト">
+        <div class="menuButtonInner">&#9547;</div>
+      </div>
+    </div>
+    <div class="mylistSelectMenu"></div>
+
     <div class="menuItemContainer leftBottom">
       <div class="loopSwitch menuButton" data-command="loop" title="リピート">
         <div class="menuButtonInner">&#x27F3;</div>
@@ -1123,12 +1367,14 @@ var PopupMessage = {};
       </div>
 
     </div>
+                                                                *
   */});
 
   _.assign(VideoHoverMenu.prototype, {
     initialize: function(params) {
       this._$playerContainer = params.$playerContainer;
       this._playerConfig     = params.playerConfig;
+      this._videoInfo        = params.videoInfo;
 
       var emitter = new AsyncEmitter();
       this.on        = $.proxy(emitter.on,        emitter);
@@ -1136,6 +1382,8 @@ var PopupMessage = {};
       this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
       this._initializeDom();
+
+      ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(VideoHoverMenu.__css__);
@@ -1145,8 +1393,66 @@ var PopupMessage = {};
       $container.find('.menuButton')
         .on('click', $.proxy(this._onMenuButtonClick, this));
 
+      this._$deflistAdd       = $container.find('.deflistAdd');
+      this._$mylistAddMenu    = $container.find('.mylistAddMenu');
+      this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
+
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
       this._initializeVolumeCotrol();
+    },
+    _initializeMylistSelectMenu: function() {
+      var self = this;
+      self._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      self._mylistApiLoader.getMylistList().then(function(mylistList) {
+        self._mylistList = mylistList;
+        self._initializeMylistSelectMenuDom();
+      });
+    },
+    _initializeMylistSelectMenuDom: function() {
+      var self = this;
+      var $menu = this._$mylistSelectMenu, $ul = $('<ul/>');
+      $(this._mylistList).each(function(i, mylist) {
+        var $li = $('<li/>').addClass('folder' + mylist.icon_id);
+        var $icon = $('<span class="mylistIcon"/>').attr({
+            'data-mylist-id': mylist.id,
+            'data-mylist-name': mylist.name,
+            'data-command': 'open',
+            title: mylist.name + 'を開く'
+          });
+        var $link = $('<a class="mylistLink name"/>')
+          .html(mylist.name)
+          .attr({
+            href: '//www.nicovideo.jp/my/mylist/#/' + mylist.id,
+            'data-mylist-id': mylist.id,
+            'data-mylist-name': mylist.name,
+            'data-command': 'add'
+          });
+
+        $li.append($icon);
+        $li.append($link);
+        $ul.append($li);
+      });
+
+      $menu.append($ul);
+      $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
+        e.preventDefault();
+        var $target  = $(e.target.closest('.mylistIcon, .mylistLink'));
+        var command    = $target.attr('data-command');
+        var mylistId   = $target.attr('data-mylist-id');
+        var mylistName =  $target.attr('data-mylist-name');
+
+        self.toggleMylistMenu(false);
+
+        if (command === 'open') {
+          location.href = '//www.nicovideo.jp/my/mylist/#/' + mylistId;
+        } else {
+          self.emit('mylistAdd', mylistId, mylistName);
+        }
+      });
+
+      ZenzaWatch.emitter.on('hideHover', function() {
+        self.toggleMylistMenu(false);
+      });
     },
     _initializeVolumeCotrol: function() {
       var $container = this._$playerContainer.find('.volumeControl');
@@ -1185,6 +1491,24 @@ var PopupMessage = {};
         case 'fullScreen':
           this.emit('fullScreen');
           break;
+        case 'deflistAdd':
+          if (e.shiftKey) {
+            this.emit('mylistWindow');
+          } else {
+            this.emit('deflistAdd');
+          }
+          break;
+        case 'mylistMenu':
+          if (e.shiftKey) {
+            this.emit('mylistWindow');
+          } else {
+            this.toggleMylistMenu();
+            e.stopPropagation();
+          }
+          break;
+        case 'mylistAdd':
+          this.emit('mylistAdd', $target.attr('data-mylist-id'));
+          break;
         case 'loop':
         case 'mute':
         case 'backComment':
@@ -1200,6 +1524,19 @@ var PopupMessage = {};
           break;
       }
     },
+    toggleMylistMenu: function(v) {
+      var $body = $('body');
+      var $menu = this._$mylistSelectMenu.toggleClass('show', v);
+      $body.off('click.ZenzaWatchMylistMenu');
+
+      var onBodyClick = function() {
+        $menu.removeClass('show');
+        $body.off('click.ZenzaWatchMylistMenu');
+      };
+      if ($menu.hasClass('show')) {
+        $body.on('click.ZenzaWatchMylistMenu', onBodyClick);
+      }
+    }
    });
 
 
@@ -1374,6 +1711,7 @@ var PopupMessage = {};
       padding: 8px 8px 64px;
       margin: 4px 0px;
       line-height: 150%;
+      word-break: break-all;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription:first-letter {
@@ -1849,7 +2187,13 @@ var PopupMessage = {};
       overflow: hidden;
       display: block;
     }
-    .zenzaWatchVideoHeaderPanel .videoTitle:hover {
+    .zenzaWatchVideoHeaderPanel h2:hover {
+      background: #666;
+    }
+    .zenzaWatchVideoHeaderPanel h2 {
+      max-width: calc(100vw - 200px);
+    }
+     .zenzaWatchVideoHeaderPanel .videoTitle:hover {
       text-decoration: underline;
     }
 

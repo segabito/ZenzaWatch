@@ -1773,7 +1773,7 @@ iframe {
         return;
       }
       var $view = $(this._view);
-      $view.css({ width: 1, height: 1 }).offset();
+      $view.css({ width: $view.outerWidth() + 1, height: $view.outerHeight() + 1 }).offset();
       window.setTimeout(function() {
         $view.css({width: '', height: ''});
       }, 0);

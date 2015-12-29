@@ -451,9 +451,11 @@ var WindowMessageEmitter = function() {};
         setItem: function(key, data, expireTime) {
           key = PREFIX + key;
           var expiredAt =
-            typeof expireTime === 'number' ? (Date.now() + expireTime) : null;
+            typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
+          console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
           this._storage[key] = JSON.stringify({
             data: data,
+            type: typeof data,
             expiredAt: expiredAt
           });
         },
@@ -462,16 +464,25 @@ var WindowMessageEmitter = function() {};
           if (!this._storage.hasOwnProperty(key)) {
             return null;
           }
-          var item = null;
+          var item = null, data = null;
           try {
             item = JSON.parse(this._storage[key]);
+            if (item.type === 'string') {
+              data = item.data;
+            } else if (typeof item.data === 'string') {
+              data = JSON.parse(item.data);
+            } else {
+              data = item.data;
+            }
           } catch(e) {
-            window.console.error(e);
+            window.console.error('CacheStorage json parse error:', e);
+            window.console.log(this._storage[key]);
+            this._storage.removeItem(key);
             return null;
           }
 
-          if (item.expiredAt === null || item.expiredAt > Date.now()) {
-            return item.data;
+          if (item.expiredAt === '' || item.expiredAt > Date.now()) {
+            return data;
           }
           return null;
         },
@@ -482,12 +493,21 @@ var WindowMessageEmitter = function() {};
           }
 
           this._storage.removeItem(key);
+        },
+        clear: function() {
+          for (var v in this._storage) {
+            if (v.indexOf(PREFIX) === 0) {
+              window.console.log('remove item', v, this._storage[v]);
+              this._storage.removeItem(v);
+            }
+          }
         }
       });
 
       return CacheStorage;
     })();
     ZenzaWatch.api.CacheStorage = CacheStorage;
+    ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
 
 //    var _MemoryStorage = {
 //      setItem: function(key, value) {
@@ -502,6 +522,7 @@ var WindowMessageEmitter = function() {};
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
       var TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
+//      var LONG_EXPIRE_TIME  = 90 * 24 * 60 * 60 * 1000;
       var token = '';
       var cacheStorage = null;
 
@@ -528,7 +549,7 @@ var WindowMessageEmitter = function() {};
             if (token) { console.log('cached token exists', token); }
           }
         },
-        _getDeflistItems: function() {
+        getDeflistItems: function() {
           var url = 'http://www.nicovideo.jp/api/deflist/list';
           var cacheKey = 'deflistItems';
 
@@ -551,7 +572,7 @@ var WindowMessageEmitter = function() {};
               if (result.status !== 'ok' || !result.mylistitem) {
                 reject({
                   result: result,
-                  message: 'とりあえずマイリストの取得に失敗(1)'
+                  message: 'とりあえずマイリストの取得失敗(1)'
                 });
                 return;
               }
@@ -562,12 +583,12 @@ var WindowMessageEmitter = function() {};
             }, function(err) {
               reject({
                 result: err,
-                message: 'とりあえずマイリストの通信に失敗(2)'
+                message: 'とりあえずマイリストの取得失敗(2)'
               });
             });
           });
         },
-        _getMylistItems: function(groupId) {
+        getMylistItems: function(groupId) {
           var url = 'http://www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
 
@@ -590,7 +611,7 @@ var WindowMessageEmitter = function() {};
               if (result.status !== 'ok' || !result.mylistitem) {
                 return reject({
                   result: result,
-                  message: 'マイリストの取得に失敗(1)'
+                  message: 'マイリストの取得失敗(1)'
                 });
               }
 
@@ -600,7 +621,7 @@ var WindowMessageEmitter = function() {};
             }, function(err) {
               this.reject({
                 result: err,
-                message: 'マイリストの取得に失敗(2)'
+                message: 'マイリストの取得失敗(2)'
               });
             });
           });
@@ -614,7 +635,7 @@ var WindowMessageEmitter = function() {};
             var cacheData = cacheStorage.getItem(cacheKey);
             if (cacheData) {
               console.log('cache exists: ', cacheKey, cacheData);
-              ZenzaWatch.util.callAsync(function() { resolve(cacheData); }, this);
+              ZenzaWatch.util.callAsync(function() { resolve(cacheData); });
               return;
             }
 
@@ -628,7 +649,7 @@ var WindowMessageEmitter = function() {};
                 if (result.status !== 'ok' || !result.mylistgroup) {
                   return reject({
                     result: result,
-                    message: 'マイリスト一覧の取得に失敗(1)'
+                    message: 'マイリスト一覧の取得失敗(1)'
                   });
                 }
 
@@ -638,13 +659,13 @@ var WindowMessageEmitter = function() {};
               }, function(err) {
                 return reject({
                   result: err,
-                  message: 'マイリスト一覧の取得に失敗(2)'
+                  message: 'マイリスト一覧の取得失敗(2)'
                 });
               });
           });
         },
-        _findDeflistItemByWatchId: function(watchId) {
-          return this._getDeflistItems().then(function(items) {
+        findDeflistItemByWatchId: function(watchId) {
+          return this.getDeflistItems().then(function(items) {
             for (var i = 0, len = items.length; i < len; i++) {
               var item = items[i], wid = item.item_data.watch_id;
               if (wid === watchId) {
@@ -654,8 +675,8 @@ var WindowMessageEmitter = function() {};
             return Promise.reject();
           });
         },
-        _removeDeflistItem: function(watchId) {
-          return this._findDeflistItemByWatchId(watchId).then(function(item) {
+        removeDeflistItem: function(watchId) {
+          return this.findDeflistItemByWatchId(watchId).then(function(item) {
             var url = 'http://www.nicovideo.jp/api/deflist/delete';
             var data = 'id_list[0][]=' + item.item_id + '&token=' + token;
             var cacheKey = 'deflistItems';
@@ -670,10 +691,11 @@ var WindowMessageEmitter = function() {};
             return ajax(req).then(function(result) {
               if (result.status && result.status === 'ok') {
                 cacheStorage.removeItem(cacheKey);
+                ZenzaWatch.emitter.emitAsync('deflistRemove', watchId);
                 return Promise.resolve({
                   status: 'ok',
                   result: result,
-                  message: 'とりあえずマイリストの削除成功'
+                  message: 'とりあえずマイリストから削除'
                 });
               }
 
@@ -687,20 +709,21 @@ var WindowMessageEmitter = function() {};
             }, function(err) {
               return Promise.reject({
                 result: err,
-                message: 'とりあえずマイリストの削除に失敗(2)'
+                message: 'とりあえずマイリストから削除失敗(2)'
               });
             });
 
           }, function(err) {
             return Promise.reject({
               status: 'fail',
+              result: err,
               message: '動画が見つかりません'
             });
           });
          },
         _addDeflistItem: function(watchId, description, isRetry) {
           var url = 'http://www.nicovideo.jp/api/deflist/add';
-          var data = "item_id=" + watchId + "&token=" + token;
+          var data = 'item_id=' + watchId + '&token=' + token;
           if (description) {
             data += '&description='+ encodeURIComponent(description);
           }
@@ -721,10 +744,11 @@ var WindowMessageEmitter = function() {};
             ajax(req).then(function(result) {
               if (result.status && result.status === 'ok') {
                 cacheStorage.removeItem(cacheKey);
+                ZenzaWatch.emitter.emitAsync('deflistAdd', watchId, description);
                 return resolve({
                   status: 'ok',
                   result: result,
-                  message: 'とりあえずマイリストの登録成功'
+                  message: 'とりあえずマイリスト登録'
                 });
               }
 
@@ -732,9 +756,10 @@ var WindowMessageEmitter = function() {};
                 return reject({
                   status: 'fail',
                   result: result,
-                  message: 'とりあえずマイリストの追加に失敗(100)'
+                  message: 'とりあえずマイリスト登録失敗(100)'
                 });
               }
+
               if (result.error.code !== 'EXIST' || isRetry) {
                 return reject({
                   status: 'fail',
@@ -750,7 +775,7 @@ var WindowMessageEmitter = function() {};
                他の動画を追加していけば、そのうち押し出されて消えてしまう。
                なので、重複時にエラーを出すのではなく、「消してから追加」することによって先頭に持ってくる。
               */
-              self._removeDeflistItem(watchId).then(function() {
+              self.removeDeflistItem(watchId).then(function() {
                 self._addDeflistItem(watchId, description, true).then(function(result) {
                   resolve({
                     status: 'ok',
@@ -763,7 +788,7 @@ var WindowMessageEmitter = function() {};
                   status: 'fail',
                   result: err.result,
                   code:   err.code,
-                  message: 'とりあえずマイリストの追加に失敗(101)'
+                  message: 'とりあえずマイリスト登録失敗(101)'
                 });
               });
 
@@ -771,7 +796,70 @@ var WindowMessageEmitter = function() {};
               reject({
                 status: 'fail',
                 result: err,
-                message: 'とりあえずマイリストの追加に失敗(200)'
+                message: 'とりあえずマイリスト登録失敗(200)'
+              });
+            });
+          });
+        },
+        addDeflistItem: function(watchId, description) {
+          return this._addDeflistItem(watchId, description, false);
+        },
+        addMylistItem: function(watchId, groupId, description) {
+          var url = 'http://www.nicovideo.jp/api/mylist/add';
+          var data = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
+          if (description) {
+            data += '&description='+ encodeURIComponent(description);
+          }
+          var cacheKey = 'mylistItems: ' + groupId;
+
+          var req = {
+            url: url,
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            timeout: 30000,
+            xhrFields: { withCredentials: true },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          };
+
+          var self = this;
+          return new Promise(function(resolve, reject) {
+            ajax(req).then(function(result) {
+              if (result.status && result.status === 'ok') {
+                cacheStorage.removeItem(cacheKey);
+                // マイリストに登録したらとりあえずマイリストから除去(=移動)
+                self.removeDeflistItem(watchId).then(_.noop, _.noop);
+                return resolve({
+                  status: 'ok',
+                  result: result,
+                  message: 'マイリスト登録'
+                });
+              }
+
+              if (!result.status || !result.error) {
+                return reject({
+                  status: 'fail',
+                  result: result,
+                  message: 'マイリスト登録失敗(100)'
+                });
+              }
+
+              // マイリストの場合は重複があっても「追加して削除」しない。
+              // とりまいと違って押し出されることがないし、
+              // シリーズ物が勝手に入れ替わっても困るため
+
+              ZenzaWatch.emitter.emitAsync('mylistAdd', watchId, groupId, description);
+              return reject({
+                status: 'fail',
+                result: result,
+                code: result.error.code,
+                message: result.error.description
+              });
+            }, function(err) {
+              reject({
+                status: 'fail',
+                result: err,
+                message: 'マイリスト登録失敗(200)'
               });
             });
           });
