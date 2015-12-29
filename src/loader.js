@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
+var Config = {};
 var AsyncEmitter = function() {};
 var PopupMessage = function() {};
 var WindowMessageEmitter = function() {};
@@ -409,7 +410,6 @@ var WindowMessageEmitter = function() {};
                 }
 
                 if (resultCode !== '0') {
-                  window.console.log(result.xml);
                   reject({
                     message: 'コメント取得失敗' + resultCode
                   });
@@ -474,6 +474,14 @@ var WindowMessageEmitter = function() {};
             return item.data;
           }
           return null;
+        },
+        removeItem: function(key) {
+          key = PREFIX + key;
+          if (!this._storage.hasOwnProperty(key)) {
+            return null;
+          }
+
+          this._storage.removeItem(key);
         }
       });
 
@@ -481,21 +489,23 @@ var WindowMessageEmitter = function() {};
     })();
     ZenzaWatch.api.CacheStorage = CacheStorage;
 
+//    var _MemoryStorage = {
+//      setItem: function(key, value) {
+//        this[key] = value;
+//      },
+//      removeItem: function(key) {
+//        delete this[key];
+//      }
+//    };
+
 
     var MylistApiLoader = (function() {
-      var CACHE_EXPIRE_TIME = 5 * 60 * 1000;
+      var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
+      var TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
       var token = '';
       var cacheStorage = null;
 
-      var ajax = function(params) {
-        return new Promise(function(resolve, reject) {
-          $.ajax(params).then(function(result) {
-            resolve(result);
-          }, function(err) {
-            reject(err);
-          });
-        });
-      };
+      var ajax = ZenzaWatch.util.ajax;
 
       function MylistApiLoader() {
         this.initialize.apply(this, arguments);
@@ -503,6 +513,9 @@ var WindowMessageEmitter = function() {};
 
       ZenzaWatch.emitter.on('csrfTokenUpdate', function(t) {
         token = t;
+        if (cacheStorage) {
+          cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
+        }
       });
 
       _.assign(MylistApiLoader.prototype, {
@@ -510,80 +523,256 @@ var WindowMessageEmitter = function() {};
           if (!cacheStorage) {
             cacheStorage = new CacheStorage(localStorage);
           }
+          if (!token) {
+            token = cacheStorage.getItem('csrfToken');
+            if (token) { console.log('cached token exists', token); }
+          }
         },
-        getDeflistItems: function() {
+        _getDeflistItems: function() {
           var url = 'http://www.nicovideo.jp/api/deflist/list';
           var cacheKey = 'deflistItems';
 
-          var cacheData = cacheStorage.getItem(cacheKey);
-          if (cacheData) {
-            ZenzaWatch.util.callAsync(function() { this.resolve(cacheData); }, this);
-            return;
-          }
+          return new Promise(function(resolve, reject) {
 
-          return ajax({
-            url: url,
-            cache: false,
-            xhrFields: { withCredentials: true }
-          }).then(function(result) {
-            var data;
-            try {
-              data = JSON.parse(result.responseText);
-            } catch (e) {
-              window.console.error(e);
-              window.console.error(result.responseText);
+            var cacheData = cacheStorage.getItem(cacheKey);
+            if (cacheData) {
+              console.log('cache exists: ', cacheKey, cacheData);
+              ZenzaWatch.util.callAsync(function() { resolve(cacheData); }, this);
+              return;
             }
-            window.console.log(result, data);
-            if (data.status !== 'ok' || !data.mylistitem) {
-              this.reject({
-                result: data,
-                message: ''
+
+            ajax({
+              url: url,
+              timeout: 30000,
+              cache: false,
+              dataType: 'json',
+              xhrFields: { withCredentials: true }
+            }).then(function(result) {
+              if (result.status !== 'ok' || !result.mylistitem) {
+                reject({
+                  result: result,
+                  message: 'とりあえずマイリストの取得に失敗(1)'
+                });
+                return;
+              }
+
+              var data = result.mylistitem;
+              cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
+              resolve(data);
+            }, function(err) {
+              reject({
+                result: err,
+                message: 'とりあえずマイリストの通信に失敗(2)'
               });
-            }
-
-            cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-            this.resolve(data);
-          }, function(err) {
-            this.reject({
-              result: err,
-              message: ''
             });
           });
-
         },
-        getMylistItems: function(groupId) {
+        _getMylistItems: function(groupId) {
           var url = 'http://www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
 
-          var cacheData = cacheStorage.getItem(cacheKey);
-          if (cacheData) {
-            ZenzaWatch.util.callAsync(function() { this.resolve(cacheData); }, this);
-            return;
-          }
+          return new Promise(function(resolve, reject) {
 
-          return ajax({
-            url: url,
-            cache: false,
-            xhrFields: { withCredentials: true }
-          }).then(function(result) {
-            var data;
-            try {
-              data = JSON.parse(result.responseText);
-            } catch (e) {
-              window.console.error(e);
-              window.console.error(result.responseText);
-            }
-            window.console.log(result, data);
-            if (data.status !== 'ok' || !data.mylistitem) {
-              return this.reject();
+            var cacheData = cacheStorage.getItem(cacheKey);
+            if (cacheData) {
+              console.log('cache exists: ', cacheKey, cacheData);
+              ZenzaWatch.util.callAsync(function() { resolve(cacheData); }, this);
+              return;
             }
 
-            cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-            this.resolve(data);
+            return ajax({
+              url: url,
+              timeout: 30000,
+              cache: false,
+              dataType: 'json',
+              xhrFields: { withCredentials: true }
+            }).then(function(result) {
+              if (result.status !== 'ok' || !result.mylistitem) {
+                return reject({
+                  result: result,
+                  message: 'マイリストの取得に失敗(1)'
+                });
+              }
+
+              var data = result.mylistitem;
+              cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
+              return resolve(data);
+            }, function(err) {
+              this.reject({
+                result: err,
+                message: 'マイリストの取得に失敗(2)'
+              });
+            });
+          });
+        },
+        getMylistList: function() {
+          var url = 'http://www.nicovideo.jp/api/mylistgroup/list';
+          var cacheKey = 'mylistList';
+
+          return new Promise(function(resolve, reject) {
+
+            var cacheData = cacheStorage.getItem(cacheKey);
+            if (cacheData) {
+              console.log('cache exists: ', cacheKey, cacheData);
+              ZenzaWatch.util.callAsync(function() { resolve(cacheData); }, this);
+              return;
+            }
+
+            ajax({
+              url: url,
+              timeout: 30000,
+              cache: false,
+              dataType: 'json',
+              xhrFields: { withCredentials: true }
+              }).then(function(result) {
+                if (result.status !== 'ok' || !result.mylistgroup) {
+                  return reject({
+                    result: result,
+                    message: 'マイリスト一覧の取得に失敗(1)'
+                  });
+                }
+
+                var data = result.mylistgroup;
+                cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
+                return resolve(data);
+              }, function(err) {
+                return reject({
+                  result: err,
+                  message: 'マイリスト一覧の取得に失敗(2)'
+                });
+              });
+          });
+        },
+        _findDeflistItemByWatchId: function(watchId) {
+          return this._getDeflistItems().then(function(items) {
+            for (var i = 0, len = items.length; i < len; i++) {
+              var item = items[i], wid = item.item_data.watch_id;
+              if (wid === watchId) {
+                return Promise.resolve(item);
+              }
+            }
+            return Promise.reject();
+          });
+        },
+        _removeDeflistItem: function(watchId) {
+          return this._findDeflistItemByWatchId(watchId).then(function(item) {
+            var url = 'http://www.nicovideo.jp/api/deflist/delete';
+            var data = 'id_list[0][]=' + item.item_id + '&token=' + token;
+            var cacheKey = 'deflistItems';
+            var req = {
+              url: url,
+              method: 'POST',
+              data: data,
+              dataType: 'json',
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            };
+
+            return ajax(req).then(function(result) {
+              if (result.status && result.status === 'ok') {
+                cacheStorage.removeItem(cacheKey);
+                return Promise.resolve({
+                  status: 'ok',
+                  result: result,
+                  message: 'とりあえずマイリストの削除成功'
+                });
+              }
+
+              return Promise.reject({
+                status: 'fail',
+                result: result,
+                code: result.error.code,
+                message: result.error.description
+              });
+
+            }, function(err) {
+              return Promise.reject({
+                result: err,
+                message: 'とりあえずマイリストの削除に失敗(2)'
+              });
+            });
+
           }, function(err) {
-            this.reject({
-              result: err,
-              message: ''
+            return Promise.reject({
+              status: 'fail',
+              message: '動画が見つかりません'
+            });
+          });
+         },
+        _addDeflistItem: function(watchId, description, isRetry) {
+          var url = 'http://www.nicovideo.jp/api/deflist/add';
+          var data = "item_id=" + watchId + "&token=" + token;
+          if (description) {
+            data += '&description='+ encodeURIComponent(description);
+          }
+          var cacheKey = 'deflistItems';
+
+          var req = {
+            url: url,
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            timeout: 30000,
+            xhrFields: { withCredentials: true },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          };
+
+          var self = this;
+          return new Promise(function(resolve, reject) {
+            ajax(req).then(function(result) {
+              if (result.status && result.status === 'ok') {
+                cacheStorage.removeItem(cacheKey);
+                return resolve({
+                  status: 'ok',
+                  result: result,
+                  message: 'とりあえずマイリストの登録成功'
+                });
+              }
+
+              if (!result.status || !result.error) {
+                return reject({
+                  status: 'fail',
+                  result: result,
+                  message: 'とりあえずマイリストの追加に失敗(100)'
+                });
+              }
+              if (result.error.code !== 'EXIST' || isRetry) {
+                return reject({
+                  status: 'fail',
+                  result: result,
+                  code: result.error.code,
+                  message: result.error.description
+                });
+              }
+
+              /**
+               すでに登録されている場合は、いったん削除して再度追加(先頭に移動)
+               例えば、とりマイの300番目に登録済みだった場合に「登録済みです」と言われても探すのがダルいし、
+               他の動画を追加していけば、そのうち押し出されて消えてしまう。
+               なので、重複時にエラーを出すのではなく、「消してから追加」することによって先頭に持ってくる。
+              */
+              self._removeDeflistItem(watchId).then(function() {
+                self._addDeflistItem(watchId, description, true).then(function(result) {
+                  resolve({
+                    status: 'ok',
+                    result: result,
+                    message: 'とりあえずマイリストの先頭に移動'
+                  });
+                });
+              }, function(err) {
+                reject({
+                  status: 'fail',
+                  result: err.result,
+                  code:   err.code,
+                  message: 'とりあえずマイリストの追加に失敗(101)'
+                });
+              });
+
+            }, function(err) {
+              reject({
+                status: 'fail',
+                result: err,
+                message: 'とりあえずマイリストの追加に失敗(200)'
+              });
             });
           });
         }
@@ -593,6 +782,8 @@ var WindowMessageEmitter = function() {};
     })();
 
     ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
+    ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
+//    window.mmm = ZenzaWatch.init.mylistApiLoader;
 
 
 //===END===

@@ -625,6 +625,17 @@ var console;
     };
     ZenzaWatch.util.isFirefox = isFirefox;
 
+    var ajax = function(params) {
+      // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う
+      return new Promise(function(resolve, reject) {
+        $.ajax(params).then(function(result) {
+          return resolve(result);
+        }, function(err) {
+          return reject(err);
+        });
+      });
+    };
+    ZenzaWatch.util.ajax = ajax;
 
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();

@@ -21,6 +21,7 @@ var monkey = function() {
     var ZenzaWatch = {
       debug: {},
       api: {},
+      init: {},
       util: {
         hereDoc: function(func) { // えせヒアドキュメント
           return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/');

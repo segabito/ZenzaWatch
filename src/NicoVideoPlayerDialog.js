@@ -346,6 +346,19 @@ var PopupMessage = {};
       }
     }
 
+    {* 1152x648 *}
+    @media screen and
+      (min-width: 1530px) and (min-height: 900px)
+    {
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(1152px * 1.05);
+        height: 648px;
+      }
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer .videoPlayer {
+      }
+    }
+
+
     {* 1280x720 *}
     @media screen and
       (min-width: 1664px) and (min-height: 900px)
@@ -354,7 +367,15 @@ var PopupMessage = {};
         width: calc(1280px * 1.05);
         height: 720px;
       }
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer .videoPlayer {
+    }
+
+    {* 1920x1080 *}
+    @media screen and
+      (min-width: 2336px) and (min-height: 1200px)
+    {
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(1920px * 1.05);
+        height: 1080px;
       }
     }
 
