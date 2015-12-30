@@ -5695,7 +5695,7 @@ iframe {
     }
 
     .menuItemContainer.rightBottom {
-      width: 32px;
+      width: 120px;
       height: 32px;
       right:  0;
       bottom: 0px;
@@ -5923,7 +5923,7 @@ iframe {
 
 
     .fullScreenSwitch {
-      left: 0;
+      right: 0;
       bottom: 0;
       width:  32px;
       height: 32px;
@@ -5967,6 +5967,124 @@ iframe {
       font-size: 16px;
     }
 
+
+    .screenModeMenu {
+      right: 80px;
+      bottom: 0;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 30px;
+      font-size: 24px;
+      margin-left: -4px;
+      margin-top:  -4px;
+    }
+    .screenModeMenu.show {
+      opacity: 1;
+      border: 1px inset #000;
+      box-shadow: none;
+      background: #888;
+    }
+    .fullScreen .screenModeMenu {
+      display: none;
+    }
+
+    .screenModeSelectMenu {
+      position: absolute;
+      right: 20px;
+      bottom: 40px;
+      width: 140px;
+      box-sizng: border-box;
+      background: #333;
+      color: #fff;
+      border: 1px solid #ccc;
+      opacity: 0.9;
+      transition: opacity 0.3s ease;
+      z-index: 150000;
+      padding: 2px 4px;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+    }
+    .screenModeSelectMenu:not(.show) {
+      left: -9999px;
+      top: -9999px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .fullScreen .screenModeSelectMenu {
+      display: none;
+    }
+
+    .screenModeSelectMenu .triangle {
+      transform: rotate(-45deg);
+      position: absolute;
+      bottom: -8.5px;
+      right: 68px;
+      width: 16px;
+      height: 16px;
+      border: 1px solid #ccc;
+      border-width: 0 0 1px 1px;
+      background: #333;
+      box-sizing: border-box;
+    }
+    .screenModeSelectMenu li {
+      list-style-type: none;
+      display: inline-block;
+      text-align: center;
+    }
+    .screenModeSelectMenu li span {
+      border: 1px solid #ccc;
+      width: 50px;
+      display: inline-block;
+      margin: 2px 8px;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    .screenModeSelectMenu li span:hover {
+      background: #663;
+    }
+
+    .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
+    .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
+    .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
+    .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
+    .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
+    .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
+      color: #ff9;
+      border-color: #ff0;
+    }
+
+    .playbackRateMenu {
+      right: 40px;
+      bottom: 0;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 30px;
+      font-size: 21px;
+      margin-left: -4px;
+      margin-top:  -4px;
+    }
+    .mouseMoving .playbackRateMenu,
+    .mouseMoving .screenModeMenu {
+      background: #888;
+    }
+    .playbackRateMenu:hover,
+    .screenModeMenu:hover {
+      box-shadow: 4px 4px 0 #000;
+    }
+    .playbackRateMenu:active,
+    .screenModeMenu:active {
+      box-shadow: none;
+      margin-left: 0px;
+      margin-top:  0px;
+    }
+
+
+
     .mylistButton {
       width:  32px;
       height: 32px;
@@ -6009,23 +6127,24 @@ iframe {
       background: #888 !important;
     }
 
+    .mylistButton.mylistAddMenu.show,
     .updatingMylist  .mylistButton.mylistAddMenu {
       pointer-events: none;
       opacity: 1 !important;
-      border: 1px inset !important;
+      border: 1px inset #000 !important;
       box-shadow: none !important;
       background: #888 !important;
     }
 
     .mylistSelectMenu {
       position: absolute;
-      top: 32px;
+      top: 38px;
       right: 32px;
       background: #fff;
       overflow: visible;
-      padding: 8px;
-      border: 1px outset #333;
-      opacity: 0.8;
+      padding: 8px 0;
+      border: 1px solid #333;
+      opacity: 0.9;
       box-shadow: 2px 2px 4px #000;
       transition: opacity 0.3s ease;
       z-index: 150000;
@@ -6034,10 +6153,24 @@ iframe {
       -moz-user-select: none;
     }
 
+    .mylistSelectMenu .triangle {
+      transform: rotate(135deg);
+      position: absolute;
+      top: -8.5px;
+      right: 55px;
+      width: 16px;
+      height: 16px;
+      border: 1px solid #333;
+      border-width: 0 0 1px 1px;
+      background: #fff;
+      box-sizing: border-box;
+    }
+
     .mylistSelectMenu:not(.show) {
       left: -9999px;
       top: -9999px;
       opacity: 0;
+      pointer-events: none;
     }
 
     .mylistSelectMenu ul {
@@ -6047,7 +6180,7 @@ iframe {
     .mylistSelectMenu ul li {
       position: relative;
       line-height: 120%;
-      margin: 2px 8px;
+      margin: 2px 4px;
       overflow-y: visible;
       white-space: nowrap;
       cursor: pointer;
@@ -6149,7 +6282,9 @@ iframe {
         <div class="menuButtonInner">&#9547;</div>
       </div>
     </div>
-    <div class="mylistSelectMenu"></div>
+    <div class="mylistSelectMenu">
+      <div class="triangle"></div>
+    </div>
 
     <div class="menuItemContainer leftBottom">
       <div class="loopSwitch menuButton" data-command="loop" title="リピート">
@@ -6183,9 +6318,25 @@ iframe {
           <span class="returnFull">&#9700;</span>
         </div>
       </div>
-
+      <div class="screenModeMenu menuButton" data-command="screenModeMenu" title="画面モード">
+        <div class="menuButtonInner">&#9114;</div>
+      </div>
+      <div class="playbackRateMenu menuButton" data-command="playbackRate" title="再生速度">
+        <div class="menuButtonInner">1x</div>
+      </div>
     </div>
-                                                                *
+    <div class="screenModeSelectMenu">
+      <div class="triangle"></div>
+      <ul>
+        <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
+        <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
+        <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
+        <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
+        <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
+        <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
+      </ul>
+    </div>
+
   */});
 
   _.assign(VideoHoverMenu.prototype, {
@@ -6200,6 +6351,7 @@ iframe {
       this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
       this._initializeDom();
+      this._initializeScreenModeSelectMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
     },
@@ -6215,8 +6367,16 @@ iframe {
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
       this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
 
+      this._$screenModeMenu       = $container.find('.screenModeMenu');
+      this._$screenModeSelectMenu = $container.find('.screenModeSelectMenu');
+
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
       this._initializeVolumeCotrol();
+
+      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+        this._hideMenu(false);
+      }, this));
+
     },
     _initializeMylistSelectMenu: function() {
       var self = this;
@@ -6257,7 +6417,7 @@ iframe {
         var $target  = $(e.target.closest('.mylistIcon, .mylistLink'));
         var command    = $target.attr('data-command');
         var mylistId   = $target.attr('data-mylist-id');
-        var mylistName =  $target.attr('data-mylist-name');
+        var mylistName = $target.attr('data-mylist-name');
 
         self.toggleMylistMenu(false);
 
@@ -6268,9 +6428,21 @@ iframe {
         }
       });
 
-      ZenzaWatch.emitter.on('hideHover', function() {
-        self.toggleMylistMenu(false);
+    },
+    _initializeScreenModeSelectMenu: function() {
+      var self = this;
+      //var $btn  = this._$screenModeMenu;
+      var $menu = this._$screenModeSelectMenu;
+
+      $menu.on('click', 'span', function(e) {
+        e.preventDefault();
+        var $target  = $(e.target.closest('.screenMode'));
+        var mode     = $target.attr('data-screen-mode');
+
+        self._playerConfig.setValue('screenMode', mode);
+        self.toggleScreenModeMenu(false);
       });
+
     },
     _initializeVolumeCotrol: function() {
       var $container = this._$playerContainer.find('.volumeControl');
@@ -6324,6 +6496,14 @@ iframe {
             e.stopPropagation();
           }
           break;
+        case 'screenModeMenu':
+          this.toggleScreenModeMenu();
+          e.stopPropagation();
+          break;
+        case 'playbackRateMenu':
+          this.togglePlaybackRateMenu();
+          e.stopPropagation();
+          break;
         case 'mylistAdd':
           this.emit('mylistAdd', $target.attr('data-mylist-id'));
           break;
@@ -6342,17 +6522,38 @@ iframe {
           break;
       }
     },
+    _hideMenu: function() {
+      this.toggleMylistMenu(false);
+      this.toggleScreenModeMenu(false);
+    },
     toggleMylistMenu: function(v) {
       var $body = $('body');
+      var $btn  = this._$mylistAddMenu.toggleClass('show', v);
       var $menu = this._$mylistSelectMenu.toggleClass('show', v);
       $body.off('click.ZenzaWatchMylistMenu');
 
       var onBodyClick = function() {
+        $btn.removeClass('show');
         $menu.removeClass('show');
         $body.off('click.ZenzaWatchMylistMenu');
       };
       if ($menu.hasClass('show')) {
         $body.on('click.ZenzaWatchMylistMenu', onBodyClick);
+      }
+    },
+    toggleScreenModeMenu: function(v) {
+      var $body = $('body');
+      var $btn  = this._$screenModeMenu.toggleClass('show', v);
+      var $menu = this._$screenModeSelectMenu.toggleClass('show', v);
+      $body.off('click.ZenzaWatchScreenModeMenu');
+
+      var onBodyClick = function() {
+        $btn.removeClass('show');
+        $menu.removeClass('show');
+        $body.off('click.ZenzaWatchScreenModeMenu');
+      };
+      if ($menu.hasClass('show')) {
+        $body.on('click.ZenzaWatchScreenModeMenu', onBodyClick);
       }
     }
    });
