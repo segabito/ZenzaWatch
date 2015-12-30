@@ -1297,14 +1297,13 @@ var AsyncEmitter = function() {};
 
     .mylistSelectMenu .name {
       display: inline-block;
+      width: calc(100% - 20px);
       vertical-align: middle;
       font-size: 110%;
       color: #666;
       text-derocation: none !important;
     }
     .mylistSelectMenu .name:hover {
-      color: #000;
-      background-color: #ff9;
     }
     .mylistSelectMenu .name::after {
       content: ' に登録';

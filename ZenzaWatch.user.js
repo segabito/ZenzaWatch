@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.4.0
+// @version        0.4.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -6094,14 +6094,13 @@ iframe {
 
     .mylistSelectMenu .name {
       display: inline-block;
+      width: calc(100% - 20px);
       vertical-align: middle;
       font-size: 110%;
       color: #666;
       text-derocation: none !important;
     }
     .mylistSelectMenu .name:hover {
-      color: #000;
-      background-color: #ff9;
     }
     .mylistSelectMenu .name::after {
       content: ' に登録';
