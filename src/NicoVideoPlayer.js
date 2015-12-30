@@ -387,9 +387,11 @@ var NicoCommentPlayer = function() {};
       -moz-user-select: none;
     }
 
+    {*
     .zenzaControlPanel.show {
       display: block
     }
+    *}
 
     .zenzaControlPanel .control {
       display: inline-block;
@@ -431,6 +433,7 @@ var NicoCommentPlayer = function() {};
 
   VideoControlPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="zenzaControlPanel">
+      <!--
       <div class="playbackRateControl control">
         再生速度
         <select class="playbackRate">
@@ -462,6 +465,7 @@ var NicoCommentPlayer = function() {};
           <option value="wide">ワイド</option>
        </select>
       </div>
+      -->
       <!--
       <div class="fullScreenControl control toggle">
         <button class="fullScreen">

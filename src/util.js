@@ -675,7 +675,7 @@ var console;
             break;
           case 84: //T
             key = 'DEFLIST';
-            break
+            break;
           case 32:
             key = 'SPACE';
             break;
