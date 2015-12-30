@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.4.1
+// @version        0.4.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -704,6 +704,9 @@ var monkey = function() {
           case 86: // V
             key = 'VIEW_COMMENT';
             break;
+          case 84: //T
+            key = 'DEFLIST';
+            break
           case 32:
             key = 'SPACE';
             break;
@@ -5294,6 +5297,9 @@ iframe {
         case 'FULL':
           this._nicoVideoPlayer.requestFullScreen();
           break;
+        case 'DEFLIST':
+          this._onDeflistAdd();
+          break;
         case 'VIEW_COMMENT':
           var v = this._playerConfig.getValue('showComment');
           this._playerConfig.setValue('showComment', !v);
@@ -5357,6 +5363,12 @@ iframe {
     },
     _onDeflistAdd: function() {
       var $container = this._$playerContainer;
+      if ($container.hasClass('updatingDeflist')) { return; } //busy
+
+      var removeClass = function() {
+        $container.removeClass('updatingDeflist');
+      };
+
       $container.addClass('updatingDeflist');
       var timer = window.setTimeout(function() {
         $container.removeClass('updatingDeflist');
@@ -5372,20 +5384,24 @@ iframe {
       return this._mylistApiLoader.addDeflistItem(watchId, description)
         .then(function(result) {
         window.clearTimeout(timer);
-        $container.removeClass('updatingDeflist');
+        timer = window.setTimeout(removeClass, 2000);
         PopupMessage.notify(result.message);
       }, function(err) {
         window.clearTimeout(timer);
-        $container.removeClass('updatingDeflist');
+        timer = window.setTimeout(removeClass, 2000);
         PopupMessage.alert(err.message);
       });
     },
     _onMylistAdd: function(groupId, mylistName) {
       var $container = this._$playerContainer;
-      $container.addClass('updatingMylist');
-      var timer = window.setTimeout(function() {
+      if ($container.hasClass('updatingMylist')) { return; } //busy
+
+      var removeClass = function() {
         $container.removeClass('updatingMylist');
-      }, 10000);
+      };
+
+      $container.addClass('updatingMylist');
+      var timer = window.setTimeout(removeClass, 10000);
 
       var owner = this._videoInfo.getOwnerInfo();
       var watchId = this._videoInfo.getWatchId();
@@ -5397,11 +5413,11 @@ iframe {
       return this._mylistApiLoader.addMylistItem(watchId, groupId, description)
         .then(function(result) {
         window.clearTimeout(timer);
-        $container.removeClass('updatingMylist');
+        timer = window.setTimeout(removeClass, 2000);
         PopupMessage.notify(result.message + ': ' + mylistName);
       }, function(err) {
         window.clearTimeout(timer);
-        $container.removeClass('updatingMylist');
+        timer = window.setTimeout(removeClass, 2000);
         PopupMessage.alert(err.message + ': ' + mylistName);
       });
     },
@@ -5664,6 +5680,7 @@ iframe {
     .updatingDeflist .menuItemContainer.rightTop,
     .updatingMylist .menuItemContainer.rightTop {
       cursor: wait;
+      opacity: 1 !important;
     }
     .updatingDeflist .menuItemContainer.rightTop>*,
     .updatingMylist .menuItemContainer.rightTop>* {
@@ -5984,16 +6001,20 @@ iframe {
 
     .updatingDeflist .mylistButton.deflistAdd {
       pointer-events: none;
+      opacity: 1 !important;
       border: 1px inset !important;
       box-shadow: none !important;
       margin-left: 2px !important;
       margin-top:  4px !important;
+      background: #888 !important;
     }
 
     .updatingMylist  .mylistButton.mylistAddMenu {
       pointer-events: none;
+      opacity: 1 !important;
       border: 1px inset !important;
       box-shadow: none !important;
+      background: #888 !important;
     }
 
     .mylistSelectMenu {
@@ -6101,6 +6122,7 @@ iframe {
       text-derocation: none !important;
     }
     .mylistSelectMenu .name:hover {
+      color: #fff;
     }
     .mylistSelectMenu .name::after {
       content: ' に登録';
@@ -6112,7 +6134,7 @@ iframe {
       color: #933;
     }
     .mylistSelectMenu .name:hover::after {
-      color: #666;
+      color: #fff;
     }
 
 

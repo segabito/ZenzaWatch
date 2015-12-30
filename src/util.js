@@ -673,6 +673,9 @@ var console;
           case 86: // V
             key = 'VIEW_COMMENT';
             break;
+          case 84: //T
+            key = 'DEFLIST';
+            break
           case 32:
             key = 'SPACE';
             break;
