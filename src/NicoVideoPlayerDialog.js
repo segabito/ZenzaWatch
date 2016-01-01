@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {}
 };
 var FullScreen = {};
+var VideoInfoLoader = {};
 var PopupMessage = {};
 var AsyncEmitter = function() {};
 
@@ -12,7 +13,7 @@ var AsyncEmitter = function() {};
 
 
   var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
- NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
 
     .zenzaVideoPlayerDialog {
       display: none;
@@ -678,6 +679,7 @@ var AsyncEmitter = function() {};
         nicoVideoPlayer.setThumbnail(thumbnail);
       }
 
+      this._isCommentReady = false;
       this._watchId = watchId;
       window.console.time('VideoInfoLoader');
       VideoInfoLoader.load(watchId);
@@ -747,7 +749,6 @@ var AsyncEmitter = function() {};
 
         this._threadId = flvInfo.thread_id;
 
-        
         this._messageApiLoader.load(
           flvInfo.ms,
           flvInfo.thread_id,
@@ -772,6 +773,8 @@ var AsyncEmitter = function() {};
       }
       PopupMessage.notify('コメント取得成功');
       this._nicoVideoPlayer.setComment(result.xml);
+      this._threadInfo = result.threadInfo;
+      this._isCommentReady = true;
     },
     _onCommentLoadFail: function(e) {
       PopupMessage.alert(e.message);
@@ -825,20 +828,47 @@ var AsyncEmitter = function() {};
       }
     },
     addChat: function(text, cmd, vpos, options) {
-      if (!this._nicoVideoPlayer) {
+      if (!this._nicoVideoPlayer ||
+          !this._messageApiLoader ||
+          this._isCommentReady !== true) {
         return;
       }
 
       options = options || {};
       options.mine = '1';
+      options.updating = '1';
       vpos = vpos || this._nicoVideoPlayer.getVpos();
-      var nicoChat = this._nicoVideoPlayer.addChat('通信中...', cmd, vpos, options);
-      var onSuccess = function() {
-        nicoChat.setText(text);
-        PopupMessage.notify('コメントの投稿成功');
+      var nicoChat = this._nicoVideoPlayer.addChat(text, cmd, vpos, options);
+
+      var $container = this._$playerContainer.addClass('postChat');
+      window.console.log('threadInfo', this._threadInfo);
+
+      var _onSuccess = function(e) {
+        window.console.log(e);
+        nicoChat.setIsUpdating(false);
+        PopupMessage.notify('コメント投稿成功');
+        $container.removeClass('postChat');
+        window.clearTimeout(timeout);
+      };
+      var _onFail = function(e) {
+        window.console.log(e);
+        nicoChat.setIsUpdating(false);
+        PopupMessage.notify('コメント投稿失敗(1)');
+        $container.removeClass('postChat');
+        window.clearTimeout(timeout);
       };
 
-      window.setTimeout(onSuccess, 1500);
+      var _onTimeout = function() {
+        PopupMessage.notify('コメント投稿失敗(2)');
+        $container.removeClass('postChat');
+      };
+
+      var timeout = window.setTimeout(_onTimeout, 30000);
+
+      this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+        _onSuccess,
+        _onFail
+      );
     },
     getPlayingStatus: function() {
       if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
@@ -920,6 +950,7 @@ var AsyncEmitter = function() {};
     }
     .mouseMoving .menuButton .menuButtonInner {
       opacity: 0.8;
+      word-break: normal;
     }
 
     .menuButton:hover {
@@ -1257,6 +1288,9 @@ var AsyncEmitter = function() {};
       background: #333;
       box-sizing: border-box;
     }
+    .screenModeSelectMenu ul {
+      padding: 0;
+    }
     .screenModeSelectMenu li {
       list-style-type: none;
       display: inline-block;
@@ -1324,6 +1358,7 @@ var AsyncEmitter = function() {};
     }
     .playbackRateSelectMenu ul {
       margin: 2px 8px;
+      padding: 0;
     }
     .playbackRateSelectMenu:not(.show) {
       left: -9999px;
@@ -1456,6 +1491,10 @@ var AsyncEmitter = function() {};
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+    .mylistSelectMenu .mylistSelectMenuInner {
+      overflow: auto;
+      max-height: 50vh;
+    }
 
     .mylistSelectMenu .triangle {
       transform: rotate(135deg);
@@ -1575,6 +1614,8 @@ var AsyncEmitter = function() {};
     </div>
     <div class="mylistSelectMenu">
       <div class="triangle"></div>
+      <div class="mylistSelectMenuInner">
+      </div>
     </div>
 
     <div class="menuItemContainer leftBottom">
@@ -1730,7 +1771,7 @@ var AsyncEmitter = function() {};
         $ul.append($li);
       });
 
-      $menu.append($ul);
+      $menu.find('.mylistSelectMenuInner').append($ul);
       $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
         e.preventDefault();
         var $target  = $(e.target.closest('.mylistIcon, .mylistLink'));

@@ -211,6 +211,35 @@ var WindowMessageEmitter = function() {};
             });
           });
         },
+        getPostKey: function(threadId, blockNo) {
+          // memo:
+          // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          var url =
+            'http://flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
+            '&block_no=' + blockNo +
+            '&language_id=0';
+
+          console.log('getPostkey url: ', url);
+          return new Promise(function(resolve, reject) {
+            $.ajax({
+              url: url,
+              contentType: 'text/plain',
+              crossDomain: true,
+              cache: false,
+              xhrFields: {
+                withCredentials: true
+              }
+            }).then(function(e) {
+              resolve(ZenzaWatch.util.parseQuery(e));
+            }, function(result) {
+              //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
+              reject({
+                result: result,
+                message: 'PostKeyの取得失敗 ' + threadId
+              });
+            });
+          });
+        },
         _createThreadXml: function(threadId, version, userId, threadKey, force184) {
           var thread = document.createElement('thread');
           thread.setAttribute('thread', threadId);
@@ -293,6 +322,7 @@ var WindowMessageEmitter = function() {};
             $.ajax({
               url: server,
               data: xml,
+              timeout: 30000,
               type: 'POST',
               contentType: isNmsg ? 'text/xml' : 'text/plain',
               dataType: 'xml',
@@ -334,6 +364,7 @@ var WindowMessageEmitter = function() {};
           return new Promise(function(resolve, reject) {
             $.ajax({
               url: url,
+              timeout: 30000,
               crossDomain: true,
               cache: false
             }).then(function(result) {
@@ -401,9 +432,10 @@ var WindowMessageEmitter = function() {};
                 window.console.timeEnd(timeKey);
                 ZenzaWatch.debug.lastMessageServerResult = result;
 
-                var resultCode = null;
+                var resultCode = null, thread, xml;
                 try {
-                  var thread = result.documentElement.getElementsByTagName('thread')[0];
+                  xml = result.documentElement;
+                  thread = xml.getElementsByTagName('thread')[0];
                   resultCode = thread.getAttribute('resultcode');
                 } catch (e) {
                   console.error(e);
@@ -416,9 +448,23 @@ var WindowMessageEmitter = function() {};
                   return;
                 }
 
+                var lastRes = parseInt(thread.getAttribute('last_res')) || 0;
+                var threadInfo = {
+                  server:     server,
+                  userId:     userId,
+                  resultCode: thread.getAttribute('resultcode'),
+                  thread:     thread.getAttribute('thread'),
+                  serverTime: thread.getAttribute('server_time'),
+                  lastRes:    lastRes,
+                  blockNo:    Math.floor((lastRes + 1) / 100),
+                  ticket:     thread.getAttribute('ticket'),
+                  revision:   thread.getAttribute('revision')
+                };
+
                 resolve({
                   resultCode: parseInt(resultCode, 10),
-                  xml: result.documentElement
+                  threadInfo: threadInfo,
+                  xml: xml
                 });
               },
               function(e) {
@@ -429,6 +475,53 @@ var WindowMessageEmitter = function() {};
                 });
               }
             );
+          });
+        },
+        _postChat: function(threadInfo, postKey, text, cmd, vpos) {
+          var self = this;
+          var div = document.createElement('div');
+          var chat = document.createElement('chat');
+          chat.setAttribute('premium', ZenzaWatch.util.isPremium() ? '1' : '0');
+          chat.setAttribute('postkey', postKey);
+          chat.setAttribute('user_id', threadInfo.userId);
+          chat.setAttribute('ticket',  threadInfo.ticket);
+          chat.setAttribute('thread',  threadInfo.thread);
+          chat.setAttribute('mail',    cmd);
+          chat.setAttribute('vpos',    vpos);
+          chat.innerHTML = text;
+          div.appendChild(chat);
+          var xml = div.innerHTML;
+
+          window.console.log('post xml: ', xml);
+          return self._post(threadInfo.server, xml).then(function(result) {
+            var status = null;
+            try {
+              xml = result.documentElement;
+              var chat_result = xml.getElementsByTagName('chat_result')[0];
+              status = chat_result.getAttribute('status');
+            } catch (e) {
+              console.error(e);
+            }
+
+            if (status !== '0') {
+              return Promise.reject({
+                status: 'fail',
+                code: status,
+                message: 'コメント投稿失敗 status:' + status
+              });
+            }
+            return Promise.resolve({
+              status: 'ok',
+              code: status,
+              message: 'コメント投稿成功'
+            });
+          });
+        },
+        postChat: function(threadInfo, text, cmd, vpos) {
+          var self = this;
+          return this.getPostKey(threadInfo.thread, threadInfo.blockNo)
+            .then(function(result) {
+            return self._postChat(threadInfo, result.postkey, text, cmd, vpos);
           });
         }
       });

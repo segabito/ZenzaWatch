@@ -49,6 +49,8 @@ var PopupMessage = {};
         show: params.showComment
       });
 
+      this._model.on('change', $.proxy(this._onCommentChange, this));
+
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
     setComment: function(xml) {
@@ -62,18 +64,14 @@ var PopupMessage = {};
         PopupMessage.alert('コメントの読み込み失敗');
       }
 
-      var thread = xml.getElementsByTagName('thread')[0];
-      var lastRes = parseInt(thread.getAttribute('last_res'));
-      this._theradInfo = {
-        resultCode: thread.getAttribute('resultcode'),
-        thread:     thread.getAttribute('thread'),
-        serverTime: thread.getAttribute('server_time'),
-        lastRes:    lastRes,
-        blockNo:    Math.floor(lastRes+1),
-        ticket:     thread.getAttribute('ticket'),
-        revision:   thread.getAttribute('revision')
-      };
-
+    },
+    _onCommentChange: function(e) {
+      console.log('onCommentChange', e);
+      if (this._view) {
+        ZenzaWatch.util.callAsync(function() {
+          this._view.refresh();
+        }, this);
+      }
     },
     getCss3PlayerHtml: function() {
       console.log('createCss3PlayerHtml...');
@@ -135,9 +133,6 @@ var PopupMessage = {};
     close: function() {
       this._model.clear();
     },
-    getThreadInfo: function() {
-      return this._threadInfo || {};
-    },
     toString: function() {
       return this._viewModel.toString();
     }
@@ -160,6 +155,9 @@ var PopupMessage = {};
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP);
       this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM);
+      this._topGroup   .on('change', $.proxy(this._onChange, this));
+      this._normalGroup.on('change', $.proxy(this._onChange, this));
+      this._bottomGroup.on('change', $.proxy(this._onChange, this));
     },
     setXml: function(xml) {
       window.console.time('NicoComment.setXml');
@@ -224,12 +222,14 @@ var PopupMessage = {};
      * コメントの内容が変化した通知
      * NG設定、フィルタ反映時など
      */
-    onChange: function(e) {
-      this.emit('change', {
+    _onChange: function(e) {
+      console.log('NicoComment.onChange: ', e);
+      var ev = {
         nicoComment: this,
         group: e.group,
         chat: e.chat
-      });
+      };
+      this.emit('change', ev);
     },
     clear: function() {
       this._xml = '';
@@ -480,7 +480,8 @@ var PopupMessage = {};
       this._currentTime = sec;
       this.emit('currentTime', this._currentTime);
     },
-    _onChange: function() {
+    _onChange: function(e) {
+      console.log('NicoCommentViewModel.onChange: ', e);
     },
     getCurrentTime: function() {
       return this._currentTime;
@@ -539,6 +540,7 @@ var PopupMessage = {};
     },
     addChat: function(nicoChat) {
       this._members.push(nicoChat);
+      nicoChat.setGroup(this);
       this.emit('addChat', nicoChat);
     },
     getType: function() {
@@ -555,6 +557,7 @@ var PopupMessage = {};
       return this._currentTime;
     },
     onChange: function(e) {
+      console.log('NicoChatGroup.onChange: ', e);
       this.emit('change', {
         chat: e,
         group: this
@@ -597,17 +600,19 @@ var PopupMessage = {};
       this.reset();
     },
     _onChange: function(e) {
+      console.log('NicoChatGroupViewModel.onChange: ', e);
       this.reset();
       this.addChatArray(e.group.getFilteredMembers());
     },
     addChatArray: function(nicoChatArray) {
       for (var i = 0, len = nicoChatArray.length; i < len; i++) {
         var nicoChat = nicoChatArray[i];
-        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
-        this.checkCollision(nc);
-        this._members.push(nc);
+        this.addChat(nicoChat);
+//        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
+//        this.checkCollision(nc);
+//        this._members.push(nc);
       }
-      this._createVSortedMembers();
+//      this._createVSortedMembers();
     },
     addChat: function(nicoChat) {
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
@@ -632,8 +637,6 @@ var PopupMessage = {};
       return this._nicoChatGroup.getType();
     },
     checkCollision: function(target) {
-      // 判定はidの若い奴優先なのか左にある奴優先なのかいまいちわかってない
-      // 後者だとコメントアートに割り込み出来てしまうから前者？
       var m = this._vSortedMembers;//this._members;
       var o;
       for (var i = 0, len = m.length; i < len; i++) {
@@ -733,11 +736,12 @@ var PopupMessage = {};
   NicoChat.create = function(text, cmd, vpos, options) {
     var dom = document.createElement('chat');
     dom.innerText = text;
-    dom.setAttribute('mail', cmd);
+    dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
     for (var v in options) {
       dom.setAttribute(v, options[v]);
     }
+    //console.log('NicoChat.create', dom);
     return new NicoChat(dom);
   };
 
@@ -821,6 +825,7 @@ var PopupMessage = {};
       this._type = NicoChat.TYPE.NORMAL;
       this._duration = NicoChatViewModel.DURATION.NORMAL;
       this._isMine = chat.getAttribute('mine') === '1';
+      this._isUpdating = chat.getAttribute('updating') === '1';
 
       if (this._deleted) { return; }
 
@@ -878,20 +883,28 @@ var PopupMessage = {};
     },
     onChange: function() {
       if (this._group) {
+        console.log('NicoChat.onChange: ', this, this._group);
         this._group.onChange({
           chat: this
         });
       }
     },
+    setIsUpdating: function(v) {
+      if (this._isUpdating !== v) {
+        this._isUpdating = !!v;
+        if (!v) { this.onChange(); }
+      }
+    },
     getId: function() { return this._id; },
     getText: function() { return this._text; },
-    setText: function(v) { this._text = v; this.onChange(); },
+    setText: function(v) { this._text = v; },
     getDate: function() { return this._date; },
     getCmd: function() { return this._cmd; },
     isPremium: function() { return !!this._isPremium; },
     isEnder: function() { return !!this._isEnder; },
     isFull: function() { return !!this._isFull; },
     isMine: function() { return !!this._isMine; },
+    isUpdating: function() { return !!this._isUpdating; },
     getUserId: function() { return this._userId; },
     getVpos: function() { return this._vpos; },
     isDeleted: function() { return !!this._deleted; },
@@ -1434,6 +1447,8 @@ var PopupMessage = {};
     isFull: function() {
       return this._nicoChat.isFull();
     },
+    isMine: function()     { return this._nicoChat._isMine; },
+    isUpdating: function() { return this._nicoChat._isUpdating; },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -1644,6 +1659,36 @@ iframe {
 
 .nicoChat.mine {
   border: 1px solid yellow;
+}
+.nicoChat.updating {
+  border: 1px dotted;
+}
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(3600deg); }
+}
+
+.nicoChat.updating::before {
+  content: '❀'; {* 砂時計にしたい *}
+  opacity: 0.8;
+  color: #f99;
+  display: inline-block;
+  text-align: center;
+  animation-name: spin;
+  animation-iteration-count: infinite;
+  animation-duration: 10s;
+}
+.nicoChat.updating::after {
+  content: ' 通信中...';
+  color: #ff9;
+  font-size: 50%;
+  opacity: 0.8;
+  color: #ccc;
+}
+
+.nicoChat.updating::after {
+  animation-direction: alternate;
 }
 
 .debug .nicoChat {
@@ -1986,7 +2031,13 @@ iframe {
       if (chat.isOverflow()) {
         className.push('overflow');
       }
-      //if (chat.isMine()) { className.push('mine'); }
+      if (chat.isMine()) {
+        className.push('mine');
+      }
+      if (chat.isUpdating()) {
+        className.push('updating');
+      }
+
 
       span.className = className.join(' ');
       span.id = chat.getId();
@@ -2013,7 +2064,12 @@ iframe {
        if (chat.isOverflow()) {
         className.push('overflow');
       }
-      //if (chat.isMine()) { className.push('mine'); }
+      if (chat.isMine()) {
+        className.push('mine');
+      }
+      if (chat.isUpdating()) {
+        className.push('updating');
+      }
 
       var result = [
         '<span id="', chat.getId(), '" class="', className.join(' '), '">',

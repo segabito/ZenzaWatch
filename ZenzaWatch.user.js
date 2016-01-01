@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.4.3
+// @version        0.4.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -926,6 +926,35 @@ var monkey = function() {
             });
           });
         },
+        getPostKey: function(threadId, blockNo) {
+          // memo:
+          // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          var url =
+            'http://flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
+            '&block_no=' + blockNo +
+            '&language_id=0';
+
+          console.log('getPostkey url: ', url);
+          return new Promise(function(resolve, reject) {
+            $.ajax({
+              url: url,
+              contentType: 'text/plain',
+              crossDomain: true,
+              cache: false,
+              xhrFields: {
+                withCredentials: true
+              }
+            }).then(function(e) {
+              resolve(ZenzaWatch.util.parseQuery(e));
+            }, function(result) {
+              //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
+              reject({
+                result: result,
+                message: 'PostKeyの取得失敗 ' + threadId
+              });
+            });
+          });
+        },
         _createThreadXml: function(threadId, version, userId, threadKey, force184) {
           var thread = document.createElement('thread');
           thread.setAttribute('thread', threadId);
@@ -1008,6 +1037,7 @@ var monkey = function() {
             $.ajax({
               url: server,
               data: xml,
+              timeout: 30000,
               type: 'POST',
               contentType: isNmsg ? 'text/xml' : 'text/plain',
               dataType: 'xml',
@@ -1049,6 +1079,7 @@ var monkey = function() {
           return new Promise(function(resolve, reject) {
             $.ajax({
               url: url,
+              timeout: 30000,
               crossDomain: true,
               cache: false
             }).then(function(result) {
@@ -1116,9 +1147,10 @@ var monkey = function() {
                 window.console.timeEnd(timeKey);
                 ZenzaWatch.debug.lastMessageServerResult = result;
 
-                var resultCode = null;
+                var resultCode = null, thread, xml;
                 try {
-                  var thread = result.documentElement.getElementsByTagName('thread')[0];
+                  xml = result.documentElement;
+                  thread = xml.getElementsByTagName('thread')[0];
                   resultCode = thread.getAttribute('resultcode');
                 } catch (e) {
                   console.error(e);
@@ -1131,9 +1163,23 @@ var monkey = function() {
                   return;
                 }
 
+                var lastRes = parseInt(thread.getAttribute('last_res')) || 0;
+                var threadInfo = {
+                  server:     server,
+                  userId:     userId,
+                  resultCode: thread.getAttribute('resultcode'),
+                  thread:     thread.getAttribute('thread'),
+                  serverTime: thread.getAttribute('server_time'),
+                  lastRes:    lastRes,
+                  blockNo:    Math.floor((lastRes + 1) / 100),
+                  ticket:     thread.getAttribute('ticket'),
+                  revision:   thread.getAttribute('revision')
+                };
+
                 resolve({
                   resultCode: parseInt(resultCode, 10),
-                  xml: result.documentElement
+                  threadInfo: threadInfo,
+                  xml: xml
                 });
               },
               function(e) {
@@ -1144,6 +1190,53 @@ var monkey = function() {
                 });
               }
             );
+          });
+        },
+        _postChat: function(threadInfo, postKey, text, cmd, vpos) {
+          var self = this;
+          var div = document.createElement('div');
+          var chat = document.createElement('chat');
+          chat.setAttribute('premium', ZenzaWatch.util.isPremium() ? '1' : '0');
+          chat.setAttribute('postkey', postKey);
+          chat.setAttribute('user_id', threadInfo.userId);
+          chat.setAttribute('ticket',  threadInfo.ticket);
+          chat.setAttribute('thread',  threadInfo.thread);
+          chat.setAttribute('mail',    cmd);
+          chat.setAttribute('vpos',    vpos);
+          chat.innerHTML = text;
+          div.appendChild(chat);
+          var xml = div.innerHTML;
+
+          window.console.log('post xml: ', xml);
+          return self._post(threadInfo.server, xml).then(function(result) {
+            var status = null;
+            try {
+              xml = result.documentElement;
+              var chat_result = xml.getElementsByTagName('chat_result')[0];
+              status = chat_result.getAttribute('status');
+            } catch (e) {
+              console.error(e);
+            }
+
+            if (status !== '0') {
+              return Promise.reject({
+                status: 'fail',
+                code: status,
+                message: 'コメント投稿失敗 status:' + status
+              });
+            }
+            return Promise.resolve({
+              status: 'ok',
+              code: status,
+              message: 'コメント投稿成功'
+            });
+          });
+        },
+        postChat: function(threadInfo, text, cmd, vpos) {
+          var self = this;
+          return this.getPostKey(threadInfo.thread, threadInfo.blockNo)
+            .then(function(result) {
+            return self._postChat(threadInfo, result.postkey, text, cmd, vpos);
           });
         }
       });
@@ -2726,6 +2819,8 @@ var monkey = function() {
         show: params.showComment
       });
 
+      this._model.on('change', $.proxy(this._onCommentChange, this));
+
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
     setComment: function(xml) {
@@ -2739,18 +2834,14 @@ var monkey = function() {
         PopupMessage.alert('コメントの読み込み失敗');
       }
 
-      var thread = xml.getElementsByTagName('thread')[0];
-      var lastRes = parseInt(thread.getAttribute('last_res'));
-      this._theradInfo = {
-        resultCode: thread.getAttribute('resultcode'),
-        thread:     thread.getAttribute('thread'),
-        serverTime: thread.getAttribute('server_time'),
-        lastRes:    lastRes,
-        blockNo:    Math.floor(lastRes+1),
-        ticket:     thread.getAttribute('ticket'),
-        revision:   thread.getAttribute('revision')
-      };
-
+    },
+    _onCommentChange: function(e) {
+      console.log('onCommentChange', e);
+      if (this._view) {
+        ZenzaWatch.util.callAsync(function() {
+          this._view.refresh();
+        }, this);
+      }
     },
     getCss3PlayerHtml: function() {
       console.log('createCss3PlayerHtml...');
@@ -2812,9 +2903,6 @@ var monkey = function() {
     close: function() {
       this._model.clear();
     },
-    getThreadInfo: function() {
-      return this._threadInfo || {};
-    },
     toString: function() {
       return this._viewModel.toString();
     }
@@ -2837,6 +2925,9 @@ var monkey = function() {
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP);
       this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM);
+      this._topGroup   .on('change', $.proxy(this._onChange, this));
+      this._normalGroup.on('change', $.proxy(this._onChange, this));
+      this._bottomGroup.on('change', $.proxy(this._onChange, this));
     },
     setXml: function(xml) {
       window.console.time('NicoComment.setXml');
@@ -2901,12 +2992,14 @@ var monkey = function() {
      * コメントの内容が変化した通知
      * NG設定、フィルタ反映時など
      */
-    onChange: function(e) {
-      this.emit('change', {
+    _onChange: function(e) {
+      console.log('NicoComment.onChange: ', e);
+      var ev = {
         nicoComment: this,
         group: e.group,
         chat: e.chat
-      });
+      };
+      this.emit('change', ev);
     },
     clear: function() {
       this._xml = '';
@@ -3157,7 +3250,8 @@ var monkey = function() {
       this._currentTime = sec;
       this.emit('currentTime', this._currentTime);
     },
-    _onChange: function() {
+    _onChange: function(e) {
+      console.log('NicoCommentViewModel.onChange: ', e);
     },
     getCurrentTime: function() {
       return this._currentTime;
@@ -3216,6 +3310,7 @@ var monkey = function() {
     },
     addChat: function(nicoChat) {
       this._members.push(nicoChat);
+      nicoChat.setGroup(this);
       this.emit('addChat', nicoChat);
     },
     getType: function() {
@@ -3232,6 +3327,7 @@ var monkey = function() {
       return this._currentTime;
     },
     onChange: function(e) {
+      console.log('NicoChatGroup.onChange: ', e);
       this.emit('change', {
         chat: e,
         group: this
@@ -3274,17 +3370,19 @@ var monkey = function() {
       this.reset();
     },
     _onChange: function(e) {
+      console.log('NicoChatGroupViewModel.onChange: ', e);
       this.reset();
       this.addChatArray(e.group.getFilteredMembers());
     },
     addChatArray: function(nicoChatArray) {
       for (var i = 0, len = nicoChatArray.length; i < len; i++) {
         var nicoChat = nicoChatArray[i];
-        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
-        this.checkCollision(nc);
-        this._members.push(nc);
+        this.addChat(nicoChat);
+//        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
+//        this.checkCollision(nc);
+//        this._members.push(nc);
       }
-      this._createVSortedMembers();
+//      this._createVSortedMembers();
     },
     addChat: function(nicoChat) {
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
@@ -3309,8 +3407,6 @@ var monkey = function() {
       return this._nicoChatGroup.getType();
     },
     checkCollision: function(target) {
-      // 判定はidの若い奴優先なのか左にある奴優先なのかいまいちわかってない
-      // 後者だとコメントアートに割り込み出来てしまうから前者？
       var m = this._vSortedMembers;//this._members;
       var o;
       for (var i = 0, len = m.length; i < len; i++) {
@@ -3410,11 +3506,12 @@ var monkey = function() {
   NicoChat.create = function(text, cmd, vpos, options) {
     var dom = document.createElement('chat');
     dom.innerText = text;
-    dom.setAttribute('mail', cmd);
+    dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
     for (var v in options) {
       dom.setAttribute(v, options[v]);
     }
+    //console.log('NicoChat.create', dom);
     return new NicoChat(dom);
   };
 
@@ -3498,6 +3595,7 @@ var monkey = function() {
       this._type = NicoChat.TYPE.NORMAL;
       this._duration = NicoChatViewModel.DURATION.NORMAL;
       this._isMine = chat.getAttribute('mine') === '1';
+      this._isUpdating = chat.getAttribute('updating') === '1';
 
       if (this._deleted) { return; }
 
@@ -3555,20 +3653,28 @@ var monkey = function() {
     },
     onChange: function() {
       if (this._group) {
+        console.log('NicoChat.onChange: ', this, this._group);
         this._group.onChange({
           chat: this
         });
       }
     },
+    setIsUpdating: function(v) {
+      if (this._isUpdating !== v) {
+        this._isUpdating = !!v;
+        if (!v) { this.onChange(); }
+      }
+    },
     getId: function() { return this._id; },
     getText: function() { return this._text; },
-    setText: function(v) { this._text = v; this.onChange(); },
+    setText: function(v) { this._text = v; },
     getDate: function() { return this._date; },
     getCmd: function() { return this._cmd; },
     isPremium: function() { return !!this._isPremium; },
     isEnder: function() { return !!this._isEnder; },
     isFull: function() { return !!this._isFull; },
     isMine: function() { return !!this._isMine; },
+    isUpdating: function() { return !!this._isUpdating; },
     getUserId: function() { return this._userId; },
     getVpos: function() { return this._vpos; },
     isDeleted: function() { return !!this._deleted; },
@@ -4111,6 +4217,8 @@ var monkey = function() {
     isFull: function() {
       return this._nicoChat.isFull();
     },
+    isMine: function()     { return this._nicoChat._isMine; },
+    isUpdating: function() { return this._nicoChat._isUpdating; },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -4321,6 +4429,36 @@ iframe {
 
 .nicoChat.mine {
   border: 1px solid yellow;
+}
+.nicoChat.updating {
+  border: 1px dotted;
+}
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(3600deg); }
+}
+
+.nicoChat.updating::before {
+  content: '❀'; {* 砂時計にしたい *}
+  opacity: 0.8;
+  color: #f99;
+  display: inline-block;
+  text-align: center;
+  animation-name: spin;
+  animation-iteration-count: infinite;
+  animation-duration: 10s;
+}
+.nicoChat.updating::after {
+  content: ' 通信中...';
+  color: #ff9;
+  font-size: 50%;
+  opacity: 0.8;
+  color: #ccc;
+}
+
+.nicoChat.updating::after {
+  animation-direction: alternate;
 }
 
 .debug .nicoChat {
@@ -4663,7 +4801,13 @@ iframe {
       if (chat.isOverflow()) {
         className.push('overflow');
       }
-      //if (chat.isMine()) { className.push('mine'); }
+      if (chat.isMine()) {
+        className.push('mine');
+      }
+      if (chat.isUpdating()) {
+        className.push('updating');
+      }
+
 
       span.className = className.join(' ');
       span.id = chat.getId();
@@ -4690,7 +4834,12 @@ iframe {
        if (chat.isOverflow()) {
         className.push('overflow');
       }
-      //if (chat.isMine()) { className.push('mine'); }
+      if (chat.isMine()) {
+        className.push('mine');
+      }
+      if (chat.isUpdating()) {
+        className.push('updating');
+      }
 
       var result = [
         '<span id="', chat.getId(), '" class="', className.join(' '), '">',
@@ -4816,7 +4965,7 @@ iframe {
 
 
   var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
- NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
 
     .zenzaVideoPlayerDialog {
       display: none;
@@ -5482,6 +5631,7 @@ iframe {
         nicoVideoPlayer.setThumbnail(thumbnail);
       }
 
+      this._isCommentReady = false;
       this._watchId = watchId;
       window.console.time('VideoInfoLoader');
       VideoInfoLoader.load(watchId);
@@ -5551,7 +5701,6 @@ iframe {
 
         this._threadId = flvInfo.thread_id;
 
-        
         this._messageApiLoader.load(
           flvInfo.ms,
           flvInfo.thread_id,
@@ -5576,6 +5725,8 @@ iframe {
       }
       PopupMessage.notify('コメント取得成功');
       this._nicoVideoPlayer.setComment(result.xml);
+      this._threadInfo = result.threadInfo;
+      this._isCommentReady = true;
     },
     _onCommentLoadFail: function(e) {
       PopupMessage.alert(e.message);
@@ -5629,20 +5780,47 @@ iframe {
       }
     },
     addChat: function(text, cmd, vpos, options) {
-      if (!this._nicoVideoPlayer) {
+      if (!this._nicoVideoPlayer ||
+          !this._messageApiLoader ||
+          this._isCommentReady !== true) {
         return;
       }
 
       options = options || {};
       options.mine = '1';
+      options.updating = '1';
       vpos = vpos || this._nicoVideoPlayer.getVpos();
-      var nicoChat = this._nicoVideoPlayer.addChat('通信中...', cmd, vpos, options);
-      var onSuccess = function() {
-        nicoChat.setText(text);
-        PopupMessage.notify('コメントの投稿成功');
+      var nicoChat = this._nicoVideoPlayer.addChat(text, cmd, vpos, options);
+
+      var $container = this._$playerContainer.addClass('postChat');
+      window.console.log('threadInfo', this._threadInfo);
+
+      var _onSuccess = function(e) {
+        window.console.log(e);
+        nicoChat.setIsUpdating(false);
+        PopupMessage.notify('コメント投稿成功');
+        $container.removeClass('postChat');
+        window.clearTimeout(timeout);
+      };
+      var _onFail = function(e) {
+        window.console.log(e);
+        nicoChat.setIsUpdating(false);
+        PopupMessage.notify('コメント投稿失敗(1)');
+        $container.removeClass('postChat');
+        window.clearTimeout(timeout);
       };
 
-      window.setTimeout(onSuccess, 1500);
+      var _onTimeout = function() {
+        PopupMessage.notify('コメント投稿失敗(2)');
+        $container.removeClass('postChat');
+      };
+
+      var timeout = window.setTimeout(_onTimeout, 30000);
+
+      this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+        _onSuccess,
+        _onFail
+      );
     },
     getPlayingStatus: function() {
       if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
@@ -5724,6 +5902,7 @@ iframe {
     }
     .mouseMoving .menuButton .menuButtonInner {
       opacity: 0.8;
+      word-break: normal;
     }
 
     .menuButton:hover {
@@ -6061,6 +6240,9 @@ iframe {
       background: #333;
       box-sizing: border-box;
     }
+    .screenModeSelectMenu ul {
+      padding: 0;
+    }
     .screenModeSelectMenu li {
       list-style-type: none;
       display: inline-block;
@@ -6128,6 +6310,7 @@ iframe {
     }
     .playbackRateSelectMenu ul {
       margin: 2px 8px;
+      padding: 0;
     }
     .playbackRateSelectMenu:not(.show) {
       left: -9999px;
@@ -6260,6 +6443,10 @@ iframe {
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+    .mylistSelectMenu .mylistSelectMenuInner {
+      overflow: auto;
+      max-height: 50vh;
+    }
 
     .mylistSelectMenu .triangle {
       transform: rotate(135deg);
@@ -6379,6 +6566,8 @@ iframe {
     </div>
     <div class="mylistSelectMenu">
       <div class="triangle"></div>
+      <div class="mylistSelectMenuInner">
+      </div>
     </div>
 
     <div class="menuItemContainer leftBottom">
@@ -6534,7 +6723,7 @@ iframe {
         $ul.append($li);
       });
 
-      $menu.append($ul);
+      $menu.find('.mylistSelectMenuInner').append($ul);
       $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
         e.preventDefault();
         var $target  = $(e.target.closest('.mylistIcon, .mylistLink'));
