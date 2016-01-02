@@ -69,6 +69,20 @@ var console;
         }, this), 0);
       };
 
+      AsyncEmitter.prototype.emitPromise = function(name) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        var self = this;
+        return new Promise(function(resolve, reject) {
+          var e = {
+            resolve: resolve,
+            reject: reject
+          };
+          args.unshift(e);
+          args.unshift(name);
+          self.emit.apply(self, args);
+        });
+      };
+
       return AsyncEmitter;
     })();
 
@@ -145,6 +159,7 @@ var console;
         autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
+        autoPauseCommentInput: true, // コメント入力時に自動停止する
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -666,6 +681,9 @@ var console;
             break;
           case 27:
             key = 'ESC';
+            break;
+          case 67: // C
+            key = 'INPUT_COMMENT';
             break;
           case 70: // F
             key = 'FULL';

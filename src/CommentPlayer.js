@@ -735,7 +735,8 @@ var PopupMessage = {};
   var NicoChat = function() { this.initialize.apply(this, arguments); };
   NicoChat.create = function(text, cmd, vpos, options) {
     var dom = document.createElement('chat');
-    dom.innerText = text;
+    dom.appendChild(document.createTextNode(text));
+
     dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
     for (var v in options) {
@@ -1734,15 +1735,18 @@ iframe {
 
       this._initializeView(params);
 
+      var _refresh = $.proxy(this.refresh, this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
       // ここに書いてるのは手抜き
       if (ZenzaWatch.util.isFirefox()) {
         ZenzaWatch.emitter.on('fullScreenStatusChange',
-          _.debounce($.proxy(function() {
-            this.refresh();
-          }, this), 3000)
+          _.debounce(_refresh, 3000)
         );
       }
+
+      // ウィンドウがアクティブじゃない時にブラウザが描画をサボっているので、
+      // アクティブになったタイミングで粛正する
+      $(window).on('focus', _refresh);
 
       ZenzaWatch.debug.css3Player = this;
     },

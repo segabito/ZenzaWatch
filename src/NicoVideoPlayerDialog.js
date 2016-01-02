@@ -472,6 +472,31 @@ var AsyncEmitter = function() {};
          'width=450, height=340, menubar=no, scrollbars=no');
       },this));
 
+      this._commentInput = new CommentInputPanel({
+        $playerContainer: this._$playerContainer,
+        playerConfig: this._playerConfig
+      });
+      this._commentInput.on('post', $.proxy(function(e, chat, cmd) {
+        this.addChat(chat, cmd).then(function() {
+          e.resolve();
+        }, function() {
+          e.reject();
+        });
+      }, this));
+
+      var isPlaying = false;
+      this._commentInput.on('focus', $.proxy(function(isAutoPause) {
+        isPlaying = this._nicoVideoPlayer.isPlaying();
+        if (isAutoPause) {
+          this._nicoVideoPlayer.pause();
+        }
+      }, this));
+      this._commentInput.on('blur', $.proxy(function(isAutoPause) {
+        if (isAutoPause && isPlaying) {
+          this._nicoVideoPlayer.play();
+        }
+      }, this));
+
 
       $('body').append($dialog);
     },
@@ -491,6 +516,10 @@ var AsyncEmitter = function() {};
           break;
         case 'FULL':
           this._nicoVideoPlayer.requestFullScreen();
+          break;
+        case 'INPUT_COMMENT':
+          // 即フォーカスだと入力欄に"C"が入ってしまうのを雑に対処
+          ZenzaWatch.util.callAsync(function() { this._commentInput.focus(); }, this);
           break;
         case 'DEFLIST':
           this._onDeflistAdd();
@@ -828,10 +857,12 @@ var AsyncEmitter = function() {};
       }
     },
     addChat: function(text, cmd, vpos, options) {
+      var $container = this._$playerContainer;
       if (!this._nicoVideoPlayer ||
           !this._messageApiLoader ||
+          $container.hasClass('postChat') ||
           this._isCommentReady !== true) {
-        return;
+        return Promise.reject();
       }
 
       options = options || {};
@@ -840,32 +871,29 @@ var AsyncEmitter = function() {};
       vpos = vpos || this._nicoVideoPlayer.getVpos();
       var nicoChat = this._nicoVideoPlayer.addChat(text, cmd, vpos, options);
 
-      var $container = this._$playerContainer.addClass('postChat');
-      window.console.log('threadInfo', this._threadInfo);
+      $container.addClass('postChat');
 
-      var _onSuccess = function(e) {
-        window.console.log(e);
+      var _onSuccess = function() {
         nicoChat.setIsUpdating(false);
         PopupMessage.notify('コメント投稿成功');
         $container.removeClass('postChat');
         window.clearTimeout(timeout);
       };
-      var _onFail = function(e) {
-        window.console.log(e);
+      var _onFail = function() {
         nicoChat.setIsUpdating(false);
-        PopupMessage.notify('コメント投稿失敗(1)');
+        PopupMessage.alert('コメント投稿失敗(1)');
         $container.removeClass('postChat');
         window.clearTimeout(timeout);
       };
 
       var _onTimeout = function() {
-        PopupMessage.notify('コメント投稿失敗(2)');
+        PopupMessage.alert('コメント投稿失敗(2)');
         $container.removeClass('postChat');
       };
 
       var timeout = window.setTimeout(_onTimeout, 30000);
 
-      this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+      return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
         _onSuccess,
         _onFail
       );
@@ -1492,8 +1520,9 @@ var AsyncEmitter = function() {};
       -moz-user-select: none;
     }
     .mylistSelectMenu .mylistSelectMenuInner {
-      overflow: auto;
-      max-height: 50vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: 70vh;
     }
 
     .mylistSelectMenu .triangle {
@@ -1662,11 +1691,11 @@ var AsyncEmitter = function() {};
       <p>画面モード</p>
       <ul>
         <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-        <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
         <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
+        <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
         <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-        <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
         <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
+        <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
       </ul>
     </div>
     <div class="playbackRateSelectMenu">
@@ -1732,6 +1761,10 @@ var AsyncEmitter = function() {};
 
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
       this._initializeVolumeCotrol();
+
+      this._$mylistSelectMenu.on('mousewheel', function(e) {
+        e.stopPropagation();
+      });
 
       ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
         this._hideMenu(false);
@@ -1972,6 +2005,305 @@ var AsyncEmitter = function() {};
     }
    });
 
+  var CommentInputPanel = function() { this.initialize.apply(this, arguments); };
+  CommentInputPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .commentInputPanel {
+      position: fixed;
+      top:  calc(-50vh + 50% + 100vh - 60px - 40px);
+      left: calc(-50vw + 50% + 50vw - 100px);
+      box-sizing: border-box;
+
+      width: 200px;
+      height: 50px;
+      z-index: 160000;
+      overflow: visible;
+    }
+    .commentInputPanel.active {
+      left: calc(-50vw + 50% + 50vw - 250px);
+      width: 500px;
+    }
+    .zenzaScreenMode_wide .commentInputPanel,
+    .fullScreen           .commentInputPanel {
+      position: fixed !important;
+      top:  auto !important;
+      bottom: 40px !important;
+      left: calc(-50vw + 50% + 50vw - 100px) !important;
+    }
+    .zenzaScreenMode_wide .commentInputPanel.active,
+    .fullScreen           .commentInputPanel.active {
+      left: calc(-50vw + 50% + 50vw - 250px) !important;
+    }
+
+    {* 縦長モニター *}
+    @media
+      screen and
+      (max-width: 991px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_normal .commentInputPanel {
+        top: calc(-50vh + 50% + 100vh - 60px - 40px - 60px);
+      }
+    }
+    @media
+      screen and
+      (max-width: 1215px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_big .commentInputPanel {
+        top: calc(-50vh + 50% + 100vh - 60px - 40px - 60px);
+      }
+    }
+
+
+    .commentInputPanel>* {
+      pointer-events: none;
+    }
+
+    .commentInputPanel.active>*,
+    .commentInputPanel:hover>* {
+      pointer-events: auto;
+    }
+
+    .mouseMoving .commentInputOuter {
+      border: 1px solid #888;
+      box-sizing: border-box;
+      border-radius: 8px;
+      opacity: 0.5;
+    }
+    .commentInputPanel.active .commentInputOuter,
+    .commentInputPanel:hover  .commentInputOuter {
+      border: none;
+      opacity: 1;
+    }
+
+    .commentInput {
+      width: 100%;
+      height: 30px;
+      font-size: 24px;
+      background: transparent;
+      border: none;
+      opacity: 0;
+      transition: opacity 0.3s ease, box-shadow 0.4s ease;
+    }
+
+    .commentInputPanel:hover  .commentInput {
+      opacity: 0.5;
+    }
+    .commentInputPanel.active .commentInput {
+      opacity: 0.9 !important;
+    }
+    .commentInputPanel.active .commentInput,
+    .commentInputPanel:hover  .commentInput {
+      box-sizing: border-box;
+      border: 1px solid #888;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 0 8px #fff;
+    }
+
+    .commentInputPanel .autoPauseLabel {
+      display: none;
+    }
+
+    .commentInputPanel:hover .autoPauseLabel,
+    .commentInputPanel.active .autoPauseLabel {
+      position: absolute;
+      top: 36px;
+      display: block;
+      text-shadow: 0 0 8px #ccc;
+      background: #336;
+      z-index: 100;
+    }
+
+    .commandInput {
+      position: absolute;
+      width: 100px;
+      height: 30px;
+      font-size: 24px;
+      top: 0;
+      left: 0;
+      border: none;
+      border-radius: 8px;
+      z-index: -1;
+      opacity: 0;
+      transition: left 0.2s ease, opacity 0.2s ease;
+    }
+    .commentInputPanel.active .commandInput {
+      left: -108px;
+      z-index: 1;
+      opacity: 0.9;
+      pointer-evnets: auto;
+      box-shadow: 0 0 8px #fff;
+    }
+
+    .commentSubmit {
+      position: absolute;
+      width: 100px;
+      height: 30px;
+      font-size: 24px;
+      top: 0;
+      right: 0;
+      border: none;
+      border-radius: 8px;
+      z-index: -1;
+      opacity: 0;
+      transition: right 0.2s ease, opacity 0.2s ease;
+    }
+    .commentInputPanel.active .commentSubmit {
+      right: -108px;
+      z-index: 1;
+      opacity: 0.9;
+      box-shadow: 0 0 8px #fff;
+    }
+    .commentInputPanel.active .commentSubmit:active {
+      color: #000;
+      background: #fff;
+      box-shadow: 0 0 16px #ccf;
+    }
+  */});
+
+  CommentInputPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="commentInputPanel">
+      <form action="javascript: void(0);">
+      <div class="commentInputOuter">
+          <input
+            type="text"
+            value=""
+            autocomplete="on"
+            name="mail"
+            placeholder="コマンド"
+            class="commandInput"
+            maxlength="30"
+          >
+          <input
+            type="text"
+            value=""
+            autocomplete="on"
+            name="chat"
+            accesskey="c"
+            placeholder="コメント入力(C)"
+            class="commentInput"
+            maxlength="75"
+            >
+          <input
+            type="submit"
+            value="送信"
+            name="post"
+            class="commentSubmit"
+            >
+      </div>
+      </form>
+      <label class="autoPauseLabel">
+        <input type="checkbox" class="autoPause" checked="checked">
+        入力時に一時停止
+      </label>
+    </div>
+  */});
+
+  _.assign(CommentInputPanel.prototype, {
+    initialize: function(params) {
+      this._$playerContainer = params.$playerContainer;
+      this._playerConfig     = params.playerConfig;
+
+      var emitter = new AsyncEmitter();
+      this.on        = $.proxy(emitter.on,        emitter);
+      this.emit      = $.proxy(emitter.emit,      emitter);
+      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.emitPromise = $.proxy(emitter.emitPromise, emitter);
+
+      this._initializeDom();
+
+      this._playerConfig.on('update-autoPauseCommentInput',
+        $.proxy(this._onAutoPauseCommentInputChange, this));
+    },
+    _initializeDom: function() {
+      var $container = this._$playerContainer;
+      var config = this._playerConfig;
+
+      ZenzaWatch.util.addStyle(CommentInputPanel.__css__);
+      $container.append(CommentInputPanel.__tpl__);
+
+      var $view = this._$view = $container.find('.commentInputPanel');
+      var $input = this._$input = $view.find('.commandInput, .commentInput');
+      this._$form = $container.find('form');
+      var $autoPause = this._$autoPause = $container.find('.autoPause');
+      this._$commandInput = $container.find('.commandInput');
+      var $cmt = this._$commentInput = $container.find('.commentInput');
+      this._$commentSubmit = $container.find('.commentSubmit');
+      var preventEsc = function(e) {
+        if (e.keyCode === 27) { // ESC
+          e.preventDefault();
+          e.stopPropagation();
+          $input.blur();
+        }
+      };
+
+      $input
+        .on('focus', $.proxy(this._onFocus, this))
+        .on('blur', _.debounce($.proxy(this._onBlur, this), 500))
+        .on('keydown', preventEsc)
+        .on('keyup', preventEsc);
+
+      $autoPause.prop('checked', config.getValue('autoPauseCommentInput'));
+      this._$autoPause.on('change', function() {
+        config.setValue('autoPauseCommentInput', !!$autoPause.prop('checked'));
+        $cmt.focus();
+      });
+      this._$view.find('label').on('click', function(e) {
+        e.stopPropagation();
+      });
+      this._$form.on('submit', $.proxy(this._onSubmit, this));
+      this._$commentSubmit.on('click', $.proxy(this._onSubmitButtonClick, this));
+    },
+    _onFocus: function() {
+      this._$view.addClass('active');
+      this.emit('focus', this.isAutoPause());
+    },
+    _onBlur: function() {
+      if (this._$commandInput.is(':focus') ||
+          this._$commentInput.is(':focus')) {
+        return;
+      }
+      this._$view.removeClass('active');
+      this.emit('blur', this.isAutoPause());
+    },
+    _onSubmit: function() {
+      this.submit();
+    },
+    _onSubmitButtonClick: function() {
+      this._$form.submit();
+    },
+    _onAutoPauseCommentInputChange: function(val) {
+      this._$autoPause.prop('checked', !!val);
+    },
+    submit: function() {
+      var chat = this._$commentInput.val().trim();
+      var cmd = this._$commandInput.val().trim();
+      if (chat.length < 1) {
+        return;
+      }
+      this._$commentInput.val('').blur();
+      this._$commandInput.blur();
+
+      var $view = this._$view.addClass('updating');
+      this.emitPromise('post', chat, cmd).then(function() {
+        $view.removeClass('updating');
+      }, function() {
+        // TODO: 失敗時はなんかフィードバックさせる？
+        $view.removeClass('updating');
+      });
+    },
+    isAutoPause: function() {
+      return !!this._$autoPause.prop('checked');
+    },
+    focus: function() {
+      this._$commentInput.focus();
+      this._onFocus();
+    },
+    blur: function() {
+      this._$commandInput.blur();
+      this._$commentInput.blur();
+      this._onBlur();
+    }
+  });
 
 
   var VideoInfoPanel = function() { this.initialize.apply(this, arguments); };

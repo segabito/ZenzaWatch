@@ -83,6 +83,7 @@ var NicoVideoPlayerDialog = function() {};
         }
       });
 
+      $('body').trigger('ZenzaWatchReady', ZenzaWatch);
     };
 
     // 非ログイン状態のwatchページ用のプレイヤー生成
