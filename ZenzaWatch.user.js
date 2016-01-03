@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.5.4
+// @version        0.5.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -191,6 +191,7 @@ var monkey = function() {
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
+        sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -519,6 +520,84 @@ var monkey = function() {
       .zenzaWatchHoverMenu.show {
         display: block;
       }
+
+      .zenzaPopupMenu {
+        position: absolute;
+        background: #333;
+        color: #fff;
+        overflow: visible;
+        padding: 8px 0;
+        border: 1px solid #ccc;
+        opacity: 0.9;
+        box-shadow: 2px 2px 4px #fff;
+        box-sizing: border-box;
+        transition: opacity 0.3s ease;
+        z-index: 150000;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+      }
+
+      .zenzaPopupMenu:not(.show) {
+        left: -9999px;
+        top: -9999px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .zenzaPopupMenu ul {
+        padding: 0;
+      }
+
+      .zenzaPopupMenu ul li {
+        position: relative;
+        margin: 2px 4px;
+        white-space: nowrap;
+        cursor: pointer;
+        padding: 2px 8px;
+        list-style-type: none;
+      }
+
+      .zenzaPopupMenu ul li:hover {
+        background: #663;
+      }
+      .zenzaPopupMenu ul li.separator {
+        border: 1px outset;
+        height: 2px;
+        width: 90%;
+      }
+      .zenzaPopupMenu li span {
+        margin-left: 8px;
+        display: inline-block;
+      }
+      .zenzaPopupMenu ul li.selected span:before {
+        content: '✔';
+        left: 0;
+        position: absolute;
+      }
+      .zenzaPopupMenu.show {
+        opacity: 0.8;
+      }
+      .zenzaPopupMenu .caption {
+        padding: 2px 4px;
+        text-align: center;
+        margin: 0;
+        font-weight: bolder;
+        background: #666;
+        color: #fff;
+      }
+      .zenzaPopupMenu .triangle {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 1px solid #ccc;
+        border-width: 0 0 1px 1px;
+        background: #333;
+        box-sizing: border-box;
+      }
+
+
+
 
     */});
     // 非ログイン状態のwatchページ用
@@ -1736,7 +1815,8 @@ var monkey = function() {
         offScreenLayer: params.offScreenLayer,
         showComment:    conf.getValue('showComment'),
         debug:          conf.getValue('debug'),
-        playbackRate:   conf.getValue('playbackRate')
+        playbackRate:   conf.getValue('playbackRate'),
+        sharedNgLevel:  conf.getValue('sharedNgLevel')
       });
 
       this._controlPanel = new VideoControlPanel({
@@ -1824,6 +1904,9 @@ var monkey = function() {
           break;
         case 'mute':
           this._videoPlayer.setMute(value);
+          break;
+        case 'sharedNgLevel':
+          this._commentPlayer.setSharedNgLevel(value);
           break;
       }
     },
@@ -2805,6 +2888,22 @@ var monkey = function() {
 
 
 
+
+
+  // 大百科より
+  var SHARED_NG_LEVEL = {
+    NONE: 'NONE',
+    LOW:  'LOW',
+    MID:  'MID',
+    HIGH: 'HIGH'
+  };
+  var SHARED_NG_SCORE = {
+    NONE: -99999,//Number.MIN_VALUE,
+    LOW:  -10000,
+    MID:   -5000,
+    HIGH:  -1000
+  };
+
   /**
    * コメント描画まわり。MVVMもどき
    * 追加(投稿)はまだサポートしてない。
@@ -2846,6 +2945,8 @@ var monkey = function() {
 
       this._model.on('change', $.proxy(this._onCommentChange, this));
 
+      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
+
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
     setComment: function(xml) {
@@ -2858,7 +2959,6 @@ var monkey = function() {
       } else {
         PopupMessage.alert('コメントの読み込み失敗');
       }
-
     },
     _onCommentChange: function(e) {
       console.log('onCommentChange', e);
@@ -2928,6 +3028,12 @@ var monkey = function() {
     close: function() {
       this._model.clear();
     },
+    setSharedNgLevel: function(level) {
+      this._model.setSharedNgLevel(level);
+    },
+    getSharedNgLevel: function() {
+      return this._model.getSharedNgLevel();
+    },
     toString: function() {
       return this._viewModel.toString();
     }
@@ -2940,16 +3046,18 @@ var monkey = function() {
   NicoComment.MAX_COMMENT = 5000;
 
   _.assign(NicoComment.prototype, {
-    initialize: function() {
+    initialize: function(params) {
       this._currentTime = 0;
       var emitter = new AsyncEmitter();
       this.on        = $.proxy(emitter.on,        emitter);
       this.emit      = $.proxy(emitter.emit,      emitter);
       this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
-      this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP);
-      this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL);
-      this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM);
+      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
+
+      this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
+      this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL, params);
+      this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
       this._topGroup   .on('change', $.proxy(this._onChange, this));
       this._normalGroup.on('change', $.proxy(this._onChange, this));
       this._bottomGroup.on('change', $.proxy(this._onChange, this));
@@ -2977,27 +3085,26 @@ var monkey = function() {
         var group;
         switch (type) {
           case NicoChat.TYPE.TOP:
-            group = top; //this._topGroup;
+            group = top;
             break;
           case NicoChat.TYPE.BOTTOM:
-            group = bottom; //this._bottomGroup;
+            group = bottom;
             break;
           default:
-            group = normal; //this._normalGroup;
+            group = normal;
             break;
         }
         group.push(nicoChat);
-        //group.addChat(nicoChat);
       }
       this._topGroup   .addChatArray(top);
-      this._bottomGroup.addChatArray(bottom);
       this._normalGroup.addChatArray(normal);
+      this._bottomGroup.addChatArray(bottom);
 
       window.console.timeEnd('NicoComment.setXml');
       console.log('chats: ', chats.length);
-      console.log('top: ',    this._topGroup   .getMembers().length);
-      console.log('normal: ', this._normalGroup.getMembers().length);
-      console.log('bottom: ', this._bottomGroup.getMembers().length);
+      console.log('top: ',    this._topGroup   .getNonFilteredMembers().length);
+      console.log('normal: ', this._normalGroup.getNonFilteredMembers().length);
+      console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('setXml');
     },
     addChat: function(nicoChat) {
@@ -3065,6 +3172,18 @@ var monkey = function() {
         default:
           return this._normalGroup;
       }
+    },
+    setSharedNgLevel: function(level) {
+      if (SHARED_NG_LEVEL[level] && this._sharedNgLevel !== level) {
+        this._sharedNgLevel = level;
+        this._topGroup   .setSharedNgLevel(level);
+        this._normalGroup.setSharedNgLevel(level);
+        this._bottomGroup.setSharedNgLevel(level);
+        this.emit('sharedNgLevel', level);
+      }
+    },
+    getSharedNgLevel: function() {
+      return this._model.getSharedNgLevel();
     }
   });
 
@@ -3315,9 +3434,11 @@ var monkey = function() {
   var NicoChatGroup = function() { this.initialize.apply(this, arguments); };
 
   _.assign(NicoChatGroup.prototype, {
-    initialize: function(nicoComment, type) {
+    initialize: function(nicoComment, type, params) {
       this._nicoComment = nicoComment;
       this._type = type;
+
+      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
 
       // TODO: mixin
       var emitter = new AsyncEmitter();
@@ -3332,25 +3453,56 @@ var monkey = function() {
     },
     addChatArray: function(nicoChatArray) {
       var members = this._members;
+      var newMembers = [];
       $(nicoChatArray).each(function(i, nicoChat) {
+        newMembers.push(nicoChat);
         members.push(nicoChat);
         nicoChat.setGroup(this);
       });
-      this.emit('addChatArray', nicoChatArray);
+
+      newMembers = this._applyFilter(nicoChatArray);
+      if (newMembers.length > 0) {
+        this.emit('addChatArray', nicoChatArray);
+      }
     },
     addChat: function(nicoChat) {
       this._members.push(nicoChat);
       nicoChat.setGroup(this);
-      this.emit('addChat', nicoChat);
+      var filter = this._getFilterFunc();
+      if (filter(nicoChat)) {
+        this.emit('addChat', nicoChat);
+      }
     },
     getType: function() {
       return this._type;
     },
-    getMembers: function() {
-      return this._members;
+    _getFilterFunc: function() {
+      var threthold = SHARED_NG_SCORE[this._sharedNgLevel];
+      if (Config.getValue('debug')) {
+        return function(nicoChat) {
+          var score = nicoChat.getScore();
+          if (score <= threthold) {
+            window.console.log('%cNG共有適用: %s <= %s %s %s秒 %s', 'background: yellow;',
+              score, threthold, nicoChat.getType(), nicoChat.getVpos() / 100, nicoChat.getText()
+            );
+          }
+          return score > threthold;
+        };
+      }
+      return function(nicoChat) {
+        var score = nicoChat.getScore();
+        //  window.console.log('filter?', score, threthold, nicoChat.getText());
+        return score > threthold;
+      };
     },
-    getFilteredMembers: function() {
-      // TODO: NG, deleted 判定
+    _applyFilter: function(nicoChatArray) {
+      return _.filter(nicoChatArray, this._getFilterFunc());
+    },
+    getMembers: function() {
+      // TODO: フィルター結果をキャッシュする？
+      return this._applyFilter(this._members);
+    },
+    getNonFilteredMembers: function() {
       return this._members;
     },
     getCurrentTime: function() {
@@ -3368,6 +3520,12 @@ var monkey = function() {
       var m = this._members;
       for (var i = 0, len = m.length; i < len; i++) {
         m[i].setCurrentTime(sec);
+      }
+    },
+    setSharedNgLevel: function(level) {
+      if (SHARED_NG_LEVEL[level] && this._sharedNgLevel !== level) {
+        this._sharedNgLevel = level;
+        this.onChange(null, this);
       }
     }
   });
@@ -3388,7 +3546,7 @@ var monkey = function() {
       nicoChatGroup.on('reset',        $.proxy(this._onReset,        this));
       nicoChatGroup.on('change',       $.proxy(this._onChange,        this));
 
-      this.addChatArray(nicoChatGroup.getFilteredMembers());
+      this.addChatArray(nicoChatGroup.getMembers());
     },
     _onAddChatArray: function(nicoChatArray) {
       this.addChatArray(nicoChatArray);
@@ -3403,7 +3561,7 @@ var monkey = function() {
       console.log('NicoChatGroupViewModel.onChange: ', e);
       window.console.time('_onChange');
       this.reset();
-      this.addChatArray(e.group.getFilteredMembers());
+      this.addChatArray(e.group.getMembers());
       window.console.timeEnd('_onChange');
     },
     addChatArray: function(nicoChatArray) {
@@ -3622,6 +3780,8 @@ var monkey = function() {
       this._size = NicoChat.SIZE.MEDIUM;
       this._type = NicoChat.TYPE.NORMAL;
       this._isMine = false;
+      this._score = 0;
+      this._no = 0;
 
       this._currentTime = 0;
     },
@@ -3645,6 +3805,8 @@ var monkey = function() {
       this._duration = NicoChatViewModel.DURATION.NORMAL;
       this._isMine = chat.getAttribute('mine') === '1';
       this._isUpdating = chat.getAttribute('updating') === '1';
+      this._score = parseInt(chat.getAttribute('score') || '0', 10);
+      this._no = chat.getAttribute('no') || '';
 
       if (this._deleted) { return; }
 
@@ -3735,7 +3897,9 @@ var monkey = function() {
     isDeleted: function() { return !!this._deleted; },
     getColor: function() { return this._color; },
     getSize: function() { return this._size; },
-    getType: function() { return this._type; }
+    getType: function() { return this._type; },
+    getScore: function() { return this._score; },
+    getNo: function() { return this._no; }
   });
 
 
@@ -4298,6 +4462,8 @@ var monkey = function() {
 
         ender:    this._nicoChat.isEnder(),
         full:     this._nicoChat.isFull(),
+        no:       this._nicoChat.getNo(),
+        score:    this._nicoChat.getScore(),
         userId:   this._nicoChat.getUserId(),
         date:     this._nicoChat.getDate(),
         deleted:  this._nicoChat.isDeleted(),
@@ -5044,6 +5210,20 @@ iframe {
   var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
   NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
 
+    {*
+      プレイヤーが動いてる間、裏の余計な物のマウスイベントを無効化
+      多少軽量化が期待できる？
+    *}
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>.container,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>.container,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>.container,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container {
+      pointer-events: none;
+    }
+    body.showNicoVideoPlayerDialog .ads {
+      display: none;
+    }
+
     .zenzaVideoPlayerDialog {
       display: none;
       position: fixed;
@@ -5576,6 +5756,10 @@ iframe {
           PopupMessage.notify('ミュート: ' + (value ? 'ON' : 'OFF'));
           this._$playerContainer.toggleClass('mute', value);
           break;
+        case 'sharedNgLevel':
+          PopupMessage.notify('NG共有: ' +
+            {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
+          break;
         case 'debug':
           PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
           break;
@@ -5981,7 +6165,7 @@ iframe {
     }
 
     .menuItemContainer.leftBottom {
-      width: 72px;
+      width: 120px;
       height: 112px;
       left: 8px;
       bottom: 64px;
@@ -6155,6 +6339,45 @@ iframe {
       margin-left: 8px;
       margin-top: 8px;
       z-index: 1;
+    }
+
+    .ngSettingMenu {
+      display: none;
+      left: 80px;
+      bottom: 0;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 30px;
+      font-size: 18px;
+    }
+    .showComment .ngSettingMenu {
+      display: block;
+    }
+    .ngSettingMenu:hover {
+      background: #333;
+      font-size: 120%;
+      box-shadow: 4px 4px 0 #000;
+      text-shadow: 0px 0px 2px #ccf;
+    }
+    .ngSettingMenu.show,
+    .ngSettingMenu:active {
+      opacity: 1;
+      background: #333;
+      box-shadow: none;
+      margin-left: 4px;
+      margin-top:  4px;
+    }
+
+    .ngSettingSelectMenu {
+      bottom: 64px;
+      left: 128px;
+    }
+    .ngSettingSelectMenu .triangle {
+      transform: rotate(45deg);
+      left: -8px;
+      bottom: 3px;
     }
 
 
@@ -6336,7 +6559,7 @@ iframe {
       display: none;
     }
 
-    .screenModeSelectMenu p {
+    .screenModeSelectMenu .caption {
       padding: 2px 4px;
       text-align: center;
       margin: 0;
@@ -6417,7 +6640,7 @@ iframe {
       -webkit-user-select: none;
       -moz-user-select: none;
     }
-    .playbackRateSelectMenu p {
+    .playbackRateSelectMenu .caption {
       padding: 2px 4px;
       text-align: center;
       margin: 0;
@@ -6712,7 +6935,24 @@ iframe {
         <div class="layer comment">C</div>
         <div class="layer video">V</div>
       </div>
+
+      <div class="ngSettingMenu menuButton" data-command="ngSettingMenu" title="NG設定">
+        <div class="menuButtonInner">NG</div>
+      </div>
     </div>
+
+      <div class="ngSettingSelectMenu zenzaPopupMenu">
+        <div class="triangle"></div>
+        <p class="caption">NG設定</p>
+        <ul>
+          <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
+          <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
+          <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
+          <li class="sharedNgLevel none"  data-command="sharedNgLevel" data-level="NONE"><span>なし</span></li>
+        </ul>
+      </div>
+
+
     <div class="menuItemContainer rightBottom">
       <div class="fullScreenSwitch menuButton" data-command="fullScreen" title="フルスクリーン">
         <div class="menuButtonInner">
@@ -6729,7 +6969,7 @@ iframe {
     </div>
     <div class="screenModeSelectMenu">
       <div class="triangle"></div>
-      <p>画面モード</p>
+      <p class="caption">画面モード</p>
       <ul>
         <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
         <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
@@ -6741,7 +6981,7 @@ iframe {
     </div>
     <div class="playbackRateSelectMenu">
       <div class="triangle"></div>
-      <p>再生速度</p>
+      <p class="caption">再生速度</p>
       <ul>
         <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
         <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
@@ -6779,6 +7019,7 @@ iframe {
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
+      this._initializeNgSettingMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
     },
@@ -6800,6 +7041,9 @@ iframe {
       this._$playbackRateMenu       = $container.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $container.find('.playbackRateSelectMenu');
 
+      this._$ngSettingMenu       = $container.find('.ngSettingMenu');
+      this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
+
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
       this._initializeVolumeCotrol();
 
@@ -6808,7 +7052,7 @@ iframe {
       });
 
       ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
-        this._hideMenu(false);
+        this._hideMenu();
       }, this));
 
     },
@@ -6910,6 +7154,34 @@ iframe {
       updatePlaybackRate(config.getValue('playbackRate'));
       config.on('update-playbackRate', updatePlaybackRate);
     },
+    _initializeNgSettingMenu: function() {
+      var self = this;
+      var config = this._playerConfig;
+      var $menu = this._$ngSettingSelectMenu;
+
+      $menu.on('click', 'li', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $target  = $(e.target.closest('.sharedNgLevel'));
+        var command  = $target.attr('data-command');
+        var level    = $target.attr('data-level');
+        self._playerConfig.setValue(command, level);
+        //self.toggleScreenModeMenu(false);
+      });
+
+      var update = function(level) {
+        $menu.find('.selected').removeClass('selected');
+        $menu.find('.sharedNgLevel').each(function(i, item) {
+          var $item = $(item);
+          if (level === $item.attr('data-level')) {
+            $item.addClass('selected');
+          }
+        });
+      };
+
+      update(config.getValue('sharedNgLevel'));
+      config.on('update-sharedNgLevel', update);
+    },
     _initializeVolumeCotrol: function() {
       var $container = this._$playerContainer.find('.volumeControl');
       var $bar = this._$playerContainer.find('.volumeControl .slideBar');
@@ -6970,6 +7242,10 @@ iframe {
           this.togglePlaybackRateMenu();
           e.stopPropagation();
           break;
+        case 'ngSettingMenu':
+          this.toggleNgSettingMenu();
+          e.stopPropagation();
+          break;
         case 'mylistAdd':
           this.emit('mylistAdd', $target.attr('data-mylist-id'));
           break;
@@ -6989,60 +7265,57 @@ iframe {
       }
     },
     _hideMenu: function() {
-      this.toggleMylistMenu(false);
-      this.toggleScreenModeMenu(false);
-      this.togglePlaybackRateMenu(false);
+      var self = this;
+      $([
+        'toggleMylistMenu',
+        'toggleScreenModeMenu',
+        'togglePlaybackRateMenu',
+        'toggleNgSettingMenu'
+      ]).each(function(i, func) {
+        (self[func])(false);
+      });
     },
     toggleMylistMenu: function(v) {
-      var $body = $('body');
-      var $btn  = this._$mylistAddMenu.toggleClass('show', v);
-      var $menu = this._$mylistSelectMenu.toggleClass('show', v);
-      $body.off('click.ZenzaWatchMylistMenu');
-
-      var onBodyClick = function() {
-        $btn.removeClass('show');
-        $menu.removeClass('show');
-        $body.off('click.ZenzaWatchMylistMenu');
-      };
-      if ($menu.hasClass('show')) {
-        this.toggleScreenModeMenu(false);
-        this.togglePlaybackRateMenu(false);
-        $body.on('click.ZenzaWatchMylistMenu', onBodyClick);
-      }
+      var $btn  = this._$mylistAddMenu;
+      var $menu = this._$mylistSelectMenu;
+      this._toggleMenu('mylist', $btn, $menu, v);
     },
     toggleScreenModeMenu: function(v) {
-      var $body = $('body');
-      var $btn  = this._$screenModeMenu.toggleClass('show', v);
-      var $menu = this._$screenModeSelectMenu.toggleClass('show', v);
-      $body.off('click.ZenzaWatchScreenModeMenu');
-
-      var onBodyClick = function() {
-        $btn.removeClass('show');
-        $menu.removeClass('show');
-        $body.off('click.ZenzaWatchScreenModeMenu');
-      };
-      if ($menu.hasClass('show')) {
-        this.toggleMylistMenu(false);
-        this.togglePlaybackRateMenu(false);
-        $body.on('click.ZenzaWatchScreenModeMenu', onBodyClick);
-      }
+      var $btn  = this._$screenModeMenu;
+      var $menu = this._$screenModeSelectMenu;
+      this._toggleMenu('screenMode', $btn, $menu, v);
     },
     togglePlaybackRateMenu: function(v) {
+      var $btn  = this._$playbackRateMenu;
+      var $menu = this._$playbackRateSelectMenu;
+      this._toggleMenu('playbackRate', $btn, $menu, v);
+    },
+    toggleNgSettingMenu: function(v) {
+      var $btn  = this._$ngSettingMenu;
+      var $menu = this._$ngSettingSelectMenu;
+      this._toggleMenu('ngSetting', $btn, $menu, v);
+    },
+    _toggleMenu: function(name, $btn, $menu, v) {
       var $body = $('body');
-      var $btn  = this._$playbackRateMenu.toggleClass('show', v);
-      var $menu = this._$playbackRateSelectMenu.toggleClass('show', v);
-      $body.off('click.ZenzaWatchPlaybackRateMenu');
+      var eventName = 'click.ZenzaWatch_' + name + 'Menu';
+
+      $body.off(eventName);
+      $btn .toggleClass('show', v);
+      $menu.toggleClass('show', v);
 
       var onBodyClick = function() {
         $btn.removeClass('show');
         $menu.removeClass('show');
-        $body.off('click.ZenzaWatchPlaybackRateMenu');
+        $body.off(eventName);
       };
       if ($menu.hasClass('show')) {
-        this.toggleMylistMenu(false);
-        this.toggleScreenModeMenu(false);
-        $body.on('click.ZenzaWatchPlaybackRateMenu', onBodyClick);
+        this._hideMenu();
+        $btn .addClass('show');
+        $menu.addClass('show');
+        $body.on(eventName, onBodyClick);
+        return true;
       }
+      return false;
     }
    });
 

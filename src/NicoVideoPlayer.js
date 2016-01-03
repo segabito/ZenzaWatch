@@ -37,7 +37,8 @@ var NicoCommentPlayer = function() {};
         offScreenLayer: params.offScreenLayer,
         showComment:    conf.getValue('showComment'),
         debug:          conf.getValue('debug'),
-        playbackRate:   conf.getValue('playbackRate')
+        playbackRate:   conf.getValue('playbackRate'),
+        sharedNgLevel:  conf.getValue('sharedNgLevel')
       });
 
       this._controlPanel = new VideoControlPanel({
@@ -125,6 +126,9 @@ var NicoCommentPlayer = function() {};
           break;
         case 'mute':
           this._videoPlayer.setMute(value);
+          break;
+        case 'sharedNgLevel':
+          this._commentPlayer.setSharedNgLevel(value);
           break;
       }
     },

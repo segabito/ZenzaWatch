@@ -160,6 +160,7 @@ var console;
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
+        sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -488,6 +489,84 @@ var console;
       .zenzaWatchHoverMenu.show {
         display: block;
       }
+
+      .zenzaPopupMenu {
+        position: absolute;
+        background: #333;
+        color: #fff;
+        overflow: visible;
+        padding: 8px 0;
+        border: 1px solid #ccc;
+        opacity: 0.9;
+        box-shadow: 2px 2px 4px #fff;
+        box-sizing: border-box;
+        transition: opacity 0.3s ease;
+        z-index: 150000;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+      }
+
+      .zenzaPopupMenu:not(.show) {
+        left: -9999px;
+        top: -9999px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .zenzaPopupMenu ul {
+        padding: 0;
+      }
+
+      .zenzaPopupMenu ul li {
+        position: relative;
+        margin: 2px 4px;
+        white-space: nowrap;
+        cursor: pointer;
+        padding: 2px 8px;
+        list-style-type: none;
+      }
+
+      .zenzaPopupMenu ul li:hover {
+        background: #663;
+      }
+      .zenzaPopupMenu ul li.separator {
+        border: 1px outset;
+        height: 2px;
+        width: 90%;
+      }
+      .zenzaPopupMenu li span {
+        margin-left: 8px;
+        display: inline-block;
+      }
+      .zenzaPopupMenu ul li.selected span:before {
+        content: '✔';
+        left: 0;
+        position: absolute;
+      }
+      .zenzaPopupMenu.show {
+        opacity: 0.8;
+      }
+      .zenzaPopupMenu .caption {
+        padding: 2px 4px;
+        text-align: center;
+        margin: 0;
+        font-weight: bolder;
+        background: #666;
+        color: #fff;
+      }
+      .zenzaPopupMenu .triangle {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 1px solid #ccc;
+        border-width: 0 0 1px 1px;
+        background: #333;
+        box-sizing: border-box;
+      }
+
+
+
 
     */});
     // 非ログイン状態のwatchページ用

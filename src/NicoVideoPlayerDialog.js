@@ -15,6 +15,20 @@ var AsyncEmitter = function() {};
   var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
   NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
 
+    {*
+      プレイヤーが動いてる間、裏の余計な物のマウスイベントを無効化
+      多少軽量化が期待できる？
+    *}
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>.container,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>.container,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>.container,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container {
+      pointer-events: none;
+    }
+    body.showNicoVideoPlayerDialog .ads {
+      display: none;
+    }
+
     .zenzaVideoPlayerDialog {
       display: none;
       position: fixed;
@@ -547,6 +561,10 @@ var AsyncEmitter = function() {};
           PopupMessage.notify('ミュート: ' + (value ? 'ON' : 'OFF'));
           this._$playerContainer.toggleClass('mute', value);
           break;
+        case 'sharedNgLevel':
+          PopupMessage.notify('NG共有: ' +
+            {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
+          break;
         case 'debug':
           PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
           break;
@@ -952,7 +970,7 @@ var AsyncEmitter = function() {};
     }
 
     .menuItemContainer.leftBottom {
-      width: 72px;
+      width: 120px;
       height: 112px;
       left: 8px;
       bottom: 64px;
@@ -1126,6 +1144,45 @@ var AsyncEmitter = function() {};
       margin-left: 8px;
       margin-top: 8px;
       z-index: 1;
+    }
+
+    .ngSettingMenu {
+      display: none;
+      left: 80px;
+      bottom: 0;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 30px;
+      font-size: 18px;
+    }
+    .showComment .ngSettingMenu {
+      display: block;
+    }
+    .ngSettingMenu:hover {
+      background: #333;
+      font-size: 120%;
+      box-shadow: 4px 4px 0 #000;
+      text-shadow: 0px 0px 2px #ccf;
+    }
+    .ngSettingMenu.show,
+    .ngSettingMenu:active {
+      opacity: 1;
+      background: #333;
+      box-shadow: none;
+      margin-left: 4px;
+      margin-top:  4px;
+    }
+
+    .ngSettingSelectMenu {
+      bottom: 64px;
+      left: 128px;
+    }
+    .ngSettingSelectMenu .triangle {
+      transform: rotate(45deg);
+      left: -8px;
+      bottom: 3px;
     }
 
 
@@ -1307,7 +1364,7 @@ var AsyncEmitter = function() {};
       display: none;
     }
 
-    .screenModeSelectMenu p {
+    .screenModeSelectMenu .caption {
       padding: 2px 4px;
       text-align: center;
       margin: 0;
@@ -1388,7 +1445,7 @@ var AsyncEmitter = function() {};
       -webkit-user-select: none;
       -moz-user-select: none;
     }
-    .playbackRateSelectMenu p {
+    .playbackRateSelectMenu .caption {
       padding: 2px 4px;
       text-align: center;
       margin: 0;
@@ -1683,7 +1740,24 @@ var AsyncEmitter = function() {};
         <div class="layer comment">C</div>
         <div class="layer video">V</div>
       </div>
+
+      <div class="ngSettingMenu menuButton" data-command="ngSettingMenu" title="NG設定">
+        <div class="menuButtonInner">NG</div>
+      </div>
     </div>
+
+      <div class="ngSettingSelectMenu zenzaPopupMenu">
+        <div class="triangle"></div>
+        <p class="caption">NG設定</p>
+        <ul>
+          <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
+          <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
+          <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
+          <li class="sharedNgLevel none"  data-command="sharedNgLevel" data-level="NONE"><span>なし</span></li>
+        </ul>
+      </div>
+
+
     <div class="menuItemContainer rightBottom">
       <div class="fullScreenSwitch menuButton" data-command="fullScreen" title="フルスクリーン">
         <div class="menuButtonInner">
@@ -1700,7 +1774,7 @@ var AsyncEmitter = function() {};
     </div>
     <div class="screenModeSelectMenu">
       <div class="triangle"></div>
-      <p>画面モード</p>
+      <p class="caption">画面モード</p>
       <ul>
         <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
         <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
@@ -1712,7 +1786,7 @@ var AsyncEmitter = function() {};
     </div>
     <div class="playbackRateSelectMenu">
       <div class="triangle"></div>
-      <p>再生速度</p>
+      <p class="caption">再生速度</p>
       <ul>
         <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
         <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
@@ -1750,6 +1824,7 @@ var AsyncEmitter = function() {};
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
+      this._initializeNgSettingMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
     },
@@ -1771,6 +1846,9 @@ var AsyncEmitter = function() {};
       this._$playbackRateMenu       = $container.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $container.find('.playbackRateSelectMenu');
 
+      this._$ngSettingMenu       = $container.find('.ngSettingMenu');
+      this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
+
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
       this._initializeVolumeCotrol();
 
@@ -1779,7 +1857,7 @@ var AsyncEmitter = function() {};
       });
 
       ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
-        this._hideMenu(false);
+        this._hideMenu();
       }, this));
 
     },
@@ -1881,6 +1959,34 @@ var AsyncEmitter = function() {};
       updatePlaybackRate(config.getValue('playbackRate'));
       config.on('update-playbackRate', updatePlaybackRate);
     },
+    _initializeNgSettingMenu: function() {
+      var self = this;
+      var config = this._playerConfig;
+      var $menu = this._$ngSettingSelectMenu;
+
+      $menu.on('click', 'li', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $target  = $(e.target.closest('.sharedNgLevel'));
+        var command  = $target.attr('data-command');
+        var level    = $target.attr('data-level');
+        self._playerConfig.setValue(command, level);
+        //self.toggleScreenModeMenu(false);
+      });
+
+      var update = function(level) {
+        $menu.find('.selected').removeClass('selected');
+        $menu.find('.sharedNgLevel').each(function(i, item) {
+          var $item = $(item);
+          if (level === $item.attr('data-level')) {
+            $item.addClass('selected');
+          }
+        });
+      };
+
+      update(config.getValue('sharedNgLevel'));
+      config.on('update-sharedNgLevel', update);
+    },
     _initializeVolumeCotrol: function() {
       var $container = this._$playerContainer.find('.volumeControl');
       var $bar = this._$playerContainer.find('.volumeControl .slideBar');
@@ -1941,6 +2047,10 @@ var AsyncEmitter = function() {};
           this.togglePlaybackRateMenu();
           e.stopPropagation();
           break;
+        case 'ngSettingMenu':
+          this.toggleNgSettingMenu();
+          e.stopPropagation();
+          break;
         case 'mylistAdd':
           this.emit('mylistAdd', $target.attr('data-mylist-id'));
           break;
@@ -1960,60 +2070,57 @@ var AsyncEmitter = function() {};
       }
     },
     _hideMenu: function() {
-      this.toggleMylistMenu(false);
-      this.toggleScreenModeMenu(false);
-      this.togglePlaybackRateMenu(false);
+      var self = this;
+      $([
+        'toggleMylistMenu',
+        'toggleScreenModeMenu',
+        'togglePlaybackRateMenu',
+        'toggleNgSettingMenu'
+      ]).each(function(i, func) {
+        (self[func])(false);
+      });
     },
     toggleMylistMenu: function(v) {
-      var $body = $('body');
-      var $btn  = this._$mylistAddMenu.toggleClass('show', v);
-      var $menu = this._$mylistSelectMenu.toggleClass('show', v);
-      $body.off('click.ZenzaWatchMylistMenu');
-
-      var onBodyClick = function() {
-        $btn.removeClass('show');
-        $menu.removeClass('show');
-        $body.off('click.ZenzaWatchMylistMenu');
-      };
-      if ($menu.hasClass('show')) {
-        this.toggleScreenModeMenu(false);
-        this.togglePlaybackRateMenu(false);
-        $body.on('click.ZenzaWatchMylistMenu', onBodyClick);
-      }
+      var $btn  = this._$mylistAddMenu;
+      var $menu = this._$mylistSelectMenu;
+      this._toggleMenu('mylist', $btn, $menu, v);
     },
     toggleScreenModeMenu: function(v) {
-      var $body = $('body');
-      var $btn  = this._$screenModeMenu.toggleClass('show', v);
-      var $menu = this._$screenModeSelectMenu.toggleClass('show', v);
-      $body.off('click.ZenzaWatchScreenModeMenu');
-
-      var onBodyClick = function() {
-        $btn.removeClass('show');
-        $menu.removeClass('show');
-        $body.off('click.ZenzaWatchScreenModeMenu');
-      };
-      if ($menu.hasClass('show')) {
-        this.toggleMylistMenu(false);
-        this.togglePlaybackRateMenu(false);
-        $body.on('click.ZenzaWatchScreenModeMenu', onBodyClick);
-      }
+      var $btn  = this._$screenModeMenu;
+      var $menu = this._$screenModeSelectMenu;
+      this._toggleMenu('screenMode', $btn, $menu, v);
     },
     togglePlaybackRateMenu: function(v) {
+      var $btn  = this._$playbackRateMenu;
+      var $menu = this._$playbackRateSelectMenu;
+      this._toggleMenu('playbackRate', $btn, $menu, v);
+    },
+    toggleNgSettingMenu: function(v) {
+      var $btn  = this._$ngSettingMenu;
+      var $menu = this._$ngSettingSelectMenu;
+      this._toggleMenu('ngSetting', $btn, $menu, v);
+    },
+    _toggleMenu: function(name, $btn, $menu, v) {
       var $body = $('body');
-      var $btn  = this._$playbackRateMenu.toggleClass('show', v);
-      var $menu = this._$playbackRateSelectMenu.toggleClass('show', v);
-      $body.off('click.ZenzaWatchPlaybackRateMenu');
+      var eventName = 'click.ZenzaWatch_' + name + 'Menu';
+
+      $body.off(eventName);
+      $btn .toggleClass('show', v);
+      $menu.toggleClass('show', v);
 
       var onBodyClick = function() {
         $btn.removeClass('show');
         $menu.removeClass('show');
-        $body.off('click.ZenzaWatchPlaybackRateMenu');
+        $body.off(eventName);
       };
       if ($menu.hasClass('show')) {
-        this.toggleMylistMenu(false);
-        this.toggleScreenModeMenu(false);
-        $body.on('click.ZenzaWatchPlaybackRateMenu', onBodyClick);
+        this._hideMenu();
+        $btn .addClass('show');
+        $menu.addClass('show');
+        $body.on(eventName, onBodyClick);
+        return true;
       }
+      return false;
     }
    });
 
