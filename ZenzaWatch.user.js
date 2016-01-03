@@ -3462,7 +3462,7 @@ var monkey = function() {
 
       newMembers = this._applyFilter(nicoChatArray);
       if (newMembers.length > 0) {
-        this.emit('addChatArray', nicoChatArray);
+        this.emit('addChatArray', newMembers);
       }
     },
     addChat: function(nicoChat) {
