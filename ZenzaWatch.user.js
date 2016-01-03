@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.5.0
+// @version        0.5.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1227,11 +1227,13 @@ var monkey = function() {
 
           window.console.log('post xml: ', xml);
           return self._post(threadInfo.server, xml).then(function(result) {
-            var status = null;
+            var status = null, chat_result, no = 0, blockNo = 0;
             try {
               xml = result.documentElement;
-              var chat_result = xml.getElementsByTagName('chat_result')[0];
+              chat_result = xml.getElementsByTagName('chat_result')[0];
               status = chat_result.getAttribute('status');
+              no = parseInt(chat_result.getAttribute('no'), 10);
+              blockNo = Math.floor((no + 1) / 100);
             } catch (e) {
               console.error(e);
             }
@@ -1239,12 +1241,17 @@ var monkey = function() {
             if (status !== '0') {
               return Promise.reject({
                 status: 'fail',
+                no: no,
+                blockNo: blockNo,
                 code: status,
                 message: 'コメント投稿失敗 status:' + status
               });
             }
+
             return Promise.resolve({
               status: 'ok',
+              no: no,
+              blockNo: blockNo,
               code: status,
               message: 'コメント投稿成功'
             });
@@ -2957,6 +2964,7 @@ var monkey = function() {
 
       var chats = xml.getElementsByTagName('chat');
 
+      var top = [], bottom = [], normal = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
         var chat = chats[i];
         if (!chat.firstChild) continue;
@@ -2969,17 +2977,21 @@ var monkey = function() {
         var group;
         switch (type) {
           case NicoChat.TYPE.TOP:
-            group = this._topGroup;
+            group = top; //this._topGroup;
             break;
           case NicoChat.TYPE.BOTTOM:
-            group = this._bottomGroup;
+            group = bottom; //this._bottomGroup;
             break;
           default:
-            group = this._normalGroup;
+            group = normal; //this._normalGroup;
             break;
         }
-        group.addChat(nicoChat, group);
+        group.push(nicoChat);
+        //group.addChat(nicoChat);
       }
+      this._topGroup   .addChatArray(top);
+      this._bottomGroup.addChatArray(bottom);
+      this._normalGroup.addChatArray(normal);
 
       window.console.timeEnd('NicoComment.setXml');
       console.log('chats: ', chats.length);
@@ -3382,32 +3394,45 @@ var monkey = function() {
       this.addChatArray(nicoChatArray);
     },
     _onAddChat: function(nicoChat) {
-      this.addChatArray([nicoChat]);
+      this.addChat(nicoChat);
     },
     _onReset: function() {
       this.reset();
     },
     _onChange: function(e) {
       console.log('NicoChatGroupViewModel.onChange: ', e);
+      window.console.time('_onChange');
       this.reset();
       this.addChatArray(e.group.getFilteredMembers());
+      window.console.timeEnd('_onChange');
     },
     addChatArray: function(nicoChatArray) {
       for (var i = 0, len = nicoChatArray.length; i < len; i++) {
         var nicoChat = nicoChatArray[i];
-        this.addChat(nicoChat);
-//        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
-//        this.checkCollision(nc);
-//        this._members.push(nc);
+        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
+        this._members.push(nc);
       }
-//      this._createVSortedMembers();
+      this._groupCollision();
+    },
+    _groupCollision: function() {
+      this._createVSortedMembers();
+      var members = this._vSortedMembers;
+      for (var i = 0, len = members.length; i < len; i++) {
+        this.checkCollision(members[i]);
+      }
     },
     addChat: function(nicoChat) {
+      var timeKey = 'addChat:' + nicoChat.getText();
+      window.console.time(timeKey);
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
-      this.checkCollision(nc);
-      this._members.push(nc);
 
+      // 内部処理効率化の都合上、
+      // 自身を追加する前に判定を行っておくこと
+      this.checkCollision(nc);
+
+      this._members.push(nc);
       this._createVSortedMembers();
+      window.console.timeEnd(timeKey);
     },
     reset: function() {
       var m = this._members;
@@ -3427,11 +3452,16 @@ var monkey = function() {
     checkCollision: function(target) {
       var m = this._vSortedMembers;//this._members;
       var o;
+      var beginLeft = target.getBeginLeftTiming();
+//      var endRight  = target.getEndRightTiming();
       for (var i = 0, len = m.length; i < len; i++) {
         o = m[i];
 
-        //自分自身との判定はスキップする
-        if (o === target) { continue; }
+        // 自分よりうしろのメンバーには影響を受けないので処理不要
+        if (o === target) { return; }
+
+        if (beginLeft > o.getEndRightTiming())  { continue; }
+
 
         if (o.checkCollision(target)) {
           target.moveToNextLine(o);
@@ -3683,6 +3713,12 @@ var monkey = function() {
         this._isUpdating = !!v;
         if (!v) { this.onChange(); }
       }
+    },
+    setIsPostFail: function(v) {
+      this._isPostFail = v;
+    },
+    isPostFail: function() {
+      return !!this._isPostFail;
     },
     getId: function() { return this._id; },
     getText: function() { return this._text; },
@@ -4236,8 +4272,9 @@ var monkey = function() {
     isFull: function() {
       return this._nicoChat.isFull();
     },
-    isMine: function()     { return this._nicoChat._isMine; },
-    isUpdating: function() { return this._nicoChat._isUpdating; },
+    isMine: function()     { return this._nicoChat.isMine(); },
+    isUpdating: function() { return this._nicoChat.isUpdating(); },
+    isPostFail: function() { return this._nicoChat.isPostFail(); },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -4479,6 +4516,20 @@ iframe {
 .nicoChat.updating::after {
   animation-direction: alternate;
 }
+
+.nicoChat.fail {
+  border: 1px dotted red;
+  text-decoration: line-through;
+}
+
+.nicoChat.fail:after {
+  content: ' 投稿失敗...';
+  text-decoration: none;
+  color: #ff9;
+  font-size: 80%;
+  opacity: 0.8;
+  color: #ccc;
+}}
 
 .debug .nicoChat {
   border: 1px outset;
@@ -4829,6 +4880,10 @@ iframe {
       if (chat.isUpdating()) {
         className.push('updating');
       }
+      if (chat.isPostFail()) {
+        className.push('fail');
+      }
+
 
 
       span.className = className.join(' ');
@@ -4897,7 +4952,7 @@ iframe {
       if (type === NicoChat.TYPE.NORMAL) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
-        var outerScreenWidth = screenWidthFull * 1.05;
+        var outerScreenWidth = screenWidthFull * 1.1;
         var screenDiff = outerScreenWidth - screenWidth;
         var leftPos = screenWidth + screenDiff / 2;
         var durationDiff = screenDiff / speed / playbackRate;
@@ -5847,16 +5902,27 @@ iframe {
 
       $container.addClass('postChat');
 
-      var _onSuccess = function() {
+      var self = this;
+      window.console.time('コメント投稿');
+      var _onSuccess = function(result) {
+        window.console.timeEnd('コメント投稿');
         nicoChat.setIsUpdating(false);
         PopupMessage.notify('コメント投稿成功');
         $container.removeClass('postChat');
+
+        self._threadInfo.blockNo = result.blockNo;
         window.clearTimeout(timeout);
       };
-      var _onFail = function() {
+      var _onFail = function(err) {
+        window.console.timeEnd('コメント投稿');
+
+        nicoChat.setIsPostFail(true);
         nicoChat.setIsUpdating(false);
         PopupMessage.alert('コメント投稿失敗(1)');
         $container.removeClass('postChat');
+        if (err.blockNo && typeof err.blockNo === 'number') {
+          self._threadInfo.blockNo = err.blockNo;
+        }
         window.clearTimeout(timeout);
       };
 
@@ -7229,7 +7295,10 @@ iframe {
     },
     _onFocus: function() {
       this._$view.addClass('active');
-      this.emit('focus', this.isAutoPause());
+      if (!this._hasFocus) {
+        this.emit('focus', this.isAutoPause());
+      }
+      this._hasFocus = true;
     },
     _onBlur: function() {
       if (this._$commandInput.is(':focus') ||
@@ -7238,6 +7307,8 @@ iframe {
       }
       this._$view.removeClass('active');
       this.emit('blur', this.isAutoPause());
+
+      this._hasFocus = false;
     },
     _onSubmit: function() {
       this.submit();

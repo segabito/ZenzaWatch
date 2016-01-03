@@ -169,6 +169,7 @@ var PopupMessage = {};
 
       var chats = xml.getElementsByTagName('chat');
 
+      var top = [], bottom = [], normal = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
         var chat = chats[i];
         if (!chat.firstChild) continue;
@@ -181,17 +182,21 @@ var PopupMessage = {};
         var group;
         switch (type) {
           case NicoChat.TYPE.TOP:
-            group = this._topGroup;
+            group = top; //this._topGroup;
             break;
           case NicoChat.TYPE.BOTTOM:
-            group = this._bottomGroup;
+            group = bottom; //this._bottomGroup;
             break;
           default:
-            group = this._normalGroup;
+            group = normal; //this._normalGroup;
             break;
         }
-        group.addChat(nicoChat, group);
+        group.push(nicoChat);
+        //group.addChat(nicoChat);
       }
+      this._topGroup   .addChatArray(top);
+      this._bottomGroup.addChatArray(bottom);
+      this._normalGroup.addChatArray(normal);
 
       window.console.timeEnd('NicoComment.setXml');
       console.log('chats: ', chats.length);
@@ -594,32 +599,45 @@ var PopupMessage = {};
       this.addChatArray(nicoChatArray);
     },
     _onAddChat: function(nicoChat) {
-      this.addChatArray([nicoChat]);
+      this.addChat(nicoChat);
     },
     _onReset: function() {
       this.reset();
     },
     _onChange: function(e) {
       console.log('NicoChatGroupViewModel.onChange: ', e);
+      window.console.time('_onChange');
       this.reset();
       this.addChatArray(e.group.getFilteredMembers());
+      window.console.timeEnd('_onChange');
     },
     addChatArray: function(nicoChatArray) {
       for (var i = 0, len = nicoChatArray.length; i < len; i++) {
         var nicoChat = nicoChatArray[i];
-        this.addChat(nicoChat);
-//        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
-//        this.checkCollision(nc);
-//        this._members.push(nc);
+        var nc = new NicoChatViewModel(nicoChat, this._offScreen);
+        this._members.push(nc);
       }
-//      this._createVSortedMembers();
+      this._groupCollision();
+    },
+    _groupCollision: function() {
+      this._createVSortedMembers();
+      var members = this._vSortedMembers;
+      for (var i = 0, len = members.length; i < len; i++) {
+        this.checkCollision(members[i]);
+      }
     },
     addChat: function(nicoChat) {
+      var timeKey = 'addChat:' + nicoChat.getText();
+      window.console.time(timeKey);
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
-      this.checkCollision(nc);
-      this._members.push(nc);
 
+      // 内部処理効率化の都合上、
+      // 自身を追加する前に判定を行っておくこと
+      this.checkCollision(nc);
+
+      this._members.push(nc);
       this._createVSortedMembers();
+      window.console.timeEnd(timeKey);
     },
     reset: function() {
       var m = this._members;
@@ -639,11 +657,16 @@ var PopupMessage = {};
     checkCollision: function(target) {
       var m = this._vSortedMembers;//this._members;
       var o;
+      var beginLeft = target.getBeginLeftTiming();
+//      var endRight  = target.getEndRightTiming();
       for (var i = 0, len = m.length; i < len; i++) {
         o = m[i];
 
-        //自分自身との判定はスキップする
-        if (o === target) { continue; }
+        // 自分よりうしろのメンバーには影響を受けないので処理不要
+        if (o === target) { return; }
+
+        if (beginLeft > o.getEndRightTiming())  { continue; }
+
 
         if (o.checkCollision(target)) {
           target.moveToNextLine(o);
@@ -895,6 +918,12 @@ var PopupMessage = {};
         this._isUpdating = !!v;
         if (!v) { this.onChange(); }
       }
+    },
+    setIsPostFail: function(v) {
+      this._isPostFail = v;
+    },
+    isPostFail: function() {
+      return !!this._isPostFail;
     },
     getId: function() { return this._id; },
     getText: function() { return this._text; },
@@ -1448,8 +1477,9 @@ var PopupMessage = {};
     isFull: function() {
       return this._nicoChat.isFull();
     },
-    isMine: function()     { return this._nicoChat._isMine; },
-    isUpdating: function() { return this._nicoChat._isUpdating; },
+    isMine: function()     { return this._nicoChat.isMine(); },
+    isUpdating: function() { return this._nicoChat.isUpdating(); },
+    isPostFail: function() { return this._nicoChat.isPostFail(); },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -1691,6 +1721,20 @@ iframe {
 .nicoChat.updating::after {
   animation-direction: alternate;
 }
+
+.nicoChat.fail {
+  border: 1px dotted red;
+  text-decoration: line-through;
+}
+
+.nicoChat.fail:after {
+  content: ' 投稿失敗...';
+  text-decoration: none;
+  color: #ff9;
+  font-size: 80%;
+  opacity: 0.8;
+  color: #ccc;
+}}
 
 .debug .nicoChat {
   border: 1px outset;
@@ -2041,6 +2085,10 @@ iframe {
       if (chat.isUpdating()) {
         className.push('updating');
       }
+      if (chat.isPostFail()) {
+        className.push('fail');
+      }
+
 
 
       span.className = className.join(' ');
@@ -2109,7 +2157,7 @@ iframe {
       if (type === NicoChat.TYPE.NORMAL) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
-        var outerScreenWidth = screenWidthFull * 1.05;
+        var outerScreenWidth = screenWidthFull * 1.1;
         var screenDiff = outerScreenWidth - screenWidth;
         var leftPos = screenWidth + screenDiff / 2;
         var durationDiff = screenDiff / speed / playbackRate;

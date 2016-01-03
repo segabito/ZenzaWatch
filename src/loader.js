@@ -494,11 +494,13 @@ var WindowMessageEmitter = function() {};
 
           window.console.log('post xml: ', xml);
           return self._post(threadInfo.server, xml).then(function(result) {
-            var status = null;
+            var status = null, chat_result, no = 0, blockNo = 0;
             try {
               xml = result.documentElement;
-              var chat_result = xml.getElementsByTagName('chat_result')[0];
+              chat_result = xml.getElementsByTagName('chat_result')[0];
               status = chat_result.getAttribute('status');
+              no = parseInt(chat_result.getAttribute('no'), 10);
+              blockNo = Math.floor((no + 1) / 100);
             } catch (e) {
               console.error(e);
             }
@@ -506,12 +508,17 @@ var WindowMessageEmitter = function() {};
             if (status !== '0') {
               return Promise.reject({
                 status: 'fail',
+                no: no,
+                blockNo: blockNo,
                 code: status,
                 message: 'コメント投稿失敗 status:' + status
               });
             }
+
             return Promise.resolve({
               status: 'ok',
+              no: no,
+              blockNo: blockNo,
               code: status,
               message: 'コメント投稿成功'
             });

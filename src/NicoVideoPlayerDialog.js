@@ -873,16 +873,27 @@ var AsyncEmitter = function() {};
 
       $container.addClass('postChat');
 
-      var _onSuccess = function() {
+      var self = this;
+      window.console.time('コメント投稿');
+      var _onSuccess = function(result) {
+        window.console.timeEnd('コメント投稿');
         nicoChat.setIsUpdating(false);
         PopupMessage.notify('コメント投稿成功');
         $container.removeClass('postChat');
+
+        self._threadInfo.blockNo = result.blockNo;
         window.clearTimeout(timeout);
       };
-      var _onFail = function() {
+      var _onFail = function(err) {
+        window.console.timeEnd('コメント投稿');
+
+        nicoChat.setIsPostFail(true);
         nicoChat.setIsUpdating(false);
         PopupMessage.alert('コメント投稿失敗(1)');
         $container.removeClass('postChat');
+        if (err.blockNo && typeof err.blockNo === 'number') {
+          self._threadInfo.blockNo = err.blockNo;
+        }
         window.clearTimeout(timeout);
       };
 
@@ -2255,7 +2266,10 @@ var AsyncEmitter = function() {};
     },
     _onFocus: function() {
       this._$view.addClass('active');
-      this.emit('focus', this.isAutoPause());
+      if (!this._hasFocus) {
+        this.emit('focus', this.isAutoPause());
+      }
+      this._hasFocus = true;
     },
     _onBlur: function() {
       if (this._$commandInput.is(':focus') ||
@@ -2264,6 +2278,8 @@ var AsyncEmitter = function() {};
       }
       this._$view.removeClass('active');
       this.emit('blur', this.isAutoPause());
+
+      this._hasFocus = false;
     },
     _onSubmit: function() {
       this.submit();
