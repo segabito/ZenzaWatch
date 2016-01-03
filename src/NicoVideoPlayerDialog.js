@@ -865,6 +865,7 @@ var AsyncEmitter = function() {};
         return Promise.reject();
       }
 
+      cmd = '184 ' + cmd;
       options = options || {};
       options.mine = '1';
       options.updating = '1';
@@ -2119,9 +2120,9 @@ var AsyncEmitter = function() {};
       position: absolute;
       top: 36px;
       display: block;
-      text-shadow: 0 0 8px #ccc;
       background: #336;
       z-index: 100;
+      color: #ccc;
     }
 
     .commandInput {

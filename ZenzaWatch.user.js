@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.5.1
+// @version        0.5.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -5894,6 +5894,7 @@ iframe {
         return Promise.reject();
       }
 
+      cmd = '184 ' + cmd;
       options = options || {};
       options.mine = '1';
       options.updating = '1';
@@ -7148,9 +7149,9 @@ iframe {
       position: absolute;
       top: 36px;
       display: block;
-      text-shadow: 0 0 8px #ccc;
       background: #336;
       z-index: 100;
+      color: #ccc;
     }
 
     .commandInput {
