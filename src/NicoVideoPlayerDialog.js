@@ -668,13 +668,13 @@ var AsyncEmitter = function() {};
       if (!FullScreen.now()) {
         $('body').removeClass('fullScreen');
       }
-      $('body').addClass('showNicoVideoPlayerDialog');
+      $('body, html').addClass('showNicoVideoPlayerDialog');
       this._updateScreenMode(this._playerConfig.getValue('screenMode'));
       this._isOpen = true;
     },
     hide: function() {
       this._$dialog.removeClass('show');
-      $('body').removeClass('showNicoVideoPlayerDialog');
+      $('body, html').removeClass('showNicoVideoPlayerDialog');
       this._clearClass();
       this._isOpen = false;
     },
@@ -943,6 +943,14 @@ var AsyncEmitter = function() {};
 
   var VideoHoverMenu = function() { this.initialize.apply(this, arguments); };
   VideoHoverMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+
+    {* マイページはなぜかhtmlにoverflow-y: scroll が指定されているので打ち消す *}
+    html.showNicoVideoPlayerDialog{
+      overflow-x: hidden !important;
+      overflow-y: hidden !important;
+      overflow: hidden !important;
+    }
+
     .menuItemContainer {
       box-sizing: border-box;
       position: absolute;
@@ -1153,7 +1161,7 @@ var AsyncEmitter = function() {};
       width:  32px;
       height: 32px;
       color: #000;
-      border: 1px solid #fff;
+      border: 1px solid #ccc;
       line-height: 30px;
       font-size: 18px;
     }
@@ -1161,7 +1169,7 @@ var AsyncEmitter = function() {};
       display: block;
     }
     .ngSettingMenu:hover {
-      background: #333;
+      background: #888;
       font-size: 120%;
       box-shadow: 4px 4px 0 #000;
       text-shadow: 0px 0px 2px #ccf;
@@ -1169,7 +1177,8 @@ var AsyncEmitter = function() {};
     .ngSettingMenu.show,
     .ngSettingMenu:active {
       opacity: 1;
-      background: #333;
+      background: #888;
+      border: 1px solid #ccc;
       box-shadow: none;
       margin-left: 4px;
       margin-top:  4px;
@@ -1338,72 +1347,32 @@ var AsyncEmitter = function() {};
     }
 
     .screenModeSelectMenu {
-      position: absolute;
       right: 20px;
       bottom: 40px;
-      width: 140px;
-      box-sizng: border-box;
-      background: #333;
-      color: #fff;
-      border: 1px solid #ccc;
-      opacity: 0.9;
-      transition: opacity 0.3s ease;
-      z-index: 150000;
+      width: 148px;
       padding: 2px 4px;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-    }
-    .screenModeSelectMenu:not(.show) {
-      left: -9999px;
-      top: -9999px;
-      opacity: 0;
-      pointer-events: none;
     }
     .fullScreen .screenModeSelectMenu {
       display: none;
     }
 
-    .screenModeSelectMenu .caption {
-      padding: 2px 4px;
-      text-align: center;
-      margin: 0;
-      font-weight: bolder;
-      background: #666;
-      color: #fff;
-    }
-
     .screenModeSelectMenu .triangle {
       transform: rotate(-45deg);
-      position: absolute;
       bottom: -8.5px;
-      right: 68px;
-      width: 16px;
-      height: 16px;
-      border: 1px solid #ccc;
-      border-width: 0 0 1px 1px;
-      background: #333;
-      box-sizing: border-box;
+      right: 66px;
     }
-    .screenModeSelectMenu ul {
-      padding: 0;
-    }
-    .screenModeSelectMenu li {
-      list-style-type: none;
+    .screenModeSelectMenu ul li {
       display: inline-block;
       text-align: center;
+      border-bottom: none;
+      margin: 0;
+      padding: 0;
     }
-    .screenModeSelectMenu li span {
+    .screenModeSelectMenu ul li span {
       border: 1px solid #ccc;
       width: 50px;
-      display: inline-block;
       margin: 2px 8px;
       padding: 4px 0;
-      box-sizing: border-box;
-      cursor: pointer;
-    }
-    .screenModeSelectMenu li span:hover {
-      background: #663;
     }
 
     .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
@@ -1429,40 +1398,14 @@ var AsyncEmitter = function() {};
       margin-top:  -4px;
     }
     .playbackRateSelectMenu {
-      position: absolute;
       right: 40px;
       bottom: 40px;
       width: 140px;
-      box-sizng: border-box;
-      background: #333;
-      color: #fff;
-      border: 1px solid #ccc;
-      opacity: 0.9;
-      transition: opacity 0.3s ease;
-      z-index: 150000;
-      padding: 0;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-    }
-    .playbackRateSelectMenu .caption {
-      padding: 2px 4px;
-      text-align: center;
-      margin: 0;
-      font-weight: bolder;
-      background: #666;
-      color: #fff;
     }
     .playbackRateSelectMenu ul {
       margin: 2px 8px;
-      padding: 0;
     }
-    .playbackRateSelectMenu:not(.show) {
-      left: -9999px;
-      top: -9999px;
-      opacity: 0;
-      pointer-events: none;
-    }
+
     .zenzaScreenMode_sideView .playbackRateSelectMenu,
     .zenzaScreenMode_small    .playbackRateSelectMenu {
       left: 368px;
@@ -1477,15 +1420,8 @@ var AsyncEmitter = function() {};
 
     .playbackRateSelectMenu .triangle {
       transform: rotate(-45deg);
-      position: absolute;
       bottom: -9px;
       right: 8px;
-      width: 16px;
-      height: 16px;
-      border: 1px solid #ccc;
-      border-width: 0 0 1px 1px;
-      background: #333;
-      box-sizing: border-box;
     }
     .zenzaScreenMode_sideView .playbackRateSelectMenu .triangle,
     .zenzaScreenMode_small    .playbackRateSelectMenu .triangle {
@@ -1497,28 +1433,8 @@ var AsyncEmitter = function() {};
     }
 
     .playbackRateSelectMenu li {
-      position: relative;
       padding: 3px 4px;
-      cursor: pointer;
-      list-style-type: none;
-      border-bottom: 1px dotted #888;
     }
-    .playbackRateSelectMenu li:hover {
-      background: #663;
-    }
-    .playbackRateSelectMenu li.selected {
-      font-weight: bolder;
-    }
-    .playbackRateSelectMenu li span {
-      margin-left: 8px;
-      display: inline-block;
-    }
-    .playbackRateSelectMenu ul li.selected span:before {
-      content: '✔';
-      left: 0;
-      position: absolute;
-    }
-
 
     .mylistButton {
       width:  32px;
@@ -1573,73 +1489,28 @@ var AsyncEmitter = function() {};
     }
 
     .mylistSelectMenu {
-      position: absolute;
       top: 38px;
       right: 32px;
-      background: #333;
-      overflow: visible;
       padding: 8px 0;
-      border: 1px solid #ccc;
-      opacity: 0.9;
-      box-shadow: 2px 2px 4px #fff;
-      transition: opacity 0.3s ease;
-      z-index: 150000;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
     }
     .mylistSelectMenu .mylistSelectMenuInner {
       overflow-y: auto;
       overflow-x: hidden;
-      max-height: 70vh;
+      max-height: 60vh;
     }
 
     .mylistSelectMenu .triangle {
       transform: rotate(135deg);
-      position: absolute;
       top: -8.5px;
       right: 55px;
-      width: 16px;
-      height: 16px;
-      border: 1px solid #ccc;
-      border-width: 0 0 1px 1px;
-      background: #333;
-      box-sizing: border-box;
-    }
-
-    .mylistSelectMenu:not(.show) {
-      left: -9999px;
-      top: -9999px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .mylistSelectMenu ul {
-      padding: 0;
     }
 
     .mylistSelectMenu ul li {
-      position: relative;
       line-height: 120%;
-      margin: 2px 4px;
       overflow-y: visible;
-      white-space: nowrap;
-      cursor: pointer;
-      padding: 2px 8px;
-      list-style-type: none;
-      float: inherit;
+      border-bottom: none;
     }
-    .mylistSelectMenu ul li:hover {
-      background: #663;
-    }
-    .mylistSelectMenu ul li.separator {
-      border: 1px outset;
-      height: 2px;
-      width: 90%;
-    }
-    .mylistSelectMenu.show {
-      opacity: 0.8;
-    }
+
     .mylistSelectMenu .listInner {
     }
 
@@ -1710,7 +1581,7 @@ var AsyncEmitter = function() {};
         <div class="menuButtonInner">&#9547;</div>
       </div>
     </div>
-    <div class="mylistSelectMenu">
+    <div class="mylistSelectMenu zenzaPopupMenu">
       <div class="triangle"></div>
       <div class="mylistSelectMenuInner">
       </div>
@@ -1748,7 +1619,7 @@ var AsyncEmitter = function() {};
 
       <div class="ngSettingSelectMenu zenzaPopupMenu">
         <div class="triangle"></div>
-        <p class="caption">NG設定</p>
+        <p class="caption">NG共有設定</p>
         <ul>
           <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
           <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
@@ -1772,7 +1643,7 @@ var AsyncEmitter = function() {};
         <div class="menuButtonInner">1x</div>
       </div>
     </div>
-    <div class="screenModeSelectMenu">
+    <div class="screenModeSelectMenu zenzaPopupMenu">
       <div class="triangle"></div>
       <p class="caption">画面モード</p>
       <ul>
@@ -1784,7 +1655,7 @@ var AsyncEmitter = function() {};
         <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
       </ul>
     </div>
-    <div class="playbackRateSelectMenu">
+    <div class="playbackRateSelectMenu zenzaPopupMenu">
       <div class="triangle"></div>
       <p class="caption">再生速度</p>
       <ul>

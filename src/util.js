@@ -495,8 +495,8 @@ var console;
         background: #333;
         color: #fff;
         overflow: visible;
-        padding: 8px 0;
         border: 1px solid #ccc;
+        padding: 0;
         opacity: 0.9;
         box-shadow: 2px 2px 4px #fff;
         box-sizing: border-box;
@@ -525,6 +525,14 @@ var console;
         cursor: pointer;
         padding: 2px 8px;
         list-style-type: none;
+        border-bottom: 1px dotted #ccc;
+        float: inherit;
+      }
+      .zenzaPopupMenu ul li:last-child {
+        border-bottom: none;
+      }
+      .zenzaPopupMenu li.selected {
+        font-weight: bolder;
       }
 
       .zenzaPopupMenu ul li:hover {
@@ -536,8 +544,10 @@ var console;
         width: 90%;
       }
       .zenzaPopupMenu li span {
+        box-sizing: border-box;
         margin-left: 8px;
         display: inline-block;
+        cursor: pointer;
       }
       .zenzaPopupMenu ul li.selected span:before {
         content: '✔';

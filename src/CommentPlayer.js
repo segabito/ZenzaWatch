@@ -1817,7 +1817,7 @@ iframe {
   font-size: 80%;
   opacity: 0.8;
   color: #ccc;
-}}
+}
 
 .debug .nicoChat {
   border: 1px outset;
