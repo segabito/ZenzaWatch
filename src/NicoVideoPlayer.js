@@ -133,20 +133,23 @@ var NicoCommentPlayer = function() {};
       }
     },
     _onMouseWheel: function(e, delta) {
-      var v = this._videoPlayer.getVolume();
-      var r;
-
       // 下げる時は「うわ音でけぇ」
       // 上げる時は「ちょっと上げようかな」
       // なので下げる速度のほうが速い
       if (delta > 0) { // up
-        v = Math.max(v, 0.01);
-        r = (v < 0.05) ? 1.3 : 1.1;
-        this._videoPlayer.setVolume(v * r);
+        this.volumeUp();
       } else {         // down
-        this._videoPlayer.setVolume(v / 1.2);
+        this.volumeDown();
       }
-//      this._playerConfig.setValue('volume', this._videoPlayer.getVolume());
+    },
+    volumeUp: function() {
+      var v = Math.max(0.01, this._videoPlayer.getVolume());
+      var r = (v < 0.05) ? 1.3 : 1.1;
+      this._videoPlayer.setVolume(v * r);
+    },
+    volumeDown: function() {
+      var v = this._videoPlayer.getVolume();
+      this._videoPlayer.setVolume(v / 1.2);
     },
     _onTimer: function() {
       var currentTime = this._videoPlayer.getCurrentTime();

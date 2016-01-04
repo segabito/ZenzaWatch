@@ -757,6 +757,7 @@ var console;
         }
         var target = e.target;
         var key = '';
+        var param = '';
         switch (e.keyCode) {
           case 178:
           case 179:
@@ -771,11 +772,26 @@ var console;
           case 27:
             key = 'ESC';
             break;
+          case 37: // LEFT
+            if (e.shiftKey) { key = 'SEEK'; param = -5; }
+            break;
+          case 38: // UP
+            if (e.shiftKey) { key = 'VOL_UP'; }
+            break;
+          case 39: // RIGHT
+            if (e.shiftKey) { key = 'SEEK'; param = 5;}
+            break;
+          case 40: // DOWN
+            if (e.shiftKey) { key = 'VOL_DOWN'; }
+            break;
           case 67: // C
             key = 'INPUT_COMMENT';
             break;
           case 70: // F
             key = 'FULL';
+            break;
+          case 77: // M
+            key = 'MUTE';
             break;
           case 86: // V
             key = 'VIEW_COMMENT';
@@ -791,7 +807,7 @@ var console;
             break;
         }
         if (key) {
-          emitter.emit('keyDown', key, target);
+          emitter.emit('keyDown', key, target, param);
         }
       };
 

@@ -514,10 +514,11 @@ var AsyncEmitter = function() {};
 
       $('body').append($dialog);
     },
-    _onKeyDown: function(name /*, target */) {
+    _onKeyDown: function(name , target, param) {
       if (!this._isOpen) {
         return;
       }
+      var v;
       switch (name) {
         case 'SPACE':
         case 'PAUSE':
@@ -539,8 +540,22 @@ var AsyncEmitter = function() {};
           this._onDeflistAdd();
           break;
         case 'VIEW_COMMENT':
-          var v = this._playerConfig.getValue('showComment');
+          v = this._playerConfig.getValue('showComment');
           this._playerConfig.setValue('showComment', !v);
+          break;
+        case 'MUTE':
+          v = this._playerConfig.getValue('mute');
+          this._playerConfig.setValue('mute', !v);
+          break;
+        case 'VOL_UP':
+          this._nicoVideoPlayer.volumeUp();
+          break;
+        case 'VOL_DOWN':
+          this._nicoVideoPlayer.volumeDown();
+          break;
+        case 'SEEK':
+          var c = this._nicoVideoPlayer.getCurrentTime();
+          this._nicoVideoPlayer.setCurrentTime(c + param);
           break;
       }
     },
@@ -1005,6 +1020,48 @@ var AsyncEmitter = function() {};
       -moz-user-select: none;
     }
 
+    .volumeControl .tooltip,
+    .menuButton .tooltip {
+      display: none;
+      pointer-events: none;
+      position: absolute;
+      left: 16px;
+      top: -24px;
+      font-size: 12px;
+      line-height: 16px;
+      padding: 2px 4px;
+      border: 1px solid !000;
+      background: #fea;
+      color: black;
+      box-shadow: 2px 2px 2px #fff;
+      text-shadow: none;
+      white-space: nowrap;
+      z-index: 100;
+      opacity: 0.8;
+    }
+
+    {*.volumeChanging .volumeControl .tooltip,*}
+    .volumeControl:hover .tooltip,
+    .menuButton:hover .tooltip {
+      display: block;
+    }
+
+    .rightTop .menuButton .tooltip {
+      top: auto;
+      bottom: -24px;
+      right: 16px;
+      left: auto;
+    }
+    .rightBottom .menuButton .tooltip {
+      right: 16px;
+      left: auto;
+    }
+    .volumeControl .tooltip{
+      top: 8px;
+      left: 40px;
+    }
+
+
     .menuItemContainer:hover .menuButton {
       pointer-events: auto;
     }
@@ -1032,10 +1089,10 @@ var AsyncEmitter = function() {};
       color: #000;
       border: 1px solid #fff;
       line-height: 30px;
-      font-size: 18px;
+      font-size: 24px;
+      text-decoration: line-through;
     }
     .showCommentSwitch:hover {
-      font-size: 120%;
       box-shadow: 4px 4px 0 #000;
     }
     .showCommentSwitch:active {
@@ -1049,6 +1106,7 @@ var AsyncEmitter = function() {};
       background:#888;
       color: #fff;
       text-shadow: 0 0 6px orange;
+      text-decoration: none;
     }
 
     .loopSwitch {
@@ -1251,7 +1309,11 @@ var AsyncEmitter = function() {};
       pointer-events: none;
       mix-blend-mode: difference;
     }
-
+    .volumeChanging .volumeControl .volumeControlInner .slideBar,
+    .mouseMoving    .volumeControl .volumeControlInner .slideBar,
+    .volumeControl:hover .volumeControlInner .slideBar {
+      border-top: 1px solid red;
+    }
 
     .fullScreenSwitch {
       right: 0;
@@ -1575,9 +1637,11 @@ var AsyncEmitter = function() {};
   VideoHoverMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="menuItemContainer rightTop">
       <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu" title="マイリスト">
+        <div class="tooltip">マイリスト登録</div>
         <div class="menuButtonInner">My</div>
       </div>
       <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd" title="とりあえずマイリスト">
+        <div class="tooltip">とりあえずマイリスト(T)</div>
         <div class="menuButtonInner">&#9547;</div>
       </div>
     </div>
@@ -1588,31 +1652,37 @@ var AsyncEmitter = function() {};
     </div>
 
     <div class="menuItemContainer leftBottom">
-      <div class="loopSwitch menuButton" data-command="loop" title="リピート">
+      <div class="loopSwitch menuButton" data-command="loop">
+        <div class="tooltip">リピート</div>
         <div class="menuButtonInner">&#x27F3;</div>
       </div>
 
-      <div class="muteSwitch menuButton" data-command="mute" title="ミュート">
+      <div class="muteSwitch menuButton" data-command="mute">
+        <div class="tooltip">ミュート(M)</div>
         <div class="menuButtonInner mute-off">&#x1F50A;</div>
         <div class="menuButtonInner mute-on">&#x1F507;</div>
       </div>
 
       <div class="volumeControl">
+        <div class="tooltip">音量調整</div>
         <div class="volumeControlInner">
           <div class="slideBar"></div>
         </div>
       </div>
 
-      <div class="showCommentSwitch menuButton" data-command="showComment" title="コメントの表示ON/OFF">
-        <div class="menuButtonInner">C</div>
+      <div class="showCommentSwitch menuButton" data-command="showComment">
+        <div class="tooltip">コメント表示ON/OFF(V)</div>
+        <div class="menuButtonInner">💬</div>
       </div>
 
-      <div class="commentLayerOrderSwitch menuButton" data-command="backComment" title="コメントの表示順">
+      <div class="commentLayerOrderSwitch menuButton" data-command="backComment">
+        <div class="tooltip">コメントの表示順</div>
         <div class="layer comment">C</div>
         <div class="layer video">V</div>
       </div>
 
-      <div class="ngSettingMenu menuButton" data-command="ngSettingMenu" title="NG設定">
+      <div class="ngSettingMenu menuButton" data-command="ngSettingMenu">
+        <div class="tooltip">NG設定</div>
         <div class="menuButtonInner">NG</div>
       </div>
     </div>
@@ -1630,17 +1700,20 @@ var AsyncEmitter = function() {};
 
 
     <div class="menuItemContainer rightBottom">
-      <div class="fullScreenSwitch menuButton" data-command="fullScreen" title="フルスクリーン">
+      <div class="fullScreenSwitch menuButton" data-command="fullScreen">
+        <div class="tooltip">フルスクリーン(F)</div>
         <div class="menuButtonInner">
           <span class="toFull">&#9698;</span>
           <span class="returnFull">&#9700;</span>
         </div>
       </div>
-      <div class="screenModeMenu menuButton" data-command="screenModeMenu" title="画面モード">
+      <div class="screenModeMenu menuButton" data-command="screenModeMenu">
+        <div class="tooltip">画面モード変更</div>
         <div class="menuButtonInner">&#9114;</div>
       </div>
-      <div class="playbackRateMenu menuButton" data-command="playbackRateMenu" title="再生速度">
+      <div class="playbackRateMenu menuButton" data-command="playbackRateMenu">
         <div class="menuButtonInner">1x</div>
+        <div class="tooltip">再生速度変更</div>
       </div>
     </div>
     <div class="screenModeSelectMenu zenzaPopupMenu">
@@ -1802,6 +1875,7 @@ var AsyncEmitter = function() {};
       var self = this;
       var config = this._playerConfig;
       var $btn  = this._$playbackRateMenu;
+      var $label = $btn.find('.menuButtonInner');
       var $menu = this._$playbackRateSelectMenu;
 
       $menu.on('click', '.playbackRate', function(e) {
@@ -1815,7 +1889,7 @@ var AsyncEmitter = function() {};
       });
 
       var updatePlaybackRate = function(rate) {
-        $btn.text(rate + 'x');
+        $label.text(rate + 'x');
         $menu.find('.selected').removeClass('selected');
         var fr = parseFloat(rate);
         $menu.find('.playbackRate').each(function(i, item) {
@@ -1860,12 +1934,13 @@ var AsyncEmitter = function() {};
     },
     _initializeVolumeCotrol: function() {
       var $container = this._$playerContainer.find('.volumeControl');
+      var $tooltip = $container.find('.tooltip');
       var $bar = this._$playerContainer.find('.volumeControl .slideBar');
 
       this._setVolumeBar = function(v) {
         var per = Math.round(v * 100);
         $bar.css({ height: per + '%'});
-        $container.attr('title', '音量 (' + per + '%)');
+        $tooltip.text('音量 (' + per + '%)');
       };
 
       var $inner = this._$playerContainer.find('.volumeControlInner');
@@ -2072,6 +2147,8 @@ var AsyncEmitter = function() {};
       border: none;
       opacity: 0;
       transition: opacity 0.3s ease, box-shadow 0.4s ease;
+      text-align: center;
+      line-height: 26px;
     }
 
     .commentInputPanel:hover  .commentInput {
@@ -2115,6 +2192,8 @@ var AsyncEmitter = function() {};
       z-index: -1;
       opacity: 0;
       transition: left 0.2s ease, opacity 0.2s ease;
+      text-align: center;
+      line-height: 26px;
     }
     .commentInputPanel.active .commandInput {
       left: -108px;
@@ -2136,6 +2215,7 @@ var AsyncEmitter = function() {};
       z-index: -1;
       opacity: 0;
       transition: right 0.2s ease, opacity 0.2s ease;
+      line-height: 26px;
     }
     .commentInputPanel.active .commentSubmit {
       right: -108px;
@@ -2275,16 +2355,19 @@ var AsyncEmitter = function() {};
       if (chat.length < 1) {
         return;
       }
-      this._$commentInput.val('').blur();
-      this._$commandInput.blur();
 
-      var $view = this._$view.addClass('updating');
-      this.emitPromise('post', chat, cmd).then(function() {
-        $view.removeClass('updating');
-      }, function() {
-        // TODO: 失敗時はなんかフィードバックさせる？
-        $view.removeClass('updating');
-      });
+      ZenzaWatch.util.callAsync(function() {
+        this._$commentInput.val('').blur();
+        this._$commandInput.blur();
+
+        var $view = this._$view.addClass('updating');
+        this.emitPromise('post', chat, cmd).then(function() {
+          $view.removeClass('updating');
+        }, function() {
+          // TODO: 失敗時はなんかフィードバックさせる？
+          $view.removeClass('updating');
+        });
+      }, this);
     },
     isAutoPause: function() {
       return !!this._$autoPause.prop('checked');
