@@ -1165,7 +1165,7 @@ var PopupMessage = {};
       };
 
       var htmlText =
-        text
+        ZenzaWatch.util.escapeHtml(text)
           .replace(/( |　|\t)+([\n$])/g , '$1')
           .replace(/( |\xA0){1,30}/g , han_replace)
           .replace(/[\t]/g , '<span class="tab_space">&nbsp;</span>');

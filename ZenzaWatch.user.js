@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.5.5
+// @version        0.6.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -187,6 +187,7 @@ var monkey = function() {
         loop:         false,
         mute:         false,
         screenMode:   'normal',
+        autoFullScreen: false,
         autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
@@ -347,15 +348,26 @@ var monkey = function() {
         window.setTimeout(function() { $msg.remove(); }, 10000);
       };
 
+      var undefined;
       var notify = function(msg) {
+        if (msg === undefined) {
+          msg = '不明なエラー';
+          window.console.error('undefined message sent');
+          window.console.trace();
+        }
         console.log('%c%s', 'background: #080; color: #fff; padding: 8px;', msg);
-        var $msg = $(__view__.replace('%MSG%', msg)).addClass('notify');
+        var $msg = $(__view__.replace('%MSG%', ZenzaWatch.util.escapeHtml(msg))).addClass('notify');
         show($msg);
       };
 
       var alert = function(msg) {
+        if (msg === undefined) {
+          msg = '不明なエラー';
+          window.console.error('undefined message sent');
+          window.console.trace();
+        }
         console.log('%c%s', 'background: #800; color: #fff; padding: 8px;', msg);
-        var $msg = $(__view__.replace('%MSG%', msg)).addClass('alert');
+        var $msg = $(__view__.replace('%MSG%', ZenzaWatch.util.escapeHtml(msg))).addClass('alert');
         show($msg);
       };
 
@@ -760,6 +772,20 @@ var monkey = function() {
     };
     ZenzaWatch.util.isFirefox = isFirefox;
 
+    var escapeHtml = function escapeHtml(text) {
+      var map = {
+        '&':    '&amp;',
+        '\x27': '&#39;',
+        '\\':   '&quot;',
+        '<':    '&lt;',
+        '>':    '&gt;'
+      };
+      return text.replace(/[&"'<>]/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.escapeHtml = escapeHtml;
+
     var ajax = function(params) {
       // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う
       return new Promise(function(resolve, reject) {
@@ -838,7 +864,7 @@ var monkey = function() {
             break;
         }
         if (key) {
-          emitter.emit('keyDown', key, target, param);
+          emitter.emit('keyDown', key, e, param);
         }
       };
 
@@ -1845,12 +1871,6 @@ var monkey = function() {
         sharedNgLevel:  conf.getValue('sharedNgLevel')
       });
 
-      this._controlPanel = new VideoControlPanel({
-        player: this,
-        panelNode: params.panelNode,
-        playerConfig: conf
-      });
-
       this._contextMenu = new VideoContextMenu({
         player: this,
         playerConfig: conf
@@ -1994,7 +2014,6 @@ var monkey = function() {
     },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
-      this._controlPanel.show();
       this._isEnded = false;
     },
     setThumbnail: function(url) {
@@ -2039,7 +2058,6 @@ var monkey = function() {
     close: function() {
       this._videoPlayer.close();
       this._commentPlayer.close();
-      this._controlPanel.hide();
     },
     toggleFullScreen: function() {
       if (FullScreen.now()) {
@@ -2181,238 +2199,6 @@ var monkey = function() {
     }
   });
 
-  var VideoControlPanel = function() { this.initialize.apply(this, arguments); };
-  VideoControlPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-    .zenzaControlPanel {
-      position: fixed;
-      display: none;
-      z-index: 200000;
-      left: 0;
-      bottom: 0;
-      background: #333;
-      border: 2px soid;
-      padding: 4px;
-      box-shadow: 0 0 4px;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-    }
-
-    {*
-    .zenzaControlPanel.show {
-      display: block
-    }
-    *}
-
-    .zenzaControlPanel .control {
-      display: inline-block;
-      border: 1px solid;
-      border-radius: 4px;
-      background: #888;
-    }
-
-    .zenzaControlPanel .playbackRate,
-    .zenzaControlPanel .screenMode {
-      font-size: 16px;
-      background: #888;
-    }
-
-    .zenzaControlPanel button {
-      font-size: 10pt;
-      padding: 4px 8px;
-      background: #888;
-      border-radius: 4px;
-      border: solid 1px;
-      cursor: pointer;
-    }
-
-    .zenzaControlPanel label {
-      padding: 4px 8px;
-      cursor: pointer;
-    }
-
-    .zenzaControlPanel input[type=checkbox] {
-      position: fixed;
-      left: -9999px;
-    }
-
-    .zenzaControlPanel .control.checked {
-      color: #cc9;
-    }
-
-  */});
-
-  VideoControlPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="zenzaControlPanel">
-      <!--
-      <div class="playbackRateControl control">
-        再生速度
-        <select class="playbackRate">
-          <option value="1.0" selected>標準(1.0)</option>
-          <option value="0.1">0.1倍</option>
-          <option value="0.3">0.3倍</option>
-          <option value="0.5">0.5倍</option>
-          <option value="0.8">0.8倍</option>
-          <option value="1.0">1.0倍</option>
-          <option value="1.1">1.1倍</option>
-          <option value="1.2">1.2倍</option>
-          <option value="1.4">1.4倍</option>
-          <option value="1.5">1.5倍</option>
-          <option value="2.0">2.0倍</option>
-          <option value="3.0">3.0倍</option>
-          <option value="4.0">4.0倍</option>
-          <option value="5.0">5.0倍</option>
-          <option value="10.0">10倍</option>
-        </select>
-      </div>
-      <div class="screenModeControl control">
-        画面サイズ
-        <select class="screenMode">
-          <option value="3D">3D</option>
-          <option value="small">小画面</option>
-          <option value="sideView">横表示</option>
-          <option value="normal" selected>標準</option>
-          <option value="big">大画面</option>
-          <option value="wide">ワイド</option>
-       </select>
-      </div>
-      -->
-      <!--
-      <div class="fullScreenControl control toggle">
-        <button class="fullScreen">
-          フルスクリーン
-        </button>
-      </div>
-      -->
-        <!--<div class="muteControl control toggle">
-        <label>
-          ミュート
-          <input type="checkbox" class="checkbox" data-setting-name="mute">
-        </label>
-      </div>-->
-      <!--
-      <div class="loopControl control toggle">
-        <label>
-          リピート
-          <input type="checkbox" class="checkbox" data-setting-name="loop">
-        </label>
-      </div>
-      -->
-      <!--
-      <div class="autoPlayControl control toggle">
-        <label>
-          自動再生
-          <input type="checkbox" class="checkbox" data-setting-name="autoPlay">
-        </label>
-      </div>
-      -->
-      <!--
-      <div class="showCommentControl control toggle">
-        <label>
-          コメント
-          <input type="checkbox" class="checkbox" data-setting-name="showComment">
-        </label>
-      </div>
-      -->
-      <!--
-      <div class="debugControl control toggle">
-        <label>
-          デバッグ
-          <input type="checkbox" class="checkbox" data-setting-name="debug">
-        </label>
-      </div>
-      -->
-     </div>
-  */});
-
-
-  _.assign(VideoControlPanel.prototype, {
-    initialize: function(params) {
-      this._playerConfig = params.playerConfig;
-      this._player = params.player;
-      this._initializeDom();
-
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
-    },
-    _initializeDom: function() {
-      var conf = this._playerConfig;
-      ZenzaWatch.util.addStyle(VideoControlPanel.__css__);
-
-      var $panel = this._$panel = $(VideoControlPanel.__tpl__);
-
-      $panel.on('click', function(e) {
-        e.stopPropagation();
-      });
-
-      this._$playbackRate = $panel.find('.playbackRate');
-      this._$playbackRate.on('change', $.proxy(this._onPlaybackRateChange, this));
-      this._$playbackRate.val(conf.getValue('playbackRate'));
-
-      this._$screenMode = $panel.find('.screenMode');
-      this._$screenMode.on('change', $.proxy(this._onScreenModeChange, this));
-      this._$screenMode.val(conf.getValue('screenMode'));
-
-      this._$fullScreenButton = $panel.find('.fullScreen');
-      this._$fullScreenButton.on('click', $.proxy(this._onFullScreenClick, this));
-
-      var $check = $panel.find('input[type=checkbox]');
-      $check.each(function(i, check) {
-        var $c = $(check);
-        var settingName = $c.attr('data-setting-name');
-        var val = conf.getValue(settingName);
-        $c.prop('checked', conf.getValue(settingName));
-        $c.closest('.control').toggleClass('checked', val);
-      });
-      $check.on('change', $.proxy(this._onToggleItemChange, this));
-
-      $('body').append($panel);
-    },
-    _onPlaybackRateChange: function() {
-      var val = this._$playbackRate.val();
-      this._playerConfig.setValue('playbackRate', val);
-    },
-    _onScreenModeChange: function() {
-      var val = this._$screenMode.val();
-      this._playerConfig.setValue('screenMode', val);
-    },
-    _onFullScreenClick: function(e) {
-      e.stopPropagation();
-      this._player.requestFullScreen();
-    },
-    _onToggleItemChange: function(e) {
-      var $target = $(e.target);
-      var settingName = $target.attr('data-setting-name');
-      var val = !!$target.prop('checked');
-
-      this._playerConfig.setValue(settingName, val);
-      $target.closest('.control').toggleClass('checked', val);
-    },
-    _onPlayerConfigUpdate: function(key, value) {
-      switch (key) {
-        case 'mute':
-        case 'loop':
-        case 'autoPlay':
-        case 'showComment':
-        case 'debug':
-          this._$panel
-            .find('.' + key + 'Control').toggleClass('checked', value)
-            .find('input[type=checkbox]').prop('checked', value);
-          break;
-        case 'playbackRate':
-          this._$playbackRate.val(value);
-          break;
-        case 'screenMode':
-          this._$screenMode.val(value);
-          break;
-      }
-    },
-    show: function() {
-      this._$panel.addClass('show');
-    },
-    hide: function() {
-      this._$panel.removeClass('show');
-    }
-  });
 
   var VideoContextMenu = function() { this.initialize.apply(this, arguments); };
   VideoContextMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -4072,7 +3858,7 @@ var monkey = function() {
       };
 
       var htmlText =
-        text
+        ZenzaWatch.util.escapeHtml(text)
           .replace(/( |　|\t)+([\n$])/g , '$1')
           .replace(/( |\xA0){1,30}/g , han_replace)
           .replace(/[\t]/g , '<span class="tab_space">&nbsp;</span>');
@@ -5709,6 +5495,9 @@ iframe {
          'mylist_add',
          'width=450, height=340, menubar=no, scrollbars=no');
       },this));
+      this._hoverMenu.on('settingPanel', $.proxy(function() {
+        this._settingPanel.toggle();
+      }, this));
 
       this._commentInput = new CommentInputPanel({
         $playerContainer: this._$playerContainer,
@@ -5735,10 +5524,15 @@ iframe {
         }
       }, this));
 
+      this._settingPanel = new SettingPanel({
+        $playerContainer: this._$playerContainer,
+        playerConfig: this._playerConfig,
+        player: this
+      });
 
       $('body').append($dialog);
     },
-    _onKeyDown: function(name , target, param) {
+    _onKeyDown: function(name , e, param) {
       if (!this._isOpen) {
         return;
       }
@@ -5782,6 +5576,11 @@ iframe {
           this._nicoVideoPlayer.setCurrentTime(c + param);
           break;
       }
+      var screenMode = this._playerConfig.getValue('screenMode');
+      if (!_.contains(['small', 'sideView'], screenMode)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     },
     _onPlayerConfigUpdate: function(key, value) {
       switch (key) {
@@ -5820,7 +5619,7 @@ iframe {
     },
     _updateScreenMode: function(mode) {
       this._clearClass();
-      $('body').addClass('zenzaScreenMode_' + mode);
+      $('body, html').addClass('zenzaScreenMode_' + mode);
     },
     _clearClass: function() {
       var modes = [
@@ -5831,7 +5630,7 @@ iframe {
         'zenzaScreenMode_big',
         'zenzaScreenMode_wide',
       ].join(' ');
-      $('body').removeClass(modes);
+      $('body, html').removeClass(modes);
     },
     _onClick: function() {
     },
@@ -5913,6 +5712,7 @@ iframe {
     },
     hide: function() {
       this._$dialog.removeClass('show');
+      this._settingPanel.hide();
       $('body, html').removeClass('showNicoVideoPlayerDialog');
       this._clearClass();
       this._isOpen = false;
@@ -5971,6 +5771,9 @@ iframe {
       VideoInfoLoader.load(watchId);
 
       this.show(options);
+      if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
+        nicoVideoPlayer.requestFullScreen();
+      }
       ZenzaWatch.emitter.emitAsync('DialogPlayerOpen');
     },
     getCurrentTime: function() {
@@ -6162,6 +5965,7 @@ iframe {
 
       var timeout = window.setTimeout(_onTimeout, 30000);
 
+      text = ZenzaWatch.util.escapeHtml(text);
       return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
         _onSuccess,
         _onFail
@@ -6184,7 +5988,11 @@ iframe {
   VideoHoverMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*
 
     {* マイページはなぜかhtmlにoverflow-y: scroll が指定されているので打ち消す *}
-    html.showNicoVideoPlayerDialog{
+    html.showNicoVideoPlayerDialog.zenzaScreenMode_3D,
+    html.showNicoVideoPlayerDialog.zenzaScreenMode_normal,
+    html.showNicoVideoPlayerDialog.zenzaScreenMode_big,
+    html.showNicoVideoPlayerDialog.zenzaScreenMode_wide
+    {
       overflow-x: hidden !important;
       overflow-y: hidden !important;
       overflow: hidden !important;
@@ -6225,7 +6033,7 @@ iframe {
 
     .menuItemContainer.rightBottom {
       width: 120px;
-      height: 32px;
+      height: 80px;
       right:  0;
       bottom: 0px;
     }
@@ -6588,6 +6396,25 @@ iframe {
       font-size: 16px;
     }
 
+    .settingPanelSwitch {
+      right: 0;
+      bottom: 40px;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 32px;
+      font-size: 24px;
+    }
+    .settingPanelSwitch:hover {
+      background: #888;
+      box-shadow: 4px 4px 0 #000;
+    }
+    .settingPanelSwitch:active {
+      box-shadow: none;
+      margin-left: 4px;
+      margin-top:  4px;
+    }
 
     .screenModeMenu {
       right: 80px;
@@ -6692,8 +6519,8 @@ iframe {
       margin: 2px 8px;
     }
 
-    .zenzaScreenMode_sideView .playbackRateSelectMenu,
-    .zenzaScreenMode_small    .playbackRateSelectMenu {
+    body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu,
+    body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu {
       left: 368px;
       top: 48px;
       right: auto;
@@ -6709,8 +6536,8 @@ iframe {
       bottom: -9px;
       right: 8px;
     }
-    .zenzaScreenMode_sideView .playbackRateSelectMenu .triangle,
-    .zenzaScreenMode_small    .playbackRateSelectMenu .triangle {
+    body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu .triangle,
+    body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu .triangle {
       transform: rotate(45deg);
       top: 154px;
       left: -8px;
@@ -6722,7 +6549,7 @@ iframe {
       padding: 3px 4px;
     }
 
-    .mylistButton {
+    .menuItemContainer .mylistButton {
       width:  32px;
       height: 32px;
       color: #000;
@@ -6744,12 +6571,12 @@ iframe {
       top: 0;
     }
 
-    .mylistButton:hover {
+    .menuItemContainer .mylistButton:hover {
       box-shadow: 2px 4px 2px #000;
       background: #888;
       text-shadow: 0px 0px 2px #66f;
     }
-    .mylistButton:active {
+    .menuItemContainer .mylistButton:active {
       box-shadow: none;
       margin-left: 2px;
       margin-top:  4px;
@@ -6931,14 +6758,21 @@ iframe {
           <span class="returnFull">&#9700;</span>
         </div>
       </div>
-      <div class="screenModeMenu menuButton" data-command="screenModeMenu">
-        <div class="tooltip">画面モード変更</div>
-        <div class="menuButtonInner">&#9114;</div>
+      <div class="settingPanelSwitch menuButton" data-command="settingPanel">
+        <div class="menuButtonInner">&#x2699;</div>
+        <div class="tooltip">プレイヤー設定</div>
       </div>
+
       <div class="playbackRateMenu menuButton" data-command="playbackRateMenu">
         <div class="menuButtonInner">1x</div>
         <div class="tooltip">再生速度変更</div>
       </div>
+
+      <div class="screenModeMenu menuButton" data-command="screenModeMenu">
+        <div class="tooltip">画面モード変更</div>
+        <div class="menuButtonInner">&#9114;</div>
+      </div>
+
     </div>
     <div class="screenModeSelectMenu zenzaPopupMenu">
       <div class="triangle"></div>
@@ -7223,6 +7057,10 @@ iframe {
           break;
         case 'mylistAdd':
           this.emit('mylistAdd', $target.attr('data-mylist-id'));
+          break;
+        case 'settingPanel':
+          this.emit('settingPanel');
+          e.stopPropagation();
           break;
         case 'loop':
         case 'mute':
@@ -7607,6 +7445,241 @@ iframe {
     }
   });
 
+  var SettingPanel = function() { this.initialize.apply(this, arguments); };
+  SettingPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .zenzaSettingPanelShadow1,
+    .zenzaSettingPanelShadow2,
+    .zenzaSettingPanel {
+      position: absolute;
+      left: 50%;
+      top: -100vh;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 170000;
+      width: 400px;
+      height: 300px;
+      color: #fff;
+      transition: top 0.4s ease;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+    }
+    .zenzaSettingPanelShadow1.show,
+    .zenzaSettingPanelShadow2.show,
+    .zenzaSettingPanel.show {
+      opacity: 1;
+      top: 50%;
+    }
+
+    .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
+    .zenzaScreenMode_sideView .zenzaSettingPanelShadow2.show,
+    .zenzaScreenMode_sideView .zenzaSettingPanel.show,
+    .zenzaScreenMode_small    .zenzaSettingPanelShadow1.show,
+    .zenzaScreenMode_small    .zenzaSettingPanelShadow2.show,
+    .zenzaScreenMode_small    .zenzaSettingPanel.show {
+      position: fixed;
+    }
+    .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
+    .zenzaScreenMode_small    .zenzaSettingPanelShadow1.show  {
+      display: none;
+    }
+    .zenzaScreenMode_sideView .zenzaSettingPanelShadow2.show,
+    .zenzaScreenMode_small    .zenzaSettingPanelShadow2.show {
+      background: #006;
+      opacity: 0.8;
+    }
+
+    .zenzaSettingPanel.show {
+      border: 2px outset #fff;
+      box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.5);
+      pointer-events: auto;
+    }
+    .zenzaSettingPanelShadow1,
+    .zenzaSettingPanelShadow2 {
+      width:  392px;
+      height: 292px;
+    }
+
+    {* mix-blend-mode使ってみたかっただけ。 飽きたら消す。 *}
+    .zenzaSettingPanelShadow1.show {
+      background: #88c;
+      mix-blend-mode: difference;
+    }
+    .zenzaSettingPanelShadow2.show {
+      background: #000;
+      opacity: 0.5;
+    }
+
+    .zenzaSettingPanel .settingPanelInner {
+      box-sizing: border-box;
+      margin: 16px;
+      overflow: visible;
+    }
+    .zenzaSettingPanel .caption {
+      font-size: 20px;
+      padding: 4px 2px 8px;
+      color: #fff;
+    }
+
+    .zenzaSettingPanel label {
+      display: inline-block;
+      box-sizing: border-box;
+      width: 100%;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+
+    .zenzaSettingPanel .control {
+      {* border: 1px solid; *}
+      border-radius: 4px;
+      background: #888;
+      padding: 8px;
+      margin: 16px 4px;
+    }
+
+    .zenzaSettingPanel .control:hover {
+      border-color: #ff9;
+    }
+
+    .zenzaSettingPanel button {
+      font-size: 10pt;
+      padding: 4px 8px;
+      background: #888;
+      border-radius: 4px;
+      border: solid 1px;
+      cursor: pointer;
+    }
+
+    .zenzaSettingPanel input[type=checkbox] {
+      transform: scale(2);
+      margin-left: 8px;
+      margin-right: 16px;
+    }
+
+    .zenzaSettingPanel .control.checked {
+    }
+
+
+  */});
+  SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <!-- mix-blend-mode を使ってみたかっただけのためのレイヤーx2 飽きたら消す -->
+    <div class="zenzaSettingPanelShadow1"></div>
+    <div class="zenzaSettingPanelShadow2"></div>
+    <div class="zenzaSettingPanel">
+      <div class="settingPanelInner">
+        <p class="caption">プレイヤーの設定</p>
+        <div class="autoPlayControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="autoPlay">
+            自動で再生する
+          </label>
+        </div>
+
+        <div class="autoFullScreenControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="autoFullScreen">
+            自動でフルスクリーンにする
+          </label>
+        </div>
+
+        <!--
+        <div class="debugControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="debug">
+            デバッグ
+          </label>
+        </div>
+        -->
+
+
+      </div>
+    </div>
+  */});
+  _.assign(SettingPanel.prototype, {
+    initialize: function(params) {
+      this._playerConfig     = params.playerConfig;
+      this._$playerContainer = params.$playerContainer;
+      this._player           = params.player;
+
+      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._initializeDom();
+    },
+    _initializeDom: function() {
+      var $container = this._$playerContainer;
+      var config = this._playerConfig;
+
+      ZenzaWatch.util.addStyle(SettingPanel.__css__);
+      $container.append(SettingPanel.__tpl__);
+
+      var $panel = this._$panel = $container.find('.zenzaSettingPanel');
+      this._$view =
+        $container.find('.zenzaSettingPanel, .zenzaSettingPanelShadow1, .zenzaSettingPanelShadow2');
+      this._$view.on('click', function(e) {
+        e.stopPropagation();
+      });
+
+      var $check = $panel.find('input[type=checkbox]');
+      $check.each(function(i, check) {
+        var $c = $(check);
+        var settingName = $c.attr('data-setting-name');
+        var val = config.getValue(settingName);
+        $c.prop('checked', config.getValue(settingName));
+        $c.closest('.control').toggleClass('checked', val);
+      });
+      $check.on('change', $.proxy(this._onToggleItemChange, this));
+
+      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+        this.hide();
+      }, this));
+
+    },
+    _onPlayerConfigUpdate: function(key, value) {
+      switch (key) {
+        case 'mute':
+        case 'loop':
+        case 'autoPlay':
+        case 'showComment':
+        case 'autoFullScreen':
+        case 'debug':
+          this._$panel
+            .find('.' + key + 'Control').toggleClass('checked', value)
+            .find('input[type=checkbox]').prop('checked', value);
+          break;
+      }
+    },
+    _onToggleItemChange: function(e) {
+      var $target = $(e.target);
+      var settingName = $target.attr('data-setting-name');
+      var val = !!$target.prop('checked');
+
+      this._playerConfig.setValue(settingName, val);
+      $target.closest('.control').toggleClass('checked', val);
+    },
+    toggle: function(v) {
+      var eventName = 'click.ZenzaSettingPanel';
+      var $container = this._$playerContainer.off(eventName);
+      var $body = $('body').off(eventName);
+      var $view = this._$view.toggleClass('show', v);
+
+      var onBodyClick = function() {
+        $view.removeClass('show');
+        $container.off(eventName);
+        $body.off(eventName);
+      };
+
+      if ($view.hasClass('show')) {
+        $container.on(eventName, onBodyClick);
+        $body.on(eventName, onBodyClick);
+      }
+    },
+    show: function() {
+      this.toggle(true);
+    },
+    hide: function() {
+      this.toggle(false);
+    }
+  });
+
 
   var VideoInfoPanel = function() { this.initialize.apply(this, arguments); };
   VideoInfoPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -7777,7 +7850,6 @@ iframe {
     .zenzaWatchVideoInfoPanel .videoDescription {
       padding: 8px 8px 64px;
       margin: 4px 0px;
-      line-height: 150%;
       word-break: break-all;
     }
 

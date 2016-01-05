@@ -41,12 +41,6 @@ var NicoCommentPlayer = function() {};
         sharedNgLevel:  conf.getValue('sharedNgLevel')
       });
 
-      this._controlPanel = new VideoControlPanel({
-        player: this,
-        panelNode: params.panelNode,
-        playerConfig: conf
-      });
-
       this._contextMenu = new VideoContextMenu({
         player: this,
         playerConfig: conf
@@ -190,7 +184,6 @@ var NicoCommentPlayer = function() {};
     },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
-      this._controlPanel.show();
       this._isEnded = false;
     },
     setThumbnail: function(url) {
@@ -235,7 +228,6 @@ var NicoCommentPlayer = function() {};
     close: function() {
       this._videoPlayer.close();
       this._commentPlayer.close();
-      this._controlPanel.hide();
     },
     toggleFullScreen: function() {
       if (FullScreen.now()) {
@@ -377,238 +369,6 @@ var NicoCommentPlayer = function() {};
     }
   });
 
-  var VideoControlPanel = function() { this.initialize.apply(this, arguments); };
-  VideoControlPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-    .zenzaControlPanel {
-      position: fixed;
-      display: none;
-      z-index: 200000;
-      left: 0;
-      bottom: 0;
-      background: #333;
-      border: 2px soid;
-      padding: 4px;
-      box-shadow: 0 0 4px;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-    }
-
-    {*
-    .zenzaControlPanel.show {
-      display: block
-    }
-    *}
-
-    .zenzaControlPanel .control {
-      display: inline-block;
-      border: 1px solid;
-      border-radius: 4px;
-      background: #888;
-    }
-
-    .zenzaControlPanel .playbackRate,
-    .zenzaControlPanel .screenMode {
-      font-size: 16px;
-      background: #888;
-    }
-
-    .zenzaControlPanel button {
-      font-size: 10pt;
-      padding: 4px 8px;
-      background: #888;
-      border-radius: 4px;
-      border: solid 1px;
-      cursor: pointer;
-    }
-
-    .zenzaControlPanel label {
-      padding: 4px 8px;
-      cursor: pointer;
-    }
-
-    .zenzaControlPanel input[type=checkbox] {
-      position: fixed;
-      left: -9999px;
-    }
-
-    .zenzaControlPanel .control.checked {
-      color: #cc9;
-    }
-
-  */});
-
-  VideoControlPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="zenzaControlPanel">
-      <!--
-      <div class="playbackRateControl control">
-        再生速度
-        <select class="playbackRate">
-          <option value="1.0" selected>標準(1.0)</option>
-          <option value="0.1">0.1倍</option>
-          <option value="0.3">0.3倍</option>
-          <option value="0.5">0.5倍</option>
-          <option value="0.8">0.8倍</option>
-          <option value="1.0">1.0倍</option>
-          <option value="1.1">1.1倍</option>
-          <option value="1.2">1.2倍</option>
-          <option value="1.4">1.4倍</option>
-          <option value="1.5">1.5倍</option>
-          <option value="2.0">2.0倍</option>
-          <option value="3.0">3.0倍</option>
-          <option value="4.0">4.0倍</option>
-          <option value="5.0">5.0倍</option>
-          <option value="10.0">10倍</option>
-        </select>
-      </div>
-      <div class="screenModeControl control">
-        画面サイズ
-        <select class="screenMode">
-          <option value="3D">3D</option>
-          <option value="small">小画面</option>
-          <option value="sideView">横表示</option>
-          <option value="normal" selected>標準</option>
-          <option value="big">大画面</option>
-          <option value="wide">ワイド</option>
-       </select>
-      </div>
-      -->
-      <!--
-      <div class="fullScreenControl control toggle">
-        <button class="fullScreen">
-          フルスクリーン
-        </button>
-      </div>
-      -->
-        <!--<div class="muteControl control toggle">
-        <label>
-          ミュート
-          <input type="checkbox" class="checkbox" data-setting-name="mute">
-        </label>
-      </div>-->
-      <!--
-      <div class="loopControl control toggle">
-        <label>
-          リピート
-          <input type="checkbox" class="checkbox" data-setting-name="loop">
-        </label>
-      </div>
-      -->
-      <!--
-      <div class="autoPlayControl control toggle">
-        <label>
-          自動再生
-          <input type="checkbox" class="checkbox" data-setting-name="autoPlay">
-        </label>
-      </div>
-      -->
-      <!--
-      <div class="showCommentControl control toggle">
-        <label>
-          コメント
-          <input type="checkbox" class="checkbox" data-setting-name="showComment">
-        </label>
-      </div>
-      -->
-      <!--
-      <div class="debugControl control toggle">
-        <label>
-          デバッグ
-          <input type="checkbox" class="checkbox" data-setting-name="debug">
-        </label>
-      </div>
-      -->
-     </div>
-  */});
-
-
-  _.assign(VideoControlPanel.prototype, {
-    initialize: function(params) {
-      this._playerConfig = params.playerConfig;
-      this._player = params.player;
-      this._initializeDom();
-
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
-    },
-    _initializeDom: function() {
-      var conf = this._playerConfig;
-      ZenzaWatch.util.addStyle(VideoControlPanel.__css__);
-
-      var $panel = this._$panel = $(VideoControlPanel.__tpl__);
-
-      $panel.on('click', function(e) {
-        e.stopPropagation();
-      });
-
-      this._$playbackRate = $panel.find('.playbackRate');
-      this._$playbackRate.on('change', $.proxy(this._onPlaybackRateChange, this));
-      this._$playbackRate.val(conf.getValue('playbackRate'));
-
-      this._$screenMode = $panel.find('.screenMode');
-      this._$screenMode.on('change', $.proxy(this._onScreenModeChange, this));
-      this._$screenMode.val(conf.getValue('screenMode'));
-
-      this._$fullScreenButton = $panel.find('.fullScreen');
-      this._$fullScreenButton.on('click', $.proxy(this._onFullScreenClick, this));
-
-      var $check = $panel.find('input[type=checkbox]');
-      $check.each(function(i, check) {
-        var $c = $(check);
-        var settingName = $c.attr('data-setting-name');
-        var val = conf.getValue(settingName);
-        $c.prop('checked', conf.getValue(settingName));
-        $c.closest('.control').toggleClass('checked', val);
-      });
-      $check.on('change', $.proxy(this._onToggleItemChange, this));
-
-      $('body').append($panel);
-    },
-    _onPlaybackRateChange: function() {
-      var val = this._$playbackRate.val();
-      this._playerConfig.setValue('playbackRate', val);
-    },
-    _onScreenModeChange: function() {
-      var val = this._$screenMode.val();
-      this._playerConfig.setValue('screenMode', val);
-    },
-    _onFullScreenClick: function(e) {
-      e.stopPropagation();
-      this._player.requestFullScreen();
-    },
-    _onToggleItemChange: function(e) {
-      var $target = $(e.target);
-      var settingName = $target.attr('data-setting-name');
-      var val = !!$target.prop('checked');
-
-      this._playerConfig.setValue(settingName, val);
-      $target.closest('.control').toggleClass('checked', val);
-    },
-    _onPlayerConfigUpdate: function(key, value) {
-      switch (key) {
-        case 'mute':
-        case 'loop':
-        case 'autoPlay':
-        case 'showComment':
-        case 'debug':
-          this._$panel
-            .find('.' + key + 'Control').toggleClass('checked', value)
-            .find('input[type=checkbox]').prop('checked', value);
-          break;
-        case 'playbackRate':
-          this._$playbackRate.val(value);
-          break;
-        case 'screenMode':
-          this._$screenMode.val(value);
-          break;
-      }
-    },
-    show: function() {
-      this._$panel.addClass('show');
-    },
-    hide: function() {
-      this._$panel.removeClass('show');
-    }
-  });
 
   var VideoContextMenu = function() { this.initialize.apply(this, arguments); };
   VideoContextMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*

@@ -156,6 +156,7 @@ var console;
         loop:         false,
         mute:         false,
         screenMode:   'normal',
+        autoFullScreen: false,
         autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
@@ -316,15 +317,26 @@ var console;
         window.setTimeout(function() { $msg.remove(); }, 10000);
       };
 
+      var undefined;
       var notify = function(msg) {
+        if (msg === undefined) {
+          msg = '不明なエラー';
+          window.console.error('undefined message sent');
+          window.console.trace();
+        }
         console.log('%c%s', 'background: #080; color: #fff; padding: 8px;', msg);
-        var $msg = $(__view__.replace('%MSG%', msg)).addClass('notify');
+        var $msg = $(__view__.replace('%MSG%', ZenzaWatch.util.escapeHtml(msg))).addClass('notify');
         show($msg);
       };
 
       var alert = function(msg) {
+        if (msg === undefined) {
+          msg = '不明なエラー';
+          window.console.error('undefined message sent');
+          window.console.trace();
+        }
         console.log('%c%s', 'background: #800; color: #fff; padding: 8px;', msg);
-        var $msg = $(__view__.replace('%MSG%', msg)).addClass('alert');
+        var $msg = $(__view__.replace('%MSG%', ZenzaWatch.util.escapeHtml(msg))).addClass('alert');
         show($msg);
       };
 
@@ -729,6 +741,20 @@ var console;
     };
     ZenzaWatch.util.isFirefox = isFirefox;
 
+    var escapeHtml = function escapeHtml(text) {
+      var map = {
+        '&':    '&amp;',
+        '\x27': '&#39;',
+        '\\':   '&quot;',
+        '<':    '&lt;',
+        '>':    '&gt;'
+      };
+      return text.replace(/[&"'<>]/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.escapeHtml = escapeHtml;
+
     var ajax = function(params) {
       // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う
       return new Promise(function(resolve, reject) {
@@ -807,7 +833,7 @@ var console;
             break;
         }
         if (key) {
-          emitter.emit('keyDown', key, target, param);
+          emitter.emit('keyDown', key, e, param);
         }
       };
 
