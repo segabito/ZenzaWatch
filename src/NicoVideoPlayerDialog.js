@@ -1053,7 +1053,7 @@ var AsyncEmitter = function() {};
       line-height: 16px;
       padding: 2px 4px;
       border: 1px solid !000;
-      background: #fea;
+      background: #ffc;
       color: black;
       box-shadow: 2px 2px 2px #fff;
       text-shadow: none;
@@ -1677,11 +1677,11 @@ var AsyncEmitter = function() {};
 
   VideoHoverMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="menuItemContainer rightTop">
-      <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu" title="マイリスト">
+      <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu">
         <div class="tooltip">マイリスト登録</div>
         <div class="menuButtonInner">My</div>
       </div>
-      <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd" title="とりあえずマイリスト">
+      <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd">
         <div class="tooltip">とりあえずマイリスト(T)</div>
         <div class="menuButtonInner">&#9547;</div>
       </div>
