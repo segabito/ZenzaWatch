@@ -327,6 +327,9 @@ var PopupMessage = {};
       .ue .gulim   , .shita .gulim  {font-family:  Gulim,  monospace; }
       .ue .mingLiu , .shita .mingLiu{font-family:  mingLiu,monospace; }
 
+      .nicoChat {
+        padding: 1px;
+      }
       .nicoChat.big {
         line-height: 48px;
       }
@@ -478,6 +481,8 @@ var PopupMessage = {};
 
   // この数字はレイアウト計算上の仮想領域の物であり、実際に表示するサイズはview依存
   NicoCommentViewModel.SCREEN = {
+    WIDTH_INNER:      512,
+    WIDTH_FULL_INNER: 640,
     WIDTH:      512 + 32,
     WIDTH_FULL: 640 + 32,
     HEIGHT:     384 +  1
@@ -1312,8 +1317,8 @@ var PopupMessage = {};
       var nicoChat = this._nicoChat;
       var screenWidth =
         nicoChat.isFull() ?
-          NicoCommentViewModel.SCREEN.WIDTH_FULL :
-          NicoCommentViewModel.SCREEN.WIDTH;
+          NicoCommentViewModel.SCREEN.WIDTH_FULL_INNER :
+          NicoCommentViewModel.SCREEN.WIDTH_INNER;
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
       //メモ
       //█　　　　　　　　　　　　　　　　　　　　　　　　　　　█

@@ -2841,6 +2841,7 @@ var AsyncEmitter = function() {};
       padding: 8px 8px 64px;
       margin: 4px 0px;
       word-break: break-all;
+      line-height: 1.5;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription:first-letter {

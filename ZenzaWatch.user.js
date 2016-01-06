@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.6.0
+// @version        0.6.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -3020,6 +3020,9 @@ var monkey = function() {
       .ue .gulim   , .shita .gulim  {font-family:  Gulim,  monospace; }
       .ue .mingLiu , .shita .mingLiu{font-family:  mingLiu,monospace; }
 
+      .nicoChat {
+        padding: 1px;
+      }
       .nicoChat.big {
         line-height: 48px;
       }
@@ -3171,6 +3174,8 @@ var monkey = function() {
 
   // この数字はレイアウト計算上の仮想領域の物であり、実際に表示するサイズはview依存
   NicoCommentViewModel.SCREEN = {
+    WIDTH_INNER:      512,
+    WIDTH_FULL_INNER: 640,
     WIDTH:      512 + 32,
     WIDTH_FULL: 640 + 32,
     HEIGHT:     384 +  1
@@ -4005,8 +4010,8 @@ var monkey = function() {
       var nicoChat = this._nicoChat;
       var screenWidth =
         nicoChat.isFull() ?
-          NicoCommentViewModel.SCREEN.WIDTH_FULL :
-          NicoCommentViewModel.SCREEN.WIDTH;
+          NicoCommentViewModel.SCREEN.WIDTH_FULL_INNER :
+          NicoCommentViewModel.SCREEN.WIDTH_INNER;
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
       //メモ
       //█　　　　　　　　　　　　　　　　　　　　　　　　　　　█
@@ -7851,6 +7856,7 @@ iframe {
       padding: 8px 8px 64px;
       margin: 4px 0px;
       word-break: break-all;
+      line-height: 1.5;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription:first-letter {
