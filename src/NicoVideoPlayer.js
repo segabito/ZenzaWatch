@@ -76,8 +76,10 @@ var NicoCommentPlayer = function() {};
       this._videoPlayer.on('volumeChange', $.proxy(this._onVolumeChange, this));
       this._videoPlayer.on('dblclick', $.proxy(this.toggleFullScreen, this));
       this._videoPlayer.on('aspectRatioFix', $.proxy(this._onAspectRatioFix, this));
-      this._videoPlayer.on('play',  $.proxy(this._onPlay, this));
-      this._videoPlayer.on('pause', $.proxy(this._onPause, this));
+      this._videoPlayer.on('play',    $.proxy(this._onPlay, this));
+      this._videoPlayer.on('playing', $.proxy(this._onPlaying, this));
+      this._videoPlayer.on('stall',   $.proxy(this._onStall, this));
+      this._videoPlayer.on('pause',   $.proxy(this._onPause, this));
       this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
       this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
       this._videoPlayer.on('canPlay', $.proxy(this._onVideoCanPlay, this));
@@ -151,6 +153,7 @@ var NicoCommentPlayer = function() {};
     },
     _onAspectRatioFix: function(ratio) {
       this._commentPlayer.setAspectRatio(ratio);
+      this.emit('aspectRatioFix', ratio);
     },
     _onLoadedMetaData: function() {
       this.emit('loadedMetaData');
@@ -160,9 +163,18 @@ var NicoCommentPlayer = function() {};
     },
     _onPlay: function() {
       this._isPlaying = true;
+      this.emit('play');
     },
-    _onPause: function() {
+    _onPlaying: function() {
+      this._isPlaying = true;
+      this.emit('playing');
+    },
+     _onPause: function() {
       this._isPlaying = false;
+      this.emit('pause');
+    },
+    _onStall: function() {
+      this.emit('stall');
     },
     _onEnded: function() {
       this._isPlaying = false;
@@ -173,8 +185,10 @@ var NicoCommentPlayer = function() {};
       this.emit('ended');
     },
     _onError: function() {
+      this.emit('error');
     },
     _onAbort: function() {
+      this.emit('abort');
     },
     _onClick: function() {
       this._contextMenu.hide();
@@ -241,6 +255,9 @@ var NicoCommentPlayer = function() {};
     },
     isPlaying: function() {
       return !!this._isPlaying;
+    },
+    getBufferedRange: function() {
+      return this._videoPlayer.getBufferedRange();
     },
     addChat: function(text, cmd, vpos, options) {
       if (!this._commentPlayer) {
@@ -578,7 +595,7 @@ var NicoCommentPlayer = function() {};
         autoPlay: !!params.autoPlay,
         autoBuffer: true,
         preload: 'auto',
-        controls: true,
+        controls: !true,
         loop: !!params.loop,
         mute: !!params.mute
       };
@@ -852,6 +869,9 @@ var NicoCommentPlayer = function() {};
     },
     getPlaybackRate: function() {
       return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;
+    },
+    getBufferedRange: function() {
+      return this._video.buffered;
     },
     setIsAutoPlay: function(v) {
       this._video.autoplay = v;

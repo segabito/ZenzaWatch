@@ -11,10 +11,10 @@ var console;
     var AsyncEmitter = (function() {
 
       function AsyncEmitter() {
-        this._events = {};
       }
 
       AsyncEmitter.prototype.on = function(name, callback) {
+        if (!this._events) { this._events = {}; }
         name = name.toLowerCase();
         if (!this._events[name]) {
           this._events[name] = [];
@@ -23,6 +23,7 @@ var console;
       };
 
       AsyncEmitter.prototype.off = function(name, func) {
+        if (!this._events) { this._events = {}; }
         if (!func) {
           this._events[name] = [];
           return;
@@ -35,6 +36,7 @@ var console;
       };
 
       AsyncEmitter.prototype.clear = function(name) {
+        if (!this._events) { this._events = {}; }
         if (name) {
           this._events[name] = [];
         } else {
@@ -43,6 +45,7 @@ var console;
       };
 
       AsyncEmitter.prototype.emit = function(name) {
+        if (!this._events) { this._events = {}; }
         name = name.toLowerCase();
         if (!this._events.hasOwnProperty(name)) { return; }
         var e = this._events[name];
@@ -57,6 +60,7 @@ var console;
       };
 
       AsyncEmitter.prototype.emitAsync = function() {
+        if (!this._events) { this._events = {}; }
         var args = arguments;
 
         window.setTimeout($.proxy(function() {
@@ -70,6 +74,7 @@ var console;
       };
 
       AsyncEmitter.prototype.emitPromise = function(name) {
+        if (!this._events) { this._events = {}; }
         var args = Array.prototype.slice.call(arguments, 1);
         var self = this;
         return new Promise(function(resolve, reject) {
