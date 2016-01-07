@@ -80,6 +80,11 @@ var AsyncEmitter = function() {};
       opacity: 0.7;
     }
 
+    .stall .videoControlBar {
+      opacity: 0.7;
+    }
+
+
     .zenzaScreenMode_wide .videoControlBar.dragging,
     .fullScreen           .videoControlBar.dragging,
     .zenzaScreenMode_wide .videoControlBar:hover,
@@ -90,19 +95,20 @@ var AsyncEmitter = function() {};
 
     .controlButton {
       position: absolute;
-      opacity: 0;
       transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
       box-sizing: border-box;
       text-align: center;
       cursor: pointer;
       pointer-events: none;
+      opacity: 0.8;
     }
+
     .controlButton .tooltip {
       display: none;
       pointer-events: none;
       position: absolute;
       left: 16px;
-      top: -24px;
+      top: -30px;
       transform:  translate(-50%, 0);
       font-size: 12px;
       line-height: 16px;
@@ -113,7 +119,6 @@ var AsyncEmitter = function() {};
       text-shadow: none;
       white-space: nowrap;
       z-index: 100;
-      opacity: 0;
     }
     .controlButton:hover .tooltip {
       display: block;
@@ -123,11 +128,9 @@ var AsyncEmitter = function() {};
       pointer-events: auto;
     }
     .mouseMoving .controlButton {
-      opacity: 0.8;
       background: rgba(0xcc, 0xcc, 0xcc, 0.5);
     }
     .mouseMoving  .controlButtonInner {
-      opacity: 0.8;
       word-break: normal;
     }
 
@@ -175,6 +178,7 @@ var AsyncEmitter = function() {};
     .togglePlay:active {
       font-size: 15px;
     }
+    .stall .togglePlay,
     .mouseMoving .togglePlay {
       opacity: 1;
     }
