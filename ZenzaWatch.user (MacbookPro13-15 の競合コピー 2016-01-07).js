@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.7.1
+// @version        0.7.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2734,60 +2734,28 @@ var monkey = function() {
   _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
   VideoControlBar.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .videoControlBar {
-      position: fixed;
-      top:  calc(-50vh + 50% + 100vh);
-      left: calc(-50vw + 50%);
-      transform: translate(0, -100%);
-      width: 100vw;
+      position: absolute;
+      bottom: -40px;
+      width: 100%;
       height: 40px;
-      z-index: 150000;
+      z-index: 170000;
       background: #000;
-      transition: opacity 0.3s ease, transform 0.3s ease;
+      transition: opacity 0.3s ease, bottom 0.3s ease;
+      box-shadow: 2px 2px 2px #000;
 
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
     }
-    .changeScreenMode .videoControlBar {
-      opacity: 0;
-      transform: translate(0, 0);
-      transition: none;
-    }
-    .zenzaScreenMode_small    .videoControlBar,
-    .zenzaScreenMode_sideView .videoControlBar,
-    .zenzaScreenMode_wide     .videoControlBar,
-    .fullScreen               .videoControlBar {
-      top: 100%;
-      left: 0;
-    }
-    {* 縦長モニター *}
-    @media
-      screen and
-      (max-width: 991px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_normal .videoControlBar {
-        left: calc(-50vw + 50%);
-        top: calc(-50vh + 50% + 100vh - 60px);
-      }
-    }
-    @media
-      screen and
-      (max-width: 1215px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_big .videoControlBar {
-        left: calc(-50vw + 50%);
-        top: calc(-50vh + 50% + 100vh - 60px);
-      }
-    }
-
-
-
 
     .videoControlBar * {
       box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
+    }
+
+    .zenzaScreenMode_small    .videoControlBar,
+    .zenzaScreenMode_sideView .videoControlBar {
+      position: fixed;
+      bottom: 0;
     }
 
     .zenzaScreenMode_wide .videoControlBar,
@@ -2809,80 +2777,10 @@ var monkey = function() {
       background: rgba(0, 0, 0, 0.9);
     }
 
-    .controlButton {
-      position: absolute;
-      opacity: 0;
-      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
-      box-sizing: border-box;
-      text-align: center;
-      cursor: pointer;
-      pointer-events: none;
-    }
-    .controlButton .tooltip {
-      display: none;
-      pointer-events: none;
-      position: absolute;
-      left: 16px;
-      top: -24px;
-      transform:  translate(-50%, 0);
-      font-size: 12px;
-      line-height: 16px;
-      padding: 2px 4px;
-      border: 1px solid !000;
-      background: #ffc;
-      color: #000;
-      text-shadow: none;
-      white-space: nowrap;
-      z-index: 100;
-      opacity: 0;
-    }
-    .controlButton:hover .tooltip {
-      display: block;
-      opacity: 1;
-    }
-    .videoControlBar:hover .controlButton {
-      pointer-events: auto;
-    }
-    .mouseMoving .controlButton {
-      opacity: 0.8;
-      background: rgba(0xcc, 0xcc, 0xcc, 0.5);
-    }
-    .mouseMoving  .controlButtonInner {
-      opacity: 0.8;
-      word-break: normal;
-    }
-
-    .controlButton:hover {
-      cursor: pointer;
-      opacity: 1;
-    }
-
-    .settingPanelSwitch {
-      right: 8px;
-      top: 10px;
-      color: #fff;
-      font-size: 20px;
-      line-height: 32px;
-      transition: font-size 0.2s ease;
-    }
-    .settingPanelSwitch:hover {
-      text-shadow: 0 0 8px #ff9;
-    }
-    .controlButton:active {
-      font-size: 15px;
-    }
-    .settingPanelSwitch .tooltip {
-      left: 0;
-    }
-
-
-
-
     .togglePlay {
       position: absolute;
       left: 8px;
-      top: 10px;
-      font-size: 20px;
+      top: 8px;
       width: 32px;
       height: 32px;
       line-height: 30px;
@@ -2891,10 +2789,6 @@ var monkey = function() {
       color: #fff;
       text-align: center;
       pointer-events: none;
-      transition: font-size 0.2s ease;
-    }
-    .togglePlay:active {
-      font-size: 15px;
     }
     .mouseMoving .togglePlay {
       opacity: 1;
@@ -2995,14 +2889,12 @@ var monkey = function() {
       z-index: 200;
     }
 
-    .videoControlBar .videoTime {
+    .videoTime {
       position: absolute;
       display: inline-block;
       min-width: 96px;
       left: 64px;
-      top: 10px;
-      height: 32px;
-      line-height: 32px;
+      top: 16px;
       color: #fff;
       font-size: 10px;
       white-space: nowrap;
@@ -3010,14 +2902,14 @@ var monkey = function() {
       border-radius: 4px;
       text-align: center;
     }
-    .videoControlBar .videoTime .currentTime,
-    .videoControlBar .videoTime .duration {
+    .videoTime .currentTime,
+    .videoTime .duration {
       display: inline-block;
       color: #fff;
       text-align: center;
     }
 
-    .videoControlBar.loading .videoTime {
+    .loading .videoTime {
       display: none;
     }
 
@@ -3044,13 +2936,10 @@ var monkey = function() {
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoControlBar">
-      <div class="controlButtonContainer left">
-        <div class="togglePlay controlButton" data-command="togglePlay">
-          <span class="play">▶</span>
-          <span class="pause">&#12307;</span>
-        </div>
+      <div class="togglePlay controlButton" data-command="togglePlay">
+        <span class="play">▶</span>
+        <span class="pause">&#12307;</span>
       </div>
-
       <div class="videoTime">
         <span class="currentTime"></span> /
         <span class="duration"></span>
@@ -3062,12 +2951,6 @@ var monkey = function() {
           <div class="bufferRange"></div>
         </div>
       </div>
-
-      <div class="settingPanelSwitch controlButton" data-command="settingPanel">
-        <div class="controlButtonInner">&#x2699;</div>
-        <div class="tooltip">設定</div>
-      </div>
-
     </div>
   */});
 
@@ -3106,9 +2989,8 @@ var monkey = function() {
         var $target = $(e.target).closest('.controlButton');
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param');
-        window.console.log('execCommand', command, param);
-        self.emit('command', command, param);
         e.stopPropagation();
+        self.emit(command, param);
       });
 
       this._$currentTime = $view.find('.currentTime');
@@ -3237,6 +3119,7 @@ var monkey = function() {
           var end   = range.end(i);
           var width = end - start;
           if (start <= currentTime && end >= currentTime) {
+            //window.console.log('setBufferedRange', i, start, end, len, this._timeToPer(start));
             $range.css({
               left: this._timeToPer(start) + '%',
               width: this._timeToPer(width) + '%'
@@ -5633,7 +5516,7 @@ iframe {
       background: #000;
       width: 672px;
       height: 385px;
-      transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
+      transition: width 0.3s ease-in 0.4s, height 0.3s ease-in;
     }
 
     .zenzaPlayerContainer .videoPlayer {
@@ -6035,24 +5918,23 @@ iframe {
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig
       });
-      this._hoverMenu.on('command', $.proxy(this._onCommand, this));
-//      this._hoverMenu.on('volume', $.proxy(function(vol) {
-//        this.setVolume(vol);
-//      }, this));
-//      this._hoverMenu.on('fullScreen', $.proxy(function() {
-//        this._nicoVideoPlayer.toggleFullScreen();
-//      }, this));
-//      this._hoverMenu.on('deflistAdd', $.proxy(this._onDeflistAdd, this));
-//      this._hoverMenu.on('mylistAdd',  $.proxy(this._onMylistAdd, this));
-//      this._hoverMenu.on('mylistWindow',  $.proxy(function() {
-//        window.open(
-//         '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-//         'mylist_add',
-//         'width=450, height=340, menubar=no, scrollbars=no');
-//      },this));
-//      this._hoverMenu.on('settingPanel', $.proxy(function() {
-//        this._settingPanel.toggle();
-//      }, this));
+      this._hoverMenu.on('volume', $.proxy(function(vol) {
+        this.setVolume(vol);
+      }, this));
+      this._hoverMenu.on('fullScreen', $.proxy(function() {
+        this._nicoVideoPlayer.toggleFullScreen();
+      }, this));
+      this._hoverMenu.on('deflistAdd', $.proxy(this._onDeflistAdd, this));
+      this._hoverMenu.on('mylistAdd',  $.proxy(this._onMylistAdd, this));
+      this._hoverMenu.on('mylistWindow',  $.proxy(function() {
+        window.open(
+         '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
+         'mylist_add',
+         'width=450, height=340, menubar=no, scrollbars=no');
+      },this));
+      this._hoverMenu.on('settingPanel', $.proxy(function() {
+        this._settingPanel.toggle();
+      }, this));
 
       this._commentInput = new CommentInputPanel({
         $playerContainer: this._$playerContainer,
@@ -6090,56 +5972,8 @@ iframe {
         playerConfig: this._playerConfig,
         player: this
       });
-      this._videoControlbar.on('command', $.proxy(this._onCommand, this));
-
 
       $('body').append($dialog);
-    },
-    execCommand: function(command, param) {
-      this._onCommand(command, param);
-    },
-    _onCommand: function(command, param) {
-      var v;
-      switch(command) {
-        case 'volume':
-          this.setVolume(param);
-          break;
-        case 'togglePlay':
-          this._nicoVideoPlayer.togglePlay();
-          break;
-        case 'toggleComment':
-          v = this._playerConfig.getValue('showComment');
-          this._playerConfig.setValue('showComment', !v);
-          break;
-        case 'toggleMute':
-          v = this._playerConfig.getValue('mute');
-          this._playerConfig.setValue('mute', !v);
-          break;
-        case 'fullScreen':
-          this._nicoVideoPlayer.toggleFullScreen();
-          break;
-        case 'deflistAdd':
-          this._onDeflistAdd();
-          break;
-        case 'mylistAdd':
-          this._onMylistAdd(param.mylistId, param.mylistName);
-          break;
-        case 'mylistWindow':
-          window.open(
-           '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-           'mylist_add',
-           'width=450, height=340, menubar=no, scrollbars=no');
-          break;
-        case 'settingPanel':
-          this._settingPanel.toggle();
-          break;
-        case 'seek':
-          this.setCurrentTime(param * 1);
-          break;
-        case 'seekBy':
-          this.setCurrentTime(this.getCurrentTime() + param * 1);
-          break;
-      }
     },
     _onKeyDown: function(name , e, param) {
       if (!this._isOpen) {
@@ -6228,11 +6062,7 @@ iframe {
     },
     _updateScreenMode: function(mode) {
       this._clearClass();
-      var $container = this._$playerContainer.addClass('changeScreenMode');
       $('body, html').addClass('zenzaScreenMode_' + mode);
-      window.setTimeout(function() {
-        $container.removeClass('changeScreenMode');
-      }, 1000);
     },
     _clearClass: function() {
       var modes = [
@@ -6951,7 +6781,7 @@ iframe {
     }
 
     .ngSettingSelectMenu {
-      bottom: 8px;
+      bottom: 64px;
       left: 128px;
     }
     .ngSettingSelectMenu .triangle {
@@ -6959,11 +6789,6 @@ iframe {
       left: -8px;
       bottom: 3px;
     }
-    .zenzaScreenMode_wide .ngSettingSelectMenu,
-    .fullScreen           .ngSettingSelectMenu {
-      bottom: 64px;
-    }
-
 
 
     .menuItemContainer .volumeControl {
@@ -7077,6 +6902,26 @@ iframe {
       font-size: 16px;
     }
 
+    .settingPanelSwitch {
+      right: 0;
+      bottom: 40px;
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #fff;
+      line-height: 32px;
+      font-size: 24px;
+    }
+    .settingPanelSwitch:hover {
+      background: #888;
+      box-shadow: 4px 4px 0 #000;
+    }
+    .settingPanelSwitch:active {
+      box-shadow: none;
+      margin-left: 4px;
+      margin-top:  4px;
+    }
+
     .screenModeMenu {
       right: 80px;
       bottom: 0;
@@ -7122,18 +6967,13 @@ iframe {
 
     .screenModeSelectMenu {
       right: 20px;
-      bottom: 48px;
+      bottom: 40px;
       width: 148px;
       padding: 2px 4px;
     }
     .fullScreen .screenModeSelectMenu {
       display: none;
     }
-    .zenzaScreenMode_wide .screenModeSelectMenu,
-    .fullScreen           .screenModeSelectMenu {
-      bottom: 96px;
-    }
-
 
     .screenModeSelectMenu .triangle {
       transform: rotate(-45deg);
@@ -7178,7 +7018,7 @@ iframe {
     }
     .playbackRateSelectMenu {
       right: 40px;
-      bottom: 48px;
+      bottom: 40px;
       width: 140px;
     }
     .playbackRateSelectMenu ul {
@@ -7188,13 +7028,9 @@ iframe {
     body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu,
     body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu {
       left: 368px;
-      top: 80px;
+      top: 48px;
       right: auto;
       bottom: auto;
-    }
-    .zenzaScreenMode_wide .playbackRateSelectMenu,
-    .fullScreen           .playbackRateSelectMenu {
-      bottom: 96px;
     }
 
     .fullScreen .screenModeSelectMenu {
@@ -7227,7 +7063,6 @@ iframe {
       border-radius: 4px;
       line-height: 30px;
       font-size: 21px;
-      white-space: nowrap;
     }
     .mouseMoving .mylistButton {
       text-shadow: 1px 1px 2px #888;
@@ -7429,6 +7264,10 @@ iframe {
           <span class="returnFull">&#9700;</span>
         </div>
       </div>
+      <div class="settingPanelSwitch menuButton" data-command="settingPanel">
+        <div class="menuButtonInner">&#x2699;</div>
+        <div class="tooltip">プレイヤー設定</div>
+      </div>
 
       <div class="playbackRateMenu menuButton" data-command="playbackRateMenu">
         <div class="menuButtonInner">1x</div>
@@ -7576,7 +7415,7 @@ iframe {
         if (command === 'open') {
           location.href = '//www.nicovideo.jp/my/mylist/#/' + mylistId;
         } else {
-          self.emit('command', 'mylistAdd', {mylistId: mylistId, mylistName: mylistName});
+          self.emit('mylistAdd', mylistId, mylistName);
         }
       });
 
@@ -7674,7 +7513,7 @@ iframe {
         var y = (height - e.offsetY);
         var vol = y / height;
 
-        this.emit('command', 'volume', vol);
+        this.emit('volume', vol);
 
         e.preventDefault();
         e.stopPropagation();
@@ -7693,18 +7532,18 @@ iframe {
           this._onCloseButtonClick();
           break;
         case 'fullScreen':
-          this.emit('command', 'fullScreen');
+          this.emit('fullScreen');
           break;
         case 'deflistAdd':
           if (e.shiftKey) {
-            this.emit('command', 'mylistWindow');
+            this.emit('mylistWindow');
           } else {
-            this.emit('command', 'deflistAdd');
+            this.emit('deflistAdd');
           }
           break;
         case 'mylistMenu':
           if (e.shiftKey) {
-            this.emit('command', 'mylistWindow');
+            this.emit('mylistWindow');
           } else {
             this.toggleMylistMenu();
             e.stopPropagation();
@@ -7722,8 +7561,11 @@ iframe {
           this.toggleNgSettingMenu();
           e.stopPropagation();
           break;
+        case 'mylistAdd':
+          this.emit('mylistAdd', $target.attr('data-mylist-id'));
+          break;
         case 'settingPanel':
-          this.emit('command', 'settingPanel');
+          this.emit('settingPanel');
           e.stopPropagation();
           break;
         case 'loop':
@@ -7896,16 +7738,14 @@ iframe {
       display: none;
     }
 
+    .commentInputPanel:hover .autoPauseLabel,
     .commentInputPanel.active .autoPauseLabel {
       position: absolute;
       top: 36px;
-      left: 50%;
-      transform: translate(-50%, 0);
       display: block;
       background: #336;
       z-index: 100;
       color: #ccc;
-      padding: 0 8px;
     }
 
     .commandInput {
@@ -8261,8 +8101,6 @@ iframe {
       </div>
     </div>
   */});
-  _.extend(SettingPanel.prototype, AsyncEmitter.prototype);
-
   _.assign(SettingPanel.prototype, {
     initialize: function(params) {
       this._playerConfig     = params.playerConfig;
@@ -8664,7 +8502,7 @@ iframe {
     {
       body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
         display: inherit;
-        top: 100%;
+        top: calc(100% + 40px);
         left: 0;
         width: 100%;
         height: 240px;
@@ -8706,7 +8544,7 @@ iframe {
     {
       body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
         display: inherit;
-        top: 100%;
+        top: calc(100% + 40px);
         left: 0;
         width: 100%;
         height: 240px;

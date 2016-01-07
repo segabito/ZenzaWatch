@@ -74,7 +74,7 @@ var VideoControlBar = function() {};
       background: #000;
       width: 672px;
       height: 385px;
-      transition: width 0.3s ease-in 0.4s, height 0.3s ease-in;
+      transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
     }
 
     .zenzaPlayerContainer .videoPlayer {
@@ -476,23 +476,24 @@ var VideoControlBar = function() {};
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig
       });
-      this._hoverMenu.on('volume', $.proxy(function(vol) {
-        this.setVolume(vol);
-      }, this));
-      this._hoverMenu.on('fullScreen', $.proxy(function() {
-        this._nicoVideoPlayer.toggleFullScreen();
-      }, this));
-      this._hoverMenu.on('deflistAdd', $.proxy(this._onDeflistAdd, this));
-      this._hoverMenu.on('mylistAdd',  $.proxy(this._onMylistAdd, this));
-      this._hoverMenu.on('mylistWindow',  $.proxy(function() {
-        window.open(
-         '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-         'mylist_add',
-         'width=450, height=340, menubar=no, scrollbars=no');
-      },this));
-      this._hoverMenu.on('settingPanel', $.proxy(function() {
-        this._settingPanel.toggle();
-      }, this));
+      this._hoverMenu.on('command', $.proxy(this._onCommand, this));
+//      this._hoverMenu.on('volume', $.proxy(function(vol) {
+//        this.setVolume(vol);
+//      }, this));
+//      this._hoverMenu.on('fullScreen', $.proxy(function() {
+//        this._nicoVideoPlayer.toggleFullScreen();
+//      }, this));
+//      this._hoverMenu.on('deflistAdd', $.proxy(this._onDeflistAdd, this));
+//      this._hoverMenu.on('mylistAdd',  $.proxy(this._onMylistAdd, this));
+//      this._hoverMenu.on('mylistWindow',  $.proxy(function() {
+//        window.open(
+//         '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
+//         'mylist_add',
+//         'width=450, height=340, menubar=no, scrollbars=no');
+//      },this));
+//      this._hoverMenu.on('settingPanel', $.proxy(function() {
+//        this._settingPanel.toggle();
+//      }, this));
 
       this._commentInput = new CommentInputPanel({
         $playerContainer: this._$playerContainer,
@@ -530,8 +531,56 @@ var VideoControlBar = function() {};
         playerConfig: this._playerConfig,
         player: this
       });
+      this._videoControlbar.on('command', $.proxy(this._onCommand, this));
+
 
       $('body').append($dialog);
+    },
+    execCommand: function(command, param) {
+      this._onCommand(command, param);
+    },
+    _onCommand: function(command, param) {
+      var v;
+      switch(command) {
+        case 'volume':
+          this.setVolume(param);
+          break;
+        case 'togglePlay':
+          this._nicoVideoPlayer.togglePlay();
+          break;
+        case 'toggleComment':
+          v = this._playerConfig.getValue('showComment');
+          this._playerConfig.setValue('showComment', !v);
+          break;
+        case 'toggleMute':
+          v = this._playerConfig.getValue('mute');
+          this._playerConfig.setValue('mute', !v);
+          break;
+        case 'fullScreen':
+          this._nicoVideoPlayer.toggleFullScreen();
+          break;
+        case 'deflistAdd':
+          this._onDeflistAdd();
+          break;
+        case 'mylistAdd':
+          this._onMylistAdd(param.mylistId, param.mylistName);
+          break;
+        case 'mylistWindow':
+          window.open(
+           '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
+           'mylist_add',
+           'width=450, height=340, menubar=no, scrollbars=no');
+          break;
+        case 'settingPanel':
+          this._settingPanel.toggle();
+          break;
+        case 'seek':
+          this.setCurrentTime(param * 1);
+          break;
+        case 'seekBy':
+          this.setCurrentTime(this.getCurrentTime() + param * 1);
+          break;
+      }
     },
     _onKeyDown: function(name , e, param) {
       if (!this._isOpen) {
@@ -620,7 +669,11 @@ var VideoControlBar = function() {};
     },
     _updateScreenMode: function(mode) {
       this._clearClass();
+      var $container = this._$playerContainer.addClass('changeScreenMode');
       $('body, html').addClass('zenzaScreenMode_' + mode);
+      window.setTimeout(function() {
+        $container.removeClass('changeScreenMode');
+      }, 1000);
     },
     _clearClass: function() {
       var modes = [
@@ -1339,7 +1392,7 @@ var VideoControlBar = function() {};
     }
 
     .ngSettingSelectMenu {
-      bottom: 64px;
+      bottom: 8px;
       left: 128px;
     }
     .ngSettingSelectMenu .triangle {
@@ -1347,6 +1400,11 @@ var VideoControlBar = function() {};
       left: -8px;
       bottom: 3px;
     }
+    .zenzaScreenMode_wide .ngSettingSelectMenu,
+    .fullScreen           .ngSettingSelectMenu {
+      bottom: 64px;
+    }
+
 
 
     .menuItemContainer .volumeControl {
@@ -1460,26 +1518,6 @@ var VideoControlBar = function() {};
       font-size: 16px;
     }
 
-    .settingPanelSwitch {
-      right: 0;
-      bottom: 40px;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 32px;
-      font-size: 24px;
-    }
-    .settingPanelSwitch:hover {
-      background: #888;
-      box-shadow: 4px 4px 0 #000;
-    }
-    .settingPanelSwitch:active {
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
-
     .screenModeMenu {
       right: 80px;
       bottom: 0;
@@ -1525,13 +1563,18 @@ var VideoControlBar = function() {};
 
     .screenModeSelectMenu {
       right: 20px;
-      bottom: 40px;
+      bottom: 48px;
       width: 148px;
       padding: 2px 4px;
     }
     .fullScreen .screenModeSelectMenu {
       display: none;
     }
+    .zenzaScreenMode_wide .screenModeSelectMenu,
+    .fullScreen           .screenModeSelectMenu {
+      bottom: 96px;
+    }
+
 
     .screenModeSelectMenu .triangle {
       transform: rotate(-45deg);
@@ -1576,7 +1619,7 @@ var VideoControlBar = function() {};
     }
     .playbackRateSelectMenu {
       right: 40px;
-      bottom: 40px;
+      bottom: 48px;
       width: 140px;
     }
     .playbackRateSelectMenu ul {
@@ -1586,9 +1629,13 @@ var VideoControlBar = function() {};
     body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu,
     body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu {
       left: 368px;
-      top: 48px;
+      top: 80px;
       right: auto;
       bottom: auto;
+    }
+    .zenzaScreenMode_wide .playbackRateSelectMenu,
+    .fullScreen           .playbackRateSelectMenu {
+      bottom: 96px;
     }
 
     .fullScreen .screenModeSelectMenu {
@@ -1621,6 +1668,7 @@ var VideoControlBar = function() {};
       border-radius: 4px;
       line-height: 30px;
       font-size: 21px;
+      white-space: nowrap;
     }
     .mouseMoving .mylistButton {
       text-shadow: 1px 1px 2px #888;
@@ -1822,10 +1870,6 @@ var VideoControlBar = function() {};
           <span class="returnFull">&#9700;</span>
         </div>
       </div>
-      <div class="settingPanelSwitch menuButton" data-command="settingPanel">
-        <div class="menuButtonInner">&#x2699;</div>
-        <div class="tooltip">プレイヤー設定</div>
-      </div>
 
       <div class="playbackRateMenu menuButton" data-command="playbackRateMenu">
         <div class="menuButtonInner">1x</div>
@@ -1973,7 +2017,7 @@ var VideoControlBar = function() {};
         if (command === 'open') {
           location.href = '//www.nicovideo.jp/my/mylist/#/' + mylistId;
         } else {
-          self.emit('mylistAdd', mylistId, mylistName);
+          self.emit('command', 'mylistAdd', {mylistId: mylistId, mylistName: mylistName});
         }
       });
 
@@ -2071,7 +2115,7 @@ var VideoControlBar = function() {};
         var y = (height - e.offsetY);
         var vol = y / height;
 
-        this.emit('volume', vol);
+        this.emit('command', 'volume', vol);
 
         e.preventDefault();
         e.stopPropagation();
@@ -2090,18 +2134,18 @@ var VideoControlBar = function() {};
           this._onCloseButtonClick();
           break;
         case 'fullScreen':
-          this.emit('fullScreen');
+          this.emit('command', 'fullScreen');
           break;
         case 'deflistAdd':
           if (e.shiftKey) {
-            this.emit('mylistWindow');
+            this.emit('command', 'mylistWindow');
           } else {
-            this.emit('deflistAdd');
+            this.emit('command', 'deflistAdd');
           }
           break;
         case 'mylistMenu':
           if (e.shiftKey) {
-            this.emit('mylistWindow');
+            this.emit('command', 'mylistWindow');
           } else {
             this.toggleMylistMenu();
             e.stopPropagation();
@@ -2119,11 +2163,8 @@ var VideoControlBar = function() {};
           this.toggleNgSettingMenu();
           e.stopPropagation();
           break;
-        case 'mylistAdd':
-          this.emit('mylistAdd', $target.attr('data-mylist-id'));
-          break;
         case 'settingPanel':
-          this.emit('settingPanel');
+          this.emit('command', 'settingPanel');
           e.stopPropagation();
           break;
         case 'loop':
@@ -2296,14 +2337,16 @@ var VideoControlBar = function() {};
       display: none;
     }
 
-    .commentInputPanel:hover .autoPauseLabel,
     .commentInputPanel.active .autoPauseLabel {
       position: absolute;
       top: 36px;
+      left: 50%;
+      transform: translate(-50%, 0);
       display: block;
       background: #336;
       z-index: 100;
       color: #ccc;
+      padding: 0 8px;
     }
 
     .commandInput {
@@ -2659,6 +2702,8 @@ var VideoControlBar = function() {};
       </div>
     </div>
   */});
+  _.extend(SettingPanel.prototype, AsyncEmitter.prototype);
+
   _.assign(SettingPanel.prototype, {
     initialize: function(params) {
       this._playerConfig     = params.playerConfig;
@@ -3060,7 +3105,7 @@ var VideoControlBar = function() {};
     {
       body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
         display: inherit;
-        top: calc(100% + 40px);
+        top: 100%;
         left: 0;
         width: 100%;
         height: 240px;
@@ -3102,7 +3147,7 @@ var VideoControlBar = function() {};
     {
       body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
         display: inherit;
-        top: calc(100% + 40px);
+        top: 100%;
         left: 0;
         width: 100%;
         height: 240px;

@@ -13,28 +13,60 @@ var AsyncEmitter = function() {};
   _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
   VideoControlBar.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .videoControlBar {
-      position: absolute;
-      bottom: -40px;
-      width: 100%;
+      position: fixed;
+      top:  calc(-50vh + 50% + 100vh);
+      left: calc(-50vw + 50%);
+      transform: translate(0, -100%);
+      width: 100vw;
       height: 40px;
-      z-index: 170000;
+      z-index: 150000;
       background: #000;
-      transition: opacity 0.3s ease, bottom 0.3s ease;
-      box-shadow: 2px 2px 2px #000;
+      transition: opacity 0.3s ease, transform 0.3s ease;
 
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+    .changeScreenMode .videoControlBar {
+      opacity: 0;
+      transform: translate(0, 0);
+      transition: none;
+    }
+    .zenzaScreenMode_small    .videoControlBar,
+    .zenzaScreenMode_sideView .videoControlBar,
+    .zenzaScreenMode_wide     .videoControlBar,
+    .fullScreen               .videoControlBar {
+      top: 100%;
+      left: 0;
+    }
+    {* 縦長モニター *}
+    @media
+      screen and
+      (max-width: 991px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_normal .videoControlBar {
+        left: calc(-50vw + 50%);
+        top: calc(-50vh + 50% + 100vh - 60px);
+      }
+    }
+    @media
+      screen and
+      (max-width: 1215px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_big .videoControlBar {
+        left: calc(-50vw + 50%);
+        top: calc(-50vh + 50% + 100vh - 60px);
+      }
+    }
+
+
+
 
     .videoControlBar * {
       box-sizing: border-box;
-    }
-
-    .zenzaScreenMode_small    .videoControlBar,
-    .zenzaScreenMode_sideView .videoControlBar {
-      position: fixed;
-      bottom: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
 
     .zenzaScreenMode_wide .videoControlBar,
@@ -56,10 +88,80 @@ var AsyncEmitter = function() {};
       background: rgba(0, 0, 0, 0.9);
     }
 
+    .controlButton {
+      position: absolute;
+      opacity: 0;
+      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
+      box-sizing: border-box;
+      text-align: center;
+      cursor: pointer;
+      pointer-events: none;
+    }
+    .controlButton .tooltip {
+      display: none;
+      pointer-events: none;
+      position: absolute;
+      left: 16px;
+      top: -24px;
+      transform:  translate(-50%, 0);
+      font-size: 12px;
+      line-height: 16px;
+      padding: 2px 4px;
+      border: 1px solid !000;
+      background: #ffc;
+      color: #000;
+      text-shadow: none;
+      white-space: nowrap;
+      z-index: 100;
+      opacity: 0;
+    }
+    .controlButton:hover .tooltip {
+      display: block;
+      opacity: 1;
+    }
+    .videoControlBar:hover .controlButton {
+      pointer-events: auto;
+    }
+    .mouseMoving .controlButton {
+      opacity: 0.8;
+      background: rgba(0xcc, 0xcc, 0xcc, 0.5);
+    }
+    .mouseMoving  .controlButtonInner {
+      opacity: 0.8;
+      word-break: normal;
+    }
+
+    .controlButton:hover {
+      cursor: pointer;
+      opacity: 1;
+    }
+
+    .settingPanelSwitch {
+      right: 8px;
+      top: 10px;
+      color: #fff;
+      font-size: 20px;
+      line-height: 32px;
+      transition: font-size 0.2s ease;
+    }
+    .settingPanelSwitch:hover {
+      text-shadow: 0 0 8px #ff9;
+    }
+    .controlButton:active {
+      font-size: 15px;
+    }
+    .settingPanelSwitch .tooltip {
+      left: 0;
+    }
+
+
+
+
     .togglePlay {
       position: absolute;
       left: 8px;
-      top: 8px;
+      top: 10px;
+      font-size: 20px;
       width: 32px;
       height: 32px;
       line-height: 30px;
@@ -68,6 +170,10 @@ var AsyncEmitter = function() {};
       color: #fff;
       text-align: center;
       pointer-events: none;
+      transition: font-size 0.2s ease;
+    }
+    .togglePlay:active {
+      font-size: 15px;
     }
     .mouseMoving .togglePlay {
       opacity: 1;
@@ -168,12 +274,14 @@ var AsyncEmitter = function() {};
       z-index: 200;
     }
 
-    .videoTime {
+    .videoControlBar .videoTime {
       position: absolute;
       display: inline-block;
       min-width: 96px;
       left: 64px;
-      top: 16px;
+      top: 10px;
+      height: 32px;
+      line-height: 32px;
       color: #fff;
       font-size: 10px;
       white-space: nowrap;
@@ -181,14 +289,14 @@ var AsyncEmitter = function() {};
       border-radius: 4px;
       text-align: center;
     }
-    .videoTime .currentTime,
-    .videoTime .duration {
+    .videoControlBar .videoTime .currentTime,
+    .videoControlBar .videoTime .duration {
       display: inline-block;
       color: #fff;
       text-align: center;
     }
 
-    .loading .videoTime {
+    .videoControlBar.loading .videoTime {
       display: none;
     }
 
@@ -215,10 +323,13 @@ var AsyncEmitter = function() {};
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoControlBar">
-      <div class="togglePlay controlButton" data-command="togglePlay">
-        <span class="play">▶</span>
-        <span class="pause">&#12307;</span>
+      <div class="controlButtonContainer left">
+        <div class="togglePlay controlButton" data-command="togglePlay">
+          <span class="play">▶</span>
+          <span class="pause">&#12307;</span>
+        </div>
       </div>
+
       <div class="videoTime">
         <span class="currentTime"></span> /
         <span class="duration"></span>
@@ -230,6 +341,12 @@ var AsyncEmitter = function() {};
           <div class="bufferRange"></div>
         </div>
       </div>
+
+      <div class="settingPanelSwitch controlButton" data-command="settingPanel">
+        <div class="controlButtonInner">&#x2699;</div>
+        <div class="tooltip">設定</div>
+      </div>
+
     </div>
   */});
 
@@ -256,10 +373,6 @@ var AsyncEmitter = function() {};
       this._$seekBarPointer = $view.find('.pointer');
       this._$bufferRange    = $view.find('.bufferRange');
       this._$tooltip        = $view.find('.seekBar .tooltip');
-//      $container.on('resize', function() {
-//        window.console.log('seekbar resized!');
-//        self._width = self._$seekBar.innerWidth();
-//      });
       $container.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover');
@@ -272,8 +385,9 @@ var AsyncEmitter = function() {};
         var $target = $(e.target).closest('.controlButton');
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param');
+        window.console.log('execCommand', command, param);
+        self.emit('command', command, param);
         e.stopPropagation();
-        self.emit(command, param);
       });
 
       this._$currentTime = $view.find('.currentTime');
@@ -402,7 +516,6 @@ var AsyncEmitter = function() {};
           var end   = range.end(i);
           var width = end - start;
           if (start <= currentTime && end >= currentTime) {
-            //window.console.log('setBufferedRange', i, start, end, len, this._timeToPer(start));
             $range.css({
               left: this._timeToPer(start) + '%',
               width: this._timeToPer(width) + '%'

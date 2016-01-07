@@ -45,14 +45,15 @@ function requireFile(srcDir, file) {
 function deploy(srcFile) {
   var path = require('path');
   var fs   = require('fs');
-  if (!path.existsSync('setting.json')) {
+  if (!fs.existsSync('setting.json')) {
     console.log('setting.json not exist');
     return;
   }
 
   var setting = JSON.parse(fs.readFileSync('setting.json', 'utf-8'));
   setting.deployTo.some(function(dir) {
-    if (!path.existsSync(dir)) {
+    console.log('deploy To: ', dir);
+    if (!fs.existsSync(dir)) {
       console.log('path not exist: ', dir);
       return;
     }
