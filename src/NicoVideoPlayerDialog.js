@@ -88,6 +88,7 @@ var VideoControlBar = function() {};
       border: 0;
       z-index: 100;
       cursor: none;
+      background: #000;
     }
 
     .zenzaPlayerContainer .videoPlayer.loading {
@@ -2971,26 +2972,36 @@ var VideoControlBar = function() {};
       font-weight: bold;
       text-decoration: none;
       color: #ff9;
+      padding: 2px;
     }
     .zenzaWatchVideoInfoPanel .videoDescription a:visited {
       color: #ffc;
     }
 
+    .zenzaWatchVideoInfoPanel .videoDescription .watch {
+      display: inline-block;
+      position: relative;
+      line-height: 60px;
+      box-sizing: border-box;
+      padding: 4px 16px;;
+      min-height: 60px;
+      width: 280px;
+      margin: 8px 10px;
+      background: #444;
+      border-radius: 4px;
+    }
+    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover {
+      background: #446;
+    }
+
     .zenzaWatchVideoInfoPanel .videoDescription .watch .videoThumbnail {
       position: absolute;
-      width: 160px;
-      height: 120px;
-      right: 4px;
-      margin-top: -60px;
-      opacity: 0;
-      z-index: 100;
+      right: 16px;
+      height: 60px;
       pointer-events: none;
-      transition: opacity 0.3s ease;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover .videoThumbnail {
-      opacity: 1;
-      box-shadow: 4px 4px 0 #000;
-      transition: opacity 0.3s ease 0.4s;
+    .zenzaWatchVideoInfoPanel .videoDescription:hover .watch .videoThumbnail {
+      filter: none;
     }
 
 
