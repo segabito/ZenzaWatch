@@ -1466,7 +1466,7 @@ var PopupMessage = {};
         }
       }
 
-      this._y = this._isOverflow ? Math.floor(Math.random() * yMax) : y;
+      this._y = this._isOverflow ? Math.max(0, Math.floor(Math.random() * yMax)) : y;
     },
 
     reset: function() {

@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.7.2
+// @version        0.7.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -781,7 +781,7 @@ var monkey = function() {
       var map = {
         '&':    '&amp;',
         '\x27': '&#39;',
-        '\\':   '&quot;',
+        '"':   '&quot;',
         '<':    '&lt;',
         '>':    '&gt;'
       };
@@ -4719,7 +4719,7 @@ var monkey = function() {
         }
       }
 
-      this._y = this._isOverflow ? Math.floor(Math.random() * yMax) : y;
+      this._y = this._isOverflow ? Math.max(0, Math.floor(Math.random() * yMax)) : y;
     },
 
     reset: function() {
