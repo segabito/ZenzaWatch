@@ -801,7 +801,7 @@ var VideoControlBar = function() {};
         nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
         nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
         nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
-        nicoVideoPlayer.on('stall',          $.proxy(this._onVideoStall,          this));
+        nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
         nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
 
         nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
@@ -817,7 +817,7 @@ var VideoControlBar = function() {};
       }
 
       this._$playerContainer.addClass('loading');
-      this._$playerContainer.removeClass('playing stall error abort');
+      this._$playerContainer.removeClass('playing stalled error abort');
 
       this._bindLoaderEvents();
 
@@ -946,27 +946,27 @@ var VideoControlBar = function() {};
     },
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
-      this._$playerContainer.removeClass('stall loading');
+      this._$playerContainer.removeClass('stalled loading');
       this.emit('canPlay');
     },
     _onVideoPlay: function() {
       this._$playerContainer.addClass('playing');
-      this._$playerContainer.removeClass('stall loading error abort');
+      this._$playerContainer.removeClass('stalled loading error abort');
       this.emit('play');
     },
     _onVideoPlaying: function() {
       this._$playerContainer.addClass('playing');
-      this._$playerContainer.removeClass('stall loading error abort');
+      this._$playerContainer.removeClass('stalled loading error abort');
       this.emit('playing');
     },
     _onVideoPause: function() {
       this._$playerContainer.removeClass('playing');
       this.emit('pause');
     },
-    _onVideoStall: function() {
+    _onVideoStalled: function() {
       // stallは詰まっているだけでありplayingなので、removeClassしない
-      this._$playerContainer.addClass('stall');
-      this.emit('stall');
+      this._$playerContainer.addClass('stalled');
+      this.emit('stalled');
     },
     _onVideoError: function() {
       this._$playerContainer.addClass('error');

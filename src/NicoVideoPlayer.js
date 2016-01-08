@@ -78,7 +78,7 @@ var NicoCommentPlayer = function() {};
       this._videoPlayer.on('aspectRatioFix', $.proxy(this._onAspectRatioFix, this));
       this._videoPlayer.on('play',    $.proxy(this._onPlay, this));
       this._videoPlayer.on('playing', $.proxy(this._onPlaying, this));
-      this._videoPlayer.on('stall',   $.proxy(this._onStall, this));
+      this._videoPlayer.on('stalled', $.proxy(this._onStalled, this));
       this._videoPlayer.on('pause',   $.proxy(this._onPause, this));
       this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
       this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
@@ -173,8 +173,8 @@ var NicoCommentPlayer = function() {};
       this._isPlaying = false;
       this.emit('pause');
     },
-    _onStall: function() {
-      this.emit('stall');
+    _onStalled: function() {
+      this.emit('stalled');
     },
     _onEnded: function() {
       this._isPlaying = false;
@@ -634,6 +634,7 @@ var NicoCommentPlayer = function() {};
         .on('ended',          $.proxy(this._onEnded, this))
         .on('emptied',        $.proxy(this._onEmptied, this))
         .on('stalled',        $.proxy(this._onStalled, this))
+        .on('suspend',        $.proxy(this._onSuspend, this))
         .on('waiting',        $.proxy(this._onWaiting, this))
         .on('progress',       $.proxy(this._onProgress, this))
         .on('durationchange', $.proxy(this._onDurationChange, this))
@@ -692,6 +693,10 @@ var NicoCommentPlayer = function() {};
     _onStalled: function() {
       console.log('%c_onStalled:', 'background: cyan;', arguments);
       this.emit('stalled');
+    },
+    _onSuspend: function() {
+      console.log('%c_onSuspend:', 'background: cyan;', arguments);
+      this.emit('suspend');
     },
     _onWaiting: function() {
       console.log('%c_onWaiting:', 'background: cyan;', arguments);

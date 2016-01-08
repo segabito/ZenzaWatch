@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.7.1
+// @version        0.7.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1913,7 +1913,7 @@ var monkey = function() {
       this._videoPlayer.on('aspectRatioFix', $.proxy(this._onAspectRatioFix, this));
       this._videoPlayer.on('play',    $.proxy(this._onPlay, this));
       this._videoPlayer.on('playing', $.proxy(this._onPlaying, this));
-      this._videoPlayer.on('stall',   $.proxy(this._onStall, this));
+      this._videoPlayer.on('stalled', $.proxy(this._onStalled, this));
       this._videoPlayer.on('pause',   $.proxy(this._onPause, this));
       this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
       this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
@@ -2008,8 +2008,8 @@ var monkey = function() {
       this._isPlaying = false;
       this.emit('pause');
     },
-    _onStall: function() {
-      this.emit('stall');
+    _onStalled: function() {
+      this.emit('stalled');
     },
     _onEnded: function() {
       this._isPlaying = false;
@@ -2469,6 +2469,7 @@ var monkey = function() {
         .on('ended',          $.proxy(this._onEnded, this))
         .on('emptied',        $.proxy(this._onEmptied, this))
         .on('stalled',        $.proxy(this._onStalled, this))
+        .on('suspend',        $.proxy(this._onSuspend, this))
         .on('waiting',        $.proxy(this._onWaiting, this))
         .on('progress',       $.proxy(this._onProgress, this))
         .on('durationchange', $.proxy(this._onDurationChange, this))
@@ -2527,6 +2528,10 @@ var monkey = function() {
     _onStalled: function() {
       console.log('%c_onStalled:', 'background: cyan;', arguments);
       this.emit('stalled');
+    },
+    _onSuspend: function() {
+      console.log('%c_onSuspend:', 'background: cyan;', arguments);
+      this.emit('suspend');
     },
     _onWaiting: function() {
       console.log('%c_onWaiting:', 'background: cyan;', arguments);
@@ -2799,10 +2804,12 @@ var monkey = function() {
     .zenzaScreenMode_wide .mouseMoving .videoControlBar,
     .fullScreen           .mouseMoving .videoControlBar {
       opacity: 0.7;
+      background: rgba(0, 0, 0, 0.5);
     }
 
-    .stall .videoControlBar {
+    .stalled .videoControlBar {
       opacity: 0.7;
+      background: rgba(0, 0, 0, 0.5);
     }
 
 
@@ -2899,7 +2906,7 @@ var monkey = function() {
     .togglePlay:active {
       font-size: 15px;
     }
-    .stall .togglePlay,
+    .stalled .togglePlay,
     .mouseMoving .togglePlay {
       opacity: 1;
     }
@@ -4319,6 +4326,7 @@ var monkey = function() {
     initialize: function(nicoChat, offScreen) {
       this._nicoChat = nicoChat;
       this._offScreen = offScreen;
+      this._trace = [];
 
       // 画面からはみ出したかどうか(段幕時)
       this._isOverflow = false;
@@ -4352,7 +4360,7 @@ var monkey = function() {
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
-      if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + 10) {
+      if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + 8) {
         this._isOverflow = true;
         //this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
         this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
@@ -4479,6 +4487,7 @@ var monkey = function() {
       // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
       // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
       var lc = this._htmlText.split('<br>').length;
+      var isEnder = this._nicoChat.isEnder();
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
       var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
@@ -4499,18 +4508,18 @@ var monkey = function() {
         // 中の数字は職人の実測値
         switch (size) {
           case NicoChat.SIZE.BIG:
-            lineHeight = lc <= 2 ? lineHeight : 24;
-            margin     = lc <= 2 ? margin : 3;
+            lineHeight = (isEnder || lc <= 2) ? lineHeight : 24;
+            margin     = (isEnder || lc <= 2) ? margin : 3;
             //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3)) - 1;
             break;
           default:
-            lineHeight = lc <= 4 ? lineHeight : 15;
-            margin     = lc <= 4 ? margin : 3;
+            lineHeight = (isEnder || lc <= 4) ? lineHeight : 15;
+            margin     = (isEnder || lc <= 4) ? margin : 3;
             //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3)) - 1;
             break;
           case NicoChat.SIZE.SMALL:
-            lineHeight = lc <= 6 ? lineHeight : 10;
-            margin     = lc <= 6 ? margin : 3;
+            lineHeight = (isEnder || lc <= 6) ? lineHeight : 10;
+            margin     = (isEnder || lc <= 6) ? margin : 3;
             //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3)) - 1;
             break;
         }
@@ -4552,7 +4561,7 @@ var monkey = function() {
       }
 
       this._lineHeight = lineHeight;
-      return lineHeight * lc + margin - 1;
+      return lineHeight * lc + margin;
     },
 
     /**
@@ -4566,6 +4575,7 @@ var monkey = function() {
           NicoCommentViewModel.SCREEN.WIDTH_FULL_INNER :
           NicoCommentViewModel.SCREEN.WIDTH_INNER;
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
+      var isEnder = nicoChat.isEnder();
       //メモ
       //█　　　　　　　　　　　　　　　　　　　　　　　　　　　█
       // メモ
@@ -4574,7 +4584,7 @@ var monkey = function() {
       // 改行リサイズ
       // 参考: http://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
       // 画面の高さの1/3を超える場合は大きさを半分にする
-      if (this._height > screenHeight / 3) {
+      if (!isEnder && this._height > screenHeight / 3) {
         this._setScale(this._scale * 0.5);
         isScaled = true;
       }
@@ -4582,10 +4592,10 @@ var monkey = function() {
       // TODO: この判定は改行リサイズより前？後？を検証
       var isOverflowWidth = this._width > screenWidth;
 
-      // 横幅リサイズ
+      // 臨界幅リサイズ
       // 画面幅よりデカい場合の調整
       if (isOverflowWidth) {
-        if (isScaled && !nicoChat.isEnder()) {
+        if (isScaled && !isEnder) {
           // なんかこれバグってね？と思った方は正しい。
           // 元々は本家のバグなのだが、いまさら修正出来ない。
           // なので、コメント描画の再現としては正しい…らしい。
@@ -4613,7 +4623,7 @@ var monkey = function() {
     _setupMarqueeMode: function() {
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
       // 画面の高さの1/3を超える場合は大きさを半分にする
-      if (this._height > screenHeight / 3) {
+      if (!this._nicoChat.isEnder() && this._height > screenHeight / 3) {
         this._setScale(this._scale * 0.5);
         var speed =
           this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
@@ -4627,6 +4637,7 @@ var monkey = function() {
       this._width = (this._originalWidth * scale);
       this._height = this._calculateHeight(); // 再計算
     },
+
 
     /**
      * コメント同士の衝突を判定
@@ -6364,7 +6375,7 @@ iframe {
         nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
         nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
         nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
-        nicoVideoPlayer.on('stall',          $.proxy(this._onVideoStall,          this));
+        nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
         nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
 
         nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
@@ -6380,7 +6391,7 @@ iframe {
       }
 
       this._$playerContainer.addClass('loading');
-      this._$playerContainer.removeClass('playing stall error abort');
+      this._$playerContainer.removeClass('playing stalled error abort');
 
       this._bindLoaderEvents();
 
@@ -6509,27 +6520,27 @@ iframe {
     },
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
-      this._$playerContainer.removeClass('stall loading');
+      this._$playerContainer.removeClass('stalled loading');
       this.emit('canPlay');
     },
     _onVideoPlay: function() {
       this._$playerContainer.addClass('playing');
-      this._$playerContainer.removeClass('stall loading error abort');
+      this._$playerContainer.removeClass('stalled loading error abort');
       this.emit('play');
     },
     _onVideoPlaying: function() {
       this._$playerContainer.addClass('playing');
-      this._$playerContainer.removeClass('stall loading error abort');
+      this._$playerContainer.removeClass('stalled loading error abort');
       this.emit('playing');
     },
     _onVideoPause: function() {
       this._$playerContainer.removeClass('playing');
       this.emit('pause');
     },
-    _onVideoStall: function() {
+    _onVideoStalled: function() {
       // stallは詰まっているだけでありplayingなので、removeClassしない
-      this._$playerContainer.addClass('stall');
-      this.emit('stall');
+      this._$playerContainer.addClass('stalled');
+      this.emit('stalled');
     },
     _onVideoError: function() {
       this._$playerContainer.addClass('error');

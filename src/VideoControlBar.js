@@ -78,10 +78,12 @@ var AsyncEmitter = function() {};
     .zenzaScreenMode_wide .mouseMoving .videoControlBar,
     .fullScreen           .mouseMoving .videoControlBar {
       opacity: 0.7;
+      background: rgba(0, 0, 0, 0.5);
     }
 
-    .stall .videoControlBar {
+    .stalled .videoControlBar {
       opacity: 0.7;
+      background: rgba(0, 0, 0, 0.5);
     }
 
 
@@ -178,7 +180,7 @@ var AsyncEmitter = function() {};
     .togglePlay:active {
       font-size: 15px;
     }
-    .stall .togglePlay,
+    .stalled .togglePlay,
     .mouseMoving .togglePlay {
       opacity: 1;
     }
