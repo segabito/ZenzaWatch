@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.7.3
+// @version        0.7.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1914,10 +1914,12 @@ var monkey = function() {
       this._videoPlayer.on('play',    $.proxy(this._onPlay, this));
       this._videoPlayer.on('playing', $.proxy(this._onPlaying, this));
       this._videoPlayer.on('stalled', $.proxy(this._onStalled, this));
+      this._videoPlayer.on('progress', $.proxy(this._onProgress, this));
       this._videoPlayer.on('pause',   $.proxy(this._onPause, this));
       this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
       this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
       this._videoPlayer.on('canPlay', $.proxy(this._onVideoCanPlay, this));
+      this._videoPlayer.on('durationChange', $.proxy(this._onDurationChange, this));
 
       // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
       this._videoPlayer.on('mouseWheel',
@@ -1996,6 +1998,9 @@ var monkey = function() {
     _onVideoCanPlay: function() {
       this.emit('canPlay');
     },
+    _onDurationChange: function(duration) {
+      this.emit('durationChange', duration);
+    },
     _onPlay: function() {
       this._isPlaying = true;
       this.emit('play');
@@ -2004,12 +2009,15 @@ var monkey = function() {
       this._isPlaying = true;
       this.emit('playing');
     },
-     _onPause: function() {
+    _onPause: function() {
       this._isPlaying = false;
       this.emit('pause');
     },
     _onStalled: function() {
       this.emit('stalled');
+    },
+    _onProgress: function(range, currentTime) {
+      this.emit('progress', range, currentTime);
     },
     _onEnded: function() {
       this._isPlaying = false;
@@ -2055,6 +2063,9 @@ var monkey = function() {
     setCurrentTime: function(t) {
       this._videoPlayer.setCurrentTime(Math.max(0, t));
     },
+    getDuration: function() {
+      return this._videoPlayer.getDuration();
+    },
     getCurrentTime: function() {
       return this._videoPlayer.getCurrentTime();
     },
@@ -2087,6 +2098,9 @@ var monkey = function() {
     },
     requestFullScreen: function() {
       FullScreen.request(this._fullScreenNode || this._$parentNode[0]);
+    },
+    canPlay: function() {
+      return this._videoPlayer.canPlay();
     },
     isPlaying: function() {
       return !!this._isPlaying;
@@ -2289,9 +2303,11 @@ var monkey = function() {
         <ul>
           <li data-command="togglePlay">停止/再開</li>
           <li data-command="restart">先頭に戻る</li>
+          <!--
           <li class="loop"        data-command="loop">リピート再生</li>
           <li class="showComment" data-command="showComment">コメントを表示</li>
           <li class="autoPlay"    data-command="autoPlay">自動再生</li>
+          -->
 
           <hr class="separator">
 
@@ -2458,6 +2474,7 @@ var monkey = function() {
     _reset: function() {
       this._$video.removeClass('play pause abort error');
       this._isPlaying = false;
+      this._canPlay = false;
     },
     _initializeEvents: function() {
       this._$video
@@ -2538,12 +2555,11 @@ var monkey = function() {
       this.emit('waiting');
     },
     _onProgress: function() {
-      //console.log('%c_onProgress:', 'background: cyan;', arguments);
-      this.emit('progress');
+      this.emit('progress', this._video.buffered, this._video.currentTime);
     },
     _onDurationChange: function() {
       console.log('%c_onDurationChange:', 'background: cyan;', arguments);
-      this.emit('durationChange');
+      this.emit('durationChange', this._video.duration);
     },
     _onResize: function() {
       console.log('%c_onResize:', 'background: cyan;', arguments);
@@ -2680,6 +2696,9 @@ var monkey = function() {
         this.emit('seek', this._video.currentTime);
       }
     },
+    getDuration: function() {
+      return this._video.duration;
+    },
     togglePlay: function() {
       if (this._isPlaying) {
         this.pause();
@@ -2806,6 +2825,11 @@ var monkey = function() {
       opacity: 0.7;
       background: rgba(0, 0, 0, 0.5);
     }
+    .zenzaScreenMode_wide .showVideoControlBar .videoControlBar,
+    .fullScreen           .showVideoControlBar .videoControlBar {
+      opacity: 1 !important;
+      background: #000 !important;
+    }
 
     .stalled .videoControlBar {
       opacity: 0.7;
@@ -2821,15 +2845,40 @@ var monkey = function() {
       background: rgba(0, 0, 0, 0.9);
     }
 
-    .controlButton {
+    .controlItemContainer.center {
       position: absolute;
+      top: 10px;
+      left: 50%;
+      height: 40px;
+      transform: translate(-50%, 0);
+      background: #222;
+    }
+
+    .controlButton {
+      display: inline-block;
       transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
       box-sizing: border-box;
       text-align: center;
       cursor: pointer;
       pointer-events: none;
+      color: #fff;
       opacity: 0.8;
+      margin-right: 8px;
+      {*border: 1px solid #ccc;
+      border-radius: 8px;*}
     }
+    .controlButton:hover {
+      text-shadow: 0 0 8px #ff9;
+      cursor: pointer;
+      opacity: 1;
+    }
+    .abort   .playControl,
+    .error   .playControl,
+    .loading .playControl {
+      opacity: 0.4 !important;
+      pointer-events: none;
+    }
+
 
     .controlButton .tooltip {
       display: none;
@@ -2847,27 +2896,26 @@ var monkey = function() {
       text-shadow: none;
       white-space: nowrap;
       z-index: 100;
+      opacity: 0.8;
     }
     .controlButton:hover .tooltip {
       display: block;
       opacity: 1;
     }
     .videoControlBar:hover .controlButton {
+      opacity: 1;
       pointer-events: auto;
     }
-    .mouseMoving .controlButton {
+    {*    .mouseMoving .controlButton {
       background: rgba(0xcc, 0xcc, 0xcc, 0.5);
     }
     .mouseMoving  .controlButtonInner {
       word-break: normal;
-    }
+    }*}
 
-    .controlButton:hover {
-      cursor: pointer;
-      opacity: 1;
-    }
 
     .settingPanelSwitch {
+      position: absolute;
       right: 8px;
       top: 10px;
       color: #fff;
@@ -2886,40 +2934,40 @@ var monkey = function() {
     }
 
 
+    .controlButtoncontainer {
+      position: absolute;
+    }
 
+
+    .seekTop {
+      left: 0px;
+      font-size: 20px;
+      width: 32px;
+      height: 32px;
+      line-height: 30px;
+    }
+    .seekTop .controlButtonInner{
+      letter-spacing: -10px;
+    }
+    .seekTop:active {
+      font-size: 15px;
+    }
 
     .togglePlay {
-      position: absolute;
-      left: 8px;
-      top: 10px;
+      left: 40px;
       font-size: 20px;
       width: 32px;
       height: 32px;
       line-height: 30px;
       box-sizing: border-box;
-      cursor: pointer;
-      color: #fff;
-      text-align: center;
-      pointer-events: none;
       transition: font-size 0.2s ease;
     }
     .togglePlay:active {
       font-size: 15px;
     }
-    .stalled .togglePlay,
-    .mouseMoving .togglePlay {
+    .stalled .playControl,
+    .mouseMoving .playControl {
       opacity: 1;
-    }
-    .videoControlBar:hover .togglePlay {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .abort   .togglePlay,
-    .error   .togglePlay,
-    .loading .togglePlay {
-      opacity: 0;
-      pointer-events: none;
     }
 
     .togglePlay .pause,
@@ -2927,21 +2975,12 @@ var monkey = function() {
       display: none;
     }
 
-    .togglePlay .pause {
+    .togglePlay>.pause {
       transform: rotate(90deg);
     }
 
     .playing .togglePlay .pause {
       display: block;
-    }
-
-    .togglePlay:hover {
-      text-shadow: 0 0 8px #ff9;
-    }
-
-    .zenzaScreenMode_wide .togglePlay,
-    .fullScreen           .togglePlay {
-      color: #fff;
     }
 
     .seekBarContainer {
@@ -3007,17 +3046,15 @@ var monkey = function() {
     }
 
     .videoControlBar .videoTime {
-      position: absolute;
       display: inline-block;
-      min-width: 96px;
-      left: 64px;
-      top: 10px;
+      top: 0;
+      padding: 0 8px;
       height: 32px;
       line-height: 32px;
       color: #fff;
       font-size: 10px;
       white-space: nowrap;
-      background: #000;
+      background: rgba(33, 33, 33, 0.5);
       border-radius: 4px;
       text-align: center;
     }
@@ -3055,17 +3092,28 @@ var monkey = function() {
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoControlBar">
-      <div class="controlButtonContainer left">
-        <div class="togglePlay controlButton" data-command="togglePlay">
+      <div class="controlItemContainer center">
+        <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
+          <div class="controlButtonInner">&#9475;&#9666;&#9666;</div>
+          <div class="tooltip">先頭</div>
+        </div>
+
+        <div class="togglePlay controlButton playControl" data-command="togglePlay">
           <span class="play">▶</span>
           <span class="pause">&#12307;</span>
+          <div class="tooltip">
+            <span class="play">再生</span>
+            <span class="pause">一時停止</span>
+          </div>
+        </div>
+
+        <div class="videoTime">
+          <span class="currentTime"></span> /
+          <span class="duration"></span>
         </div>
       </div>
 
-      <div class="videoTime">
-        <span class="currentTime"></span> /
-        <span class="duration"></span>
-      </div>
+
       <div class="seekBarContainer">
         <div class="seekBar">
           <div class="tooltip"></div>
@@ -3088,9 +3136,12 @@ var monkey = function() {
       this._$playerContainer    = params.$playerContainer;
       var player = this._player = params.player;
 
-      player.on('open',          $.proxy(this._onPlayerOpen,  this));
-      player.on('close',         $.proxy(this._onPlayerClose, this));
-      player.on('loadVideoInfo', $.proxy(this._onLoadVideoInfo, this));
+      player.on('open',           $.proxy(this._onPlayerOpen, this));
+      player.on('canPlay',        $.proxy(this._onPlayerCanPlay, this));
+      player.on('durationChange', $.proxy(this._onPlayerDurationChange, this));
+      player.on('close',          $.proxy(this._onPlayerClose, this));
+      player.on('progress',       $.proxy(this._onPlayerProgress, this));
+      player.on('loadVideoInfo',  $.proxy(this._onLoadVideoInfo, this));
 
       this._initializeDom();
     },
@@ -3128,11 +3179,6 @@ var monkey = function() {
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
     },
-    _onPlayerOpen: function() {
-      this._startTimer();
-      this.setCurrentTime(0);
-      this.setBufferedRange(null);
-    },
     _posToTime: function(pos) {
       var width = this._$seekBar.innerWidth();
       return this._duration * (pos / Math.max(width, 1));
@@ -3143,11 +3189,27 @@ var monkey = function() {
     _timeToPer: function(time) {
       return (time / Math.max(this._duration, 1)) * 100;
     },
+    _onPlayerOpen: function() {
+      this._startTimer();
+      this.setDuration(0);
+      this.setCurrentTime(0);
+      this.resetBufferedRange();
+    },
+    _onPlayerCanPlay: function() {
+      // TODO: 動画のメタデータ解析後に動画長情報が変わることがあるので、
+      // そこで情報を更新する
+      this.setDuration(this._player.getDuration());
+    },
+    _onPlayerDurationChange: function() {
+    },
     _onPlayerClose: function() {
       this._stopTimer();
     },
+    _onPlayerProgress: function(range, currentTime) {
+      this.setBufferedRange(range, currentTime);
+    },
     _startTimer: function() {
-      this._timer = window.setInterval($.proxy(this._onTimer, this), 500);
+      this._timer = window.setInterval($.proxy(this._onTimer, this), 100);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -3217,30 +3279,41 @@ var monkey = function() {
       var player = this._player;
       var currentTime = player.getCurrentTime();
       this.setCurrentTime(currentTime);
-      this.setBufferedRange(player.getBufferedRange(), currentTime);
     },
     _onLoadVideoInfo: function(videoInfo) {
       this.setDuration(videoInfo.getDuration());
     },
     setCurrentTime: function(sec) {
+      if (this._currentTime !== sec) {
+        this._currentTime = sec;
 
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      this._$currentTime.text([m, s].join(':'));
-
-      this._$seekBarPointer.css('left', Math.min(100, this._timeToPer(sec)) + '%');
+        var m = Math.floor(sec / 60);
+        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+        var currentTimeText = [m, s].join(':');
+        if (this._currentTimeText !== currentTimeText) {
+          this._currentTimeText = currentTimeText;
+          this._$currentTime.text(currentTimeText);
+        }
+        this._$seekBarPointer.css('left', Math.min(100, this._timeToPer(sec)) + '%');
+      }
     },
     setDuration: function(sec) {
-      this._duration = sec;
+      if (sec !== this._duration) {
+        this._duration = sec;
 
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      this._$duration.text([m, s].join(':'));
+        if (sec === 0) {
+          this._$duration.text('--:--');
+        }
+        var m = Math.floor(sec / 60);
+        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+        this._$duration.text([m, s].join(':'));
+        this.emit('durationChange');
+      }
     },
     setBufferedRange: function(range, currentTime) {
       var $range = this._$bufferRange;
-      if (!range || range.length < 1) {
-        $range.css({left: 0, width: 0});
+      if (!range || !range.length) {
+        return;
       }
       for (var i = 0, len = range.length; i < len; i++) {
         try {
@@ -3248,15 +3321,25 @@ var monkey = function() {
           var end   = range.end(i);
           var width = end - start;
           if (start <= currentTime && end >= currentTime) {
-            $range.css({
-              left: this._timeToPer(start) + '%',
-              width: this._timeToPer(width) + '%'
-            });
+            if (this._bufferStart !== start ||
+                this._bufferEnd   !== end) {
+              $range.css({
+                left: this._timeToPer(start) + '%',
+                width: this._timeToPer(width) + '%' //TODO: 100%を突き抜けないようにする
+              });
+              this._bufferStart = start;
+              this._bufferEnd   = end;
+            }
             break;
           }
         } catch (e) {
         }
       }
+    },
+    resetBufferedRange: function() {
+      this._buffferStart = 0;
+      this._buffferEnd = 0;
+      this._$bufferRange.css({left: 0, width: 0});
     }
   });
 
@@ -5769,12 +5852,28 @@ iframe {
     }
 
 
-    .fullScreen .videoPlayer,
-    .fullScreen .commentLayerFrame {
+    .zenzaScreenMode_wide .videoPlayer,
+    .zenzaScreenMode_wide .commentLayerFrame,
+    .fullScreen           .videoPlayer,
+    .fullScreen           .commentLayerFrame {
       top:  0 !important;
       left: 0 !important;
       width:  100% !important;
       height: 100% !important;
+      right:  0 !important;
+      bottom: 0 !important;
+      border: 0 !important;
+      z-index: 100 !important;
+    }
+
+    .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
+    .zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
+    .fullScreen           .showVideoControlBar .videoPlayer,
+    .fullScreen           .showVideoControlBar .commentLayerFrame {
+      top:  0 !important;
+      left: 0 !important;
+      width:  100% !important;
+      height: calc(100% - 40px) !important;
       right:  0 !important;
       bottom: 0 !important;
       border: 0 !important;
@@ -6006,6 +6105,8 @@ iframe {
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
 
+      this._aspectRatio = 9 / 16;
+
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
@@ -6052,23 +6153,6 @@ iframe {
         playerConfig: this._playerConfig
       });
       this._hoverMenu.on('command', $.proxy(this._onCommand, this));
-//      this._hoverMenu.on('volume', $.proxy(function(vol) {
-//        this.setVolume(vol);
-//      }, this));
-//      this._hoverMenu.on('fullScreen', $.proxy(function() {
-//        this._nicoVideoPlayer.toggleFullScreen();
-//      }, this));
-//      this._hoverMenu.on('deflistAdd', $.proxy(this._onDeflistAdd, this));
-//      this._hoverMenu.on('mylistAdd',  $.proxy(this._onMylistAdd, this));
-//      this._hoverMenu.on('mylistWindow',  $.proxy(function() {
-//        window.open(
-//         '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-//         'mylist_add',
-//         'width=450, height=340, menubar=no, scrollbars=no');
-//      },this));
-//      this._hoverMenu.on('settingPanel', $.proxy(function() {
-//        this._settingPanel.toggle();
-//      }, this));
 
       this._commentInput = new CommentInputPanel({
         $playerContainer: this._$playerContainer,
@@ -6108,8 +6192,34 @@ iframe {
       });
       this._videoControlbar.on('command', $.proxy(this._onCommand, this));
 
-
+      this._initializeResponsive();
       $('body').append($dialog);
+    },
+    _initializeResponsive: function() {
+      $(window).on('resize', _.debounce($.proxy(this._updateResponsive, this),  500));
+    },
+    _updateResponsive: function() {
+      var $w = $(window);
+      var self = this;
+      var $container = self._$playerContainer;
+      var $bar    = $container.find('.videoControlBar');
+      var $header = $container.find('.zenzaWatchVideoHeaderPanel');
+
+      // 画面の縦幅にシークバー分の余裕がある時は常時表示
+      var update = function() {
+        var w = $w.innerWidth(), h = $w.innerHeight();
+        var videoControlBarHeight = $bar.outerHeight();
+        var vMargin = h - w * self._aspectRatio;
+        //var hMargin = w - h / self._aspectRatio;
+
+        $container
+          .toggleClass('showVideoControlBar',
+            vMargin >= videoControlBarHeight)
+          .toggleClass('showVideoHeaderPanel',
+            vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
+      };
+
+      update();
     },
     execCommand: function(command, param) {
       this._onCommand(command, param);
@@ -6143,7 +6253,7 @@ iframe {
         case 'mylistWindow':
           window.open(
            '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-           'mylist_add',
+           'nicomylistadd',
            'width=450, height=340, menubar=no, scrollbars=no');
           break;
         case 'settingPanel':
@@ -6376,6 +6486,7 @@ iframe {
         nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
         nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
         nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
+        nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
         nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
 
         nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
@@ -6542,6 +6653,9 @@ iframe {
       this._$playerContainer.addClass('stalled');
       this.emit('stalled');
     },
+    _onVideoProgress: function(range, currentTime) {
+      this.emit('progress', range, currentTime);
+    },
     _onVideoError: function() {
       this._$playerContainer.addClass('error');
       this._$playerContainer.removeClass('playing loading');
@@ -6553,6 +6667,8 @@ iframe {
       this.emit('abort');
     },
     _onVideoAspectRatioFix: function(ratio) {
+      this._aspectRatio = ratio;
+      this._updateResponsive();
       this.emit('aspectRatioFix', ratio);
     },
     _onVideoEnded: function() {
@@ -6650,6 +6766,14 @@ iframe {
         _onSuccess,
         _onFail
       );
+    },
+    getDuration: function() {
+      // 動画がプレイ可能≒メタデータパース済みの時はそちらの方が信頼できる
+      if (this._nicoVideoPlayer.canPlay()) {
+        return this._nicoVideoPlayer.getDuration();
+      } else {
+        return this._videoInfo.getDuration();
+      }
     },
     getBufferedRange: function() {
       return this._nicoVideoPlayer.getBufferedRange();
@@ -8975,17 +9099,9 @@ iframe {
       color: #ccc;
     }
 
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel
-    {
+    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel,
+    .fullScreen           .zenzaWatchVideoHeaderPanel {
       top: 0px;
-      bottom: auto;
-      background: rgba(0, 0, 0, 0.5);
-      opacity: 0;
-      box-shadow: none;
-    }
-
-    .fullScreen .zenzaWatchVideoHeaderPanel {
-      top: 0;
       bottom: auto;
       background: rgba(0, 0, 0, 0.5);
       opacity: 0;
@@ -8998,13 +9114,15 @@ iframe {
       opacity: 0.5;
     }
 
+    .zenzaScreenMode_wide .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
+    .fullScreen           .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover,
     .fullScreen           .zenzaWatchVideoHeaderPanel:hover {
       opacity: 1;
     }
 
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTagsContainer,
-    .fullScreen .zenzaWatchVideoHeaderPanel .videoTagsContainer {
+    .fullScreen           .zenzaWatchVideoHeaderPanel .videoTagsContainer {
       display: none;
     }
 

@@ -79,10 +79,12 @@ var NicoCommentPlayer = function() {};
       this._videoPlayer.on('play',    $.proxy(this._onPlay, this));
       this._videoPlayer.on('playing', $.proxy(this._onPlaying, this));
       this._videoPlayer.on('stalled', $.proxy(this._onStalled, this));
+      this._videoPlayer.on('progress', $.proxy(this._onProgress, this));
       this._videoPlayer.on('pause',   $.proxy(this._onPause, this));
       this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
       this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
       this._videoPlayer.on('canPlay', $.proxy(this._onVideoCanPlay, this));
+      this._videoPlayer.on('durationChange', $.proxy(this._onDurationChange, this));
 
       // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
       this._videoPlayer.on('mouseWheel',
@@ -161,6 +163,9 @@ var NicoCommentPlayer = function() {};
     _onVideoCanPlay: function() {
       this.emit('canPlay');
     },
+    _onDurationChange: function(duration) {
+      this.emit('durationChange', duration);
+    },
     _onPlay: function() {
       this._isPlaying = true;
       this.emit('play');
@@ -169,12 +174,15 @@ var NicoCommentPlayer = function() {};
       this._isPlaying = true;
       this.emit('playing');
     },
-     _onPause: function() {
+    _onPause: function() {
       this._isPlaying = false;
       this.emit('pause');
     },
     _onStalled: function() {
       this.emit('stalled');
+    },
+    _onProgress: function(range, currentTime) {
+      this.emit('progress', range, currentTime);
     },
     _onEnded: function() {
       this._isPlaying = false;
@@ -220,6 +228,9 @@ var NicoCommentPlayer = function() {};
     setCurrentTime: function(t) {
       this._videoPlayer.setCurrentTime(Math.max(0, t));
     },
+    getDuration: function() {
+      return this._videoPlayer.getDuration();
+    },
     getCurrentTime: function() {
       return this._videoPlayer.getCurrentTime();
     },
@@ -252,6 +263,9 @@ var NicoCommentPlayer = function() {};
     },
     requestFullScreen: function() {
       FullScreen.request(this._fullScreenNode || this._$parentNode[0]);
+    },
+    canPlay: function() {
+      return this._videoPlayer.canPlay();
     },
     isPlaying: function() {
       return !!this._isPlaying;
@@ -454,9 +468,11 @@ var NicoCommentPlayer = function() {};
         <ul>
           <li data-command="togglePlay">停止/再開</li>
           <li data-command="restart">先頭に戻る</li>
+          <!--
           <li class="loop"        data-command="loop">リピート再生</li>
           <li class="showComment" data-command="showComment">コメントを表示</li>
           <li class="autoPlay"    data-command="autoPlay">自動再生</li>
+          -->
 
           <hr class="separator">
 
@@ -623,6 +639,7 @@ var NicoCommentPlayer = function() {};
     _reset: function() {
       this._$video.removeClass('play pause abort error');
       this._isPlaying = false;
+      this._canPlay = false;
     },
     _initializeEvents: function() {
       this._$video
@@ -703,12 +720,11 @@ var NicoCommentPlayer = function() {};
       this.emit('waiting');
     },
     _onProgress: function() {
-      //console.log('%c_onProgress:', 'background: cyan;', arguments);
-      this.emit('progress');
+      this.emit('progress', this._video.buffered, this._video.currentTime);
     },
     _onDurationChange: function() {
       console.log('%c_onDurationChange:', 'background: cyan;', arguments);
-      this.emit('durationChange');
+      this.emit('durationChange', this._video.duration);
     },
     _onResize: function() {
       console.log('%c_onResize:', 'background: cyan;', arguments);
@@ -844,6 +860,9 @@ var NicoCommentPlayer = function() {};
         this._video.currentTime = sec;
         this.emit('seek', this._video.currentTime);
       }
+    },
+    getDuration: function() {
+      return this._video.duration;
     },
     togglePlay: function() {
       if (this._isPlaying) {

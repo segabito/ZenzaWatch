@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
+var __css__ = '';
 var PlayerSession = {};
 var Config = {};
 var NicoComment = {};

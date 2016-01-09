@@ -13,6 +13,7 @@ var NicoVideoPlayer = function() {};
 var MessageApiLoader = function() {};
 var AsyncEmitter = function() {};
 var VideoControlBar = function() {};
+var VideoInfoModel = function() {};
 
 //===BEGIN===
 
@@ -195,12 +196,28 @@ var VideoControlBar = function() {};
     }
 
 
-    .fullScreen .videoPlayer,
-    .fullScreen .commentLayerFrame {
+    .zenzaScreenMode_wide .videoPlayer,
+    .zenzaScreenMode_wide .commentLayerFrame,
+    .fullScreen           .videoPlayer,
+    .fullScreen           .commentLayerFrame {
       top:  0 !important;
       left: 0 !important;
       width:  100% !important;
       height: 100% !important;
+      right:  0 !important;
+      bottom: 0 !important;
+      border: 0 !important;
+      z-index: 100 !important;
+    }
+
+    .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
+    .zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
+    .fullScreen           .showVideoControlBar .videoPlayer,
+    .fullScreen           .showVideoControlBar .commentLayerFrame {
+      top:  0 !important;
+      left: 0 !important;
+      width:  100% !important;
+      height: calc(100% - 40px) !important;
       right:  0 !important;
       bottom: 0 !important;
       border: 0 !important;
@@ -432,6 +449,8 @@ var VideoControlBar = function() {};
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
 
+      this._aspectRatio = 9 / 16;
+
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
@@ -478,23 +497,6 @@ var VideoControlBar = function() {};
         playerConfig: this._playerConfig
       });
       this._hoverMenu.on('command', $.proxy(this._onCommand, this));
-//      this._hoverMenu.on('volume', $.proxy(function(vol) {
-//        this.setVolume(vol);
-//      }, this));
-//      this._hoverMenu.on('fullScreen', $.proxy(function() {
-//        this._nicoVideoPlayer.toggleFullScreen();
-//      }, this));
-//      this._hoverMenu.on('deflistAdd', $.proxy(this._onDeflistAdd, this));
-//      this._hoverMenu.on('mylistAdd',  $.proxy(this._onMylistAdd, this));
-//      this._hoverMenu.on('mylistWindow',  $.proxy(function() {
-//        window.open(
-//         '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-//         'mylist_add',
-//         'width=450, height=340, menubar=no, scrollbars=no');
-//      },this));
-//      this._hoverMenu.on('settingPanel', $.proxy(function() {
-//        this._settingPanel.toggle();
-//      }, this));
 
       this._commentInput = new CommentInputPanel({
         $playerContainer: this._$playerContainer,
@@ -534,8 +536,34 @@ var VideoControlBar = function() {};
       });
       this._videoControlbar.on('command', $.proxy(this._onCommand, this));
 
-
+      this._initializeResponsive();
       $('body').append($dialog);
+    },
+    _initializeResponsive: function() {
+      $(window).on('resize', _.debounce($.proxy(this._updateResponsive, this),  500));
+    },
+    _updateResponsive: function() {
+      var $w = $(window);
+      var self = this;
+      var $container = self._$playerContainer;
+      var $bar    = $container.find('.videoControlBar');
+      var $header = $container.find('.zenzaWatchVideoHeaderPanel');
+
+      // 画面の縦幅にシークバー分の余裕がある時は常時表示
+      var update = function() {
+        var w = $w.innerWidth(), h = $w.innerHeight();
+        var videoControlBarHeight = $bar.outerHeight();
+        var vMargin = h - w * self._aspectRatio;
+        //var hMargin = w - h / self._aspectRatio;
+
+        $container
+          .toggleClass('showVideoControlBar',
+            vMargin >= videoControlBarHeight)
+          .toggleClass('showVideoHeaderPanel',
+            vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
+      };
+
+      update();
     },
     execCommand: function(command, param) {
       this._onCommand(command, param);
@@ -569,7 +597,7 @@ var VideoControlBar = function() {};
         case 'mylistWindow':
           window.open(
            '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-           'mylist_add',
+           'nicomylistadd',
            'width=450, height=340, menubar=no, scrollbars=no');
           break;
         case 'settingPanel':
@@ -802,6 +830,7 @@ var VideoControlBar = function() {};
         nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
         nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
         nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
+        nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
         nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
 
         nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
@@ -968,6 +997,9 @@ var VideoControlBar = function() {};
       this._$playerContainer.addClass('stalled');
       this.emit('stalled');
     },
+    _onVideoProgress: function(range, currentTime) {
+      this.emit('progress', range, currentTime);
+    },
     _onVideoError: function() {
       this._$playerContainer.addClass('error');
       this._$playerContainer.removeClass('playing loading');
@@ -979,6 +1011,8 @@ var VideoControlBar = function() {};
       this.emit('abort');
     },
     _onVideoAspectRatioFix: function(ratio) {
+      this._aspectRatio = ratio;
+      this._updateResponsive();
       this.emit('aspectRatioFix', ratio);
     },
     _onVideoEnded: function() {
@@ -1076,6 +1110,14 @@ var VideoControlBar = function() {};
         _onSuccess,
         _onFail
       );
+    },
+    getDuration: function() {
+      // 動画がプレイ可能≒メタデータパース済みの時はそちらの方が信頼できる
+      if (this._nicoVideoPlayer.canPlay()) {
+        return this._nicoVideoPlayer.getDuration();
+      } else {
+        return this._videoInfo.getDuration();
+      }
     },
     getBufferedRange: function() {
       return this._nicoVideoPlayer.getBufferedRange();
@@ -3401,17 +3443,9 @@ var VideoControlBar = function() {};
       color: #ccc;
     }
 
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel
-    {
+    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel,
+    .fullScreen           .zenzaWatchVideoHeaderPanel {
       top: 0px;
-      bottom: auto;
-      background: rgba(0, 0, 0, 0.5);
-      opacity: 0;
-      box-shadow: none;
-    }
-
-    .fullScreen .zenzaWatchVideoHeaderPanel {
-      top: 0;
       bottom: auto;
       background: rgba(0, 0, 0, 0.5);
       opacity: 0;
@@ -3424,13 +3458,15 @@ var VideoControlBar = function() {};
       opacity: 0.5;
     }
 
+    .zenzaScreenMode_wide .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
+    .fullScreen           .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover,
     .fullScreen           .zenzaWatchVideoHeaderPanel:hover {
       opacity: 1;
     }
 
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTagsContainer,
-    .fullScreen .zenzaWatchVideoHeaderPanel .videoTagsContainer {
+    .fullScreen           .zenzaWatchVideoHeaderPanel .videoTagsContainer {
       display: none;
     }
 

@@ -80,6 +80,11 @@ var AsyncEmitter = function() {};
       opacity: 0.7;
       background: rgba(0, 0, 0, 0.5);
     }
+    .zenzaScreenMode_wide .showVideoControlBar .videoControlBar,
+    .fullScreen           .showVideoControlBar .videoControlBar {
+      opacity: 1 !important;
+      background: #000 !important;
+    }
 
     .stalled .videoControlBar {
       opacity: 0.7;
@@ -95,15 +100,40 @@ var AsyncEmitter = function() {};
       background: rgba(0, 0, 0, 0.9);
     }
 
-    .controlButton {
+    .controlItemContainer.center {
       position: absolute;
+      top: 10px;
+      left: 50%;
+      height: 40px;
+      transform: translate(-50%, 0);
+      background: #222;
+    }
+
+    .controlButton {
+      display: inline-block;
       transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
       box-sizing: border-box;
       text-align: center;
       cursor: pointer;
       pointer-events: none;
+      color: #fff;
       opacity: 0.8;
+      margin-right: 8px;
+      {*border: 1px solid #ccc;
+      border-radius: 8px;*}
     }
+    .controlButton:hover {
+      text-shadow: 0 0 8px #ff9;
+      cursor: pointer;
+      opacity: 1;
+    }
+    .abort   .playControl,
+    .error   .playControl,
+    .loading .playControl {
+      opacity: 0.4 !important;
+      pointer-events: none;
+    }
+
 
     .controlButton .tooltip {
       display: none;
@@ -121,27 +151,26 @@ var AsyncEmitter = function() {};
       text-shadow: none;
       white-space: nowrap;
       z-index: 100;
+      opacity: 0.8;
     }
     .controlButton:hover .tooltip {
       display: block;
       opacity: 1;
     }
     .videoControlBar:hover .controlButton {
+      opacity: 1;
       pointer-events: auto;
     }
-    .mouseMoving .controlButton {
+    {*    .mouseMoving .controlButton {
       background: rgba(0xcc, 0xcc, 0xcc, 0.5);
     }
     .mouseMoving  .controlButtonInner {
       word-break: normal;
-    }
+    }*}
 
-    .controlButton:hover {
-      cursor: pointer;
-      opacity: 1;
-    }
 
     .settingPanelSwitch {
+      position: absolute;
       right: 8px;
       top: 10px;
       color: #fff;
@@ -160,40 +189,40 @@ var AsyncEmitter = function() {};
     }
 
 
+    .controlButtoncontainer {
+      position: absolute;
+    }
 
+
+    .seekTop {
+      left: 0px;
+      font-size: 20px;
+      width: 32px;
+      height: 32px;
+      line-height: 30px;
+    }
+    .seekTop .controlButtonInner{
+      letter-spacing: -10px;
+    }
+    .seekTop:active {
+      font-size: 15px;
+    }
 
     .togglePlay {
-      position: absolute;
-      left: 8px;
-      top: 10px;
+      left: 40px;
       font-size: 20px;
       width: 32px;
       height: 32px;
       line-height: 30px;
       box-sizing: border-box;
-      cursor: pointer;
-      color: #fff;
-      text-align: center;
-      pointer-events: none;
       transition: font-size 0.2s ease;
     }
     .togglePlay:active {
       font-size: 15px;
     }
-    .stalled .togglePlay,
-    .mouseMoving .togglePlay {
+    .stalled .playControl,
+    .mouseMoving .playControl {
       opacity: 1;
-    }
-    .videoControlBar:hover .togglePlay {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .abort   .togglePlay,
-    .error   .togglePlay,
-    .loading .togglePlay {
-      opacity: 0;
-      pointer-events: none;
     }
 
     .togglePlay .pause,
@@ -201,21 +230,12 @@ var AsyncEmitter = function() {};
       display: none;
     }
 
-    .togglePlay .pause {
+    .togglePlay>.pause {
       transform: rotate(90deg);
     }
 
     .playing .togglePlay .pause {
       display: block;
-    }
-
-    .togglePlay:hover {
-      text-shadow: 0 0 8px #ff9;
-    }
-
-    .zenzaScreenMode_wide .togglePlay,
-    .fullScreen           .togglePlay {
-      color: #fff;
     }
 
     .seekBarContainer {
@@ -281,17 +301,15 @@ var AsyncEmitter = function() {};
     }
 
     .videoControlBar .videoTime {
-      position: absolute;
       display: inline-block;
-      min-width: 96px;
-      left: 64px;
-      top: 10px;
+      top: 0;
+      padding: 0 8px;
       height: 32px;
       line-height: 32px;
       color: #fff;
       font-size: 10px;
       white-space: nowrap;
-      background: #000;
+      background: rgba(33, 33, 33, 0.5);
       border-radius: 4px;
       text-align: center;
     }
@@ -329,17 +347,28 @@ var AsyncEmitter = function() {};
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoControlBar">
-      <div class="controlButtonContainer left">
-        <div class="togglePlay controlButton" data-command="togglePlay">
+      <div class="controlItemContainer center">
+        <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
+          <div class="controlButtonInner">&#9475;&#9666;&#9666;</div>
+          <div class="tooltip">先頭</div>
+        </div>
+
+        <div class="togglePlay controlButton playControl" data-command="togglePlay">
           <span class="play">▶</span>
           <span class="pause">&#12307;</span>
+          <div class="tooltip">
+            <span class="play">再生</span>
+            <span class="pause">一時停止</span>
+          </div>
+        </div>
+
+        <div class="videoTime">
+          <span class="currentTime"></span> /
+          <span class="duration"></span>
         </div>
       </div>
 
-      <div class="videoTime">
-        <span class="currentTime"></span> /
-        <span class="duration"></span>
-      </div>
+
       <div class="seekBarContainer">
         <div class="seekBar">
           <div class="tooltip"></div>
@@ -362,9 +391,12 @@ var AsyncEmitter = function() {};
       this._$playerContainer    = params.$playerContainer;
       var player = this._player = params.player;
 
-      player.on('open',          $.proxy(this._onPlayerOpen,  this));
-      player.on('close',         $.proxy(this._onPlayerClose, this));
-      player.on('loadVideoInfo', $.proxy(this._onLoadVideoInfo, this));
+      player.on('open',           $.proxy(this._onPlayerOpen, this));
+      player.on('canPlay',        $.proxy(this._onPlayerCanPlay, this));
+      player.on('durationChange', $.proxy(this._onPlayerDurationChange, this));
+      player.on('close',          $.proxy(this._onPlayerClose, this));
+      player.on('progress',       $.proxy(this._onPlayerProgress, this));
+      player.on('loadVideoInfo',  $.proxy(this._onLoadVideoInfo, this));
 
       this._initializeDom();
     },
@@ -402,11 +434,6 @@ var AsyncEmitter = function() {};
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
     },
-    _onPlayerOpen: function() {
-      this._startTimer();
-      this.setCurrentTime(0);
-      this.setBufferedRange(null);
-    },
     _posToTime: function(pos) {
       var width = this._$seekBar.innerWidth();
       return this._duration * (pos / Math.max(width, 1));
@@ -417,11 +444,27 @@ var AsyncEmitter = function() {};
     _timeToPer: function(time) {
       return (time / Math.max(this._duration, 1)) * 100;
     },
+    _onPlayerOpen: function() {
+      this._startTimer();
+      this.setDuration(0);
+      this.setCurrentTime(0);
+      this.resetBufferedRange();
+    },
+    _onPlayerCanPlay: function() {
+      // TODO: 動画のメタデータ解析後に動画長情報が変わることがあるので、
+      // そこで情報を更新する
+      this.setDuration(this._player.getDuration());
+    },
+    _onPlayerDurationChange: function() {
+    },
     _onPlayerClose: function() {
       this._stopTimer();
     },
+    _onPlayerProgress: function(range, currentTime) {
+      this.setBufferedRange(range, currentTime);
+    },
     _startTimer: function() {
-      this._timer = window.setInterval($.proxy(this._onTimer, this), 500);
+      this._timer = window.setInterval($.proxy(this._onTimer, this), 100);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -491,30 +534,41 @@ var AsyncEmitter = function() {};
       var player = this._player;
       var currentTime = player.getCurrentTime();
       this.setCurrentTime(currentTime);
-      this.setBufferedRange(player.getBufferedRange(), currentTime);
     },
     _onLoadVideoInfo: function(videoInfo) {
       this.setDuration(videoInfo.getDuration());
     },
     setCurrentTime: function(sec) {
+      if (this._currentTime !== sec) {
+        this._currentTime = sec;
 
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      this._$currentTime.text([m, s].join(':'));
-
-      this._$seekBarPointer.css('left', Math.min(100, this._timeToPer(sec)) + '%');
+        var m = Math.floor(sec / 60);
+        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+        var currentTimeText = [m, s].join(':');
+        if (this._currentTimeText !== currentTimeText) {
+          this._currentTimeText = currentTimeText;
+          this._$currentTime.text(currentTimeText);
+        }
+        this._$seekBarPointer.css('left', Math.min(100, this._timeToPer(sec)) + '%');
+      }
     },
     setDuration: function(sec) {
-      this._duration = sec;
+      if (sec !== this._duration) {
+        this._duration = sec;
 
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      this._$duration.text([m, s].join(':'));
+        if (sec === 0) {
+          this._$duration.text('--:--');
+        }
+        var m = Math.floor(sec / 60);
+        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+        this._$duration.text([m, s].join(':'));
+        this.emit('durationChange');
+      }
     },
     setBufferedRange: function(range, currentTime) {
       var $range = this._$bufferRange;
-      if (!range || range.length < 1) {
-        $range.css({left: 0, width: 0});
+      if (!range || !range.length) {
+        return;
       }
       for (var i = 0, len = range.length; i < len; i++) {
         try {
@@ -522,15 +576,25 @@ var AsyncEmitter = function() {};
           var end   = range.end(i);
           var width = end - start;
           if (start <= currentTime && end >= currentTime) {
-            $range.css({
-              left: this._timeToPer(start) + '%',
-              width: this._timeToPer(width) + '%'
-            });
+            if (this._bufferStart !== start ||
+                this._bufferEnd   !== end) {
+              $range.css({
+                left: this._timeToPer(start) + '%',
+                width: this._timeToPer(width) + '%' //TODO: 100%を突き抜けないようにする
+              });
+              this._bufferStart = start;
+              this._bufferEnd   = end;
+            }
             break;
           }
         } catch (e) {
         }
       }
+    },
+    resetBufferedRange: function() {
+      this._buffferStart = 0;
+      this._buffferEnd = 0;
+      this._$bufferRange.css({left: 0, width: 0});
     }
   });
 
