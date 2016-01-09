@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.7.4
+// @version        0.7.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -26,11 +26,12 @@ var monkey = function() {
         hereDoc: function(func) { // えせヒアドキュメント
           return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/');
         },
-        callAsync: function(func, self) {
+        callAsync: function(func, self, delay) {
+          delay = delay || 0;
           if (self) {
-            window.setTimeout($.proxy(func, self), 0);
+            window.setTimeout($.proxy(func, self), delay);
           } else {
-            window.setTimeout(func, 0);
+            window.setTimeout(func, delay);
           }
         }
       }
@@ -185,7 +186,7 @@ var monkey = function() {
       // ZenzaWatch.config.setValue('hogehoge' fugafuga);
       var defaultConfig = {
         debug: false,
-        volume:       0.1,
+        volume:       0.3,
         forceEnable:  false,
         showComment:  true,
         autoPlay:     true,
@@ -198,6 +199,7 @@ var monkey = function() {
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
+        enablePushState: true,     // ブラウザの履歴に乗せる
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -327,6 +329,17 @@ var monkey = function() {
           color: #fff;
         }
 
+        .ginzaSlayer #nicoplayerContainer {
+          background: #888;
+          border: 1px inset;
+        }
+        body.ginzaSlayer.content-fix.size_small.no_setting_panel.videoExplorer #playlist {
+          position: fixed;
+          right: 0;
+          left: 400px;
+          top: 0;
+          min-width: auto;
+        }
 
         {* できれば広告に干渉したくないけど仕方なく *}
         div[data-follow-container] {
@@ -745,6 +758,58 @@ var monkey = function() {
       return asyncEmitter;
     })();
 
+    /**
+     *  pushStateを使ってブラウザバックの履歴に載せようと思ったけど、
+     *  あらゆるページに寄生するシステムの都合上断念。
+     *  とりあえず既読リンクの色が変わるようにだけする
+     */
+    var WatchPageState = (function(config) {
+      var isOpen = false;
+      var originalUrl;
+      var dialog;
+
+      var onDialogOpen = function(watchId, options) {
+        var state = {
+          zenza: true,
+          watchId: watchId,
+          options: options,
+          originalUrl: originalUrl
+        };
+        window.history.replaceState(
+          state,
+          null,
+          '/watch/' + watchId // + '#' + originalUrl
+        );
+
+        // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
+        // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
+        ZenzaWatch.util.callAsync(function() {
+          if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+            return;
+          }
+          window.history.replaceState(null, null, originalUrl);
+        });
+        isOpen = true;
+      };
+
+      var initialize = function(_dialog) {
+        initialize = _.noop;
+        dialog = _dialog;
+        if (!config.getValue('enablePushState')) {
+          return;
+        }
+
+        originalUrl = location.href;
+        
+        dialog.on('open', onDialogOpen);
+        //dialog.on('close', onDialogClose);
+      };
+
+      return {
+        initialize: initialize
+      };
+    })(Config);
+
     var getWatchId = function(url) {
       /\/?watch\/([a-z0-9]+)/.test(url || location.pathname);
       return RegExp.$1;
@@ -803,6 +868,20 @@ var monkey = function() {
     };
     ZenzaWatch.util.ajax = ajax;
 
+    var openMylistWindow = function(watchId) {
+      window.open(
+       '//www.nicovideo.jp/mylist_add/video/' + watchId,
+       'nicomylistadd',
+       'width=500, height=400, menubar=no, scrollbars=no');
+    };
+    ZenzaWatch.util.openMylistWindow = openMylistWindow;
+
+    var isGinzaWatchUrl = function(url) {
+      url = url || location.href;
+      return /^https?:\/\/www.nicovideo.jp\/watch\//.test(url);
+    };
+    ZenzaWatch.util.isGinzaWatchUrl = isGinzaWatchUrl;
+
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
 
@@ -817,7 +896,6 @@ var monkey = function() {
             e.target.tagName === 'TEXTAREA') {
           return;
         }
-        var target = e.target;
         var key = '';
         var param = '';
         switch (e.keyCode) {
@@ -2941,16 +3019,17 @@ var monkey = function() {
 
     .seekTop {
       left: 0px;
-      font-size: 20px;
+      font-size: 23px;
       width: 32px;
       height: 32px;
+      margin-top: -2px;
       line-height: 30px;
     }
     .seekTop .controlButtonInner{
-      letter-spacing: -10px;
+      {*letter-spacing: -10px;*}
     }
     .seekTop:active {
-      font-size: 15px;
+      font-size: 18px;
     }
 
     .togglePlay {
@@ -2965,10 +3044,6 @@ var monkey = function() {
     .togglePlay:active {
       font-size: 15px;
     }
-    .stalled .playControl,
-    .mouseMoving .playControl {
-      opacity: 1;
-    }
 
     .togglePlay .pause,
     .playing .togglePlay .play {
@@ -2976,11 +3051,15 @@ var monkey = function() {
     }
 
     .togglePlay>.pause {
-      transform: rotate(90deg);
+      {*transform: rotate(90deg);*}
+      letter-spacing: -10px;
     }
 
     .playing .togglePlay .pause {
       display: block;
+    }
+    .togglePlay .tooltip {
+      left: 48px;
     }
 
     .seekBarContainer {
@@ -3094,13 +3173,13 @@ var monkey = function() {
     <div class="videoControlBar">
       <div class="controlItemContainer center">
         <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
-          <div class="controlButtonInner">&#9475;&#9666;&#9666;</div>
+          <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
           <div class="tooltip">先頭</div>
         </div>
 
         <div class="togglePlay controlButton playControl" data-command="togglePlay">
           <span class="play">▶</span>
-          <span class="pause">&#12307;</span>
+          <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
           <div class="tooltip">
             <span class="play">再生</span>
             <span class="pause">一時停止</span>
@@ -3384,13 +3463,10 @@ var monkey = function() {
    *  console.log(ZenzaWatch.debug.css3Player.toString())*
    */
   var NicoCommentPlayer = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoCommentPlayer.prototype, AsyncEmitter.prototype);
+
   _.assign(NicoCommentPlayer.prototype, {
     initialize: function(params) {
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
-      
       this._offScreen = params.offScreenLayer;
 
       this._model     = new NicoComment(params);
@@ -3492,6 +3568,9 @@ var monkey = function() {
     getSharedNgLevel: function() {
       return this._model.getSharedNgLevel();
     },
+    getAllComment: function() {
+      return this._model.getAllcomment();
+    },
     toString: function() {
       return this._viewModel.toString();
     }
@@ -3564,6 +3643,13 @@ var monkey = function() {
       console.log('normal: ', this._normalGroup.getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('setXml');
+    },
+    getAllComment: function() {
+      return {
+        top:    this._topGroup   .getNonFilteredMembers(),
+        normal: this._normalGroup.getNonFilteredMembers(),
+        bottom: this._bottomGroup.getNonFilteredMembers()
+      };
     },
     addChat: function(nicoChat) {
       if (nicoChat.isDeleted()) { return; }
@@ -4593,35 +4679,35 @@ var monkey = function() {
           case NicoChat.SIZE.BIG:
             lineHeight = (isEnder || lc <= 2) ? lineHeight : 24;
             margin     = (isEnder || lc <= 2) ? margin : 3;
-            //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3)) - 1;
+            //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3));
             break;
           default:
             lineHeight = (isEnder || lc <= 4) ? lineHeight : 15;
             margin     = (isEnder || lc <= 4) ? margin : 3;
-            //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3)) - 1;
+            //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3));
             break;
           case NicoChat.SIZE.SMALL:
             lineHeight = (isEnder || lc <= 6) ? lineHeight : 10;
             margin     = (isEnder || lc <= 6) ? margin : 3;
-            //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3)) - 1;
+            //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3));
             break;
         }
       } else if (this._scale === 0.5) {
         switch (size) {
-          case NicoChat.SIZE.BIG: // 16行 = (24 * 16 + 3 - 1) = 386
+          case NicoChat.SIZE.BIG: // 16行 = (24 * 16 + 3) = 387
             lineHeight = 24;
             margin     = 3;
-            //return (24 * lc + 3) - 1;
+            //return (24 * lc + 3);
             break;
           default:
             lineHeight = 15;
             margin     = 3;
-            //return (15 * lc + 3) - 1;
+            //return (15 * lc + 3);
             break;
           case NicoChat.SIZE.SMALL:
             lineHeight = 10;
             margin     = 3;
-            //return (10 * lc + 3) - 1;
+            //return (10 * lc + 3);
             break;
         }
       } else if (this._scale !== 1.0) {
@@ -4693,9 +4779,9 @@ var monkey = function() {
       // BOTTOMの時だけy座標を画面の下端に合わせる
       // 内部的には0 originで表示の際に下から詰むだけでもいいような気がしてきた。
       if (this._type === NicoChat.TYPE.BOTTOM) {
-        var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
-        var outerHeight = this._height + margin;
-        this._y = screenHeight - outerHeight;
+        //var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
+        //var outerHeight = this._height + margin;
+        this._y = screenHeight - this._height;
       }
 
     },
@@ -5276,6 +5362,7 @@ iframe {
           self.pause();
         }
 
+        //ZenzaWatch.util.callAsync(self._adjust, this, 1000);
         window.console.timeEnd('initialize NicoCommentCss3PlayerView');
       };
 
@@ -5659,7 +5746,7 @@ iframe {
       $node.append(this._view);
 
       // リサイズイベントを発動させる。 バッドノウハウ的
-      //window.setTimeout(function() { $view.css({width: ''}); }, 1000);
+      //ZenzaWatch.util.callAsync(this._adjust, this, 1000);
     },
     /**
      * toStringで、コメントを静的なCSS3アニメーションHTMLとして出力する。
@@ -5807,19 +5894,6 @@ iframe {
       z-index: 1;
     }
 
-    {* 面白いけど、ちょっとないわー *}
-    {*
-    .zenzaScreenMode_sideView  .zenzaPlayerContainer.backComment .commentLayerFrame {
-      top:   0;
-      left:  400px;
-      width: calc(100vw - 400px);
-      height: 100vh;
-      right: auto;
-      bottom: auto;
-      z-index: 1;
-    }
-    *}
-
     .mouseMoving .commentLayerFrame {
       {* height: calc(100% - 50px); *}
       cursor: auto;
@@ -5852,8 +5926,8 @@ iframe {
     }
 
 
-    .zenzaScreenMode_wide .videoPlayer,
-    .zenzaScreenMode_wide .commentLayerFrame,
+    {*    .zenzaScreenMode_wide .videoPlayer,
+    .zenzaScreenMode_wide .commentLayerFrame,*}
     .fullScreen           .videoPlayer,
     .fullScreen           .commentLayerFrame {
       top:  0 !important;
@@ -5875,7 +5949,7 @@ iframe {
       width:  100% !important;
       height: calc(100% - 40px) !important;
       right:  0 !important;
-      bottom: 0 !important;
+      bottom: 40px !important;
       border: 0 !important;
       z-index: 100 !important;
     }
@@ -6195,6 +6269,48 @@ iframe {
       this._initializeResponsive();
       $('body').append($dialog);
     },
+    _initializeNicoVideoPlayer: function() {
+      if (this._nicoVideoPlayer) {
+        return this._nicoVideoPlayer();
+      }
+      var nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
+        offScreenLayer: this._offScreenLayer,
+        node: this._$playerContainer,
+        volume: Config.getValue('volume'),
+        loop: Config.getValue('loop'),
+        playerConfig: Config
+      });
+
+      this._messageApiLoader = new MessageApiLoader();
+
+      window.setTimeout($.proxy(function() {
+        this._videoInfoPanel = new VideoInfoPanel({
+          dialog: this,
+          player: nicoVideoPlayer,
+          node: this._$playerContainer
+        });
+      }, this), 0);
+
+      nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
+      nicoVideoPlayer.on('ended',          $.proxy(this._onVideoEnded,     this));
+      nicoVideoPlayer.on('canPlay',        $.proxy(this._onVideoCanPlay,   this));
+      nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
+      nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
+      nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
+      nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
+      nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
+      nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
+
+      nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
+      nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
+
+      nicoVideoPlayer.on('volumeChange',
+        $.proxy(this._onVolumeChange, this));
+      nicoVideoPlayer.on('volumeChange',
+        _.debounce($.proxy(this._onVolumeChangeEnd, this), 1500));
+
+      return nicoVideoPlayer;
+    },
     _initializeResponsive: function() {
       $(window).on('resize', _.debounce($.proxy(this._updateResponsive, this),  500));
     },
@@ -6251,10 +6367,7 @@ iframe {
           this._onMylistAdd(param.mylistId, param.mylistName);
           break;
         case 'mylistWindow':
-          window.open(
-           '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-           'nicomylistadd',
-           'width=450, height=340, menubar=no, scrollbars=no');
+          ZenzaWatch.util.openMylistWindow(this._videoInfo.getWatchId());
           break;
         case 'settingPanel':
           this._settingPanel.toggle();
@@ -6461,41 +6574,7 @@ iframe {
 
       var nicoVideoPlayer = this._nicoVideoPlayer;
       if (!nicoVideoPlayer) {
-        this._nicoVideoPlayer = nicoVideoPlayer = new NicoVideoPlayer({
-          offScreenLayer: this._offScreenLayer,
-          node: this._$playerContainer,
-          volume: Config.getValue('volume'),
-          loop: Config.getValue('loop'),
-          playerConfig: Config
-        });
-
-        this._messageApiLoader = new MessageApiLoader();
-
-        window.setTimeout($.proxy(function() {
-          this._videoInfoPanel = new VideoInfoPanel({
-            dialog: this,
-            player: nicoVideoPlayer,
-            node: this._$playerContainer
-          });
-        }, this), 0);
-
-        nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
-        nicoVideoPlayer.on('ended',          $.proxy(this._onVideoEnded,     this));
-        nicoVideoPlayer.on('canPlay',        $.proxy(this._onVideoCanPlay,   this));
-        nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
-        nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
-        nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
-        nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
-        nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
-        nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
-
-        nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
-        nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
-
-        nicoVideoPlayer.on('volumeChange',
-          $.proxy(this._onVolumeChange, this));
-        nicoVideoPlayer.on('volumeChange',
-          _.debounce($.proxy(this._onVolumeChangeEnd, this), 1500));
+        nicoVideoPlayer = this._initializeNicoVideoPlayer();
       } else {
         nicoVideoPlayer.close();
         this._videoInfoPanel.clear();
@@ -6525,8 +6604,8 @@ iframe {
       if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
         nicoVideoPlayer.requestFullScreen();
       }
-      this.emit('open');
-      ZenzaWatch.emitter.emitAsync('DialogPlayerOpen');
+      this.emit('open', watchId, options);
+      ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
     },
     getCurrentTime: function() {
       if (!this._nicoVideoPlayer) {
@@ -6686,6 +6765,11 @@ iframe {
     },
     close: function() {
       this.hide();
+      this._refresh();
+      this.emit('close');
+      ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
+    },
+    _refresh: function() {
       if (this._nicoVideoPlayer) {
         this._nicoVideoPlayer.close();
       }
@@ -6693,9 +6777,6 @@ iframe {
         VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
         this._onVideoInfoLoaderLoad_proxy = null;
       }
-
-      this.emit('close');
-      ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
     },
     play: function() {
       if (this._nicoVideoPlayer) {
@@ -8673,7 +8754,7 @@ iframe {
       padding: 2px;
     }
     .zenzaWatchVideoInfoPanel .videoDescription a:visited {
-      color: #ffc;
+      color: #ffd;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription .watch {
@@ -9225,7 +9306,7 @@ iframe {
         </span>
 
         <span class="countOuter">
-          <span class="column">再生数:     <span class="count viewCount"></span></span>
+          <span class="column">再生:       <span class="count viewCount"></span></span>
           <span class="column">コメント:   <span class="count commentCount"></span></span>
           <span class="column">マイリスト: <span class="count mylistCount"></span></span>
         </span>
@@ -9276,11 +9357,13 @@ iframe {
       this._$ginzaLink.attr('href', link);
       this._$ginzaLink.attr('data-ginzawatch', link);
 
-      // TODO: カンマつける
       var count = videoInfo.getCount();
-      this._$viewCount    .text(count.view);
-      this._$commentCount .text(count.comment);
-      this._$mylistCount  .text(count.mylist);
+      var addComma = function(m) {
+        return m.toLocaleString ? m.toLocaleString() : m;
+      };
+      this._$viewCount    .text(addComma(count.view));
+      this._$commentCount .text(addComma(count.comment));
+      this._$mylistCount  .text(addComma(count.mylist));
 
       this._updateTags(videoInfo.getTagList());
 
@@ -9364,6 +9447,8 @@ iframe {
       initialize = _.noop;
       ZenzaWatch.util.addStyle(__css__);
 
+      var isGinza = ZenzaWatch.util.isGinzaWatchUrl();
+
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
       }
@@ -9377,7 +9462,7 @@ iframe {
         var dialog;
 
         // watchページか？
-        if (location.href.match('\/www.nicovideo.jp\/watch\/')) {
+        if (isGinza) {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
             if (!ZenzaWatch.util.hasFlashPlayer()) {
@@ -9402,7 +9487,9 @@ iframe {
           dialog.open(packet.watchId);
         });
 
-        if (location.href.match('\/www.nicovideo.jp\/watch\/')) {
+        WatchPageState.initialize(dialog);
+
+        if (isGinza) {
           return;
         }
 
@@ -9472,6 +9559,7 @@ iframe {
 
     var initializeGinzaSlayer = function(dialog) {
       $('.notify_update_flash_player').remove();
+      $('body').addClass('ginzaSlayer');
 
       dialog.open(getWatchId());
     };

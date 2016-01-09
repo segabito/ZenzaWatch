@@ -151,19 +151,6 @@ var VideoInfoModel = function() {};
       z-index: 1;
     }
 
-    {* 面白いけど、ちょっとないわー *}
-    {*
-    .zenzaScreenMode_sideView  .zenzaPlayerContainer.backComment .commentLayerFrame {
-      top:   0;
-      left:  400px;
-      width: calc(100vw - 400px);
-      height: 100vh;
-      right: auto;
-      bottom: auto;
-      z-index: 1;
-    }
-    *}
-
     .mouseMoving .commentLayerFrame {
       {* height: calc(100% - 50px); *}
       cursor: auto;
@@ -196,8 +183,8 @@ var VideoInfoModel = function() {};
     }
 
 
-    .zenzaScreenMode_wide .videoPlayer,
-    .zenzaScreenMode_wide .commentLayerFrame,
+    {*    .zenzaScreenMode_wide .videoPlayer,
+    .zenzaScreenMode_wide .commentLayerFrame,*}
     .fullScreen           .videoPlayer,
     .fullScreen           .commentLayerFrame {
       top:  0 !important;
@@ -219,7 +206,7 @@ var VideoInfoModel = function() {};
       width:  100% !important;
       height: calc(100% - 40px) !important;
       right:  0 !important;
-      bottom: 0 !important;
+      bottom: 40px !important;
       border: 0 !important;
       z-index: 100 !important;
     }
@@ -539,6 +526,48 @@ var VideoInfoModel = function() {};
       this._initializeResponsive();
       $('body').append($dialog);
     },
+    _initializeNicoVideoPlayer: function() {
+      if (this._nicoVideoPlayer) {
+        return this._nicoVideoPlayer();
+      }
+      var nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
+        offScreenLayer: this._offScreenLayer,
+        node: this._$playerContainer,
+        volume: Config.getValue('volume'),
+        loop: Config.getValue('loop'),
+        playerConfig: Config
+      });
+
+      this._messageApiLoader = new MessageApiLoader();
+
+      window.setTimeout($.proxy(function() {
+        this._videoInfoPanel = new VideoInfoPanel({
+          dialog: this,
+          player: nicoVideoPlayer,
+          node: this._$playerContainer
+        });
+      }, this), 0);
+
+      nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
+      nicoVideoPlayer.on('ended',          $.proxy(this._onVideoEnded,     this));
+      nicoVideoPlayer.on('canPlay',        $.proxy(this._onVideoCanPlay,   this));
+      nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
+      nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
+      nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
+      nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
+      nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
+      nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
+
+      nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
+      nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
+
+      nicoVideoPlayer.on('volumeChange',
+        $.proxy(this._onVolumeChange, this));
+      nicoVideoPlayer.on('volumeChange',
+        _.debounce($.proxy(this._onVolumeChangeEnd, this), 1500));
+
+      return nicoVideoPlayer;
+    },
     _initializeResponsive: function() {
       $(window).on('resize', _.debounce($.proxy(this._updateResponsive, this),  500));
     },
@@ -595,10 +624,7 @@ var VideoInfoModel = function() {};
           this._onMylistAdd(param.mylistId, param.mylistName);
           break;
         case 'mylistWindow':
-          window.open(
-           '//www.nicovideo.jp/mylist_add/video/' + this._videoInfo.getWatchId(),
-           'nicomylistadd',
-           'width=450, height=340, menubar=no, scrollbars=no');
+          ZenzaWatch.util.openMylistWindow(this._videoInfo.getWatchId());
           break;
         case 'settingPanel':
           this._settingPanel.toggle();
@@ -805,41 +831,7 @@ var VideoInfoModel = function() {};
 
       var nicoVideoPlayer = this._nicoVideoPlayer;
       if (!nicoVideoPlayer) {
-        this._nicoVideoPlayer = nicoVideoPlayer = new NicoVideoPlayer({
-          offScreenLayer: this._offScreenLayer,
-          node: this._$playerContainer,
-          volume: Config.getValue('volume'),
-          loop: Config.getValue('loop'),
-          playerConfig: Config
-        });
-
-        this._messageApiLoader = new MessageApiLoader();
-
-        window.setTimeout($.proxy(function() {
-          this._videoInfoPanel = new VideoInfoPanel({
-            dialog: this,
-            player: nicoVideoPlayer,
-            node: this._$playerContainer
-          });
-        }, this), 0);
-
-        nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
-        nicoVideoPlayer.on('ended',          $.proxy(this._onVideoEnded,     this));
-        nicoVideoPlayer.on('canPlay',        $.proxy(this._onVideoCanPlay,   this));
-        nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
-        nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
-        nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
-        nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
-        nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
-        nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
-
-        nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
-        nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
-
-        nicoVideoPlayer.on('volumeChange',
-          $.proxy(this._onVolumeChange, this));
-        nicoVideoPlayer.on('volumeChange',
-          _.debounce($.proxy(this._onVolumeChangeEnd, this), 1500));
+        nicoVideoPlayer = this._initializeNicoVideoPlayer();
       } else {
         nicoVideoPlayer.close();
         this._videoInfoPanel.clear();
@@ -869,8 +861,8 @@ var VideoInfoModel = function() {};
       if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
         nicoVideoPlayer.requestFullScreen();
       }
-      this.emit('open');
-      ZenzaWatch.emitter.emitAsync('DialogPlayerOpen');
+      this.emit('open', watchId, options);
+      ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
     },
     getCurrentTime: function() {
       if (!this._nicoVideoPlayer) {
@@ -1030,6 +1022,11 @@ var VideoInfoModel = function() {};
     },
     close: function() {
       this.hide();
+      this._refresh();
+      this.emit('close');
+      ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
+    },
+    _refresh: function() {
       if (this._nicoVideoPlayer) {
         this._nicoVideoPlayer.close();
       }
@@ -1037,9 +1034,6 @@ var VideoInfoModel = function() {};
         VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
         this._onVideoInfoLoaderLoad_proxy = null;
       }
-
-      this.emit('close');
-      ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
     },
     play: function() {
       if (this._nicoVideoPlayer) {
@@ -3017,7 +3011,7 @@ var VideoInfoModel = function() {};
       padding: 2px;
     }
     .zenzaWatchVideoInfoPanel .videoDescription a:visited {
-      color: #ffc;
+      color: #ffd;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription .watch {
@@ -3569,7 +3563,7 @@ var VideoInfoModel = function() {};
         </span>
 
         <span class="countOuter">
-          <span class="column">再生数:     <span class="count viewCount"></span></span>
+          <span class="column">再生:       <span class="count viewCount"></span></span>
           <span class="column">コメント:   <span class="count commentCount"></span></span>
           <span class="column">マイリスト: <span class="count mylistCount"></span></span>
         </span>
@@ -3620,11 +3614,13 @@ var VideoInfoModel = function() {};
       this._$ginzaLink.attr('href', link);
       this._$ginzaLink.attr('data-ginzawatch', link);
 
-      // TODO: カンマつける
       var count = videoInfo.getCount();
-      this._$viewCount    .text(count.view);
-      this._$commentCount .text(count.comment);
-      this._$mylistCount  .text(count.mylist);
+      var addComma = function(m) {
+        return m.toLocaleString ? m.toLocaleString() : m;
+      };
+      this._$viewCount    .text(addComma(count.view));
+      this._$commentCount .text(addComma(count.comment));
+      this._$mylistCount  .text(addComma(count.mylist));
 
       this._updateTags(videoInfo.getTagList());
 

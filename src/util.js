@@ -154,7 +154,7 @@ var console;
       // ZenzaWatch.config.setValue('hogehoge' fugafuga);
       var defaultConfig = {
         debug: false,
-        volume:       0.1,
+        volume:       0.3,
         forceEnable:  false,
         showComment:  true,
         autoPlay:     true,
@@ -167,6 +167,7 @@ var console;
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
+        enablePushState: true,     // ブラウザの履歴に乗せる
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -296,6 +297,17 @@ var console;
           color: #fff;
         }
 
+        .ginzaSlayer #nicoplayerContainer {
+          background: #888;
+          border: 1px inset;
+        }
+        body.ginzaSlayer.content-fix.size_small.no_setting_panel.videoExplorer #playlist {
+          position: fixed;
+          right: 0;
+          left: 400px;
+          top: 0;
+          min-width: auto;
+        }
 
         {* できれば広告に干渉したくないけど仕方なく *}
         div[data-follow-container] {
@@ -714,6 +726,58 @@ var console;
       return asyncEmitter;
     })();
 
+    /**
+     *  pushStateを使ってブラウザバックの履歴に載せようと思ったけど、
+     *  あらゆるページに寄生するシステムの都合上断念。
+     *  とりあえず既読リンクの色が変わるようにだけする
+     */
+    var WatchPageState = (function(config) {
+      var isOpen = false;
+      var originalUrl;
+      var dialog;
+
+      var onDialogOpen = function(watchId, options) {
+        var state = {
+          zenza: true,
+          watchId: watchId,
+          options: options,
+          originalUrl: originalUrl
+        };
+        window.history.replaceState(
+          state,
+          null,
+          '/watch/' + watchId // + '#' + originalUrl
+        );
+
+        // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
+        // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
+        ZenzaWatch.util.callAsync(function() {
+          if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+            return;
+          }
+          window.history.replaceState(null, null, originalUrl);
+        });
+        isOpen = true;
+      };
+
+      var initialize = function(_dialog) {
+        initialize = _.noop;
+        dialog = _dialog;
+        if (!config.getValue('enablePushState')) {
+          return;
+        }
+
+        originalUrl = location.href;
+        
+        dialog.on('open', onDialogOpen);
+        //dialog.on('close', onDialogClose);
+      };
+
+      return {
+        initialize: initialize
+      };
+    })(Config);
+
     var getWatchId = function(url) {
       /\/?watch\/([a-z0-9]+)/.test(url || location.pathname);
       return RegExp.$1;
@@ -772,6 +836,20 @@ var console;
     };
     ZenzaWatch.util.ajax = ajax;
 
+    var openMylistWindow = function(watchId) {
+      window.open(
+       '//www.nicovideo.jp/mylist_add/video/' + watchId,
+       'nicomylistadd',
+       'width=500, height=400, menubar=no, scrollbars=no');
+    };
+    ZenzaWatch.util.openMylistWindow = openMylistWindow;
+
+    var isGinzaWatchUrl = function(url) {
+      url = url || location.href;
+      return /^https?:\/\/www.nicovideo.jp\/watch\//.test(url);
+    };
+    ZenzaWatch.util.isGinzaWatchUrl = isGinzaWatchUrl;
+
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
 
@@ -786,7 +864,6 @@ var console;
             e.target.tagName === 'TEXTAREA') {
           return;
         }
-        var target = e.target;
         var key = '';
         var param = '';
         switch (e.keyCode) {

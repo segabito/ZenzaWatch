@@ -196,16 +196,17 @@ var AsyncEmitter = function() {};
 
     .seekTop {
       left: 0px;
-      font-size: 20px;
+      font-size: 23px;
       width: 32px;
       height: 32px;
+      margin-top: -2px;
       line-height: 30px;
     }
     .seekTop .controlButtonInner{
-      letter-spacing: -10px;
+      {*letter-spacing: -10px;*}
     }
     .seekTop:active {
-      font-size: 15px;
+      font-size: 18px;
     }
 
     .togglePlay {
@@ -220,10 +221,6 @@ var AsyncEmitter = function() {};
     .togglePlay:active {
       font-size: 15px;
     }
-    .stalled .playControl,
-    .mouseMoving .playControl {
-      opacity: 1;
-    }
 
     .togglePlay .pause,
     .playing .togglePlay .play {
@@ -231,11 +228,15 @@ var AsyncEmitter = function() {};
     }
 
     .togglePlay>.pause {
-      transform: rotate(90deg);
+      {*transform: rotate(90deg);*}
+      letter-spacing: -10px;
     }
 
     .playing .togglePlay .pause {
       display: block;
+    }
+    .togglePlay .tooltip {
+      left: 48px;
     }
 
     .seekBarContainer {
@@ -349,13 +350,13 @@ var AsyncEmitter = function() {};
     <div class="videoControlBar">
       <div class="controlItemContainer center">
         <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
-          <div class="controlButtonInner">&#9475;&#9666;&#9666;</div>
+          <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
           <div class="tooltip">先頭</div>
         </div>
 
         <div class="togglePlay controlButton playControl" data-command="togglePlay">
           <span class="play">▶</span>
-          <span class="pause">&#12307;</span>
+          <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
           <div class="tooltip">
             <span class="play">再生</span>
             <span class="pause">一時停止</span>

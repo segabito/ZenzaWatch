@@ -12,6 +12,7 @@ var NicoComment = {};
 var localStorageEmitter = {};
 var PopupMessage = {};
 var VideoInfoLoader = {};
+var WatchPageState = {};
 
 var MessageApiLoader = function() {};
 var NicoVideoPlayer = function() {};
@@ -22,6 +23,8 @@ var NicoVideoPlayerDialog = function() {};
       console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
       ZenzaWatch.util.addStyle(__css__);
+
+      var isGinza = ZenzaWatch.util.isGinzaWatchUrl();
 
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
@@ -36,7 +39,7 @@ var NicoVideoPlayerDialog = function() {};
         var dialog;
 
         // watchページか？
-        if (location.href.match('\/www.nicovideo.jp\/watch\/')) {
+        if (isGinza) {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
             if (!ZenzaWatch.util.hasFlashPlayer()) {
@@ -61,7 +64,9 @@ var NicoVideoPlayerDialog = function() {};
           dialog.open(packet.watchId);
         });
 
-        if (location.href.match('\/www.nicovideo.jp\/watch\/')) {
+        WatchPageState.initialize(dialog);
+
+        if (isGinza) {
           return;
         }
 
@@ -131,6 +136,7 @@ var NicoVideoPlayerDialog = function() {};
 
     var initializeGinzaSlayer = function(dialog) {
       $('.notify_update_flash_player').remove();
+      $('body').addClass('ginzaSlayer');
 
       dialog.open(getWatchId());
     };

@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.7.4
+// @version        0.7.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -26,11 +26,12 @@ var monkey = function() {
         hereDoc: function(func) { // えせヒアドキュメント
           return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/');
         },
-        callAsync: function(func, self) {
+        callAsync: function(func, self, delay) {
+          delay = delay || 0;
           if (self) {
-            window.setTimeout($.proxy(func, self), 0);
+            window.setTimeout($.proxy(func, self), delay);
           } else {
-            window.setTimeout(func, 0);
+            window.setTimeout(func, delay);
           }
         }
       }

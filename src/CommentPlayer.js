@@ -48,13 +48,10 @@ var PopupMessage = {};
    *  console.log(ZenzaWatch.debug.css3Player.toString())*
    */
   var NicoCommentPlayer = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoCommentPlayer.prototype, AsyncEmitter.prototype);
+
   _.assign(NicoCommentPlayer.prototype, {
     initialize: function(params) {
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
-      
       this._offScreen = params.offScreenLayer;
 
       this._model     = new NicoComment(params);
@@ -156,6 +153,9 @@ var PopupMessage = {};
     getSharedNgLevel: function() {
       return this._model.getSharedNgLevel();
     },
+    getAllComment: function() {
+      return this._model.getAllcomment();
+    },
     toString: function() {
       return this._viewModel.toString();
     }
@@ -228,6 +228,13 @@ var PopupMessage = {};
       console.log('normal: ', this._normalGroup.getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('setXml');
+    },
+    getAllComment: function() {
+      return {
+        top:    this._topGroup   .getNonFilteredMembers(),
+        normal: this._normalGroup.getNonFilteredMembers(),
+        bottom: this._bottomGroup.getNonFilteredMembers()
+      };
     },
     addChat: function(nicoChat) {
       if (nicoChat.isDeleted()) { return; }
@@ -1257,35 +1264,35 @@ var PopupMessage = {};
           case NicoChat.SIZE.BIG:
             lineHeight = (isEnder || lc <= 2) ? lineHeight : 24;
             margin     = (isEnder || lc <= 2) ? margin : 3;
-            //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3)) - 1;
+            //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3));
             break;
           default:
             lineHeight = (isEnder || lc <= 4) ? lineHeight : 15;
             margin     = (isEnder || lc <= 4) ? margin : 3;
-            //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3)) - 1;
+            //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3));
             break;
           case NicoChat.SIZE.SMALL:
             lineHeight = (isEnder || lc <= 6) ? lineHeight : 10;
             margin     = (isEnder || lc <= 6) ? margin : 3;
-            //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3)) - 1;
+            //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3));
             break;
         }
       } else if (this._scale === 0.5) {
         switch (size) {
-          case NicoChat.SIZE.BIG: // 16行 = (24 * 16 + 3 - 1) = 386
+          case NicoChat.SIZE.BIG: // 16行 = (24 * 16 + 3) = 387
             lineHeight = 24;
             margin     = 3;
-            //return (24 * lc + 3) - 1;
+            //return (24 * lc + 3);
             break;
           default:
             lineHeight = 15;
             margin     = 3;
-            //return (15 * lc + 3) - 1;
+            //return (15 * lc + 3);
             break;
           case NicoChat.SIZE.SMALL:
             lineHeight = 10;
             margin     = 3;
-            //return (10 * lc + 3) - 1;
+            //return (10 * lc + 3);
             break;
         }
       } else if (this._scale !== 1.0) {
@@ -1357,9 +1364,9 @@ var PopupMessage = {};
       // BOTTOMの時だけy座標を画面の下端に合わせる
       // 内部的には0 originで表示の際に下から詰むだけでもいいような気がしてきた。
       if (this._type === NicoChat.TYPE.BOTTOM) {
-        var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
-        var outerHeight = this._height + margin;
-        this._y = screenHeight - outerHeight;
+        //var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
+        //var outerHeight = this._height + margin;
+        this._y = screenHeight - this._height;
       }
 
     },
@@ -1940,6 +1947,7 @@ iframe {
           self.pause();
         }
 
+        //ZenzaWatch.util.callAsync(self._adjust, this, 1000);
         window.console.timeEnd('initialize NicoCommentCss3PlayerView');
       };
 
@@ -2323,7 +2331,7 @@ iframe {
       $node.append(this._view);
 
       // リサイズイベントを発動させる。 バッドノウハウ的
-      //window.setTimeout(function() { $view.css({width: ''}); }, 1000);
+      //ZenzaWatch.util.callAsync(this._adjust, this, 1000);
     },
     /**
      * toStringで、コメントを静的なCSS3アニメーションHTMLとして出力する。
