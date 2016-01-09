@@ -557,6 +557,7 @@ var VideoInfoModel = function() {};
       nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
       nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
       nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
+      nicoVideoPlayer.on('commentParsed',  $.proxy(this._onCommentParsed, this));
 
       nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
       nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
@@ -809,6 +810,9 @@ var VideoInfoModel = function() {};
         timer = window.setTimeout(removeClass, 2000);
         PopupMessage.alert(err.message + ': ' + mylistName);
       });
+    },
+    _onCommentParsed: function() {
+      this.emit('commentParsed');
     },
     show: function() {
       this._$dialog.addClass('show');
@@ -1115,6 +1119,12 @@ var VideoInfoModel = function() {};
     },
     getBufferedRange: function() {
       return this._nicoVideoPlayer.getBufferedRange();
+    },
+    /**
+     * NG設定などでフィルタされてないコメントを全部取得する
+     */
+    getAllChat: function() {
+      return this._nicoVideoPlayer.getAllChat();
     },
     getPlayingStatus: function() {
       if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
@@ -2726,6 +2736,14 @@ var VideoInfoModel = function() {};
           </label>
         </div>
 
+        <div class="enableHeatMapControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableHeatMap">
+            コメントの盛り上がりをシークバーに表示
+          </label>
+        </div>
+
+
         <!--
         <div class="debugControl control toggle">
           <label>
@@ -3015,13 +3033,13 @@ var VideoInfoModel = function() {};
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription .watch {
-      display: inline-block;
+      display: block;
       position: relative;
       line-height: 60px;
       box-sizing: border-box;
       padding: 4px 16px;;
       min-height: 60px;
-      width: 280px;
+      width: 240px;
       margin: 8px 10px;
       background: #444;
       border-radius: 4px;

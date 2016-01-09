@@ -284,7 +284,7 @@ var AsyncEmitter = function() {};
       position: absolute;
       height: 100%;
       top: 0px;
-      box-shadow: 0 0 4px #888;
+           {*box-shadow: 0 0 4px #888;*}
       mix-blend-mode: lighten;
       z-index: 100;
       background: #666;
@@ -344,6 +344,22 @@ var AsyncEmitter = function() {};
       opacity: 0.8;
     }
 
+    .zenzaHeatMap {
+      position: absolute;
+      pointer-events: none;
+      top: 2px; left: 0;
+      width: 100%;
+      height: 6px;
+      transform-origin: 0 0 0;
+      opacity: 0.5;
+      z-index: 10;
+    }
+    .noHeatMap .zenzaHeatMap {
+      display: none;
+    }
+
+
+
   */});
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -398,6 +414,7 @@ var AsyncEmitter = function() {};
       player.on('close',          $.proxy(this._onPlayerClose, this));
       player.on('progress',       $.proxy(this._onPlayerProgress, this));
       player.on('loadVideoInfo',  $.proxy(this._onLoadVideoInfo, this));
+      player.on('commentParsed',  $.proxy(this._onCommentParsed, this));
 
       this._initializeDom();
     },
@@ -432,6 +449,15 @@ var AsyncEmitter = function() {};
       this._$currentTime = $view.find('.currentTime');
       this._$duration    = $view.find('.duration');
 
+      this._heatMap = new HeatMap({
+        $container: this._$seekBarContainer
+      });
+      var updateHeatMapVisibility = function(v) {
+        self._$seekBarContainer.toggleClass('noHeatMap', !v);
+      };
+      updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
+      this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
+
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
     },
@@ -449,14 +475,21 @@ var AsyncEmitter = function() {};
       this._startTimer();
       this.setDuration(0);
       this.setCurrentTime(0);
+      this._heatMap.reset();
       this.resetBufferedRange();
     },
     _onPlayerCanPlay: function() {
-      // TODO: 動画のメタデータ解析後に動画長情報が変わることがあるので、
-      // そこで情報を更新する
-      this.setDuration(this._player.getDuration());
+      var duration = this._player.getDuration();
+      this.setDuration(duration);
+
+      this._heatMap.setDuration(duration);
+    },
+    _onCommentParsed: function() {
+      this._heatMap.setChatList(this._player.getAllChat());
     },
     _onPlayerDurationChange: function() {
+      // TODO: 動画のメタデータ解析後に動画長情報が変わることがあるので、
+      // そこで情報を更新する
     },
     _onPlayerClose: function() {
       this._stopTimer();
@@ -479,6 +512,8 @@ var AsyncEmitter = function() {};
 
       var left = e.offsetX;
       var sec = this._posToTime(left);
+
+      // TODO: 一般会員はバッファ内のみシーク
       this._player.setCurrentTime(sec);
 
       this._beginMouseDrag();
@@ -596,6 +631,176 @@ var AsyncEmitter = function() {};
       this._buffferStart = 0;
       this._buffferEnd = 0;
       this._$bufferRange.css({left: 0, width: 0});
+    }
+  });
+
+  var HeatMapModel = function() { this.initialize.apply(this, arguments); };
+  HeatMapModel.RESOLUTION = 100;
+  _.extend(HeatMapModel.prototype, AsyncEmitter.prototype);
+  _.assign(HeatMapModel.prototype, {
+    initialize: function(params) {
+      this._resolution = params.resolution || HeatMapModel.RESOLUTION;
+      this.reset();
+    },
+    reset: function() {
+      this._duration = -1;
+      this._chatReady = false;
+      this._isUpdated = false;
+      this.emit('reset');
+    },
+    setDuration: function(duration) {
+      this._duration = duration;
+      this.update();
+    },
+    setChatList: function(comment) {
+      this._chat = comment;
+      this._chatReady = true;
+      this.update();
+    },
+    update: function() {
+      if (this._duration < 0 || !this._chatReady || this._isUpdated) {
+        return;
+      }
+      var map = this._getHeatMap();
+      this.emitAsync('update', map);
+      this._isUpdated = true;
+    },
+    _getHeatMap: function() {
+      var chatList =
+        this._chat.top.concat(
+          this._chat.top,
+          this._chat.normal,
+          this._chat.bottom
+        );
+      var duration = this._duration;
+      var map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
+      var i = map.length;
+      while(i > 0) map[--i] = 0;
+
+      var ratio = duration > map.length ? (map.length / duration) : 1;
+
+      for (i = chatList.length - 1; i >= 0; i--) {
+        var nicoChat = chatList[i];
+        var pos = nicoChat.getVpos();
+        var mpos = Math.min(Math.floor(pos * ratio / 100), map.length -1);
+        map[mpos]++;
+      }
+
+      return map;
+    }
+  });
+
+  var HeatMapView = function() { this.initialize.apply(this, arguments); };
+  HeatMapView.prototype = {
+    _canvas:  null,
+    _palette: null,
+    _width: 100,
+    _height: 12,
+    initialize: function(params) {
+      this._model  = params.model;
+      this._$container = params.$container;
+      this._width  = params.width || 100;
+      this._height = params.height || 10;
+
+      this._model.on('update', $.proxy(this._onUpdate, this));
+      this._model.on('reset',  $.proxy(this._onReset, this));
+    },
+    _initializePalette: function() {
+      this._palette = [];
+      // NicoHeatMaoより控え目な配色にしたい
+      for (var c = 0; c < 256; c++) {
+        var
+          r = Math.floor((c > 127) ? (c / 2 + 128) : 0),
+          g = Math.floor((c > 127) ? (255 - (c - 128) * 2) : (c * 2)),
+          b = Math.floor((c > 127) ? 0 : (255  - c * 2));
+        this._palette.push('rgb(' + r + ', ' + g + ', ' + b + ')');
+      }
+    },
+    _initializeCanvas: function() {
+      this._canvas           = document.createElement('canvas');
+      this._canvas.className = 'zenzaHeatMap';
+      this._canvas.width     = this._width;
+      this._canvas.height    = this._height;
+
+      this._$container.append(this._canvas);
+
+      this._context = this._canvas.getContext('2d');
+
+      this.reset();
+    },
+    _onUpdate: function(map) {
+      this.update(map);
+    },
+    _onReset: function() {
+      this.reset();
+    },
+    reset: function() {
+      if (this._context) {
+        this._context.fillStyle = this._palette[0];
+        this._context.beginPath();
+        this._context.fillRect(0, 0, this._width, this._height);
+      }
+    },
+    update: function(map) {
+      if (!this._isInitialized) {
+        this._isInitialized = true;
+        this._initializePalette();
+        this._initializeCanvas();
+        this.reset();
+      }
+      //window.console.time('update HeatMap');
+
+      // 一番コメント密度が高い所を100%として相対的な比率にする
+      // 赤い所が常にピークになってわかりやすいが、
+      // コメントが一カ所に密集している場合はそれ以外が薄くなってしまうのが欠点
+      var max = 0, i;
+      // -4 してるのは、末尾にコメントがやたら集中してる事があるのを集計対象外にするため (ニコニ広告に付いてたコメントの名残？)
+      for (i = Math.max(map.length - 4, 0); i >= 0; i--) max = Math.max(map[i], max);
+
+      if (max > 0) {
+        var rate = 255 / max;
+        for (i = map.length - 1; i >= 0; i--) {
+          map[i] = Math.min(255, Math.floor(map[i] * rate));
+        }
+      } else {
+        //window.console.timeEnd('update HeatMap');
+        return;
+      }
+
+      var
+        scale = map.length >= this._width ? 1 : (this._width / Math.max(map.length, 1)),
+        blockWidth = (this._width / map.length) * scale,
+        context = this._context;
+
+      for (i = map.length - 1; i >= 0; i--) {
+        context.fillStyle = this._palette[parseInt(map[i], 10)] || this._palette[0];
+        context.beginPath();
+        context.fillRect(i * scale, 0, blockWidth, this._height);
+      }
+      //window.console.timeEnd('update HeatMap');
+    }
+  };
+
+  var HeatMap = function() { this.initialize.apply(this, arguments); };
+  //_.extend(HeatMap.prototype, AsyncEmitter.prototype);
+  _.assign(HeatMap.prototype, {
+    initialize: function(params) {
+      this._model = new HeatMapModel({
+      });
+      this._view = new HeatMapView({
+        model: this._model,
+        $container: params.$container
+      });
+      this.reset();
+    },
+    reset: function() {
+      this._model.reset();
+    },
+    setDuration: function(duration) {
+      this._model.setDuration(duration);
+    },
+    setChatList: function(chatList) {
+      this._model.setChatList(chatList);
     }
   });
 

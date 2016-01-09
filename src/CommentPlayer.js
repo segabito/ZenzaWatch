@@ -63,6 +63,7 @@ var PopupMessage = {};
       });
 
       this._model.on('change', $.proxy(this._onCommentChange, this));
+      this._model.on('parsed', $.proxy(this._onCommentParsed, this));
 
       this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
 
@@ -86,6 +87,9 @@ var PopupMessage = {};
           this._view.refresh();
         }, this);
       }
+    },
+    _onCommentParsed: function() {
+      this.emit('parsed');
     },
     getCss3PlayerHtml: function() {
       console.log('createCss3PlayerHtml...');
@@ -153,8 +157,8 @@ var PopupMessage = {};
     getSharedNgLevel: function() {
       return this._model.getSharedNgLevel();
     },
-    getAllComment: function() {
-      return this._model.getAllcomment();
+    getAllChat: function() {
+      return this._model.getAllChat();
     },
     toString: function() {
       return this._viewModel.toString();
@@ -227,9 +231,9 @@ var PopupMessage = {};
       console.log('top: ',    this._topGroup   .getNonFilteredMembers().length);
       console.log('normal: ', this._normalGroup.getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
-      this.emit('setXml');
+      this.emit('parsed');
     },
-    getAllComment: function() {
+    getAllChat: function() {
       return {
         top:    this._topGroup   .getNonFilteredMembers(),
         normal: this._normalGroup.getNonFilteredMembers(),

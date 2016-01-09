@@ -96,6 +96,7 @@ var NicoCommentPlayer = function() {};
       this._videoPlayer.on('click', $.proxy(this._onClick, this));
       this._videoPlayer.on('contextMenu', $.proxy(this._onContextMenu, this));
 
+      this._commentPlayer.on('parsed', $.proxy(this._onCommentParsed, this));
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
     _onVolumeChange: function(vol, mute) {
@@ -204,6 +205,9 @@ var NicoCommentPlayer = function() {};
     _onContextMenu: function(e) {
       this._contextMenu.show(e.offsetX, e.offsetY);
     },
+    _onCommentParsed: function() {
+      this.emit('commentParsed');
+    },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
       this._isEnded = false;
@@ -239,6 +243,9 @@ var NicoCommentPlayer = function() {};
     },
     setComment: function(xmlText) {
       this._commentPlayer.setComment(xmlText);
+    },
+    getAllChat: function() {
+      return this._commentPlayer.getAllChat();
     },
     setVolume: function(v) {
       this._videoPlayer.setVolume(v);

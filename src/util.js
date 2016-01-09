@@ -168,6 +168,7 @@ var console;
         autoPauseCommentInput: true, // コメント入力時に自動停止する
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
         enablePushState: true,     // ブラウザの履歴に乗せる
+        enableHeatMap: true,
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
