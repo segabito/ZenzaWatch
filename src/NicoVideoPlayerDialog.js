@@ -215,7 +215,8 @@ var VideoInfoModel = function() {};
       z-index: 100 !important;
     }
 
-    .fullScreen .showComment.backComment .videoPlayer
+    .zenzaScreenMode_wide .showComment.backComment .videoPlayer
+    .fullScreen           .showComment.backComment .videoPlayer
     {
       top:  25% !important;
       left: 25% !important;
@@ -619,6 +620,10 @@ var VideoInfoModel = function() {};
           v = this._playerConfig.getValue('mute');
           this._playerConfig.setValue('mute', !v);
           break;
+        case 'toggleLoop':
+          v = this._playerConfig.getValue('loop');
+          this._playerConfig.setValue('loop', !v);
+          break;
         case 'fullScreen':
           this._nicoVideoPlayer.toggleFullScreen();
           break;
@@ -639,6 +644,10 @@ var VideoInfoModel = function() {};
           break;
         case 'seekBy':
           this.setCurrentTime(this.getCurrentTime() + param * 1);
+          break;
+        case 'playbackRate':
+        case 'screenMode':
+          this._playerConfig.setValue(command, param);
           break;
       }
     },
@@ -964,7 +973,10 @@ var VideoInfoModel = function() {};
       this._isCommentReady = true;
       this.emit('commentReady', result);
     },
-    _onCommentLoadFail: function(e) {
+    _onCommentLoadFail: function(watchId, e) {
+      if (watchId !== this._watchId) {
+        return;
+      }
       PopupMessage.alert(e.message);
     },
     _onLoadedMetaData: function() {
@@ -1092,7 +1104,7 @@ var VideoInfoModel = function() {};
 
         nicoChat.setIsPostFail(true);
         nicoChat.setIsUpdating(false);
-        PopupMessage.alert('コメント投稿失敗(1)');
+        PopupMessage.alert(err.message);
         $container.removeClass('postChat');
         if (err.blockNo && typeof err.blockNo === 'number') {
           self._threadInfo.blockNo = err.blockNo;
@@ -1101,7 +1113,7 @@ var VideoInfoModel = function() {};
       };
 
       var _onTimeout = function() {
-        PopupMessage.alert('コメント投稿失敗(2)');
+        PopupMessage.alert('コメント投稿失敗(timeout)');
         $container.removeClass('postChat');
       };
 
@@ -1309,35 +1321,9 @@ var VideoInfoModel = function() {};
       text-decoration: none;
     }
 
-    .loopSwitch {
-      left: 0;
-      bottom: 40px;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 30px;
-      font-size: 18px;
-      background:#888;
-    }
-    .loopSwitch:hover {
-      box-shadow: 4px 4px 0 #000;
-    }
-    .loopSwitch:active {
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
-
-    .loop .loopSwitch {
-      background:#888;
-      color: #fff;
-      text-shadow: 0 0 6px orange;
-    }
-
     .muteSwitch {
       left: 0;
-      bottom: 80px;
+      bottom: 40px;
       width:  32px;
       height: 32px;
       color: #000;
@@ -1520,197 +1506,6 @@ var VideoInfoModel = function() {};
       border-top: 1px solid red;
     }
 
-    .fullScreenSwitch {
-      right: 0;
-      bottom: 0;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 32px;
-      font-size: 24px;
-    }
-    .fullScreenSwitch .menuButtonInner {
-      position: absolute;
-      font-size: 10px;
-      width: 16px;
-      height: 16px;
-      right: 1px;
-      bottom: 8px;
-    }
-    .fullScreen .fullScreenSwitch .menuButtonInner {
-      top: -6px;
-      left: 0;
-      right: auto;
-      bottom: auto;
-    }
-
-             .fullScreen  .fullScreenSwitch .menuButtonInner .toFull,
-    body:not(.fullScreen) .fullScreenSwitch .menuButtonInner .returnFull {
-      display: none;
-    }
-
-    .mouseMoving .fullScreenSwitch {
-      text-shadow: -1px -1px 2px #888,1px 1px 2px #888;
-    }
-
-    .fullScreenSwitch:hover {
-      background: #888;
-      box-shadow: 4px 4px 0 #000;
-    }
-    .fullScreenSwitch:active {
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
-    .fullScreen .fullScreenSwitch:hover {
-    }
-    .fullScreen .fullScreenSwitch {
-      font-size: 16px;
-    }
-
-    .screenModeMenu {
-      right: 80px;
-      bottom: 0;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 30px;
-      font-size: 24px;
-      margin-left: -4px;
-      margin-top:  -4px;
-    }
-    .mouseMoving .playbackRateMenu,
-    .mouseMoving .screenModeMenu {
-      text-shadow: 0px 0px 2px #ccf;
-    }
-    .playbackRateMenu:hover,
-    .screenModeMenu:hover {
-      box-shadow: 4px 4px 0 #000;
-      background: #888;
-      text-shadow: 0px 0px 2px #66f;
-    }
-    .playbackRateMenu.show,
-    .screenModeMenu.show {
-      opacity: 1;
-      border: 1px inset #000;
-      background: #888;
-      box-shadow: none;
-      margin-left: 0;
-      margin-top:  0;
-    }
-    .playbackRateMenu:active,
-    .screenModeMenu:active {
-      box-shadow: none;
-      margin-left: 0px;
-      margin-top:  0px;
-    }
-
-
-    .fullScreen .screenModeMenu {
-      display: none;
-    }
-
-    .screenModeSelectMenu {
-      right: 20px;
-      bottom: 48px;
-      width: 148px;
-      padding: 2px 4px;
-    }
-    .fullScreen .screenModeSelectMenu {
-      display: none;
-    }
-    .zenzaScreenMode_wide .screenModeSelectMenu,
-    .fullScreen           .screenModeSelectMenu {
-      bottom: 96px;
-    }
-
-
-    .screenModeSelectMenu .triangle {
-      transform: rotate(-45deg);
-      bottom: -8.5px;
-      right: 66px;
-    }
-    .screenModeSelectMenu ul li {
-      display: inline-block;
-      text-align: center;
-      border-bottom: none;
-      margin: 0;
-      padding: 0;
-    }
-    .screenModeSelectMenu ul li span {
-      border: 1px solid #ccc;
-      width: 50px;
-      margin: 2px 8px;
-      padding: 4px 0;
-    }
-
-    .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
-    .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
-    .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
-    .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
-    .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
-    .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
-      color: #ff9;
-      border-color: #ff0;
-    }
-
-    .playbackRateMenu {
-      right: 40px;
-      bottom: 0;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 30px;
-      font-size: 14px;
-      margin-left: -4px;
-      margin-top:  -4px;
-    }
-    .playbackRateSelectMenu {
-      right: 40px;
-      bottom: 48px;
-      width: 140px;
-    }
-    .playbackRateSelectMenu ul {
-      margin: 2px 8px;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu,
-    body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu {
-      left: 368px;
-      top: 80px;
-      right: auto;
-      bottom: auto;
-    }
-    .zenzaScreenMode_wide .playbackRateSelectMenu,
-    .fullScreen           .playbackRateSelectMenu {
-      bottom: 96px;
-    }
-
-    .fullScreen .screenModeSelectMenu {
-      display: none;
-    }
-
-    .playbackRateSelectMenu .triangle {
-      transform: rotate(-45deg);
-      bottom: -9px;
-      right: 8px;
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu .triangle,
-    body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu .triangle {
-      transform: rotate(45deg);
-      top: 154px;
-      left: -8px;
-      bottom: auto;
-      right: auto;
-    }
-
-    .playbackRateSelectMenu li {
-      padding: 3px 4px;
-    }
-
     .menuItemContainer .mylistButton {
       width:  32px;
       height: 32px;
@@ -1866,11 +1661,6 @@ var VideoInfoModel = function() {};
     </div>
 
     <div class="menuItemContainer leftBottom">
-      <div class="loopSwitch menuButton" data-command="loop">
-        <div class="tooltip">リピート</div>
-        <div class="menuButtonInner">&#x27F3;</div>
-      </div>
-
       <div class="muteSwitch menuButton" data-command="mute">
         <div class="tooltip">ミュート(M)</div>
         <div class="menuButtonInner mute-off">&#x1F50A;</div>
@@ -1912,79 +1702,18 @@ var VideoInfoModel = function() {};
         </ul>
       </div>
 
-
-    <div class="menuItemContainer rightBottom">
-      <div class="fullScreenSwitch menuButton" data-command="fullScreen">
-        <div class="tooltip">フルスクリーン(F)</div>
-        <div class="menuButtonInner">
-          <span class="toFull">&#9698;</span>
-          <span class="returnFull">&#9700;</span>
-        </div>
-      </div>
-
-      <div class="playbackRateMenu menuButton" data-command="playbackRateMenu">
-        <div class="menuButtonInner">1x</div>
-        <div class="tooltip">再生速度変更</div>
-      </div>
-
-      <div class="screenModeMenu menuButton" data-command="screenModeMenu">
-        <div class="tooltip">画面モード変更</div>
-        <div class="menuButtonInner">&#9114;</div>
-      </div>
-
-    </div>
-    <div class="screenModeSelectMenu zenzaPopupMenu">
-      <div class="triangle"></div>
-      <p class="caption">画面モード</p>
-      <ul>
-        <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-        <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
-        <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
-        <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-        <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
-        <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
-      </ul>
-    </div>
-    <div class="playbackRateSelectMenu zenzaPopupMenu">
-      <div class="triangle"></div>
-      <p class="caption">再生速度</p>
-      <ul>
-        <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-        <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-        <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-        <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-        <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
-
-        <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-        <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
-        <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
-        <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
-
-
-        <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
-        <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
-        <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-        <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
-        <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
-      </ul>
-    </div>
-  
   */});
 
+  _.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
   _.assign(VideoHoverMenu.prototype, {
     initialize: function(params) {
       this._$playerContainer = params.$playerContainer;
       this._playerConfig     = params.playerConfig;
       this._videoInfo        = params.videoInfo;
 
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
-
       this._initializeDom();
-      this._initializeScreenModeSelectMenu();
-      this._initializePlaybackRateSelectMenu();
+//      this._initializeScreenModeSelectMenu();
+//      this._initializePlaybackRateSelectMenu();
       this._initializeNgSettingMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
@@ -2072,54 +1801,6 @@ var VideoInfoModel = function() {};
         }
       });
 
-    },
-    _initializeScreenModeSelectMenu: function() {
-      var self = this;
-      var $menu = this._$screenModeSelectMenu;
-
-      $menu.on('click', 'span', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target.closest('.screenMode'));
-        var mode     = $target.attr('data-screen-mode');
-
-        self._playerConfig.setValue('screenMode', mode);
-        //self.toggleScreenModeMenu(false);
-      });
-
-    },
-    _initializePlaybackRateSelectMenu: function() {
-      var self = this;
-      var config = this._playerConfig;
-      var $btn  = this._$playbackRateMenu;
-      var $label = $btn.find('.menuButtonInner');
-      var $menu = this._$playbackRateSelectMenu;
-
-      $menu.on('click', '.playbackRate', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target.closest('.playbackRate'));
-        var rate     = parseFloat($target.attr('data-rate'), 10);
-
-        self._playerConfig.setValue('playbackRate', rate);
-        //self.toggleScreenModeMenu(false);
-      });
-
-      var updatePlaybackRate = function(rate) {
-        $label.text(rate + 'x');
-        $menu.find('.selected').removeClass('selected');
-        var fr = parseFloat(rate);
-        $menu.find('.playbackRate').each(function(i, item) {
-          var $item = $(item);
-          var r = parseFloat($item.attr('data-rate'), 10);
-          if (fr === r) {
-            $item.addClass('selected');
-          }
-        });
-      };
-
-      updatePlaybackRate(config.getValue('playbackRate'));
-      config.on('update-playbackRate', updatePlaybackRate);
     },
     _initializeNgSettingMenu: function() {
       var self = this;
@@ -2218,7 +1899,6 @@ var VideoInfoModel = function() {};
           this.emit('command', 'settingPanel');
           e.stopPropagation();
           break;
-        case 'loop':
         case 'mute':
         case 'backComment':
         case 'showComment':
@@ -2241,23 +1921,15 @@ var VideoInfoModel = function() {};
         'togglePlaybackRateMenu',
         'toggleNgSettingMenu'
       ]).each(function(i, func) {
-        (self[func])(false);
+        if (typeof self[func] === 'function') {
+          (self[func])(false);
+        }
       });
     },
     toggleMylistMenu: function(v) {
       var $btn  = this._$mylistAddMenu;
       var $menu = this._$mylistSelectMenu;
       this._toggleMenu('mylist', $btn, $menu, v);
-    },
-    toggleScreenModeMenu: function(v) {
-      var $btn  = this._$screenModeMenu;
-      var $menu = this._$screenModeSelectMenu;
-      this._toggleMenu('screenMode', $btn, $menu, v);
-    },
-    togglePlaybackRateMenu: function(v) {
-      var $btn  = this._$playbackRateMenu;
-      var $menu = this._$playbackRateSelectMenu;
-      this._toggleMenu('playbackRate', $btn, $menu, v);
     },
     toggleNgSettingMenu: function(v) {
       var $btn  = this._$ngSettingMenu;
@@ -2298,7 +1970,7 @@ var VideoInfoModel = function() {};
 
       width: 200px;
       height: 50px;
-      z-index: 160000;
+      z-index: 140000;
       overflow: visible;
     }
     .commentInputPanel.active {

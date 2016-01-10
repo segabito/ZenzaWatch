@@ -1284,7 +1284,7 @@ var monkey = function() {
               //console.log('post fail: ', result);
               reject({
                 result: result,
-                message: 'コメントの取得失敗' + server
+                message: 'コメントの通信失敗 server: ' + server
               });
             });
           });
@@ -1459,7 +1459,7 @@ var monkey = function() {
                 no: no,
                 blockNo: blockNo,
                 code: status,
-                message: 'コメント投稿失敗 status:' + status
+                message: 'コメント投稿失敗 status: ' + status + ' server: ' + threadInfo.server
               });
             }
 
@@ -2932,16 +2932,26 @@ var monkey = function() {
       background: rgba(0, 0, 0, 0.9);
     }
 
-    .controlItemContainer.center {
+    .controlItemContainer {
       position: absolute;
       top: 10px;
+      height: 40px;
+      z-index: 200;
+    }
+    .controlItemContainer.center {
       left: 50%;
       height: 40px;
       transform: translate(-50%, 0);
       background: #222;
     }
 
+    .controlItemContainer.right {
+      right: 0;
+    }
+
+
     .controlButton {
+      position: relative;
       display: inline-block;
       transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
       box-sizing: border-box;
@@ -2993,21 +3003,12 @@ var monkey = function() {
       opacity: 1;
       pointer-events: auto;
     }
-    {*    .mouseMoving .controlButton {
-      background: rgba(0xcc, 0xcc, 0xcc, 0.5);
-    }
-    .mouseMoving  .controlButtonInner {
-      word-break: normal;
-    }*}
-
 
     .settingPanelSwitch {
-      position: absolute;
-      right: 8px;
-      top: 10px;
-      color: #fff;
       font-size: 20px;
-      line-height: 32px;
+      line-height: 30px;
+      width: 32px;
+      height: 32px;
       transition: font-size 0.2s ease;
     }
     .settingPanelSwitch:hover {
@@ -3035,14 +3036,12 @@ var monkey = function() {
       line-height: 30px;
     }
     .seekTop .controlButtonInner{
-      {*letter-spacing: -10px;*}
     }
     .seekTop:active {
       font-size: 18px;
     }
 
     .togglePlay {
-      left: 40px;
       font-size: 20px;
       width: 32px;
       height: 32px;
@@ -3060,15 +3059,11 @@ var monkey = function() {
     }
 
     .togglePlay>.pause {
-      {*transform: rotate(90deg);*}
       letter-spacing: -10px;
     }
 
     .playing .togglePlay .pause {
       display: block;
-    }
-    .togglePlay .tooltip {
-      left: 48px;
     }
 
     .seekBarContainer {
@@ -3191,13 +3186,162 @@ var monkey = function() {
     }
 
 
+    .loopSwitch {
+      width:  32px;
+      height: 32px;
+      line-height: 30px;
+      font-size: 20px;
+    }
+    .loopSwitch:active {
+      font-size: 15px;
+    }
+
+    .loop .loopSwitch {
+      text-shadow: 0px 0px 2px #9cf;
+      color: #9cf;
+    }
+
+    .playbackRateMenu {
+      bottom: 0;
+      width:  32px;
+      height: 32px;
+      line-height: 30px;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .playbackRateMenu:active {
+      font-size: 10px;
+    }
+    .playbackRateMenu.show {
+      background: #888;
+    }
+
+
+    .playbackRateSelectMenu  {
+      bottom: 48px;
+      left: 28px;
+    }
+
+    .playbackRateSelectMenu ul {
+      margin: 2px 8px;
+    }
+
+    .playbackRateSelectMenu .triangle {
+      transform: rotate(-45deg);
+      bottom: -9px;
+      right: 8px;
+    }
+
+    .playbackRateSelectMenu li {
+      padding: 3px 4px;
+    }
+
+    .screenModeMenu {
+      width:  32px;
+      height: 32px;
+      line-height: 30px;
+      font-size: 20px;
+    }
+    .screenModeMenu:active {
+      font-size: 15px;
+    }
+
+    .screenModeMenu:hover {
+    }
+
+    .screenModeMenu.show {
+      background: #888;
+    }
+
+    .screenModeMenu:active {
+      font-size: 10px;
+    }
+
+
+    .fullScreen .screenModeMenu {
+      display: none;
+    }
+
+    .screenModeSelectMenu {
+      right: 30px;
+      bottom: 48px;
+      width: 148px;
+      padding: 2px 4px;
+    }
+
+    .changeScreenMode .screenModeSelectMenu,
+    .fullScreen       .screenModeSelectMenu {
+      display: none;
+    }
+
+    .screenModeSelectMenu .triangle {
+      transform: rotate(-45deg);
+      bottom: -8.5px;
+      right: 66px;
+    }
+
+    .screenModeSelectMenu ul li {
+      display: inline-block;
+      text-align: center;
+      border-bottom: none;
+      margin: 0;
+      padding: 0;
+    }
+    .screenModeSelectMenu ul li span {
+      border: 1px solid #ccc;
+      width: 50px;
+      margin: 2px 8px;
+      padding: 4px 0;
+    }
+
+    .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
+    .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
+    .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
+    .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
+    .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
+    .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
+      color: #ff9;
+      border-color: #ff0;
+    }
+
+
+    .fullScreenSwitch {
+      width:  32px;
+      height: 32px;
+      line-height: 30px;
+      font-size: 20px;
+    }
+    .fullScreenSwitch:active {
+      font-size: 15px;
+    }
+
+             .fullScreen  .fullScreenSwitch .controlButtonInner .toFull,
+    body:not(.fullScreen) .fullScreenSwitch .controlButtonInner .returnFull {
+      display: none;
+    }
+
 
   */});
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoControlBar">
+
+      <div class="seekBarContainer">
+        <div class="seekBar">
+          <div class="tooltip"></div>
+          <div class="pointer"></div>
+          <div class="bufferRange"></div>
+        </div>
+      </div>
+
       <div class="controlItemContainer center">
-        <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
+        <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
+          <div class="controlButtonInner">&#8635;</div>
+          <div class="tooltip">リピート</div>
+        </div>
+
+         <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
           <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
           <div class="tooltip">先頭</div>
         </div>
@@ -3211,24 +3355,75 @@ var monkey = function() {
           </div>
         </div>
 
+        <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
+          <div class="controlButtonInner">1x</div>
+          <div class="tooltip">再生速度</div>
+        </div>
+
         <div class="videoTime">
           <span class="currentTime"></span> /
           <span class="duration"></span>
         </div>
-      </div>
+
+        <div class="playbackRateSelectMenu zenzaPopupMenu">
+          <div class="triangle"></div>
+          <p class="caption">再生速度</p>
+          <ul>
+            <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
+            <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
+            <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
+            <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
+            <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
+
+            <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
+            <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
+            <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
+            <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
 
 
-      <div class="seekBarContainer">
-        <div class="seekBar">
-          <div class="tooltip"></div>
-          <div class="pointer"></div>
-          <div class="bufferRange"></div>
+            <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
+            <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
+            <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
+            <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
+            <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
+          </ul>
         </div>
+
       </div>
 
-      <div class="settingPanelSwitch controlButton" data-command="settingPanel">
-        <div class="controlButtonInner">&#x2699;</div>
-        <div class="tooltip">設定</div>
+      <div class="controlItemContainer right">
+        <div class="screenModeSelectMenu zenzaPopupMenu">
+          <div class="triangle"></div>
+          <p class="caption">画面モード</p>
+          <ul>
+            <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
+            <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
+            <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
+            <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
+            <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
+            <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
+          </ul>
+        </div>
+
+        <div class="screenModeMenu controlButton" data-command="screenModeMenu">
+          <div class="tooltip">画面モード変更</div>
+          <div class="controlButtonInner">&#9114;</div>
+        </div>
+
+        <div class="fullScreenSwitch controlButton" data-command="fullScreen">
+          <div class="tooltip">フルスクリーン(F)</div>
+          <div class="controlButtonInner">
+            <!-- TODO: YouTubeと同じにする -->
+            <span class="toFull">&#8690;</span>
+            <span class="returnFull">&#8689;</span>
+          </div>
+        </div>
+
+        <div class="settingPanelSwitch controlButton" data-command="settingPanel">
+          <div class="controlButtonInner">&#x2699;</div>
+          <div class="tooltip">設定</div>
+        </div>
+
       </div>
 
     </div>
@@ -3249,6 +3444,8 @@ var monkey = function() {
       player.on('commentParsed',  $.proxy(this._onCommentParsed, this));
 
       this._initializeDom();
+      this._initializeScreenModeSelectMenu();
+      this._initializePlaybackRateSelectMenu();
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(VideoControlBar.__css__);
@@ -3269,14 +3466,8 @@ var monkey = function() {
       this._$seekBar.on('mousedown', $.proxy(this._onSeekBarMouseDown, this));
       this._$seekBar.on('mousemove', $.proxy(this._onSeekBarMouseMove, this));
 
-      $view.find('.controlButton').on('click', function(e) {
-        var $target = $(e.target).closest('.controlButton');
-        var command = $target.attr('data-command');
-        var param   = $target.attr('data-param');
-        window.console.log('execCommand', command, param);
-        self.emit('command', command, param);
-        e.stopPropagation();
-      });
+      $view.find('.controlButton')
+        .on('click', $.proxy(this._onControlButton, this));
 
       this._$currentTime = $view.find('.currentTime');
       this._$duration    = $view.find('.duration');
@@ -3290,8 +3481,146 @@ var monkey = function() {
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
       this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
 
+      this._$screenModeMenu       = $view.find('.screenModeMenu');
+      this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
+
+      this._$playbackRateMenu       = $view.find('.playbackRateMenu');
+      this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
+
+      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+        this._hideMenu();
+      }, this));
+
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
+    },
+    _initializeScreenModeSelectMenu: function() {
+      var self = this;
+      var $menu = this._$screenModeSelectMenu;
+
+      $menu.on('click', 'span', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $target  = $(e.target.closest('.screenMode'));
+        var mode     = $target.attr('data-screen-mode');
+
+        self.emit('command', 'screenMode', mode);
+      });
+
+    },
+    _initializePlaybackRateSelectMenu: function() {
+      var self = this;
+      var config = this._playerConfig;
+      var $btn  = this._$playbackRateMenu;
+      var $label = $btn.find('.controlButtonInner');
+      var $menu = this._$playbackRateSelectMenu;
+
+      $menu.on('click', '.playbackRate', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $target  = $(e.target.closest('.playbackRate'));
+        var rate     = parseFloat($target.attr('data-rate'), 10);
+        self.emit('command', 'playbackRate', rate);
+      });
+
+      var updatePlaybackRate = function(rate) {
+        $label.text(rate + 'x');
+        $menu.find('.selected').removeClass('selected');
+        var fr = parseFloat(rate);
+        $menu.find('.playbackRate').each(function(i, item) {
+          var $item = $(item);
+          var r = parseFloat($item.attr('data-rate'), 10);
+          if (fr === r) {
+            $item.addClass('selected');
+          }
+        });
+      };
+
+      updatePlaybackRate(config.getValue('playbackRate'));
+      config.on('update-playbackRate', updatePlaybackRate);
+    },
+    _initializeVolumeCotrol: function() {
+      var $container = this._$view.find('.volumeControl');
+      var $tooltip = $container.find('.tooltip');
+      var $bar = this._$playerContainer.find('.volumeControl .slideBar');
+
+      this._setVolumeBar = function(v) {
+        var per = Math.round(v * 100);
+        $bar.css({ height: per + '%'});
+        $tooltip.text('音量 (' + per + '%)');
+      };
+
+      var $inner = this._$playerContainer.find('.volumeControlInner');
+      $inner.on('mousedown', $.proxy(function(e) {
+        var height = $inner.outerHeight();
+        var y = (height - e.offsetY);
+        var vol = y / height;
+
+        this.emit('command', 'volume', vol);
+
+        e.preventDefault();
+        e.stopPropagation();
+      }, this));
+
+      this._setVolumeBar(this._playerConfig.getValue('volume'));
+    },
+    _onControlButton: function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      var $target = $(e.target.closest('.controlButton'));
+      var command = $target.attr('data-command');
+      var param   = $target.attr('data-param');
+      switch (command) {
+        case 'screenModeMenu':
+          this.toggleScreenModeMenu();
+          break;
+        case 'playbackRateMenu':
+          this.togglePlaybackRateMenu();
+          break;
+        default:
+          this.emit('command', command, param);
+          break;
+       }
+    },
+    _hideMenu: function() {
+      var self = this;
+      $([
+        'toggleScreenModeMenu',
+        'togglePlaybackRateMenu'
+      ]).each(function(i, func) {
+        (self[func])(false);
+      });
+    },
+    togglePlaybackRateMenu: function(v) {
+      var $btn  = this._$playbackRateMenu;
+      var $menu = this._$playbackRateSelectMenu;
+      this._toggleMenu('playbackRate', $btn, $menu, v);
+    },
+    toggleScreenModeMenu: function(v) {
+      var $btn  = this._$screenModeMenu;
+      var $menu = this._$screenModeSelectMenu;
+      this._toggleMenu('screenMode', $btn, $menu, v);
+    },
+    _toggleMenu: function(name, $btn, $menu, v) {
+      var $body = $('body');
+      var eventName = 'click.ZenzaWatch_' + name + 'Menu';
+
+      $body.off(eventName);
+      $btn .toggleClass('show', v);
+      $menu.toggleClass('show', v);
+
+      var onBodyClick = function() {
+        $btn.removeClass('show');
+        $menu.removeClass('show');
+        $body.off(eventName);
+      };
+      if ($menu.hasClass('show')) {
+        this._hideMenu();
+        $btn .addClass('show');
+        $menu.addClass('show');
+        $body.on(eventName, onBodyClick);
+      }
     },
     _posToTime: function(pos) {
       var width = this._$seekBar.innerWidth();
@@ -6176,7 +6505,8 @@ iframe {
       z-index: 100 !important;
     }
 
-    .fullScreen .showComment.backComment .videoPlayer
+    .zenzaScreenMode_wide .showComment.backComment .videoPlayer
+    .fullScreen           .showComment.backComment .videoPlayer
     {
       top:  25% !important;
       left: 25% !important;
@@ -6580,6 +6910,10 @@ iframe {
           v = this._playerConfig.getValue('mute');
           this._playerConfig.setValue('mute', !v);
           break;
+        case 'toggleLoop':
+          v = this._playerConfig.getValue('loop');
+          this._playerConfig.setValue('loop', !v);
+          break;
         case 'fullScreen':
           this._nicoVideoPlayer.toggleFullScreen();
           break;
@@ -6600,6 +6934,10 @@ iframe {
           break;
         case 'seekBy':
           this.setCurrentTime(this.getCurrentTime() + param * 1);
+          break;
+        case 'playbackRate':
+        case 'screenMode':
+          this._playerConfig.setValue(command, param);
           break;
       }
     },
@@ -6925,7 +7263,10 @@ iframe {
       this._isCommentReady = true;
       this.emit('commentReady', result);
     },
-    _onCommentLoadFail: function(e) {
+    _onCommentLoadFail: function(watchId, e) {
+      if (watchId !== this._watchId) {
+        return;
+      }
       PopupMessage.alert(e.message);
     },
     _onLoadedMetaData: function() {
@@ -7053,7 +7394,7 @@ iframe {
 
         nicoChat.setIsPostFail(true);
         nicoChat.setIsUpdating(false);
-        PopupMessage.alert('コメント投稿失敗(1)');
+        PopupMessage.alert(err.message);
         $container.removeClass('postChat');
         if (err.blockNo && typeof err.blockNo === 'number') {
           self._threadInfo.blockNo = err.blockNo;
@@ -7062,7 +7403,7 @@ iframe {
       };
 
       var _onTimeout = function() {
-        PopupMessage.alert('コメント投稿失敗(2)');
+        PopupMessage.alert('コメント投稿失敗(timeout)');
         $container.removeClass('postChat');
       };
 
@@ -7270,35 +7611,9 @@ iframe {
       text-decoration: none;
     }
 
-    .loopSwitch {
-      left: 0;
-      bottom: 40px;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 30px;
-      font-size: 18px;
-      background:#888;
-    }
-    .loopSwitch:hover {
-      box-shadow: 4px 4px 0 #000;
-    }
-    .loopSwitch:active {
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
-
-    .loop .loopSwitch {
-      background:#888;
-      color: #fff;
-      text-shadow: 0 0 6px orange;
-    }
-
     .muteSwitch {
       left: 0;
-      bottom: 80px;
+      bottom: 40px;
       width:  32px;
       height: 32px;
       color: #000;
@@ -7481,197 +7796,6 @@ iframe {
       border-top: 1px solid red;
     }
 
-    .fullScreenSwitch {
-      right: 0;
-      bottom: 0;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 32px;
-      font-size: 24px;
-    }
-    .fullScreenSwitch .menuButtonInner {
-      position: absolute;
-      font-size: 10px;
-      width: 16px;
-      height: 16px;
-      right: 1px;
-      bottom: 8px;
-    }
-    .fullScreen .fullScreenSwitch .menuButtonInner {
-      top: -6px;
-      left: 0;
-      right: auto;
-      bottom: auto;
-    }
-
-             .fullScreen  .fullScreenSwitch .menuButtonInner .toFull,
-    body:not(.fullScreen) .fullScreenSwitch .menuButtonInner .returnFull {
-      display: none;
-    }
-
-    .mouseMoving .fullScreenSwitch {
-      text-shadow: -1px -1px 2px #888,1px 1px 2px #888;
-    }
-
-    .fullScreenSwitch:hover {
-      background: #888;
-      box-shadow: 4px 4px 0 #000;
-    }
-    .fullScreenSwitch:active {
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
-    .fullScreen .fullScreenSwitch:hover {
-    }
-    .fullScreen .fullScreenSwitch {
-      font-size: 16px;
-    }
-
-    .screenModeMenu {
-      right: 80px;
-      bottom: 0;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 30px;
-      font-size: 24px;
-      margin-left: -4px;
-      margin-top:  -4px;
-    }
-    .mouseMoving .playbackRateMenu,
-    .mouseMoving .screenModeMenu {
-      text-shadow: 0px 0px 2px #ccf;
-    }
-    .playbackRateMenu:hover,
-    .screenModeMenu:hover {
-      box-shadow: 4px 4px 0 #000;
-      background: #888;
-      text-shadow: 0px 0px 2px #66f;
-    }
-    .playbackRateMenu.show,
-    .screenModeMenu.show {
-      opacity: 1;
-      border: 1px inset #000;
-      background: #888;
-      box-shadow: none;
-      margin-left: 0;
-      margin-top:  0;
-    }
-    .playbackRateMenu:active,
-    .screenModeMenu:active {
-      box-shadow: none;
-      margin-left: 0px;
-      margin-top:  0px;
-    }
-
-
-    .fullScreen .screenModeMenu {
-      display: none;
-    }
-
-    .screenModeSelectMenu {
-      right: 20px;
-      bottom: 48px;
-      width: 148px;
-      padding: 2px 4px;
-    }
-    .fullScreen .screenModeSelectMenu {
-      display: none;
-    }
-    .zenzaScreenMode_wide .screenModeSelectMenu,
-    .fullScreen           .screenModeSelectMenu {
-      bottom: 96px;
-    }
-
-
-    .screenModeSelectMenu .triangle {
-      transform: rotate(-45deg);
-      bottom: -8.5px;
-      right: 66px;
-    }
-    .screenModeSelectMenu ul li {
-      display: inline-block;
-      text-align: center;
-      border-bottom: none;
-      margin: 0;
-      padding: 0;
-    }
-    .screenModeSelectMenu ul li span {
-      border: 1px solid #ccc;
-      width: 50px;
-      margin: 2px 8px;
-      padding: 4px 0;
-    }
-
-    .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
-    .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
-    .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
-    .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
-    .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
-    .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
-      color: #ff9;
-      border-color: #ff0;
-    }
-
-    .playbackRateMenu {
-      right: 40px;
-      bottom: 0;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 30px;
-      font-size: 14px;
-      margin-left: -4px;
-      margin-top:  -4px;
-    }
-    .playbackRateSelectMenu {
-      right: 40px;
-      bottom: 48px;
-      width: 140px;
-    }
-    .playbackRateSelectMenu ul {
-      margin: 2px 8px;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu,
-    body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu {
-      left: 368px;
-      top: 80px;
-      right: auto;
-      bottom: auto;
-    }
-    .zenzaScreenMode_wide .playbackRateSelectMenu,
-    .fullScreen           .playbackRateSelectMenu {
-      bottom: 96px;
-    }
-
-    .fullScreen .screenModeSelectMenu {
-      display: none;
-    }
-
-    .playbackRateSelectMenu .triangle {
-      transform: rotate(-45deg);
-      bottom: -9px;
-      right: 8px;
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .playbackRateSelectMenu .triangle,
-    body:not(.fullScreen).zenzaScreenMode_small    .playbackRateSelectMenu .triangle {
-      transform: rotate(45deg);
-      top: 154px;
-      left: -8px;
-      bottom: auto;
-      right: auto;
-    }
-
-    .playbackRateSelectMenu li {
-      padding: 3px 4px;
-    }
-
     .menuItemContainer .mylistButton {
       width:  32px;
       height: 32px;
@@ -7827,11 +7951,6 @@ iframe {
     </div>
 
     <div class="menuItemContainer leftBottom">
-      <div class="loopSwitch menuButton" data-command="loop">
-        <div class="tooltip">リピート</div>
-        <div class="menuButtonInner">&#x27F3;</div>
-      </div>
-
       <div class="muteSwitch menuButton" data-command="mute">
         <div class="tooltip">ミュート(M)</div>
         <div class="menuButtonInner mute-off">&#x1F50A;</div>
@@ -7873,79 +7992,18 @@ iframe {
         </ul>
       </div>
 
-
-    <div class="menuItemContainer rightBottom">
-      <div class="fullScreenSwitch menuButton" data-command="fullScreen">
-        <div class="tooltip">フルスクリーン(F)</div>
-        <div class="menuButtonInner">
-          <span class="toFull">&#9698;</span>
-          <span class="returnFull">&#9700;</span>
-        </div>
-      </div>
-
-      <div class="playbackRateMenu menuButton" data-command="playbackRateMenu">
-        <div class="menuButtonInner">1x</div>
-        <div class="tooltip">再生速度変更</div>
-      </div>
-
-      <div class="screenModeMenu menuButton" data-command="screenModeMenu">
-        <div class="tooltip">画面モード変更</div>
-        <div class="menuButtonInner">&#9114;</div>
-      </div>
-
-    </div>
-    <div class="screenModeSelectMenu zenzaPopupMenu">
-      <div class="triangle"></div>
-      <p class="caption">画面モード</p>
-      <ul>
-        <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-        <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
-        <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
-        <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-        <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
-        <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
-      </ul>
-    </div>
-    <div class="playbackRateSelectMenu zenzaPopupMenu">
-      <div class="triangle"></div>
-      <p class="caption">再生速度</p>
-      <ul>
-        <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-        <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-        <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-        <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-        <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
-
-        <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-        <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
-        <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
-        <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
-
-
-        <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
-        <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
-        <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-        <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
-        <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
-      </ul>
-    </div>
-  
   */});
 
+  _.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
   _.assign(VideoHoverMenu.prototype, {
     initialize: function(params) {
       this._$playerContainer = params.$playerContainer;
       this._playerConfig     = params.playerConfig;
       this._videoInfo        = params.videoInfo;
 
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
-
       this._initializeDom();
-      this._initializeScreenModeSelectMenu();
-      this._initializePlaybackRateSelectMenu();
+//      this._initializeScreenModeSelectMenu();
+//      this._initializePlaybackRateSelectMenu();
       this._initializeNgSettingMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
@@ -8033,54 +8091,6 @@ iframe {
         }
       });
 
-    },
-    _initializeScreenModeSelectMenu: function() {
-      var self = this;
-      var $menu = this._$screenModeSelectMenu;
-
-      $menu.on('click', 'span', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target.closest('.screenMode'));
-        var mode     = $target.attr('data-screen-mode');
-
-        self._playerConfig.setValue('screenMode', mode);
-        //self.toggleScreenModeMenu(false);
-      });
-
-    },
-    _initializePlaybackRateSelectMenu: function() {
-      var self = this;
-      var config = this._playerConfig;
-      var $btn  = this._$playbackRateMenu;
-      var $label = $btn.find('.menuButtonInner');
-      var $menu = this._$playbackRateSelectMenu;
-
-      $menu.on('click', '.playbackRate', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target.closest('.playbackRate'));
-        var rate     = parseFloat($target.attr('data-rate'), 10);
-
-        self._playerConfig.setValue('playbackRate', rate);
-        //self.toggleScreenModeMenu(false);
-      });
-
-      var updatePlaybackRate = function(rate) {
-        $label.text(rate + 'x');
-        $menu.find('.selected').removeClass('selected');
-        var fr = parseFloat(rate);
-        $menu.find('.playbackRate').each(function(i, item) {
-          var $item = $(item);
-          var r = parseFloat($item.attr('data-rate'), 10);
-          if (fr === r) {
-            $item.addClass('selected');
-          }
-        });
-      };
-
-      updatePlaybackRate(config.getValue('playbackRate'));
-      config.on('update-playbackRate', updatePlaybackRate);
     },
     _initializeNgSettingMenu: function() {
       var self = this;
@@ -8179,7 +8189,6 @@ iframe {
           this.emit('command', 'settingPanel');
           e.stopPropagation();
           break;
-        case 'loop':
         case 'mute':
         case 'backComment':
         case 'showComment':
@@ -8202,23 +8211,15 @@ iframe {
         'togglePlaybackRateMenu',
         'toggleNgSettingMenu'
       ]).each(function(i, func) {
-        (self[func])(false);
+        if (typeof self[func] === 'function') {
+          (self[func])(false);
+        }
       });
     },
     toggleMylistMenu: function(v) {
       var $btn  = this._$mylistAddMenu;
       var $menu = this._$mylistSelectMenu;
       this._toggleMenu('mylist', $btn, $menu, v);
-    },
-    toggleScreenModeMenu: function(v) {
-      var $btn  = this._$screenModeMenu;
-      var $menu = this._$screenModeSelectMenu;
-      this._toggleMenu('screenMode', $btn, $menu, v);
-    },
-    togglePlaybackRateMenu: function(v) {
-      var $btn  = this._$playbackRateMenu;
-      var $menu = this._$playbackRateSelectMenu;
-      this._toggleMenu('playbackRate', $btn, $menu, v);
     },
     toggleNgSettingMenu: function(v) {
       var $btn  = this._$ngSettingMenu;
@@ -8259,7 +8260,7 @@ iframe {
 
       width: 200px;
       height: 50px;
-      z-index: 160000;
+      z-index: 140000;
       overflow: visible;
     }
     .commentInputPanel.active {

@@ -336,7 +336,7 @@ var WindowMessageEmitter = function() {};
               //console.log('post fail: ', result);
               reject({
                 result: result,
-                message: 'コメントの取得失敗' + server
+                message: 'コメントの通信失敗 server: ' + server
               });
             });
           });
@@ -511,7 +511,7 @@ var WindowMessageEmitter = function() {};
                 no: no,
                 blockNo: blockNo,
                 code: status,
-                message: 'コメント投稿失敗 status:' + status
+                message: 'コメント投稿失敗 status: ' + status + ' server: ' + threadInfo.server
               });
             }
 
