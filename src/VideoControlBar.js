@@ -38,6 +38,7 @@ var AsyncEmitter = function() {};
     .fullScreen               .videoControlBar {
       top: 100%;
       left: 0;
+      width: 100%; {* 100vwだと縦スクロールバーと被る *}
     }
     {* 縦長モニター *}
     @media
@@ -284,10 +285,10 @@ var AsyncEmitter = function() {};
       position: absolute;
       height: 100%;
       top: 0px;
-           {*box-shadow: 0 0 4px #888;*}
+      box-shadow: 0 0 4px #888;
       mix-blend-mode: lighten;
       z-index: 100;
-      background: #666;
+      background: #663;
     }
 
     .seekBar .pointer {
@@ -352,7 +353,7 @@ var AsyncEmitter = function() {};
       height: 6px;
       transform-origin: 0 0 0;
       opacity: 0.5;
-      z-index: 10;
+      z-index: 110;
     }
     .noHeatMap .zenzaHeatMap {
       display: none;
@@ -450,7 +451,7 @@ var AsyncEmitter = function() {};
       this._$duration    = $view.find('.duration');
 
       this._heatMap = new HeatMap({
-        $container: this._$seekBarContainer
+        $container: this._$seekBarContainer.find('.seekBar')
       });
       var updateHeatMapVisibility = function(v) {
         self._$seekBarContainer.toggleClass('noHeatMap', !v);

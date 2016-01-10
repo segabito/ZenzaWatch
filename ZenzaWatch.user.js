@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.8.0
+// @version        0.8.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2869,6 +2869,7 @@ var monkey = function() {
     .fullScreen               .videoControlBar {
       top: 100%;
       left: 0;
+      width: 100%; {* 100vwだと縦スクロールバーと被る *}
     }
     {* 縦長モニター *}
     @media
@@ -3115,10 +3116,10 @@ var monkey = function() {
       position: absolute;
       height: 100%;
       top: 0px;
-           {*box-shadow: 0 0 4px #888;*}
+      box-shadow: 0 0 4px #888;
       mix-blend-mode: lighten;
       z-index: 100;
-      background: #666;
+      background: #663;
     }
 
     .seekBar .pointer {
@@ -3183,7 +3184,7 @@ var monkey = function() {
       height: 6px;
       transform-origin: 0 0 0;
       opacity: 0.5;
-      z-index: 10;
+      z-index: 110;
     }
     .noHeatMap .zenzaHeatMap {
       display: none;
@@ -3281,7 +3282,7 @@ var monkey = function() {
       this._$duration    = $view.find('.duration');
 
       this._heatMap = new HeatMap({
-        $container: this._$seekBarContainer
+        $container: this._$seekBarContainer.find('.seekBar')
       });
       var updateHeatMapVisibility = function(v) {
         self._$seekBarContainer.toggleClass('noHeatMap', !v);
@@ -5993,6 +5994,10 @@ iframe {
     }
     body.showNicoVideoPlayerDialog .ads {
       display: none;
+    }
+
+    .changeScreenMode {
+      pointer-events: none;
     }
 
     .zenzaVideoPlayerDialog {
@@ -9104,6 +9109,9 @@ iframe {
       background: #ddd;
       box-shadow: 2px 2px 2px #999;
     }
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription {
+      margin-bottom: 260px;
+    }
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a {
       color: #006699;
     }
@@ -9111,7 +9119,10 @@ iframe {
       color: #666666;
     }
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
-      margin: 0 0 64px;
+      position: fixed;
+      bottom: 48px;
+      width: 364px;
+      margin: 0 auto;
       padding: 8px;
       background: #ddd;
     }

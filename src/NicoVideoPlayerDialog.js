@@ -35,6 +35,10 @@ var VideoInfoModel = function() {};
       display: none;
     }
 
+    .changeScreenMode {
+      pointer-events: none;
+    }
+
     .zenzaVideoPlayerDialog {
       display: none;
       position: fixed;
@@ -3144,6 +3148,9 @@ var VideoInfoModel = function() {};
       background: #ddd;
       box-shadow: 2px 2px 2px #999;
     }
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription {
+      margin-bottom: 260px;
+    }
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a {
       color: #006699;
     }
@@ -3151,7 +3158,10 @@ var VideoInfoModel = function() {};
       color: #666666;
     }
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
-      margin: 0 0 64px;
+      position: fixed;
+      bottom: 48px;
+      width: 364px;
+      margin: 0 auto;
       padding: 8px;
       background: #ddd;
     }
