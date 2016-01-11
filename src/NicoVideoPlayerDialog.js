@@ -215,7 +215,7 @@ var VideoInfoModel = function() {};
       z-index: 100 !important;
     }
 
-    .zenzaScreenMode_wide .showComment.backComment .videoPlayer
+    .zenzaScreenMode_wide .showComment.backComment .videoPlayer,
     .fullScreen           .showComment.backComment .videoPlayer
     {
       top:  25% !important;
@@ -1197,7 +1197,7 @@ var VideoInfoModel = function() {};
 
     .menuItemContainer.leftBottom {
       width: 120px;
-      height: 112px;
+      height: 40px;
       left: 8px;
       bottom: 8px;
     }
@@ -1232,7 +1232,6 @@ var VideoInfoModel = function() {};
       -moz-user-select: none;
     }
 
-    .volumeControl .tooltip,
     .menuButton .tooltip {
       display: none;
       pointer-events: none;
@@ -1252,8 +1251,6 @@ var VideoInfoModel = function() {};
       opacity: 0.8;
     }
 
-    {*.volumeChanging .volumeControl .tooltip,*}
-    .volumeControl:hover .tooltip,
     .menuButton:hover .tooltip {
       display: block;
     }
@@ -1268,11 +1265,6 @@ var VideoInfoModel = function() {};
       right: 16px;
       left: auto;
     }
-    .volumeControl .tooltip{
-      top: 8px;
-      left: 40px;
-    }
-
 
     .menuItemContainer:hover .menuButton {
       pointer-events: auto;
@@ -1321,7 +1313,7 @@ var VideoInfoModel = function() {};
       text-decoration: none;
     }
 
-    .muteSwitch {
+    .menuItemContainer .muteSwitch {
       left: 0;
       bottom: 40px;
       width:  32px;
@@ -1332,10 +1324,10 @@ var VideoInfoModel = function() {};
       font-size: 18px;
       background:#888;
     }
-    .muteSwitch:hover {
+    menuItemContainer .muteSwitch:hover {
       box-shadow: 4px 4px 0 #000;
     }
-    .muteSwitch:active {
+    menuItemContainer .muteSwitch:active {
       box-shadow: none;
       margin-left: 4px;
       margin-top:  4px;
@@ -1440,70 +1432,6 @@ var VideoInfoModel = function() {};
     .zenzaScreenMode_wide .ngSettingSelectMenu,
     .fullScreen           .ngSettingSelectMenu {
       bottom: 64px;
-    }
-
-
-
-    .menuItemContainer .volumeControl {
-      position: absolute;
-      left: 40px;
-      bottom: 40px;
-      width: 32px;
-      height: 72px;
-      box-sizing: border-box;
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      pointer-events: none;
-    }
-    .menuItemContainer:hover .volumeControl {
-      pointer-events: auto;
-    }
-    .volumeControl:hover {
-      pointer-events: auto;
-      background: rgba(0x33, 0x33, 0x33, 0.8);
-      opacity: 1;
-    }
-
-    .mute .volumeControl {
-      border: 1px solid #600;
-      background: none !important;
-      pointer-events: none !important;
-    }
-    .mute .volumeControl>* {
-      display: none;
-    }
-
-    .volumeChanging  .menuItemContainer .volumeControl,
-    .mouseMoving     .menuItemContainer .volumeControl {
-      opacity: 0.5;
-      border: 1px solid #888;
-    }
-
-
-    .volumeControl .volumeControlInner {
-      position: relative;
-      box-sizing: border-box;
-      width: 16px;
-      height: 64px;
-      border: 1px solid #888;
-      margin: 4px 8px;
-      cursor: pointer;
-    }
-
-    .volumeControl .volumeControlInner .slideBar {
-      position: absolute;
-      width: 100%;
-      height: 50%;
-      left: 0;
-      bottom: 0;
-      background: rgba(255,255,255, 0.8);
-      pointer-events: none;
-      mix-blend-mode: difference;
-    }
-    .volumeChanging .volumeControl .volumeControlInner .slideBar,
-    .mouseMoving    .volumeControl .volumeControlInner .slideBar,
-    .volumeControl:hover .volumeControlInner .slideBar {
-      border-top: 1px solid red;
     }
 
     .menuItemContainer .mylistButton {
@@ -1661,19 +1589,6 @@ var VideoInfoModel = function() {};
     </div>
 
     <div class="menuItemContainer leftBottom">
-      <div class="muteSwitch menuButton" data-command="mute">
-        <div class="tooltip">ミュート(M)</div>
-        <div class="menuButtonInner mute-off">&#x1F50A;</div>
-        <div class="menuButtonInner mute-on">&#x1F507;</div>
-      </div>
-
-      <div class="volumeControl">
-        <div class="tooltip">音量調整</div>
-        <div class="volumeControlInner">
-          <div class="slideBar"></div>
-        </div>
-      </div>
-
       <div class="showCommentSwitch menuButton" data-command="showComment">
         <div class="tooltip">コメント表示ON/OFF(V)</div>
         <div class="menuButtonInner">💬</div>
@@ -1712,8 +1627,6 @@ var VideoInfoModel = function() {};
       this._videoInfo        = params.videoInfo;
 
       this._initializeDom();
-//      this._initializeScreenModeSelectMenu();
-//      this._initializePlaybackRateSelectMenu();
       this._initializeNgSettingMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
@@ -1740,7 +1653,6 @@ var VideoInfoModel = function() {};
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
 
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
-      this._initializeVolumeCotrol();
 
       this._$mylistSelectMenu.on('mousewheel', function(e) {
         e.stopPropagation();
@@ -1830,31 +1742,6 @@ var VideoInfoModel = function() {};
       update(config.getValue('sharedNgLevel'));
       config.on('update-sharedNgLevel', update);
     },
-    _initializeVolumeCotrol: function() {
-      var $container = this._$playerContainer.find('.volumeControl');
-      var $tooltip = $container.find('.tooltip');
-      var $bar = this._$playerContainer.find('.volumeControl .slideBar');
-
-      this._setVolumeBar = function(v) {
-        var per = Math.round(v * 100);
-        $bar.css({ height: per + '%'});
-        $tooltip.text('音量 (' + per + '%)');
-      };
-
-      var $inner = this._$playerContainer.find('.volumeControlInner');
-      $inner.on('mousedown', $.proxy(function(e) {
-        var height = $inner.outerHeight();
-        var y = (height - e.offsetY);
-        var vol = y / height;
-
-        this.emit('command', 'volume', vol);
-
-        e.preventDefault();
-        e.stopPropagation();
-      }, this));
-
-      this._setVolumeBar(this._playerConfig.getValue('volume'));
-    },
     _onMenuButtonClick: function(e) {
       e.preventDefault();
       //e.stopPropagation();
@@ -1907,11 +1794,6 @@ var VideoInfoModel = function() {};
        }
     },
     _onPlayerConfigUpdate: function(key, value) {
-      switch (key) {
-        case 'volume':
-          this._setVolumeBar(value);
-          break;
-      }
     },
     _hideMenu: function() {
       var self = this;
@@ -2286,7 +2168,7 @@ var VideoInfoModel = function() {};
       pointer-events: none;
       transform: translate(-50%, -50%);
       z-index: 170000;
-      width: 400px;
+      width: 500px;
       height: 300px;
       color: #fff;
       transition: top 0.4s ease;
@@ -2326,7 +2208,7 @@ var VideoInfoModel = function() {};
     }
     .zenzaSettingPanelShadow1,
     .zenzaSettingPanelShadow2 {
-      width:  392px;
+      width:  492px;
       height: 292px;
     }
 

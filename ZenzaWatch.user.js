@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.8.1
+// @version        0.8.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2907,8 +2907,11 @@ var monkey = function() {
       bottom: 0;
       background: none;
     }
-    .zenzaScreenMode_wide .mouseMoving .videoControlBar,
-    .fullScreen           .mouseMoving .videoControlBar {
+
+    .zenzaScreenMode_wide .volumeChanging .videoControlBar,
+    .fullScreen           .volumeChanging .videoControlBar,
+    .zenzaScreenMode_wide .mouseMoving    .videoControlBar,
+    .fullScreen           .mouseMoving    .videoControlBar {
       opacity: 0.7;
       background: rgba(0, 0, 0, 0.5);
     }
@@ -2943,6 +2946,7 @@ var monkey = function() {
       height: 40px;
       transform: translate(-50%, 0);
       background: #222;
+      white-space: nowrap;
     }
 
     .controlItemContainer.right {
@@ -2957,7 +2961,6 @@ var monkey = function() {
       box-sizing: border-box;
       text-align: center;
       cursor: pointer;
-      pointer-events: none;
       color: #fff;
       opacity: 0.8;
       margin-right: 8px;
@@ -3117,23 +3120,25 @@ var monkey = function() {
       background: #663;
     }
 
-    .seekBar .pointer {
+    .seekBar .seekBarPointer {
       position: absolute;
       top: 50%;
-      width: 6px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       background: #fff;
-      border-radius: 4px;
+      border-radius: 6px;
       transform: translate(-50%, -50%);
       z-index: 200;
+      transision: left -0.1s linear;
+    }
+    .dragging .seekBar .seekBarPointer {
+      transision: none;
     }
 
     .videoControlBar .videoTime {
       display: inline-block;
       top: 0;
-      padding: 0 8px;
-      height: 32px;
-      line-height: 32px;
+      padding: 0 16px;
       color: #fff;
       font-size: 10px;
       white-space: nowrap;
@@ -3191,6 +3196,7 @@ var monkey = function() {
       height: 32px;
       line-height: 30px;
       font-size: 20px;
+      color: #888;
     }
     .loopSwitch:active {
       font-size: 15px;
@@ -3203,24 +3209,31 @@ var monkey = function() {
 
     .playbackRateMenu {
       bottom: 0;
-      width:  32px;
-      height: 32px;
+      min-width: 40px;
+      height:    32px;
       line-height: 30px;
-      font-size: 14px;
+      font-size: 18px;
       white-space: nowrap;
     }
 
     .playbackRateMenu:active {
-      font-size: 10px;
+      font-size: 13px;
     }
     .playbackRateMenu.show {
       background: #888;
     }
+    .playbackRateMenu.show .tooltip {
+      display: none;
+    }
 
 
     .playbackRateSelectMenu  {
-      bottom: 48px;
-      left: 28px;
+      bottom: 44px;
+      left: 50%;
+      transform: translate(-50%, 0);
+      width: 180px;
+      text-align: left;
+      line-height: 20px;
     }
 
     .playbackRateSelectMenu ul {
@@ -3228,9 +3241,9 @@ var monkey = function() {
     }
 
     .playbackRateSelectMenu .triangle {
-      transform: rotate(-45deg);
+      transform: translate(-50%, 0) rotate(-45deg);
       bottom: -9px;
-      right: 8px;
+      left: 50%;
     }
 
     .playbackRateSelectMenu li {
@@ -3253,6 +3266,9 @@ var monkey = function() {
     .screenModeMenu.show {
       background: #888;
     }
+    .screenModeMenu.show .tooltip {
+      display: none;
+    }
 
     .screenModeMenu:active {
       font-size: 10px;
@@ -3264,10 +3280,13 @@ var monkey = function() {
     }
 
     .screenModeSelectMenu {
-      right: 30px;
-      bottom: 48px;
+      left: 50%;
+      transform: translate(-50%, 0);
+      bottom: 44px;
       width: 148px;
       padding: 2px 4px;
+      font-size: 12px;
+      line-height: 15px;
     }
 
     .changeScreenMode .screenModeSelectMenu,
@@ -3276,9 +3295,9 @@ var monkey = function() {
     }
 
     .screenModeSelectMenu .triangle {
-      transform: rotate(-45deg);
+      transform: translate(-50%, 0) rotate(-45deg);
       bottom: -8.5px;
-      right: 66px;
+      left: 50%;
     }
 
     .screenModeSelectMenu ul li {
@@ -3322,6 +3341,96 @@ var monkey = function() {
     }
 
 
+    .videoControlBar .muteSwitch {
+      height: 32px;
+      line-height: 30px;
+      font-size: 20px;
+      margin-right: 0;
+    }
+    .videoControlBar .muteSwitch:hover {
+    }
+    .videoControlBar .muteSwitch:active {
+      font-size: 15px;
+    }
+
+    .zenzaPlayerContainer:not(.mute) .muteSwitch .mute-on,
+                              .mute  .muteSwitch .mute-off {
+      display: none;
+    }
+
+    .videoControlBar .volumeControl {
+      display: inline-block;
+      width: 80px;
+      position: relative;
+    }
+
+    .videoControlBar .volumeControl .volumeControlInner {
+      position: relative;
+      box-sizing: border-box;
+      width: 64px;
+      height: 8px;
+      border: 1px inset #888;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .videoControlBar .volumeControl .volumeControlInner .slideBar {
+      position: absolute;
+      width: 50%;
+      height: 100%;
+      left: 0;
+      bottom: 0;
+      background: #ccc;
+      pointer-events: none;
+    }
+
+    {*
+      TODO:ボリュームバー上でのドラッグに対応したら表示
+           現状はドラッグで調整できないので、表示しないほうがいい
+    *}
+    .videoControlBar .volumeControl .volumeBarPointer {
+      display: none;
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-radius: 6px;
+      transform: translate(-50%, -50%);
+      z-index: 200;
+    }
+
+    .videoControlBar .volumeControl .tooltip {
+      display: none;
+      pointer-events: none;
+      position: absolute;
+      left: 6px;
+      top: -24px;
+      font-size: 12px;
+      line-height: 16px;
+      padding: 2px 4px;
+      border: 1px solid !000;
+      background: #ffc;
+      color: black;
+      box-shadow: 2px 2px 2px #fff;
+      text-shadow: none;
+      white-space: nowrap;
+      z-index: 100;
+    }
+    .videoControlBar .volumeControl:hover .tooltip {
+      display: block;
+    }
+
+    .mute .videoControlBar .volumeControlInner {
+      pointer-events: none;
+    }
+    .mute .videoControlBar .volumeControlInner >* {
+      display: none;
+    }
+
+
+
+
   */});
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -3330,7 +3439,7 @@ var monkey = function() {
       <div class="seekBarContainer">
         <div class="seekBar">
           <div class="tooltip"></div>
-          <div class="pointer"></div>
+          <div class="seekBarPointer"></div>
           <div class="bufferRange"></div>
         </div>
       </div>
@@ -3358,6 +3467,29 @@ var monkey = function() {
         <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
           <div class="controlButtonInner">1x</div>
           <div class="tooltip">再生速度</div>
+          <div class="playbackRateSelectMenu zenzaPopupMenu">
+            <div class="triangle"></div>
+            <p class="caption">再生速度</p>
+            <ul>
+              <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
+              <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
+              <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
+              <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
+              <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
+
+              <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
+              <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
+              <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
+              <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
+
+
+              <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
+              <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
+              <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
+              <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
+              <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="videoTime">
@@ -3365,49 +3497,39 @@ var monkey = function() {
           <span class="duration"></span>
         </div>
 
-        <div class="playbackRateSelectMenu zenzaPopupMenu">
-          <div class="triangle"></div>
-          <p class="caption">再生速度</p>
-          <ul>
-            <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-            <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-            <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-            <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-            <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
-
-            <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-            <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
-            <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
-            <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
-
-
-            <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
-            <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
-            <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-            <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
-            <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
-          </ul>
+        <div class="muteSwitch controlButton" data-command="toggleMute">
+          <div class="tooltip">ミュート(M)</div>
+          <div class="menuButtonInner mute-off">&#x1F50A;</div>
+          <div class="menuButtonInner mute-on">&#x1F507;</div>
         </div>
+
+        <div class="volumeControl">
+          <div class="tooltip">音量調整</div>
+          <div class="volumeControlInner">
+            <div class="slideBar"></div>
+            <div class="volumeBarPointer"></div>
+          </div>
+        </div>
+
 
       </div>
 
       <div class="controlItemContainer right">
-        <div class="screenModeSelectMenu zenzaPopupMenu">
-          <div class="triangle"></div>
-          <p class="caption">画面モード</p>
-          <ul>
-            <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-            <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
-            <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
-            <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-            <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
-            <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
-          </ul>
-        </div>
-
         <div class="screenModeMenu controlButton" data-command="screenModeMenu">
           <div class="tooltip">画面モード変更</div>
           <div class="controlButtonInner">&#9114;</div>
+          <div class="screenModeSelectMenu zenzaPopupMenu">
+            <div class="triangle"></div>
+            <p class="caption">画面モード</p>
+            <ul>
+              <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
+              <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
+              <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
+              <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
+              <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
+              <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="fullScreenSwitch controlButton" data-command="fullScreen">
@@ -3446,6 +3568,7 @@ var monkey = function() {
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
+      this._initializeVolumeControl();
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(VideoControlBar.__css__);
@@ -3455,7 +3578,7 @@ var monkey = function() {
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
-      this._$seekBarPointer = $view.find('.pointer');
+      this._$seekBarPointer = $view.find('.seekBarPointer');
       this._$bufferRange    = $view.find('.bufferRange');
       this._$tooltip        = $view.find('.seekBar .tooltip');
       $container.on('click', function(e) {
@@ -3539,22 +3662,24 @@ var monkey = function() {
       updatePlaybackRate(config.getValue('playbackRate'));
       config.on('update-playbackRate', updatePlaybackRate);
     },
-    _initializeVolumeCotrol: function() {
+    _initializeVolumeControl: function() {
       var $container = this._$view.find('.volumeControl');
       var $tooltip = $container.find('.tooltip');
-      var $bar = this._$playerContainer.find('.volumeControl .slideBar');
+      var $bar     = $container.find('.slideBar');
+      var $pointer = $container.find('.volumeBarPointer');
 
-      this._setVolumeBar = function(v) {
+      var setVolumeBar = this._setVolumeBar = function(v) {
         var per = Math.round(v * 100);
-        $bar.css({ height: per + '%'});
+        $bar.css({ width: per + '%'});
+        $pointer.css({ left: per + '%'});
         $tooltip.text('音量 (' + per + '%)');
       };
 
-      var $inner = this._$playerContainer.find('.volumeControlInner');
+      var $inner = $container.find('.volumeControlInner');
       $inner.on('mousedown', $.proxy(function(e) {
-        var height = $inner.outerHeight();
-        var y = (height - e.offsetY);
-        var vol = y / height;
+        var height = $inner.outerWidth();
+        var x = e.offsetX;
+        var vol = x / height;
 
         this.emit('command', 'volume', vol);
 
@@ -3562,7 +3687,8 @@ var monkey = function() {
         e.stopPropagation();
       }, this));
 
-      this._setVolumeBar(this._playerConfig.getValue('volume'));
+      setVolumeBar(this._playerConfig.getValue('volume'));
+      this._playerConfig.on('update-volume', setVolumeBar);
     },
     _onControlButton: function(e) {
       e.preventDefault();
@@ -6505,7 +6631,7 @@ iframe {
       z-index: 100 !important;
     }
 
-    .zenzaScreenMode_wide .showComment.backComment .videoPlayer
+    .zenzaScreenMode_wide .showComment.backComment .videoPlayer,
     .fullScreen           .showComment.backComment .videoPlayer
     {
       top:  25% !important;
@@ -7487,7 +7613,7 @@ iframe {
 
     .menuItemContainer.leftBottom {
       width: 120px;
-      height: 112px;
+      height: 40px;
       left: 8px;
       bottom: 8px;
     }
@@ -7522,7 +7648,6 @@ iframe {
       -moz-user-select: none;
     }
 
-    .volumeControl .tooltip,
     .menuButton .tooltip {
       display: none;
       pointer-events: none;
@@ -7542,8 +7667,6 @@ iframe {
       opacity: 0.8;
     }
 
-    {*.volumeChanging .volumeControl .tooltip,*}
-    .volumeControl:hover .tooltip,
     .menuButton:hover .tooltip {
       display: block;
     }
@@ -7558,11 +7681,6 @@ iframe {
       right: 16px;
       left: auto;
     }
-    .volumeControl .tooltip{
-      top: 8px;
-      left: 40px;
-    }
-
 
     .menuItemContainer:hover .menuButton {
       pointer-events: auto;
@@ -7611,7 +7729,7 @@ iframe {
       text-decoration: none;
     }
 
-    .muteSwitch {
+    .menuItemContainer .muteSwitch {
       left: 0;
       bottom: 40px;
       width:  32px;
@@ -7622,10 +7740,10 @@ iframe {
       font-size: 18px;
       background:#888;
     }
-    .muteSwitch:hover {
+    menuItemContainer .muteSwitch:hover {
       box-shadow: 4px 4px 0 #000;
     }
-    .muteSwitch:active {
+    menuItemContainer .muteSwitch:active {
       box-shadow: none;
       margin-left: 4px;
       margin-top:  4px;
@@ -7730,70 +7848,6 @@ iframe {
     .zenzaScreenMode_wide .ngSettingSelectMenu,
     .fullScreen           .ngSettingSelectMenu {
       bottom: 64px;
-    }
-
-
-
-    .menuItemContainer .volumeControl {
-      position: absolute;
-      left: 40px;
-      bottom: 40px;
-      width: 32px;
-      height: 72px;
-      box-sizing: border-box;
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      pointer-events: none;
-    }
-    .menuItemContainer:hover .volumeControl {
-      pointer-events: auto;
-    }
-    .volumeControl:hover {
-      pointer-events: auto;
-      background: rgba(0x33, 0x33, 0x33, 0.8);
-      opacity: 1;
-    }
-
-    .mute .volumeControl {
-      border: 1px solid #600;
-      background: none !important;
-      pointer-events: none !important;
-    }
-    .mute .volumeControl>* {
-      display: none;
-    }
-
-    .volumeChanging  .menuItemContainer .volumeControl,
-    .mouseMoving     .menuItemContainer .volumeControl {
-      opacity: 0.5;
-      border: 1px solid #888;
-    }
-
-
-    .volumeControl .volumeControlInner {
-      position: relative;
-      box-sizing: border-box;
-      width: 16px;
-      height: 64px;
-      border: 1px solid #888;
-      margin: 4px 8px;
-      cursor: pointer;
-    }
-
-    .volumeControl .volumeControlInner .slideBar {
-      position: absolute;
-      width: 100%;
-      height: 50%;
-      left: 0;
-      bottom: 0;
-      background: rgba(255,255,255, 0.8);
-      pointer-events: none;
-      mix-blend-mode: difference;
-    }
-    .volumeChanging .volumeControl .volumeControlInner .slideBar,
-    .mouseMoving    .volumeControl .volumeControlInner .slideBar,
-    .volumeControl:hover .volumeControlInner .slideBar {
-      border-top: 1px solid red;
     }
 
     .menuItemContainer .mylistButton {
@@ -7951,19 +8005,6 @@ iframe {
     </div>
 
     <div class="menuItemContainer leftBottom">
-      <div class="muteSwitch menuButton" data-command="mute">
-        <div class="tooltip">ミュート(M)</div>
-        <div class="menuButtonInner mute-off">&#x1F50A;</div>
-        <div class="menuButtonInner mute-on">&#x1F507;</div>
-      </div>
-
-      <div class="volumeControl">
-        <div class="tooltip">音量調整</div>
-        <div class="volumeControlInner">
-          <div class="slideBar"></div>
-        </div>
-      </div>
-
       <div class="showCommentSwitch menuButton" data-command="showComment">
         <div class="tooltip">コメント表示ON/OFF(V)</div>
         <div class="menuButtonInner">💬</div>
@@ -8002,8 +8043,6 @@ iframe {
       this._videoInfo        = params.videoInfo;
 
       this._initializeDom();
-//      this._initializeScreenModeSelectMenu();
-//      this._initializePlaybackRateSelectMenu();
       this._initializeNgSettingMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
@@ -8030,7 +8069,6 @@ iframe {
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
 
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
-      this._initializeVolumeCotrol();
 
       this._$mylistSelectMenu.on('mousewheel', function(e) {
         e.stopPropagation();
@@ -8120,31 +8158,6 @@ iframe {
       update(config.getValue('sharedNgLevel'));
       config.on('update-sharedNgLevel', update);
     },
-    _initializeVolumeCotrol: function() {
-      var $container = this._$playerContainer.find('.volumeControl');
-      var $tooltip = $container.find('.tooltip');
-      var $bar = this._$playerContainer.find('.volumeControl .slideBar');
-
-      this._setVolumeBar = function(v) {
-        var per = Math.round(v * 100);
-        $bar.css({ height: per + '%'});
-        $tooltip.text('音量 (' + per + '%)');
-      };
-
-      var $inner = this._$playerContainer.find('.volumeControlInner');
-      $inner.on('mousedown', $.proxy(function(e) {
-        var height = $inner.outerHeight();
-        var y = (height - e.offsetY);
-        var vol = y / height;
-
-        this.emit('command', 'volume', vol);
-
-        e.preventDefault();
-        e.stopPropagation();
-      }, this));
-
-      this._setVolumeBar(this._playerConfig.getValue('volume'));
-    },
     _onMenuButtonClick: function(e) {
       e.preventDefault();
       //e.stopPropagation();
@@ -8197,11 +8210,6 @@ iframe {
        }
     },
     _onPlayerConfigUpdate: function(key, value) {
-      switch (key) {
-        case 'volume':
-          this._setVolumeBar(value);
-          break;
-      }
     },
     _hideMenu: function() {
       var self = this;
@@ -8576,7 +8584,7 @@ iframe {
       pointer-events: none;
       transform: translate(-50%, -50%);
       z-index: 170000;
-      width: 400px;
+      width: 500px;
       height: 300px;
       color: #fff;
       transition: top 0.4s ease;
@@ -8616,7 +8624,7 @@ iframe {
     }
     .zenzaSettingPanelShadow1,
     .zenzaSettingPanelShadow2 {
-      width:  392px;
+      width:  492px;
       height: 292px;
     }
 
