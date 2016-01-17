@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.9.0
+// @version        0.9.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1393,20 +1393,13 @@ var monkey = function() {
               return self._post(server, packet, threadId);
             });
           } else {
-            var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
-            if (isNmsg) {
-              console.log('load from nmsg.nicovideo.jp...');
-              return this._get(server, threadId, duration);
-            } else {
-              // nmsg.nicovideo.jpもできればこっちでやりたい。 うまく取れないので調査中。
-              packet = this.buildPacket(
-                threadId,
-                duration,
-                userId
-              );
-              console.log('post xml...', server, packet);
-              return this._post(server, packet, threadId);
-            }
+            packet = this.buildPacket(
+              threadId,
+              duration,
+              userId
+            );
+            console.log('post xml...', server, packet);
+            return this._post(server, packet, threadId);
           }
         },
         load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
