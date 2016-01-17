@@ -62,10 +62,9 @@ var PopupMessage = {};
         show: params.showComment
       });
 
-      this._model.on('change', $.proxy(this._onCommentChange, this));
-      this._model.on('parsed', $.proxy(this._onCommentParsed, this));
-
-      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
+      this._model.on('change'      , $.proxy(this._onCommentChange, this));
+      this._model.on('filterChange', $.proxy(this._onFilterChange, this));
+      this._model.on('parsed'      , $.proxy(this._onCommentParsed, this));
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
@@ -87,6 +86,10 @@ var PopupMessage = {};
           this._view.refresh();
         }, this);
       }
+      this.emit('change');
+    },
+    _onFilterChange: function(nicoChatFilter) {
+      this.emit('filterChange', nicoChatFilter);
     },
     _onCommentParsed: function() {
       this.emit('parsed');
@@ -157,8 +160,47 @@ var PopupMessage = {};
     getSharedNgLevel: function() {
       return this._model.getSharedNgLevel();
     },
-    getAllChat: function() {
-      return this._model.getAllChat();
+    setIsFilterEnable: function(v) {
+      this._model.setIsFilterEnable(v);
+    },
+    isFilterEnable: function() {
+      return this._model.isFilterEnable();
+    },
+    addWordFilter: function(text) {
+      this._model.addWordFilter(text);
+    },
+    setWordFilterList: function(list) {
+      this._model.setWordFilterList(list);
+    },
+    getWordFilterList: function() {
+      return this._model.getWordFilterList();
+    },
+    addUserIdFilter: function(text) {
+      this._model.addUserIdFilter(text);
+    },
+    setUserIdFilterList: function(list) {
+      this._model.setUserIdFilterList(list);
+    },
+    getUserIdFilterList: function() {
+      return this._model.getUserIdFilterList();
+    },
+    addCommandFilter: function(text) {
+      this._model.addCommandFilter(text);
+    },
+    setCommandFilterList: function(list) {
+      this._model.setCommandFilterList(list);
+    },
+    getCommandFilterList: function() {
+      return this._model.getCommandFilterList();
+    },
+    getChatList: function() {
+      return this._model.getChatList();
+    },
+    /**
+     * NGフィルタなどのかかってない全chatを返す
+     */
+    getNonfilteredChatList: function() {
+      return this._model.getNonfilteredChatList();
     },
     toString: function() {
       return this._viewModel.toString();
@@ -179,17 +221,21 @@ var PopupMessage = {};
       this.emit      = $.proxy(emitter.emit,      emitter);
       this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
-      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
 
+      params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
+      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
+      
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL, params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
-      this._topGroup   .on('change', $.proxy(this._onChange, this));
-      this._normalGroup.on('change', $.proxy(this._onChange, this));
-      this._bottomGroup.on('change', $.proxy(this._onChange, this));
+
+      var onChange = _.debounce($.proxy(this._onChange, this), 100);
+      this._topGroup   .on('change', onChange);
+      this._normalGroup.on('change', onChange);
+      this._bottomGroup.on('change', onChange);
     },
     setXml: function(xml) {
-      window.console.time('NicoComment.setXml');
+      window.console.time('コメントのパース処理');
 
       this._xml = xml;
       this._topGroup.reset();
@@ -226,14 +272,21 @@ var PopupMessage = {};
       this._normalGroup.addChatArray(normal);
       this._bottomGroup.addChatArray(bottom);
 
-      window.console.timeEnd('NicoComment.setXml');
+      window.console.timeEnd('コメントのパース処理');
       console.log('chats: ', chats.length);
       console.log('top: ',    this._topGroup   .getNonFilteredMembers().length);
       console.log('normal: ', this._normalGroup.getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('parsed');
     },
-    getAllChat: function() {
+    getChatList: function() {
+      return {
+        top:    this._topGroup   .getMembers(),
+        normal: this._normalGroup.getMembers(),
+        bottom: this._bottomGroup.getMembers()
+      };
+    },
+    getNonFilteredChatList: function() {
       return {
         top:    this._topGroup   .getNonFilteredMembers(),
         normal: this._normalGroup.getNonFilteredMembers(),
@@ -271,6 +324,9 @@ var PopupMessage = {};
       };
       this.emit('change', ev);
     },
+    _onFilterChange: function() {
+      this.emit('filterChange', this._nicoChatFilter);
+    },
     clear: function() {
       this._xml = '';
       this._topGroup.reset();
@@ -307,17 +363,44 @@ var PopupMessage = {};
       }
     },
     setSharedNgLevel: function(level) {
-      if (SHARED_NG_LEVEL[level] && this._sharedNgLevel !== level) {
-        this._sharedNgLevel = level;
-        this._topGroup   .setSharedNgLevel(level);
-        this._normalGroup.setSharedNgLevel(level);
-        this._bottomGroup.setSharedNgLevel(level);
-        this.emit('sharedNgLevel', level);
-      }
+      this._nicoChatFilter.setSharedNgLevel(level);
     },
     getSharedNgLevel: function() {
-      return this._model.getSharedNgLevel();
-    }
+      return this._nicoChatFilter.getSharedNgLevel();
+    },
+    setIsFilterEnable: function(v) {
+      this._nicoChatFilter.setEnable(v);
+    },
+    isFilterEnable: function() {
+      return this._nicoChatFilter.isEnable();
+    },
+    addWordFilter: function(text) {
+      this._nicoChatFilter.addWordFilter(text);
+    },
+    setWordFilterList: function(list) {
+      this._nicoChatFilter.setWordFilterList(list);
+    },
+    getWordFilterList: function() {
+      return this._nicoChatFilter.getWordFilterList();
+    },
+    addUserIdFilter: function(text) {
+      this._nicoChatFilter.addUserIdFilter(text);
+    },
+    setUserIdFilterList: function(list) {
+      this._nicoChatFilter.setUserIdFilterList(list);
+    },
+    getUserIdFilterList: function() {
+      return this._nicoChatFilter.getUserIdFilterList();
+    },
+    addCommandFilter: function(text) {
+      this._nicoChatFilter.addCommandFilter(text);
+    },
+    setCommandFilterList: function(list) {
+      this._nicoChatFilter.setCommandFilterList(list);
+    },
+    getCommandFilterList: function() {
+      return this._nicoChatFilter.getCommandFilterList();
+    },
   });
 
   // フォントサイズ計算用の非表示レイヤーを取得
@@ -339,7 +422,15 @@ var PopupMessage = {};
       .ue .mingLiu , .shita .mingLiu{font-family:  mingLiu,monospace; }
 
       .nicoChat {
+        position: absolute;
         padding: 1px;
+
+        font-family: 'ＭＳ Ｐゴシック';
+        letter-spacing: 1px;
+        margin: 2px 1px 1px 1px;
+        white-space: pre;
+        font-weight: bolder;
+
       }
       .nicoChat.big {
         line-height: 48px;
@@ -383,7 +474,7 @@ var PopupMessage = {};
         font-family: 'ＭＳ Ｐゴシック';
         letter-spacing: 1px;
         margin: 2px 1px 1px 1px;
-        white-space: nowrap;
+        white-space: pre;
         font-weight: bolder;
 
     "></div>
@@ -457,9 +548,7 @@ var PopupMessage = {};
       }
 
       var span = document.createElement('span');
-      span.style.position   = 'absolute';
-      span.style.fontWeight = 'bolder';
-      span.style.whiteSpace = 'nowrap';
+      span.style.className  = 'nicoChat';
 
       textField = {
         setText: function(text) {
@@ -570,24 +659,20 @@ var PopupMessage = {};
 });
 
   var NicoChatGroup = function() { this.initialize.apply(this, arguments); };
-
+  _.extend(NicoChatGroup.prototype, AsyncEmitter.prototype);
   _.assign(NicoChatGroup.prototype, {
     initialize: function(nicoComment, type, params) {
       this._nicoComment = nicoComment;
       this._type = type;
 
-      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
-
-      // TODO: mixin
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this._nicoChatFilter = params.nicoChatFilter;
+      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
 
       this.reset();
     },
     reset: function() {
       this._members = [];
+      this._filteredMembers = [];
     },
     addChatArray: function(nicoChatArray) {
       var members = this._members;
@@ -598,47 +683,30 @@ var PopupMessage = {};
         nicoChat.setGroup(this);
       });
 
-      newMembers = this._applyFilter(nicoChatArray);
+      newMembers = this._nicoChatFilter.applyFilter(nicoChatArray);
       if (newMembers.length > 0) {
+        this._filteredMembers = this._filteredMembers.concat(newMembers);
         this.emit('addChatArray', newMembers);
       }
     },
     addChat: function(nicoChat) {
       this._members.push(nicoChat);
       nicoChat.setGroup(this);
-      var filter = this._getFilterFunc();
-      if (filter(nicoChat)) {
+
+      if (this._nicoChatFilter.isSafe(nicoChat)) {
+        this._filteredMembers.push(nicoChat);
         this.emit('addChat', nicoChat);
       }
     },
     getType: function() {
       return this._type;
     },
-    _getFilterFunc: function() {
-      var threthold = SHARED_NG_SCORE[this._sharedNgLevel];
-      if (Config.getValue('debug')) {
-        return function(nicoChat) {
-          var score = nicoChat.getScore();
-          if (score <= threthold) {
-            window.console.log('%cNG共有適用: %s <= %s %s %s秒 %s', 'background: yellow;',
-              score, threthold, nicoChat.getType(), nicoChat.getVpos() / 100, nicoChat.getText()
-            );
-          }
-          return score > threthold;
-        };
-      }
-      return function(nicoChat) {
-        var score = nicoChat.getScore();
-        //  window.console.log('filter?', score, threthold, nicoChat.getText());
-        return score > threthold;
-      };
-    },
-    _applyFilter: function(nicoChatArray) {
-      return _.filter(nicoChatArray, this._getFilterFunc());
-    },
     getMembers: function() {
-      // TODO: フィルター結果をキャッシュする？
-      return this._applyFilter(this._members);
+      if (this._filteredMembers.length > 0) {
+        return this._filteredMembers;
+      }
+      var members = this._filteredMembers = this._nicoChatFilter.applyFilter(this._members);
+      return members;
     },
     getNonFilteredMembers: function() {
       return this._members;
@@ -648,10 +716,15 @@ var PopupMessage = {};
     },
     onChange: function(e) {
       console.log('NicoChatGroup.onChange: ', e);
+      this._filteredMembers = [];
       this.emit('change', {
         chat: e,
         group: this
       });
+    },
+    _onFilterChange: function() {
+      this._filteredMembers = [];
+      this.onChange(null);
     },
     setCurrentTime: function(sec) {
       this._currentTime = sec;
@@ -780,9 +853,7 @@ var PopupMessage = {};
         if (av !== bv) {
           return av - bv;
         } else {
-          // 文字列比較なので桁上がりのタイミングで狂うじゃないですかーやだー
-          // レアケースだからって放置するんですかー
-          return a.getId() < b.getId() ? -1 : 1;
+          return a.getNo() < b.getNo() ? -1 : 1;
         }
       });
       return this._vSortedMembers;
@@ -944,7 +1015,7 @@ var PopupMessage = {};
       this._isMine = chat.getAttribute('mine') === '1';
       this._isUpdating = chat.getAttribute('updating') === '1';
       this._score = parseInt(chat.getAttribute('score') || '0', 10);
-      this._no = chat.getAttribute('no') || '';
+      this._no = parseInt(chat.getAttribute('no') || '0', 10);
 
       if (this._deleted) { return; }
 
@@ -1168,24 +1239,12 @@ var PopupMessage = {};
       }
     },
     _setText: function(text) {
-      var han_replace = function(m) {
-        var bar = '________________________________________';
-        return ['<span class="han_space">', bar.substr(0, m.length), '</span>'].join('');
-      };
-      var zen_replace = function(m) {
-        var bar = '＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃';
-        return ['<span class="zen_space">', bar.substr(0, m.length), '</span>'].join('');
-      };
-      var zen_replace2 = function(m) {
-        var bar = '、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、';
-        return ['<span class="zen_space">', bar.substr(0, m.length), '</span>'].join('');
-      };
-
       var htmlText =
         ZenzaWatch.util.escapeHtml(text)
           .replace(/( |　|\t)+([\n$])/g , '$1')
-          .replace(/( |\xA0){1,30}/g , han_replace)
-          .replace(/[\t]/g , '<span class="tab_space">&nbsp;</span>');
+//          .replace(/( |\xA0){1,30}/g , han_replace)
+          .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
+          .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
 
       // 特殊文字と、その前後の全角文字のフォントが変わるらしい
       htmlText =
@@ -1193,10 +1252,8 @@ var PopupMessage = {};
           .replace(NicoChatViewModel._FONT_REG.MINCHO,   '<span class="mincho">$1</span>')
           .replace(NicoChatViewModel._FONT_REG.GULIM,    '<span class="gulim">$1</span>')
           .replace(NicoChatViewModel._FONT_REG.MING_LIU, '<span class="mingLiu">$1</span>')
-//          .replace(/ /g , '<span class="zen_space">＃</span>')
-          .replace(/[ ]{1,20}/g ,  zen_replace)
-//          .replace(/　/g , '<span class="zen_space">、</span>');
-          .replace(/[　]{1,20}/g , zen_replace2);
+          .replace(/([ ]+)/g ,   '<span class="zen_space">$1</span>') // zen_replace)
+          .replace(/'([　]+)/g , '<span class="zen_space">$1</span>'); //, zen_replace2);
 
       // 最初の一文字目が特殊文字だった場合は全体のフォントが変わるらしい
       var firstLetter = text.charAt(0);
@@ -1458,7 +1515,13 @@ var PopupMessage = {};
     moveToNextLine: function(others) {
       var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
       var othersHeight = others.getHeight() + margin;
-      var yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height; //lineHeight;
+      // 本来はちょっとでもオーバーしたらランダムすべきだが、
+      // 本家とまったく同じサイズ計算は難しいのでマージンを入れる
+      // コメントアートの再現という点では有効な妥協案
+      var overflowMargin = 5;
+      var rnd =  Math.max(0, NicoCommentViewModel.SCREEN.HEIGHT - this._height);
+      var yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height + overflowMargin;
+      var yMin = 0 - overflowMargin;
 
       var type = this._nicoChat.getType();
       var y = this._y;
@@ -1472,12 +1535,12 @@ var PopupMessage = {};
       } else {
         y -= othersHeight;
         // 画面内に入りきらなかったらランダム配置
-        if (y < 0) {
+        if (y < yMin) {
           this._isOverflow = true;
         }
       }
 
-      this._y = this._isOverflow ? Math.max(0, Math.floor(Math.random() * yMax)) : y;
+      this._y = this._isOverflow ? Math.floor(Math.random() * rnd) : y;
     },
 
     reset: function() {
@@ -1558,6 +1621,7 @@ var PopupMessage = {};
     getLineHeight: function() {
       return this._lineHeight;
     },
+    getNo: function() { return this._nicoChat.getNo(); },
     /**
      * second時の左端座標を返す
      */
@@ -1695,20 +1759,18 @@ iframe {
 
 .nicoChat {
   position: absolute;
-  opacity: 0;
-  text-shadow:
-  {*-1px -1px 0 #ccc, *}
-     1px  1px 0 #000;
+  padding: 1px;
 
   font-family: 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
   margin: 2px 1px 1px 1px;
-  white-space: nowrap;
+  white-space: pre;
   font-weight: bolder;
 
-{*line-height: 123.5%;*}
-  padding: 0;
-
+  line-height: 1.235;
+  opacity: 0;
+  text-shadow:
+     1px  1px 0 #000;
   transform-origin: 0% 0%;
   animation-timing-function: linear;
 }
@@ -1718,26 +1780,26 @@ iframe {
 }
 
 .nicoChat.big {
-  line-height: 48px;
+  {*line-height: 48px;*}
 }
 .nicoChat.big.noScale {
-  line-height: 45px;
+  {*line-height: 45px;*}
 }
 
 
 .nicoChat.medium {
-  line-height: 30px;
+  {*line-height: 30px;*}
 }
 .nicoChat.medium.noScale {
-  line-height: 29px;
+  {*line-height: 29px;*}
 }
 
 
 .nicoChat.small {
-  line-height: 20px;
+  {*line-height: 20px;*}
 }
 .nicoChat.small.noScale {
-  line-height: 18px;
+  {*line-height: 18px;*}
 }
 
 
@@ -1766,7 +1828,9 @@ iframe {
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
   color: yellow;
+  background: #fff;
   opacity: 0.3;
+  mix-blend-mode: lighten;
 }
 
 .nicoChat .zero_space {
@@ -1904,7 +1968,7 @@ iframe {
       this._commentLayer = null;
       this._view = null;
       var iframe;
-      var reserved = document.getElementsByClassName('commentLayerFrameReserve');
+      var reserved = document.getElementsByClassName('reservedFrame');
       if (reserved && reserved.length > 0) {
         iframe = reserved[0];
         document.body.removeChild(iframe);
@@ -2076,15 +2140,29 @@ iframe {
         inView = inView.concat(group.getInViewMembers());
       }
 
+      var nicoChat;
       var ct = this._currentTime;
+      var newView = [];
       for (i = 0, len = inView.length; i < len; i++) {
-        var nicoChat = inView[i];
+        nicoChat = inView[i];
         var domId = nicoChat.getId();
         if (this._inViewTable[domId]) {
           continue;
         }
-        // 新規に表示状態になったchatがあればdom生成
         this._inViewTable[domId] = nicoChat;
+        newView.push(nicoChat);
+      }
+
+      if (newView.length > 1) {
+        newView.sort(function(a, b) {
+          var av = a.getVpos(), bv = b.getVpos();
+          if (av !== bv) { return av - bv; }
+          else { return a.getNo() < b.getNo() ? -1 : 1; }
+        });
+      }
+
+      for (i = 0, len = newView.length; i < len; i++) {
+        nicoChat = newView[i];
         var type = nicoChat.getType();
         var size = nicoChat.getSize();
         dom.push(this._buildChatDom(nicoChat, type, size));
@@ -2346,3 +2424,241 @@ iframe {
       return this.buildHtml(0);
     }
   });
+
+
+
+  var NicoChatFilter = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoChatFilter.prototype, AsyncEmitter.prototype);
+  _.assign(NicoChatFilter.prototype, {
+    initialize: function(params) {
+
+      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
+
+      this._wordFilterList    = [];
+      this._userIdFilterList  = [];
+      this._commandFilterList = [];
+      this.setWordFilterList   (params.wordFilter    || '');
+      this.setUserIdFilterList (params.userIdFilter  || '');
+      this.setCommandFilterList(params.commandFilter || '');
+
+      this._enable = typeof params.enable === 'boolean' ? params.enable : true;
+
+      this._wordReg  = null;
+      this._userIdReg   = null;
+      this._commandReg  = null;
+
+      this._onChange = _.debounce(_.bind(this._onChange, this), 50);
+    },
+    setEnable: function(v) {
+      v = !!v;
+      if (this._enable !== v) {
+        this._enable = v;
+        this._onChange();
+      }
+    },
+    isEnable: function() {
+      return this._enable;
+    },
+    addWordFilter: function(text) {
+      var before = this._wordFilterList.join('\n');
+      this._wordFilterList.push(_.trim(text));
+      this._wordFilterList = _.uniq(this._wordFilterList);
+      var after = this._wordFilterList.join('\n');
+      if (before !== after) {
+        this._wordReg = null;
+        this._onChange();
+      }
+    },
+    setWordFilterList: function(list) {
+      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+
+      var before = this._wordFilterList.join('\n');
+      var tmp = [];
+      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      tmp = _.compact(tmp);
+      var after = tmp.join('\n');
+
+      if (before !== after) {
+        this._wordReg = null;
+        this._wordFilterList = tmp;
+        this._onChange();
+      }
+    },
+    getWordFilterList: function() {
+      return this._wordFilterList;
+    },
+
+    addUserIdFilter: function(text) {
+      var before = this._userIdFilterList.join('\n');
+      this._userIdFilterList.push(text);
+      this._userIdFilterList = _.uniq(this._userIdFilterList);
+      var after = this._userIdFilterList.join('\n');
+      if (before !== after) {
+        this._userIdReg = null;
+        this._onChange();
+      }
+    },
+    setUserIdFilterList: function(list) {
+      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+
+      var before = this._userIdFilterList.join('\n');
+      var tmp = [];
+      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      tmp = _.compact(tmp);
+      var after = tmp.join('\n');
+
+      if (before !== after) {
+        this._userIdReg = null;
+        this._userIdFilterList = tmp;
+        this._onChange();
+      }
+    },
+    getUserIdFilterList: function() {
+      return this._userIdFilterList;
+    },
+
+    addCommandFilter: function(text) {
+      var before = this._commandFilterList.join('\n');
+      this._commandFilterList.push(text);
+      this._commandFilterList = _.uniq(this._commandFilterList);
+      var after = this._commandFilterList.join('\n');
+      if (before !== after) {
+        this._commandReg = null;
+        this._onChange();
+      }
+    },
+    setCommandFilterList: function(list) {
+      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+
+      var before = this._commandFilterList.join('\n');
+      var tmp = [];
+      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      tmp = _.compact(tmp);
+      var after = tmp.join('\n');
+
+      if (before !== after) {
+        this._commandReg = null;
+        this._commandFilterList = tmp;
+        this._onChange();
+      }
+    },
+    getCommandFilterList: function() {
+      return this._commandFilterList;
+    },
+
+    setSharedNgLevel: function(level) {
+      if (SHARED_NG_LEVEL[level] && this._sharedNgLevel !== level) {
+        this._sharedNgLevel = level;
+        this._onChange();
+      }
+    },
+    getSharedNgLevel: function() {
+      return this._sharedNgLevel;
+    },
+    getFilterFunc: function() {
+      if (!this._enable) {
+        return function() { return true; };
+      }
+      var threthold = SHARED_NG_SCORE[this._sharedNgLevel];
+
+      // NG設定の数×コメント数だけループを回すのはアホらしいので、
+      // 連結した一個の正規表現を生成する
+      if (!this._wordReg) {
+        this._wordReg = this._buildFilterReg(this._wordFilterList);
+      }
+      if (!this._userIdReg) {
+        this._userIdReg = this._buildFilterReg(this._userIdFilterList);
+      }
+      if (!this._commandReg) {
+        this._commandReg = this._buildFilterReg(this._commandFilterList);
+      }
+      var commentReg  = this._wordReg;
+      var userIdReg   = this._userIdReg;
+      var commandReg  = this._commandReg;
+
+      if (Config.getValue('debug')) {
+        return function(nicoChat) {
+          var score = nicoChat.getScore();
+          if (score <= threthold) {
+            window.console.log('%cNG共有適用: %s <= %s %s %s秒 %s', 'background: yellow;',
+              score,
+              threthold,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (commentReg && commentReg.test(nicoChat.getText())) {
+            window.console.log('%cNGワード: "%s" %s %s秒 %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (userIdReg && userIdReg.test(nicoChat.getUserId())) {
+            window.console.log('%cNGID: "%s" %s %s秒 %s %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getUserId(),
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (commandReg && commandReg.test(nicoChat.getCmd())) {
+            window.console.log('%cNG command: "%s" %s %s秒 %s %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getCmd(),
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+
+          return true;
+        };
+      }
+
+      return function(nicoChat) {
+        if (nicoChat.getScore() <= threthold) { return false; }
+
+        if (commentReg && commentReg.test(nicoChat.getText()))   { return false; }
+
+        if (userIdReg  && userIdReg .test(nicoChat.getUserId())) { return false; }
+
+        if (commandReg && commandReg.test(nicoChat.getCmd()))    { return false; }
+
+        return true;
+      };
+    },
+    applyFilter: function(nicoChatArray) {
+      window.console.time('applyNgFilter');
+      var result = _.filter(nicoChatArray, this.getFilterFunc());
+      window.console.timeEnd('applyNgFilter');
+      return result;
+    },
+    isSafe: function(nicoChat) {
+      return (this.getFilterFunc())(nicoChat);
+    },
+    _buildFilterReg: function(filterList) {
+      if (filterList.length < 1) { return null; }
+      var r = [];
+      $(filterList).each(function(i, filter) {
+        r.push(ZenzaWatch.util.escapeRegs(filter));
+      });
+      return new RegExp('(' + r.join('|') + ')', 'i');
+    },
+    _onChange: function() {
+      console.log('NicoChatFilter.onChange');
+      this.emit('change');
+    }
+  });
+

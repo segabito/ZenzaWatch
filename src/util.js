@@ -150,6 +150,21 @@ var console;
       var prefix = 'ZenzaWatch_';
       var emitter = new AsyncEmitter();
 
+      // 参考: https://github.com/mozilla/jschannel/pull/18
+      // マイページなど古いprototype.jsが使われているせいで、
+      // 標準のJSON.stringifyがバグってる。
+      // 勘弁して欲しい…。
+      if (window.Prototype) {
+      var _json_stringify = JSON.stringify;
+        JSON.stringify = function(value) {
+          var _array_tojson = Array.prototype.toJSON;
+          delete Array.prototype.toJSON;
+          var r = _json_stringify(value);
+          Array.prototype.toJSON = _array_tojson;
+          return r;
+        };
+      }
+
       // 直接変更する時はコンソールで
       // ZenzaWatch.config.setValue('hogehoge' fugafuga);
       var defaultConfig = {
@@ -169,6 +184,13 @@ var console;
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
+        enableCommentPreview: false,
+        // NG設定
+        enableFilter: true,
+        wordFilter: '',
+        userIdFilter: '',
+        commandFilter: '',
+
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -179,9 +201,9 @@ var console;
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
-            config[key] = JSON.parse(localStorage[storageKey]);
+            config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
-            window.console.error('config parse error: ', e);
+            window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
             config[key] = defaultConfig[key];
           }
         } else {
@@ -197,9 +219,9 @@ var console;
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
-            config[key] = JSON.parse(localStorage[storageKey]);
+            config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
-            window.console.error('config parse error: ', e);
+            window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
           }
         }
       };
@@ -212,9 +234,9 @@ var console;
       };
 
       emitter.setValue = function(key, value) {
-        if (config[key] !== value) {
+        if (config[key] !== value && arguments.length >= 2) {
           var storageKey = prefix + key;
-          localStorage[storageKey] = JSON.stringify(value);
+          localStorage.setItem(storageKey, JSON.stringify(value));
           config[key] = value;
 
           console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
@@ -380,7 +402,7 @@ var console;
           session = JSON.parse(storage[key]);
           storage.removeItem(key);
         } catch (e) {
-          window.console.error('PlayserSession restore fail: ', e);
+          window.console.error('PlayserSession restore fail: ', key, e);
         }
         console.log('lastSession', session);
         return session;
@@ -811,7 +833,7 @@ var console;
     };
     ZenzaWatch.util.isFirefox = isFirefox;
 
-    var escapeHtml = function escapeHtml(text) {
+    var escapeHtml = function(text) {
       var map = {
         '&':    '&amp;',
         '\x27': '&#39;',
@@ -824,6 +846,32 @@ var console;
       });
     };
     ZenzaWatch.util.escapeHtml = escapeHtml;
+
+    var escapeRegs = function(text) {
+      var map = {
+        '\\': '\\\\',
+        '*':  '\\*',
+        '+':  '\\+',
+        '.':  '\\.',
+        '?':  '\\?',
+        '{':  '\\{',
+        '}':  '\\}',
+        '(':  '\\(',
+        ')':  '\\)',
+        '[':  '\\[',
+        ']':  '\\]',
+        '^':  '\\^',
+        '$':  '\\$',
+        '-':  '\\-',
+        '|':  '\\|',
+        '/':  '\\/',
+      };
+      return text.replace(/[\\\*\+\.\?\{\}\(\)\[\]\^\$\-\|\/]/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.escapeRegs = escapeRegs;
+
 
     var ajax = function(params) {
       // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う

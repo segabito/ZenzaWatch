@@ -140,7 +140,7 @@ var VideoInfoModel = function() {};
       top:  calc(-50vh + 50%);
       left: calc(-50vw + 50%);
       width:  100vw;
-      height: 100vh;
+      height: calc(100vh - 40px);
       right: auto;
       bottom: auto;
       z-index: 1;
@@ -422,16 +422,12 @@ var VideoInfoModel = function() {};
     </div>
   */});
 
+  _.extend(NicoVideoPlayerDialog.prototype, AsyncEmitter.prototype);
   _.assign(NicoVideoPlayerDialog.prototype, {
     initialize: function(params) {
       this._offScreenLayer = params.offScreenLayer;
       this._playerConfig = params.playerConfig;
       this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
-
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
       this._playerConfig.on('update-screenMode', $.proxy(this._updateScreenMode, this));
       this._initializeDom(params);
@@ -462,6 +458,8 @@ var VideoInfoModel = function() {};
         this._playerConfig.getValue('mute'));
       this._$playerContainer.toggleClass('loop',
         this._playerConfig.getValue('loop'));
+      this._$playerContainer.toggleClass('debug',
+        this._playerConfig.getValue('debug'));
 
 
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
@@ -520,13 +518,14 @@ var VideoInfoModel = function() {};
         playerConfig: this._playerConfig,
         player: this
       });
+      this._settingPanel.on('command', $.proxy(this._onCommand, this));
 
-      this._videoControlbar = new VideoControlBar({
+      this._videoControlBar = new VideoControlBar({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig,
         player: this
       });
-      this._videoControlbar.on('command', $.proxy(this._onCommand, this));
+      this._videoControlBar.on('command', $.proxy(this._onCommand, this));
 
       this._initializeResponsive();
       $('body').append($dialog);
@@ -535,12 +534,17 @@ var VideoInfoModel = function() {};
       if (this._nicoVideoPlayer) {
         return this._nicoVideoPlayer();
       }
+      var config = this._playerConfig;
       var nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
         offScreenLayer: this._offScreenLayer,
-        node: this._$playerContainer,
-        volume: Config.getValue('volume'),
-        loop: Config.getValue('loop'),
-        playerConfig: Config
+        node:           this._$playerContainer,
+        playerConfig:  config,
+        volume:        config.getValue('volume'),
+        loop:          config.getValue('loop'),
+        enableFilter:  config.getValue('enableFilter'),
+        wordFilter:    config.getValue('wordFilter'),
+        commandFilter: config.getValue('commandFilter'),
+        userIdFilter:  config.getValue('userIdFilter')
       });
 
       this._messageApiLoader = new MessageApiLoader();
@@ -563,6 +567,8 @@ var VideoInfoModel = function() {};
       nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
       nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
       nicoVideoPlayer.on('commentParsed',  $.proxy(this._onCommentParsed, this));
+      nicoVideoPlayer.on('commentChange',  $.proxy(this._onCommentChange, this));
+      nicoVideoPlayer.on('commentFilterChange', $.proxy(this._onCommentFilterChange, this));
 
       nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
       nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
@@ -605,6 +611,7 @@ var VideoInfoModel = function() {};
     },
     _onCommand: function(command, param) {
       var v;
+      console.log('command: %s param: %s', command, param, typeof param);
       switch(command) {
         case 'volume':
           this.setVolume(param);
@@ -613,8 +620,17 @@ var VideoInfoModel = function() {};
           this._nicoVideoPlayer.togglePlay();
           break;
         case 'toggleComment':
+        case 'toggleShowComment':
           v = this._playerConfig.getValue('showComment');
           this._playerConfig.setValue('showComment', !v);
+          break;
+        case 'toggleBackComment':
+          v = this._playerConfig.getValue('backComment');
+          this._playerConfig.setValue('backComment', !v);
+          break;
+        case 'toggleConfig':
+          v = this._playerConfig.getValue(param);
+          this._playerConfig.setValue(param, !v);
           break;
         case 'toggleMute':
           v = this._playerConfig.getValue('mute');
@@ -645,8 +661,31 @@ var VideoInfoModel = function() {};
         case 'seekBy':
           this.setCurrentTime(this.getCurrentTime() + param * 1);
           break;
+        case 'addWordFilter':
+          this._nicoVideoPlayer.addWordFilter(param);
+          break;
+        case 'addUserIdFilter':
+          this._nicoVideoPlayer.addUserIdFilter(param);
+          break;
+        case 'addCommandFilter':
+          this._nicoVideoPlayer.addCommandFilter(param);
+          break;
+        case 'setWordFilterList':
+          this._nicoVideoPlayer.setWordFilterList(param);
+          break;
+        case 'setUserIdFilterList':
+          this._nicoVideoPlayer.setUserIdFilterList(param);
+          break;
+        case 'setCommandFilterList':
+          this._nicoVideoPlayer.setCommandFilterList(param);
+          break;
+        case 'setIsCommentFilterEnable':
+          this._nicoVideoPlayer.setIsCommentFilterEnable(param);
+          break;
+        case 'enableFilter':
         case 'playbackRate':
         case 'screenMode':
+        case 'sharedNgLevel':
           this._playerConfig.setValue(command, param);
           break;
       }
@@ -723,7 +762,21 @@ var VideoInfoModel = function() {};
             {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
           break;
         case 'debug':
+          this._$playerContainer.toggleClass('debug', value);
           PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
+          break;
+        case 'enableFilter':
+          PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
+          this._nicoVideoPlayer.setIsCommentFilterEnable(value);
+          break;
+        case 'wordFilter':
+          this._nicoVideoPlayer.setWordFilterList(value);
+          break;
+        case 'userIdFilter':
+          this._nicoVideoPlayer.setUserIdFilterList(value);
+          break;
+        case 'commandFilter':
+          this._nicoVideoPlayer.setCommandFilterList(value);
           break;
       }
     },
@@ -773,9 +826,7 @@ var VideoInfoModel = function() {};
       };
 
       $container.addClass('updatingDeflist');
-      var timer = window.setTimeout(function() {
-        $container.removeClass('updatingDeflist');
-      }, 10000);
+      var timer = window.setTimeout(removeClass, 10000);
 
       var owner = this._videoInfo.getOwnerInfo();
       var watchId = this._videoInfo.getWatchId();
@@ -826,6 +877,17 @@ var VideoInfoModel = function() {};
     },
     _onCommentParsed: function() {
       this.emit('commentParsed');
+    },
+    _onCommentChange: function() {
+      this.emit('commentChange');
+    },
+    _onCommentFilterChange: function(filter) {
+      var config = this._playerConfig;
+      config.setValue('enableFilter',  filter.isEnable());
+      config.setValue('wordFilter',    filter.getWordFilterList());
+      config.setValue('userIdFilter',  filter.getUserIdFilterList());
+      config.setValue('commandFilter', filter.getCommandFilterList());
+      this.emit('commentFilterChange', filter);
     },
     show: function() {
       this._$dialog.addClass('show');
@@ -1136,11 +1198,11 @@ var VideoInfoModel = function() {};
     getBufferedRange: function() {
       return this._nicoVideoPlayer.getBufferedRange();
     },
-    /**
-     * NG設定などでフィルタされてないコメントを全部取得する
-     */
-    getAllChat: function() {
-      return this._nicoVideoPlayer.getAllChat();
+    getNonFilteredChatList: function() {
+      return this._nicoVideoPlayer.getNonFilteredChatList();
+    },
+    getChatList: function() {
+      return this._nicoVideoPlayer.getChatList();
     },
     getPlayingStatus: function() {
       if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
@@ -1434,6 +1496,15 @@ var VideoInfoModel = function() {};
       bottom: 64px;
     }
 
+    .ngSettingSelectMenu .sharedNgLevelSelect {
+      display: none;
+    }
+
+    .ngSettingSelectMenu.enableFilter .sharedNgLevelSelect {
+      display: block;
+    }
+
+
     .menuItemContainer .mylistButton {
       width:  32px;
       height: 32px;
@@ -1589,12 +1660,12 @@ var VideoInfoModel = function() {};
     </div>
 
     <div class="menuItemContainer leftBottom">
-      <div class="showCommentSwitch menuButton" data-command="showComment">
+      <div class="showCommentSwitch menuButton" data-command="toggleShowComment">
         <div class="tooltip">コメント表示ON/OFF(V)</div>
         <div class="menuButtonInner">💬</div>
       </div>
 
-      <div class="commentLayerOrderSwitch menuButton" data-command="backComment">
+      <div class="commentLayerOrderSwitch menuButton" data-command="toggleBackComment">
         <div class="tooltip">コメントの表示順</div>
         <div class="layer comment">C</div>
         <div class="layer video">V</div>
@@ -1608,8 +1679,15 @@ var VideoInfoModel = function() {};
 
       <div class="ngSettingSelectMenu zenzaPopupMenu">
         <div class="triangle"></div>
-        <p class="caption">NG共有設定</p>
+        <p class="caption">NG設定</p>
         <ul>
+          <li class="setIsCommentFilterEnable filter-on"
+            data-command="setIsCommentFilterEnable" data-param="true"><span>ON</span></li>
+          <li class="setIsCommentFilterEnable filter-off"
+            data-command="setIsCommentFilterEnable" data-param="false"><span>OFF</span></li>
+        </ul>
+        <p class="caption sharedNgLevelSelect">NG共有設定</p>
+        <ul class="sharedNgLevelSelect">
           <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
           <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
           <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
@@ -1642,12 +1720,6 @@ var VideoInfoModel = function() {};
       this._$deflistAdd       = $container.find('.deflistAdd');
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
       this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
-
-      this._$screenModeMenu       = $container.find('.screenModeMenu');
-      this._$screenModeSelectMenu = $container.find('.screenModeSelectMenu');
-
-      this._$playbackRateMenu       = $container.find('.playbackRateMenu');
-      this._$playbackRateSelectMenu = $container.find('.playbackRateSelectMenu');
 
       this._$ngSettingMenu       = $container.find('.ngSettingMenu');
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
@@ -1722,15 +1794,32 @@ var VideoInfoModel = function() {};
       $menu.on('click', 'li', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target.closest('.sharedNgLevel'));
+        var $target  = $(e.target.closest('.sharedNgLevel, .setIsCommentFilterEnable'));
         var command  = $target.attr('data-command');
-        var level    = $target.attr('data-level');
-        self._playerConfig.setValue(command, level);
-        //self.toggleScreenModeMenu(false);
+        if (command === 'sharedNgLevel') {
+          var level = $target.attr('data-level');
+          self.emit('command', command, level);
+        } else {
+          var param = JSON.parse($target.attr('data-param'));
+          self.emit('command', command, param);
+        }
       });
 
-      var update = function(level) {
-        $menu.find('.selected').removeClass('selected');
+      var updateEnableFilter = function(v) {
+        //window.console.log('updateEnableFilter', v, typeof v);
+        $menu.find('.setIsCommentFilterEnable.selected').removeClass('selected');
+        if (v) {
+          $menu.find('.setIsCommentFilterEnable.filter-on') .addClass('selected');
+        } else {
+          $menu.find('.setIsCommentFilterEnable.filter-off').addClass('selected');
+        }
+        $menu.toggleClass('enableFilter', v);
+      };
+      updateEnableFilter(config.getValue('enableFilter'));
+      config.on('update-enableFilter', updateEnableFilter);
+
+      var updateNgLevel = function(level) {
+        $menu.find('.sharedNgLevel.selected').removeClass('selected');
         $menu.find('.sharedNgLevel').each(function(i, item) {
           var $item = $(item);
           if (level === $item.attr('data-level')) {
@@ -1739,8 +1828,8 @@ var VideoInfoModel = function() {};
         });
       };
 
-      update(config.getValue('sharedNgLevel'));
-      config.on('update-sharedNgLevel', update);
+      updateNgLevel(config.getValue('sharedNgLevel'));
+      config.on('update-sharedNgLevel', updateNgLevel);
     },
     _onMenuButtonClick: function(e) {
       e.preventDefault();
@@ -1751,9 +1840,6 @@ var VideoInfoModel = function() {};
       switch (command) {
         case 'close':
           this._onCloseButtonClick();
-          break;
-        case 'fullScreen':
-          this.emit('command', 'fullScreen');
           break;
         case 'deflistAdd':
           if (e.shiftKey) {
@@ -1786,10 +1872,12 @@ var VideoInfoModel = function() {};
           this.emit('command', 'settingPanel');
           e.stopPropagation();
           break;
-        case 'mute':
-        case 'backComment':
-        case 'showComment':
-          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
+        case 'fullScreen':
+        case 'toggleMute':
+        case 'toggleComment':
+        case 'toggleBackComment':
+        case 'toggleShowComment':
+          this.emit('command', command);
           break;
        }
     },
@@ -2175,12 +2263,15 @@ var VideoInfoModel = function() {};
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+      overflow-y: hidden;
     }
     .zenzaSettingPanelShadow1.show,
     .zenzaSettingPanelShadow2.show,
     .zenzaSettingPanel.show {
       opacity: 1;
       top: 50%;
+      overflow-y: scroll;
+      overflow-x: hidden;
     }
 
     .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
@@ -2228,8 +2319,9 @@ var VideoInfoModel = function() {};
       overflow: visible;
     }
     .zenzaSettingPanel .caption {
+      background: #333;
       font-size: 20px;
-      padding: 4px 2px 8px;
+      padding: 4px 2px;
       color: #fff;
     }
 
@@ -2242,9 +2334,8 @@ var VideoInfoModel = function() {};
     }
 
     .zenzaSettingPanel .control {
-      {* border: 1px solid; *}
       border-radius: 4px;
-      background: #888;
+      background: rgba(88, 88, 88, 0.3);
       padding: 8px;
       margin: 16px 4px;
     }
@@ -2271,6 +2362,30 @@ var VideoInfoModel = function() {};
     .zenzaSettingPanel .control.checked {
     }
 
+
+    .zenzaSettingPanel .filterEditContainer {
+      color: #fff;
+    }
+    .zenzaSettingPanel .filterEditContainer p {
+      color: #fff;
+      font-size: 120%;
+    }
+
+    .zenzaSettingPanel .filterEditContainer .info {
+      color: #ccc;
+      font-size: 90%;
+      display: inline-block;
+      margin: 8px 0;
+    }
+
+    .zenzaSettingPanel .filterEdit {
+      background: #000;
+      color: #ccc;
+      width: 90%;
+      margin: 0 5%;
+      min-height: 150px;
+      white-space: pre;
+    }
 
   */});
   SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -2301,8 +2416,36 @@ var VideoInfoModel = function() {};
           </label>
         </div>
 
+        <p class="caption">NG設定</p>
+        <div class="filterEditContainer">
+          <span class="info">
+            １行ごとに入力。上限はありませんが、増やしすぎると重くなります。
+          </span>
+          <p>NGワード</p>
+          <textarea
+            class="filterEdit wordFilterEdit"
+            data-command="setWordFilterList"></textarea>
+          <p>NGコマンド</p>
+          <textarea
+            class="filterEdit commandFilterEdit"
+            data-command="setCommandFilterList"></textarea>
+          <p>NGユーザー</p>
+          <textarea
+            class="filterEdit userIdFilterEdit"
+            data-command="setUserIdFilterList"></textarea>
+        </div>
+
 
         <!--
+        <p class="caption">開発中・テスト関係の項目</p>
+
+        <div class="enableCommentPreviewControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableCommentPreview">
+            シークバー上でコメントをプレビュー
+          </label>
+        </div>
+
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">
@@ -2325,6 +2468,7 @@ var VideoInfoModel = function() {};
 
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
       this._initializeDom();
+      this._initializeCommentFilterEdit();
     },
     _initializeDom: function() {
       var $container = this._$playerContainer;
@@ -2337,6 +2481,9 @@ var VideoInfoModel = function() {};
       this._$view =
         $container.find('.zenzaSettingPanel, .zenzaSettingPanelShadow1, .zenzaSettingPanelShadow2');
       this._$view.on('click', function(e) {
+        e.stopPropagation();
+      });
+      this._$view.on('mousewheel', function(e) {
         e.stopPropagation();
       });
 
@@ -2354,6 +2501,40 @@ var VideoInfoModel = function() {};
         this.hide();
       }, this));
 
+    },
+    _initializeCommentFilterEdit: function() {
+      var self = this;
+      var config = this._playerConfig;
+      var $view = this._$view;
+      var $edit          = $view.find('.filterEdit');
+      var $wordFilter    = $view.find('.wordFilterEdit');
+      var $userIdFilter  = $view.find('.userIdFilterEdit');
+      var $commandFilter = $view.find('.commandFilterEdit');
+      var map = {
+        wordFilter:    $wordFilter,
+        userIdFilter:  $userIdFilter,
+        commandFilter: $commandFilter
+      };
+
+      $edit.on('change', function(e) {
+        var $target = $(e.target);
+        var command = $target.attr('data-command');
+        var value   = $target.val();
+        self.emit('command', command, value);
+      });
+
+      for (var v in map) {
+        var value = config.getValue(v) || [];
+        value = typeof value === 'string' ? value : value.join('\n');
+        map[v].val(value);
+      }
+
+      var onConfigUpdate = function(key, value) {
+        if (_.contains(['wordFilter', 'userIdFilter', 'commandFilter'], key)) {
+          map[key].val(value.join('\n'));
+        }
+      };
+      config.on('update', onConfigUpdate);
     },
     _onPlayerConfigUpdate: function(key, value) {
       switch (key) {
@@ -2469,7 +2650,7 @@ var VideoInfoModel = function() {};
         top:  calc(-50vh + 50%);
         left: calc(-50vw + 50% + 160px);
         width:  100vw;
-        height: 100vh;
+        height: calc(100vh - 40px);
         right: auto;
         bottom: auto;
         z-index: 1;
@@ -2485,7 +2666,7 @@ var VideoInfoModel = function() {};
         top:  calc(-50vh + 50%);
         left: calc(-50vw + 50% + 160px);
         width:  100vw;
-        height: 100vh;
+        height: calc(100vh - 40px);
         right: auto;
         bottom: auto;
         z-index: 1;

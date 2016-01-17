@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.8.2
+// @version        0.9.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -51,6 +51,8 @@ var monkey = function() {
 
 //@require NicoVideoPlayerDialog.js
 
+//@require GinzaSlayer.js
+
 //@require initializer.js
 
 };
@@ -63,11 +65,16 @@ var monkey = function() {
   } else {
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
     // 先にiframeだけ作っておく
-    var iframe = document.createElement('iframe');
-    iframe.className = 'commentLayerFrameReserve';
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-9999px';
-    document.body.appendChild(iframe);
+    // 効果はいまいち・・・
+    var iframe;
+    for (var i = 0; i < 3; i++) {
+      iframe = document.createElement('iframe');
+      iframe.className = 'reservedFrame';
+      iframe.style.position = 'fixed';
+      iframe.style.left = '-9999px';
+      iframe.srcDoc = '<html></html>';
+      document.body.appendChild(iframe);
+    }
 
     var script = document.createElement('script');
     script.id = 'ZenzaWatchLoader';

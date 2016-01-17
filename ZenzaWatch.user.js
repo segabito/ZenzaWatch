@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.8.2
+// @version        0.9.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -182,6 +182,21 @@ var monkey = function() {
       var prefix = 'ZenzaWatch_';
       var emitter = new AsyncEmitter();
 
+      // 参考: https://github.com/mozilla/jschannel/pull/18
+      // マイページなど古いprototype.jsが使われているせいで、
+      // 標準のJSON.stringifyがバグってる。
+      // 勘弁して欲しい…。
+      if (window.Prototype) {
+      var _json_stringify = JSON.stringify;
+        JSON.stringify = function(value) {
+          var _array_tojson = Array.prototype.toJSON;
+          delete Array.prototype.toJSON;
+          var r = _json_stringify(value);
+          Array.prototype.toJSON = _array_tojson;
+          return r;
+        };
+      }
+
       // 直接変更する時はコンソールで
       // ZenzaWatch.config.setValue('hogehoge' fugafuga);
       var defaultConfig = {
@@ -201,6 +216,13 @@ var monkey = function() {
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
+        enableCommentPreview: false,
+        // NG設定
+        enableFilter: true,
+        wordFilter: '',
+        userIdFilter: '',
+        commandFilter: '',
+
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -211,9 +233,9 @@ var monkey = function() {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
-            config[key] = JSON.parse(localStorage[storageKey]);
+            config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
-            window.console.error('config parse error: ', e);
+            window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
             config[key] = defaultConfig[key];
           }
         } else {
@@ -229,9 +251,9 @@ var monkey = function() {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
-            config[key] = JSON.parse(localStorage[storageKey]);
+            config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
-            window.console.error('config parse error: ', e);
+            window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
           }
         }
       };
@@ -244,9 +266,9 @@ var monkey = function() {
       };
 
       emitter.setValue = function(key, value) {
-        if (config[key] !== value) {
+        if (config[key] !== value && arguments.length >= 2) {
           var storageKey = prefix + key;
-          localStorage[storageKey] = JSON.stringify(value);
+          localStorage.setItem(storageKey, JSON.stringify(value));
           config[key] = value;
 
           console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
@@ -412,7 +434,7 @@ var monkey = function() {
           session = JSON.parse(storage[key]);
           storage.removeItem(key);
         } catch (e) {
-          window.console.error('PlayserSession restore fail: ', e);
+          window.console.error('PlayserSession restore fail: ', key, e);
         }
         console.log('lastSession', session);
         return session;
@@ -843,7 +865,7 @@ var monkey = function() {
     };
     ZenzaWatch.util.isFirefox = isFirefox;
 
-    var escapeHtml = function escapeHtml(text) {
+    var escapeHtml = function(text) {
       var map = {
         '&':    '&amp;',
         '\x27': '&#39;',
@@ -856,6 +878,32 @@ var monkey = function() {
       });
     };
     ZenzaWatch.util.escapeHtml = escapeHtml;
+
+    var escapeRegs = function(text) {
+      var map = {
+        '\\': '\\\\',
+        '*':  '\\*',
+        '+':  '\\+',
+        '.':  '\\.',
+        '?':  '\\?',
+        '{':  '\\{',
+        '}':  '\\}',
+        '(':  '\\(',
+        ')':  '\\)',
+        '[':  '\\[',
+        ']':  '\\]',
+        '^':  '\\^',
+        '$':  '\\$',
+        '-':  '\\-',
+        '|':  '\\|',
+        '/':  '\\/',
+      };
+      return text.replace(/[\\\*\+\.\?\{\}\(\)\[\]\^\$\-\|\/]/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.escapeRegs = escapeRegs;
+
 
     var ajax = function(params) {
       // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う
@@ -1419,7 +1467,7 @@ var monkey = function() {
                 window.console.timeEnd(timeKey);
                 window.console.error('loadComment fail: ', e);
                 reject({
-                  message: 'コメント通信失敗'
+                  message: 'コメントサーバーの通信失敗: ' + server
                 });
               }
             );
@@ -1949,6 +1997,10 @@ var monkey = function() {
 
       this._commentPlayer = new NicoCommentPlayer({
         offScreenLayer: params.offScreenLayer,
+        enableFilter:   params.enableFilter,
+        wordFilter:  params.wordFilter,
+        userIdFilter:   params.userIdFilter,
+        commandFilter:  params.commandFilter,
         showComment:    conf.getValue('showComment'),
         debug:          conf.getValue('debug'),
         playbackRate:   conf.getValue('playbackRate'),
@@ -2011,6 +2063,8 @@ var monkey = function() {
       this._videoPlayer.on('contextMenu', $.proxy(this._onContextMenu, this));
 
       this._commentPlayer.on('parsed', $.proxy(this._onCommentParsed, this));
+      this._commentPlayer.on('change', $.proxy(this._onCommentChange, this));
+      this._commentPlayer.on('filterChange', $.proxy(this._onCommentFilterChange, this));
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
     _onVolumeChange: function(vol, mute) {
@@ -2041,7 +2095,16 @@ var monkey = function() {
           this._videoPlayer.setMute(value);
           break;
         case 'sharedNgLevel':
-          this._commentPlayer.setSharedNgLevel(value);
+          this.setSharedNgLevel(value);
+          break;
+        case 'wordFilter':
+          this.setWordFilterList(value);
+          break;
+        case 'userIdFilter':
+          this.setUserIdFilterList(value);
+          break;
+        case 'commandFilter':
+          this.setCommandFilterList(value);
           break;
       }
     },
@@ -2122,6 +2185,12 @@ var monkey = function() {
     _onCommentParsed: function() {
       this.emit('commentParsed');
     },
+    _onCommentChange: function() {
+      this.emit('commentChange');
+    },
+    _onCommentFilterChange: function(nicoChatFilter) {
+      this.emit('commentFilterChange', nicoChatFilter);
+    },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
       this._isEnded = false;
@@ -2158,8 +2227,11 @@ var monkey = function() {
     setComment: function(xmlText) {
       this._commentPlayer.setComment(xmlText);
     },
-    getAllChat: function() {
-      return this._commentPlayer.getAllChat();
+    getChatList: function() {
+      return this._commentPlayer.getChatList();
+    },
+    getNonFilteredChatList: function() {
+      return this._commentPlayer.getNonFilteredChatList();
     },
     setVolume: function(v) {
       this._videoPlayer.setVolume(v);
@@ -2201,6 +2273,48 @@ var monkey = function() {
       var nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
       console.log('addChat:', text, cmd, vpos, options, nicoChat);
       return nicoChat;
+    },
+    setIsCommentFilterEnable: function(v) {
+      this._commentPlayer.setIsFilterEnable(v);
+    },
+    isCommentFilterEnable: function() {
+      return this._commentPlayer.isFilterEnable();
+    },
+    setSharedNgLevel: function(level) {
+      this._commentPlayer.setSharedNgLevel(level);
+    },
+    getSharedNgLevel: function() {
+      return this._commentPlayer.getSharedNgLevel();
+    },
+
+    addWordFilter: function(text) {
+      this._commentPlayer.addWordFilter(text);
+    },
+    setWordFilterList: function(list) {
+      this._commentPlayer.setWordFilterList(list);
+    },
+    getWordFilterList: function() {
+      return this._commentPlayer.getWordFilterList();
+    },
+
+    addUserIdFilter: function(text) {
+      this._commentPlayer.addUserIdFilter(text);
+    },
+    setUserIdFilterList: function(list) {
+      this._commentPlayer.setUserIdFilterList(list);
+    },
+    getUserIdFilterList: function() {
+      return this._commentPlayer.getUserIdFilterList();
+    },
+
+    getCommandFilterList: function() {
+      return this._commentPlayer.getCommandFilterList();
+    },
+    addCommandFilter: function(text) {
+      this._commentPlayer.addCommandFilter(text);
+    },
+    setCommandFilterList: function(list) {
+      this._commentPlayer.setCommandFilterList(list);
     }
   });
 
@@ -3078,6 +3192,19 @@ var monkey = function() {
       z-index: 150;
     }
 
+    {* 見えないマウス判定 *}
+    .seekBarContainer .seekBarShadow {
+      position: absolute;
+      background: transparent;
+      width: 100vw;
+      height: 8px;
+      top: -8px;
+    }
+    .seekBarContainer:hover .seekBarShadow {
+      height: 24px;
+      top: -24px;
+    }
+
     .abort   .seekBarContainer,
     .loading .seekBarContainer,
     .error   .seekBarContainer {
@@ -3115,9 +3242,13 @@ var monkey = function() {
       height: 100%;
       top: 0px;
       box-shadow: 0 0 4px #888;
-      mix-blend-mode: lighten;
+      {*mix-blend-mode: lighten;*}
       z-index: 100;
       background: #663;
+    }
+
+    .noHeatMap .bufferRange {
+      background: #666;
     }
 
     .seekBar .seekBarPointer {
@@ -3129,7 +3260,7 @@ var monkey = function() {
       border-radius: 6px;
       transform: translate(-50%, -50%);
       z-index: 200;
-      transision: left -0.1s linear;
+      transision: left 0.3s linear;
     }
     .dragging .seekBar .seekBarPointer {
       transision: none;
@@ -3157,10 +3288,10 @@ var monkey = function() {
       display: none;
     }
 
-    .seekBar .tooltip {
+    .seekBarContainer .tooltip {
       position: absolute;
       padding: 1px;
-      bottom: 15px;
+      bottom: 12px;
       left: 0;
       transform: translate(-50%, 0);
       white-space: nowrap;
@@ -3169,10 +3300,11 @@ var monkey = function() {
       border: 1px solid #000;
       background: #fff;
       color: #000;
+      z-index: 150;
     }
 
-    .dragging .seekBar .tooltip,
-    .seekBar:hover .tooltip {
+    .dragging .seekBarContainer .tooltip,
+    .seekBarContainer:hover .tooltip {
       opacity: 0.8;
     }
 
@@ -3347,6 +3479,9 @@ var monkey = function() {
       font-size: 20px;
       margin-right: 0;
     }
+    .mute .videoControlBar .muteSwitch {
+      color: #888;
+    }
     .videoControlBar .muteSwitch:hover {
     }
     .videoControlBar .muteSwitch:active {
@@ -3437,8 +3572,8 @@ var monkey = function() {
     <div class="videoControlBar">
 
       <div class="seekBarContainer">
+        <div class="seekBarShadow"></div>
         <div class="seekBar">
-          <div class="tooltip"></div>
           <div class="seekBarPointer"></div>
           <div class="bufferRange"></div>
         </div>
@@ -3564,6 +3699,7 @@ var monkey = function() {
       player.on('progress',       $.proxy(this._onPlayerProgress, this));
       player.on('loadVideoInfo',  $.proxy(this._onLoadVideoInfo, this));
       player.on('commentParsed',  $.proxy(this._onCommentParsed, this));
+      player.on('commentChange',  $.proxy(this._onCommentChange, this));
 
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
@@ -3574,13 +3710,14 @@ var monkey = function() {
       ZenzaWatch.util.addStyle(VideoControlBar.__css__);
       var $view = this._$view = $(VideoControlBar.__tpl__);
       var $container = this._$playerContainer;
+      var config = this._playerConfig;
       var self = this;
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
       this._$seekBarPointer = $view.find('.seekBarPointer');
       this._$bufferRange    = $view.find('.bufferRange');
-      this._$tooltip        = $view.find('.seekBar .tooltip');
+      this._$tooltip        = $view.find('.seekBarContainer .tooltip');
       $container.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover');
@@ -3588,6 +3725,7 @@ var monkey = function() {
 
       this._$seekBar.on('mousedown', $.proxy(this._onSeekBarMouseDown, this));
       this._$seekBar.on('mousemove', $.proxy(this._onSeekBarMouseMove, this));
+      this._$seekBar.on('mousemove', _.debounce($.proxy(this._onSeekBarMouseMoveEnd, this), 1000));
 
       $view.find('.controlButton')
         .on('click', $.proxy(this._onControlButton, this));
@@ -3604,6 +3742,25 @@ var monkey = function() {
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
       this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
 
+      this._seekBarToolTip = new SeekBarToolTip({
+        $container: this._$seekBarContainer
+      });
+      this._seekBarToolTip.on('command', function(command, param) {
+        self.emit('command', command, param);
+      });
+
+      this._commentPreview = new CommentPreview({
+        $container: this._$seekBarContainer
+      });
+      this._commentPreview.on('command', function(command, param) {
+        self.emit('command', command, param);
+      });
+      var updateEnableCommentPreview = function(v) {
+        self._$seekBarContainer.toggleClass('enablePreview', v);
+      };
+      updateEnableCommentPreview(config.getValue('enableCommentPreview'));
+      config.on('update-enableCommentPreview', updateEnableCommentPreview);
+
       this._$screenModeMenu       = $view.find('.screenModeMenu');
       this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
 
@@ -3612,6 +3769,7 @@ var monkey = function() {
 
       ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
         this._hideMenu();
+        this._commentPreview.hide();
       }, this));
 
       $container.append($view);
@@ -3772,7 +3930,14 @@ var monkey = function() {
       this._heatMap.setDuration(duration);
     },
     _onCommentParsed: function() {
-      this._heatMap.setChatList(this._player.getAllChat());
+      this._chatList = this._player.getChatList();
+      this._heatMap.setChatList(this._chatList);
+      this._commentPreview.setChatList(this._chatList);
+    },
+    _onCommentChange: function() {
+      this._chatList = this._player.getChatList();
+      this._heatMap.setChatList(this._chatList);
+      this._commentPreview.setChatList(this._chatList);
     },
     _onPlayerDurationChange: function() {
       // TODO: 動画のメタデータ解析後に動画長情報が変わることがあるので、
@@ -3785,7 +3950,7 @@ var monkey = function() {
       this.setBufferedRange(range, currentTime);
     },
     _startTimer: function() {
-      this._timer = window.setInterval($.proxy(this._onTimer, this), 100);
+      this._timer = window.setInterval($.proxy(this._onTimer, this), 300);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -3809,8 +3974,14 @@ var monkey = function() {
       e.stopPropagation();
       var left = e.offsetX;
       var sec = this._posToTime(left);
+      this._seekBarMouseX = left;
 
-      this._updateTooltip(sec, left);
+      this._commentPreview.setCurrentTime(sec);
+      this._commentPreview.show(left);
+
+      this._seekBarToolTip.update(sec, left);
+    },
+    _onSeekBarMouseMoveEnd: function(e) {
     },
     _beginMouseDrag: function() {
       this._bindDragEvent();
@@ -3826,13 +3997,7 @@ var monkey = function() {
       var sec = this._posToTime(left);
 
       this._player.setCurrentTime(sec);
-      this._updateTooltip(sec, left);
-    },
-    _updateTooltip: function(sec, left) {
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      this._$tooltip.text([m, s].join(':'));
-      this._$tooltip.css('left', left);
+      this._seekBarToolTip.update(sec, left);
     },
     _onBodyMouseUp: function() {
       this._endMouseDrag();
@@ -3932,12 +4097,14 @@ var monkey = function() {
     reset: function() {
       this._duration = -1;
       this._chatReady = false;
-      this._isUpdated = false;
+      //this._isUpdated = false;
       this.emit('reset');
     },
     setDuration: function(duration) {
-      this._duration = duration;
-      this.update();
+      if (this._duration !== duration) {
+        this._duration = duration;
+        this.update();
+      }
     },
     setChatList: function(comment) {
       this._chat = comment;
@@ -3945,20 +4112,21 @@ var monkey = function() {
       this.update();
     },
     update: function() {
-      if (this._duration < 0 || !this._chatReady || this._isUpdated) {
+      if (this._duration < 0 || !this._chatReady /* || this._isUpdated */) {
         return;
       }
       var map = this._getHeatMap();
       this.emitAsync('update', map);
-      this._isUpdated = true;
+
+      // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
+      // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
+      // Firefoxはもうちょっとかかるかも
+      //this._isUpdated = true;
     },
     _getHeatMap: function() {
+      //console.time('update HeatMapModel');
       var chatList =
-        this._chat.top.concat(
-          this._chat.top,
-          this._chat.normal,
-          this._chat.bottom
-        );
+        this._chat.top.concat(this._chat.normal, this._chat.bottom);
       var duration = this._duration;
       var map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
       var i = map.length;
@@ -3973,12 +4141,13 @@ var monkey = function() {
         map[mpos]++;
       }
 
+      //console.timeEnd('update HeatMapModel');
       return map;
     }
   });
 
   var HeatMapView = function() { this.initialize.apply(this, arguments); };
-  HeatMapView.prototype = {
+  _.assign(HeatMapView.prototype, {
     _canvas:  null,
     _palette: null,
     _width: 100,
@@ -4035,7 +4204,7 @@ var monkey = function() {
         this._initializeCanvas();
         this.reset();
       }
-      //window.console.time('update HeatMap');
+      console.time('update HeatMap');
 
       // 一番コメント密度が高い所を100%として相対的な比率にする
       // 赤い所が常にピークになってわかりやすいが、
@@ -4050,7 +4219,7 @@ var monkey = function() {
           map[i] = Math.min(255, Math.floor(map[i] * rate));
         }
       } else {
-        //window.console.timeEnd('update HeatMap');
+        console.timeEnd('update HeatMap');
         return;
       }
 
@@ -4064,9 +4233,9 @@ var monkey = function() {
         context.beginPath();
         context.fillRect(i * scale, 0, blockWidth, this._height);
       }
-      //window.console.timeEnd('update HeatMap');
+      console.timeEnd('update HeatMap');
     }
-  };
+  });
 
   var HeatMap = function() { this.initialize.apply(this, arguments); };
   //_.extend(HeatMap.prototype, AsyncEmitter.prototype);
@@ -4092,6 +4261,465 @@ var monkey = function() {
   });
 
 
+  var CommentPreviewModel = function() { this.initialize.apply(this, arguments); };
+  _.extend(CommentPreviewModel.prototype, AsyncEmitter.prototype);
+  _.assign(CommentPreviewModel.prototype, {
+    initialize: function() {
+    },
+    reset: function() {
+      this._chatReady = false;
+      this._vpos = -1;
+      this.emit('reset');
+    },
+    setChatList: function(chatList) {
+      var list = chatList.top.concat(chatList.normal, chatList.bottom);
+      list.sort(function(a, b) {
+        var av = a.getVpos(), bv = b.getVpos();
+        return av - bv;
+      });
+
+      this._chatList = list;
+      this._chatReady = true;
+      this.update();
+    },
+    setCurrentTime: function(sec) {
+      this.setVpos(sec * 100);
+    },
+    setVpos: function(vpos) {
+      if (this._vpos !== vpos) {
+        this._vpos = vpos;
+        this.emit('vpos');
+      }
+    },
+    getCurrentChatList: function() {
+      if (this._vpos < 0 || !this._chatReady) {
+        return [];
+      }
+      return this.getItemByVpos(this._vpos);
+    },
+    getItemByVpos: function(vpos) {
+      var list = this._chatList;
+      var result = [];
+      for (var i = 0, len = list.length; i < len; i++) {
+        var chat = list[i], cv = chat.getVpos(), diff = vpos - cv;
+        if (diff >= -100 && diff <= 400) {
+          result.push(chat);
+        }
+      }
+      return result;
+    },
+    getItemByNo: function(no) {
+      var list = this._chatList;
+      for (var i = 0, len = list.length; i < len; i++) {
+        var nicoChat = list[i];
+        if (nicoChat.getNo() === no) {
+          return nicoChat;
+        }
+      }
+      return null;
+    },
+    update: function() {
+      this.emit('update');
+    }
+  });
+
+  var CommentPreviewView = function() { this.initialize.apply(this, arguments); };
+  _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
+  CommentPreviewView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="zenzaCommentPreview">
+      <div class="zenzaCommentPreviewInner">
+      </div>
+    </div>
+  */});
+  CommentPreviewView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .zenzaCommentPreview {
+      display: none;
+      position: absolute;
+      bottom: 10px;
+      opacity: 0.8;
+      max-height: 40vh;
+      width: 300px;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.2);
+      color: #ccc;
+      z-index: 100;
+      overflow: hidden;
+      border-bottom: 24px solid transparent;
+    }
+
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaCommentPreview,
+    body:not(.fullScreen).zenzaScreenMode_small .zenzaCommentPreview {
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    .seekBarContainer.enablePreview:hover .zenzaCommentPreview.show {
+      display: block;
+    }
+    .zenzaCommentPreview.show:hover {
+      max-height: 40vh;
+      background: black;
+      overflow: auto;
+      text-shadow: 0 0 4px #888;
+    }
+
+    .zenzaCommentPreview * {
+      box-sizing: border-box;
+    }
+
+    .zenzaCommentPreviewInner {
+      padding: 4px;
+      pointer-events: none;
+    }
+    .zenzaCommentPreview:hover .zenzaCommentPreviewInner {
+      pointer-events: auto;
+    }
+    .seekBarContainer .zenzaCommentPreview.show:hover .zenzaCommentPreviewInner {
+    }
+
+    .zenzaCommentPreviewInner .nicoChat {
+      position: relative;
+      display: block;
+      width: 100%;
+      padding: 2px 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    .zenzaCommentPreviewInner .nicoChat .vposTime {
+    }
+    .zenzaCommentPreview:hover .nicoChat + .nicoChat {
+      border-top: 1px dotted #888;
+    }
+    .zenzaCommentPreviewInner:hover .nicoChat .vposTime {
+    }
+
+    .zenzaCommentPreviewInner .nicoChat:hover {
+      text-decoration: underline;
+    }
+
+    .zenzaCommentPreviewInner .nicoChat .addFilter {
+      display: none;
+      position: absolute;
+      font-size: 10px;
+      color: #fff;
+      background: #666;
+      cursor: pointer;
+    }
+    .zenzaCommentPreviewInner .nicoChat:hover .addFilter {
+      display: inline-block;
+      border: 1px solid #ccc;
+      box-shadow: 2px 2px 2px #333;
+    }
+    .zenzaCommentPreviewInner .nicoChat:hover .addFilter:hover {
+    }
+
+    .zenzaCommentPreviewInner .nicoChat .addFilter.addUserIdFilter {
+      right: 8px;
+      width: 48px;
+    }
+    .zenzaCommentPreviewInner .nicoChat .addFilter.addWordFilter {
+      right: 64px;
+      width: 48px;
+    }
+
+  */});
+  _.assign(CommentPreviewView.prototype, {
+    initialize: function(params) {
+      var model = this._model = params.model;
+      this._$container = params.$container;
+
+      this._showing = false;
+      this._initializeDom(this._$container);
+
+      model.on('reset',  $.proxy(this._onReset, this));
+      var onUpdate = $.proxy(this._onUpdate, this);
+      model.on('update', onUpdate);
+      model.on('vpos',   onUpdate);
+
+      var show = _.throttle(_.bind(this.show, this), 200);
+      this.show = show;
+    },
+    _initializeDom: function($container) {
+      ZenzaWatch.util.addStyle(CommentPreviewView.__css__);
+      var $view = this._$view = $(CommentPreviewView.__tpl__);
+      this._$inner = $view.find('.zenzaCommentPreviewInner');
+      var self = this;
+
+      $view.on('click', function(e) {
+        e.stopPropagation();
+        var $target = $(e.target);
+        var command = $target.attr('data-command');
+        var $nicoChat = $target.closest('.nicoChat');
+        var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
+        var nicoChat  = self._model.getItemByNo(no);
+        self.hide();
+
+        if (command && nicoChat) {
+          switch (command) {
+            case 'addUserIdFilter':
+              self.emit('command', command, nicoChat.getUserId());
+              break;
+            case 'addWordFilter':
+              self.emit('command', command, nicoChat.getText());
+              break;
+            case 'addCommandFilter':
+              self.emit('command', command, nicoChat.getCmd());
+              break;
+          }
+          return;
+        }
+        var vpos = $nicoChat.attr('data-vpos');
+        if (vpos !== undefined) {
+          self.emit('command', 'seek', vpos / 100);
+        }
+      });
+      $view.on('mousewheel', function(e) {
+        e.stopPropagation();
+      });
+      $container.on('mouseleave', function() {
+        self.hide();
+      });
+
+      this._html = '';
+
+      $container.append($view);
+    },
+    _onUpdate: function() {
+      if (this._showing) {
+        this._updateView();
+      } else {
+        this._updated = true;
+      }
+    },
+    _onReset: function() {
+      this._html = '';
+      this._$inner.html('');
+    },
+    _updateView: function() {
+      var chatList = this._model.getCurrentChatList();
+      if (chatList.length < 1) {
+        this.hide();
+        this._updated = false;
+        this._html = '';
+        return;
+      }
+      //window.console.time('update commentPreview');
+      var vposToTime = function(vpos) {
+        var sec = Math.floor(vpos / 100);
+        var m = Math.floor(sec / 60);
+        var s = (100 + (sec % 60)).toString().substr(1);
+        return [m, s].join(':');
+      };
+      var _html = ['<ul>'];
+      $(chatList).each(function(i, chat) {
+        var text = ZenzaWatch.util.escapeHtml(chat.getText());
+        var vpos = chat.getVpos();
+        var elm = [
+          '<li class="nicoChat" title="', text, '" ',
+              'data-vpos="', vpos, '" ',
+              'data-nicochat-no="', chat.getNo(), '" ',
+            '>',
+              '<span class="vposTime">', vposToTime(vpos), ': </span>',
+              '<span ',
+              'style="color: ', chat.getColor(), ';', '" ',
+              '>',
+                text,
+              '</span>',
+              '<span class="addFilter addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>',
+              '<span class="addFilter addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>',
+          '</li>',
+        ''].join('');
+        _html.push(elm);
+      });
+      _html.push('</ul>');
+
+      var html = _html.join('');
+      if (this._html !== html) {
+        this._html = html;
+        this._$inner.html(html);
+      }
+      this._updated = false;
+      //window.console.timeEnd('update commentPreview');
+    },
+    _isEmpty: function() {
+      return this._html === '';
+    },
+    show: function(left) {
+      if (this._updated) {
+        this._updateView();
+      }
+      if (this._isEmpty()) {
+        return;
+      }
+      var $view = this._$view, width = $view.outerWidth();
+      var containerWidth = this._$container.innerWidth();
+
+      left = Math.min(Math.max(0, left - width / 2), containerWidth - width);
+      $view.css({left: left}).addClass('show').scrollTop(0);
+    },
+    hide: function() {
+      this._$view.removeClass('show');
+    }
+  });
+
+  var CommentPreview = function() { this.initialize.apply(this, arguments); };
+  _.extend(CommentPreview.prototype, AsyncEmitter.prototype);
+  _.assign(CommentPreview .prototype, {
+    initialize: function(param) {
+      this._model = new CommentPreviewModel({
+      });
+      this._view = new CommentPreviewView({
+        model:      this._model,
+        $container: param.$container
+      });
+      var self = this;
+      this._view.on('command', function(command, param) {
+        self.emit('command', command, param);
+      });
+
+      this.reset();
+    },
+    reset: function() {
+      this._model.reset();
+      this._view.hide();
+    },
+    setChatList: function(chatList) {
+      this._model.setChatList(chatList);
+    },
+    setCurrentTime: function(sec) {
+      this._model.setCurrentTime(sec);
+    },
+    show: function(left) {
+      this._view.show(left);
+    },
+    hide: function() {
+      this._view.hide();
+    }
+  });
+
+  var SeekBarToolTip = function() { this.initialize.apply(this, arguments); };
+  _.extend(SeekBarToolTip.prototype, AsyncEmitter.prototype);
+  SeekBarToolTip.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .seekBarToolTip {
+      position: absolute;
+      display: inline-block;
+      bottom: 10px;
+      z-index: 300;
+      position: absolute;
+      padding: 1px;
+      bottom: 10px;
+      left: 0;
+      white-space: nowrap;
+      font-size: 10px;
+      background: #000;
+      z-index: 150;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .seekBarContainer:hover .seekBarToolTip {
+      opacity: 1;
+      pointer-events: none;
+    }
+
+    .seekBarToolTip .currentTime {
+      display: inline-block;
+      color: #fff;
+      background: #666;
+      text-align: center;
+    }
+
+    .seekBarToolTip .controlButton {
+      width: 24px;
+      height: 24px;
+      line-height: 22px;
+      font-size: 18px;
+    }
+    .seekBarToolTip .controlButton:active {
+      font-size: 14px;
+    }
+
+    .seekBarToolTip .controlButton.enableCommentPreview {
+      opacity: 0.5;
+    }
+
+    .enablePreview .seekBarToolTip .controlButton.enableCommentPreview {
+      opacity: 1;
+    }
+  */});
+  SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="seekBarToolTip">
+      <div class="seekBarToolTipInner">
+
+        <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
+          <div class="controlButtonInner">⇦</div>
+        </div>
+
+        <div class="currentTime"></div>
+        <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
+          <div class="menuButtonInner">💬</div>
+        </div>
+
+        <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
+          <div class="controlButtonInner">⇨</div>
+        </div>
+
+      </div>
+    </div>
+  */});
+  _.assign(SeekBarToolTip .prototype, {
+    initialize: function(params) {
+      this._$container = params.$container;
+      this._initializeDom(params.$container);
+    },
+    _initializeDom: function($container) {
+      ZenzaWatch.util.addStyle(SeekBarToolTip.__css__);
+      var $view = this._$view = $(SeekBarToolTip.__tpl__);
+      var self = this;
+
+      this._$currentTime = $view.find('.currentTime');
+
+      $view.on('click', function(e) {
+        e.stopPropagation();
+        var $target = $(e.target.closest('.controlButton'));
+        var command = $target.attr('data-command');
+        var param   = $target.attr('data-param');
+        self.emit('command', command, param);
+      });
+
+      $container.append($view);
+    },
+    update: function(sec, left) {
+      var m = Math.floor(sec / 60);
+      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+      var timeText = [m, s].join(':');
+      if (this._timeText !== timeText) {
+        this._timeText = timeText;
+        this._$currentTime.text(timeText);
+        var w  = this._$view.outerWidth();
+        var vw = this._$container.innerWidth();
+        left = Math.max(0, Math.min(left - w / 2, vw - w));
+        this._$view.css('left', left);
+      }
+    }
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
 
 
 
@@ -4146,10 +4774,9 @@ var monkey = function() {
         show: params.showComment
       });
 
-      this._model.on('change', $.proxy(this._onCommentChange, this));
-      this._model.on('parsed', $.proxy(this._onCommentParsed, this));
-
-      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
+      this._model.on('change'      , $.proxy(this._onCommentChange, this));
+      this._model.on('filterChange', $.proxy(this._onFilterChange, this));
+      this._model.on('parsed'      , $.proxy(this._onCommentParsed, this));
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
@@ -4171,6 +4798,10 @@ var monkey = function() {
           this._view.refresh();
         }, this);
       }
+      this.emit('change');
+    },
+    _onFilterChange: function(nicoChatFilter) {
+      this.emit('filterChange', nicoChatFilter);
     },
     _onCommentParsed: function() {
       this.emit('parsed');
@@ -4241,8 +4872,47 @@ var monkey = function() {
     getSharedNgLevel: function() {
       return this._model.getSharedNgLevel();
     },
-    getAllChat: function() {
-      return this._model.getAllChat();
+    setIsFilterEnable: function(v) {
+      this._model.setIsFilterEnable(v);
+    },
+    isFilterEnable: function() {
+      return this._model.isFilterEnable();
+    },
+    addWordFilter: function(text) {
+      this._model.addWordFilter(text);
+    },
+    setWordFilterList: function(list) {
+      this._model.setWordFilterList(list);
+    },
+    getWordFilterList: function() {
+      return this._model.getWordFilterList();
+    },
+    addUserIdFilter: function(text) {
+      this._model.addUserIdFilter(text);
+    },
+    setUserIdFilterList: function(list) {
+      this._model.setUserIdFilterList(list);
+    },
+    getUserIdFilterList: function() {
+      return this._model.getUserIdFilterList();
+    },
+    addCommandFilter: function(text) {
+      this._model.addCommandFilter(text);
+    },
+    setCommandFilterList: function(list) {
+      this._model.setCommandFilterList(list);
+    },
+    getCommandFilterList: function() {
+      return this._model.getCommandFilterList();
+    },
+    getChatList: function() {
+      return this._model.getChatList();
+    },
+    /**
+     * NGフィルタなどのかかってない全chatを返す
+     */
+    getNonfilteredChatList: function() {
+      return this._model.getNonfilteredChatList();
     },
     toString: function() {
       return this._viewModel.toString();
@@ -4263,17 +4933,21 @@ var monkey = function() {
       this.emit      = $.proxy(emitter.emit,      emitter);
       this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
-      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
 
+      params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
+      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
+      
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL, params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
-      this._topGroup   .on('change', $.proxy(this._onChange, this));
-      this._normalGroup.on('change', $.proxy(this._onChange, this));
-      this._bottomGroup.on('change', $.proxy(this._onChange, this));
+
+      var onChange = _.debounce($.proxy(this._onChange, this), 100);
+      this._topGroup   .on('change', onChange);
+      this._normalGroup.on('change', onChange);
+      this._bottomGroup.on('change', onChange);
     },
     setXml: function(xml) {
-      window.console.time('NicoComment.setXml');
+      window.console.time('コメントのパース処理');
 
       this._xml = xml;
       this._topGroup.reset();
@@ -4310,14 +4984,21 @@ var monkey = function() {
       this._normalGroup.addChatArray(normal);
       this._bottomGroup.addChatArray(bottom);
 
-      window.console.timeEnd('NicoComment.setXml');
+      window.console.timeEnd('コメントのパース処理');
       console.log('chats: ', chats.length);
       console.log('top: ',    this._topGroup   .getNonFilteredMembers().length);
       console.log('normal: ', this._normalGroup.getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('parsed');
     },
-    getAllChat: function() {
+    getChatList: function() {
+      return {
+        top:    this._topGroup   .getMembers(),
+        normal: this._normalGroup.getMembers(),
+        bottom: this._bottomGroup.getMembers()
+      };
+    },
+    getNonFilteredChatList: function() {
       return {
         top:    this._topGroup   .getNonFilteredMembers(),
         normal: this._normalGroup.getNonFilteredMembers(),
@@ -4355,6 +5036,9 @@ var monkey = function() {
       };
       this.emit('change', ev);
     },
+    _onFilterChange: function() {
+      this.emit('filterChange', this._nicoChatFilter);
+    },
     clear: function() {
       this._xml = '';
       this._topGroup.reset();
@@ -4391,17 +5075,44 @@ var monkey = function() {
       }
     },
     setSharedNgLevel: function(level) {
-      if (SHARED_NG_LEVEL[level] && this._sharedNgLevel !== level) {
-        this._sharedNgLevel = level;
-        this._topGroup   .setSharedNgLevel(level);
-        this._normalGroup.setSharedNgLevel(level);
-        this._bottomGroup.setSharedNgLevel(level);
-        this.emit('sharedNgLevel', level);
-      }
+      this._nicoChatFilter.setSharedNgLevel(level);
     },
     getSharedNgLevel: function() {
-      return this._model.getSharedNgLevel();
-    }
+      return this._nicoChatFilter.getSharedNgLevel();
+    },
+    setIsFilterEnable: function(v) {
+      this._nicoChatFilter.setEnable(v);
+    },
+    isFilterEnable: function() {
+      return this._nicoChatFilter.isEnable();
+    },
+    addWordFilter: function(text) {
+      this._nicoChatFilter.addWordFilter(text);
+    },
+    setWordFilterList: function(list) {
+      this._nicoChatFilter.setWordFilterList(list);
+    },
+    getWordFilterList: function() {
+      return this._nicoChatFilter.getWordFilterList();
+    },
+    addUserIdFilter: function(text) {
+      this._nicoChatFilter.addUserIdFilter(text);
+    },
+    setUserIdFilterList: function(list) {
+      this._nicoChatFilter.setUserIdFilterList(list);
+    },
+    getUserIdFilterList: function() {
+      return this._nicoChatFilter.getUserIdFilterList();
+    },
+    addCommandFilter: function(text) {
+      this._nicoChatFilter.addCommandFilter(text);
+    },
+    setCommandFilterList: function(list) {
+      this._nicoChatFilter.setCommandFilterList(list);
+    },
+    getCommandFilterList: function() {
+      return this._nicoChatFilter.getCommandFilterList();
+    },
   });
 
   // フォントサイズ計算用の非表示レイヤーを取得
@@ -4423,7 +5134,15 @@ var monkey = function() {
       .ue .mingLiu , .shita .mingLiu{font-family:  mingLiu,monospace; }
 
       .nicoChat {
+        position: absolute;
         padding: 1px;
+
+        font-family: 'ＭＳ Ｐゴシック';
+        letter-spacing: 1px;
+        margin: 2px 1px 1px 1px;
+        white-space: pre;
+        font-weight: bolder;
+
       }
       .nicoChat.big {
         line-height: 48px;
@@ -4467,7 +5186,7 @@ var monkey = function() {
         font-family: 'ＭＳ Ｐゴシック';
         letter-spacing: 1px;
         margin: 2px 1px 1px 1px;
-        white-space: nowrap;
+        white-space: pre;
         font-weight: bolder;
 
     "></div>
@@ -4541,9 +5260,7 @@ var monkey = function() {
       }
 
       var span = document.createElement('span');
-      span.style.position   = 'absolute';
-      span.style.fontWeight = 'bolder';
-      span.style.whiteSpace = 'nowrap';
+      span.style.className  = 'nicoChat';
 
       textField = {
         setText: function(text) {
@@ -4654,24 +5371,20 @@ var monkey = function() {
 });
 
   var NicoChatGroup = function() { this.initialize.apply(this, arguments); };
-
+  _.extend(NicoChatGroup.prototype, AsyncEmitter.prototype);
   _.assign(NicoChatGroup.prototype, {
     initialize: function(nicoComment, type, params) {
       this._nicoComment = nicoComment;
       this._type = type;
 
-      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
-
-      // TODO: mixin
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this._nicoChatFilter = params.nicoChatFilter;
+      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
 
       this.reset();
     },
     reset: function() {
       this._members = [];
+      this._filteredMembers = [];
     },
     addChatArray: function(nicoChatArray) {
       var members = this._members;
@@ -4682,47 +5395,30 @@ var monkey = function() {
         nicoChat.setGroup(this);
       });
 
-      newMembers = this._applyFilter(nicoChatArray);
+      newMembers = this._nicoChatFilter.applyFilter(nicoChatArray);
       if (newMembers.length > 0) {
+        this._filteredMembers = this._filteredMembers.concat(newMembers);
         this.emit('addChatArray', newMembers);
       }
     },
     addChat: function(nicoChat) {
       this._members.push(nicoChat);
       nicoChat.setGroup(this);
-      var filter = this._getFilterFunc();
-      if (filter(nicoChat)) {
+
+      if (this._nicoChatFilter.isSafe(nicoChat)) {
+        this._filteredMembers.push(nicoChat);
         this.emit('addChat', nicoChat);
       }
     },
     getType: function() {
       return this._type;
     },
-    _getFilterFunc: function() {
-      var threthold = SHARED_NG_SCORE[this._sharedNgLevel];
-      if (Config.getValue('debug')) {
-        return function(nicoChat) {
-          var score = nicoChat.getScore();
-          if (score <= threthold) {
-            window.console.log('%cNG共有適用: %s <= %s %s %s秒 %s', 'background: yellow;',
-              score, threthold, nicoChat.getType(), nicoChat.getVpos() / 100, nicoChat.getText()
-            );
-          }
-          return score > threthold;
-        };
-      }
-      return function(nicoChat) {
-        var score = nicoChat.getScore();
-        //  window.console.log('filter?', score, threthold, nicoChat.getText());
-        return score > threthold;
-      };
-    },
-    _applyFilter: function(nicoChatArray) {
-      return _.filter(nicoChatArray, this._getFilterFunc());
-    },
     getMembers: function() {
-      // TODO: フィルター結果をキャッシュする？
-      return this._applyFilter(this._members);
+      if (this._filteredMembers.length > 0) {
+        return this._filteredMembers;
+      }
+      var members = this._filteredMembers = this._nicoChatFilter.applyFilter(this._members);
+      return members;
     },
     getNonFilteredMembers: function() {
       return this._members;
@@ -4732,10 +5428,15 @@ var monkey = function() {
     },
     onChange: function(e) {
       console.log('NicoChatGroup.onChange: ', e);
+      this._filteredMembers = [];
       this.emit('change', {
         chat: e,
         group: this
       });
+    },
+    _onFilterChange: function() {
+      this._filteredMembers = [];
+      this.onChange(null);
     },
     setCurrentTime: function(sec) {
       this._currentTime = sec;
@@ -4864,9 +5565,7 @@ var monkey = function() {
         if (av !== bv) {
           return av - bv;
         } else {
-          // 文字列比較なので桁上がりのタイミングで狂うじゃないですかーやだー
-          // レアケースだからって放置するんですかー
-          return a.getId() < b.getId() ? -1 : 1;
+          return a.getNo() < b.getNo() ? -1 : 1;
         }
       });
       return this._vSortedMembers;
@@ -5028,7 +5727,7 @@ var monkey = function() {
       this._isMine = chat.getAttribute('mine') === '1';
       this._isUpdating = chat.getAttribute('updating') === '1';
       this._score = parseInt(chat.getAttribute('score') || '0', 10);
-      this._no = chat.getAttribute('no') || '';
+      this._no = parseInt(chat.getAttribute('no') || '0', 10);
 
       if (this._deleted) { return; }
 
@@ -5252,24 +5951,12 @@ var monkey = function() {
       }
     },
     _setText: function(text) {
-      var han_replace = function(m) {
-        var bar = '________________________________________';
-        return ['<span class="han_space">', bar.substr(0, m.length), '</span>'].join('');
-      };
-      var zen_replace = function(m) {
-        var bar = '＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃';
-        return ['<span class="zen_space">', bar.substr(0, m.length), '</span>'].join('');
-      };
-      var zen_replace2 = function(m) {
-        var bar = '、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、';
-        return ['<span class="zen_space">', bar.substr(0, m.length), '</span>'].join('');
-      };
-
       var htmlText =
         ZenzaWatch.util.escapeHtml(text)
           .replace(/( |　|\t)+([\n$])/g , '$1')
-          .replace(/( |\xA0){1,30}/g , han_replace)
-          .replace(/[\t]/g , '<span class="tab_space">&nbsp;</span>');
+//          .replace(/( |\xA0){1,30}/g , han_replace)
+          .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
+          .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
 
       // 特殊文字と、その前後の全角文字のフォントが変わるらしい
       htmlText =
@@ -5277,10 +5964,8 @@ var monkey = function() {
           .replace(NicoChatViewModel._FONT_REG.MINCHO,   '<span class="mincho">$1</span>')
           .replace(NicoChatViewModel._FONT_REG.GULIM,    '<span class="gulim">$1</span>')
           .replace(NicoChatViewModel._FONT_REG.MING_LIU, '<span class="mingLiu">$1</span>')
-//          .replace(/ /g , '<span class="zen_space">＃</span>')
-          .replace(/[ ]{1,20}/g ,  zen_replace)
-//          .replace(/　/g , '<span class="zen_space">、</span>');
-          .replace(/[　]{1,20}/g , zen_replace2);
+          .replace(/([ ]+)/g ,   '<span class="zen_space">$1</span>') // zen_replace)
+          .replace(/'([　]+)/g , '<span class="zen_space">$1</span>'); //, zen_replace2);
 
       // 最初の一文字目が特殊文字だった場合は全体のフォントが変わるらしい
       var firstLetter = text.charAt(0);
@@ -5542,7 +6227,13 @@ var monkey = function() {
     moveToNextLine: function(others) {
       var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
       var othersHeight = others.getHeight() + margin;
-      var yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height; //lineHeight;
+      // 本来はちょっとでもオーバーしたらランダムすべきだが、
+      // 本家とまったく同じサイズ計算は難しいのでマージンを入れる
+      // コメントアートの再現という点では有効な妥協案
+      var overflowMargin = 5;
+      var rnd =  Math.max(0, NicoCommentViewModel.SCREEN.HEIGHT - this._height);
+      var yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height + overflowMargin;
+      var yMin = 0 - overflowMargin;
 
       var type = this._nicoChat.getType();
       var y = this._y;
@@ -5556,12 +6247,12 @@ var monkey = function() {
       } else {
         y -= othersHeight;
         // 画面内に入りきらなかったらランダム配置
-        if (y < 0) {
+        if (y < yMin) {
           this._isOverflow = true;
         }
       }
 
-      this._y = this._isOverflow ? Math.max(0, Math.floor(Math.random() * yMax)) : y;
+      this._y = this._isOverflow ? Math.floor(Math.random() * rnd) : y;
     },
 
     reset: function() {
@@ -5642,6 +6333,7 @@ var monkey = function() {
     getLineHeight: function() {
       return this._lineHeight;
     },
+    getNo: function() { return this._nicoChat.getNo(); },
     /**
      * second時の左端座標を返す
      */
@@ -5779,20 +6471,18 @@ iframe {
 
 .nicoChat {
   position: absolute;
-  opacity: 0;
-  text-shadow:
-  {*-1px -1px 0 #ccc, *}
-     1px  1px 0 #000;
+  padding: 1px;
 
   font-family: 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
   margin: 2px 1px 1px 1px;
-  white-space: nowrap;
+  white-space: pre;
   font-weight: bolder;
 
-{*line-height: 123.5%;*}
-  padding: 0;
-
+  line-height: 1.235;
+  opacity: 0;
+  text-shadow:
+     1px  1px 0 #000;
   transform-origin: 0% 0%;
   animation-timing-function: linear;
 }
@@ -5802,26 +6492,26 @@ iframe {
 }
 
 .nicoChat.big {
-  line-height: 48px;
+  {*line-height: 48px;*}
 }
 .nicoChat.big.noScale {
-  line-height: 45px;
+  {*line-height: 45px;*}
 }
 
 
 .nicoChat.medium {
-  line-height: 30px;
+  {*line-height: 30px;*}
 }
 .nicoChat.medium.noScale {
-  line-height: 29px;
+  {*line-height: 29px;*}
 }
 
 
 .nicoChat.small {
-  line-height: 20px;
+  {*line-height: 20px;*}
 }
 .nicoChat.small.noScale {
-  line-height: 18px;
+  {*line-height: 18px;*}
 }
 
 
@@ -5850,7 +6540,9 @@ iframe {
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
   color: yellow;
+  background: #fff;
   opacity: 0.3;
+  mix-blend-mode: lighten;
 }
 
 .nicoChat .zero_space {
@@ -5988,7 +6680,7 @@ iframe {
       this._commentLayer = null;
       this._view = null;
       var iframe;
-      var reserved = document.getElementsByClassName('commentLayerFrameReserve');
+      var reserved = document.getElementsByClassName('reservedFrame');
       if (reserved && reserved.length > 0) {
         iframe = reserved[0];
         document.body.removeChild(iframe);
@@ -6160,15 +6852,29 @@ iframe {
         inView = inView.concat(group.getInViewMembers());
       }
 
+      var nicoChat;
       var ct = this._currentTime;
+      var newView = [];
       for (i = 0, len = inView.length; i < len; i++) {
-        var nicoChat = inView[i];
+        nicoChat = inView[i];
         var domId = nicoChat.getId();
         if (this._inViewTable[domId]) {
           continue;
         }
-        // 新規に表示状態になったchatがあればdom生成
         this._inViewTable[domId] = nicoChat;
+        newView.push(nicoChat);
+      }
+
+      if (newView.length > 1) {
+        newView.sort(function(a, b) {
+          var av = a.getVpos(), bv = b.getVpos();
+          if (av !== bv) { return av - bv; }
+          else { return a.getNo() < b.getNo() ? -1 : 1; }
+        });
+      }
+
+      for (i = 0, len = newView.length; i < len; i++) {
+        nicoChat = newView[i];
         var type = nicoChat.getType();
         var size = nicoChat.getSize();
         dom.push(this._buildChatDom(nicoChat, type, size));
@@ -6433,6 +7139,244 @@ iframe {
 
 
 
+  var NicoChatFilter = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoChatFilter.prototype, AsyncEmitter.prototype);
+  _.assign(NicoChatFilter.prototype, {
+    initialize: function(params) {
+
+      this._sharedNgLevel = params.sharedNgLevel || SHARED_NG_LEVEL.MID;
+
+      this._wordFilterList    = [];
+      this._userIdFilterList  = [];
+      this._commandFilterList = [];
+      this.setWordFilterList   (params.wordFilter    || '');
+      this.setUserIdFilterList (params.userIdFilter  || '');
+      this.setCommandFilterList(params.commandFilter || '');
+
+      this._enable = typeof params.enable === 'boolean' ? params.enable : true;
+
+      this._wordReg  = null;
+      this._userIdReg   = null;
+      this._commandReg  = null;
+
+      this._onChange = _.debounce(_.bind(this._onChange, this), 50);
+    },
+    setEnable: function(v) {
+      v = !!v;
+      if (this._enable !== v) {
+        this._enable = v;
+        this._onChange();
+      }
+    },
+    isEnable: function() {
+      return this._enable;
+    },
+    addWordFilter: function(text) {
+      var before = this._wordFilterList.join('\n');
+      this._wordFilterList.push(_.trim(text));
+      this._wordFilterList = _.uniq(this._wordFilterList);
+      var after = this._wordFilterList.join('\n');
+      if (before !== after) {
+        this._wordReg = null;
+        this._onChange();
+      }
+    },
+    setWordFilterList: function(list) {
+      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+
+      var before = this._wordFilterList.join('\n');
+      var tmp = [];
+      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      tmp = _.compact(tmp);
+      var after = tmp.join('\n');
+
+      if (before !== after) {
+        this._wordReg = null;
+        this._wordFilterList = tmp;
+        this._onChange();
+      }
+    },
+    getWordFilterList: function() {
+      return this._wordFilterList;
+    },
+
+    addUserIdFilter: function(text) {
+      var before = this._userIdFilterList.join('\n');
+      this._userIdFilterList.push(text);
+      this._userIdFilterList = _.uniq(this._userIdFilterList);
+      var after = this._userIdFilterList.join('\n');
+      if (before !== after) {
+        this._userIdReg = null;
+        this._onChange();
+      }
+    },
+    setUserIdFilterList: function(list) {
+      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+
+      var before = this._userIdFilterList.join('\n');
+      var tmp = [];
+      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      tmp = _.compact(tmp);
+      var after = tmp.join('\n');
+
+      if (before !== after) {
+        this._userIdReg = null;
+        this._userIdFilterList = tmp;
+        this._onChange();
+      }
+    },
+    getUserIdFilterList: function() {
+      return this._userIdFilterList;
+    },
+
+    addCommandFilter: function(text) {
+      var before = this._commandFilterList.join('\n');
+      this._commandFilterList.push(text);
+      this._commandFilterList = _.uniq(this._commandFilterList);
+      var after = this._commandFilterList.join('\n');
+      if (before !== after) {
+        this._commandReg = null;
+        this._onChange();
+      }
+    },
+    setCommandFilterList: function(list) {
+      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+
+      var before = this._commandFilterList.join('\n');
+      var tmp = [];
+      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      tmp = _.compact(tmp);
+      var after = tmp.join('\n');
+
+      if (before !== after) {
+        this._commandReg = null;
+        this._commandFilterList = tmp;
+        this._onChange();
+      }
+    },
+    getCommandFilterList: function() {
+      return this._commandFilterList;
+    },
+
+    setSharedNgLevel: function(level) {
+      if (SHARED_NG_LEVEL[level] && this._sharedNgLevel !== level) {
+        this._sharedNgLevel = level;
+        this._onChange();
+      }
+    },
+    getSharedNgLevel: function() {
+      return this._sharedNgLevel;
+    },
+    getFilterFunc: function() {
+      if (!this._enable) {
+        return function() { return true; };
+      }
+      var threthold = SHARED_NG_SCORE[this._sharedNgLevel];
+
+      // NG設定の数×コメント数だけループを回すのはアホらしいので、
+      // 連結した一個の正規表現を生成する
+      if (!this._wordReg) {
+        this._wordReg = this._buildFilterReg(this._wordFilterList);
+      }
+      if (!this._userIdReg) {
+        this._userIdReg = this._buildFilterReg(this._userIdFilterList);
+      }
+      if (!this._commandReg) {
+        this._commandReg = this._buildFilterReg(this._commandFilterList);
+      }
+      var commentReg  = this._wordReg;
+      var userIdReg   = this._userIdReg;
+      var commandReg  = this._commandReg;
+
+      if (Config.getValue('debug')) {
+        return function(nicoChat) {
+          var score = nicoChat.getScore();
+          if (score <= threthold) {
+            window.console.log('%cNG共有適用: %s <= %s %s %s秒 %s', 'background: yellow;',
+              score,
+              threthold,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (commentReg && commentReg.test(nicoChat.getText())) {
+            window.console.log('%cNGワード: "%s" %s %s秒 %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (userIdReg && userIdReg.test(nicoChat.getUserId())) {
+            window.console.log('%cNGID: "%s" %s %s秒 %s %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getUserId(),
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (commandReg && commandReg.test(nicoChat.getCmd())) {
+            window.console.log('%cNG command: "%s" %s %s秒 %s %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getCmd(),
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+
+          return true;
+        };
+      }
+
+      return function(nicoChat) {
+        if (nicoChat.getScore() <= threthold) { return false; }
+
+        if (commentReg && commentReg.test(nicoChat.getText()))   { return false; }
+
+        if (userIdReg  && userIdReg .test(nicoChat.getUserId())) { return false; }
+
+        if (commandReg && commandReg.test(nicoChat.getCmd()))    { return false; }
+
+        return true;
+      };
+    },
+    applyFilter: function(nicoChatArray) {
+      window.console.time('applyNgFilter');
+      var result = _.filter(nicoChatArray, this.getFilterFunc());
+      window.console.timeEnd('applyNgFilter');
+      return result;
+    },
+    isSafe: function(nicoChat) {
+      return (this.getFilterFunc())(nicoChat);
+    },
+    _buildFilterReg: function(filterList) {
+      if (filterList.length < 1) { return null; }
+      var r = [];
+      $(filterList).each(function(i, filter) {
+        r.push(ZenzaWatch.util.escapeRegs(filter));
+      });
+      return new RegExp('(' + r.join('|') + ')', 'i');
+    },
+    _onChange: function() {
+      console.log('NicoChatFilter.onChange');
+      this.emit('change');
+    }
+  });
+
+
+
+
 
   var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
   NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -6556,7 +7500,7 @@ iframe {
       top:  calc(-50vh + 50%);
       left: calc(-50vw + 50%);
       width:  100vw;
-      height: 100vh;
+      height: calc(100vh - 40px);
       right: auto;
       bottom: auto;
       z-index: 1;
@@ -6838,16 +7782,12 @@ iframe {
     </div>
   */});
 
+  _.extend(NicoVideoPlayerDialog.prototype, AsyncEmitter.prototype);
   _.assign(NicoVideoPlayerDialog.prototype, {
     initialize: function(params) {
       this._offScreenLayer = params.offScreenLayer;
       this._playerConfig = params.playerConfig;
       this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
-
-      var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
 
       this._playerConfig.on('update-screenMode', $.proxy(this._updateScreenMode, this));
       this._initializeDom(params);
@@ -6878,6 +7818,8 @@ iframe {
         this._playerConfig.getValue('mute'));
       this._$playerContainer.toggleClass('loop',
         this._playerConfig.getValue('loop'));
+      this._$playerContainer.toggleClass('debug',
+        this._playerConfig.getValue('debug'));
 
 
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
@@ -6936,13 +7878,14 @@ iframe {
         playerConfig: this._playerConfig,
         player: this
       });
+      this._settingPanel.on('command', $.proxy(this._onCommand, this));
 
-      this._videoControlbar = new VideoControlBar({
+      this._videoControlBar = new VideoControlBar({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig,
         player: this
       });
-      this._videoControlbar.on('command', $.proxy(this._onCommand, this));
+      this._videoControlBar.on('command', $.proxy(this._onCommand, this));
 
       this._initializeResponsive();
       $('body').append($dialog);
@@ -6951,12 +7894,17 @@ iframe {
       if (this._nicoVideoPlayer) {
         return this._nicoVideoPlayer();
       }
+      var config = this._playerConfig;
       var nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
         offScreenLayer: this._offScreenLayer,
-        node: this._$playerContainer,
-        volume: Config.getValue('volume'),
-        loop: Config.getValue('loop'),
-        playerConfig: Config
+        node:           this._$playerContainer,
+        playerConfig:  config,
+        volume:        config.getValue('volume'),
+        loop:          config.getValue('loop'),
+        enableFilter:  config.getValue('enableFilter'),
+        wordFilter:    config.getValue('wordFilter'),
+        commandFilter: config.getValue('commandFilter'),
+        userIdFilter:  config.getValue('userIdFilter')
       });
 
       this._messageApiLoader = new MessageApiLoader();
@@ -6979,6 +7927,8 @@ iframe {
       nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
       nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
       nicoVideoPlayer.on('commentParsed',  $.proxy(this._onCommentParsed, this));
+      nicoVideoPlayer.on('commentChange',  $.proxy(this._onCommentChange, this));
+      nicoVideoPlayer.on('commentFilterChange', $.proxy(this._onCommentFilterChange, this));
 
       nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
       nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
@@ -7021,6 +7971,7 @@ iframe {
     },
     _onCommand: function(command, param) {
       var v;
+      console.log('command: %s param: %s', command, param, typeof param);
       switch(command) {
         case 'volume':
           this.setVolume(param);
@@ -7029,8 +7980,17 @@ iframe {
           this._nicoVideoPlayer.togglePlay();
           break;
         case 'toggleComment':
+        case 'toggleShowComment':
           v = this._playerConfig.getValue('showComment');
           this._playerConfig.setValue('showComment', !v);
+          break;
+        case 'toggleBackComment':
+          v = this._playerConfig.getValue('backComment');
+          this._playerConfig.setValue('backComment', !v);
+          break;
+        case 'toggleConfig':
+          v = this._playerConfig.getValue(param);
+          this._playerConfig.setValue(param, !v);
           break;
         case 'toggleMute':
           v = this._playerConfig.getValue('mute');
@@ -7061,8 +8021,31 @@ iframe {
         case 'seekBy':
           this.setCurrentTime(this.getCurrentTime() + param * 1);
           break;
+        case 'addWordFilter':
+          this._nicoVideoPlayer.addWordFilter(param);
+          break;
+        case 'addUserIdFilter':
+          this._nicoVideoPlayer.addUserIdFilter(param);
+          break;
+        case 'addCommandFilter':
+          this._nicoVideoPlayer.addCommandFilter(param);
+          break;
+        case 'setWordFilterList':
+          this._nicoVideoPlayer.setWordFilterList(param);
+          break;
+        case 'setUserIdFilterList':
+          this._nicoVideoPlayer.setUserIdFilterList(param);
+          break;
+        case 'setCommandFilterList':
+          this._nicoVideoPlayer.setCommandFilterList(param);
+          break;
+        case 'setIsCommentFilterEnable':
+          this._nicoVideoPlayer.setIsCommentFilterEnable(param);
+          break;
+        case 'enableFilter':
         case 'playbackRate':
         case 'screenMode':
+        case 'sharedNgLevel':
           this._playerConfig.setValue(command, param);
           break;
       }
@@ -7139,7 +8122,21 @@ iframe {
             {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
           break;
         case 'debug':
+          this._$playerContainer.toggleClass('debug', value);
           PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
+          break;
+        case 'enableFilter':
+          PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
+          this._nicoVideoPlayer.setIsCommentFilterEnable(value);
+          break;
+        case 'wordFilter':
+          this._nicoVideoPlayer.setWordFilterList(value);
+          break;
+        case 'userIdFilter':
+          this._nicoVideoPlayer.setUserIdFilterList(value);
+          break;
+        case 'commandFilter':
+          this._nicoVideoPlayer.setCommandFilterList(value);
           break;
       }
     },
@@ -7189,9 +8186,7 @@ iframe {
       };
 
       $container.addClass('updatingDeflist');
-      var timer = window.setTimeout(function() {
-        $container.removeClass('updatingDeflist');
-      }, 10000);
+      var timer = window.setTimeout(removeClass, 10000);
 
       var owner = this._videoInfo.getOwnerInfo();
       var watchId = this._videoInfo.getWatchId();
@@ -7242,6 +8237,17 @@ iframe {
     },
     _onCommentParsed: function() {
       this.emit('commentParsed');
+    },
+    _onCommentChange: function() {
+      this.emit('commentChange');
+    },
+    _onCommentFilterChange: function(filter) {
+      var config = this._playerConfig;
+      config.setValue('enableFilter',  filter.isEnable());
+      config.setValue('wordFilter',    filter.getWordFilterList());
+      config.setValue('userIdFilter',  filter.getUserIdFilterList());
+      config.setValue('commandFilter', filter.getCommandFilterList());
+      this.emit('commentFilterChange', filter);
     },
     show: function() {
       this._$dialog.addClass('show');
@@ -7552,11 +8558,11 @@ iframe {
     getBufferedRange: function() {
       return this._nicoVideoPlayer.getBufferedRange();
     },
-    /**
-     * NG設定などでフィルタされてないコメントを全部取得する
-     */
-    getAllChat: function() {
-      return this._nicoVideoPlayer.getAllChat();
+    getNonFilteredChatList: function() {
+      return this._nicoVideoPlayer.getNonFilteredChatList();
+    },
+    getChatList: function() {
+      return this._nicoVideoPlayer.getChatList();
     },
     getPlayingStatus: function() {
       if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
@@ -7850,6 +8856,15 @@ iframe {
       bottom: 64px;
     }
 
+    .ngSettingSelectMenu .sharedNgLevelSelect {
+      display: none;
+    }
+
+    .ngSettingSelectMenu.enableFilter .sharedNgLevelSelect {
+      display: block;
+    }
+
+
     .menuItemContainer .mylistButton {
       width:  32px;
       height: 32px;
@@ -8005,12 +9020,12 @@ iframe {
     </div>
 
     <div class="menuItemContainer leftBottom">
-      <div class="showCommentSwitch menuButton" data-command="showComment">
+      <div class="showCommentSwitch menuButton" data-command="toggleShowComment">
         <div class="tooltip">コメント表示ON/OFF(V)</div>
         <div class="menuButtonInner">💬</div>
       </div>
 
-      <div class="commentLayerOrderSwitch menuButton" data-command="backComment">
+      <div class="commentLayerOrderSwitch menuButton" data-command="toggleBackComment">
         <div class="tooltip">コメントの表示順</div>
         <div class="layer comment">C</div>
         <div class="layer video">V</div>
@@ -8024,8 +9039,15 @@ iframe {
 
       <div class="ngSettingSelectMenu zenzaPopupMenu">
         <div class="triangle"></div>
-        <p class="caption">NG共有設定</p>
+        <p class="caption">NG設定</p>
         <ul>
+          <li class="setIsCommentFilterEnable filter-on"
+            data-command="setIsCommentFilterEnable" data-param="true"><span>ON</span></li>
+          <li class="setIsCommentFilterEnable filter-off"
+            data-command="setIsCommentFilterEnable" data-param="false"><span>OFF</span></li>
+        </ul>
+        <p class="caption sharedNgLevelSelect">NG共有設定</p>
+        <ul class="sharedNgLevelSelect">
           <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
           <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
           <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
@@ -8058,12 +9080,6 @@ iframe {
       this._$deflistAdd       = $container.find('.deflistAdd');
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
       this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
-
-      this._$screenModeMenu       = $container.find('.screenModeMenu');
-      this._$screenModeSelectMenu = $container.find('.screenModeSelectMenu');
-
-      this._$playbackRateMenu       = $container.find('.playbackRateMenu');
-      this._$playbackRateSelectMenu = $container.find('.playbackRateSelectMenu');
 
       this._$ngSettingMenu       = $container.find('.ngSettingMenu');
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
@@ -8138,15 +9154,32 @@ iframe {
       $menu.on('click', 'li', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target.closest('.sharedNgLevel'));
+        var $target  = $(e.target.closest('.sharedNgLevel, .setIsCommentFilterEnable'));
         var command  = $target.attr('data-command');
-        var level    = $target.attr('data-level');
-        self._playerConfig.setValue(command, level);
-        //self.toggleScreenModeMenu(false);
+        if (command === 'sharedNgLevel') {
+          var level = $target.attr('data-level');
+          self.emit('command', command, level);
+        } else {
+          var param = JSON.parse($target.attr('data-param'));
+          self.emit('command', command, param);
+        }
       });
 
-      var update = function(level) {
-        $menu.find('.selected').removeClass('selected');
+      var updateEnableFilter = function(v) {
+        //window.console.log('updateEnableFilter', v, typeof v);
+        $menu.find('.setIsCommentFilterEnable.selected').removeClass('selected');
+        if (v) {
+          $menu.find('.setIsCommentFilterEnable.filter-on') .addClass('selected');
+        } else {
+          $menu.find('.setIsCommentFilterEnable.filter-off').addClass('selected');
+        }
+        $menu.toggleClass('enableFilter', v);
+      };
+      updateEnableFilter(config.getValue('enableFilter'));
+      config.on('update-enableFilter', updateEnableFilter);
+
+      var updateNgLevel = function(level) {
+        $menu.find('.sharedNgLevel.selected').removeClass('selected');
         $menu.find('.sharedNgLevel').each(function(i, item) {
           var $item = $(item);
           if (level === $item.attr('data-level')) {
@@ -8155,8 +9188,8 @@ iframe {
         });
       };
 
-      update(config.getValue('sharedNgLevel'));
-      config.on('update-sharedNgLevel', update);
+      updateNgLevel(config.getValue('sharedNgLevel'));
+      config.on('update-sharedNgLevel', updateNgLevel);
     },
     _onMenuButtonClick: function(e) {
       e.preventDefault();
@@ -8167,9 +9200,6 @@ iframe {
       switch (command) {
         case 'close':
           this._onCloseButtonClick();
-          break;
-        case 'fullScreen':
-          this.emit('command', 'fullScreen');
           break;
         case 'deflistAdd':
           if (e.shiftKey) {
@@ -8202,10 +9232,12 @@ iframe {
           this.emit('command', 'settingPanel');
           e.stopPropagation();
           break;
-        case 'mute':
-        case 'backComment':
-        case 'showComment':
-          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
+        case 'fullScreen':
+        case 'toggleMute':
+        case 'toggleComment':
+        case 'toggleBackComment':
+        case 'toggleShowComment':
+          this.emit('command', command);
           break;
        }
     },
@@ -8591,12 +9623,15 @@ iframe {
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+      overflow-y: hidden;
     }
     .zenzaSettingPanelShadow1.show,
     .zenzaSettingPanelShadow2.show,
     .zenzaSettingPanel.show {
       opacity: 1;
       top: 50%;
+      overflow-y: scroll;
+      overflow-x: hidden;
     }
 
     .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
@@ -8644,8 +9679,9 @@ iframe {
       overflow: visible;
     }
     .zenzaSettingPanel .caption {
+      background: #333;
       font-size: 20px;
-      padding: 4px 2px 8px;
+      padding: 4px 2px;
       color: #fff;
     }
 
@@ -8658,9 +9694,8 @@ iframe {
     }
 
     .zenzaSettingPanel .control {
-      {* border: 1px solid; *}
       border-radius: 4px;
-      background: #888;
+      background: rgba(88, 88, 88, 0.3);
       padding: 8px;
       margin: 16px 4px;
     }
@@ -8687,6 +9722,30 @@ iframe {
     .zenzaSettingPanel .control.checked {
     }
 
+
+    .zenzaSettingPanel .filterEditContainer {
+      color: #fff;
+    }
+    .zenzaSettingPanel .filterEditContainer p {
+      color: #fff;
+      font-size: 120%;
+    }
+
+    .zenzaSettingPanel .filterEditContainer .info {
+      color: #ccc;
+      font-size: 90%;
+      display: inline-block;
+      margin: 8px 0;
+    }
+
+    .zenzaSettingPanel .filterEdit {
+      background: #000;
+      color: #ccc;
+      width: 90%;
+      margin: 0 5%;
+      min-height: 150px;
+      white-space: pre;
+    }
 
   */});
   SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -8717,8 +9776,36 @@ iframe {
           </label>
         </div>
 
+        <p class="caption">NG設定</p>
+        <div class="filterEditContainer">
+          <span class="info">
+            １行ごとに入力。上限はありませんが、増やしすぎると重くなります。
+          </span>
+          <p>NGワード</p>
+          <textarea
+            class="filterEdit wordFilterEdit"
+            data-command="setWordFilterList"></textarea>
+          <p>NGコマンド</p>
+          <textarea
+            class="filterEdit commandFilterEdit"
+            data-command="setCommandFilterList"></textarea>
+          <p>NGユーザー</p>
+          <textarea
+            class="filterEdit userIdFilterEdit"
+            data-command="setUserIdFilterList"></textarea>
+        </div>
+
 
         <!--
+        <p class="caption">開発中・テスト関係の項目</p>
+
+        <div class="enableCommentPreviewControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableCommentPreview">
+            シークバー上でコメントをプレビュー
+          </label>
+        </div>
+
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">
@@ -8741,6 +9828,7 @@ iframe {
 
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
       this._initializeDom();
+      this._initializeCommentFilterEdit();
     },
     _initializeDom: function() {
       var $container = this._$playerContainer;
@@ -8753,6 +9841,9 @@ iframe {
       this._$view =
         $container.find('.zenzaSettingPanel, .zenzaSettingPanelShadow1, .zenzaSettingPanelShadow2');
       this._$view.on('click', function(e) {
+        e.stopPropagation();
+      });
+      this._$view.on('mousewheel', function(e) {
         e.stopPropagation();
       });
 
@@ -8770,6 +9861,40 @@ iframe {
         this.hide();
       }, this));
 
+    },
+    _initializeCommentFilterEdit: function() {
+      var self = this;
+      var config = this._playerConfig;
+      var $view = this._$view;
+      var $edit          = $view.find('.filterEdit');
+      var $wordFilter    = $view.find('.wordFilterEdit');
+      var $userIdFilter  = $view.find('.userIdFilterEdit');
+      var $commandFilter = $view.find('.commandFilterEdit');
+      var map = {
+        wordFilter:    $wordFilter,
+        userIdFilter:  $userIdFilter,
+        commandFilter: $commandFilter
+      };
+
+      $edit.on('change', function(e) {
+        var $target = $(e.target);
+        var command = $target.attr('data-command');
+        var value   = $target.val();
+        self.emit('command', command, value);
+      });
+
+      for (var v in map) {
+        var value = config.getValue(v) || [];
+        value = typeof value === 'string' ? value : value.join('\n');
+        map[v].val(value);
+      }
+
+      var onConfigUpdate = function(key, value) {
+        if (_.contains(['wordFilter', 'userIdFilter', 'commandFilter'], key)) {
+          map[key].val(value.join('\n'));
+        }
+      };
+      config.on('update', onConfigUpdate);
     },
     _onPlayerConfigUpdate: function(key, value) {
       switch (key) {
@@ -8885,7 +10010,7 @@ iframe {
         top:  calc(-50vh + 50%);
         left: calc(-50vw + 50% + 160px);
         width:  100vw;
-        height: 100vh;
+        height: calc(100vh - 40px);
         right: auto;
         bottom: auto;
         z-index: 1;
@@ -8901,7 +10026,7 @@ iframe {
         top:  calc(-50vh + 50%);
         left: calc(-50vw + 50% + 160px);
         width:  100vw;
-        height: 100vh;
+        height: calc(100vh - 40px);
         right: auto;
         bottom: auto;
         z-index: 1;
@@ -9697,6 +10822,17 @@ iframe {
 
 
 
+
+    var initializeGinzaSlayer = function(dialog) {
+      $('.notify_update_flash_player').remove();
+      $('body').addClass('ginzaSlayer');
+
+      dialog.open(getWatchId());
+    };
+
+
+
+
     var initialize = function() {
       console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
@@ -9810,13 +10946,6 @@ iframe {
       initializeHoverMenu(dialog);
 
       return dialog;
-    };
-
-    var initializeGinzaSlayer = function(dialog) {
-      $('.notify_update_flash_player').remove();
-      $('body').addClass('ginzaSlayer');
-
-      dialog.open(getWatchId());
     };
 
 
@@ -10011,11 +11140,16 @@ iframe {
   } else {
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
     // 先にiframeだけ作っておく
-    var iframe = document.createElement('iframe');
-    iframe.className = 'commentLayerFrameReserve';
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-9999px';
-    document.body.appendChild(iframe);
+    // 効果はいまいち・・・
+    var iframe;
+    for (var i = 0; i < 3; i++) {
+      iframe = document.createElement('iframe');
+      iframe.className = 'reservedFrame';
+      iframe.style.position = 'fixed';
+      iframe.style.left = '-9999px';
+      iframe.srcDoc = '<html></html>';
+      document.body.appendChild(iframe);
+    }
 
     var script = document.createElement('script');
     script.id = 'ZenzaWatchLoader';

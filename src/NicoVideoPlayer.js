@@ -35,6 +35,10 @@ var NicoCommentPlayer = function() {};
 
       this._commentPlayer = new NicoCommentPlayer({
         offScreenLayer: params.offScreenLayer,
+        enableFilter:   params.enableFilter,
+        wordFilter:  params.wordFilter,
+        userIdFilter:   params.userIdFilter,
+        commandFilter:  params.commandFilter,
         showComment:    conf.getValue('showComment'),
         debug:          conf.getValue('debug'),
         playbackRate:   conf.getValue('playbackRate'),
@@ -97,6 +101,8 @@ var NicoCommentPlayer = function() {};
       this._videoPlayer.on('contextMenu', $.proxy(this._onContextMenu, this));
 
       this._commentPlayer.on('parsed', $.proxy(this._onCommentParsed, this));
+      this._commentPlayer.on('change', $.proxy(this._onCommentChange, this));
+      this._commentPlayer.on('filterChange', $.proxy(this._onCommentFilterChange, this));
       this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
     },
     _onVolumeChange: function(vol, mute) {
@@ -127,7 +133,16 @@ var NicoCommentPlayer = function() {};
           this._videoPlayer.setMute(value);
           break;
         case 'sharedNgLevel':
-          this._commentPlayer.setSharedNgLevel(value);
+          this.setSharedNgLevel(value);
+          break;
+        case 'wordFilter':
+          this.setWordFilterList(value);
+          break;
+        case 'userIdFilter':
+          this.setUserIdFilterList(value);
+          break;
+        case 'commandFilter':
+          this.setCommandFilterList(value);
           break;
       }
     },
@@ -208,6 +223,12 @@ var NicoCommentPlayer = function() {};
     _onCommentParsed: function() {
       this.emit('commentParsed');
     },
+    _onCommentChange: function() {
+      this.emit('commentChange');
+    },
+    _onCommentFilterChange: function(nicoChatFilter) {
+      this.emit('commentFilterChange', nicoChatFilter);
+    },
     setVideo: function(url) {
       this._videoPlayer.setSrc(url);
       this._isEnded = false;
@@ -244,8 +265,11 @@ var NicoCommentPlayer = function() {};
     setComment: function(xmlText) {
       this._commentPlayer.setComment(xmlText);
     },
-    getAllChat: function() {
-      return this._commentPlayer.getAllChat();
+    getChatList: function() {
+      return this._commentPlayer.getChatList();
+    },
+    getNonFilteredChatList: function() {
+      return this._commentPlayer.getNonFilteredChatList();
     },
     setVolume: function(v) {
       this._videoPlayer.setVolume(v);
@@ -287,6 +311,48 @@ var NicoCommentPlayer = function() {};
       var nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
       console.log('addChat:', text, cmd, vpos, options, nicoChat);
       return nicoChat;
+    },
+    setIsCommentFilterEnable: function(v) {
+      this._commentPlayer.setIsFilterEnable(v);
+    },
+    isCommentFilterEnable: function() {
+      return this._commentPlayer.isFilterEnable();
+    },
+    setSharedNgLevel: function(level) {
+      this._commentPlayer.setSharedNgLevel(level);
+    },
+    getSharedNgLevel: function() {
+      return this._commentPlayer.getSharedNgLevel();
+    },
+
+    addWordFilter: function(text) {
+      this._commentPlayer.addWordFilter(text);
+    },
+    setWordFilterList: function(list) {
+      this._commentPlayer.setWordFilterList(list);
+    },
+    getWordFilterList: function() {
+      return this._commentPlayer.getWordFilterList();
+    },
+
+    addUserIdFilter: function(text) {
+      this._commentPlayer.addUserIdFilter(text);
+    },
+    setUserIdFilterList: function(list) {
+      this._commentPlayer.setUserIdFilterList(list);
+    },
+    getUserIdFilterList: function() {
+      return this._commentPlayer.getUserIdFilterList();
+    },
+
+    getCommandFilterList: function() {
+      return this._commentPlayer.getCommandFilterList();
+    },
+    addCommandFilter: function(text) {
+      this._commentPlayer.addCommandFilter(text);
+    },
+    setCommandFilterList: function(list) {
+      this._commentPlayer.setCommandFilterList(list);
     }
   });
 

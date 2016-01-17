@@ -471,7 +471,7 @@ var WindowMessageEmitter = function() {};
                 window.console.timeEnd(timeKey);
                 window.console.error('loadComment fail: ', e);
                 reject({
-                  message: 'コメント通信失敗'
+                  message: 'コメントサーバーの通信失敗: ' + server
                 });
               }
             );
