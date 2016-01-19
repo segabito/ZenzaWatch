@@ -588,12 +588,13 @@ var WindowMessageEmitter = function() {};
           this._storage.removeItem(key);
         },
         clear: function() {
-          for (var v in this._storage) {
+          var storage = this._storage;
+          Object.keys(storage).forEach(function(v) {
             if (v.indexOf(PREFIX) === 0) {
-              window.console.log('remove item', v, this._storage[v]);
-              this._storage.removeItem(v);
+              window.console.log('remove item', v, storage[v]);
+              storage.removeItem(v);
             }
-          }
+          });
         }
       });
 
@@ -601,16 +602,6 @@ var WindowMessageEmitter = function() {};
     })();
     ZenzaWatch.api.CacheStorage = CacheStorage;
     ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
-
-//    var _MemoryStorage = {
-//      setItem: function(key, value) {
-//        this[key] = value;
-//      },
-//      removeItem: function(key) {
-//        delete this[key];
-//      }
-//    };
-
 
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;

@@ -59,9 +59,9 @@ var NicoCommentPlayer = function() {};
       this._beginTimer();
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       ZenzaWatch.debug.nicoVideoPlayer = this;
     },
@@ -69,7 +69,7 @@ var NicoCommentPlayer = function() {};
       this._stopTimer();
       this._videoWatchTimer =
         window.setInterval(
-          $.proxy(this._onTimer, this), 100);
+          _.bind(this._onTimer, this), 100);
     },
     _stopTimer: function() {
       if (!this._videoWatchTimer) { return; }
@@ -77,33 +77,33 @@ var NicoCommentPlayer = function() {};
       this._videoWatchTimer = null;
     },
     _initializeEvents: function() {
-      this._videoPlayer.on('volumeChange', $.proxy(this._onVolumeChange, this));
-      this._videoPlayer.on('dblclick', $.proxy(this.toggleFullScreen, this));
-      this._videoPlayer.on('aspectRatioFix', $.proxy(this._onAspectRatioFix, this));
-      this._videoPlayer.on('play',    $.proxy(this._onPlay, this));
-      this._videoPlayer.on('playing', $.proxy(this._onPlaying, this));
-      this._videoPlayer.on('stalled', $.proxy(this._onStalled, this));
-      this._videoPlayer.on('progress', $.proxy(this._onProgress, this));
-      this._videoPlayer.on('pause',   $.proxy(this._onPause, this));
-      this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
-      this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
-      this._videoPlayer.on('canPlay', $.proxy(this._onVideoCanPlay, this));
-      this._videoPlayer.on('durationChange', $.proxy(this._onDurationChange, this));
+      this._videoPlayer.on('volumeChange', _.bind(this._onVolumeChange, this));
+      this._videoPlayer.on('dblclick', _.bind(this.toggleFullScreen, this));
+      this._videoPlayer.on('aspectRatioFix', _.bind(this._onAspectRatioFix, this));
+      this._videoPlayer.on('play',    _.bind(this._onPlay, this));
+      this._videoPlayer.on('playing', _.bind(this._onPlaying, this));
+      this._videoPlayer.on('stalled', _.bind(this._onStalled, this));
+      this._videoPlayer.on('progress', _.bind(this._onProgress, this));
+      this._videoPlayer.on('pause',   _.bind(this._onPause, this));
+      this._videoPlayer.on('ended', _.bind(this._onEnded, this));
+      this._videoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
+      this._videoPlayer.on('canPlay', _.bind(this._onVideoCanPlay, this));
+      this._videoPlayer.on('durationChange', _.bind(this._onDurationChange, this));
 
       // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
       this._videoPlayer.on('mouseWheel',
-        _.throttle($.proxy(this._onMouseWheel, this), 50));
+        _.throttle(_.bind(this._onMouseWheel, this), 50));
 
-      this._videoPlayer.on('abort', $.proxy(this._onAbort, this));
-      this._videoPlayer.on('error', $.proxy(this._onError, this));
+      this._videoPlayer.on('abort', _.bind(this._onAbort, this));
+      this._videoPlayer.on('error', _.bind(this._onError, this));
 
-      this._videoPlayer.on('click', $.proxy(this._onClick, this));
-      this._videoPlayer.on('contextMenu', $.proxy(this._onContextMenu, this));
+      this._videoPlayer.on('click', _.bind(this._onClick, this));
+      this._videoPlayer.on('contextMenu', _.bind(this._onContextMenu, this));
 
-      this._commentPlayer.on('parsed', $.proxy(this._onCommentParsed, this));
-      this._commentPlayer.on('change', $.proxy(this._onCommentChange, this));
-      this._commentPlayer.on('filterChange', $.proxy(this._onCommentFilterChange, this));
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._commentPlayer.on('parsed', _.bind(this._onCommentParsed, this));
+      this._commentPlayer.on('change', _.bind(this._onCommentChange, this));
+      this._commentPlayer.on('filterChange', _.bind(this._onCommentFilterChange, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
     },
     _onVolumeChange: function(vol, mute) {
       this._playerConfig.setValue('volume', vol);
@@ -582,12 +582,12 @@ var NicoCommentPlayer = function() {};
       this._player = params.player;
       this._initializeDom(params);
 
-      //this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      //this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
     },
     _initializeDom: function(params) {
       ZenzaWatch.util.addStyle(VideoContextMenu.__css__);
       var $view = this._$view = $(VideoContextMenu.__tpl__);
-      $view.on('click', $.proxy(this._onMouseDown, this));
+      $view.on('click', _.bind(this._onMouseDown, this));
     },
     _onMouseDown: function(e) {
       var target = e.target, $target = $(target);
@@ -647,7 +647,7 @@ var NicoCommentPlayer = function() {};
       $node.append(this._$view);
     },
     show: function(x, y) {
-      $('body').on('click.ZenzaMenuOnBodyClick', $.proxy(this._onBodyClick, this));
+      $('body').on('click.ZenzaMenuOnBodyClick', _.bind(this._onBodyClick, this));
       var $view = this._$view, $window = $(window);
 
       this._onBeforeShow(x, y);
@@ -697,9 +697,9 @@ var NicoCommentPlayer = function() {};
       this._canPlay = false;
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       this.setVolume(volume);
       this.setMute(params.mute);
@@ -716,34 +716,34 @@ var NicoCommentPlayer = function() {};
     },
     _initializeEvents: function() {
       this._$video
-        .on('canplay',        $.proxy(this._onCanPlay, this))
-        .on('canplaythrough', $.proxy(this._onCanPlayThrough, this))
-        .on('loadstart',      $.proxy(this._onLoadStart, this))
-        .on('loadeddata',     $.proxy(this._onLoadedData, this))
-        .on('loadedmetadata', $.proxy(this._onLoadedMetaData, this))
-        .on('ended',          $.proxy(this._onEnded, this))
-        .on('emptied',        $.proxy(this._onEmptied, this))
-        .on('stalled',        $.proxy(this._onStalled, this))
-        .on('suspend',        $.proxy(this._onSuspend, this))
-        .on('waiting',        $.proxy(this._onWaiting, this))
-        .on('progress',       $.proxy(this._onProgress, this))
-        .on('durationchange', $.proxy(this._onDurationChange, this))
-        .on('resize',         $.proxy(this._onResize, this))
-        .on('abort',          $.proxy(this._onAbort, this))
-        .on('error',          $.proxy(this._onError, this))
+        .on('canplay',        _.bind(this._onCanPlay, this))
+        .on('canplaythrough', _.bind(this._onCanPlayThrough, this))
+        .on('loadstart',      _.bind(this._onLoadStart, this))
+        .on('loadeddata',     _.bind(this._onLoadedData, this))
+        .on('loadedmetadata', _.bind(this._onLoadedMetaData, this))
+        .on('ended',          _.bind(this._onEnded, this))
+        .on('emptied',        _.bind(this._onEmptied, this))
+        .on('stalled',        _.bind(this._onStalled, this))
+        .on('suspend',        _.bind(this._onSuspend, this))
+        .on('waiting',        _.bind(this._onWaiting, this))
+        .on('progress',       _.bind(this._onProgress, this))
+        .on('durationchange', _.bind(this._onDurationChange, this))
+        .on('resize',         _.bind(this._onResize, this))
+        .on('abort',          _.bind(this._onAbort, this))
+        .on('error',          _.bind(this._onError, this))
 
-        .on('pause',          $.proxy(this._onPause, this))
-        .on('play',           $.proxy(this._onPlay, this))
-        .on('playing',        $.proxy(this._onPlaying, this))
-        .on('seeking',        $.proxy(this._onSeeking, this))
-        .on('seeked',         $.proxy(this._onSeeked, this))
-        .on('volumechange',   $.proxy(this._onVolumeChange, this))
+        .on('pause',          _.bind(this._onPause, this))
+        .on('play',           _.bind(this._onPlay, this))
+        .on('playing',        _.bind(this._onPlaying, this))
+        .on('seeking',        _.bind(this._onSeeking, this))
+        .on('seeked',         _.bind(this._onSeeked, this))
+        .on('volumechange',   _.bind(this._onVolumeChange, this))
 
 
-        .on('click',          $.proxy(this._onClick, this))
-        .on('dblclick',       $.proxy(this._onDoubleClick, this))
-        .on('mousewheel',     $.proxy(this._onMouseWheel, this))
-        .on('contextmenu',    $.proxy(this._onContextMenu, this))
+        .on('click',          _.bind(this._onClick, this))
+        .on('dblclick',       _.bind(this._onDoubleClick, this))
+        .on('mousewheel',     _.bind(this._onMouseWheel, this))
+        .on('contextmenu',    _.bind(this._onContextMenu, this))
         ;
     },
     _onCanPlay: function() {

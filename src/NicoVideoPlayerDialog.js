@@ -429,15 +429,17 @@ var VideoInfoModel = function() {};
       this._playerConfig = params.playerConfig;
       this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
 
-      this._playerConfig.on('update-screenMode', $.proxy(this._updateScreenMode, this));
+      this._playerConfig.on('update-screenMode', _.bind(this._updateScreenMode, this));
       this._initializeDom(params);
 
-      this._keyEmitter.on('keyDown', $.proxy(this._onKeyDown, this));
+      this._keyEmitter.on('keyDown', _.bind(this._onKeyDown, this));
 
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
 
       this._aspectRatio = 9 / 16;
+
+      this._escBlockExpiredAt = -1;
 
     },
     _initializeDom: function() {
@@ -464,9 +466,9 @@ var VideoInfoModel = function() {};
 
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       var lastX = 0, lastY = 0;
-      var onMouseMove    = $.proxy(this._onMouseMove, this);
-      var onMouseMoveEnd = _.debounce($.proxy(this._onMouseMoveEnd, this), 1500);
-      this._$playerContainer.on('mousemove', $.proxy(function(e) {
+      var onMouseMove    = _.bind(this._onMouseMove, this);
+      var onMouseMoveEnd = _.debounce(_.bind(this._onMouseMoveEnd, this), 1500);
+      this._$playerContainer.on('mousemove', _.bind(function(e) {
           if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
             return;
           }
@@ -478,21 +480,21 @@ var VideoInfoModel = function() {};
       .on('mouseown', onMouseMove)
       .on('mouseown', onMouseMoveEnd);
 
-      $dialog.on('click', $.proxy(this._onClick, this));
+      $dialog.on('click', _.bind(this._onClick, this));
       $dialog.find('.closeButton')
-        .on('click', $.proxy(this._onCloseButtonClick, this));
+        .on('click', _.bind(this._onCloseButtonClick, this));
 
       this._hoverMenu = new VideoHoverMenu({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig
       });
-      this._hoverMenu.on('command', $.proxy(this._onCommand, this));
+      this._hoverMenu.on('command', _.bind(this._onCommand, this));
 
       this._commentInput = new CommentInputPanel({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig
       });
-      this._commentInput.on('post', $.proxy(function(e, chat, cmd) {
+      this._commentInput.on('post', _.bind(function(e, chat, cmd) {
         this.addChat(chat, cmd).then(function() {
           e.resolve();
         }, function() {
@@ -501,16 +503,19 @@ var VideoInfoModel = function() {};
       }, this));
 
       var isPlaying = false;
-      this._commentInput.on('focus', $.proxy(function(isAutoPause) {
+      this._commentInput.on('focus', _.bind(function(isAutoPause) {
         isPlaying = this._nicoVideoPlayer.isPlaying();
         if (isAutoPause) {
           this._nicoVideoPlayer.pause();
         }
       }, this));
-      this._commentInput.on('blur', $.proxy(function(isAutoPause) {
+      this._commentInput.on('blur', _.bind(function(isAutoPause) {
         if (isAutoPause && isPlaying) {
           this._nicoVideoPlayer.play();
         }
+      }, this));
+      this._commentInput.on('esc', _.bind(function() {
+        this._escBlockExpiredAt = Date.now() + 1000 * 2;
       }, this));
 
       this._settingPanel = new SettingPanel({
@@ -518,14 +523,14 @@ var VideoInfoModel = function() {};
         playerConfig: this._playerConfig,
         player: this
       });
-      this._settingPanel.on('command', $.proxy(this._onCommand, this));
+      this._settingPanel.on('command', _.bind(this._onCommand, this));
 
       this._videoControlBar = new VideoControlBar({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig,
         player: this
       });
-      this._videoControlBar.on('command', $.proxy(this._onCommand, this));
+      this._videoControlBar.on('command', _.bind(this._onCommand, this));
 
       this._initializeResponsive();
       $('body').append($dialog);
@@ -549,7 +554,7 @@ var VideoInfoModel = function() {};
 
       this._messageApiLoader = new MessageApiLoader();
 
-      window.setTimeout($.proxy(function() {
+      window.setTimeout(_.bind(function() {
         this._videoInfoPanel = new VideoInfoPanel({
           dialog: this,
           player: nicoVideoPlayer,
@@ -557,31 +562,31 @@ var VideoInfoModel = function() {};
         });
       }, this), 0);
 
-      nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
-      nicoVideoPlayer.on('ended',          $.proxy(this._onVideoEnded,     this));
-      nicoVideoPlayer.on('canPlay',        $.proxy(this._onVideoCanPlay,   this));
-      nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
-      nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
-      nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
-      nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
-      nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
-      nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
-      nicoVideoPlayer.on('commentParsed',  $.proxy(this._onCommentParsed, this));
-      nicoVideoPlayer.on('commentChange',  $.proxy(this._onCommentChange, this));
-      nicoVideoPlayer.on('commentFilterChange', $.proxy(this._onCommentFilterChange, this));
+      nicoVideoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
+      nicoVideoPlayer.on('ended',          _.bind(this._onVideoEnded,     this));
+      nicoVideoPlayer.on('canPlay',        _.bind(this._onVideoCanPlay,   this));
+      nicoVideoPlayer.on('play',           _.bind(this._onVideoPlay,           this));
+      nicoVideoPlayer.on('pause',          _.bind(this._onVideoPause,          this));
+      nicoVideoPlayer.on('playing',        _.bind(this._onVideoPlaying,        this));
+      nicoVideoPlayer.on('stalled',        _.bind(this._onVideoStalled,        this));
+      nicoVideoPlayer.on('progress',       _.bind(this._onVideoProgress,       this));
+      nicoVideoPlayer.on('aspectRatioFix', _.bind(this._onVideoAspectRatioFix, this));
+      nicoVideoPlayer.on('commentParsed',  _.bind(this._onCommentParsed, this));
+      nicoVideoPlayer.on('commentChange',  _.bind(this._onCommentChange, this));
+      nicoVideoPlayer.on('commentFilterChange', _.bind(this._onCommentFilterChange, this));
 
-      nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
-      nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
+      nicoVideoPlayer.on('error', _.bind(this._onVideoError, this));
+      nicoVideoPlayer.on('abort', _.bind(this._onVideoAbort, this));
 
       nicoVideoPlayer.on('volumeChange',
-        $.proxy(this._onVolumeChange, this));
+        _.bind(this._onVolumeChange, this));
       nicoVideoPlayer.on('volumeChange',
-        _.debounce($.proxy(this._onVolumeChangeEnd, this), 1500));
+        _.debounce(_.bind(this._onVolumeChangeEnd, this), 1500));
 
       return nicoVideoPlayer;
     },
     _initializeResponsive: function() {
-      $(window).on('resize', _.debounce($.proxy(this._updateResponsive, this),  500));
+      $(window).on('resize', _.debounce(_.bind(this._updateResponsive, this),  500));
     },
     _updateResponsive: function() {
       var $w = $(window);
@@ -663,21 +668,27 @@ var VideoInfoModel = function() {};
           break;
         case 'addWordFilter':
           this._nicoVideoPlayer.addWordFilter(param);
+          PopupMessage.notify('NGワード追加: ' + param);
           break;
         case 'addUserIdFilter':
           this._nicoVideoPlayer.addUserIdFilter(param);
+          PopupMessage.notify('NGID追加: ' + param);
           break;
         case 'addCommandFilter':
           this._nicoVideoPlayer.addCommandFilter(param);
+          PopupMessage.notify('NGコマンド追加: ' + param);
           break;
         case 'setWordFilterList':
           this._nicoVideoPlayer.setWordFilterList(param);
+          PopupMessage.notify('NGワード更新');
           break;
         case 'setUserIdFilterList':
           this._nicoVideoPlayer.setUserIdFilterList(param);
+          PopupMessage.notify('NGID更新');
           break;
         case 'setCommandFilterList':
           this._nicoVideoPlayer.setCommandFilterList(param);
+          PopupMessage.notify('NGコマンド更新');
           break;
         case 'setIsCommentFilterEnable':
           this._nicoVideoPlayer.setIsCommentFilterEnable(param);
@@ -701,6 +712,12 @@ var VideoInfoModel = function() {};
           this._nicoVideoPlayer.togglePlay();
           break;
         case 'ESC':
+          // ESCキーは連打にならないようブロック期間を設ける
+          if (Date.now() < this._escBlockExpiredAt) {
+            window.console.log('block ESC');
+            break;
+          }
+          this._escBlockExpiredAt = Date.now() + 1000 * 2;
           if (!FullScreen.now()) {
             this.close();
           }
@@ -965,7 +982,7 @@ var VideoInfoModel = function() {};
       if (this._onVideoInfoLoaderLoad_proxy) {
         VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
       }
-      this._onVideoInfoLoaderLoad_proxy = $.proxy(this._onVideoInfoLoaderLoad, this);
+      this._onVideoInfoLoaderLoad_proxy = _.bind(this._onVideoInfoLoaderLoad, this);
       VideoInfoLoader.on('load', this._onVideoInfoLoaderLoad_proxy);
     },
     _onVideoInfoLoaderLoad: function(videoInfo, type, watchId) {
@@ -986,8 +1003,8 @@ var VideoInfoModel = function() {};
           videoInfo.needs_key === '1',
           videoInfo.optional_thread_id
         ).then(
-          $.proxy(this._onCommentLoadSuccess, this, watchId),
-          $.proxy(this._onCommentLoadFail, this, watchId)
+          _.bind(this._onCommentLoadSuccess, this, watchId),
+          _.bind(this._onCommentLoadFail, this, watchId)
         );
 
         this._$playerContainer.addClass('noVideoInfoPanel');
@@ -1013,8 +1030,8 @@ var VideoInfoModel = function() {};
           flvInfo.needs_key === '1',
           flvInfo.optional_thread_id
         ).then(
-          $.proxy(this._onCommentLoadSuccess, this, watchId),
-          $.proxy(this._onCommentLoadFail, this, watchId)
+          _.bind(this._onCommentLoadSuccess, this, watchId),
+          _.bind(this._onCommentLoadFail, this, watchId)
         );
 
         this.emit('loadVideoInfo', this._videoInfo);
@@ -1715,7 +1732,7 @@ var VideoInfoModel = function() {};
 
       var $container = this._$playerContainer;
       $container.find('.menuButton')
-        .on('click', $.proxy(this._onMenuButtonClick, this));
+        .on('click', _.bind(this._onMenuButtonClick, this));
 
       this._$deflistAdd       = $container.find('.deflistAdd');
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
@@ -1724,13 +1741,13 @@ var VideoInfoModel = function() {};
       this._$ngSettingMenu       = $container.find('.ngSettingMenu');
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
 
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
 
       this._$mylistSelectMenu.on('mousewheel', function(e) {
         e.stopPropagation();
       });
 
-      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this._hideMenu();
       }, this));
 
@@ -2136,15 +2153,15 @@ var VideoInfoModel = function() {};
       this._playerConfig     = params.playerConfig;
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
-      this.emitPromise = $.proxy(emitter.emitPromise, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
+      this.emitPromise = _.bind(emitter.emitPromise, emitter);
 
       this._initializeDom();
 
       this._playerConfig.on('update-autoPauseCommentInput',
-        $.proxy(this._onAutoPauseCommentInputChange, this));
+        _.bind(this._onAutoPauseCommentInputChange, this));
     },
     _initializeDom: function() {
       var $container = this._$playerContainer;
@@ -2160,17 +2177,18 @@ var VideoInfoModel = function() {};
       this._$commandInput = $container.find('.commandInput');
       var $cmt = this._$commentInput = $container.find('.commentInput');
       this._$commentSubmit = $container.find('.commentSubmit');
-      var preventEsc = function(e) {
+      var preventEsc = _.bind(function(e) {
         if (e.keyCode === 27) { // ESC
           e.preventDefault();
           e.stopPropagation();
+          this.emit('esc');
           $input.blur();
         }
-      };
+      }, this);
 
       $input
-        .on('focus', $.proxy(this._onFocus, this))
-        .on('blur', _.debounce($.proxy(this._onBlur, this), 500))
+        .on('focus', _.bind(this._onFocus, this))
+        .on('blur', _.debounce(_.bind(this._onBlur, this), 500))
         .on('keydown', preventEsc)
         .on('keyup', preventEsc);
 
@@ -2182,8 +2200,8 @@ var VideoInfoModel = function() {};
       this._$view.find('label').on('click', function(e) {
         e.stopPropagation();
       });
-      this._$form.on('submit', $.proxy(this._onSubmit, this));
-      this._$commentSubmit.on('click', $.proxy(this._onSubmitButtonClick, this));
+      this._$form.on('submit', _.bind(this._onSubmit, this));
+      this._$commentSubmit.on('click', _.bind(this._onSubmitButtonClick, this));
     },
     _onFocus: function() {
       this._$view.addClass('active');
@@ -2466,7 +2484,7 @@ var VideoInfoModel = function() {};
       this._$playerContainer = params.$playerContainer;
       this._player           = params.player;
 
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
       this._initializeDom();
       this._initializeCommentFilterEdit();
     },
@@ -2495,9 +2513,9 @@ var VideoInfoModel = function() {};
         $c.prop('checked', config.getValue(settingName));
         $c.closest('.control').toggleClass('checked', val);
       });
-      $check.on('change', $.proxy(this._onToggleItemChange, this));
+      $check.on('change', _.bind(this._onToggleItemChange, this));
 
-      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this.hide();
       }, this));
 
@@ -2523,11 +2541,11 @@ var VideoInfoModel = function() {};
         self.emit('command', command, value);
       });
 
-      for (var v in map) {
+      Object.keys(map).forEach(function(v) {
         var value = config.getValue(v) || [];
         value = typeof value === 'string' ? value : value.join('\n');
         map[v].val(value);
-      }
+      });
 
       var onConfigUpdate = function(key, value) {
         if (_.contains(['wordFilter', 'userIdFilter', 'commandFilter'], key)) {
@@ -2715,7 +2733,7 @@ var VideoInfoModel = function() {};
       box-shadow: 4px 4px 4px #000;
       border: none;
       opacity: 0.9;
-      transition: opacity 0.4s ease, right 0.4s ease;
+      transition: opacity 0.4s ease, right 0.4s ease 1s;
     }
 
     .zenzaWatchVideoInfoPanel .owner {
@@ -3050,7 +3068,7 @@ var VideoInfoModel = function() {};
       this._$ownerPageLink = $view.find('.ownerPageLink');
 
       this._$description = $view.find('.videoDescription');
-      this._$description.on('click', $.proxy(this._onDescriptionClick, this));
+      this._$description.on('click', _.bind(this._onDescriptionClick, this));
 
       this._$videoTags = $view.find('.videoTags');
       this._$publicStatus = $view.find('.publicStatus');
@@ -3365,7 +3383,7 @@ var VideoInfoModel = function() {};
       this._$ginzaLink.on('click', function(e) {
         e.stopPropagation();
       });
-      this._$ginzaLink.on('mousedown', $.proxy(this._onGinzaLinkMouseDown, this));
+      this._$ginzaLink.on('mousedown', _.bind(this._onGinzaLinkMouseDown, this));
     },
     update: function(videoInfo) {
       this._videoInfo = videoInfo;

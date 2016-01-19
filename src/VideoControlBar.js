@@ -747,14 +747,14 @@ var AsyncEmitter = function() {};
       this._$playerContainer    = params.$playerContainer;
       var player = this._player = params.player;
 
-      player.on('open',           $.proxy(this._onPlayerOpen, this));
-      player.on('canPlay',        $.proxy(this._onPlayerCanPlay, this));
-      player.on('durationChange', $.proxy(this._onPlayerDurationChange, this));
-      player.on('close',          $.proxy(this._onPlayerClose, this));
-      player.on('progress',       $.proxy(this._onPlayerProgress, this));
-      player.on('loadVideoInfo',  $.proxy(this._onLoadVideoInfo, this));
-      player.on('commentParsed',  $.proxy(this._onCommentParsed, this));
-      player.on('commentChange',  $.proxy(this._onCommentChange, this));
+      player.on('open',           _.bind(this._onPlayerOpen, this));
+      player.on('canPlay',        _.bind(this._onPlayerCanPlay, this));
+      player.on('durationChange', _.bind(this._onPlayerDurationChange, this));
+      player.on('close',          _.bind(this._onPlayerClose, this));
+      player.on('progress',       _.bind(this._onPlayerProgress, this));
+      player.on('loadVideoInfo',  _.bind(this._onLoadVideoInfo, this));
+      player.on('commentParsed',  _.bind(this._onCommentParsed, this));
+      player.on('commentChange',  _.bind(this._onCommentChange, this));
 
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
@@ -778,12 +778,12 @@ var AsyncEmitter = function() {};
         ZenzaWatch.emitter.emitAsync('hideHover');
       });
 
-      this._$seekBar.on('mousedown', $.proxy(this._onSeekBarMouseDown, this));
-      this._$seekBar.on('mousemove', $.proxy(this._onSeekBarMouseMove, this));
-      this._$seekBar.on('mousemove', _.debounce($.proxy(this._onSeekBarMouseMoveEnd, this), 1000));
+      this._$seekBar.on('mousedown', _.bind(this._onSeekBarMouseDown, this));
+      this._$seekBar.on('mousemove', _.bind(this._onSeekBarMouseMove, this));
+      this._$seekBar.on('mousemove', _.debounce(_.bind(this._onSeekBarMouseMoveEnd, this), 1000));
 
       $view.find('.controlButton')
-        .on('click', $.proxy(this._onControlButton, this));
+        .on('click', _.bind(this._onControlButton, this));
 
       this._$currentTime = $view.find('.currentTime');
       this._$duration    = $view.find('.duration');
@@ -812,6 +812,7 @@ var AsyncEmitter = function() {};
       });
       var updateEnableCommentPreview = function(v) {
         self._$seekBarContainer.toggleClass('enablePreview', v);
+        self._commentPreview.setIsEnable(v);
       };
       updateEnableCommentPreview(config.getValue('enableCommentPreview'));
       config.on('update-enableCommentPreview', updateEnableCommentPreview);
@@ -822,7 +823,7 @@ var AsyncEmitter = function() {};
       this._$playbackRateMenu       = $view.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
 
-      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this._hideMenu();
         this._commentPreview.hide();
       }, this));
@@ -889,7 +890,7 @@ var AsyncEmitter = function() {};
       };
 
       var $inner = $container.find('.volumeControlInner');
-      $inner.on('mousedown', $.proxy(function(e) {
+      $inner.on('mousedown', _.bind(function(e) {
         var height = $inner.outerWidth();
         var x = e.offsetX;
         var vol = x / height;
@@ -1005,7 +1006,7 @@ var AsyncEmitter = function() {};
       this.setBufferedRange(range, currentTime);
     },
     _startTimer: function() {
-      this._timer = window.setInterval($.proxy(this._onTimer, this), 300);
+      this._timer = window.setInterval(_.bind(this._onTimer, this), 300);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -1062,10 +1063,10 @@ var AsyncEmitter = function() {};
     },
     _bindDragEvent: function() {
       $('body')
-        .on('mousemove.ZenzaWatchSeekBar', $.proxy(this._onBodyMouseMove, this))
-        .on('mouseup.ZenzaWatchSeekBar',   $.proxy(this._onBodyMouseUp, this));
+        .on('mousemove.ZenzaWatchSeekBar', _.bind(this._onBodyMouseMove, this))
+        .on('mouseup.ZenzaWatchSeekBar',   _.bind(this._onBodyMouseUp, this));
 
-      $(window).on('blur.ZenzaWatchSeekBar', $.proxy(this._onWindowBlur, this));
+      $(window).on('blur.ZenzaWatchSeekBar', _.bind(this._onWindowBlur, this));
     },
     _unbindDragEvent: function() {
       $('body')
@@ -1213,8 +1214,8 @@ var AsyncEmitter = function() {};
       this._width  = params.width || 100;
       this._height = params.height || 10;
 
-      this._model.on('update', $.proxy(this._onUpdate, this));
-      this._model.on('reset',  $.proxy(this._onReset, this));
+      this._model.on('update', _.bind(this._onUpdate, this));
+      this._model.on('reset',  _.bind(this._onReset, this));
     },
     _initializePalette: function() {
       this._palette = [];
@@ -1337,6 +1338,9 @@ var AsyncEmitter = function() {};
       this._chatReady = true;
       this.update();
     },
+    getChatList: function() {
+      return this._chatList || [];
+    },
     setCurrentTime: function(sec) {
       this.setVpos(sec * 100);
     },
@@ -1345,6 +1349,22 @@ var AsyncEmitter = function() {};
         this._vpos = vpos;
         this.emit('vpos');
       }
+    },
+    getCurrentIndex: function() {
+      if (this._vpos < 0 || !this._chatReady) {
+        return -1;
+      }
+      return this.getVposIndex(this._vpos);
+    },
+    getVposIndex: function(vpos) {
+      var list = this._chatList;
+      for (var i = list.length - 1; i >= 0; i--) {
+        var chat = list[i], cv = chat.getVpos();
+        if (cv <= vpos - 400) {
+          return i + 1;
+        }
+      }
+      return -1;
     },
     getCurrentChatList: function() {
       if (this._vpos < 0 || !this._chatReady) {
@@ -1392,8 +1412,8 @@ var AsyncEmitter = function() {};
       position: absolute;
       bottom: 10px;
       opacity: 0.8;
-      max-height: 40vh;
-      width: 300px;
+      max-height: 20vh;
+      width: 350px;
       box-sizing: border-box;
       background: rgba(0, 0, 0, 0.2);
       color: #ccc;
@@ -1411,10 +1431,8 @@ var AsyncEmitter = function() {};
       display: block;
     }
     .zenzaCommentPreview.show:hover {
-      max-height: 40vh;
       background: black;
       overflow: auto;
-      text-shadow: 0 0 4px #888;
     }
 
     .zenzaCommentPreview * {
@@ -1440,16 +1458,34 @@ var AsyncEmitter = function() {};
       white-space: nowrap;
       text-overflow: ellipsis;
       overflow: hidden;
+      border-top: 1px dotted transparent;
     }
-    .zenzaCommentPreviewInner .nicoChat .vposTime {
-    }
-    .zenzaCommentPreview:hover .nicoChat + .nicoChat {
+    .zenzaCommentPreview:hover      .nicoChat + .nicoChat {
       border-top: 1px dotted #888;
     }
-    .zenzaCommentPreviewInner:hover .nicoChat .vposTime {
+    .zenzaCommentPreviewInner:hover .nicoChat:nth-child(odd) {
+      background: #111;
     }
 
-    .zenzaCommentPreviewInner .nicoChat:hover {
+    .zenzaCommentPreviewInner .nicoChat .no,
+    .zenzaCommentPreviewInner .nicoChat .date,
+    .zenzaCommentPreviewInner .nicoChat .userId {
+      display: none;
+    }
+
+    .zenzaCommentPreviewInner .nicoChat:hover .no,
+    .zenzaCommentPreviewInner .nicoChat:hover .date,
+    .zenzaCommentPreviewInner .nicoChat:hover .userId {
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .zenzaCommentPreviewInner .nicoChat .vposTime {
+    }
+    .zenzaCommentPreviewInner .nicoChat:hover .text {
+      color: #fff !important;
+    }
+    .zenzaCommentPreviewInner       .nicoChat .text:hover {
       text-decoration: underline;
     }
 
@@ -1460,13 +1496,13 @@ var AsyncEmitter = function() {};
       color: #fff;
       background: #666;
       cursor: pointer;
+      top: 0;
     }
+
     .zenzaCommentPreviewInner .nicoChat:hover .addFilter {
       display: inline-block;
       border: 1px solid #ccc;
       box-shadow: 2px 2px 2px #333;
-    }
-    .zenzaCommentPreviewInner .nicoChat:hover .addFilter:hover {
     }
 
     .zenzaCommentPreviewInner .nicoChat .addFilter.addUserIdFilter {
@@ -1487,10 +1523,9 @@ var AsyncEmitter = function() {};
       this._showing = false;
       this._initializeDom(this._$container);
 
-      model.on('reset',  $.proxy(this._onReset, this));
-      var onUpdate = $.proxy(this._onUpdate, this);
-      model.on('update', onUpdate);
-      model.on('vpos',   onUpdate);
+      model.on('reset',  _.bind(this._onReset, this));
+      model.on('update', _.bind(this._onUpdate, this));
+      model.on('vpos',   _.bind(this._onVpos, this));
 
       var show = _.throttle(_.bind(this.show, this), 200);
       this.show = show;
@@ -1541,44 +1576,57 @@ var AsyncEmitter = function() {};
       $container.append($view);
     },
     _onUpdate: function() {
-      if (this._showing) {
+      if (this._isShowing) {
         this._updateView();
       } else {
         this._updated = true;
       }
     },
+    _onVpos: function() {
+      var $view = this._$view;
+      var index = Math.max(0, this._model.getCurrentIndex());
+      this._$nicoChat = this._$nicoChat || $view.find('.nicoChat:first-child');
+      this._scrollTop = ///this._$nicoChat.length > 1 ?
+        this._$nicoChat.outerHeight() * index; // : 0;
+      //window.console.log('_onVpos', this._$nicoChat, this._$nicoChat.outerHeight, index);
+    },
     _onReset: function() {
       this._html = '';
       this._$inner.html('');
+      this._$nicoChat = null;
+      this._scrollTop = 0;
     },
     _updateView: function() {
-      var chatList = this._model.getCurrentChatList();
+      var chatList = this._model.getChatList();
       if (chatList.length < 1) {
         this.hide();
         this._updated = false;
         this._html = '';
         return;
       }
-      //window.console.time('update commentPreview');
       var vposToTime = function(vpos) {
         var sec = Math.floor(vpos / 100);
         var m = Math.floor(sec / 60);
         var s = (100 + (sec % 60)).toString().substr(1);
         return [m, s].join(':');
       };
+      console.time('updateCommentPreviewView');
       var _html = ['<ul>'];
       $(chatList).each(function(i, chat) {
         var text = ZenzaWatch.util.escapeHtml(chat.getText());
+        var date = (new Date(chat.getDate() * 1000)).toLocaleString();
         var vpos = chat.getVpos();
+        var title = [
+          chat.getNo(), ': 投稿日', date, '\nID:', chat.getUserId(), '\n',
+          '', text, '\n'
+        ].join('');
         var elm = [
-          '<li class="nicoChat" title="', text, '" ',
+          '<li class="nicoChat" ', //title="', title, '" ',
               'data-vpos="', vpos, '" ',
               'data-nicochat-no="', chat.getNo(), '" ',
             '>',
               '<span class="vposTime">', vposToTime(vpos), ': </span>',
-              '<span ',
-              'style="color: ', chat.getColor(), ';', '" ',
-              '>',
+              '<span class="text" title="', title, '" ', 'style="color: ', chat.getColor(), ';', '" >',
                 text,
               '</span>',
               '<span class="addFilter addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>',
@@ -1593,14 +1641,16 @@ var AsyncEmitter = function() {};
       if (this._html !== html) {
         this._html = html;
         this._$inner.html(html);
+        this._$nicoChat = this._$inner.find('.nicoChat:first-child');
       }
       this._updated = false;
-      //window.console.timeEnd('update commentPreview');
+      console.timeEnd('updateCommentPreviewView');
     },
     _isEmpty: function() {
       return this._html === '';
     },
     show: function(left) {
+      this._isShowing = true;
       if (this._updated) {
         this._updateView();
       }
@@ -1611,9 +1661,11 @@ var AsyncEmitter = function() {};
       var containerWidth = this._$container.innerWidth();
 
       left = Math.min(Math.max(0, left - width / 2), containerWidth - width);
-      $view.css({left: left}).addClass('show').scrollTop(0);
+      $view.css({left: left}).scrollTop(this._scrollTop).addClass('show');
+
     },
     hide: function() {
+      this._isShowing = false;
       this._$view.removeClass('show');
     }
   });
@@ -1636,6 +1688,7 @@ var AsyncEmitter = function() {};
       this.reset();
     },
     reset: function() {
+      this._left = 0;
       this._model.reset();
       this._view.hide();
     },
@@ -1646,10 +1699,23 @@ var AsyncEmitter = function() {};
       this._model.setCurrentTime(sec);
     },
     show: function(left) {
-      this._view.show(left);
+      this._left = left;
+      this._isShow = true;
+      if (this._isEnable) {
+        this._view.show(left);
+      }
     },
     hide: function() {
+      this._isShow = false;
       this._view.hide();
+    },
+    setIsEnable: function(v) {
+      if (v !== this._isEnable) {
+        this._isEnable = v;
+        if (v && this._isShow) {
+          this.show(this._left);
+        }
+      }
     }
   });
 

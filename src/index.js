@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.9.1
+// @version        0.9.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -29,7 +29,7 @@ var monkey = function() {
         callAsync: function(func, self, delay) {
           delay = delay || 0;
           if (self) {
-            window.setTimeout($.proxy(func, self), delay);
+            window.setTimeout(_.bind(func, self), delay);
           } else {
             window.setTimeout(func, delay);
           }

@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.9.1
+// @version        0.9.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -29,7 +29,7 @@ var monkey = function() {
         callAsync: function(func, self, delay) {
           delay = delay || 0;
           if (self) {
-            window.setTimeout($.proxy(func, self), delay);
+            window.setTimeout(_.bind(func, self), delay);
           } else {
             window.setTimeout(func, delay);
           }
@@ -95,7 +95,7 @@ var monkey = function() {
         if (!this._events) { this._events = {}; }
         var args = arguments;
 
-        window.setTimeout($.proxy(function() {
+        window.setTimeout(_.bind(function() {
           try {
             this.emit.apply(this, args);
           } catch (e) {
@@ -229,7 +229,7 @@ var monkey = function() {
       };
       var config = {};
 
-      for (var key in defaultConfig) {
+      Object.keys(defaultConfig).forEach(function(key) {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
@@ -241,7 +241,7 @@ var monkey = function() {
         } else {
           config[key] = defaultConfig[key];
         }
-      }
+      });
 
       /**
        * ローカルの設定値をlocalStorageから読み直す
@@ -1584,12 +1584,13 @@ var monkey = function() {
           this._storage.removeItem(key);
         },
         clear: function() {
-          for (var v in this._storage) {
+          var storage = this._storage;
+          Object.keys(storage).forEach(function(v) {
             if (v.indexOf(PREFIX) === 0) {
-              window.console.log('remove item', v, this._storage[v]);
-              this._storage.removeItem(v);
+              window.console.log('remove item', v, storage[v]);
+              storage.removeItem(v);
             }
-          }
+          });
         }
       });
 
@@ -1597,16 +1598,6 @@ var monkey = function() {
     })();
     ZenzaWatch.api.CacheStorage = CacheStorage;
     ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
-
-//    var _MemoryStorage = {
-//      setItem: function(key, value) {
-//        this[key] = value;
-//      },
-//      removeItem: function(key) {
-//        delete this[key];
-//      }
-//    };
-
 
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
@@ -2014,9 +2005,9 @@ var monkey = function() {
       this._beginTimer();
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       ZenzaWatch.debug.nicoVideoPlayer = this;
     },
@@ -2024,7 +2015,7 @@ var monkey = function() {
       this._stopTimer();
       this._videoWatchTimer =
         window.setInterval(
-          $.proxy(this._onTimer, this), 100);
+          _.bind(this._onTimer, this), 100);
     },
     _stopTimer: function() {
       if (!this._videoWatchTimer) { return; }
@@ -2032,33 +2023,33 @@ var monkey = function() {
       this._videoWatchTimer = null;
     },
     _initializeEvents: function() {
-      this._videoPlayer.on('volumeChange', $.proxy(this._onVolumeChange, this));
-      this._videoPlayer.on('dblclick', $.proxy(this.toggleFullScreen, this));
-      this._videoPlayer.on('aspectRatioFix', $.proxy(this._onAspectRatioFix, this));
-      this._videoPlayer.on('play',    $.proxy(this._onPlay, this));
-      this._videoPlayer.on('playing', $.proxy(this._onPlaying, this));
-      this._videoPlayer.on('stalled', $.proxy(this._onStalled, this));
-      this._videoPlayer.on('progress', $.proxy(this._onProgress, this));
-      this._videoPlayer.on('pause',   $.proxy(this._onPause, this));
-      this._videoPlayer.on('ended', $.proxy(this._onEnded, this));
-      this._videoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
-      this._videoPlayer.on('canPlay', $.proxy(this._onVideoCanPlay, this));
-      this._videoPlayer.on('durationChange', $.proxy(this._onDurationChange, this));
+      this._videoPlayer.on('volumeChange', _.bind(this._onVolumeChange, this));
+      this._videoPlayer.on('dblclick', _.bind(this.toggleFullScreen, this));
+      this._videoPlayer.on('aspectRatioFix', _.bind(this._onAspectRatioFix, this));
+      this._videoPlayer.on('play',    _.bind(this._onPlay, this));
+      this._videoPlayer.on('playing', _.bind(this._onPlaying, this));
+      this._videoPlayer.on('stalled', _.bind(this._onStalled, this));
+      this._videoPlayer.on('progress', _.bind(this._onProgress, this));
+      this._videoPlayer.on('pause',   _.bind(this._onPause, this));
+      this._videoPlayer.on('ended', _.bind(this._onEnded, this));
+      this._videoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
+      this._videoPlayer.on('canPlay', _.bind(this._onVideoCanPlay, this));
+      this._videoPlayer.on('durationChange', _.bind(this._onDurationChange, this));
 
       // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
       this._videoPlayer.on('mouseWheel',
-        _.throttle($.proxy(this._onMouseWheel, this), 50));
+        _.throttle(_.bind(this._onMouseWheel, this), 50));
 
-      this._videoPlayer.on('abort', $.proxy(this._onAbort, this));
-      this._videoPlayer.on('error', $.proxy(this._onError, this));
+      this._videoPlayer.on('abort', _.bind(this._onAbort, this));
+      this._videoPlayer.on('error', _.bind(this._onError, this));
 
-      this._videoPlayer.on('click', $.proxy(this._onClick, this));
-      this._videoPlayer.on('contextMenu', $.proxy(this._onContextMenu, this));
+      this._videoPlayer.on('click', _.bind(this._onClick, this));
+      this._videoPlayer.on('contextMenu', _.bind(this._onContextMenu, this));
 
-      this._commentPlayer.on('parsed', $.proxy(this._onCommentParsed, this));
-      this._commentPlayer.on('change', $.proxy(this._onCommentChange, this));
-      this._commentPlayer.on('filterChange', $.proxy(this._onCommentFilterChange, this));
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._commentPlayer.on('parsed', _.bind(this._onCommentParsed, this));
+      this._commentPlayer.on('change', _.bind(this._onCommentChange, this));
+      this._commentPlayer.on('filterChange', _.bind(this._onCommentFilterChange, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
     },
     _onVolumeChange: function(vol, mute) {
       this._playerConfig.setValue('volume', vol);
@@ -2537,12 +2528,12 @@ var monkey = function() {
       this._player = params.player;
       this._initializeDom(params);
 
-      //this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      //this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
     },
     _initializeDom: function(params) {
       ZenzaWatch.util.addStyle(VideoContextMenu.__css__);
       var $view = this._$view = $(VideoContextMenu.__tpl__);
-      $view.on('click', $.proxy(this._onMouseDown, this));
+      $view.on('click', _.bind(this._onMouseDown, this));
     },
     _onMouseDown: function(e) {
       var target = e.target, $target = $(target);
@@ -2602,7 +2593,7 @@ var monkey = function() {
       $node.append(this._$view);
     },
     show: function(x, y) {
-      $('body').on('click.ZenzaMenuOnBodyClick', $.proxy(this._onBodyClick, this));
+      $('body').on('click.ZenzaMenuOnBodyClick', _.bind(this._onBodyClick, this));
       var $view = this._$view, $window = $(window);
 
       this._onBeforeShow(x, y);
@@ -2652,9 +2643,9 @@ var monkey = function() {
       this._canPlay = false;
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       this.setVolume(volume);
       this.setMute(params.mute);
@@ -2671,34 +2662,34 @@ var monkey = function() {
     },
     _initializeEvents: function() {
       this._$video
-        .on('canplay',        $.proxy(this._onCanPlay, this))
-        .on('canplaythrough', $.proxy(this._onCanPlayThrough, this))
-        .on('loadstart',      $.proxy(this._onLoadStart, this))
-        .on('loadeddata',     $.proxy(this._onLoadedData, this))
-        .on('loadedmetadata', $.proxy(this._onLoadedMetaData, this))
-        .on('ended',          $.proxy(this._onEnded, this))
-        .on('emptied',        $.proxy(this._onEmptied, this))
-        .on('stalled',        $.proxy(this._onStalled, this))
-        .on('suspend',        $.proxy(this._onSuspend, this))
-        .on('waiting',        $.proxy(this._onWaiting, this))
-        .on('progress',       $.proxy(this._onProgress, this))
-        .on('durationchange', $.proxy(this._onDurationChange, this))
-        .on('resize',         $.proxy(this._onResize, this))
-        .on('abort',          $.proxy(this._onAbort, this))
-        .on('error',          $.proxy(this._onError, this))
+        .on('canplay',        _.bind(this._onCanPlay, this))
+        .on('canplaythrough', _.bind(this._onCanPlayThrough, this))
+        .on('loadstart',      _.bind(this._onLoadStart, this))
+        .on('loadeddata',     _.bind(this._onLoadedData, this))
+        .on('loadedmetadata', _.bind(this._onLoadedMetaData, this))
+        .on('ended',          _.bind(this._onEnded, this))
+        .on('emptied',        _.bind(this._onEmptied, this))
+        .on('stalled',        _.bind(this._onStalled, this))
+        .on('suspend',        _.bind(this._onSuspend, this))
+        .on('waiting',        _.bind(this._onWaiting, this))
+        .on('progress',       _.bind(this._onProgress, this))
+        .on('durationchange', _.bind(this._onDurationChange, this))
+        .on('resize',         _.bind(this._onResize, this))
+        .on('abort',          _.bind(this._onAbort, this))
+        .on('error',          _.bind(this._onError, this))
 
-        .on('pause',          $.proxy(this._onPause, this))
-        .on('play',           $.proxy(this._onPlay, this))
-        .on('playing',        $.proxy(this._onPlaying, this))
-        .on('seeking',        $.proxy(this._onSeeking, this))
-        .on('seeked',         $.proxy(this._onSeeked, this))
-        .on('volumechange',   $.proxy(this._onVolumeChange, this))
+        .on('pause',          _.bind(this._onPause, this))
+        .on('play',           _.bind(this._onPlay, this))
+        .on('playing',        _.bind(this._onPlaying, this))
+        .on('seeking',        _.bind(this._onSeeking, this))
+        .on('seeked',         _.bind(this._onSeeked, this))
+        .on('volumechange',   _.bind(this._onVolumeChange, this))
 
 
-        .on('click',          $.proxy(this._onClick, this))
-        .on('dblclick',       $.proxy(this._onDoubleClick, this))
-        .on('mousewheel',     $.proxy(this._onMouseWheel, this))
-        .on('contextmenu',    $.proxy(this._onContextMenu, this))
+        .on('click',          _.bind(this._onClick, this))
+        .on('dblclick',       _.bind(this._onDoubleClick, this))
+        .on('mousewheel',     _.bind(this._onMouseWheel, this))
+        .on('contextmenu',    _.bind(this._onContextMenu, this))
         ;
     },
     _onCanPlay: function() {
@@ -3685,14 +3676,14 @@ var monkey = function() {
       this._$playerContainer    = params.$playerContainer;
       var player = this._player = params.player;
 
-      player.on('open',           $.proxy(this._onPlayerOpen, this));
-      player.on('canPlay',        $.proxy(this._onPlayerCanPlay, this));
-      player.on('durationChange', $.proxy(this._onPlayerDurationChange, this));
-      player.on('close',          $.proxy(this._onPlayerClose, this));
-      player.on('progress',       $.proxy(this._onPlayerProgress, this));
-      player.on('loadVideoInfo',  $.proxy(this._onLoadVideoInfo, this));
-      player.on('commentParsed',  $.proxy(this._onCommentParsed, this));
-      player.on('commentChange',  $.proxy(this._onCommentChange, this));
+      player.on('open',           _.bind(this._onPlayerOpen, this));
+      player.on('canPlay',        _.bind(this._onPlayerCanPlay, this));
+      player.on('durationChange', _.bind(this._onPlayerDurationChange, this));
+      player.on('close',          _.bind(this._onPlayerClose, this));
+      player.on('progress',       _.bind(this._onPlayerProgress, this));
+      player.on('loadVideoInfo',  _.bind(this._onLoadVideoInfo, this));
+      player.on('commentParsed',  _.bind(this._onCommentParsed, this));
+      player.on('commentChange',  _.bind(this._onCommentChange, this));
 
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
@@ -3716,12 +3707,12 @@ var monkey = function() {
         ZenzaWatch.emitter.emitAsync('hideHover');
       });
 
-      this._$seekBar.on('mousedown', $.proxy(this._onSeekBarMouseDown, this));
-      this._$seekBar.on('mousemove', $.proxy(this._onSeekBarMouseMove, this));
-      this._$seekBar.on('mousemove', _.debounce($.proxy(this._onSeekBarMouseMoveEnd, this), 1000));
+      this._$seekBar.on('mousedown', _.bind(this._onSeekBarMouseDown, this));
+      this._$seekBar.on('mousemove', _.bind(this._onSeekBarMouseMove, this));
+      this._$seekBar.on('mousemove', _.debounce(_.bind(this._onSeekBarMouseMoveEnd, this), 1000));
 
       $view.find('.controlButton')
-        .on('click', $.proxy(this._onControlButton, this));
+        .on('click', _.bind(this._onControlButton, this));
 
       this._$currentTime = $view.find('.currentTime');
       this._$duration    = $view.find('.duration');
@@ -3750,6 +3741,7 @@ var monkey = function() {
       });
       var updateEnableCommentPreview = function(v) {
         self._$seekBarContainer.toggleClass('enablePreview', v);
+        self._commentPreview.setIsEnable(v);
       };
       updateEnableCommentPreview(config.getValue('enableCommentPreview'));
       config.on('update-enableCommentPreview', updateEnableCommentPreview);
@@ -3760,7 +3752,7 @@ var monkey = function() {
       this._$playbackRateMenu       = $view.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
 
-      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this._hideMenu();
         this._commentPreview.hide();
       }, this));
@@ -3827,7 +3819,7 @@ var monkey = function() {
       };
 
       var $inner = $container.find('.volumeControlInner');
-      $inner.on('mousedown', $.proxy(function(e) {
+      $inner.on('mousedown', _.bind(function(e) {
         var height = $inner.outerWidth();
         var x = e.offsetX;
         var vol = x / height;
@@ -3943,7 +3935,7 @@ var monkey = function() {
       this.setBufferedRange(range, currentTime);
     },
     _startTimer: function() {
-      this._timer = window.setInterval($.proxy(this._onTimer, this), 300);
+      this._timer = window.setInterval(_.bind(this._onTimer, this), 300);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -4000,10 +3992,10 @@ var monkey = function() {
     },
     _bindDragEvent: function() {
       $('body')
-        .on('mousemove.ZenzaWatchSeekBar', $.proxy(this._onBodyMouseMove, this))
-        .on('mouseup.ZenzaWatchSeekBar',   $.proxy(this._onBodyMouseUp, this));
+        .on('mousemove.ZenzaWatchSeekBar', _.bind(this._onBodyMouseMove, this))
+        .on('mouseup.ZenzaWatchSeekBar',   _.bind(this._onBodyMouseUp, this));
 
-      $(window).on('blur.ZenzaWatchSeekBar', $.proxy(this._onWindowBlur, this));
+      $(window).on('blur.ZenzaWatchSeekBar', _.bind(this._onWindowBlur, this));
     },
     _unbindDragEvent: function() {
       $('body')
@@ -4151,8 +4143,8 @@ var monkey = function() {
       this._width  = params.width || 100;
       this._height = params.height || 10;
 
-      this._model.on('update', $.proxy(this._onUpdate, this));
-      this._model.on('reset',  $.proxy(this._onReset, this));
+      this._model.on('update', _.bind(this._onUpdate, this));
+      this._model.on('reset',  _.bind(this._onReset, this));
     },
     _initializePalette: function() {
       this._palette = [];
@@ -4275,6 +4267,9 @@ var monkey = function() {
       this._chatReady = true;
       this.update();
     },
+    getChatList: function() {
+      return this._chatList || [];
+    },
     setCurrentTime: function(sec) {
       this.setVpos(sec * 100);
     },
@@ -4283,6 +4278,22 @@ var monkey = function() {
         this._vpos = vpos;
         this.emit('vpos');
       }
+    },
+    getCurrentIndex: function() {
+      if (this._vpos < 0 || !this._chatReady) {
+        return -1;
+      }
+      return this.getVposIndex(this._vpos);
+    },
+    getVposIndex: function(vpos) {
+      var list = this._chatList;
+      for (var i = list.length - 1; i >= 0; i--) {
+        var chat = list[i], cv = chat.getVpos();
+        if (cv <= vpos - 400) {
+          return i + 1;
+        }
+      }
+      return -1;
     },
     getCurrentChatList: function() {
       if (this._vpos < 0 || !this._chatReady) {
@@ -4330,8 +4341,8 @@ var monkey = function() {
       position: absolute;
       bottom: 10px;
       opacity: 0.8;
-      max-height: 40vh;
-      width: 300px;
+      max-height: 20vh;
+      width: 350px;
       box-sizing: border-box;
       background: rgba(0, 0, 0, 0.2);
       color: #ccc;
@@ -4349,10 +4360,8 @@ var monkey = function() {
       display: block;
     }
     .zenzaCommentPreview.show:hover {
-      max-height: 40vh;
       background: black;
       overflow: auto;
-      text-shadow: 0 0 4px #888;
     }
 
     .zenzaCommentPreview * {
@@ -4378,16 +4387,34 @@ var monkey = function() {
       white-space: nowrap;
       text-overflow: ellipsis;
       overflow: hidden;
+      border-top: 1px dotted transparent;
     }
-    .zenzaCommentPreviewInner .nicoChat .vposTime {
-    }
-    .zenzaCommentPreview:hover .nicoChat + .nicoChat {
+    .zenzaCommentPreview:hover      .nicoChat + .nicoChat {
       border-top: 1px dotted #888;
     }
-    .zenzaCommentPreviewInner:hover .nicoChat .vposTime {
+    .zenzaCommentPreviewInner:hover .nicoChat:nth-child(odd) {
+      background: #111;
     }
 
-    .zenzaCommentPreviewInner .nicoChat:hover {
+    .zenzaCommentPreviewInner .nicoChat .no,
+    .zenzaCommentPreviewInner .nicoChat .date,
+    .zenzaCommentPreviewInner .nicoChat .userId {
+      display: none;
+    }
+
+    .zenzaCommentPreviewInner .nicoChat:hover .no,
+    .zenzaCommentPreviewInner .nicoChat:hover .date,
+    .zenzaCommentPreviewInner .nicoChat:hover .userId {
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .zenzaCommentPreviewInner .nicoChat .vposTime {
+    }
+    .zenzaCommentPreviewInner .nicoChat:hover .text {
+      color: #fff !important;
+    }
+    .zenzaCommentPreviewInner       .nicoChat .text:hover {
       text-decoration: underline;
     }
 
@@ -4398,13 +4425,13 @@ var monkey = function() {
       color: #fff;
       background: #666;
       cursor: pointer;
+      top: 0;
     }
+
     .zenzaCommentPreviewInner .nicoChat:hover .addFilter {
       display: inline-block;
       border: 1px solid #ccc;
       box-shadow: 2px 2px 2px #333;
-    }
-    .zenzaCommentPreviewInner .nicoChat:hover .addFilter:hover {
     }
 
     .zenzaCommentPreviewInner .nicoChat .addFilter.addUserIdFilter {
@@ -4425,10 +4452,9 @@ var monkey = function() {
       this._showing = false;
       this._initializeDom(this._$container);
 
-      model.on('reset',  $.proxy(this._onReset, this));
-      var onUpdate = $.proxy(this._onUpdate, this);
-      model.on('update', onUpdate);
-      model.on('vpos',   onUpdate);
+      model.on('reset',  _.bind(this._onReset, this));
+      model.on('update', _.bind(this._onUpdate, this));
+      model.on('vpos',   _.bind(this._onVpos, this));
 
       var show = _.throttle(_.bind(this.show, this), 200);
       this.show = show;
@@ -4479,44 +4505,57 @@ var monkey = function() {
       $container.append($view);
     },
     _onUpdate: function() {
-      if (this._showing) {
+      if (this._isShowing) {
         this._updateView();
       } else {
         this._updated = true;
       }
     },
+    _onVpos: function() {
+      var $view = this._$view;
+      var index = Math.max(0, this._model.getCurrentIndex());
+      this._$nicoChat = this._$nicoChat || $view.find('.nicoChat:first-child');
+      this._scrollTop = ///this._$nicoChat.length > 1 ?
+        this._$nicoChat.outerHeight() * index; // : 0;
+      //window.console.log('_onVpos', this._$nicoChat, this._$nicoChat.outerHeight, index);
+    },
     _onReset: function() {
       this._html = '';
       this._$inner.html('');
+      this._$nicoChat = null;
+      this._scrollTop = 0;
     },
     _updateView: function() {
-      var chatList = this._model.getCurrentChatList();
+      var chatList = this._model.getChatList();
       if (chatList.length < 1) {
         this.hide();
         this._updated = false;
         this._html = '';
         return;
       }
-      //window.console.time('update commentPreview');
       var vposToTime = function(vpos) {
         var sec = Math.floor(vpos / 100);
         var m = Math.floor(sec / 60);
         var s = (100 + (sec % 60)).toString().substr(1);
         return [m, s].join(':');
       };
+      console.time('updateCommentPreviewView');
       var _html = ['<ul>'];
       $(chatList).each(function(i, chat) {
         var text = ZenzaWatch.util.escapeHtml(chat.getText());
+        var date = (new Date(chat.getDate() * 1000)).toLocaleString();
         var vpos = chat.getVpos();
+        var title = [
+          chat.getNo(), ': 投稿日', date, '\nID:', chat.getUserId(), '\n',
+          '', text, '\n'
+        ].join('');
         var elm = [
-          '<li class="nicoChat" title="', text, '" ',
+          '<li class="nicoChat" ', //title="', title, '" ',
               'data-vpos="', vpos, '" ',
               'data-nicochat-no="', chat.getNo(), '" ',
             '>',
               '<span class="vposTime">', vposToTime(vpos), ': </span>',
-              '<span ',
-              'style="color: ', chat.getColor(), ';', '" ',
-              '>',
+              '<span class="text" title="', title, '" ', 'style="color: ', chat.getColor(), ';', '" >',
                 text,
               '</span>',
               '<span class="addFilter addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>',
@@ -4531,14 +4570,16 @@ var monkey = function() {
       if (this._html !== html) {
         this._html = html;
         this._$inner.html(html);
+        this._$nicoChat = this._$inner.find('.nicoChat:first-child');
       }
       this._updated = false;
-      //window.console.timeEnd('update commentPreview');
+      console.timeEnd('updateCommentPreviewView');
     },
     _isEmpty: function() {
       return this._html === '';
     },
     show: function(left) {
+      this._isShowing = true;
       if (this._updated) {
         this._updateView();
       }
@@ -4549,9 +4590,11 @@ var monkey = function() {
       var containerWidth = this._$container.innerWidth();
 
       left = Math.min(Math.max(0, left - width / 2), containerWidth - width);
-      $view.css({left: left}).addClass('show').scrollTop(0);
+      $view.css({left: left}).scrollTop(this._scrollTop).addClass('show');
+
     },
     hide: function() {
+      this._isShowing = false;
       this._$view.removeClass('show');
     }
   });
@@ -4574,6 +4617,7 @@ var monkey = function() {
       this.reset();
     },
     reset: function() {
+      this._left = 0;
       this._model.reset();
       this._view.hide();
     },
@@ -4584,10 +4628,23 @@ var monkey = function() {
       this._model.setCurrentTime(sec);
     },
     show: function(left) {
-      this._view.show(left);
+      this._left = left;
+      this._isShow = true;
+      if (this._isEnable) {
+        this._view.show(left);
+      }
     },
     hide: function() {
+      this._isShow = false;
       this._view.hide();
+    },
+    setIsEnable: function(v) {
+      if (v !== this._isEnable) {
+        this._isEnable = v;
+        if (v && this._isShow) {
+          this.show(this._left);
+        }
+      }
     }
   });
 
@@ -4767,9 +4824,9 @@ var monkey = function() {
         show: params.showComment
       });
 
-      this._model.on('change'      , $.proxy(this._onCommentChange, this));
-      this._model.on('filterChange', $.proxy(this._onFilterChange, this));
-      this._model.on('parsed'      , $.proxy(this._onCommentParsed, this));
+      this._model.on('change'      , _.bind(this._onCommentChange, this));
+      this._model.on('filterChange', _.bind(this._onFilterChange, this));
+      this._model.on('parsed'      , _.bind(this._onCommentParsed, this));
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
@@ -4922,19 +4979,19 @@ var monkey = function() {
     initialize: function(params) {
       this._currentTime = 0;
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
 
       params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
-      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
+      this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
       
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL, params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
 
-      var onChange = _.debounce($.proxy(this._onChange, this), 100);
+      var onChange = _.debounce(_.bind(this._onChange, this), 100);
       this._topGroup   .on('change', onChange);
       this._normalGroup.on('change', onChange);
       this._bottomGroup.on('change', onChange);
@@ -5299,9 +5356,9 @@ var monkey = function() {
       this._offScreen   = offScreen;
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       this._currentTime = 0;
 
@@ -5312,10 +5369,10 @@ var monkey = function() {
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      nicoComment.on('setXml', $.proxy(this._onSetXml, this));
-      nicoComment.on('clear',  $.proxy(this._onClear,  this));
-      nicoComment.on('change', $.proxy(this._onChange,  this));
-      nicoComment.on('currentTime', $.proxy(this._onCurrentTime,   this));
+      nicoComment.on('setXml', _.bind(this._onSetXml, this));
+      nicoComment.on('clear',  _.bind(this._onClear,  this));
+      nicoComment.on('change', _.bind(this._onChange,  this));
+      nicoComment.on('currentTime', _.bind(this._onCurrentTime,   this));
     },
     _onSetXml: function() {
       this.emit('setXml');
@@ -5371,7 +5428,7 @@ var monkey = function() {
       this._type = type;
 
       this._nicoChatFilter = params.nicoChatFilter;
-      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
+      this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
 
       this.reset();
     },
@@ -5457,10 +5514,10 @@ var monkey = function() {
       // メンバーをvposでソートした物. 計算効率改善用
       this._vSortedMembers = [];
 
-      nicoChatGroup.on('addChat',      $.proxy(this._onAddChat,      this));
-      nicoChatGroup.on('addChatArray', $.proxy(this._onAddChatArray, this));
-      nicoChatGroup.on('reset',        $.proxy(this._onReset,        this));
-      nicoChatGroup.on('change',       $.proxy(this._onChange,        this));
+      nicoChatGroup.on('addChat',      _.bind(this._onAddChat,      this));
+      nicoChatGroup.on('addChatArray', _.bind(this._onAddChatArray, this));
+      nicoChatGroup.on('reset',        _.bind(this._onReset,        this));
+      nicoChatGroup.on('change',       _.bind(this._onChange,        this));
 
       this.addChatArray(nicoChatGroup.getMembers());
     },
@@ -5629,9 +5686,9 @@ var monkey = function() {
 
     dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
-    for (var v in options) {
+    Object.keys(options).forEach(function(v) {
       dom.setAttribute(v, options[v]);
-    }
+    });
     //console.log('NicoChat.create', dom);
     return new NicoChat(dom);
   };
@@ -6633,8 +6690,8 @@ iframe {
     initialize: function(params) {
       this._viewModel = params.viewModel;
 
-      this._viewModel.on('setXml', $.proxy(this._onSetXml, this));
-      this._viewModel.on('currentTime', $.proxy(this._onCurrentTime, this));
+      this._viewModel.on('setXml', _.bind(this._onSetXml, this));
+      this._viewModel.on('currentTime', _.bind(this._onCurrentTime, this));
 
       this._lastCurrentTime = 0;
       this._isShow = true;
@@ -6651,7 +6708,7 @@ iframe {
 
       this._initializeView(params);
 
-      var _refresh = $.proxy(this.refresh, this);
+      var _refresh = _.bind(this.refresh, this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
       // ここに書いてるのは手抜き
       if (ZenzaWatch.util.isFirefox()) {
@@ -6710,7 +6767,7 @@ iframe {
           var targetHeight = Math.min(h, w * aspectRatio);
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
         });
-        //win.addEventListener('resize', _.debounce($.proxy(self._onResizeEnd, self), 500);
+        //win.addEventListener('resize', _.debounce(_.bind(self._onResizeEnd, self), 500);
         //
         ZenzaWatch.debug.getInViewElements = function() {
           return doc.getElementsByClassName('nicoChat');
@@ -7345,9 +7402,16 @@ iframe {
       };
     },
     applyFilter: function(nicoChatArray) {
-      window.console.time('applyNgFilter');
+      var before = nicoChatArray.length;
+      if (before < 1) {
+        return nicoChatArray;
+      }
+      var timeKey = 'applyNgFilter: ' + nicoChatArray[0].getType();
+      window.console.time(timeKey);
       var result = _.filter(nicoChatArray, this.getFilterFunc());
-      window.console.timeEnd('applyNgFilter');
+      var after = result.length;
+      window.console.timeEnd(timeKey);
+      window.console.log('NG判定結果: %s/%s', after, before);
       return result;
     },
     isSafe: function(nicoChat) {
@@ -7782,15 +7846,17 @@ iframe {
       this._playerConfig = params.playerConfig;
       this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
 
-      this._playerConfig.on('update-screenMode', $.proxy(this._updateScreenMode, this));
+      this._playerConfig.on('update-screenMode', _.bind(this._updateScreenMode, this));
       this._initializeDom(params);
 
-      this._keyEmitter.on('keyDown', $.proxy(this._onKeyDown, this));
+      this._keyEmitter.on('keyDown', _.bind(this._onKeyDown, this));
 
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
 
       this._aspectRatio = 9 / 16;
+
+      this._escBlockExpiredAt = -1;
 
     },
     _initializeDom: function() {
@@ -7817,9 +7883,9 @@ iframe {
 
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       var lastX = 0, lastY = 0;
-      var onMouseMove    = $.proxy(this._onMouseMove, this);
-      var onMouseMoveEnd = _.debounce($.proxy(this._onMouseMoveEnd, this), 1500);
-      this._$playerContainer.on('mousemove', $.proxy(function(e) {
+      var onMouseMove    = _.bind(this._onMouseMove, this);
+      var onMouseMoveEnd = _.debounce(_.bind(this._onMouseMoveEnd, this), 1500);
+      this._$playerContainer.on('mousemove', _.bind(function(e) {
           if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
             return;
           }
@@ -7831,21 +7897,21 @@ iframe {
       .on('mouseown', onMouseMove)
       .on('mouseown', onMouseMoveEnd);
 
-      $dialog.on('click', $.proxy(this._onClick, this));
+      $dialog.on('click', _.bind(this._onClick, this));
       $dialog.find('.closeButton')
-        .on('click', $.proxy(this._onCloseButtonClick, this));
+        .on('click', _.bind(this._onCloseButtonClick, this));
 
       this._hoverMenu = new VideoHoverMenu({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig
       });
-      this._hoverMenu.on('command', $.proxy(this._onCommand, this));
+      this._hoverMenu.on('command', _.bind(this._onCommand, this));
 
       this._commentInput = new CommentInputPanel({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig
       });
-      this._commentInput.on('post', $.proxy(function(e, chat, cmd) {
+      this._commentInput.on('post', _.bind(function(e, chat, cmd) {
         this.addChat(chat, cmd).then(function() {
           e.resolve();
         }, function() {
@@ -7854,16 +7920,19 @@ iframe {
       }, this));
 
       var isPlaying = false;
-      this._commentInput.on('focus', $.proxy(function(isAutoPause) {
+      this._commentInput.on('focus', _.bind(function(isAutoPause) {
         isPlaying = this._nicoVideoPlayer.isPlaying();
         if (isAutoPause) {
           this._nicoVideoPlayer.pause();
         }
       }, this));
-      this._commentInput.on('blur', $.proxy(function(isAutoPause) {
+      this._commentInput.on('blur', _.bind(function(isAutoPause) {
         if (isAutoPause && isPlaying) {
           this._nicoVideoPlayer.play();
         }
+      }, this));
+      this._commentInput.on('esc', _.bind(function() {
+        this._escBlockExpiredAt = Date.now() + 1000 * 2;
       }, this));
 
       this._settingPanel = new SettingPanel({
@@ -7871,14 +7940,14 @@ iframe {
         playerConfig: this._playerConfig,
         player: this
       });
-      this._settingPanel.on('command', $.proxy(this._onCommand, this));
+      this._settingPanel.on('command', _.bind(this._onCommand, this));
 
       this._videoControlBar = new VideoControlBar({
         $playerContainer: this._$playerContainer,
         playerConfig: this._playerConfig,
         player: this
       });
-      this._videoControlBar.on('command', $.proxy(this._onCommand, this));
+      this._videoControlBar.on('command', _.bind(this._onCommand, this));
 
       this._initializeResponsive();
       $('body').append($dialog);
@@ -7902,7 +7971,7 @@ iframe {
 
       this._messageApiLoader = new MessageApiLoader();
 
-      window.setTimeout($.proxy(function() {
+      window.setTimeout(_.bind(function() {
         this._videoInfoPanel = new VideoInfoPanel({
           dialog: this,
           player: nicoVideoPlayer,
@@ -7910,31 +7979,31 @@ iframe {
         });
       }, this), 0);
 
-      nicoVideoPlayer.on('loadedMetaData', $.proxy(this._onLoadedMetaData, this));
-      nicoVideoPlayer.on('ended',          $.proxy(this._onVideoEnded,     this));
-      nicoVideoPlayer.on('canPlay',        $.proxy(this._onVideoCanPlay,   this));
-      nicoVideoPlayer.on('play',           $.proxy(this._onVideoPlay,           this));
-      nicoVideoPlayer.on('pause',          $.proxy(this._onVideoPause,          this));
-      nicoVideoPlayer.on('playing',        $.proxy(this._onVideoPlaying,        this));
-      nicoVideoPlayer.on('stalled',        $.proxy(this._onVideoStalled,        this));
-      nicoVideoPlayer.on('progress',       $.proxy(this._onVideoProgress,       this));
-      nicoVideoPlayer.on('aspectRatioFix', $.proxy(this._onVideoAspectRatioFix, this));
-      nicoVideoPlayer.on('commentParsed',  $.proxy(this._onCommentParsed, this));
-      nicoVideoPlayer.on('commentChange',  $.proxy(this._onCommentChange, this));
-      nicoVideoPlayer.on('commentFilterChange', $.proxy(this._onCommentFilterChange, this));
+      nicoVideoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
+      nicoVideoPlayer.on('ended',          _.bind(this._onVideoEnded,     this));
+      nicoVideoPlayer.on('canPlay',        _.bind(this._onVideoCanPlay,   this));
+      nicoVideoPlayer.on('play',           _.bind(this._onVideoPlay,           this));
+      nicoVideoPlayer.on('pause',          _.bind(this._onVideoPause,          this));
+      nicoVideoPlayer.on('playing',        _.bind(this._onVideoPlaying,        this));
+      nicoVideoPlayer.on('stalled',        _.bind(this._onVideoStalled,        this));
+      nicoVideoPlayer.on('progress',       _.bind(this._onVideoProgress,       this));
+      nicoVideoPlayer.on('aspectRatioFix', _.bind(this._onVideoAspectRatioFix, this));
+      nicoVideoPlayer.on('commentParsed',  _.bind(this._onCommentParsed, this));
+      nicoVideoPlayer.on('commentChange',  _.bind(this._onCommentChange, this));
+      nicoVideoPlayer.on('commentFilterChange', _.bind(this._onCommentFilterChange, this));
 
-      nicoVideoPlayer.on('error', $.proxy(this._onVideoError, this));
-      nicoVideoPlayer.on('abort', $.proxy(this._onVideoAbort, this));
+      nicoVideoPlayer.on('error', _.bind(this._onVideoError, this));
+      nicoVideoPlayer.on('abort', _.bind(this._onVideoAbort, this));
 
       nicoVideoPlayer.on('volumeChange',
-        $.proxy(this._onVolumeChange, this));
+        _.bind(this._onVolumeChange, this));
       nicoVideoPlayer.on('volumeChange',
-        _.debounce($.proxy(this._onVolumeChangeEnd, this), 1500));
+        _.debounce(_.bind(this._onVolumeChangeEnd, this), 1500));
 
       return nicoVideoPlayer;
     },
     _initializeResponsive: function() {
-      $(window).on('resize', _.debounce($.proxy(this._updateResponsive, this),  500));
+      $(window).on('resize', _.debounce(_.bind(this._updateResponsive, this),  500));
     },
     _updateResponsive: function() {
       var $w = $(window);
@@ -8016,21 +8085,27 @@ iframe {
           break;
         case 'addWordFilter':
           this._nicoVideoPlayer.addWordFilter(param);
+          PopupMessage.notify('NGワード追加: ' + param);
           break;
         case 'addUserIdFilter':
           this._nicoVideoPlayer.addUserIdFilter(param);
+          PopupMessage.notify('NGID追加: ' + param);
           break;
         case 'addCommandFilter':
           this._nicoVideoPlayer.addCommandFilter(param);
+          PopupMessage.notify('NGコマンド追加: ' + param);
           break;
         case 'setWordFilterList':
           this._nicoVideoPlayer.setWordFilterList(param);
+          PopupMessage.notify('NGワード更新');
           break;
         case 'setUserIdFilterList':
           this._nicoVideoPlayer.setUserIdFilterList(param);
+          PopupMessage.notify('NGID更新');
           break;
         case 'setCommandFilterList':
           this._nicoVideoPlayer.setCommandFilterList(param);
+          PopupMessage.notify('NGコマンド更新');
           break;
         case 'setIsCommentFilterEnable':
           this._nicoVideoPlayer.setIsCommentFilterEnable(param);
@@ -8054,6 +8129,12 @@ iframe {
           this._nicoVideoPlayer.togglePlay();
           break;
         case 'ESC':
+          // ESCキーは連打にならないようブロック期間を設ける
+          if (Date.now() < this._escBlockExpiredAt) {
+            window.console.log('block ESC');
+            break;
+          }
+          this._escBlockExpiredAt = Date.now() + 1000 * 2;
           if (!FullScreen.now()) {
             this.close();
           }
@@ -8318,7 +8399,7 @@ iframe {
       if (this._onVideoInfoLoaderLoad_proxy) {
         VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
       }
-      this._onVideoInfoLoaderLoad_proxy = $.proxy(this._onVideoInfoLoaderLoad, this);
+      this._onVideoInfoLoaderLoad_proxy = _.bind(this._onVideoInfoLoaderLoad, this);
       VideoInfoLoader.on('load', this._onVideoInfoLoaderLoad_proxy);
     },
     _onVideoInfoLoaderLoad: function(videoInfo, type, watchId) {
@@ -8339,8 +8420,8 @@ iframe {
           videoInfo.needs_key === '1',
           videoInfo.optional_thread_id
         ).then(
-          $.proxy(this._onCommentLoadSuccess, this, watchId),
-          $.proxy(this._onCommentLoadFail, this, watchId)
+          _.bind(this._onCommentLoadSuccess, this, watchId),
+          _.bind(this._onCommentLoadFail, this, watchId)
         );
 
         this._$playerContainer.addClass('noVideoInfoPanel');
@@ -8366,8 +8447,8 @@ iframe {
           flvInfo.needs_key === '1',
           flvInfo.optional_thread_id
         ).then(
-          $.proxy(this._onCommentLoadSuccess, this, watchId),
-          $.proxy(this._onCommentLoadFail, this, watchId)
+          _.bind(this._onCommentLoadSuccess, this, watchId),
+          _.bind(this._onCommentLoadFail, this, watchId)
         );
 
         this.emit('loadVideoInfo', this._videoInfo);
@@ -9068,7 +9149,7 @@ iframe {
 
       var $container = this._$playerContainer;
       $container.find('.menuButton')
-        .on('click', $.proxy(this._onMenuButtonClick, this));
+        .on('click', _.bind(this._onMenuButtonClick, this));
 
       this._$deflistAdd       = $container.find('.deflistAdd');
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
@@ -9077,13 +9158,13 @@ iframe {
       this._$ngSettingMenu       = $container.find('.ngSettingMenu');
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
 
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
 
       this._$mylistSelectMenu.on('mousewheel', function(e) {
         e.stopPropagation();
       });
 
-      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this._hideMenu();
       }, this));
 
@@ -9489,15 +9570,15 @@ iframe {
       this._playerConfig     = params.playerConfig;
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
-      this.emitPromise = $.proxy(emitter.emitPromise, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
+      this.emitPromise = _.bind(emitter.emitPromise, emitter);
 
       this._initializeDom();
 
       this._playerConfig.on('update-autoPauseCommentInput',
-        $.proxy(this._onAutoPauseCommentInputChange, this));
+        _.bind(this._onAutoPauseCommentInputChange, this));
     },
     _initializeDom: function() {
       var $container = this._$playerContainer;
@@ -9513,17 +9594,18 @@ iframe {
       this._$commandInput = $container.find('.commandInput');
       var $cmt = this._$commentInput = $container.find('.commentInput');
       this._$commentSubmit = $container.find('.commentSubmit');
-      var preventEsc = function(e) {
+      var preventEsc = _.bind(function(e) {
         if (e.keyCode === 27) { // ESC
           e.preventDefault();
           e.stopPropagation();
+          this.emit('esc');
           $input.blur();
         }
-      };
+      }, this);
 
       $input
-        .on('focus', $.proxy(this._onFocus, this))
-        .on('blur', _.debounce($.proxy(this._onBlur, this), 500))
+        .on('focus', _.bind(this._onFocus, this))
+        .on('blur', _.debounce(_.bind(this._onBlur, this), 500))
         .on('keydown', preventEsc)
         .on('keyup', preventEsc);
 
@@ -9535,8 +9617,8 @@ iframe {
       this._$view.find('label').on('click', function(e) {
         e.stopPropagation();
       });
-      this._$form.on('submit', $.proxy(this._onSubmit, this));
-      this._$commentSubmit.on('click', $.proxy(this._onSubmitButtonClick, this));
+      this._$form.on('submit', _.bind(this._onSubmit, this));
+      this._$commentSubmit.on('click', _.bind(this._onSubmitButtonClick, this));
     },
     _onFocus: function() {
       this._$view.addClass('active');
@@ -9819,7 +9901,7 @@ iframe {
       this._$playerContainer = params.$playerContainer;
       this._player           = params.player;
 
-      this._playerConfig.on('update', $.proxy(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
       this._initializeDom();
       this._initializeCommentFilterEdit();
     },
@@ -9848,9 +9930,9 @@ iframe {
         $c.prop('checked', config.getValue(settingName));
         $c.closest('.control').toggleClass('checked', val);
       });
-      $check.on('change', $.proxy(this._onToggleItemChange, this));
+      $check.on('change', _.bind(this._onToggleItemChange, this));
 
-      ZenzaWatch.emitter.on('hideHover', $.proxy(function() {
+      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this.hide();
       }, this));
 
@@ -9876,11 +9958,11 @@ iframe {
         self.emit('command', command, value);
       });
 
-      for (var v in map) {
+      Object.keys(map).forEach(function(v) {
         var value = config.getValue(v) || [];
         value = typeof value === 'string' ? value : value.join('\n');
         map[v].val(value);
-      }
+      });
 
       var onConfigUpdate = function(key, value) {
         if (_.contains(['wordFilter', 'userIdFilter', 'commandFilter'], key)) {
@@ -10068,7 +10150,7 @@ iframe {
       box-shadow: 4px 4px 4px #000;
       border: none;
       opacity: 0.9;
-      transition: opacity 0.4s ease, right 0.4s ease;
+      transition: opacity 0.4s ease, right 0.4s ease 1s;
     }
 
     .zenzaWatchVideoInfoPanel .owner {
@@ -10403,7 +10485,7 @@ iframe {
       this._$ownerPageLink = $view.find('.ownerPageLink');
 
       this._$description = $view.find('.videoDescription');
-      this._$description.on('click', $.proxy(this._onDescriptionClick, this));
+      this._$description.on('click', _.bind(this._onDescriptionClick, this));
 
       this._$videoTags = $view.find('.videoTags');
       this._$publicStatus = $view.find('.publicStatus');
@@ -10718,7 +10800,7 @@ iframe {
       this._$ginzaLink.on('click', function(e) {
         e.stopPropagation();
       });
-      this._$ginzaLink.on('mousedown', $.proxy(this._onGinzaLinkMouseDown, this));
+      this._$ginzaLink.on('mousedown', _.bind(this._onGinzaLinkMouseDown, this));
     },
     update: function(videoInfo) {
       this._videoInfo = videoInfo;

@@ -62,9 +62,9 @@ var PopupMessage = {};
         show: params.showComment
       });
 
-      this._model.on('change'      , $.proxy(this._onCommentChange, this));
-      this._model.on('filterChange', $.proxy(this._onFilterChange, this));
-      this._model.on('parsed'      , $.proxy(this._onCommentParsed, this));
+      this._model.on('change'      , _.bind(this._onCommentChange, this));
+      this._model.on('filterChange', _.bind(this._onFilterChange, this));
+      this._model.on('parsed'      , _.bind(this._onCommentParsed, this));
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
@@ -217,19 +217,19 @@ var PopupMessage = {};
     initialize: function(params) {
       this._currentTime = 0;
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
 
       params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
-      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
+      this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
       
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL, params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
 
-      var onChange = _.debounce($.proxy(this._onChange, this), 100);
+      var onChange = _.debounce(_.bind(this._onChange, this), 100);
       this._topGroup   .on('change', onChange);
       this._normalGroup.on('change', onChange);
       this._bottomGroup.on('change', onChange);
@@ -594,9 +594,9 @@ var PopupMessage = {};
       this._offScreen   = offScreen;
 
       var emitter = new AsyncEmitter();
-      this.on        = $.proxy(emitter.on,        emitter);
-      this.emit      = $.proxy(emitter.emit,      emitter);
-      this.emitAsync = $.proxy(emitter.emitAsync, emitter);
+      this.on        = _.bind(emitter.on,        emitter);
+      this.emit      = _.bind(emitter.emit,      emitter);
+      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       this._currentTime = 0;
 
@@ -607,10 +607,10 @@ var PopupMessage = {};
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      nicoComment.on('setXml', $.proxy(this._onSetXml, this));
-      nicoComment.on('clear',  $.proxy(this._onClear,  this));
-      nicoComment.on('change', $.proxy(this._onChange,  this));
-      nicoComment.on('currentTime', $.proxy(this._onCurrentTime,   this));
+      nicoComment.on('setXml', _.bind(this._onSetXml, this));
+      nicoComment.on('clear',  _.bind(this._onClear,  this));
+      nicoComment.on('change', _.bind(this._onChange,  this));
+      nicoComment.on('currentTime', _.bind(this._onCurrentTime,   this));
     },
     _onSetXml: function() {
       this.emit('setXml');
@@ -666,7 +666,7 @@ var PopupMessage = {};
       this._type = type;
 
       this._nicoChatFilter = params.nicoChatFilter;
-      this._nicoChatFilter.on('change', $.proxy(this._onFilterChange, this));
+      this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
 
       this.reset();
     },
@@ -752,10 +752,10 @@ var PopupMessage = {};
       // メンバーをvposでソートした物. 計算効率改善用
       this._vSortedMembers = [];
 
-      nicoChatGroup.on('addChat',      $.proxy(this._onAddChat,      this));
-      nicoChatGroup.on('addChatArray', $.proxy(this._onAddChatArray, this));
-      nicoChatGroup.on('reset',        $.proxy(this._onReset,        this));
-      nicoChatGroup.on('change',       $.proxy(this._onChange,        this));
+      nicoChatGroup.on('addChat',      _.bind(this._onAddChat,      this));
+      nicoChatGroup.on('addChatArray', _.bind(this._onAddChatArray, this));
+      nicoChatGroup.on('reset',        _.bind(this._onReset,        this));
+      nicoChatGroup.on('change',       _.bind(this._onChange,        this));
 
       this.addChatArray(nicoChatGroup.getMembers());
     },
@@ -924,9 +924,9 @@ var PopupMessage = {};
 
     dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
-    for (var v in options) {
+    Object.keys(options).forEach(function(v) {
       dom.setAttribute(v, options[v]);
-    }
+    });
     //console.log('NicoChat.create', dom);
     return new NicoChat(dom);
   };
@@ -1928,8 +1928,8 @@ iframe {
     initialize: function(params) {
       this._viewModel = params.viewModel;
 
-      this._viewModel.on('setXml', $.proxy(this._onSetXml, this));
-      this._viewModel.on('currentTime', $.proxy(this._onCurrentTime, this));
+      this._viewModel.on('setXml', _.bind(this._onSetXml, this));
+      this._viewModel.on('currentTime', _.bind(this._onCurrentTime, this));
 
       this._lastCurrentTime = 0;
       this._isShow = true;
@@ -1946,7 +1946,7 @@ iframe {
 
       this._initializeView(params);
 
-      var _refresh = $.proxy(this.refresh, this);
+      var _refresh = _.bind(this.refresh, this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
       // ここに書いてるのは手抜き
       if (ZenzaWatch.util.isFirefox()) {
@@ -2005,7 +2005,7 @@ iframe {
           var targetHeight = Math.min(h, w * aspectRatio);
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
         });
-        //win.addEventListener('resize', _.debounce($.proxy(self._onResizeEnd, self), 500);
+        //win.addEventListener('resize', _.debounce(_.bind(self._onResizeEnd, self), 500);
         //
         ZenzaWatch.debug.getInViewElements = function() {
           return doc.getElementsByClassName('nicoChat');
@@ -2640,9 +2640,16 @@ iframe {
       };
     },
     applyFilter: function(nicoChatArray) {
-      window.console.time('applyNgFilter');
+      var before = nicoChatArray.length;
+      if (before < 1) {
+        return nicoChatArray;
+      }
+      var timeKey = 'applyNgFilter: ' + nicoChatArray[0].getType();
+      window.console.time(timeKey);
       var result = _.filter(nicoChatArray, this.getFilterFunc());
-      window.console.timeEnd('applyNgFilter');
+      var after = result.length;
+      window.console.timeEnd(timeKey);
+      window.console.log('NG判定結果: %s/%s', after, before);
       return result;
     },
     isSafe: function(nicoChat) {

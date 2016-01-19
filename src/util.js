@@ -63,7 +63,7 @@ var console;
         if (!this._events) { this._events = {}; }
         var args = arguments;
 
-        window.setTimeout($.proxy(function() {
+        window.setTimeout(_.bind(function() {
           try {
             this.emit.apply(this, args);
           } catch (e) {
@@ -197,7 +197,7 @@ var console;
       };
       var config = {};
 
-      for (var key in defaultConfig) {
+      Object.keys(defaultConfig).forEach(function(key) {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
@@ -209,7 +209,7 @@ var console;
         } else {
           config[key] = defaultConfig[key];
         }
-      }
+      });
 
       /**
        * ローカルの設定値をlocalStorageから読み直す
