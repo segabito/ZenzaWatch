@@ -217,12 +217,15 @@ var monkey = function() {
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
+
+        forceEconomy: false,
         // NG設定
         enableFilter: true,
         wordFilter: '',
         userIdFilter: '',
         commandFilter: '',
 
+        enableGinzaSlayer: false,
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -1097,8 +1100,11 @@ var monkey = function() {
         }
       };
 
-      var loadFromWatchApiData = function(watchId) {
+      var loadFromWatchApiData = function(watchId, options) {
         var url = '/watch/' + watchId;
+        if (options.economy === true) {
+          url += '?eco=1';
+        }
         console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
 
         var isFallback = false;
@@ -1111,7 +1117,7 @@ var monkey = function() {
             return;
           }
 
-          if (data.isFlv && !isFallback) {
+          if (data.isFlv && !isFallback && options.economy !== true) {
             isFallback = true;
 
             url = url + '?eco=1';
@@ -1144,11 +1150,11 @@ var monkey = function() {
         );
       };
 
-      var load = function(watchId) {
+      var load = function(watchId, options) {
         if (isLogin() && isSameOrigin()) {
-          loadFromWatchApiData(watchId);
+          loadFromWatchApiData(watchId, options);
         } else {
-          loadFromThumbWatch(watchId);
+          loadFromThumbWatch(watchId, options);
         }
       };
 
@@ -1318,7 +1324,7 @@ var monkey = function() {
             $.ajax({
               url: server,
               data: xml,
-              timeout: 30000,
+              timeout: 60000,
               type: 'POST',
               contentType: isNmsg ? 'text/xml' : 'text/plain',
               dataType: 'xml',
@@ -1360,7 +1366,7 @@ var monkey = function() {
           return new Promise(function(resolve, reject) {
             $.ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               crossDomain: true,
               cache: false
             }).then(function(result) {
@@ -1644,7 +1650,7 @@ var monkey = function() {
 
             ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               cache: false,
               dataType: 'json',
               xhrFields: { withCredentials: true }
@@ -1683,7 +1689,7 @@ var monkey = function() {
 
             return ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               cache: false,
               dataType: 'json',
               xhrFields: { withCredentials: true }
@@ -1721,7 +1727,7 @@ var monkey = function() {
 
             ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               cache: false,
               dataType: 'json',
               xhrFields: { withCredentials: true }
@@ -1814,7 +1820,7 @@ var monkey = function() {
             method: 'POST',
             data: data,
             dataType: 'json',
-            timeout: 30000,
+            timeout: 60000,
             xhrFields: { withCredentials: true },
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           };
@@ -1897,7 +1903,7 @@ var monkey = function() {
             method: 'POST',
             data: data,
             dataType: 'json',
-            timeout: 30000,
+            timeout: 60000,
             xhrFields: { withCredentials: true },
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           };
@@ -5910,7 +5916,8 @@ var monkey = function() {
     // [^ -~｡-ﾟ]* は半角以外の文字の連続
     MINCHO: /([^ -~｡-ﾟ]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓]+[^ -~｡-ﾟ]*)/g,
     GULIM: /([^ -~｡-ﾟ]*[㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]+[^ -~｡-ﾟ]*)/g,
-    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g
+    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g,
+    GR: /<group>(.*?([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]).*?)<\/group>/g
   };
 
   _.assign(NicoChatViewModel.prototype, {
@@ -6000,7 +6007,7 @@ var monkey = function() {
           break;
       }
     },
-    _setText: function(text) {
+    _setText_old: function(text) {
       var htmlText =
         ZenzaWatch.util.escapeHtml(text)
           .replace(/( |　|\t)+([\n$])/g , '$1')
@@ -6056,6 +6063,99 @@ var monkey = function() {
         this._beginRightTiming = this._beginLeftTiming;
       }
     },
+    // 実験中...
+    _setText: function(text) {
+      var htmlText = 
+       ZenzaWatch.util.escapeHtml(text)
+          .replace(/( |　|\t)+([\n$])/g , '$2')
+        // 全角文字の連続をグループ化
+        // 半角スペースや改行はグループに含む？ 要検証
+          //.replace(/([^~｡-ﾟ^\n\x2003]+)/g, '<group>$1</group>')
+          .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
+          .replace(/([^ -~｡-ﾟ^\n^\xA0]+)/g, '<group>$1</group>')
+          //.replace(/(\x2003+)/g, '<span class="em_space">$1</span>')
+          .replace(/(\t+)/g ,             '<span class="tab_space">$1</span>');
+
+      // フォント変化処理  XPをベースにしたい
+      // フォント変化文字にマッチすること自体がレアなので、
+      // 一文字ずつ走査してもさほど問題ないはず
+      htmlText =
+        htmlText.replace(NicoChatViewModel._FONT_REG.GR, function(all, group, firstChar) {
+          var baseFont = '';
+          if (firstChar.match(NicoChatViewModel._FONT_REG.MINCHO)) {
+            baseFont = 'mincho';
+          } else if (firstChar.match(NicoChatViewModel._FONT_REG.GULIM)) {
+            baseFont = 'gulim';
+          } else {
+            baseFont = 'mingLiu';
+          }
+          //  if (secondBaseFont === '') { secondBaseFont = baseFont; }
+          //
+          var result = [
+            '<span class="', baseFont, '">', group, '</span>'
+          ].join('');
+          //return result;
+
+          var tmp = [], closer = [];
+          for (var i = 0, len = group.length; i < len; i++) {
+            var c = group.charAt(i);
+            if (c.match(NicoChatViewModel._FONT_REG.MINCHO)) {
+              tmp.push('<span class="mincho">');
+              closer.push('</span>');
+            } else if (c.match(NicoChatViewModel._FONT_REG.GULIM)) {
+              tmp.push('<span class="gulim">');
+              closer.push('</span>');
+            } else if (c.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
+              tmp.push('<span class="mingLiu">');
+              closer.push('</span>');
+            }
+            tmp.push(c);
+          }
+
+          var result = [
+            '<span class="', baseFont, '">',
+              tmp.join(''),
+              closer.join(''),
+            '</span>'
+          ].join('');
+          return result;
+        });
+
+      htmlText =
+        htmlText
+          .replace(/([ ]+)/g ,   '<span class="zen_space type1">$1</span>')
+          .replace(/'([　]+)/g , '<span class="zen_space type2">$1</span>');
+
+      htmlText = htmlText
+        .replace(/[\r\n]+$/g, '')
+//        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
+        .replace(/[\n]/g, '<br>')
+        .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
+        .replace(/(\x0323|\x200b|\x2029|\x202a|\x200c)+/g , '<span class="zero_space">[0]</span>')
+        ;
+
+      this._htmlText = htmlText;
+      this._text = text;
+
+      var field = this._offScreen.getTextField();
+      field.setText(htmlText);
+      field.setFontSizePixel(this._fontSizePixel);
+      field.setType(this._type);
+      
+      this._width  = this._originalWidth  = field.getWidth();
+      this._height = this._originalHeight = this._calculateHeight();
+
+      if (!this._isFixed) {
+        var speed =
+          this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        this._endLeftTiming    = this._endRightTiming  - this._width / speed;
+        this._beginRightTiming = this._beginLeftTiming + this._width / speed;
+      } else {
+        this._speed = 0;
+        this._endLeftTiming    = this._endRightTiming;
+        this._beginRightTiming = this._beginLeftTiming;
+      }
+    },
     /**
      * 高さ計算。 リサイズ後が怪しいというか多分間違ってる。
      */
@@ -6064,7 +6164,6 @@ var monkey = function() {
       // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
       // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
       var lc = this._htmlText.split('<br>').length;
-      var isEnder = this._nicoChat.isEnder();
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
       var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
@@ -6080,27 +6179,7 @@ var monkey = function() {
           break;
       }
 
-      if (!this._isFixed) {
-        // 流れるコメント
-        // 中の数字は職人の実測値
-        switch (size) {
-          case NicoChat.SIZE.BIG:
-            lineHeight = (isEnder || lc <= 2) ? lineHeight : 24;
-            margin     = (isEnder || lc <= 2) ? margin : 3;
-            //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3));
-            break;
-          default:
-            lineHeight = (isEnder || lc <= 4) ? lineHeight : 15;
-            margin     = (isEnder || lc <= 4) ? margin : 3;
-            //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3));
-            break;
-          case NicoChat.SIZE.SMALL:
-            lineHeight = (isEnder || lc <= 6) ? lineHeight : 10;
-            margin     = (isEnder || lc <= 6) ? margin : 3;
-            //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3));
-            break;
-        }
-      } else if (this._scale === 0.5) {
+      if (this._scale === 0.5) {
         switch (size) {
           case NicoChat.SIZE.BIG: // 16行 = (24 * 16 + 3) = 387
             lineHeight = 24;
@@ -6201,7 +6280,7 @@ var monkey = function() {
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
       // 画面の高さの1/3を超える場合は大きさを半分にする
       if (!this._nicoChat.isEnder() && this._height > screenHeight / 3) {
-        this._setScale(this._scale * 0.5);
+        this._setScale(0.5);
         var speed =
           this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
         this._endLeftTiming    = this._endRightTiming  - this._width / speed;
@@ -6595,6 +6674,12 @@ iframe {
   mix-blend-mode: lighten;
 }
 
+.debug .nicoChat .tab_space {
+  background: #ff0;
+  opacity: 0.3;
+}
+
+
 .nicoChat .zero_space {
   display: none;
 }
@@ -6704,6 +6789,8 @@ iframe {
       this._isStalled = undefined;
       this._isPaused  = undefined;
 
+      this._retryGetIframeCount = 0;
+
       console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 
       this._initializeView(params);
@@ -6729,16 +6816,16 @@ iframe {
       this._style = null;
       this._commentLayer = null;
       this._view = null;
-      var iframe;
-      var reserved = document.getElementsByClassName('reservedFrame');
-      if (reserved && reserved.length > 0) {
-        iframe = reserved[0];
-        document.body.removeChild(iframe);
-        iframe.style.position = '';
-        iframe.style.left = '';
-      } else {
-        iframe = document.createElement('iframe');
-      }
+      var iframe = this._getIframe();
+//      var reserved = document.getElementsByClassName('reservedFrame');
+//      if (reserved && reserved.length > 0) {
+//        iframe = reserved[0];
+//        document.body.removeChild(iframe);
+//        iframe.style.position = '';
+//        iframe.style.left = '';
+//      } else {
+//        iframe = document.createElement('iframe');
+//      }
       iframe.className = 'commentLayerFrame';
 
       var html =
@@ -6786,6 +6873,32 @@ iframe {
       ZenzaWatch.debug.commentLayer = iframe;
 
       if (!params.show) { this.hide(); }
+    },
+    _getIframe: function() {
+      var reserved = document.getElementsByClassName('reservedFrame');
+      var iframe;
+      if (reserved && reserved.length > 0) {
+        iframe = reserved[0];
+        document.body.removeChild(iframe);
+        iframe.style.position = '';
+        iframe.style.left = '';
+      } else {
+        iframe = document.createElement('iframe');
+      }
+      try {
+        iframe.srcdoc = '<html></html>';
+      } catch (e) {
+        // 行儀の悪い広告にiframeを乗っ取られた？
+        this._retryGetIframeCount++;
+        window.console.error('Error: ', e);
+        if (this._retryGetIframeCount < 5) {
+          window.console.log('変な広告に乗っ取られたのでリトライ', this._retryGetIframeCount);
+          return this._getIframe();
+        } else {
+          PopupMessage.alert('コメントレイヤーの生成に失敗しました');
+        }
+      }
+      return iframe;
     },
     _onResize: function(e) {
       this._adjust(e);
@@ -8355,7 +8468,7 @@ iframe {
 
       this._bindLoaderEvents();
 
-      this._videoWatchOptions = options || {};
+      this._videoWatchOptions = options = options || {};
 
       this._playerConfig.setValue('lastPlayerId', this.getId());
 
@@ -8368,7 +8481,7 @@ iframe {
       this._isCommentReady = false;
       this._watchId = watchId;
       window.console.time('VideoInfoLoader');
-      VideoInfoLoader.load(watchId);
+      VideoInfoLoader.load(watchId, options);
 
       this.show(options);
       if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
@@ -8642,12 +8755,21 @@ iframe {
       if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
         return {};
       }
-      return {
+
+
+      var session = {
         playing: true,
         watchId: this._watchId,
         url: location.href,
         currentTime: this._nicoVideoPlayer.getCurrentTime()
       };
+
+      var options = this._videoWatchOptions || {};
+      Object.keys(options).forEach(function(key) {
+        session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
+      });
+
+      return session;
     }
   });
 
@@ -10897,15 +11019,131 @@ iframe {
 
 
 
+  var initializeGinzaSlayer =
+  (function() {
+    // なにかの実験場
+    //
+    //
 
-    var initializeGinzaSlayer = function(dialog) {
-      $('.notify_update_flash_player').remove();
-      $('body').addClass('ginzaSlayer');
+    var ProxyExternalContent = function() { this._initialize.apply(this, arguments); };
+    _.extend(ProxyExternalContent.prototype, AsyncEmitter.prototype);
+    _.assign(ProxyExternalContent.prototype, {
+      _initialize: function($originalContent, externalInterface) {
+        this._$originalContent = $originalContent;
+        var i, len;
 
-      dialog.open(getWatchId());
+        var JS2SWF = externalInterface.JS2SWF;
+
+        var createJS2SWF = function(name) {
+          return function() {
+            window.console.log('%cJS -> SWF: ', 'background: lightgreen; ', name, arguments);
+            return $originalContent[name].apply($originalContent, arguments.length > 0 ? arguments : []);
+          };
+        };
+
+        for (i = 0, len = JS2SWF.length; i < len; i++) {
+          var name = JS2SWF[i];
+          //window.console.log('crete JS2SWF: %s', name);
+          this[name] = createJS2SWF(name);
+        }
+      }
+    });
+
+    var ProxyConnector = function() { this._initialize.apply(this, arguments); };
+    _.extend(ProxyConnector.prototype, AsyncEmitter.prototype);
+    _.assign(ProxyConnector.prototype, {
+      _initialize: function(originConnector, externalInterface) {
+        this._originConnector = originConnector;
+        var i, len;
+        var SWF2JS = externalInterface.SWF2JS;
+
+        var createSWF2JS = function(name) {
+          return function() {
+            window.console.log('%cSWF -> JS: ', 'background: cyan; ', name, arguments);
+            //originConnector[name].apply(originConnector, arguments.length > 0 ? arguments : []);
+          };
+        };
+
+        for (i = 0, len = SWF2JS.length; i < len; i++) {
+          var name = SWF2JS[i];
+          //window.console.log('crete SWF2JS: %s', name);
+          this[name] = createSWF2JS(name);
+        }
+
+      },
+      setStartupLogTimestamp: function() {
+      }
+    });
+
+
+    var swf2js, js2swf;
+    var replaceConnector = function(target, externalInterface) {
+      var connectorInstance = target.getInstance();
+      var $externalPlayer  = connectorInstance.getExternalNicoplayer();
+      connectorInstance._externalNicoplayer_org = connectorInstance._externalContent;
+      js2swf = connectorInstance._externalNicoplayer =
+        new ProxyExternalContent($externalPlayer, externalInterface);
+
+      connectorInstance.startJS_org = connectorInstance.startJS;
+      connectorInstance.startJS = function(connector) {
+        this._connector_org = connector;
+        swf2js = new ProxyConnector(connector, externalInterface);
+        this.startJS_org(swf2js);
+      };
+      swf2js = new ProxyConnector(null, externalInterface);
     };
 
 
+
+    var initializeGinzaSlayer = function(dialog, watchId) {
+      var target = window.PlayerApp.ns.player.Nicoplayer;
+      var externalInterface = window.PlayerApp.ns.player.NicoplayerExternalInterface;
+      replaceConnector(target, externalInterface);
+
+      $('#external_nicoplayer').remove();
+
+      dialog.on('canPlay', function() {
+        swf2js.onVideoInitialized(true);
+      });
+      dialog.on('commentParsed', function() {
+        swf2js.onCommentListInitialized(true);
+        //swf2js.onCommentListUpdated(TODO: 変換して渡す);
+      });
+      dialog.on('ended', function() {
+        swf2js.onVideoEnded(false);
+      });
+
+      js2swf.ext_getPlayheadTime = function() {
+        return dialog.getCurrentTime();
+      };
+      js2swf.externalChangeVideo = function(videoInfo) {
+        window.console.log('externalChangeVideo');
+        dialog.open(videoInfo.v);
+      };
+      js2swf.ext_getTotalTime = function() {
+        return dialog._nicoVideoPlayer.getDuration();
+      };
+
+      dialog.open(watchId);
+      $('#nicoplayerContainer').append($('.zenzaVideoPlayerDialog').detach());
+    };
+
+    var initialize = function(dialog) {
+      $('.notify_update_flash_player').remove();
+      $('body').addClass('ginzaSlayer');
+
+
+      var watchId = getWatchId();
+      if (Config.getValue('enableGinzaSlayer')) {
+        initializeGinzaSlayer(dialog, watchId);
+      } else {
+        dialog.open(watchId);
+      }
+
+    };
+
+    return initialize;
+  })();
 
 
     var initialize = function() {
@@ -10931,7 +11169,7 @@ iframe {
         if (isGinza) {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (!ZenzaWatch.util.hasFlashPlayer()) {
+            if (!ZenzaWatch.util.hasFlashPlayer() || (Config.getValue('enableGinzaSlayer'))) {
               initializeGinzaSlayer(dialog);
             }
           } else {
@@ -10950,7 +11188,9 @@ iframe {
           if (packet.type !== 'openVideo') { return; }
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
           Config.setSessionValue('autoCloseFullScreen', false);
-          dialog.open(packet.watchId);
+          dialog.open(packet.watchId, {
+            economy: Config.getValue('forceEconomy')
+          });
         });
 
         WatchPageState.initialize(dialog);
@@ -11081,7 +11321,9 @@ iframe {
         } else {
 
           Config.refreshValue('autoCloseFullScreen');
-          dialog.open(watchId);
+          dialog.open(watchId, {
+            economy: Config.getValue('forceEconomy')
+          });
 
         }
       };
@@ -11222,7 +11464,7 @@ iframe {
       iframe.className = 'reservedFrame';
       iframe.style.position = 'fixed';
       iframe.style.left = '-9999px';
-      iframe.srcDoc = '<html></html>';
+      iframe.srcdoc = '<html></html>';
       document.body.appendChild(iframe);
     }
 

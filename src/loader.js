@@ -9,6 +9,8 @@ var Config = {};
 var AsyncEmitter = function() {};
 var PopupMessage = function() {};
 var WindowMessageEmitter = function() {};
+var isLogin = function() {};
+var isSameOrigin = function() {};
 
 //===BEGIN===
     var VideoInfoLoader = (function() {
@@ -101,8 +103,11 @@ var WindowMessageEmitter = function() {};
         }
       };
 
-      var loadFromWatchApiData = function(watchId) {
+      var loadFromWatchApiData = function(watchId, options) {
         var url = '/watch/' + watchId;
+        if (options.economy === true) {
+          url += '?eco=1';
+        }
         console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
 
         var isFallback = false;
@@ -115,7 +120,7 @@ var WindowMessageEmitter = function() {};
             return;
           }
 
-          if (data.isFlv && !isFallback) {
+          if (data.isFlv && !isFallback && options.economy !== true) {
             isFallback = true;
 
             url = url + '?eco=1';
@@ -148,11 +153,11 @@ var WindowMessageEmitter = function() {};
         );
       };
 
-      var load = function(watchId) {
+      var load = function(watchId, options) {
         if (isLogin() && isSameOrigin()) {
-          loadFromWatchApiData(watchId);
+          loadFromWatchApiData(watchId, options);
         } else {
-          loadFromThumbWatch(watchId);
+          loadFromThumbWatch(watchId, options);
         }
       };
 
@@ -322,7 +327,7 @@ var WindowMessageEmitter = function() {};
             $.ajax({
               url: server,
               data: xml,
-              timeout: 30000,
+              timeout: 60000,
               type: 'POST',
               contentType: isNmsg ? 'text/xml' : 'text/plain',
               dataType: 'xml',
@@ -364,7 +369,7 @@ var WindowMessageEmitter = function() {};
           return new Promise(function(resolve, reject) {
             $.ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               crossDomain: true,
               cache: false
             }).then(function(result) {
@@ -648,7 +653,7 @@ var WindowMessageEmitter = function() {};
 
             ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               cache: false,
               dataType: 'json',
               xhrFields: { withCredentials: true }
@@ -687,7 +692,7 @@ var WindowMessageEmitter = function() {};
 
             return ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               cache: false,
               dataType: 'json',
               xhrFields: { withCredentials: true }
@@ -725,7 +730,7 @@ var WindowMessageEmitter = function() {};
 
             ajax({
               url: url,
-              timeout: 30000,
+              timeout: 60000,
               cache: false,
               dataType: 'json',
               xhrFields: { withCredentials: true }
@@ -818,7 +823,7 @@ var WindowMessageEmitter = function() {};
             method: 'POST',
             data: data,
             dataType: 'json',
-            timeout: 30000,
+            timeout: 60000,
             xhrFields: { withCredentials: true },
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           };
@@ -901,7 +906,7 @@ var WindowMessageEmitter = function() {};
             method: 'POST',
             data: data,
             dataType: 'json',
-            timeout: 30000,
+            timeout: 60000,
             xhrFields: { withCredentials: true },
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           };

@@ -1148,7 +1148,8 @@ var PopupMessage = {};
     // [^ -~｡-ﾟ]* は半角以外の文字の連続
     MINCHO: /([^ -~｡-ﾟ]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓]+[^ -~｡-ﾟ]*)/g,
     GULIM: /([^ -~｡-ﾟ]*[㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]+[^ -~｡-ﾟ]*)/g,
-    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g
+    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g,
+    GR: /<group>(.*?([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]).*?)<\/group>/g
   };
 
   _.assign(NicoChatViewModel.prototype, {
@@ -1238,7 +1239,7 @@ var PopupMessage = {};
           break;
       }
     },
-    _setText: function(text) {
+    _setText_old: function(text) {
       var htmlText =
         ZenzaWatch.util.escapeHtml(text)
           .replace(/( |　|\t)+([\n$])/g , '$1')
@@ -1294,6 +1295,99 @@ var PopupMessage = {};
         this._beginRightTiming = this._beginLeftTiming;
       }
     },
+    // 実験中...
+    _setText: function(text) {
+      var htmlText = 
+       ZenzaWatch.util.escapeHtml(text)
+          .replace(/( |　|\t)+([\n$])/g , '$2')
+        // 全角文字の連続をグループ化
+        // 半角スペースや改行はグループに含む？ 要検証
+          //.replace(/([^~｡-ﾟ^\n\x2003]+)/g, '<group>$1</group>')
+          .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
+          .replace(/([^ -~｡-ﾟ^\n^\xA0]+)/g, '<group>$1</group>')
+          //.replace(/(\x2003+)/g, '<span class="em_space">$1</span>')
+          .replace(/(\t+)/g ,             '<span class="tab_space">$1</span>');
+
+      // フォント変化処理  XPをベースにしたい
+      // フォント変化文字にマッチすること自体がレアなので、
+      // 一文字ずつ走査してもさほど問題ないはず
+      htmlText =
+        htmlText.replace(NicoChatViewModel._FONT_REG.GR, function(all, group, firstChar) {
+          var baseFont = '';
+          if (firstChar.match(NicoChatViewModel._FONT_REG.MINCHO)) {
+            baseFont = 'mincho';
+          } else if (firstChar.match(NicoChatViewModel._FONT_REG.GULIM)) {
+            baseFont = 'gulim';
+          } else {
+            baseFont = 'mingLiu';
+          }
+          //  if (secondBaseFont === '') { secondBaseFont = baseFont; }
+          //
+          var result = [
+            '<span class="', baseFont, '">', group, '</span>'
+          ].join('');
+          //return result;
+
+          var tmp = [], closer = [];
+          for (var i = 0, len = group.length; i < len; i++) {
+            var c = group.charAt(i);
+            if (c.match(NicoChatViewModel._FONT_REG.MINCHO)) {
+              tmp.push('<span class="mincho">');
+              closer.push('</span>');
+            } else if (c.match(NicoChatViewModel._FONT_REG.GULIM)) {
+              tmp.push('<span class="gulim">');
+              closer.push('</span>');
+            } else if (c.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
+              tmp.push('<span class="mingLiu">');
+              closer.push('</span>');
+            }
+            tmp.push(c);
+          }
+
+          var result = [
+            '<span class="', baseFont, '">',
+              tmp.join(''),
+              closer.join(''),
+            '</span>'
+          ].join('');
+          return result;
+        });
+
+      htmlText =
+        htmlText
+          .replace(/([ ]+)/g ,   '<span class="zen_space type1">$1</span>')
+          .replace(/'([　]+)/g , '<span class="zen_space type2">$1</span>');
+
+      htmlText = htmlText
+        .replace(/[\r\n]+$/g, '')
+//        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
+        .replace(/[\n]/g, '<br>')
+        .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
+        .replace(/(\x0323|\x200b|\x2029|\x202a|\x200c)+/g , '<span class="zero_space">[0]</span>')
+        ;
+
+      this._htmlText = htmlText;
+      this._text = text;
+
+      var field = this._offScreen.getTextField();
+      field.setText(htmlText);
+      field.setFontSizePixel(this._fontSizePixel);
+      field.setType(this._type);
+      
+      this._width  = this._originalWidth  = field.getWidth();
+      this._height = this._originalHeight = this._calculateHeight();
+
+      if (!this._isFixed) {
+        var speed =
+          this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        this._endLeftTiming    = this._endRightTiming  - this._width / speed;
+        this._beginRightTiming = this._beginLeftTiming + this._width / speed;
+      } else {
+        this._speed = 0;
+        this._endLeftTiming    = this._endRightTiming;
+        this._beginRightTiming = this._beginLeftTiming;
+      }
+    },
     /**
      * 高さ計算。 リサイズ後が怪しいというか多分間違ってる。
      */
@@ -1302,7 +1396,6 @@ var PopupMessage = {};
       // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
       // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
       var lc = this._htmlText.split('<br>').length;
-      var isEnder = this._nicoChat.isEnder();
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
       var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
@@ -1318,27 +1411,7 @@ var PopupMessage = {};
           break;
       }
 
-      if (!this._isFixed) {
-        // 流れるコメント
-        // 中の数字は職人の実測値
-        switch (size) {
-          case NicoChat.SIZE.BIG:
-            lineHeight = (isEnder || lc <= 2) ? lineHeight : 24;
-            margin     = (isEnder || lc <= 2) ? margin : 3;
-            //return ((lc <= 2) ? (45 * lc + 5) : (24 * lc + 3));
-            break;
-          default:
-            lineHeight = (isEnder || lc <= 4) ? lineHeight : 15;
-            margin     = (isEnder || lc <= 4) ? margin : 3;
-            //return ((lc <= 4) ? (29 * lc + 5) : (15 * lc + 3));
-            break;
-          case NicoChat.SIZE.SMALL:
-            lineHeight = (isEnder || lc <= 6) ? lineHeight : 10;
-            margin     = (isEnder || lc <= 6) ? margin : 3;
-            //return ((lc <= 6) ? (18 * lc + 5) : (10 * lc + 3));
-            break;
-        }
-      } else if (this._scale === 0.5) {
+      if (this._scale === 0.5) {
         switch (size) {
           case NicoChat.SIZE.BIG: // 16行 = (24 * 16 + 3) = 387
             lineHeight = 24;
@@ -1439,7 +1512,7 @@ var PopupMessage = {};
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
       // 画面の高さの1/3を超える場合は大きさを半分にする
       if (!this._nicoChat.isEnder() && this._height > screenHeight / 3) {
-        this._setScale(this._scale * 0.5);
+        this._setScale(0.5);
         var speed =
           this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
         this._endLeftTiming    = this._endRightTiming  - this._width / speed;
@@ -1833,6 +1906,12 @@ iframe {
   mix-blend-mode: lighten;
 }
 
+.debug .nicoChat .tab_space {
+  background: #ff0;
+  opacity: 0.3;
+}
+
+
 .nicoChat .zero_space {
   display: none;
 }
@@ -1942,6 +2021,8 @@ iframe {
       this._isStalled = undefined;
       this._isPaused  = undefined;
 
+      this._retryGetIframeCount = 0;
+
       console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 
       this._initializeView(params);
@@ -1967,16 +2048,16 @@ iframe {
       this._style = null;
       this._commentLayer = null;
       this._view = null;
-      var iframe;
-      var reserved = document.getElementsByClassName('reservedFrame');
-      if (reserved && reserved.length > 0) {
-        iframe = reserved[0];
-        document.body.removeChild(iframe);
-        iframe.style.position = '';
-        iframe.style.left = '';
-      } else {
-        iframe = document.createElement('iframe');
-      }
+      var iframe = this._getIframe();
+//      var reserved = document.getElementsByClassName('reservedFrame');
+//      if (reserved && reserved.length > 0) {
+//        iframe = reserved[0];
+//        document.body.removeChild(iframe);
+//        iframe.style.position = '';
+//        iframe.style.left = '';
+//      } else {
+//        iframe = document.createElement('iframe');
+//      }
       iframe.className = 'commentLayerFrame';
 
       var html =
@@ -2024,6 +2105,32 @@ iframe {
       ZenzaWatch.debug.commentLayer = iframe;
 
       if (!params.show) { this.hide(); }
+    },
+    _getIframe: function() {
+      var reserved = document.getElementsByClassName('reservedFrame');
+      var iframe;
+      if (reserved && reserved.length > 0) {
+        iframe = reserved[0];
+        document.body.removeChild(iframe);
+        iframe.style.position = '';
+        iframe.style.left = '';
+      } else {
+        iframe = document.createElement('iframe');
+      }
+      try {
+        iframe.srcdoc = '<html></html>';
+      } catch (e) {
+        // 行儀の悪い広告にiframeを乗っ取られた？
+        this._retryGetIframeCount++;
+        window.console.error('Error: ', e);
+        if (this._retryGetIframeCount < 5) {
+          window.console.log('変な広告に乗っ取られたのでリトライ', this._retryGetIframeCount);
+          return this._getIframe();
+        } else {
+          PopupMessage.alert('コメントレイヤーの生成に失敗しました');
+        }
+      }
+      return iframe;
     },
     _onResize: function(e) {
       this._adjust(e);

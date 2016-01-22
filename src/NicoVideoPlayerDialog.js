@@ -938,7 +938,7 @@ var VideoInfoModel = function() {};
 
       this._bindLoaderEvents();
 
-      this._videoWatchOptions = options || {};
+      this._videoWatchOptions = options = options || {};
 
       this._playerConfig.setValue('lastPlayerId', this.getId());
 
@@ -951,7 +951,7 @@ var VideoInfoModel = function() {};
       this._isCommentReady = false;
       this._watchId = watchId;
       window.console.time('VideoInfoLoader');
-      VideoInfoLoader.load(watchId);
+      VideoInfoLoader.load(watchId, options);
 
       this.show(options);
       if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
@@ -1225,12 +1225,21 @@ var VideoInfoModel = function() {};
       if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
         return {};
       }
-      return {
+
+
+      var session = {
         playing: true,
         watchId: this._watchId,
         url: location.href,
         currentTime: this._nicoVideoPlayer.getCurrentTime()
       };
+
+      var options = this._videoWatchOptions || {};
+      Object.keys(options).forEach(function(key) {
+        session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
+      });
+
+      return session;
     }
   });
 

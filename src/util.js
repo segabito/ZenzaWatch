@@ -185,12 +185,15 @@ var console;
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
+
+        forceEconomy: false,
         // NG設定
         enableFilter: true,
         wordFilter: '',
         userIdFilter: '',
         commandFilter: '',
 
+        enableGinzaSlayer: false,
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''

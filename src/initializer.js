@@ -42,7 +42,7 @@ var NicoVideoPlayerDialog = function() {};
         if (isGinza) {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (!ZenzaWatch.util.hasFlashPlayer()) {
+            if (!ZenzaWatch.util.hasFlashPlayer() || (Config.getValue('enableGinzaSlayer'))) {
               initializeGinzaSlayer(dialog);
             }
           } else {
@@ -61,7 +61,9 @@ var NicoVideoPlayerDialog = function() {};
           if (packet.type !== 'openVideo') { return; }
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
           Config.setSessionValue('autoCloseFullScreen', false);
-          dialog.open(packet.watchId);
+          dialog.open(packet.watchId, {
+            economy: Config.getValue('forceEconomy')
+          });
         });
 
         WatchPageState.initialize(dialog);
@@ -192,7 +194,9 @@ var NicoVideoPlayerDialog = function() {};
         } else {
 
           Config.refreshValue('autoCloseFullScreen');
-          dialog.open(watchId);
+          dialog.open(watchId, {
+            economy: Config.getValue('forceEconomy')
+          });
 
         }
       };
