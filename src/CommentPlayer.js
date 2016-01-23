@@ -425,7 +425,7 @@ var PopupMessage = {};
         position: absolute;
         padding: 1px;
 
-        font-family: 'ＭＳ Ｐゴシック';
+        font-family: Arial, 'ＭＳ Ｐゴシック';
         letter-spacing: 1px;
         margin: 2px 1px 1px 1px;
         white-space: pre;
@@ -462,6 +462,12 @@ var PopupMessage = {};
       .nicoChat .zen_space {
         {*font-family: monospace;*}
       }
+
+      {*.nicoChat .han_space.type_xa0 {
+        font-family: Arial, 'ＭＳ Ｐゴシック' !important;
+      }*}
+
+
     </style>
     <body style="pointer-events: none;" >
     <div id="offScreenLayer"
@@ -471,7 +477,7 @@ var PopupMessage = {};
         overflow: visible;
         background: #fff;
 
-        font-family: 'ＭＳ Ｐゴシック';
+        font-family: Arial, 'ＭＳ Ｐゴシック';
         letter-spacing: 1px;
         margin: 2px 1px 1px 1px;
         white-space: pre;
@@ -1297,22 +1303,29 @@ var PopupMessage = {};
     },
     // 実験中...
     _setText: function(text) {
-      var htmlText = 
+      var htmlText =
        ZenzaWatch.util.escapeHtml(text)
-          .replace(/( |　|\t)+([\n$])/g , '$2')
+        .replace(/( |　|\t)+([\n$])/g , '$2')
+//        .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
         // 全角文字の連続をグループ化
-        // 半角スペースや改行はグループに含む？ 要検証
-          //.replace(/([^~｡-ﾟ^\n\x2003]+)/g, '<group>$1</group>')
-          .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
-          .replace(/([^ -~｡-ﾟ^\n^\xA0]+)/g, '<group>$1</group>')
-          //.replace(/(\x2003+)/g, '<span class="em_space">$1</span>')
-          .replace(/(\t+)/g ,             '<span class="tab_space">$1</span>');
+        // 半角スペース(\x20)はグループに含む？ 要検証
+        .replace(/([^\x01-\x20^\x21-\x7E^\xA0]+)/g, '<group>$1</group>')
+        .replace(/([\xA0]+)/g,   '<span class="han_space type_xa0">$1</span>')
+        .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
+        .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
+      //if (this._nicoChat.getNo() ===3600458) {
+      //  window.console.log('!!!', text, '\n', htmlText, escape(text));
+      //  window.hhh = htmlText;
+      //  window.ttt = text;
+      //}
 
+      var hasFontChanged = false;
       // フォント変化処理  XPをベースにしたい
-      // フォント変化文字にマッチすること自体がレアなので、
+      // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
       // 一文字ずつ走査してもさほど問題ないはず
       htmlText =
         htmlText.replace(NicoChatViewModel._FONT_REG.GR, function(all, group, firstChar) {
+          hasFontChanged = true;
           var baseFont = '';
           if (firstChar.match(NicoChatViewModel._FONT_REG.MINCHO)) {
             baseFont = 'mincho';
@@ -1323,32 +1336,35 @@ var PopupMessage = {};
           }
           //  if (secondBaseFont === '') { secondBaseFont = baseFont; }
           //
-          var result = [
-            '<span class="', baseFont, '">', group, '</span>'
-          ].join('');
+          //var result = [
+          //  '<span class="', baseFont, '">', group, '</span>'
+          //].join('');
           //return result;
 
-          var tmp = [], closer = [];
+          var tmp = [], closer = [], currentFont = baseFont;
           for (var i = 0, len = group.length; i < len; i++) {
             var c = group.charAt(i);
-            if (c.match(NicoChatViewModel._FONT_REG.MINCHO)) {
+            if (currentFont !== 'mincho' && c.match(NicoChatViewModel._FONT_REG.MINCHO)) {
               tmp.push('<span class="mincho">');
               closer.push('</span>');
-            } else if (c.match(NicoChatViewModel._FONT_REG.GULIM)) {
+              currentFont = 'mincho';
+            } else if (currentFont !== 'gulim' && c.match(NicoChatViewModel._FONT_REG.GULIM)) {
               tmp.push('<span class="gulim">');
               closer.push('</span>');
-            } else if (c.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
+              currentFont = 'gulim';
+            } else if (currentFont !== 'mingLiu' && c.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
               tmp.push('<span class="mingLiu">');
               closer.push('</span>');
+              currentFont = 'mingLiu';
             }
             tmp.push(c);
           }
 
           var result = [
-            '<span class="', baseFont, '">',
+            '<group class="', baseFont, '">',
               tmp.join(''),
               closer.join(''),
-            '</span>'
+            '</group>'
           ].join('');
           return result;
         });
@@ -1365,6 +1381,19 @@ var PopupMessage = {};
         .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
         .replace(/(\x0323|\x200b|\x2029|\x202a|\x200c)+/g , '<span class="zero_space">[0]</span>')
         ;
+
+      // 厳密には第一グループのフォントが変わった時だけ適用すべきである？
+      if (hasFontChanged) {
+        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
+          var baseFont = RegExp.$1;
+          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
+        }
+      }
+      //if (this._nicoChat.getNo() ===3600458) {
+      //  window.console.log('!!!', htmlText);
+      //  window.hhh2 = htmlText;
+      //}
+
 
       this._htmlText = htmlText;
       this._text = text;
@@ -1897,6 +1926,10 @@ iframe {
   opacity: 0;
   {*font-family: monospace;*}
 }
+
+{*.nicoChat .han_space.type_xa0 {
+  font-family: Arial, 'ＭＳ Ｐゴシック' !important;
+}*}
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {

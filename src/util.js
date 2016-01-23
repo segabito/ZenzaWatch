@@ -916,6 +916,9 @@ var console;
             e.target.tagName === 'TEXTAREA') {
           return;
         }
+        if (e.ctrlKey || e.altKey) {
+          return;
+        }
         var key = '';
         var param = '';
         switch (e.keyCode) {
