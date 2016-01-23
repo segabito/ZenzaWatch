@@ -1371,6 +1371,7 @@ var PopupMessage = {};
 
       htmlText =
         htmlText
+          .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
           .replace(/([ ]+)/g ,   '<span class="zen_space type1">$1</span>')
           .replace(/'([　]+)/g , '<span class="zen_space type2">$1</span>');
 
@@ -1953,6 +1954,10 @@ iframe {
   position: absolute;
 }
 
+.nicoChat .fill_space {
+  text-shadow: none;
+  background: currentColor;
+}
 
 
 .nicoChat .zero_space {
