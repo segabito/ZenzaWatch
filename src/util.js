@@ -193,7 +193,8 @@ var console;
         userIdFilter: '',
         commandFilter: '',
 
-        enableGinzaSlayer: false,
+        overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
+        enableGinzaSlayer: false, // まだ実験中
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''

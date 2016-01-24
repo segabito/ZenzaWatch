@@ -109,13 +109,17 @@ var getWatchId = function() {};
       };
       js2swf.externalChangeVideo = function(videoInfo) {
         window.console.log('externalChangeVideo');
-        dialog.open(videoInfo.v);
+        dialog.open(videoInfo.v, {
+          economy: Config.getValue('forceEconomy')
+        });
       };
       js2swf.ext_getTotalTime = function() {
         return dialog._nicoVideoPlayer.getDuration();
       };
 
-      dialog.open(watchId);
+      dialog.open(watchId, {
+        economy: Config.getValue('forceEconomy')
+      });
       $('#nicoplayerContainer').append($('.zenzaVideoPlayerDialog').detach());
     };
 
@@ -128,7 +132,10 @@ var getWatchId = function() {};
       if (Config.getValue('enableGinzaSlayer')) {
         initializeGinzaSlayer(dialog, watchId);
       } else {
-        dialog.open(watchId);
+        dialog.open(watchId, {
+          economy: Config.getValue('forceEconomy')
+        });
+        $('#external_nicoplayer').remove();
       }
 
     };

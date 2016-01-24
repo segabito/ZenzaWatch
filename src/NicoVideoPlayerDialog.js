@@ -2443,6 +2443,29 @@ var VideoInfoModel = function() {};
           </label>
         </div>
 
+        <div class="forceEconomyControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="forceEconomy">
+            常にエコノミー回線で視聴する
+          </label>
+        </div>
+
+        <div class="overrideGinzaControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="overrideGinza">
+            動画視聴ページでもGINZAのかわりに起動する
+          </label>
+        </div>
+
+
+         <div class="enableHeatMapControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableHeatMap">
+            コメントの盛り上がりをシークバーに表示
+          </label>
+        </div>
+
+
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
           <span class="info">

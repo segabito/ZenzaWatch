@@ -1,0 +1,3691 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>CommentLayer</title>
+<style type="text/css">
+
+.gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
+.mincho  {font-family: Simsun, monospace; }
+.gulim   {font-family: Gulim,  monospace; }
+.mingLiu {font-family: mingLiu,monospace; }
+
+.ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
+.ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
+.ue .mingLiu , .shita .mingLiu{font-family: mingLiu,monospace; }
+
+.debug .mincho  { background: rgba(128, 0, 0, 0.3); }
+.debug .gulim   { background: rgba(0, 128, 0, 0.3); }
+.debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
+
+ .backslash {
+   font-family: Arial;
+ }
+
+
+body {
+  marign: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 稀に変な広告が紛れ込む */
+iframe {
+  display: none !important;
+}
+
+.commentLayerOuter {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 672px;
+  padding: 0 64px;
+  height: 385px;
+  right: 0;
+  bottom: 0;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  background: #333;
+}
+
+.commentLayer {
+  position: relative;
+  width: 544px;
+  height: 385px;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1px dotted #600;
+}
+
+.debug .commentLayer {
+  border: 1px dotted #800;
+}
+
+.nicoChat {
+  position: absolute;
+  padding: 1px;
+
+  font-family: 'ＭＳ Ｐゴシック';
+  letter-spacing: 1px;
+  margin: 2px 1px 1px 1px;
+  white-space: pre;
+  font-weight: bolder;
+
+  line-height: 1.235;
+  opacity: 0;
+  text-shadow:
+     1px  1px 0 #000;
+  transform-origin: 0% 0%;
+  animation-timing-function: linear;
+}
+
+.nicoChat.black {
+  text-shadow: -1px -1px 0 #888, 1px  1px 0 #888;
+}
+
+.nicoChat.big {
+  /*line-height: 48px;*/
+}
+.nicoChat.big.noScale {
+  /*line-height: 45px;*/
+}
+
+
+.nicoChat.medium {
+  /*line-height: 30px;*/
+}
+.nicoChat.medium.noScale {
+  /*line-height: 29px;*/
+}
+
+
+.nicoChat.small {
+  /*line-height: 20px;*/
+}
+.nicoChat.small.noScale {
+  /*line-height: 18px;*/
+}
+
+
+.nicoChat.overflow {
+  /*mix-blend-mode: overlay;*/
+}
+
+
+.nicoChat.ue,
+.nicoChat.shita {
+  display: inline-block;
+  text-shadow: 0 0 3px #000; /* 全部こっちにしたいが重いので */
+  /*text-align: center;*/
+}
+.nicoChat.ue.black,
+.nicoChat.shita.black {
+  text-shadow: 0 0 3px #fff; /* 全部こっちにしたいが重いので */
+}
+
+.nicoChat group {
+  unicode-bidi: embed;
+}
+
+.nicoChat .han_space,
+.nicoChat .zen_space {
+  opacity: 0;
+  /*font-family: monospace;*/
+}
+
+/*.nicoChat .han_space.type_xa0 {
+  font-family: Arial, 'ＭＳ Ｐゴシック' !important;
+}*/
+
+.debug .nicoChat .han_space,
+.debug .nicoChat .zen_space {
+  color: yellow;
+  background: #fff;
+  opacity: 0.3;
+  mix-blend-mode: lighten;
+}
+
+.debug .nicoChat .tab_space {
+  background: #ff0;
+  opacity: 0.3;
+}
+
+.nicoChat .invisible_code {
+  opacity: 0;
+}
+
+.nicoChat .zero_space {
+  display: none;
+}
+.debug .nicoChat .zero_space {
+  display: inline;
+  position: absolute;
+}
+
+.nicoChat .fill_space {
+  text-shadow: none;
+  background: currentColor;
+}
+
+
+.debug .nicoChat.ue {
+  text-decoration: overline;
+}
+
+.debug .nicoChat.shita {
+  text-decoration: underline;
+}
+
+.nicoChat.mine {
+  border: 1px solid yellow;
+}
+.nicoChat.updating {
+  border: 1px dotted;
+}
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(3600deg); }
+}
+
+.nicoChat.updating::before {
+  content: '❀'; /* 砂時計にしたい */
+  opacity: 0.8;
+  color: #f99;
+  display: inline-block;
+  text-align: center;
+  animation-name: spin;
+  animation-iteration-count: infinite;
+  animation-duration: 10s;
+}
+.nicoChat.updating::after {
+  content: ' 通信中...';
+  color: #ff9;
+  font-size: 50%;
+  opacity: 0.8;
+  color: #ccc;
+}
+
+.nicoChat.updating::after {
+  animation-direction: alternate;
+}
+
+.nicoChat.fail {
+  border: 1px dotted red;
+  text-decoration: line-through;
+}
+
+.nicoChat.fail:after {
+  content: ' 投稿失敗...';
+  text-decoration: none;
+  color: #ff9;
+  font-size: 80%;
+  opacity: 0.8;
+  color: #ccc;
+}
+
+.debug .nicoChat {
+  border: 1px outset;
+}
+
+.stalled .nicoChat,
+.paused  .nicoChat {
+  animation-play-state: paused !important;
+}
+</style>
+<style id="nicoChatAnimationDefinition">
+ @keyframes idouchat1000482 {
+    0%  {opacity: 1; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 1; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000482 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000482;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000483 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000483 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000483;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000484 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000484 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000484;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000485 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000485 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000485;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000486 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000486 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000486;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000487 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000487 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000487;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000488 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000488 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000488;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000489 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000489 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000489;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000490 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000490 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000490;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000491 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000491 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000491;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000492 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000492 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000492;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000493 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000493 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000493;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000494 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-1064.2px, 0px)  scale(0.5);}
+ }
+ #chat1000494 {
+  z-index: 45580;
+  top:0px;
+  left:641.6px;
+  color:#CCCC99;
+  font-size:24px;
+  animation-name: idouchat1000494;
+  animation-duration: 4.8985040276179515s;
+  animation-delay: 45.130747986191025s;
+ }
+
+
+
+
+ @keyframes idouchat1000664 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1243.2px, 0px) ;}
+ }
+ #chat1000664 {
+  z-index: 241130;
+  top:35px;
+  left:641.6px;
+  color:#FFF;
+  font-size:15px;
+  animation-name: idouchat1000664;
+  animation-duration: 4.745038167938931s;
+  animation-delay: 240.75748091603052s;
+ }
+
+
+
+
+ @keyframes idouchat1000665 {
+    0%  {opacity: 1; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 1; transform: translate(-852.2px, 0px)  scale(0.5);}
+ }
+ #chat1000665 {
+  z-index: 101050;
+  top:0px;
+  left:641.6px;
+  color:#CC0033;
+  font-size:24px;
+  animation-name: idouchat1000665;
+  animation-duration: 5.188432267884323s;
+  animation-delay: 100.45578386605784s;
+ }
+
+
+
+
+ @keyframes idouchat1000666 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-939.2px, 0px)  scale(0.5);}
+ }
+ #chat1000666 {
+  z-index: 101890;
+  top:0px;
+  left:641.6px;
+  color:#CC0033;
+  font-size:39px;
+  animation-name: idouchat1000666;
+  animation-duration: 5.049462365591398s;
+  animation-delay: 101.3652688172043s;
+ }
+
+
+
+
+ @keyframes idouchat1000667 {
+    0%  {opacity: 0.8; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 0.8; transform: translate(-946.2px, 0px)  scale(0.5);}
+ }
+ #chat1000667 {
+  z-index: 101890;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:39px;
+  animation-name: idouchat1000667;
+  animation-duration: 5.039680426098536s;
+  animation-delay: 101.37015978695074s;
+ }
+
+
+
+
+ @keyframes idouchat1000668 {
+    0%  {opacity: 1; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 1; transform: translate(-852.2px, 0px)  scale(0.5);}
+ }
+ #chat1000668 {
+  z-index: 101890;
+  top:0px;
+  left:641.6px;
+  color:#FF0000;
+  font-size:24px;
+  animation-name: idouchat1000668;
+  animation-duration: 5.188432267884323s;
+  animation-delay: 101.29578386605785s;
+ }
+
+
+
+
+ @keyframes idouchat1000669 {
+    0%  {opacity: 1; transform: translate(0px, 0px)  scale(0.5);}
+  100%  {opacity: 1; transform: translate(-852.2px, 0px)  scale(0.5);}
+ }
+ #chat1000669 {
+  z-index: 102550;
+  top:109px;
+  left:641.6px;
+  color:#CC0033;
+  font-size:24px;
+  animation-name: idouchat1000669;
+  animation-duration: 5.188432267884323s;
+  animation-delay: 101.95578386605784s;
+ }
+
+
+
+
+ @keyframes idouchat1000687 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1108.2px, 0px) ;}
+ }
+ #chat1000687 {
+  z-index: 241160;
+  top:77px;
+  left:641.6px;
+  color:#FFF;
+  font-size:15px;
+  animation-name: idouchat1000687;
+  animation-duration: 4.855202628696604s;
+  animation-delay: 240.7323986856517s;
+ }
+
+
+
+
+ @keyframes idouchat1000688 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1239.2px, 0px) ;}
+ }
+ #chat1000688 {
+  z-index: 243220;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000688;
+  animation-duration: 4.747892720306513s;
+  animation-delay: 242.84605363984673s;
+ }
+
+
+
+
+ @keyframes idouchat1000689 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1089.2px, 0px) ;}
+ }
+ #chat1000689 {
+  z-index: 65090;
+  top:35px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000689;
+  animation-duration: 4.87337807606264s;
+  animation-delay: 64.65331096196869s;
+ }
+
+
+
+
+ @keyframes idouchat1000690 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-839.2px, 0px) ;}
+ }
+ #chat1000690 {
+  z-index: 244970;
+  top:35px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000690;
+  animation-duration: 5.212422360248447s;
+  animation-delay: 244.36378881987577s;
+ }
+
+
+
+
+ @keyframes idouchat1000691 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1108.2px, 0px) ;}
+ }
+ #chat1000691 {
+  z-index: 78880;
+  top:35px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000691;
+  animation-duration: 4.855202628696604s;
+  animation-delay: 78.45239868565169s;
+ }
+
+
+
+
+ @keyframes idouchat1000692 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1065.2px, 0px) ;}
+ }
+ #chat1000692 {
+  z-index: 155260;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000692;
+  animation-duration: 4.897471264367816s;
+  animation-delay: 154.81126436781608s;
+ }
+
+
+
+
+ @keyframes idouchat1000693 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-965.2px, 0px) ;}
+ }
+ #chat1000693 {
+  z-index: 64670;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000693;
+  animation-duration: 5.014025974025975s;
+  animation-delay: 64.16298701298702s;
+ }
+
+
+
+
+ @keyframes idouchat1000694 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1015.2px, 0px) ;}
+ }
+ #chat1000694 {
+  z-index: 41840;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000694;
+  animation-duration: 4.9521951219512195s;
+  animation-delay: 41.36390243902439s;
+ }
+
+
+
+
+ @keyframes idouchat1000695 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-939.2px, 0px) ;}
+ }
+ #chat1000695 {
+  z-index: 159550;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000695;
+  animation-duration: 5.049462365591398s;
+  animation-delay: 159.0252688172043s;
+ }
+
+
+
+
+ @keyframes idouchat1000696 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-989.2px, 0px) ;}
+ }
+ #chat1000696 {
+  z-index: 129.9999999999999;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000696;
+  animation-duration: 4.983375314861461s;
+  animation-delay: -0.3616876574307307s;
+ }
+
+
+
+
+ @keyframes idouchat1000697 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-915.2px, 0px) ;}
+ }
+ #chat1000697 {
+  z-index: 137710;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000697;
+  animation-duration: 5.084444444444445s;
+  animation-delay: 137.1677777777778s;
+ }
+
+
+
+
+ @keyframes idouchat1000698 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-915.2px, 0px) ;}
+ }
+ #chat1000698 {
+  z-index: 110940;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000698;
+  animation-duration: 5.084444444444445s;
+  animation-delay: 110.39777777777778s;
+ }
+
+
+
+
+ @keyframes idouchat1000699 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-782.2px, 0px) ;}
+ }
+ #chat1000699 {
+  z-index: 128979.99999999999;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000699;
+  animation-duration: 5.33015332197615s;
+  animation-delay: 128.31492333901193s;
+ }
+
+
+
+
+ @keyframes idouchat1000700 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-831.2px, 0px) ;}
+ }
+ #chat1000700 {
+  z-index: 166690;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000700;
+  animation-duration: 5.227672955974843s;
+  animation-delay: 166.07616352201256s;
+ }
+
+
+
+
+ @keyframes idouchat1000701 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1015.2px, 0px) ;}
+ }
+ #chat1000701 {
+  z-index: 176210;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000701;
+  animation-duration: 4.9521951219512195s;
+  animation-delay: 175.7339024390244s;
+ }
+
+
+
+
+ @keyframes idouchat1000702 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-915.2px, 0px) ;}
+ }
+ #chat1000702 {
+  z-index: 58280;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000702;
+  animation-duration: 5.084444444444445s;
+  animation-delay: 57.73777777777778s;
+ }
+
+
+
+
+ @keyframes idouchat1000703 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1173.2px, 0px) ;}
+ }
+ #chat1000703 {
+  z-index: 77730;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000703;
+  animation-duration: 4.798364008179959s;
+  animation-delay: 77.33081799591002s;
+ }
+
+
+
+
+ @keyframes idouchat1000704 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-815.2px, 0px) ;}
+ }
+ #chat1000704 {
+  z-index: 191980;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000704;
+  animation-duration: 5.259354838709678s;
+  animation-delay: 191.35032258064516s;
+ }
+
+
+
+
+ @keyframes idouchat1000705 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-823.2px, 0px) ;}
+ }
+ #chat1000705 {
+  z-index: 239910;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000705;
+  animation-duration: 5.243312101910829s;
+  animation-delay: 239.2883439490446s;
+ }
+
+
+
+
+ @keyframes idouchat1000706 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-915.2px, 0px) ;}
+ }
+ #chat1000706 {
+  z-index: 48860;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000706;
+  animation-duration: 5.084444444444445s;
+  animation-delay: 48.31777777777778s;
+ }
+
+
+
+
+ @keyframes idouchat1000707 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-939.2px, 0px) ;}
+ }
+ #chat1000707 {
+  z-index: 61120;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000707;
+  animation-duration: 5.049462365591398s;
+  animation-delay: 60.5952688172043s;
+ }
+
+
+
+
+ @keyframes idouchat1000708 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-865.2px, 0px) ;}
+ }
+ #chat1000708 {
+  z-index: 109760;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000708;
+  animation-duration: 5.165373134328359s;
+  animation-delay: 109.17731343283583s;
+ }
+
+
+
+
+ @keyframes idouchat1000709 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1011.2px, 0px) ;}
+ }
+ #chat1000709 {
+  z-index: 114300;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000709;
+  animation-duration: 4.956862745098039s;
+  animation-delay: 113.82156862745097s;
+ }
+
+
+
+
+ @keyframes idouchat1000710 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-939.2px, 0px) ;}
+ }
+ #chat1000710 {
+  z-index: 161460;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000710;
+  animation-duration: 5.049462365591398s;
+  animation-delay: 160.9352688172043s;
+ }
+
+
+
+
+ @keyframes idouchat1000711 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1015.2px, 0px) ;}
+ }
+ #chat1000711 {
+  z-index: 173710;
+  top:0px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000711;
+  animation-duration: 4.9521951219512195s;
+  animation-delay: 173.2339024390244s;
+ }
+
+
+
+
+ @keyframes idouchat1000712 {
+    0%  {opacity: 1; transform: translate(0px, 0px) ;}
+  100%  {opacity: 1; transform: translate(-1039.2px, 0px) ;}
+ }
+ #chat1000712 {
+  z-index: 192010;
+  top:35px;
+  left:641.6px;
+  color:#FFF;
+  font-size:24px;
+  animation-name: idouchat1000712;
+  animation-duration: 4.925118483412323s;
+  animation-delay: 191.54744075829382s;
+ }
+
+
+
+ @keyframes fixedchat1000495 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000495 {
+  z-index: 46580;
+  top:-39px;
+  left: 50% ;
+  color:#000000;
+  font-size:39px;
+  width:929.8113207547169px;
+ transform: translate(-50%, 0) scale(0.8015614834092387);  animation-name: fixedchat1000495;
+  animation-duration: 3s;
+  animation-delay: 46.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000496 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000496 {
+  z-index: 46580;
+  top:-39px;
+  left: 50% ;
+  color:#0000FF;
+  font-size:39px;
+  width:929.8113207547169px;
+ transform: translate(-50%, 0) scale(0.8015614834092387);  animation-name: fixedchat1000496;
+  animation-duration: 3s;
+  animation-delay: 46.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000497 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000497 {
+  z-index: 46580;
+  top:-39px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.8113207547169px;
+ transform: translate(-50%, 0) scale(0.8015614834092387);  animation-name: fixedchat1000497;
+  animation-duration: 3s;
+  animation-delay: 46.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000498 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000498 {
+  z-index: 39650;
+  top:335px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:40px;
+ transform: translate(-50%, 0);  animation-name: fixedchat1000498;
+  animation-duration: 3s;
+  animation-delay: 39.65s;
+ }
+
+
+
+
+ @keyframes fixedchat1000683 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000683 {
+  z-index: 107580;
+  top:-39px;
+  left: 50% ;
+  color:#FFC000;
+  font-size:39px;
+  width:929.8113207547169px;
+ transform: translate(-50%, 0) scale(0.8071278825995807);  animation-name: fixedchat1000683;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000684 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000684 {
+  z-index: 107580;
+  top:-39px;
+  left: 50% ;
+  color:#000000;
+  font-size:39px;
+  width:929.8113207547169px;
+ transform: translate(-50%, 0) scale(0.8015614834092387);  animation-name: fixedchat1000684;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000685 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000685 {
+  z-index: 107580;
+  top:-39px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:929.8113207547169px;
+ transform: translate(-50%, 0) scale(0.8015614834092387);  animation-name: fixedchat1000685;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000686 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000686 {
+  z-index: 107580;
+  top:-39px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.8113207547169px;
+ transform: translate(-50%, 0) scale(0.8015614834092387);  animation-name: fixedchat1000686;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+ @keyframes fixedchat1000551 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000551 {
+  z-index: 12570;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000551;
+  animation-duration: 3s;
+  animation-delay: 12.57s;
+ }
+
+
+
+
+ @keyframes fixedchat1000552 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000552 {
+  z-index: 15540;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000552;
+  animation-duration: 3s;
+  animation-delay: 15.54s;
+ }
+
+
+
+
+ @keyframes fixedchat1000553 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000553 {
+  z-index: 15540;
+  top:0px;
+  left: 50% ;
+  color:#000000;
+  font-size:39px;
+  width:910.4849884526558px;
+ transform: translate(-50%, 0) scale(0.7336704177700691);  animation-name: fixedchat1000553;
+  animation-duration: 3s;
+  animation-delay: 15.54s;
+ }
+
+
+
+
+ @keyframes fixedchat1000554 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000554 {
+  z-index: 17950;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000554;
+  animation-duration: 3s;
+  animation-delay: 17.95s;
+ }
+
+
+
+
+ @keyframes fixedchat1000555 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000555 {
+  z-index: 20580;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000555;
+  animation-duration: 3s;
+  animation-delay: 20.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000556 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000556 {
+  z-index: 20580;
+  top:0px;
+  left: 50% ;
+  color:#999900;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000556;
+  animation-duration: 3s;
+  animation-delay: 20.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000557 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000557 {
+  z-index: 24090;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000557;
+  animation-duration: 3s;
+  animation-delay: 24.09s;
+ }
+
+
+
+
+ @keyframes fixedchat1000558 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000558 {
+  z-index: 26620;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000558;
+  animation-duration: 3s;
+  animation-delay: 26.62s;
+ }
+
+
+
+
+ @keyframes fixedchat1000559 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000559 {
+  z-index: 26620;
+  top:0px;
+  left: 50% ;
+  color:#3399FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000559;
+  animation-duration: 3s;
+  animation-delay: 26.62s;
+ }
+
+
+
+
+ @keyframes fixedchat1000560 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000560 {
+  z-index: 29780;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000560;
+  animation-duration: 3s;
+  animation-delay: 29.78s;
+ }
+
+
+
+
+ @keyframes fixedchat1000561 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000561 {
+  z-index: 29780;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000561;
+  animation-duration: 3s;
+  animation-delay: 29.78s;
+ }
+
+
+
+
+ @keyframes fixedchat1000562 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000562 {
+  z-index: 32439.999999999996;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000562;
+  animation-duration: 3s;
+  animation-delay: 32.44s;
+ }
+
+
+
+
+ @keyframes fixedchat1000563 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000563 {
+  z-index: 35320;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000563;
+  animation-duration: 3s;
+  animation-delay: 35.32s;
+ }
+
+
+
+
+ @keyframes fixedchat1000564 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000564 {
+  z-index: 35320;
+  top:0px;
+  left: 50% ;
+  color:#999900;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000564;
+  animation-duration: 3s;
+  animation-delay: 35.32s;
+ }
+
+
+
+
+ @keyframes fixedchat1000565 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000565 {
+  z-index: 38240;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000565;
+  animation-duration: 3s;
+  animation-delay: 38.24s;
+ }
+
+
+
+
+ @keyframes fixedchat1000566 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000566 {
+  z-index: 41410;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000566;
+  animation-duration: 3s;
+  animation-delay: 41.41s;
+ }
+
+
+
+
+ @keyframes fixedchat1000567 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000567 {
+  z-index: 41410;
+  top:0px;
+  left: 50% ;
+  color:#CCCC99;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000567;
+  animation-duration: 3s;
+  animation-delay: 41.41s;
+ }
+
+
+
+
+ @keyframes fixedchat1000568 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000568 {
+  z-index: 50080;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000568;
+  animation-duration: 3s;
+  animation-delay: 50.08s;
+ }
+
+
+
+
+ @keyframes fixedchat1000569 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000569 {
+  z-index: 51150;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000569;
+  animation-duration: 3s;
+  animation-delay: 51.15s;
+ }
+
+
+
+
+ @keyframes fixedchat1000570 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000570 {
+  z-index: 52040;
+  top:0px;
+  left: 50% ;
+  color:#3399FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000570;
+  animation-duration: 3s;
+  animation-delay: 52.04s;
+ }
+
+
+
+
+ @keyframes fixedchat1000571 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000571 {
+  z-index: 53410;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000571;
+  animation-duration: 3s;
+  animation-delay: 53.41s;
+ }
+
+
+
+
+ @keyframes fixedchat1000572 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000572 {
+  z-index: 53410;
+  top:0px;
+  left: 50% ;
+  color:#00FF00;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000572;
+  animation-duration: 3s;
+  animation-delay: 53.41s;
+ }
+
+
+
+
+ @keyframes fixedchat1000573 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000573 {
+  z-index: 55750;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000573;
+  animation-duration: 3s;
+  animation-delay: 55.75s;
+ }
+
+
+
+
+ @keyframes fixedchat1000574 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000574 {
+  z-index: 58720;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000574;
+  animation-duration: 3s;
+  animation-delay: 58.72s;
+ }
+
+
+
+
+ @keyframes fixedchat1000575 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000575 {
+  z-index: 58720;
+  top:0px;
+  left: 50% ;
+  color:#6633CC;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000575;
+  animation-duration: 3s;
+  animation-delay: 58.72s;
+ }
+
+
+
+
+ @keyframes fixedchat1000576 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000576 {
+  z-index: 61960;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000576;
+  animation-duration: 3s;
+  animation-delay: 61.96s;
+ }
+
+
+
+
+ @keyframes fixedchat1000577 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000577 {
+  z-index: 61960;
+  top:0px;
+  left: 50% ;
+  color:#0000FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000577;
+  animation-duration: 3s;
+  animation-delay: 61.96s;
+ }
+
+
+
+
+ @keyframes fixedchat1000578 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000578 {
+  z-index: 62750;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000578;
+  animation-duration: 3s;
+  animation-delay: 62.75s;
+ }
+
+
+
+
+ @keyframes fixedchat1000579 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000579 {
+  z-index: 63650;
+  top:0px;
+  left: 50% ;
+  color:#CCCC99;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000579;
+  animation-duration: 3s;
+  animation-delay: 63.65s;
+ }
+
+
+
+
+ @keyframes fixedchat1000580 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000580 {
+  z-index: 65150.00000000001;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000580;
+  animation-duration: 3s;
+  animation-delay: 65.15s;
+ }
+
+
+
+
+ @keyframes fixedchat1000581 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000581 {
+  z-index: 65150.00000000001;
+  top:0px;
+  left: 50% ;
+  color:#00CC66;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000581;
+  animation-duration: 3s;
+  animation-delay: 65.15s;
+ }
+
+
+
+
+ @keyframes fixedchat1000582 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000582 {
+  z-index: 67050;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000582;
+  animation-duration: 3s;
+  animation-delay: 67.05s;
+ }
+
+
+
+
+ @keyframes fixedchat1000583 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000583 {
+  z-index: 67050;
+  top:0px;
+  left: 50% ;
+  color:#FF6600;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000583;
+  animation-duration: 3s;
+  animation-delay: 67.05s;
+ }
+
+
+
+
+ @keyframes fixedchat1000584 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000584 {
+  z-index: 70020;
+  top:0px;
+  left: 50% ;
+  color:#6633CC;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000584;
+  animation-duration: 3s;
+  animation-delay: 70.02s;
+ }
+
+
+
+
+ @keyframes fixedchat1000585 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000585 {
+  z-index: 73430;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000585;
+  animation-duration: 3s;
+  animation-delay: 73.43s;
+ }
+
+
+
+
+ @keyframes fixedchat1000586 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000586 {
+  z-index: 79010;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000586;
+  animation-duration: 3s;
+  animation-delay: 79.01s;
+ }
+
+
+
+
+ @keyframes fixedchat1000587 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000587 {
+  z-index: 79010;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000587;
+  animation-duration: 3s;
+  animation-delay: 79.01s;
+ }
+
+
+
+
+ @keyframes fixedchat1000588 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000588 {
+  z-index: 85030;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000588;
+  animation-duration: 3s;
+  animation-delay: 85.03s;
+ }
+
+
+
+
+ @keyframes fixedchat1000589 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000589 {
+  z-index: 85030;
+  top:0px;
+  left: 50% ;
+  color:#FFFF00;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000589;
+  animation-duration: 3s;
+  animation-delay: 85.03s;
+ }
+
+
+
+
+ @keyframes fixedchat1000590 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000590 {
+  z-index: 87640;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000590;
+  animation-duration: 3s;
+  animation-delay: 87.64s;
+ }
+
+
+
+
+ @keyframes fixedchat1000591 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000591 {
+  z-index: 91060;
+  top:0px;
+  left: 50% ;
+  color:#FF8080;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000591;
+  animation-duration: 3s;
+  animation-delay: 91.06s;
+ }
+
+
+
+
+ @keyframes fixedchat1000592 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000592 {
+  z-index: 92680;
+  top:0px;
+  left: 50% ;
+  color:#FF0000;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000592;
+  animation-duration: 3s;
+  animation-delay: 92.68s;
+ }
+
+
+
+
+ @keyframes fixedchat1000593 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000593 {
+  z-index: 96580;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000593;
+  animation-duration: 3s;
+  animation-delay: 96.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000594 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000594 {
+  z-index: 96580;
+  top:0px;
+  left: 50% ;
+  color:#999900;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000594;
+  animation-duration: 3s;
+  animation-delay: 96.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000595 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000595 {
+  z-index: 99290;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000595;
+  animation-duration: 3s;
+  animation-delay: 99.29s;
+ }
+
+
+
+
+ @keyframes fixedchat1000596 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000596 {
+  z-index: 111280;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000596;
+  animation-duration: 3s;
+  animation-delay: 111.28s;
+ }
+
+
+
+
+ @keyframes fixedchat1000597 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000597 {
+  z-index: 111280;
+  top:0px;
+  left: 50% ;
+  color:#3399FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000597;
+  animation-duration: 3s;
+  animation-delay: 111.28s;
+ }
+
+
+
+
+ @keyframes fixedchat1000598 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000598 {
+  z-index: 112350;
+  top:0px;
+  left: 50% ;
+  color:#FF8080;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000598;
+  animation-duration: 3s;
+  animation-delay: 112.35s;
+ }
+
+
+
+
+ @keyframes fixedchat1000599 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000599 {
+  z-index: 113400;
+  top:0px;
+  left: 50% ;
+  color:#CCCC99;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000599;
+  animation-duration: 3s;
+  animation-delay: 113.4s;
+ }
+
+
+
+
+ @keyframes fixedchat1000600 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000600 {
+  z-index: 114860;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000600;
+  animation-duration: 3s;
+  animation-delay: 114.86s;
+ }
+
+
+
+
+ @keyframes fixedchat1000601 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000601 {
+  z-index: 114860;
+  top:0px;
+  left: 50% ;
+  color:#00CC66;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000601;
+  animation-duration: 3s;
+  animation-delay: 114.86s;
+ }
+
+
+
+
+ @keyframes fixedchat1000602 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000602 {
+  z-index: 116900;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000602;
+  animation-duration: 3s;
+  animation-delay: 116.9s;
+ }
+
+
+
+
+ @keyframes fixedchat1000603 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000603 {
+  z-index: 119850;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000603;
+  animation-duration: 3s;
+  animation-delay: 119.85s;
+ }
+
+
+
+
+ @keyframes fixedchat1000604 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000604 {
+  z-index: 119850;
+  top:0px;
+  left: 50% ;
+  color:#C000FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000604;
+  animation-duration: 3s;
+  animation-delay: 119.85s;
+ }
+
+
+
+
+ @keyframes fixedchat1000605 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000605 {
+  z-index: 122830;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000605;
+  animation-duration: 3s;
+  animation-delay: 122.83s;
+ }
+
+
+
+
+ @keyframes fixedchat1000606 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000606 {
+  z-index: 123870;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000606;
+  animation-duration: 3s;
+  animation-delay: 123.87s;
+ }
+
+
+
+
+ @keyframes fixedchat1000607 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000607 {
+  z-index: 124920;
+  top:0px;
+  left: 50% ;
+  color:#3399FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000607;
+  animation-duration: 3s;
+  animation-delay: 124.92s;
+ }
+
+
+
+
+ @keyframes fixedchat1000608 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000608 {
+  z-index: 126350;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000608;
+  animation-duration: 3s;
+  animation-delay: 126.35s;
+ }
+
+
+
+
+ @keyframes fixedchat1000609 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000609 {
+  z-index: 126350;
+  top:0px;
+  left: 50% ;
+  color:#00FF00;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000609;
+  animation-duration: 3s;
+  animation-delay: 126.35s;
+ }
+
+
+
+
+ @keyframes fixedchat1000610 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000610 {
+  z-index: 128340;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000610;
+  animation-duration: 3s;
+  animation-delay: 128.34s;
+ }
+
+
+
+
+ @keyframes fixedchat1000611 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000611 {
+  z-index: 128370;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000611;
+  animation-duration: 3s;
+  animation-delay: 128.37s;
+ }
+
+
+
+
+ @keyframes fixedchat1000612 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000612 {
+  z-index: 128370;
+  top:0px;
+  left: 50% ;
+  color:#FFC000;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000612;
+  animation-duration: 3s;
+  animation-delay: 128.37s;
+ }
+
+
+
+
+ @keyframes fixedchat1000613 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000613 {
+  z-index: 131400;
+  top:0px;
+  left: 50% ;
+  color:#C000FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000613;
+  animation-duration: 3s;
+  animation-delay: 131.4s;
+ }
+
+
+
+
+ @keyframes fixedchat1000614 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000614 {
+  z-index: 134660;
+  top:0px;
+  left: 50% ;
+  color:#FFC000;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000614;
+  animation-duration: 3s;
+  animation-delay: 134.66s;
+ }
+
+
+
+
+ @keyframes fixedchat1000615 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000615 {
+  z-index: 134660;
+  top:0px;
+  left: 50% ;
+  color:#FFFF00;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000615;
+  animation-duration: 3s;
+  animation-delay: 134.66s;
+ }
+
+
+
+
+ @keyframes fixedchat1000616 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000616 {
+  z-index: 140070;
+  top:0px;
+  left: 50% ;
+  color:#FF6600;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000616;
+  animation-duration: 3s;
+  animation-delay: 140.07s;
+ }
+
+
+
+
+ @keyframes fixedchat1000617 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000617 {
+  z-index: 140070;
+  top:0px;
+  left: 50% ;
+  color:#FFC000;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000617;
+  animation-duration: 3s;
+  animation-delay: 140.07s;
+ }
+
+
+
+
+ @keyframes fixedchat1000618 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000618 {
+  z-index: 145820;
+  top:0px;
+  left: 50% ;
+  color:#FF6600;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000618;
+  animation-duration: 3s;
+  animation-delay: 145.82s;
+ }
+
+
+
+
+ @keyframes fixedchat1000619 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000619 {
+  z-index: 145820;
+  top:0px;
+  left: 50% ;
+  color:#FFFF00;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000619;
+  animation-duration: 3s;
+  animation-delay: 145.82s;
+ }
+
+
+
+
+ @keyframes fixedchat1000620 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000620 {
+  z-index: 151540;
+  top:0px;
+  left: 50% ;
+  color:#999900;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000620;
+  animation-duration: 3s;
+  animation-delay: 151.54s;
+ }
+
+
+
+
+ @keyframes fixedchat1000621 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000621 {
+  z-index: 151540;
+  top:0px;
+  left: 50% ;
+  color:#FFFF00;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000621;
+  animation-duration: 3s;
+  animation-delay: 151.54s;
+ }
+
+
+
+
+ @keyframes fixedchat1000622 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000622 {
+  z-index: 185470;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000622;
+  animation-duration: 3s;
+  animation-delay: 185.47s;
+ }
+
+
+
+
+ @keyframes fixedchat1000623 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000623 {
+  z-index: 186310;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000623;
+  animation-duration: 3s;
+  animation-delay: 186.31s;
+ }
+
+
+
+
+ @keyframes fixedchat1000624 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000624 {
+  z-index: 187320;
+  top:0px;
+  left: 50% ;
+  color:#3399FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000624;
+  animation-duration: 3s;
+  animation-delay: 187.32s;
+ }
+
+
+
+
+ @keyframes fixedchat1000625 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000625 {
+  z-index: 188920;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000625;
+  animation-duration: 3s;
+  animation-delay: 188.92s;
+ }
+
+
+
+
+ @keyframes fixedchat1000626 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000626 {
+  z-index: 188920;
+  top:0px;
+  left: 50% ;
+  color:#00FF00;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000626;
+  animation-duration: 3s;
+  animation-delay: 188.92s;
+ }
+
+
+
+
+ @keyframes fixedchat1000628 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000628 {
+  z-index: 190900;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000628;
+  animation-duration: 3s;
+  animation-delay: 190.9s;
+ }
+
+
+
+
+ @keyframes fixedchat1000630 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000630 {
+  z-index: 194010;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000630;
+  animation-duration: 3s;
+  animation-delay: 194.01s;
+ }
+
+
+
+
+ @keyframes fixedchat1000631 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000631 {
+  z-index: 194010;
+  top:0px;
+  left: 50% ;
+  color:#C000FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000631;
+  animation-duration: 3s;
+  animation-delay: 194.01s;
+ }
+
+
+
+
+ @keyframes fixedchat1000633 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000633 {
+  z-index: 197120;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000633;
+  animation-duration: 3s;
+  animation-delay: 197.12s;
+ }
+
+
+
+
+ @keyframes fixedchat1000635 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000635 {
+  z-index: 197120;
+  top:0px;
+  left: 50% ;
+  color:#3399FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000635;
+  animation-duration: 3s;
+  animation-delay: 197.12s;
+ }
+
+
+
+
+ @keyframes fixedchat1000637 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000637 {
+  z-index: 197960;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000637;
+  animation-duration: 3s;
+  animation-delay: 197.96s;
+ }
+
+
+
+
+ @keyframes fixedchat1000638 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000638 {
+  z-index: 198920;
+  top:0px;
+  left: 50% ;
+  color:#CCCC99;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000638;
+  animation-duration: 3s;
+  animation-delay: 198.92s;
+ }
+
+
+
+
+ @keyframes fixedchat1000639 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000639 {
+  z-index: 200590;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000639;
+  animation-duration: 3s;
+  animation-delay: 200.59s;
+ }
+
+
+
+
+ @keyframes fixedchat1000640 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000640 {
+  z-index: 200590;
+  top:0px;
+  left: 50% ;
+  color:#00CC66;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000640;
+  animation-duration: 3s;
+  animation-delay: 200.59s;
+ }
+
+
+
+
+ @keyframes fixedchat1000641 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000641 {
+  z-index: 202420;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000641;
+  animation-duration: 3s;
+  animation-delay: 202.42s;
+ }
+
+
+
+
+ @keyframes fixedchat1000642 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000642 {
+  z-index: 202420;
+  top:0px;
+  left: 50% ;
+  color:#FFC000;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000642;
+  animation-duration: 3s;
+  animation-delay: 202.42s;
+ }
+
+
+
+
+ @keyframes fixedchat1000643 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000643 {
+  z-index: 205610;
+  top:0px;
+  left: 50% ;
+  color:#C000FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000643;
+  animation-duration: 3s;
+  animation-delay: 205.61s;
+ }
+
+
+
+
+ @keyframes fixedchat1000644 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000644 {
+  z-index: 208740;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000644;
+  animation-duration: 3s;
+  animation-delay: 208.74s;
+ }
+
+
+
+
+ @keyframes fixedchat1000645 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000645 {
+  z-index: 209480;
+  top:0px;
+  left: 50% ;
+  color:#FFFF00;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000645;
+  animation-duration: 3s;
+  animation-delay: 209.48s;
+ }
+
+
+
+
+ @keyframes fixedchat1000646 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000646 {
+  z-index: 210680;
+  top:0px;
+  left: 50% ;
+  color:#00FF00;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000646;
+  animation-duration: 3s;
+  animation-delay: 210.68s;
+ }
+
+
+
+
+ @keyframes fixedchat1000647 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000647 {
+  z-index: 212140;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000647;
+  animation-duration: 3s;
+  animation-delay: 212.14s;
+ }
+
+
+
+
+ @keyframes fixedchat1000648 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000648 {
+  z-index: 212140;
+  top:0px;
+  left: 50% ;
+  color:#FF8080;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7292880636055215);  animation-name: fixedchat1000648;
+  animation-duration: 3s;
+  animation-delay: 212.14s;
+ }
+
+
+
+
+ @keyframes fixedchat1000649 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000649 {
+  z-index: 214260;
+  top:0px;
+  left: 50% ;
+  color:#999900;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000649;
+  animation-duration: 3s;
+  animation-delay: 214.26s;
+ }
+
+
+
+
+ @keyframes fixedchat1000650 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000650 {
+  z-index: 217310;
+  top:0px;
+  left: 50% ;
+  color:#FFC000;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000650;
+  animation-duration: 3s;
+  animation-delay: 217.31s;
+ }
+
+
+
+
+ @keyframes fixedchat1000651 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000651 {
+  z-index: 218450;
+  top:0px;
+  left: 50% ;
+  color:#C000FF;
+  font-size:39px;
+  width:934.218009478673px;
+ transform: translate(-50%, 0) scale(0.7287191961612114);  animation-name: fixedchat1000651;
+  animation-duration: 3s;
+  animation-delay: 218.45s;
+ }
+
+
+
+
+ @keyframes fixedchat1000652 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000652 {
+  z-index: 220530;
+  top:0px;
+  left: 50% ;
+  color:#3399FF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000652;
+  animation-duration: 3s;
+  animation-delay: 220.53s;
+ }
+
+
+
+
+ @keyframes fixedchat1000653 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000653 {
+  z-index: 220530;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000653;
+  animation-duration: 3s;
+  animation-delay: 220.53s;
+ }
+
+
+
+
+ @keyframes fixedchat1000654 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000654 {
+  z-index: 221120;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000654;
+  animation-duration: 3s;
+  animation-delay: 221.12s;
+ }
+
+
+
+
+ @keyframes fixedchat1000655 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000655 {
+  z-index: 221120;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000655;
+  animation-duration: 3s;
+  animation-delay: 221.12s;
+ }
+
+
+
+
+ @keyframes fixedchat1000656 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000656 {
+  z-index: 222430;
+  top:0px;
+  left: 50% ;
+  color:#CCCC99;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000656;
+  animation-duration: 3s;
+  animation-delay: 222.43s;
+ }
+
+
+
+
+ @keyframes fixedchat1000657 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000657 {
+  z-index: 222430;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000657;
+  animation-duration: 3s;
+  animation-delay: 222.43s;
+ }
+
+
+
+
+ @keyframes fixedchat1000658 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000658 {
+  z-index: 224080;
+  top:0px;
+  left: 50% ;
+  color:#00CC66;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000658;
+  animation-duration: 3s;
+  animation-delay: 224.08s;
+ }
+
+
+
+
+ @keyframes fixedchat1000659 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000659 {
+  z-index: 224080;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000659;
+  animation-duration: 3s;
+  animation-delay: 224.08s;
+ }
+
+
+
+
+ @keyframes fixedchat1000660 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000660 {
+  z-index: 225650;
+  top:0px;
+  left: 50% ;
+  color:#FFC000;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000660;
+  animation-duration: 3s;
+  animation-delay: 225.65s;
+ }
+
+
+
+
+ @keyframes fixedchat1000661 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000661 {
+  z-index: 225650;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000661;
+  animation-duration: 3s;
+  animation-delay: 225.65s;
+ }
+
+
+
+
+ @keyframes fixedchat1000662 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000662 {
+  z-index: 229040;
+  top:0px;
+  left: 50% ;
+  color:#C000FF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8008710773081111);  animation-name: fixedchat1000662;
+  animation-duration: 3s;
+  animation-delay: 229.04s;
+ }
+
+
+
+
+ @keyframes fixedchat1000663 {
+    0% {opacity: 0.8;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000663 {
+  z-index: 229040;
+  top:0px;
+  left: 50% ;
+  color:#FFF;
+  font-size:39px;
+  width:929.811320754717px;
+ transform: translate(-50%, 0) scale(0.8036398623636275);  animation-name: fixedchat1000663;
+  animation-duration: 3s;
+  animation-delay: 229.04s;
+ }
+
+
+
+
+ @keyframes fixedchat1000670 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000670 {
+  z-index: 107580;
+  top:0px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.8);  animation-name: fixedchat1000670;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000671 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000671 {
+  z-index: 107580;
+  top:53px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.8);  animation-name: fixedchat1000671;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000672 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000672 {
+  z-index: 107580;
+  top:90px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.8);  animation-name: fixedchat1000672;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000673 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000673 {
+  z-index: 107580;
+  top:127px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.8);  animation-name: fixedchat1000673;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000674 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000674 {
+  z-index: 107580;
+  top:164px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.8);  animation-name: fixedchat1000674;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000675 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000675 {
+  z-index: 107580;
+  top:185px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000675;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000676 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000676 {
+  z-index: 107580;
+  top:205px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000676;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000677 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000677 {
+  z-index: 107580;
+  top:225px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000677;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000678 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000678 {
+  z-index: 107580;
+  top:245px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000678;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000679 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000679 {
+  z-index: 107580;
+  top:265px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000679;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000680 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000680 {
+  z-index: 107580;
+  top:285px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000680;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000681 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000681 {
+  z-index: 107580;
+  top:305px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000681;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+ @keyframes fixedchat1000682 {
+    0% {opacity: 1;}
+  100% {opacity: 0.5;}
+ }
+ #chat1000682 {
+  z-index: 107580;
+  top:325px;
+  left: 50% ;
+  color:#CC0033;
+  font-size:15px;
+  width:512px;
+ transform: translate(-50%, 0) scale(0.7792998477929984);  animation-name: fixedchat1000682;
+  animation-duration: 3s;
+  animation-delay: 107.58s;
+ }
+
+
+
+
+</style>
+</head>
+<body>
+<h2>ZenzaWatchでHTMLに変換されたコメントアート</h2>
+<div>
+コンソールで
+<div style="font-weight: bolder; color: blue; padding: 8px;">
+  console.log(ZenzaWatch.debug.css3Player.toString());
+</div>
+を叩くと、今見てる動画のコメントがHTMLとして出力される。<br>
+<button 
+  onclick="document.body.className = document.body.className !== 'debug' ? 'debug' : '';return false;">
+デバッグON/OFF
+</button>
+
+このファイルはMac版Chromeで作成しました。
+<br>
+<br>
+<a href="http://www.nicovideo.jp/watch/1236257556">素晴らしい元動画はこちら</a><br>
+
+<div class="commentLayerOuter">
+<div class="commentLayer" id="commentLayer"><span id="chat1000482" class="nicoChat normal medium half"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◢<span class="gulim">▒▒▒▒<span class="mincho">◤<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span></span></span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000483" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">▂▃▅▆▇<span class="fill_space">████</span>▇▆▃▂<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◢</span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000484" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="mincho">▆▇<span class="fill_space">█</span>▌<span class="fill_space">████████████</span>▇▆▆▃<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤ</span><span class="mincho">◢<span class="gulim">▒</span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000485" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="mincho">◥<span class="fill_space">██</span>▌<span class="fill_space">█</span><span class="gulim">▒<span class="mincho"><span class="fill_space">██</span><span class="gulim">▒<span class="mincho">◣<span class="fill_space">███████████</span>▆▅◢<span class="gulim">▒▒</span></span></span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000486" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">◥<span class="fill_space">█</span><span class="gulim">▒<span class="mincho">◤<span class="fill_space">██</span>◥<span class="gulim">▒▒<span class="mincho">◣<span class="fill_space">██████████</span>◤<span class="gulim"><span class="invisible_code">ㅤ</span><span class="mincho">◥<span class="gulim">▒</span></span></span></span></span></span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000487" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◥<span class="fill_space">█████████████</span>◤<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤ</span><span class="mincho">◥</span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000488" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◥<span class="gulim">▒▒▒▒▒<span class="mincho">◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span></span></span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000489" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000490" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤ</span>▐<span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000491" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤ</span><span class="mincho">▅▅<span class="fill_space">█</span>▅<span class="fill_space">█</span>▅<span class="fill_space">█</span>▅<span class="fill_space">█</span>▅<span class="fill_space">█</span>▅<span class="fill_space">█</span>▅<span class="fill_space">█</span>▅<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span></span></span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000492" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000493" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤ</span>▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒<span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000494" class="nicoChat normal medium half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤ</span>▒<span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><br><br><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000664" class="nicoChat normal small noScale">CA<group>職人さんが書いてくれてた部分の歌詞は書かずに空けておきます。</group><br><group>花も書きに戻ってきてくれると嬉しいです。</group></span>
+<span id="chat1000665" class="nicoChat normal medium half"><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">◢◣◣</span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span>▒<span class="mincho">▓<span class="gulim">▒</span></span></group><br><group class="mincho">◢<span class="gulim">▒<span class="mincho">◣◥▓◤◢<span class="gulim">▒<span class="mincho">◣</span></span></span></span></group><br><group class="mincho">◢▓▓◣◥◢▓▓◤</group><br><group class="mincho">◥<span class="gulim">▒<span class="mincho">◤◢▓◣◥<span class="gulim">▒<span class="mincho">◤</span></span></span></span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span>▒<span class="mincho">▓<span class="gulim">▒</span></span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">◥◥◤</span></group></span>
+<span id="chat1000666" class="nicoChat normal big half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim">真っ赤に咲いた花びら</group></span>
+<span id="chat1000667" class="nicoChat normal big half overflow"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"> 真っ赤に咲いた花びら</group></span>
+<span id="chat1000668" class="nicoChat normal medium half"><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">◢◣◣</span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">▓<span class="gulim">▒<span class="mincho">▓</span></span></span></group><br><group class="mincho">◢▓◣◥<span class="gulim">▒<span class="mincho">◤◢▓◣</span></span></group><br><group class="mincho">◢<span class="gulim">▒▒<span class="mincho">◣◥◢<span class="gulim">▒▒<span class="mincho">◤</span></span></span></span></group><br><group class="mincho">◥▓◤◢◤◣◥▓◤</group><br><group class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">◢<span class="gulim">▒<span class="invisible_code">ㅤ</span>▒<span class="mincho">◣</span></span></span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤ</span>▒<span class="mincho">◤<span class="gulim"><span class="invisible_code">ㅤ</span><span class="mincho">◥<span class="gulim">▒</span></span></span></span></group></span>
+<span id="chat1000669" class="nicoChat normal medium half"><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">◢◣◣</span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">▓<span class="gulim">▒<span class="mincho">▓</span></span></span></group><br><group class="mincho">◢▓◣◥<span class="gulim">▒<span class="mincho">◤◢▓◣</span></span></group><br><group class="mincho">◢<span class="gulim">▒▒<span class="mincho">◣◥◢<span class="gulim">▒▒<span class="mincho">◤</span></span></span></span></group><br><group class="mincho">◥▓◤◢<span class="gulim">▒<span class="mincho">◣◥▓◤</span></span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">▓<span class="gulim">▒<span class="mincho">▓</span></span></span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤ</span><span class="mincho">◥◥◤</span></group></span>
+<span id="chat1000687" class="nicoChat normal small noScale"><group>お気遣いに感動しました。ありがとうございます。</group><br><group>花も入れさせていただきました。</group></span>
+<span id="chat1000688" class="nicoChat normal medium noScale"><group>職人二人ともすばらしいヤマイもすばらしい</group></span>
+<span id="chat1000689" class="nicoChat normal medium noScale"><group>歌詞、職人！？すげぇぇぇぇぇ</group></span>
+<span id="chat1000690" class="nicoChat normal medium noScale"><group>乙でした</group></span>
+<span id="chat1000691" class="nicoChat normal medium noScale"><group>職人</group>&amp;<group>ねいさますごいｗｗｗｗｗ</group></span>
+<span id="chat1000692" class="nicoChat normal medium noScale"><group>やばい・・・聴き入る。。。</group></span>
+<span id="chat1000693" class="nicoChat normal medium noScale"><group>ほんとに大好きです</group></span>
+<span id="chat1000694" class="nicoChat normal medium noScale"><group>タグｗｗｗｗｗｗｗｗｗ</group></span>
+<span id="chat1000695" class="nicoChat normal medium noScale"><group>職人神で乙です。</group></span>
+<span id="chat1000696" class="nicoChat normal medium noScale"><group>リクエスト投票中ｗｗ</group></span>
+<span id="chat1000697" class="nicoChat normal medium noScale"><group>柴咲コウみたい</group></span>
+<span id="chat1000698" class="nicoChat normal medium noScale"><group>職人すげえええ</group></span>
+<span id="chat1000699" class="nicoChat normal medium noScale"><group>職</group>!!</span>
+<span id="chat1000700" class="nicoChat normal medium noScale">kandou</span>
+<span id="chat1000701" class="nicoChat normal medium noScale"><group>素晴らしすぎる・・・・</group></span>
+<span id="chat1000702" class="nicoChat normal medium noScale"><group>職人すごすぎｗ</group></span>
+<span id="chat1000703" class="nicoChat normal medium noScale"><group>職人だってはじめ気づかなかった。</group>GJ</span>
+<span id="chat1000704" class="nicoChat normal medium noScale"><group>鳥肌ｗ</group></span>
+<span id="chat1000705" class="nicoChat normal medium noScale"><group>職人</group>GJ</span>
+<span id="chat1000706" class="nicoChat normal medium noScale"><group>すげー！！！！</group></span>
+<span id="chat1000707" class="nicoChat normal medium noScale"><group>職人すごすぎ！！</group></span>
+<span id="chat1000708" class="nicoChat normal medium noScale"><group>職人！！！</group></span>
+<span id="chat1000709" class="nicoChat normal medium noScale"><group>すげえええええええ</group>WW</span>
+<span id="chat1000710" class="nicoChat normal medium noScale"><group>かっけーｗｗｗｗ</group></span>
+<span id="chat1000711" class="nicoChat normal medium noScale"><group>職人がかみすぐるｗｗｗ</group></span>
+<span id="chat1000712" class="nicoChat normal medium noScale"><group>ヤマイ姉さん最強ですっっ</group></span><span id="chat1000495" class="nicoChat shita big black overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="em_space"><span class="invisible_code">         </span></span>　●●●●●●●<span class="invisible_code"><span class="zen_space type1">          </span></span><span class="fill_space">█</span></group><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000496" class="nicoChat shita big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="em_space"><span class="invisible_code">         </span></span>　○○○○○○○<span class="invisible_code"><span class="zen_space type1">          </span></span><span class="fill_space">█</span></group><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000497" class="nicoChat shita big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho">ˋ<span class="em_space"><span class="invisible_code">         </span></span>　骨の一本一本が　　<span class="em_space"><span class="invisible_code">        </span></span>ˋ</group><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000498" class="nicoChat shita big noScale"><group class="gulim"><span class="invisible_code">ㅤ</span></group></span>
+<span id="chat1000683" class="nicoChat shita big overflow"><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="em_space"><span class="invisible_code">     </span></span>　　<span class="em_space"><span class="invisible_code"> </span></span>❊</group><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho">ˋ<span class="em_space"><span class="invisible_code">         </span></span>　　　　　　　<span class="em_space"><span class="invisible_code"> </span></span>　❊<span class="em_space"><span class="invisible_code">   </span></span>　<span class="em_space"><span class="invisible_code">    </span></span>ˋ</group><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000684" class="nicoChat shita big black overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span><span class="em_space"><span class="invisible_code">         </span></span>◆◆◆◆◆◆◆◆<span class="invisible_code"><span class="zen_space type1">          </span></span><span class="fill_space">█</span></group><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000685" class="nicoChat shita big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span><span class="em_space"><span class="invisible_code">         </span></span>◇◇◇◇◇◇◇◇<span class="invisible_code"><span class="zen_space type1">          </span></span><span class="fill_space">█</span></group><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000686" class="nicoChat shita big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho">ˋ<span class="em_space"><span class="invisible_code">         </span></span>おしべ一本一本が　　<span class="em_space"><span class="invisible_code">        </span></span>ˋ</group><br><span class="han_space type_xa0"> </span></span><span id="chat1000551" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　胸の奥の底の　　　 　　　　　 　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000552" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　　 　には　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000553" class="nicoChat ue big black overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho">　　　　　　　　　　　　　　　　　　　底 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000554" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　僕の感情の　 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000555" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　が流れてる 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000556" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水　　 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000557" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　冷たく澄んだ　　 　　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000558" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　その　の　には 　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000559" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　水　中 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000560" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　のない　が 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000561" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　目　　　魚　 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000562" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　住んでいる 　　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000563" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　 何も　えない  　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000564" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　嗚呼 　　見　　 　 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000565" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　何も見えないのさ 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000566" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　真っ白に　けた　の 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000567" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　透　　魚　 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000568" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　くねり　いで　ぎ　る 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000569" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　喘　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000570" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　泳　去　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000571" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の　に 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000572" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　海 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000573" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　消えていく 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000574" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　波 紋 が　　 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000575" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　ゆ　ら　り 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000576" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　え　いで　びゆく　 　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000577" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　震　　　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000578" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　喘　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000579" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　萎　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000580" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の　　 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000581" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　水面 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000582" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　落ちてく　　が 　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000583" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　波紋 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000584" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　ゆ　ら　り　　 　　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000585" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　いつかその岸辺で 　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000586" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　い　を摘んだ 　　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000587" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　赤　花　　　　 　　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000588" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　の届かない 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000589" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　光　　　　　 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000590" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の岸辺には 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000591" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　頭垂れる花　 　　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000592" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　　　　赤い花　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000593" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　何も　えない 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000594" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　嗚呼　　　見　　　 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000595" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　何も見えないのさ 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000596" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　え　いで　びゆく　 　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000597" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　震　　　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000598" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　喘　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000599" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　萎　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000600" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の　　 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000601" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　水面 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000602" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　落ちていく 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000603" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　波紋が　　　 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000604" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　ゆ　ら　り 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000605" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　くねり　いで　ぎ　る 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000606" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　喘　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000607" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　泳　去　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000608" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の　に 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000609" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　海 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000610" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　落ちていく 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000611" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　消えてく　　が 　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000612" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　波紋 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000613" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　ゆ　ら　り 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000614" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　誰にも会いません　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000615" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　誰にも会いません　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000616" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　誰にも見せません　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000617" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　誰にも見せません　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000618" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　僕は一人なのです　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000619" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　僕は一人なのです　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000620" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　一人なのです　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000621" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　一人なのです　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000622" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　くねり　いで　ぎ　る 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000623" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　喘　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000624" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　泳　去　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000625" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の　に 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000626" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　海 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000628" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　消えていく 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000630" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　波 紋 が　　 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000631" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　ゆ　ら　り 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000633" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　え　いで　びゆく　 　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000635" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　震　　　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000637" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　喘　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000638" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　萎　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000639" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の　　 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000640" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　水面 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000641" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　落ちてく　　が 　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000642" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　波紋 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000643" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　ゆ　ら　り　　 　　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000644" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　くねり　いで　ぎ　る 　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000645" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　喘　　　　　　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000646" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　泳　去　  　　　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000647" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　地下水の　に 　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000648" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　　海 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000649" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　消えていく 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000650" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　波 紋 が　　 　　　　　　 　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000651" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span>　　　　　　　　　　　　　　　　　ゆ　ら　り 　   　　　　　<span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000652" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　震え　　　　　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000653" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　震え　　　　　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000654" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　　喘いで　　　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000655" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　喘いで　　　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000656" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　　　　萎びゆく　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000657" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　　　萎びゆく　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000658" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　　地下水の水面　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000659" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　地下水の水面　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000660" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　落ちてく波紋が　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000661" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　落ちてく波紋が　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000662" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　　ゆ　ら　り　　　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000663" class="nicoChat ue big overflow"><span class="han_space type_xa0"> </span><br><br><br><span class="han_space type_xa0"> </span><br><span class="han_space type_xa0">   </span><group class="mincho"><span class="fill_space">█</span><span class="invisible_code"><span class="zen_space type1">      </span></span> 　　　　　ゆ　ら　り　　　　　<span class="invisible_code"><span class="zen_space type1">    </span></span> <span class="fill_space">█</span></group><br><br><br><span class="han_space type_xa0"> </span><br><br><span class="han_space type_xa0"> </span></span>
+<span id="chat1000670" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤ</span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤ</span><span class="mincho">◢<span class="gulim">▒<span class="mincho">◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span></span></span></span></span></group></span>
+<span id="chat1000671" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤ</span>▒▒▒</group><br><group class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">◢<span class="gulim">▒<span class="mincho">◣◥<span class="gulim">▒<span class="mincho">◤◢<span class="gulim">▒<span class="mincho">◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span></span></span></span></span></span></span></span></span></group></span>
+<span id="chat1000672" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤ</span><span class="mincho">◢<span class="gulim">▒▒▒<span class="mincho">◣◥◢<span class="gulim">▒▒▒<span class="mincho">◣</span></span></span></span></span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤ</span><span class="mincho">◢◤◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span></span></span></group></span>
+<span id="chat1000673" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤ</span><span class="mincho">◢◤<span class="gulim"><span class="invisible_code">ㅤ</span><span class="mincho"><span class="fill_space">█</span>◣</span></span></span></group><br><group class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">◢<span class="fill_space">█</span>◤<span class="gulim"><span class="invisible_code">ㅤ</span><span class="mincho">◢<span class="fill_space">██</span><span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span></span></span></span></span></group></span>
+<span id="chat1000674" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">◥◤<span class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">◥<span class="fill_space">█</span>◤<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span></span></span></span></span></group></span>
+<span id="chat1000675" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◢<span class="gulim">▒<span class="mincho">◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span></span></span></span></span></group></span>
+<span id="chat1000676" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span>▒▒▒<span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span></group></span>
+<span id="chat1000677" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◢<span class="gulim">▒<span class="mincho">◣◥<span class="gulim">▒<span class="mincho">◤◢<span class="gulim">▒<span class="mincho">◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤ</span></span></span></span></span></span></span></span></span></group></span>
+<span id="chat1000678" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◢<span class="gulim">▒▒▒<span class="mincho">◣◥◢<span class="gulim">▒▒▒<span class="mincho">◣<span class="gulim"><span class="invisible_code">ㅤㅤ</span></span></span></span></span></span></span></group></span>
+<span id="chat1000679" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◢◥◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤ</span></span></span></group></span>
+<span id="chat1000680" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◢<span class="fill_space">█</span><span class="gulim"><span class="invisible_code">ㅤ</span><span class="mincho">◥◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤ</span></span></span></span></span></group></span>
+<span id="chat1000681" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho"><span class="fill_space">██</span>◣<span class="gulim"><span class="invisible_code">ㅤ</span><span class="mincho">◥<span class="fill_space">█</span>◣<span class="gulim"><span class="invisible_code">ㅤㅤㅤ</span></span></span></span></span></group></span>
+<span id="chat1000682" class="nicoChat ue small"><group class="gulim"><span class="invisible_code">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</span><span class="mincho">◥<span class="fill_space">█</span>◤<span class="gulim"><span class="invisible_code">ㅤㅤ</span><span class="mincho">◥◤<span class="gulim"><span class="invisible_code">ㅤㅤㅤ</span></span></span></span></span></group></span></div>
+</div>
+</body></html>

@@ -42,7 +42,10 @@ var NicoVideoPlayerDialog = function() {};
         if (isGinza) {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (!ZenzaWatch.util.hasFlashPlayer() || (Config.getValue('enableGinzaSlayer'))) {
+            if (!ZenzaWatch.util.hasFlashPlayer() ||
+                Config.getValue('overrideGinza') ||
+                Config.getValue('enableGinzaSlayer')
+                ) {
               initializeGinzaSlayer(dialog);
             }
           } else {

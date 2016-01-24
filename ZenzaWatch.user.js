@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.9.3
+// @version        0.9.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -225,7 +225,8 @@ var monkey = function() {
         userIdFilter: '',
         commandFilter: '',
 
-        enableGinzaSlayer: false,
+        overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
+        enableGinzaSlayer: false, // まだ実験中
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
@@ -5184,6 +5185,7 @@ var monkey = function() {
     <meta charset="utf-8">
     <title>CommentLayer</title>
     <style type="text/css">
+      .gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
       .mincho  {font-family:  Simsun, monospace; }
       .gulim   {font-family:  Gulim,  monospace; }
       .mingLiu {font-family:  mingLiu,monospace; }
@@ -5234,9 +5236,10 @@ var monkey = function() {
         {*font-family: monospace;*}
       }
 
-      {*.nicoChat .han_space.type_xa0 {
-        font-family: Arial, 'ＭＳ Ｐゴシック' !important;
-      }*}
+      .nicoChat .zero_space {
+        display: none;
+      }
+
 
 
     </style>
@@ -5922,10 +5925,14 @@ var monkey = function() {
   NicoChatViewModel.CHAT_MARGIN = 5;
   
   NicoChatViewModel._FONT_REG = {
-    // [^ -~｡-ﾟ]* は半角以外の文字の連続
-    MINCHO: /([^ -~｡-ﾟ]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓]+[^ -~｡-ﾟ]*)/g,
-    GULIM: /([^ -~｡-ﾟ]*[㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]+[^ -~｡-ﾟ]*)/g,
-    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g,
+    // TODO: wikiにあるテーブルを正規表現に落とし込む
+    GOTHIC: /[ｧ-ﾝﾞﾟ]/,
+    MINCHO: /([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓])/g,
+    GULIM: /([㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥])/g,
+    MING_LIU: /([])/g,
+//     MINCHO: /([^ -~｡-ﾟ]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓]+[^ -~｡-ﾟ]*)/g,
+//    GULIM: /([^ -~｡-ﾟ]*[㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]+[^ -~｡-ﾟ]*)/g,
+//    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g,
     GR: /<group>(.*?([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]).*?)<\/group>/g
   };
 
@@ -6016,76 +6023,20 @@ var monkey = function() {
           break;
       }
     },
-    _setText_old: function(text) {
-      var htmlText =
-        ZenzaWatch.util.escapeHtml(text)
-          .replace(/( |　|\t)+([\n$])/g , '$1')
-//          .replace(/( |\xA0){1,30}/g , han_replace)
-          .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
-          .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
-
-      // 特殊文字と、その前後の全角文字のフォントが変わるらしい
-      htmlText =
-        htmlText
-          .replace(NicoChatViewModel._FONT_REG.MINCHO,   '<span class="mincho">$1</span>')
-          .replace(NicoChatViewModel._FONT_REG.GULIM,    '<span class="gulim">$1</span>')
-          .replace(NicoChatViewModel._FONT_REG.MING_LIU, '<span class="mingLiu">$1</span>')
-          .replace(/([ ]+)/g ,   '<span class="zen_space">$1</span>') // zen_replace)
-          .replace(/'([　]+)/g , '<span class="zen_space">$1</span>'); //, zen_replace2);
-
-      // 最初の一文字目が特殊文字だった場合は全体のフォントが変わるらしい
-      var firstLetter = text.charAt(0);
-      if (firstLetter.match(NicoChatViewModel._FONT_REG.MINCHO)) {
-        htmlText = '<span class="mincho">'  + htmlText + '</span>';
-      } else if (firstLetter.match(NicoChatViewModel._FONT_REG.GULIM)) {
-        htmlText = '<span class="gulim">'   + htmlText + '</span>';
-      } else if (firstLetter.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
-        htmlText = '<span class="mingLiu">' + htmlText + '</span>';
-      }
-      htmlText = htmlText
-        .replace(/[\r\n]+$/g, '')
-        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
-        .replace(/[\n]/g, '<br>')
-        .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
-        .replace(/(\x0323|\x200b|\x2029|\x202a|\x200c)+/g , '<span class="zero_space">[0]</span>')
-        ;
-
-      this._htmlText = htmlText;
-      this._text = text;
-
-      var field = this._offScreen.getTextField();
-      field.setText(htmlText);
-      field.setFontSizePixel(this._fontSizePixel);
-      field.setType(this._type);
-      
-      this._width  = this._originalWidth  = field.getWidth();
-      this._height = this._originalHeight = this._calculateHeight();
-
-      if (!this._isFixed) {
-        var speed =
-          this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
-        this._endLeftTiming    = this._endRightTiming  - this._width / speed;
-        this._beginRightTiming = this._beginLeftTiming + this._width / speed;
-      } else {
-        this._speed = 0;
-        this._endLeftTiming    = this._endRightTiming;
-        this._beginRightTiming = this._beginLeftTiming;
-      }
-    },
     // 実験中...
     _setText: function(text) {
       var htmlText =
        ZenzaWatch.util.escapeHtml(text)
-        .replace(/( |　|\t)+([\n$])/g , '$2')
+        .replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
 //        .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
         // 全角文字の連続をグループ化
-        // 半角スペース(\x20)はグループに含む？ 要検証
-        .replace(/([^\x01-\x20^\x21-\x7E^\xA0]+)/g, '<group>$1</group>')
+        // 半角スペース(\x20)や改行(\x0A)はグループに含む？ 要検証
+        .replace(/([^\x01-\x0A^\x0b-\x1f^\x21-\x7E^\xA0]+)/g, '<group>$1</group>')
         .replace(/([\xA0]+)/g,   '<span class="han_space type_xa0">$1</span>')
         .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
         .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
-      //if (this._nicoChat.getNo() ===3600458) {
-      //  window.console.log('!!!', text, '\n', htmlText, escape(text));
+      //if (this._nicoChat.getNo() === 102) {
+      //  window.console.log('!!!', text, '\n', htmlText);
       //  window.hhh = htmlText;
       //  window.ttt = text;
       //}
@@ -6143,6 +6094,7 @@ var monkey = function() {
       htmlText =
         htmlText
           .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
+          .replace(/([\uE800\u2000-\u200A\u007F\u05C1\u0E3A\u3164]+)/g, '<span class="invisible_code">$1</span>')
           .replace(/([ ]+)/g ,   '<span class="zen_space type1">$1</span>')
           .replace(/'([　]+)/g , '<span class="zen_space type2">$1</span>');
 
@@ -6151,7 +6103,7 @@ var monkey = function() {
 //        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
         .replace(/[\n]/g, '<br>')
         .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
-        .replace(/(\x0323|\x200b|\x2029|\x202a|\x200c)+/g , '<span class="zero_space">[0]</span>')
+        .replace(/([\u0323\u200b\u2029\u202a\u200c\u200b]+)/g , '<span class="zero_space">[0]</span>')
         ;
 
       // 厳密には第一グループのフォントが変わった時だけ適用すべきである？
@@ -6161,11 +6113,6 @@ var monkey = function() {
           htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
         }
       }
-      //if (this._nicoChat.getNo() ===3600458) {
-      //  window.console.log('!!!', htmlText);
-      //  window.hhh2 = htmlText;
-      //}
-
 
       this._htmlText = htmlText;
       this._text = text;
@@ -6576,6 +6523,7 @@ var monkey = function() {
 <title>CommentLayer</title>
 <style type="text/css">
 
+.gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
 .mincho  {font-family: Simsun, monospace; }
 .gulim   {font-family: Gulim,  monospace; }
 .mingLiu {font-family: mingLiu,monospace; }
@@ -6693,6 +6641,7 @@ iframe {
   text-shadow: 0 0 3px #fff; {* 全部こっちにしたいが重いので *}
 }
 
+
 .nicoChat .han_space,
 .nicoChat .zen_space {
   opacity: 0;
@@ -6716,6 +6665,9 @@ iframe {
   opacity: 0.3;
 }
 
+.nicoChat .invisible_code {
+  opacity: 0;
+}
 
 .nicoChat .zero_space {
   display: none;
@@ -6730,10 +6682,6 @@ iframe {
   background: currentColor;
 }
 
-
-.nicoChat .zero_space {
-  display: none;
-}
 
 .debug .nicoChat.ue {
   text-decoration: overline;
@@ -10014,6 +9962,29 @@ iframe {
           </label>
         </div>
 
+        <div class="forceEconomyControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="forceEconomy">
+            常にエコノミー回線で視聴する
+          </label>
+        </div>
+
+        <div class="overrideGinzaControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="overrideGinza">
+            動画視聴ページでもGINZAのかわりに起動する
+          </label>
+        </div>
+
+
+         <div class="enableHeatMapControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableHeatMap">
+            コメントの盛り上がりをシークバーに表示
+          </label>
+        </div>
+
+
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
           <span class="info">
@@ -11159,13 +11130,17 @@ iframe {
       };
       js2swf.externalChangeVideo = function(videoInfo) {
         window.console.log('externalChangeVideo');
-        dialog.open(videoInfo.v);
+        dialog.open(videoInfo.v, {
+          economy: Config.getValue('forceEconomy')
+        });
       };
       js2swf.ext_getTotalTime = function() {
         return dialog._nicoVideoPlayer.getDuration();
       };
 
-      dialog.open(watchId);
+      dialog.open(watchId, {
+        economy: Config.getValue('forceEconomy')
+      });
       $('#nicoplayerContainer').append($('.zenzaVideoPlayerDialog').detach());
     };
 
@@ -11178,7 +11153,10 @@ iframe {
       if (Config.getValue('enableGinzaSlayer')) {
         initializeGinzaSlayer(dialog, watchId);
       } else {
-        dialog.open(watchId);
+        dialog.open(watchId, {
+          economy: Config.getValue('forceEconomy')
+        });
+        $('#external_nicoplayer').remove();
       }
 
     };
@@ -11210,7 +11188,10 @@ iframe {
         if (isGinza) {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (!ZenzaWatch.util.hasFlashPlayer() || (Config.getValue('enableGinzaSlayer'))) {
+            if (!ZenzaWatch.util.hasFlashPlayer() ||
+                Config.getValue('overrideGinza') ||
+                Config.getValue('enableGinzaSlayer')
+                ) {
               initializeGinzaSlayer(dialog);
             }
           } else {
