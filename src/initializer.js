@@ -43,10 +43,10 @@ var NicoVideoPlayerDialog = function() {};
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
             if (!ZenzaWatch.util.hasFlashPlayer() ||
-                Config.getValue('overrideGinza') ||
+                (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) ||
                 Config.getValue('enableGinzaSlayer')
                 ) {
-              initializeGinzaSlayer(dialog);
+              initializeGinzaSlayer(dialog, Config);
             }
           } else {
           // 非ログイン画面用プレイヤーをセットアップ

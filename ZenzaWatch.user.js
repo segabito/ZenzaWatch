@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.9.4
+// @version        0.9.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -935,6 +935,23 @@ var monkey = function() {
     };
     ZenzaWatch.util.isGinzaWatchUrl = isGinzaWatchUrl;
 
+    var isZenzaPlayableVideo = function() {
+      try {
+        var watchApiData = JSON.parse($('#watchAPIDataContainer').text());
+        var flvInfo = ZenzaWatch.util.parseQuery(
+            decodeURIComponent(watchApiData.flashvars.flvInfo)
+          );
+        var videoUrl = flvInfo.url;
+        var isSwf = /\/smile\?s=/.test(videoUrl);
+        var isRtmp = /^rtmpe?:/.test(videoUrl);
+        return (isSwf || isRtmp) ? false : true;
+       } catch (e) {
+        return false;
+      }
+    };
+    ZenzaWatch.util.isZenzaPlayableVideo = isZenzaPlayableVideo;
+
+
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
 
@@ -1014,10 +1031,85 @@ var monkey = function() {
 
 
 
+    var CacheStorage = (function() {
+      var PREFIX = 'ZenzaWatch_cache_';
+
+      function CacheStorage() {
+        this.initialize.apply(this, arguments);
+      }
+
+      _.assign(CacheStorage.prototype, {
+        initialize: function(storage) {
+          this._storage = storage;
+        },
+        setItem: function(key, data, expireTime) {
+          key = PREFIX + key;
+          var expiredAt =
+            typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
+          console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
+          this._storage[key] = JSON.stringify({
+            data: data,
+            type: typeof data,
+            expiredAt: expiredAt
+          });
+        },
+        getItem: function(key) {
+          key = PREFIX + key;
+          if (!this._storage.hasOwnProperty(key)) {
+            return null;
+          }
+          var item = null, data = null;
+          try {
+            item = JSON.parse(this._storage[key]);
+            if (item.type === 'string') {
+              data = item.data;
+            } else if (typeof item.data === 'string') {
+              data = JSON.parse(item.data);
+            } else {
+              data = item.data;
+            }
+          } catch(e) {
+            window.console.error('CacheStorage json parse error:', e);
+            window.console.log(this._storage[key]);
+            this._storage.removeItem(key);
+            return null;
+          }
+
+          if (item.expiredAt === '' || item.expiredAt > Date.now()) {
+            return data;
+          }
+          return null;
+        },
+        removeItem: function(key) {
+          key = PREFIX + key;
+          if (!this._storage.hasOwnProperty(key)) {
+            return null;
+          }
+
+          this._storage.removeItem(key);
+        },
+        clear: function() {
+          var storage = this._storage;
+          Object.keys(storage).forEach(function(v) {
+            if (v.indexOf(PREFIX) === 0) {
+              window.console.log('remove item', v, storage[v]);
+              storage.removeItem(v);
+            }
+          });
+        }
+      });
+
+      return CacheStorage;
+    })();
+    ZenzaWatch.api.CacheStorage = CacheStorage;
+    ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
+
+
     var VideoInfoLoader = (function() {
       var BASE_URL = 'http://ext.nicovideo.jp/thumb_watch';
       var loaderFrame, loaderWindow;
       var videoInfoLoader = new AsyncEmitter();
+      var cacheStorage = new CacheStorage(localStorage);
 
       var onMessage = function(data, type) {
         if (type !== 'videoInfoLoader') { return; }
@@ -1079,9 +1171,12 @@ var monkey = function() {
           var isFlv = /\/smile\?v=/.test(videoUrl);
           var isMp4 = /\/smile\?m=/.test(videoUrl);
           var isSwf = /\/smile\?s=/.test(videoUrl);
+          var csrfToken = watchApiData.flashvars.csrfToken;
           
           var playlist = JSON.parse($dom.find('#playlistDataContainer').text());
           var isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+
+          cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
           var result = {
             watchApiData: watchApiData,
@@ -1093,8 +1188,9 @@ var monkey = function() {
             isSwf: isSwf,
             isEco: isEco,
             thumbnail: thumbnail,
-            csrfToken: watchApiData.flashvars.csrfToken
+            csrfToken: csrfToken
           };
+
           ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', watchApiData.flashvars.csrfToken);
           return result;
 
@@ -1106,9 +1202,15 @@ var monkey = function() {
 
       var loadFromWatchApiData = function(watchId, options) {
         var url = '/watch/' + watchId;
+        var query = [];
         if (options.economy === true) {
-          url += '?eco=1';
+          query.push('eco=1');
         }
+        var isApiMode = false;
+        if (query.length > 0) {
+          url += '?' + query.join('&');
+        }
+
         console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
 
         var isFallback = false;
@@ -1535,79 +1637,6 @@ var monkey = function() {
       return MessageApiLoader;
     })();
     ZenzaWatch.api.MessageApiLoader = MessageApiLoader;
-
-    var CacheStorage = (function() {
-      var PREFIX = 'ZenzaWatch_cache_';
-
-      function CacheStorage() {
-        this.initialize.apply(this, arguments);
-      }
-
-      _.assign(CacheStorage.prototype, {
-        initialize: function(storage) {
-          this._storage = storage;
-        },
-        setItem: function(key, data, expireTime) {
-          key = PREFIX + key;
-          var expiredAt =
-            typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
-          console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
-          this._storage[key] = JSON.stringify({
-            data: data,
-            type: typeof data,
-            expiredAt: expiredAt
-          });
-        },
-        getItem: function(key) {
-          key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
-            return null;
-          }
-          var item = null, data = null;
-          try {
-            item = JSON.parse(this._storage[key]);
-            if (item.type === 'string') {
-              data = item.data;
-            } else if (typeof item.data === 'string') {
-              data = JSON.parse(item.data);
-            } else {
-              data = item.data;
-            }
-          } catch(e) {
-            window.console.error('CacheStorage json parse error:', e);
-            window.console.log(this._storage[key]);
-            this._storage.removeItem(key);
-            return null;
-          }
-
-          if (item.expiredAt === '' || item.expiredAt > Date.now()) {
-            return data;
-          }
-          return null;
-        },
-        removeItem: function(key) {
-          key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
-            return null;
-          }
-
-          this._storage.removeItem(key);
-        },
-        clear: function() {
-          var storage = this._storage;
-          Object.keys(storage).forEach(function(v) {
-            if (v.indexOf(PREFIX) === 0) {
-              window.console.log('remove item', v, storage[v]);
-              storage.removeItem(v);
-            }
-          });
-        }
-      });
-
-      return CacheStorage;
-    })();
-    ZenzaWatch.api.CacheStorage = CacheStorage;
-    ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
 
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
@@ -4783,6 +4812,187 @@ var monkey = function() {
 
 
 
+  var NicoTextParser = function() {};
+  NicoTextParser._FONT_REG = {
+    // TODO: wikiにあるテーブルを正規表現に落とし込む
+    GOTHIC: /[ｧ-ﾝﾞﾟ]/,
+    MINCHO: /([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓])/g,
+    GULIM: /([㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥])/g,
+    MING_LIU: /([])/g,
+    GR: /<group>(.*?([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]).*?)<\/group>/g
+  };
+
+
+// 画面レイアウトに影響ありそうなCSSをこっちにまとめる
+  NicoTextParser.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+body {
+  marign: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
+.mincho  {font-family: Simsun, monospace; }
+.gulim   {font-family: Gulim,  monospace; }
+.mingLiu {font-family: mingLiu,monospace; }
+
+  {*
+  .ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
+  .ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
+  .ue .mingLiu , .shita .mingLiu{font-family: mingLiu,monospace; }
+  *}
+
+.nicoChat {
+  position: absolute;
+  padding: 1px;
+
+  font-family: 'ＭＳ Ｐゴシック';
+  letter-spacing: 1px;
+  margin: 2px 1px 1px 1px;
+  white-space: pre;
+  font-weight: bolder;
+
+}
+
+  .nicoChat.big {
+    line-height: 47.5px;
+  }
+    .nicoChat.big.noScale {
+      line-height: 45px;
+    }
+
+  .nicoChat.medium {
+    line-height: 30px;
+  }
+    .nicoChat.medium.noScale {
+      line-height: 29px;
+    }
+
+  .nicoChat.small {
+    line-height: 20px;
+  }
+    .nicoChat.small.noScale {
+      line-height: 18px;
+    }
+
+  .nicoChat .zero_space {
+  }
+    .nicoChat .zen_space.type115A {
+    }
+
+
+.nicoChat .backslash {
+  font-family: Arial;
+}
+
+
+  */});
+
+/**
+ *  たぶんこんな感じ
+ *  1. 全角文字(半角スペース含む)でグループ化
+ *  2. グループ内でフォント変化文字が1つある場合はグループ全体がそのフォント
+ *  3. 二つ以上ある場合は、一番目がグループ内のベースフォント、
+ *     二番目以降はそのフォントにチェンジ
+ *  4. 最初のグループにフォントチェンジがあった場合は、
+ *     グループ全体のベースフォントがグループ1の奴になる
+ *
+ *  Vista以降だともうちょっと複雑らしい
+ */
+  NicoTextParser.likeXP = function(text) {
+    var htmlText =
+      ZenzaWatch.util.escapeHtml(text)
+        .replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
+        // 全角文字の連続をグループ化
+        .replace(/([^\x01-\x0A^\x0b-\x1f^\x21-\x7E^\xA0]+)/g, '<group>$1</group>')
+        .replace(/([\u0020]+)/g,   '<span class="han_space type0020">$1</span>')
+        .replace(/([\u00A0]+)/g,   '<span class="han_space type00A0">$1</span>')
+        .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
+        .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
+
+      var hasFontChanged = false;
+      // フォント変化処理  XPをベースにしたい
+      // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
+      // 一文字ずつ走査してもさほど問題ないはず
+      htmlText =
+        htmlText.replace(NicoTextParser._FONT_REG.GR, function(all, group, firstChar) {
+          hasFontChanged = true;
+          var baseFont = '';
+          if (firstChar.match(NicoTextParser._FONT_REG.MINCHO)) {
+            baseFont = 'mincho';
+          } else if (firstChar.match(NicoTextParser._FONT_REG.GULIM)) {
+            baseFont = 'gulim';
+          } else {
+            baseFont = 'mingLiu';
+          }
+
+          var tmp = [], closer = [], currentFont = baseFont;
+          for (var i = 0, len = group.length; i < len; i++) {
+            var c = group.charAt(i);
+            if (currentFont !== 'mincho' && c.match(NicoTextParser._FONT_REG.MINCHO)) {
+              tmp.push('<span class="mincho">');
+              closer.push('</span>');
+              currentFont = 'mincho';
+            } else if (currentFont !== 'gulim' && c.match(NicoTextParser._FONT_REG.GULIM)) {
+              tmp.push('<span class="gulim">');
+              closer.push('</span>');
+              currentFont = 'gulim';
+            } else if (currentFont !== 'mingLiu' && c.match(NicoTextParser._FONT_REG.MING_LIU)) {
+              tmp.push('<span class="mingLiu">');
+              closer.push('</span>');
+              currentFont = 'mingLiu';
+            }
+            tmp.push(c);
+          }
+
+          var result = [
+            '<group class="', baseFont, '">',
+              tmp.join(''),
+              closer.join(''),
+            '</group>'
+          ].join('');
+
+          return result;
+        });
+
+      htmlText =
+        htmlText
+          .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
+        // 非推奨空白文字。 とりあえず化けて出ないように
+          .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
+            '<span class="invisible_code">$1</span>')
+        // 結合文字 前の文字と同じ幅になるらしい
+        // http://www.nicovideo.jp/watch/1376820446 このへんで見かけた
+          .replace(/(.)[\u0655]/g ,  '$1<span class="type0655">$1</span>')
+        //http://www.nicovideo.jp/watch/1236260707 で見かける謎スペース。よくわからない
+          .replace(/([\u115a]+)/g ,  '<span class="zen_space type115A">$1</span>')
+        // 推奨空白文字
+          .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
+        // 全角スペース
+          .replace(/([\u3000]+)/g ,  '<span class="zen_space type3000">$1</span>')
+        // バックスラッシュ
+          .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
+        // ゼロ幅文字. ゼロ幅だけどdisplay: none; にすると狂う
+          .replace(/([\u0323\u200b\u2029\u202a\u200c\u200b]+)/g ,
+            '<span class="zero_space">$1</span>')
+          .replace(/[\r\n]+$/g, '')
+  //        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
+          .replace(/[\n]/g, '<br>')
+          ;
+
+      if (hasFontChanged) {
+        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
+          var baseFont = RegExp.$1;
+          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
+        }
+      }
+
+      return htmlText;
+    };
+
+
+
 
   // 大百科より
   var SHARED_NG_LEVEL = {
@@ -5184,66 +5394,11 @@ var monkey = function() {
     <head>
     <meta charset="utf-8">
     <title>CommentLayer</title>
+    <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
     <style type="text/css">
-      .gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
-      .mincho  {font-family:  Simsun, monospace; }
-      .gulim   {font-family:  Gulim,  monospace; }
-      .mingLiu {font-family:  mingLiu,monospace; }
-
-      .ue .mincho  , .shita .mincho {font-family:  Simsun, monospace; }
-      .ue .gulim   , .shita .gulim  {font-family:  Gulim,  monospace; }
-      .ue .mingLiu , .shita .mingLiu{font-family:  mingLiu,monospace; }
-
-      .nicoChat {
-        position: absolute;
-        padding: 1px;
-
-        font-family: Arial, 'ＭＳ Ｐゴシック';
-        letter-spacing: 1px;
-        margin: 2px 1px 1px 1px;
-        white-space: pre;
-        font-weight: bolder;
-
-      }
-      .nicoChat.big {
-        line-height: 48px;
-      }
-      .nicoChat.big.noScale {
-        line-height: 45px;
-      }
-
-      .backslash {
-        font-family: Arial;
-      }
-
-
-      .nicoChat.medium {
-        line-height: 30px;
-      }
-      .nicoChat.medium.noScale {
-        line-height: 29px;
-      }
-
-
-      .nicoChat.small {
-        line-height: 20px;
-      }
-      .nicoChat.small.noScale {
-        line-height: 18px;
-      }
-
-      .nicoChat .zen_space {
-        {*font-family: monospace;*}
-      }
-
-      .nicoChat .zero_space {
-        display: none;
-      }
-
-
 
     </style>
-    <body style="pointer-events: none;" >
+    <body>
     <div id="offScreenLayer"
       style="
         width: 4096px;
@@ -5302,7 +5457,7 @@ var monkey = function() {
         $d.resolve(offScreenLayer);
       };
 
-      frame.srcdoc = __offscreen_tpl__;
+      frame.srcdoc = __offscreen_tpl__.replace('%LAYOUT_CSS%', NicoTextParser.__css__);
     };
 
     var getLayer = function(callback) {
@@ -5924,18 +6079,6 @@ var monkey = function() {
 
   NicoChatViewModel.CHAT_MARGIN = 5;
   
-  NicoChatViewModel._FONT_REG = {
-    // TODO: wikiにあるテーブルを正規表現に落とし込む
-    GOTHIC: /[ｧ-ﾝﾞﾟ]/,
-    MINCHO: /([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓])/g,
-    GULIM: /([㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥])/g,
-    MING_LIU: /([])/g,
-//     MINCHO: /([^ -~｡-ﾟ]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓]+[^ -~｡-ﾟ]*)/g,
-//    GULIM: /([^ -~｡-ﾟ]*[㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]+[^ -~｡-ﾟ]*)/g,
-//    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g,
-    GR: /<group>(.*?([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]).*?)<\/group>/g
-  };
-
   _.assign(NicoChatViewModel.prototype, {
     initialize: function(nicoChat, offScreen) {
       this._nicoChat = nicoChat;
@@ -6025,94 +6168,8 @@ var monkey = function() {
     },
     // 実験中...
     _setText: function(text) {
-      var htmlText =
-       ZenzaWatch.util.escapeHtml(text)
-        .replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
-//        .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
-        // 全角文字の連続をグループ化
-        // 半角スペース(\x20)や改行(\x0A)はグループに含む？ 要検証
-        .replace(/([^\x01-\x0A^\x0b-\x1f^\x21-\x7E^\xA0]+)/g, '<group>$1</group>')
-        .replace(/([\xA0]+)/g,   '<span class="han_space type_xa0">$1</span>')
-        .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
-        .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
-      //if (this._nicoChat.getNo() === 102) {
-      //  window.console.log('!!!', text, '\n', htmlText);
-      //  window.hhh = htmlText;
-      //  window.ttt = text;
-      //}
 
-      var hasFontChanged = false;
-      // フォント変化処理  XPをベースにしたい
-      // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
-      // 一文字ずつ走査してもさほど問題ないはず
-      htmlText =
-        htmlText.replace(NicoChatViewModel._FONT_REG.GR, function(all, group, firstChar) {
-          hasFontChanged = true;
-          var baseFont = '';
-          if (firstChar.match(NicoChatViewModel._FONT_REG.MINCHO)) {
-            baseFont = 'mincho';
-          } else if (firstChar.match(NicoChatViewModel._FONT_REG.GULIM)) {
-            baseFont = 'gulim';
-          } else {
-            baseFont = 'mingLiu';
-          }
-          //  if (secondBaseFont === '') { secondBaseFont = baseFont; }
-          //
-          //var result = [
-          //  '<span class="', baseFont, '">', group, '</span>'
-          //].join('');
-          //return result;
-
-          var tmp = [], closer = [], currentFont = baseFont;
-          for (var i = 0, len = group.length; i < len; i++) {
-            var c = group.charAt(i);
-            if (currentFont !== 'mincho' && c.match(NicoChatViewModel._FONT_REG.MINCHO)) {
-              tmp.push('<span class="mincho">');
-              closer.push('</span>');
-              currentFont = 'mincho';
-            } else if (currentFont !== 'gulim' && c.match(NicoChatViewModel._FONT_REG.GULIM)) {
-              tmp.push('<span class="gulim">');
-              closer.push('</span>');
-              currentFont = 'gulim';
-            } else if (currentFont !== 'mingLiu' && c.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
-              tmp.push('<span class="mingLiu">');
-              closer.push('</span>');
-              currentFont = 'mingLiu';
-            }
-            tmp.push(c);
-          }
-
-          var result = [
-            '<group class="', baseFont, '">',
-              tmp.join(''),
-              closer.join(''),
-            '</group>'
-          ].join('');
-          return result;
-        });
-
-      htmlText =
-        htmlText
-          .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
-          .replace(/([\uE800\u2000-\u200A\u007F\u05C1\u0E3A\u3164]+)/g, '<span class="invisible_code">$1</span>')
-          .replace(/([ ]+)/g ,   '<span class="zen_space type1">$1</span>')
-          .replace(/'([　]+)/g , '<span class="zen_space type2">$1</span>');
-
-      htmlText = htmlText
-        .replace(/[\r\n]+$/g, '')
-//        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
-        .replace(/[\n]/g, '<br>')
-        .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
-        .replace(/([\u0323\u200b\u2029\u202a\u200c\u200b]+)/g , '<span class="zero_space">[0]</span>')
-        ;
-
-      // 厳密には第一グループのフォントが変わった時だけ適用すべきである？
-      if (hasFontChanged) {
-        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
-          var baseFont = RegExp.$1;
-          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
-        }
-      }
+      var htmlText = NicoTextParser.likeXP(text);
 
       this._htmlText = htmlText;
       this._text = text;
@@ -6521,37 +6578,19 @@ var monkey = function() {
 <head>
 <meta charset="utf-8">
 <title>CommentLayer</title>
+<style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
 <style type="text/css">
 
-.gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
-.mincho  {font-family: Simsun, monospace; }
-.gulim   {font-family: Gulim,  monospace; }
-.mingLiu {font-family: mingLiu,monospace; }
 
-.ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
-.ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
-.ue .mingLiu , .shita .mingLiu{font-family: mingLiu,monospace; }
+body.saved {
+  pointer-events: auto;
+}
 
 .debug .mincho  { background: rgba(128, 0, 0, 0.3); }
 .debug .gulim   { background: rgba(0, 128, 0, 0.3); }
 .debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
 
- .backslash {
-   font-family: Arial;
- }
 
-
-body {
-  marign: 0;
-  padding: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-{* 稀に変な広告が紛れ込む *}
-iframe {
-  display: none !important;
-}
 
 .commentLayerOuter {
   position: fixed;
@@ -6564,6 +6603,10 @@ iframe {
   bottom: 0;
   transform: translate(-50%, -50%);
   box-sizing: border-box;
+}
+
+.saved .commentLayerOuter {
+  background: #333;
 }
 
 .commentLayer {
@@ -6580,15 +6623,6 @@ iframe {
 }
 
 .nicoChat {
-  position: absolute;
-  padding: 1px;
-
-  font-family: 'ＭＳ Ｐゴシック';
-  letter-spacing: 1px;
-  margin: 2px 1px 1px 1px;
-  white-space: pre;
-  font-weight: bolder;
-
   line-height: 1.235;
   opacity: 0;
   text-shadow:
@@ -6597,60 +6631,36 @@ iframe {
   animation-timing-function: linear;
 }
 
+
 .nicoChat.black {
   text-shadow: -1px -1px 0 #888, 1px  1px 0 #888;
 }
 
-.nicoChat.big {
-  {*line-height: 48px;*}
-}
-.nicoChat.big.noScale {
-  {*line-height: 45px;*}
-}
-
-
-.nicoChat.medium {
-  {*line-height: 30px;*}
-}
-.nicoChat.medium.noScale {
-  {*line-height: 29px;*}
-}
-
-
-.nicoChat.small {
-  {*line-height: 20px;*}
-}
-.nicoChat.small.noScale {
-  {*line-height: 18px;*}
-}
-
-
 .nicoChat.overflow {
-  {*mix-blend-mode: overlay;*}
 }
-
 
 .nicoChat.ue,
 .nicoChat.shita {
   display: inline-block;
-  text-shadow: 0 0 3px #000; {* 全部こっちにしたいが重いので *}
-  {*text-align: center;*}
+  text-shadow: 0 0 3px #000;
 }
 .nicoChat.ue.black,
 .nicoChat.shita.black {
-  text-shadow: 0 0 3px #fff; {* 全部こっちにしたいが重いので *}
+  text-shadow: 0 0 3px #fff;
 }
 
+.nicoChat .type0655,
+.nicoChat .zero_space {
+  opacity: 0;
+}
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
   opacity: 0;
-  {*font-family: monospace;*}
 }
 
-{*.nicoChat .han_space.type_xa0 {
-  font-family: Arial, 'ＭＳ Ｐゴシック' !important;
-}*}
+.nicoChat .zen_space.type115a {
+}
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
@@ -6670,8 +6680,9 @@ iframe {
 }
 
 .nicoChat .zero_space {
-  display: none;
+  opacity: 0;
 }
+
 .debug .nicoChat .zero_space {
   display: inline;
   position: absolute;
@@ -6681,7 +6692,6 @@ iframe {
   text-shadow: none;
   background: currentColor;
 }
-
 
 .debug .nicoChat.ue {
   text-decoration: overline;
@@ -6694,6 +6704,7 @@ iframe {
 .nicoChat.mine {
   border: 1px solid yellow;
 }
+
 .nicoChat.updating {
   border: 1px dotted;
 }
@@ -6713,6 +6724,7 @@ iframe {
   animation-iteration-count: infinite;
   animation-duration: 10s;
 }
+
 .nicoChat.updating::after {
   content: ' 通信中...';
   color: #ff9;
@@ -6747,6 +6759,7 @@ iframe {
 .paused  .nicoChat {
   animation-play-state: paused !important;
 }
+
 </style>
 <style id="nicoChatAnimationDefinition">
 %CSS%
@@ -6806,20 +6819,13 @@ iframe {
       this._commentLayer = null;
       this._view = null;
       var iframe = this._getIframe();
-//      var reserved = document.getElementsByClassName('reservedFrame');
-//      if (reserved && reserved.length > 0) {
-//        iframe = reserved[0];
-//        document.body.removeChild(iframe);
-//        iframe.style.position = '';
-//        iframe.style.left = '';
-//      } else {
-//        iframe = document.createElement('iframe');
-//      }
+
       iframe.className = 'commentLayerFrame';
 
       var html =
         NicoCommentCss3PlayerView.__TPL__
-        .replace('%CSS%', '').replace('%MSG%', '');
+        .replace('%CSS%', '').replace('%MSG%', '')
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
 
 
       var self = this;
@@ -7237,7 +7243,8 @@ iframe {
         //var left = ((screenWidth - width) / 2);
         result = ['',
           ' @keyframes fixed', id, ' {\n',
-          '    0% {opacity: ', opacity, ';}\n',
+          '    0% {opacity: ', 1, ';}\n',
+          '   90% {opacity: ', 1, ';}\n',
           '  100% {opacity: ', 0.5, ';}\n',
           ' }\n',
           '',
@@ -7285,7 +7292,7 @@ iframe {
      * ニコニコ動画のプレイヤーのようにコメントが流れる。 ふしぎ！
      */
     toString: function() {
-      return this.buildHtml(0);
+      return this.buildHtml(0).replace('<body>', '<body class="saved">');
     }
   });
 
@@ -11189,10 +11196,10 @@ iframe {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
             if (!ZenzaWatch.util.hasFlashPlayer() ||
-                Config.getValue('overrideGinza') ||
+                (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) ||
                 Config.getValue('enableGinzaSlayer')
                 ) {
-              initializeGinzaSlayer(dialog);
+              initializeGinzaSlayer(dialog, Config);
             }
           } else {
           // 非ログイン画面用プレイヤーをセットアップ

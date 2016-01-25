@@ -903,6 +903,23 @@ var console;
     };
     ZenzaWatch.util.isGinzaWatchUrl = isGinzaWatchUrl;
 
+    var isZenzaPlayableVideo = function() {
+      try {
+        var watchApiData = JSON.parse($('#watchAPIDataContainer').text());
+        var flvInfo = ZenzaWatch.util.parseQuery(
+            decodeURIComponent(watchApiData.flashvars.flvInfo)
+          );
+        var videoUrl = flvInfo.url;
+        var isSwf = /\/smile\?s=/.test(videoUrl);
+        var isRtmp = /^rtmpe?:/.test(videoUrl);
+        return (isSwf || isRtmp) ? false : true;
+       } catch (e) {
+        return false;
+      }
+    };
+    ZenzaWatch.util.isZenzaPlayableVideo = isZenzaPlayableVideo;
+
+
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
 

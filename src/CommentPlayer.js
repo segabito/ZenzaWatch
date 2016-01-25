@@ -8,6 +8,7 @@ var ZenzaWatch = {
 var Config = {};
 var AsyncEmitter = {};
 var PopupMessage = {};
+var NicoTextParser = {};
 
 //===BEGIN===
 
@@ -412,66 +413,11 @@ var PopupMessage = {};
     <head>
     <meta charset="utf-8">
     <title>CommentLayer</title>
+    <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
     <style type="text/css">
-      .gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
-      .mincho  {font-family:  Simsun, monospace; }
-      .gulim   {font-family:  Gulim,  monospace; }
-      .mingLiu {font-family:  mingLiu,monospace; }
-
-      .ue .mincho  , .shita .mincho {font-family:  Simsun, monospace; }
-      .ue .gulim   , .shita .gulim  {font-family:  Gulim,  monospace; }
-      .ue .mingLiu , .shita .mingLiu{font-family:  mingLiu,monospace; }
-
-      .nicoChat {
-        position: absolute;
-        padding: 1px;
-
-        font-family: Arial, 'ＭＳ Ｐゴシック';
-        letter-spacing: 1px;
-        margin: 2px 1px 1px 1px;
-        white-space: pre;
-        font-weight: bolder;
-
-      }
-      .nicoChat.big {
-        line-height: 48px;
-      }
-      .nicoChat.big.noScale {
-        line-height: 45px;
-      }
-
-      .backslash {
-        font-family: Arial;
-      }
-
-
-      .nicoChat.medium {
-        line-height: 30px;
-      }
-      .nicoChat.medium.noScale {
-        line-height: 29px;
-      }
-
-
-      .nicoChat.small {
-        line-height: 20px;
-      }
-      .nicoChat.small.noScale {
-        line-height: 18px;
-      }
-
-      .nicoChat .zen_space {
-        {*font-family: monospace;*}
-      }
-
-      .nicoChat .zero_space {
-        display: none;
-      }
-
-
 
     </style>
-    <body style="pointer-events: none;" >
+    <body>
     <div id="offScreenLayer"
       style="
         width: 4096px;
@@ -530,7 +476,7 @@ var PopupMessage = {};
         $d.resolve(offScreenLayer);
       };
 
-      frame.srcdoc = __offscreen_tpl__;
+      frame.srcdoc = __offscreen_tpl__.replace('%LAYOUT_CSS%', NicoTextParser.__css__);
     };
 
     var getLayer = function(callback) {
@@ -1152,18 +1098,6 @@ var PopupMessage = {};
 
   NicoChatViewModel.CHAT_MARGIN = 5;
   
-  NicoChatViewModel._FONT_REG = {
-    // TODO: wikiにあるテーブルを正規表現に落とし込む
-    GOTHIC: /[ｧ-ﾝﾞﾟ]/,
-    MINCHO: /([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓])/g,
-    GULIM: /([㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥])/g,
-    MING_LIU: /([])/g,
-//     MINCHO: /([^ -~｡-ﾟ]*[ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓]+[^ -~｡-ﾟ]*)/g,
-//    GULIM: /([^ -~｡-ﾟ]*[㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]+[^ -~｡-ﾟ]*)/g,
-//    MING_LIU: /([^ -~｡-ﾟ]*[]+[^ -~｡-ﾟ]*)/g,
-    GR: /<group>(.*?([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]).*?)<\/group>/g
-  };
-
   _.assign(NicoChatViewModel.prototype, {
     initialize: function(nicoChat, offScreen) {
       this._nicoChat = nicoChat;
@@ -1253,94 +1187,8 @@ var PopupMessage = {};
     },
     // 実験中...
     _setText: function(text) {
-      var htmlText =
-       ZenzaWatch.util.escapeHtml(text)
-        .replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
-//        .replace(/(( |\xA0)+)/g, '<span class="han_space">$1</span>')
-        // 全角文字の連続をグループ化
-        // 半角スペース(\x20)や改行(\x0A)はグループに含む？ 要検証
-        .replace(/([^\x01-\x0A^\x0b-\x1f^\x21-\x7E^\xA0]+)/g, '<group>$1</group>')
-        .replace(/([\xA0]+)/g,   '<span class="han_space type_xa0">$1</span>')
-        .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
-        .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
-      //if (this._nicoChat.getNo() === 102) {
-      //  window.console.log('!!!', text, '\n', htmlText);
-      //  window.hhh = htmlText;
-      //  window.ttt = text;
-      //}
 
-      var hasFontChanged = false;
-      // フォント変化処理  XPをベースにしたい
-      // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
-      // 一文字ずつ走査してもさほど問題ないはず
-      htmlText =
-        htmlText.replace(NicoChatViewModel._FONT_REG.GR, function(all, group, firstChar) {
-          hasFontChanged = true;
-          var baseFont = '';
-          if (firstChar.match(NicoChatViewModel._FONT_REG.MINCHO)) {
-            baseFont = 'mincho';
-          } else if (firstChar.match(NicoChatViewModel._FONT_REG.GULIM)) {
-            baseFont = 'gulim';
-          } else {
-            baseFont = 'mingLiu';
-          }
-          //  if (secondBaseFont === '') { secondBaseFont = baseFont; }
-          //
-          //var result = [
-          //  '<span class="', baseFont, '">', group, '</span>'
-          //].join('');
-          //return result;
-
-          var tmp = [], closer = [], currentFont = baseFont;
-          for (var i = 0, len = group.length; i < len; i++) {
-            var c = group.charAt(i);
-            if (currentFont !== 'mincho' && c.match(NicoChatViewModel._FONT_REG.MINCHO)) {
-              tmp.push('<span class="mincho">');
-              closer.push('</span>');
-              currentFont = 'mincho';
-            } else if (currentFont !== 'gulim' && c.match(NicoChatViewModel._FONT_REG.GULIM)) {
-              tmp.push('<span class="gulim">');
-              closer.push('</span>');
-              currentFont = 'gulim';
-            } else if (currentFont !== 'mingLiu' && c.match(NicoChatViewModel._FONT_REG.MING_LIU)) {
-              tmp.push('<span class="mingLiu">');
-              closer.push('</span>');
-              currentFont = 'mingLiu';
-            }
-            tmp.push(c);
-          }
-
-          var result = [
-            '<group class="', baseFont, '">',
-              tmp.join(''),
-              closer.join(''),
-            '</group>'
-          ].join('');
-          return result;
-        });
-
-      htmlText =
-        htmlText
-          .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
-          .replace(/([\uE800\u2000-\u200A\u007F\u05C1\u0E3A\u3164]+)/g, '<span class="invisible_code">$1</span>')
-          .replace(/([ ]+)/g ,   '<span class="zen_space type1">$1</span>')
-          .replace(/'([　]+)/g , '<span class="zen_space type2">$1</span>');
-
-      htmlText = htmlText
-        .replace(/[\r\n]+$/g, '')
-//        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
-        .replace(/[\n]/g, '<br>')
-        .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>') // バックスラッシュ
-        .replace(/([\u0323\u200b\u2029\u202a\u200c\u200b]+)/g , '<span class="zero_space">[0]</span>')
-        ;
-
-      // 厳密には第一グループのフォントが変わった時だけ適用すべきである？
-      if (hasFontChanged) {
-        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
-          var baseFont = RegExp.$1;
-          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
-        }
-      }
+      var htmlText = NicoTextParser.likeXP(text);
 
       this._htmlText = htmlText;
       this._text = text;
@@ -1749,37 +1597,19 @@ var PopupMessage = {};
 <head>
 <meta charset="utf-8">
 <title>CommentLayer</title>
+<style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
 <style type="text/css">
 
-.gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
-.mincho  {font-family: Simsun, monospace; }
-.gulim   {font-family: Gulim,  monospace; }
-.mingLiu {font-family: mingLiu,monospace; }
 
-.ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
-.ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
-.ue .mingLiu , .shita .mingLiu{font-family: mingLiu,monospace; }
+body.saved {
+  pointer-events: auto;
+}
 
 .debug .mincho  { background: rgba(128, 0, 0, 0.3); }
 .debug .gulim   { background: rgba(0, 128, 0, 0.3); }
 .debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
 
- .backslash {
-   font-family: Arial;
- }
 
-
-body {
-  marign: 0;
-  padding: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-{* 稀に変な広告が紛れ込む *}
-iframe {
-  display: none !important;
-}
 
 .commentLayerOuter {
   position: fixed;
@@ -1792,6 +1622,10 @@ iframe {
   bottom: 0;
   transform: translate(-50%, -50%);
   box-sizing: border-box;
+}
+
+.saved .commentLayerOuter {
+  background: #333;
 }
 
 .commentLayer {
@@ -1808,15 +1642,6 @@ iframe {
 }
 
 .nicoChat {
-  position: absolute;
-  padding: 1px;
-
-  font-family: 'ＭＳ Ｐゴシック';
-  letter-spacing: 1px;
-  margin: 2px 1px 1px 1px;
-  white-space: pre;
-  font-weight: bolder;
-
   line-height: 1.235;
   opacity: 0;
   text-shadow:
@@ -1825,60 +1650,36 @@ iframe {
   animation-timing-function: linear;
 }
 
+
 .nicoChat.black {
   text-shadow: -1px -1px 0 #888, 1px  1px 0 #888;
 }
 
-.nicoChat.big {
-  {*line-height: 48px;*}
-}
-.nicoChat.big.noScale {
-  {*line-height: 45px;*}
-}
-
-
-.nicoChat.medium {
-  {*line-height: 30px;*}
-}
-.nicoChat.medium.noScale {
-  {*line-height: 29px;*}
-}
-
-
-.nicoChat.small {
-  {*line-height: 20px;*}
-}
-.nicoChat.small.noScale {
-  {*line-height: 18px;*}
-}
-
-
 .nicoChat.overflow {
-  {*mix-blend-mode: overlay;*}
 }
-
 
 .nicoChat.ue,
 .nicoChat.shita {
   display: inline-block;
-  text-shadow: 0 0 3px #000; {* 全部こっちにしたいが重いので *}
-  {*text-align: center;*}
+  text-shadow: 0 0 3px #000;
 }
 .nicoChat.ue.black,
 .nicoChat.shita.black {
-  text-shadow: 0 0 3px #fff; {* 全部こっちにしたいが重いので *}
+  text-shadow: 0 0 3px #fff;
 }
 
+.nicoChat .type0655,
+.nicoChat .zero_space {
+  opacity: 0;
+}
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
   opacity: 0;
-  {*font-family: monospace;*}
 }
 
-{*.nicoChat .han_space.type_xa0 {
-  font-family: Arial, 'ＭＳ Ｐゴシック' !important;
-}*}
+.nicoChat .zen_space.type115a {
+}
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
@@ -1898,8 +1699,9 @@ iframe {
 }
 
 .nicoChat .zero_space {
-  display: none;
+  opacity: 0;
 }
+
 .debug .nicoChat .zero_space {
   display: inline;
   position: absolute;
@@ -1909,7 +1711,6 @@ iframe {
   text-shadow: none;
   background: currentColor;
 }
-
 
 .debug .nicoChat.ue {
   text-decoration: overline;
@@ -1922,6 +1723,7 @@ iframe {
 .nicoChat.mine {
   border: 1px solid yellow;
 }
+
 .nicoChat.updating {
   border: 1px dotted;
 }
@@ -1941,6 +1743,7 @@ iframe {
   animation-iteration-count: infinite;
   animation-duration: 10s;
 }
+
 .nicoChat.updating::after {
   content: ' 通信中...';
   color: #ff9;
@@ -1975,6 +1778,7 @@ iframe {
 .paused  .nicoChat {
   animation-play-state: paused !important;
 }
+
 </style>
 <style id="nicoChatAnimationDefinition">
 %CSS%
@@ -2034,20 +1838,13 @@ iframe {
       this._commentLayer = null;
       this._view = null;
       var iframe = this._getIframe();
-//      var reserved = document.getElementsByClassName('reservedFrame');
-//      if (reserved && reserved.length > 0) {
-//        iframe = reserved[0];
-//        document.body.removeChild(iframe);
-//        iframe.style.position = '';
-//        iframe.style.left = '';
-//      } else {
-//        iframe = document.createElement('iframe');
-//      }
+
       iframe.className = 'commentLayerFrame';
 
       var html =
         NicoCommentCss3PlayerView.__TPL__
-        .replace('%CSS%', '').replace('%MSG%', '');
+        .replace('%CSS%', '').replace('%MSG%', '')
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
 
 
       var self = this;
@@ -2465,7 +2262,8 @@ iframe {
         //var left = ((screenWidth - width) / 2);
         result = ['',
           ' @keyframes fixed', id, ' {\n',
-          '    0% {opacity: ', opacity, ';}\n',
+          '    0% {opacity: ', 1, ';}\n',
+          '   90% {opacity: ', 1, ';}\n',
           '  100% {opacity: ', 0.5, ';}\n',
           ' }\n',
           '',
@@ -2513,7 +2311,7 @@ iframe {
      * ニコニコ動画のプレイヤーのようにコメントが流れる。 ふしぎ！
      */
     toString: function() {
-      return this.buildHtml(0);
+      return this.buildHtml(0).replace('<body>', '<body class="saved">');
     }
   });
 

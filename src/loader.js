@@ -13,10 +13,85 @@ var isLogin = function() {};
 var isSameOrigin = function() {};
 
 //===BEGIN===
+    var CacheStorage = (function() {
+      var PREFIX = 'ZenzaWatch_cache_';
+
+      function CacheStorage() {
+        this.initialize.apply(this, arguments);
+      }
+
+      _.assign(CacheStorage.prototype, {
+        initialize: function(storage) {
+          this._storage = storage;
+        },
+        setItem: function(key, data, expireTime) {
+          key = PREFIX + key;
+          var expiredAt =
+            typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
+          console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
+          this._storage[key] = JSON.stringify({
+            data: data,
+            type: typeof data,
+            expiredAt: expiredAt
+          });
+        },
+        getItem: function(key) {
+          key = PREFIX + key;
+          if (!this._storage.hasOwnProperty(key)) {
+            return null;
+          }
+          var item = null, data = null;
+          try {
+            item = JSON.parse(this._storage[key]);
+            if (item.type === 'string') {
+              data = item.data;
+            } else if (typeof item.data === 'string') {
+              data = JSON.parse(item.data);
+            } else {
+              data = item.data;
+            }
+          } catch(e) {
+            window.console.error('CacheStorage json parse error:', e);
+            window.console.log(this._storage[key]);
+            this._storage.removeItem(key);
+            return null;
+          }
+
+          if (item.expiredAt === '' || item.expiredAt > Date.now()) {
+            return data;
+          }
+          return null;
+        },
+        removeItem: function(key) {
+          key = PREFIX + key;
+          if (!this._storage.hasOwnProperty(key)) {
+            return null;
+          }
+
+          this._storage.removeItem(key);
+        },
+        clear: function() {
+          var storage = this._storage;
+          Object.keys(storage).forEach(function(v) {
+            if (v.indexOf(PREFIX) === 0) {
+              window.console.log('remove item', v, storage[v]);
+              storage.removeItem(v);
+            }
+          });
+        }
+      });
+
+      return CacheStorage;
+    })();
+    ZenzaWatch.api.CacheStorage = CacheStorage;
+    ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
+
+
     var VideoInfoLoader = (function() {
       var BASE_URL = 'http://ext.nicovideo.jp/thumb_watch';
       var loaderFrame, loaderWindow;
       var videoInfoLoader = new AsyncEmitter();
+      var cacheStorage = new CacheStorage(localStorage);
 
       var onMessage = function(data, type) {
         if (type !== 'videoInfoLoader') { return; }
@@ -78,9 +153,12 @@ var isSameOrigin = function() {};
           var isFlv = /\/smile\?v=/.test(videoUrl);
           var isMp4 = /\/smile\?m=/.test(videoUrl);
           var isSwf = /\/smile\?s=/.test(videoUrl);
+          var csrfToken = watchApiData.flashvars.csrfToken;
           
           var playlist = JSON.parse($dom.find('#playlistDataContainer').text());
           var isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+
+          cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
           var result = {
             watchApiData: watchApiData,
@@ -92,8 +170,9 @@ var isSameOrigin = function() {};
             isSwf: isSwf,
             isEco: isEco,
             thumbnail: thumbnail,
-            csrfToken: watchApiData.flashvars.csrfToken
+            csrfToken: csrfToken
           };
+
           ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', watchApiData.flashvars.csrfToken);
           return result;
 
@@ -105,9 +184,15 @@ var isSameOrigin = function() {};
 
       var loadFromWatchApiData = function(watchId, options) {
         var url = '/watch/' + watchId;
+        var query = [];
         if (options.economy === true) {
-          url += '?eco=1';
+          query.push('eco=1');
         }
+        var isApiMode = false;
+        if (query.length > 0) {
+          url += '?' + query.join('&');
+        }
+
         console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
 
         var isFallback = false;
@@ -534,79 +619,6 @@ var isSameOrigin = function() {};
       return MessageApiLoader;
     })();
     ZenzaWatch.api.MessageApiLoader = MessageApiLoader;
-
-    var CacheStorage = (function() {
-      var PREFIX = 'ZenzaWatch_cache_';
-
-      function CacheStorage() {
-        this.initialize.apply(this, arguments);
-      }
-
-      _.assign(CacheStorage.prototype, {
-        initialize: function(storage) {
-          this._storage = storage;
-        },
-        setItem: function(key, data, expireTime) {
-          key = PREFIX + key;
-          var expiredAt =
-            typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
-          console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
-          this._storage[key] = JSON.stringify({
-            data: data,
-            type: typeof data,
-            expiredAt: expiredAt
-          });
-        },
-        getItem: function(key) {
-          key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
-            return null;
-          }
-          var item = null, data = null;
-          try {
-            item = JSON.parse(this._storage[key]);
-            if (item.type === 'string') {
-              data = item.data;
-            } else if (typeof item.data === 'string') {
-              data = JSON.parse(item.data);
-            } else {
-              data = item.data;
-            }
-          } catch(e) {
-            window.console.error('CacheStorage json parse error:', e);
-            window.console.log(this._storage[key]);
-            this._storage.removeItem(key);
-            return null;
-          }
-
-          if (item.expiredAt === '' || item.expiredAt > Date.now()) {
-            return data;
-          }
-          return null;
-        },
-        removeItem: function(key) {
-          key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
-            return null;
-          }
-
-          this._storage.removeItem(key);
-        },
-        clear: function() {
-          var storage = this._storage;
-          Object.keys(storage).forEach(function(v) {
-            if (v.indexOf(PREFIX) === 0) {
-              window.console.log('remove item', v, storage[v]);
-              storage.removeItem(v);
-            }
-          });
-        }
-      });
-
-      return CacheStorage;
-    })();
-    ZenzaWatch.api.CacheStorage = CacheStorage;
-    ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
 
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
