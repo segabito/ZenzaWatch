@@ -4815,11 +4815,18 @@ var monkey = function() {
   var NicoTextParser = function() {};
   NicoTextParser._FONT_REG = {
     // TODO: wikiにあるテーブルを正規表現に落とし込む
-    GOTHIC: /[ｧ-ﾝﾞﾟ]/,
-    MINCHO: /([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓])/g,
-    GULIM: /([㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥])/g,
-    MING_LIU: /([])/g,
-    GR: /<group>(.*?([ˊˋ⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇⒈⒉⒊⒋⒌⒍⒎⒏⒐⒑⒒⒓⒔⒕⒖⒗⒘⒙⒚⒛▁▂▃▄▅▆▇█▉▊▋▌▍▎▏◢◣◤◥〡〢〣〤〥〦〧〨〩ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ︰︱︳︴︵︶︷︸︹︺︻︼︽︾︿﹀﹁﹂﹃﹄﹉﹊﹋﹌﹍﹎﹏﹐﹑﹒﹔﹕﹖﹗﹙﹚﹛﹜﹝﹞﹟﹠﹡﹢﹣﹤﹥﹦﹨﹩﹪﹫▓㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉㈊㈋㈌㈍㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈜㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭㉮㉯㉰㉱㉲㉳㉴㉵㉶㉷㉸㉹㉺㉻㉿ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵￦⊙ㅂㅑㅜㆁ▒ㅅㅒㅡㆍㄱㅇㅓㅣㆎㄴㅏㅕㅤ♡ㅁㅐㅗㅿ♥]).*?)<\/group>/g
+    // MING_LIUは昔どこかで拾ったのだけど出典がわからない
+    // wikiの記述だと\u2588はstrongではないっぽいけど、そうじゃないと辻褄が合わないCAがいくつかある。
+    // wikiが間違いなのか、まだ知らない法則があるのか・・・？
+    //
+    GOTHIC: /[ｧ-ﾝﾞ･ﾟ]/,
+    MINCHO: /([\u02C9\u2105\u2109\u2196-\u2199\u220F\u2215\u2248\u2264\u2265\u2299\u2474-\u2482\u250D\u250E\u2511\u2512\u2515\u2516\u2519\u251A\u251E\u251F\u2521\u2522\u2526\u2527\u2529\u252A\u252D\u252E\u2531\u2532\u2535\u2536\u2539\u253A\u253D\u253E\u2540\u2541\u2543-\u254A\u2550-\u256C\u2584\u2588\u258C\u2593\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B])/,
+    GULIM: /([\u0126\u0127\u0132\u0133\u0138\u013F\u0140\u0149-\u014B\u0166\u0167\u02D0\u02DA\u2074\u207F\u2081-\u2084\u2113\u2153\u2154\u215C-\u215E\u2194-\u2195\u223C\u249C-\u24B5\u24D0-\u24E9\u2592\u25A3-\u25A9\u25B6\u25B7\u25C0\u25C1\u25C8\u25D0\u25D1\u260E\u260F\u261C\u261E\u2660\u2661\u2663-\u2665\u2667-\u2669\u266C\u3131-\u318E\u3200-\u321C\u3260-\u327B\u3380-\u3384\u3388-\u338D\u3390-\u339B\u339F\u33A0\u33A2-\u33CA\u33CF\u33D0\u33D3\u33D6\u33D8\u33DB-\u33DD\uF900-\uF928\uF92A-\uF994\uF996-\uFA0B\uFFE6])/,
+    MING_LIU: /([\uEF00-\uEF1F])/,
+    GR: /<group>([^\x01-\x7E^\xA0]*?([ｧ-ﾝﾞ･ﾟ\u02C9\u2105\u2109\u2196-\u2199\u220F\u2215\u2248\u2264\u2265\u2299\u2474-\u2482\u250D\u250E\u2511\u2512\u2515\u2516\u2519\u251A\u251E\u251F\u2521\u2522\u2526\u2527\u2529\u252A\u252D\u252E\u2531\u2532\u2535\u2536\u2539\u253A\u253D\u253E\u2540\u2541\u2543-\u254A\u2550-\u256C\u2584\u2588\u258C\u2593\u0126\u0127\u0132\u0133\u0138\u013F\u0140\u0149-\u014B\u0166\u0167\u02D0\u02DA\u2074\u207F\u2081-\u2084\u2113\u2153\u2154\u215C-\u215E\u2194-\u2195\u223C\u249C-\u24B5\u24D0-\u24E9\u2592\u25A3-\u25A9\u25B6\u25B7\u25C0\u25C1\u25C8\u25D0\u25D1\u260E\u260F\u261C\u261E\u2660\u2661\u2663-\u2665\u2667-\u2669\u266C\u3131-\u318E\u3200-\u321C\u3260-\u327B\u3380-\u3384\u3388-\u338D\u3390-\u339B\u339F\u33A0\u33A2-\u33CA\u33CF\u33D0\u33D3\u33D6\u33D8\u33DB-\u33DD\uF900-\uF928\uF92A-\uF994\uF996-\uFA0B\uFFE6\uEF00-\uEF1F\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B])[^\x01-\x7E^\xA0]*?)<\/group>/g,
+    STRONG_MINCHO: /([\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B\u2588])/,
+    // ドット絵系によく使われる文字. 綺麗に見せるためにエフェクトを変えたい
+    BLOCK: /([\u2581-\u258F\u25E2-\u25E5]+)/g,
   };
 
 
@@ -4832,15 +4839,16 @@ body {
   pointer-events: none;
 }
 
-.gothic  {font-family:  Arial, 'ＭＳ Ｐゴシック'; }
+.default  {}
+.gothic  {font-family: 'ＭＳ Ｐゴシック'; }
 .mincho  {font-family: Simsun, monospace; }
 .gulim   {font-family: Gulim,  monospace; }
-.mingLiu {font-family: mingLiu,monospace; }
+.mingLiu {font-family: PmingLiu, mingLiu, monospace; }
 
   {*
   .ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
   .ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
-  .ue .mingLiu , .shita .mingLiu{font-family: mingLiu,monospace; }
+  .ue .mingLiu , .shita .mingLiu{font-family: PmingLiu, mingLiu, monospace; }
   *}
 
 .nicoChat {
@@ -4881,8 +4889,44 @@ body {
     .nicoChat .zen_space.type115A {
     }
 
+  .type2001 {
+  }
 
-.nicoChat .backslash {
+  .arial.type2001 {
+    font-family: Arial;}
+  }
+  {* フォント変化のあったグループの下にいるということは、
+     半角文字に挟まれていないはずである。
+   *}
+  .gothic > .type2001 {
+    font-family: 'ＭＳ Ｐゴシック';
+  }
+  .mincho > .type2001 {
+    font-family: Simsun;
+  }
+  .gulim > .type2001 {
+    font-family: Gulim;
+  }
+  .mingLiu > .type2001 {
+    font-family: PmingLiu, mingLiu;
+  }
+
+
+
+  {* 空白文字の幅をWindowsと同等にしたい。調査中  *}
+  .gothic > .type3000 {
+    font-family: monospace;
+    letter-spacing: -0.2976em;
+  }
+
+  .gothic > .type0020,
+  .type00A0 {
+    font-family: monospace;
+    letter-spacing: -0.17em;
+    {*letter-spacing: -0.1747em;*}
+  }
+
+.backslash {
   font-family: Arial;
 }
 
@@ -4891,7 +4935,7 @@ body {
 
 /**
  *  たぶんこんな感じ
- *  1. 全角文字(半角スペース含む)でグループ化
+ *  1. 全角文字(半角スペース<s>含む</s>含まない)でグループ化
  *  2. グループ内でフォント変化文字が1つある場合はグループ全体がそのフォント
  *  3. 二つ以上ある場合は、一番目がグループ内のベースフォント、
  *     二番目以降はそのフォントにチェンジ
@@ -4903,15 +4947,17 @@ body {
   NicoTextParser.likeXP = function(text) {
     var htmlText =
       ZenzaWatch.util.escapeHtml(text)
+        // 行末の半角スペース、全角スペース、タブの除去
         .replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
-        // 全角文字の連続をグループ化
-        .replace(/([^\x01-\x0A^\x0b-\x1f^\x21-\x7E^\xA0]+)/g, '<group>$1</group>')
+        // 半角文字グループ(改行以外)
+        .replace(/([\x01-\x09\x0B-\x7E\xA0]+)/g, '<han_group>$1</han_group>')
+        // 全角文字の連続をグループ化 要検証: \u2003は含む？
+        .replace(/([^\x01-\x7E^\xA0]+)/g, '<group>$1</group>')
         .replace(/([\u0020]+)/g,   '<span class="han_space type0020">$1</span>')
         .replace(/([\u00A0]+)/g,   '<span class="han_space type00A0">$1</span>')
-        .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
         .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
 
-      var hasFontChanged = false;
+      var hasFontChanged = false, strongFont = 'gothic';
       // フォント変化処理  XPをベースにしたい
       // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
       // 一文字ずつ走査してもさほど問題ないはず
@@ -4919,8 +4965,14 @@ body {
         htmlText.replace(NicoTextParser._FONT_REG.GR, function(all, group, firstChar) {
           hasFontChanged = true;
           var baseFont = '';
-          if (firstChar.match(NicoTextParser._FONT_REG.MINCHO)) {
+          if (firstChar.match(NicoTextParser._FONT_REG.GOTHIC)) {
+            baseFont = 'gothic';
+          } else if (firstChar.match(NicoTextParser._FONT_REG.MINCHO)) {
             baseFont = 'mincho';
+            if (firstChar.match(NicoTextParser._FONT_REG.STRONG_MINCHO)) {
+              strongFont = 'mincho';
+              baseFont = 'mincho';
+            }
           } else if (firstChar.match(NicoTextParser._FONT_REG.GULIM)) {
             baseFont = 'gulim';
           } else {
@@ -4930,14 +4982,21 @@ body {
           var tmp = [], closer = [], currentFont = baseFont;
           for (var i = 0, len = group.length; i < len; i++) {
             var c = group.charAt(i);
-            if (currentFont !== 'mincho' && c.match(NicoTextParser._FONT_REG.MINCHO)) {
+            if (currentFont !== 'gothic' && c.match(NicoTextParser._FONT_REG.GOTHIC)) {
+              tmp.push('<span class="gothic">');
+              closer.push('</span>');
+              currentFont = 'gothic';
+            } else if (currentFont !== 'mincho' && c.match(NicoTextParser._FONT_REG.MINCHO)) {
               tmp.push('<span class="mincho">');
               closer.push('</span>');
               currentFont = 'mincho';
+              if (c.match(NicoTextParser._FONT_REG.STRONG_MINCHO)) {
+                strongFont = 'mincho';
+                baseFont = 'mincho';
+              }
             } else if (currentFont !== 'gulim' && c.match(NicoTextParser._FONT_REG.GULIM)) {
               tmp.push('<span class="gulim">');
               closer.push('</span>');
-              currentFont = 'gulim';
             } else if (currentFont !== 'mingLiu' && c.match(NicoTextParser._FONT_REG.MING_LIU)) {
               tmp.push('<span class="mingLiu">');
               closer.push('</span>');
@@ -4947,7 +5006,7 @@ body {
           }
 
           var result = [
-            '<group class="', baseFont, '">',
+            '<group class="', baseFont, ' fontChanged">',
               tmp.join(''),
               closer.join(''),
             '</group>'
@@ -4958,6 +5017,7 @@ body {
 
       htmlText =
         htmlText
+          .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
           .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように
           .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
@@ -4968,29 +5028,39 @@ body {
         //http://www.nicovideo.jp/watch/1236260707 で見かける謎スペース。よくわからない
           .replace(/([\u115a]+)/g ,  '<span class="zen_space type115A">$1</span>')
         // 推奨空白文字
-          .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
+        // なんか前後の文字によって書体(幅)が変わるらしい。 隣接セレクタでどうにかなるか？
+        //  .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
         // 全角スペース
           .replace(/([\u3000]+)/g ,  '<span class="zen_space type3000">$1</span>')
         // バックスラッシュ
           .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
         // ゼロ幅文字. ゼロ幅だけどdisplay: none; にすると狂う
-          .replace(/([\u0323\u200b\u2029\u202a\u200c\u200b]+)/g ,
+          .replace(/([\u0323\u2029\u202a\u200b\u200c]+)/g ,
             '<span class="zero_space">$1</span>')
+        // &emsp;
+          .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
           .replace(/[\r\n]+$/g, '')
   //        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
           .replace(/[\n]/g, '<br>')
           ;
 
-      if (hasFontChanged) {
-        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
-          var baseFont = RegExp.$1;
-          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
-        }
-      }
+//      if (hasFontChanged) {
+//        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
+//          var baseFont = RegExp.$1;
+//          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
+//        }
+//      }
+    // \u2001だけのグループ＝全角文字に隣接してない ≒ 半角に挟まれている
+      htmlText.replace(/(.)<group>([\u2001]+)(<\/group>)(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
+
+      htmlText = htmlText.replace(/<group>/g, '<group class="' + strongFont + '">');
+
+
 
       return htmlText;
     };
 
+ZenzaWatch.NicoTextParser = NicoTextParser;
 
 
 
@@ -5483,14 +5553,14 @@ body {
       }
 
       var span = document.createElement('span');
-      span.style.className  = 'nicoChat';
+      span.className  = 'nicoChat';
 
       textField = {
         setText: function(text) {
           span.innerHTML = text;
         },
         setType: function(type) {
-          span.className = type;
+          span.className = 'nicoChat ' + type;
         },
         setFontSizePixel: function(pixel) {
           span.style.fontSize = pixel + 'px';
@@ -6119,6 +6189,7 @@ body {
       // 画面からはみ出すよりはマシだろうという判断
       if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + 8) {
         this._isOverflow = true;
+        this._y = 0;
         //this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
         this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
       }
@@ -6170,6 +6241,11 @@ body {
     _setText: function(text) {
 
       var htmlText = NicoTextParser.likeXP(text);
+//      if (this._nicoChat.getNo() === 626) {
+//        window.console.log(this._nicoChat);
+//        window.ttt = text;
+//        window.hhh = htmlText;
+//      }
 
       this._htmlText = htmlText;
       this._text = text;
@@ -6651,19 +6727,19 @@ body.saved {
 
 .nicoChat .type0655,
 .nicoChat .zero_space {
+  text-shadow: none;
   opacity: 0;
 }
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
+  text-shadow: none;
   opacity: 0;
-}
-
-.nicoChat .zen_space.type115a {
 }
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
+  text-shadow: none;
   color: yellow;
   background: #fff;
   opacity: 0.3;
@@ -6671,15 +6747,18 @@ body.saved {
 }
 
 .debug .nicoChat .tab_space {
+  text-shadow: none;
   background: #ff0;
   opacity: 0.3;
 }
 
 .nicoChat .invisible_code {
+  text-shadow: none;
   opacity: 0;
 }
 
 .nicoChat .zero_space {
+  text-shadow: none;
   opacity: 0;
 }
 
@@ -6691,6 +6770,10 @@ body.saved {
 .nicoChat .fill_space {
   text-shadow: none;
   background: currentColor;
+}
+
+.nicoChat .block_space {
+  text-shadow: none;
 }
 
 .debug .nicoChat.ue {
@@ -6795,7 +6878,7 @@ body.saved {
 
       console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 
-      this._initializeView(params);
+      this._initializeView(params, 0);
 
       var _refresh = _.bind(this.refresh, this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
@@ -6812,9 +6895,11 @@ body.saved {
 
       ZenzaWatch.debug.css3Player = this;
     },
-    _initializeView: function(params) {
+    _initializeView: function(params, retryCount) {
 
-      window.console.time('initialize NicoCommentCss3PlayerView');
+      if (retryCount === 0) {
+        window.console.time('initialize NicoCommentCss3PlayerView');
+      }
       this._style = null;
       this._commentLayer = null;
       this._view = null;
@@ -6830,10 +6915,23 @@ body.saved {
 
       var self = this;
       iframe.onload = function() {
-        var win = iframe.contentWindow;
-        var doc = iframe.contentWindow.document;
+        var win, doc;
+        try {
+          win = iframe.contentWindow;
+          doc = iframe.contentWindow.document;
+        } catch (e) {
+          window.console.error(e);
+          window.console.log('変な広告に乗っ取られました');
+          iframe.onload = null;
+          if (retryCount < 3) {
+            self._initializeView(params, retryCount + 1);
+          } else {
+            PopupMessage.alert('コメントレイヤーの生成に失敗');
+          }
+          return;
+        }
 
-        self._style        = doc.getElementById('nicoChatAnimationDefinition');
+        self._style      = doc.getElementById('nicoChatAnimationDefinition');
         var commentLayer = self._commentLayer = doc.getElementById('commentLayer');
 
         // Config直接参照してるのは手抜き
@@ -7201,7 +7299,7 @@ body.saved {
       var speed = chat.getSpeed();
       var delay = (beginL - currentTime) / playbackRate;
       // 本家は「古いコメントほど薄くなる」という仕様だが、特に再現するメリットもなさそうなので
-      var opacity = chat.isOverflow() ? 0.8 : 1;
+      var opacity = 1; //chat.isOverflow() ? 0.8 : 1;
       //var zid = parseInt(id.substr('4'), 10);
       //var zIndex = 10000 - (zid % 5000);
       var zIndex = beginL * 1000;

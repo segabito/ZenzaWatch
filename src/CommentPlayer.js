@@ -502,14 +502,14 @@ var NicoTextParser = {};
       }
 
       var span = document.createElement('span');
-      span.style.className  = 'nicoChat';
+      span.className  = 'nicoChat';
 
       textField = {
         setText: function(text) {
           span.innerHTML = text;
         },
         setType: function(type) {
-          span.className = type;
+          span.className = 'nicoChat ' + type;
         },
         setFontSizePixel: function(pixel) {
           span.style.fontSize = pixel + 'px';
@@ -1138,6 +1138,7 @@ var NicoTextParser = {};
       // 画面からはみ出すよりはマシだろうという判断
       if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + 8) {
         this._isOverflow = true;
+        this._y = 0;
         //this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
         this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
       }
@@ -1189,6 +1190,11 @@ var NicoTextParser = {};
     _setText: function(text) {
 
       var htmlText = NicoTextParser.likeXP(text);
+//      if (this._nicoChat.getNo() === 626) {
+//        window.console.log(this._nicoChat);
+//        window.ttt = text;
+//        window.hhh = htmlText;
+//      }
 
       this._htmlText = htmlText;
       this._text = text;
@@ -1670,19 +1676,19 @@ body.saved {
 
 .nicoChat .type0655,
 .nicoChat .zero_space {
+  text-shadow: none;
   opacity: 0;
 }
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
+  text-shadow: none;
   opacity: 0;
-}
-
-.nicoChat .zen_space.type115a {
 }
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
+  text-shadow: none;
   color: yellow;
   background: #fff;
   opacity: 0.3;
@@ -1690,15 +1696,18 @@ body.saved {
 }
 
 .debug .nicoChat .tab_space {
+  text-shadow: none;
   background: #ff0;
   opacity: 0.3;
 }
 
 .nicoChat .invisible_code {
+  text-shadow: none;
   opacity: 0;
 }
 
 .nicoChat .zero_space {
+  text-shadow: none;
   opacity: 0;
 }
 
@@ -1710,6 +1719,10 @@ body.saved {
 .nicoChat .fill_space {
   text-shadow: none;
   background: currentColor;
+}
+
+.nicoChat .block_space {
+  text-shadow: none;
 }
 
 .debug .nicoChat.ue {
@@ -1814,7 +1827,7 @@ body.saved {
 
       console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 
-      this._initializeView(params);
+      this._initializeView(params, 0);
 
       var _refresh = _.bind(this.refresh, this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
@@ -1831,9 +1844,11 @@ body.saved {
 
       ZenzaWatch.debug.css3Player = this;
     },
-    _initializeView: function(params) {
+    _initializeView: function(params, retryCount) {
 
-      window.console.time('initialize NicoCommentCss3PlayerView');
+      if (retryCount === 0) {
+        window.console.time('initialize NicoCommentCss3PlayerView');
+      }
       this._style = null;
       this._commentLayer = null;
       this._view = null;
@@ -1849,10 +1864,23 @@ body.saved {
 
       var self = this;
       iframe.onload = function() {
-        var win = iframe.contentWindow;
-        var doc = iframe.contentWindow.document;
+        var win, doc;
+        try {
+          win = iframe.contentWindow;
+          doc = iframe.contentWindow.document;
+        } catch (e) {
+          window.console.error(e);
+          window.console.log('変な広告に乗っ取られました');
+          iframe.onload = null;
+          if (retryCount < 3) {
+            self._initializeView(params, retryCount + 1);
+          } else {
+            PopupMessage.alert('コメントレイヤーの生成に失敗');
+          }
+          return;
+        }
 
-        self._style        = doc.getElementById('nicoChatAnimationDefinition');
+        self._style      = doc.getElementById('nicoChatAnimationDefinition');
         var commentLayer = self._commentLayer = doc.getElementById('commentLayer');
 
         // Config直接参照してるのは手抜き
@@ -2220,7 +2248,7 @@ body.saved {
       var speed = chat.getSpeed();
       var delay = (beginL - currentTime) / playbackRate;
       // 本家は「古いコメントほど薄くなる」という仕様だが、特に再現するメリットもなさそうなので
-      var opacity = chat.isOverflow() ? 0.8 : 1;
+      var opacity = 1; //chat.isOverflow() ? 0.8 : 1;
       //var zid = parseInt(id.substr('4'), 10);
       //var zIndex = 10000 - (zid % 5000);
       var zIndex = beginL * 1000;
