@@ -6,4 +6,4 @@ setting.json
 ./test.js
 ZenzaWatch.user\ *.js
 .DS_Store
-
+*.lnk

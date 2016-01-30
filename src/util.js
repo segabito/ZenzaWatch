@@ -201,7 +201,7 @@ var console;
       };
       var config = {};
 
-      Object.keys(defaultConfig).forEach(function(key) {
+      _.each(Object.keys(defaultConfig), function(key) {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
@@ -440,7 +440,7 @@ var console;
 
     var parseQuery = function(query) {
       var result = {};
-      query.split('&').forEach(function(item) {
+      _.each(query.split('&'), function(item) {
         var sp = item.split('=');
         var key = sp[0];
         var val = decodeURIComponent(sp.slice(1).join('='));

@@ -95,16 +95,12 @@ var NicoTextParser = {};
     _onCommentParsed: function() {
       this.emit('parsed');
     },
-    getCss3PlayerHtml: function() {
-      console.log('createCss3PlayerHtml...');
-
-      if (this._view) {
-        return this._view.toString();
+    getMymemory: function() {
+      if (!this._view) {
+        this._view = new NicoCommentCss3PlayerView({
+          viewModel: this._viewModel
+        });
       }
-
-      this._view = new NicoCommentCss3PlayerView({
-        viewModel: this._viewModel
-      });
       return this._view.toString();
     },
     setCurrentTime: function(sec) {
@@ -878,7 +874,7 @@ var NicoTextParser = {};
 
     dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
-    Object.keys(options).forEach(function(v) {
+    _.each(Object.keys(options), function(v) {
       dom.setAttribute(v, options[v]);
     });
     //console.log('NicoChat.create', dom);
@@ -1607,7 +1603,7 @@ var NicoTextParser = {};
 <style type="text/css">
 
 
-body.saved {
+.saved body {
   pointer-events: auto;
 }
 
@@ -2122,14 +2118,24 @@ body.saved {
         this._viewModel.getGroup(NicoChat.TYPE.TOP)
       ];
 
-      var css = [], html = [];
+      var members = [];
       for(var i = 0; i < groups.length; i++) {
         var group = groups[i];
-        html.push(this._buildGroupHtml(group, currentTime));
-        css .push(this._buildGroupCss(group, currentTime));
+        members = members.concat(group.getMembers());
       }
 
-      var tpl = NicoCommentCss3PlayerView.__TPL__;
+      members.sort(function(a, b) {
+        var av = a.getVpos(), bv = b.getVpos();
+        if (av !== bv) { return av - bv; }
+        else { return a.getNo() < b.getNo() ? -1 : 1; }
+      });
+
+      var css = [], html = [];
+      html.push(this._buildGroupHtml(members, currentTime));
+      css .push(this._buildGroupCss(members, currentTime));
+
+      var tpl = NicoCommentCss3PlayerView.__TPL__
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
 
       tpl = tpl.replace('%CSS%', css.join(''));
       tpl = tpl.replace('%MSG%', html.join(''));
@@ -2138,22 +2144,22 @@ body.saved {
       return tpl;
     },
 
-    _buildGroupHtml: function(group/*, currentTime*/) {
-      var m = group.getMembers();
-      var type = group.getType();
+    _buildGroupHtml: function(m) {
       var result = [];
+
       for(var i = 0, len = m.length; i < len; i++) {
         var chat = m[i];
+        var type = chat.getType();
         result.push(this._buildChatHtml(chat, type /*, currentTime */));
       }
       return result.join('\n');
     },
-    _buildGroupCss: function(group, currentTime) {
-      var m = group.getMembers();
-      var type = group.getType();
+    _buildGroupCss: function(m, currentTime) {
       var result = [];
+
       for(var i = 0, len = m.length; i < len; i++) {
         var chat = m[i];
+        var type = chat.getType();
         result.push(this._buildChatCss(chat, type, currentTime));
       }
       return result.join('\n');
@@ -2187,8 +2193,6 @@ body.saved {
       if (chat.isPostFail()) {
         className.push('fail');
       }
-
-
 
       span.className = className.join(' ');
       span.id = chat.getId();
@@ -2306,7 +2310,7 @@ body.saved {
 //          '  height:', height, 'px;\n',
           scaleCss,
           '  animation-name: fixed', id, ';\n',
-          '  animation-duration: ', duration, 's;\n',
+          '  animation-duration: ', duration / 0.9, 's;\n',
           '  animation-delay: ', delay, 's;\n',
           ' }\n',
           '\n\n'];
@@ -2339,7 +2343,8 @@ body.saved {
      * ニコニコ動画のプレイヤーのようにコメントが流れる。 ふしぎ！
      */
     toString: function() {
-      return this.buildHtml(0).replace('<body>', '<body class="saved">');
+      return this.buildHtml(0)
+        .replace('<html', '<html class="saved"');
     }
   });
 

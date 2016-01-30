@@ -93,7 +93,11 @@ function watch(srcDir) {
   var fs = require('fs');
   fs.watch(srcDir, function(event, filename) {
     console.log('\n\n\n', event, filename);
-    build();
+    try {
+      build();
+    } catch(e) {
+      console.log(e);
+    }
   });
 }
 

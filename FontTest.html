@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>FontTest</title>
+<style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js"></script>
+<style type="text/css">
+#fontTest { font-size: 24px; white-space: pre; }
+.arial   { font-family: Arial;             background: red;   display: inline-block;}
+.gothic  { font-family: 'ＭＳ Ｐゴシック'; background: blue;  display: inline-block;}
+.mono    { font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;         background: green; display: inline-block;}
+
+.mono.type9    { /*letter-spacing: -0.2223em;*/ }
+.mono.type20   { letter-spacing: -0.2223em; }
+.mono.type2001 { letter-spacing: 0; }
+.mono.type3000 { letter-spacing: -0.33595em; }
+.mono.typeA0   { letter-spacing: -0.2223em; }
+.mono.typeE800 { letter-spacing: -0.25em; }
+
+</style>
+<body>
+	<div id="fontTest">
+	</div>
+<script type="text/javascript">
+var textList = [
+	String.fromCharCode(0x09),   // tab
+	String.fromCharCode(0x20),
+	String.fromCharCode(0x2001),
+	String.fromCharCode(0x2003),
+	String.fromCharCode(0x3000),
+	String.fromCharCode(0x00A0),
+	String.fromCharCode(0xE800),
+	'#',
+	'lw',
+	'w',
+	'ｗ'
+	];
+	var tmp = [];
+	textList.forEach(function(text) {
+		var c = text.charCodeAt(0).toString(16).toUpperCase();
+		while(text.length < 16) { text = text + text; }
+		tmp.push([
+				'code: U+', c, '<br>',
+				'<span class="arial  type', c, '">',   text, '<', '/span>', '<br>',
+				'<span class="gothic type', c, '">',   text, '<', '/span>', '<br>',
+				'<span class="mono   type', c, '">',   text, '<', '/span>',
+				'<hr>',
+		''].join(''));
+	});
+
+	document.getElementById('fontTest').innerHTML = tmp.join('\n');
+
+	var divs = document.querySelectorAll('#fontTest > span');
+	_.each(divs, function(div) {
+		window.console.log(div.className, div.offsetWidth, div.offsetWidth / 16);
+	});
+</script>
+<div style="font-family: Osaka-mono, 'Osaka-等幅', 'ＭＳ ゴシック', monospace; white-space: pre; font-size:16px;">
+aaaaaaaaaaaaaaaaaa
+bbbbbbbbbbbbbbbbbb
+cccccccccccccccccc
+dddddddddddddddddd
+wwwwwwwwwwwwwwwwww
+iiiiiiiiiiiiiiiiii
+gggggggggggggggggg
+</div>
+</body>
+</html>
+

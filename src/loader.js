@@ -72,7 +72,7 @@ var isSameOrigin = function() {};
         },
         clear: function() {
           var storage = this._storage;
-          Object.keys(storage).forEach(function(v) {
+          _.each(Object.keys(storage), function(v) {
             if (v.indexOf(PREFIX) === 0) {
               window.console.log('remove item', v, storage[v]);
               storage.removeItem(v);

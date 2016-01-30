@@ -510,7 +510,7 @@ var VideoInfoModel = function() {};
         }
       }, this));
       this._commentInput.on('blur', _.bind(function(isAutoPause) {
-        if (isAutoPause && isPlaying) {
+        if (isAutoPause && isPlaying && this._isOpen) {
           this._nicoVideoPlayer.play();
         }
       }, this));
@@ -1019,6 +1019,7 @@ var VideoInfoModel = function() {};
         this._videoInfo = new VideoInfoModel(videoInfo);
         this._nicoVideoPlayer.setThumbnail(videoInfo.thumbnail);
         this._nicoVideoPlayer.setVideo(videoUrl);
+        this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
 
         this._threadId = flvInfo.thread_id;
 
@@ -1235,11 +1236,14 @@ var VideoInfoModel = function() {};
       };
 
       var options = this._videoWatchOptions || {};
-      Object.keys(options).forEach(function(key) {
+      _.each(Object.keys(options), function(key) {
         session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
       });
 
       return session;
+    },
+    getMymemory: function() {
+      return this._nicoVideoPlayer.getMymemory();
     }
   });
 
@@ -2573,7 +2577,7 @@ var VideoInfoModel = function() {};
         self.emit('command', command, value);
       });
 
-      Object.keys(map).forEach(function(v) {
+      _.each(Object.keys(map), function(v) {
         var value = config.getValue(v) || [];
         value = typeof value === 'string' ? value : value.join('\n');
         map[v].val(value);

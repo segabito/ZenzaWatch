@@ -353,6 +353,15 @@ var NicoCommentPlayer = function() {};
     },
     setCommandFilterList: function(list) {
       this._commentPlayer.setCommandFilterList(list);
+    },
+    setVideoInfo: function(info) {
+      this._videoInfo = info;
+    },
+    getVideoInfo: function() {
+      return this._videoInfo;
+    },
+    getMymemory: function() {
+      return this._commentPlayer.getMymemory();
     }
   });
 
@@ -570,6 +579,7 @@ var NicoCommentPlayer = function() {};
           -->
           <hr class="separator">
           <li class="debug"        data-command="debug">デバッグ</li>
+          <li class="mymemory"     data-command="mymemory">コメントの保存</a></li>
         </ul>
       </div>
     </div>
@@ -590,7 +600,7 @@ var NicoCommentPlayer = function() {};
       $view.on('click', _.bind(this._onMouseDown, this));
     },
     _onMouseDown: function(e) {
-      var target = e.target, $target = $(target);
+      var target = e.target, $target = $(target.closest('li'));
       var command = $target.attr('data-command');
       var param = $target.attr('data-param');
       this.hide();
@@ -616,6 +626,9 @@ var NicoCommentPlayer = function() {};
           break;
         case 'playbackRate':
           playerConfig.setValue('playbackRate', parseFloat(param, 10));
+          break;
+        case 'mymemory':
+          this._createMymemory();
           break;
       }
     },
@@ -661,6 +674,34 @@ var NicoCommentPlayer = function() {};
     hide: function() {
       $('body').off('click.ZenzaMenuOnBodyClick', this._onBodyClick);
       this._$view.css({top: '', left: ''}).removeClass('show');
+    },
+    _createMymemory: function() {
+      var html = this._player.getMymemory();
+      var videoInfo = this._player.getVideoInfo();
+      var title =
+        videoInfo.getWatchId() + ' - ' +
+        videoInfo.getTitle(); // エスケープされてる
+      var info = [
+        '<div>',
+          '<h2>', videoInfo.getTitle(), '</h2>',
+          '<a href="http://www.nicovideo.jp/watch/', videoInfo.getWatchId(), '?from=', Math.floor(this._player.getCurrentTime()),'">元動画</a><br>',
+          '作成環境: ', navigator.userAgent, '<br>',
+          '作成日: ', (new Date).toLocaleString(), '<br>',
+          '<button ',
+          '  onclick="document.body.className = document.body.className !== \'debug\' ? \'debug\' : \'\';return false;">デバッグON/OFF </button>',
+        '</div>'
+      ].join('');
+      html = html
+        .replace(/<title>(.*?)<\/title>/, '<title>' + title + '</title>')
+        .replace(/(<body.*?>)/, '$1' + info);
+
+      var blob = new Blob([html], { 'type': 'text/html' });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.setAttribute('download', title + '.html');
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      a.dispatchEvent(new CustomEvent('click'));
     }
   });
 

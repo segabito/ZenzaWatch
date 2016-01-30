@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.9.6
+// @version        0.9.8
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -233,7 +233,7 @@ var monkey = function() {
       };
       var config = {};
 
-      Object.keys(defaultConfig).forEach(function(key) {
+      _.each(Object.keys(defaultConfig), function(key) {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
@@ -472,7 +472,7 @@ var monkey = function() {
 
     var parseQuery = function(query) {
       var result = {};
-      query.split('&').forEach(function(item) {
+      _.each(query.split('&'), function(item) {
         var sp = item.split('=');
         var key = sp[0];
         var val = decodeURIComponent(sp.slice(1).join('='));
@@ -1090,7 +1090,7 @@ var monkey = function() {
         },
         clear: function() {
           var storage = this._storage;
-          Object.keys(storage).forEach(function(v) {
+          _.each(Object.keys(storage), function(v) {
             if (v.indexOf(PREFIX) === 0) {
               window.console.log('remove item', v, storage[v]);
               storage.removeItem(v);
@@ -2338,6 +2338,15 @@ var monkey = function() {
     },
     setCommandFilterList: function(list) {
       this._commentPlayer.setCommandFilterList(list);
+    },
+    setVideoInfo: function(info) {
+      this._videoInfo = info;
+    },
+    getVideoInfo: function() {
+      return this._videoInfo;
+    },
+    getMymemory: function() {
+      return this._commentPlayer.getMymemory();
     }
   });
 
@@ -2555,6 +2564,7 @@ var monkey = function() {
           -->
           <hr class="separator">
           <li class="debug"        data-command="debug">デバッグ</li>
+          <li class="mymemory"     data-command="mymemory">コメントの保存</a></li>
         </ul>
       </div>
     </div>
@@ -2575,7 +2585,7 @@ var monkey = function() {
       $view.on('click', _.bind(this._onMouseDown, this));
     },
     _onMouseDown: function(e) {
-      var target = e.target, $target = $(target);
+      var target = e.target, $target = $(target.closest('li'));
       var command = $target.attr('data-command');
       var param = $target.attr('data-param');
       this.hide();
@@ -2601,6 +2611,9 @@ var monkey = function() {
           break;
         case 'playbackRate':
           playerConfig.setValue('playbackRate', parseFloat(param, 10));
+          break;
+        case 'mymemory':
+          this._createMymemory();
           break;
       }
     },
@@ -2646,6 +2659,34 @@ var monkey = function() {
     hide: function() {
       $('body').off('click.ZenzaMenuOnBodyClick', this._onBodyClick);
       this._$view.css({top: '', left: ''}).removeClass('show');
+    },
+    _createMymemory: function() {
+      var html = this._player.getMymemory();
+      var videoInfo = this._player.getVideoInfo();
+      var title =
+        videoInfo.getWatchId() + ' - ' +
+        videoInfo.getTitle(); // エスケープされてる
+      var info = [
+        '<div>',
+          '<h2>', videoInfo.getTitle(), '</h2>',
+          '<a href="http://www.nicovideo.jp/watch/', videoInfo.getWatchId(), '?from=', Math.floor(this._player.getCurrentTime()),'">元動画</a><br>',
+          '作成環境: ', navigator.userAgent, '<br>',
+          '作成日: ', (new Date).toLocaleString(), '<br>',
+          '<button ',
+          '  onclick="document.body.className = document.body.className !== \'debug\' ? \'debug\' : \'\';return false;">デバッグON/OFF </button>',
+        '</div>'
+      ].join('');
+      html = html
+        .replace(/<title>(.*?)<\/title>/, '<title>' + title + '</title>')
+        .replace(/(<body.*?>)/, '$1' + info);
+
+      var blob = new Blob([html], { 'type': 'text/html' });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.setAttribute('download', title + '.html');
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      a.dispatchEvent(new CustomEvent('click'));
     }
   });
 
@@ -4841,9 +4882,10 @@ body {
 
 .default  {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック'; }
-.mincho  {font-family: Simsun, monospace; }
-.gulim   {font-family: Gulim,  monospace; }
-.mingLiu {font-family: PmingLiu, mingLiu, monospace; }
+.mincho  {font-family: Simsun, Osaka-mono, 'ＭＳ ゴシック', monospace; }
+.gulim   {font-family: Gulim,  Osaka-mono, 'ＭＳ ゴシック', monospace; }
+.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ ゴシック', monospace; }
+.han_group { font-family: Arial; }
 
   {*
   .ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
@@ -4898,32 +4940,37 @@ body {
   {* フォント変化のあったグループの下にいるということは、
      半角文字に挟まれていないはずである。
    *}
-  .gothic > .type2001 {
-    font-family: 'ＭＳ Ｐゴシック';
-  }
-  .mincho > .type2001 {
-    font-family: Simsun;
-  }
-  .gulim > .type2001 {
-    font-family: Gulim;
-  }
-  .mingLiu > .type2001 {
-    font-family: PmingLiu, mingLiu;
-  }
+  
+    .gothic > .type2001 {
+      font-family: 'ＭＳ Ｐゴシック';
+    }
+    .mincho > .type2001 {
+      font-family: Simsun;
+    }
+    .gulim > .type2001 {
+      font-family: Gulim;
+    }
+    .mingLiu > .type2001 {
+      font-family: PmingLiu, mingLiu;
+    }
+  
 
 
 
-  {* 空白文字の幅をWindowsと同等にしたい。調査中  *}
+  {*
+    空白文字の幅をWindowsと同等にしたい。調査中
+    等幅フォントを縮めることで環境差異のない幅を確保するという狙いだが・・・。
+  *}
+
   .gothic > .type3000 {
-    font-family: monospace;
-    letter-spacing: -0.2976em;
+    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
+    letter-spacing: -0.33595em;
   }
-
-  .gothic > .type0020,
+  
+  {*.type0020,*}
   .type00A0 {
-    font-family: monospace;
-    letter-spacing: -0.17em;
-    {*letter-spacing: -0.1747em;*}
+    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
+    letter-spacing: -0.2223em;
   }
 
 .backslash {
@@ -4971,12 +5018,11 @@ body {
             baseFont = 'mincho';
             if (firstChar.match(NicoTextParser._FONT_REG.STRONG_MINCHO)) {
               strongFont = 'mincho';
-              baseFont = 'mincho';
             }
           } else if (firstChar.match(NicoTextParser._FONT_REG.GULIM)) {
-            baseFont = 'gulim';
+            strongFont = baseFont = 'gulim';
           } else {
-            baseFont = 'mingLiu';
+            strongFont = baseFont = 'mingLiu';
           }
 
           var tmp = [], closer = [], currentFont = baseFont;
@@ -4991,16 +5037,16 @@ body {
               closer.push('</span>');
               currentFont = 'mincho';
               if (c.match(NicoTextParser._FONT_REG.STRONG_MINCHO)) {
-                strongFont = 'mincho';
-                baseFont = 'mincho';
+                strongFont = baseFont = 'mincho';
               }
             } else if (currentFont !== 'gulim' && c.match(NicoTextParser._FONT_REG.GULIM)) {
               tmp.push('<span class="gulim">');
               closer.push('</span>');
+              currentFont = strongFont = baseFont = 'gulim';
             } else if (currentFont !== 'mingLiu' && c.match(NicoTextParser._FONT_REG.MING_LIU)) {
               tmp.push('<span class="mingLiu">');
               closer.push('</span>');
-              currentFont = 'mingLiu';
+              currentFont = strongFont = baseFont = 'mingLiu';
             }
             tmp.push(c);
           }
@@ -5146,16 +5192,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     _onCommentParsed: function() {
       this.emit('parsed');
     },
-    getCss3PlayerHtml: function() {
-      console.log('createCss3PlayerHtml...');
-
-      if (this._view) {
-        return this._view.toString();
+    getMymemory: function() {
+      if (!this._view) {
+        this._view = new NicoCommentCss3PlayerView({
+          viewModel: this._viewModel
+        });
       }
-
-      this._view = new NicoCommentCss3PlayerView({
-        viewModel: this._viewModel
-      });
       return this._view.toString();
     },
     setCurrentTime: function(sec) {
@@ -5929,7 +5971,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
-    Object.keys(options).forEach(function(v) {
+    _.each(Object.keys(options), function(v) {
       dom.setAttribute(v, options[v]);
     });
     //console.log('NicoChat.create', dom);
@@ -6658,7 +6700,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 <style type="text/css">
 
 
-body.saved {
+.saved body {
   pointer-events: auto;
 }
 
@@ -7173,14 +7215,24 @@ body.saved {
         this._viewModel.getGroup(NicoChat.TYPE.TOP)
       ];
 
-      var css = [], html = [];
+      var members = [];
       for(var i = 0; i < groups.length; i++) {
         var group = groups[i];
-        html.push(this._buildGroupHtml(group, currentTime));
-        css .push(this._buildGroupCss(group, currentTime));
+        members = members.concat(group.getMembers());
       }
 
-      var tpl = NicoCommentCss3PlayerView.__TPL__;
+      members.sort(function(a, b) {
+        var av = a.getVpos(), bv = b.getVpos();
+        if (av !== bv) { return av - bv; }
+        else { return a.getNo() < b.getNo() ? -1 : 1; }
+      });
+
+      var css = [], html = [];
+      html.push(this._buildGroupHtml(members, currentTime));
+      css .push(this._buildGroupCss(members, currentTime));
+
+      var tpl = NicoCommentCss3PlayerView.__TPL__
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
 
       tpl = tpl.replace('%CSS%', css.join(''));
       tpl = tpl.replace('%MSG%', html.join(''));
@@ -7189,22 +7241,22 @@ body.saved {
       return tpl;
     },
 
-    _buildGroupHtml: function(group/*, currentTime*/) {
-      var m = group.getMembers();
-      var type = group.getType();
+    _buildGroupHtml: function(m) {
       var result = [];
+
       for(var i = 0, len = m.length; i < len; i++) {
         var chat = m[i];
+        var type = chat.getType();
         result.push(this._buildChatHtml(chat, type /*, currentTime */));
       }
       return result.join('\n');
     },
-    _buildGroupCss: function(group, currentTime) {
-      var m = group.getMembers();
-      var type = group.getType();
+    _buildGroupCss: function(m, currentTime) {
       var result = [];
+
       for(var i = 0, len = m.length; i < len; i++) {
         var chat = m[i];
+        var type = chat.getType();
         result.push(this._buildChatCss(chat, type, currentTime));
       }
       return result.join('\n');
@@ -7238,8 +7290,6 @@ body.saved {
       if (chat.isPostFail()) {
         className.push('fail');
       }
-
-
 
       span.className = className.join(' ');
       span.id = chat.getId();
@@ -7357,7 +7407,7 @@ body.saved {
 //          '  height:', height, 'px;\n',
           scaleCss,
           '  animation-name: fixed', id, ';\n',
-          '  animation-duration: ', duration, 's;\n',
+          '  animation-duration: ', duration / 0.9, 's;\n',
           '  animation-delay: ', delay, 's;\n',
           ' }\n',
           '\n\n'];
@@ -7390,7 +7440,8 @@ body.saved {
      * ニコニコ動画のプレイヤーのようにコメントが流れる。 ふしぎ！
      */
     toString: function() {
-      return this.buildHtml(0).replace('<body>', '<body class="saved">');
+      return this.buildHtml(0)
+        .replace('<html', '<html class="saved"');
     }
   });
 
@@ -8134,7 +8185,7 @@ body.saved {
         }
       }, this));
       this._commentInput.on('blur', _.bind(function(isAutoPause) {
-        if (isAutoPause && isPlaying) {
+        if (isAutoPause && isPlaying && this._isOpen) {
           this._nicoVideoPlayer.play();
         }
       }, this));
@@ -8643,6 +8694,7 @@ body.saved {
         this._videoInfo = new VideoInfoModel(videoInfo);
         this._nicoVideoPlayer.setThumbnail(videoInfo.thumbnail);
         this._nicoVideoPlayer.setVideo(videoUrl);
+        this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
 
         this._threadId = flvInfo.thread_id;
 
@@ -8859,11 +8911,14 @@ body.saved {
       };
 
       var options = this._videoWatchOptions || {};
-      Object.keys(options).forEach(function(key) {
+      _.each(Object.keys(options), function(key) {
         session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
       });
 
       return session;
+    },
+    getMymemory: function() {
+      return this._nicoVideoPlayer.getMymemory();
     }
   });
 
@@ -10197,7 +10252,7 @@ body.saved {
         self.emit('command', command, value);
       });
 
-      Object.keys(map).forEach(function(v) {
+      _.each(Object.keys(map), function(v) {
         var value = config.getValue(v) || [];
         value = typeof value === 'string' ? value : value.join('\n');
         map[v].val(value);

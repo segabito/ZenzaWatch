@@ -56,9 +56,10 @@ body {
 
 .default  {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック'; }
-.mincho  {font-family: Simsun, monospace; }
-.gulim   {font-family: Gulim,  monospace; }
-.mingLiu {font-family: PmingLiu, mingLiu, monospace; }
+.mincho  {font-family: Simsun, Osaka-mono, 'ＭＳ ゴシック', monospace; }
+.gulim   {font-family: Gulim,  Osaka-mono, 'ＭＳ ゴシック', monospace; }
+.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ ゴシック', monospace; }
+.han_group { font-family: Arial; }
 
   {*
   .ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
@@ -113,32 +114,37 @@ body {
   {* フォント変化のあったグループの下にいるということは、
      半角文字に挟まれていないはずである。
    *}
-  .gothic > .type2001 {
-    font-family: 'ＭＳ Ｐゴシック';
-  }
-  .mincho > .type2001 {
-    font-family: Simsun;
-  }
-  .gulim > .type2001 {
-    font-family: Gulim;
-  }
-  .mingLiu > .type2001 {
-    font-family: PmingLiu, mingLiu;
-  }
+  
+    .gothic > .type2001 {
+      font-family: 'ＭＳ Ｐゴシック';
+    }
+    .mincho > .type2001 {
+      font-family: Simsun;
+    }
+    .gulim > .type2001 {
+      font-family: Gulim;
+    }
+    .mingLiu > .type2001 {
+      font-family: PmingLiu, mingLiu;
+    }
+  
 
 
 
-  {* 空白文字の幅をWindowsと同等にしたい。調査中  *}
+  {*
+    空白文字の幅をWindowsと同等にしたい。調査中
+    等幅フォントを縮めることで環境差異のない幅を確保するという狙いだが・・・。
+  *}
+
   .gothic > .type3000 {
-    font-family: monospace;
-    letter-spacing: -0.2976em;
+    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
+    letter-spacing: -0.33595em;
   }
-
-  .gothic > .type0020,
+  
+  {*.type0020,*}
   .type00A0 {
-    font-family: monospace;
-    letter-spacing: -0.17em;
-    {*letter-spacing: -0.1747em;*}
+    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
+    letter-spacing: -0.2223em;
   }
 
 .backslash {
@@ -186,12 +192,11 @@ body {
             baseFont = 'mincho';
             if (firstChar.match(NicoTextParser._FONT_REG.STRONG_MINCHO)) {
               strongFont = 'mincho';
-              baseFont = 'mincho';
             }
           } else if (firstChar.match(NicoTextParser._FONT_REG.GULIM)) {
-            baseFont = 'gulim';
+            strongFont = baseFont = 'gulim';
           } else {
-            baseFont = 'mingLiu';
+            strongFont = baseFont = 'mingLiu';
           }
 
           var tmp = [], closer = [], currentFont = baseFont;
@@ -206,16 +211,16 @@ body {
               closer.push('</span>');
               currentFont = 'mincho';
               if (c.match(NicoTextParser._FONT_REG.STRONG_MINCHO)) {
-                strongFont = 'mincho';
-                baseFont = 'mincho';
+                strongFont = baseFont = 'mincho';
               }
             } else if (currentFont !== 'gulim' && c.match(NicoTextParser._FONT_REG.GULIM)) {
               tmp.push('<span class="gulim">');
               closer.push('</span>');
+              currentFont = strongFont = baseFont = 'gulim';
             } else if (currentFont !== 'mingLiu' && c.match(NicoTextParser._FONT_REG.MING_LIU)) {
               tmp.push('<span class="mingLiu">');
               closer.push('</span>');
-              currentFont = 'mingLiu';
+              currentFont = strongFont = baseFont = 'mingLiu';
             }
             tmp.push(c);
           }
