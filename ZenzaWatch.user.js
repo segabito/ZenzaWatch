@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.0
+// @version        0.10.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -7849,6 +7849,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
+      this._$window = $(w);
       var $body = this._$body = $(doc.body);
       var $list = this._$list = $(doc.getElementById('listContainer'));
       if (this._html) {
@@ -7958,11 +7959,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$body.toggleClass(className, v);
     },
     scrollTop: function(v) {
-      if (!this._$body) { return 0; }
+      if (!this._$window) { return 0; }
       if (typeof v === 'number') {
-        this._$body.scrollTop(v);
+        this._$window.scrollTop(v);
       } else {
-        return this._$body.scrollTop();
+        return this._$window.scrollTop();
       }
     },
     scrollToItem: function(watchId) {

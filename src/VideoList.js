@@ -120,6 +120,7 @@ var PopupMessage = {};
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
+      this._$window = $(w);
       var $body = this._$body = $(doc.body);
       var $list = this._$list = $(doc.getElementById('listContainer'));
       if (this._html) {
@@ -229,11 +230,11 @@ var PopupMessage = {};
       this._$body.toggleClass(className, v);
     },
     scrollTop: function(v) {
-      if (!this._$body) { return 0; }
+      if (!this._$window) { return 0; }
       if (typeof v === 'number') {
-        this._$body.scrollTop(v);
+        this._$window.scrollTop(v);
       } else {
-        return this._$body.scrollTop();
+        return this._$window.scrollTop();
       }
     },
     scrollToItem: function(watchId) {
