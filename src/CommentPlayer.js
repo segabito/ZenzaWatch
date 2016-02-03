@@ -1861,13 +1861,16 @@ var NicoTextParser = {};
       var self = this;
       iframe.onload = function() {
         var win, doc;
+        iframe.onload = null;
         try {
           win = iframe.contentWindow;
           doc = iframe.contentWindow.document;
         } catch (e) {
           window.console.error(e);
           window.console.log('変な広告に乗っ取られました');
-          iframe.onload = null;
+          iframe.remove();
+          this._view = null;
+          ZenzaWatch.debug.commentLayer = null;
           if (retryCount < 3) {
             self._initializeView(params, retryCount + 1);
           } else {
@@ -1885,18 +1888,28 @@ var NicoTextParser = {};
           doc.body.className = val ? 'debug' : '';
         });
 
-        win.addEventListener('resize', function() {
+        var onResize = function() {
           var w = win.innerWidth, h = win.innerHeight;
           // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
           var aspectRatio = Math.max(self._aspectRatio, 9 / 16);
           var targetHeight = Math.min(h, w * aspectRatio);
           commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
-        });
-        //win.addEventListener('resize', _.debounce(_.bind(self._onResizeEnd, self), 500);
-        //
+        };
+        win.addEventListener('resize', onResize);
+
         ZenzaWatch.debug.getInViewElements = function() {
           return doc.getElementsByClassName('nicoChat');
         };
+
+        var lastW = win.innerWidth, lastH = win.innerHeight;
+        var timer = window.setInterval(function() {
+          var w = win.innerWidth, h = win.innerHeight;
+          if (lastW !== w || lastH !== h) {
+            lastW = w;
+            lastH = h;
+            onResize();
+          }
+        }, 3000);
 
         if (self._isPaused) {
           self.pause();
@@ -1909,7 +1922,9 @@ var NicoTextParser = {};
       iframe.srcdoc = html;
       this._view = iframe;
       ZenzaWatch.debug.commentLayer = iframe;
-
+      if (this._$node) {
+        this._$node.append(this._view);
+      }
       if (!params.show) { this.hide(); }
     },
     _getIframe: function() {
@@ -2143,7 +2158,6 @@ var NicoTextParser = {};
       window.console.timeEnd('buildHtml');
       return tpl;
     },
-
     _buildGroupHtml: function(m) {
       var result = [];
 
@@ -2310,7 +2324,7 @@ var NicoTextParser = {};
 //          '  height:', height, 'px;\n',
           scaleCss,
           '  animation-name: fixed', id, ';\n',
-          '  animation-duration: ', duration / 0.9, 's;\n',
+          '  animation-duration: ', duration / 0.95, 's;\n',
           '  animation-delay: ', delay, 's;\n',
           ' }\n',
           '\n\n'];
@@ -2320,10 +2334,10 @@ var NicoTextParser = {};
     },
     show: function() {
       if (!this._isShow) {
+        this._isShow = true;
         this.refresh();
       }
       console.log('show!');
-      this._isShow = true;
     },
     hide: function() {
       this.clear();
@@ -2332,6 +2346,7 @@ var NicoTextParser = {};
     appendTo: function($node) {
       //var $view = $(this._view);
       //$view.css({width: 1}).offset();
+      this._$node = $node;
       $node.append(this._view);
 
       // リサイズイベントを発動させる。 バッドノウハウ的
@@ -2490,7 +2505,7 @@ var NicoTextParser = {};
         this._wordReg = this._buildFilterReg(this._wordFilterList);
       }
       if (!this._userIdReg) {
-        this._userIdReg = this._buildFilterReg(this._userIdFilterList);
+        this._userIdReg = this._buildFilterPerfectMatchinghReg(this._userIdFilterList);
       }
       if (!this._commandReg) {
         this._commandReg = this._buildFilterReg(this._commandFilterList);
@@ -2586,7 +2601,15 @@ var NicoTextParser = {};
       });
       return new RegExp('(' + r.join('|') + ')', 'i');
     },
-    _onChange: function() {
+    _buildFilterPerfectMatchinghReg: function(filterList) {
+      if (filterList.length < 1) { return null; }
+      var r = [];
+      $(filterList).each(function(i, filter) {
+        r.push(ZenzaWatch.util.escapeRegs(filter));
+      });
+      return new RegExp('^(' + r.join('|') + ')$');
+    },
+     _onChange: function() {
       console.log('NicoChatFilter.onChange');
       this.emit('change');
     }

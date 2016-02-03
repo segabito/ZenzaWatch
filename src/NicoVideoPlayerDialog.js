@@ -14,6 +14,7 @@ var MessageApiLoader = function() {};
 var AsyncEmitter = function() {};
 var VideoControlBar = function() {};
 var VideoInfoModel = function() {};
+var RelatedVideoList = function() {};
 
 //===BEGIN===
 
@@ -175,7 +176,7 @@ var VideoInfoModel = function() {};
       margin: 0 0 40px 40px;
       opacity: 0;
       color: #ccc;
-      border: solid 1px;
+      border: solid 1px #888;
       transition: opacity 0.4s ease;
       pointer-events: auto;
     }
@@ -693,6 +694,9 @@ var VideoInfoModel = function() {};
         case 'setIsCommentFilterEnable':
           this._nicoVideoPlayer.setIsCommentFilterEnable(param);
           break;
+        case 'open':
+          this.open(param);
+          break;
         case 'enableFilter':
         case 'playbackRate':
         case 'screenMode':
@@ -1069,6 +1073,17 @@ var VideoInfoModel = function() {};
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
       this._$playerContainer.removeClass('stalled loading');
       this.emit('canPlay');
+
+      // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
+      if (!this._relatedVideoList) {
+        this._relatedVideoList = new RelatedVideoList({
+          $container: $('.relatedVideoContainer')
+        });
+        this._relatedVideoList.on('command', _.bind(this._onCommand, this));
+      }
+      var relatedVideo = this._videoInfo.getRelatedVideoItems();
+      //relatedVideo.shift(); // 一本目は今見てる動画なので
+      this._relatedVideoList.update(relatedVideo, this._watchId);
     },
     _onVideoPlay: function() {
       this._$playerContainer.addClass('playing');
@@ -1569,6 +1584,11 @@ var VideoInfoModel = function() {};
       margin-top:  4px;
     }
 
+    @keyframes spinX {
+      0%   { transform: rotateX(0deg); }
+      100% { transform: rotateX(1800deg); }
+    }
+
     .updatingDeflist .mylistButton.deflistAdd {
       pointer-events: none;
       opacity: 1 !important;
@@ -1576,7 +1596,12 @@ var VideoInfoModel = function() {};
       box-shadow: none !important;
       margin-left: 2px !important;
       margin-top:  4px !important;
-      background: #888 !important;
+      {*background: #888 !important;*}
+      animation-name: spinX;
+      animation-iteration-count: infinite;
+      animation-duration: 6s;
+      animation-timing-function: linear;
+      transform: perspective(100px);
     }
 
     .mylistButton.mylistAddMenu.show,
@@ -1585,7 +1610,16 @@ var VideoInfoModel = function() {};
       opacity: 1 !important;
       border: 1px inset #000 !important;
       box-shadow: none !important;
+    }
+    .mylistButton.mylistAddMenu.show{
       background: #888 !important;
+    }
+    .updatingMylist  .mylistButton.mylistAddMenu {
+      animation-name: spinX;
+      animation-iteration-count: infinite;
+      animation-duration: 6s;
+      animation-timing-function: linear;
+      transform: perspective(100px);
     }
 
     .mylistSelectMenu {
@@ -1680,7 +1714,7 @@ var VideoInfoModel = function() {};
       </div>
       <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd">
         <div class="tooltip">とりあえずマイリスト(T)</div>
-        <div class="menuButtonInner">&#9547;</div>
+        <div class="menuButtonInner">&#x271A;</div>
       </div>
     </div>
     <div class="mylistSelectMenu zenzaPopupMenu">
@@ -2461,15 +2495,6 @@ var VideoInfoModel = function() {};
           </label>
         </div>
 
-
-         <div class="enableHeatMapControl control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableHeatMap">
-            コメントの盛り上がりをシークバーに表示
-          </label>
-        </div>
-
-
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
           <span class="info">
@@ -2640,11 +2665,57 @@ var VideoInfoModel = function() {};
 
   var VideoInfoPanel = function() { this.initialize.apply(this, arguments); };
   VideoInfoPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-    .zenzaWatchVideoInfoPanel .tabs {
+    .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
       display: none;
     }
-    .zenzaWatchVideoInfoPanel .activeTab {
-      display: inherit;
+
+    .zenzaWatchVideoInfoPanel .tabs.activeTab {
+      margin-top: 32px;
+      box-sizing: border-box;
+      position: relative;
+      width: 100%;
+      height: calc(100% - 32px);
+      overflow-x: hidden;
+      overflow-y: visible;
+    }
+    .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {
+      overflow: hidden;
+    }
+
+    .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
+      display: none !important;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .zenzaWatchVideoInfoPanel .tabSelectContainer {
+      position: absolute;
+      height: 32px;
+      z-index: 100;
+      width: 100%;
+      white-space: nowrap;
+    }
+
+    .zenzaWatchVideoInfoPanel .tabSelect {
+      width: 50%;
+      box-sizing: border-box;
+      display: inline-block;
+      height: 32px;
+      font-size: 14px;
+      padding: 0 8px;
+      letter-spacing: 0.2em;
+      line-height: 32px;
+      color: #666;
+      background: #222;
+      cursor: pointer;
+      text-align: center;
+    }
+    .zenzaWatchVideoInfoPanel .tabSelect.activeTab {
+      color: #ccc;
+      background: #333;
+      {*border-width: 1px 1px 0 1px;
+      border-color: #888;
+      border-style: outset;*}
     }
 
     .zenzaWatchVideoInfoPanel.initializing {
@@ -2677,7 +2748,7 @@ var VideoInfoModel = function() {};
       background: #333;
       color: #ccc;
       overflow-x: hidden;
-      overflow-y: visible;
+      overflow-y: hidden;
       transition: opacity 0.4s ease;
     }
 
@@ -2743,11 +2814,11 @@ var VideoInfoModel = function() {};
 
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel,
     .fullScreen            .zenzaWatchVideoInfoPanel {
-      top: 10%;
+      top: 20%;
       right: calc(32px - 320px);
       left: auto;
       width: 320px;
-      height: 80%;
+      height: 60%;
       background: none;
       opacity: 0;
       box-shadow: none;
@@ -2756,7 +2827,7 @@ var VideoInfoModel = function() {};
 
     .zenzaScreenMode_wide .mouseMoving  .zenzaWatchVideoInfoPanel,
     .fullScreen           .mouseMoving  .zenzaWatchVideoInfoPanel {
-      height: 80%;
+      height: 60%;
       background: none;
       border: 1px solid #888;
       opacity: 0.5;
@@ -2911,11 +2982,24 @@ var VideoInfoModel = function() {};
       display: none;
     }
 
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelectContainer {
+      width: calc(100% - 16px);
+    }
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect{
+      background: #ccc;
+      color: #888;
+    }
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect.activeTab{
+      background: #ddd;
+      color: black;
+      border: none;
+    }
+
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel {
       top: 230px;
       left: 0;
       width: 400px;
-      height: calc(100vh - 230px);
+      height: calc(100vh - 296px);
       padding: 8px;
       box-shadow: none;
       background: #f0f0f0;
@@ -2929,16 +3013,10 @@ var VideoInfoModel = function() {};
       text-align: center;
 
     }
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
-      display: block;
-    }
 
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
       background: #ddd;
       box-shadow: 2px 2px 2px #999;
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription {
-      margin-bottom: 260px;
     }
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a {
       color: #006699;
@@ -2947,7 +3025,7 @@ var VideoInfoModel = function() {};
       color: #666666;
     }
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
-      position: fixed;
+      display: block;
       bottom: 48px;
       width: 364px;
       margin: 0 auto;
@@ -3053,10 +3131,81 @@ var VideoInfoModel = function() {};
       }
     }
 
+    .zenzaWatchVideoInfoPanel .relatedVideoTab .relatedVideoContainer {
+      box-sizing: border-box;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+
+    .zenzaWatchVideoInfoPanel .videoListFrame {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      border: 0;
+      background: #333;
+    }
+
+    .zenzaWatchVideoInfoPanel .nowLoading {
+      display: none;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .zenzaWatchVideoInfoPanel.initializing .nowLoading {
+      display: block !important;
+      opacity: 1 !important;
+      color: #888;
+    }
+    .zenzaWatchVideoInfoPanel .nowLoading {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+    .zenzaWatchVideoInfoPanel .kurukuru {
+      position: absolute;
+      display: inline-block;
+      font-size: 96px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    @keyframes loadingRolling {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(1800deg); }
+    }
+    .zenzaWatchVideoInfoPanel.initializing .kurukuruInner {
+      display: inline-block;
+      pointer-events: none;
+      text-align: center;
+      text-shadow: 0 0 4px #888;
+      animation-name: loadingRolling;
+      animation-iteration-count: infinite;
+      animation-duration: 4s;
+      animation-timing-function: linear;
+    }
+    .zenzaWatchVideoInfoPanel .nowLoading .loadingMessage {
+      position: absolute;
+      display: inline-block;
+      font-family: Impact;
+      font-size: 32px;
+      text-align: center;
+      top: calc(50% + 48px);
+      left: 0;
+      width: 100%;
+    }
   */});
 
   VideoInfoPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="zenzaWatchVideoInfoPanel show initializing">
+      <div class="nowLoading">
+        <div class="kurukuru"><span class="kurukuruInner">&#x262F;</span></div>
+        <div class="loadingMessage">Loading...</div>
+      </div>
+
+      <div class="tabSelectContainer"><div class="tabSelect videoInfoTab activeTab" data-tab="videoInfoTab">動画情報</div><div class="tabSelect relatedVideoTab" data-tab="relatedVideoTab">関連動画</div></div>
+
       <div class="tabs videoInfoTab activeTab">
         <div class="zenzaWatchVideoInfoPanelInner">
           <div class="videoOwnerInfoContainer">
@@ -3077,6 +3226,11 @@ var VideoInfoModel = function() {};
           </div>
         </div>
       </div>
+
+      <div class="tabs relatedVideoTab">
+        <div class="relatedVideoContainer"></div>
+      </div>
+
     </div>
   */});
 
@@ -3108,6 +3262,13 @@ var VideoInfoModel = function() {};
 
       this._$videoTags = $view.find('.videoTags');
       this._$publicStatus = $view.find('.publicStatus');
+
+      this._$tabSelect = $view.find('.tabSelect');
+      this._$tabSelect.on('click', _.bind(function(e) {
+        var $target = $(e.target.closest('.tabSelect'));
+        var tabName = $target.attr('data-tab');
+        this.selectTab(tabName);
+      }, this));
 
       this._$view.on('click', function(e) {
         e.stopPropagation();
@@ -3197,7 +3358,6 @@ var VideoInfoModel = function() {};
         dialog.setCurrentTime(sec);
       }
     },
-
     appendTo: function(node) {
       var $node = $(node);
       this._initializeDom();
@@ -3215,6 +3375,13 @@ var VideoInfoModel = function() {};
       this._$view.addClass('initializing');
       this._$ownerIcon.addClass('loading');
       this._$description.empty();
+    },
+    selectTab: function(tabName) {
+      var $view = this._$view;
+      var $target = $view.find('.tabs.' + tabName + ', .tabSelect.' + tabName);
+      if ($target.length < 1) { return; }
+      $view.find('.activeTab').removeClass('activeTab');
+      $target.addClass('activeTab');
     }
   });
 

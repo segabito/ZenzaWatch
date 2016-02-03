@@ -926,6 +926,7 @@ var console;
       var initialize = function() {
         initialize = _.noop;
         $('body').on('keydown.zenzaWatch', onKeyDown);
+        ZenzaWatch.emitter.on('keydown', onKeyDown);
       };
 
       var onKeyDown = function(e) {

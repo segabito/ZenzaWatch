@@ -373,7 +373,8 @@ var NicoCommentPlayer = function() {};
       this._videoDetail  = info.watchApiData.videoDetail;
       this._flashvars    = info.watchApiData.flashvars;   // flashに渡す情報
       this._viewerInfo   = info.viewerInfo;               // 閲覧者(＝おまいら)の情報
-      this._flvInfo = info.flvInfo;
+      this._flvInfo      = info.flvInfo;
+      this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
 
       if (!ZenzaWatch.debug.videoInfo) { ZenzaWatch.debug.videoInfo = {}; }
       ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
@@ -479,6 +480,9 @@ var NicoCommentPlayer = function() {};
       }
 
       return ownerInfo;
+    },
+    getRelatedVideoItems: function() {
+      return this._relatedVideo.playlist || [];
     }
   });
 
@@ -791,11 +795,14 @@ var NicoCommentPlayer = function() {};
       console.log('%c_onCanPlay:', 'background: cyan; color: blue;', arguments);
 
       this.setPlaybackRate(this.getPlaybackRate());
-      this._canPlay = true;
-      this._$video.removeClass('loading');
-      this.emit('canPlay');
-      this.emit('aspectRatioFix',
-        this._video.videoHeight / Math.max(1, this._video.videoWidth));
+      // リピート時にも飛んでくるっぽいので初回だけにする
+      if (!this._canPlay) {
+        this._canPlay = true;
+        this._$video.removeClass('loading');
+        this.emit('canPlay');
+        this.emit('aspectRatioFix',
+          this._video.videoHeight / Math.max(1, this._video.videoWidth));
+      }
     },
     _onCanPlayThrough: function() {
       console.log('%c_onCanPlayThrough:', 'background: cyan;', arguments);

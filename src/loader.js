@@ -213,7 +213,14 @@ var isSameOrigin = function() {};
             window.setTimeout(function() {
               $.ajax({
                 url: url,
-                xhrFields: { withCredentials: true }
+                xhrFields: { withCredentials: true },
+                //beforeSend: function(xhr) {
+                //  xhr.setRequestHeader('Referer', 'http://www.nicovideo.jp');
+                //},
+                headers: {
+//                  'Referer': 'http://www.nicovideo.jp/',
+                  'X-Alt-Referer': 'http://www.nicovideo.jp/'
+                }
               }).then(
                 onLoad,
                 function() { PopupMessage.alert('動画情報の取得に失敗(watchApi)'); }
@@ -231,7 +238,15 @@ var isSameOrigin = function() {};
 
         $.ajax({
           url: url,
-          xhrFields: { withCredentials: true }
+          xhrFields: { withCredentials: true },
+          // referrerによってplaylistの中身が変わるので無難な物にする
+          //beforeSend: function(xhr) {
+          //  xhr.setRequestHeader('Referer', 'http://www.nicovideo.jp');
+          //},
+          headers: {
+//            'Referer': 'http://www.nicovideo.jp/',
+            'X-Alt-Referer': 'http://www.nicovideo.jp/'
+          }
         }).then(
           onLoad,
           function() { PopupMessage.alert('動画情報の取得に失敗(watchApi)'); }
