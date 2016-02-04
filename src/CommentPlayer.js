@@ -410,6 +410,7 @@ var NicoTextParser = {};
     <meta charset="utf-8">
     <title>CommentLayer</title>
     <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
+    <style type="text/css" id="optionCss">%OPTION_CSS%</style>
     <style type="text/css">
 
     </style>
@@ -435,6 +436,7 @@ var NicoTextParser = {};
     var offScreenFrame;
     var offScreenLayer;
     var textField;
+    var layoutStyle;
 
     var initialize = function($d) {
       initialize = _.noop;
@@ -451,9 +453,13 @@ var NicoTextParser = {};
       frame.onload = function() {
         frame.onload = _.noop;
 
+
         console.log('%conOffScreenLayerLoad', 'background: lightgreen;');
         createTextField();
-        layer = offScreenFrame.contentWindow.document.getElementById('offScreenLayer');
+        var doc = offScreenFrame.contentWindow.document;
+        layer       = doc.getElementById('offScreenLayer');
+        layoutStyle = doc.getElementById('layoutCss');
+        optionStyle = doc.getElementById('optionCss');
 
         offScreenLayer = {
           getTextField: function() {
@@ -1600,6 +1606,7 @@ var NicoTextParser = {};
 <meta charset="utf-8">
 <title>CommentLayer</title>
 <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
+<style type="text/css" id="optionCss">%OPTION_CSS%</style>
 <style type="text/css">
 
 
@@ -1793,7 +1800,7 @@ var NicoTextParser = {};
 %CSS%
 </style>
 </head>
-<body>
+<body style="background: transparent !important;">
 <div class="commentLayerOuter">
 <div class="commentLayer" id="commentLayer">%MSG%</div>
 </div>
@@ -1879,8 +1886,10 @@ var NicoTextParser = {};
           return;
         }
 
-        self._style      = doc.getElementById('nicoChatAnimationDefinition');
-        var commentLayer = self._commentLayer = doc.getElementById('commentLayer');
+        self._layoutStyle = doc.getElementById('layoutCss');
+        self._optionStyle = doc.getElementById('optionCss');
+        self._style       = doc.getElementById('nicoChatAnimationDefinition');
+        var commentLayer  = self._commentLayer = doc.getElementById('commentLayer');
 
         // Config直接参照してるのは手抜き
         doc.body.className = Config.getValue('debug') ? 'debug' : '';

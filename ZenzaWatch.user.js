@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.1
+// @version        0.10.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -224,6 +224,9 @@ var monkey = function() {
         wordFilter: '',
         userIdFilter: '',
         commandFilter: '',
+
+        baseFontFamily: '',
+        baseChatScale: 1,
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -4903,7 +4906,7 @@ body {
   pointer-events: none;
 }
 
-.default  {}
+.default {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック'; }
 .mincho  {font-family: Simsun, Osaka-mono, 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,  Osaka-mono, 'ＭＳ ゴシック', monospace; }
@@ -5530,6 +5533,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     <meta charset="utf-8">
     <title>CommentLayer</title>
     <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
+    <style type="text/css" id="optionCss">%OPTION_CSS%</style>
     <style type="text/css">
 
     </style>
@@ -5555,6 +5559,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     var offScreenFrame;
     var offScreenLayer;
     var textField;
+    var layoutStyle;
 
     var initialize = function($d) {
       initialize = _.noop;
@@ -5571,9 +5576,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       frame.onload = function() {
         frame.onload = _.noop;
 
+
         console.log('%conOffScreenLayerLoad', 'background: lightgreen;');
         createTextField();
-        layer = offScreenFrame.contentWindow.document.getElementById('offScreenLayer');
+        var doc = offScreenFrame.contentWindow.document;
+        layer       = doc.getElementById('offScreenLayer');
+        layoutStyle = doc.getElementById('layoutCss');
+        optionStyle = doc.getElementById('optionCss');
 
         offScreenLayer = {
           getTextField: function() {
@@ -6720,6 +6729,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 <meta charset="utf-8">
 <title>CommentLayer</title>
 <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
+<style type="text/css" id="optionCss">%OPTION_CSS%</style>
 <style type="text/css">
 
 
@@ -6913,7 +6923,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 %CSS%
 </style>
 </head>
-<body>
+<body style="background: transparent !important;">
 <div class="commentLayerOuter">
 <div class="commentLayer" id="commentLayer">%MSG%</div>
 </div>
@@ -6999,8 +7009,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           return;
         }
 
-        self._style      = doc.getElementById('nicoChatAnimationDefinition');
-        var commentLayer = self._commentLayer = doc.getElementById('commentLayer');
+        self._layoutStyle = doc.getElementById('layoutCss');
+        self._optionStyle = doc.getElementById('optionCss');
+        self._style       = doc.getElementById('nicoChatAnimationDefinition');
+        var commentLayer  = self._commentLayer = doc.getElementById('commentLayer');
 
         // Config直接参照してるのは手抜き
         doc.body.className = Config.getValue('debug') ? 'debug' : '';

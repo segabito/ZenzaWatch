@@ -54,7 +54,7 @@ body {
   pointer-events: none;
 }
 
-.default  {}
+.default {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック'; }
 .mincho  {font-family: Simsun, Osaka-mono, 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,  Osaka-mono, 'ＭＳ ゴシック', monospace; }

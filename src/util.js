@@ -193,6 +193,9 @@ var console;
         userIdFilter: '',
         commandFilter: '',
 
+        baseFontFamily: '',
+        baseChatScale: 1,
+
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
         lastPlayerId: '',
