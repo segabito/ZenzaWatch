@@ -194,7 +194,8 @@ var console;
         commandFilter: '',
 
         baseFontFamily: '',
-        baseChatScale: 1,
+        baseChatScale: 1.0,
+        baseFontBolder: true,
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中

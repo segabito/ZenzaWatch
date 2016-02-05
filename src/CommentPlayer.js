@@ -230,6 +230,8 @@ var NicoTextParser = {};
       this._topGroup   .on('change', onChange);
       this._normalGroup.on('change', onChange);
       this._bottomGroup.on('change', onChange);
+      ZenzaWatch.emitter.on('updateOptionCss', onChange);
+      //NicoChatViewModel.emitter.on('updateBaseChatScale', onChange);
     },
     setXml: function(xml) {
       window.console.time('コメントのパース処理');
@@ -314,6 +316,7 @@ var NicoTextParser = {};
      */
     _onChange: function(e) {
       console.log('NicoComment.onChange: ', e);
+      e = e || {};
       var ev = {
         nicoComment: this,
         group: e.group,
@@ -422,11 +425,7 @@ var NicoTextParser = {};
         overflow: visible;
         background: #fff;
 
-        font-family: Arial, 'ＭＳ Ｐゴシック';
-        letter-spacing: 1px;
-        margin: 2px 1px 1px 1px;
         white-space: pre;
-        font-weight: bolder;
 
     "></div>
     </body></html>
@@ -437,6 +436,37 @@ var NicoTextParser = {};
     var offScreenLayer;
     var textField;
     var layoutStyle;
+    var optionStyle;
+    var config;
+
+    var initializeOptionCss = function(optionStyle) {
+      var update = function() {
+        var tmp = [];
+        var baseFont = config.getValue('baseFontFamily');
+        var inner = optionStyle.innerHTML;
+        if (baseFont) {
+          baseFont = baseFont.replace(/[;{}\*\/]/g, '');
+          tmp.push(
+            [
+              '.gothic    {font-family: %BASEFONT%; }\n',
+              'han_group {font-family: %BASEFONT%, Arial; }'
+            ].join('').replace(/%BASEFONT%/g, baseFont)
+          );
+        }
+        var bolder = config.getValue('baseFontBolder');
+        if (!bolder) {
+          tmp.push('.nicoChat { font-weight: normal !important; }');
+        }
+        var newCss = tmp.join('\n');
+        if (inner !== newCss) {
+          optionStyle.innerHTML = newCss;
+          ZenzaWatch.emitter.emit('updateOptionCss', newCss);
+        }
+      };
+      update();
+      config.on('update-baseFontFamily', update);
+      config.on('update-baseFontBolder', update);
+    };
 
     var initialize = function($d) {
       initialize = _.noop;
@@ -453,13 +483,13 @@ var NicoTextParser = {};
       frame.onload = function() {
         frame.onload = _.noop;
 
-
         console.log('%conOffScreenLayerLoad', 'background: lightgreen;');
         createTextField();
         var doc = offScreenFrame.contentWindow.document;
         layer       = doc.getElementById('offScreenLayer');
         layoutStyle = doc.getElementById('layoutCss');
         optionStyle = doc.getElementById('optionCss');
+        initializeOptionCss(optionStyle);
 
         offScreenLayer = {
           getTextField: function() {
@@ -470,6 +500,9 @@ var NicoTextParser = {};
           },
           removeChild: function(elm) {
             layer.removeChild(elm);
+          },
+          getOptionCss: function() {
+            return optionStyle.innerHTML;
           }
         };
 
@@ -478,20 +511,18 @@ var NicoTextParser = {};
         $d.resolve(offScreenLayer);
       };
 
-      frame.srcdoc = __offscreen_tpl__.replace('%LAYOUT_CSS%', NicoTextParser.__css__);
+      frame.srcdoc = __offscreen_tpl__
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
+        .replace('%OPTION_CSS%', '');
     };
 
-    var getLayer = function(callback) {
+    var getLayer = function(_config) {
+      config = _config;
       var $d = new $.Deferred();
-      callback = callback || _.noop;
       if (offScreenLayer) {
-        window.setTimeout(function() {
-          callback(offScreenLayer);
-        }, 0);
         $d.resolve(offScreenLayer);
         return;
       }
-      emitter.on('create', callback);
 
       initialize($d);
       return $d.promise();
@@ -506,6 +537,9 @@ var NicoTextParser = {};
       var span = document.createElement('span');
       span.className  = 'nicoChat';
 
+      var scale = NicoChatViewModel.BASE_SCALE;
+      NicoChatViewModel.emitter.on('updateBaseChatScale', function(v) { scale = v; });
+
       textField = {
         setText: function(text) {
           span.innerHTML = text;
@@ -516,8 +550,11 @@ var NicoTextParser = {};
         setFontSizePixel: function(pixel) {
           span.style.fontSize = pixel + 'px';
         },
-        getWidth: function() {
+        getOriginalWidth: function() {
           return span.offsetWidth;
+        },
+        getWidth: function() {
+          return span.offsetWidth * scale;
         }
       };
 
@@ -527,7 +564,8 @@ var NicoTextParser = {};
     };
 
     return {
-      get: getLayer
+      get: getLayer,
+      getOptionCss: function() { return optionStyle.innerHTML; }
     };
   })();
 
@@ -712,6 +750,7 @@ var NicoTextParser = {};
       nicoChatGroup.on('addChatArray', _.bind(this._onAddChatArray, this));
       nicoChatGroup.on('reset',        _.bind(this._onReset,        this));
       nicoChatGroup.on('change',       _.bind(this._onChange,        this));
+      NicoChatViewModel.emitter.on('updateBaseChatScale', _.bind(this._onChange, this));
 
       this.addChatArray(nicoChatGroup.getMembers());
     },
@@ -728,7 +767,7 @@ var NicoTextParser = {};
       console.log('NicoChatGroupViewModel.onChange: ', e);
       window.console.time('_onChange');
       this.reset();
-      this.addChatArray(e.group.getMembers());
+      this.addChatArray(this._nicoChatGroup.getMembers());
       window.console.timeEnd('_onChange');
     },
     addChatArray: function(nicoChatArray) {
@@ -1078,6 +1117,8 @@ var NicoTextParser = {};
    * 互換性にこだわらないのであれば7割くらいが不要。
    */
   var NicoChatViewModel = function() { this.initialize.apply(this, arguments); };
+  NicoChatViewModel.emitter = new AsyncEmitter();
+
   // ここの値はレイアウト計算上の仮想領域の物であり、実際の表示はviewに依存
   NicoChatViewModel.DURATION = {
     TOP:    3,
@@ -1099,6 +1140,14 @@ var NicoTextParser = {};
   };
 
   NicoChatViewModel.CHAT_MARGIN = 5;
+
+  NicoChatViewModel.BASE_SCALE = parseFloat(Config.getValue('baseChatScale'), 10);
+  Config.on('update-baseChatScale', function(scale) {
+    if (isNaN(scale)) { return; }
+    scale = parseFloat(scale, 10);
+    NicoChatViewModel.BASE_SCALE = scale;
+    NicoChatViewModel.emitter.emit('updateBaseChatScale', scale);
+  });
   
   _.assign(NicoChatViewModel.prototype, {
     initialize: function(nicoChat, offScreen) {
@@ -1114,7 +1163,7 @@ var NicoTextParser = {};
       // 固定されたコメントか、流れるコメントか
       this._isFixed = false;
 
-      this._scale = 1.0;
+      this._scale = NicoChatViewModel.BASE_SCALE;
       this._y = 0;
 
       this._setType(nicoChat.getType());
@@ -1206,8 +1255,9 @@ var NicoTextParser = {};
       field.setFontSizePixel(this._fontSizePixel);
       field.setType(this._type);
       
-      this._width  = this._originalWidth  = field.getWidth();
-      this._height = this._originalHeight = this._calculateHeight();
+      this._originalWidth  = field.getOriginalWidth();
+      this._width          = this._originalWidth * this._scale;
+      this._height         = this._originalHeight = this._calculateHeight();
 
       if (!this._isFixed) {
         var speed =
@@ -1228,6 +1278,7 @@ var NicoTextParser = {};
       // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
       // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
       var lc = this._htmlText.split('<br>').length;
+      //if (this._nicoChat.getNo() === 427) { window.nnn = this._nicoChat; debugger; }
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
       var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
@@ -1301,6 +1352,7 @@ var NicoTextParser = {};
       // メモ
       // "        "
 
+      var originalScale = this._scale;
       // 改行リサイズ
       // 参考: http://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
       // 画面の高さの1/3を超える場合は大きさを半分にする
@@ -1321,9 +1373,9 @@ var NicoTextParser = {};
           // なので、コメント描画の再現としては正しい…らしい。
           //
           // そのバグを発動しなくするためのコマンドがender
-          this._setScale(screenWidth / this._width);
+          this._setScale(originalScale * (screenWidth / this._width));
         } else {
-          this._setScale(this._scale * (screenWidth  / this._width));
+          this._setScale(this._scale   * (screenWidth / this._width));
         }
       }
 
@@ -1344,7 +1396,7 @@ var NicoTextParser = {};
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
       // 画面の高さの1/3を超える場合は大きさを半分にする
       if (!this._nicoChat.isEnder() && this._height > screenHeight / 3) {
-        this._setScale(0.5);
+        this._setScale(this._scale * 0.5);
         var speed =
           this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
         this._endLeftTiming    = this._endRightTiming  - this._width / speed;
@@ -1862,7 +1914,8 @@ var NicoTextParser = {};
       var html =
         NicoCommentCss3PlayerView.__TPL__
         .replace('%CSS%', '').replace('%MSG%', '')
-        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
+        .replace('%OPTION_CSS%', '');
 
 
       var self = this;
@@ -1895,6 +1948,11 @@ var NicoTextParser = {};
         doc.body.className = Config.getValue('debug') ? 'debug' : '';
         Config.on('update-debug', function(val) {
           doc.body.className = val ? 'debug' : '';
+        });
+        // 手抜きその2
+        self._optionStyle.innerHTML = NicoComment.offScreenLayer.getOptionCss();
+        ZenzaWatch.emitter.on('updateOptionCss', function(newCss) {
+          self._optionStyle.innerHTML = newCss;
         });
 
         var onResize = function() {
@@ -2159,7 +2217,8 @@ var NicoTextParser = {};
       css .push(this._buildGroupCss(members, currentTime));
 
       var tpl = NicoCommentCss3PlayerView.__TPL__
-        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
+        .replace('%OPTION_CSS%', NicoComment.offScreenLayer.getOptionCss());
 
       tpl = tpl.replace('%CSS%', css.join(''));
       tpl = tpl.replace('%MSG%', html.join(''));

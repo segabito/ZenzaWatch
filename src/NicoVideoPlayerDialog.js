@@ -56,6 +56,9 @@ var RelatedVideoList = function() {};
     .zenzaVideoPlayerDialog.show {
       display: block;
     }
+    .fullScreen .zenzaVideoPlayerDialog {
+      transition: none !important;
+    }
 
     .zenzaVideoPlayerDialogInner {
       position: fixed;
@@ -67,6 +70,9 @@ var RelatedVideoList = function() {};
       z-index: 100001;
       box-shadow: 4px 4px 4px #000;
       transition: top 0.4s ease-in, left 0.4s ease-in;
+    }
+    .fullScreen .zenzaVideoPlayerDialogInner {
+      transition: none !important;
     }
 
     .noVideoInfoPanel .zenzaVideoPlayerDialogInner {
@@ -81,6 +87,9 @@ var RelatedVideoList = function() {};
       width: 672px;
       height: 385px;
       transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
+    }
+    .fullScreen .zenzaPlayerContainer {
+      transition: none !important;
     }
 
     .zenzaPlayerContainer .videoPlayer {
@@ -133,6 +142,9 @@ var RelatedVideoList = function() {};
       pointer-events: none;
       transform: translateZ(0);
       cursor: none;
+    }
+    .fullScreen .zenzaPlayerContainer .commentLayerFrame {
+      transition: none !important;
     }
 
     .zenzaScreenMode_small  .zenzaPlayerContainer.backComment .commentLayerFrame,
@@ -697,6 +709,8 @@ var RelatedVideoList = function() {};
         case 'open':
           this.open(param);
           break;
+        case 'baseFontFamily':
+        case 'baseChatScale':
         case 'enableFilter':
         case 'playbackRate':
         case 'screenMode':
@@ -2452,6 +2466,34 @@ var RelatedVideoList = function() {};
       white-space: pre;
     }
 
+    .zenzaSettingPanel .fontEdit .info {
+      color: #ccc;
+      font-size: 90%;
+      display: inline-block;
+      margin: 8px 0;
+    }
+
+    .zenzaSettingPanel .fontEdit p {
+      color: #fff;
+      font-size: 120%;
+    }
+
+    .zenzaSettingPanel input[type=text] {
+      font-size: 24px;
+      background: #000;
+      color: #ccc;
+      width: 90%;
+      margin: 0 5%;
+      border-radius: 8px;
+    }
+    .zenzaSettingPanel select {
+      font-size:24px;
+      background: #000;
+      color: #ccc;
+      margin: 0 5%;
+      border-radius: 8px;
+     }
+
   */});
   SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <!-- mix-blend-mode を使ってみたかっただけのためのレイヤーx2 飽きたら消す -->
@@ -2493,6 +2535,42 @@ var RelatedVideoList = function() {};
             <input type="checkbox" class="checkbox" data-setting-name="overrideGinza">
             動画視聴ページでもGINZAのかわりに起動する
           </label>
+        </div>
+
+        <p class="caption">フォントの設定</p>
+        <div class="fontEdit">
+
+          <div class="baseFontBolderControl control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="baseFontBolder">
+              フォントを太くする
+            </label>
+          </div>
+
+          <p>フォント名</p>
+          <span class="info">入力例: 「'遊ゴシック', 'メイリオ', '戦国TURB'」</span>
+          <input type="text" class="textInput"
+            data-setting-name="baseFontFamily">
+
+          <p>表示倍率</p>
+          <select class="baseChatScale" data-setting-name="baseChatScale">
+            <option value="0.5">0.5</option>
+            <option value="0.6">0.6</option>
+            <option value="0.7">0.7</option>
+            <option value="0.8">0.8</option>
+            <option value="0.9">0.9</option>
+            <option value="1"  selected>1.0</option>
+            <option value="1.1">1.1</option>
+            <option value="1.2">1.2</option>
+            <option value="1.3">1.3</option>
+            <option value="1.4">1.4</option>
+            <option value="1.5">1.5</option>
+            <option value="1.6">1.6</option>
+            <option value="1.7">1.7</option>
+            <option value="1.8">1.8</option>
+            <option value="1.9">1.9</option>
+            <option value="2.0">2.0</option>
+          </select>
         </div>
 
         <p class="caption">NG設定</p>
@@ -2571,10 +2649,29 @@ var RelatedVideoList = function() {};
         var $c = $(check);
         var settingName = $c.attr('data-setting-name');
         var val = config.getValue(settingName);
-        $c.prop('checked', config.getValue(settingName));
+        $c.prop('checked', val);
         $c.closest('.control').toggleClass('checked', val);
       });
       $check.on('change', _.bind(this._onToggleItemChange, this));
+
+      var $text = $panel.find('input[type=text]');
+      $text.each(function(i, text) {
+        var $t = $(text);
+        var settingName = $t.attr('data-setting-name');
+        var val = config.getValue(settingName);
+        $t.val(val);
+      });
+      $text.on('change', _.bind(this._onInputItemChange, this));
+
+      var $select = $panel.find('select');
+      $select.each(function(i, select) {
+        var $s = $(select);
+        var settingName = $s.attr('data-setting-name');
+        var val = config.getValue(settingName);
+        $s.val(val);
+      });
+      $select.on('change', _.bind(this._onInputItemChange, this));
+
 
       ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this.hide();
@@ -2620,6 +2717,7 @@ var RelatedVideoList = function() {};
         case 'mute':
         case 'loop':
         case 'autoPlay':
+        case 'enableHeatMap':
         case 'showComment':
         case 'autoFullScreen':
         case 'debug':
@@ -2636,6 +2734,13 @@ var RelatedVideoList = function() {};
 
       this._playerConfig.setValue(settingName, val);
       $target.closest('.control').toggleClass('checked', val);
+    },
+    _onInputItemChange: function(e) {
+      var $target = $(e.target);
+      var settingName = $target.attr('data-setting-name');
+      var val = $target.val();
+
+      this._playerConfig.setValue(settingName, val);
     },
     toggle: function(v) {
       var eventName = 'click.ZenzaSettingPanel';

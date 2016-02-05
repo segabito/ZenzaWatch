@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.2
+// @version        0.10.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -226,7 +226,8 @@ var monkey = function() {
         commandFilter: '',
 
         baseFontFamily: '',
-        baseChatScale: 1,
+        baseChatScale: 1.0,
+        baseFontBolder: true,
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -4457,6 +4458,16 @@ var monkey = function() {
       border-bottom: 24px solid transparent;
     }
 
+    .zenzaCommentPreview.updating {
+      transition: opacity 0.2s ease;
+      opacity: 0.3;
+      cursor: wait;
+    }
+    .zenzaCommentPreview.updating *{
+      pointer-evnets: none;
+    }
+
+
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaCommentPreview,
     body:not(.fullScreen).zenzaScreenMode_small .zenzaCommentPreview {
       background: rgba(0, 0, 0, 0.8);
@@ -4578,9 +4589,11 @@ var monkey = function() {
         var $nicoChat = $target.closest('.nicoChat');
         var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
         var nicoChat  = self._model.getItemByNo(no);
-        self.hide();
+        //self.hide();
 
-        if (command && nicoChat) {
+        if (command && nicoChat && !$view.hasClass('updating')) {
+          $view.addClass('updating');
+          window.setTimeout(function() { $view.removeClass('updating'); }, 3000);
           switch (command) {
             case 'addUserIdFilter':
               self.emit('command', command, nicoChat.getUserId());
@@ -4911,24 +4924,16 @@ body {
 .mincho  {font-family: Simsun, Osaka-mono, 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,  Osaka-mono, 'ＭＳ ゴシック', monospace; }
 .mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ ゴシック', monospace; }
-.han_group { font-family: Arial; }
-
-  {*
-  .ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
-  .ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
-  .ue .mingLiu , .shita .mingLiu{font-family: PmingLiu, mingLiu, monospace; }
-  *}
+han_group { font-family: 'Arial'; }
 
 .nicoChat {
   position: absolute;
   padding: 1px;
 
-  font-family: 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
   margin: 2px 1px 1px 1px;
   white-space: pre;
   font-weight: bolder;
-
 }
 
   .nicoChat.big {
@@ -4961,12 +4966,11 @@ body {
   }
 
   .arial.type2001 {
-    font-family: Arial;}
+    font-family: Arial;
   }
   {* フォント変化のあったグループの下にいるということは、
      半角文字に挟まれていないはずである。
    *}
-  
     .gothic > .type2001 {
       font-family: 'ＭＳ Ｐゴシック';
     }
@@ -4990,13 +4994,15 @@ body {
 
   .gothic > .type3000 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    letter-spacing: -0.33595em;
+    {*letter-spacing: -0.33595em;*}
+    letter-spacing: -0.2943em;
   }
-  
-  {*.type0020,*}
+
+  .type0020,
   .type00A0 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    letter-spacing: -0.2223em;
+    {*letter-spacing: -0.2223em;*} {* 基本のletter-spacingが0の場合 *}
+    letter-spacing: -0.1805em;
   }
 
 .backslash {
@@ -5353,6 +5359,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._topGroup   .on('change', onChange);
       this._normalGroup.on('change', onChange);
       this._bottomGroup.on('change', onChange);
+      ZenzaWatch.emitter.on('updateOptionCss', onChange);
+      //NicoChatViewModel.emitter.on('updateBaseChatScale', onChange);
     },
     setXml: function(xml) {
       window.console.time('コメントのパース処理');
@@ -5437,6 +5445,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
      */
     _onChange: function(e) {
       console.log('NicoComment.onChange: ', e);
+      e = e || {};
       var ev = {
         nicoComment: this,
         group: e.group,
@@ -5545,11 +5554,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         overflow: visible;
         background: #fff;
 
-        font-family: Arial, 'ＭＳ Ｐゴシック';
-        letter-spacing: 1px;
-        margin: 2px 1px 1px 1px;
         white-space: pre;
-        font-weight: bolder;
 
     "></div>
     </body></html>
@@ -5560,6 +5565,37 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     var offScreenLayer;
     var textField;
     var layoutStyle;
+    var optionStyle;
+    var config;
+
+    var initializeOptionCss = function(optionStyle) {
+      var update = function() {
+        var tmp = [];
+        var baseFont = config.getValue('baseFontFamily');
+        var inner = optionStyle.innerHTML;
+        if (baseFont) {
+          baseFont = baseFont.replace(/[;{}\*\/]/g, '');
+          tmp.push(
+            [
+              '.gothic    {font-family: %BASEFONT%; }\n',
+              'han_group {font-family: %BASEFONT%, Arial; }'
+            ].join('').replace(/%BASEFONT%/g, baseFont)
+          );
+        }
+        var bolder = config.getValue('baseFontBolder');
+        if (!bolder) {
+          tmp.push('.nicoChat { font-weight: normal !important; }');
+        }
+        var newCss = tmp.join('\n');
+        if (inner !== newCss) {
+          optionStyle.innerHTML = newCss;
+          ZenzaWatch.emitter.emit('updateOptionCss', newCss);
+        }
+      };
+      update();
+      config.on('update-baseFontFamily', update);
+      config.on('update-baseFontBolder', update);
+    };
 
     var initialize = function($d) {
       initialize = _.noop;
@@ -5576,13 +5612,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       frame.onload = function() {
         frame.onload = _.noop;
 
-
         console.log('%conOffScreenLayerLoad', 'background: lightgreen;');
         createTextField();
         var doc = offScreenFrame.contentWindow.document;
         layer       = doc.getElementById('offScreenLayer');
         layoutStyle = doc.getElementById('layoutCss');
         optionStyle = doc.getElementById('optionCss');
+        initializeOptionCss(optionStyle);
 
         offScreenLayer = {
           getTextField: function() {
@@ -5593,6 +5629,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           },
           removeChild: function(elm) {
             layer.removeChild(elm);
+          },
+          getOptionCss: function() {
+            return optionStyle.innerHTML;
           }
         };
 
@@ -5601,20 +5640,18 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         $d.resolve(offScreenLayer);
       };
 
-      frame.srcdoc = __offscreen_tpl__.replace('%LAYOUT_CSS%', NicoTextParser.__css__);
+      frame.srcdoc = __offscreen_tpl__
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
+        .replace('%OPTION_CSS%', '');
     };
 
-    var getLayer = function(callback) {
+    var getLayer = function(_config) {
+      config = _config;
       var $d = new $.Deferred();
-      callback = callback || _.noop;
       if (offScreenLayer) {
-        window.setTimeout(function() {
-          callback(offScreenLayer);
-        }, 0);
         $d.resolve(offScreenLayer);
         return;
       }
-      emitter.on('create', callback);
 
       initialize($d);
       return $d.promise();
@@ -5629,6 +5666,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var span = document.createElement('span');
       span.className  = 'nicoChat';
 
+      var scale = NicoChatViewModel.BASE_SCALE;
+      NicoChatViewModel.emitter.on('updateBaseChatScale', function(v) { scale = v; });
+
       textField = {
         setText: function(text) {
           span.innerHTML = text;
@@ -5639,8 +5679,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         setFontSizePixel: function(pixel) {
           span.style.fontSize = pixel + 'px';
         },
-        getWidth: function() {
+        getOriginalWidth: function() {
           return span.offsetWidth;
+        },
+        getWidth: function() {
+          return span.offsetWidth * scale;
         }
       };
 
@@ -5650,7 +5693,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     };
 
     return {
-      get: getLayer
+      get: getLayer,
+      getOptionCss: function() { return optionStyle.innerHTML; }
     };
   })();
 
@@ -5835,6 +5879,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       nicoChatGroup.on('addChatArray', _.bind(this._onAddChatArray, this));
       nicoChatGroup.on('reset',        _.bind(this._onReset,        this));
       nicoChatGroup.on('change',       _.bind(this._onChange,        this));
+      NicoChatViewModel.emitter.on('updateBaseChatScale', _.bind(this._onChange, this));
 
       this.addChatArray(nicoChatGroup.getMembers());
     },
@@ -5851,7 +5896,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       console.log('NicoChatGroupViewModel.onChange: ', e);
       window.console.time('_onChange');
       this.reset();
-      this.addChatArray(e.group.getMembers());
+      this.addChatArray(this._nicoChatGroup.getMembers());
       window.console.timeEnd('_onChange');
     },
     addChatArray: function(nicoChatArray) {
@@ -6201,6 +6246,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
    * 互換性にこだわらないのであれば7割くらいが不要。
    */
   var NicoChatViewModel = function() { this.initialize.apply(this, arguments); };
+  NicoChatViewModel.emitter = new AsyncEmitter();
+
   // ここの値はレイアウト計算上の仮想領域の物であり、実際の表示はviewに依存
   NicoChatViewModel.DURATION = {
     TOP:    3,
@@ -6222,6 +6269,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   };
 
   NicoChatViewModel.CHAT_MARGIN = 5;
+
+  NicoChatViewModel.BASE_SCALE = parseFloat(Config.getValue('baseChatScale'), 10);
+  Config.on('update-baseChatScale', function(scale) {
+    if (isNaN(scale)) { return; }
+    scale = parseFloat(scale, 10);
+    NicoChatViewModel.BASE_SCALE = scale;
+    NicoChatViewModel.emitter.emit('updateBaseChatScale', scale);
+  });
   
   _.assign(NicoChatViewModel.prototype, {
     initialize: function(nicoChat, offScreen) {
@@ -6237,7 +6292,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // 固定されたコメントか、流れるコメントか
       this._isFixed = false;
 
-      this._scale = 1.0;
+      this._scale = NicoChatViewModel.BASE_SCALE;
       this._y = 0;
 
       this._setType(nicoChat.getType());
@@ -6329,8 +6384,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       field.setFontSizePixel(this._fontSizePixel);
       field.setType(this._type);
       
-      this._width  = this._originalWidth  = field.getWidth();
-      this._height = this._originalHeight = this._calculateHeight();
+      this._originalWidth  = field.getOriginalWidth();
+      this._width          = this._originalWidth * this._scale;
+      this._height         = this._originalHeight = this._calculateHeight();
 
       if (!this._isFixed) {
         var speed =
@@ -6351,6 +6407,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
       // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
       var lc = this._htmlText.split('<br>').length;
+      //if (this._nicoChat.getNo() === 427) { window.nnn = this._nicoChat; debugger; }
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
       var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
@@ -6424,6 +6481,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // メモ
       // "        "
 
+      var originalScale = this._scale;
       // 改行リサイズ
       // 参考: http://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
       // 画面の高さの1/3を超える場合は大きさを半分にする
@@ -6444,9 +6502,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           // なので、コメント描画の再現としては正しい…らしい。
           //
           // そのバグを発動しなくするためのコマンドがender
-          this._setScale(screenWidth / this._width);
+          this._setScale(originalScale * (screenWidth / this._width));
         } else {
-          this._setScale(this._scale * (screenWidth  / this._width));
+          this._setScale(this._scale   * (screenWidth / this._width));
         }
       }
 
@@ -6467,7 +6525,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
       // 画面の高さの1/3を超える場合は大きさを半分にする
       if (!this._nicoChat.isEnder() && this._height > screenHeight / 3) {
-        this._setScale(0.5);
+        this._setScale(this._scale * 0.5);
         var speed =
           this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
         this._endLeftTiming    = this._endRightTiming  - this._width / speed;
@@ -6985,7 +7043,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var html =
         NicoCommentCss3PlayerView.__TPL__
         .replace('%CSS%', '').replace('%MSG%', '')
-        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
+        .replace('%OPTION_CSS%', '');
 
 
       var self = this;
@@ -7018,6 +7077,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         doc.body.className = Config.getValue('debug') ? 'debug' : '';
         Config.on('update-debug', function(val) {
           doc.body.className = val ? 'debug' : '';
+        });
+        // 手抜きその2
+        self._optionStyle.innerHTML = NicoComment.offScreenLayer.getOptionCss();
+        ZenzaWatch.emitter.on('updateOptionCss', function(newCss) {
+          self._optionStyle.innerHTML = newCss;
         });
 
         var onResize = function() {
@@ -7282,7 +7346,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       css .push(this._buildGroupCss(members, currentTime));
 
       var tpl = NicoCommentCss3PlayerView.__TPL__
-        .replace('%LAYOUT_CSS%', NicoTextParser.__css__);
+        .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
+        .replace('%OPTION_CSS%', NicoComment.offScreenLayer.getOptionCss());
 
       tpl = tpl.replace('%CSS%', css.join(''));
       tpl = tpl.replace('%MSG%', html.join(''));
@@ -8334,6 +8399,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .zenzaVideoPlayerDialog.show {
       display: block;
     }
+    .fullScreen .zenzaVideoPlayerDialog {
+      transition: none !important;
+    }
 
     .zenzaVideoPlayerDialogInner {
       position: fixed;
@@ -8345,6 +8413,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       z-index: 100001;
       box-shadow: 4px 4px 4px #000;
       transition: top 0.4s ease-in, left 0.4s ease-in;
+    }
+    .fullScreen .zenzaVideoPlayerDialogInner {
+      transition: none !important;
     }
 
     .noVideoInfoPanel .zenzaVideoPlayerDialogInner {
@@ -8359,6 +8430,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       width: 672px;
       height: 385px;
       transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
+    }
+    .fullScreen .zenzaPlayerContainer {
+      transition: none !important;
     }
 
     .zenzaPlayerContainer .videoPlayer {
@@ -8411,6 +8485,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       pointer-events: none;
       transform: translateZ(0);
       cursor: none;
+    }
+    .fullScreen .zenzaPlayerContainer .commentLayerFrame {
+      transition: none !important;
     }
 
     .zenzaScreenMode_small  .zenzaPlayerContainer.backComment .commentLayerFrame,
@@ -8975,6 +9052,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         case 'open':
           this.open(param);
           break;
+        case 'baseFontFamily':
+        case 'baseChatScale':
         case 'enableFilter':
         case 'playbackRate':
         case 'screenMode':
@@ -10730,6 +10809,34 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       white-space: pre;
     }
 
+    .zenzaSettingPanel .fontEdit .info {
+      color: #ccc;
+      font-size: 90%;
+      display: inline-block;
+      margin: 8px 0;
+    }
+
+    .zenzaSettingPanel .fontEdit p {
+      color: #fff;
+      font-size: 120%;
+    }
+
+    .zenzaSettingPanel input[type=text] {
+      font-size: 24px;
+      background: #000;
+      color: #ccc;
+      width: 90%;
+      margin: 0 5%;
+      border-radius: 8px;
+    }
+    .zenzaSettingPanel select {
+      font-size:24px;
+      background: #000;
+      color: #ccc;
+      margin: 0 5%;
+      border-radius: 8px;
+     }
+
   */});
   SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <!-- mix-blend-mode を使ってみたかっただけのためのレイヤーx2 飽きたら消す -->
@@ -10771,6 +10878,42 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
             <input type="checkbox" class="checkbox" data-setting-name="overrideGinza">
             動画視聴ページでもGINZAのかわりに起動する
           </label>
+        </div>
+
+        <p class="caption">フォントの設定</p>
+        <div class="fontEdit">
+
+          <div class="baseFontBolderControl control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="baseFontBolder">
+              フォントを太くする
+            </label>
+          </div>
+
+          <p>フォント名</p>
+          <span class="info">入力例: 「'遊ゴシック', 'メイリオ', '戦国TURB'」</span>
+          <input type="text" class="textInput"
+            data-setting-name="baseFontFamily">
+
+          <p>表示倍率</p>
+          <select class="baseChatScale" data-setting-name="baseChatScale">
+            <option value="0.5">0.5</option>
+            <option value="0.6">0.6</option>
+            <option value="0.7">0.7</option>
+            <option value="0.8">0.8</option>
+            <option value="0.9">0.9</option>
+            <option value="1"  selected>1.0</option>
+            <option value="1.1">1.1</option>
+            <option value="1.2">1.2</option>
+            <option value="1.3">1.3</option>
+            <option value="1.4">1.4</option>
+            <option value="1.5">1.5</option>
+            <option value="1.6">1.6</option>
+            <option value="1.7">1.7</option>
+            <option value="1.8">1.8</option>
+            <option value="1.9">1.9</option>
+            <option value="2.0">2.0</option>
+          </select>
         </div>
 
         <p class="caption">NG設定</p>
@@ -10849,10 +10992,29 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         var $c = $(check);
         var settingName = $c.attr('data-setting-name');
         var val = config.getValue(settingName);
-        $c.prop('checked', config.getValue(settingName));
+        $c.prop('checked', val);
         $c.closest('.control').toggleClass('checked', val);
       });
       $check.on('change', _.bind(this._onToggleItemChange, this));
+
+      var $text = $panel.find('input[type=text]');
+      $text.each(function(i, text) {
+        var $t = $(text);
+        var settingName = $t.attr('data-setting-name');
+        var val = config.getValue(settingName);
+        $t.val(val);
+      });
+      $text.on('change', _.bind(this._onInputItemChange, this));
+
+      var $select = $panel.find('select');
+      $select.each(function(i, select) {
+        var $s = $(select);
+        var settingName = $s.attr('data-setting-name');
+        var val = config.getValue(settingName);
+        $s.val(val);
+      });
+      $select.on('change', _.bind(this._onInputItemChange, this));
+
 
       ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         this.hide();
@@ -10898,6 +11060,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         case 'mute':
         case 'loop':
         case 'autoPlay':
+        case 'enableHeatMap':
         case 'showComment':
         case 'autoFullScreen':
         case 'debug':
@@ -10914,6 +11077,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._playerConfig.setValue(settingName, val);
       $target.closest('.control').toggleClass('checked', val);
+    },
+    _onInputItemChange: function(e) {
+      var $target = $(e.target);
+      var settingName = $target.attr('data-setting-name');
+      var val = $target.val();
+
+      this._playerConfig.setValue(settingName, val);
     },
     toggle: function(v) {
       var eventName = 'click.ZenzaSettingPanel';
@@ -12107,7 +12277,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       }
 
       window.console.time('createOffscreenLayer');
-      NicoComment.offScreenLayer.get().then(function(offScreenLayer) {
+      NicoComment.offScreenLayer.get(Config).then(function(offScreenLayer) {
         window.console.timeEnd('createOffscreenLayer');
         // コメントの位置計算用のレイヤーが必要
         // スマートじゃないので改善したい

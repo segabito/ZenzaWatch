@@ -31,7 +31,7 @@ var NicoVideoPlayerDialog = function() {};
       }
 
       window.console.time('createOffscreenLayer');
-      NicoComment.offScreenLayer.get().then(function(offScreenLayer) {
+      NicoComment.offScreenLayer.get(Config).then(function(offScreenLayer) {
         window.console.timeEnd('createOffscreenLayer');
         // コメントの位置計算用のレイヤーが必要
         // スマートじゃないので改善したい

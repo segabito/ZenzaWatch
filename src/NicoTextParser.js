@@ -59,24 +59,16 @@ body {
 .mincho  {font-family: Simsun, Osaka-mono, 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,  Osaka-mono, 'ＭＳ ゴシック', monospace; }
 .mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ ゴシック', monospace; }
-.han_group { font-family: Arial; }
-
-  {*
-  .ue .mincho  , .shita .mincho {font-family: Simsun, monospace; }
-  .ue .gulim   , .shita .gulim  {font-family: Gulim,  monospace; }
-  .ue .mingLiu , .shita .mingLiu{font-family: PmingLiu, mingLiu, monospace; }
-  *}
+han_group { font-family: 'Arial'; }
 
 .nicoChat {
   position: absolute;
   padding: 1px;
 
-  font-family: 'ＭＳ Ｐゴシック';
   letter-spacing: 1px;
   margin: 2px 1px 1px 1px;
   white-space: pre;
   font-weight: bolder;
-
 }
 
   .nicoChat.big {
@@ -109,12 +101,11 @@ body {
   }
 
   .arial.type2001 {
-    font-family: Arial;}
+    font-family: Arial;
   }
   {* フォント変化のあったグループの下にいるということは、
      半角文字に挟まれていないはずである。
    *}
-  
     .gothic > .type2001 {
       font-family: 'ＭＳ Ｐゴシック';
     }
@@ -138,13 +129,15 @@ body {
 
   .gothic > .type3000 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    letter-spacing: -0.33595em;
+    {*letter-spacing: -0.33595em;*}
+    letter-spacing: -0.2943em;
   }
-  
-  {*.type0020,*}
+
+  .type0020,
   .type00A0 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    letter-spacing: -0.2223em;
+    {*letter-spacing: -0.2223em;*} {* 基本のletter-spacingが0の場合 *}
+    letter-spacing: -0.1805em;
   }
 
 .backslash {

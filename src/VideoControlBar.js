@@ -1422,6 +1422,16 @@ var AsyncEmitter = function() {};
       border-bottom: 24px solid transparent;
     }
 
+    .zenzaCommentPreview.updating {
+      transition: opacity 0.2s ease;
+      opacity: 0.3;
+      cursor: wait;
+    }
+    .zenzaCommentPreview.updating *{
+      pointer-evnets: none;
+    }
+
+
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaCommentPreview,
     body:not(.fullScreen).zenzaScreenMode_small .zenzaCommentPreview {
       background: rgba(0, 0, 0, 0.8);
@@ -1543,9 +1553,11 @@ var AsyncEmitter = function() {};
         var $nicoChat = $target.closest('.nicoChat');
         var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
         var nicoChat  = self._model.getItemByNo(no);
-        self.hide();
+        //self.hide();
 
-        if (command && nicoChat) {
+        if (command && nicoChat && !$view.hasClass('updating')) {
+          $view.addClass('updating');
+          window.setTimeout(function() { $view.removeClass('updating'); }, 3000);
           switch (command) {
             case 'addUserIdFilter':
               self.emit('command', command, nicoChat.getUserId());
