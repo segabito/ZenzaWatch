@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.4
+// @version        0.10.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -4998,11 +4998,12 @@ han_group { font-family: 'Arial'; }
     letter-spacing: -0.2943em;
   }
 
-  .type0020,
+{*.type0020,*}
   .type00A0 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    {*letter-spacing: -0.2223em;*} {* 基本のletter-spacingが0の場合 *}
-    letter-spacing: -0.1805em;
+    {*letter-spacing: -0.2223em;*}
+    letter-spacing: -0.1805em;{* 基本のletter-spacingが1pxの場合 *}
+
   }
 
 .backslash {
@@ -9049,6 +9050,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         case 'setIsCommentFilterEnable':
           this._nicoVideoPlayer.setIsCommentFilterEnable(param);
           break;
+        case 'tweet':
+          this.openTweetWindow(this._videoInfo);
+          break;
         case 'open':
           this.open(param);
           break;
@@ -9616,6 +9620,26 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     getMymemory: function() {
       return this._nicoVideoPlayer.getMymemory();
+    },
+    openTweetWindow: function(videoInfo) {
+      // TODO: どこかutil的な関数に追い出す
+      var watchId = videoInfo.getWatchId();
+      var nicomsUrl = 'http://nico.ms/' + watchId;
+      var watchUrl = 'http://www.nicovideo.jp/watch/' + watchId;
+
+      var sec = videoInfo.getDuration();
+      var m = Math.floor(sec / 60);
+      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+      var dur = ['(', m, ':', s, ')'].join('');
+      var nicoch = videoInfo.isChannel() ? ',+nicoch' : '';
+      var url =
+        'https://twitter.com/intent/tweet?' +
+        'url='       + encodeURIComponent(nicomsUrl) +
+        '&text='     + encodeURIComponent(videoInfo.getTitle() + dur) +
+        '&hashtags=' + encodeURIComponent(videoInfo.getVideoId() + nicoch) +
+        '&original_referer=' + encodeURIComponent(watchUrl) +
+        '';
+      window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
     }
   });
 
@@ -9642,11 +9666,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
 
     .menuItemContainer.rightTop {
-      width: 72px;
+      width: 120px;
       height: 40px;
       right: 40px;
       {*border: 1px solid #ccc;*}
       top: 0;
+      perspective: 150px;
+      perspective-origin: center;
     }
 
     .updatingDeflist .menuItemContainer.rightTop,
@@ -9686,7 +9712,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .menuButton {
       position: absolute;
       opacity: 0;
-      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
+      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease, transform 0.2s ease;
       box-sizing: border-box;
       text-align: center;
       pointer-events: none;
@@ -9922,11 +9948,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
 
     .mylistButton.mylistAddMenu {
-      left: 0;
+      left: 40px;
       top: 0;
     }
     .mylistButton.deflistAdd {
-      left: 40px;
+      left: 80px;
       top: 0;
     }
 
@@ -9945,6 +9971,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       0%   { transform: rotateX(0deg); }
       100% { transform: rotateX(1800deg); }
     }
+    @keyframes spinY {
+      0%   { transform: rotateY(0deg); }
+      100% { transform: rotateY(1800deg); }
+    }
 
     .updatingDeflist .mylistButton.deflistAdd {
       pointer-events: none;
@@ -9953,12 +9983,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       box-shadow: none !important;
       margin-left: 2px !important;
       margin-top:  4px !important;
-      {*background: #888 !important;*}
+      background: #888 !important;
       animation-name: spinX;
       animation-iteration-count: infinite;
       animation-duration: 6s;
       animation-timing-function: linear;
-      transform: perspective(100px);
     }
 
     .mylistButton.mylistAddMenu.show,
@@ -9972,11 +10001,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       background: #888 !important;
     }
     .updatingMylist  .mylistButton.mylistAddMenu {
+      background: #888 !important;
       animation-name: spinX;
       animation-iteration-count: infinite;
       animation-duration: 6s;
       animation-timing-function: linear;
-      transform: perspective(100px);
     }
 
     .mylistSelectMenu {
@@ -10060,11 +10089,38 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       color: #fff;
     }
 
+    .menuItemContainer .zenzaTweetButton {
+      width:  32px;
+      height: 32px;
+      color: #000;
+      border: 1px solid #000;
+      border-radius: 4px;
+      line-height: 30px;
+      font-size: 24px;
+      white-space: nowrap;
+    }
+    .mouseMoving .zenzaTweetButton {
+      text-shadow: 1px 1px 2px #88c;
+    }
+    .zenzaTweetButton:hover {
+      text-shadow: 1px 1px 2px #88c;
+      background: #1da1f2;
+      color: #fff;
+    }
+    .zenzaTweetButton:active {
+      transform: scale(0.8);
+    }
+
+
 
   */});
 
   VideoHoverMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="menuItemContainer rightTop">
+      <div class="menuButton zenzaTweetButton" data-command="tweet">
+        <div class="tooltip">ツイート</div>
+        <div class="menuButtonInner">t</div>
+      </div>
       <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu">
         <div class="tooltip">マイリスト登録</div>
         <div class="menuButtonInner">My</div>
@@ -10127,6 +10183,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._initializeDom();
       this._initializeNgSettingMenu();
+      this._initializeSnsMenu();
 
       ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
     },
@@ -10206,6 +10263,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         }
       });
 
+    },
+    _initializeSnsMenu: function() {
+      this._$zenzaTweetButton = this._$playerContainer.find('.zenzaTweetButton');
     },
     _initializeNgSettingMenu: function() {
       var self = this;
@@ -10293,6 +10353,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           this.emit('command', 'settingPanel');
           e.stopPropagation();
           break;
+        case 'tweet':
         case 'fullScreen':
         case 'toggleMute':
         case 'toggleComment':

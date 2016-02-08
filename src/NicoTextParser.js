@@ -133,11 +133,12 @@ han_group { font-family: 'Arial'; }
     letter-spacing: -0.2943em;
   }
 
-  .type0020,
+{*.type0020,*}
   .type00A0 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    {*letter-spacing: -0.2223em;*} {* 基本のletter-spacingが0の場合 *}
-    letter-spacing: -0.1805em;
+    {*letter-spacing: -0.2223em;*}
+    letter-spacing: -0.1805em;{* 基本のletter-spacingが1pxの場合 *}
+
   }
 
 .backslash {
