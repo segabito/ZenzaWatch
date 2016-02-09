@@ -852,12 +852,12 @@ var NicoCommentPlayer = function() {};
       this.emit('resize');
     },
     _onAbort: function() {
-      console.log('%c_onAbort:', 'background: cyan; color: red;', arguments);
+      window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
       this._$video.addClass('abort');
       this.emit('abort');
     },
     _onError: function() {
-      console.log('%c_onError:', 'background: cyan; color: red;', arguments);
+      window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
       this._$video.addClass('error');
       this._canPlay = false;
       this.emit('error');

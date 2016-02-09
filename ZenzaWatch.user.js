@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.5
+// @version        0.10.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2857,12 +2857,12 @@ var monkey = function() {
       this.emit('resize');
     },
     _onAbort: function() {
-      console.log('%c_onAbort:', 'background: cyan; color: red;', arguments);
+      window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
       this._$video.addClass('abort');
       this.emit('abort');
     },
     _onError: function() {
-      console.log('%c_onError:', 'background: cyan; color: red;', arguments);
+      window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
       this._$video.addClass('error');
       this._canPlay = false;
       this.emit('error');
@@ -9301,7 +9301,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$playerContainer.addClass('loading');
       this._$playerContainer.removeClass('playing stalled error abort');
 
-      this._bindLoaderEvents();
 
       this._videoWatchOptions = options = options || {};
 
@@ -9315,7 +9314,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._isCommentReady = false;
       this._watchId = watchId;
+      this._requestId = Math.random();
+      this._lastCurrentTime = 0;
+      this._lastOpenAt = Date.now();
+      this._hasError = false;
       window.console.time('VideoInfoLoader');
+
+      this._bindLoaderEvents();
       VideoInfoLoader.load(watchId, options);
 
       this.show(options);
@@ -9325,11 +9330,22 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this.emit('open', watchId, options);
       ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
     },
+    reload: function() {
+      window.console.info('reload!', this._videoWatchOptions, this._lastCurrentTime);
+      var options = this._videoWatchOptions || {};
+      if (this._lastCurrentTime > 0) {
+        options.currentTime = this._lastCurrentTime;
+      }
+      this.open(this._watchId, options);
+    },
     getCurrentTime: function() {
       if (!this._nicoVideoPlayer) {
         return 0;
       }
-      return this._nicoVideoPlayer.getCurrentTime();
+      if (!this._hasError) {
+        this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
+      }
+      return this._lastCurrentTime;
     },
     setCurrentTime: function(sec) {
       if (!this._nicoVideoPlayer) {
@@ -9347,16 +9363,20 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       if (this._onVideoInfoLoaderLoad_proxy) {
         VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
       }
-      this._onVideoInfoLoaderLoad_proxy = _.bind(this._onVideoInfoLoaderLoad, this);
+      this._onVideoInfoLoaderLoad_proxy = _.bind(this._onVideoInfoLoaderLoad, this, this._requestId);
       VideoInfoLoader.on('load', this._onVideoInfoLoaderLoad_proxy);
     },
-    _onVideoInfoLoaderLoad: function(videoInfo, type, watchId) {
+    _onVideoInfoLoaderLoad: function(requestId, videoInfo, type, watchId) {
       window.console.timeEnd('VideoInfoLoader');
-      console.log('VideoInfoLoader.load!', watchId, type, videoInfo);
+      console.log('VideoInfoLoader.load!', requestId, watchId, type, videoInfo);
+      if (this._requestId !== requestId) {
+        return;
+      }
 
       if (type !== 'WATCH_API') {
         this._nicoVideoPlayer.setThumbnail(videoInfo.thumbImage);
         this._nicoVideoPlayer.setVideo(videoInfo.url);
+        this._videoInfo = {};
 
         this._threadId = videoInfo.thread_id;
 
@@ -9368,16 +9388,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           videoInfo.needs_key === '1',
           videoInfo.optional_thread_id
         ).then(
-          _.bind(this._onCommentLoadSuccess, this, watchId),
-          _.bind(this._onCommentLoadFail, this, watchId)
+          _.bind(this._onCommentLoadSuccess, this, requestId),
+          _.bind(this._onCommentLoadFail, this, requestId)
         );
 
         this._$playerContainer.addClass('noVideoInfoPanel');
 
       } else {
-        if (this._watchId !== watchId) {
-          return;
-        }
         var flvInfo   = videoInfo.flvInfo;
         var videoUrl  = flvInfo.url;
 
@@ -9396,8 +9413,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           flvInfo.needs_key === '1',
           flvInfo.optional_thread_id
         ).then(
-          _.bind(this._onCommentLoadSuccess, this, watchId),
-          _.bind(this._onCommentLoadFail, this, watchId)
+          _.bind(this._onCommentLoadSuccess, this, requestId),
+          _.bind(this._onCommentLoadFail, this, requestId)
         );
 
         this.emit('loadVideoInfo', this._videoInfo);
@@ -9408,8 +9425,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
     },
-    _onCommentLoadSuccess: function(watchId, result) {
-      if (watchId !== this._watchId) {
+    _onCommentLoadSuccess: function(requestId, result) {
+      if (requestId !== this._requestId) {
         return;
       }
       PopupMessage.notify('コメント取得成功');
@@ -9418,8 +9435,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._isCommentReady = true;
       this.emit('commentReady', result);
     },
-    _onCommentLoadFail: function(watchId, e) {
-      if (watchId !== this._watchId) {
+    _onCommentLoadFail: function(requestId, e) {
+      if (requestId !== this._requestId) {
         return;
       }
       PopupMessage.alert(e.message);
@@ -9469,9 +9486,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this.emit('progress', range, currentTime);
     },
     _onVideoError: function() {
+      this._hasError = true;
       this._$playerContainer.addClass('error');
       this._$playerContainer.removeClass('playing loading');
       this.emit('error');
+      // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
+      // と思われるので開き直す
+      if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
+        this.reload();
+      }
     },
     _onVideoAbort: function() {
       this._$playerContainer.addClass('abort');
