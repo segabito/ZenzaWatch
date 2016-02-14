@@ -6,17 +6,44 @@
 <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js"></script>
 <style type="text/css">
-#fontTest { font-size: 24px; white-space: pre; letter-spacing: 1px; }
+#fontTest { white-space: pre; letter-spacing: 1px; font-weight: bolder; }
+
+.big    { font-size: 39px; line-height: 45px;}
+.medium { font-size: 24px; line-height: 29px;}
+.small  { font-size: 15px; line-height: 18px;}
+
 .arial   { font-family: Arial;             background: red;   display: inline-block; }
 .gothic  { font-family: 'ＭＳ Ｐゴシック'; background: blue;  display: inline-block;}
-.mono    { font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;         background: green; display: inline-block;}
+.mono    { font-family: 'Courier New', 'Osaka-mono', 'ＭＳ ゴシック', monospace;
+background: green; display: inline-block;}
 
-.mono.type9    { /*letter-spacing: -0.2223em;*/ }
-.mono.type20   { letter-spacing: -0.2223em; }
-.mono.type2001 { letter-spacing: 0; }
-.mono.type3000 { letter-spacing: -0.33595em; }
-.mono.typeA0   { letter-spacing: -0.2223em; }
-.mono.typeE800 { letter-spacing: -0.25em; }
+.big.mono.type9    { letter-spacing:  1.6241em;  } /* 1387.94px */
+.medium.mono.type9 { letter-spacing:  1.6252em;  } /*  854.5px */
+.small.mono.type9  { letter-spacing:  1.5375em;  } /*  513px */
+
+.big.mono.type20    { letter-spacing: -0.2966em; } /* 189.375px */
+.medium.mono.type20 { letter-spacing: -0.2806em; } /* 122.688px */
+.small.mono.type20  { letter-spacing: -0.2667em; } /*  80px     */
+
+.big.mono.type2001    { } /* 640px */
+.medium.mono.type2001 { }
+.small.mono.type2001  { }
+
+.big.mono.type2003    { } /* 640px */
+.medium.mono.type2003 { }
+.small.mono.type2003  { }
+
+.big.mono.type3000    { letter-spacing: -0.3103em; } /* 430.375px */
+.medium.mono.type3000 { letter-spacing: -0.2943em; } /* 271px     */
+.small.mono.type3000  { letter-spacing: -0.2693em; } /* 175.375px */
+
+.big.mono.typeA0      { letter-spacing: -0.2966em; } /* 189.375px */
+.medium.mono.typeA0   { letter-spacing: -0.2806em; } /* 122.688px */
+.small.mono.typeA0    { letter-spacing: -0.2667em; } /*  80px     */
+
+.big.mono.typeE800    { } /* 652.188px */ /* MSPゴシック合わせ  */
+.medium.mono.typeE800 { } /* 407.5px   */
+.small.mono.typeE800  { } /* 260.688px */
 
 </style>
 <body>
@@ -31,20 +58,25 @@ var textList = [
 	String.fromCharCode(0x3000),
 	String.fromCharCode(0x00A0),
 	String.fromCharCode(0xE800),
-	'#',
-	'w',
-	'ｗ'
+	'lW'
 	];
 	var tmp = [];
 	textList.forEach(function(text) {
 		var c = text.charCodeAt(0).toString(16).toUpperCase();
 		while(text.length < 16) { text = text + text; }
+		var t = (text.charAt(0) === '\t') ? text.replace(/[\t]/g , '^') : text;
 		tmp.push([
 				'code: U+', c, '<br>',
-				'<span class="arial  type', c, '">',   text, '<', '/span>', '<br>',
-				'<span class="gothic type', c, '">',   text, '<', '/span>', '<br>',
-				'<span class="mono   type', c, '">',   text, '<', '/span>',
-				'<hr>',
+				'<div class="arial  big    type', c, '">',   text, '<', '/div>arial', '<br>',
+				'<div class="gothic big    type', c, '">',   text, '<', '/div>gothic', '<br>',
+				'<div class="mono   big    type', c, '">',   t,    '<', '/div>mono<br>',
+				'<div class="arial  medium type', c, '">',   text, '<', '/div>', '<br>',
+				'<div class="gothic medium type', c, '">',   text, '<', '/div>', '<br>',
+				'<div class="mono   medium type', c, '">',   t,    '<', '/div><br>',
+				'<div class="arial  small  type', c, '">',   text, '<', '/div>', '<br>',
+				'<div class="gothic small  type', c, '">',   text, '<', '/div>', '<br>',
+				'<div class="mono   small  type', c, '">',   t,    '<', '/div><br>',
+					'<hr>',
 		''].join(''));
 	});
 
@@ -55,14 +87,11 @@ var textList = [
 		window.console.log(div.className, div.offsetWidth, div.offsetWidth / 16);
 	});
 </script>
-<div style="font-family: Osaka-mono, 'Osaka-等幅', 'ＭＳ ゴシック', monospace; white-space: pre; font-size:16px;">
-aaaaaaaaaaaaaaaaaa
-bbbbbbbbbbbbbbbbbb
-cccccccccccccccccc
-dddddddddddddddddd
-wwwwwwwwwwwwwwwwww
-iiiiiiiiiiiiiiiiii
-gggggggggggggggggg
+<div class="mono" style="font-size: 15px; font-weight: bolder; letter-spacing: 1px;">
+AAAAAAAAAAAAAAAA<br>
+BBBBBBBBBBBBBBBB<br>
+iiiiiiiiiiiiiiii<br>
+wwwwwwwwwwwwwwww<br>
 </div>
 </body>
 </html>

@@ -768,11 +768,15 @@ var console;
       var dialog;
 
       var onDialogOpen = function(watchId, options) {
+        var url = originalUrl;
+        if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+          url = location.href;
+        }
         var state = {
           zenza: true,
           watchId: watchId,
           options: options,
-          originalUrl: originalUrl
+          originalUrl: url
         };
         window.history.replaceState(
           state,
@@ -786,7 +790,7 @@ var console;
           if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
             return;
           }
-          window.history.replaceState(null, null, originalUrl);
+          window.history.replaceState(null, null, url);
         });
         isOpen = true;
       };

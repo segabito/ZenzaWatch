@@ -223,12 +223,12 @@ var NicoTextParser = {};
       this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
       
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
-      this._normalGroup = new NicoChatGroup(this, NicoChat.TYPE.NORMAL, params);
+      this._nakaGroup = new NicoChatGroup(this, NicoChat.TYPE.NAKA  , params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
 
       var onChange = _.debounce(_.bind(this._onChange, this), 100);
       this._topGroup   .on('change', onChange);
-      this._normalGroup.on('change', onChange);
+      this._nakaGroup.on('change', onChange);
       this._bottomGroup.on('change', onChange);
       ZenzaWatch.emitter.on('updateOptionCss', onChange);
       //NicoChatViewModel.emitter.on('updateBaseChatScale', onChange);
@@ -238,12 +238,12 @@ var NicoTextParser = {};
 
       this._xml = xml;
       this._topGroup.reset();
-      this._normalGroup.reset();
+      this._nakaGroup.reset();
       this._bottomGroup.reset();
 
       var chats = xml.getElementsByTagName('chat');
 
-      var top = [], bottom = [], normal = [];
+      var top = [], bottom = [], naka = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
         var chat = chats[i];
         if (!chat.firstChild) continue;
@@ -262,33 +262,33 @@ var NicoTextParser = {};
             group = bottom;
             break;
           default:
-            group = normal;
+            group = naka;
             break;
         }
         group.push(nicoChat);
       }
       this._topGroup   .addChatArray(top);
-      this._normalGroup.addChatArray(normal);
+      this._nakaGroup.addChatArray(naka);
       this._bottomGroup.addChatArray(bottom);
 
       window.console.timeEnd('コメントのパース処理');
       console.log('chats: ', chats.length);
       console.log('top: ',    this._topGroup   .getNonFilteredMembers().length);
-      console.log('normal: ', this._normalGroup.getNonFilteredMembers().length);
+      console.log('naka: ',   this._nakaGroup  .getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('parsed');
     },
     getChatList: function() {
       return {
         top:    this._topGroup   .getMembers(),
-        normal: this._normalGroup.getMembers(),
+        naka:   this._nakaGroup  .getMembers(),
         bottom: this._bottomGroup.getMembers()
       };
     },
     getNonFilteredChatList: function() {
       return {
         top:    this._topGroup   .getNonFilteredMembers(),
-        normal: this._normalGroup.getNonFilteredMembers(),
+        naka:   this._nakaGroup  .getNonFilteredMembers(),
         bottom: this._bottomGroup.getNonFilteredMembers()
       };
     },
@@ -304,7 +304,7 @@ var NicoTextParser = {};
           group = this._bottomGroup;
           break;
         default:
-          group = this._normalGroup;
+          group = this._nakaGroup;
           break;
       }
       group.addChat(nicoChat, group);
@@ -330,7 +330,7 @@ var NicoTextParser = {};
     clear: function() {
       this._xml = '';
       this._topGroup.reset();
-      this._normalGroup.reset();
+      this._nakaGroup.reset();
       this._bottomGroup.reset();
       this.emit('clear');
     },
@@ -341,7 +341,7 @@ var NicoTextParser = {};
       this._currentTime = sec;
 
       this._topGroup   .setCurrentTime(sec);
-      this._normalGroup.setCurrentTime(sec);
+      this._nakaGroup.setCurrentTime(sec);
       this._bottomGroup.setCurrentTime(sec);
 
       this.emit('currentTime', sec);
@@ -359,7 +359,7 @@ var NicoTextParser = {};
         case NicoChat.TYPE.BOTTOM:
           return this._bottomGroup;
         default:
-          return this._normalGroup;
+          return this._nakaGroup;
       }
     },
     setSharedNgLevel: function(level) {
@@ -596,8 +596,8 @@ var NicoTextParser = {};
 
       this._topGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.TOP), offScreen);
-      this._normalGroup =
-        new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.NORMAL), offScreen);
+      this._nakaGroup =
+        new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.NAKA  ), offScreen);
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
@@ -611,7 +611,7 @@ var NicoTextParser = {};
     },
     _onClear: function() {
       this._topGroup.reset();
-      this._normalGroup.reset();
+      this._nakaGroup.reset();
       this._bottomGroup.reset();
 
       this.emit('clear');
@@ -633,7 +633,7 @@ var NicoTextParser = {};
         '>'
       ].join(''));
 
-      result.push(this._normalGroup.toString());
+      result.push(this._nakaGroup.toString());
       result.push(this._topGroup.toString());
       result.push(this._bottomGroup.toString());
 
@@ -647,7 +647,7 @@ var NicoTextParser = {};
         case NicoChat.TYPE.BOTTOM:
           return this._bottomGroup;
         default:
-          return this._normalGroup;
+          return this._nakaGroup;
       }
     }
 });
@@ -870,7 +870,7 @@ var NicoTextParser = {};
      */
     getInViewMembersBySecond: function(sec) {
       // TODO: もっと効率化
-      //var maxDuration = NicoChatViewModel.DURATION.NORMAL;
+      //var maxDuration = NicoChatViewModel.DURATION.NAKA;
 
       var result = [], m = this._vSortedMembers, len = m.length;
       for (var i = 0; i < len; i++) {
@@ -929,13 +929,13 @@ var NicoTextParser = {};
   NicoChat.id = 1000000;
 
   NicoChat.SIZE = {
-    BIG: 'big',
+    BIG:    'big',
     MEDIUM: 'medium',
-    SMALL: 'small'
+    SMALL:  'small'
   };
   NicoChat.TYPE = {
     TOP:    'ue',
-    NORMAL: 'normal',
+    NAKA:   'naka',
     BOTTOM: 'shita'
   };
   NicoChat._CMD_REPLACE = /(ue|shita|sita|big|small|ender|full|[ ])/g;
@@ -982,7 +982,7 @@ var NicoTextParser = {};
       this._deleted = '';
       this._color = '#FFF';
       this._size = NicoChat.SIZE.MEDIUM;
-      this._type = NicoChat.TYPE.NORMAL;
+      this._type = NicoChat.TYPE.NAKA  ;
       this._isMine = false;
       this._score = 0;
       this._no = 0;
@@ -1005,8 +1005,8 @@ var NicoTextParser = {};
       this._deleted = chat.getAttribute('deleted') === '1';
       this._color = '#FFF';
       this._size = NicoChat.SIZE.MEDIUM;
-      this._type = NicoChat.TYPE.NORMAL;
-      this._duration = NicoChatViewModel.DURATION.NORMAL;
+      this._type = NicoChat.TYPE.NAKA  ;
+      this._duration = NicoChatViewModel.DURATION.NAKA;
       this._isMine = chat.getAttribute('mine') === '1';
       this._isUpdating = chat.getAttribute('updating') === '1';
       this._score = parseInt(chat.getAttribute('score') || '0', 10);
@@ -1122,20 +1122,20 @@ var NicoTextParser = {};
   // ここの値はレイアウト計算上の仮想領域の物であり、実際の表示はviewに依存
   NicoChatViewModel.DURATION = {
     TOP:    3,
-    NORMAL: 4,
+    NAKA: 4,
     BOTTOM: 3
   };
 
   NicoChatViewModel.FONT = '\'ＭＳ Ｐゴシック\''; // &#xe7cd;
   NicoChatViewModel.FONT_SIZE_PIXEL = {
     BIG:    39 + 0,
-    NORMAL: 24 + 0,
+    MEDIUM: 24 + 0,
     SMALL:  15 + 0
   };
 
   NicoChatViewModel.LINE_HEIGHT = {
     BIG:    45,
-    NORMAL: 29,
+    MEDIUM: 29, // TODO: MEDIUMに変える
     SMALL:  18
   };
 
@@ -1158,7 +1158,7 @@ var NicoTextParser = {};
       // 画面からはみ出したかどうか(段幕時)
       this._isOverflow = false;
       // 表示時間
-      this._duration = NicoChatViewModel.DURATION.NORMAL;
+      this._duration = NicoChatViewModel.DURATION.NAKA;
 
       // 固定されたコメントか、流れるコメントか
       this._isFixed = false;
@@ -1233,7 +1233,7 @@ var NicoTextParser = {};
           this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.SMALL;
           break;
         default:
-          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.NORMAL;
+          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.MEDIUM;
           break;
       }
     },
@@ -1281,7 +1281,7 @@ var NicoTextParser = {};
       //if (this._nicoChat.getNo() === 427) { window.nnn = this._nicoChat; debugger; }
 
       var margin     = NicoChatViewModel.CHAT_MARGIN;
-      var lineHeight = NicoChatViewModel.LINE_HEIGHT.NORMAL; // 29
+      var lineHeight = NicoChatViewModel.LINE_HEIGHT.MEDIUM; // 29
       var size       = this._size;
       switch (size) {
         case NicoChat.SIZE.BIG:
@@ -2122,7 +2122,7 @@ var NicoTextParser = {};
       if (!this._commentLayer || !this._style || !this._isShow) { return; }
 
       var groups = [
-        this._viewModel.getGroup(NicoChat.TYPE.NORMAL),
+        this._viewModel.getGroup(NicoChat.TYPE.NAKA  ),
         this._viewModel.getGroup(NicoChat.TYPE.BOTTOM),
         this._viewModel.getGroup(NicoChat.TYPE.TOP)
       ];
@@ -2195,7 +2195,7 @@ var NicoTextParser = {};
       window.console.time('buildHtml');
 
       var groups = [
-        this._viewModel.getGroup(NicoChat.TYPE.NORMAL),
+        this._viewModel.getGroup(NicoChat.TYPE.NAKA  ),
         this._viewModel.getGroup(NicoChat.TYPE.BOTTOM),
         this._viewModel.getGroup(NicoChat.TYPE.TOP)
       ];
@@ -2339,7 +2339,7 @@ var NicoTextParser = {};
       //var zIndex = 10000 - (zid % 5000);
       var zIndex = beginL * 1000;
 
-      if (type === NicoChat.TYPE.NORMAL) {
+      if (type === NicoChat.TYPE.NAKA  ) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
         scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
         var outerScreenWidth = screenWidthFull * 1.1;

@@ -87,7 +87,26 @@ var RelatedVideoList = function() {};
       width: 672px;
       height: 385px;
       transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-position: center center;
     }
+    .zenzaPlayerContainer.loading {
+      cursor: wait;
+    }
+    .zenzaPlayerContainer:not(.loading):not(.error) {
+      background-image: none !important;
+      background: #000 !important;
+    }
+    .zenzaPlayerContainer.loading .videoPlayer,
+    .zenzaPlayerContainer.loading .commentLayerFrame,
+    .zenzaPlayerContainer.error .videoPlayer,
+    .zenzaPlayerContainer.error .commentLayerFrame {
+      display: none;
+    }
+
+
+
     .fullScreen .zenzaPlayerContainer {
       transition: none !important;
     }
@@ -109,7 +128,6 @@ var RelatedVideoList = function() {};
     .zenzaPlayerContainer .videoPlayer.loading {
       cursor: wait;
     }
-
     .mouseMoving .videoPlayer {
       cursor: auto;
     }
@@ -418,7 +436,64 @@ var RelatedVideoList = function() {};
     }
 
 
+    .loadingMessageContainer {
+      display: none;
+      pointer-events: none;
+    }
+    .zenzaPlayerContainer.loading .loadingMessageContainer {
+      display: inline-block;
+      position: absolute;
+      z-index: 110000;
+      right: 8px;
+      bottom: 8px;
+      font-size: 24px;
+      color: #ccc;
+      text-shadow: 0 0 8px #003;
+      font-family: serif;
+      letter-spacing: 2px;
+      {*animation-name: loadingVideo;*}
+      {*background: rgba(0, 0, 0, 0.5);*}
+    }
 
+    @keyframes spin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(-1800deg); }
+    }
+
+    .zenzaPlayerContainer.loading .loadingMessageContainer::before,
+    .zenzaPlayerContainer.loading .loadingMessageContainer::after {
+      display: inline-block;
+      text-align: center;
+      content: '\00272A';
+      font-size: 18px;
+      line-height: 24px;
+      animation-name: spin;
+      animation-iteration-count: infinite;
+      animation-duration: 5s;
+      animation-timing-function: linear;
+    }
+    .zenzaPlayerContainer.loading .loadingMessageContainer::after {
+      animation-direction: reverse;
+    }
+
+
+    .errorMessageContainer {
+      display: none;
+      pointer-events: none;
+    }
+    .zenzaPlayerContainer.error .errorMessageContainer {
+      display: inline-block;
+      position: absolute;
+      z-index: 110000;
+      top: 50%;
+      left: 50%;
+      padding: 8px 16px;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 0, 0, 0.9);
+      font-size: 24px;
+      box-shadow: 8px 8px 4px rgba(128, 0, 0, 0.8);
+      white-space: nowrap;
+    }
 
   */});
 
@@ -430,6 +505,8 @@ var RelatedVideoList = function() {};
           <div class="closeButton">×</div>
 
           <div class="popupMessageContainer"></div>
+          <div class="errorMessageContainer"></div>
+          <div class="loadingMessageContainer">動画読込中</div>
         </div>
       </div>
     </div>
@@ -519,12 +596,12 @@ var RelatedVideoList = function() {};
       this._commentInput.on('focus', _.bind(function(isAutoPause) {
         isPlaying = this._nicoVideoPlayer.isPlaying();
         if (isAutoPause) {
-          this._nicoVideoPlayer.pause();
+          this.pause();
         }
       }, this));
       this._commentInput.on('blur', _.bind(function(isAutoPause) {
         if (isAutoPause && isPlaying && this._isOpen) {
-          this._nicoVideoPlayer.play();
+          this.play();
         }
       }, this));
       this._commentInput.on('esc', _.bind(function() {
@@ -544,6 +621,8 @@ var RelatedVideoList = function() {};
         player: this
       });
       this._videoControlBar.on('command', _.bind(this._onCommand, this));
+
+      this._$errorMessageContainer = this._$playerContainer.find('.errorMessageContainer');
 
       this._initializeResponsive();
       $('body').append($dialog);
@@ -635,7 +714,7 @@ var RelatedVideoList = function() {};
           this.setVolume(param);
           break;
         case 'togglePlay':
-          this._nicoVideoPlayer.togglePlay();
+            this.togglePlay();
           break;
         case 'toggleComment':
         case 'toggleShowComment':
@@ -950,6 +1029,7 @@ var RelatedVideoList = function() {};
       if (!nicoVideoPlayer) {
         nicoVideoPlayer = this._initializeNicoVideoPlayer();
       } else {
+        this._setThumbnail();
         nicoVideoPlayer.close();
         this._videoInfoPanel.clear();
       }
@@ -965,7 +1045,7 @@ var RelatedVideoList = function() {};
       // watchIdからサムネイルを逆算できる時は最速でセットする
       var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(watchId);
       if (thumbnail) {
-        nicoVideoPlayer.setThumbnail(thumbnail);
+        this._setThumbnail(thumbnail);
       }
 
       this._isCommentReady = false;
@@ -987,7 +1067,7 @@ var RelatedVideoList = function() {};
       ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
     },
     reload: function() {
-      window.console.info('reload!', this._videoWatchOptions, this._lastCurrentTime);
+      //window.console.log('reload!');
       var options = this._videoWatchOptions || {};
       if (this._lastCurrentTime > 0) {
         options.currentTime = this._lastCurrentTime;
@@ -1018,9 +1098,12 @@ var RelatedVideoList = function() {};
     _bindLoaderEvents: function() {
       if (this._onVideoInfoLoaderLoad_proxy) {
         VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
+        VideoInfoLoader.off('fail', this._onVideoInfoLoaderFail_proxy);
       }
       this._onVideoInfoLoaderLoad_proxy = _.bind(this._onVideoInfoLoaderLoad, this, this._requestId);
+      this._onVideoInfoLoaderFail_proxy = _.bind(this._onVideoInfoLoaderFail, this, this._requestId);
       VideoInfoLoader.on('load', this._onVideoInfoLoaderLoad_proxy);
+      VideoInfoLoader.on('fail', this._onVideoInfoLoaderFail_proxy);
     },
     _onVideoInfoLoaderLoad: function(requestId, videoInfo, type, watchId) {
       window.console.timeEnd('VideoInfoLoader');
@@ -1030,7 +1113,7 @@ var RelatedVideoList = function() {};
       }
 
       if (type !== 'WATCH_API') {
-        this._nicoVideoPlayer.setThumbnail(videoInfo.thumbImage);
+        this._setThumbnail(videoInfo.thumbImage);
         this._nicoVideoPlayer.setVideo(videoInfo.url);
         this._videoInfo = {};
 
@@ -1055,7 +1138,7 @@ var RelatedVideoList = function() {};
         var videoUrl  = flvInfo.url;
 
         this._videoInfo = new VideoInfoModel(videoInfo);
-        this._nicoVideoPlayer.setThumbnail(videoInfo.thumbnail);
+        this._setThumbnail(videoInfo.thumbnail);
         this._nicoVideoPlayer.setVideo(videoUrl);
         this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
 
@@ -1080,6 +1163,35 @@ var RelatedVideoList = function() {};
       }
 
       ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
+    },
+    _onVideoInfoLoaderFail: function(requestId, watchId, e) {
+      window.console.timeEnd('VideoInfoLoader');
+      if (this._requestId !== requestId) {
+        return;
+      }
+      var message = e.message;
+      this._setErrorMessage(message);
+      this._hasError = true;
+      if (e.info) {
+        this._videoInfo = new VideoInfoModel(e.info);
+        var thumbnail = this._videoInfo.getBetterThumbnail();
+        this._setThumbnail(thumbnail);
+      }
+      if (e.info && this._videoInfoPanel) {
+        this._videoInfoPanel.update(this._videoInfo);
+      }
+      this._$playerContainer.removeClass('loading').addClass('error');
+    },
+    _setThumbnail: function(thumbnail) {
+      if (thumbnail) {
+        this._$playerContainer.css('background-image', 'url(' + thumbnail + ')');
+        //this._nicoVideoPlayer.setThumbnail(thumbnail);
+      } else {
+        this._$playerContainer.css('background-image', '');
+      }
+    },
+    _setErrorMessage: function(msg) {
+      this._$errorMessageContainer.text(msg);
     },
     _onCommentLoadSuccess: function(requestId, result) {
       if (requestId !== this._requestId) {
@@ -1191,16 +1303,21 @@ var RelatedVideoList = function() {};
       }
     },
     play: function() {
-      if (this._nicoVideoPlayer) {
+      if (!this._hasError && this._nicoVideoPlayer) {
         this._nicoVideoPlayer.play();
       }
     },
     pause: function() {
-      if (this._nicoVideoPlayer) {
+      if (!this._hasError && this._nicoVideoPlayer) {
         this._nicoVideoPlayer.pause();
       }
     },
-    setVolume: function(v) {
+    togglePlay: function() {
+      if (!this._hasError && this._nicoVideoPlayer) {
+        this._nicoVideoPlayer.togglePlay();
+      }
+    },
+     setVolume: function(v) {
       if (this._nicoVideoPlayer) {
         this._nicoVideoPlayer.setVolume(v);
       }
@@ -2104,6 +2221,12 @@ var RelatedVideoList = function() {};
       z-index: 140000;
       overflow: visible;
     }
+    .zenzaPlayerContainer.mymemory .commentInputPanel,
+    .zenzaPlayerContainer.loading  .commentInputPanel,
+    .zenzaPlayerContainer.error    .commentInputPanel {
+      display: none;
+    }
+
     .commentInputPanel.active {
       left: calc(-50vw + 50% + 50vw - 250px);
       width: 500px;

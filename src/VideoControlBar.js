@@ -309,10 +309,10 @@ var AsyncEmitter = function() {};
     .seekBar .seekBarPointer {
       position: absolute;
       top: 50%;
-      width: 12px;
-      height: 12px;
-      background: #fff;
-      border-radius: 6px;
+      width: 6px;
+      height: 10px;
+      background: #ccc;
+      border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
       transision: left 0.3s linear;
@@ -579,15 +579,14 @@ var AsyncEmitter = function() {};
            現状はドラッグで調整できないので、表示しないほうがいい
     *}
     .videoControlBar .volumeControl .volumeBarPointer {
-      display: none;
       position: absolute;
       top: 50%;
-      width: 12px;
-      height: 12px;
-      background: #fff;
-      border-radius: 6px;
+      width: 6px;
+      height: 10px;
+      background: #ccc;
       transform: translate(-50%, -50%);
       z-index: 200;
+      pointer-events: none;
     }
 
     .videoControlBar .volumeControl .tooltip {
@@ -881,6 +880,9 @@ var AsyncEmitter = function() {};
       var $tooltip = $container.find('.tooltip');
       var $bar     = $container.find('.slideBar');
       var $pointer = $container.find('.volumeBarPointer');
+      var $body    = $('body');
+      var $window  = $(window);
+      var self = this;
 
       var setVolumeBar = this._setVolumeBar = function(v) {
         var per = Math.round(v * 100);
@@ -890,16 +892,57 @@ var AsyncEmitter = function() {};
       };
 
       var $inner = $container.find('.volumeControlInner');
-      $inner.on('mousedown', _.bind(function(e) {
-        var height = $inner.outerWidth();
-        var x = e.offsetX;
-        var vol = x / height;
+      var posToVol = function(x) {
+        var width = $inner.outerWidth();
+        var vol = x / width;
+        return Math.max(0, Math.min(vol, 1.0));
+      };
 
-        this.emit('command', 'volume', vol);
+      var onBodyMouseMove = function(e) {
+        var offset = $inner.offset();
+        var left = e.clientX - offset.left;
+        var vol = posToVol(left);
 
+        self.emit('command', 'volume', vol);
+      };
+
+      var bindDragEvent = function() {
+        $body
+          .on('mousemove.ZenzaWatchVolumeBar', onBodyMouseMove)
+          .on('mouseup.ZenzaWatchVolumeBar',   onBodyMouseUp);
+        $window.on('blur.ZenzaWatchVolumeBar', onWindowBlur);
+      };
+      var unbindDragEvent = function() {
+        $body
+          .off('mousemove.ZenzaWatchVolumeBar')
+          .off('mouseup.ZenzaWatchVolumeBar');
+        $window.off('blur.ZenzaWatchVolumeBar');
+      };
+      var beginMouseDrag = function() {
+        bindDragEvent();
+        $container.addClass('dragging');
+      };
+      var endMouseDrag = function() {
+        unbindDragEvent();
+        $container.removeClass('dragging');
+      };
+      var onBodyMouseUp = function() {
+        endMouseDrag();
+      };
+      var onWindowBlur = function() {
+        endMouseDrag();
+      };
+
+      var onVolumeBarMouseDown = function(e) {
         e.preventDefault();
         e.stopPropagation();
-      }, this));
+
+        var vol = posToVol(e.offsetX);
+        self.emit('command', 'volume', vol);
+
+        beginMouseDrag();
+      };
+      $inner.on('mousedown', onVolumeBarMouseDown);
 
       setVolumeBar(this._playerConfig.getValue('volume'));
       this._playerConfig.on('update-volume', setVolumeBar);
@@ -1182,7 +1225,7 @@ var AsyncEmitter = function() {};
     _getHeatMap: function() {
       //console.time('update HeatMapModel');
       var chatList =
-        this._chat.top.concat(this._chat.normal, this._chat.bottom);
+        this._chat.top.concat(this._chat.naka, this._chat.bottom);
       var duration = this._duration;
       var map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
       var i = map.length;
@@ -1328,7 +1371,7 @@ var AsyncEmitter = function() {};
       this.emit('reset');
     },
     setChatList: function(chatList) {
-      var list = chatList.top.concat(chatList.normal, chatList.bottom);
+      var list = chatList.top.concat(chatList.naka, chatList.bottom);
       list.sort(function(a, b) {
         var av = a.getVpos(), bv = b.getVpos();
         return av - bv;

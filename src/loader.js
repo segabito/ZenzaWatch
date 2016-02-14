@@ -201,7 +201,9 @@ var isSameOrigin = function() {};
           ZenzaWatch.debug.watchApiData = data;
 
           if (!data) {
-            PopupMessage.alert('動画情報の取得に失敗(watchApi)');
+            videoInfoLoader.emitAsync('fail', watchId, {
+              message: '動画情報の取得に失敗(watchApi)'
+            });
             return;
           }
 
@@ -223,16 +225,26 @@ var isSameOrigin = function() {};
                 }
               }).then(
                 onLoad,
-                function() { PopupMessage.alert('動画情報の取得に失敗(watchApi)'); }
+                function() {
+                  videoInfoLoader.emitAsync('fail', watchId, {
+                    message: '動画情報の取得に失敗(watchApi)'
+                  });
+                }
               );
             }, 1000);
           } else if (!data.isPlayable) {
-            PopupMessage.alert('この動画は再生できません');
+            videoInfoLoader.emitAsync('fail', watchId, {
+              message: 'この動画はZenzaWatchで再生できません',
+              info: data
+            });
           } else if (data.isMp4) {
             videoInfoLoader.emitAsync('load', data, 'WATCH_API', watchId);
             ZenzaWatch.emitter.emitAsync('loadVideoInfo', data, 'WATCH_API', watchId); // 外部連携用
           } else {
-            PopupMessage.alert('この動画は再生できません');
+            videoInfoLoader.emitAsync('fail', watchId, {
+              message: 'この動画はZenzaWatchで再生できません',
+              info: data
+            });
           }
         };
 

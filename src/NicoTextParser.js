@@ -25,6 +25,35 @@ STRONG MINCHO
     MING_LIU: /([])/g,
 
  */
+
+/*
+
+  .tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0; }
+  .big    .tab_space { letter-spacing: 1.6241em; }
+  .medium .tab_space { letter-spacing: 1.6252em; }
+  .small  .tab_space { letter-spacing: 1.5375em; }
+
+
+  .type0020 { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; }
+  .big    .type0020 { letter-spacing: -0.2966em; }
+  .medium .type0020 { letter-spacing: -0.2806em; }
+  .small  .type0020 { letter-spacing: -0.2667em; }
+
+
+  .gothic > .type3000 { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; }
+  .big    .gothic > .type3000 { letter-spacing: -0.3103em; }
+  .medium .gothic > .type3000 { letter-spacing: -0.2943em; }
+  .small  .gothic > .type3000 { letter-spacing: -0.2693em; }
+
+
+  .type00A0 { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; }
+  .big    .type00A0 { letter-spacing: -0.2966em; }
+  .medium .type00A0 { letter-spacing: -0.2806em; }
+  .small  .type00A0 { letter-spacing: -0.2667em; }
+
+
+
+*/
 //===BEGIN===
 
   var NicoTextParser = function() {};
@@ -56,9 +85,9 @@ body {
 
 .default {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック'; }
-.mincho  {font-family: Simsun, Osaka-mono, 'ＭＳ ゴシック', monospace; }
-.gulim   {font-family: Gulim,  Osaka-mono, 'ＭＳ ゴシック', monospace; }
-.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ ゴシック', monospace; }
+.mincho  {font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
+.gulim   {font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace; }
+.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
 han_group { font-family: 'Arial'; }
 
 .nicoChat {
@@ -127,19 +156,24 @@ han_group { font-family: 'Arial'; }
     等幅フォントを縮めることで環境差異のない幅を確保するという狙いだが・・・。
   *}
 
+  .tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0; }
+  .big    .tab_space { letter-spacing: 1.6241em; }
+  .medium .tab_space { letter-spacing: 1.6252em; }
+  .small  .tab_space { letter-spacing: 1.5375em; }
+
+
   .gothic > .type3000 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    {*letter-spacing: -0.33595em;*}
     letter-spacing: -0.2943em;
   }
+
 
 {*.type0020,*}
   .type00A0 {
     font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    {*letter-spacing: -0.2223em;*}
-    letter-spacing: -0.1805em;{* 基本のletter-spacingが1pxの場合 *}
-
+    letter-spacing: -0.1805em;
   }
+
 
 .backslash {
   font-family: Arial;
@@ -170,7 +204,8 @@ han_group { font-family: 'Arial'; }
         .replace(/([^\x01-\x7E^\xA0]+)/g, '<group>$1</group>')
         .replace(/([\u0020]+)/g,   '<span class="han_space type0020">$1</span>')
         .replace(/([\u00A0]+)/g,   '<span class="han_space type00A0">$1</span>')
-        .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>');
+        .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>')
+        .replace(/[\t]/g ,      '^');
 
       var hasFontChanged = false, strongFont = 'gothic';
       // フォント変化処理  XPをベースにしたい
