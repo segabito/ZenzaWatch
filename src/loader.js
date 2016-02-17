@@ -261,7 +261,11 @@ var isSameOrigin = function() {};
           }
         }).then(
           onLoad,
-          function() { PopupMessage.alert('動画情報の取得に失敗(watchApi)'); }
+          function() {
+            videoInfoLoader.emitAsync('fail', watchId, {
+              message: '動画情報の取得に失敗(watchApi)'
+            });
+          }
         );
       };
 
@@ -279,6 +283,93 @@ var isSameOrigin = function() {};
 
       return videoInfoLoader;
     })();
+
+    var ThumbInfoLoader = (function() {
+      var BASE_URL = 'http://ext.nicovideo.jp/'; // thumb_watch';
+      var MESSAGE_ORIGIN = 'http://ext.nicovideo.jp/';
+      var loaderFrame, loaderWindow;
+      var emitter = new AsyncEmitter();
+      var cacheStorage;
+      var sessions = {};
+
+      var onMessage = function(data, type) {
+        if (type !== 'thumbInfoApi') { return; }
+        window.console.log('thumbInfoApi.onMessage', data, type);
+        var info      = data.message;
+        var sessionId = info.sessionId;
+        var status    = info.status;
+        var session   = sessions[sessionId];
+        if (!session) {
+          return;
+        }
+
+        if (status === 'ok') {
+          session.resolve(info.body);
+        } else {
+          session.reject({
+            message: status
+          });
+        }
+
+      };
+
+      // クロスドメインの壁を越えるゲートを開く
+      var initializeCrossDomainGate = function() {
+        initializeCrossDomainGate = _.noop;
+        WindowMessageEmitter.on('onMessage', onMessage);
+
+        console.log('%c initialize videoInfoLoader', 'background: lightgreen;');
+
+        loaderFrame = document.createElement('iframe');
+        loaderFrame.name = 'thumbInfoLoader';
+        loaderFrame.src  = BASE_URL;
+        loaderFrame.className = 'xDomainLoaderFrame thumbInfo';
+        document.body.appendChild(loaderFrame);
+
+        loaderWindow = loaderFrame.contentWindow;
+      };
+
+      var initialize = function() {
+        initialize = _.noop;
+        initializeCrossDomainGate();
+        cacheStorage = new CacheStorage(sessionStorage);
+
+      };
+
+      var load = function(watchId) {
+        initialize();
+
+        return new Promise(function(resolve, reject) {
+          var sessionId = watchId + '_' + Math.random();
+
+          sessions[sessionId] = {
+            resolve: resolve,
+            reject: reject
+          };
+
+          try {
+            var url = BASE_URL + 'api/getthumbinfo/' + watchId;
+            loaderWindow.postMessage(JSON.stringify({
+              sessionId: sessionId,
+              url: url
+            }),
+            MESSAGE_ORIGIN);
+          } catch (e) {
+            console.log('%cException!', 'background: red;', e);
+            delete sessions[sessionId];
+            ZenzaWatch.util.callAsync(function() { reject({messge: 'postMessage fail'}); });
+          }
+        });
+      };
+
+      _.assign(emitter, {
+        load: load
+      });
+
+      return emitter;
+    })();
+    ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
+
 
     var MessageApiLoader = (function() {
       var VERSION_OLD = '20061206';

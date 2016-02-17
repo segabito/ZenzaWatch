@@ -142,7 +142,7 @@ var NicoVideoPlayerDialog = function() {};
 
     var initializeHoverMenu = function(dialog) {
       var $menu = $([
-      '<div class="zenzaWatchHoverMenu">',
+      '<div class="zenzaWatchHoverMenu scalingUI">',
         '<span>Zen</span>',
       '</div>'].join(''));
 

@@ -11,6 +11,9 @@ var AsyncEmitter = function() {};
 
   var VideoControlBar = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
+  VideoControlBar.BASE_HEIGHT = 40;
+  VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
+
   VideoControlBar.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .videoControlBar {
       position: fixed;
@@ -18,7 +21,7 @@ var AsyncEmitter = function() {};
       left: calc(-50vw + 50%);
       transform: translate(0, -100%);
       width: 100vw;
-      height: 40px;
+      height: %BASE_HEIGHT%px;
       z-index: 150000;
       background: #000;
       transition: opacity 0.3s ease, transform 0.3s ease;
@@ -116,10 +119,18 @@ var AsyncEmitter = function() {};
       transform: translate(-50%, 0);
       background: #222;
       white-space: nowrap;
+      overflow: visible;
+    }
+    .controlItemContainer.center .scalingUI {
+      background: #333;
+      transform-origin: top center;
     }
 
     .controlItemContainer.right {
       right: 0;
+    }
+    .controlItemContainer.right .scalingUI {
+      transform-origin: top right;
     }
 
 
@@ -282,6 +293,12 @@ var AsyncEmitter = function() {};
       border-top:    1px solid #333;
       border-bottom: 1px solid #333;
       cursor: pointer;
+      transition: height 0.2s ease, margin-top 0.2s ease;
+    }
+
+    .seekBar:hover {
+      height: 15px;
+      margin-top: -5px;
     }
 
     .mouseMoving .seekBar {
@@ -310,7 +327,7 @@ var AsyncEmitter = function() {};
       position: absolute;
       top: 50%;
       width: 6px;
-      height: 10px;
+      height: 100%;
       background: #ccc;
       border-radius: 2px;
       transform: translate(-50%, -50%);
@@ -368,7 +385,7 @@ var AsyncEmitter = function() {};
       pointer-events: none;
       top: 2px; left: 0;
       width: 100%;
-      height: 6px;
+      height: calc(100% - 2px);
       transform-origin: 0 0 0;
       opacity: 0.5;
       z-index: 110;
@@ -620,7 +637,8 @@ var AsyncEmitter = function() {};
 
 
 
-  */});
+  */})
+  .replace(/%BASE_HEIGHT%/g, VideoControlBar.BASE_HEIGHT);
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoControlBar">
@@ -634,107 +652,109 @@ var AsyncEmitter = function() {};
       </div>
 
       <div class="controlItemContainer center">
-        <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
-          <div class="controlButtonInner">&#8635;</div>
-          <div class="tooltip">リピート</div>
-        </div>
-
-         <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
-          <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
-          <div class="tooltip">先頭</div>
-        </div>
-
-        <div class="togglePlay controlButton playControl" data-command="togglePlay">
-          <span class="play">▶</span>
-          <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
-          <div class="tooltip">
-            <span class="play">再生</span>
-            <span class="pause">一時停止</span>
+        <div class="scalingUI">
+          <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
+            <div class="controlButtonInner">&#8635;</div>
+            <div class="tooltip">リピート</div>
           </div>
-        </div>
 
-        <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
-          <div class="controlButtonInner">1x</div>
-          <div class="tooltip">再生速度</div>
-          <div class="playbackRateSelectMenu zenzaPopupMenu">
-            <div class="triangle"></div>
-            <p class="caption">再生速度</p>
-            <ul>
-              <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-              <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-              <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-              <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-              <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
-
-              <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-              <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
-              <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
-              <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
-
-
-              <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
-              <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
-              <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-              <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
-              <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
-            </ul>
+           <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
+            <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
+            <div class="tooltip">先頭</div>
           </div>
-        </div>
 
-        <div class="videoTime">
-          <span class="currentTime"></span> /
-          <span class="duration"></span>
-        </div>
-
-        <div class="muteSwitch controlButton" data-command="toggleMute">
-          <div class="tooltip">ミュート(M)</div>
-          <div class="menuButtonInner mute-off">&#x1F50A;</div>
-          <div class="menuButtonInner mute-on">&#x1F507;</div>
-        </div>
-
-        <div class="volumeControl">
-          <div class="tooltip">音量調整</div>
-          <div class="volumeControlInner">
-            <div class="slideBar"></div>
-            <div class="volumeBarPointer"></div>
+          <div class="togglePlay controlButton playControl" data-command="togglePlay">
+            <span class="play">▶</span>
+            <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
+            <div class="tooltip">
+              <span class="play">再生</span>
+              <span class="pause">一時停止</span>
+            </div>
           </div>
+
+          <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
+            <div class="controlButtonInner">1x</div>
+            <div class="tooltip">再生速度</div>
+            <div class="playbackRateSelectMenu zenzaPopupMenu">
+              <div class="triangle"></div>
+              <p class="caption">再生速度</p>
+              <ul>
+                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
+                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
+                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
+                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
+                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
+
+                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
+                <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
+                <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
+                <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
+
+
+                <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
+                <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
+                <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
+                <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
+                <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="videoTime">
+            <span class="currentTime"></span> /
+            <span class="duration"></span>
+          </div>
+
+          <div class="muteSwitch controlButton" data-command="toggleMute">
+            <div class="tooltip">ミュート(M)</div>
+            <div class="menuButtonInner mute-off">&#x1F50A;</div>
+            <div class="menuButtonInner mute-on">&#x1F507;</div>
+          </div>
+
+          <div class="volumeControl">
+            <div class="tooltip">音量調整</div>
+            <div class="volumeControlInner">
+              <div class="slideBar"></div>
+              <div class="volumeBarPointer"></div>
+            </div>
+          </div>
+
         </div>
-
-
       </div>
 
       <div class="controlItemContainer right">
-        <div class="screenModeMenu controlButton" data-command="screenModeMenu">
-          <div class="tooltip">画面モード変更</div>
-          <div class="controlButtonInner">&#9114;</div>
-          <div class="screenModeSelectMenu zenzaPopupMenu">
-            <div class="triangle"></div>
-            <p class="caption">画面モード</p>
-            <ul>
-              <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-              <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
-              <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
-              <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-              <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
-              <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
-            </ul>
+        <div class="scalingUI">
+          <div class="screenModeMenu controlButton" data-command="screenModeMenu">
+            <div class="tooltip">画面モード変更</div>
+            <div class="controlButtonInner">&#9114;</div>
+            <div class="screenModeSelectMenu zenzaPopupMenu">
+              <div class="triangle"></div>
+              <p class="caption">画面モード</p>
+              <ul>
+                <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
+                <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
+                <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
+                <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
+                <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
+                <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="fullScreenSwitch controlButton" data-command="fullScreen">
+            <div class="tooltip">フルスクリーン(F)</div>
+            <div class="controlButtonInner">
+              <!-- TODO: YouTubeと同じにする -->
+              <span class="toFull">&#8690;</span>
+              <span class="returnFull">&#8689;</span>
+            </div>
+          </div>
+
+          <div class="settingPanelSwitch controlButton" data-command="settingPanel">
+            <div class="controlButtonInner">&#x2699;</div>
+            <div class="tooltip">設定</div>
           </div>
         </div>
-
-        <div class="fullScreenSwitch controlButton" data-command="fullScreen">
-          <div class="tooltip">フルスクリーン(F)</div>
-          <div class="controlButtonInner">
-            <!-- TODO: YouTubeと同じにする -->
-            <span class="toFull">&#8690;</span>
-            <span class="returnFull">&#8689;</span>
-          </div>
-        </div>
-
-        <div class="settingPanelSwitch controlButton" data-command="settingPanel">
-          <div class="controlButtonInner">&#x2699;</div>
-          <div class="tooltip">設定</div>
-        </div>
-
       </div>
 
     </div>

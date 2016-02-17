@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.7
+// @version        0.10.8
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -217,6 +217,8 @@ var monkey = function() {
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
+        enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
+        menuScale: 1.0,
 
         forceEconomy: false,
         // NG設定
@@ -739,7 +741,7 @@ var monkey = function() {
           if (event.origin === 'http://ads.nicovideo.jp') return;
           try {
             var data = JSON.parse(event.data);
-            if (data.id !== 'NicoCommentLayer') { return; }
+            if (data.id !== 'ZenzaWatch') { return; }
 
             asyncEmitter.emit('onMessage', data.body, data.type);
           } catch (e) {
@@ -1288,7 +1290,11 @@ var monkey = function() {
           }
         }).then(
           onLoad,
-          function() { PopupMessage.alert('動画情報の取得に失敗(watchApi)'); }
+          function() {
+            videoInfoLoader.emitAsync('fail', watchId, {
+              message: '動画情報の取得に失敗(watchApi)'
+            });
+          }
         );
       };
 
@@ -1306,6 +1312,93 @@ var monkey = function() {
 
       return videoInfoLoader;
     })();
+
+    var ThumbInfoLoader = (function() {
+      var BASE_URL = 'http://ext.nicovideo.jp/'; // thumb_watch';
+      var MESSAGE_ORIGIN = 'http://ext.nicovideo.jp/';
+      var loaderFrame, loaderWindow;
+      var emitter = new AsyncEmitter();
+      var cacheStorage;
+      var sessions = {};
+
+      var onMessage = function(data, type) {
+        if (type !== 'thumbInfoApi') { return; }
+        window.console.log('thumbInfoApi.onMessage', data, type);
+        var info      = data.message;
+        var sessionId = info.sessionId;
+        var status    = info.status;
+        var session   = sessions[sessionId];
+        if (!session) {
+          return;
+        }
+
+        if (status === 'ok') {
+          session.resolve(info.body);
+        } else {
+          session.reject({
+            message: status
+          });
+        }
+
+      };
+
+      // クロスドメインの壁を越えるゲートを開く
+      var initializeCrossDomainGate = function() {
+        initializeCrossDomainGate = _.noop;
+        WindowMessageEmitter.on('onMessage', onMessage);
+
+        console.log('%c initialize videoInfoLoader', 'background: lightgreen;');
+
+        loaderFrame = document.createElement('iframe');
+        loaderFrame.name = 'thumbInfoLoader';
+        loaderFrame.src  = BASE_URL;
+        loaderFrame.className = 'xDomainLoaderFrame thumbInfo';
+        document.body.appendChild(loaderFrame);
+
+        loaderWindow = loaderFrame.contentWindow;
+      };
+
+      var initialize = function() {
+        initialize = _.noop;
+        initializeCrossDomainGate();
+        cacheStorage = new CacheStorage(sessionStorage);
+
+      };
+
+      var load = function(watchId) {
+        initialize();
+
+        return new Promise(function(resolve, reject) {
+          var sessionId = watchId + '_' + Math.random();
+
+          sessions[sessionId] = {
+            resolve: resolve,
+            reject: reject
+          };
+
+          try {
+            var url = BASE_URL + 'api/getthumbinfo/' + watchId;
+            loaderWindow.postMessage(JSON.stringify({
+              sessionId: sessionId,
+              url: url
+            }),
+            MESSAGE_ORIGIN);
+          } catch (e) {
+            console.log('%cException!', 'background: red;', e);
+            delete sessions[sessionId];
+            ZenzaWatch.util.callAsync(function() { reject({messge: 'postMessage fail'}); });
+          }
+        });
+      };
+
+      _.assign(emitter, {
+        load: load
+      });
+
+      return emitter;
+    })();
+    ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
+
 
     var MessageApiLoader = (function() {
       var VERSION_OLD = '20061206';
@@ -3063,6 +3156,9 @@ var monkey = function() {
 
   var VideoControlBar = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
+  VideoControlBar.BASE_HEIGHT = 40;
+  VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
+
   VideoControlBar.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .videoControlBar {
       position: fixed;
@@ -3070,7 +3166,7 @@ var monkey = function() {
       left: calc(-50vw + 50%);
       transform: translate(0, -100%);
       width: 100vw;
-      height: 40px;
+      height: %BASE_HEIGHT%px;
       z-index: 150000;
       background: #000;
       transition: opacity 0.3s ease, transform 0.3s ease;
@@ -3168,10 +3264,18 @@ var monkey = function() {
       transform: translate(-50%, 0);
       background: #222;
       white-space: nowrap;
+      overflow: visible;
+    }
+    .controlItemContainer.center .scalingUI {
+      background: #333;
+      transform-origin: top center;
     }
 
     .controlItemContainer.right {
       right: 0;
+    }
+    .controlItemContainer.right .scalingUI {
+      transform-origin: top right;
     }
 
 
@@ -3334,6 +3438,12 @@ var monkey = function() {
       border-top:    1px solid #333;
       border-bottom: 1px solid #333;
       cursor: pointer;
+      transition: height 0.2s ease, margin-top 0.2s ease;
+    }
+
+    .seekBar:hover {
+      height: 15px;
+      margin-top: -5px;
     }
 
     .mouseMoving .seekBar {
@@ -3362,7 +3472,7 @@ var monkey = function() {
       position: absolute;
       top: 50%;
       width: 6px;
-      height: 10px;
+      height: 100%;
       background: #ccc;
       border-radius: 2px;
       transform: translate(-50%, -50%);
@@ -3420,7 +3530,7 @@ var monkey = function() {
       pointer-events: none;
       top: 2px; left: 0;
       width: 100%;
-      height: 6px;
+      height: calc(100% - 2px);
       transform-origin: 0 0 0;
       opacity: 0.5;
       z-index: 110;
@@ -3672,7 +3782,8 @@ var monkey = function() {
 
 
 
-  */});
+  */})
+  .replace(/%BASE_HEIGHT%/g, VideoControlBar.BASE_HEIGHT);
 
   VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoControlBar">
@@ -3686,107 +3797,109 @@ var monkey = function() {
       </div>
 
       <div class="controlItemContainer center">
-        <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
-          <div class="controlButtonInner">&#8635;</div>
-          <div class="tooltip">リピート</div>
-        </div>
-
-         <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
-          <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
-          <div class="tooltip">先頭</div>
-        </div>
-
-        <div class="togglePlay controlButton playControl" data-command="togglePlay">
-          <span class="play">▶</span>
-          <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
-          <div class="tooltip">
-            <span class="play">再生</span>
-            <span class="pause">一時停止</span>
+        <div class="scalingUI">
+          <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
+            <div class="controlButtonInner">&#8635;</div>
+            <div class="tooltip">リピート</div>
           </div>
-        </div>
 
-        <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
-          <div class="controlButtonInner">1x</div>
-          <div class="tooltip">再生速度</div>
-          <div class="playbackRateSelectMenu zenzaPopupMenu">
-            <div class="triangle"></div>
-            <p class="caption">再生速度</p>
-            <ul>
-              <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-              <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-              <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-              <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-              <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
-
-              <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-              <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
-              <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
-              <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
-
-
-              <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
-              <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
-              <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-              <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
-              <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
-            </ul>
+           <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
+            <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
+            <div class="tooltip">先頭</div>
           </div>
-        </div>
 
-        <div class="videoTime">
-          <span class="currentTime"></span> /
-          <span class="duration"></span>
-        </div>
-
-        <div class="muteSwitch controlButton" data-command="toggleMute">
-          <div class="tooltip">ミュート(M)</div>
-          <div class="menuButtonInner mute-off">&#x1F50A;</div>
-          <div class="menuButtonInner mute-on">&#x1F507;</div>
-        </div>
-
-        <div class="volumeControl">
-          <div class="tooltip">音量調整</div>
-          <div class="volumeControlInner">
-            <div class="slideBar"></div>
-            <div class="volumeBarPointer"></div>
+          <div class="togglePlay controlButton playControl" data-command="togglePlay">
+            <span class="play">▶</span>
+            <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
+            <div class="tooltip">
+              <span class="play">再生</span>
+              <span class="pause">一時停止</span>
+            </div>
           </div>
+
+          <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
+            <div class="controlButtonInner">1x</div>
+            <div class="tooltip">再生速度</div>
+            <div class="playbackRateSelectMenu zenzaPopupMenu">
+              <div class="triangle"></div>
+              <p class="caption">再生速度</p>
+              <ul>
+                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
+                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
+                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
+                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
+                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
+
+                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
+                <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
+                <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
+                <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
+
+
+                <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
+                <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
+                <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
+                <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
+                <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="videoTime">
+            <span class="currentTime"></span> /
+            <span class="duration"></span>
+          </div>
+
+          <div class="muteSwitch controlButton" data-command="toggleMute">
+            <div class="tooltip">ミュート(M)</div>
+            <div class="menuButtonInner mute-off">&#x1F50A;</div>
+            <div class="menuButtonInner mute-on">&#x1F507;</div>
+          </div>
+
+          <div class="volumeControl">
+            <div class="tooltip">音量調整</div>
+            <div class="volumeControlInner">
+              <div class="slideBar"></div>
+              <div class="volumeBarPointer"></div>
+            </div>
+          </div>
+
         </div>
-
-
       </div>
 
       <div class="controlItemContainer right">
-        <div class="screenModeMenu controlButton" data-command="screenModeMenu">
-          <div class="tooltip">画面モード変更</div>
-          <div class="controlButtonInner">&#9114;</div>
-          <div class="screenModeSelectMenu zenzaPopupMenu">
-            <div class="triangle"></div>
-            <p class="caption">画面モード</p>
-            <ul>
-              <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-              <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
-              <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
-              <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-              <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
-              <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
-            </ul>
+        <div class="scalingUI">
+          <div class="screenModeMenu controlButton" data-command="screenModeMenu">
+            <div class="tooltip">画面モード変更</div>
+            <div class="controlButtonInner">&#9114;</div>
+            <div class="screenModeSelectMenu zenzaPopupMenu">
+              <div class="triangle"></div>
+              <p class="caption">画面モード</p>
+              <ul>
+                <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
+                <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
+                <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
+                <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
+                <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
+                <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="fullScreenSwitch controlButton" data-command="fullScreen">
+            <div class="tooltip">フルスクリーン(F)</div>
+            <div class="controlButtonInner">
+              <!-- TODO: YouTubeと同じにする -->
+              <span class="toFull">&#8690;</span>
+              <span class="returnFull">&#8689;</span>
+            </div>
+          </div>
+
+          <div class="settingPanelSwitch controlButton" data-command="settingPanel">
+            <div class="controlButtonInner">&#x2699;</div>
+            <div class="tooltip">設定</div>
           </div>
         </div>
-
-        <div class="fullScreenSwitch controlButton" data-command="fullScreen">
-          <div class="tooltip">フルスクリーン(F)</div>
-          <div class="controlButtonInner">
-            <!-- TODO: YouTubeと同じにする -->
-            <span class="toFull">&#8690;</span>
-            <span class="returnFull">&#8689;</span>
-          </div>
-        </div>
-
-        <div class="settingPanelSwitch controlButton" data-command="settingPanel">
-          <div class="controlButtonInner">&#x2699;</div>
-          <div class="tooltip">設定</div>
-        </div>
-
       </div>
 
     </div>
@@ -8601,31 +8714,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
 
 
-    .closeButton {
-      position: absolute;
-      cursor: pointer;
-      width: 32px;
-      height: 32px;
-      box-sizing: border-box;
-      text-align: center;
-      line-height: 32px;
-      top: 0;
-      right: 0;
-      z-index: 160000;
-      margin: 0 0 40px 40px;
-      opacity: 0;
-      color: #ccc;
-      border: solid 1px #888;
-      transition: opacity 0.4s ease;
-      pointer-events: auto;
-    }
-
-    .mouseMoving .closeButton,
-    .closeButton:hover {
-      opacity: 1;
-      background: #000;
-    }
-
 
     {*    .zenzaScreenMode_wide .videoPlayer,
     .zenzaScreenMode_wide .commentLayerFrame,*}
@@ -8911,7 +8999,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
         <div class="zenzaPlayerContainer">
-          <div class="closeButton">×</div>
 
           <div class="popupMessageContainer"></div>
           <div class="errorMessageContainer"></div>
@@ -8940,6 +9027,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._escBlockExpiredAt = -1;
 
+      this._dynamicCss = new DynamicCss({playerConfig: params.playerConfig});
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
@@ -8980,8 +9068,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       .on('mouseown', onMouseMoveEnd);
 
       $dialog.on('click', _.bind(this._onClick, this));
-      $dialog.find('.closeButton')
-        .on('click', _.bind(this._onCloseButtonClick, this));
 
       this._hoverMenu = new VideoHoverMenu({
         $playerContainer: this._$playerContainer,
@@ -9200,6 +9286,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         case 'open':
           this.open(param);
           break;
+        case 'close':
+          this.close(param);
+          break;
         case 'baseFontFamily':
         case 'baseChatScale':
         case 'enableFilter':
@@ -9336,13 +9425,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     _onClick: function() {
     },
-    _onCloseButtonClick: function() {
-      if (FullScreen.now()) {
-        FullScreen.cancel();
-      } else {
-        this.close();
-      }
-    },
     _onDeflistAdd: function() {
       var $container = this._$playerContainer;
       if ($container.hasClass('updatingDeflist')) { return; } //busy
@@ -9356,7 +9438,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       var owner = this._videoInfo.getOwnerInfo();
       var watchId = this._videoInfo.getWatchId();
-      var description = '投稿者: ' + owner.name;
+      var description =
+        this._playerConfig.getValue('enableAutoMylistComment') ? ('投稿者: ' + owner.name) : '';
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
@@ -9385,7 +9468,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       var owner = this._videoInfo.getOwnerInfo();
       var watchId = this._videoInfo.getWatchId();
-      var description = '投稿者: ' + owner.name;
+      var description =
+        this._playerConfig.getValue('enableAutoMylistComment') ? ('投稿者: ' + owner.name) : '';
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
@@ -9871,17 +9955,21 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
 
     .menuItemContainer.rightTop {
-      width: 120px;
+      width: 160px;
       height: 40px;
-      right: 40px;
+      right: 0px;
       {*border: 1px solid #ccc;*}
       top: 0;
       perspective: 150px;
       perspective-origin: center;
     }
 
+    .menuItemContainer.rightTop .scalingUI {
+      transform-origin: right top;
+    }
+
     .updatingDeflist .menuItemContainer.rightTop,
-    .updatingMylist .menuItemContainer.rightTop {
+    .updatingMylist  .menuItemContainer.rightTop {
       cursor: wait;
       opacity: 1 !important;
     }
@@ -9892,13 +9980,21 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     .menuItemContainer.leftBottom {
       width: 120px;
-      height: 40px;
+      height: 32px;
       left: 8px;
       bottom: 8px;
+      transform-origin: left bottom;
     }
     .zenzaScreenMode_wide .menuItemContainer.leftBottom,
     .fullScreen           .menuItemContainer.leftBottom {
       bottom: 64px;
+    }
+    .menuItemContainer.leftBottom .scalingUI {
+      transform-origin: left bottom;
+    }
+    .zenzaScreenMode_wide .menuItemContainer.leftBottom .scalingUI,
+    .fullScreen           .menuItemContainer.leftBottom .scalingUI {
+      height: 64px;
     }
 
     .menuItemContainer.rightBottom {
@@ -9917,10 +10013,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .menuButton {
       position: absolute;
       opacity: 0;
-      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease, transform 0.2s ease;
+      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease, transform 0.2s ease, background 0.4s ease;
       box-sizing: border-box;
       text-align: center;
-      pointer-events: none;
+      {*pointer-events: none;*}
 
       user-select: none;
       -webkit-user-select: none;
@@ -9982,7 +10078,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     .showCommentSwitch {
       left: 0;
-      bottom: 0;
       width:  32px;
       height: 32px;
       color: #000;
@@ -10036,7 +10131,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .commentLayerOrderSwitch {
       display: none;
       left: 40px;
-      bottom: 0;
       width:  32px;
       height: 32px;
     }
@@ -10088,7 +10182,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .ngSettingMenu {
       display: none;
       left: 80px;
-      bottom: 0;
       width:  32px;
       height: 32px;
       color: #000;
@@ -10101,7 +10194,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
     .ngSettingMenu:hover {
       background: #888;
-      font-size: 120%;
+      {*font-size: 120%;*}
       box-shadow: 4px 4px 0 #000;
       text-shadow: 0px 0px 2px #ccf;
     }
@@ -10116,8 +10209,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
 
     .ngSettingSelectMenu {
-      bottom: 8px;
-      left: 128px;
+      white-space: nowrap;
+      bottom: 0px;
+      left: 32px; {*128px;*}
     }
     .ngSettingSelectMenu .triangle {
       transform: rotate(45deg);
@@ -10126,7 +10220,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
     .zenzaScreenMode_wide .ngSettingSelectMenu,
     .fullScreen           .ngSettingSelectMenu {
-      bottom: 64px;
+      bottom: 0px;
     }
 
     .ngSettingSelectMenu .sharedNgLevelSelect {
@@ -10214,8 +10308,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
 
     .mylistSelectMenu {
-      top: 38px;
-      right: 32px;
+      top: 36px;
+      right: 40px;
       padding: 8px 0;
     }
     .mylistSelectMenu .mylistSelectMenuInner {
@@ -10316,67 +10410,119 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       transform: scale(0.8);
     }
 
+    .closeButton {
+      position: absolute;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      box-sizing: border-box;
+      text-align: center;
+      line-height: 30px;
+      font-size: 24px;
+      top: 0;
+      right: 0;
+      z-index: 160000;
+      margin: 0 0 40px 40px;
+      opacity: 0;
+      color: #ccc;
+      border: solid 1px #888;
+      transition:
+        opacity 0.4s ease,
+        transform 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease
+          ;
+      pointer-events: auto;
+      transform-origin: center center;
+    }
+
+    .mouseMoving .closeButton,
+    .closeButton:hover {
+      opacity: 1;
+      background: #000;
+    }
+    .closeButton:hover {
+      background: #333;
+      box-shadow: 4px 4px 4px #000;
+    }
+    .closeButton:active {
+      transform: scale(0.5);
+    }
+
 
 
   */});
 
   VideoHoverMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="menuItemContainer rightTop">
-      <div class="menuButton zenzaTweetButton" data-command="tweet">
-        <div class="tooltip">ツイート</div>
-        <div class="menuButtonInner">t</div>
+      <div class="menuItemContainer rightTop">
+        <div class="scalingUI">
+          <div class="menuButton zenzaTweetButton" data-command="tweet">
+            <div class="tooltip">ツイート</div>
+            <div class="menuButtonInner">t</div>
+          </div>
+          <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu">
+            <div class="tooltip">マイリスト登録</div>
+            <div class="menuButtonInner">My</div>
+          </div>
+
+          <div class="mylistSelectMenu zenzaPopupMenu">
+            <div class="triangle"></div>
+            <div class="mylistSelectMenuInner">
+            </div>
+          </div>
+
+          <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd">
+            <div class="tooltip">とりあえずマイリスト(T)</div>
+            <div class="menuButtonInner">&#x271A;</div>
+          </div>
+
+          <div class="menuButton closeButton" data-command="close">
+            <div class="menuButtonInner">×</div>
+          </div>
+
+        </div>
       </div>
-      <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu">
-        <div class="tooltip">マイリスト登録</div>
-        <div class="menuButtonInner">My</div>
+
+      <div class="menuItemContainer leftBottom">
+        <div class="scalingUI">
+          <div class="showCommentSwitch menuButton" data-command="toggleShowComment">
+            <div class="tooltip">コメント表示ON/OFF(V)</div>
+            <div class="menuButtonInner">💬</div>
+          </div>
+
+          <div class="commentLayerOrderSwitch menuButton" data-command="toggleBackComment">
+            <div class="tooltip">コメントの表示順</div>
+            <div class="layer comment">C</div>
+            <div class="layer video">V</div>
+          </div>
+
+          <div class="ngSettingMenu menuButton" data-command="ngSettingMenu">
+            <div class="tooltip">NG設定</div>
+            <div class="menuButtonInner">NG</div>
+
+              <div class="ngSettingSelectMenu zenzaPopupMenu">
+                <div class="triangle"></div>
+                <p class="caption">NG設定</p>
+                <ul>
+                  <li class="setIsCommentFilterEnable filter-on"
+                    data-command="setIsCommentFilterEnable" data-param="true"><span>ON</span></li>
+                  <li class="setIsCommentFilterEnable filter-off"
+                    data-command="setIsCommentFilterEnable" data-param="false"><span>OFF</span></li>
+                </ul>
+                <p class="caption sharedNgLevelSelect">NG共有設定</p>
+                <ul class="sharedNgLevelSelect">
+                  <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
+                  <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
+                  <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
+                  <li class="sharedNgLevel none"  data-command="sharedNgLevel" data-level="NONE"><span>なし</span></li>
+                </ul>
+              </div>
+
+          </div>
+        </div>
       </div>
-      <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd">
-        <div class="tooltip">とりあえずマイリスト(T)</div>
-        <div class="menuButtonInner">&#x271A;</div>
-      </div>
+
     </div>
-    <div class="mylistSelectMenu zenzaPopupMenu">
-      <div class="triangle"></div>
-      <div class="mylistSelectMenuInner">
-      </div>
-    </div>
-
-    <div class="menuItemContainer leftBottom">
-      <div class="showCommentSwitch menuButton" data-command="toggleShowComment">
-        <div class="tooltip">コメント表示ON/OFF(V)</div>
-        <div class="menuButtonInner">💬</div>
-      </div>
-
-      <div class="commentLayerOrderSwitch menuButton" data-command="toggleBackComment">
-        <div class="tooltip">コメントの表示順</div>
-        <div class="layer comment">C</div>
-        <div class="layer video">V</div>
-      </div>
-
-      <div class="ngSettingMenu menuButton" data-command="ngSettingMenu">
-        <div class="tooltip">NG設定</div>
-        <div class="menuButtonInner">NG</div>
-      </div>
-    </div>
-
-      <div class="ngSettingSelectMenu zenzaPopupMenu">
-        <div class="triangle"></div>
-        <p class="caption">NG設定</p>
-        <ul>
-          <li class="setIsCommentFilterEnable filter-on"
-            data-command="setIsCommentFilterEnable" data-param="true"><span>ON</span></li>
-          <li class="setIsCommentFilterEnable filter-off"
-            data-command="setIsCommentFilterEnable" data-param="false"><span>OFF</span></li>
-        </ul>
-        <p class="caption sharedNgLevelSelect">NG共有設定</p>
-        <ul class="sharedNgLevelSelect">
-          <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
-          <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
-          <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
-          <li class="sharedNgLevel none"  data-command="sharedNgLevel" data-level="NONE"><span>なし</span></li>
-        </ul>
-      </div>
-
   */});
 
   _.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
@@ -10524,9 +10670,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var $target = $(e.target.closest('.menuButton'));
       var command = $target.attr('data-command');
       switch (command) {
-        case 'close':
-          this._onCloseButtonClick();
-          break;
         case 'deflistAdd':
           if (e.shiftKey) {
             this.emit('command', 'mylistWindow');
@@ -10559,6 +10702,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           e.stopPropagation();
           break;
         case 'tweet':
+        case 'close':
         case 'fullScreen':
         case 'toggleMute':
         case 'toggleComment':
@@ -10639,6 +10783,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .commentInputPanel.active {
       left: calc(-50vw + 50% + 50vw - 250px);
       width: 500px;
+      z-index: 200000;
     }
     .zenzaScreenMode_wide .commentInputPanel,
     .fullScreen           .commentInputPanel {
@@ -11152,6 +11297,26 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           </label>
         </div>
 
+        <div class="enableAutoMylistCommentControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableAutoMylistComment">
+            マイリストコメントに投稿者名を入れる
+          </label>
+        </div>
+
+        <div class="menuScaleControl control toggle">
+          <label>
+            <select class="menuScale" data-setting-name="menuScale">
+                <option value="0.8">0.8倍</option>
+                <option value="1" selected>標準</option>
+                <option value="1.2">1.2倍</option>
+                <option value="1.5">1.5倍</option>
+                <option value="2.0">2倍</option>
+            </select>
+            ボタンの大きさ(倍率)
+          </label>
+        </div>
+
         <p class="caption">フォントの設定</p>
         <div class="fontEdit">
 
@@ -11167,26 +11332,29 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           <input type="text" class="textInput"
             data-setting-name="baseFontFamily">
 
-          <p>表示倍率</p>
-          <select class="baseChatScale" data-setting-name="baseChatScale">
-            <option value="0.5">0.5</option>
-            <option value="0.6">0.6</option>
-            <option value="0.7">0.7</option>
-            <option value="0.8">0.8</option>
-            <option value="0.9">0.9</option>
-            <option value="1"  selected>1.0</option>
-            <option value="1.1">1.1</option>
-            <option value="1.2">1.2</option>
-            <option value="1.3">1.3</option>
-            <option value="1.4">1.4</option>
-            <option value="1.5">1.5</option>
-            <option value="1.6">1.6</option>
-            <option value="1.7">1.7</option>
-            <option value="1.8">1.8</option>
-            <option value="1.9">1.9</option>
-            <option value="2.0">2.0</option>
-          </select>
-        </div>
+          <div class="baseChatScaleControl control toggle">
+            <label>
+            <select class="baseChatScale" data-setting-name="baseChatScale">
+              <option value="0.5">0.5</option>
+              <option value="0.6">0.6</option>
+              <option value="0.7">0.7</option>
+              <option value="0.8">0.8</option>
+              <option value="0.9">0.9</option>
+              <option value="1"  selected>1.0</option>
+              <option value="1.1">1.1</option>
+              <option value="1.2">1.2</option>
+              <option value="1.3">1.3</option>
+              <option value="1.4">1.4</option>
+              <option value="1.5">1.5</option>
+              <option value="1.6">1.6</option>
+              <option value="1.7">1.7</option>
+              <option value="1.8">1.8</option>
+              <option value="1.9">1.9</option>
+              <option value="2.0">2.0</option>
+            </select>
+            フォントサイズ(倍率)
+            </label>
+          </div>
 
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
@@ -12400,6 +12568,51 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   });
 
 
+  var DynamicCss = function() { this.initialize.apply(this, arguments); };
+  DynamicCss.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .scalingUI {
+      transform: scale(%SCALE%);
+    }
+    .videoControlBar {
+      height: %CONTROL_BAR_HEIGHT%px !important;
+    }
+  */});
+  DynamicCss.prototype = {
+    initialize: function(params) {
+      var config = this._playerConfig = params.playerConfig;
+
+      this._scale = 1.0;
+
+      var update = _.bind(this._update, this);
+      config.on('update-menuScale', update);
+      update();
+    },
+    _update: function() {
+      var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
+      if (this._scale === scale) { return; }
+      if (!this._style) {
+        this._style = ZenzaWatch.util.addStyle('');
+      }
+      this._scale = scale;
+      var tpl = DynamicCss.__css__
+        .replace(/%SCALE%/g, scale)
+        .replace(/%CONTROL_BAR_HEIGHT%/g,
+          (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
+          VideoControlBar.BASE_SEEKBAR_HEIGHT
+          );
+      this._style.innerHTML = tpl;
+    }
+  };
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -12660,7 +12873,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     var initializeHoverMenu = function(dialog) {
       var $menu = $([
-      '<div class="zenzaWatchHoverMenu">',
+      '<div class="zenzaWatchHoverMenu scalingUI">',
         '<span>Zen</span>',
       '</div>'].join(''));
 
@@ -12782,7 +12995,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     var origin = document.referrer;
     try {
       parent.postMessage(JSON.stringify({
-          id: 'NicoCommentLayer',
+          id: 'ZenzaWatch',
           type: type, // '',
           body: {
             url: location.href,
@@ -12845,8 +13058,65 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   };
 
 
+
+  var thumbInfoApi = function() {
+    if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
+    var origin = document.referrer;
+
+    var type = 'thumbInfoApi';
+    window.addEventListener('message', function(event) {
+      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      if (!data.url) { return; }
+
+      var sessionId = data.sessionId;
+      xmlHttpRequest({
+        url: data.url,
+        onload: function(resp) {
+
+          if (isTimeout) { return; }
+          else { window.clearTimeout(timeoutTimer); }
+
+          try {
+            postMessage(type, {
+              sessionId: sessionId,
+              status: 'ok',
+              url: data.url,
+              body: resp.responseText
+            });
+          } catch (e) {
+            console.log(
+              '%cError: parent.postMessage - ',
+              'color: red; background: yellow',
+              e, event.origin, event.data);
+          }
+        }
+      });
+
+      timeoutTimer = window.setTimeout(function() {
+        isTimeout = true;
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'timeout',
+          url: data.url
+        });
+      }, 30000);
+
+    });
+
+    try {
+      postMessage(type, { status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+  };
+
+
+
+
   var host = window.location.host || '';
-  if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
+  if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
+    thumbInfoApi();
+  } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
     exApi();
   } else {
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので

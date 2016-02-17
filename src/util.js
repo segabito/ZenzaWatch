@@ -185,6 +185,8 @@ var console;
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
+        enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
+        menuScale: 1.0,
 
         forceEconomy: false,
         // NG設定
@@ -707,7 +709,7 @@ var console;
           if (event.origin === 'http://ads.nicovideo.jp') return;
           try {
             var data = JSON.parse(event.data);
-            if (data.id !== 'NicoCommentLayer') { return; }
+            if (data.id !== 'ZenzaWatch') { return; }
 
             asyncEmitter.emit('onMessage', data.body, data.type);
           } catch (e) {

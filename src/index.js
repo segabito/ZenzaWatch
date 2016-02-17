@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.7
+// @version        0.10.8
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -64,7 +64,9 @@ var monkey = function() {
 //@require exApi.js
 
   var host = window.location.host || '';
-  if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
+  if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
+    thumbInfoApi();
+  } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
     exApi();
   } else {
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので

@@ -35,7 +35,7 @@ var ZenzaWatch = {
     var origin = document.referrer;
     try {
       parent.postMessage(JSON.stringify({
-          id: 'NicoCommentLayer',
+          id: 'ZenzaWatch',
           type: type, // '',
           body: {
             url: location.href,
@@ -96,3 +96,58 @@ var ZenzaWatch = {
       }
     });
   };
+
+
+
+  var thumbInfoApi = function() {
+    if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
+    var origin = document.referrer;
+
+    var type = 'thumbInfoApi';
+    window.addEventListener('message', function(event) {
+      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      if (!data.url) { return; }
+
+      var sessionId = data.sessionId;
+      xmlHttpRequest({
+        url: data.url,
+        onload: function(resp) {
+
+          if (isTimeout) { return; }
+          else { window.clearTimeout(timeoutTimer); }
+
+          try {
+            postMessage(type, {
+              sessionId: sessionId,
+              status: 'ok',
+              url: data.url,
+              body: resp.responseText
+            });
+          } catch (e) {
+            console.log(
+              '%cError: parent.postMessage - ',
+              'color: red; background: yellow',
+              e, event.origin, event.data);
+          }
+        }
+      });
+
+      timeoutTimer = window.setTimeout(function() {
+        isTimeout = true;
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'timeout',
+          url: data.url
+        });
+      }, 30000);
+
+    });
+
+    try {
+      postMessage(type, { status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+  };
+
+
