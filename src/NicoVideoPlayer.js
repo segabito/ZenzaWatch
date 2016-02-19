@@ -406,6 +406,9 @@ var NicoCommentPlayer = function() {};
     getVideoUrl: function() {
       return this._flvInfo.url;
     },
+    isEconomy: function() {
+      return this.getVideoUrl().match(/low$/) ? true : false;
+    },
     getMessageServerInfo: function() {
       var f = this._flvInfo;
       return {
@@ -448,6 +451,9 @@ var NicoCommentPlayer = function() {};
     },
     isChannel: function() {
       return !!this._videoDetail.channelId;
+    },
+    isMymemory: function() {
+      return !!this._videoDetail.isMymemory;
     },
 
     /**
@@ -503,6 +509,10 @@ var NicoCommentPlayer = function() {};
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+    .fullScreen .zenzaPlayerContextMenu {
+      position: absolute;
+    }
+
     .zenzaPlayerContextMenu:not(.show) {
       left: -9999px;
       top: -9999px;

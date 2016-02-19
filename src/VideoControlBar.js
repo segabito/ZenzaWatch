@@ -75,6 +75,7 @@ var AsyncEmitter = function() {};
 
     .zenzaScreenMode_wide .videoControlBar,
     .fullScreen           .videoControlBar {
+      position: absolute; {* firefoxのバグ対策 *}
       opacity: 0;
       bottom: 0;
       background: none;

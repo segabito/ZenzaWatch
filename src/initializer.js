@@ -94,6 +94,7 @@ var NicoVideoPlayerDialog = function() {};
         }
       });
 
+      ZenzaWatch.ready = true;
       $('body').trigger('ZenzaWatchReady', ZenzaWatch);
     };
 

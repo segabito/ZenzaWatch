@@ -2341,7 +2341,9 @@ var NicoTextParser = {};
 
       if (type === NicoChat.TYPE.NAKA  ) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
-        scaleCss = (scale === 1.0) ? '' : (' scale(' + scale + ')');
+        // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
+        // TODO: 環境によって重くなるようだったらオプションにする
+        scaleCss = (scale === 1.0) ? 'scale(1)' : (' scale(' + scale + ')');
         var outerScreenWidth = screenWidthFull * 1.1;
         var screenDiff = outerScreenWidth - screenWidth;
         var leftPos = screenWidth + screenDiff / 2;
@@ -2351,8 +2353,8 @@ var NicoTextParser = {};
 
         result = ['',
           ' @keyframes idou', id, ' {\n',
-          '    0%  {opacity: ', opacity, '; transform: translate(0px, 0px) ', scaleCss, ';}\n',
-          '  100%  {opacity: ', opacity, '; transform: translate(', - (outerScreenWidth + width), 'px, 0px) ', scaleCss, ';}\n',
+          '    0%  {opacity: ', opacity, '; transform: translate3d(0, 0, 0) ', scaleCss, ';}\n',
+          '  100%  {opacity: ', opacity, '; transform: translate3d(', - (outerScreenWidth + width), 'px, 0, 0) ', scaleCss, ';}\n',
           ' }\n',
           '',
           ' #', id, ' {\n',
@@ -2370,14 +2372,14 @@ var NicoTextParser = {};
       } else {
         scaleCss =
           scale === 1.0 ?
-            ' transform: translate(-50%, 0);' :
-            (' transform: translate(-50%, 0) scale(' + scale + ');');
+            ' transform: translate3d(-50%, 0, 0) scale(1);' :
+            (' transform: translate3d(-50%, 0, 0) scale(' + scale + ');');
 
         //var left = ((screenWidth - width) / 2);
         result = ['',
           ' @keyframes fixed', id, ' {\n',
           '    0% {opacity: ', 1, ';}\n',
-          '   90% {opacity: ', 1, ';}\n',
+          '   95% {opacity: ', 1, ';}\n',
           '  100% {opacity: ', 0.5, ';}\n',
           ' }\n',
           '',

@@ -155,12 +155,12 @@ var console;
       // 標準のJSON.stringifyがバグってる。
       // 勘弁して欲しい…。
       if (window.Prototype) {
-      var _json_stringify = JSON.stringify;
+        var _json_stringify = JSON.stringify;
         JSON.stringify = function(value) {
-          var _array_tojson = Array.prototype.toJSON;
+          var toj = Array.prototype.toJSON;
           delete Array.prototype.toJSON;
           var r = _json_stringify(value);
-          Array.prototype.toJSON = _array_tojson;
+          Array.prototype.toJSON = toj;
           return r;
         };
       }

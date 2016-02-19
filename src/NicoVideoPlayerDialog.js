@@ -86,6 +86,7 @@ var RelatedVideoList = function() {};
       background: #000;
       width: 672px;
       height: 385px;
+      {*transform: translateZ(0);*}
       transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
       background-size: cover;
       background-repeat: no-repeat;
@@ -108,6 +109,7 @@ var RelatedVideoList = function() {};
 
 
     .fullScreen .zenzaPlayerContainer {
+      transform: translateZ(0);
       transition: none !important;
     }
 
@@ -122,6 +124,7 @@ var RelatedVideoList = function() {};
       border: 0;
       z-index: 100;
       cursor: none;
+      transform: translateZ(0);
       background: #000;
     }
 
@@ -1037,9 +1040,11 @@ var RelatedVideoList = function() {};
       this.emit('open', watchId, options);
       ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
     },
-    reload: function() {
+    reload: function(options) {
       //window.console.log('reload!');
-      var options = this._videoWatchOptions || {};
+      options = options || {};
+      _.defaults(options, this._videoWatchOptions);
+      
       if (this._lastCurrentTime > 0) {
         options.currentTime = this._lastCurrentTime;
       }
@@ -1233,6 +1238,17 @@ var RelatedVideoList = function() {};
       // と思われるので開き直す
       if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
         this.reload();
+      } else {
+        if (this._videoInfo &&
+            (!this._videoWatchOptions.economy && !this._videoInfo.isEconomy())
+          ) {
+          this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
+          ZenzaWatch.util.callAsync(function() {
+            this.reload({economy: true});
+          }, this, 3000);
+        } else {
+          this._setErrorMessage('動画の再生に失敗しました。');
+        }
       }
     },
     _onVideoAbort: function() {
@@ -2265,7 +2281,7 @@ var RelatedVideoList = function() {};
     }
     .zenzaScreenMode_wide .commentInputPanel,
     .fullScreen           .commentInputPanel {
-      position: fixed !important;
+      position: absolute !important; {* fixedだとFirefoxのバグで消える *}
       top:  auto !important;
       bottom: 70px !important;
       left: calc(-50vw + 50% + 50vw - 100px) !important;
@@ -3789,6 +3805,7 @@ var RelatedVideoList = function() {};
 
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel,
     .fullScreen           .zenzaWatchVideoHeaderPanel {
+      position: absolute; {* fixedだとFirefoxのバグでおかしくなる *}
       top: 0px;
       bottom: auto;
       background: rgba(0, 0, 0, 0.5);
