@@ -515,11 +515,14 @@ var RelatedVideoList = function() {};
       var $dialog = this._$dialog = $(NicoVideoPlayerDialog.__tpl__);
 
       this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
-      this._$playerContainer.on('click', function(e) {
+      this._$playerContainer.on('click', _.bind(function(e) {
         ZenzaWatch.emitter.emitAsync('hideHover');
+        if (this._playerConfig.getValue('enableTogglePlayOnClick')) {
+          this.togglePlay();
+        }
         e.preventDefault();
         e.stopPropagation();
-      });
+      }, this));
 
       this.setIsBackComment(this._playerConfig.getValue('backComment'));
       this._$playerContainer.toggleClass('showComment',
@@ -1206,6 +1209,9 @@ var RelatedVideoList = function() {};
       var relatedVideo = this._videoInfo.getRelatedVideoItems();
       //relatedVideo.shift(); // 一本目は今見てる動画なので
       this._relatedVideoList.update(relatedVideo, this._watchId);
+      if (this._playerConfig.getValue('autoPlay')) {
+        this.play();
+      }
     },
     _onVideoPlay: function() {
       this._$playerContainer.addClass('playing');
@@ -2760,6 +2766,13 @@ var RelatedVideoList = function() {};
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="autoPlay">
             自動で再生する
+          </label>
+        </div>
+
+        <div class="enableTogglePlayOnClickControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableTogglePlayOnClick">
+            画面クリックで再生/一時停止
           </label>
         </div>
 

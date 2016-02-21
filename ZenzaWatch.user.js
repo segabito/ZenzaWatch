@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.10
+// @version        0.10.11
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -186,7 +186,7 @@ var monkey = function() {
       // マイページなど古いprototype.jsが使われているせいで、
       // 標準のJSON.stringifyがバグってる。
       // 勘弁して欲しい…。
-      if (window.Prototype) {
+      if (window.Prototype && Array.prototype.toJSON) {
         var _json_stringify = JSON.stringify;
         JSON.stringify = function(value) {
           var toj = Array.prototype.toJSON;
@@ -219,6 +219,7 @@ var monkey = function() {
         enableCommentPreview: false,
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
+        enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
 
         forceEconomy: false,
         // NG設定
@@ -3488,7 +3489,7 @@ var monkey = function() {
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
-      transision: left 0.3s linear;
+      transision: left 0.3s ease;
     }
     .dragging .seekBar .seekBarPointer {
       transision: none;
@@ -9050,11 +9051,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var $dialog = this._$dialog = $(NicoVideoPlayerDialog.__tpl__);
 
       this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
-      this._$playerContainer.on('click', function(e) {
+      this._$playerContainer.on('click', _.bind(function(e) {
         ZenzaWatch.emitter.emitAsync('hideHover');
+        if (this._playerConfig.getValue('enableTogglePlayOnClick')) {
+          this.togglePlay();
+        }
         e.preventDefault();
         e.stopPropagation();
-      });
+      }, this));
 
       this.setIsBackComment(this._playerConfig.getValue('backComment'));
       this._$playerContainer.toggleClass('showComment',
@@ -9741,6 +9745,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var relatedVideo = this._videoInfo.getRelatedVideoItems();
       //relatedVideo.shift(); // 一本目は今見てる動画なので
       this._relatedVideoList.update(relatedVideo, this._watchId);
+      if (this._playerConfig.getValue('autoPlay')) {
+        this.play();
+      }
     },
     _onVideoPlay: function() {
       this._$playerContainer.addClass('playing');
@@ -11295,6 +11302,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="autoPlay">
             自動で再生する
+          </label>
+        </div>
+
+        <div class="enableTogglePlayOnClickControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableTogglePlayOnClick">
+            画面クリックで再生/一時停止
           </label>
         </div>
 

@@ -154,7 +154,7 @@ var console;
       // マイページなど古いprototype.jsが使われているせいで、
       // 標準のJSON.stringifyがバグってる。
       // 勘弁して欲しい…。
-      if (window.Prototype) {
+      if (window.Prototype && Array.prototype.toJSON) {
         var _json_stringify = JSON.stringify;
         JSON.stringify = function(value) {
           var toj = Array.prototype.toJSON;
@@ -187,6 +187,7 @@ var console;
         enableCommentPreview: false,
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
+        enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
 
         forceEconomy: false,
         // NG設定

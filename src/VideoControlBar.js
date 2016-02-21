@@ -333,7 +333,7 @@ var AsyncEmitter = function() {};
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
-      transision: left 0.3s linear;
+      transision: left 0.3s ease;
     }
     .dragging .seekBar .seekBarPointer {
       transision: none;
