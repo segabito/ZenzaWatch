@@ -619,6 +619,7 @@ var NicoCommentPlayer = function() {};
       var param = $target.attr('data-param');
       this.hide();
       e.preventDefault();
+      e.stopPropagation();
       var player = this._player;
       var playerConfig = this._playerConfig;
       switch (command) {

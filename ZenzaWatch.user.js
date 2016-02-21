@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.11
+// @version        0.10.12
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -210,7 +210,7 @@ var monkey = function() {
         screenMode:   'normal',
         autoFullScreen: false,
         autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
-        continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
+        continueNextPage: true,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
@@ -232,12 +232,23 @@ var monkey = function() {
         baseChatScale: 1.0,
         baseFontBolder: true,
 
+        overrideWatchLink: false, // すべての動画リンクをZenzaWatchで開く
+
+
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
       };
+
+      if (navigator &&
+          navigator.userAgent &&
+          navigator.userAgent.match(/(Android|iPad;)/i)) {
+        defaultConfig.overrideWatchLink       = true;
+        defaultConfig.enableTogglePlayOnClick = true;
+      }
+
       var config = {};
 
       _.each(Object.keys(defaultConfig), function(key) {
@@ -775,9 +786,14 @@ var monkey = function() {
         var newValue = e.newValue;
         asyncEmitter.emit('change', key, newValue, oldValue);
 
-        if (key === 'message') {
-          console.log('%cmessage', 'background: cyan;', newValue);
-          asyncEmitter.emit('message', JSON.parse(newValue));
+        switch(key) {
+          case 'message':
+            console.log('%cmessage', 'background: cyan;', newValue);
+            asyncEmitter.emit('message', JSON.parse(newValue));
+            break;
+          case 'ping':
+            asyncEmitter.emit('ping');
+            break;
         }
       };
 
@@ -786,6 +802,10 @@ var monkey = function() {
         window.console.log('send Packet', packet);
         Config.setValue('message', packet);
       };
+
+//      asyncEmitter.ping = function() {
+//        asyncEmitter.send({id: 
+//      };
 
       window.addEventListener('storage', onStorage);
 
@@ -2734,6 +2754,7 @@ var monkey = function() {
       var param = $target.attr('data-param');
       this.hide();
       e.preventDefault();
+      e.stopPropagation();
       var player = this._player;
       var playerConfig = this._playerConfig;
       switch (command) {
@@ -3949,7 +3970,7 @@ var monkey = function() {
       this._$seekBarPointer = $view.find('.seekBarPointer');
       this._$bufferRange    = $view.find('.bufferRange');
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
-      $container.on('click', function(e) {
+      $view.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover');
       });
@@ -7755,6 +7776,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 
 
+  if (!_.trim) { _.trim = function(str) { return str.trim(); }; }
+
   var NicoChatFilter = function() { this.initialize.apply(this, arguments); };
   _.extend(NicoChatFilter.prototype, AsyncEmitter.prototype);
   _.assign(NicoChatFilter.prototype, {
@@ -9817,6 +9840,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this.emit('volumeChangeEnd', vol, mute);
     },
     close: function() {
+      if (FullScreen.now()) {
+        FullScreen.cancel();
+      }
       this.hide();
       this._refresh();
       this.emit('close');
@@ -10324,6 +10350,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       animation-duration: 6s;
       animation-timing-function: linear;
     }
+    .updatingDeflist .mylistButton.deflistAdd .tooltip {
+      display: none;
+    }
 
     .mylistButton.mylistAddMenu.show,
     .updatingMylist  .mylistButton.mylistAddMenu {
@@ -10636,6 +10665,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       $menu.find('.mylistSelectMenuInner').append($ul);
       $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         var $target  = $(e.target.closest('.mylistIcon, .mylistLink'));
         var command    = $target.attr('data-command');
         var mylistId   = $target.attr('data-mylist-id');
@@ -10701,7 +10731,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     _onMenuButtonClick: function(e) {
       e.preventDefault();
-      //e.stopPropagation();
+      e.stopPropagation();
 
       var $target = $(e.target.closest('.menuButton'));
       var command = $target.attr('data-command');
@@ -11059,6 +11089,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       });
       this._$form.on('submit', _.bind(this._onSubmit, this));
       this._$commentSubmit.on('click', _.bind(this._onSubmitButtonClick, this));
+      $view.on('click', function(e) {
+        e.stopPropagation();
+      });
     },
     _onFocus: function() {
       this._$view.addClass('active');
@@ -11339,6 +11372,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
             動画視聴ページでもGINZAのかわりに起動する
           </label>
         </div>
+
+        <div class="overrideWatchLinkControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="overrideWatchLink">
+            [Zen]ボタンなしでZenzaWatchを開く(リロード後に反映)
+          </label>
+        </div>
+
 
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
@@ -12910,13 +12951,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     var initializeDialogPlayer = function(conf, offScreenLayer) {
       var dialog = initializeDialog(conf, offScreenLayer);
-      initializeHoverMenu(dialog);
+      initializeHoverMenu(dialog, conf);
 
       return dialog;
     };
 
 
-    var initializeHoverMenu = function(dialog) {
+    var initializeHoverMenu = function(dialog, config) {
       var $menu = $([
       '<div class="zenzaWatchHoverMenu scalingUI">',
         '<span>Zen</span>',
@@ -12980,6 +13021,41 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         }
       };
 
+      var overrideGinzaLink = function() {
+
+        $('body').on('click', 'a[href*="watch/"]', function(e) {
+          if (e.target !== hoverElement) { return; }
+          var $target = $(e.target).closest('a');
+          var href = $target.attr('data-href') || $target.attr('href');
+          var watchId = ZenzaWatch.util.getWatchId(href);
+
+          if ($target.hasClass('noHoverMenu')) { return; }
+          if (!watchId.match(/^[a-z0-9]+$/)) { return; }
+          if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
+
+          e.preventDefault();
+
+          $('.zenzaWatching').removeClass('zenzaWatching');
+          $target.addClass('.zenzaWatching');
+
+          if (e.shiftKey) {
+            // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く
+            localStorageEmitter.send({
+              type: 'openVideo',
+              watchId: watchId
+            });
+          } else {
+            dialog.open(watchId, {
+              economy: Config.getValue('forceEconomy')
+            });
+          }
+          ZenzaWatch.util.callAsync(function() {
+            ZenzaWatch.emitter.emit('hideHover');
+          }, this, 1500);
+        });
+
+      };
+
       $menu.on('click', onMenuClick);
 
       ZenzaWatch.emitter.on('hideHover', function() {
@@ -12992,6 +13068,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         .on('mouseout',  'a[href*="watch/"]', onMouseout)
         .on('click', function() { $menu.removeClass('show'); })
         .append($menu);
+
+      if (config.getValue('overrideWatchLink')) {
+        overrideGinzaLink();
+        $menu.remove();
+      }
     };
 
     var initializeDialog = function(conf, offScreenLayer) {

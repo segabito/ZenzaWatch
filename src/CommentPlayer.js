@@ -2435,6 +2435,8 @@ var NicoTextParser = {};
 
 
 
+  if (!_.trim) { _.trim = function(str) { return str.trim(); }; }
+
   var NicoChatFilter = function() { this.initialize.apply(this, arguments); };
   _.extend(NicoChatFilter.prototype, AsyncEmitter.prototype);
   _.assign(NicoChatFilter.prototype, {

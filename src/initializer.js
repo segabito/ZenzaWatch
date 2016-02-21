@@ -135,13 +135,13 @@ var NicoVideoPlayerDialog = function() {};
 
     var initializeDialogPlayer = function(conf, offScreenLayer) {
       var dialog = initializeDialog(conf, offScreenLayer);
-      initializeHoverMenu(dialog);
+      initializeHoverMenu(dialog, conf);
 
       return dialog;
     };
 
 
-    var initializeHoverMenu = function(dialog) {
+    var initializeHoverMenu = function(dialog, config) {
       var $menu = $([
       '<div class="zenzaWatchHoverMenu scalingUI">',
         '<span>Zen</span>',
@@ -205,6 +205,41 @@ var NicoVideoPlayerDialog = function() {};
         }
       };
 
+      var overrideGinzaLink = function() {
+
+        $('body').on('click', 'a[href*="watch/"]', function(e) {
+          if (e.target !== hoverElement) { return; }
+          var $target = $(e.target).closest('a');
+          var href = $target.attr('data-href') || $target.attr('href');
+          var watchId = ZenzaWatch.util.getWatchId(href);
+
+          if ($target.hasClass('noHoverMenu')) { return; }
+          if (!watchId.match(/^[a-z0-9]+$/)) { return; }
+          if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
+
+          e.preventDefault();
+
+          $('.zenzaWatching').removeClass('zenzaWatching');
+          $target.addClass('.zenzaWatching');
+
+          if (e.shiftKey) {
+            // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く
+            localStorageEmitter.send({
+              type: 'openVideo',
+              watchId: watchId
+            });
+          } else {
+            dialog.open(watchId, {
+              economy: Config.getValue('forceEconomy')
+            });
+          }
+          ZenzaWatch.util.callAsync(function() {
+            ZenzaWatch.emitter.emit('hideHover');
+          }, this, 1500);
+        });
+
+      };
+
       $menu.on('click', onMenuClick);
 
       ZenzaWatch.emitter.on('hideHover', function() {
@@ -217,6 +252,11 @@ var NicoVideoPlayerDialog = function() {};
         .on('mouseout',  'a[href*="watch/"]', onMouseout)
         .on('click', function() { $menu.removeClass('show'); })
         .append($menu);
+
+      if (config.getValue('overrideWatchLink')) {
+        overrideGinzaLink();
+        $menu.remove();
+      }
     };
 
     var initializeDialog = function(conf, offScreenLayer) {

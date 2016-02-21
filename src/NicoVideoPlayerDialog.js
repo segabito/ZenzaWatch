@@ -1281,6 +1281,9 @@ var RelatedVideoList = function() {};
       this.emit('volumeChangeEnd', vol, mute);
     },
     close: function() {
+      if (FullScreen.now()) {
+        FullScreen.cancel();
+      }
       this.hide();
       this._refresh();
       this.emit('close');
@@ -1788,6 +1791,9 @@ var RelatedVideoList = function() {};
       animation-duration: 6s;
       animation-timing-function: linear;
     }
+    .updatingDeflist .mylistButton.deflistAdd .tooltip {
+      display: none;
+    }
 
     .mylistButton.mylistAddMenu.show,
     .updatingMylist  .mylistButton.mylistAddMenu {
@@ -2100,6 +2106,7 @@ var RelatedVideoList = function() {};
       $menu.find('.mylistSelectMenuInner').append($ul);
       $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         var $target  = $(e.target.closest('.mylistIcon, .mylistLink'));
         var command    = $target.attr('data-command');
         var mylistId   = $target.attr('data-mylist-id');
@@ -2165,7 +2172,7 @@ var RelatedVideoList = function() {};
     },
     _onMenuButtonClick: function(e) {
       e.preventDefault();
-      //e.stopPropagation();
+      e.stopPropagation();
 
       var $target = $(e.target.closest('.menuButton'));
       var command = $target.attr('data-command');
@@ -2523,6 +2530,9 @@ var RelatedVideoList = function() {};
       });
       this._$form.on('submit', _.bind(this._onSubmit, this));
       this._$commentSubmit.on('click', _.bind(this._onSubmitButtonClick, this));
+      $view.on('click', function(e) {
+        e.stopPropagation();
+      });
     },
     _onFocus: function() {
       this._$view.addClass('active');
@@ -2803,6 +2813,14 @@ var RelatedVideoList = function() {};
             動画視聴ページでもGINZAのかわりに起動する
           </label>
         </div>
+
+        <div class="overrideWatchLinkControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="overrideWatchLink">
+            [Zen]ボタンなしでZenzaWatchを開く(リロード後に反映)
+          </label>
+        </div>
+
 
         <div class="enableAutoMylistCommentControl control toggle">
           <label>

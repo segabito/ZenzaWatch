@@ -178,7 +178,7 @@ var console;
         screenMode:   'normal',
         autoFullScreen: false,
         autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
-        continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
+        continueNextPage: true,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
@@ -200,12 +200,23 @@ var console;
         baseChatScale: 1.0,
         baseFontBolder: true,
 
+        overrideWatchLink: false, // すべての動画リンクをZenzaWatchで開く
+
+
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
         lastPlayerId: '',
         playbackRate: 1.0,
         message: ''
       };
+
+      if (navigator &&
+          navigator.userAgent &&
+          navigator.userAgent.match(/(Android|iPad;)/i)) {
+        defaultConfig.overrideWatchLink       = true;
+        defaultConfig.enableTogglePlayOnClick = true;
+      }
+
       var config = {};
 
       _.each(Object.keys(defaultConfig), function(key) {
@@ -743,9 +754,14 @@ var console;
         var newValue = e.newValue;
         asyncEmitter.emit('change', key, newValue, oldValue);
 
-        if (key === 'message') {
-          console.log('%cmessage', 'background: cyan;', newValue);
-          asyncEmitter.emit('message', JSON.parse(newValue));
+        switch(key) {
+          case 'message':
+            console.log('%cmessage', 'background: cyan;', newValue);
+            asyncEmitter.emit('message', JSON.parse(newValue));
+            break;
+          case 'ping':
+            asyncEmitter.emit('ping');
+            break;
         }
       };
 
@@ -754,6 +770,10 @@ var console;
         window.console.log('send Packet', packet);
         Config.setValue('message', packet);
       };
+
+//      asyncEmitter.ping = function() {
+//        asyncEmitter.send({id: 
+//      };
 
       window.addEventListener('storage', onStorage);
 
