@@ -1043,6 +1043,9 @@ var RelatedVideoList = function() {};
       this.emit('open', watchId, options);
       ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
     },
+    isOpen: function() {
+      return this._isOpen;
+    },
     reload: function(options) {
       //window.console.log('reload!');
       options = options || {};
@@ -1160,6 +1163,7 @@ var RelatedVideoList = function() {};
         this._videoInfoPanel.update(this._videoInfo);
       }
       this._$playerContainer.removeClass('loading').addClass('error');
+      ZenzaWatch.emitter.emitAsync('loadVideoInfoFail');
     },
     _setThumbnail: function(thumbnail) {
       if (thumbnail) {
@@ -1307,6 +1311,12 @@ var RelatedVideoList = function() {};
       if (!this._hasError && this._nicoVideoPlayer) {
         this._nicoVideoPlayer.pause();
       }
+    },
+    isPlaying: function() {
+      if (!this._hasError && this._nicoVideoPlayer) {
+        return this._nicoVideoPlayer.isPlaying();
+      }
+      return false;
     },
     togglePlay: function() {
       if (!this._hasError && this._nicoVideoPlayer) {
@@ -2880,6 +2890,7 @@ var RelatedVideoList = function() {};
             フォントサイズ(倍率)
             </label>
           </div>
+        </div>
 
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
@@ -2900,17 +2911,33 @@ var RelatedVideoList = function() {};
             data-command="setUserIdFilterList"></textarea>
         </div>
 
-
-        <!--
-        <p class="caption">開発中・テスト関係の項目</p>
-
-        <div class="enableCommentPreviewControl control toggle">
+        <p class="caption">一発ネタ系(飽きたら消します)</p>
+        <div class="speakLarkControl control toggle">
           <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableCommentPreview">
-            シークバー上でコメントをプレビュー
+            <input type="checkbox" class="checkbox" data-setting-name="speakLark">
+            コメントの読み上げ(対応ブラウザのみ)
+          </label>
+        </div>
+        <div class="speakLarkVolumeControl control toggle">
+          <label>
+            <select class="speakLarkVolume" data-setting-name="speakLarkVolume">
+              <option value="1.0" selected>100%</option>
+              <option value="0.9" selected>90%</option>
+              <option value="0.8" selected>80%</option>
+              <option value="0.7" selected>70%</option>
+              <option value="0.6" selected>60%</option>
+              <option value="0.5" selected>50%</option>
+              <option value="0.4" selected>40%</option>
+              <option value="0.3" selected>30%</option>
+              <option value="0.2" selected>20%</option>
+              <option value="0.1" selected>10%</option>
+            </select>
+            読み上げの音量
           </label>
         </div>
 
+         <!--
+        <p class="caption">開発中・テスト関係の項目</p>
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">

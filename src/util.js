@@ -202,6 +202,8 @@ var console;
 
         overrideWatchLink: false, // すべての動画リンクをZenzaWatchで開く
 
+        speakLark: false, // 一発ネタのコメント読み上げ機能. 飽きたら消す
+        speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -212,9 +214,12 @@ var console;
 
       if (navigator &&
           navigator.userAgent &&
-          navigator.userAgent.match(/(Android|iPad;)/i)) {
+          navigator.userAgent.match(/(Android|iPad;|CriOS)/i)) {
         defaultConfig.overrideWatchLink       = true;
         defaultConfig.enableTogglePlayOnClick = true;
+        defaultConfig.autoFullScreen          = true;
+        defaultConfig.autoCloseFullScreen     = false;
+        defaultConfig.volume = 1.0;
       }
 
       var config = {};
@@ -852,6 +857,17 @@ var console;
       return document.getElementsByClassName('siteHeaderLogin').length < 1;
     };
     ZenzaWatch.util.isLogin = isLogin;
+
+    var getLang = function() {
+      try {
+        var h = document.getElementsByClassName('html')[0];
+        return h.lang || 'ja-JP';
+      } catch(e) {
+        return 'ja-JP';
+      }
+    };
+    ZenzaWatch.util.getLang = getLang;
+
 
     var isSameOrigin = function() {
       return location.host === 'www.nicovideo.jp';

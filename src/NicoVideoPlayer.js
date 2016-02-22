@@ -844,7 +844,7 @@ var NicoCommentPlayer = function() {};
       this.emit('stalled');
     },
     _onSuspend: function() {
-      console.log('%c_onSuspend:', 'background: cyan;', arguments);
+      ///console.log('%c_onSuspend:', 'background: cyan;', arguments);
       this.emit('suspend');
     },
     _onWaiting: function() {

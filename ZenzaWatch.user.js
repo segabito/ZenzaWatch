@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.12
+// @version        0.10.13
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -234,6 +234,8 @@ var monkey = function() {
 
         overrideWatchLink: false, // すべての動画リンクをZenzaWatchで開く
 
+        speakLark: false, // 一発ネタのコメント読み上げ機能. 飽きたら消す
+        speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -244,9 +246,12 @@ var monkey = function() {
 
       if (navigator &&
           navigator.userAgent &&
-          navigator.userAgent.match(/(Android|iPad;)/i)) {
+          navigator.userAgent.match(/(Android|iPad;|CriOS)/i)) {
         defaultConfig.overrideWatchLink       = true;
         defaultConfig.enableTogglePlayOnClick = true;
+        defaultConfig.autoFullScreen          = true;
+        defaultConfig.autoCloseFullScreen     = false;
+        defaultConfig.volume = 1.0;
       }
 
       var config = {};
@@ -884,6 +889,17 @@ var monkey = function() {
       return document.getElementsByClassName('siteHeaderLogin').length < 1;
     };
     ZenzaWatch.util.isLogin = isLogin;
+
+    var getLang = function() {
+      try {
+        var h = document.getElementsByClassName('html')[0];
+        return h.lang || 'ja-JP';
+      } catch(e) {
+        return 'ja-JP';
+      }
+    };
+    ZenzaWatch.util.getLang = getLang;
+
 
     var isSameOrigin = function() {
       return location.host === 'www.nicovideo.jp';
@@ -2979,7 +2995,7 @@ var monkey = function() {
       this.emit('stalled');
     },
     _onSuspend: function() {
-      console.log('%c_onSuspend:', 'background: cyan;', arguments);
+      ///console.log('%c_onSuspend:', 'background: cyan;', arguments);
       this.emit('suspend');
     },
     _onWaiting: function() {
@@ -3957,6 +3973,10 @@ var monkey = function() {
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
+
+
+      // TODO: 飽きたら消す
+      this._lark = new Lark(params);
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(VideoControlBar.__css__);
@@ -5086,14 +5106,160 @@ var monkey = function() {
 
 
 
+  var Lark = function() { this.initialize.apply(this, arguments); };
+  _.extend(Lark.prototype, AsyncEmitter.prototype);
+  _.assign(Lark.prototype, {
+    initialize: function(params) {
+      this._player = params.player;
+      this._playerConfig = params.playerConfig;
+      this._volume =
+        parseFloat(params.volume || this._playerConfig.getValue('speakLarkVolume'), 10);
+      this._lang = params.lang || ZenzaWatch.util.getLang();
+      this._enabled = false;
+      this._timer = null;
+      this._kidoku = [];
+
+      this._player.on('commentParsed', _.debounce(_.bind(this._onCommentParsed, this), 100));
+      this._playerConfig.on('update-speakLark', _.bind(function(v) {
+        if (v) { this.enable(); } else { this.disable(); }
+      }, this));
+      this._playerConfig.on('update-speakLarkVolume', _.bind(function(v) {
+        this._volume = Math.max(0, Math.min(1.0, parseFloat(v, 10)));
+        if (!this._msg) { return; }
+        this._msg.volume = this._volume;
+      }, this));
+
+      ZenzaWatch.debug.lark = this;
+    },
+    _initApi: function() {
+      if (this._msg) { return true; }
+      if (!window.SpeechSynthesisUtterance) { return false; }
+      this._msg = new window.SpeechSynthesisUtterance();
+      this._msg.lang = this._lang;
+      this._msg.volume = this._volume;
+      this._msg.onend   = _.debounce(_.bind(this._onSpeakEnd, this), 100);
+      this._msg.onerror = _.debounce(_.bind(this._onSpeakErr, this), 200);
+      return true;
+    },
+    _onCommentParsed: function() {
+      //window.console.log('%conCommentParsed:', 'background: #f88;');
+      this._speaking = false;
+      if (this._playerConfig.getValue('speakLark')) {
+        this.enable();
+      }
+    },
+    speak: function(text, option) {
+      if (!this._msg) { return; }
+      if (window.speechSynthesis.speaking) { return; }
+      if (this._speaking && !option.force) { return; }
+      if (option.volume) { this._msg.volume = option.volume; }
+      if (option.rate)   { this._msg.rate   = option.rate; }
+
+      text = this._replaceWWW(text);
+      this._msg.text = text;
+      this._speaking = true;
+      console.log('%cspeak: "%s"', 'background: #f88;', text, this._msg);
+      //var self = this;
+      //this._timeoutTimer = window.setTimeout(function() {
+      //  self._speaking = false;
+      //}, 4000);
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(this._msg);
+    },
+    _onSpeakEnd: function() {
+      this._speaking = false;
+      //window.clearTimeout(this._timeoutTimer);
+      this._onTimer();
+    },
+    _onSpeakErr: function() {
+      this._speaking = false;
+      //window.clearTimeout(this._timeoutTimer);
+      this._onTimer();
+    },
+    enable: function() {
+      if (!this._initApi()) { return; }
+
+      this._kidoku = [];
+      this._enabled = true;
+      var chatList = this._player.getChatList();
+      this._chatList = chatList.top.concat(chatList.naka, chatList.bottom);
+      if (this._timer) {
+        window.clearInterval(this._timer);
+      }
+      this._timer = window.setInterval(_.bind(this._onTimer, this), 300);
+    },
+    disable: function() {
+      this._enabled = false;
+      this._speaking = false;
+      this._chatList = [];
+      if (this._timer) {
+        window.clearInterval(this._timer);
+        this._timer = null;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    },
+    _onTimer: function() {
+      if (!this._player.isPlaying()) { return; }
+      if (this._speaking) { return; }
+      var one = this._selectOne();
+      if (!one) { return; }
+      this.speak(one.text, {rate: one.rate});
+    },
+    _getInviewChat: function() {
+      var player = this._player;
+      var vpos = player.getCurrentTime() * 100;
+      var result = [];
+      var chatList = this._chatList;
+      for (var i = 0, len = chatList.length; i < len; i++) {
+        var chat = chatList[i];
+        var vp = chat.getVpos();
+        if (vp - vpos > -250 && vp - vpos < 150) {
+          result.push(chat);
+        }
+      }
+      return result;
+    },
+    _selectOne: function() {
+      var inviewChat = this._getInviewChat();
+      var sample = _.shuffle(_.difference(inviewChat, this._kidoku));
+      if (sample.length < 1) { return null; }
+      var chat = sample[0];
+      var text = chat.getText();
+
+      // コメントが多い時は早口
+      var count = Math.max(1, Math.min(inviewChat.length, 40));
+      this._kidoku.unshift(chat);
+      this._kidoku.splice(10);
+      return {
+        text: text,
+        rate: Math.max(0.5, Math.min(2, count / 15))
+      };
+    },
+    _replaceWWW: function(text) {
+      text = text.trim();
+
+      var www = 'わらわらわらわらわらわらわらわらわらわら';
+      text = text.replace(/([wWＷｗ])+$/i, function(m) {
+        return www.substr(0, Math.min(www.length, m.length * 2));
+      });
+
+      var ppp = 'ぱちぱちぱちぱちぱちぱちぱちぱちぱちぱち';
+      text = text.replace(/([8８])+$/i, function(m) {
+        return ppp.substr(0, Math.min(ppp.length, m.length * 2));
+      });
+
+      return text;
+    }
+  });
+  
+  ZenzaWatch.debug.Lark = Lark;
 
 
 
 
 
-
-
- 
 
 
 
@@ -9602,6 +9768,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this.emit('open', watchId, options);
       ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
     },
+    isOpen: function() {
+      return this._isOpen;
+    },
     reload: function(options) {
       //window.console.log('reload!');
       options = options || {};
@@ -9719,6 +9888,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         this._videoInfoPanel.update(this._videoInfo);
       }
       this._$playerContainer.removeClass('loading').addClass('error');
+      ZenzaWatch.emitter.emitAsync('loadVideoInfoFail');
     },
     _setThumbnail: function(thumbnail) {
       if (thumbnail) {
@@ -9866,6 +10036,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       if (!this._hasError && this._nicoVideoPlayer) {
         this._nicoVideoPlayer.pause();
       }
+    },
+    isPlaying: function() {
+      if (!this._hasError && this._nicoVideoPlayer) {
+        return this._nicoVideoPlayer.isPlaying();
+      }
+      return false;
     },
     togglePlay: function() {
       if (!this._hasError && this._nicoVideoPlayer) {
@@ -11439,6 +11615,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
             フォントサイズ(倍率)
             </label>
           </div>
+        </div>
 
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
@@ -11459,17 +11636,33 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
             data-command="setUserIdFilterList"></textarea>
         </div>
 
-
-        <!--
-        <p class="caption">開発中・テスト関係の項目</p>
-
-        <div class="enableCommentPreviewControl control toggle">
+        <p class="caption">一発ネタ系(飽きたら消します)</p>
+        <div class="speakLarkControl control toggle">
           <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableCommentPreview">
-            シークバー上でコメントをプレビュー
+            <input type="checkbox" class="checkbox" data-setting-name="speakLark">
+            コメントの読み上げ(対応ブラウザのみ)
+          </label>
+        </div>
+        <div class="speakLarkVolumeControl control toggle">
+          <label>
+            <select class="speakLarkVolume" data-setting-name="speakLarkVolume">
+              <option value="1.0" selected>100%</option>
+              <option value="0.9" selected>90%</option>
+              <option value="0.8" selected>80%</option>
+              <option value="0.7" selected>70%</option>
+              <option value="0.6" selected>60%</option>
+              <option value="0.5" selected>50%</option>
+              <option value="0.4" selected>40%</option>
+              <option value="0.3" selected>30%</option>
+              <option value="0.2" selected>20%</option>
+              <option value="0.1" selected>10%</option>
+            </select>
+            読み上げの音量
           </label>
         </div>
 
+         <!--
+        <p class="caption">開発中・テスト関係の項目</p>
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">
