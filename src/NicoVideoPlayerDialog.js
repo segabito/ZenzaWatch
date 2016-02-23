@@ -56,6 +56,10 @@ var RelatedVideoList = function() {};
     .zenzaVideoPlayerDialog.show {
       display: block;
     }
+
+    .zenzaScreenMode_3D       .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_sideView .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_small    .zenzaVideoPlayerDialog,
     .fullScreen .zenzaVideoPlayerDialog {
       transition: none !important;
     }
@@ -71,6 +75,9 @@ var RelatedVideoList = function() {};
       box-shadow: 4px 4px 4px #000;
       transition: top 0.4s ease-in, left 0.4s ease-in;
     }
+    .zenzaScreenMode_3D       .zenzaVideoPlayerDialogInner,
+    .zenzaScreenMode_sideView .zenzaVideoPlayerDialogInner,
+    .zenzaScreenMode_small    .zenzaVideoPlayerDialogInner,
     .fullScreen .zenzaVideoPlayerDialogInner {
       transition: none !important;
     }
@@ -108,6 +115,9 @@ var RelatedVideoList = function() {};
 
 
 
+    .zenzaScreenMode_3D       .zenzaPlayerContainer,
+    .zenzaScreenMode_sideView .zenzaPlayerContainer,
+    .zenzaScreenMode_small    .zenzaPlayerContainer,
     .fullScreen .zenzaPlayerContainer {
       transform: translateZ(0);
       transition: none !important;
@@ -143,7 +153,7 @@ var RelatedVideoList = function() {};
 
     .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
       transform: perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
-      opacity: 0.8;
+      opacity: 1;
       height: 100%;
       margin-left: 20%;
     }
@@ -164,6 +174,9 @@ var RelatedVideoList = function() {};
       transform: translateZ(0);
       cursor: none;
     }
+    .zenzaScreenMode_3D       .zenzaPlayerContainer .commentLayerFrame,
+    .zenzaScreenMode_sideView .zenzaPlayerContainer .commentLayerFrame,
+    .zenzaScreenMode_small    .zenzaPlayerContainer .commentLayerFrame,
     .fullScreen .zenzaPlayerContainer .commentLayerFrame {
       transition: none !important;
     }
@@ -971,9 +984,11 @@ var RelatedVideoList = function() {};
     },
     _onCommentParsed: function() {
       this.emit('commentParsed');
+      ZenzaWatch.emitter.emit('commentParsed');
     },
     _onCommentChange: function() {
       this.emit('commentChange');
+      ZenzaWatch.emitter.emit('commentChange');
     },
     _onCommentFilterChange: function(filter) {
       var config = this._playerConfig;
@@ -1132,7 +1147,8 @@ var RelatedVideoList = function() {};
           flvInfo.l,
           flvInfo.user_id,
           flvInfo.needs_key === '1',
-          flvInfo.optional_thread_id
+          flvInfo.optional_thread_id,
+          flvInfo.userkey
         ).then(
           _.bind(this._onCommentLoadSuccess, this, requestId),
           _.bind(this._onCommentLoadFail, this, requestId)
@@ -2724,6 +2740,7 @@ var RelatedVideoList = function() {};
 
     .zenzaSettingPanel .filterEditContainer {
       color: #fff;
+      margin-bottom: 32px;
     }
     .zenzaSettingPanel .filterEditContainer p {
       color: #fff;

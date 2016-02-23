@@ -593,6 +593,7 @@ var NicoCommentPlayer = function() {};
           -->
           <hr class="separator">
           <li class="debug"        data-command="debug">デバッグ</li>
+          <li class="speakLark"    data-command="speakLark" title="対応ブラウザのみ">コメントの読み上げ</li>
           <li class="mymemory"     data-command="mymemory">コメントの保存</a></li>
         </ul>
       </div>
@@ -626,6 +627,7 @@ var NicoCommentPlayer = function() {};
         case 'togglePlay':
           player.togglePlay();
           break;
+        case 'speakLark':
         case 'showComment':
         case 'loop':
         case 'autoPlay':
@@ -669,6 +671,8 @@ var NicoCommentPlayer = function() {};
         .toggleClass('selected', this._playerConfig.getValue('autoPlay'));
       this._$view.find('.debug')
         .toggleClass('selected', this._playerConfig.getValue('debug'));
+      this._$view.find('.speakLark')
+        .toggleClass('selected', this._playerConfig.getValue('speakLark'));
     },
     appendTo: function($node) {
       this._$node = $node;

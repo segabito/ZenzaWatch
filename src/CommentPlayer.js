@@ -242,7 +242,6 @@ var NicoTextParser = {};
       this._bottomGroup.reset();
 
       var chats = xml.getElementsByTagName('chat');
-
       var top = [], bottom = [], naka = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
         var chat = chats[i];
@@ -814,6 +813,8 @@ var NicoTextParser = {};
       return this._nicoChatGroup.getType();
     },
     checkCollision: function(target) {
+      if (target.isInvisible()) { return; }
+
       var m = this._vSortedMembers;//this._members;
       var o;
       var beginLeft = target.getBeginLeftTiming();
@@ -986,6 +987,8 @@ var NicoTextParser = {};
       this._isMine = false;
       this._score = 0;
       this._no = 0;
+      this._fork = 0;
+      this._isInvisible = false;
 
       this._currentTime = 0;
     },
@@ -993,7 +996,7 @@ var NicoTextParser = {};
       this._id = 'chat' + NicoChat.id++;
       this._currentTime = 0;
 
-      this._text = chat.firstChild.nodeValue;
+      var text = this._text = chat.firstChild.nodeValue;
       var attr = chat.attributes;
       if (!attr) { this.reset(); return; }
 
@@ -1003,14 +1006,20 @@ var NicoTextParser = {};
       this._userId = chat.getAttribute('user_id');
       this._vpos = parseInt(chat.getAttribute('vpos'));
       this._deleted = chat.getAttribute('deleted') === '1';
-      this._color = '#FFF';
+      this._color = null;
       this._size = NicoChat.SIZE.MEDIUM;
       this._type = NicoChat.TYPE.NAKA  ;
       this._duration = NicoChatViewModel.DURATION.NAKA;
       this._isMine = chat.getAttribute('mine') === '1';
       this._isUpdating = chat.getAttribute('updating') === '1';
       this._score = parseInt(chat.getAttribute('score') || '0', 10);
-      this._no = parseInt(chat.getAttribute('no') || '0', 10);
+      this._fork = parseInt(chat.getAttribute('fork') || '0', 10);
+      // fork * 100000000を足してるのは苦し紛れの措置. いつか直す (本当に？)
+      this._no =
+        parseInt(chat.getAttribute('no') || '0', 10) + this._fork * 100000000;
+      if (this._fork > 0 && text.match(/^[\/＠@]/)) {
+        this._isInvisible = true;
+      }
 
       if (this._deleted) { return; }
 
@@ -1096,6 +1105,7 @@ var NicoTextParser = {};
     isFull: function() { return !!this._isFull; },
     isMine: function() { return !!this._isMine; },
     isUpdating: function() { return !!this._isUpdating; },
+    isInvisible: function() { return this._isInvisible; },
     getUserId: function() { return this._userId; },
     getVpos: function() { return this._vpos; },
     isDeleted: function() { return !!this._deleted; },
@@ -1103,7 +1113,8 @@ var NicoTextParser = {};
     getSize: function() { return this._size; },
     getType: function() { return this._type; },
     getScore: function() { return this._score; },
-    getNo: function() { return this._no; }
+    getNo: function() { return this._no; },
+    getFork: function() { return this._fork; }
   });
 
 
@@ -1192,6 +1203,10 @@ var NicoTextParser = {};
         this._y = 0;
         //this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
         this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
+      }
+
+      if (this._isOverflow || nicoChat.isInvisible()) {
+        this.checkCollision = function() { return false; };
       }
     },
     _setType: function(type) {
@@ -1419,7 +1434,9 @@ var NicoTextParser = {};
      */
     checkCollision: function(target) {
       // 一度はみ出した文字は当たり判定を持たない
-      if (this.isOverflow() || target.isOverflow()) { return false; }
+      if (this.isOverflow() || target.isOverflow() || target.isInvisible()) { return false; }
+
+      //if (this.getFork() !== target.getFork()) { return false; }
 
       // Y座標が合わないなら絶対衝突しない
       var targetY = target.getYpos();
@@ -1518,10 +1535,14 @@ var NicoTextParser = {};
     isInViewBySecond: function(sec) {
       if (sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
       if (sec > this._endRightTiming ) { return false; }
+      if (this.isInvisible()) { return false; }
       return true;
     },
     isOverflow: function() {
       return this._isOverflow;
+    },
+    isInvisible: function() {
+      return this._nicoChat.isInvisible();
     },
     getWidth: function() {
       return this._width;
@@ -1579,6 +1600,7 @@ var NicoTextParser = {};
       return this._lineHeight;
     },
     getNo: function() { return this._nicoChat.getNo(); },
+    getFork: function() { return this._nicoChat.getFork(); },
     /**
      * second時の左端座標を返す
      */
@@ -1631,6 +1653,7 @@ var NicoTextParser = {};
         date:     this._nicoChat.getDate(),
         deleted:  this._nicoChat.isDeleted(),
         cmd:      this._nicoChat.getCmd(),
+        fork:     this._nicoChat.getFork(),
         text:     this.getText()
       });
       return chat;
@@ -1670,6 +1693,11 @@ var NicoTextParser = {};
 .debug .gulim   { background: rgba(0, 128, 0, 0.3); }
 .debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
 
+@keyframes fixed {
+   0% {opacity: 1;}
+  95% {opacity: 1;}
+ 100% {opacity: 0.5;}
+}
 
 
 .commentLayerOuter {
@@ -1709,8 +1737,11 @@ var NicoTextParser = {};
      1px  1px 0 #000;
   transform-origin: 0% 0%;
   animation-timing-function: linear;
+  {* will-change: transform;*}
+  color: #fff;
 }
-
+.nicoChat.fixed {
+}
 
 .nicoChat.black {
   text-shadow: -1px -1px 0 #888, 1px  1px 0 #888;
@@ -1794,6 +1825,17 @@ var NicoTextParser = {};
 
 .nicoChat.updating {
   border: 1px dotted;
+}
+
+.nicoChat.fork1 {
+  outline: dotted 1px #008800;
+}
+.nicoChat.fork2 {
+  outline: dotted 1px #000088;
+}
+
+.nicoChat.blink {
+  border: 1px solid #f00;
 }
 
 @keyframes spin {
@@ -2272,6 +2314,12 @@ var NicoTextParser = {};
       if (chat.isUpdating()) {
         className.push('updating');
       }
+      var fork = chat.getFork();
+      if (fork > 0) {
+        className.push('fork' + fork);
+      }
+
+
       if (chat.isPostFail()) {
         className.push('fail');
       }
@@ -2307,6 +2355,11 @@ var NicoTextParser = {};
       if (chat.isUpdating()) {
         className.push('updating');
       }
+      var fork = chat.getFork();
+      if (fork > 0) {
+        className.push('fork' + fork);
+      }
+
 
       var result = [
         '<span id="', chat.getId(), '" class="', className.join(' '), '">',
@@ -2329,6 +2382,7 @@ var NicoTextParser = {};
 //      var height = chat.getHeight();
       var ypos = chat.getYpos();
       var color = chat.getColor();
+      var colorCss = color ? ('color: ' + color + ';\n') : '';
       var fontSizePx = chat.getFontSizePixel();
       //var lineHeight = chat.getLineHeight();
       var speed = chat.getSpeed();
@@ -2337,7 +2391,7 @@ var NicoTextParser = {};
       var opacity = 1; //chat.isOverflow() ? 0.8 : 1;
       //var zid = parseInt(id.substr('4'), 10);
       //var zIndex = 10000 - (zid % 5000);
-      var zIndex = beginL * 1000;
+      var zIndex = beginL * 1000 + chat.getFork() * 1000000;
 
       if (type === NicoChat.TYPE.NAKA  ) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
@@ -2361,7 +2415,7 @@ var NicoTextParser = {};
           '  z-index: ', zIndex , ';\n',
           '  top:', ypos, 'px;\n',
           '  left:', leftPos, 'px;\n',
-          '  color:', color,';\n',
+          colorCss,
           '  font-size:', fontSizePx, 'px;\n',
 //          '  line-height:',  lineHeight, 'px;\n',
           '  animation-name: idou', id, ';\n',
@@ -2375,25 +2429,19 @@ var NicoTextParser = {};
             ' transform: translate3d(-50%, 0, 0) scale(1);' :
             (' transform: translate3d(-50%, 0, 0) scale(' + scale + ');');
 
-        //var left = ((screenWidth - width) / 2);
         result = ['',
-          ' @keyframes fixed', id, ' {\n',
-          '    0% {opacity: ', 1, ';}\n',
-          '   95% {opacity: ', 1, ';}\n',
-          '  100% {opacity: ', 0.5, ';}\n',
-          ' }\n',
-          '',
           ' #', id, ' {\n',
           '  z-index: ', zIndex, ';\n',
           '  top:', ypos, 'px;\n',
           '  left: 50% ;\n',
-          '  color:',  color, ';\n',
+          colorCss,
           '  font-size:', fontSizePx,  'px;\n',
 //          '  line-height:', lineHeight,  'px;\n',
           '  width:', width, 'px;\n',
 //          '  height:', height, 'px;\n',
           scaleCss,
-          '  animation-name: fixed', id, ';\n',
+//          '  animation-name: fixed', id, ';\n',
+          '  animation-name: fixed;\n',
           '  animation-duration: ', duration / 0.95, 's;\n',
           '  animation-delay: ', delay, 's;\n',
           ' }\n',

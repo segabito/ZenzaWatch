@@ -387,7 +387,7 @@ var isSameOrigin = function() {};
          * 本家よりちょっと盛ってる
          */
         getRequestCountByDuration: function(duration) {
-          if (duration < 60)  { return 150;}
+          if (duration < 60)  { return 100;}
           if (duration < 240) { return 200;}
           if (duration < 300) { return 400;}
           return 1000;
@@ -448,10 +448,17 @@ var isSameOrigin = function() {};
             });
           });
         },
-        _createThreadXml: function(threadId, version, userId, threadKey, force184) {
+        _createThreadXml:
+          function(threadId, version, userId, threadKey, force184, duration, userKey) {
           var thread = document.createElement('thread');
           thread.setAttribute('thread', threadId);
           thread.setAttribute('version', version);
+          if (duration) {
+            var resCount = this.getRequestCountByDuration(duration);
+            thread.setAttribute('fork', '1');
+            thread.setAttribute('click_revision', '-1');
+            thread.setAttribute('res_from', '-' + resCount);
+          }
           if (typeof userId !== 'undefined') {
             thread.setAttribute('user_id', userId);
           }
@@ -465,10 +472,11 @@ var isSameOrigin = function() {};
           thread.setAttribute('nicoru', '1');
           thread.setAttribute('with_global', '1');
 
+          if (userKey) { thread.setAttribute('userkey', userKey); }
           return thread;
         },
         _createThreadLeavesXml:
-          function(threadId, version, userId, threadKey, force184, duration) {
+          function(threadId, version, userId, threadKey, force184, duration, userKey) {
           var thread_leaves = document.createElement('thread_leaves');
           var resCount = this.getRequestCountByDuration(duration);
           var threadLeavesParam =
@@ -485,13 +493,14 @@ var isSameOrigin = function() {};
           }
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
+          if (userKey) { thread_leaves.setAttribute('userkey', userKey); }
 
           thread_leaves.innerHTML = threadLeavesParam;
 
           return thread_leaves;
         },
 
-        buildPacket: function(threadId, duration, userId, threadKey, force184, optionalThreadId)
+        buildPacket: function(threadId, duration, userId, threadKey, force184, optionalThreadId, userKey)
         {
           var span = document.createElement('span');
           var packet = document.createElement('packet');
@@ -505,16 +514,19 @@ var isSameOrigin = function() {};
 //            );
 //          }
 
-          if (duration < 60) {
+          if (false && duration < 60) {
             packet.appendChild(
-              this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184)
+              this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184, duration, userKey)
             );
           } else {
             packet.appendChild(
-              this._createThreadXml(threadId, VERSION, userId, threadKey, force184)
+              this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184, duration)
             );
             packet.appendChild(
-              this._createThreadLeavesXml(threadId, VERSION, userId, threadKey, force184, duration)
+              this._createThreadXml(threadId, VERSION, userId, threadKey, force184, null, userKey)
+            );
+            packet.appendChild(
+              this._createThreadLeavesXml(threadId, VERSION, userId, threadKey, force184, duration, userKey)
             );
           }
 
@@ -587,7 +599,7 @@ var isSameOrigin = function() {};
             });
           });
         },
-        _load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
+        _load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId, userKey) {
           var packet, self = this;
           if (isNeedKey) {
             return this.getThreadKey(threadId).then(function(info) {
@@ -608,13 +620,17 @@ var isSameOrigin = function() {};
             packet = this.buildPacket(
               threadId,
               duration,
-              userId
+              userId,
+              undefined, //  info.threadkey,
+              undefined, //  info.force_184,
+              optionalThreadId,
+              userKey
             );
             console.log('post xml...', server, packet);
             return this._post(server, packet, threadId);
           }
         },
-        load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId) {
+        load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId, userKey) {
 
           var timeKey = 'loadComment server: ' + server + ' thread: ' + threadId;
           window.console.time(timeKey);
@@ -627,7 +643,8 @@ var isSameOrigin = function() {};
               duration,
               userId,
               isNeedKey,
-              optionalThreadId
+              optionalThreadId,
+              userKey
             ).then(
               function(result) {
                 window.console.timeEnd(timeKey);

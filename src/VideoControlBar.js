@@ -1544,6 +1544,14 @@ var AsyncEmitter = function() {};
     .zenzaCommentPreviewInner:hover .nicoChat:nth-child(odd) {
       background: #111;
     }
+    .zenzaCommentPreviewInner .nicoChat.fork1 .vposTime{
+      color: #6f6;
+    }
+    .zenzaCommentPreviewInner .nicoChat.fork2 .vposTime{
+      color: #66f;
+    }
+
+
 
     .zenzaCommentPreviewInner .nicoChat .no,
     .zenzaCommentPreviewInner .nicoChat .date,
@@ -1701,7 +1709,7 @@ var AsyncEmitter = function() {};
           '', text, '\n'
         ].join('');
         var elm = [
-          '<li class="nicoChat" ', //title="', title, '" ',
+          '<li class="nicoChat fork', chat.getFork(), '"', //title="', title, '" ',
               'data-vpos="', vpos, '" ',
               'data-nicochat-no="', chat.getNo(), '" ',
             '>',
@@ -1924,6 +1932,7 @@ var AsyncEmitter = function() {};
       this._lang = params.lang || ZenzaWatch.util.getLang();
       this._enabled = false;
       this._timer = null;
+      this._timeoutTimer = null;
       this._kidoku = [];
 
       this._player.on('commentParsed', _.debounce(_.bind(this._onCommentParsed, this), 100));
@@ -1937,6 +1946,10 @@ var AsyncEmitter = function() {};
       }, this));
 
       ZenzaWatch.debug.lark = this;
+
+      this._bind = {
+        _onTimeout: _.debounce(_.bind(this._onTimeout, this), 6000)
+      };
     },
     _initApi: function() {
       if (this._msg) { return true; }
@@ -1944,8 +1957,8 @@ var AsyncEmitter = function() {};
       this._msg = new window.SpeechSynthesisUtterance();
       this._msg.lang = this._lang;
       this._msg.volume = this._volume;
-      this._msg.onend   = _.debounce(_.bind(this._onSpeakEnd, this), 100);
-      this._msg.onerror = _.debounce(_.bind(this._onSpeakErr, this), 200);
+      this._msg.onend   = _.bind(this._onSpeakEnd, this);
+      this._msg.onerror = _.bind(this._onSpeakErr, this);
       return true;
     },
     _onCommentParsed: function() {
@@ -1957,31 +1970,42 @@ var AsyncEmitter = function() {};
     },
     speak: function(text, option) {
       if (!this._msg) { return; }
-      if (window.speechSynthesis.speaking) { return; }
-      if (this._speaking && !option.force) { return; }
+      //if (window.speechSynthesis.speaking) { return; }
+      if (this._speaking) { return; }
       if (option.volume) { this._msg.volume = option.volume; }
       if (option.rate)   { this._msg.rate   = option.rate; }
 
+      if (window.speechSynthesis.speaking) {
+        console.log('speak cancel: ', this._msg.text);
+        window.speechSynthesis.cancel();
+      }
       text = this._replaceWWW(text);
       this._msg.text = text;
+      this._msg.pitch = Math.random() * 2;
       this._speaking = true;
-      console.log('%cspeak: "%s"', 'background: #f88;', text, this._msg);
-      //var self = this;
-      //this._timeoutTimer = window.setTimeout(function() {
-      //  self._speaking = false;
-      //}, 4000);
-      window.speechSynthesis.cancel();
+      //console.log('%cspeak: "%s"', 'background: #f88;', text, this._msg);
+      this._lastSpeakAt = Date.now();
+      this._bind._onTimeout();
+
       window.speechSynthesis.speak(this._msg);
     },
     _onSpeakEnd: function() {
-      this._speaking = false;
-      //window.clearTimeout(this._timeoutTimer);
+      if (!window.speechSynthesis.speaking) {
+        this._speaking = false;
+      }
       this._onTimer();
     },
-    _onSpeakErr: function() {
+    _onSpeakErr: function(e) {
+      window.console.log('speak error: ', e, this._msg.text);
       this._speaking = false;
-      //window.clearTimeout(this._timeoutTimer);
       this._onTimer();
+    },
+    _onTimeout: function() {
+      if (window.speechSynthesis.speaking) {
+        var past = Date.now() - this._lastSpeakAt;
+        console.log('speak timeout: ', past, this._msg.text);
+      }
+      this._speaking = false;
     },
     enable: function() {
       if (!this._initApi()) { return; }
@@ -1990,6 +2014,7 @@ var AsyncEmitter = function() {};
       this._enabled = true;
       var chatList = this._player.getChatList();
       this._chatList = chatList.top.concat(chatList.naka, chatList.bottom);
+      window.speechSynthesis.cancel();
       if (this._timer) {
         window.clearInterval(this._timer);
       }
@@ -2022,6 +2047,7 @@ var AsyncEmitter = function() {};
       for (var i = 0, len = chatList.length; i < len; i++) {
         var chat = chatList[i];
         var vp = chat.getVpos();
+        if (chat.isInvisible()) { continue; }
         if (vp - vpos > -250 && vp - vpos < 150) {
           result.push(chat);
         }
@@ -2041,18 +2067,20 @@ var AsyncEmitter = function() {};
       this._kidoku.splice(10);
       return {
         text: text,
-        rate: Math.max(0.5, Math.min(2, count / 15))
+        rate: 0.5 + Math.max(0, Math.min(4, count / 15))
       };
     },
     _replaceWWW: function(text) {
       text = text.trim();
 
-      var www = 'わらわらわらわらわらわらわらわらわらわら';
+      text = text.replace(/[〜]/g, 'ー');
+
+      var www = 'わらわらわらわらわら';
       text = text.replace(/([wWＷｗ])+$/i, function(m) {
         return www.substr(0, Math.min(www.length, m.length * 2));
       });
 
-      var ppp = 'ぱちぱちぱちぱちぱちぱちぱちぱちぱちぱち';
+      var ppp = 'ぱちぱちぱちぱちぱち';
       text = text.replace(/([8８])+$/i, function(m) {
         return ppp.substr(0, Math.min(ppp.length, m.length * 2));
       });
