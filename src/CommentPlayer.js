@@ -1436,7 +1436,7 @@ var NicoTextParser = {};
       // 一度はみ出した文字は当たり判定を持たない
       if (this.isOverflow() || target.isOverflow() || target.isInvisible()) { return false; }
 
-      //if (this.getFork() !== target.getFork()) { return false; }
+      if (this.getFork() !== target.getFork()) { return false; }
 
       // Y座標が合わないなら絶対衝突しない
       var targetY = target.getYpos();
@@ -1935,10 +1935,14 @@ var NicoTextParser = {};
         );
       }
 
-      // ウィンドウがアクティブじゃない時にブラウザが描画をサボっているので、
-      // アクティブになったタイミングで粛正する
-      $(window).on('focus', _refresh);
-
+      // ウィンドウが非表示の時にブラウザが描画をサボっているので、
+      // 表示になったタイミングで粛正する
+      //$(window).on('focus', _refresh);
+      $(document).on('visibilitychange', function() {
+        if (!document.hidden) {
+          _refresh();
+        }
+      });
       ZenzaWatch.debug.css3Player = this;
     },
     _initializeView: function(params, retryCount) {

@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.14
+// @version        0.10.17
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1076,6 +1076,80 @@ var monkey = function() {
       return emitter;
     })(Config);
   ZenzaWatch.util.ShortcutKeyEmitter = ShortcutKeyEmitter;
+
+  var AppendStyle = function() { this.initialize.apply(this, arguments); };
+  _.assign(AppendStyle.prototype, {
+    initialzie: function(params) {
+      var css = this._css = params.css;
+      this.updateParams(params.params);
+      if (!params.appendLater) {
+        this._style = ZenzaWatch.util.adStyle(css);
+      }
+    },
+    updateParams: function(params) {
+      var css = this._css;
+      _.each(Object.keys(params), function(key) {
+        var reg = new RegExp('%' + key + '%', 'g');
+        css = css.replace(reg, params[key]);
+      });
+      this._css = css;
+      this.refresh();
+    },
+    refresh: function() {
+      if (!this._style) {
+        this._style = ZenzaWatch.util.adStyle(this._css);
+      } else {
+        this._style.innerHTML = this._css;
+      }
+    }
+  });
+
+  var ViewPort = function() { this.initialize.apply(this, arguments); };
+  _.assign(ViewPort.prototype, {
+    initialize: function() {
+      var $meta = $('meta[name=viewport]');
+      if ($meta.length < 1) {
+        $meta = $('<' + 'meta name="viewport"/>');
+        $('head').append($meta);
+      } else {
+        this._defaultContent = $meta.attr('content');
+      }
+      this._$meta = $meta;
+      this._enable = false;
+      this.update();
+      //$(window).on('resize', _.debounce(_.bind(this._onResize, this), 1000));
+      ZenzaWatch.emitter.on('DialogPlayerOpen',  _.bind(this.enable, this));
+      ZenzaWatch.emitter.on('DialogPlayerClose', _.bind(this.disable, this));
+    },
+    _onResize: function() {
+      this.update();
+    },
+    update: function() {
+      if (this._enable) {
+        this._$meta
+          .attr('content', //'width=' + window.screen.width + ',' +
+            'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        return;
+      }
+      if (this._defaultContent) {
+        this._$meta.attr('content', this._defaultContent);
+        return;
+      }
+      this._$meta.attr('content', '');
+    },
+    enable: function() {
+      if (!this._enable) {
+        this._enable = true;
+        this.update();
+      }
+    },
+    disable: function() {
+      if (this._enable) {
+        this._enable = false;
+        this.update();
+      }
+    }
+  });
 
 
 
@@ -2901,6 +2975,7 @@ var monkey = function() {
    *  いずれは同じインターフェースのflash版も作って、swf/flv等の再生もサポートしたい。
    */
   var VideoPlayer = function() { this.initialize.apply(this, arguments); };
+  _.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
   _.assign(VideoPlayer.prototype, {
     initialize: function(params) {
       var volume =
@@ -2918,16 +2993,20 @@ var monkey = function() {
       };
 
       console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
-      this._$video = $('<video class="videoPlayer nico"/>').attr(options);
+      this._id = 'video' + Math.floor(Math.random() * 100000);
+      this._$video = $('<video class="videoPlayer nico" preload="auto" />')
+        .addClass(this._id)
+        .attr(options);
       this._video = this._$video[0];
+
+      
+      //this._$subVideo =
+      //  $('<video class="subVideoPlayer nico" style="position: fixed; left: -9999px; width: 1px; height: 1px;" preload="auto" volume="0" autoplay="false" controls="false"/>')
+      //  .addClass(this._id);
+      //this._subVideo = this._$subVideo[0];
 
       this._isPlaying = false;
       this._canPlay = false;
-
-      var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       this.setVolume(volume);
       this.setMute(params.mute);
@@ -2970,7 +3049,7 @@ var monkey = function() {
 
         .on('click',          _.bind(this._onClick, this))
         .on('dblclick',       _.bind(this._onDoubleClick, this))
-        .on('mousewheel',     _.bind(this._onMouseWheel, this))
+        .on('wheel',          _.bind(this._onMouseWheel, this))
         .on('contextmenu',    _.bind(this._onContextMenu, this))
         ;
     },
@@ -2985,6 +3064,12 @@ var monkey = function() {
         this.emit('canPlay');
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
+
+        //var subVideo = this._subVideo;
+        //subVideo.play();
+        //window.setTimeout(function() {
+        //  subVideo.pause();
+        //}, 500);
       }
     },
     _onCanPlayThrough: function() {
@@ -3057,6 +3142,7 @@ var monkey = function() {
       this._$video.addClass('play');
       this._isPlaying = true;
 
+      //this._subVideo.pause();
       this.emit('play');
     },
     // ↓↑の違いがよくわかってない
@@ -3096,7 +3182,8 @@ var monkey = function() {
       //console.log('%c_onMouseWheel:', 'background: cyan;', e);
       e.preventDefault();
       e.stopPropagation();
-      var delta = parseInt(e.originalEvent.wheelDelta, 10);
+      var delta = - parseInt(e.originalEvent.deltaY, 10);
+      //window.console.log('wheel', e, delta);
       if (delta !== 0) {
         this.emit('mouseWheel', e, delta);
       }
@@ -3133,6 +3220,7 @@ var monkey = function() {
 
       this._src = url;
       this._$video.attr('src', url);
+      //this._$subVideo.attr('src', url);
       this._canPlay = false;
       //this.emit('setSrc', url);
       this._$video.addClass('loading');
@@ -3209,13 +3297,22 @@ var monkey = function() {
     },
     appendTo: function($node) {
       $node.append(this._$video);
-      this._video = document.getElementsByTagName('video')[0];
+      //$node.append(this._$subVideo);
+      var videos = document.getElementsByClassName(this._id);
+      this._video    = videos[0];
+
+      //this._subVideo = videos[1];
+      //this._subVideo.muted = true;
+      //this._subVideo.volume = 0;
+      //this._subVideo.autoplay = false;
     },
     close: function() {
       this._video.pause();
 
       this._video.removeAttribute('src');
       this._video.removeAttribute('poster');
+
+      //this._subVideo.removeAttribute('src');
     }
   });
 
@@ -3343,6 +3440,12 @@ var monkey = function() {
 
     .controlItemContainer.right {
       right: 0;
+    }
+    .mouseMoving .controlItemContainer.right {
+    }
+    .mouseMoving .controlItemContainer.right .controlButton{
+      outline: solid 1px #333;
+      background: #333;
     }
     .controlItemContainer.right .scalingUI {
       transform-origin: top right;
@@ -5278,7 +5381,7 @@ var monkey = function() {
       // コメントが多い時は早口
       var count = Math.max(1, Math.min(inviewChat.length, 40));
       this._kidoku.unshift(chat);
-      this._kidoku.splice(10);
+      this._kidoku.splice(5);
       return {
         text: text,
         rate: 0.5 + Math.max(0, Math.min(4, count / 15))
@@ -5287,7 +5390,8 @@ var monkey = function() {
     _replaceWWW: function(text) {
       text = text.trim();
 
-      text = text.replace(/[〜]/g, 'ー');
+      text = text.replace(/([~〜])/g, 'ー');
+      text = text.replace(/([\(（].*?[）\)])/g, 'ー'); // ほとんど顔文字なので
 
       var www = 'わらわらわらわらわら';
       text = text.replace(/([wWＷｗ])+$/i, function(m) {
@@ -6992,7 +7096,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // 一度はみ出した文字は当たり判定を持たない
       if (this.isOverflow() || target.isOverflow() || target.isInvisible()) { return false; }
 
-      //if (this.getFork() !== target.getFork()) { return false; }
+      if (this.getFork() !== target.getFork()) { return false; }
 
       // Y座標が合わないなら絶対衝突しない
       var targetY = target.getYpos();
@@ -7491,10 +7595,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         );
       }
 
-      // ウィンドウがアクティブじゃない時にブラウザが描画をサボっているので、
-      // アクティブになったタイミングで粛正する
-      $(window).on('focus', _refresh);
-
+      // ウィンドウが非表示の時にブラウザが描画をサボっているので、
+      // 表示になったタイミングで粛正する
+      //$(window).on('focus', _refresh);
+      $(document).on('visibilitychange', function() {
+        if (!document.hidden) {
+          _refresh();
+        }
+      });
       ZenzaWatch.debug.css3Player = this;
     },
     _initializeView: function(params, retryCount) {
@@ -8940,10 +9048,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .zenzaScreenMode_3D       .zenzaPlayerContainer,
     .zenzaScreenMode_sideView .zenzaPlayerContainer,
     .zenzaScreenMode_small    .zenzaPlayerContainer,
-    .fullScreen .zenzaPlayerContainer {
-      transform: translateZ(0);
+    .fullScreen               .zenzaPlayerContainer {
       transition: none !important;
     }
+
+    .fullScreen .zenzaPlayerContainer {
+      transform: translateZ(0);
+    }
+
 
     .zenzaPlayerContainer .videoPlayer {
       position: absolute;
@@ -10909,7 +11021,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
 
-      this._$mylistSelectMenu.on('mousewheel', function(e) {
+      this._$mylistSelectMenu.on('wheel', function(e) {
         e.stopPropagation();
       });
 
@@ -11814,7 +11926,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$view.on('click', function(e) {
         e.stopPropagation();
       });
-      this._$view.on('mousewheel', function(e) {
+      this._$view.on('wheel', function(e) {
         e.stopPropagation();
       });
 
@@ -12279,6 +12391,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       left: 0;
       width: 400px;
       height: calc(100vh - 296px);
+      bottom: 48px;
       padding: 8px;
       box-shadow: none;
       background: #f0f0f0;
@@ -12552,7 +12665,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$view.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-      }).on('mousewheel', function(e) {
+      }).on('wheel', function(e) {
         e.stopPropagation();
       });
       $icon.on('load', function() {
@@ -12710,6 +12823,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       box-shadow: none;
     }
 
+    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
+      display: none;
+    }
 
     .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
     .fullScreen           .mouseMoving .zenzaWatchVideoHeaderPanel {
@@ -13215,11 +13331,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         ) {
           dialog.open(lastSession.watchId, lastSession);
         }
-      });
 
+        initializeMobile(dialog, Config);
+        initializeExternal(dialog, Config);
+      });
       ZenzaWatch.ready = true;
       $('body').trigger('ZenzaWatchReady', ZenzaWatch);
     };
+
+
 
     // 非ログイン状態のwatchページ用のプレイヤー生成
     var initializeNoLoginWatchPagePlayer = function(conf, offScreenLayer) {
@@ -13263,6 +13383,18 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       return dialog;
     };
 
+    var initializeMobile = function(dialog, config) {
+      ZenzaWatch.util.viewPort = new ViewPort({});
+    };
+
+    var initializeExternal = function(dialog, config) {
+      var command = function(command, param) {
+        dialog.execCommand(command, param);
+      };
+      ZenzaWatch.external = {
+        execCommand: command
+      };
+    };
 
     var initializeHoverMenu = function(dialog, config) {
       var $menu = $([

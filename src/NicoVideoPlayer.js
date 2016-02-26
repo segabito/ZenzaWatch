@@ -7,6 +7,7 @@ var ZenzaWatch = {
 };
 var FullScreen = {};
 var NicoCommentPlayer = function() {};
+var AsyncEmitter = function() {};
 
 //===BEGIN===
 
@@ -733,6 +734,7 @@ var NicoCommentPlayer = function() {};
    *  いずれは同じインターフェースのflash版も作って、swf/flv等の再生もサポートしたい。
    */
   var VideoPlayer = function() { this.initialize.apply(this, arguments); };
+  _.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
   _.assign(VideoPlayer.prototype, {
     initialize: function(params) {
       var volume =
@@ -750,16 +752,20 @@ var NicoCommentPlayer = function() {};
       };
 
       console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
-      this._$video = $('<video class="videoPlayer nico"/>').attr(options);
+      this._id = 'video' + Math.floor(Math.random() * 100000);
+      this._$video = $('<video class="videoPlayer nico" preload="auto" />')
+        .addClass(this._id)
+        .attr(options);
       this._video = this._$video[0];
+
+      
+      //this._$subVideo =
+      //  $('<video class="subVideoPlayer nico" style="position: fixed; left: -9999px; width: 1px; height: 1px;" preload="auto" volume="0" autoplay="false" controls="false"/>')
+      //  .addClass(this._id);
+      //this._subVideo = this._$subVideo[0];
 
       this._isPlaying = false;
       this._canPlay = false;
-
-      var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       this.setVolume(volume);
       this.setMute(params.mute);
@@ -802,7 +808,7 @@ var NicoCommentPlayer = function() {};
 
         .on('click',          _.bind(this._onClick, this))
         .on('dblclick',       _.bind(this._onDoubleClick, this))
-        .on('mousewheel',     _.bind(this._onMouseWheel, this))
+        .on('wheel',          _.bind(this._onMouseWheel, this))
         .on('contextmenu',    _.bind(this._onContextMenu, this))
         ;
     },
@@ -817,6 +823,12 @@ var NicoCommentPlayer = function() {};
         this.emit('canPlay');
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
+
+        //var subVideo = this._subVideo;
+        //subVideo.play();
+        //window.setTimeout(function() {
+        //  subVideo.pause();
+        //}, 500);
       }
     },
     _onCanPlayThrough: function() {
@@ -889,6 +901,7 @@ var NicoCommentPlayer = function() {};
       this._$video.addClass('play');
       this._isPlaying = true;
 
+      //this._subVideo.pause();
       this.emit('play');
     },
     // ↓↑の違いがよくわかってない
@@ -928,7 +941,8 @@ var NicoCommentPlayer = function() {};
       //console.log('%c_onMouseWheel:', 'background: cyan;', e);
       e.preventDefault();
       e.stopPropagation();
-      var delta = parseInt(e.originalEvent.wheelDelta, 10);
+      var delta = - parseInt(e.originalEvent.deltaY, 10);
+      //window.console.log('wheel', e, delta);
       if (delta !== 0) {
         this.emit('mouseWheel', e, delta);
       }
@@ -965,6 +979,7 @@ var NicoCommentPlayer = function() {};
 
       this._src = url;
       this._$video.attr('src', url);
+      //this._$subVideo.attr('src', url);
       this._canPlay = false;
       //this.emit('setSrc', url);
       this._$video.addClass('loading');
@@ -1041,13 +1056,22 @@ var NicoCommentPlayer = function() {};
     },
     appendTo: function($node) {
       $node.append(this._$video);
-      this._video = document.getElementsByTagName('video')[0];
+      //$node.append(this._$subVideo);
+      var videos = document.getElementsByClassName(this._id);
+      this._video    = videos[0];
+
+      //this._subVideo = videos[1];
+      //this._subVideo.muted = true;
+      //this._subVideo.volume = 0;
+      //this._subVideo.autoplay = false;
     },
     close: function() {
       this._video.pause();
 
       this._video.removeAttribute('src');
       this._video.removeAttribute('poster');
+
+      //this._subVideo.removeAttribute('src');
     }
   });
 

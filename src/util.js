@@ -1045,5 +1045,79 @@ var console;
     })(Config);
   ZenzaWatch.util.ShortcutKeyEmitter = ShortcutKeyEmitter;
 
+  var AppendStyle = function() { this.initialize.apply(this, arguments); };
+  _.assign(AppendStyle.prototype, {
+    initialzie: function(params) {
+      var css = this._css = params.css;
+      this.updateParams(params.params);
+      if (!params.appendLater) {
+        this._style = ZenzaWatch.util.adStyle(css);
+      }
+    },
+    updateParams: function(params) {
+      var css = this._css;
+      _.each(Object.keys(params), function(key) {
+        var reg = new RegExp('%' + key + '%', 'g');
+        css = css.replace(reg, params[key]);
+      });
+      this._css = css;
+      this.refresh();
+    },
+    refresh: function() {
+      if (!this._style) {
+        this._style = ZenzaWatch.util.adStyle(this._css);
+      } else {
+        this._style.innerHTML = this._css;
+      }
+    }
+  });
+
+  var ViewPort = function() { this.initialize.apply(this, arguments); };
+  _.assign(ViewPort.prototype, {
+    initialize: function() {
+      var $meta = $('meta[name=viewport]');
+      if ($meta.length < 1) {
+        $meta = $('<' + 'meta name="viewport"/>');
+        $('head').append($meta);
+      } else {
+        this._defaultContent = $meta.attr('content');
+      }
+      this._$meta = $meta;
+      this._enable = false;
+      this.update();
+      //$(window).on('resize', _.debounce(_.bind(this._onResize, this), 1000));
+      ZenzaWatch.emitter.on('DialogPlayerOpen',  _.bind(this.enable, this));
+      ZenzaWatch.emitter.on('DialogPlayerClose', _.bind(this.disable, this));
+    },
+    _onResize: function() {
+      this.update();
+    },
+    update: function() {
+      if (this._enable) {
+        this._$meta
+          .attr('content', //'width=' + window.screen.width + ',' +
+            'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        return;
+      }
+      if (this._defaultContent) {
+        this._$meta.attr('content', this._defaultContent);
+        return;
+      }
+      this._$meta.attr('content', '');
+    },
+    enable: function() {
+      if (!this._enable) {
+        this._enable = true;
+        this.update();
+      }
+    },
+    disable: function() {
+      if (this._enable) {
+        this._enable = false;
+        this.update();
+      }
+    }
+  });
+
 
 //===END===

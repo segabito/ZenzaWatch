@@ -130,6 +130,12 @@ var AsyncEmitter = function() {};
     .controlItemContainer.right {
       right: 0;
     }
+    .mouseMoving .controlItemContainer.right {
+    }
+    .mouseMoving .controlItemContainer.right .controlButton{
+      outline: solid 1px #333;
+      background: #333;
+    }
     .controlItemContainer.right .scalingUI {
       transform-origin: top right;
     }
@@ -2064,7 +2070,7 @@ var AsyncEmitter = function() {};
       // コメントが多い時は早口
       var count = Math.max(1, Math.min(inviewChat.length, 40));
       this._kidoku.unshift(chat);
-      this._kidoku.splice(10);
+      this._kidoku.splice(5);
       return {
         text: text,
         rate: 0.5 + Math.max(0, Math.min(4, count / 15))
@@ -2073,7 +2079,8 @@ var AsyncEmitter = function() {};
     _replaceWWW: function(text) {
       text = text.trim();
 
-      text = text.replace(/[〜]/g, 'ー');
+      text = text.replace(/([~〜])/g, 'ー');
+      text = text.replace(/([\(（].*?[）\)])/g, 'ー'); // ほとんど顔文字なので
 
       var www = 'わらわらわらわらわら';
       text = text.replace(/([wWＷｗ])+$/i, function(m) {

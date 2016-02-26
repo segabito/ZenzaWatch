@@ -92,11 +92,15 @@ var NicoVideoPlayerDialog = function() {};
         ) {
           dialog.open(lastSession.watchId, lastSession);
         }
-      });
 
+        initializeMobile(dialog, Config);
+        initializeExternal(dialog, Config);
+      });
       ZenzaWatch.ready = true;
       $('body').trigger('ZenzaWatchReady', ZenzaWatch);
     };
+
+
 
     // 非ログイン状態のwatchページ用のプレイヤー生成
     var initializeNoLoginWatchPagePlayer = function(conf, offScreenLayer) {
@@ -140,6 +144,18 @@ var NicoVideoPlayerDialog = function() {};
       return dialog;
     };
 
+    var initializeMobile = function(dialog, config) {
+      ZenzaWatch.util.viewPort = new ViewPort({});
+    };
+
+    var initializeExternal = function(dialog, config) {
+      var command = function(command, param) {
+        dialog.execCommand(command, param);
+      };
+      ZenzaWatch.external = {
+        execCommand: command
+      };
+    };
 
     var initializeHoverMenu = function(dialog, config) {
       var $menu = $([

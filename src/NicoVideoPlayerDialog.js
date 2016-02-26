@@ -118,10 +118,14 @@ var RelatedVideoList = function() {};
     .zenzaScreenMode_3D       .zenzaPlayerContainer,
     .zenzaScreenMode_sideView .zenzaPlayerContainer,
     .zenzaScreenMode_small    .zenzaPlayerContainer,
-    .fullScreen .zenzaPlayerContainer {
-      transform: translateZ(0);
+    .fullScreen               .zenzaPlayerContainer {
       transition: none !important;
     }
+
+    .fullScreen .zenzaPlayerContainer {
+      transform: translateZ(0);
+    }
+
 
     .zenzaPlayerContainer .videoPlayer {
       position: absolute;
@@ -2087,7 +2091,7 @@ var RelatedVideoList = function() {};
 
       this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
 
-      this._$mylistSelectMenu.on('mousewheel', function(e) {
+      this._$mylistSelectMenu.on('wheel', function(e) {
         e.stopPropagation();
       });
 
@@ -2992,7 +2996,7 @@ var RelatedVideoList = function() {};
       this._$view.on('click', function(e) {
         e.stopPropagation();
       });
-      this._$view.on('mousewheel', function(e) {
+      this._$view.on('wheel', function(e) {
         e.stopPropagation();
       });
 
@@ -3457,6 +3461,7 @@ var RelatedVideoList = function() {};
       left: 0;
       width: 400px;
       height: calc(100vh - 296px);
+      bottom: 48px;
       padding: 8px;
       box-shadow: none;
       background: #f0f0f0;
@@ -3730,7 +3735,7 @@ var RelatedVideoList = function() {};
       this._$view.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-      }).on('mousewheel', function(e) {
+      }).on('wheel', function(e) {
         e.stopPropagation();
       });
       $icon.on('load', function() {
@@ -3888,6 +3893,9 @@ var RelatedVideoList = function() {};
       box-shadow: none;
     }
 
+    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
+      display: none;
+    }
 
     .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
     .fullScreen           .mouseMoving .zenzaWatchVideoHeaderPanel {
