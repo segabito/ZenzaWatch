@@ -2079,7 +2079,7 @@ var AsyncEmitter = function() {};
     _replaceWWW: function(text) {
       text = text.trim();
 
-      text = text.replace(/([~〜])/g, 'ー');
+      text = text.replace(/([~〜～])/g, 'ー');
       text = text.replace(/([\(（].*?[）\)])/g, 'ー'); // ほとんど顔文字なので
 
       var www = 'わらわらわらわらわら';

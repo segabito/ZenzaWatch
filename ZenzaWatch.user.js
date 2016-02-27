@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.17
+// @version        0.10.18
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -1790,10 +1790,20 @@ var monkey = function() {
                 window.console.timeEnd(timeKey);
                 ZenzaWatch.debug.lastMessageServerResult = result;
 
-                var resultCode = null, thread, xml;
+                var lastRes;
+                var resultCode = null, thread, xml, ticket, lastRes = 0;
                 try {
                   xml = result.documentElement;
-                  thread = xml.getElementsByTagName('thread')[0];
+                  var threads = xml.getElementsByTagName('thread');
+
+                  thread = threads[0];
+                  _.each(threads, function(t) {
+                    var tk = t.getAttribute('ticket');
+                    if (tk && tk !== '0') { ticket = tk; }
+                    var lr = t.getAttribute('last_res');
+                    if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
+                  });
+
                   resultCode = thread.getAttribute('resultcode');
                 } catch (e) {
                   console.error(e);
@@ -1806,7 +1816,6 @@ var monkey = function() {
                   return;
                 }
 
-                var lastRes = parseInt(thread.getAttribute('last_res')) || 0;
                 var threadInfo = {
                   server:     server,
                   userId:     userId,
@@ -1815,10 +1824,10 @@ var monkey = function() {
                   serverTime: thread.getAttribute('server_time'),
                   lastRes:    lastRes,
                   blockNo:    Math.floor((lastRes + 1) / 100),
-                  ticket:     thread.getAttribute('ticket'),
+                  ticket:     ticket,
                   revision:   thread.getAttribute('revision')
                 };
-
+                //console.log('threadInfo', threadInfo);
                 resolve({
                   resultCode: parseInt(resultCode, 10),
                   threadInfo: threadInfo,
@@ -5390,7 +5399,7 @@ var monkey = function() {
     _replaceWWW: function(text) {
       text = text.trim();
 
-      text = text.replace(/([~〜])/g, 'ー');
+      text = text.replace(/([~〜～])/g, 'ー');
       text = text.replace(/([\(（].*?[）\)])/g, 'ー'); // ほとんど顔文字なので
 
       var www = 'わらわらわらわらわら';

@@ -650,10 +650,20 @@ var isSameOrigin = function() {};
                 window.console.timeEnd(timeKey);
                 ZenzaWatch.debug.lastMessageServerResult = result;
 
-                var resultCode = null, thread, xml;
+                var lastRes;
+                var resultCode = null, thread, xml, ticket, lastRes = 0;
                 try {
                   xml = result.documentElement;
-                  thread = xml.getElementsByTagName('thread')[0];
+                  var threads = xml.getElementsByTagName('thread');
+
+                  thread = threads[0];
+                  _.each(threads, function(t) {
+                    var tk = t.getAttribute('ticket');
+                    if (tk && tk !== '0') { ticket = tk; }
+                    var lr = t.getAttribute('last_res');
+                    if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
+                  });
+
                   resultCode = thread.getAttribute('resultcode');
                 } catch (e) {
                   console.error(e);
@@ -666,7 +676,6 @@ var isSameOrigin = function() {};
                   return;
                 }
 
-                var lastRes = parseInt(thread.getAttribute('last_res')) || 0;
                 var threadInfo = {
                   server:     server,
                   userId:     userId,
@@ -675,10 +684,10 @@ var isSameOrigin = function() {};
                   serverTime: thread.getAttribute('server_time'),
                   lastRes:    lastRes,
                   blockNo:    Math.floor((lastRes + 1) / 100),
-                  ticket:     thread.getAttribute('ticket'),
+                  ticket:     ticket,
                   revision:   thread.getAttribute('revision')
                 };
-
+                //console.log('threadInfo', threadInfo);
                 resolve({
                   resultCode: parseInt(resultCode, 10),
                   threadInfo: threadInfo,
