@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.18
+// @version        0.10.19
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -54,6 +54,12 @@ var monkey = function() {
 //@require VideoList.js
 
 //@require NicoVideoPlayerDialog.js
+
+//@require CommentInputPanel.js
+
+//@require SettingPanel.js
+
+//@require VideoInfoPanel.js
 
 //@require GinzaSlayer.js
 

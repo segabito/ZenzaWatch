@@ -7,7 +7,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.18
+// @version        0.10.19
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -9217,6 +9217,24 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     body.zenzaScreenMode_sideView {
       margin-left: 424px;
+      {*
+      margin-top: 225px;
+      border-left: 0;
+      border-right: 0;
+      border-bottom: 0;
+      border-style: solid;
+      border-color: #272727;
+      *}
+      width: auto;
+    }
+    body.zenzaScreenMode_sideView #siteHeader {
+    }
+    body.zenzaScreenMode_sideView:not(.nofix) #siteHeader {
+      margin-left: 400px;
+      {*z-index: 110000;*}
+      width: auto;
+    }
+    body.zenzaScreenMode_sideView:not(.nofix) #siteHeader #siteHeaderInner {
       width: auto;
     }
 
@@ -11237,6 +11255,56 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
    });
 
+
+  var DynamicCss = function() { this.initialize.apply(this, arguments); };
+  DynamicCss.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    .scalingUI {
+      transform: scale(%SCALE%);
+    }
+    .videoControlBar {
+      height: %CONTROL_BAR_HEIGHT%px !important;
+    }
+  */});
+  DynamicCss.prototype = {
+    initialize: function(params) {
+      var config = this._playerConfig = params.playerConfig;
+
+      this._scale = 1.0;
+
+      var update = _.bind(this._update, this);
+      config.on('update-menuScale', update);
+      update();
+    },
+    _update: function() {
+      var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
+      if (this._scale === scale) { return; }
+      if (!this._style) {
+        this._style = ZenzaWatch.util.addStyle('');
+      }
+      this._scale = scale;
+      var tpl = DynamicCss.__css__
+        .replace(/%SCALE%/g, scale)
+        .replace(/%CONTROL_BAR_HEIGHT%/g,
+          (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
+          VideoControlBar.BASE_SEEKBAR_HEIGHT
+          );
+      this._style.innerHTML = tpl;
+    }
+  };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   var CommentInputPanel = function() { this.initialize.apply(this, arguments); };
   CommentInputPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .commentInputPanel {
@@ -11562,6 +11630,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._onBlur();
     }
   });
+
+
+
+
 
   var SettingPanel = function() { this.initialize.apply(this, arguments); };
   SettingPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -12061,6 +12133,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this.toggle(false);
     }
   });
+
 
 
   var VideoInfoPanel = function() { this.initialize.apply(this, arguments); };
@@ -12798,6 +12871,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       left: 0;
       background: #333;
       color: #ccc;
+      text-align: left;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
     }
@@ -12814,8 +12888,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     .zenzaWatchVideoHeaderPanel.initializing {
       display: none;
     }
+    .zenzaWatchVideoHeaderPanel.initializing>*{
+      opacity: 0;
+    }
 
-    .zenzaWatchVideoHeaderPanel h2 {
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer {
       margin: 8px;
     }
     .zenzaWatchVideoHeaderPanel .publicStatus {
@@ -12832,8 +12909,27 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       box-shadow: none;
     }
 
-    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
-      display: none;
+    body.zenzaScreenMode_sideView:not(.fullScreen)              .zenzaWatchVideoHeaderPanel {
+      top: 0;
+      left: 400px;
+      width: calc(100vw - 400px);
+      bottom: auto;
+      background: #272727;
+      opacity: 0.9;
+    }
+    {* ヘッダ追従 *}
+    body.zenzaScreenMode_sideView:not(.nofix):not(.fullScreen)  .zenzaWatchVideoHeaderPanel {
+      top: 36px;
+    }
+    {* ヘッダ固定 *}
+    body.zenzaScreenMode_sideView.nofix:not(.fullScreen)        .zenzaWatchVideoHeaderPanel {
+      {*
+      position: -webkit-sticky;
+      position: -moz-sticky;
+      position: absolute;
+      top: 36px;
+      *}
+      top: 0px;
     }
 
     .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
@@ -12866,20 +12962,46 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     .zenzaWatchVideoHeaderPanel .videoTitle {
       font-size: 24px;
-      color: white;
+      color: #fff;
       text-overflow: ellipsis;
       white-space: nowrap;
       overflow: hidden;
       display: block;
+      cursor: pointer;
     }
-    .zenzaWatchVideoHeaderPanel h2:hover {
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+      {* max-width: calc(100vw - 200px);*}
+    }
+    .zenzaWatchVideoHeaderPanel .videoTitle:hover {
+    }
+
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer       .hoverLinkContainer {
+      display: none;
+      position: absolute;
+    }
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer:hover .hoverLinkContainer {
+      display: block;
+      width: 100%;
+    }
+
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer .hoverLink {
+      display: inline-block;
+      box-sizing: border-box;
+      min-width: 120px;
+      font-size: 12px;
+      text-align: center;
       background: #666;
+      border: 1px solid #ccc;
+      padding: 4px 8px;
+      margin: 0 8px 8px;
+      box-shadow: 4px 4px 4px #888;
     }
-    .zenzaWatchVideoHeaderPanel h2 {
-      max-width: calc(100vw - 200px);
-    }
-     .zenzaWatchVideoHeaderPanel .videoTitle:hover {
-      text-decoration: underline;
+
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer .hoverLink a {
+      display: inline-block;
+      white-space: nowrap;
+      color: #fff;
+      width: 100%;
     }
 
     .videoTitleLink {
@@ -12940,9 +13062,20 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   */});
 
   VideoHeaderPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="zenzaWatchVideoHeaderPanel show initializing">
-      <h2><a class="ginzaLink noHoverMenu" target="_blank">
-        <span class="videoTitle"></span></a>
+    <div class="zenzaWatchVideoHeaderPanel show initializing" style="display: none;">
+      <h2 class="videoTitleContainer">
+        <span class="videoTitle"></span>
+        <div class="hoverLinkContainer">
+          <div class="hoverLink ginza">
+            <a class="ginzaLink noHoverMenu" target="_blank">GINZAで視聴</a>
+          </div>
+          <div class="hoverLink uad">
+            <a class="uadLink   noHoverMenu" target="_blank">ニコニ広告</a>
+          </div>
+          <div class="hoverLink hash">
+            <a class="hashLink  noHoverMenu" target="_blank" title="twitter検索"></a>
+          </div>
+        </div>
       </h2>
       <p class="publicStatus">
         <span class="postedAtOuter">
@@ -12977,7 +13110,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._$videoTitle = $view.find('.videoTitle');
       this._$ginzaLink = $view.find('.ginzaLink');
-      this._$postedAt = $view.find('.postedAt');
+      this._$uadLink   = $view.find('.uadLink');
+      this._$hashLink  = $view.find('.hashLink');
+      this._$postedAt  = $view.find('.postedAt');
 
       this._$viewCount    = $view.find('.viewCount');
       this._$commentCount = $view.find('.commentCount');
@@ -12985,12 +13120,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._$tagList      = $view.find('.videoTags');
 
-      this._$tagList.on('click', function(e) {
-        e.stopPropagation();
-      });
-      this._$ginzaLink.on('click', function(e) {
-        e.stopPropagation();
-      });
+      var stopPropagation = function(e) { e.stopPropagation(); };
+      this._$tagList.on('click', stopPropagation);
+      this._$ginzaLink.on('click', stopPropagation);
+      this._$hashLink.on('click', stopPropagation);
+      this._$uadLink.on('click', stopPropagation);
+
       this._$ginzaLink.on('mousedown', _.bind(this._onGinzaLinkMouseDown, this));
     },
     update: function(videoInfo) {
@@ -12999,9 +13134,17 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$videoTitle.html(videoInfo.getTitle()).attr('title', videoInfo.getTitle());
       this._$postedAt.text(videoInfo.getPostedAt());
 
-      var link = 'http://www.nicovideo.jp/watch/' + videoInfo.getWatchId();
+      var link = '//nico.ms/' + videoInfo.getWatchId();
       this._$ginzaLink.attr('href', link);
       this._$ginzaLink.attr('data-ginzawatch', link);
+
+      var uadLink = '//uad.nicovideo.jp/ads/?vid='  + videoInfo.getWatchId();
+      this._$uadLink.attr('href', uadLink);
+
+      var hashLink = 'https://twitter.com/hashtag/' + videoInfo.getVideoId() + '?src=hash';
+      this._$hashLink
+        .text('#' + videoInfo.getVideoId())
+        .attr('href', hashLink);
 
       var count = videoInfo.getCount();
       var addComma = function(m) {
@@ -13015,7 +13158,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
-        .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo');
+        .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo')
+        .css('display', '');
     },
     _updateTags: function(tagList) {
       var $container = this._$tagList.parent();
@@ -13083,43 +13227,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       return this._$tagList.html();
     }
   });
-
-
-  var DynamicCss = function() { this.initialize.apply(this, arguments); };
-  DynamicCss.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-    .scalingUI {
-      transform: scale(%SCALE%);
-    }
-    .videoControlBar {
-      height: %CONTROL_BAR_HEIGHT%px !important;
-    }
-  */});
-  DynamicCss.prototype = {
-    initialize: function(params) {
-      var config = this._playerConfig = params.playerConfig;
-
-      this._scale = 1.0;
-
-      var update = _.bind(this._update, this);
-      config.on('update-menuScale', update);
-      update();
-    },
-    _update: function() {
-      var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
-      if (this._scale === scale) { return; }
-      if (!this._style) {
-        this._style = ZenzaWatch.util.addStyle('');
-      }
-      this._scale = scale;
-      var tpl = DynamicCss.__css__
-        .replace(/%SCALE%/g, scale)
-        .replace(/%CONTROL_BAR_HEIGHT%/g,
-          (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
-          VideoControlBar.BASE_SEEKBAR_HEIGHT
-          );
-      this._style.innerHTML = tpl;
-    }
-  };
 
 
 
