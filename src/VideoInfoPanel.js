@@ -4,10 +4,13 @@ var ZenzaWatch = {
   util:{},
   debug: {}
 };
+var RelatedVideoList = function() {};
 
 //===BEGIN===
 
   var VideoInfoPanel = function() { this.initialize.apply(this, arguments); };
+  _.extend(VideoInfoPanel.prototype, AsyncEmitter.prototype);
+
   VideoInfoPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
       display: none;
@@ -34,6 +37,7 @@ var ZenzaWatch = {
 
     .zenzaWatchVideoInfoPanel .tabSelectContainer {
       position: absolute;
+      display: flex;
       height: 32px;
       z-index: 100;
       width: 100%;
@@ -41,7 +45,7 @@ var ZenzaWatch = {
     }
 
     .zenzaWatchVideoInfoPanel .tabSelect {
-      width: 50%;
+      flex: 1;
       box-sizing: border-box;
       display: inline-block;
       height: 32px;
@@ -60,6 +64,9 @@ var ZenzaWatch = {
       {*border-width: 1px 1px 0 1px;
       border-color: #888;
       border-style: outset;*}
+    }
+    .zenzaWatchVideoInfoPanel .tabSelect:not(.activeTab):hover {
+      background: #888;
     }
 
     .zenzaWatchVideoInfoPanel.initializing {
@@ -155,6 +162,12 @@ var ZenzaWatch = {
       display: inherit;
       pointer-events: auto;
     }
+
+    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover .tabSelectContainer,
+    .fullScreen           .zenzaWatchVideoInfoPanel:hover .tabSelectContainer {
+      display: flex;
+    }
+
 
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel,
     .fullScreen            .zenzaWatchVideoInfoPanel {
@@ -549,6 +562,7 @@ var ZenzaWatch = {
         <div class="loadingMessage">Loading...</div>
       </div>
 
+
       <div class="tabSelectContainer"><div class="tabSelect videoInfoTab activeTab" data-tab="videoInfoTab">動画情報</div><div class="tabSelect relatedVideoTab" data-tab="relatedVideoTab">関連動画</div></div>
 
       <div class="tabs videoInfoTab activeTab">
@@ -584,6 +598,8 @@ var ZenzaWatch = {
       this._videoTitlePanel = new VideoHeaderPanel(params);
       this._dialog = params.dialog;
 
+      this._dialog.on('canplay', _.bind(this._onVideoCanPlay, this));
+
       if (params.node) {
         this.appendTo(params.node);
       }
@@ -609,7 +625,7 @@ var ZenzaWatch = {
       this._$publicStatus = $view.find('.publicStatus');
 
       this._$tabSelect = $view.find('.tabSelect');
-      this._$tabSelect.on('click', _.bind(function(e) {
+      $view.on('click', '.tabSelect', _.bind(function(e) {
         var $target = $(e.target.closest('.tabSelect'));
         var tabName = $target.attr('data-tab');
         this.selectTab(tabName);
@@ -691,7 +707,8 @@ var ZenzaWatch = {
       var $target = $(e.target), text = $target.text();
       if ($target.attr('href').match(/watch\/([a-z0-9]+)/)) {
         e.preventDefault();
-        dialog.open(RegExp.$1);
+        this.emit('command', 'open', RegExp.$1);
+        //dialog.open(RegExp.$1);
       } else
        if (text.match(/^mylist\/(\d+)/)) {
         return;
@@ -700,8 +717,23 @@ var ZenzaWatch = {
         e.preventDefault(); e.stopPropagation();
         var data = $target.attr('data-seekTime').split(":");
         var sec = data[0] * 60 + parseInt(data[1], 10);
-        dialog.setCurrentTime(sec);
+        this.emit('command', 'seek', sec);
+        //dialog.setCurrentTime(sec);
       }
+    },
+    _onVideoCanPlay: function(watchId, videoInfo) {
+      // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
+      if (!this._relatedVideoList) {
+        this._relatedVideoList = new RelatedVideoList({
+          $container: this._$view.find('.relatedVideoContainer')
+        });
+        this._relatedVideoList.on('command', _.bind(this._onCommand, this));
+      }
+      var relatedVideo = videoInfo.getRelatedVideoItems();
+      this._relatedVideoList.update(relatedVideo, watchId);
+    },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
     },
     appendTo: function(node) {
       var $node = $(node);
@@ -727,6 +759,28 @@ var ZenzaWatch = {
       if ($target.length < 1) { return; }
       $view.find('.activeTab').removeClass('activeTab');
       $target.addClass('activeTab');
+    },
+    appendTab: function(tabName, title, content) {
+      var $view = this._$view;
+      var $select =
+        $('<div class="tabSelect"/>')
+          .addClass(tabName)
+          .attr('data-tab', tabName)
+          .text(title);
+      var $body = $('<div class="tabs"/>')
+          .addClass(tabName);
+      if (content) {
+        $body.append($(content));
+      }
+
+      $view.find('.tabSelectContainer').append($select);
+      $view.append($body);
+
+      return $body;
+    },
+    removeTab: function(tabName) {
+      this._$view.find('.tabSelect.' + tabName).remove();
+      this._$view.find('.tabs.' + tabName).detach();
     }
   });
 
@@ -840,8 +894,8 @@ var ZenzaWatch = {
       display: block;
       cursor: pointer;
     }
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer {
-      {* max-width: calc(100vw - 200px);*}
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer:hover {
+      background: #666;
     }
     .zenzaWatchVideoHeaderPanel .videoTitle:hover {
     }

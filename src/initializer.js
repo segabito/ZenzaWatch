@@ -17,6 +17,7 @@ var WatchPageState = {};
 var MessageApiLoader = function() {};
 var NicoVideoPlayer = function() {};
 var NicoVideoPlayerDialog = function() {};
+var AsyncEmitter = function() {};
 
 //===BEGIN===
     var initialize = function() {
@@ -30,6 +31,8 @@ var NicoVideoPlayerDialog = function() {};
         return;
       }
 
+      var hoverMenu = new HoverMenu({playerConfig: Config});
+      
       window.console.time('createOffscreenLayer');
       NicoComment.offScreenLayer.get(Config).then(function(offScreenLayer) {
         window.console.timeEnd('createOffscreenLayer');
@@ -71,6 +74,10 @@ var NicoVideoPlayerDialog = function() {};
 
         WatchPageState.initialize(dialog);
 
+        if (dialog) { hoverMenu.setPlayer(dialog); }
+        initializeMobile(dialog, Config);
+        initializeExternal(dialog, Config);
+
         if (isGinza) {
           return;
         }
@@ -93,8 +100,7 @@ var NicoVideoPlayerDialog = function() {};
           dialog.open(lastSession.watchId, lastSession);
         }
 
-        initializeMobile(dialog, Config);
-        initializeExternal(dialog, Config);
+        
       });
       ZenzaWatch.ready = true;
       $('body').trigger('ZenzaWatchReady', ZenzaWatch);
@@ -139,8 +145,6 @@ var NicoVideoPlayerDialog = function() {};
 
     var initializeDialogPlayer = function(conf, offScreenLayer) {
       var dialog = initializeDialog(conf, offScreenLayer);
-      initializeHoverMenu(dialog, conf);
-
       return dialog;
     };
 
@@ -152,79 +156,113 @@ var NicoVideoPlayerDialog = function() {};
       var command = function(command, param) {
         dialog.execCommand(command, param);
       };
+      var open = function(watchId, params) {
+        dialog.open(watchId, params);
+      };
       ZenzaWatch.external = {
-        execCommand: command
+        execCommand: command,
+        open: open
       };
     };
 
-    var initializeHoverMenu = function(dialog, config) {
-      var $menu = $([
-      '<div class="zenzaWatchHoverMenu scalingUI">',
-        '<span>Zen</span>',
-      '</div>'].join(''));
+    var HoverMenu = function() { this.initialize.apply(this, arguments);};
+    //_.extend(HoverMenu.prototype, AsyncEmitter.prototype);
+    _.assign(HoverMenu.prototype, {
+      initialize: function(param) {
+        this._playerConfig = param.playerConfig;
 
-      var hoverElement = null;
+        var $view = $([
+        '<div class="zenzaWatchHoverMenu scalingUI">',
+          '<span>Zen</span>',
+        '</div>'].join(''));
+        this._$view = $view;
 
-      var onHover = function(e) {
-        hoverElement = e.target;
-      };
+        $view.on('click', _.bind(this._onClick, this));
+        ZenzaWatch.emitter.on('hideHover', function() {
+          $view.removeClass('show');
+        });
 
-      var onMouseout = function(e) {
-        if (e.target === hoverElement) {
-          hoverElement = null;
+        var $body = $('body')
+          .on('mouseover', 'a[href*="watch/"]', _.bind(this._onHover, this))
+          .on('mouseover', 'a[href*="watch/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
+          .on('mouseout',  'a[href*="watch/"]', _.bind(this._onMouseout, this))
+          .on('click', function() { $view.removeClass('show'); });
+
+        if (this._playerConfig.getValue('overrideWatchLink')) {
+          this._overrideGinzaLink();
+        } else {
+          $body.append($view);
         }
-      };
-
-      var onHoverEnd = function(e) {
-        if (e.target !== hoverElement) { return; }
+      },
+      setPlayer: function(player) {
+        this._player = player;
+        if (this._selectedWatchId) {
+          ZenzaWatch.util.callAsync(function() {
+            player.open(this._selectedWatchId, this._playerOption);
+          }, this, 1000);
+        }
+      },
+      _onHover: function(e) {
+        this._hoverElement = e.target;
+      },
+      _onMouseout: function(e) {
+        if (this._hoverElement === e.target) {
+          this._hoverElement = null;
+        }
+      },
+      _onHoverEnd: function(e) {
+        if (this._hoverElement !== e.target) { return; }
         var $target = $(e.target).closest('a');
         var href = $target.attr('data-href') || $target.attr('href');
         var watchId = ZenzaWatch.util.getWatchId(href);
         var offset = $target.offset();
-//        var bottom = offset.top  + $target.outerHeight();
-//        var right  = offset.left + $target.outerWidth();
 
         if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
         if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
+
         $('.zenzaWatching').removeClass('zenzaWatching');
         $target.addClass('.zenzaWatching');
-        $menu
-          .attr({
-            'data-watch-id': watchId
-          })
-          .css({
-            top:  offset.top, //  - $menu.outerHeight(),
-            left: offset.left - $menu.outerWidth()  / 2
-          })
-          .addClass('show');
-      };
 
-      var onMenuClick = function(e) {
-        var $target = $(e.target);
-        var watchId = $target.closest('.zenzaWatchHoverMenu').attr('data-watch-id');
-        console.log('open: ', watchId);
+        this._watchId = watchId;
+        
+        this._$view.css({
+            top:  offset.top,
+            left: offset.left - this._$view.outerWidth()  / 2
+          }).addClass('show');
+      },
+      _onClick: function(e) {
+        var watchId = this._watchId;
 
         if (e.shiftKey) {
           // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く
-          localStorageEmitter.send({
-            type: 'openVideo',
-            watchId: watchId
-          });
+          this._send(watchId);
         } else {
-
-          Config.refreshValue('autoCloseFullScreen');
-          dialog.open(watchId, {
-            economy: Config.getValue('forceEconomy')
-          });
-
+          this._open(watchId);
         }
-      };
+      },
+      _open: function(watchId) {
+        this._playerOption = {
+          economy: this._playerConfig.getValue('forceEconomy')
+        };
+        this._playerConfig.refreshValue('autoCloseFullScreen');
 
-      var overrideGinzaLink = function() {
+        if (this._player) {
+          this._player.open(watchId, this._playerOption);
+        } else {
+          this._selectedWatchId = watchId;
+        }
+      },
+      _send: function(watchId) {
+        localStorageEmitter.send({
+          type: 'openVideo',
+          watchId: watchId
+        });
+      },
+      _overrideGinzaLink: function() {
+        $('body').on('click', 'a[href*="watch/"]', _.bind(function(e) {
+          if (e.target !== this._hoverElement) { return; }
 
-        $('body').on('click', 'a[href*="watch/"]', function(e) {
-          if (e.target !== hoverElement) { return; }
           var $target = $(e.target).closest('a');
           var href = $target.attr('data-href') || $target.attr('href');
           var watchId = ZenzaWatch.util.getWatchId(href);
@@ -240,40 +278,18 @@ var NicoVideoPlayerDialog = function() {};
 
           if (e.shiftKey) {
             // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く
-            localStorageEmitter.send({
-              type: 'openVideo',
-              watchId: watchId
-            });
+            this._send(watchId);
           } else {
-            dialog.open(watchId, {
-              economy: Config.getValue('forceEconomy')
-            });
+            this._open(watchId);
           }
+
           ZenzaWatch.util.callAsync(function() {
             ZenzaWatch.emitter.emit('hideHover');
           }, this, 1500);
-        });
 
-      };
-
-      $menu.on('click', onMenuClick);
-
-      ZenzaWatch.emitter.on('hideHover', function() {
-        $menu.removeClass('show');
-      });
-
-      $('body')
-        .on('mouseover', 'a[href*="watch/"]', onHover)
-        .on('mouseover', 'a[href*="watch/"]', _.debounce(onHoverEnd, 500))
-        .on('mouseout',  'a[href*="watch/"]', onMouseout)
-        .on('click', function() { $menu.removeClass('show'); })
-        .append($menu);
-
-      if (config.getValue('overrideWatchLink')) {
-        overrideGinzaLink();
-        $menu.remove();
+        }, this));
       }
-    };
+    });
 
     var initializeDialog = function(conf, offScreenLayer) {
       console.log('initializeDialog');

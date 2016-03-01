@@ -176,6 +176,26 @@ var AsyncEmitter = function() {};
       background: #fff;
       box-shadow: 0 0 16px #ccf;
     }
+
+    .commentInputPanel .recButton {
+      display: none;
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      border-radius: 100%;
+      cursor: pointer;
+      background: #666;
+    }
+
+    .commentInputPanel.active.availableRecognizer .recButton {
+      display: block;
+    }
+    .commentInputPanel .recButton.rec {
+      background: red;
+    }
+
   */});
 
   CommentInputPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -207,6 +227,8 @@ var AsyncEmitter = function() {};
             name="post"
             class="commentSubmit"
             >
+          <div class="recButton" title="音声入力">
+          </div>
       </div>
       </form>
       <label class="autoPauseLabel">
@@ -216,16 +238,14 @@ var AsyncEmitter = function() {};
     </div>
   */});
 
+  _.extend(CommentInputPanel.prototype, AsyncEmitter.prototype);
   _.assign(CommentInputPanel.prototype, {
     initialize: function(params) {
       this._$playerContainer = params.$playerContainer;
       this._playerConfig     = params.playerConfig;
 
-      var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
-      this.emitPromise = _.bind(emitter.emitPromise, emitter);
+
+      this._recognizer = new ZenzaWatch.util.Recognizer();
 
       this._initializeDom();
 
@@ -255,6 +275,22 @@ var AsyncEmitter = function() {};
         }
       }, this);
 
+      var $rec = this._$recButton = $view.find('.recButton');
+      $rec.on('click', _.bind(function() {
+        $rec.toggleClass('rec');
+        this._recognizerEnabled = $rec.hasClass('rec');
+        if (this._recognizerEnabled && !this._recognizer.isEnable()) {
+          this._recognizer.enable();
+          this._recognizer.on('result', _.bind(this._onRecognizerResult, this));
+        }
+        if (this._recognizerEnabled) {
+          this._recognizer.start();
+        } else {
+          this._recognizer.stop();
+        }
+        $input.focus();
+      }, this));
+
       $input
         .on('focus', _.bind(this._onFocus, this))
         .on('blur', _.debounce(_.bind(this._onBlur, this), 500))
@@ -274,6 +310,7 @@ var AsyncEmitter = function() {};
       $view.on('click', function(e) {
         e.stopPropagation();
       });
+      $view.toggleClass('availableRecognizer', this._recognizer.isAvailable());
     },
     _onFocus: function() {
       this._$view.addClass('active');
@@ -332,11 +369,74 @@ var AsyncEmitter = function() {};
       this._$commandInput.blur();
       this._$commentInput.blur();
       this._onBlur();
+    },
+    _onRecognizerResult: function(text) {
+      window.console.log('_onRecognizerResult: ', text);
+      if(!this._hasFocus) { return; }
+      var $inp = this._$commentInput;
+      $inp.val($inp.val() + text);
     }
   });
 
 
+  var Recognizer = function() { this.initialize.apply(this, arguments); };
+  _.extend(Recognizer.prototype, AsyncEmitter.prototype);
+  _.assign(Recognizer.prototype, {
+    initialize: function() {
+      this._enable = false;
+      this._recording = false;
+    },
+    enable: function() {
+      if (!this.isAvailable()) { return false;}
+      if (this._recognition) { return true; }
+      var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      var rec = this._recognition = new Rec();
+      rec.lang = ZenzaWatch.util.getLang();
+      rec.maxAlternatives = 1;
+      rec.continuous = true;
+      rec.addEventListener('result', _.bind(this._onResult, this));
+      this._enable = true;
+      return true;
+    },
+    disable: function() {
+      this._enable = false;
+      return false;
+    },
+    isEnable: function() {
+      return this._enable;
+    },
+    isAvailable: function() {
+      return (window.SpeechRecognition || window.webkitSpeechRecognition) ? true : false;
+    },
+    isRecording: function() {
+      return this._recording;
+    },
+    start: function() {
+      if (!this.isAvailable()) { return false; }
+      this.enable();
+      this._recording = true;
+      this._recognition.start();
+    },
+    stop: function() {
+      if (!this._recognition) { return; }
+      this._recording = false;
+      this._recognition.stop();
+    },
+    _onResult: function(e) {
+      if (!this._enable) { return; }
+      var results = e.results;
+      var text = '';
+      for (var i = 0, len = results.length; i < len; i++) {
+        var result = results.item(i);
+        if(result.final === true || result.isFinal === true){
+          text = result.item(0).transcript;
+        }
+      }
+      this.emit('result', text);
+    }
+  });
 
+  ZenzaWatch.util.Recognizer = Recognizer;
 //===END===
 //
 

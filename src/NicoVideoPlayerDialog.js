@@ -13,8 +13,10 @@ var NicoVideoPlayer = function() {};
 var MessageApiLoader = function() {};
 var AsyncEmitter = function() {};
 var VideoControlBar = function() {};
+var VideoInfoPanel = function() {};
 var VideoInfoModel = function() {};
-var RelatedVideoList = function() {};
+var CommentInputPanel = function() {};
+var SettingPanel = function() {};
 
 //===BEGIN===
 
@@ -666,6 +668,7 @@ var RelatedVideoList = function() {};
           player: nicoVideoPlayer,
           node: this._$playerContainer
         });
+        this._videoInfoPanel.on('command', _.bind(this._onCommand, this));
       }, this), 0);
 
       nicoVideoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
@@ -1239,18 +1242,8 @@ var RelatedVideoList = function() {};
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
       this._$playerContainer.removeClass('stalled loading');
-      this.emit('canPlay');
+      this.emitAsync('canPlay', this._watchId, this._videoInfo);
 
-      // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
-      if (!this._relatedVideoList) {
-        this._relatedVideoList = new RelatedVideoList({
-          $container: $('.relatedVideoContainer')
-        });
-        this._relatedVideoList.on('command', _.bind(this._onCommand, this));
-      }
-      var relatedVideo = this._videoInfo.getRelatedVideoItems();
-      //relatedVideo.shift(); // 一本目は今見てる動画なので
-      this._relatedVideoList.update(relatedVideo, this._watchId);
       if (this._playerConfig.getValue('autoPlay')) {
         this.play();
       }
@@ -1375,7 +1368,9 @@ var RelatedVideoList = function() {};
         return Promise.reject();
       }
 
-      cmd = '184 ' + cmd;
+      if (this._threadInfo.force184 !== '1') {
+        cmd = '184 ' + cmd;
+      }
       options = options || {};
       options.mine = '1';
       options.updating = '1';

@@ -2487,7 +2487,7 @@ var NicoTextParser = {};
 
 
 
-  if (!_.trim) { _.trim = function(str) { return str.trim(); }; }
+  //if (!_.trim) { _.trim = function(str) { return str.trim(); }; }
 
   var NicoChatFilter = function() { this.initialize.apply(this, arguments); };
   _.extend(NicoChatFilter.prototype, AsyncEmitter.prototype);
@@ -2523,7 +2523,7 @@ var NicoTextParser = {};
     },
     addWordFilter: function(text) {
       var before = this._wordFilterList.join('\n');
-      this._wordFilterList.push(_.trim(text));
+      this._wordFilterList.push(text.trim());
       this._wordFilterList = _.uniq(this._wordFilterList);
       var after = this._wordFilterList.join('\n');
       if (before !== after) {
@@ -2532,11 +2532,11 @@ var NicoTextParser = {};
       }
     },
     setWordFilterList: function(list) {
-      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+      list = _.uniq(typeof list === 'string' ? list.trim().split('\n') : list);
 
       var before = this._wordFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      $(list).each(function(i, text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -2561,11 +2561,11 @@ var NicoTextParser = {};
       }
     },
     setUserIdFilterList: function(list) {
-      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+      list = _.uniq(typeof list === 'string' ? list.trim().split('\n') : list);
 
       var before = this._userIdFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      $(list).each(function(i, text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -2590,11 +2590,11 @@ var NicoTextParser = {};
       }
     },
     setCommandFilterList: function(list) {
-      list = _.uniq(typeof list === 'string' ? _.trim(list).split('\n') : list);
+      list = _.uniq(typeof list === 'string' ? list.trim().split('\n') : list);
 
       var before = this._commandFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(_.trim(text)); });
+      $(list).each(function(i, text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 

@@ -291,6 +291,8 @@ var isSameOrigin = function() {};
       var emitter = new AsyncEmitter();
       var cacheStorage;
       var sessions = {};
+      var isInitialized = false;
+      var isInitializing = false;
 
       var onMessage = function(data, type) {
         if (type !== 'thumbInfoApi') { return; }
@@ -299,12 +301,20 @@ var isSameOrigin = function() {};
         var sessionId = info.sessionId;
         var status    = info.status;
         var session   = sessions[sessionId];
+
+        //window.console.log('status:', status);
+        if (status === 'initialized') {
+          isInitialized = true;
+          isInitializing = false;
+          sessions.initial.resolve();
+          emitter.emit('initialize', {status: 'ok'});
+        }
         if (!session) {
           return;
         }
 
         if (status === 'ok') {
-          session.resolve(info.body);
+          session.resolve(parseXml(info.body));
         } else {
           session.reject({
             message: status
@@ -312,9 +322,78 @@ var isSameOrigin = function() {};
         }
 
       };
+     var parseXml = function(xmlText) {
+        var parser = new DOMParser();
+        var xml = parser.parseFromString(xmlText, 'text/xml');
+
+        var val = function(name) {
+          var elms = xml.getElementsByTagName(name);
+          if (elms.length < 1) {
+            return null;
+          }
+          return elms[0].innerHTML;
+        };
+        var duration = (function() {
+          var tmp = val('length').split(':');
+          return parseInt(tmp[0], 10) * 60 + parseInt(tmp[1], 10);
+        })();
+        var watchId = val('watch_url').split('/').reverse()[0];
+        var postedAt = (new Date(val('first_retrieve'))).toLocaleString();
+        var tags = (function() {
+          var result = [];
+          var t = xml.getElementsByTagName('tag');
+          t.forEach(function(tag) {
+            result.push(tag.innerHTML);
+          });
+          return result;
+        });
+
+        var result = {
+          v:     watchId,
+          id:    val('video_id'),
+          title: val('title'),
+          description: val('description'),
+          thumbnail: val('thumbnail_url'),
+          movieType: val('movie_type'),
+          lastResBody: val('last_res_body'),
+          duration: duration,
+          postedAt: postedAt,
+          mylistCount:  parseInt(val('mylist_counter'), 10),
+          viewCount:    parseInt(val('view_counter'), 10),
+          commentCount: parseInt(val('comment_num'), 10),
+
+          tagList: tags
+        };
+        var userId = val('user_id');
+        if (userId !== null) {
+          result.owner = {
+            type: 'user',
+            id: userId,
+            name: val('user_nickname') || '(非公開ユーザー)',
+            url:  userId ? ('//www.nicovideo.jp/user/' + userId) : '#',
+            icon: val('user_icon_url') || '//res.nimg.jp/img/user/thumb/blank.jpg'
+          };
+        }
+        var channelId  = val('ch_id');
+        if (channelId !== null) {
+          result.owner = {
+            type: 'channel',
+            id: channelId,
+            name: val('ch_name') || '(非公開ユーザー)',
+            url: '//ch.nicovideo.jp/ch' + channelId,
+            icon: val('ch_icon_url') || '//res.nimg.jp/img/user/thumb/blank.jpg'
+          };
+        }
+        console.log('thumbinfo: ', watchId, result);
+
+        cacheStorage.setItem('thumbInfo_' + result.v, result);
+
+        return result;
+      };
 
       // クロスドメインの壁を越えるゲートを開く
       var initializeCrossDomainGate = function() {
+
         initializeCrossDomainGate = _.noop;
         WindowMessageEmitter.on('onMessage', onMessage);
 
@@ -327,19 +406,62 @@ var isSameOrigin = function() {};
         document.body.appendChild(loaderFrame);
 
         loaderWindow = loaderFrame.contentWindow;
+
       };
 
       var initialize = function() {
-        initialize = _.noop;
-        initializeCrossDomainGate();
-        cacheStorage = new CacheStorage(sessionStorage);
+        if (isInitialized) {
+          return new Promise(function(resolve) {
+            ZenzaWatch.util.callAsync(function() {
+              resolve();
+            });
+          });
+        }
 
+        if (isInitializing) {
+          return new Promise(function(resolve, reject) {
+            emitter.on('initialize', function(e) {
+              if (e.status === 'ok') { resolve(); } else { reject(e); }
+            });
+          });
+        }
+
+        isInitializing = true;
+        var initialPromise = new Promise(function(resolve, reject) {
+          sessions.initial = {
+            promise: initialPromise,
+            resolve: resolve,
+            reject: reject
+          };
+          window.setTimeout(function() {
+            if (!isInitialized) {
+              var rej = {
+                status: 'fail',
+                message: '初期化タイムアウト(getThumbInfo)'
+              };
+              reject(rej);
+              emitter.emit('initialize', rej);
+            }
+          }, 60 * 1000);
+          initializeCrossDomainGate(resolve, reject);
+
+        });
+        return initialPromise;
       };
 
       var load = function(watchId) {
-        initialize();
+        if (!cacheStorage) {
+          cacheStorage = new CacheStorage(sessionStorage);
+        }
 
         return new Promise(function(resolve, reject) {
+          var cache = cacheStorage.getItem('thumbInfo_' + watchId);
+          if (cache) {
+            window.console.log('cache exist');
+            ZenzaWatch.util.callAsync(function() { resolve(cache); });
+            return;
+          }
+
           var sessionId = watchId + '_' + Math.random();
 
           sessions[sessionId] = {
@@ -347,18 +469,25 @@ var isSameOrigin = function() {};
             reject: reject
           };
 
-          try {
-            var url = BASE_URL + 'api/getthumbinfo/' + watchId;
-            loaderWindow.postMessage(JSON.stringify({
-              sessionId: sessionId,
-              url: url
-            }),
-            MESSAGE_ORIGIN);
-          } catch (e) {
-            console.log('%cException!', 'background: red;', e);
-            delete sessions[sessionId];
-            ZenzaWatch.util.callAsync(function() { reject({messge: 'postMessage fail'}); });
-          }
+          initialize().then(function() {
+            window.console.log('thumbInfoApiWindow initialized');
+            try {
+              var url = BASE_URL + 'api/getthumbinfo/' + watchId;
+              loaderWindow.postMessage(JSON.stringify({
+                sessionId: sessionId,
+                url: url
+              }),
+              MESSAGE_ORIGIN);
+            } catch (e) {
+              console.log('%cException!', 'background: red;', e);
+              delete sessions[sessionId];
+              ZenzaWatch.util.callAsync(function() { reject({messge: 'postMessage fail'}); });
+              return Promise.reject({
+                status: 'fail',
+                message: 'メッセージ送信失敗(getThumbInfo)'
+              });
+            }
+          });
         });
       };
 
@@ -369,7 +498,7 @@ var isSameOrigin = function() {};
       return emitter;
     })();
     ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
-
+// ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
 
     var MessageApiLoader = (function() {
       var VERSION_OLD = '20061206';
@@ -381,6 +510,7 @@ var isSameOrigin = function() {};
 
       _.assign(MessageApiLoader.prototype, {
         initialize: function() {
+          this._threadKeys = {};
         },
         /**
          * 動画の長さに応じて取得するコメント数を変える
@@ -399,6 +529,7 @@ var isSameOrigin = function() {};
             'http://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
             '&language_id=0';
 
+          var self = this;
           return new Promise(function(resolve, reject) {
             $.ajax({
               url: url,
@@ -409,7 +540,9 @@ var isSameOrigin = function() {};
                 withCredentials: true
               }
             }).then(function(e) {
-              resolve(ZenzaWatch.util.parseQuery(e));
+              var result = ZenzaWatch.util.parseQuery(e);
+              self._threadKeys[threadId] = result;
+              resolve(result);
             }, function(result) {
               //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
@@ -425,6 +558,7 @@ var isSameOrigin = function() {};
           var url =
             'http://flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
             '&block_no=' + blockNo +
+            //'&version=1&yugi=' +
             '&language_id=0';
 
           console.log('getPostkey url: ', url);
@@ -514,21 +648,15 @@ var isSameOrigin = function() {};
 //            );
 //          }
 
-          if (false && duration < 60) {
-            packet.appendChild(
-              this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184, duration, userKey)
-            );
-          } else {
-            packet.appendChild(
-              this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184, duration)
-            );
-            packet.appendChild(
-              this._createThreadXml(threadId, VERSION, userId, threadKey, force184, null, userKey)
-            );
-            packet.appendChild(
-              this._createThreadLeavesXml(threadId, VERSION, userId, threadKey, force184, duration, userKey)
-            );
-          }
+          packet.appendChild(
+            this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184, duration)
+          );
+          packet.appendChild(
+            this._createThreadXml(threadId, VERSION, userId, threadKey, force184, null, userKey)
+          );
+          packet.appendChild(
+            this._createThreadLeavesXml(threadId, VERSION, userId, threadKey, force184, duration, userKey)
+          );
 
           span.appendChild(packet);
           var packetXml = span.innerHTML;
@@ -687,7 +815,13 @@ var isSameOrigin = function() {};
                   ticket:     ticket,
                   revision:   thread.getAttribute('revision')
                 };
-                //console.log('threadInfo', threadInfo);
+
+                if (self._threadKeys[threadId]) {
+                  threadInfo.threadKey = self._threadKeys[threadId].threadkey;
+                  threadInfo.force184  = self._threadKeys[threadId].force_184;
+                }
+
+                window.console.log('threadInfo: ', threadInfo);
                 resolve({
                   resultCode: parseInt(resultCode, 10),
                   threadInfo: threadInfo,
@@ -1121,4 +1255,80 @@ var isSameOrigin = function() {};
 
 //===END===
 
-console.log(VideoInfoLoader);
+/*
+<nicovideo_thumb_response status="ok">
+<thumb>
+<video_id>so28281724</video_id>
+<title>この素晴らしい世界に祝福を！　第6話「このろくでもない戦いに決着を！」</title>
+<description>
+「なぜ城に来ないのだ、この人でなしどもがああっ！」魔王軍の幹部、デュラハンが再び大激怒で街に現れた。大きくて硬いモノでないと我慢できない体になってしまったというめぐみんは、あの事件の後も毎日せっせとデュラハンの居城に爆裂魔法を撃ち込んでいたというのだ。おまけに共犯者の駄女神からも小バカにされ、デュラハンの怒りゲージは怒髪天に。とうとう戦闘に突入するが、相手は腐っても魔王軍幹部のひとり。その力は想像以上に圧倒的で……。「愚かな駆け出し冒険者どもよ、魔王軍に刃向かった報いと知れ！」。八方塞がり、絶体絶命の大ピンチに!!コミック版がニコニコ静画ですぐ読める！動画一覧はこちら第5話 watch/1455593126
+</description>
+<thumbnail_url>http://tn-skr1.smilevideo.jp/smile?i=28281724</thumbnail_url>
+<first_retrieve>2016-02-27T12:00:00+09:00</first_retrieve>
+<length>23:40</length>
+<movie_type>mp4</movie_type>
+<size_high>147764562</size_high>
+<size_low>46961882</size_low>
+<view_counter>403878</view_counter>
+<comment_num>0</comment_num>
+<mylist_counter>2599</mylist_counter>
+<last_res_body/>
+<watch_url>http://www.nicovideo.jp/watch/so28281724</watch_url>
+<thumb_type>video</thumb_type>
+<embeddable>1</embeddable>
+<no_live_play>0</no_live_play>
+<tags domain="jp">
+<tag category="1" lock="1">アニメ</tag>
+<tag lock="1">この素晴らしい世界に祝福を！</tag>
+<tag>【タグ編集はできません】</tag>
+</tags>
+</thumb>
+</nicovideo_thumb_response>
+
+
+
+<nicovideo_thumb_response status="ok">
+<thumb>
+<size_high>21138631</size_high>
+<size_low>17436492</size_low>
+
+</thumb>
+</nicovideo_thumb_response>
+_videoDetail: Object
+area: "jp"
+can_translate: false
+category: null
+channelId: null
+commons_tree_exists: true
+communityId: null
+description: "様"
+dicArticleURL: "http://dic.nicovideo.jp/v/sm28211015"
+for_bgm: false
+has_owner_thread: null
+height: 360
+highest_rank: null
+id: "sm28211015"
+isDeleted: false
+isMonetized: false
+isMymemory: false
+isR18: false
+is_adult: null
+is_nicowari: null
+is_official: false
+is_public: true
+is_thread_owner: false
+is_translated: false
+is_uneditable_tag: false
+is_video_owner: null
+language: "ja-jp"
+mainCommunityId: null
+main_genre: null
+no_ichiba: false
+tagList: Array[5]
+thread_id: "1455355346"
+video_translation_info: false
+width: 640
+yesterday_rank: null
+__proto__: Object
+ * */
+ console.log(VideoInfoLoader);

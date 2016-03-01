@@ -101,10 +101,10 @@ var ZenzaWatch = {
 
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
-    var origin = document.referrer;
 
     var type = 'thumbInfoApi';
     window.addEventListener('message', function(event) {
+      //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       if (!data.url) { return; }
 

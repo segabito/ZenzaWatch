@@ -789,7 +789,7 @@ var AsyncEmitter = function() {};
 
 
       // TODO: 飽きたら消す
-      this._lark = new Lark(params);
+      //this._lark = new Lark(params);
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(VideoControlBar.__css__);
@@ -1925,8 +1925,7 @@ var AsyncEmitter = function() {};
 
 
 
-
-
+//===END===
   var Lark = function() { this.initialize.apply(this, arguments); };
   _.extend(Lark.prototype, AsyncEmitter.prototype);
   _.assign(Lark.prototype, {
@@ -2082,14 +2081,12 @@ var AsyncEmitter = function() {};
       text = text.replace(/([~〜～])/g, 'ー');
       text = text.replace(/([\(（].*?[）\)])/g, 'ー'); // ほとんど顔文字なので
 
-      var www = 'わらわらわらわらわら';
       text = text.replace(/([wWＷｗ])+$/i, function(m) {
-        return www.substr(0, Math.min(www.length, m.length * 2));
+        return 'わら'.repeat(Math.min(3, m.length));
       });
 
-      var ppp = 'ぱちぱちぱちぱちぱち';
       text = text.replace(/([8８])+$/i, function(m) {
-        return ppp.substr(0, Math.min(ppp.length, m.length * 2));
+        return 'ぱち'.repeat(Math.min(3, m.length));
       });
 
       return text;

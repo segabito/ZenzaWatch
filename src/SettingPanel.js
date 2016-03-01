@@ -316,6 +316,7 @@ var AsyncEmitter = function() {};
             data-command="setUserIdFilterList"></textarea>
         </div>
 
+        <!--
         <p class="caption">一発ネタ系(飽きたら消します)</p>
         <div class="speakLarkControl control toggle">
           <label>
@@ -340,6 +341,7 @@ var AsyncEmitter = function() {};
             読み上げの音量
           </label>
         </div>
+        -->
 
          <!--
         <p class="caption">開発中・テスト関係の項目</p>
