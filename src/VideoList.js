@@ -398,7 +398,7 @@ var PopupMessage = {};
   VideoListItemView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoItem %className% watch%watchId%" data-watch-id="%watchId%">
       <div class="thumbnailContainer">
-        <a href="/watch/%watchId%" class="command" data-command="open" data-param="%watchId%">
+        <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="open" data-param="%watchId%">
           <img class="thumbnail" data-src="%thumbnail%" src="%thumbnail%">
           <span class="duration">%duration%</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
@@ -407,7 +407,7 @@ var PopupMessage = {};
       <div class="videoInfo">
         <div class="postedAt">%postedAt%</div>
         <div class="title">
-          <a href="/watch/%watchId%" class="command videoLink" data-command="open" data-param="%watchId%">
+          <a href="//www.nicovideo.jp/watch/%watchId%" class="command videoLink" data-command="open" data-param="%watchId%">
             %videoTitle%
           </a>
         </div>

@@ -11,6 +11,8 @@ var PopupMessage = function() {};
 var WindowMessageEmitter = function() {};
 var isLogin = function() {};
 var isSameOrigin = function() {};
+var TOKEN = Math.random();
+var ajax = function() {};
 
 //===BEGIN===
     var CacheStorage = (function() {
@@ -120,6 +122,7 @@ var isSameOrigin = function() {};
 
         loaderWindow = loaderFrame.contentWindow;
 
+        WindowMessageEmitter.addKnownSource(loaderWindow);
         WindowMessageEmitter.on('onMessage', onMessage);
       };
 
@@ -213,7 +216,7 @@ var isSameOrigin = function() {};
             url = url + '?eco=1';
             console.log('%cエコノミーにフォールバック(flv)', 'background: cyan; color: red;', url);
             window.setTimeout(function() {
-              $.ajax({
+              ajax({
                 url: url,
                 xhrFields: { withCredentials: true },
                 //beforeSend: function(xhr) {
@@ -248,7 +251,7 @@ var isSameOrigin = function() {};
           }
         };
 
-        $.ajax({
+        ajax({
           url: url,
           xhrFields: { withCredentials: true },
           // referrerによってplaylistの中身が変わるので無難な物にする
@@ -270,7 +273,7 @@ var isSameOrigin = function() {};
       };
 
       var load = function(watchId, options) {
-        if (isLogin() && isSameOrigin()) {
+        if (isLogin()) {
           loadFromWatchApiData(watchId, options);
         } else {
           loadFromThumbWatch(watchId, options);
@@ -284,48 +287,17 @@ var isSameOrigin = function() {};
       return videoInfoLoader;
     })();
 
+
+
     var ThumbInfoLoader = (function() {
-      var BASE_URL = 'http://ext.nicovideo.jp/'; // thumb_watch';
+      var BASE_URL = 'http://ext.nicovideo.jp/';
       var MESSAGE_ORIGIN = 'http://ext.nicovideo.jp/';
-      var loaderFrame, loaderWindow;
-      var emitter = new AsyncEmitter();
+      var gate = null;
       var cacheStorage;
-      var sessions = {};
-      var isInitialized = false;
-      var isInitializing = false;
 
-      var onMessage = function(data, type) {
-        if (type !== 'thumbInfoApi') { return; }
-        window.console.log('thumbInfoApi.onMessage', data, type);
-        var info      = data.message;
-        var sessionId = info.sessionId;
-        var status    = info.status;
-        var session   = sessions[sessionId];
-
-        //window.console.log('status:', status);
-        if (status === 'initialized') {
-          isInitialized = true;
-          isInitializing = false;
-          sessions.initial.resolve();
-          emitter.emit('initialize', {status: 'ok'});
-        }
-        if (!session) {
-          return;
-        }
-
-        if (status === 'ok') {
-          session.resolve(parseXml(info.body));
-        } else {
-          session.reject({
-            message: status
-          });
-        }
-
-      };
-     var parseXml = function(xmlText) {
+      var parseXml = function(xmlText) {
         var parser = new DOMParser();
         var xml = parser.parseFromString(xmlText, 'text/xml');
-
         var val = function(name) {
           var elms = xml.getElementsByTagName(name);
           if (elms.length < 1) {
@@ -333,6 +305,16 @@ var isSameOrigin = function() {};
           }
           return elms[0].innerHTML;
         };
+
+        var resp = xml.getElementsByTagName('nicovideo_thumb_response');
+        if (resp.length < 1 || resp[0].getAttribute('status') !== 'ok') {
+          return {
+            status: 'fail',
+            code: val('code'),
+            message: val('description')
+          };
+        }
+
         var duration = (function() {
           var tmp = val('length').split(':');
           return parseInt(tmp[0], 10) * 60 + parseInt(tmp[1], 10);
@@ -340,28 +322,27 @@ var isSameOrigin = function() {};
         var watchId = val('watch_url').split('/').reverse()[0];
         var postedAt = (new Date(val('first_retrieve'))).toLocaleString();
         var tags = (function() {
-          var result = [];
-          var t = xml.getElementsByTagName('tag');
-          t.forEach(function(tag) {
+          var result = [], t = xml.getElementsByTagName('tag');
+          _.each(t, function(tag) {
             result.push(tag.innerHTML);
           });
           return result;
-        });
+        })();
 
         var result = {
+          status: 'ok',
           v:     watchId,
           id:    val('video_id'),
           title: val('title'),
-          description: val('description'),
-          thumbnail: val('thumbnail_url'),
-          movieType: val('movie_type'),
-          lastResBody: val('last_res_body'),
-          duration: duration,
-          postedAt: postedAt,
+          description:  val('description'),
+          thumbnail:    val('thumbnail_url'),
+          movieType:    val('movie_type'),
+          lastResBody:  val('last_res_body'),
+          duration:     duration,
+          postedAt:     postedAt,
           mylistCount:  parseInt(val('mylist_counter'), 10),
           viewCount:    parseInt(val('view_counter'), 10),
           commentCount: parseInt(val('comment_num'), 10),
-
           tagList: tags
         };
         var userId = val('user_id');
@@ -391,114 +372,133 @@ var isSameOrigin = function() {};
         return result;
       };
 
-      // クロスドメインの壁を越えるゲートを開く
-      var initializeCrossDomainGate = function() {
-
-        initializeCrossDomainGate = _.noop;
-        WindowMessageEmitter.on('onMessage', onMessage);
-
-        console.log('%c initialize videoInfoLoader', 'background: lightgreen;');
-
-        loaderFrame = document.createElement('iframe');
-        loaderFrame.name = 'thumbInfoLoader';
-        loaderFrame.src  = BASE_URL;
-        loaderFrame.className = 'xDomainLoaderFrame thumbInfo';
-        document.body.appendChild(loaderFrame);
-
-        loaderWindow = loaderFrame.contentWindow;
-
-      };
-
       var initialize = function() {
-        if (isInitialized) {
-          return new Promise(function(resolve) {
-            ZenzaWatch.util.callAsync(function() {
-              resolve();
-            });
-          });
-        }
-
-        if (isInitializing) {
-          return new Promise(function(resolve, reject) {
-            emitter.on('initialize', function(e) {
-              if (e.status === 'ok') { resolve(); } else { reject(e); }
-            });
-          });
-        }
-
-        isInitializing = true;
-        var initialPromise = new Promise(function(resolve, reject) {
-          sessions.initial = {
-            promise: initialPromise,
-            resolve: resolve,
-            reject: reject
-          };
-          window.setTimeout(function() {
-            if (!isInitialized) {
-              var rej = {
-                status: 'fail',
-                message: '初期化タイムアウト(getThumbInfo)'
-              };
-              reject(rej);
-              emitter.emit('initialize', rej);
-            }
-          }, 60 * 1000);
-          initializeCrossDomainGate(resolve, reject);
-
+        initialize = _.noop;
+        cacheStorage = new CacheStorage(sessionStorage);
+        gate = new CrossDomainGate({
+          baseUrl: BASE_URL,
+          origin: MESSAGE_ORIGIN,
+          type: 'thumbInfoApi',
+          messager: WindowMessageEmitter
         });
-        return initialPromise;
       };
 
       var load = function(watchId) {
-        if (!cacheStorage) {
-          cacheStorage = new CacheStorage(sessionStorage);
-        }
+        initialize();
 
         return new Promise(function(resolve, reject) {
           var cache = cacheStorage.getItem('thumbInfo_' + watchId);
           if (cache) {
-            window.console.log('cache exist');
+            console.log('cache exist: ', watchId);
             ZenzaWatch.util.callAsync(function() { resolve(cache); });
             return;
           }
 
-          var sessionId = watchId + '_' + Math.random();
+          gate.load(BASE_URL + 'api/getthumbinfo/' + watchId).then(function(result) {
+            result = parseXml(result);
+            if (result.status === 'ok') {
+              resolve(result);
+            } else {
+              reject(result);
+            }
+          });
+        });
+      };
 
-          sessions[sessionId] = {
-            resolve: resolve,
-            reject: reject
-          };
+      return {
+        load: load
+      };
+    })();
+    ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
+// ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
 
-          initialize().then(function() {
-            window.console.log('thumbInfoApiWindow initialized');
-            try {
-              var url = BASE_URL + 'api/getthumbinfo/' + watchId;
-              loaderWindow.postMessage(JSON.stringify({
-                sessionId: sessionId,
-                url: url
-              }),
-              MESSAGE_ORIGIN);
-            } catch (e) {
-              console.log('%cException!', 'background: red;', e);
-              delete sessions[sessionId];
-              ZenzaWatch.util.callAsync(function() { reject({messge: 'postMessage fail'}); });
-              return Promise.reject({
-                status: 'fail',
-                message: 'メッセージ送信失敗(getThumbInfo)'
+    var VitaApiLoader = (function() {
+      var BASE_URL = 'http://api.ce.nicovideo.jp/api/v1/system.unixtime';
+      var MESSAGE_ORIGIN = 'http://api.ce.nicovideo.jp/';
+      var gate = null;
+      var cacheStorage;
+      var STORAGE_PREFIX = 'vitaApi_';
+
+      var initialize = function() {
+        initialize = _.noop;
+        cacheStorage = new CacheStorage(sessionStorage);
+        gate = new CrossDomainGate({
+          baseUrl: BASE_URL,
+          origin: MESSAGE_ORIGIN,
+          type: 'vitaApi',
+          messager: WindowMessageEmitter
+        });
+      };
+
+      var saveCache = function(videoInfoList) {
+        _.each(videoInfoList, function(videoInfo) {
+          var videoId = videoInfo.video.id;
+          cacheStorage.setItem(STORAGE_PREFIX + videoId, videoInfo);
+        });
+      };
+      var loadCache = function(watchIds) {
+        var result = {};
+        _.each(watchIds, function(watchId) {
+          var videoInfo = cacheStorage.getItem(STORAGE_PREFIX + watchId);
+          if (!videoInfo) { return; }
+          result[watchId] = videoInfo;
+        });
+        return result;
+      };
+
+      var load = function(watchIds) {
+        initialize();
+        watchIds = _.isArray(watchIds) ? watchIds : [watchIds];
+
+        var cacheList = {};
+        var noChacheWatchIds = _.filter(watchIds, function(watchId) {
+          var cache = cacheStorage.getItem(STORAGE_PREFIX + watchId);
+          if (cache) {
+            cacheList[watchId] = cache;
+            return false;
+          }
+          return true;
+        });
+
+        return new Promise(function(resolve, reject) {
+          if (watchIds.length < 1) {
+            ZenzaWatch.util.callAsync(function() {
+              resolve(cacheList);
+            });
+            return;
+          }
+
+          var url = '/nicoapi/v1/video.array?v=' +
+            noChacheWatchIds.join(',') + '&__format=json';
+
+          gate.ajax({
+            url: url,
+            dataType: 'json'
+          }).then(function(json) {
+            ZenzaWatch.debug.lastVitaApiResult = json;
+            var status = json.nicovideo_video_response['@status'];
+            if (status === 'ok') {
+              var videoInfoList = json.nicovideo_video_response.video_info || [];
+              videoInfoList = _.isArray(videoInfoList) ? videoInfoList : [videoInfoList];
+              saveCache(videoInfoList);
+              resolve(loadCache(watchIds));
+            } else {
+              reject({
+                status: status,
+                message: '取得失敗',
+                resp: json
               });
             }
           });
         });
       };
 
-      _.assign(emitter, {
+      return {
         load: load
-      });
-
-      return emitter;
+      };
     })();
-    ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
-// ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
+    ZenzaWatch.api.VitaApiLoader = VitaApiLoader;
+
 
     var MessageApiLoader = (function() {
       var VERSION_OLD = '20061206';
@@ -531,7 +531,7 @@ var isSameOrigin = function() {};
 
           var self = this;
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: url,
               contentType: 'text/plain',
               crossDomain: true,
@@ -563,7 +563,7 @@ var isSameOrigin = function() {};
 
           console.log('getPostkey url: ', url);
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: url,
               contentType: 'text/plain',
               crossDomain: true,
@@ -667,7 +667,7 @@ var isSameOrigin = function() {};
           // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
           var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: server,
               data: xml,
               timeout: 60000,
@@ -710,7 +710,7 @@ var isSameOrigin = function() {};
 
           console.log('%cthread url:', 'background: cyan;', url);
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: url,
               timeout: 60000,
               crossDomain: true,
@@ -901,11 +901,8 @@ var isSameOrigin = function() {};
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
       var TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
-//      var LONG_EXPIRE_TIME  = 90 * 24 * 60 * 60 * 1000;
       var token = '';
       var cacheStorage = null;
-
-      var ajax = ZenzaWatch.util.ajax;
 
       function MylistApiLoader() {
         this.initialize.apply(this, arguments);
@@ -1247,88 +1244,232 @@ var isSameOrigin = function() {};
 
       return MylistApiLoader;
     })();
-
     ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
     ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
 //    window.mmm = ZenzaWatch.init.mylistApiLoader;
 
 
+    var CrossDomainGate = function() { this.initialize.apply(this, arguments); };
+    _.extend(CrossDomainGate.prototype, AsyncEmitter.prototype);
+    _.assign(CrossDomainGate.prototype, {
+      initialize: function(params) {
+        this._baseUrl  = params.baseUrl;
+        this._origin   = params.origin || location.href;
+        this._type     = params.type;
+        this._messager = params.messager || WindowMessageEmitter;
+
+        this._loaderFrame = null;
+        this._sessions = {};
+        this._initializeStatus = '';
+      },
+      _initializeFrame: function() {
+        var self = this;
+        switch (this._initializeStatus) {
+          case 'done':
+            return new Promise(function(resolve) {
+              ZenzaWatch.util.callAsync(function() {
+                resolve();
+              });
+            });
+          case 'initializing':
+            return new Promise(function(resolve, reject) {
+              self.on('initialize', function(e) {
+                if (e.status === 'ok') { resolve(); } else { reject(e); }
+              });
+            });
+          case '':
+            this._initializeStatus = 'initializing';
+            var initialPromise = new Promise(function(resolve, reject) {
+              self._sessions.initial = {
+                promise: initialPromise,
+                resolve: resolve,
+                reject: reject
+              };
+              window.setTimeout(function() {
+                if (self._initializeStatus !== 'done') {
+                  var rej = {
+                    status: 'fail',
+                    message: 'CrossDomainGate初期化タイムアウト (' + self._type + ')'
+                  };
+                  reject(rej);
+                  self.emit('initialize', rej);
+                }
+              }, 60 * 1000);
+              self._initializeCrossDomainGate();
+
+            });
+          return initialPromise;
+        }
+      },
+      _initializeCrossDomainGate: function() {
+        this._initializeCrossDomainGate = _.noop;
+        this._messager.on('onMessage', _.bind(this._onMessage, this));
+
+        console.log('%c initialize ' + this._type, 'background: lightgreen;');
+
+        var loaderFrame = document.createElement('iframe');
+        loaderFrame.name = this._type + 'Loader';
+        loaderFrame.src  = this._baseUrl;
+        loaderFrame.className = 'xDomainLoaderFrame ' + this.type;
+        document.body.appendChild(loaderFrame);
+
+        this._loaderFrame = loaderFrame;
+        this._loaderWindow = loaderFrame.contentWindow;
+        this._messager.addKnownSource(this._loaderWindow);
+      },
+      _onMessage: function(data, type) {
+        if (type !== this._type) { return; }
+        var info      = data.message;
+        var token     = info.token;
+        var sessionId = info.sessionId;
+        var status    = info.status;
+        var command   = info.command || 'loadUrl';
+        var session   = this._sessions[sessionId];
+
+        if (status === 'initialized') {
+          window.console.log(type + ' initialized');
+          this._initializeStatus = 'done';
+          this._sessions.initial.resolve();
+          this.emitAsync('initialize', {status: 'ok'});
+          return;
+        }
+
+        if (token !== TOKEN) {
+          window.console.log('invalid token:', token, TOKEN);
+          return;
+        }
+
+        switch (command) {
+          case 'dumpConfig':
+            this._onDumpConfig(info.body);
+            break;
+
+          default:
+            if (!session) { return; }
+            if (status === 'ok') { session.resolve(info.body); }
+            else { session.reject({ message: status }); }
+            session = null;
+            delete this._sessions[sessionId];
+            break;
+        }
+      },
+      load: function(url, options) {
+        return this._postMessage({
+          command: 'loadUrl',
+          url: url,
+          options: options
+        }, true);
+      },
+      ajax: function(options) {
+        var url = options.url;
+        return this.load(url, options).then(function(result) {
+          //window.console.log('xDomain ajax result', result);
+          ZenzaWatch.debug.lastCrossDomainAjaxResult = result;
+          try {
+            var dataType = (options.dataType || '').toLowerCase();
+            switch (dataType) {
+              case 'json':
+                var json = JSON.parse(result);
+                return Promise.resolve(json);
+              case 'xml':
+                var parser = new DOMParser();
+                var xml = parser.parseFromString(result, 'text/xml');
+                return Promise.resolve(xml);
+            }
+            return Promise.resolve(result);
+          } catch (e) {
+            return Promise.reject({
+              status: 'fail',
+              message: 'パース失敗',
+              error: e
+            });
+          }
+        });
+      },
+      configBridge: function(config) {
+        var self = this;
+        var keys = config.getKeys();
+        self._config = config;
+
+        return new Promise(function(resolve) {
+          self._configBridgeResolve = resolve;
+          self._postMessage({
+            url: '',
+            command: 'dumpConfig',
+            keys: keys
+          });
+        });
+      },
+      _postMessage: function(message, needPromise) {
+        var self = this;
+        return new Promise(function(resolve, reject) {
+          message.sessionId = self._type + '_' + Math.random();
+          message.token = TOKEN;
+          if (needPromise) {
+            self._sessions[message.sessionId] = {
+              resolve: resolve,
+              reject: reject
+            };
+          }
+
+          return self._initializeFrame().then(function() {
+            try {
+              self._loaderWindow.postMessage(
+                JSON.stringify(message),
+                self._origin
+              );
+            } catch (e) {
+              console.log('%cException!', 'background: red;', e);
+            }
+          });
+        });
+      },
+      _onDumpConfig: function(configData) {
+        //window.console.log('_onDumpConfig', configData);
+        var self = this;
+        _.each(Object.keys(configData), function(key) {
+          //window.console.log('config %s: %s', key, configData[key]);
+          self._config.setValue(key, configData[key]);
+        });
+
+        this._config.on('update', function(key, value) {
+          if (key === 'autoCloseFullScreen') { return; }
+
+          self._postMessage({
+            command: 'saveConfig',
+            key: key,
+            value: value
+          });
+        });
+        self._configBridgeResolve();
+      },
+      pushHistory: function(path) {
+        var self = this;
+        var sessionId = self._type +'_' + Math.random();
+        self._initializeFrame().then(function() {
+          try {
+            self._loaderWindow.postMessage(JSON.stringify({
+              sessionId: sessionId,
+              command: 'pushHistory',
+              path: path
+            }),
+            self._origin);
+          } catch (e) {
+            console.log('%cException!', 'background: red;', e);
+          }
+        });
+      },
+    });
+
+    if (location.host !== 'www.nicovideo.jp') {
+      NicoVideoApi = new CrossDomainGate({
+        baseUrl: 'http://www.nicovideo.jp/favicon.ico',
+        origin: 'http://www.nicovideo.jp/',
+        type: 'nicovideoApi',
+        messager: WindowMessageEmitter
+      });
+    }
+
 //===END===
 
-/*
-<nicovideo_thumb_response status="ok">
-<thumb>
-<video_id>so28281724</video_id>
-<title>この素晴らしい世界に祝福を！　第6話「このろくでもない戦いに決着を！」</title>
-<description>
-「なぜ城に来ないのだ、この人でなしどもがああっ！」魔王軍の幹部、デュラハンが再び大激怒で街に現れた。大きくて硬いモノでないと我慢できない体になってしまったというめぐみんは、あの事件の後も毎日せっせとデュラハンの居城に爆裂魔法を撃ち込んでいたというのだ。おまけに共犯者の駄女神からも小バカにされ、デュラハンの怒りゲージは怒髪天に。とうとう戦闘に突入するが、相手は腐っても魔王軍幹部のひとり。その力は想像以上に圧倒的で……。「愚かな駆け出し冒険者どもよ、魔王軍に刃向かった報いと知れ！」。八方塞がり、絶体絶命の大ピンチに!!コミック版がニコニコ静画ですぐ読める！動画一覧はこちら第5話 watch/1455593126
-</description>
-<thumbnail_url>http://tn-skr1.smilevideo.jp/smile?i=28281724</thumbnail_url>
-<first_retrieve>2016-02-27T12:00:00+09:00</first_retrieve>
-<length>23:40</length>
-<movie_type>mp4</movie_type>
-<size_high>147764562</size_high>
-<size_low>46961882</size_low>
-<view_counter>403878</view_counter>
-<comment_num>0</comment_num>
-<mylist_counter>2599</mylist_counter>
-<last_res_body/>
-<watch_url>http://www.nicovideo.jp/watch/so28281724</watch_url>
-<thumb_type>video</thumb_type>
-<embeddable>1</embeddable>
-<no_live_play>0</no_live_play>
-<tags domain="jp">
-<tag category="1" lock="1">アニメ</tag>
-<tag lock="1">この素晴らしい世界に祝福を！</tag>
-<tag>【タグ編集はできません】</tag>
-</tags>
-</thumb>
-</nicovideo_thumb_response>
-
-
-
-<nicovideo_thumb_response status="ok">
-<thumb>
-<size_high>21138631</size_high>
-<size_low>17436492</size_low>
-
-</thumb>
-</nicovideo_thumb_response>
-_videoDetail: Object
-area: "jp"
-can_translate: false
-category: null
-channelId: null
-commons_tree_exists: true
-communityId: null
-description: "様"
-dicArticleURL: "http://dic.nicovideo.jp/v/sm28211015"
-for_bgm: false
-has_owner_thread: null
-height: 360
-highest_rank: null
-id: "sm28211015"
-isDeleted: false
-isMonetized: false
-isMymemory: false
-isR18: false
-is_adult: null
-is_nicowari: null
-is_official: false
-is_public: true
-is_thread_owner: false
-is_translated: false
-is_uneditable_tag: false
-is_video_owner: null
-language: "ja-jp"
-mainCommunityId: null
-main_genre: null
-no_ichiba: false
-tagList: Array[5]
-thread_id: "1455355346"
-video_translation_info: false
-width: 640
-yesterday_rank: null
-__proto__: Object
- * */
- console.log(VideoInfoLoader);
+console.log(VideoInfoLoader);

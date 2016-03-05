@@ -1828,8 +1828,14 @@ var NicoTextParser = {};
 }
 
 .nicoChat.fork1 {
-  outline: dotted 1px #008800;
+  text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
 }
+.nicoChat.ue.fork1,
+.nicoChat.shita.fork1 {
+  display: inline-block;
+  text-shadow: 0 0 3px #080 !important;
+}
+
 .nicoChat.fork2 {
   outline: dotted 1px #000088;
 }
@@ -2165,7 +2171,7 @@ var NicoTextParser = {};
       this._updateInviewElements();
     },
     _updateInviewElements: function() {
-      if (!this._commentLayer || !this._style || !this._isShow) { return; }
+      if (!this._commentLayer || !this._style || !this._isShow || document.hidden) { return; }
 
       var groups = [
         this._viewModel.getGroup(NicoChat.TYPE.NAKA  ),

@@ -456,6 +456,13 @@ var AsyncEmitter = function() {};
     isMymemory: function() {
       return !!this._videoDetail.isMymemory;
     },
+    isCommunityVideo: function() {
+      return !!(!this.isChannel() && this._videoDetail.communityId);
+    },
+    hasParentVideo: function() {
+      return !!(this._videoDetail.commons_tree_exists);
+    },
+
 
     /**
      * 投稿者の情報

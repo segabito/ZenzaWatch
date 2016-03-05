@@ -24,6 +24,7 @@ var RelatedVideoList = function() {};
       height: calc(100% - 32px);
       overflow-x: hidden;
       overflow-y: visible;
+      text-align: left;
     }
     .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {
       overflow: hidden;
@@ -600,6 +601,10 @@ var RelatedVideoList = function() {};
 
       this._dialog.on('canplay', _.bind(this._onVideoCanPlay, this));
 
+      this._videoTitlePanel.on('command', _.bind(function(command, param) {
+        this.emit('command', command, param);
+      }, this));
+
       if (params.node) {
         this.appendTo(params.node);
       }
@@ -658,6 +663,8 @@ var RelatedVideoList = function() {};
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
+        .toggleClass('community', this._videoInfo.isCommunityVideo())
+        .toggleClass('mymemory',  this._videoInfo.isMymemory())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo');
     },
     /**
@@ -785,6 +792,8 @@ var RelatedVideoList = function() {};
   });
 
   var VideoHeaderPanel = function() { this.initialize.apply(this, arguments); };
+  _.extend(VideoHeaderPanel.prototype, AsyncEmitter.prototype);
+
   VideoHeaderPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .zenzaWatchVideoHeaderPanel {
       position: fixed;
@@ -841,10 +850,11 @@ var RelatedVideoList = function() {};
       bottom: auto;
       background: #272727;
       opacity: 0.9;
+      height: 40px;
     }
     {* ヘッダ追従 *}
     body.zenzaScreenMode_sideView:not(.nofix):not(.fullScreen)  .zenzaWatchVideoHeaderPanel {
-      top: 36px;
+      top: 0;
     }
     {* ヘッダ固定 *}
     body.zenzaScreenMode_sideView.nofix:not(.fullScreen)        .zenzaWatchVideoHeaderPanel {
@@ -854,7 +864,14 @@ var RelatedVideoList = function() {};
       position: absolute;
       top: 36px;
       *}
-      top: 0px;
+    }
+    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+      margin: 0;
+    }
+    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .publicStatus,
+    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .videoTagsContainer
+    {
+      display: none;
     }
 
     .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
@@ -899,6 +916,25 @@ var RelatedVideoList = function() {};
     }
     .zenzaWatchVideoHeaderPanel .videoTitle:hover {
     }
+    .zenzaWatchVideoHeaderPanel .videoTitle::before {
+      display: none;
+      position: absolute;
+      font-size: 12px;
+      top: 0;
+      left: 0;
+      background: #333;
+      border: 1px solid #888;
+      padding: 2px 4px;
+      pointer-events: none;
+    }
+    .zenzaWatchVideoHeaderPanel.mymemory:not(:hover) .videoTitle::before {
+      content: 'マイメモリー';
+      display: inline-block;
+    }
+    .zenzaWatchVideoHeaderPanel.community:not(:hover) .videoTitle::before {
+      content: 'コミュニティ動画';
+      display: inline-block;
+    }
 
     .zenzaWatchVideoHeaderPanel .videoTitleContainer       .hoverLinkContainer {
       display: none;
@@ -927,6 +963,16 @@ var RelatedVideoList = function() {};
       white-space: nowrap;
       color: #fff;
       width: 100%;
+    }
+
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer .parentLinkBox,
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer .originalLinkBox {
+      display: none;
+    }
+    .zenzaWatchVideoHeaderPanel.hasParent  .videoTitleContainer .parentLinkBox,
+    .zenzaWatchVideoHeaderPanel.mymemory   .videoTitleContainer .originalLinkBox,
+    .zenzaWatchVideoHeaderPanel.community  .videoTitleContainer .originalLinkBox {
+      display: inline-block;
     }
 
     .videoTitleLink {
@@ -1000,6 +1046,12 @@ var RelatedVideoList = function() {};
           <div class="hoverLink hash">
             <a class="hashLink  noHoverMenu" target="_blank" title="twitter検索"></a>
           </div>
+          <div class="hoverLink hash originalLinkBox">
+            <a class="originalLink  noHoverMenu">元動画を開く</a>
+          </div>
+          <div class="hoverLink hash parentLinkBox">
+            <a class="parentLink  noHoverMenu" target="_blank">親作品</a>
+          </div>
         </div>
       </h2>
       <p class="publicStatus">
@@ -1033,11 +1085,13 @@ var RelatedVideoList = function() {};
       ZenzaWatch.util.addStyle(VideoHeaderPanel.__css__);
       var $view = this._$view = $(VideoHeaderPanel.__tpl__);
 
-      this._$videoTitle = $view.find('.videoTitle');
-      this._$ginzaLink = $view.find('.ginzaLink');
-      this._$uadLink   = $view.find('.uadLink');
-      this._$hashLink  = $view.find('.hashLink');
-      this._$postedAt  = $view.find('.postedAt');
+      this._$videoTitle   = $view.find('.videoTitle');
+      this._$ginzaLink    = $view.find('.ginzaLink');
+      this._$uadLink      = $view.find('.uadLink');
+      this._$hashLink     = $view.find('.hashLink');
+      this._$originalLink = $view.find('.originalLink');
+      this._$parentLink   = $view.find('.parentLink');
+      this._$postedAt     = $view.find('.postedAt');
 
       this._$viewCount    = $view.find('.viewCount');
       this._$commentCount = $view.find('.commentCount');
@@ -1050,6 +1104,15 @@ var RelatedVideoList = function() {};
       this._$ginzaLink.on('click', stopPropagation);
       this._$hashLink.on('click', stopPropagation);
       this._$uadLink.on('click', stopPropagation);
+      this._$parentLink.on('click', stopPropagation);
+      this._$originalLink.on('click', _.bind(function(e) {
+        stopPropagation(e);
+        e.preventDefault();
+        var $target = $(e.target), videoId = $target.attr('data-video-id');
+        if (videoId) {
+          this.emit('command', 'open', videoId);
+        }
+      }, this));
 
       this._$ginzaLink.on('mousedown', _.bind(this._onGinzaLinkMouseDown, this));
     },
@@ -1059,17 +1122,24 @@ var RelatedVideoList = function() {};
       this._$videoTitle.html(videoInfo.getTitle()).attr('title', videoInfo.getTitle());
       this._$postedAt.text(videoInfo.getPostedAt());
 
-      var link = '//nico.ms/' + videoInfo.getWatchId();
+      var watchId = videoInfo.getWatchId(), videoId = videoInfo.getVideoId();
+      var link = '//nico.ms/' + watchId;
       this._$ginzaLink.attr('href', link);
       this._$ginzaLink.attr('data-ginzawatch', link);
 
-      var uadLink = '//uad.nicovideo.jp/ads/?vid='  + videoInfo.getWatchId();
+      var uadLink = '//uad.nicovideo.jp/ads/?vid='  + watchId;
       this._$uadLink.attr('href', uadLink);
 
-      var hashLink = 'https://twitter.com/hashtag/' + videoInfo.getVideoId() + '?src=hash';
+      var hashLink = 'https://twitter.com/hashtag/' + videoId + '?src=hash';
       this._$hashLink
         .text('#' + videoInfo.getVideoId())
         .attr('href', hashLink);
+
+      this._$originalLink
+        .attr('href', '//nico.ms/' + videoId)
+        .attr('data-video-id',       videoId);
+
+      this._$parentLink.attr('href', '//commons.nicovideo.jp/tree/' + videoId);
 
       var count = videoInfo.getCount();
       var addComma = function(m) {
@@ -1083,6 +1153,9 @@ var RelatedVideoList = function() {};
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
+        .toggleClass('community', this._videoInfo.isCommunityVideo())
+        .toggleClass('mymemory',  this._videoInfo.isMymemory())
+        .toggleClass('hasParent', this._videoInfo.hasParentVideo())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo')
         .css('display', '');
     },
@@ -1111,12 +1184,15 @@ var RelatedVideoList = function() {};
         var text = tag.tag;
         var $dic = createDicIcon(text, tag.dic);
         var $link = createLink(text);
-        var $tag = $('<li class="tag" />');
+        var $tag = $('<li class="zenza-tag" />');
         $tag.append($dic);
         $tag.append($link);
         $tagList.append($tag);
       });
       $container.append($tagList);
+      ZenzaWatch.util.callAsync(function() {
+        $tagList.find('li:not(.zenza-tag), .zenza-tag a:not(.nicodic):not(.tagLink)').remove();
+      }, 100);
     },
     _onGinzaLinkMouseDown: function() {
       this._dialog.pause();

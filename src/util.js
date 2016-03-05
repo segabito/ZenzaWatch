@@ -4,6 +4,7 @@ var ZenzaWatch = {
   util:{},
   debug: {}
 };
+var NicoVideoApi = {};
 var console;
 
 //===BEGIN===
@@ -91,7 +92,7 @@ var console;
       return AsyncEmitter;
     })();
 
-    ZenzaWatch.emitter = new AsyncEmitter();
+    window.ZenzaWatch.emitter = ZenzaWatch.emitter = new AsyncEmitter();
 
     var FullScreen = {
       now: function() {
@@ -263,7 +264,9 @@ var console;
       emitter.setValue = function(key, value) {
         if (config[key] !== value && arguments.length >= 2) {
           var storageKey = prefix + key;
-          localStorage.setItem(storageKey, JSON.stringify(value));
+          if (location.host === 'www.nicovideo.jp') {
+            localStorage.setItem(storageKey, JSON.stringify(value));
+          }
           config[key] = value;
 
           console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
@@ -271,6 +274,20 @@ var console;
           this.emitAsync('update-' + key, value);
         }
       };
+
+      // イベントを投げないで設定変更だけする
+      emitter.setValueSilently = function(key, value) {
+        if (config[key] !== value && arguments.length >= 2) {
+          var storageKey = prefix + key;
+          if (location.host === 'www.nicovideo.jp') {
+            localStorage.setItem(storageKey, JSON.stringify(value));
+          }
+          config[key] = value;
+
+          console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
+        }
+      };
+
 
       /**
        * localStorageに保存しないで、ページをリロードするまでの間だけ書き換え
@@ -282,6 +299,10 @@ var console;
           this.emitAsync('update', key, value);
           this.emitAsync('update-' + key, value);
          }
+      };
+
+      emitter.getKeys = function() {
+        return Object.keys(defaultConfig);
       };
 
       return emitter;
@@ -426,6 +447,8 @@ var console;
         var key = prefix + 'PlayingStatus';
         var session = {};
         try {
+          var data = storage[key];
+          if (!data) { return session; }
           session = JSON.parse(storage[key]);
           storage.removeItem(key);
         } catch (e) {
@@ -720,10 +743,12 @@ var console;
 
     var WindowMessageEmitter = (function() {
       var asyncEmitter = new AsyncEmitter();
+      var knownSource = [];
 
         var onMessage = function(event) {
-          if (event.origin.indexOf('nicovideo.jp') < 0) return;
-          if (event.origin === 'http://ads.nicovideo.jp') return;
+          if (_.indexOf(knownSource, event.source) < 0 &&
+              event.origin !== 'http://ext.nicovideo.jp'
+              ) { return; }
           try {
             var data = JSON.parse(event.data);
             if (data.id !== 'ZenzaWatch') { return; }
@@ -740,6 +765,10 @@ var console;
             console.log('%cdata: ',   'background: yellow;', event.data);
             console.trace();
           }
+        };
+
+        asyncEmitter.addKnownSource = function(win) {
+          knownSource.push(win);
         };
 
         window.addEventListener('message', onMessage);
@@ -776,11 +805,27 @@ var console;
         Config.setValue('message', packet);
       };
 
+      WindowMessageEmitter.on('onMessage', function(data, type) {
+        if (type !== 'nicovideoApi') { return; }
+        switch (data.message.command) {
+          case 'configSync':
+            //window.console.log('configSync: ', data.message.key, data.message.value);
+            Config.setValueSilently(data.message.key, data.message.value);
+            break;
+          case 'message':
+            if (!data.message.value) { return; }
+            asyncEmitter.emit('message', JSON.parse(data.message.value));
+            break;
+        }
+      });
+
 //      asyncEmitter.ping = function() {
 //        asyncEmitter.send({id: 
 //      };
 
-      window.addEventListener('storage', onStorage);
+      if (location.host === 'www.nicovideo.jp') {
+        window.addEventListener('storage', onStorage);
+      }
 
       return asyncEmitter;
     })();
@@ -796,6 +841,11 @@ var console;
       var dialog;
 
       var onDialogOpen = function(watchId, options) {
+        if (location.host !== 'www.nicovideo.jp') {
+          if (ZenzaWatch.api.nicovideoLoader) {
+            ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId);
+          }
+        }
         var url = originalUrl;
         if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
           url = location.href;
@@ -925,6 +975,10 @@ var console;
 
 
     var ajax = function(params) {
+
+      if (location.host !== 'www.nicovideo.jp') {
+        return NicoVideoApi.ajax(params);
+      }
       // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う
       return new Promise(function(resolve, reject) {
         $.ajax(params).then(function(result) {
@@ -934,7 +988,10 @@ var console;
         });
       });
     };
-    ZenzaWatch.util.ajax = ajax;
+
+    if (location.host.match(/\.nicovideo\.jp$/)) {
+      ZenzaWatch.util.ajax = ajax;
+    }
 
     var openMylistWindow = function(watchId) {
       window.open(
@@ -1040,7 +1097,7 @@ var console;
         }
       };
 
-      initialize();
+      ZenzaWatch.emitter.on('ready', initialize);
       return emitter;
     })(Config);
   ZenzaWatch.util.ShortcutKeyEmitter = ShortcutKeyEmitter;

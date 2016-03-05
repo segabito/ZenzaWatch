@@ -38,6 +38,11 @@ var SettingPanel = function() {};
       display: none;
     }
 
+    {* 大百科の奴 *}
+    body.showNicoVideoPlayerDialog #scrollUp {
+      display: none !important;
+    }
+
     .changeScreenMode {
       pointer-events: none;
     }
@@ -57,6 +62,10 @@ var SettingPanel = function() {};
     }
     .zenzaVideoPlayerDialog.show {
       display: block;
+    }
+
+    .zenzaVideoPlayerDialog li {
+      text-align: left;
     }
 
     .zenzaScreenMode_3D       .zenzaVideoPlayerDialog,
@@ -280,15 +289,12 @@ var SettingPanel = function() {};
 
     body.zenzaScreenMode_sideView {
       margin-left: 424px;
-      {*
-      margin-top: 225px;
-      border-left: 0;
-      border-right: 0;
-      border-bottom: 0;
-      border-style: solid;
-      border-color: #272727;
-      *}
+      margin-top: 76px;
+
       width: auto;
+    }
+    body.zenzaScreenMode_sideView.nofix:not(.fullScreen) {
+      margin-top: 40px;
     }
     body.zenzaScreenMode_sideView #siteHeader {
     }
@@ -296,6 +302,7 @@ var SettingPanel = function() {};
       margin-left: 400px;
       {*z-index: 110000;*}
       width: auto;
+      top: 40px;
     }
     body.zenzaScreenMode_sideView:not(.nofix) #siteHeader #siteHeaderInner {
       width: auto;
@@ -1040,6 +1047,10 @@ var SettingPanel = function() {};
       this._isOpen = false;
     },
     open: function(watchId, options) {
+      if (!watchId) { return; }
+      // 連打対策
+      if (Date.now() - this._lastOpenAt < 1500 && this._watchId === watchId) { return; }
+
       window.console.time('動画選択から再生可能までの時間 watchId=' + watchId);
 
       var nicoVideoPlayer = this._nicoVideoPlayer;
@@ -2098,6 +2109,9 @@ var SettingPanel = function() {};
       this._$deflistAdd       = $container.find('.deflistAdd');
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
       this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
+      this._$closeButton      = $container.find('.closeButton');
+      this._$closeButton.on('mousedown',
+        _.debounce(_.bind(this.emit, this, 'command', 'close'), 300));
 
       this._$ngSettingMenu       = $container.find('.ngSettingMenu');
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');

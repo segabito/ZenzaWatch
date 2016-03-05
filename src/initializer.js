@@ -13,6 +13,8 @@ var localStorageEmitter = {};
 var PopupMessage = {};
 var VideoInfoLoader = {};
 var WatchPageState = {};
+var WindowMessageEmitter = {};
+var NicoVideoApi = {};
 
 var MessageApiLoader = function() {};
 var NicoVideoPlayer = function() {};
@@ -21,11 +23,15 @@ var AsyncEmitter = function() {};
 
 //===BEGIN===
     var initialize = function() {
-      console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
+      window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
       ZenzaWatch.util.addStyle(__css__);
 
+
       var isGinza = ZenzaWatch.util.isGinzaWatchUrl();
+      if (!ZenzaWatch.util.isLogin()) {
+        return;
+      }
 
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
@@ -100,10 +106,26 @@ var AsyncEmitter = function() {};
           dialog.open(lastSession.watchId, lastSession);
         }
 
+        WindowMessageEmitter.on('onMessage', function(data, type) {
+          var watchId = data.message.watchId;
+          if (watchId && data.message.command === 'open') {
+            //window.console.log('onMessage!: ', data.message.watchId, type);
+            dialog.open(data.message.watchId, {
+              economy: Config.getValue('forceEconomy')
+            });
+          } else if (watchId && data.message.command === 'send') {
+            localStorageEmitter.send({
+              type: 'openVideo',
+              watchId: watchId
+            });
+          }
+        });
         
       });
-      ZenzaWatch.ready = true;
-      $('body').trigger('ZenzaWatchReady', ZenzaWatch);
+
+      window.ZenzaWatch.ready = true;
+      ZenzaWatch.emitter.emitAsync('ready');
+      $('body').trigger('ZenzaWatchReady', window.ZenzaWatch);
     };
 
 
@@ -183,9 +205,9 @@ var AsyncEmitter = function() {};
         });
 
         var $body = $('body')
-          .on('mouseover', 'a[href*="watch/"]', _.bind(this._onHover, this))
-          .on('mouseover', 'a[href*="watch/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
-          .on('mouseout',  'a[href*="watch/"]', _.bind(this._onMouseout, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
+          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
           .on('click', function() { $view.removeClass('show'); });
 
         if (this._playerConfig.getValue('overrideWatchLink')) {
@@ -219,7 +241,7 @@ var AsyncEmitter = function() {};
 
         if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
-        if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
+        if (watchId.indexOf('lv') === 0) { return; }
 
         $('.zenzaWatching').removeClass('zenzaWatching');
         $target.addClass('.zenzaWatching');
@@ -269,7 +291,7 @@ var AsyncEmitter = function() {};
 
           if ($target.hasClass('noHoverMenu')) { return; }
           if (!watchId.match(/^[a-z0-9]+$/)) { return; }
-          if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
+          if (watchId.indexOf('lv') === 0) { return; }
 
           e.preventDefault();
 
@@ -303,5 +325,27 @@ var AsyncEmitter = function() {};
 
 
     if (window.name !== 'commentLayerFrame') {
-      initialize();
+      if (location.host === 'www.nicovideo.jp') {
+        initialize();
+      } else {
+        NicoVideoApi.configBridge(Config).then(function() {
+          window.console.log('%cZenzaWatch Bridge: %s', 'background: lightgreen;', location.host);
+          if (document.getElementById('siteHeaderNotification')) {
+            initialize();
+            return;
+          }
+          NicoVideoApi.ajax({url: 'http://www.nicovideo.jp/'})
+            .then(function(result) {
+              var $dom = $('<div>' + result + '</div>');
+              var isLogin = $dom.find('#siteHeaderLogin').length < 1;
+              var isPremium =
+                $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
+              window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
+              ZenzaWatch.util.isLogin   = function() { return isLogin; };
+              ZenzaWatch.util.isPremium = function() { return isPremium;  };
+              initialize();
+            });
+        });
+      }
     }
+

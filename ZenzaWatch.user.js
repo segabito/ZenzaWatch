@@ -3,20 +3,38 @@
 // @namespace      https://github.com/segabito/
 // @description    Ginzaに行かなくても動画を再生
 // @match          http://www.nicovideo.jp/*
-// @match          http://ext.nicovideo.jp/*
+// @match          http://ext.nicovideo.jp/
+// @match          http://ext.nicovideo.jp/thumb/*
+// @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime
+// @match          http://blog.nicovideo.jp/*
+// @match          http://ch.nicovideo.jp/*
+// @match          http://com.nicovideo.jp/*
+// @match          http://commons.nicovideo.jp/*
+// @match          http://dic.nicovideo.jp/*
+// @match          http://info.nicovideo.jp/*
+// @match          http://search.nicovideo.jp/*
+// @match          http://uad.nicovideo.jp/*
+// @exclude        http://ads*.nicovideo.jp/*
+// @exclude        http://www.upload.nicovideo.jp/*
+// @exclude        http://ch.nicovideo.jp/tool/*
+// @exclude        http://flapi.nicovideo.jp/*
+// @exclude        http://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.10.20
+// @version        0.11.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
+
 
 (function() {
 
 var monkey = function() {
   var console = window.console;
   console.log('exec ZenzaWatch..');
-    var $ = window.jQuery, _ = window._;
+  var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
+  var TOKEN = Math.random();
+  console.log('jQuery version: ', $.fn.jquery);
 
     var ZenzaWatch = {
       debug: {},
@@ -24,7 +42,7 @@ var monkey = function() {
       init: {},
       util: {
         hereDoc: function(func) { // えせヒアドキュメント
-          return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/');
+          return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/').trim();
         },
         callAsync: function(func, self, delay) {
           delay = delay || 0;
@@ -37,7 +55,11 @@ var monkey = function() {
       }
     };
 
-    window.ZenzaWatch = ZenzaWatch;
+    if (location.host.match(/\.nicovideo\.jp$/)) {
+      window.ZenzaWatch = ZenzaWatch;
+    } else {
+      window.ZenzaWatch = {};
+    }
 
 
     var AsyncEmitter = (function() {
@@ -123,7 +145,7 @@ var monkey = function() {
       return AsyncEmitter;
     })();
 
-    ZenzaWatch.emitter = new AsyncEmitter();
+    window.ZenzaWatch.emitter = ZenzaWatch.emitter = new AsyncEmitter();
 
     var FullScreen = {
       now: function() {
@@ -295,7 +317,9 @@ var monkey = function() {
       emitter.setValue = function(key, value) {
         if (config[key] !== value && arguments.length >= 2) {
           var storageKey = prefix + key;
-          localStorage.setItem(storageKey, JSON.stringify(value));
+          if (location.host === 'www.nicovideo.jp') {
+            localStorage.setItem(storageKey, JSON.stringify(value));
+          }
           config[key] = value;
 
           console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
@@ -303,6 +327,20 @@ var monkey = function() {
           this.emitAsync('update-' + key, value);
         }
       };
+
+      // イベントを投げないで設定変更だけする
+      emitter.setValueSilently = function(key, value) {
+        if (config[key] !== value && arguments.length >= 2) {
+          var storageKey = prefix + key;
+          if (location.host === 'www.nicovideo.jp') {
+            localStorage.setItem(storageKey, JSON.stringify(value));
+          }
+          config[key] = value;
+
+          console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
+        }
+      };
+
 
       /**
        * localStorageに保存しないで、ページをリロードするまでの間だけ書き換え
@@ -314,6 +352,10 @@ var monkey = function() {
           this.emitAsync('update', key, value);
           this.emitAsync('update-' + key, value);
          }
+      };
+
+      emitter.getKeys = function() {
+        return Object.keys(defaultConfig);
       };
 
       return emitter;
@@ -458,6 +500,8 @@ var monkey = function() {
         var key = prefix + 'PlayingStatus';
         var session = {};
         try {
+          var data = storage[key];
+          if (!data) { return session; }
           session = JSON.parse(storage[key]);
           storage.removeItem(key);
         } catch (e) {
@@ -752,10 +796,12 @@ var monkey = function() {
 
     var WindowMessageEmitter = (function() {
       var asyncEmitter = new AsyncEmitter();
+      var knownSource = [];
 
         var onMessage = function(event) {
-          if (event.origin.indexOf('nicovideo.jp') < 0) return;
-          if (event.origin === 'http://ads.nicovideo.jp') return;
+          if (_.indexOf(knownSource, event.source) < 0 &&
+              event.origin !== 'http://ext.nicovideo.jp'
+              ) { return; }
           try {
             var data = JSON.parse(event.data);
             if (data.id !== 'ZenzaWatch') { return; }
@@ -772,6 +818,10 @@ var monkey = function() {
             console.log('%cdata: ',   'background: yellow;', event.data);
             console.trace();
           }
+        };
+
+        asyncEmitter.addKnownSource = function(win) {
+          knownSource.push(win);
         };
 
         window.addEventListener('message', onMessage);
@@ -808,11 +858,27 @@ var monkey = function() {
         Config.setValue('message', packet);
       };
 
+      WindowMessageEmitter.on('onMessage', function(data, type) {
+        if (type !== 'nicovideoApi') { return; }
+        switch (data.message.command) {
+          case 'configSync':
+            //window.console.log('configSync: ', data.message.key, data.message.value);
+            Config.setValueSilently(data.message.key, data.message.value);
+            break;
+          case 'message':
+            if (!data.message.value) { return; }
+            asyncEmitter.emit('message', JSON.parse(data.message.value));
+            break;
+        }
+      });
+
 //      asyncEmitter.ping = function() {
 //        asyncEmitter.send({id: 
 //      };
 
-      window.addEventListener('storage', onStorage);
+      if (location.host === 'www.nicovideo.jp') {
+        window.addEventListener('storage', onStorage);
+      }
 
       return asyncEmitter;
     })();
@@ -828,6 +894,11 @@ var monkey = function() {
       var dialog;
 
       var onDialogOpen = function(watchId, options) {
+        if (location.host !== 'www.nicovideo.jp') {
+          if (ZenzaWatch.api.nicovideoLoader) {
+            ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId);
+          }
+        }
         var url = originalUrl;
         if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
           url = location.href;
@@ -957,6 +1028,10 @@ var monkey = function() {
 
 
     var ajax = function(params) {
+
+      if (location.host !== 'www.nicovideo.jp') {
+        return NicoVideoApi.ajax(params);
+      }
       // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う
       return new Promise(function(resolve, reject) {
         $.ajax(params).then(function(result) {
@@ -966,7 +1041,10 @@ var monkey = function() {
         });
       });
     };
-    ZenzaWatch.util.ajax = ajax;
+
+    if (location.host.match(/\.nicovideo\.jp$/)) {
+      ZenzaWatch.util.ajax = ajax;
+    }
 
     var openMylistWindow = function(watchId) {
       window.open(
@@ -1072,7 +1150,7 @@ var monkey = function() {
         }
       };
 
-      initialize();
+      ZenzaWatch.emitter.on('ready', initialize);
       return emitter;
     })(Config);
   ZenzaWatch.util.ShortcutKeyEmitter = ShortcutKeyEmitter;
@@ -1260,6 +1338,7 @@ var monkey = function() {
 
         loaderWindow = loaderFrame.contentWindow;
 
+        WindowMessageEmitter.addKnownSource(loaderWindow);
         WindowMessageEmitter.on('onMessage', onMessage);
       };
 
@@ -1353,7 +1432,7 @@ var monkey = function() {
             url = url + '?eco=1';
             console.log('%cエコノミーにフォールバック(flv)', 'background: cyan; color: red;', url);
             window.setTimeout(function() {
-              $.ajax({
+              ajax({
                 url: url,
                 xhrFields: { withCredentials: true },
                 //beforeSend: function(xhr) {
@@ -1388,7 +1467,7 @@ var monkey = function() {
           }
         };
 
-        $.ajax({
+        ajax({
           url: url,
           xhrFields: { withCredentials: true },
           // referrerによってplaylistの中身が変わるので無難な物にする
@@ -1410,7 +1489,7 @@ var monkey = function() {
       };
 
       var load = function(watchId, options) {
-        if (isLogin() && isSameOrigin()) {
+        if (isLogin()) {
           loadFromWatchApiData(watchId, options);
         } else {
           loadFromThumbWatch(watchId, options);
@@ -1424,48 +1503,17 @@ var monkey = function() {
       return videoInfoLoader;
     })();
 
+
+
     var ThumbInfoLoader = (function() {
-      var BASE_URL = 'http://ext.nicovideo.jp/'; // thumb_watch';
+      var BASE_URL = 'http://ext.nicovideo.jp/';
       var MESSAGE_ORIGIN = 'http://ext.nicovideo.jp/';
-      var loaderFrame, loaderWindow;
-      var emitter = new AsyncEmitter();
+      var gate = null;
       var cacheStorage;
-      var sessions = {};
-      var isInitialized = false;
-      var isInitializing = false;
 
-      var onMessage = function(data, type) {
-        if (type !== 'thumbInfoApi') { return; }
-        window.console.log('thumbInfoApi.onMessage', data, type);
-        var info      = data.message;
-        var sessionId = info.sessionId;
-        var status    = info.status;
-        var session   = sessions[sessionId];
-
-        //window.console.log('status:', status);
-        if (status === 'initialized') {
-          isInitialized = true;
-          isInitializing = false;
-          sessions.initial.resolve();
-          emitter.emit('initialize', {status: 'ok'});
-        }
-        if (!session) {
-          return;
-        }
-
-        if (status === 'ok') {
-          session.resolve(parseXml(info.body));
-        } else {
-          session.reject({
-            message: status
-          });
-        }
-
-      };
-     var parseXml = function(xmlText) {
+      var parseXml = function(xmlText) {
         var parser = new DOMParser();
         var xml = parser.parseFromString(xmlText, 'text/xml');
-
         var val = function(name) {
           var elms = xml.getElementsByTagName(name);
           if (elms.length < 1) {
@@ -1473,6 +1521,16 @@ var monkey = function() {
           }
           return elms[0].innerHTML;
         };
+
+        var resp = xml.getElementsByTagName('nicovideo_thumb_response');
+        if (resp.length < 1 || resp[0].getAttribute('status') !== 'ok') {
+          return {
+            status: 'fail',
+            code: val('code'),
+            message: val('description')
+          };
+        }
+
         var duration = (function() {
           var tmp = val('length').split(':');
           return parseInt(tmp[0], 10) * 60 + parseInt(tmp[1], 10);
@@ -1480,28 +1538,27 @@ var monkey = function() {
         var watchId = val('watch_url').split('/').reverse()[0];
         var postedAt = (new Date(val('first_retrieve'))).toLocaleString();
         var tags = (function() {
-          var result = [];
-          var t = xml.getElementsByTagName('tag');
-          t.forEach(function(tag) {
+          var result = [], t = xml.getElementsByTagName('tag');
+          _.each(t, function(tag) {
             result.push(tag.innerHTML);
           });
           return result;
-        });
+        })();
 
         var result = {
+          status: 'ok',
           v:     watchId,
           id:    val('video_id'),
           title: val('title'),
-          description: val('description'),
-          thumbnail: val('thumbnail_url'),
-          movieType: val('movie_type'),
-          lastResBody: val('last_res_body'),
-          duration: duration,
-          postedAt: postedAt,
+          description:  val('description'),
+          thumbnail:    val('thumbnail_url'),
+          movieType:    val('movie_type'),
+          lastResBody:  val('last_res_body'),
+          duration:     duration,
+          postedAt:     postedAt,
           mylistCount:  parseInt(val('mylist_counter'), 10),
           viewCount:    parseInt(val('view_counter'), 10),
           commentCount: parseInt(val('comment_num'), 10),
-
           tagList: tags
         };
         var userId = val('user_id');
@@ -1531,114 +1588,133 @@ var monkey = function() {
         return result;
       };
 
-      // クロスドメインの壁を越えるゲートを開く
-      var initializeCrossDomainGate = function() {
-
-        initializeCrossDomainGate = _.noop;
-        WindowMessageEmitter.on('onMessage', onMessage);
-
-        console.log('%c initialize videoInfoLoader', 'background: lightgreen;');
-
-        loaderFrame = document.createElement('iframe');
-        loaderFrame.name = 'thumbInfoLoader';
-        loaderFrame.src  = BASE_URL;
-        loaderFrame.className = 'xDomainLoaderFrame thumbInfo';
-        document.body.appendChild(loaderFrame);
-
-        loaderWindow = loaderFrame.contentWindow;
-
-      };
-
       var initialize = function() {
-        if (isInitialized) {
-          return new Promise(function(resolve) {
-            ZenzaWatch.util.callAsync(function() {
-              resolve();
-            });
-          });
-        }
-
-        if (isInitializing) {
-          return new Promise(function(resolve, reject) {
-            emitter.on('initialize', function(e) {
-              if (e.status === 'ok') { resolve(); } else { reject(e); }
-            });
-          });
-        }
-
-        isInitializing = true;
-        var initialPromise = new Promise(function(resolve, reject) {
-          sessions.initial = {
-            promise: initialPromise,
-            resolve: resolve,
-            reject: reject
-          };
-          window.setTimeout(function() {
-            if (!isInitialized) {
-              var rej = {
-                status: 'fail',
-                message: '初期化タイムアウト(getThumbInfo)'
-              };
-              reject(rej);
-              emitter.emit('initialize', rej);
-            }
-          }, 60 * 1000);
-          initializeCrossDomainGate(resolve, reject);
-
+        initialize = _.noop;
+        cacheStorage = new CacheStorage(sessionStorage);
+        gate = new CrossDomainGate({
+          baseUrl: BASE_URL,
+          origin: MESSAGE_ORIGIN,
+          type: 'thumbInfoApi',
+          messager: WindowMessageEmitter
         });
-        return initialPromise;
       };
 
       var load = function(watchId) {
-        if (!cacheStorage) {
-          cacheStorage = new CacheStorage(sessionStorage);
-        }
+        initialize();
 
         return new Promise(function(resolve, reject) {
           var cache = cacheStorage.getItem('thumbInfo_' + watchId);
           if (cache) {
-            window.console.log('cache exist');
+            console.log('cache exist: ', watchId);
             ZenzaWatch.util.callAsync(function() { resolve(cache); });
             return;
           }
 
-          var sessionId = watchId + '_' + Math.random();
+          gate.load(BASE_URL + 'api/getthumbinfo/' + watchId).then(function(result) {
+            result = parseXml(result);
+            if (result.status === 'ok') {
+              resolve(result);
+            } else {
+              reject(result);
+            }
+          });
+        });
+      };
 
-          sessions[sessionId] = {
-            resolve: resolve,
-            reject: reject
-          };
+      return {
+        load: load
+      };
+    })();
+    ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
+// ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
 
-          initialize().then(function() {
-            window.console.log('thumbInfoApiWindow initialized');
-            try {
-              var url = BASE_URL + 'api/getthumbinfo/' + watchId;
-              loaderWindow.postMessage(JSON.stringify({
-                sessionId: sessionId,
-                url: url
-              }),
-              MESSAGE_ORIGIN);
-            } catch (e) {
-              console.log('%cException!', 'background: red;', e);
-              delete sessions[sessionId];
-              ZenzaWatch.util.callAsync(function() { reject({messge: 'postMessage fail'}); });
-              return Promise.reject({
-                status: 'fail',
-                message: 'メッセージ送信失敗(getThumbInfo)'
+    var VitaApiLoader = (function() {
+      var BASE_URL = 'http://api.ce.nicovideo.jp/api/v1/system.unixtime';
+      var MESSAGE_ORIGIN = 'http://api.ce.nicovideo.jp/';
+      var gate = null;
+      var cacheStorage;
+      var STORAGE_PREFIX = 'vitaApi_';
+
+      var initialize = function() {
+        initialize = _.noop;
+        cacheStorage = new CacheStorage(sessionStorage);
+        gate = new CrossDomainGate({
+          baseUrl: BASE_URL,
+          origin: MESSAGE_ORIGIN,
+          type: 'vitaApi',
+          messager: WindowMessageEmitter
+        });
+      };
+
+      var saveCache = function(videoInfoList) {
+        _.each(videoInfoList, function(videoInfo) {
+          var videoId = videoInfo.video.id;
+          cacheStorage.setItem(STORAGE_PREFIX + videoId, videoInfo);
+        });
+      };
+      var loadCache = function(watchIds) {
+        var result = {};
+        _.each(watchIds, function(watchId) {
+          var videoInfo = cacheStorage.getItem(STORAGE_PREFIX + watchId);
+          if (!videoInfo) { return; }
+          result[watchId] = videoInfo;
+        });
+        return result;
+      };
+
+      var load = function(watchIds) {
+        initialize();
+        watchIds = _.isArray(watchIds) ? watchIds : [watchIds];
+
+        var cacheList = {};
+        var noChacheWatchIds = _.filter(watchIds, function(watchId) {
+          var cache = cacheStorage.getItem(STORAGE_PREFIX + watchId);
+          if (cache) {
+            cacheList[watchId] = cache;
+            return false;
+          }
+          return true;
+        });
+
+        return new Promise(function(resolve, reject) {
+          if (watchIds.length < 1) {
+            ZenzaWatch.util.callAsync(function() {
+              resolve(cacheList);
+            });
+            return;
+          }
+
+          var url = '/nicoapi/v1/video.array?v=' +
+            noChacheWatchIds.join(',') + '&__format=json';
+
+          gate.ajax({
+            url: url,
+            dataType: 'json'
+          }).then(function(json) {
+            ZenzaWatch.debug.lastVitaApiResult = json;
+            var status = json.nicovideo_video_response['@status'];
+            if (status === 'ok') {
+              var videoInfoList = json.nicovideo_video_response.video_info || [];
+              videoInfoList = _.isArray(videoInfoList) ? videoInfoList : [videoInfoList];
+              saveCache(videoInfoList);
+              resolve(loadCache(watchIds));
+            } else {
+              reject({
+                status: status,
+                message: '取得失敗',
+                resp: json
               });
             }
           });
         });
       };
 
-      _.assign(emitter, {
+      return {
         load: load
-      });
-
-      return emitter;
+      };
     })();
-    ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
-// ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
+    ZenzaWatch.api.VitaApiLoader = VitaApiLoader;
+
 
     var MessageApiLoader = (function() {
       var VERSION_OLD = '20061206';
@@ -1671,7 +1747,7 @@ var monkey = function() {
 
           var self = this;
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: url,
               contentType: 'text/plain',
               crossDomain: true,
@@ -1703,7 +1779,7 @@ var monkey = function() {
 
           console.log('getPostkey url: ', url);
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: url,
               contentType: 'text/plain',
               crossDomain: true,
@@ -1807,7 +1883,7 @@ var monkey = function() {
           // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
           var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: server,
               data: xml,
               timeout: 60000,
@@ -1850,7 +1926,7 @@ var monkey = function() {
 
           console.log('%cthread url:', 'background: cyan;', url);
           return new Promise(function(resolve, reject) {
-            $.ajax({
+            ajax({
               url: url,
               timeout: 60000,
               crossDomain: true,
@@ -2041,11 +2117,8 @@ var monkey = function() {
     var MylistApiLoader = (function() {
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
       var TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
-//      var LONG_EXPIRE_TIME  = 90 * 24 * 60 * 60 * 1000;
       var token = '';
       var cacheStorage = null;
-
-      var ajax = ZenzaWatch.util.ajax;
 
       function MylistApiLoader() {
         this.initialize.apply(this, arguments);
@@ -2387,11 +2460,231 @@ var monkey = function() {
 
       return MylistApiLoader;
     })();
-
     ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
     ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
 //    window.mmm = ZenzaWatch.init.mylistApiLoader;
 
+
+    var CrossDomainGate = function() { this.initialize.apply(this, arguments); };
+    _.extend(CrossDomainGate.prototype, AsyncEmitter.prototype);
+    _.assign(CrossDomainGate.prototype, {
+      initialize: function(params) {
+        this._baseUrl  = params.baseUrl;
+        this._origin   = params.origin || location.href;
+        this._type     = params.type;
+        this._messager = params.messager || WindowMessageEmitter;
+
+        this._loaderFrame = null;
+        this._sessions = {};
+        this._initializeStatus = '';
+      },
+      _initializeFrame: function() {
+        var self = this;
+        switch (this._initializeStatus) {
+          case 'done':
+            return new Promise(function(resolve) {
+              ZenzaWatch.util.callAsync(function() {
+                resolve();
+              });
+            });
+          case 'initializing':
+            return new Promise(function(resolve, reject) {
+              self.on('initialize', function(e) {
+                if (e.status === 'ok') { resolve(); } else { reject(e); }
+              });
+            });
+          case '':
+            this._initializeStatus = 'initializing';
+            var initialPromise = new Promise(function(resolve, reject) {
+              self._sessions.initial = {
+                promise: initialPromise,
+                resolve: resolve,
+                reject: reject
+              };
+              window.setTimeout(function() {
+                if (self._initializeStatus !== 'done') {
+                  var rej = {
+                    status: 'fail',
+                    message: 'CrossDomainGate初期化タイムアウト (' + self._type + ')'
+                  };
+                  reject(rej);
+                  self.emit('initialize', rej);
+                }
+              }, 60 * 1000);
+              self._initializeCrossDomainGate();
+
+            });
+          return initialPromise;
+        }
+      },
+      _initializeCrossDomainGate: function() {
+        this._initializeCrossDomainGate = _.noop;
+        this._messager.on('onMessage', _.bind(this._onMessage, this));
+
+        console.log('%c initialize ' + this._type, 'background: lightgreen;');
+
+        var loaderFrame = document.createElement('iframe');
+        loaderFrame.name = this._type + 'Loader';
+        loaderFrame.src  = this._baseUrl;
+        loaderFrame.className = 'xDomainLoaderFrame ' + this.type;
+        document.body.appendChild(loaderFrame);
+
+        this._loaderFrame = loaderFrame;
+        this._loaderWindow = loaderFrame.contentWindow;
+        this._messager.addKnownSource(this._loaderWindow);
+      },
+      _onMessage: function(data, type) {
+        if (type !== this._type) { return; }
+        var info      = data.message;
+        var token     = info.token;
+        var sessionId = info.sessionId;
+        var status    = info.status;
+        var command   = info.command || 'loadUrl';
+        var session   = this._sessions[sessionId];
+
+        if (status === 'initialized') {
+          window.console.log(type + ' initialized');
+          this._initializeStatus = 'done';
+          this._sessions.initial.resolve();
+          this.emitAsync('initialize', {status: 'ok'});
+          return;
+        }
+
+        if (token !== TOKEN) {
+          window.console.log('invalid token:', token, TOKEN);
+          return;
+        }
+
+        switch (command) {
+          case 'dumpConfig':
+            this._onDumpConfig(info.body);
+            break;
+
+          default:
+            if (!session) { return; }
+            if (status === 'ok') { session.resolve(info.body); }
+            else { session.reject({ message: status }); }
+            session = null;
+            delete this._sessions[sessionId];
+            break;
+        }
+      },
+      load: function(url, options) {
+        return this._postMessage({
+          command: 'loadUrl',
+          url: url,
+          options: options
+        }, true);
+      },
+      ajax: function(options) {
+        var url = options.url;
+        return this.load(url, options).then(function(result) {
+          //window.console.log('xDomain ajax result', result);
+          ZenzaWatch.debug.lastCrossDomainAjaxResult = result;
+          try {
+            var dataType = (options.dataType || '').toLowerCase();
+            switch (dataType) {
+              case 'json':
+                var json = JSON.parse(result);
+                return Promise.resolve(json);
+              case 'xml':
+                var parser = new DOMParser();
+                var xml = parser.parseFromString(result, 'text/xml');
+                return Promise.resolve(xml);
+            }
+            return Promise.resolve(result);
+          } catch (e) {
+            return Promise.reject({
+              status: 'fail',
+              message: 'パース失敗',
+              error: e
+            });
+          }
+        });
+      },
+      configBridge: function(config) {
+        var self = this;
+        var keys = config.getKeys();
+        self._config = config;
+
+        return new Promise(function(resolve) {
+          self._configBridgeResolve = resolve;
+          self._postMessage({
+            url: '',
+            command: 'dumpConfig',
+            keys: keys
+          });
+        });
+      },
+      _postMessage: function(message, needPromise) {
+        var self = this;
+        return new Promise(function(resolve, reject) {
+          message.sessionId = self._type + '_' + Math.random();
+          message.token = TOKEN;
+          if (needPromise) {
+            self._sessions[message.sessionId] = {
+              resolve: resolve,
+              reject: reject
+            };
+          }
+
+          return self._initializeFrame().then(function() {
+            try {
+              self._loaderWindow.postMessage(
+                JSON.stringify(message),
+                self._origin
+              );
+            } catch (e) {
+              console.log('%cException!', 'background: red;', e);
+            }
+          });
+        });
+      },
+      _onDumpConfig: function(configData) {
+        //window.console.log('_onDumpConfig', configData);
+        var self = this;
+        _.each(Object.keys(configData), function(key) {
+          //window.console.log('config %s: %s', key, configData[key]);
+          self._config.setValue(key, configData[key]);
+        });
+
+        this._config.on('update', function(key, value) {
+          if (key === 'autoCloseFullScreen') { return; }
+
+          self._postMessage({
+            command: 'saveConfig',
+            key: key,
+            value: value
+          });
+        });
+        self._configBridgeResolve();
+      },
+      pushHistory: function(path) {
+        var self = this;
+        var sessionId = self._type +'_' + Math.random();
+        self._initializeFrame().then(function() {
+          try {
+            self._loaderWindow.postMessage(JSON.stringify({
+              sessionId: sessionId,
+              command: 'pushHistory',
+              path: path
+            }),
+            self._origin);
+          } catch (e) {
+            console.log('%cException!', 'background: red;', e);
+          }
+        });
+      },
+    });
+
+    if (location.host !== 'www.nicovideo.jp') {
+      NicoVideoApi = new CrossDomainGate({
+        baseUrl: 'http://www.nicovideo.jp/favicon.ico',
+        origin: 'http://www.nicovideo.jp/',
+        type: 'nicovideoApi',
+        messager: WindowMessageEmitter
+      });
+    }
 
 
 
@@ -2840,6 +3133,13 @@ var monkey = function() {
     isMymemory: function() {
       return !!this._videoDetail.isMymemory;
     },
+    isCommunityVideo: function() {
+      return !!(!this.isChannel() && this._videoDetail.communityId);
+    },
+    hasParentVideo: function() {
+      return !!(this._videoDetail.commons_tree_exists);
+    },
+
 
     /**
      * 投稿者の情報
@@ -7449,8 +7749,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 }
 
 .nicoChat.fork1 {
-  outline: dotted 1px #008800;
+  text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
 }
+.nicoChat.ue.fork1,
+.nicoChat.shita.fork1 {
+  display: inline-block;
+  text-shadow: 0 0 3px #080 !important;
+}
+
 .nicoChat.fork2 {
   outline: dotted 1px #000088;
 }
@@ -7786,7 +8092,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._updateInviewElements();
     },
     _updateInviewElements: function() {
-      if (!this._commentLayer || !this._style || !this._isShow) { return; }
+      if (!this._commentLayer || !this._style || !this._isShow || document.hidden) { return; }
 
       var groups = [
         this._viewModel.getGroup(NicoChat.TYPE.NAKA  ),
@@ -8361,7 +8667,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   });
 
 
-//
+
 
 /**
  * DOM的に隔離したiframeの中に生成する。
@@ -8752,7 +9058,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   VideoListItemView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="videoItem %className% watch%watchId%" data-watch-id="%watchId%">
       <div class="thumbnailContainer">
-        <a href="/watch/%watchId%" class="command" data-command="open" data-param="%watchId%">
+        <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="open" data-param="%watchId%">
           <img class="thumbnail" data-src="%thumbnail%" src="%thumbnail%">
           <span class="duration">%duration%</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
@@ -8761,7 +9067,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       <div class="videoInfo">
         <div class="postedAt">%postedAt%</div>
         <div class="title">
-          <a href="/watch/%watchId%" class="command videoLink" data-command="open" data-param="%watchId%">
+          <a href="//www.nicovideo.jp/watch/%watchId%" class="command videoLink" data-command="open" data-param="%watchId%">
             %videoTitle%
           </a>
         </div>
@@ -8927,6 +9233,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       display: none;
     }
 
+    {* 大百科の奴 *}
+    body.showNicoVideoPlayerDialog #scrollUp {
+      display: none !important;
+    }
+
     .changeScreenMode {
       pointer-events: none;
     }
@@ -8946,6 +9257,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
     .zenzaVideoPlayerDialog.show {
       display: block;
+    }
+
+    .zenzaVideoPlayerDialog li {
+      text-align: left;
     }
 
     .zenzaScreenMode_3D       .zenzaVideoPlayerDialog,
@@ -9169,15 +9484,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     body.zenzaScreenMode_sideView {
       margin-left: 424px;
-      {*
-      margin-top: 225px;
-      border-left: 0;
-      border-right: 0;
-      border-bottom: 0;
-      border-style: solid;
-      border-color: #272727;
-      *}
+      margin-top: 76px;
+
       width: auto;
+    }
+    body.zenzaScreenMode_sideView.nofix:not(.fullScreen) {
+      margin-top: 40px;
     }
     body.zenzaScreenMode_sideView #siteHeader {
     }
@@ -9185,6 +9497,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       margin-left: 400px;
       {*z-index: 110000;*}
       width: auto;
+      top: 40px;
     }
     body.zenzaScreenMode_sideView:not(.nofix) #siteHeader #siteHeaderInner {
       width: auto;
@@ -9929,6 +10242,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._isOpen = false;
     },
     open: function(watchId, options) {
+      if (!watchId) { return; }
+      // 連打対策
+      if (Date.now() - this._lastOpenAt < 1500 && this._watchId === watchId) { return; }
+
       window.console.time('動画選択から再生可能までの時間 watchId=' + watchId);
 
       var nicoVideoPlayer = this._nicoVideoPlayer;
@@ -10987,6 +11304,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$deflistAdd       = $container.find('.deflistAdd');
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
       this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
+      this._$closeButton      = $container.find('.closeButton');
+      this._$closeButton.on('mousedown',
+        _.debounce(_.bind(this.emit, this, 'command', 'close'), 300));
 
       this._$ngSettingMenu       = $container.find('.ngSettingMenu');
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
@@ -12115,7 +12435,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       _.each(Object.keys(map), function(v) {
         var value = config.getValue(v) || [];
-        value = typeof value === 'string' ? value : value.join('\n');
+        value = _.isArray(value) ? value.join('\n') : value;
         map[v].val(value);
       });
 
@@ -12199,6 +12519,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       height: calc(100% - 32px);
       overflow-x: hidden;
       overflow-y: visible;
+      text-align: left;
     }
     .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {
       overflow: hidden;
@@ -12775,6 +13096,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._dialog.on('canplay', _.bind(this._onVideoCanPlay, this));
 
+      this._videoTitlePanel.on('command', _.bind(function(command, param) {
+        this.emit('command', command, param);
+      }, this));
+
       if (params.node) {
         this.appendTo(params.node);
       }
@@ -12833,6 +13158,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
+        .toggleClass('community', this._videoInfo.isCommunityVideo())
+        .toggleClass('mymemory',  this._videoInfo.isMymemory())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo');
     },
     /**
@@ -12960,6 +13287,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   });
 
   var VideoHeaderPanel = function() { this.initialize.apply(this, arguments); };
+  _.extend(VideoHeaderPanel.prototype, AsyncEmitter.prototype);
+
   VideoHeaderPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .zenzaWatchVideoHeaderPanel {
       position: fixed;
@@ -13016,10 +13345,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       bottom: auto;
       background: #272727;
       opacity: 0.9;
+      height: 40px;
     }
     {* ヘッダ追従 *}
     body.zenzaScreenMode_sideView:not(.nofix):not(.fullScreen)  .zenzaWatchVideoHeaderPanel {
-      top: 36px;
+      top: 0;
     }
     {* ヘッダ固定 *}
     body.zenzaScreenMode_sideView.nofix:not(.fullScreen)        .zenzaWatchVideoHeaderPanel {
@@ -13029,7 +13359,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       position: absolute;
       top: 36px;
       *}
-      top: 0px;
+    }
+    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+      margin: 0;
+    }
+    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .publicStatus,
+    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .videoTagsContainer
+    {
+      display: none;
     }
 
     .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
@@ -13074,6 +13411,25 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
     .zenzaWatchVideoHeaderPanel .videoTitle:hover {
     }
+    .zenzaWatchVideoHeaderPanel .videoTitle::before {
+      display: none;
+      position: absolute;
+      font-size: 12px;
+      top: 0;
+      left: 0;
+      background: #333;
+      border: 1px solid #888;
+      padding: 2px 4px;
+      pointer-events: none;
+    }
+    .zenzaWatchVideoHeaderPanel.mymemory:not(:hover) .videoTitle::before {
+      content: 'マイメモリー';
+      display: inline-block;
+    }
+    .zenzaWatchVideoHeaderPanel.community:not(:hover) .videoTitle::before {
+      content: 'コミュニティ動画';
+      display: inline-block;
+    }
 
     .zenzaWatchVideoHeaderPanel .videoTitleContainer       .hoverLinkContainer {
       display: none;
@@ -13102,6 +13458,16 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       white-space: nowrap;
       color: #fff;
       width: 100%;
+    }
+
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer .parentLinkBox,
+    .zenzaWatchVideoHeaderPanel .videoTitleContainer .originalLinkBox {
+      display: none;
+    }
+    .zenzaWatchVideoHeaderPanel.hasParent  .videoTitleContainer .parentLinkBox,
+    .zenzaWatchVideoHeaderPanel.mymemory   .videoTitleContainer .originalLinkBox,
+    .zenzaWatchVideoHeaderPanel.community  .videoTitleContainer .originalLinkBox {
+      display: inline-block;
     }
 
     .videoTitleLink {
@@ -13175,6 +13541,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           <div class="hoverLink hash">
             <a class="hashLink  noHoverMenu" target="_blank" title="twitter検索"></a>
           </div>
+          <div class="hoverLink hash originalLinkBox">
+            <a class="originalLink  noHoverMenu">元動画を開く</a>
+          </div>
+          <div class="hoverLink hash parentLinkBox">
+            <a class="parentLink  noHoverMenu" target="_blank">親作品</a>
+          </div>
         </div>
       </h2>
       <p class="publicStatus">
@@ -13208,11 +13580,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       ZenzaWatch.util.addStyle(VideoHeaderPanel.__css__);
       var $view = this._$view = $(VideoHeaderPanel.__tpl__);
 
-      this._$videoTitle = $view.find('.videoTitle');
-      this._$ginzaLink = $view.find('.ginzaLink');
-      this._$uadLink   = $view.find('.uadLink');
-      this._$hashLink  = $view.find('.hashLink');
-      this._$postedAt  = $view.find('.postedAt');
+      this._$videoTitle   = $view.find('.videoTitle');
+      this._$ginzaLink    = $view.find('.ginzaLink');
+      this._$uadLink      = $view.find('.uadLink');
+      this._$hashLink     = $view.find('.hashLink');
+      this._$originalLink = $view.find('.originalLink');
+      this._$parentLink   = $view.find('.parentLink');
+      this._$postedAt     = $view.find('.postedAt');
 
       this._$viewCount    = $view.find('.viewCount');
       this._$commentCount = $view.find('.commentCount');
@@ -13225,6 +13599,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$ginzaLink.on('click', stopPropagation);
       this._$hashLink.on('click', stopPropagation);
       this._$uadLink.on('click', stopPropagation);
+      this._$parentLink.on('click', stopPropagation);
+      this._$originalLink.on('click', _.bind(function(e) {
+        stopPropagation(e);
+        e.preventDefault();
+        var $target = $(e.target), videoId = $target.attr('data-video-id');
+        if (videoId) {
+          this.emit('command', 'open', videoId);
+        }
+      }, this));
 
       this._$ginzaLink.on('mousedown', _.bind(this._onGinzaLinkMouseDown, this));
     },
@@ -13234,17 +13617,24 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._$videoTitle.html(videoInfo.getTitle()).attr('title', videoInfo.getTitle());
       this._$postedAt.text(videoInfo.getPostedAt());
 
-      var link = '//nico.ms/' + videoInfo.getWatchId();
+      var watchId = videoInfo.getWatchId(), videoId = videoInfo.getVideoId();
+      var link = '//nico.ms/' + watchId;
       this._$ginzaLink.attr('href', link);
       this._$ginzaLink.attr('data-ginzawatch', link);
 
-      var uadLink = '//uad.nicovideo.jp/ads/?vid='  + videoInfo.getWatchId();
+      var uadLink = '//uad.nicovideo.jp/ads/?vid='  + watchId;
       this._$uadLink.attr('href', uadLink);
 
-      var hashLink = 'https://twitter.com/hashtag/' + videoInfo.getVideoId() + '?src=hash';
+      var hashLink = 'https://twitter.com/hashtag/' + videoId + '?src=hash';
       this._$hashLink
         .text('#' + videoInfo.getVideoId())
         .attr('href', hashLink);
+
+      this._$originalLink
+        .attr('href', '//nico.ms/' + videoId)
+        .attr('data-video-id',       videoId);
+
+      this._$parentLink.attr('href', '//commons.nicovideo.jp/tree/' + videoId);
 
       var count = videoInfo.getCount();
       var addComma = function(m) {
@@ -13258,6 +13648,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
+        .toggleClass('community', this._videoInfo.isCommunityVideo())
+        .toggleClass('mymemory',  this._videoInfo.isMymemory())
+        .toggleClass('hasParent', this._videoInfo.hasParentVideo())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo')
         .css('display', '');
     },
@@ -13286,12 +13679,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         var text = tag.tag;
         var $dic = createDicIcon(text, tag.dic);
         var $link = createLink(text);
-        var $tag = $('<li class="tag" />');
+        var $tag = $('<li class="zenza-tag" />');
         $tag.append($dic);
         $tag.append($link);
         $tagList.append($tag);
       });
       $container.append($tagList);
+      ZenzaWatch.util.callAsync(function() {
+        $tagList.find('li:not(.zenza-tag), .zenza-tag a:not(.nicodic):not(.tagLink)').remove();
+      }, 100);
     },
     _onGinzaLinkMouseDown: function() {
       this._dialog.pause();
@@ -13475,11 +13871,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 
     var initialize = function() {
-      console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
+      window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
       ZenzaWatch.util.addStyle(__css__);
 
+
       var isGinza = ZenzaWatch.util.isGinzaWatchUrl();
+      if (!ZenzaWatch.util.isLogin()) {
+        return;
+      }
 
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
@@ -13554,10 +13954,26 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           dialog.open(lastSession.watchId, lastSession);
         }
 
+        WindowMessageEmitter.on('onMessage', function(data, type) {
+          var watchId = data.message.watchId;
+          if (watchId && data.message.command === 'open') {
+            //window.console.log('onMessage!: ', data.message.watchId, type);
+            dialog.open(data.message.watchId, {
+              economy: Config.getValue('forceEconomy')
+            });
+          } else if (watchId && data.message.command === 'send') {
+            localStorageEmitter.send({
+              type: 'openVideo',
+              watchId: watchId
+            });
+          }
+        });
         
       });
-      ZenzaWatch.ready = true;
-      $('body').trigger('ZenzaWatchReady', ZenzaWatch);
+
+      window.ZenzaWatch.ready = true;
+      ZenzaWatch.emitter.emitAsync('ready');
+      $('body').trigger('ZenzaWatchReady', window.ZenzaWatch);
     };
 
 
@@ -13637,9 +14053,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         });
 
         var $body = $('body')
-          .on('mouseover', 'a[href*="watch/"]', _.bind(this._onHover, this))
-          .on('mouseover', 'a[href*="watch/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
-          .on('mouseout',  'a[href*="watch/"]', _.bind(this._onMouseout, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
+          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
           .on('click', function() { $view.removeClass('show'); });
 
         if (this._playerConfig.getValue('overrideWatchLink')) {
@@ -13673,7 +14089,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
         if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
-        if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
+        if (watchId.indexOf('lv') === 0) { return; }
 
         $('.zenzaWatching').removeClass('zenzaWatching');
         $target.addClass('.zenzaWatching');
@@ -13723,7 +14139,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
           if ($target.hasClass('noHoverMenu')) { return; }
           if (!watchId.match(/^[a-z0-9]+$/)) { return; }
-          if (href.indexOf('live.nicovideo.jp') >= 0) { return; }
+          if (watchId.indexOf('lv') === 0) { return; }
 
           e.preventDefault();
 
@@ -13757,8 +14173,30 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 
     if (window.name !== 'commentLayerFrame') {
-      initialize();
+      if (location.host === 'www.nicovideo.jp') {
+        initialize();
+      } else {
+        NicoVideoApi.configBridge(Config).then(function() {
+          window.console.log('%cZenzaWatch Bridge: %s', 'background: lightgreen;', location.host);
+          if (document.getElementById('siteHeaderNotification')) {
+            initialize();
+            return;
+          }
+          NicoVideoApi.ajax({url: 'http://www.nicovideo.jp/'})
+            .then(function(result) {
+              var $dom = $('<div>' + result + '</div>');
+              var isLogin = $dom.find('#siteHeaderLogin').length < 1;
+              var isPremium =
+                $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
+              window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
+              ZenzaWatch.util.isLogin   = function() { return isLogin; };
+              ZenzaWatch.util.isPremium = function() { return isPremium;  };
+              initialize();
+            });
+        });
+      }
     }
+
 
 
 };
@@ -13766,14 +14204,22 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
   var xmlHttpRequest = function(options) {
     try {
+      //window.console.log('xmlHttpRequest bridge: ', options.url, options);
       var req = new XMLHttpRequest();
-      var method = options.method || 'GET';
+      var method = options.method || options.type || 'GET';
+      var xhrFields = options.xhrFields || {};
+
+      if (xhrFields.withCredentials === true) {
+        req.withCredentials = true;
+      }
+
       req.onreadystatechange = function() {
         if (req.readyState === 4) {
-          if (typeof options.onload === "function") options.onload(req);
+          if (typeof options.onload === 'function') options.onload(req);
         }
       };
       req.open(method, options.url, true);
+
       if (options.headers) {
         for (var h in options.headers) {
           req.setRequestHeader(h, options.headers[h]);
@@ -13786,7 +14232,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
   };
 
-  var postMessage = function(type, message) {
+  var postMessage = function(type, message, token) {
 //    var origin  = 'http://' + location.host.replace(/^.*?\./, 'www.');
     var origin = document.referrer;
     try {
@@ -13794,6 +14240,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           id: 'ZenzaWatch',
           type: type, // '',
           body: {
+            token: token,
             url: location.href,
             message: message
           }
@@ -13816,7 +14263,57 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     return result;
   };
 
+  var loadUrl = function(data, type, token) {
+    var timeoutTimer = null, isTimeout = false;
+
+    if (!data.url) { return; }
+
+    var options = data.options || {};
+    var sessionId = data.sessionId;
+    xmlHttpRequest({
+      url:     data.url,
+      method:  options.method || options.type || 'GET',
+      data:    options.data,
+      headers: options.headers || [],
+      xhrFields: options.xhrFields,
+      onload: function(resp) {
+
+        if (isTimeout) { return; }
+        else { window.clearTimeout(timeoutTimer); }
+
+        try {
+          postMessage(type, {
+            sessionId: sessionId,
+            status: 'ok',
+            token: token,
+            command: data.command,
+            url: data.url,
+            body: resp.responseText
+          });
+        } catch (e) {
+          console.log(
+            '%cError: parent.postMessage - ',
+            'color: red; background: yellow',
+            e, event.origin, event.data);
+        }
+      }
+    });
+
+    timeoutTimer = window.setTimeout(function() {
+      isTimeout = true;
+      postMessage(type, {
+        sessionId: sessionId,
+        status: 'timeout',
+        token: token,
+        command: 'loadUrl',
+        url: data.url
+      });
+    }, 30000);
+  };
+
+
    // クロスドメインでのvideoInfoLoader情報の通信用
+   // こっちは廃止予定
   var exApi = function() {
     if (window.name.indexOf('videoInfoLoaderLoader') < 0 ) { return; }
     console.log('%cexec exApi', 'background: lightgreen;');
@@ -13857,11 +14354,79 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
     var type = 'thumbInfoApi';
+    var token = null;
+
     window.addEventListener('message', function(event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      var command = data.command;
+
+      if (!token) { token = data.token; }
+
+      if (data.token !== token) { return; }
+
+
+      if (!data.url) { return; }
+      var sessionId = data.sessionId;
+      xmlHttpRequest({
+        url: data.url,
+        onload: function(resp) {
+
+          if (isTimeout) { return; }
+          else { window.clearTimeout(timeoutTimer); }
+
+          try {
+            postMessage(type, {
+              sessionId: sessionId,
+              status: 'ok',
+              url: data.url,
+              body: resp.responseText
+            });
+          } catch (e) {
+            console.log(
+              '%cError: parent.postMessage - ',
+              'color: red; background: yellow',
+              e, event.origin, event.data);
+          }
+        }
+      });
+
+      timeoutTimer = window.setTimeout(function() {
+        isTimeout = true;
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'timeout',
+          command: 'loadUrl',
+          url: data.url
+        });
+      }, 30000);
+
+    });
+
+    try {
+      postMessage(type, { status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+  };
+
+  var vitaApi = function() {
+    if (window.name.indexOf('vitaApiLoader') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var type = 'vitaApi';
+    var token = null;
+
+    window.addEventListener('message', function(event) {
+      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      var command = data.command;
+
+      if (!token) { token = data.token; }
+      if (data.token !== token) { return; }
+
       if (!data.url) { return; }
 
       var sessionId = data.sessionId;
@@ -13893,11 +14458,137 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         postMessage(type, {
           sessionId: sessionId,
           status: 'timeout',
+          command: 'loadUrl',
+          token: token,
           url: data.url
         });
       }, 30000);
 
     });
+
+    try {
+      postMessage(type, { token: token, status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+  };
+
+
+  var nicovideoApi = function() {
+    if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var type = 'nicovideoApi';
+    var token = null;
+
+    var originalUrl = location.href;
+    var pushHistory = function(path) {
+      // ブラウザの既読リンクの色をつけるためにreplaceStateする
+      // という目的だったのだが、iframeの中では効かないようだ。残念。
+      window.history.replaceState(null, null, path);
+      window.setTimeout(function() {
+        window.history.replaceState(null, null, originalUrl);
+      }, 3000);
+    };
+
+    var PREFIX = 'ZenzaWatch_';
+    var dumpConfig = function(data) {
+      if (!data.keys) { return; }
+      var prefix = PREFIX;
+      var config = {};
+      var sessionId = data.sessionId;
+
+      data.keys.forEach(function(key) {
+        var storageKey = prefix + key;
+        if (localStorage.hasOwnProperty(storageKey)) {
+          try {
+            config[key] = JSON.parse(localStorage.getItem(storageKey));
+            //window.console.log('dump config: %s = %s', key, config[key]);
+          } catch (e) {
+            window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
+          }
+        }
+      });
+
+      try {
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'ok',
+          token: token,
+          command: data.command,
+          body: config
+        });
+      } catch (e) {
+        console.log(
+          '%cError: parent.postMessage - ',
+          'color: red; background: yellow',
+          e, event.origin, event.data);
+      }
+    };
+
+    var saveConfig = function(data) {
+      if (!data.key) { return; }
+      var prefix = PREFIX;
+      var storageKey = prefix + data.key;
+      //window.console.log('bridge save config: %s = %s', storageKey, data.value);
+      localStorage.setItem(storageKey, JSON.stringify(data.value));
+    };
+
+    window.addEventListener('message', function(event) {
+      //window.console.log('nicovideoApiLoaderWindow.onMessage', event.origin, event.data);
+      var data = JSON.parse(event.data), command = data.command;
+
+      // このタイミングで割り込まれたらどうにもならないが、やらないよりはマシだろう
+      if (!token) { token = data.token; }
+
+      if (data.token !== token) {
+        window.console.log('invalid token: ', data.token, token, command);
+        return;
+      }
+
+      switch (command) {
+        case 'loadUrl':
+          loadUrl(data, type, token);
+          break;
+        case 'dumpConfig':
+          dumpConfig(data);
+          break;
+        case 'saveConfig':
+          saveConfig(data);
+          break;
+        case 'pushHistory':
+          pushHistory(data.path);
+          break;
+      }
+    });
+
+    var onStorage = function(e) {
+      var key = e.key;
+      if (e.type !== 'storage' || key.indexOf('ZenzaWatch_') !== 0) { return; }
+
+      key = key.replace('ZenzaWatch_', '');
+      var oldValue = e.oldValue;
+      var newValue = e.newValue;
+      //asyncEmitter.emit('change', key, newValue, oldValue);
+      if (oldValue === newValue) { return; }
+
+      postMessage(type, {
+        command: 'configSync',
+        token: token,
+        key:   key,
+        value: newValue
+      });
+
+      switch(key) {
+        case 'message':
+          console.log('%cmessage', 'background: cyan;', newValue);
+          postMessage(type, { command: 'message', value: newValue });
+          break;
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+
 
     try {
       postMessage(type, { status: 'initialized' });
@@ -13906,15 +14597,46 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     }
   };
 
+  var blogPartsApi = function() {
+    var watchId = location.href.split('/').reverse()[0];
 
-
+    var initialize = function() {
+      var button = document.createElement('button');
+      button.innerHTML = '<span>Zen</span>';
+      button.style.position = 'fixed';
+      button.style.left = 0;
+      button.style.top = 0;
+      button.style.zIndex = 100000;
+      button.style.lineHeight = '24px';
+      button.style.padding = '4px 4px';
+      button.style.cursor = 'pointer';
+      button.style.fontWeight = 'bolder';
+      document.body.appendChild(button);
+      button.onclick = function(e) {
+        window.console.log('click!', watchId);
+        postMessage('blogParts', {
+          command: e.shiftKey ? 'send' : 'open',
+          watchId: watchId
+        });
+      };
+    };
+    initialize();
+  };
 
   var host = window.location.host || '';
-  if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
+  if (location.href === 'http://www.nicovideo.jp/favicon.ico' &&
+      window.name === 'nicovideoApiLoader') {
+    nicovideoApi();
+  } else if (location.href ==='http://api.ce.nicovideo.jp/api/v1/system.unixtime' &&
+      window.name === 'vitaApiLoader') {
+    vitaApi();
+  } else if (host === 'ext.nicovideo.jp' && location.pathname.indexOf('/thumb/') === 0) {
+    blogPartsApi();
+  } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
     thumbInfoApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
     exApi();
-  } else {
+  } else if (window === top) {
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
     // 先にiframeだけ作っておく
     // 効果はいまいち・・・
@@ -13928,11 +14650,68 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       document.body.appendChild(iframe);
     }
 
-    var script = document.createElement('script');
-    script.id = 'ZenzaWatchLoader';
-    script.setAttribute('type', 'text/javascript');
-    script.setAttribute('charset', 'UTF-8');
-    script.appendChild(document.createTextNode( '(' + monkey + ')();' ));
-    document.body.appendChild(script);
+
+    var loadGm = function() {
+      var script = document.createElement('script');
+      script.id = 'ZenzaWatchLoader';
+      script.setAttribute('type', 'text/javascript');
+      script.setAttribute('charset', 'UTF-8');
+      script.appendChild(document.createTextNode( '(' + monkey + ')();' ));
+      document.body.appendChild(script);
+    };
+
+    var MIN_JQ = 10000600000;
+    var getJQVer = function() {
+      if (!window.jQuery) {
+        return 0;
+      }
+      var ver = [];
+      var t = window.jQuery.fn.jquery.split('.');
+      while(t.length < 3) { t.push(0); }
+      _.each(t, function(v) { ver.push((v * 1 + 100000).toString().substr(1)); });
+      return ver.join('') * 1;
+    };
+
+    var loadJq = function() {
+      window.console.log('JQVer: ', getJQVer());
+      window.console.info('load jQuery from cdn...');
+
+      return new Promise(function (resolve, reject) {
+        var $j = window.jQuery || null;
+        var $$ = window.$ || null;
+        var script = document.createElement('script');
+        script.id = 'jQueryLoader';
+        script.setAttribute('type', 'text/javascript');
+        script.setAttribute('charset', 'UTF-8');
+        script.src = 'https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js';
+        document.body.appendChild(script);
+        var count = 0;
+
+        var tm = window.setInterval(function() {
+          count++;
+
+          if (getJQVer() >= MIN_JQ)  {
+            window.clearInterval(tm);
+            window.ZenzaJQuery = window.jQuery;
+            if ($j) { window.jQuery = $j; }
+            if ($$) { window.$      = $$; }
+            resolve();
+          }
+
+          if (count >= 100) {
+            window.clearInterval(tm);
+            window.console.error('load jQuery timeout');
+            reject();
+          }
+
+        }, 300);
+      });
+    };
+
+    if (getJQVer() >= MIN_JQ) {
+      loadGm();
+    } else {
+      loadJq().then(loadGm);
+    }
   }
 })();

@@ -443,7 +443,7 @@ var AsyncEmitter = function() {};
 
       _.each(Object.keys(map), function(v) {
         var value = config.getValue(v) || [];
-        value = typeof value === 'string' ? value : value.join('\n');
+        value = _.isArray(value) ? value.join('\n') : value;
         map[v].val(value);
       });
 

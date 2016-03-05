@@ -10,14 +10,22 @@ var ZenzaWatch = {
 
   var xmlHttpRequest = function(options) {
     try {
+      //window.console.log('xmlHttpRequest bridge: ', options.url, options);
       var req = new XMLHttpRequest();
-      var method = options.method || 'GET';
+      var method = options.method || options.type || 'GET';
+      var xhrFields = options.xhrFields || {};
+
+      if (xhrFields.withCredentials === true) {
+        req.withCredentials = true;
+      }
+
       req.onreadystatechange = function() {
         if (req.readyState === 4) {
-          if (typeof options.onload === "function") options.onload(req);
+          if (typeof options.onload === 'function') options.onload(req);
         }
       };
       req.open(method, options.url, true);
+
       if (options.headers) {
         for (var h in options.headers) {
           req.setRequestHeader(h, options.headers[h]);
@@ -30,7 +38,7 @@ var ZenzaWatch = {
     }
   };
 
-  var postMessage = function(type, message) {
+  var postMessage = function(type, message, token) {
 //    var origin  = 'http://' + location.host.replace(/^.*?\./, 'www.');
     var origin = document.referrer;
     try {
@@ -38,6 +46,7 @@ var ZenzaWatch = {
           id: 'ZenzaWatch',
           type: type, // '',
           body: {
+            token: token,
             url: location.href,
             message: message
           }
@@ -60,7 +69,57 @@ var ZenzaWatch = {
     return result;
   };
 
+  var loadUrl = function(data, type, token) {
+    var timeoutTimer = null, isTimeout = false;
+
+    if (!data.url) { return; }
+
+    var options = data.options || {};
+    var sessionId = data.sessionId;
+    xmlHttpRequest({
+      url:     data.url,
+      method:  options.method || options.type || 'GET',
+      data:    options.data,
+      headers: options.headers || [],
+      xhrFields: options.xhrFields,
+      onload: function(resp) {
+
+        if (isTimeout) { return; }
+        else { window.clearTimeout(timeoutTimer); }
+
+        try {
+          postMessage(type, {
+            sessionId: sessionId,
+            status: 'ok',
+            token: token,
+            command: data.command,
+            url: data.url,
+            body: resp.responseText
+          });
+        } catch (e) {
+          console.log(
+            '%cError: parent.postMessage - ',
+            'color: red; background: yellow',
+            e, event.origin, event.data);
+        }
+      }
+    });
+
+    timeoutTimer = window.setTimeout(function() {
+      isTimeout = true;
+      postMessage(type, {
+        sessionId: sessionId,
+        status: 'timeout',
+        token: token,
+        command: 'loadUrl',
+        url: data.url
+      });
+    }, 30000);
+  };
+
+
    // クロスドメインでのvideoInfoLoader情報の通信用
+   // こっちは廃止予定
   var exApi = function() {
     if (window.name.indexOf('videoInfoLoaderLoader') < 0 ) { return; }
     console.log('%cexec exApi', 'background: lightgreen;');
@@ -101,11 +160,79 @@ var ZenzaWatch = {
 
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
     var type = 'thumbInfoApi';
+    var token = null;
+
     window.addEventListener('message', function(event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      var command = data.command;
+
+      if (!token) { token = data.token; }
+
+      if (data.token !== token) { return; }
+
+
+      if (!data.url) { return; }
+      var sessionId = data.sessionId;
+      xmlHttpRequest({
+        url: data.url,
+        onload: function(resp) {
+
+          if (isTimeout) { return; }
+          else { window.clearTimeout(timeoutTimer); }
+
+          try {
+            postMessage(type, {
+              sessionId: sessionId,
+              status: 'ok',
+              url: data.url,
+              body: resp.responseText
+            });
+          } catch (e) {
+            console.log(
+              '%cError: parent.postMessage - ',
+              'color: red; background: yellow',
+              e, event.origin, event.data);
+          }
+        }
+      });
+
+      timeoutTimer = window.setTimeout(function() {
+        isTimeout = true;
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'timeout',
+          command: 'loadUrl',
+          url: data.url
+        });
+      }, 30000);
+
+    });
+
+    try {
+      postMessage(type, { status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+  };
+
+  var vitaApi = function() {
+    if (window.name.indexOf('vitaApiLoader') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var type = 'vitaApi';
+    var token = null;
+
+    window.addEventListener('message', function(event) {
+      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      var command = data.command;
+
+      if (!token) { token = data.token; }
+      if (data.token !== token) { return; }
+
       if (!data.url) { return; }
 
       var sessionId = data.sessionId;
@@ -137,11 +264,137 @@ var ZenzaWatch = {
         postMessage(type, {
           sessionId: sessionId,
           status: 'timeout',
+          command: 'loadUrl',
+          token: token,
           url: data.url
         });
       }, 30000);
 
     });
+
+    try {
+      postMessage(type, { token: token, status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+  };
+
+
+  var nicovideoApi = function() {
+    if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var type = 'nicovideoApi';
+    var token = null;
+
+    var originalUrl = location.href;
+    var pushHistory = function(path) {
+      // ブラウザの既読リンクの色をつけるためにreplaceStateする
+      // という目的だったのだが、iframeの中では効かないようだ。残念。
+      window.history.replaceState(null, null, path);
+      window.setTimeout(function() {
+        window.history.replaceState(null, null, originalUrl);
+      }, 3000);
+    };
+
+    var PREFIX = 'ZenzaWatch_';
+    var dumpConfig = function(data) {
+      if (!data.keys) { return; }
+      var prefix = PREFIX;
+      var config = {};
+      var sessionId = data.sessionId;
+
+      data.keys.forEach(function(key) {
+        var storageKey = prefix + key;
+        if (localStorage.hasOwnProperty(storageKey)) {
+          try {
+            config[key] = JSON.parse(localStorage.getItem(storageKey));
+            //window.console.log('dump config: %s = %s', key, config[key]);
+          } catch (e) {
+            window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
+          }
+        }
+      });
+
+      try {
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'ok',
+          token: token,
+          command: data.command,
+          body: config
+        });
+      } catch (e) {
+        console.log(
+          '%cError: parent.postMessage - ',
+          'color: red; background: yellow',
+          e, event.origin, event.data);
+      }
+    };
+
+    var saveConfig = function(data) {
+      if (!data.key) { return; }
+      var prefix = PREFIX;
+      var storageKey = prefix + data.key;
+      //window.console.log('bridge save config: %s = %s', storageKey, data.value);
+      localStorage.setItem(storageKey, JSON.stringify(data.value));
+    };
+
+    window.addEventListener('message', function(event) {
+      //window.console.log('nicovideoApiLoaderWindow.onMessage', event.origin, event.data);
+      var data = JSON.parse(event.data), command = data.command;
+
+      // このタイミングで割り込まれたらどうにもならないが、やらないよりはマシだろう
+      if (!token) { token = data.token; }
+
+      if (data.token !== token) {
+        window.console.log('invalid token: ', data.token, token, command);
+        return;
+      }
+
+      switch (command) {
+        case 'loadUrl':
+          loadUrl(data, type, token);
+          break;
+        case 'dumpConfig':
+          dumpConfig(data);
+          break;
+        case 'saveConfig':
+          saveConfig(data);
+          break;
+        case 'pushHistory':
+          pushHistory(data.path);
+          break;
+      }
+    });
+
+    var onStorage = function(e) {
+      var key = e.key;
+      if (e.type !== 'storage' || key.indexOf('ZenzaWatch_') !== 0) { return; }
+
+      key = key.replace('ZenzaWatch_', '');
+      var oldValue = e.oldValue;
+      var newValue = e.newValue;
+      //asyncEmitter.emit('change', key, newValue, oldValue);
+      if (oldValue === newValue) { return; }
+
+      postMessage(type, {
+        command: 'configSync',
+        token: token,
+        key:   key,
+        value: newValue
+      });
+
+      switch(key) {
+        case 'message':
+          console.log('%cmessage', 'background: cyan;', newValue);
+          postMessage(type, { command: 'message', value: newValue });
+          break;
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+
 
     try {
       postMessage(type, { status: 'initialized' });
@@ -150,4 +403,30 @@ var ZenzaWatch = {
     }
   };
 
+  var blogPartsApi = function() {
+    var watchId = location.href.split('/').reverse()[0];
+
+    var initialize = function() {
+      var button = document.createElement('button');
+      button.innerHTML = '<span>Zen</span>';
+      button.style.position = 'fixed';
+      button.style.left = 0;
+      button.style.top = 0;
+      button.style.zIndex = 100000;
+      button.style.lineHeight = '24px';
+      button.style.padding = '4px 4px';
+      button.style.cursor = 'pointer';
+      button.style.fontWeight = 'bolder';
+      document.body.appendChild(button);
+      button.onclick = function(e) {
+        window.console.log('click!', watchId);
+        postMessage('blogParts', {
+          command: e.shiftKey ? 'send' : 'open',
+          watchId: watchId
+        });
+      };
+    };
+    initialize();
+  };
+//===END===
 
