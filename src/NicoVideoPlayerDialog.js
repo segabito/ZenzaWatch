@@ -1316,7 +1316,15 @@ var SettingPanel = function() {};
     _onVideoEnded: function() {
       // ループ再生中は飛んでこない
       this.emit('ended');
+      var isAutoCloseFullScreen =
+        this._videoWatchOptions.hasOwnProperty('autoCloseFullScreen') ?
+          this._videoWatchOptions.autoCloseFullScreen :
+          this._playerConfig.getValue('autoCloseFullScreen');
+      if (FullScreen.now() && isAutoCloseFullScreen) {
+        FullScreen.cancel();
+      }
       ZenzaWatch.emitter.emitAsync('videoEnded');
+
     },
     _onVolumeChange: function(vol, mute) {
       this._$playerContainer.addClass('volumeChanging');

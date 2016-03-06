@@ -72,9 +72,9 @@ var AsyncEmitter = function() {};
         localStorageEmitter.on('message', function(packet) {
           if (packet.type !== 'openVideo') { return; }
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
-          Config.setSessionValue('autoCloseFullScreen', false);
           dialog.open(packet.watchId, {
-            economy: Config.getValue('forceEconomy')
+            economy: Config.getValue('forceEconomy'),
+            autoCloseFullScreen: false
           });
         });
 
@@ -205,9 +205,9 @@ var AsyncEmitter = function() {};
         });
 
         var $body = $('body')
-          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
-          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
-          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
+          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
+          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
+          .on('mouseout',  'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
           .on('click', function() { $view.removeClass('show'); });
 
         if (this._playerConfig.getValue('overrideWatchLink')) {
@@ -267,7 +267,6 @@ var AsyncEmitter = function() {};
         this._playerOption = {
           economy: this._playerConfig.getValue('forceEconomy')
         };
-        this._playerConfig.refreshValue('autoCloseFullScreen');
 
         if (this._player) {
           this._player.open(watchId, this._playerOption);

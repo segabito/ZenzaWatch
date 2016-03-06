@@ -204,9 +204,6 @@ var AsyncEmitter = function() {};
     _onEnded: function() {
       this._isPlaying = false;
       this._isEnded = true;
-      if (FullScreen.now() && this._playerConfig.getValue('autoCloseFullScreen')) {
-        FullScreen.cancel();
-      }
       this.emit('ended');
     },
     _onError: function() {

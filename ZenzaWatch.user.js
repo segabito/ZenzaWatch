@@ -22,7 +22,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.11.0
+// @version        0.11.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -2881,9 +2881,6 @@ var monkey = function() {
     _onEnded: function() {
       this._isPlaying = false;
       this._isEnded = true;
-      if (FullScreen.now() && this._playerConfig.getValue('autoCloseFullScreen')) {
-        FullScreen.cancel();
-      }
       this.emit('ended');
     },
     _onError: function() {
@@ -8669,6 +8666,81 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 
 
+  var VideoListModel = function() { this.initialize.apply(this, arguments); };
+  _.extend(VideoListModel.prototype, AsyncEmitter.prototype);
+  _.assign(VideoListModel.prototype, {
+    initialize: function(params) {
+      //this._$container = params.$container;
+      this._isUniq = params.uniq;
+      this._items = [];
+      this._maxItems = params.maxItems || 100;
+    },
+    setItem: function(listData) {
+      var items = [];
+      _.each(listData, function(itemData) {
+        items.push(new VideoListItem(itemData));
+      });
+      //this._videoListView.setItem(items);
+      this.emit('update', this._items);
+    },
+    insertItem: function(itemList) {
+      itemList = _.isArray(itemList) ? itemList: [itemList];
+      if (itemList.length < 1) { return; }
+      itemList.reverse();
+      this._items = this._items.concat(itemList);
+
+      if (this._isUniq) {
+        this._items =
+          _.uniq(this._items, false, function(item) { return item.getWatchId(); });
+      }
+      this._items.splice(this._maxItems);
+      this.emit('update', this._items);
+    },
+    appendItem: function(itemList) {
+      itemList = _.isArray(itemList) ? itemList: [itemList];
+      if (itemList.length < 1) { return; }
+
+      this._items = this._items.concat(itemList);
+
+      if (this._isUniq) {
+        this._items =
+          _.uniq(this._items, false, function(item) { return item.getWatchId(); });
+      }
+      this._items.splice(this._maxItems);
+      this.emit('update', this._items);
+    },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
+    },
+    _onDeflistAdd: function(watchId) {
+      if (this._videoListView.isUpdatingDeflist()) { return; }
+
+      var videoListView = this._videoListView;
+      var unlock = function() {
+        videoListView.setIsUpdatingDeflist(false, watchId);
+      };
+
+      videoListView.setIsUpdatingDeflist(true, watchId);
+
+      var timer = window.setTimeout(unlock, 10000);
+
+      if (!this._mylistApiLoader) {
+        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      }
+
+      return this._mylistApiLoader.addDeflistItem(watchId)
+        .then(function(result) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(unlock, 2000);
+        PopupMessage.notify(result.message);
+      }, function(err) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(unlock, 2000);
+        PopupMessage.alert(err.message);
+      });
+    }
+  });
+ 
 /**
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
@@ -8803,6 +8875,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           case 'deflistAdd':
             this.emit('deflistAdd', param);
             break;
+          case 'playlistAdd':
+            this.emit('playlistAdd', param);
+            break;
           case 'scrollToTop':
             this.scrollTop(0, 300);
             break;
@@ -8842,17 +8917,28 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         this.emit('update');
       }, this, 100);
     },
+    setItem: function(itemList) {
+      itemList = _.isArray(itemList) ? itemList: [itemList];
+      _.each(itemList, _.bind(function(item) {
+        this._itemViews.unshift(new this._ItemBuilder({item: item}));
+      }, this));
+      this._html = this._itemViews.join('');
+      this._updateView();
+    },
     insertItem: function(itemList) {
-      itemList = typeof itemList.length === 'number' ? itemList: [itemList];
+      itemList = _.isArray(itemList) ? itemList: [itemList];
       if (itemList.length < 1) { return; }
       itemList.reverse();
       _.each(itemList, _.bind(function(item) {
         this._itemViews.unshift(
-          this._ItemBuilder.build(item)
+          //this._ItemBuilder.build(item)
+          new this._ItemBuilder({item: item})
         );
       }, this));
 
-      this._itemViews = _.uniq(this._itemViews, 'watchId');
+      this._itemViews =
+        _.uniq(this._itemViews, false, function(item) { return item.getWatchId(); });
+      //this._itemViews = _.uniq(this._itemViews, 'watchId');
       this._itemViews.splice(this._maxItems);
       this._html = this._itemViews.join('');
       this._updateView();
@@ -8867,7 +8953,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         );
       }, this));
 
-      this._itemViews = _.uniq(this._itemViews, 'watchId');
+      this._itemViews =
+        _.uniq(this._itemViews, false, function(item) { return item.getWatchId(); });
+      //this._itemViews = _.uniq(this._itemViews, 'watchId');
       this._itemViews.splice(this._maxItems);
       this._html = this._itemViews.join('');
       this._updateView();
@@ -8876,8 +8964,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       if (!this._$body) { return false; }
       return this._$body.hasClass('updatingDeflist');
     },
-    setIsUpdatingDeflist: function(v) {
+    setIsUpdatingDeflist: function(v, watchId) {
       this.toggleClass('updatingDeflist', v);
+      if (v) {
+        this._$body.find('.videoItem.watch' + watchId).addClass('updatingDeflist');
+      } else {
+        this._$body.find('.videoItem').removeClass('updatingDeflist');
+      }
     },
     addClass: function(className) {
       this.toggleClass(className, true);
@@ -8939,14 +9032,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       box-shadow: 0 0 8px #fff;
     }
 
-    .updatingDeflist {
-      cusror: wait !important;
+    body.updatingDeflist {
     }
 
-    .updatingDeflist * {
-      opacity: 0.8;
-      pointer-events: none;
-    }
 
     .videoItem {
       position: relative;
@@ -8955,6 +9043,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       min-height: 88px;
       overflow: hidden;
     }
+
+    .updatingDeflist .videoItem.updatingDeflist {
+      opacity: 0.5;
+      cursor: wait;
+    }
+
 
     .videoItem + .videoItem {
       border-top: 1px dotted #888;
@@ -9001,9 +9095,16 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       transform: scale(1.5);
       box-shadow: 2px 2px 2px #000;
     }
+
     .videoItem:hover .thumbnailContainer .deflistAdd:active {
       transform: scale(0.9);
       border: 1px inset;
+    }
+
+    .videoItem.updatingDeflist .thumbnailContainer .deflistAdd {
+      transform: scale(1.0) !important;
+      border: 1px inset !important;
+      pointer-events: none;
     }
 
     .videoItem .thumbnailContainer .duration {
@@ -9061,6 +9162,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="open" data-param="%watchId%">
           <img class="thumbnail" data-src="%thumbnail%" src="%thumbnail%">
           <span class="duration">%duration%</span>
+          <!--<span class="command playlistAdd" data-command="playlistAdd" data-param="%watchId%" title="プレイリストに追加">&#x271A;</span>-->
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
         </a>
       </div>
@@ -9080,35 +9182,44 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     </div>
   */});
 
-  VideoListItemView.build = function(item) {
-    var tpl = VideoListItemView.__tpl__;
-    var secToTime = function(sec) {
+  _.assign(VideoListItemView.prototype, {
+    initialize: function(params) {
+      this.watchId = params.watchId;
+      this._item = params.item;
+    },
+    build: function() {
+      var tpl = VideoListItemView.__tpl__;
+      var item = this._item;
+
+      var count = item.getCount();
+      tpl = tpl
+        .replace(/%watchId%/g,    item.getWatchId())
+        .replace(/%postedAt%/g,   item.getPostedAt())
+        .replace(/%videoTitle%/g, item.getTitle())
+        .replace(/%thumbnail%/g,  item.getThumbnail())
+        .replace(/%duration%/g,   this._secToTime(item.getDuration()))
+        .replace(/%viewCount%/g,     this._addComma(count.view))
+        .replace(/%commentCount%/g,  this._addComma(count.comment))
+        .replace(/%mylistCount%/g,   this._addComma(count.mylist))
+        .replace(/%className%/g, '')
+        ;
+      return tpl;
+    },
+    getWatchId: function() {
+      return this._item.getWatchId();
+    },
+    toString: function() {
+      return this.build();
+    },
+    _secToTime: function(sec) {
       var m = Math.floor(sec / 60);
       var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
       return [m, s].join(':');
-    };
-    var addComma = function(m) {
+    },
+    _addComma: function(m) {
       return m.toLocaleString ? m.toLocaleString() : m;
-    };
-
-    var count = item.getCount();
-    tpl = tpl
-      .replace(/%watchId%/g,    item.getWatchId())
-      .replace(/%postedAt%/g,   item.getPostedAt())
-      .replace(/%videoTitle%/g, item.getTitle())
-      .replace(/%thumbnail%/g,  item.getThumbnail())
-      .replace(/%duration%/g,   secToTime(item.getDuration()))
-      .replace(/%viewCount%/g,     addComma(count.view))
-      .replace(/%commentCount%/g,  addComma(count.comment))
-      .replace(/%mylistCount%/g,   addComma(count.mylist))
-      .replace(/%className%/g, '')
-      ;
-    return {
-      tpl: tpl,
-      toString: function() { return this.tpl; },
-      watchId: item.getWatchId()
-    };
-  };
+    }
+  });
 
   var VideoListItem = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoListItem.prototype, AsyncEmitter.prototype);
@@ -9155,6 +9266,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   _.assign(RelatedVideoList.prototype, {
     initialize: function(params) {
       this._$container = params.$container;
+      this._isUniq = true;
+      this._items = [];
+      this._maxItems = 100;
     },
     _initializeView: function() {
       this._videoListView = new VideoListView({
@@ -9162,10 +9276,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
-      this._videoListView.on('command', _.bind(function(command, param) {
-        this.emit('command', command, param);
-      }, this));
 
+      this._videoListView.on('command', _.bind(this._onCommand, this));
       this._videoListView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
 
       this._videoListView.on('update', _.bind(function() {
@@ -9184,15 +9296,18 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       if (items.length < 1) { return; }
       this._videoListView.insertItem(items);
     },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
+    },
     _onDeflistAdd: function(watchId) {
       if (this._videoListView.isUpdatingDeflist()) { return; }
 
       var videoListView = this._videoListView;
       var unlock = function() {
-        videoListView.setIsUpdatingDeflist(false);
+        videoListView.setIsUpdatingDeflist(false, watchId);
       };
 
-      videoListView.setIsUpdatingDeflist(true);
+      videoListView.setIsUpdatingDeflist(true, watchId);
 
       var timer = window.setTimeout(unlock, 10000);
 
@@ -9212,6 +9327,42 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       });
     }
    });
+
+  var PlayListModel = function() { this.initialize.apply(this, arguments); };
+  _.extend(PlayListModel.prototype, VideoListModel.prototype);
+  _.assign(PlayListModel.prototype, {
+    initialize: function() {
+    },
+    initializeView: function() {
+      this._videoListView = new VideoListView({
+        $container: this._$container,
+        builder: VideoListItemView,
+        itemCss: VideoListItemView.__css__
+      });
+      this._videoListView.on('command', _.bind(function(command, param) {
+        this.emit('command', command, param);
+      }, this));
+
+      this._videoListView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
+
+      this._videoListView.on('update', _.bind(function() {
+        this._videoListView.scrollToItem(this._watchId);
+      }, this));
+    },
+    isActive: function() {
+      return this._isActive;
+    },
+    shuffle: function() {
+    },
+    insertNext: function(watchId) {
+    },
+    append: function(watchId) {
+    },
+    goToNext: function() {
+    }
+    
+  });
+
 
 
 
@@ -10511,7 +10662,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     _onVideoEnded: function() {
       // ループ再生中は飛んでこない
       this.emit('ended');
+      var isAutoCloseFullScreen =
+        this._videoWatchOptions.hasOwnProperty('autoCloseFullScreen') ?
+          this._videoWatchOptions.autoCloseFullScreen :
+          this._playerConfig.getValue('autoCloseFullScreen');
+      if (FullScreen.now() && isAutoCloseFullScreen) {
+        FullScreen.cancel();
+      }
       ZenzaWatch.emitter.emitAsync('videoEnded');
+
     },
     _onVolumeChange: function(vol, mute) {
       this._$playerContainer.addClass('volumeChanging');
@@ -13920,9 +14079,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         localStorageEmitter.on('message', function(packet) {
           if (packet.type !== 'openVideo') { return; }
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
-          Config.setSessionValue('autoCloseFullScreen', false);
           dialog.open(packet.watchId, {
-            economy: Config.getValue('forceEconomy')
+            economy: Config.getValue('forceEconomy'),
+            autoCloseFullScreen: false
           });
         });
 
@@ -14053,9 +14212,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         });
 
         var $body = $('body')
-          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
-          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
-          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
+          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
+          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
+          .on('mouseout',  'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
           .on('click', function() { $view.removeClass('show'); });
 
         if (this._playerConfig.getValue('overrideWatchLink')) {
@@ -14115,7 +14274,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         this._playerOption = {
           economy: this._playerConfig.getValue('forceEconomy')
         };
-        this._playerConfig.refreshValue('autoCloseFullScreen');
 
         if (this._player) {
           this._player.open(watchId, this._playerOption);
