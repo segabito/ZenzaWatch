@@ -118,49 +118,18 @@ var ZenzaWatch = {
   };
 
 
-   // クロスドメインでのvideoInfoLoader情報の通信用
-   // こっちは廃止予定
-  var exApi = function() {
-    if (window.name.indexOf('videoInfoLoaderLoader') < 0 ) { return; }
-    console.log('%cexec exApi', 'background: lightgreen;');
-
-    var body  = document.documentElement.textContent;
-    var tmp = body.split('var player = new Nicovideo.MiniPlayer(video,')[1];
-    tmp = tmp.split(", '', '');")[0];
-
-    var videoInfo = {};
-    var parseReg = /'(.*?)': * '(.*?)'/;
-    tmp.split(/\n/).forEach(function(line) {
-      if(parseReg.test(line)) {
-        var key = RegExp.$1;
-        var val = decodeURIComponent(RegExp.$2);
-        console.log('%cvideoInfo.%s = %s', 'color: #008;', key, val);
-        videoInfo[key] = val;
-      }
-    });
-
-    // HTML5ではmp4以外再生できないのでフォールバック
-    var eco = videoInfo.movie_type === 'mp4' ? '' : '&eco=1';
-    
-    if (!videoInfo.thumbPlayKey) {
-      console.log('%cthumbPlayKey not found', 'background: red;');
-    }
-    var url = 'http://ext.nicovideo.jp/thumb_watch?v=' + videoInfo.v + '&k=' + videoInfo.thumbPlayKey + eco;
-    xmlHttpRequest({
-      url: url,
-      onload: function(req) {
-        var result = parseQuery(req.responseText);
-        result.thumbImage = videoInfo.thumbImage || '';
-        postMessage('videoInfoLoader', result);
-      }
-    });
-  };
-
 
 
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+      window.console.log('disable bridge');
+      return;
+    }
 
     var type = 'thumbInfoApi';
     var token = null;
@@ -223,6 +192,14 @@ var ZenzaWatch = {
     if (window.name.indexOf('vitaApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+      window.console.log('disable bridge');
+      return;
+    }
+
+
     var type = 'vitaApi';
     var token = null;
 
@@ -283,6 +260,15 @@ var ZenzaWatch = {
   var nicovideoApi = function() {
     if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+        localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
+      window.console.log('disable bridge');
+      return;
+    }
+
 
     var type = 'nicovideoApi';
     var token = null;
@@ -406,6 +392,15 @@ var ZenzaWatch = {
   var blogPartsApi = function() {
     var watchId = location.href.split('/').reverse()[0];
 
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+        localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
+      window.console.log('disable bridge');
+      return;
+    }
+
+
     var initialize = function() {
       var button = document.createElement('button');
       button.innerHTML = '<span>Zen</span>';
@@ -429,4 +424,44 @@ var ZenzaWatch = {
     initialize();
   };
 //===END===
+
+   // クロスドメインでのvideoInfoLoader情報の通信用
+   // こっちは廃止予定
+  var exApi = function() {
+    if (window.name.indexOf('videoInfoLoaderLoader') < 0 ) { return; }
+    console.log('%cexec exApi', 'background: lightgreen;');
+    
+
+    var body  = document.documentElement.textContent;
+    var tmp = body.split('var player = new Nicovideo.MiniPlayer(video,')[1];
+    tmp = tmp.split(", '', '');")[0];
+
+    var videoInfo = {};
+    var parseReg = /'(.*?)': * '(.*?)'/;
+    tmp.split(/\n/).forEach(function(line) {
+      if(parseReg.test(line)) {
+        var key = RegExp.$1;
+        var val = decodeURIComponent(RegExp.$2);
+        console.log('%cvideoInfo.%s = %s', 'color: #008;', key, val);
+        videoInfo[key] = val;
+      }
+    });
+
+    // HTML5ではmp4以外再生できないのでフォールバック
+    var eco = videoInfo.movie_type === 'mp4' ? '' : '&eco=1';
+    
+    if (!videoInfo.thumbPlayKey) {
+      console.log('%cthumbPlayKey not found', 'background: red;');
+    }
+    var url = 'http://ext.nicovideo.jp/thumb_watch?v=' + videoInfo.v + '&k=' + videoInfo.thumbPlayKey + eco;
+    xmlHttpRequest({
+      url: url,
+      onload: function(req) {
+        var result = parseQuery(req.responseText);
+        result.thumbImage = videoInfo.thumbImage || '';
+        postMessage('videoInfoLoader', result);
+      }
+    });
+  };
+
 

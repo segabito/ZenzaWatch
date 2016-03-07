@@ -344,6 +344,8 @@ var AsyncEmitter = function() {};
               ZenzaWatch.util.isPremium = function() { return isPremium;  };
               initialize();
             });
+        }, function() {
+          window.console.log('ZenzaWatch Bridge disabled');
         });
       }
     }

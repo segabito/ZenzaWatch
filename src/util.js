@@ -201,6 +201,8 @@ var console;
         baseChatScale: 1.0,
         baseFontBolder: true,
 
+        allowOtherDomain: false, // 外部サイトでも実行するかどうか
+
         overrideWatchLink: false, // すべての動画リンクをZenzaWatchで開く
 
         speakLark: false, // 一発ネタのコメント読み上げ機能. 飽きたら消す

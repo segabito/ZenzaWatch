@@ -1391,8 +1391,9 @@ var ajax = function() {};
         var keys = config.getKeys();
         self._config = config;
 
-        return new Promise(function(resolve) {
+        return new Promise(function(resolve, reject) {
           self._configBridgeResolve = resolve;
+          self._configBridgeReject  = reject;
           self._postMessage({
             url: '',
             command: 'dumpConfig',
@@ -1432,6 +1433,12 @@ var ajax = function() {};
           self._config.setValue(key, configData[key]);
         });
 
+        if (!location.host.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+            !this._config.getValue('allowOtherDomain')) {
+          window.console.log('allowOtherDomain', this._config.getValue('allowOtherDomain'));
+          self._configBridgeReject();
+          return;
+        }
         this._config.on('update', function(key, value) {
           if (key === 'autoCloseFullScreen') { return; }
 

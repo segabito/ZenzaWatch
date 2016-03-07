@@ -22,7 +22,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.11.1
+// @version        0.11.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -253,6 +253,8 @@ var monkey = function() {
         baseFontFamily: '',
         baseChatScale: 1.0,
         baseFontBolder: true,
+
+        allowOtherDomain: false, // 外部サイトでも実行するかどうか
 
         overrideWatchLink: false, // すべての動画リンクをZenzaWatchで開く
 
@@ -2607,8 +2609,9 @@ var monkey = function() {
         var keys = config.getKeys();
         self._config = config;
 
-        return new Promise(function(resolve) {
+        return new Promise(function(resolve, reject) {
           self._configBridgeResolve = resolve;
+          self._configBridgeReject  = reject;
           self._postMessage({
             url: '',
             command: 'dumpConfig',
@@ -2648,6 +2651,12 @@ var monkey = function() {
           self._config.setValue(key, configData[key]);
         });
 
+        if (!location.host.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+            !this._config.getValue('allowOtherDomain')) {
+          window.console.log('allowOtherDomain', this._config.getValue('allowOtherDomain'));
+          self._configBridgeReject();
+          return;
+        }
         this._config.on('update', function(key, value) {
           if (key === 'autoCloseFullScreen') { return; }
 
@@ -14351,6 +14360,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
               ZenzaWatch.util.isPremium = function() { return isPremium;  };
               initialize();
             });
+        }, function() {
+          window.console.log('ZenzaWatch Bridge disabled');
         });
       }
     }
@@ -14470,49 +14481,18 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   };
 
 
-   // クロスドメインでのvideoInfoLoader情報の通信用
-   // こっちは廃止予定
-  var exApi = function() {
-    if (window.name.indexOf('videoInfoLoaderLoader') < 0 ) { return; }
-    console.log('%cexec exApi', 'background: lightgreen;');
-
-    var body  = document.documentElement.textContent;
-    var tmp = body.split('var player = new Nicovideo.MiniPlayer(video,')[1];
-    tmp = tmp.split(", '', '');")[0];
-
-    var videoInfo = {};
-    var parseReg = /'(.*?)': * '(.*?)'/;
-    tmp.split(/\n/).forEach(function(line) {
-      if(parseReg.test(line)) {
-        var key = RegExp.$1;
-        var val = decodeURIComponent(RegExp.$2);
-        console.log('%cvideoInfo.%s = %s', 'color: #008;', key, val);
-        videoInfo[key] = val;
-      }
-    });
-
-    // HTML5ではmp4以外再生できないのでフォールバック
-    var eco = videoInfo.movie_type === 'mp4' ? '' : '&eco=1';
-    
-    if (!videoInfo.thumbPlayKey) {
-      console.log('%cthumbPlayKey not found', 'background: red;');
-    }
-    var url = 'http://ext.nicovideo.jp/thumb_watch?v=' + videoInfo.v + '&k=' + videoInfo.thumbPlayKey + eco;
-    xmlHttpRequest({
-      url: url,
-      onload: function(req) {
-        var result = parseQuery(req.responseText);
-        result.thumbImage = videoInfo.thumbImage || '';
-        postMessage('videoInfoLoader', result);
-      }
-    });
-  };
-
 
 
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+      window.console.log('disable bridge');
+      return;
+    }
 
     var type = 'thumbInfoApi';
     var token = null;
@@ -14575,6 +14555,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     if (window.name.indexOf('vitaApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+      window.console.log('disable bridge');
+      return;
+    }
+
+
     var type = 'vitaApi';
     var token = null;
 
@@ -14635,6 +14623,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   var nicovideoApi = function() {
     if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
+
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+        localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
+      window.console.log('disable bridge');
+      return;
+    }
+
 
     var type = 'nicovideoApi';
     var token = null;
@@ -14757,6 +14754,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
   var blogPartsApi = function() {
     var watchId = location.href.split('/').reverse()[0];
+
+    var parentHost = document.referrer.split('/')[2];
+    window.console.log('parentHost', parentHost);
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+        localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
+      window.console.log('disable bridge');
+      return;
+    }
+
 
     var initialize = function() {
       var button = document.createElement('button');
