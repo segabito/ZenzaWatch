@@ -355,7 +355,7 @@ var ZenzaWatch = {
     });
 
     var onStorage = function(e) {
-      var key = e.key;
+      var key = e.key || '';
       if (e.type !== 'storage' || key.indexOf('ZenzaWatch_') !== 0) { return; }
 
       key = key.replace('ZenzaWatch_', '');

@@ -22,7 +22,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.11.2
+// @version        0.11.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -14221,9 +14221,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         });
 
         var $body = $('body')
-          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
-          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
-          .on('mouseout',  'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
+          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
           .on('click', function() { $view.removeClass('show'); });
 
         if (this._playerConfig.getValue('overrideWatchLink')) {
@@ -14254,7 +14254,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         var href = $target.attr('data-href') || $target.attr('href');
         var watchId = ZenzaWatch.util.getWatchId(href);
         var offset = $target.offset();
+        var host = $target[0].hostname;
 
+        if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') { return; }
         if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
         if (watchId.indexOf('lv') === 0) { return; }
@@ -14718,7 +14720,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     });
 
     var onStorage = function(e) {
-      var key = e.key;
+      var key = e.key || '';
       if (e.type !== 'storage' || key.indexOf('ZenzaWatch_') !== 0) { return; }
 
       key = key.replace('ZenzaWatch_', '');

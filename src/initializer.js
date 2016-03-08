@@ -205,9 +205,9 @@ var AsyncEmitter = function() {};
         });
 
         var $body = $('body')
-          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
-          .on('mouseover', 'a[href*="/watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
-          .on('mouseout',  'a[href*="/watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
+          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
           .on('click', function() { $view.removeClass('show'); });
 
         if (this._playerConfig.getValue('overrideWatchLink')) {
@@ -238,7 +238,9 @@ var AsyncEmitter = function() {};
         var href = $target.attr('data-href') || $target.attr('href');
         var watchId = ZenzaWatch.util.getWatchId(href);
         var offset = $target.offset();
+        var host = $target[0].hostname;
 
+        if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') { return; }
         if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
         if (watchId.indexOf('lv') === 0) { return; }
