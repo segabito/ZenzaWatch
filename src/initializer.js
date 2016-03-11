@@ -22,6 +22,28 @@ var NicoVideoPlayerDialog = function() {};
 var AsyncEmitter = function() {};
 
 //===BEGIN===
+    // GINZAを置き換えるべきか？の判定
+    var isOverrideGinza = function() {
+      // GINZAで視聴のリンクできた場合はfalse
+      if (window.name === 'watchGinza') {
+        return false;
+      }
+      // FlashPlayerが入ってない場合はtrue
+      if (!ZenzaWatch.util.hasFlashPlayer()) {
+        return true;
+      }
+      // GINZAの代わりに起動する設定、かつZenzaで再生可能な動画はtrue
+      // nmmやrtmpeの動画だとfalseになる
+      if (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) {
+        return true;
+      }
+      // ギンザスレイヤー＝サン 放置してる
+      //if (Config.getValue('enableGinzaSlayer')) {
+      //  return true;
+      //}
+      return false;
+    };
+
     var initialize = function() {
       window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
@@ -51,12 +73,11 @@ var AsyncEmitter = function() {};
         if (isGinza) {
           if (ZenzaWatch.util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (!ZenzaWatch.util.hasFlashPlayer() ||
-                (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) ||
-                Config.getValue('enableGinzaSlayer')
-                ) {
+            if (isOverrideGinza()) {
               initializeGinzaSlayer(dialog, Config);
             }
+            if (window.name === 'watchGinza') { window.name = ''; }
+
           } else {
           // 非ログイン画面用プレイヤーをセットアップ
             initializeNoLoginWatchPagePlayer(Config, offScreenLayer);
@@ -239,7 +260,6 @@ var AsyncEmitter = function() {};
         var watchId = ZenzaWatch.util.getWatchId(href);
         var offset = $target.offset();
         var host = $target[0].hostname;
-
         if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') { return; }
         if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
@@ -289,6 +309,8 @@ var AsyncEmitter = function() {};
           var $target = $(e.target).closest('a');
           var href = $target.attr('data-href') || $target.attr('href');
           var watchId = ZenzaWatch.util.getWatchId(href);
+          var host = $target[0].hostname;
+          if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') { return; }
 
           if ($target.hasClass('noHoverMenu')) { return; }
           if (!watchId.match(/^[a-z0-9]+$/)) { return; }

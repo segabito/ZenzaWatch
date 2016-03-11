@@ -18,19 +18,28 @@ var PopupMessage = {};
       this._items = [];
       this._maxItems = params.maxItems || 100;
     },
-    setItem: function(listData) {
-      var items = [];
-      _.each(listData, function(itemData) {
-        items.push(new VideoListItem(itemData));
-      });
-      //this._videoListView.setItem(items);
+    setItem: function(itemList) {
+      itemList = _.isArray(itemList) ? itemList: [itemList];
+
+      this._items = itemList;
+      if (this._isUniq) {
+        this._items =
+          _.uniq(this._items, false, function(item) { return item.getWatchId(); });
+      }
+
       this.emit('update', this._items);
     },
-    insertItem: function(itemList) {
-      itemList = _.isArray(itemList) ? itemList: [itemList];
+    clear: function() {
+      this.setItem([]);
+    },
+    insertItem: function(itemList, index) {
+      itemList = _.isArray(itemList) ? itemList : [itemList];
       if (itemList.length < 1) { return; }
-      itemList.reverse();
-      this._items = this._items.concat(itemList);
+      index = _.isNumber(index) ? index : 0;
+
+      //itemList.reverse();
+      //this._items = this._items.concat(itemList);
+      itemList = Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
 
       if (this._isUniq) {
         this._items =
@@ -52,38 +61,22 @@ var PopupMessage = {};
       this._items.splice(this._maxItems);
       this.emit('update', this._items);
     },
-    _onCommand: function(command, param) {
-      this.emit('command', command, param);
+    removeItem: function(index) {
+      var target = this.getItemByIndex(index);
+      if (!target) { return; }
+      this._items = _.reject(this._items, function(item) { return item === target; });
     },
-    _onDeflistAdd: function(watchId) {
-      if (this._videoListView.isUpdatingDeflist()) { return; }
-
-      var videoListView = this._videoListView;
-      var unlock = function() {
-        videoListView.setIsUpdatingDeflist(false, watchId);
-      };
-
-      videoListView.setIsUpdatingDeflist(true, watchId);
-
-      var timer = window.setTimeout(unlock, 10000);
-
-      if (!this._mylistApiLoader) {
-        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-      }
-
-      return this._mylistApiLoader.addDeflistItem(watchId)
-        .then(function(result) {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        PopupMessage.notify(result.message);
-      }, function(err) {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        PopupMessage.alert(err.message);
+    getItemByIndex: function(index) {
+      var item = this._items[index];
+      return item;
+    },
+    findByItemId: function(itemId) {
+      return _.find(this._items, function(item) {
+        return item.getItemId() === itemId;
       });
     }
   });
- 
+
 /**
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
@@ -343,6 +336,8 @@ var PopupMessage = {};
 
   var VideoListItemView = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoListItemView.prototype, AsyncEmitter.prototype);
+
+  // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
   VideoListItemView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     * {
       box-sizing: border-box;
@@ -565,23 +560,45 @@ var PopupMessage = {};
   });
 
   var VideoListItem = function() { this.initialize.apply(this, arguments); };
+  VideoListItem._itemId = 0;
+  VideoListItem.createByThumbInfo = function(info) {
+    return new VideoListItem({
+      id:             info.id,
+      title:          info.title,
+      length_seconds: info.duration,
+      num_res:        info.commentCount,
+      mylist_counter: info.mylistCount,
+      view_counter:   info.viewCount,
+      thumbnail_url:  info.thumbnail,
+      first_retrieve: info.postedAt,
+      tags:           info.tagList,
+      movieType:      info.movieType,
+      owner:          info.owner,
+      lastResBody:    info.lastResBody
+    });
+  };
+
   _.extend(VideoListItem.prototype, AsyncEmitter.prototype);
   _.assign(VideoListItem.prototype, {
     initialize: function(rawWata) {
       this._rawData = rawWata;
+      this._itemId = VideoListItem._itemId++;
     },
     _getData: function(key, defValue) {
       return this._rawData.hasOwnProperty(key) ?
         this._rawData[key] : defValue;
+    },
+    getItemId: function() {
+      return this._itemId;
+    },
+    getWatchId: function() {
+      return this._getData('id', '');
     },
     getTitle: function() {
       return this._getData('title', '');
     },
     getDuration: function() {
       return parseInt(this._getData('length_seconds', '0'), 10);
-    },
-    getWatchId: function() {
-      return this._getData('id', '');
     },
     getCount: function() {
       return {
@@ -676,38 +693,103 @@ var PopupMessage = {};
   _.assign(PlayListModel.prototype, {
     initialize: function() {
     },
-    initializeView: function() {
-      this._videoListView = new VideoListView({
-        $container: this._$container,
-        builder: VideoListItemView,
-        itemCss: VideoListItemView.__css__
-      });
-      this._videoListView.on('command', _.bind(function(command, param) {
-        this.emit('command', command, param);
-      }, this));
 
-      this._videoListView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
-
-      this._videoListView.on('update', _.bind(function() {
-        this._videoListView.scrollToItem(this._watchId);
-      }, this));
-    },
     isActive: function() {
       return this._isActive;
     },
     shuffle: function() {
-    },
-    insertNext: function(watchId) {
-    },
-    append: function(watchId) {
     },
     goToNext: function() {
     }
     
   });
 
+  var PlayList = function() { this.initialize.apply(this, arguments); };
+  _.extend(PlayList.prototype, VideoListModel.prototype);
+  _.assign(PlayList.prototype, {
+    initialize: function(params) {
+      this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
+      this._$container = params.$container;
+
+      this._model = new VideoListModel({
+        uniq: false,
+        maxItemx: 100000
+      });
+    },
+    initializeView: function() {
+      this._videoListView = new VideoListView({
+        $container: this._$container,
+        builder: VideoListItemView,
+        itemCss: VideoListItemView.__css__
+      });
+      this._videoListView.on('command', _.bind(this._onCommand, this));
+
+      this._videoListView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
+
+    },
+    _onCommand: function(command, param) {
+      switch (command) {
+        default:
+          this.emit('command', command, param);
+      }
+    },
+    _onDeflistAdd: function(watchId) {
+      if (this._videoListView.isUpdatingDeflist()) { return; }
+
+      var videoListView = this._videoListView;
+      var unlock = function() {
+        videoListView.setIsUpdatingDeflist(false, watchId);
+      };
+
+      videoListView.setIsUpdatingDeflist(true, watchId);
+
+      var timer = window.setTimeout(unlock, 10000);
+
+      if (!this._mylistApiLoader) {
+        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      }
+
+      return this._mylistApiLoader.addDeflistItem(watchId)
+        .then(function(result) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(unlock, 2000);
+        PopupMessage.notify(result.message);
+      }, function(err) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(unlock, 2000);
+        PopupMessage.alert(err.message);
+      });
+    },
+    _setItemData: function(listData) {
+      var items = [];
+      _.each(listData, function(itemData) {
+        items.push(new VideoListItem(itemData));
+      });
+      this._model.setItem(items);
+    },
+    insert: function(watchId) {
+      this._thumbInfoLoader.load(watchId).then(function(info) {
+        var item = VideoListItem.createByThumbInfo(info);
+        window.console.info(item, info);
+      },
+      function(result) {
+        window.console.error(result);
+      });
+    },
+    append: function(watchId) {
+      this._thumbInfoLoader.load(watchId).then(function(info) {
+        var item = VideoListItem.createByThumbInfo(info);
+        window.console.info(item, info);
+      },
+      function(result) {
+        window.console.error(result);
+      });
+    }
+  });
 
 //===END===
+      //ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
+//
 /*
 {
   first_retrieve: "2014-01-03 00:00:00",
@@ -721,4 +803,22 @@ var PopupMessage = {};
   title: "タイトル",
   view_counter: "123456"
 }
+
+
+
+commentCount: 4370138
+description: "レッツゴー！陰陽師（フルコーラスバージョン）"
+duration: 319
+id: "sm9"
+lastResBody: "ヤバイ倒れる陰陽師 遺影 うううううううううう "
+movieType: "flv"
+mylistCount: 162637
+owner: Object
+postedAt: "2007/3/6 0:33:00"
+status: "ok"
+tagList: Array[8]
+thumbnail: "http://tn-skr2.smilevideo.jp/smile?i=9"
+title: "新・豪血寺一族 -煩悩解放 - レッツゴー！陰陽師"
+v: "sm9"
+viewCount: 15529324
 */

@@ -22,7 +22,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.11.3
+// @version        0.11.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -33,7 +33,7 @@ var monkey = function() {
   var console = window.console;
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
-  var TOKEN = Math.random();
+  var TOKEN = 'r:' + (Math.random());
   console.log('jQuery version: ', $.fn.jquery);
 
     var ZenzaWatch = {
@@ -92,10 +92,11 @@ var monkey = function() {
 //@require exApi.js
 
   var host = window.location.host || '';
-  if (location.href === 'http://www.nicovideo.jp/favicon.ico' &&
+  var href = (location.href || '').replace(/#.*$/, '');
+  if (href === 'http://www.nicovideo.jp/favicon.ico' &&
       window.name === 'nicovideoApiLoader') {
     nicovideoApi();
-  } else if (location.href ==='http://api.ce.nicovideo.jp/api/v1/system.unixtime' &&
+  } else if (href ==='http://api.ce.nicovideo.jp/api/v1/system.unixtime' &&
       window.name === 'vitaApiLoader') {
     vitaApi();
   } else if (host === 'ext.nicovideo.jp' && location.pathname.indexOf('/thumb/') === 0) {

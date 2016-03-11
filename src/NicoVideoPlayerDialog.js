@@ -56,10 +56,18 @@ var SettingPanel = function() {};
       right: 0;
       bottom: 0;
       z-index: 100000;
+      font-size: 13px;
+      text-align: left;
+      box-sizing: border-box;
       transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;
     }
+
+    .zenzaVideoPlayerDialog * {
+      box-sizing: border-box;
+    }
+
     .zenzaVideoPlayerDialog.show {
       display: block;
     }
@@ -557,33 +565,31 @@ var SettingPanel = function() {};
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
       var $dialog = this._$dialog = $(NicoVideoPlayerDialog.__tpl__);
+      var onCommand = _.bind(this._onCommand, this);
+      var config = this._playerConfig;
 
-      this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
-      this._$playerContainer.on('click', _.bind(function(e) {
+      var $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
+      $container.on('click', _.bind(function(e) {
         ZenzaWatch.emitter.emitAsync('hideHover');
-        if (this._playerConfig.getValue('enableTogglePlayOnClick')) {
+        if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
           this.togglePlay();
         }
         e.preventDefault();
         e.stopPropagation();
+        $container.removeClass('menuOpen');
       }, this));
 
-      this.setIsBackComment(this._playerConfig.getValue('backComment'));
-      this._$playerContainer.toggleClass('showComment',
-        this._playerConfig.getValue('showComment'));
-      this._$playerContainer.toggleClass('mute',
-        this._playerConfig.getValue('mute'));
-      this._$playerContainer.toggleClass('loop',
-        this._playerConfig.getValue('loop'));
-      this._$playerContainer.toggleClass('debug',
-        this._playerConfig.getValue('debug'));
-
+      this.setIsBackComment(config.getValue('backComment'));
+      $container.toggleClass('showComment', config.getValue('showComment'));
+      $container.toggleClass('mute', config.getValue('mute'));
+      $container.toggleClass('loop', config.getValue('loop'));
+      $container.toggleClass('debug', config.getValue('debug'));
 
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       var lastX = 0, lastY = 0;
       var onMouseMove    = _.bind(this._onMouseMove, this);
       var onMouseMoveEnd = _.debounce(_.bind(this._onMouseMoveEnd, this), 1500);
-      this._$playerContainer.on('mousemove', _.bind(function(e) {
+      $container.on('mousemove', _.bind(function(e) {
           if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
             return;
           }
@@ -592,20 +598,20 @@ var SettingPanel = function() {};
           onMouseMove(e);
           onMouseMoveEnd(e);
         }, this))
-      .on('mouseown', onMouseMove)
-      .on('mouseown', onMouseMoveEnd);
+        .on('mouseown', onMouseMove)
+        .on('mouseown', onMouseMoveEnd);
 
       $dialog.on('click', _.bind(this._onClick, this));
 
       this._hoverMenu = new VideoHoverMenu({
-        $playerContainer: this._$playerContainer,
-        playerConfig: this._playerConfig
+        $playerContainer: $container,
+        playerConfig: config
       });
-      this._hoverMenu.on('command', _.bind(this._onCommand, this));
+      this._hoverMenu.on('command', onCommand);
 
       this._commentInput = new CommentInputPanel({
-        $playerContainer: this._$playerContainer,
-        playerConfig: this._playerConfig
+        $playerContainer: $container,
+        playerConfig: config
       });
       this._commentInput.on('post', _.bind(function(e, chat, cmd) {
         this.addChat(chat, cmd).then(function() {
@@ -632,22 +638,25 @@ var SettingPanel = function() {};
       }, this));
 
       this._settingPanel = new SettingPanel({
-        $playerContainer: this._$playerContainer,
-        playerConfig: this._playerConfig,
+        $playerContainer: $container,
+        playerConfig: config,
         player: this
       });
-      this._settingPanel.on('command', _.bind(this._onCommand, this));
+      this._settingPanel.on('command', onCommand);
 
       this._videoControlBar = new VideoControlBar({
-        $playerContainer: this._$playerContainer,
-        playerConfig: this._playerConfig,
+        $playerContainer: $container,
+        playerConfig: config,
         player: this
       });
-      this._videoControlBar.on('command', _.bind(this._onCommand, this));
+      this._videoControlBar.on('command', onCommand);
 
-      this._$errorMessageContainer = this._$playerContainer.find('.errorMessageContainer');
+      this._$errorMessageContainer = $container.find('.errorMessageContainer');
 
       this._initializeResponsive();
+
+      ZenzaWatch.emitter.on('showMenu', function() { $container.addClass('menuOpen'); });
+      ZenzaWatch.emitter.on('hideMenu', function() { $container.removeClass('menuOpen'); });
       $('body').append($dialog);
     },
     _initializeNicoVideoPlayer: function() {
@@ -1942,7 +1951,7 @@ var SettingPanel = function() {};
       vertical-align: middle;
       font-size: 110%;
       color: #fff;
-      text-derocation: none !important;
+      text-decoration: none !important;
     }
     .mylistSelectMenu .name:hover {
       color: #fff;
@@ -2321,12 +2330,14 @@ var SettingPanel = function() {};
         $btn.removeClass('show');
         $menu.removeClass('show');
         $body.off(eventName);
+        ZenzaWatch.emitter.emitAsync('hideMenu');
       };
       if ($menu.hasClass('show')) {
         this._hideMenu();
         $btn .addClass('show');
         $menu.addClass('show');
         $body.on(eventName, onBodyClick);
+        ZenzaWatch.emitter.emitAsync('showMenu');
         return true;
       }
       return false;

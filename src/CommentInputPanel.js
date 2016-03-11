@@ -67,6 +67,10 @@ var AsyncEmitter = function() {};
     .commentInputPanel>* {
       pointer-events: none;
     }
+    
+    .commentInputPanel input {
+      font-size: 18px;
+    }
 
     .commentInputPanel.active>*,
     .commentInputPanel:hover>* {
@@ -135,20 +139,22 @@ var AsyncEmitter = function() {};
       font-size: 24px;
       top: 0;
       left: 0;
-      border: none;
       border-radius: 8px;
       z-index: -1;
       opacity: 0;
       transition: left 0.2s ease, opacity 0.2s ease;
       text-align: center;
       line-height: 26px;
+      padding: 0;
     }
     .commentInputPanel.active .commandInput {
       left: -108px;
       z-index: 1;
       opacity: 0.9;
+      border: none;
       pointer-evnets: auto;
       box-shadow: 0 0 8px #fff;
+      padding: 0;
     }
 
     .commentSubmit {
@@ -164,6 +170,7 @@ var AsyncEmitter = function() {};
       opacity: 0;
       transition: right 0.2s ease, opacity 0.2s ease;
       line-height: 26px;
+      letter-spacing: 0.2em;
     }
     .commentInputPanel.active .commentSubmit {
       right: -108px;

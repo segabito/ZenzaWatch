@@ -104,12 +104,8 @@ var ajax = function() {};
         videoInfoLoader.emitAsync('load', info, 'THUMB_WATCH');
       };
 
-      // jsの壁を越えてクロス†ドメイン通信するための 異世界の"門"(ゲート) を広げる
-      // ログインなしで動画を視聴出来る禁呪を発動させるための魔方陣であるが、現在は封印されている。
-      // "フォース" の力によって封印を解いた者だけが異世界の"門"をうんたらかんたら
-      //
-      // やってることはiframeごしに外部サイト用動画プレイヤーのAPIを叩いてるだけ
-      // 原理的には、http://〜のサイトならどこでもZenzaWatchを起動できる。
+      // 外部プレイヤーと同じ方法で起動するやつ。 ログイン不要で動画が再生できる。
+      // CrossDomainGateを使って書き直す。 そのうち
       var initializeCrossDomainGate = function() {
         initializeCrossDomainGate = _.noop;
 
@@ -164,6 +160,7 @@ var ajax = function() {};
           cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
           var result = {
+            _format: 'watchApi',
             watchApiData: watchApiData,
             flvInfo: flvInfo,
             playlist: playlist,
@@ -331,6 +328,7 @@ var ajax = function() {};
 
         var result = {
           status: 'ok',
+          _format: 'thumbInfo',
           v:     watchId,
           id:    val('video_id'),
           title: val('title'),
@@ -378,7 +376,7 @@ var ajax = function() {};
         gate = new CrossDomainGate({
           baseUrl: BASE_URL,
           origin: MESSAGE_ORIGIN,
-          type: 'thumbInfoApi',
+          type: 'thumbInfo',
           messager: WindowMessageEmitter
         });
       };
@@ -441,6 +439,7 @@ var ajax = function() {};
         _.each(watchIds, function(watchId) {
           var videoInfo = cacheStorage.getItem(STORAGE_PREFIX + watchId);
           if (!videoInfo) { return; }
+          videoInfo._format = 'vitaApi';
           result[watchId] = videoInfo;
         });
         return result;
@@ -1309,13 +1308,14 @@ var ajax = function() {};
 
         var loaderFrame = document.createElement('iframe');
         loaderFrame.name = this._type + 'Loader';
-        loaderFrame.src  = this._baseUrl;
-        loaderFrame.className = 'xDomainLoaderFrame ' + this.type;
+        //loaderFrame.src  = this._baseUrl;
+        loaderFrame.className = 'xDomainLoaderFrame ' + this._type;
         document.body.appendChild(loaderFrame);
 
         this._loaderFrame = loaderFrame;
         this._loaderWindow = loaderFrame.contentWindow;
         this._messager.addKnownSource(this._loaderWindow);
+        this._loaderWindow.location.href = this._baseUrl + '#' + TOKEN;
       },
       _onMessage: function(data, type) {
         if (type !== this._type) { return; }

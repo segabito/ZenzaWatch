@@ -133,7 +133,6 @@ var AsyncEmitter = function() {};
     .mouseMoving .controlItemContainer.right {
     }
     .mouseMoving .controlItemContainer.right .controlButton{
-      outline: solid 1px #333;
       background: #333;
     }
     .controlItemContainer.right .scalingUI {
@@ -786,10 +785,6 @@ var AsyncEmitter = function() {};
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
-
-
-      // TODO: 飽きたら消す
-      //this._lark = new Lark(params);
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(VideoControlBar.__css__);
@@ -808,9 +803,10 @@ var AsyncEmitter = function() {};
         ZenzaWatch.emitter.emitAsync('hideHover');
       });
 
-      this._$seekBar.on('mousedown', _.bind(this._onSeekBarMouseDown, this));
-      this._$seekBar.on('mousemove', _.bind(this._onSeekBarMouseMove, this));
-      this._$seekBar.on('mousemove', _.debounce(_.bind(this._onSeekBarMouseMoveEnd, this), 1000));
+      this._$seekBar
+        .on('mousedown', _.bind(this._onSeekBarMouseDown, this))
+        .on('mousemove', _.bind(this._onSeekBarMouseMove, this))
+        .on('mousemove', _.debounce(_.bind(this._onSeekBarMouseMoveEnd, this), 1000));
 
       $view.find('.controlButton')
         .on('click', _.bind(this._onControlButton, this));
@@ -1028,12 +1024,14 @@ var AsyncEmitter = function() {};
         $btn.removeClass('show');
         $menu.removeClass('show');
         $body.off(eventName);
+        ZenzaWatch.emitter.emitAsync('hideMenu');
       };
       if ($menu.hasClass('show')) {
         this._hideMenu();
         $btn .addClass('show');
         $menu.addClass('show');
         $body.on(eventName, onBodyClick);
+        ZenzaWatch.emitter.emitAsync('showMenu');
       }
     },
     _posToTime: function(pos) {

@@ -318,11 +318,13 @@ var RelatedVideoList = function() {};
       display: inline-block;
       margin-right: 4px;
       padding: 4px;
+      line-height: 20px;
     }
 
     .zenzaWatchVideoInfoPanel .videoTags li .nicodic {
       display: inline-block;
       margin-right: 4px;
+      line-height: 20px;
     }
 
     .zenzaWatchVideoInfoPanel .videoTags li .tagLink {
@@ -910,6 +912,7 @@ var RelatedVideoList = function() {};
       overflow: hidden;
       display: block;
       cursor: pointer;
+      padding: 2px 0;
     }
     .zenzaWatchVideoHeaderPanel .videoTitleContainer:hover {
       background: #666;
@@ -1010,11 +1013,13 @@ var RelatedVideoList = function() {};
       display: inline-block;
       margin-right: 8px;
       padding: 0;
+      line-height: 20px;
     }
 
     .zenzaWatchVideoHeaderPanel .videoTags li .nicodic {
       display: inline-block;
       margin-right: 4px;
+      line-height: 20px;
     }
     .zenzaWatchVideoHeaderPanel .videoTags li .tagLink {
       color: #fff;
@@ -1038,7 +1043,7 @@ var RelatedVideoList = function() {};
         <span class="videoTitle"></span>
         <div class="hoverLinkContainer">
           <div class="hoverLink ginza">
-            <a class="ginzaLink noHoverMenu" target="_blank">GINZAで視聴</a>
+            <a class="ginzaLink noHoverMenu" target="watchGinza">GINZAで視聴</a>
           </div>
           <div class="hoverLink uad">
             <a class="uadLink   noHoverMenu" target="_blank">ニコニ広告</a>
@@ -1115,6 +1120,13 @@ var RelatedVideoList = function() {};
       }, this));
 
       this._$ginzaLink.on('mousedown', _.bind(this._onGinzaLinkMouseDown, this));
+
+      this._$view.on('click', function(e) {
+        e.stopPropagation();
+        ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
+      }).on('wheel', function(e) {
+        e.stopPropagation();
+      });
     },
     update: function(videoInfo) {
       this._videoInfo = videoInfo;

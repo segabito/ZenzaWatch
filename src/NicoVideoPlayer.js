@@ -690,10 +690,12 @@ var AsyncEmitter = function() {};
         top:  Math.max(0, Math.min(y, $window.innerHeight() - $view.outerHeight())),
       });
       this._$view.addClass('show');
+      ZenzaWatch.emitter.emitAsync('showMenu');
     },
     hide: function() {
       $('body').off('click.ZenzaMenuOnBodyClick', this._onBodyClick);
       this._$view.css({top: '', left: ''}).removeClass('show');
+      ZenzaWatch.emitter.emitAsync('hideMenu');
     },
     _createMymemory: function() {
       var html = this._player.getMymemory();

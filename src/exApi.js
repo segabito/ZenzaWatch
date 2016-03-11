@@ -125,21 +125,19 @@ var ZenzaWatch = {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
     var parentHost = document.referrer.split('/')[2];
-    window.console.log('parentHost', parentHost);
     if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
 
-    var type = 'thumbInfoApi';
-    var token = null;
+    var type = 'thumbInfo';
+    var token = location.hash ? location.hash.substr(1) : null;
+    location.hash = '';
 
     window.addEventListener('message', function(event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
-      var command = data.command;
-
-      if (!token) { token = data.token; }
+      //var command = data.command;
 
       if (data.token !== token) { return; }
 
@@ -157,6 +155,7 @@ var ZenzaWatch = {
             postMessage(type, {
               sessionId: sessionId,
               status: 'ok',
+              token: token,
               url: data.url,
               body: resp.responseText
             });
@@ -201,13 +200,13 @@ var ZenzaWatch = {
 
 
     var type = 'vitaApi';
-    var token = null;
+    var token = location.hash ? location.hash.substr(1) : null;
+    location.hash = '';
 
     window.addEventListener('message', function(event) {
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       var command = data.command;
 
-      if (!token) { token = data.token; }
       if (data.token !== token) { return; }
 
       if (!data.url) { return; }
@@ -271,7 +270,8 @@ var ZenzaWatch = {
 
 
     var type = 'nicovideoApi';
-    var token = null;
+    var token = location.hash ? location.hash.substr(1) : null;
+    location.hash = '';
 
     var originalUrl = location.href;
     var pushHistory = function(path) {
@@ -329,9 +329,6 @@ var ZenzaWatch = {
     window.addEventListener('message', function(event) {
       //window.console.log('nicovideoApiLoaderWindow.onMessage', event.origin, event.data);
       var data = JSON.parse(event.data), command = data.command;
-
-      // このタイミングで割り込まれたらどうにもならないが、やらないよりはマシだろう
-      if (!token) { token = data.token; }
 
       if (data.token !== token) {
         window.console.log('invalid token: ', data.token, token, command);
