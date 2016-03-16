@@ -60,6 +60,7 @@ var AsyncEmitter = function() {};
       }
 
       var hoverMenu = new HoverMenu({playerConfig: Config});
+      ZenzaWatch.debug.hoverMenu = hoverMenu;
       
       window.console.time('createOffscreenLayer');
       NicoComment.offScreenLayer.get(Config).then(function(offScreenLayer) {
@@ -124,6 +125,7 @@ var AsyncEmitter = function() {};
            Config.getValue('continueNextPage')
            )
         ) {
+          lastSession.eventType = 'session';
           dialog.open(lastSession.watchId, lastSession);
         }
 
@@ -261,6 +263,9 @@ var AsyncEmitter = function() {};
         var offset = $target.offset();
         var host = $target[0].hostname;
         if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') { return; }
+        this._query = ZenzaWatch.util.parseQuery(($target[0].search || '').substr(1));
+
+
         if ($target.hasClass('noHoverMenu')) { return; }
         if (!watchId.match(/^[a-z0-9]+$/)) { return; }
         if (watchId.indexOf('lv') === 0) { return; }
@@ -271,9 +276,9 @@ var AsyncEmitter = function() {};
         this._watchId = watchId;
         
         this._$view.css({
-            top:  offset.top,
-            left: offset.left - this._$view.outerWidth()  / 2
-          }).addClass('show');
+          top:  offset.top,
+          left: offset.left - this._$view.outerWidth()  / 2
+        }).addClass('show');
       },
       _onClick: function(e) {
         var watchId = this._watchId;
@@ -287,8 +292,11 @@ var AsyncEmitter = function() {};
       },
       _open: function(watchId) {
         this._playerOption = {
-          economy: this._playerConfig.getValue('forceEconomy')
+          economy: this._playerConfig.getValue('forceEconomy'),
+          query: this._query,
+          eventType: 'click'
         };
+
 
         if (this._player) {
           this._player.open(watchId, this._playerOption);
@@ -299,7 +307,8 @@ var AsyncEmitter = function() {};
       _send: function(watchId) {
         localStorageEmitter.send({
           type: 'openVideo',
-          watchId: watchId
+          watchId: watchId,
+          query: this._query
         });
       },
       _overrideGinzaLink: function() {
@@ -311,6 +320,7 @@ var AsyncEmitter = function() {};
           var watchId = ZenzaWatch.util.getWatchId(href);
           var host = $target[0].hostname;
           if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') { return; }
+          this._query = ZenzaWatch.util.parseQuery(($target[0].search || '').substr(1));
 
           if ($target.hasClass('noHoverMenu')) { return; }
           if (!watchId.match(/^[a-z0-9]+$/)) { return; }

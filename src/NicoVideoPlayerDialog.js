@@ -17,6 +17,7 @@ var VideoInfoPanel = function() {};
 var VideoInfoModel = function() {};
 var CommentInputPanel = function() {};
 var SettingPanel = function() {};
+var PlayList = function() {};
 
 //===BEGIN===
 
@@ -743,6 +744,12 @@ var SettingPanel = function() {};
       var v;
       console.log('command: %s param: %s', command, param, typeof param);
       switch(command) {
+        case 'notify':
+          PopupMessage.notify(param);
+          break;
+        case 'alert':
+          PopupMessage.alert(param);
+          break;
         case 'volume':
           this.setVolume(param);
           break;
@@ -1262,6 +1269,20 @@ var SettingPanel = function() {};
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
       this._$playerContainer.removeClass('stalled loading');
+
+      var query = this._videoWatchOptions.query || {};
+
+      if (query.playlist_type ==='deflist' ||
+          query.playlist_type === 'mylist_playlist' || query.group_id) {
+        this._initializePlayListTab();
+        if (query.playlist_type ==='deflist') {
+          query.group_id = 'deflist';
+        }
+        var opt = {};
+        if (query.mylist_sort) { opt.sort = query.mylist_sort; }
+        this._playList.loadFromMylist(query.group_id, opt);
+      }
+
       this.emitAsync('canPlay', this._watchId, this._videoInfo);
 
       if (this._playerConfig.getValue('autoPlay')) {
@@ -1360,6 +1381,18 @@ var SettingPanel = function() {};
         VideoInfoLoader.off('load', this._onVideoInfoLoaderLoad_proxy);
         this._onVideoInfoLoaderLoad_proxy = null;
       }
+    },
+    _initializePlayListTab: function() {
+      if (this._playList) { return; }
+      var $container = this._videoInfoPanel.appendTab('playlist', 'プレイリスト');
+      this._playList = new PlayList({
+        loader: ZenzaWatch.api.ThumbInfoLoader,
+        $container: $container
+      });
+      this._playList.on('command', _.bind(this._onCommand, this));
+    },
+    isPlayListActive: function() {
+      return this._playList && this._playList.isActive();
     },
     play: function() {
       if (!this._hasError && this._nicoVideoPlayer) {

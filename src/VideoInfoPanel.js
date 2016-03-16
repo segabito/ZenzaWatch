@@ -1202,6 +1202,9 @@ var RelatedVideoList = function() {};
         $tagList.append($tag);
       });
       $container.append($tagList);
+
+      //http://ex.nicovideo.jp/game
+      // なぜかここで勝手に変なタグが挿入されるため、後から除去する
       ZenzaWatch.util.callAsync(function() {
         $tagList.find('li:not(.zenza-tag), .zenza-tag a:not(.nicodic):not(.tagLink)').remove();
       }, 100);

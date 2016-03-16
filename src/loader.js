@@ -924,16 +924,21 @@ var ajax = function() {};
             if (token) { console.log('cached token exists', token); }
           }
         },
-        getDeflistItems: function() {
+        getDeflistItems: function(options) {
           var url = 'http://www.nicovideo.jp/api/deflist/list';
           var cacheKey = 'deflistItems';
+          var sortItem = this.sortItem;
+          options = options || {};
 
           return new Promise(function(resolve, reject) {
 
             var cacheData = cacheStorage.getItem(cacheKey);
             if (cacheData) {
               console.log('cache exists: ', cacheKey, cacheData);
-              ZenzaWatch.util.callAsync(function() { resolve(cacheData); }, this);
+              ZenzaWatch.util.callAsync(function() {
+                if (options.sort) { cacheData = sortItem(cacheData, options.sort); }
+                resolve(cacheData);
+              }, this);
               return;
             }
 
@@ -954,6 +959,7 @@ var ajax = function() {};
 
               var data = result.mylistitem;
               cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
+              if (options.sort) { data = sortItem(data, options.sort); }
               resolve(data);
             }, function(err) {
               reject({
@@ -963,16 +969,21 @@ var ajax = function() {};
             });
           });
         },
-        getMylistItems: function(groupId) {
+        getMylistItems: function(groupId, options) {
+          if (groupId === 'deflist') { return this.getDeflistItems(options); }
           var url = 'http://www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
+          var sortItem = this.sortItem;
 
           return new Promise(function(resolve, reject) {
 
             var cacheData = cacheStorage.getItem(cacheKey);
             if (cacheData) {
               console.log('cache exists: ', cacheKey, cacheData);
-              ZenzaWatch.util.callAsync(function() { resolve(cacheData); }, this);
+              ZenzaWatch.util.callAsync(function() {
+                if (options.sort) { cacheData = sortItem(cacheData, options.sort); }
+                resolve(cacheData);
+              }, this);
               return;
             }
 
@@ -992,6 +1003,7 @@ var ajax = function() {};
 
               var data = result.mylistitem;
               cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
+              if (options.sort) { data = sortItem(data, options.sort); }
               return resolve(data);
             }, function(err) {
               this.reject({
@@ -1000,6 +1012,81 @@ var ajax = function() {};
               });
             });
           });
+        },
+        sortItem: function(items, sortId) {
+          sortId = parseInt(sortId, 10);
+
+          var sortKey = ([
+            'create_time',    'create_time',
+            'description',    'description', // 動画説明文ではなくマイリストコメント
+            'title',          'title',
+            'first_retrieve', 'first_retrieve',
+            'view_counter',   'view_counter',
+            'update_time',    'update_time',
+            'num_res',        'num_res',
+            'mylist_counter', 'mylist_counter',
+            'length_seconds', 'length_seconds'
+          ])[sortId];
+
+          var order;
+          switch (sortKey) {
+            // 偶数がascで奇数がdescかと思ったら特に統一されてなかった
+            case 'first_retrieve':
+            case 'thread_update_time':
+              order = (sortId % 2 === 1) ? 'asc' : 'desc';
+              break;
+            // 数値系は偶数がdesc
+            case 'num_res':
+            case 'mylist_counter':
+            case 'view_counter':
+            case 'length_seconds':
+              order = (sortId % 2 === 1) ? 'asc' : 'desc';
+              break;
+            default:
+              order = (sortId % 2 === 0) ? 'asc' : 'desc';
+          }
+
+          //window.console.log('sortKey?', sortId, sortKey, order);
+          if (!sortKey) { return items; }
+
+          var getKeyFunc = (function(sortKey) {
+            switch (sortKey) {
+              case 'create_time':
+              case 'description':
+                return function(item) { return item[sortKey]; };
+              case 'num_res':
+              case 'mylist_counter':
+              case 'view_counter':
+              case 'length_seconds':
+                return function(item) { return item.item_data[sortKey] * 1; };
+              default:
+                return function(item) { return item.item_data[sortKey]; };
+            }
+          })(sortKey);
+
+          var compareFunc = (function(order, getKey) {
+            switch (order) {
+              // sortKeyが同一だった場合は動画IDでソートする
+              // 銀魂など、一部公式チャンネル動画向けの対応
+              case 'asc':
+                return function(a, b) {
+                  var ak = getKey(a), bk = getKey(b);
+                  if (ak !== bk) { return ak > bk ? 1 : -1; }
+                  else { return a.item_data.watch_id > b.item_data.watch_id ? 1 : -1; }
+                };
+              case 'desc':
+                return function(a, b) {
+                  var ak = getKey(a), bk = getKey(b);
+                  if (ak !== bk) { return (ak < bk) ? 1 : -1; }
+                  else { return a.item_data.watch_id < b.item_data.watch_id ? 1 : -1; }
+                };
+            }
+          })(order, getKeyFunc);
+
+          //window.console.log('before sort', items[0], items, order, sortKey, compareFunc);
+          items.sort(compareFunc);
+          //window.console.log('after sort', items[0], items);
+          return items;
         },
         getMylistList: function() {
           var url = 'http://www.nicovideo.jp/api/mylistgroup/list';

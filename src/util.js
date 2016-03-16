@@ -179,7 +179,7 @@ var console;
         screenMode:   'normal',
         autoFullScreen: false,
         autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
-        continueNextPage: true,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
+        continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
         sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH

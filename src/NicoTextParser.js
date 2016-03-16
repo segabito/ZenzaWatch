@@ -6,6 +6,7 @@ var ZenzaWatch = {
 /**
 
 参考: http://www37.atwiki.jp/commentart/pages/44.html
+https://www.w3.org/TR/css3-fonts/#font-kerning-prop
 
 MINCHO
 
@@ -81,6 +82,7 @@ body {
   padding: 0;
   overflow: hidden;
   pointer-events: none;
+  font-kerning: none;
 }
 
 .default {}
