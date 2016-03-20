@@ -1136,6 +1136,12 @@ var console;
           case 32:
             key = 'SPACE';
             break;
+          case 74: //J
+            key = 'NEXT_VIDEO';
+            break;
+          case 75: //J
+            key = 'PREV_VIDEO';
+            break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
             break;

@@ -1189,6 +1189,12 @@ var monkey = function() {
           case 32:
             key = 'SPACE';
             break;
+          case 74: //J
+            key = 'NEXT_VIDEO';
+            break;
+          case 75: //J
+            key = 'PREV_VIDEO';
+            break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
             break;
@@ -11643,6 +11649,12 @@ spacer {
         case 'SEEK':
           var c = this._nicoVideoPlayer.getCurrentTime();
           this._nicoVideoPlayer.setCurrentTime(c + param);
+          break;
+        case 'NEXT_VIDEO':
+          if (this.isPlaylistEnable()) { this.playNextVideo(); }
+          break;
+        case 'PREV_VIDEO':
+          if (this.isPlaylistEnable()) { this.playPreviousVideo(); }
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');

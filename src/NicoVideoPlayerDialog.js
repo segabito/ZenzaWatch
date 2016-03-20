@@ -1020,6 +1020,12 @@ var Playlist = function() {};
           var c = this._nicoVideoPlayer.getCurrentTime();
           this._nicoVideoPlayer.setCurrentTime(c + param);
           break;
+        case 'NEXT_VIDEO':
+          if (this.isPlaylistEnable()) { this.playNextVideo(); }
+          break;
+        case 'PREV_VIDEO':
+          if (this.isPlaylistEnable()) { this.playPreviousVideo(); }
+          break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
       if (!_.contains(['small', 'sideView'], screenMode)) {
