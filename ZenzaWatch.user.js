@@ -4136,8 +4136,8 @@ var monkey = function() {
     }
 
 
-    .controlButtoncontainer {
-      position: absolute;
+    .controlButtonInner {
+      display: inline-block;
     }
 
 
@@ -4565,13 +4565,16 @@ var monkey = function() {
       display: none;
     }
 
+    .prevVideo.playControl,
     .nextVideo.playControl {
       display: none;
     }
+    .playlistEnable .prevVideo.playControl,
     .playlistEnable .nextVideo.playControl {
       display: inline-block;
     }
 
+    .prevVideo,
     .nextVideo {
       font-size: 23px;
       width: 32px;
@@ -4579,8 +4582,11 @@ var monkey = function() {
       margin-top: -2px;
       line-height: 30px;
     }
+    .prevVideo .controlButtonInner {
+      transform: scaleX(-1);
+    }
 
-    .nextVideo:active {
+    .prevVideo:active {
       font-size: 18px;
     }
 
@@ -4668,6 +4674,11 @@ var monkey = function() {
               <div class="slideBar"></div>
               <div class="volumeBarPointer"></div>
             </div>
+          </div>
+
+           <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
+            <div class="controlButtonInner">&#x27A0;</div>
+            <div class="tooltip">前の動画</div>
           </div>
 
            <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
@@ -10596,15 +10607,33 @@ spacer {
       if (!this.hasNext()) { return null; }
       var index = this.getIndex();
       var len = this.getLength();
+      if (len < 1) { return null; }
 
       //window.console.log('selectNext', index, len);
       if (index < -1) {
         this.setIndex(0);
-      } else if (index + 1< len) {
+      } else if (index + 1 < len) {
         this.setIndex(index + 1);
       } else if (this.isLoop()) {
         this.setIndex((index + 1) % len);
       }
+      return this._activeItem ? this._activeItem.getWatchId() : null;
+    },
+    selectPrevious: function() {
+      var index = this.getIndex();
+      var len = this.getLength();
+      if (len < 1) { return null; }
+
+      if (index < -1) {
+        this.setIndex(0);
+      } else if (index > 0) {
+        this.setIndex(index - 1);
+      } else if (this.isLoop()) {
+        this.setIndex((index + len - 1) % len);
+      } else {
+        return null;
+      }
+
       return this._activeItem ? this._activeItem.getWatchId() : null;
     },
     scrollToActiveItem: function() {
@@ -11494,6 +11523,9 @@ spacer {
         case 'playNextVideo':
           this.playNextVideo();
           break;
+        case 'playPreviousVideo':
+          this.playPreviousVideo();
+          break;
         case 'playlistShuffle':
           if (this._playlist) {
             this._playlist.shuffle();
@@ -12167,6 +12199,15 @@ spacer {
       var nextId = this._playlist.selectNext();
       if (nextId) {
         this.open(nextId, opt);
+      }
+    },
+    playPreviousVideo: function() {
+      if (!this._playlist) { return; }
+      var opt = this._videoWatchOptions.createOptionsForVideoChange();
+
+      var prevId = this._playlist.selectPrevious();
+      if (prevId) {
+        this.open(prevId, opt);
       }
     },
     play: function() {

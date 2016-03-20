@@ -899,6 +899,9 @@ var Playlist = function() {};
         case 'playNextVideo':
           this.playNextVideo();
           break;
+        case 'playPreviousVideo':
+          this.playPreviousVideo();
+          break;
         case 'playlistShuffle':
           if (this._playlist) {
             this._playlist.shuffle();
@@ -1572,6 +1575,15 @@ var Playlist = function() {};
       var nextId = this._playlist.selectNext();
       if (nextId) {
         this.open(nextId, opt);
+      }
+    },
+    playPreviousVideo: function() {
+      if (!this._playlist) { return; }
+      var opt = this._videoWatchOptions.createOptionsForVideoChange();
+
+      var prevId = this._playlist.selectPrevious();
+      if (prevId) {
+        this.open(prevId, opt);
       }
     },
     play: function() {

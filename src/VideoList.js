@@ -1680,15 +1680,33 @@ var PopupMessage = {};
       if (!this.hasNext()) { return null; }
       var index = this.getIndex();
       var len = this.getLength();
+      if (len < 1) { return null; }
 
       //window.console.log('selectNext', index, len);
       if (index < -1) {
         this.setIndex(0);
-      } else if (index + 1< len) {
+      } else if (index + 1 < len) {
         this.setIndex(index + 1);
       } else if (this.isLoop()) {
         this.setIndex((index + 1) % len);
       }
+      return this._activeItem ? this._activeItem.getWatchId() : null;
+    },
+    selectPrevious: function() {
+      var index = this.getIndex();
+      var len = this.getLength();
+      if (len < 1) { return null; }
+
+      if (index < -1) {
+        this.setIndex(0);
+      } else if (index > 0) {
+        this.setIndex(index - 1);
+      } else if (this.isLoop()) {
+        this.setIndex((index + len - 1) % len);
+      } else {
+        return null;
+      }
+
       return this._activeItem ? this._activeItem.getWatchId() : null;
     },
     scrollToActiveItem: function() {

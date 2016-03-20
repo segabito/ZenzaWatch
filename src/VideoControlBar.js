@@ -211,8 +211,8 @@ var AsyncEmitter = function() {};
     }
 
 
-    .controlButtoncontainer {
-      position: absolute;
+    .controlButtonInner {
+      display: inline-block;
     }
 
 
@@ -640,13 +640,16 @@ var AsyncEmitter = function() {};
       display: none;
     }
 
+    .prevVideo.playControl,
     .nextVideo.playControl {
       display: none;
     }
+    .playlistEnable .prevVideo.playControl,
     .playlistEnable .nextVideo.playControl {
       display: inline-block;
     }
 
+    .prevVideo,
     .nextVideo {
       font-size: 23px;
       width: 32px;
@@ -654,8 +657,11 @@ var AsyncEmitter = function() {};
       margin-top: -2px;
       line-height: 30px;
     }
+    .prevVideo .controlButtonInner {
+      transform: scaleX(-1);
+    }
 
-    .nextVideo:active {
+    .prevVideo:active {
       font-size: 18px;
     }
 
@@ -743,6 +749,11 @@ var AsyncEmitter = function() {};
               <div class="slideBar"></div>
               <div class="volumeBarPointer"></div>
             </div>
+          </div>
+
+           <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
+            <div class="controlButtonInner">&#x27A0;</div>
+            <div class="tooltip">前の動画</div>
           </div>
 
            <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
