@@ -9012,6 +9012,14 @@ spacer {
         this.emit('update', this._items);
       }
     },
+    removeNonActiveItem: function() {
+      var beforeLen = this._items.length;
+      this._items = _.reject(this._items, function(item) { return !item.isActive(); });
+      var afterLen = this._items.length;
+      if (beforeLen !== afterLen) {
+        this.emit('update', this._items);
+      }
+    },
     shuffle: function() {
       this._items = _.shuffle(this._items);
       this.emit('update', this._items);
@@ -10141,6 +10149,7 @@ spacer {
                 動画の短い順に並べる
               </li>
               <li class="playlist-command" data-command="removePlayedItem">再生済を消す ●</li>
+              <li class="playlist-command" data-command="removeNonActiveItem">リストの消去 ×</li>
 
             </ul>
             </div>
@@ -10359,6 +10368,9 @@ spacer {
           break;
         case 'removePlayedItem':
           this.removePlayedItem();
+          break;
+        case 'removeNonActiveItem':
+          this.removeNonActiveItem();
           break;
         default:
           this.emit('command', command, param);
@@ -10608,6 +10620,11 @@ spacer {
       ZenzaWatch.util.callAsync(function() {
         this._view.scrollToItem(this._activeItem);
       }, this, 1000);
+    },
+    removeNonActiveItem: function() {
+      this._model.removeNonActiveItem();
+      this._refreshIndex(true);
+      this.toggleEnable(false);
     },
     selectNext: function() {
       if (!this.hasNext()) { return null; }
