@@ -4877,6 +4877,7 @@ var monkey = function() {
       var $pointer = $container.find('.volumeBarPointer');
       var $body    = $('body');
       var $window  = $(window);
+      var config   = this._playerConfig;
       var self = this;
 
       var setVolumeBar = this._setVolumeBar = function(v) {
@@ -4895,7 +4896,8 @@ var monkey = function() {
 
       var onBodyMouseMove = function(e) {
         var offset = $inner.offset();
-        var left = e.clientX - offset.left;
+        var scale = Math.max(0.1, parseFloat(config.getValue('menuScale'), 10));
+        var left = (e.clientX - offset.left) / scale;
         var vol = posToVol(left);
 
         self.emit('command', 'volume', vol);
