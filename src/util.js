@@ -856,6 +856,7 @@ var console;
           if (ZenzaWatch.api.nicovideoLoader) {
             ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId);
           }
+          return;
         }
         var url = originalUrl;
         if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
@@ -884,6 +885,41 @@ var console;
         isOpen = true;
       };
 
+      var onVideoInfoLoad = function(videoInfo) {
+        if (!videoInfo.getWatchId) { return; }
+        var watchId = videoInfo.getWatchId();
+        var title =
+           'nicovideo: ' + videoInfo.getTitle() + ' - ' + videoInfo.getOwnerInfo().name;
+        if (location.host !== 'www.nicovideo.jp') {
+          if (ZenzaWatch.api.nicovideoLoader) {
+            ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId, title);
+          }
+          return;
+        }
+        var url = originalUrl, originalTitle = document.title;
+        if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+          url = location.href;
+        }
+
+        var state = {};
+        window.history.replaceState(
+          state,
+          null,
+          '/watch/' + watchId // + '#' + originalUrl
+        );
+        document.title = title;
+
+        // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
+        // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
+        ZenzaWatch.util.callAsync(function() {
+          document.title = originalTitle;
+          if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+            return;
+          }
+          window.history.replaceState(null, null, url);
+        }, 1000);
+       };
+
       var initialize = function(_dialog) {
         initialize = _.noop;
         dialog = _dialog;
@@ -894,6 +930,7 @@ var console;
         originalUrl = location.href;
         
         dialog.on('open', onDialogOpen);
+        dialog.on('loadVideoInfo', _.debounce(onVideoInfoLoad, 0));
         //dialog.on('close', onDialogClose);
       };
 

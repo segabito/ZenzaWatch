@@ -1570,7 +1570,7 @@ var ajax = function() {};
         });
         self._configBridgeResolve();
       },
-      pushHistory: function(path) {
+      pushHistory: function(path, title) {
         var self = this;
         var sessionId = self._type +'_' + Math.random();
         self._initializeFrame().then(function() {
@@ -1578,7 +1578,8 @@ var ajax = function() {};
             self._loaderWindow.postMessage(JSON.stringify({
               sessionId: sessionId,
               command: 'pushHistory',
-              path: path
+              path: path,
+              title: title || ''
             }),
             self._origin);
           } catch (e) {

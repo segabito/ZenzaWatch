@@ -346,7 +346,7 @@ var ZenzaWatch = {
           saveConfig(data);
           break;
         case 'pushHistory':
-          pushHistory(data.path);
+          pushHistory(data.path, data.title);
           break;
       }
     });

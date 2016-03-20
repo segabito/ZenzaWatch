@@ -909,6 +909,7 @@ var monkey = function() {
           if (ZenzaWatch.api.nicovideoLoader) {
             ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId);
           }
+          return;
         }
         var url = originalUrl;
         if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
@@ -937,6 +938,41 @@ var monkey = function() {
         isOpen = true;
       };
 
+      var onVideoInfoLoad = function(videoInfo) {
+        if (!videoInfo.getWatchId) { return; }
+        var watchId = videoInfo.getWatchId();
+        var title =
+           'nicovideo: ' + videoInfo.getTitle() + ' - ' + videoInfo.getOwnerInfo().name;
+        if (location.host !== 'www.nicovideo.jp') {
+          if (ZenzaWatch.api.nicovideoLoader) {
+            ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId, title);
+          }
+          return;
+        }
+        var url = originalUrl, originalTitle = document.title;
+        if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+          url = location.href;
+        }
+
+        var state = {};
+        window.history.replaceState(
+          state,
+          null,
+          '/watch/' + watchId // + '#' + originalUrl
+        );
+        document.title = title;
+
+        // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
+        // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
+        ZenzaWatch.util.callAsync(function() {
+          document.title = originalTitle;
+          if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+            return;
+          }
+          window.history.replaceState(null, null, url);
+        }, 1000);
+       };
+
       var initialize = function(_dialog) {
         initialize = _.noop;
         dialog = _dialog;
@@ -947,6 +983,7 @@ var monkey = function() {
         originalUrl = location.href;
         
         dialog.on('open', onDialogOpen);
+        dialog.on('loadVideoInfo', _.debounce(onVideoInfoLoad, 0));
         //dialog.on('close', onDialogClose);
       };
 
@@ -2797,7 +2834,7 @@ var monkey = function() {
         });
         self._configBridgeResolve();
       },
-      pushHistory: function(path) {
+      pushHistory: function(path, title) {
         var self = this;
         var sessionId = self._type +'_' + Math.random();
         self._initializeFrame().then(function() {
@@ -2805,7 +2842,8 @@ var monkey = function() {
             self._loaderWindow.postMessage(JSON.stringify({
               sessionId: sessionId,
               command: 'pushHistory',
-              path: path
+              path: path,
+              title: title || ''
             }),
             self._origin);
           } catch (e) {
@@ -11652,7 +11690,6 @@ spacer {
     _onClick: function() {
     },
     _onPlaylistAdd: function(watchId) {
-      window.console.log('playlistAdd: ', watchId);
       this._initializePlaylist();
       this._playlist.append(watchId);
     },
@@ -16329,7 +16366,7 @@ spacer {
           saveConfig(data);
           break;
         case 'pushHistory':
-          pushHistory(data.path);
+          pushHistory(data.path, data.title);
           break;
       }
     });

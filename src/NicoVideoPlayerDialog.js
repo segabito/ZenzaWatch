@@ -1095,7 +1095,6 @@ var Playlist = function() {};
     _onClick: function() {
     },
     _onPlaylistAdd: function(watchId) {
-      window.console.log('playlistAdd: ', watchId);
       this._initializePlaylist();
       this._playlist.append(watchId);
     },
