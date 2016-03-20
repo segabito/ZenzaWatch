@@ -864,7 +864,7 @@ var console;
         var state = {
           zenza: true,
           watchId: watchId,
-          options: options,
+          options: options.getRawData(),
           originalUrl: url
         };
         window.history.replaceState(
