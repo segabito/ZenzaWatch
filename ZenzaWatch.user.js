@@ -12215,8 +12215,11 @@ spacer {
 
       $container.addClass('postChat');
 
+      var timeout;
+      var resolve, reject;
       var self = this;
       window.console.time('コメント投稿');
+
       var _onSuccess = function(result) {
         window.console.timeEnd('コメント投稿');
         nicoChat.setIsUpdating(false);
@@ -12225,8 +12228,15 @@ spacer {
 
         self._threadInfo.blockNo = result.blockNo;
         window.clearTimeout(timeout);
+
+        resolve(result);
       };
-      var _onFail = function(err) {
+
+      var _onFailFinal = function(err) {
+        err = err || {};
+
+        window.console.log('_onFailFinal: ', err);
+        window.clearTimeout(timeout);
         window.console.timeEnd('コメント投稿');
 
         nicoChat.setIsPostFail(true);
@@ -12236,21 +12246,50 @@ spacer {
         if (err.blockNo && typeof err.blockNo === 'number') {
           self._threadInfo.blockNo = err.blockNo;
         }
-        window.clearTimeout(timeout);
+        reject(err);
       };
 
       var _onTimeout = function() {
         PopupMessage.alert('コメント投稿失敗(timeout)');
         $container.removeClass('postChat');
+        reject({});
       };
 
-      var timeout = window.setTimeout(_onTimeout, 30000);
+      var _onFail1st = function(err) {
+        err = err || {};
+
+        if (parseInt(err.code, 10) !== 4) {
+          return _onFailFinal(err);
+        }
+
+        window.console.log('_onFail1st: ', parseInt(err.code, 10));
+
+        if (err.blockNo && typeof err.blockNo === 'number') {
+          self._threadInfo.blockNo = err.blockNo;
+        }
+
+        window.clearTimeout(timeout);
+        window.console.info('retry: コメント投稿');
+        timeout = window.setTimeout(_onTimeout, 30000);
+
+        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+          _onSuccess,
+          _onFailFinal
+        );
+
+      };
+
+      timeout = window.setTimeout(_onTimeout, 30000);
 
       text = ZenzaWatch.util.escapeHtml(text);
-      return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
-        _onSuccess,
-        _onFail
-      );
+      return new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+          _onSuccess,
+          _onFail1st
+        );
+      });
     },
     getDuration: function() {
       // 動画がプレイ可能≒メタデータパース済みの時はそちらの方が信頼できる
@@ -15678,6 +15717,50 @@ spacer {
       return false;
     };
 
+    var replaceRedirectLinks = function() {
+      $('a[href*="www.flog.jp/j.php/http://"]').each((i, a) => {
+        var $a = $(a), href = $a.attr('href');
+        var replaced = href.replace(/^.*https?:/, '');
+        $a.attr('href', replaced);
+      });
+
+      $('a[href*="rd.nicovideo.jp/cc/"]').each((i, a) => {
+        var $a = $(a), href = $a.attr('href');
+        if (href.match(/cc_video_id=([a-z0-9+]+)/)) {
+          var watchId = RegExp.$1;
+          if (watchId.indexOf('lv') === 0) { return; }
+          var replaced = '//www.nicovideo.jp/watch/' + watchId;
+          $a.attr('href', replaced);
+        }
+      });
+
+      if (location.host === 'ch.nicovideo.jp') {
+        $('#sec_current a.item').closest('li').each((i, li) => {
+          var $li = $(li), $img = $li.find('img');
+          var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
+          var $a = $li.find('a');
+          if (thumbnail.match(/smile\?i=([0-9]+)/)) {
+            var watchId = 'so' + RegExp.$1;
+            $a.attr('href', '//www.nicovideo.jp/watch/' + watchId);
+          }
+        });
+        $('.playerNavContainer .video img').each((i, img) => {
+          var $img = $(img);
+          var $video = $img.closest('.video');
+          if ($video.length < 1) { return; }
+          var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
+          if (thumbnail.match(/smile\?i=([0-9]+)/)) {
+            var watchId = 'so' + RegExp.$1;
+            var $a = $('<a class="more zen" target="_blank">watch</a>')
+              .css('right', '128px')
+              .attr('href', '//www.nicovideo.jp/watch/' + watchId);
+
+            $video.find('.more').after($a);
+          }
+        });
+      }
+    };
+
     var initialize = function() {
       window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
@@ -15692,6 +15775,8 @@ spacer {
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
       }
+
+      replaceRedirectLinks();
 
       var hoverMenu = new HoverMenu({playerConfig: Config});
       ZenzaWatch.debug.hoverMenu = hoverMenu;

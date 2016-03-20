@@ -1620,8 +1620,11 @@ var Playlist = function() {};
 
       $container.addClass('postChat');
 
+      var timeout;
+      var resolve, reject;
       var self = this;
       window.console.time('コメント投稿');
+
       var _onSuccess = function(result) {
         window.console.timeEnd('コメント投稿');
         nicoChat.setIsUpdating(false);
@@ -1630,8 +1633,15 @@ var Playlist = function() {};
 
         self._threadInfo.blockNo = result.blockNo;
         window.clearTimeout(timeout);
+
+        resolve(result);
       };
-      var _onFail = function(err) {
+
+      var _onFailFinal = function(err) {
+        err = err || {};
+
+        window.console.log('_onFailFinal: ', err);
+        window.clearTimeout(timeout);
         window.console.timeEnd('コメント投稿');
 
         nicoChat.setIsPostFail(true);
@@ -1641,21 +1651,50 @@ var Playlist = function() {};
         if (err.blockNo && typeof err.blockNo === 'number') {
           self._threadInfo.blockNo = err.blockNo;
         }
-        window.clearTimeout(timeout);
+        reject(err);
       };
 
       var _onTimeout = function() {
         PopupMessage.alert('コメント投稿失敗(timeout)');
         $container.removeClass('postChat');
+        reject({});
       };
 
-      var timeout = window.setTimeout(_onTimeout, 30000);
+      var _onFail1st = function(err) {
+        err = err || {};
+
+        if (parseInt(err.code, 10) !== 4) {
+          return _onFailFinal(err);
+        }
+
+        window.console.log('_onFail1st: ', parseInt(err.code, 10));
+
+        if (err.blockNo && typeof err.blockNo === 'number') {
+          self._threadInfo.blockNo = err.blockNo;
+        }
+
+        window.clearTimeout(timeout);
+        window.console.info('retry: コメント投稿');
+        timeout = window.setTimeout(_onTimeout, 30000);
+
+        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+          _onSuccess,
+          _onFailFinal
+        );
+
+      };
+
+      timeout = window.setTimeout(_onTimeout, 30000);
 
       text = ZenzaWatch.util.escapeHtml(text);
-      return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
-        _onSuccess,
-        _onFail
-      );
+      return new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+          _onSuccess,
+          _onFail1st
+        );
+      });
     },
     getDuration: function() {
       // 動画がプレイ可能≒メタデータパース済みの時はそちらの方が信頼できる
