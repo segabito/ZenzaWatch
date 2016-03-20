@@ -898,6 +898,13 @@ var ajax = function() {};
     ZenzaWatch.api.MessageApiLoader = MessageApiLoader;
 
     var MylistApiLoader = (function() {
+      // マイリスト/とりあえずマイリストの取得APIには
+      // www.nicovideo.jp配下とriapi.nicovideo.jp配下の２種類がある
+      // 他人のマイリストを取得するにはriapi、マイリストの編集にはwwwのapiが必要
+      // データのフォーマットが微妙に異なるのでめんどくさい
+      //
+      // おかげでソート処理が悲しいことに
+      //
       var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
       var TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
       var token = '';
@@ -917,7 +924,7 @@ var ajax = function() {};
       _.assign(MylistApiLoader.prototype, {
         initialize: function() {
           if (!cacheStorage) {
-            cacheStorage = new CacheStorage(localStorage);
+            cacheStorage = new CacheStorage(sessionStorage);
           }
           if (!token) {
             token = cacheStorage.getItem('csrfToken');
@@ -926,6 +933,7 @@ var ajax = function() {};
         },
         getDeflistItems: function(options) {
           var url = 'http://www.nicovideo.jp/api/deflist/list';
+          //var url = 'http://riapi.nicovideo.jp/api/watch/deflistvideo';
           var cacheKey = 'deflistItems';
           var sortItem = this.sortItem;
           options = options || {};
@@ -936,7 +944,7 @@ var ajax = function() {};
             if (cacheData) {
               console.log('cache exists: ', cacheKey, cacheData);
               ZenzaWatch.util.callAsync(function() {
-                if (options.sort) { cacheData = sortItem(cacheData, options.sort); }
+                if (options.sort) { cacheData = sortItem(cacheData, options.sort, 'www'); }
                 resolve(cacheData);
               }, this);
               return;
@@ -949,7 +957,7 @@ var ajax = function() {};
               dataType: 'json',
               xhrFields: { withCredentials: true }
             }).then(function(result) {
-              if (result.status !== 'ok' || !result.mylistitem) {
+              if (result.status !== 'ok' || (!result.list && !result.mylistitem)) {
                 reject({
                   result: result,
                   message: 'とりあえずマイリストの取得失敗(1)'
@@ -957,9 +965,9 @@ var ajax = function() {};
                 return;
               }
 
-              var data = result.mylistitem;
+              var data = result.list || result.mylistitem;
               cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-              if (options.sort) { data = sortItem(data, options.sort); }
+              if (options.sort) { data = sortItem(data, options.sort, 'www'); }
               resolve(data);
             }, function(err) {
               reject({
@@ -971,7 +979,8 @@ var ajax = function() {};
         },
         getMylistItems: function(groupId, options) {
           if (groupId === 'deflist') { return this.getDeflistItems(options); }
-          var url = 'http://www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
+          // riapiじゃないと自分のマイリストしか取れないことが発覚
+          var url = 'http://riapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
           var sortItem = this.sortItem;
 
@@ -981,7 +990,7 @@ var ajax = function() {};
             if (cacheData) {
               console.log('cache exists: ', cacheKey, cacheData);
               ZenzaWatch.util.callAsync(function() {
-                if (options.sort) { cacheData = sortItem(cacheData, options.sort); }
+                if (options.sort) { cacheData = sortItem(cacheData, options.sort, 'riapi'); }
                 resolve(cacheData);
               }, this);
               return;
@@ -994,16 +1003,16 @@ var ajax = function() {};
               dataType: 'json',
               xhrFields: { withCredentials: true }
             }).then(function(result) {
-              if (result.status !== 'ok' || !result.mylistitem) {
+              if (result.status !== 'ok' || (!result.list && !result.mylistitem)) {
                 return reject({
                   result: result,
                   message: 'マイリストの取得失敗(1)'
                 });
               }
 
-              var data = result.mylistitem;
+              var data = result.list || result.mylistitem;
               cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-              if (options.sort) { data = sortItem(data, options.sort); }
+              if (options.sort) { data = sortItem(data, options.sort, 'riapi'); }
               return resolve(data);
             }, function(err) {
               this.reject({
@@ -1013,26 +1022,38 @@ var ajax = function() {};
             });
           });
         },
-        sortItem: function(items, sortId) {
+        sortItem: function(items, sortId, format) {
+          // wwwの時とriapiの時で微妙にフォーマットが違うのでめんどくさい
+          // 自分以外のマイリストが開けるのはriapiだけの模様
+          // 編集時にはitem_idが必要なのだが、それはwwwのほうにしか入ってない
+          // riapiに統一したい
           sortId = parseInt(sortId, 10);
 
           var sortKey = ([
             'create_time',    'create_time',
-            'description',    'description', // 動画説明文ではなくマイリストコメント
+            'mylist_comment', 'mylist_comment', // format = wwwの時はdescription
             'title',          'title',
             'first_retrieve', 'first_retrieve',
             'view_counter',   'view_counter',
-            'update_time',    'update_time',
+            'thread_update_time', 'thread_update_time',
             'num_res',        'num_res',
             'mylist_counter', 'mylist_counter',
             'length_seconds', 'length_seconds'
           ])[sortId];
+
+          if (format === 'www' && sortKey === 'mylist_comment') {
+            sortKey = 'description';
+          }
+          if (format === 'www' && sortKey === 'thread_update_time') {
+            sortKey = 'update_time';
+          }
 
           var order;
           switch (sortKey) {
             // 偶数がascで奇数がdescかと思ったら特に統一されてなかった
             case 'first_retrieve':
             case 'thread_update_time':
+            case 'update_time':
               order = (sortId % 2 === 1) ? 'asc' : 'desc';
               break;
             // 数値系は偶数がdesc
@@ -1049,20 +1070,31 @@ var ajax = function() {};
           //window.console.log('sortKey?', sortId, sortKey, order);
           if (!sortKey) { return items; }
 
-          var getKeyFunc = (function(sortKey) {
+          var getKeyFunc = (function(sortKey, format) {
             switch (sortKey) {
               case 'create_time':
               case 'description':
+              case 'mylist_comment':
+              case 'update_time':
                 return function(item) { return item[sortKey]; };
               case 'num_res':
               case 'mylist_counter':
               case 'view_counter':
               case 'length_seconds':
-                return function(item) { return item.item_data[sortKey] * 1; };
+                if (format === 'riapi') {
+                  return function(item) { return item[sortKey] * 1; };
+                } else {
+                  return function(item) { return item.item_data[sortKey] * 1; };
+                }
+                break;
               default:
-                return function(item) { return item.item_data[sortKey]; };
+                if (format === 'riapi') {
+                  return function(item) { return item[sortKey]; };
+                } else {
+                  return function(item) { return item.item_data[sortKey]; };
+                }
             }
-          })(sortKey);
+          })(sortKey, format);
 
           var compareFunc = (function(order, getKey) {
             switch (order) {
@@ -1072,13 +1104,14 @@ var ajax = function() {};
                 return function(a, b) {
                   var ak = getKey(a), bk = getKey(b);
                   if (ak !== bk) { return ak > bk ? 1 : -1; }
-                  else { return a.item_data.watch_id > b.item_data.watch_id ? 1 : -1; }
+                  //else { return a.item_data.watch_id > b.item_data.watch_id ? 1 : -1; }
+                  else { return a.id > b.id ? 1 : -1; }
                 };
               case 'desc':
                 return function(a, b) {
                   var ak = getKey(a), bk = getKey(b);
                   if (ak !== bk) { return (ak < bk) ? 1 : -1; }
-                  else { return a.item_data.watch_id < b.item_data.watch_id ? 1 : -1; }
+                  else { return a.id < b.id ? 1 : -1; }
                 };
             }
           })(order, getKeyFunc);
@@ -1129,7 +1162,7 @@ var ajax = function() {};
         findDeflistItemByWatchId: function(watchId) {
           return this.getDeflistItems().then(function(items) {
             for (var i = 0, len = items.length; i < len; i++) {
-              var item = items[i], wid = item.item_data.watch_id;
+              var item = items[i], wid = item.id || item.item_data.watch_id;
               if (wid === watchId) {
                 return Promise.resolve(item);
               }
@@ -1565,5 +1598,22 @@ var ajax = function() {};
     }
 
 //===END===
-
+/*
+create_time : 1458338784
+description_short : "GWって「ガンバレ、私」ってこと？天気の良さがうらめしい（１号）です。これからたくさんの方に「初音..."
+first_retrieve : "2010-05-03 15:00:00"
+id : "1272596175"
+is_middle_thumbnail : false
+last_res_body : "これ持ってるw 持ってる ルカさん美人だしミク お前らいい加減にしろ きたあ ... "
+length : "2:03"
+length_seconds : "123"
+mylist_comment : ""
+mylist_counter : "333"
+num_res : "1232"
+thread_update_time : "2015-05-09 06:54:09"
+thumbnail_style : {offset_x: 0, offset_y: -15, width: 160}
+thumbnail_url : "http://tn-skr3.smilevideo.jp/smile?i=10555830"
+title : "【初音ミク】「magnet」のプレイ動画をちょっとだけ公開してみた【Project DIVA 2nd】"
+view_counter : "123929"
+*/
 console.log(VideoInfoLoader);

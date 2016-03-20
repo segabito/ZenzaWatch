@@ -27,13 +27,13 @@ var PopupMessage = {};
           _.uniq(this._items, false, function(item) { return item.getWatchId(); });
       }
 
-      //window.console.log('setItem!', this._items);
-      this.emit('update', this._items);
+      this.emit('update', this._items, true);
     },
     clear: function() {
       this.setItem([]);
     },
     insertItem: function(itemList, index) {
+      //window.console.log('insertItem', itemList, index);
       itemList = _.isArray(itemList) ? itemList : [itemList];
       if (itemList.length < 1) { return; }
       index = Math.min(this._items.length, (_.isNumber(index) ? index : 0));
@@ -41,12 +41,13 @@ var PopupMessage = {};
       Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
 
       if (this._isUniq) {
-        this._items =
-          _.uniq(this._items, false, function(item) { return item.getWatchId(); });
+        _.each(itemList, (i) => { this.removeSameWatchId(i); });
       }
 
       this._items.splice(this._maxItems);
       this.emit('update', this._items);
+
+      return this.indexOf(itemList[0]);
     },
     appendItem: function(itemList) {
       itemList = _.isArray(itemList) ? itemList: [itemList];
@@ -58,13 +59,25 @@ var PopupMessage = {};
         this._items =
           _.uniq(this._items, false, function(item) { return item.getWatchId(); });
       }
-      this._items.splice(this._maxItems);
+      //this._items.splice(this._maxItems);
+      while (this._items.length > this._maxItems) { this._items.shift(); }
       this.emit('update', this._items);
+
+      return this._items.length - 1;
     },
-    removeItem: function(index) {
-      var target = this.getItemByIndex(index);
+    removeItemByIndex: function(index) {
+      var target = this._getItemByIndex(index);
       if (!target) { return; }
       this._items = _.reject(this._items, function(item) { return item === target; });
+    },
+    removePlayedItem: function() {
+      var beforeLen = this._items.length;
+      this._items =
+        _.reject(this._items, function(item) { return !item.isActive() && item.isPlayed(); });
+      var afterLen = this._items.length;
+      if (beforeLen !== afterLen) {
+        this.emit('update', this._items);
+      }
     },
     shuffle: function() {
       this._items = _.shuffle(this._items);
@@ -73,14 +86,70 @@ var PopupMessage = {};
     getLength: function() {
       return this._items.length;
     },
-    getItemByIndex: function(index) {
+    _getItemByIndex: function(index) {
       var item = this._items[index];
       return item;
     },
+    indexOf: function(item) {
+      return _.indexOf(this._items, item);
+    },
+    getItemByIndex: function(index) {
+      var item = this._getItemByIndex(index);
+      if (!item) { return null; }
+      if (!item.hasBind) {
+        item.hasBind = true;
+        item.on('update', _.bind(this._onItemUpdate, this, item));
+      }
+      return item;
+    },
     findByItemId: function(itemId) {
-      return _.find(this._items, function(item) {
-        return item.getItemId() === itemId;
+      itemId = parseInt(itemId, 10);
+      return _.find(this._items, (item) => {
+        if (item.getItemId() === itemId) {
+          if (!item.hasBind) {
+            item.hasBind = true;
+            item.on('update', _.bind(this._onItemUpdate, this, item));
+          }
+          return true;
+        }
       });
+    },
+    findByWatchId: function(watchId) {
+      watchId = watchId + '';
+      return _.find(this._items, (item) => {
+        if (item.getWatchId() === watchId) {
+          if (!item.hasBind) {
+            item.hasBind = true;
+            item.on('update', _.bind(this._onItemUpdate, this, item));
+          }
+          return true;
+        }
+      });
+    },
+    removeItem: function(item) {
+      var beforeLen = this._items.length;
+      _.pull(this._items, item);
+      var afterLen = this._items.length;
+      if (beforeLen !== afterLen) {
+        this.emit('update', this._items);
+      }
+    },
+    /**
+     * パラメータで指定されたitemと同じwatchIdのitemを削除
+     */
+    removeSameWatchId: function(item) {
+      var watchId = item.getWatchId();
+      var beforeLen = this._items.length;
+      _.remove(this._items, function(i) {
+        return item !== i && i.getWatchId() === watchId;
+      });
+      var afterLen = this._items.length;
+      if (beforeLen !== afterLen) {
+        this.emit('update');
+      }
+    },
+    _onItemUpdate: function(item, key, value) {
+      this.emit('itemUpdate', item, key, value);
     },
     getTotalDuration: function() {
       return _.reduce(this._items, function(result, item) {
@@ -99,6 +168,28 @@ var PopupMessage = {};
         items.push(new VideoListItem(itemData));
       });
       this.setItem(items);
+    },
+    sortBy: function(key, isDesc) {
+      var table = {
+        watchId:  'getWatchId',
+        duration: 'getDuration',
+        title:    'getTitle',
+        comment:  'getCommentCount',
+        mylist:   'getMylistCount',
+        view:     'getViewCount',
+        postedAt: 'getPostedAt',
+      };
+      var func = table[key];
+      //window.console.log('sortBy', key, func, isDesc);
+      if (!func) { return; }
+      this._items = _.sortBy(this._items, function(item) { return item[func](); });
+      if (isDesc) {
+        this._items.reverse();
+      }
+      this.onUpdate();
+    },
+    onUpdate: function() {
+      this.emitAsync('update', this._items);
     }
   });
 
@@ -109,7 +200,6 @@ var PopupMessage = {};
   var VideoListView = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoListView.prototype, AsyncEmitter.prototype);
   VideoListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-
   */});
 
   VideoListView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -119,6 +209,10 @@ var PopupMessage = {};
 <meta charset="utf-8">
 <title>VideoList</title>
 <style type="text/css">
+  body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+  }
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
@@ -135,17 +229,18 @@ var PopupMessage = {};
     initialize: function(params) {
       this._ItemBuilder = params.builder || VideoListItemView;
       this._itemCss     = params.itemCss || VideoListItemView.__css__;
-      this._className   = params.className;
+      this._className   = params.className || 'videoList';
       this._$container  = params.$container;
 
       this._retryGetIframeCount = 0;
 
-      this._itemViews = [];
+      this._cache = {};
       this._maxItems = params.max || 100;
 
       this._model = params.model;
       if (this._model) {
-        this._model.on('update', _.bind(this._onModelUpdate, this));
+        this._model.on('update',     _.debounce(_.bind(this._onModelUpdate, this), 100));
+        this._model.on('itemUpdate', _.bind(this._onModelItemUpdate, this));
       }
 
       this._initializeView(params, 0);
@@ -161,7 +256,7 @@ var PopupMessage = {};
       var onScroll = _.bind(this._onScroll, this);
       var self = this;
 
-      iframe.onload = function() {
+      var onload = function() {
         var win, doc;
         iframe.onload = null;
         try {
@@ -191,7 +286,16 @@ var PopupMessage = {};
       };
 
       this._$container.append(iframe);
-      iframe.srcdoc = html;
+      if (iframe.srcdocType === 'string') {
+        iframe.onload = onload;
+        iframe.srcdoc = html;
+      } else {
+        // MS IE/Edge用
+        iframe.contentWindow.document.open();
+        iframe.contentWindow.document.write(html);
+        iframe.contentWindow.document.close();
+        window.setTimeout(onload, 0);
+      }
     },
     _getIframe: function() {
       var reserved = document.getElementsByClassName('reservedFrame');
@@ -206,6 +310,7 @@ var PopupMessage = {};
       }
 
       try {
+        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
         iframe.srcdoc = '<html></html>';
       } catch (e) {
         // 行儀の悪い広告にiframeを乗っ取られた？
@@ -234,17 +339,26 @@ var PopupMessage = {};
       });
 
     },
-    _onModelUpdate: function(itemList) {
-      //window.console.log('onModelUpdate!', itemList);
-      //var scrollTop = this.scrollTop();
+    _onModelUpdate: function(itemList, replaceAll) {
+      window.console.time('update playlistView');
       this.addClass('updating');
       itemList = _.isArray(itemList) ? itemList: [itemList];
       var itemViews = [], Builder = this._ItemBuilder;
-      _.each(itemList, function(item) {
-        itemViews.push(new Builder({item: item}));
-      });
+
+      if (replaceAll) { this._cache = {}; }
+
+      _.each(itemList, _.bind(function (item) {
+        var id = item.getItemId();
+        if (this._cache[id]) {
+          //window.console.log('from cache');
+          itemViews.push(this._cache[id]);
+        } else {
+          var tpl = this._cache[id] = (new Builder({item: item})).toString();
+          itemViews.push(tpl);
+        }
+      }, this));
+
       this._html = itemViews.join('');
-      this._itemViews = itemViews;
 
       ZenzaWatch.util.callAsync(function() {
         if (this._$list) { this._$list.html(this._html); }
@@ -254,27 +368,52 @@ var PopupMessage = {};
         this.removeClass('updating');
         this.emit('update');
       }, this, 100);
+      window.console.timeEnd('update playlistView');
+    },
+    _onModelItemUpdate: function(item, key, value) {
+      //window.console.log('_onModelItemUpdate', item, item.getItemId(), item.getTitle(), key, value);
+      if (!this._$body) { return; }
+      var itemId = item.getItemId();
+      var $item = this._$body.find('.videoItem.item' + itemId);
+
+      this._cache[itemId] = (new this._ItemBuilder({item: item})).toString();
+      if (key === 'active') {
+        this._$body.find('.videoItem.active').removeClass('active');
+
+        $item.toggleClass('active', value);
+        //if (value) { this.scrollToItem(itemId); }
+
+      } else if (key === 'updating' || key === 'played') {
+        $item.toggleClass(key, value);
+      } else {
+        var $newItem = $(this._cache[itemId]);
+        $item.before($newItem);
+        $item.remove();
+      }
     },
     _onClick: function(e) {
       e.stopPropagation();
+      ZenzaWatch.emitter.emitAsync('hideHover');
       var $target = $(e.target).closest('.command');
+      var $item = $(e.target).closest('.videoItem');
       if ($target.length > 0) {
         e.stopPropagation();
         e.preventDefault();
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param');
+        var itemId  = $item.attr('data-item-id');
         switch (command) {
           case 'deflistAdd':
-            this.emit('deflistAdd', param);
+            this.emit('deflistAdd', param, itemId);
             break;
           case 'playlistAdd':
-            this.emit('playlistAdd', param);
+            this.emit('playlistAdd', param, itemId);
             break;
           case 'scrollToTop':
             this.scrollTop(0, 300);
             break;
           default:
-            this.emit('command', command, param);
+            this.emit('command', command, param, itemId);
         }
       }
     },
@@ -283,18 +422,6 @@ var PopupMessage = {};
     },
     _onScroll: function(top, left) {
       //window.console.log('scroll videoList', top, left);
-    },
-    isUpdatingDeflist: function() {
-      if (!this._$body) { return false; }
-      return this._$body.hasClass('updatingDeflist');
-    },
-    setIsUpdatingDeflist: function(v, watchId) {
-      this.toggleClass('updatingDeflist', v);
-      if (v) {
-        this._$body.find('.videoItem.watch' + watchId).addClass('updatingDeflist');
-      } else {
-        this._$body.find('.videoItem').removeClass('updatingDeflist');
-      }
     },
     addClass: function(className) {
       this.toggleClass(className, true);
@@ -314,14 +441,17 @@ var PopupMessage = {};
         return this._$window.scrollTop();
       }
     },
-    scrollToItem: function(watchId) {
-      var $target = this._$body.find('.watch' + watchId);
+    scrollToItem: function(itemId) {
+      if (!this._$body) { return; }
+      if (_.isFunction(itemId.getItemId)) { itemId = itemId.getItemId(); }
+      var $target = this._$body.find('.item' + itemId);
       if ($target.length < 1) { return; }
       var top = $target.offset().top;
       this.scrollTop(top);
     }
   });
 
+  // なんか汎用性を持たせようとして失敗してる奴
   var VideoListItemView = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoListItemView.prototype, AsyncEmitter.prototype);
 
@@ -358,8 +488,6 @@ var PopupMessage = {};
       box-shadow: 0 0 8px #fff;
     }
 
-    body.updatingDeflist {
-    }
 
 
     .videoItem {
@@ -370,7 +498,7 @@ var PopupMessage = {};
       overflow: hidden;
     }
 
-    .updatingDeflist .videoItem.updatingDeflist {
+    .videoItem.updating {
       opacity: 0.5;
       cursor: wait;
     }
@@ -389,17 +517,24 @@ var PopupMessage = {};
       width:  96px;
       height: 72px;
       margin: 8px 0;
+      transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
     }
+    .videoItem .thumbnailContainer:active {
+      box-shadow: 0 0 8px #f99;
+      transform: translate(0, 4px);
+      transition: none;
+    }
+
     .videoItem .thumbnailContainer .thumbnail {
       width:  96px;
       height: 72px;
     }
 
+    .videoItem .thumbnailContainer .playlistAdd,
+    .videoItem .playlistRemove,
     .videoItem .thumbnailContainer .deflistAdd {
       position: absolute;
       display: none;
-      right: 0;
-      bottom: 0;
       color: #fff;
       background: #666;
       width: 24px;
@@ -413,21 +548,51 @@ var PopupMessage = {};
       cursor: pointer;
       transition: transform 0.2s;
     }
+    .videoItem .thumbnailContainer .playlistAdd {
+      left: 0;
+      bottom: 0;
+    }
+    .videoItem .playlistRemove {
+      right: 8px;
+      top: 0;
+    }
+    .videoItem .thumbnailContainer .deflistAdd {
+      right: 0;
+      bottom: 0;
+    }
+    .playlist .videoItem .playlistAdd {
+      display: none !important;
+    }
+    .videoItem .playlistRemove {
+      display: none;
+    }
+    .playlist .videoItem:not(.active):hover .playlistRemove {
+      display: inline-block;
+    }
+
+
+    .playlist .videoItem:not(.active):hover .playlistRemove,
+    .videoItem:hover .thumbnailContainer .playlistAdd,
     .videoItem:hover .thumbnailContainer .deflistAdd {
       display: inline-block;
       border: 1px outset;
     }
+
+    .playlist .videoItem:not(.active):hover .playlistRemove:hover,
+    .videoItem:hover .thumbnailContainer .playlistAdd:hover,
     .videoItem:hover .thumbnailContainer .deflistAdd:hover {
       transform: scale(1.5);
       box-shadow: 2px 2px 2px #000;
     }
 
+    .playlist .videoItem:not(.active):hover .playlistRemove:active,
+    .videoItem:hover .thumbnailContainer .playlistAdd:active,
     .videoItem:hover .thumbnailContainer .deflistAdd:active {
       transform: scale(0.9);
       border: 1px inset;
     }
 
-    .videoItem.updatingDeflist .thumbnailContainer .deflistAdd {
+    .videoItem.updating .thumbnailContainer .deflistAdd {
       transform: scale(1.0) !important;
       border: 1px inset !important;
       pointer-events: none;
@@ -444,7 +609,6 @@ var PopupMessage = {};
     .videoItem:hover .thumbnailContainer .duration {
       display: none;
     }
-
     .videoItem .videoInfo {
       top: 0;
       margin-left: 104px;
@@ -454,14 +618,27 @@ var PopupMessage = {};
       font-size: 12px;
       color: #ccc;
     }
+    .videoItem.played .postedAt::after {
+      content: ' ●';
+      font-size: 10px;
+    }
+
 
     .videoItem .videoLink {
       font-size: 14px;
       color: #ff9;
+      transition: background 0.4s ease, color 0.4s ease;
     }
     .videoItem .videoLink:visited {
       color: #ffd;
     }
+
+    .videoItem .videoLink:active {
+      color: #fff;
+      background: #663;
+      transition: none;
+    }
+
 
     .videoItem.noVideoCounter .counter {
       display: none;
@@ -480,24 +657,51 @@ var PopupMessage = {};
       margin-left: 8px;
     }
 
+    .videoItem.active {
+      outline: dashed 2px #ff8;
+      outline-offset: 4px;
+    }
+
+    @media screen and (min-width: 640px)
+    {
+      .videoItem {
+        width: calc(100% / 2 - 16px);
+        margin: 0 8px;
+        border-top: none !important;
+        border-bottom: 1px dotted #888;
+      }
+    }
+    @media screen and (min-width: 900px) {
+      .videoItem {
+        width: calc(100% / 3 - 16px);
+      }
+    }
+    @media screen and (min-width: 1200px) {
+      .videoItem {
+        width: calc(100% / 4 - 16px);
+      }
+    }
+
+
   */});
 
   VideoListItemView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="videoItem %className% watch%watchId% item%itemId%"
+    <div class="videoItem %className% watch%watchId% item%itemId% %active% %updating% %played%"
       data-item-id="%itemId%"
       data-watch-id="%watchId%">
+      <span class="command playlistRemove" data-command="playlistRemove" data-param="%watchId%" title="プレイリストから削除">×</span>
       <div class="thumbnailContainer">
-        <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="open" data-param="%watchId%">
+        <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="select" data-param="%itemId%">
           <img class="thumbnail" data-src="%thumbnail%" src="%thumbnail%">
           <span class="duration">%duration%</span>
-          <!--<span class="command playlistAdd" data-command="playlistAdd" data-param="%watchId%" title="プレイリストに追加">&#x271A;</span>-->
+          <span class="command playlistAdd" data-command="playlistAdd" data-param="%watchId%" title="プレイリストに追加">▶</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
         </a>
       </div>
       <div class="videoInfo">
         <div class="postedAt">%postedAt%</div>
         <div class="title">
-          <a href="//www.nicovideo.jp/watch/%watchId%" class="command videoLink" data-command="open" data-param="%watchId%">
+          <a href="//www.nicovideo.jp/watch/%watchId%" class="command videoLink" data-command="select" data-param="%itemId%">
             %videoTitle%
           </a>
         </div>
@@ -521,8 +725,11 @@ var PopupMessage = {};
 
       var count = item.getCount();
       tpl = tpl
+        .replace(/%active%/g,     item.isActive() ? 'active' : '')
+        .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
+        .replace(/%updating%/g,   item.isUpdating() ? 'updating' : '')
         .replace(/%watchId%/g,    item.getWatchId())
-        .replace(/%watchId%/g,    item.getItemId())
+        .replace(/%itemId%/g,     item.getItemId())
         .replace(/%postedAt%/g,   item.getPostedAt())
         .replace(/%videoTitle%/g, item.getTitle())
         .replace(/%thumbnail%/g,  item.getThumbnail())
@@ -571,31 +778,86 @@ var PopupMessage = {};
     });
   };
 
-  VideoListItem.createByMylistItem = function(item) {
-    var item_data = item.item_data || {};
+  VideoListItem.createBlankInfo = function(id) {
+    var postedAt = '0000/00/00 00:00:00';
+    if (!isNaN(id)) {
+      postedAt = (new Date(id * 1000)).toLocaleString();
+    }
     return new VideoListItem({
-      _format:        'mylistItem',
-      id:             item_data.watch_id,
-      title:          item_data.title,
-      length_seconds: item_data.length_seconds,
-      num_res:        item_data.num_res,
-      mylist_counter: item_data.mylist_counter,
-      view_counter:   item_data.view_counter,
-      thumbnail_url:  item_data.thumbnail_url,
-      first_retrieve: (new Date(item_data.first_retrieve * 1000)).toLocaleString(),
-
-      videoId:        item_data.video_id,
-      lastResBody:    item_data.last_res_body,
-      mylistItemId:   item.item_id,
-      item_type:      item.item_type
+      _format:        'blank',
+      id:             id,
+      title:          id + '(動画情報不明)',
+      length_seconds: 0,
+      num_res:        0,
+      mylist_counter: 0,
+      view_counter:   0,
+      thumbnail_url:  'http://uni.res.nimg.jp/img/user/thumb/blank_s.jpg',
+      first_retrieve: postedAt,
     });
   };
+
+  VideoListItem.createByMylistItem = function(item) {
+    if (item.item_data) {
+      var item_data = item.item_data || {};
+      return new VideoListItem({
+        _format:        'mylistItemOldApi',
+        id:             item_data.watch_id,
+        title:          item_data.title,
+        length_seconds: item_data.length_seconds,
+        num_res:        item_data.num_res,
+        mylist_counter: item_data.mylist_counter,
+        view_counter:   item_data.view_counter,
+        thumbnail_url:  item_data.thumbnail_url,
+        first_retrieve: (new Date(item_data.first_retrieve * 1000)).toLocaleString(),
+
+        videoId:        item_data.video_id,
+        lastResBody:    item_data.last_res_body,
+        mylistItemId:   item.item_id,
+        item_type:      item.item_type
+      });
+    }
+    return new VideoListItem({
+      _format:        'mylistItemRiapi',
+      id:             item.id,
+      title:          item.title,
+      length_seconds: item.length_seconds,
+      num_res:        item.num_res,
+      mylist_counter: item.mylist_counter,
+      view_counter:   item.view_counter,
+      thumbnail_url:  item.thumbnail_url,
+      first_retrieve: item.first_retrieve,
+
+      lastResBody:    item.last_res_body,
+    });
+  };
+
+  VideoListItem.createByVideoInfoModel = function(info) {
+    var count = info.getCount();
+
+    return new VideoListItem({
+      _format:        'thumbInfo',
+      id:             info.getWatchId(),
+      title:          info.getTitle(),
+      length_seconds: info.getDuration(),
+      num_res:        count.comment,
+      mylist_counter: count.mylist,
+      view_counter:   count.view,
+      thumbnail_url:  info.getThumbnail(),
+      first_retrieve: info.getPostedAt(),
+
+      owner:          info.getOwnerInfo()
+    });
+  };
+
 
   _.extend(VideoListItem.prototype, AsyncEmitter.prototype);
   _.assign(VideoListItem.prototype, {
     initialize: function(rawData) {
       this._rawData = rawData;
       this._itemId = VideoListItem._itemId++;
+      this._isActive = false;
+      this._isUpdating = false;
+      this._isPlayed = !!rawData.played;
     },
     _getData: function(key, defValue) {
       return this._rawData.hasOwnProperty(key) ?
@@ -620,6 +882,9 @@ var PopupMessage = {};
         view:    parseInt(this._rawData.view_counter,   10)
       };
     },
+    getCommentCount: function() { return parseInt(this._rawData.num_res,        10); },
+    getMylistCount:  function() { return parseInt(this._rawData.mylist_counter, 10); },
+    getViewCount:    function() { return parseInt(this._rawData.view_counter,   10); },
     getThumbnail: function() {
       return this._rawData.thumbnail_url;
     },
@@ -632,8 +897,43 @@ var PopupMessage = {};
       var fr = this._rawData.first_retrieve;
       return fr.replace(/-/g, '/');
     },
+    isActive: function() {
+      return this._isActive;
+    },
+    setIsActive: function(v) {
+      v = !!v;
+      if (this._isActive !== v) {
+        this._isActive = v;
+        this.emit('update', 'active', v);
+      }
+    },
+    isUpdating: function() {
+      return this._isUpdating;
+    },
+    setIsUpdating: function(v) {
+      v = !!v;
+      if (this._isUpdating !== v) {
+        this._isUpdating = v;
+        this.emit('update', 'updating', v);
+      }
+    },
+    isPlayed: function() {
+      return this._isPlayed;
+    },
+    setIsPlayed: function(v) {
+      v = !!v;
+      if (this._isPlayed !== v) {
+        this._isPlayed = v;
+        this.emit('update', 'played', v);
+      }
+    },
+    isBlankData: function() {
+      return this._rawData._format === 'blank';
+    },
     serialize: function() {
       return {
+        active:         this._isActive,
+        played:         this._isPlayed,
         id:             this._rawData.id,
         title:          this._rawData.title,
         length_seconds: this._rawData.length_seconds,
@@ -650,6 +950,7 @@ var PopupMessage = {};
   _.extend(VideoList.prototype, AsyncEmitter.prototype);
   _.assign(VideoList.prototype, {
     initialize: function(params) {
+      this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
       this._$container = params.$container;
 
       this._model = new VideoListModel({
@@ -669,6 +970,7 @@ var PopupMessage = {};
       });
       this._view.on('command', _.bind(this._onCommand, this));
       this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
+      this._view.on('playlistAdd', _.bind(this._onPlaylistAdd, this));
     },
     update: function(listData, watchId) {
       if (!this._view) { this._initializeView(); }
@@ -682,37 +984,66 @@ var PopupMessage = {};
       this._view.insertItem(items);
     },
     _onCommand: function(command, param) {
+      if (command === 'select') {
+        var item = this._model.findByItemId(param);
+        var watchId = item.getWatchId();
+        this.emit('command', 'open', watchId);
+        return;
+      }
       this.emit('command', command, param);
     },
-    _onDeflistAdd: function(watchId) {
-      if (this._view.isUpdatingDeflist()) { return; }
+    _onPlaylistAdd: function(watchId , itemId) {
+      this.emit('command', 'playlistAdd', watchId);
+      if (this._isUpdatingPlaylist) { return; }
+      var item = this._model.findByItemId(itemId);
 
-      var videoListView = this._view;
-      var unlock = function() {
-        videoListView.setIsUpdatingDeflist(false, watchId);
-      };
+      var unlock = _.bind(function() {
+        item.setIsUpdating(false);
+        this._isUpdatingPlaylist = false;
+      }, this);
 
-      videoListView.setIsUpdatingDeflist(true, watchId);
+      item.setIsUpdating(true);
+      this._isUpdatingPlaylist = true;
 
-      var timer = window.setTimeout(unlock, 10000);
-
+      window.setTimeout(unlock, 1000);
+    },
+    _onDeflistAdd: function(watchId , itemId) {
+      if (this._isUpdatingDeflist) { return; }
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
+      var item = this._model.findByItemId(itemId);
 
-      var self = this;
-      return this._mylistApiLoader.addDeflistItem(watchId)
-        .then(function(result) {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        self.emit('command', 'notify', result.message);
-        //PopupMessage.notify(result.message);
-      }, function(err) {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        self.emit('command', 'alert', err.message);
-        //PopupMessage.alert(err.message);
+      var unlock = _.bind(function() {
+        item.setIsUpdating(false);
+        this._isUpdatingDeflist = false;
+      }, this);
+
+      item.setIsUpdating(true);
+      this._isUpdatingDeflist = true;
+
+      var timer = window.setTimeout(unlock, 10000);
+
+      var onSuccess = _.bind(this._onDeflistAddSuccess, this, timer, unlock);
+      var onFail    = _.bind(this._onDeflistAddFail,    this, timer, unlock);
+      return this._thumbInfoLoader.load(watchId).then((info) => {
+        var description = '投稿者: ' + info.owner.name;
+        return this._mylistApiLoader.addDeflistItem(watchId, description)
+          .then(onSuccess, onFail);
+      }, () => {
+        return this._mylistApiLoader.addDeflistItem(watchId)
+          .then(onSuccess, onFail);
       });
+    },
+    _onDeflistAddSuccess: function(timer, unlock, result) {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(unlock, 500);
+      this.emit('command', 'notify', result.message);
+    },
+    _onDeflistAddFail: function(timer, unlock, err) {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(unlock, 2000);
+      this.emit('command', 'alert', err.message);
     }
   });
 
@@ -736,43 +1067,176 @@ var PopupMessage = {};
   });
 
 
-  var PlayListModel = function() { this.initialize.apply(this, arguments); };
-  _.extend(PlayListModel.prototype, VideoListModel.prototype);
-  _.assign(PlayListModel.prototype, {
+  var PlaylistModel = function() { this.initialize.apply(this, arguments); };
+  _.extend(PlaylistModel.prototype, VideoListModel.prototype);
+  _.assign(PlaylistModel.prototype, {
     initialize: function() {
-      this._model = new VideoListModel({
-        uniq: false,
-        maxItems: 100000
-      });
+      this._maxItems = 10000;
+      this._items = [];
+      this._isUniq = true;
     },
   });
 
-  var PlayListView = function() { this.initialize.apply(this, arguments); };
-  _.extend(PlayListView.prototype, AsyncEmitter.prototype);
-  PlayListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  var PlaylistView = function() { this.initialize.apply(this, arguments); };
+  _.extend(PlaylistView.prototype, AsyncEmitter.prototype);
+  PlaylistView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
 
+    .playlistEnable .tabSelect.playlist::after {
+      content: '▶';
+      color: #fff;
+      text-shadow: 0 0 8px orange;
+    }
+    body:not(.fullScreen).zenzaScreenMode_sideView .playlistEnable .tabSelect.playlist::after  {
+      text-shadow: 0 0 8px #336;
+    }
+
+    .playlist-container {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .playlist-header {
+      height: 32px;
+      border-bottom: 1px solid #000;
+      background: #333;
+      color: #ccc;
+    }
+
+    .playlist-menu-button {
+      cursor: pointer;
+      border: 1px solid #333;
+      padding: 0px 4px;
+      margin: 0 4px;
+      background: #666;
+      font-size: 16px;
+      line-height: 28px;
+      white-space: nowrap;
+    }
+    .playlist-menu-button:hover {
+      border: 1px outset;
+    }
+    .playlist-menu-button:active {
+      border: 1px inset;
+    }
+    .playlist-menu-button .playlist-menu-icon {
+      font-size: 24px;
+      line-height: 28px;
+    }
+
+    .playlist-container.enable .toggleEnable,
+    .playlist-container.loop   .toggleLoop {
+      text-shadow: 0 0 6px #f99;
+      color: #ff9;
+    }
+
+    .playlist-container .shuffle {
+      font-size: 14px;
+    }
+    .playlist-container .shuffle::after {
+      content: '(´・ω・｀)';
+    }
+    .playlist-container .shuffle:hover::after {
+      content: '(｀・ω・´)';
+    }
+
+    .playlist-frame {
+      height: calc(100% - 32px);
+      transition: opacity 0.3s;
+    }
+    .shuffle .playlist-frame {
+      opacity: 0;
+    }
+
+    .playlist-count {
+      position: absolute;
+      right: 8px;
+      display: inline-block;
+      font-size: 14px;
+      line-height: 32px;
+      cursor: pointer;
+    }
+
+    .playlist-count:before {
+      content: '▼';
+    }
+    .playlist-count:hover {
+      text-decoration: underline;
+    }
+    .playlist-menu {
+      position: absolute;
+      right: 0px;
+      top: 24px;
+      min-width: 150px;
+    }
+
+    .playlist-menu li {
+      line-height: 20px;
+    }
   */});
-  PlayListView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="playlistContainer">
-      <div class="playlistContainerHeader">
-        <lavel class="activity">連続再生</lavel>
-        <lavel class="loop">リピート</lavel>
-        <lavel class="shuffle">シャッフル</lavel>
+  PlaylistView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    <div class="playlist-container">
+      <div class="playlist-header">
+        <lavel class="playlist-menu-button toggleEnable playlist-command"
+          data-command="toggleEnable"><icon class="playlist-menu-icon">▶</icon> 連続再生</lavel>
+        <lavel class="playlist-menu-button toggleLoop playlist-command"
+          data-command="toggleLoop"><icon class="playlist-menu-icon">&#8635;</icon> リピート</lavel>
+
+        <div class="playlist-count playlist-command" data-command="toggleMenu">
+          <span class="playlist-index"></span> / <span class="playlist-length"></span>
+          <div class="zenzaPopupMenu playlist-menu">
+            <div class="listInner">
+            <ul>
+              <li class="playlist-command" data-command="shuffle">
+                シャッフル
+              </li>
+              <li class="playlist-command" data-command="sortBy" data-param="postedAt">
+                古い順に並べる
+              </li>
+              <li class="playlist-command" data-command="sortBy" data-param="view:desc">
+                再生の多い順に並べる
+              </li>
+              <li class="playlist-command" data-command="sortBy" data-param="comment:desc">
+                コメントの多い順に並べる
+              </li>
+              <li class="playlist-command" data-command="sortBy" data-param="title">
+                タイトル順に並べる
+              </li>
+              <li class="playlist-command" data-command="sortBy" data-param="duration:desc">
+                動画の長い順に並べる
+              </li>
+              <li class="playlist-command" data-command="sortBy" data-param="duration">
+                動画の短い順に並べる
+              </li>
+              <li class="playlist-command" data-command="removePlayedItem">再生済を消す ●</li>
+
+            </ul>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="playlistFrameContainer"></div>
+      <div class="playlist-frame"></div>
     </div>
   */});
 
-  _.assign(PlayListView.prototype, {
+  _.assign(PlaylistView.prototype, {
     initialize: function(params) {
       this._$container = params.$container;
       this._model = params.model;
+      this._playlist = params.playlist;
 
-      this._$view = $(PlayListView.__tpl__);
-      this._$container.append(this._$view);
+
+      ZenzaWatch.util.addStyle(PlaylistView.__css__);
+      var $view = this._$view = $(PlaylistView.__tpl__);
+      this._$container.append($view);
+
+      this._$index  = $view.find('.playlist-index');
+      this._$length = $view.find('.playlist-length');
+      var $menu = this._$menu = this._$view.find('.playlist-menu');
+
+      ZenzaWatch.debug.playlistView = this._$view;
 
       var listView = this._listView = new VideoListView({
-        $container: this._$view.find('.playlistFrameContainer'),
+        $container: this._$view.find('.playlist-frame'),
         model: this._model,
         className: 'playlist',
         builder: VideoListItemView,
@@ -781,55 +1245,188 @@ var PopupMessage = {};
       listView.on('command', _.bind(this._onCommand, this));
       listView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
 
+      this._playlist.on('update',
+        _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
+
+      this._$view.on('click', '.playlist-command', _.bind(this._onPlaylistCommandClick, this));
+      ZenzaWatch.emitter.on('hideHover', function() {
+        $menu.removeClass('show');
+      });
+
+
       _.each([
-        'isUpdatingDeflist',
-        'setIsUpdatingDeflist',
         'addClass',
         'removeClass',
-        'toggleClass',
         'scrollTop',
         'scrollToItem',
       ], _.bind(function(func) {
-        this[func] = _.bind(listView[func], func);
+        this[func] = _.bind(listView[func], listView);
       }, this));
     },
-    updateStatus: function() {
+    toggleClass: function(className, v) {
+      this._view.toggleClass(className, v);
+      this._$view.toggleClass(className, v);
     },
-    _onCommand: function(command, param) {
-      this.emit('command', command, param);
+    _onCommand: function(command, param, itemId) {
+      switch (command) {
+        default:
+          this.emit('command', command, param, itemId);
+          break;
+      }
     },
-    _onDeflistAdd: function(watchId) {
-      this.emit('deflistAdd', watchId);
+    _onDeflistAdd: function(watchId, itemId) {
+      this.emit('deflistAdd', watchId, itemId);
+    },
+    _onPlaylistCommandClick: function(e) {
+      var $target = $(e.target).closest('.playlist-command');
+      var command = $target.attr('data-command');
+      var param   = $target.attr('data-param');
+      e.stopPropagation();
+      if (!command) { return; }
+      switch (command) {
+        case 'toggleMenu':
+          e.stopPropagation();
+          e.preventDefault();
+          this._$menu.addClass('show');
+          return;
+        case 'shuffle':
+        case 'sortBy':
+          var $view = this._$view;
+          $view.addClass('shuffle');
+          window.setTimeout(() => { this._$view.removeClass('shuffle'); }, 1000);
+          this.emit('command', command, param);
+          break;
+        default:
+          this.emit('command', command, param);
+      }
+      ZenzaWatch.emitter.emitAsync('hideHover');
+    },
+    _onPlaylistStatusUpdate: function() {
+      var playlist = this._playlist;
+      this._$view
+        .toggleClass('enable', playlist.isEnable())
+        .toggleClass('loop',   playlist.isLoop())
+        ;
+      this._$index.text(playlist.getIndex() + 1);
+      this._$length.text(playlist.getLength());
     }
   });
 
+  var PlaylistSession = (function(storage) {
+    var KEY = 'ZenzaWatchPlaylist';
+    
+    return {
+      isExist: function() { //return false;
+        var data = storage.getItem(KEY);
+        if (!data) { return false; }
+        try {
+          JSON.parse(data);
+          return true;
+        } catch(e) {
+          return false;
+        }
+      },
+      save: function(data) {
+        storage.setItem(KEY, JSON.stringify(data));
+      },
+      restore: function() {
+        var data = storage.getItem(KEY);
+        if (!data) { return null; }
+        try {
+          return JSON.parse(data);
+        } catch(e) {
+          return null;
+        }
+      }
+    };
+  })(sessionStorage);
 
-  var PlayList = function() { this.initialize.apply(this, arguments); };
-  _.extend(PlayList.prototype, VideoList.prototype);
-  _.assign(PlayList.prototype, {
+
+  var Playlist = function() { this.initialize.apply(this, arguments); };
+  _.extend(Playlist.prototype, VideoList.prototype);
+  _.assign(Playlist.prototype, {
     initialize: function(params) {
       this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
       this._$container = params.$container;
 
-      this._index = 0;
-      this._isActive = false;
-      this._isLoop = false;
+      this._index = -1;
+      this._isEnable = false;
+      this._isLoop = params.loop;
 
-      this._model = new PlayListModel({});
+      this._model = new PlaylistModel({});
+
+      ZenzaWatch.debug.playlist = this;
+      this.on('update', _.debounce(_.bind(function() {
+        var data = this.serialize();
+        PlaylistSession.save(data);
+      }, this), 3000));
+    },
+    serialize: function() {
+      return {
+        items: this._model.serialize(),
+        index: this._index,
+        enable: this._isEnable,
+        loop: this._isLoop
+      };
+    },
+    unserialize: function(data) {
+      if (!data) { return; }
+      this._initializeView();
+      window.console.log('unserialize: ', data);
+      this._model.unserialize(data.items);
+      this._isEnable = data.enable;
+      this._isLoop   = data.loop;
+      this.emit('update');
+      this.setIndex(data.index);
+    },
+    restoreFromSession: function() {
+      this.unserialize(PlaylistSession.restore());
     },
     _initializeView: function() {
       if (this._view) { return; }
-      this._view = new VideoListView({
+      this._view = new PlaylistView({
         $container: this._$container,
         model: this._model,
+        playlist: this,
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
       this._view.on('command', _.bind(this._onCommand, this));
       this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
     },
-    _onCommand: function(command, param) {
+    _onCommand: function(command, param, itemId) {
+      var item;
       switch (command) {
+        case 'toggleEnable':
+          this.toggleEnable();
+          break;
+        case 'toggleLoop':
+          this.toggleLoop();
+          break;
+        case 'shuffle':
+          this.shuffle();
+          break;
+        case 'sortBy':
+          var tmp = param.split(':');
+          this.sortBy(tmp[0], tmp[1] === 'desc');
+          break;
+        case 'clear':
+          this._setItemData([]);
+          break;
+        case 'select':
+          item = this._model.findByItemId(itemId);
+          this.setIndex(this._model.indexOf(item));
+          this.emit('command', 'openNow', item.getWatchId());
+          break;
+        case 'playlistRemove':
+          item = this._model.findByItemId(itemId);
+          this._model.removeItem(item);
+          this._refreshIndex();
+          this.emit('update');
+          break;
+        case 'removePlayedItem':
+          this.removePlayedItem();
+          break;
         default:
           this.emit('command', command, param);
       }
@@ -839,8 +1436,9 @@ var PopupMessage = {};
       _.each(listData, function(itemData) {
         items.push(new VideoListItem(itemData));
       });
+      //window.console.log('_setItemData', listData);
       this._model.setItem(items);
-      this._index = 0;
+      this.setIndex(items.length > 0 ? 0 : -1);
     },
     loadFromMylist: function(mylistId, options) {
       this._initializeView();
@@ -848,17 +1446,24 @@ var PopupMessage = {};
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
-
       var self = this;
-      this._mylistApiLoader
+      window.console.time('loadMylist' + mylistId);
+      return this._mylistApiLoader
         .getMylistItems(mylistId, options).then(function(items) {
+          window.console.timeEnd('loadMylist' + mylistId);
           var videoListItems = [];
-          //window.console.log('items!!', items);
+
+          //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
           _.each(items, function(item) {
             // マイリストはitem_typeがint
             // とりまいはitem_typeがstringっていうね
-            if (parseInt(item.item_type, 10) !== 0) { return; } // not video
-            if (parseInt(item.deleted, 10) !== 0) { return; } // 削除動画を除外
+            if (item.item_data) {
+              if (parseInt(item.item_type, 10) !== 0) { return; } // not video
+              if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
+            } else {
+              //if (excludeId.test(item.id)) { return; } // not video
+              if (item.thumbnail_url.indexOf('video_deleted') >= 0) { return; }
+            }
             videoListItems.push(
               VideoListItem.createByMylistItem(item)
             );
@@ -866,47 +1471,230 @@ var PopupMessage = {};
           //window.console.log('videoListItems!!', videoListItems);
           
           self._model.setItem(videoListItems);
-          self._index = 0;
-
+          var item = self._model.findByWatchId(options.watchId);
+          if (item) {
+            item.setIsActive(true);
+            item.setIsPlayed(true);
+            self._activeItem = item;
+            ZenzaWatch.util.callAsync(function() {
+              self._view.scrollToItem(item);
+            }, self, 1000);
+          }
+          self.setIndex(self._model.indexOf(item));
+          self.emit('update');
+          return Promise.resolve({
+            status: 'ok',
+            message: 'マイリストをロードしました'
+          });
         });
     },
     insert: function(watchId) {
+      this._initializeView();
+      if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }
+
       var model = this._model;
       var index = this._index;
-      this._thumbInfoLoader.load(watchId).then(function(info) {
+      return this._thumbInfoLoader.load(watchId).then((info) => {
+         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
+        info.id = watchId;
         var item = VideoListItem.createByThumbInfo(info);
-        window.console.info(item, info);
-        model.insertItem(item, index);
+        //window.console.info(item, info);
+        model.insertItem(item, index + 1);
+        this._refreshIndex(true);
+
+        this.emit('update');
+
+        this.emit('command', 'notifyHtml',
+          '次に再生: ' +
+          '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
+          item.getTitle()
+        );
       },
-      function(result) {
+      (result) => {
+        var item = VideoListItem.createBlankInfo(watchId);
+        model.insertItem(item, index + 1);
+        this._refreshIndex(true);
+
+        this.emit('update');
+
         window.console.error(result);
-        PopupMessage.alert('動画情報の取得に失敗');
+        this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
       });
     },
+    insertCurrentVideo: function(videoInfo) {
+      this._initializeView();
+
+      //window.console.log('insertCurrentVideo', videoInfo);
+      if (this._activeItem &&
+          !this._activeItem.isBlankData() &&
+          this._activeItem.getWatchId() === videoInfo.getWatchId()) {
+        this._activeItem.setIsPlayed(true);
+        this.scrollToActiveItem();
+        //window.console.log('insertCurrentVideo.getWatchId() === videoInfo.getWatchId()');
+        return;
+      }
+
+      var currentItem = this._model.findByWatchId(videoInfo.getWatchId());
+      //window.console.log('currentItem: ', currentItem);
+      if (currentItem && !currentItem.isBlankData()) {
+        currentItem.setIsPlayed(true);
+        this.setIndex(this._model.indexOf(currentItem));
+        this.scrollToActiveItem();
+        return;
+      }
+
+      var item = VideoListItem.createByVideoInfoModel(videoInfo);
+      item.setIsPlayed(true);
+      //window.console.log('create item', item, 'index', this._index);
+      if (this._activeItem) { this._activeItem.setIsActive(false); }
+      this._model.insertItem(item, this._index + 1);
+      //window.console.log('findByItemId', item.getItemId(), this._model.findByItemId(item.getItemId()));
+      this._activeItem = this._model.findByItemId(item.getItemId());
+      this._refreshIndex(true);
+
+    },
     append: function(watchId) {
+      this._initializeView();
+      if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }
+
       var model = this._model;
-      this._thumbInfoLoader.load(watchId).then(function(info) {
+      return this._thumbInfoLoader.load(watchId).then((info) => {
+         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
+        info.id = watchId;
         var item = VideoListItem.createByThumbInfo(info);
-        window.console.info(item, info);
+        //window.console.info(item, info);
         model.appendItem(item);
+        this._refreshIndex();
+        this.emit('update');
+        this.emit('command', 'notifyHtml',
+          'リストに追加: ' +
+          '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
+          item.getTitle()
+        );
       },
-      function(result) {
+      (result) => {
+        var item = VideoListItem.createBlankInfo(watchId);
+        model.appendItem(item);
+        this._refreshIndex(true);
+        this._refreshIndex();
+
         window.console.error(result);
-        PopupMessage.alert('動画情報の取得に失敗');
+        this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
       });
     },
     getIndex: function() {
-      return this._index;
+      return this._activeItem ? this._index : -1;
+    },
+    setIndex: function(v, force) {
+      v = parseInt(v, 10);
+      //window.console.log('setIndex: %s -> %s', this._index, v);
+      if (this._index !== v || force) {
+        this._index = v;
+        //window.console.log('before active', this._activeItem);
+        if (this._activeItem) {
+          this._activeItem.setIsActive(false);
+        }
+        this._activeItem = this._model.getItemByIndex(v);
+        if (this._activeItem) {
+          this._activeItem.setIsActive(true);
+        }
+        //window.console.log('after active', this._activeItem);
+        this.emit('update');
+      }
+    },
+    _refreshIndex: function(scrollToActive) {
+      this.setIndex(this._model.indexOf(this._activeItem), true);
+      if (scrollToActive) {
+        ZenzaWatch.util.callAsync(function() {
+          this.scrollToActiveItem();
+        }, this, 1000);
+      }
+    },
+    _setIndexByItemId: function(itemId) {
+      var item = this._model.findByItemId(itemId);
+      if (item) {
+        this._setIndexByItem(item);
+      }
+    },
+    _setIndexByItem: function(item) {
+      var index = this._model.indexOf(item);
+      if (index >= 0) {
+        this.setIndex(index);
+      }
+    },
+    getLength: function() {
+      return this._model.getLength();
     },
     hasNext: function() {
       var len = this._model.getLength();
-      return len > 1 && (this.isLoop() || this._index < len - 1);
+      return len > 0 && (this.isLoop() || this._index < len - 1);
     },
-    isActive: function() {
-      return this._isActive;
+    isEnable: function() {
+      return this._isEnable;
     },
     isLoop: function() {
       return this._isLoop;
+    },
+    toggleEnable: function(v) {
+      if (!_.isBoolean(v)) {
+        this._isEnable = !this._isEnable;
+        this.emit('update');
+        return;
+      }
+
+      if (this._isEnable !== v) {
+        this._isEnable = v;
+        this.emit('update');
+      }
+    },
+    toggleLoop: function() {
+      this._isLoop = !this._isLoop;
+      this.emit('update');
+    },
+    shuffle: function() {
+      this._model.shuffle();
+      if (this._activeItem) {
+        this._model.removeItem(this._activeItem);
+        this._model.insertItem(this._activeItem, 0);
+        this.setIndex(0);
+      } else {
+        this.setIndex(-1);
+      }
+      this._view.scrollTop(0);
+    },
+    sortBy: function(key, isDesc) {
+      this._model.sortBy(key, isDesc);
+      this._refreshIndex(true);
+      ZenzaWatch.util.callAsync(function() {
+        this._view.scrollToItem(this._activeItem);
+      }, this, 1000);
+    },
+    removePlayedItem: function() {
+      this._model.removePlayedItem();
+      this._refreshIndex(true);
+      ZenzaWatch.util.callAsync(function() {
+        this._view.scrollToItem(this._activeItem);
+      }, this, 1000);
+    },
+    selectNext: function() {
+      if (!this.hasNext()) { return null; }
+      var index = this.getIndex();
+      var len = this.getLength();
+
+      //window.console.log('selectNext', index, len);
+      if (index < -1) {
+        this.setIndex(0);
+      } else if (index + 1< len) {
+        this.setIndex(index + 1);
+      } else if (this.isLoop()) {
+        this.setIndex((index + 1) % len);
+      }
+      return this._activeItem ? this._activeItem.getWatchId() : null;
+    },
+    scrollToActiveItem: function() {
+      if (this._activeItem) {
+        this._view.scrollToItem(this._activeItem);
+      }
     }
   });
 
@@ -971,7 +1759,10 @@ http://www.nicovideo.jp/watch/sm2049295?playlist_type=mylist&group_id=15690144&m
 http://www.nicovideo.jp/watch/sm2049295?playlist_type=mylist_playlist&group_id=15690144&mylist_sort=1
 
 
-
+// VOCALOIDランキングの連続再生ボタン
+http://www.nicovideo.jp/watch/sm28427945?playlist_type=ranking&type=fav&span=daily&category=vocaloid&continuous=1
+// 検索結果の連続再生ボタン
+http://www.nicovideo.jp/watch/sm2406770?playlist_type=tag&tag=VOCALOID&sort=n&order=d&page=1&continuous=1
 
 http://www.nicovideo.jp/watch/sm26625313?playlist_type=mylist_playlist&group_id=15689839&mylist_sort=1
 http://www.nicovideo.jp/watch/sm8535320?playlist_type=mylist_playlist&group_id=deflist&mylist_sort=1

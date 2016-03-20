@@ -197,6 +197,9 @@ var console;
         userIdFilter: '',
         commandFilter: '',
 
+
+        playlistLoop: false,
+
         baseFontFamily: '',
         baseChatScale: 1.0,
         baseFontBolder: true,
@@ -408,25 +411,31 @@ var console;
       };
 
       var undefined;
-      var notify = function(msg) {
+      var notify = function(msg, allowHtml) {
         if (msg === undefined) {
           msg = '不明なエラー';
           window.console.error('undefined message sent');
           window.console.trace();
         }
         console.log('%c%s', 'background: #080; color: #fff; padding: 8px;', msg);
-        var $msg = $(__view__.replace('%MSG%', ZenzaWatch.util.escapeHtml(msg))).addClass('notify');
+        if (allowHtml !== true) {
+          msg = ZenzaWatch.util.escapeHtml(msg);
+        }
+        var $msg = $(__view__.replace('%MSG%', msg)).addClass('notify');
         show($msg);
       };
 
-      var alert = function(msg) {
+      var alert = function(msg, allowHtml) {
         if (msg === undefined) {
           msg = '不明なエラー';
           window.console.error('undefined message sent');
           window.console.trace();
         }
         console.log('%c%s', 'background: #800; color: #fff; padding: 8px;', msg);
-        var $msg = $(__view__.replace('%MSG%', ZenzaWatch.util.escapeHtml(msg))).addClass('alert');
+        if (allowHtml !== true) {
+          msg = ZenzaWatch.util.escapeHtml(msg);
+        }
+        var $msg = $(__view__.replace('%MSG%', msg)).addClass('alert');
         show($msg);
       };
 

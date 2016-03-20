@@ -619,7 +619,7 @@ var AsyncEmitter = function() {};
       $view.on('click', _.bind(this._onMouseDown, this));
     },
     _onMouseDown: function(e) {
-      var target = e.target, $target = $(target.closest('li'));
+      var target = e.target, $target = $(target).closest('li');
       var command = $target.attr('data-command');
       var param = $target.attr('data-param');
       this.hide();

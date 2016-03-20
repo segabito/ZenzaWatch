@@ -16,6 +16,7 @@
 .gothic  { font-family: 'ＭＳ Ｐゴシック'; background: blue;  display: inline-block;}
 .mono    { font-family: 'Courier New', 'Osaka-mono', 'ＭＳ ゴシック', monospace; background: green;      display: inline-block;}
 .mono2   { font-family:                'Osaka-mono', 'ＭＳ ゴシック', monospace; background: lightgreen; display: inline-block;}
+.zero  { font-family: 'Arial'; background: cyan; display: inline-block;}
 
 .big.mono.type9    { letter-spacing:  1.6241em;  } /* 1387.94px */
 .medium.mono.type9 { letter-spacing:  1.6252em;  } /*  854.5px */
@@ -51,9 +52,14 @@
 .medium.mono2.type9 { letter-spacing:  1.6252em;  } /*  854.5px */
 .small.mono2.type9  { letter-spacing:  1.5375em;  } /*  513px */
 
-.big.mono2.type20    { letter-spacing: -0.2966em; } /* 189.375px */
-.medium.mono2.type20 { letter-spacing: -0.2806em; } /* 122.688px */
-.small.mono2.type20  { letter-spacing: -0.2667em; } /*  80px     */
+.big.mono2.type20    { letter-spacing: -0.1965em; } /* 189.375px */
+.medium.mono2.type20 { letter-spacing: -0.1806em; } /* 122.688px */
+.small.mono2.type20  { letter-spacing: -0.1667em; } /*  80px     */
+
+.big.mono2.type20    { letter-spacing: -0.216em;  } /* 189.375px */
+.medium.mono2.type20 { letter-spacing: -0.2001em; } /* 122.688px */
+.small.mono2.type20  { letter-spacing: -0.1862em; } /*  80px     */
+
 
 .big.mono2.type2001    { } /* 640px */
 .medium.mono2.type2001 { }
@@ -67,20 +73,65 @@
 .medium.mono2.type3000 { letter-spacing: -0.2943em; } /* 271px     */
 .small.mono2.type3000  { letter-spacing: -0.2693em; } /* 175.375px */
 
-.big.mono2.typeA0      { letter-spacing: -0.2966em; } /* 189.375px */
-.medium.mono2.typeA0   { letter-spacing: -0.2806em; } /* 122.688px */
-.small.mono2.typeA0    { letter-spacing: -0.2667em; } /*  80px     */
+.big.mono2.type3000    { letter-spacing: -0.3298em; } /* 430.375px */
+.medium.mono2.type3000 { letter-spacing: -0.3138em; } /* 271px     */
+.small.mono2.type3000  { letter-spacing: -0.2888em; } /* 175.375px */
+
+
+.big.mono2.typeA0      { letter-spacing: -0.1965em; } /* 189.375px */
+.medium.mono2.typeA0   { letter-spacing: -0.1806em; } /* 122.688px */
+.small.mono2.typeA0    { letter-spacing: -0.1667em; } /*  80px     */
+
+.big.mono2.typeA0      { letter-spacing: -0.216em;  } /* 189.375px */
+.medium.mono2.typeA0   { letter-spacing: -0.2001em; } /* 122.688px */
+.small.mono2.typeA0    { letter-spacing: -0.1862em; } /*  80px     */
 
 .big.mono2.typeE800    { } /* 652.188px */ /* MSPゴシック合わせ  */
 .medium.mono2.typeE800 { } /* 407.5px   */
 .small.mono2.typeE800  { } /* 260.688px */
 
 
+
+/* 固定幅フォント ｰ letter-spacing  ではなく、 ゼロ幅文字 + letter-spacing という発想 */
+.big.zero.type9    > spacer { width: 86.55875px;  } /* 1387.94px */
+.medium.zero.type9 > spacer { width: 53.4px;  } /*  854.5px */
+.small.zero.type9  > spacer { width: 32.0625px;  } /*  513px */
+
+.big.zero.type20    > spacer { width: 11.8359375px; } /* 189.375px */
+.medium.zero.type20 > spacer { width: 7.668px; } /* 122.688px */
+.small.zero.type20  > spacer { width: 5px; } /*  80px     */
+
+.big.zero.type2001    { } /* 640px */
+.medium.zero.type2001 { }
+.small.zero.type2001  { }
+
+.big.zero.type2003    { } /* 640px */
+.medium.zero.type2003 { }
+.small.zero.type2003  { }
+
+.big.zero.type3000    > spacer { width: 26.8984375px; } /* 430.375px */
+.medium.zero.type3000 > spacer { width: 16.9375px; } /* 271px     */
+.small.zero.type3000  > spacer { width: 10.9609375px; } /* 175.375px */
+
+.big.zero.typeA0      > spacer { width: 11.8359375px; } /* 189.375px */
+.medium.zero.typeA0   > spacer { width: 7.668px; } /* 122.688px */
+.small.zero.typeA0    > spacer { width: 5px; } /*  80px     */
+
+.big.zero.typeE800    { } /* 652.188px */ /* MSPゴシック合わせ  */
+.medium.zero.typeE800 { } /* 407.5px   */
+.small.zero.typeE800  { } /* 260.688px */
+
+spacer { display: inline-block; overflow: hidden; outline: 1px dotted silver; height: 10px;}
 </style>
 <body>
-	<p>こんなことするより、MSPゴシックと同幅で空白文字だけのWeb Font作ったらいいんじゃないか？</p>
-	<div id="fontTest">
+<div id="fontTest">
+	<!--<p>こんなことするより、MSPゴシックと同幅で空白文字だけのWeb Font作ったらいいんじゃないか？</p>-->
+
+	<div style="font-size: 24px; letter-spacing: 1px;">
+
+		<span style="display: inline-block; width: 24px; height: 24px;"><span style="">◢</span></span><span style="background: #666;">&#x2588;</span>
 	</div>
+</div>
 <script type="text/javascript">
 var textList = [
 	String.fromCharCode(0x09),   // tab
@@ -95,27 +146,45 @@ var textList = [
 	var tmp = [];
 	textList.forEach(function(text) {
 		var c = text.charCodeAt(0).toString(16).toUpperCase();
-		while(text.length < 16) { text = text + text; }
+		//while(text.length < 16) { text = text + text; }
+		text = text.repeat(parseInt(Math.random() * 20) + 1);
 		var t = (text.charAt(0) === '\t') ? text.replace(/[\t]/g , '^') : text;
+    t = t.replace(/([\u3000]+)/g ,
+          function(g) { return '□'.repeat(g.length); } )
+        .replace(/([\u0020]+)/g,
+          function(g) { return '_'.repeat(g.length); } )
+        .replace(/([\u00A0]+)/g,
+          function(g) { return '_'.repeat(g.length); } );
+		var z = text.replace(/(.*)/,
+          function(g) {
+//						return '<span>&#x0323;</span>'.repeat(g.length); // letter-spacingがそのまま幅になる. 興味深い
+						return '<spacer></spacer>'.repeat(g.length); // letter-spacingがそのまま幅になる. 興味深い
+						//return '&#x202a;'.repeat(g.length);
+					} );
+
 		tmp.push([
 				'code: U+', c, '<br>',
 				'<div class="arial  big    type', c, '">',   text, '<', '/div>arial', '<br>',
 				'<div class="gothic big    type', c, '">',   text, '<', '/div>gothic', '<br>',
 				'<div class="mono   big    type', c, '">',   t,    '<', '/div>mono<br>',
 				'<div class="mono2  big    type', c, '">',   t,    '<', '/div>mono2<br>',
+				'<div class="zero   big    type', c, '">',   z,    '<', '/div>zero<br>',
 				'<div class="arial  medium type', c, '">',   text, '<', '/div>', '<br>',
 				'<div class="gothic medium type', c, '">',   text, '<', '/div>', '<br>',
 				'<div class="mono   medium type', c, '">',   t,    '<', '/div><br>',
 				'<div class="mono2  medium type', c, '">',   t,    '<', '/div><br>',
+				'<div class="zero   medium type', c, '">',   z,    '<', '/div><br>',
 				'<div class="arial  small  type', c, '">',   text, '<', '/div>', '<br>',
 				'<div class="gothic small  type', c, '">',   text, '<', '/div>', '<br>',
 				'<div class="mono   small  type', c, '">',   t,    '<', '/div><br>',
-				'<div class="mono2   small  type', c, '">',   t,    '<', '/div><br>',
+				'<div class="mono2  small  type', c, '">',   t,    '<', '/div><br>',
+				'<div class="zero   small  type', c, '">',   z,    '<', '/div><br>',
 					'<hr>',
 		''].join(''));
 	});
 
-	document.getElementById('fontTest').innerHTML = tmp.join('\n');
+	document.getElementById('fontTest').innerHTML =
+		tmp.join('\n') + document.getElementById('fontTest').innerHTML;
 
 	var divs = document.querySelectorAll('#fontTest > span');
 	_.each(divs, function(div) {

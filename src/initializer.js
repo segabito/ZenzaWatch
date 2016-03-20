@@ -94,9 +94,12 @@ var AsyncEmitter = function() {};
         localStorageEmitter.on('message', function(packet) {
           if (packet.type !== 'openVideo') { return; }
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
+          window.console.log('recieve packet: ', packet);
           dialog.open(packet.watchId, {
             economy: Config.getValue('forceEconomy'),
-            autoCloseFullScreen: false
+            autoCloseFullScreen: false,
+            query: packet.query,
+            eventType: packet.eventType
           });
         });
 
@@ -308,6 +311,8 @@ var AsyncEmitter = function() {};
         localStorageEmitter.send({
           type: 'openVideo',
           watchId: watchId,
+          eventType: 'click',
+          economy: this._playerConfig.getValue('forceEconomy'),
           query: this._query
         });
       },

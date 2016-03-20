@@ -7,8 +7,8 @@ var ZenzaWatch = {
 var FullScreen = {};
 var VideoInfoLoader = {};
 var PopupMessage = {};
-var Config = {};
 var ShortcutKeyEmitter = {};
+var PlaylistSession = {};
 var NicoVideoPlayer = function() {};
 var MessageApiLoader = function() {};
 var AsyncEmitter = function() {};
@@ -17,9 +17,86 @@ var VideoInfoPanel = function() {};
 var VideoInfoModel = function() {};
 var CommentInputPanel = function() {};
 var SettingPanel = function() {};
-var PlayList = function() {};
+var Playlist = function() {};
 
 //===BEGIN===
+  var VideoWatchOptions = function() { this.initialize.apply(this, arguments); };
+  _.extend(VideoWatchOptions.prototype, AsyncEmitter.prototype);
+  _.assign(VideoWatchOptions.prototype, {
+    initialize: function(watchId, options, config) {
+      window.console.log('options: ', options);
+      this._watchId = watchId;
+      this._options = options || {};
+      this._config  = config;
+    },
+    getRawData: function() {
+      // window.console.trace();
+      return this._options;
+    },
+    getEventType: function() {
+      return this._options.eventType || '';
+    },
+    getQuery: function() {
+      return this._options.query || {};
+    },
+    getVideoLoadOptions: function() {
+      var options = {
+        economy: this.isEconomy()
+      };
+      return options;
+    },
+    getMylistLoadOptions: function() {
+      var options = {};
+      var query = this.getQuery();
+      if (query.mylist_sort) { options.sort = query.mylist_sort; }
+      options.group_id = query.group_id;
+      options.watchId = this._watchId;
+      return options;
+    },
+    isPlaylistStartRequest: function() {
+      var eventType = this.getEventType();
+      var query = this.getQuery();
+      //window.console.log('isPlaylistStartRequest', eventType, query);
+      if (eventType === 'click' &&
+          query.playlist_type === 'mylist_playlist' &&
+          query.group_id) {
+        return true;
+      }
+      return false;
+    },
+    hasKey: function(key) {
+      return _.has(this._options, key);
+    },
+    isOpenNow: function() {
+      return this._options.openNow === true;
+    },
+    isEconomy: function() {
+      return _.isBoolean(this._options.economy) ?
+        this._options.economy : this._config.getValue('forceEconomy');
+    },
+    isAutoCloseFullScreen: function() {
+      return !!this._options.autoCloseFullScreen;
+    },
+    getCurrentTime: function() {
+      return _.isNumber(this._options.currentTime) ?
+        parseFloat(this._options.currentTime, 10) : 0;
+    },
+    createOptionsForVideoChange: function(options) {
+      options = options || {};
+      delete this._options.economy;
+      _.defaults(options, this._options);
+      options.openNow = true;
+      options.currentTime = 0;
+      options.query = {};
+      return options;
+    },
+    createOptionsForSession: function(options) {
+      options = options || {};
+      _.defaults(options, this._options);
+      options.query = {};
+      return options;
+    }
+  });
 
 
   var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
@@ -233,8 +310,6 @@ var PlayList = function() {};
 
 
 
-    {*    .zenzaScreenMode_wide .videoPlayer,
-    .zenzaScreenMode_wide .commentLayerFrame,*}
     .fullScreen           .videoPlayer,
     .fullScreen           .commentLayerFrame {
       top:  0 !important;
@@ -258,8 +333,17 @@ var PlayList = function() {};
       right:  0 !important;
       bottom: 40px !important;
       border: 0 !important;
+    }
+
+    .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
+    .fullScreen           .showVideoControlBar .videoPlayer {
       z-index: 100 !important;
     }
+    .zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
+    .fullScreen           .showVideoControlBar .commentLayerFrame {
+      z-index: 101 !important;
+    }
+
 
     .zenzaScreenMode_wide .showComment.backComment .videoPlayer,
     .fullScreen           .showComment.backComment .videoPlayer
@@ -466,6 +550,21 @@ var PlayList = function() {};
       }
     }
 
+    @media screen and (min-width: 1432px)
+    {
+      body.zenzaScreenMode_sideView {
+        margin-left: calc(100vw - 1024px);
+      }
+      body.zenzaScreenMode_sideView:not(.nofix) #siteHeader {
+        width: calc(100vw - (100vw - 1024px));
+        margin-left: calc(100vw - 1024px);
+      }
+      .zenzaScreenMode_sideView .zenzaPlayerContainer {
+        width: calc(100vw - 1024px);
+        height: calc((100vw - 1024px) * 9 / 16);
+      }
+
+    }
 
     .loadingMessageContainer {
       display: none;
@@ -744,11 +843,17 @@ var PlayList = function() {};
       var v;
       console.log('command: %s param: %s', command, param, typeof param);
       switch(command) {
+        case 'notifyHtml':
+          PopupMessage.notify(param, true);
+          break;
         case 'notify':
           PopupMessage.notify(param);
           break;
         case 'alert':
           PopupMessage.alert(param);
+          break;
+        case 'alertHtml':
+          PopupMessage.alert(param, true);
           break;
         case 'volume':
           this.setVolume(param);
@@ -781,7 +886,24 @@ var PlayList = function() {};
           this._nicoVideoPlayer.toggleFullScreen();
           break;
         case 'deflistAdd':
-          this._onDeflistAdd();
+          this._onDeflistAdd(param);
+          break;
+        case 'playlistAdd':
+          this._onPlaylistAdd(param);
+          break;
+        case 'playlistInsert':
+          this._onPlaylistInsert(param);
+          break;
+        case 'playlistSetMylist':
+          this._onPlaylistSetMylist(param);
+          break;
+        case 'playNextVideo':
+          this.playNextVideo();
+          break;
+        case 'playlistShuffle':
+          if (this._playlist) {
+            this._playlist.shuffle();
+          }
           break;
         case 'mylistAdd':
           this._onMylistAdd(param.mylistId, param.mylistName);
@@ -828,6 +950,9 @@ var PlayList = function() {};
         case 'tweet':
           this.openTweetWindow(this._videoInfo);
           break;
+        case 'openNow':
+          this.open(param, {openNow: true});
+          break;
         case 'open':
           this.open(param);
           break;
@@ -873,7 +998,7 @@ var PlayList = function() {};
           ZenzaWatch.util.callAsync(function() { this._commentInput.focus(); }, this);
           break;
         case 'DEFLIST':
-          this._onDeflistAdd();
+          this._onDeflistAdd(param);
           break;
         case 'VIEW_COMMENT':
           v = this._playerConfig.getValue('showComment');
@@ -970,7 +1095,38 @@ var PlayList = function() {};
     },
     _onClick: function() {
     },
-    _onDeflistAdd: function() {
+    _onPlaylistAdd: function(watchId) {
+      window.console.log('playlistAdd: ', watchId);
+      this._initializePlaylist();
+      this._playlist.append(watchId);
+    },
+    _onPlaylistInsert: function(watchId) {
+      this._initializePlaylist();
+      this._playlist.insert(watchId);
+    },
+    _onPlaylistSetMylist: function(mylistId, option) {
+      this._initializePlaylist();
+      option = option || {watchId: this._watchId};
+      // デフォルトで古い順にする
+      option.sort = isNaN(option.sort) ? 7 : option.sort;
+      this._playlist.loadFromMylist(mylistId, option).then((result) => {
+        PopupMessage.notify(result.message);
+        this._videoInfoPanel.selectTab('playlist');
+        this._playlist.insertCurrentVideo(this._videoInfo);
+      }, () => {
+        PopupMessage.alert('マイリストのロード失敗');
+      });
+    },
+    _onPlaylistStatusUpdate: function() {
+      var playlist = this._playlist;
+      this._playerConfig.setValue('playlistLoop', playlist.isLoop());
+      this._$playerContainer.toggleClass('playlistEnable', playlist.isEnable());
+      if (playlist.isEnable()) {
+        this._playerConfig.setValue('loop', false);
+      }
+      this._videoInfoPanel.blinkTab('playlist');
+    },
+    _onDeflistAdd: function(watchId) {
       var $container = this._$playerContainer;
       if ($container.hasClass('updatingDeflist')) { return; } //busy
 
@@ -982,9 +1138,10 @@ var PlayList = function() {};
       var timer = window.setTimeout(removeClass, 10000);
 
       var owner = this._videoInfo.getOwnerInfo();
-      var watchId = this._videoInfo.getWatchId();
+
+      watchId = watchId || this._videoInfo.getWatchId();
       var description =
-        this._playerConfig.getValue('enableAutoMylistComment') ? ('投稿者: ' + owner.name) : '';
+        (watchId === this._watchId && this._playerConfig.getValue('enableAutoMylistComment')) ? ('投稿者: ' + owner.name) : '';
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
@@ -1067,6 +1224,16 @@ var PlayList = function() {};
       // 連打対策
       if (Date.now() - this._lastOpenAt < 1500 && this._watchId === watchId) { return; }
 
+      this._playerConfig.setValue('lastPlayerId', this.getId());
+      this._requestId = 'play-' + Math.random();
+      this._videoWatchOptions = options =new VideoWatchOptions(watchId, options, this._playerConfig);
+
+      if (!options.isPlaylistStartRequest() &&
+          this.isPlaying() && this.isPlaylistEnable() && !options.isOpenNow()) {
+        this._onPlaylistInsert(watchId);
+        return;
+      }
+
       window.console.time('動画選択から再生可能までの時間 watchId=' + watchId);
 
       var nicoVideoPlayer = this._nicoVideoPlayer;
@@ -1082,10 +1249,6 @@ var PlayList = function() {};
       this._$playerContainer.removeClass('playing stalled error abort');
 
 
-      this._videoWatchOptions = options = options || {};
-
-      this._playerConfig.setValue('lastPlayerId', this.getId());
-
       // watchIdからサムネイルを逆算できる時は最速でセットする
       var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(watchId);
       if (thumbnail) {
@@ -1094,16 +1257,15 @@ var PlayList = function() {};
 
       this._isCommentReady = false;
       this._watchId = watchId;
-      this._requestId = Math.random();
       this._lastCurrentTime = 0;
       this._lastOpenAt = Date.now();
       this._hasError = false;
       window.console.time('VideoInfoLoader');
 
       this._bindLoaderEvents();
-      VideoInfoLoader.load(watchId, options);
+      VideoInfoLoader.load(watchId, options.getVideoLoadOptions());
 
-      this.show(options);
+      this.show();
       if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
         nicoVideoPlayer.requestFullScreen();
       }
@@ -1114,9 +1276,7 @@ var PlayList = function() {};
       return this._isOpen;
     },
     reload: function(options) {
-      //window.console.log('reload!');
-      options = options || {};
-      _.defaults(options, this._videoWatchOptions);
+      options = this._videoWatchOptions.createOptionsForVideoChange(options);
       
       if (this._lastCurrentTime > 0) {
         options.currentTime = this._lastCurrentTime;
@@ -1232,6 +1392,10 @@ var PlayList = function() {};
       }
       this._$playerContainer.removeClass('loading').addClass('error');
       ZenzaWatch.emitter.emitAsync('loadVideoInfoFail');
+
+      if (e.info && e.info.isPlayable === false && this.isPlaylistEnable()) {
+        ZenzaWatch.util.callAsync(this.playNextVideo, this, 3000);
+      }
     },
     _setThumbnail: function(thumbnail) {
       if (thumbnail) {
@@ -1262,26 +1426,28 @@ var PlayList = function() {};
     },
     _onLoadedMetaData: function() {
       // パラメータで開始秒数が指定されていたらそこにシーク
-      if (this._videoWatchOptions.currentTime) {
-        this._nicoVideoPlayer.setCurrentTime(this._videoWatchOptions.currentTime);
+      var currentTime = this._videoWatchOptions.getCurrentTime();
+      if (currentTime > 0) {
+        this._nicoVideoPlayer.setCurrentTime(currentTime);
       }
     },
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
       this._$playerContainer.removeClass('stalled loading');
 
-      var query = this._videoWatchOptions.query || {};
+      if (this._videoWatchOptions.isPlaylistStartRequest()) {
+        this._initializePlaylist();
 
-      if (query.playlist_type ==='deflist' ||
-          query.playlist_type === 'mylist_playlist' || query.group_id) {
-        this._initializePlayListTab();
-        if (query.playlist_type ==='deflist') {
-          query.group_id = 'deflist';
-        }
-        var opt = {};
-        if (query.mylist_sort) { opt.sort = query.mylist_sort; }
-        this._playList.loadFromMylist(query.group_id, opt);
+        var opt = this._videoWatchOptions.getMylistLoadOptions();
+        this._playlist.loadFromMylist(opt.group_id, opt);
+        this._playlist.toggleEnable(true);
+      } else if (PlaylistSession.isExist() && !this._playlist) {
+        this._initializePlaylist();
+        this._playlist.restoreFromSession();
+      } else {
+        this._initializePlaylist();
       }
+      this._playlist.insertCurrentVideo(this._videoInfo);
 
       this.emitAsync('canPlay', this._watchId, this._videoInfo);
 
@@ -1322,7 +1488,7 @@ var PlayList = function() {};
         this.reload();
       } else {
         if (this._videoInfo &&
-            (!this._videoWatchOptions.economy && !this._videoInfo.isEconomy())
+            (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy())
           ) {
           this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
           ZenzaWatch.util.callAsync(function() {
@@ -1345,10 +1511,15 @@ var PlayList = function() {};
     },
     _onVideoEnded: function() {
       // ループ再生中は飛んでこない
-      this.emit('ended');
+      this.emitAsync('ended');
+      if (this.isPlaylistEnable() && this._playlist.hasNext()) {
+        this.playNextVideo();
+        return;
+      }
+
       var isAutoCloseFullScreen =
-        this._videoWatchOptions.hasOwnProperty('autoCloseFullScreen') ?
-          this._videoWatchOptions.autoCloseFullScreen :
+        this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
+          this._videoWatchOptions.isAutoCloseFullScreen() :
           this._playerConfig.getValue('autoCloseFullScreen');
       if (FullScreen.now() && isAutoCloseFullScreen) {
         FullScreen.cancel();
@@ -1382,17 +1553,28 @@ var PlayList = function() {};
         this._onVideoInfoLoaderLoad_proxy = null;
       }
     },
-    _initializePlayListTab: function() {
-      if (this._playList) { return; }
+    _initializePlaylist: function() {
+      if (this._playlist) { return; }
       var $container = this._videoInfoPanel.appendTab('playlist', 'プレイリスト');
-      this._playList = new PlayList({
+      this._playlist = new Playlist({
         loader: ZenzaWatch.api.ThumbInfoLoader,
-        $container: $container
+        $container: $container,
+        loop: this._playerConfig.getValue('playlistLoop')
       });
-      this._playList.on('command', _.bind(this._onCommand, this));
+      this._playlist.on('command', _.bind(this._onCommand, this));
+      this._playlist.on('update', _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
     },
-    isPlayListActive: function() {
-      return this._playList && this._playList.isActive();
+    isPlaylistEnable: function() {
+      return this._playlist && this._playlist.isEnable();
+    },
+    playNextVideo: function() {
+      if (!this._playlist) { return; }
+      var opt = this._videoWatchOptions.createOptionsForVideoChange();
+
+      var nextId = this._playlist.selectNext();
+      if (nextId) {
+        this.open(nextId, opt);
+      }
     },
     play: function() {
       if (!this._hasError && this._nicoVideoPlayer) {
@@ -1507,7 +1689,7 @@ var PlayList = function() {};
         currentTime: this._nicoVideoPlayer.getCurrentTime()
       };
 
-      var options = this._videoWatchOptions || {};
+      var options = this._videoWatchOptions.createOptionsForSession();
       _.each(Object.keys(options), function(key) {
         session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
       });
@@ -2214,7 +2396,7 @@ var PlayList = function() {};
       $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target.closest('.mylistIcon, .mylistLink'));
+        var $target  = $(e.target).closest('.mylistIcon, .mylistLink');
         var command    = $target.attr('data-command');
         var mylistId   = $target.attr('data-mylist-id');
         var mylistName = $target.attr('data-mylist-name');
@@ -2240,7 +2422,7 @@ var PlayList = function() {};
       $menu.on('click', 'li', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target.closest('.sharedNgLevel, .setIsCommentFilterEnable'));
+        var $target  = $(e.target).closest('.sharedNgLevel, .setIsCommentFilterEnable');
         var command  = $target.attr('data-command');
         if (command === 'sharedNgLevel') {
           var level = $target.attr('data-level');
@@ -2281,7 +2463,7 @@ var PlayList = function() {};
       e.preventDefault();
       e.stopPropagation();
 
-      var $target = $(e.target.closest('.menuButton'));
+      var $target = $(e.target).closest('.menuButton');
       var command = $target.attr('data-command');
       switch (command) {
         case 'deflistAdd':

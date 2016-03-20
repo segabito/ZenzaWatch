@@ -223,7 +223,7 @@ var NicoTextParser = {};
       this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
       
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
-      this._nakaGroup = new NicoChatGroup(this, NicoChat.TYPE.NAKA  , params);
+      this._nakaGroup   = new NicoChatGroup(this, NicoChat.TYPE.NAKA  , params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
 
       var onChange = _.debounce(_.bind(this._onChange, this), 100);
@@ -479,40 +479,57 @@ var NicoTextParser = {};
       offScreenFrame = frame;
 
       var layer;
-      frame.onload = function() {
+      var onload = function() {
         frame.onload = _.noop;
 
         console.log('%conOffScreenLayerLoad', 'background: lightgreen;');
         createTextField();
-        var doc = offScreenFrame.contentWindow.document;
-        layer       = doc.getElementById('offScreenLayer');
-        layoutStyle = doc.getElementById('layoutCss');
-        optionStyle = doc.getElementById('optionCss');
-        initializeOptionCss(optionStyle);
-
-        offScreenLayer = {
-          getTextField: function() {
-            return textField;
-          },
-          appendChild: function(elm) {
-            layer.appendChild(elm);
-          },
-          removeChild: function(elm) {
-            layer.removeChild(elm);
-          },
-          getOptionCss: function() {
-            return optionStyle.innerHTML;
-          }
+        var getElements = function() {
+          var doc = offScreenFrame.contentWindow.document;
+          layer       = doc.getElementById('offScreenLayer');
+          layoutStyle = doc.getElementById('layoutCss');
+          optionStyle = doc.getElementById('optionCss');
         };
 
-        emitter.emit('create', offScreenLayer);
-        emitter.clear();
-        $d.resolve(offScreenLayer);
+        var resolve = function() {
+          initializeOptionCss(optionStyle);
+          offScreenLayer = {
+            getTextField: function() {
+              return textField;
+            },
+            appendChild: function(elm) {
+              layer.appendChild(elm);
+            },
+            removeChild: function(elm) {
+              layer.removeChild(elm);
+            },
+            getOptionCss: function() {
+              return optionStyle.innerHTML;
+            }
+          };
+
+          emitter.emit('create', offScreenLayer);
+          emitter.clear();
+          $d.resolve(offScreenLayer);
+        };
+
+        getElements();
+        resolve();
       };
 
-      frame.srcdoc = __offscreen_tpl__
+      var html = __offscreen_tpl__
         .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
         .replace('%OPTION_CSS%', '');
+      if (typeof frame.srcdoc === 'string') {
+        frame.onload = onload;
+        frame.srcdoc = html;
+      } else {
+        // MS IE/Edge用
+        frame.contentWindow.document.open();
+        frame.contentWindow.document.write(html);
+        frame.contentWindow.document.close();
+        window.setTimeout(onload, 0);
+      }
     };
 
     var getLayer = function(_config) {
@@ -543,8 +560,8 @@ var NicoTextParser = {};
         setText: function(text) {
           span.innerHTML = text;
         },
-        setType: function(type) {
-          span.className = 'nicoChat ' + type;
+        setType: function(type, size) {
+          span.className = 'nicoChat ' + type + ' ' + size;
         },
         setFontSizePixel: function(pixel) {
           span.style.fontSize = pixel + 'px';
@@ -1268,7 +1285,7 @@ var NicoTextParser = {};
       var field = this._offScreen.getTextField();
       field.setText(htmlText);
       field.setFontSizePixel(this._fontSizePixel);
-      field.setType(this._type);
+      field.setType(this._type, this._size);
       
       this._originalWidth  = field.getOriginalWidth();
       this._width          = this._originalWidth * this._scale;
@@ -1778,7 +1795,6 @@ var NicoTextParser = {};
   color: yellow;
   background: #fff;
   opacity: 0.3;
-  mix-blend-mode: lighten;
 }
 
 .debug .nicoChat .tab_space {
@@ -1818,6 +1834,8 @@ var NicoTextParser = {};
 .debug .nicoChat.shita {
   text-decoration: underline;
 }
+
+
 
 .nicoChat.mine {
   border: 1px solid yellow;
@@ -1888,6 +1906,14 @@ var NicoTextParser = {};
 
 .debug .nicoChat {
   border: 1px outset;
+}
+
+spacer {
+  visibility: hidden;
+}
+.debug spacer {
+  visibility: visible;
+  outline: 3px dotted orange;
 }
 
 .stalled .nicoChat,
@@ -1971,7 +1997,7 @@ var NicoTextParser = {};
 
 
       var self = this;
-      iframe.onload = function() {
+      var onload = function() {
         var win, doc;
         iframe.onload = null;
         try {
@@ -2021,7 +2047,7 @@ var NicoTextParser = {};
         };
 
         var lastW = win.innerWidth, lastH = win.innerHeight;
-        var timer = window.setInterval(function() {
+        window.setInterval(function() {
           var w = win.innerWidth, h = win.innerHeight;
           if (lastW !== w || lastH !== h) {
             lastW = w;
@@ -2038,12 +2064,28 @@ var NicoTextParser = {};
         window.console.timeEnd('initialize NicoCommentCss3PlayerView');
       };
 
-      iframe.srcdoc = html;
       this._view = iframe;
-      ZenzaWatch.debug.commentLayer = iframe;
       if (this._$node) {
-        this._$node.append(this._view);
+        this._$node.append(iframe);
       }
+
+      if (iframe.srcdocType === 'string') {
+        iframe.onload = onload;
+        iframe.srcdoc = html;
+      } else {
+        // MS IE/Edge用
+        if (!this._$node) {
+          this._msEdge = true;
+          // ここに直接書いてるのは掟破り。 動かないよりはマシということで・・・
+          $('.zenzaPlayerContainer').append(iframe);
+        }
+        iframe.contentWindow.document.open();
+        iframe.contentWindow.document.write(html);
+        iframe.contentWindow.document.close();
+        window.setTimeout(onload, 0);
+      }
+
+      ZenzaWatch.debug.commentLayer = iframe;
       if (!params.show) { this.hide(); }
     },
     _getIframe: function() {
@@ -2058,6 +2100,7 @@ var NicoTextParser = {};
         iframe = document.createElement('iframe');
       }
       try {
+        iframe.srcdocType = iframe.srcdocType || (typeof iframe.srcdoc);
         iframe.srcdoc = '<html></html>';
       } catch (e) {
         // 行儀の悪い広告にiframeを乗っ取られた？
@@ -2472,6 +2515,7 @@ var NicoTextParser = {};
       this._isShow = false;
     },
     appendTo: function($node) {
+      if (this._msEdge) { return; } // MS IE/Edge...
       //var $view = $(this._view);
       //$view.css({width: 1}).offset();
       this._$node = $node;

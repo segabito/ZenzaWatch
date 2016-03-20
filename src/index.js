@@ -115,6 +115,7 @@ var monkey = function() {
       iframe.className = 'reservedFrame';
       iframe.style.position = 'fixed';
       iframe.style.left = '-9999px';
+      iframe.srcdocType = typeof iframe.srcdoc;
       iframe.srcdoc = '<html></html>';
       document.body.appendChild(iframe);
     }

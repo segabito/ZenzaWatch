@@ -55,6 +55,56 @@ STRONG MINCHO
 
 
 */
+/*
+  {*
+    空白文字の幅をWindowsと同等にしたい。調査中
+    等幅フォントを縮めることで環境差異のない幅を確保するという狙いだが・・・。
+
+    やりすぎるとMac版Chromeでバグって逆に幅が狂う模様。
+  *}
+  {*
+  .tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0; }
+  .big    .tab_space { letter-spacing: 1.6241em; font-size: 39px;}
+  .medium .tab_space { letter-spacing: 1.6252em; font-size: 24px;}
+  .small  .tab_space { letter-spacing: 1.5375em; font-size: 15px;}
+
+  .gothic > .type3000 {
+    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
+    letter-spacing: -0.2943em;
+  }
+
+  .type0020 {
+    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
+    letter-spacing: -0.1805em;
+  }
+
+  .type00A0 {
+    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
+    letter-spacing: -0.1805em;
+  }
+  *}
+{*
+  .type0020 { font-family: 'Osaka-mono', 'ＭＳ ゴシック', monospace; }
+  .big    .type0020 { letter-spacing: -0.216em; font-size: 39px; }
+  .medium .type0020 { letter-spacing: -0.2001em; font-size: 24px; }
+  .small  .type0020 { letter-spacing: -0.1862em; font-size: 15px; }
+*}
+{*
+  .gothic > .type3000 { font-family: 'Osaka-mono', 'ＭＳ ゴシック', monospace; }
+  .big    .gothic > .type3000 { letter-spacing: -0.3103em; font-size: 39px; }
+  .medium .gothic > .type3000 { letter-spacing: -0.2943em; font-size: 24px; }
+  .small  .gothic > .type3000 { letter-spacing: -0.2693em; font-size: 15px; }
+*}
+{*
+  .type00A0 { font-family: 'Osaka-mono', 'ＭＳ ゴシック', monospace; }
+  .big    .type00A0 { letter-spacing: -0.216em; font-size: 39px; }
+  .medium .type00A0 { letter-spacing: -0.2001em; font-size: 24px; }
+  .small  .type00A0 { letter-spacing: -0.1862em; font-size: 15px; }
+*}
+
+
+
+*/
 //===BEGIN===
 
   var NicoTextParser = function() {};
@@ -82,7 +132,6 @@ body {
   padding: 0;
   overflow: hidden;
   pointer-events: none;
-  font-kerning: none;
 }
 
 .default {}
@@ -98,8 +147,10 @@ han_group { font-family: 'Arial'; }
 
   letter-spacing: 1px;
   margin: 2px 1px 1px 1px;
-  white-space: pre;
+  white-space: nowrap;
   font-weight: bolder;
+  font-kerning: none;
+
 }
 
   .nicoChat.big {
@@ -149,32 +200,37 @@ han_group { font-family: 'Arial'; }
     .mingLiu > .type2001 {
       font-family: PmingLiu, mingLiu;
     }
-  
+
+{*
+.tab_space { opacity: 0; }
+.big    .tab_space > spacer { width:  86.55875px;  }
+.medium .tab_space > spacer { width:  53.4px;  }
+.small  .tab_space > spacer { width:  32.0625px;  }
+*}
+
+.tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0; }
+.big    .tab_space { letter-spacing: 1.6241em; }
+.medium .tab_space { letter-spacing: 1.6252em; }
+.small  .tab_space { letter-spacing: 1.5375em; }
 
 
+.big    .type0020 > spacer { width: 11.8359375px; }
+.medium .type0020 > spacer { width: 7.668px; }
+.small  .type0020 > spacer { width: 5px; }
 
-  {*
-    空白文字の幅をWindowsと同等にしたい。調査中
-    等幅フォントを縮めることで環境差異のない幅を確保するという狙いだが・・・。
-  *}
+.big    .type3000 > spacer { width: 40px; }
+.medium .type3000 > spacer { width: 25px; }
+.small  .type3000 > spacer { width: 16px; }
 
-  .tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0; }
-  .big    .tab_space { letter-spacing: 1.6241em; }
-  .medium .tab_space { letter-spacing: 1.6252em; }
-  .small  .tab_space { letter-spacing: 1.5375em; }
+.big    .gothic > .type3000 > spacer { width: 26.8984375px; }
+.medium .gothic > .type3000 > spacer { width: 16.9375px; }
+.small  .gothic > .type3000 > spacer { width: 10.9609375px; }
 
+.big    .type00A0 > spacer { width: 11.8359375px; }
+.medium .type00A0 > spacer { width: 7.668px; }
+.small  .type00A0 > spacer { width: 5px; }
 
-  .gothic > .type3000 {
-    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    letter-spacing: -0.2943em;
-  }
-
-
-{*.type0020,*}
-  .type00A0 {
-    font-family: Osaka-mono, 'ＭＳ ゴシック', monospace;
-    letter-spacing: -0.1805em;
-  }
+spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px;}
 
 
 .backslash {
@@ -196,6 +252,7 @@ han_group { font-family: 'Arial'; }
  *  Vista以降だともうちょっと複雑らしい
  */
   NicoTextParser.likeXP = function(text) {
+    var S = '<spacer> </spacer>';
     var htmlText =
       ZenzaWatch.util.escapeHtml(text)
         // 行末の半角スペース、全角スペース、タブの除去
@@ -204,8 +261,12 @@ han_group { font-family: 'Arial'; }
         .replace(/([\x01-\x09\x0B-\x7E\xA0]+)/g, '<han_group>$1</han_group>')
         // 全角文字の連続をグループ化 要検証: \u2003は含む？
         .replace(/([^\x01-\x7E^\xA0]+)/g, '<group>$1</group>')
-        .replace(/([\u0020]+)/g,   '<span class="han_space type0020">$1</span>')
-        .replace(/([\u00A0]+)/g,   '<span class="han_space type00A0">$1</span>')
+        .replace(/([\u0020]+)/g, // '<span class="han_space type0020">$1</span>')
+
+          function(g) { return '<span class="han_space type0020">'+ S.repeat(g.length) + '</span>'; } )
+          //'<span class="han_space type0020">$1</span>')
+        .replace(/([\u00A0]+)/g, //  '<span class="han_space type00A0">$1</span>')
+          function(g) { return '<span class="han_space type00A0">'+ S.repeat(g.length) + '</span>'; } )
         .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>')
         .replace(/[\t]/g ,      '^');
 
@@ -282,7 +343,8 @@ han_group { font-family: 'Arial'; }
         // なんか前後の文字によって書体(幅)が変わるらしい。 隣接セレクタでどうにかなるか？
         //  .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
         // 全角スペース
-          .replace(/([\u3000]+)/g ,  '<span class="zen_space type3000">$1</span>')
+          .replace(/([\u3000]+)/g , //'<span class="zen_space type3000">$1</span>')
+            function(g) { return '<span class="zen_space type3000">'+ S.repeat(g.length) + '</span>'; } )
         // バックスラッシュ
           .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
         // ゼロ幅文字. ゼロ幅だけどdisplay: none; にすると狂う

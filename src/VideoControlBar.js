@@ -640,6 +640,26 @@ var AsyncEmitter = function() {};
       display: none;
     }
 
+    .nextVideo.playControl {
+      display: none;
+    }
+    .playlistEnable .nextVideo.playControl {
+      display: inline-block;
+    }
+
+    .nextVideo {
+      font-size: 23px;
+      width: 32px;
+      height: 32px;
+      margin-top: -2px;
+      line-height: 30px;
+    }
+
+    .nextVideo:active {
+      font-size: 18px;
+    }
+
+
 
 
 
@@ -724,6 +744,12 @@ var AsyncEmitter = function() {};
               <div class="volumeBarPointer"></div>
             </div>
           </div>
+
+           <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
+            <div class="controlButtonInner">&#x27A0;</div>
+            <div class="tooltip">次の動画</div>
+          </div>
+
 
         </div>
       </div>
@@ -864,7 +890,7 @@ var AsyncEmitter = function() {};
       $menu.on('click', 'span', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target.closest('.screenMode'));
+        var $target  = $(e.target).closest('.screenMode');
         var mode     = $target.attr('data-screen-mode');
 
         self.emit('command', 'screenMode', mode);
@@ -881,7 +907,7 @@ var AsyncEmitter = function() {};
       $menu.on('click', '.playbackRate', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target.closest('.playbackRate'));
+        var $target  = $(e.target).closest('.playbackRate');
         var rate     = parseFloat($target.attr('data-rate'), 10);
         self.emit('command', 'playbackRate', rate);
       });
@@ -978,7 +1004,7 @@ var AsyncEmitter = function() {};
       e.preventDefault();
       e.stopPropagation();
 
-      var $target = $(e.target.closest('.controlButton'));
+      var $target = $(e.target).closest('.controlButton');
       var command = $target.attr('data-command');
       var param   = $target.attr('data-param');
       switch (command) {
@@ -1896,7 +1922,7 @@ var AsyncEmitter = function() {};
 
       $view.on('click', function(e) {
         e.stopPropagation();
-        var $target = $(e.target.closest('.controlButton'));
+        var $target = $(e.target).closest('.controlButton');
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param');
         self.emit('command', command, param);
