@@ -24,7 +24,6 @@ var Playlist = function() {};
   _.extend(VideoWatchOptions.prototype, AsyncEmitter.prototype);
   _.assign(VideoWatchOptions.prototype, {
     initialize: function(watchId, options, config) {
-      window.console.log('options: ', options);
       this._watchId = watchId;
       this._options = options || {};
       this._config  = config;
