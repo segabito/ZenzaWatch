@@ -1231,7 +1231,7 @@ var Playlist = function() {};
       // 連打対策
       if (Date.now() - this._lastOpenAt < 1500 && this._watchId === watchId) { return; }
 
-      this._playerConfig.setValue('lastPlayerId', this.getId());
+      this._updateLastPlayerId();
       this._requestId = 'play-' + Math.random();
       this._videoWatchOptions = options =new VideoWatchOptions(watchId, options, this._playerConfig);
 
@@ -1307,6 +1307,10 @@ var Playlist = function() {};
     },
     getId: function() {
       return this._id;
+    },
+    _updateLastPlayerId: function() {
+      this._playerConfig.setValue('lastPlayerId', '');
+      this._playerConfig.setValue('lastPlayerId', this.getId());
     },
     /**
      *  ロード時のイベントを貼り直す

@@ -244,6 +244,7 @@ var PopupMessage = {};
 
       this._cache = {};
       this._maxItems = params.max || 100;
+      this._dragdrop = _.isBoolean(params.dragdrop) ? params.dragdrop : false;
 
       this._model = params.model;
       if (this._model) {
@@ -346,6 +347,87 @@ var PopupMessage = {};
         ZenzaWatch.emitter.emit('keydown', e);
       });
 
+      if (this._dragdrop) {
+        $body.on('mousedown', _.bind(this._onBodyMouseDown, this));
+      }
+    },
+    _onBodyMouseDown: function(e) {
+      var $item = $(e.target).closest('.videoItem');
+      if ($item.length < 1) { return; }
+      if ($(e.target).closest('.command').length > 0) { return; }
+      this._$dragging = $item;
+      this._dragOffset = {
+        x: e.pageX,
+        y: e.pageY
+      };
+      this._$dragTarget = null;
+      this._$body.find('.dragover').removeClass('dragover');
+      this._bindDragStartEvents();
+    },
+    _bindDragStartEvents: function() {
+      this._$body
+        .on('mousemove.drag',  _.bind(this._onBodyMouseMove, this))
+        .on('mouseup.drag',    _.bind(this._onBodyMouseUp, this))
+        .on('blur.drag',       _.bind(this._onBodyBlur, this))
+        .on('mouseleave.drag', _.bind(this._onBodyMouseLeave, this));
+    },
+    _unbindDragStartEvents: function() {
+      this._$body
+        .off('mousemove.drag')
+        .off('mouseup.drag')
+        .off('blur.drag')
+        .off('mouseleave.drag');
+    },
+    _onBodyMouseMove: function(e) {
+      if (!this._$dragging) { return; }
+      var l = e.pageX - this._dragOffset.x;
+      var r = e.pageY - this._dragOffset.y;
+      var translate = ['translate(', l, 'px, ', r, 'px)'].join('');
+
+      if (l * l + r * r < 100) { return; }
+
+      this._$body.addClass('dragging');
+      this._$dragging
+        .addClass('dragging')
+        .css('transform', translate);
+
+      this._$body.find('.dragover').removeClass('dragover');
+      var $target = $(e.target).closest('.videoItem');
+      if ($target.length < 1) { return; }
+      this._$dragTarget = $target.addClass('dragover');
+    },
+    _onBodyMouseUp: function(e) {
+      this._unbindDragStartEvents();
+
+      var $dragging = this._$dragging;
+      this._endBodyMouseDragging();
+      if (!$dragging) { return; }
+
+      var $target = $(e.target).closest('.videoItem');
+      if ($target.length < 1) { $target = this._$dragTarget; }
+      if (!$target || $target.length < 1) { return; }
+      var srcId = $dragging.attr('data-item-id'), destId = $target.attr('data-item-id');
+      if (srcId === destId) { return; }
+
+      $dragging.css({opacity: 0});
+      this.emit('moveItem', srcId, destId);
+    },
+    _onBodyBlur: function() {
+      this._endBodyMouseDragging();
+    },
+    _onBodyMouseLeave: function() {
+      this._endBodyMouseDragging();
+    },
+    _endBodyMouseDragging: function() {
+      this._unbindDragStartEvents();
+      this._$body.removeClass('dragging');
+
+      this._$dragTarget = null;
+      this._$body.find('.dragover').removeClass('dragover');
+      if (this._$dragging) {
+        this._$dragging.removeClass('dragging').css('transform', '');
+      }
+      this._$dragging = null;
     },
     _onModelUpdate: function(itemList, replaceAll) {
       window.console.time('update playlistView');
@@ -420,6 +502,14 @@ var PopupMessage = {};
           case 'scrollToTop':
             this.scrollTop(0, 300);
             break;
+          case 'playlistRemove':
+            $item.remove();
+            this.emit('command', command, param, itemId);
+            //$item.addClass('deleting');
+            //window.setTimeout(() => {
+            //  this.emit('command', command, param, itemId);
+            //}, 300);
+            break;
           default:
             this.emit('command', command, param, itemId);
         }
@@ -471,6 +561,8 @@ var PopupMessage = {};
 
     body {
       background: #333;
+      overflow-x: hidden;
+      counter-reset: video;
     }
 
     .scrollToTop {
@@ -504,11 +596,59 @@ var PopupMessage = {};
       width: 100%;
       min-height: 88px;
       overflow: hidden;
+      transition:
+        transform 0.4s ease, box-shadow 0.4s ease,
+        margin-left 0.4s ease, margin-top 0.4s ease;
+    }
+
+    .playlist .videoItem {
+      cursor: move;
+    }
+
+
+    .playlist .videoItem::before {
+        content: counter(video);
+        counter-increment: video;
+        position: absolute;
+        right: 8px;
+        top: 80%;
+        color: #666;
+        font-family: Impact;
+        font-size: 45px;
+        pointer-events: none;
+        z-index: 1;
+        line-height: 88px;
+        transform: translate(0, -50%);
     }
 
     .videoItem.updating {
       opacity: 0.5;
       cursor: wait;
+    }
+
+    .videoItem.dragging {
+      pointer-events: none;
+      box-shadow: 8px 8px 4px #000;
+      background: #666;
+      opacity: 0.8;
+      margin-left: -8px;
+      margin-top: -8px;
+      transition:
+        box-shadow 0.4s ease,
+        margin-left 0.4s ease, margin-top 0.4s ease;
+      z-index: 10000;
+    }
+
+    body.dragging * {
+      cursor: move;
+    }
+
+    body.dragging .videoItem.dragover {
+      outline: 5px dashed #99f;
+    }
+
+    body.dragging .videoItem.dragover * {
+      opacity: 0.3;
     }
 
 
@@ -618,6 +758,7 @@ var PopupMessage = {};
       display: none;
     }
     .videoItem .videoInfo {
+      posigion: absolute;
       top: 0;
       margin-left: 104px;
     }
@@ -668,6 +809,25 @@ var PopupMessage = {};
     .videoItem.active {
       outline: dashed 2px #ff8;
       outline-offset: 4px;
+    }
+
+    @keyframes dropbox {
+        0% {  }
+        5% {  opacity: 0.8; }
+       99% { box-shadow: 8px 8px 8px #000;
+             transform: translate(0, 500px); opacity: 0.5; }
+      100% { opacity: 0; }
+    }
+    {*
+       99% { transform: translate(0, 500px) rotateZ(45deg) scaleY(0); opacity: 0.5; }
+    *}
+    .videoItem.deleting {
+      pointer-events: none;
+      animation-name: dropbox;
+      animation-iteration-count: 1;
+      animation-timing-function: ease-in;
+      animation-duration: 0.5s;
+      animation-fill-mode: forwards;
     }
 
     @media screen and (min-width: 640px)
@@ -1248,11 +1408,14 @@ var PopupMessage = {};
         $container: this._$view.find('.playlist-frame'),
         model: this._model,
         className: 'playlist',
+        dragdrop: true,
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
       listView.on('command', _.bind(this._onCommand, this));
       listView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
+      listView.on('moveItem',
+        _.bind(function(src, dest) { this.emit('moveItem', src, dest); }, this));
 
       this._playlist.on('update',
         _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
@@ -1400,8 +1563,9 @@ var PopupMessage = {};
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
-      this._view.on('command', _.bind(this._onCommand, this));
+      this._view.on('command',    _.bind(this._onCommand, this));
       this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
+      this._view.on('moveItem',   _.bind(this._onMoveItem, this));
     },
     _onCommand: function(command, param, itemId) {
       var item;
@@ -1442,6 +1606,15 @@ var PopupMessage = {};
         default:
           this.emit('command', command, param);
       }
+    },
+    _onMoveItem: function(srcItemId, destItemId) {
+      var srcItem  = this._model.findByItemId(srcItemId);
+      var destItem = this._model.findByItemId(destItemId);
+      if (!srcItem || !destItem) { return; }
+      var destIndex = this._model.indexOf(destItem);
+      this._model.removeItem(srcItem);
+      this._model.insertItem(srcItem, destIndex);
+      this._refreshIndex();
     },
     _setItemData: function(listData) {
       var items = [];
