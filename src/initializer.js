@@ -44,6 +44,50 @@ var AsyncEmitter = function() {};
       return false;
     };
 
+    var replaceRedirectLinks = function() {
+      $('a[href*="www.flog.jp/j.php/http://"]').each((i, a) => {
+        var $a = $(a), href = $a.attr('href');
+        var replaced = href.replace(/^.*https?:/, '');
+        $a.attr('href', replaced);
+      });
+
+      $('a[href*="rd.nicovideo.jp/cc/"]').each((i, a) => {
+        var $a = $(a), href = $a.attr('href');
+        if (href.match(/cc_video_id=([a-z0-9+]+)/)) {
+          var watchId = RegExp.$1;
+          if (watchId.indexOf('lv') === 0) { return; }
+          var replaced = '//www.nicovideo.jp/watch/' + watchId;
+          $a.attr('href', replaced);
+        }
+      });
+
+      if (location.host === 'ch.nicovideo.jp') {
+        $('#sec_current a.item').closest('li').each((i, li) => {
+          var $li = $(li), $img = $li.find('img');
+          var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
+          var $a = $li.find('a');
+          if (thumbnail.match(/smile\?i=([0-9]+)/)) {
+            var watchId = 'so' + RegExp.$1;
+            $a.attr('href', '//www.nicovideo.jp/watch/' + watchId);
+          }
+        });
+        $('.playerNavContainer .video img').each((i, img) => {
+          var $img = $(img);
+          var $video = $img.closest('.video');
+          if ($video.length < 1) { return; }
+          var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
+          if (thumbnail.match(/smile\?i=([0-9]+)/)) {
+            var watchId = 'so' + RegExp.$1;
+            var $a = $('<a class="more zen" target="_blank">watch</a>')
+              .css('right', '128px')
+              .attr('href', '//www.nicovideo.jp/watch/' + watchId);
+
+            $video.find('.more').after($a);
+          }
+        });
+      }
+    };
+
     var initialize = function() {
       window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
@@ -58,6 +102,8 @@ var AsyncEmitter = function() {};
       if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
         return;
       }
+
+      replaceRedirectLinks();
 
       var hoverMenu = new HoverMenu({playerConfig: Config});
       ZenzaWatch.debug.hoverMenu = hoverMenu;
