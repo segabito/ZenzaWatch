@@ -40,6 +40,10 @@ var monkey = function() {
       debug: {},
       api: {},
       init: {},
+      lib: {
+        $: $,
+        _: _
+      },
       util: {
         hereDoc: function(func) { // えせヒアドキュメント
           return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/').trim();

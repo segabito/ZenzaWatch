@@ -20,6 +20,84 @@ var SettingPanel = function() {};
 var Playlist = function() {};
 
 //===BEGIN===
+
+  var PlayerConfig = function() { this.initialize.apply(this, arguments); };
+  _.assign(PlayerConfig.prototype, {
+    initialize: function(params) {
+      var config = this._config = params.config;
+      this._mode = params.mode || '';
+      if (!this._mode && ZenzaWatch.util.isGinzaWatchUrl()) {
+        this._mode = 'ginza';
+      }
+
+      if (!this._mode) {
+        _.each([
+          'refreshValue',
+          'getValue',
+          'setValue',
+          'setValueSilently',
+          'setSessionValue',
+          'on',
+          'off'
+        ], _.bind(function(func) {
+          this[func] = _.bind(config[func], config);
+        }, this));
+      }
+    },
+    // 環境ごとに独立させたい要求が出てきたのでラップする
+    _getNativeKey: function(key) {
+      if (!this._mode) { return key; }
+      switch (this._mode) {
+        case 'ginza':
+          if (_.contains(['autoPlay', 'screenMode'], key)) {
+            return key + ':' + this._mode;
+          }
+          return key;
+        default:
+          return key;
+      }
+    },
+    refreshValue: function(key) {
+      key = this._getNativeKey(key);
+      return this._config.refreshValue(key);
+    },
+    getValue: function(key, refresh) {
+      key = this._getNativeKey(key);
+      return this._config.getValue(key, refresh);
+    },
+    setValue: function(key, value) {
+      key = this._getNativeKey(key);
+      return this._config.setValue(key, value);
+    },
+    setValueSilently: function(key, value) {
+      key = this._getNativeKey(key);
+      return this._config.setValueSilently(key, value);
+    },
+    setSessionValue: function(key, value) {
+      key = this._getNativeKey(key);
+      return this._config.setSessionValue(key, value);
+    },
+    _wrapFunc: function(func) {
+      return function(key, value) {
+        key = key.replace(/:.*?$/, '');
+        func(key, value);
+      };
+    },
+    on: function(key, func) {
+      if (key.match(/^update-(.*)$/)) {
+        key = RegExp.$1;
+        var nativeKey = this._getNativeKey(key);
+        //if (key !== nativeKey) { window.console.log('config.on %s -> %s', key, nativeKey); }
+        this._config.on('update-' + nativeKey, func);
+      } else {
+        this._config.on(key, this._wrapFunc(func));
+      }
+    },
+    off: function(/*key, func*/) {
+      throw new Error('not supported!');
+    }
+  });
+
   var VideoWatchOptions = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoWatchOptions.prototype, AsyncEmitter.prototype);
   _.assign(VideoWatchOptions.prototype, {
@@ -644,11 +722,12 @@ var Playlist = function() {};
   _.assign(NicoVideoPlayerDialog.prototype, {
     initialize: function(params) {
       this._offScreenLayer = params.offScreenLayer;
-      this._playerConfig = params.playerConfig;
+      this._playerConfig = new PlayerConfig({config: params.playerConfig});
+
       this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
 
       this._playerConfig.on('update-screenMode', _.bind(this._updateScreenMode, this));
-      this._initializeDom(params);
+      this._initializeDom();
 
       this._keyEmitter.on('keyDown', _.bind(this._onKeyDown, this));
 
@@ -659,7 +738,7 @@ var Playlist = function() {};
 
       this._escBlockExpiredAt = -1;
 
-      this._dynamicCss = new DynamicCss({playerConfig: params.playerConfig});
+      this._dynamicCss = new DynamicCss({playerConfig: this._playerConfig});
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
@@ -856,6 +935,12 @@ var Playlist = function() {};
           break;
         case 'volume':
           this.setVolume(param);
+          break;
+        case 'volumeUp':
+          this._nicoVideoPlayer.volumeUp();
+          break;
+        case 'volumeDown':
+          this._nicoVideoPlayer.volumeDown();
           break;
         case 'togglePlay':
             this.togglePlay();

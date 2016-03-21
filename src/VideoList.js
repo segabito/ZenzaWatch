@@ -631,8 +631,6 @@ var PopupMessage = {};
       box-shadow: 8px 8px 4px #000;
       background: #666;
       opacity: 0.8;
-      margin-left: -8px;
-      margin-top: -8px;
       transition:
         box-shadow 0.4s ease,
         margin-left 0.4s ease, margin-top 0.4s ease;

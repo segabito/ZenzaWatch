@@ -93,7 +93,7 @@ var ajax = function() {};
       var BASE_URL = 'http://ext.nicovideo.jp/thumb_watch';
       var loaderFrame, loaderWindow;
       var videoInfoLoader = new AsyncEmitter();
-      var cacheStorage = new CacheStorage(localStorage);
+      var cacheStorage = new CacheStorage(sessionStorage);
 
       var onMessage = function(data, type) {
         if (type !== 'videoInfoLoader') { return; }
@@ -763,78 +763,93 @@ var ajax = function() {};
           window.console.time(timeKey);
           var self = this;
 
-          return new Promise(function(resolve, reject) {
+          var resolve, reject;
+          var onSuccess = function(result) {
+            window.console.timeEnd(timeKey);
+            ZenzaWatch.debug.lastMessageServerResult = result;
+
+            var lastRes;
+            var resultCode = null, thread, xml, ticket, lastRes = 0;
+            try {
+              xml = result.documentElement;
+              var threads = xml.getElementsByTagName('thread');
+
+              thread = threads[0];
+              _.each(threads, function(t) {
+                var tk = t.getAttribute('ticket');
+                if (tk && tk !== '0') { ticket = tk; }
+                var lr = t.getAttribute('last_res');
+                if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
+              });
+
+              resultCode = thread.getAttribute('resultcode');
+            } catch (e) {
+              console.error(e);
+            }
+
+            if (resultCode !== '0') {
+              reject({
+                message: 'コメント取得失敗' + resultCode
+              });
+              return;
+            }
+
+            var threadInfo = {
+              server:     server,
+              userId:     userId,
+              resultCode: thread.getAttribute('resultcode'),
+              thread:     thread.getAttribute('thread'),
+              serverTime: thread.getAttribute('server_time'),
+              lastRes:    lastRes,
+              blockNo:    Math.floor((lastRes + 1) / 100),
+              ticket:     ticket,
+              revision:   thread.getAttribute('revision')
+            };
+
+            if (self._threadKeys[threadId]) {
+              threadInfo.threadKey = self._threadKeys[threadId].threadkey;
+              threadInfo.force184  = self._threadKeys[threadId].force_184;
+            }
+
+            window.console.log('threadInfo: ', threadInfo);
+            resolve({
+              resultCode: parseInt(resultCode, 10),
+              threadInfo: threadInfo,
+              xml: xml
+            });
+          };
+
+          var onFailFinally = function(e) {
+            window.console.timeEnd(timeKey);
+            window.console.error('loadComment fail: ', e);
+            reject({
+              message: 'コメントサーバーの通信失敗: ' + server
+            });
+          };
+
+          var onFail1st = function(e) {
+            window.console.timeEnd(timeKey);
+            window.console.error('loadComment fail: ', e);
+            PopupMessage.alert('コメントの取得失敗: 1秒後にリトライ');
+
+            window.setTimeout(function() {
+              self._load(
+                server, threadId, duration,
+                userId, isNeedKey,
+                optionalThreadId, userKey
+              ).then(onSuccess, onFailFinally);
+            }, 1000);
+          };
+
+
+          return new Promise(function(res, rej) {
+            resolve = res;
+            rej = reject;
             self._load(
-              server,
-              threadId,
-              duration,
-              userId,
-              isNeedKey,
-              optionalThreadId,
-              userKey
-            ).then(
-              function(result) {
-                window.console.timeEnd(timeKey);
-                ZenzaWatch.debug.lastMessageServerResult = result;
-
-                var lastRes;
-                var resultCode = null, thread, xml, ticket, lastRes = 0;
-                try {
-                  xml = result.documentElement;
-                  var threads = xml.getElementsByTagName('thread');
-
-                  thread = threads[0];
-                  _.each(threads, function(t) {
-                    var tk = t.getAttribute('ticket');
-                    if (tk && tk !== '0') { ticket = tk; }
-                    var lr = t.getAttribute('last_res');
-                    if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
-                  });
-
-                  resultCode = thread.getAttribute('resultcode');
-                } catch (e) {
-                  console.error(e);
-                }
-
-                if (resultCode !== '0') {
-                  reject({
-                    message: 'コメント取得失敗' + resultCode
-                  });
-                  return;
-                }
-
-                var threadInfo = {
-                  server:     server,
-                  userId:     userId,
-                  resultCode: thread.getAttribute('resultcode'),
-                  thread:     thread.getAttribute('thread'),
-                  serverTime: thread.getAttribute('server_time'),
-                  lastRes:    lastRes,
-                  blockNo:    Math.floor((lastRes + 1) / 100),
-                  ticket:     ticket,
-                  revision:   thread.getAttribute('revision')
-                };
-
-                if (self._threadKeys[threadId]) {
-                  threadInfo.threadKey = self._threadKeys[threadId].threadkey;
-                  threadInfo.force184  = self._threadKeys[threadId].force_184;
-                }
-
-                window.console.log('threadInfo: ', threadInfo);
-                resolve({
-                  resultCode: parseInt(resultCode, 10),
-                  threadInfo: threadInfo,
-                  xml: xml
-                });
-              },
-              function(e) {
-                window.console.timeEnd(timeKey);
-                window.console.error('loadComment fail: ', e);
-                reject({
-                  message: 'コメントサーバーの通信失敗: ' + server
-                });
-              }
-            );
+              server, threadId, duration,
+              userId, isNeedKey,
+              optionalThreadId, userKey
+            ).then(onSuccess, onFail1st);
           });
         },
         _postChat: function(threadInfo, postKey, text, cmd, vpos) {

@@ -282,7 +282,8 @@ var AsyncEmitter = function() {};
           .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
           .on('click', function() { $view.removeClass('show'); });
 
-        if (this._playerConfig.getValue('overrideWatchLink')) {
+        if (!ZenzaWatch.util.isGinzaWatchUrl() &&
+            this._playerConfig.getValue('overrideWatchLink')) {
           this._overrideGinzaLink();
         } else {
           $body.append($view);

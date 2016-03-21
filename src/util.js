@@ -92,6 +92,8 @@ var console;
       return AsyncEmitter;
     })();
 
+    ZenzaWatch.lib.AsyncEmitter = AsyncEmitter;
+
     window.ZenzaWatch.emitter = ZenzaWatch.emitter = new AsyncEmitter();
 
     var FullScreen = {
@@ -174,9 +176,11 @@ var console;
         forceEnable:  false,
         showComment:  true,
         autoPlay:     true,
+        'autoPlay:ginza':  true,
         loop:         false,
         mute:         false,
         screenMode:   'normal',
+        'screenMode:ginza': 'normal',
         autoFullScreen: false,
         autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
