@@ -79,6 +79,14 @@ var PopupMessage = {};
         this.emit('update', this._items);
       }
     },
+    resetPlayedItemFlag: function() {
+      _.each(this._items, function(item) {
+        if (item.isPlayed()) {
+          item.setIsPlayed(false);
+        }
+      });
+      this.onUpdate();
+    },
     removeNonActiveItem: function() {
       var beforeLen = this._items.length;
       this._items = _.reject(this._items, function(item) { return !item.isActive(); });
@@ -889,6 +897,13 @@ var PopupMessage = {};
       var tpl = VideoListItemView.__tpl__;
       var item = this._item;
 
+      // 動画タイトルはあらかじめエスケープされている。
+      // ・・・のだが、データのいいかげんさから見て、
+      // 本当に全部やってあるの？って信用できない。(古い動画は特にいいかげん)
+      // なので念のためescapeしておく。過剰エスケープになっても気にしない
+      // いっそ全角文字にした方がマシか？
+      var title = ZenzaWatch.util.escapeHtml(item.getTitle());
+
       var count = item.getCount();
       tpl = tpl
         .replace(/%active%/g,     item.isActive() ? 'active' : '')
@@ -897,12 +912,12 @@ var PopupMessage = {};
         .replace(/%watchId%/g,    item.getWatchId())
         .replace(/%itemId%/g,     item.getItemId())
         .replace(/%postedAt%/g,   item.getPostedAt())
-        .replace(/%videoTitle%/g, item.getTitle())
+        .replace(/%videoTitle%/g, title)
         .replace(/%thumbnail%/g,  item.getThumbnail())
         .replace(/%duration%/g,   this._secToTime(item.getDuration()))
-        .replace(/%viewCount%/g,     this._addComma(count.view))
-        .replace(/%commentCount%/g,  this._addComma(count.comment))
-        .replace(/%mylistCount%/g,   this._addComma(count.mylist))
+        .replace(/%viewCount%/g,    this._addComma(count.view))
+        .replace(/%commentCount%/g, this._addComma(count.comment))
+        .replace(/%mylistCount%/g,  this._addComma(count.mylist))
         .replace(/%className%/g, '')
         ;
       return tpl;
@@ -1373,7 +1388,8 @@ var PopupMessage = {};
               <li class="playlist-command" data-command="sortBy" data-param="duration">
                 動画の短い順に並べる
               </li>
-              <li class="playlist-command" data-command="removePlayedItem">再生済を消す ●</li>
+              <li class="playlist-command" data-command="resetPlayedItemFlag">全て未視聴にする</li>
+              <li class="playlist-command" data-command="removePlayedItem">視聴済み動画を消す ●</li>
               <li class="playlist-command" data-command="removeNonActiveItem">リストの消去 ×</li>
 
             </ul>
@@ -1597,6 +1613,9 @@ var PopupMessage = {};
           break;
         case 'removePlayedItem':
           this.removePlayedItem();
+          break;
+        case 'resetPlayedItemFlag':
+          this._model.resetPlayedItemFlag();
           break;
         case 'removeNonActiveItem':
           this.removeNonActiveItem();
