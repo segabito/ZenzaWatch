@@ -22,7 +22,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.12.3
+// @version        0.12.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 

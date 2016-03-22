@@ -219,6 +219,7 @@ var console;
         enableGinzaSlayer: false, // まだ実験中
         lastPlayerId: '',
         playbackRate: 1.0,
+        lastWatchId: 'sm9',
         message: ''
       };
 
@@ -642,12 +643,13 @@ var console;
         cursor: pointer;
         padding: 2px 8px;
         list-style-type: none;
-        border-bottom: 1px dotted #ccc;
         float: inherit;
       }
-      .zenzaPopupMenu ul li:last-child {
-        border-bottom: none;
+      .zenzaPopupMenu ul li + li {
+        border-top: 1px dotted #ccc;
       }
+      {* .zenzaPopupMenu ul li:last-child { border-bottom: none; } *}
+
       .zenzaPopupMenu li.selected {
         font-weight: bolder;
       }
@@ -999,6 +1001,24 @@ var console;
       });
     };
     ZenzaWatch.util.escapeHtml = escapeHtml;
+
+    // 基本的に動画タイトルはエスケープされている。
+    // だが、なんかたまにいいかげんなデータがあるし、本当に信用できるか？
+    // そこで、全角に置き換えてごますんだ！
+    var escapeToZenkaku = function(text) {
+      var map = {
+        '&':    '＆',
+        '\'': '’',
+        '"':   '”',
+        '<':    '＜',
+        '>':    '＞'
+      };
+      return text.replace(/["'<>]/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.escapeToZenkaku = escapeToZenkaku;
+
 
     var escapeRegs = function(text) {
       var map = {

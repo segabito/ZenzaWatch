@@ -22,7 +22,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.12.3
+// @version        0.12.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -276,6 +276,7 @@ var monkey = function() {
         enableGinzaSlayer: false, // まだ実験中
         lastPlayerId: '',
         playbackRate: 1.0,
+        lastWatchId: 'sm9',
         message: ''
       };
 
@@ -699,12 +700,13 @@ var monkey = function() {
         cursor: pointer;
         padding: 2px 8px;
         list-style-type: none;
-        border-bottom: 1px dotted #ccc;
         float: inherit;
       }
-      .zenzaPopupMenu ul li:last-child {
-        border-bottom: none;
+      .zenzaPopupMenu ul li + li {
+        border-top: 1px dotted #ccc;
       }
+      {* .zenzaPopupMenu ul li:last-child { border-bottom: none; } *}
+
       .zenzaPopupMenu li.selected {
         font-weight: bolder;
       }
@@ -1056,6 +1058,24 @@ var monkey = function() {
       });
     };
     ZenzaWatch.util.escapeHtml = escapeHtml;
+
+    // 基本的に動画タイトルはエスケープされている。
+    // だが、なんかたまにいいかげんなデータがあるし、本当に信用できるか？
+    // そこで、全角に置き換えてごますんだ！
+    var escapeToZenkaku = function(text) {
+      var map = {
+        '&':    '＆',
+        '\'': '’',
+        '"':   '”',
+        '<':    '＜',
+        '>':    '＞'
+      };
+      return text.replace(/["'<>]/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.escapeToZenkaku = escapeToZenkaku;
+
 
     var escapeRegs = function(text) {
       var map = {
@@ -2108,7 +2128,7 @@ var monkey = function() {
           var onFail1st = function(e) {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
-            PopupMessage.alert('コメントの取得失敗: 1秒後にリトライ');
+            PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
 
             window.setTimeout(function() {
               self._load(
@@ -2116,13 +2136,13 @@ var monkey = function() {
                 userId, isNeedKey,
                 optionalThreadId, userKey
               ).then(onSuccess, onFailFinally);
-            }, 1000);
+            }, 3000);
           };
 
 
           return new Promise(function(res, rej) {
             resolve = res;
-            rej = reject;
+            reject  = rej;
             self._load(
               server, threadId, duration,
               userId, isNeedKey,
@@ -7131,6 +7151,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     NAKA:   'naka',
     BOTTOM: 'shita'
   };
+  NicoChat._CMD_DURATION = /@([\d+])/;
   NicoChat._CMD_REPLACE = /(ue|shita|sita|big|small|ender|full|[ ])/g;
   NicoChat._COLOR_MATCH = /(#[0-9a-f]+)/i;
   NicoChat._COLOR_NAME_MATCH = /([a-z]+)/i;
@@ -7210,6 +7231,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._no =
         parseInt(chat.getAttribute('no') || '0', 10) + this._fork * 100000000;
       if (this._fork > 0 && text.match(/^[\/＠@]/)) {
+        //this._isNicoScript = true;
         this._isInvisible = true;
       }
 
@@ -7217,41 +7239,50 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       var cmd = this._cmd;
       if (cmd.length > 0) {
-        var pcmd = this._parseCmd(cmd);
+        var pcmd = this._parseCmd(cmd, this._fork > 0);
 
-        if (pcmd['COLOR']) {
-          this._color = pcmd['COLOR'];
+        if (pcmd.COLOR) {
+          this._color = pcmd.COLOR;
         }
 
         // TODO: 両方指定されてたらどっちが優先されるのかを検証
-        if (pcmd['big']) {
+        if (pcmd.big) {
           this._size = NicoChat.SIZE.BIG;
-        } else if (pcmd['small']) {
+        } else if (pcmd.small) {
           this._size = NicoChat.SIZE.SMALL;
         }
 
-        if (pcmd['ue']) {
+        if (pcmd.ue) {
           this._type = NicoChat.TYPE.TOP;
-        } else if (pcmd['shita']) {
+          this._duration = NicoChatViewModel.DURATION.TOP;
+        } else if (pcmd.shita) {
           this._type = NicoChat.TYPE.BOTTOM;
+          this._duration = NicoChatViewModel.DURATION.BOTTOM;
         }
 
-        if (pcmd['ender']) {
+        if (pcmd.ender) {
           this._isEnder = true;
         }
-        if (pcmd['full']) {
+        if (pcmd.full) {
           this._isFull = true;
         }
+
+        if (pcmd.duration) {
+          this._duration = Math.max(0.01, parseFloat(pcmd.duration, 10));
+        }
+
       }
     },
-    _parseCmd: function(cmd) {
+    _parseCmd: function(cmd, isFork) {
       var tmp = cmd.split(/ +/);
       var result = {};
       $(tmp).each(function(i, c) {
         if (NicoChat.COLORS[c]) {
-          result['COLOR'] = NicoChat.COLORS[c];
+          result.COLOR = NicoChat.COLORS[c];
         } else if (NicoChat._COLOR_MATCH.test(c)) {
-          result['COLOR'] = c;
+          result.COLOR = c;
+        } else if (isFork && NicoChat._CMD_DURATION.test(c)) {
+          result.duration = RegExp.$1;
         } else {
           result[c] = true;
         }
@@ -7298,6 +7329,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     isMine: function() { return !!this._isMine; },
     isUpdating: function() { return !!this._isUpdating; },
     isInvisible: function() { return this._isInvisible; },
+    isNicoScript: function() { return this._isNicoScript; },
+    getDuration: function() { return this._duration; },
     getUserId: function() { return this._userId; },
     getVpos: function() { return this._vpos; },
     isDeleted: function() { return !!this._deleted; },
@@ -7361,7 +7394,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // 画面からはみ出したかどうか(段幕時)
       this._isOverflow = false;
       // 表示時間
-      this._duration = NicoChatViewModel.DURATION.NAKA;
+      this._duration = nicoChat.getDuration(); //NicoChatViewModel.DURATION.NAKA;
 
       // 固定されたコメントか、流れるコメントか
       this._isFixed = false;
@@ -7405,14 +7438,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._type = type;
       switch (type) {
         case NicoChat.TYPE.TOP:
-          this._duration = NicoChatViewModel.DURATION.TOP;
+      //    this._duration = NicoChatViewModel.DURATION.TOP;
           this._isFixed = true;
           break;
         case NicoChat.TYPE.BOTTOM:
-          this._duration = NicoChatViewModel.DURATION.BOTTOM;
+      //    this._duration = NicoChatViewModel.DURATION.BOTTOM;
           this._isFixed = true;
-          break;
-        default:
           break;
       }
     },
@@ -7448,12 +7479,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     _setText: function(text) {
 
       var htmlText = NicoTextParser.likeXP(text);
-//      if (this._nicoChat.getNo() === 626) {
-//        window.console.log(this._nicoChat);
-//        window.ttt = text;
-//        window.hhh = htmlText;
-//      }
-
       this._htmlText = htmlText;
       this._text = text;
 
@@ -7727,6 +7752,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     isInViewBySecond: function(sec) {
       if (sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
       if (sec > this._endRightTiming ) { return false; }
+      //if (!this.isNicoScript() && this.isInvisible()) { return false; }
       if (this.isInvisible()) { return false; }
       return true;
     },
@@ -7813,6 +7839,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     isFull: function() {
       return this._nicoChat.isFull();
     },
+    isNicoScript: function() { return this._nicoChat.isNicoScript(); },
     isMine: function()     { return this._nicoChat.isMine(); },
     isUpdating: function() { return this._nicoChat.isUpdating(); },
     isPostFail: function() { return this._nicoChat.isPostFail(); },
@@ -7846,6 +7873,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         deleted:  this._nicoChat.isDeleted(),
         cmd:      this._nicoChat.getCmd(),
         fork:     this._nicoChat.getFork(),
+//        nicos:    this._nicoChat.isNicoScript(),
         text:     this.getText()
       });
       return chat;
@@ -7890,6 +7918,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   95% {opacity: 1;}
  100% {opacity: 0.5;}
 }
+
+@keyframes showhide {
+   0% { display: block;}
+ 100% { display: none; }
+}
+
 
 
 .commentLayerOuter {
@@ -8453,11 +8487,17 @@ spacer {
 
       var max = NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT;
 
+      var i, inViewElements;
       var commentLayer = this._commentLayer;
-      var inViewElements = commentLayer.getElementsByClassName('nicoChat');
-      for (var i = inViewElements.length - max - 1; i >= 0; i--) {
+      inViewElements = commentLayer.getElementsByClassName('nicoChat');
+      //inViewElements = commentLayer.querySelectorAll('nicoChat.fork0');
+      for (i = inViewElements.length - max - 1; i >= 0; i--) {
         inViewElements[i].remove();
       }
+      //inViewElements = commentLayer.querySelectorAll('nicoChat.fork1');
+      //for (i = inViewElements.length - max - 1; i >= 0; i--) {
+      //  inViewElements[i].remove();
+      //}
     },
 
     buildHtml: function(currentTime) {
@@ -8543,9 +8583,7 @@ spacer {
         className.push('updating');
       }
       var fork = chat.getFork();
-      if (fork > 0) {
-        className.push('fork' + fork);
-      }
+      className.push('fork' + fork);
 
 
       if (chat.isPostFail()) {
@@ -8554,7 +8592,7 @@ spacer {
 
       span.className = className.join(' ');
       span.id = chat.getId();
-      span.innerHTML = chat.getHtmlText();
+      if (!chat.isInvisible()) { span.innerHTML = chat.getHtmlText(); }
       span.setAttribute('data-meta', chat.toString());
       return span;
     },
@@ -8584,19 +8622,20 @@ spacer {
         className.push('updating');
       }
       var fork = chat.getFork();
-      if (fork > 0) {
-        className.push('fork' + fork);
-      }
+      className.push('fork' + fork);
 
 
+      var htmlText = '';
+      if (!chat.isInvisible()) { htmlText = chat.getHtmlText(); }
       var result = [
         '<span id="', chat.getId(), '" class="', className.join(' '), '">',
-          chat.getHtmlText(),
+          htmlText,
         '</span>'
       ];
       return result.join('');
     },
     _buildChatCss: function(chat, type, currentTime) {
+      //if (chat.isNicoScript()) { return this._buildNicoScriptCss(chat, type, currentTime); }
       var result;
       var scaleCss;
       var id = chat.getId();
@@ -8621,7 +8660,7 @@ spacer {
       //var zIndex = 10000 - (zid % 5000);
       var zIndex = beginL * 1000 + chat.getFork() * 1000000;
 
-      if (type === NicoChat.TYPE.NAKA  ) {
+      if (type === NicoChat.TYPE.NAKA) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
         // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
         // TODO: 環境によって重くなるようだったらオプションにする
@@ -8677,6 +8716,47 @@ spacer {
       }
 
       return result.join('') + '\n';
+    },
+    _buildNicoScriptCss: function(chat, type, currentTime) {
+      var id = chat.getId();
+      var text = chat.getText().trim();
+      var playbackRate = this._playbackRate;
+      var duration = chat.getDuration() / playbackRate;
+      var beginL = chat.getBeginLeftTiming();
+      var delay = (beginL - currentTime) / playbackRate;
+      var result = ['',
+        ' #', id, ' {\n',
+          '  animation-name: showhide;\n',
+          '  animation-duration: ', duration, 's;\n',
+          '  animation-delay: ', delay, 's;\n',
+        '}\n'];
+      //window.console.log('nicoScript text:', text);
+
+      switch (text) {
+        case '@デフォルト':
+        case '＠デフォルト':
+          result.push(' #', id, ' ~ .nicoChat {\n');
+            var c = chat.getColor();
+            if (c) { result.push('  color: ', c + ';');}
+          break;
+        case '@逆':
+        case '＠逆':
+          result.push(' #', id, ' ~ .nicoChat {\n');
+          result.push(' animation-direction: reverse; ');
+          break;
+        case '@コメント禁止':
+        case '＠コメント禁止':
+          result.push(' #', id, ' ~ .nicoChat {\n');
+          result.push(' display: none; ');
+          break;
+
+        default:
+          return '';
+      }
+
+      result.push('}\n');
+          window.console.log(result.join(''));
+      return result.join('');
     },
     show: function() {
       if (!this._isShow) {
@@ -9014,10 +9094,9 @@ spacer {
       this._items = this._items.concat(itemList);
 
       if (this._isUniq) {
-        this._items =
-          _.uniq(this._items, false, function(item) { return item.getWatchId(); });
+        _.each(itemList, (i) => { this.removeSameWatchId(i); });
       }
-      //this._items.splice(this._maxItems);
+
       while (this._items.length > this._maxItems) { this._items.shift(); }
       this.emit('update', this._items);
 
@@ -9622,6 +9701,10 @@ spacer {
       outline-offset: 8px;
     }
 
+    .separator + .videoItem {
+      border-top: 1px dotted #333;
+    }
+
     .videoItem .thumbnailContainer {
       position: absolute;
       top: 0;
@@ -9859,8 +9942,7 @@ spacer {
       // ・・・のだが、データのいいかげんさから見て、
       // 本当に全部やってあるの？って信用できない。(古い動画は特にいいかげん)
       // なので念のためescapeしておく。過剰エスケープになっても気にしない
-      // いっそ全角文字にした方がマシか？
-      var title = ZenzaWatch.util.escapeHtml(item.getTitle());
+      var title = ZenzaWatch.util.escapeToZenkaku(item.getTitle());
 
       var count = item.getCount();
       tpl = tpl
@@ -10346,7 +10428,8 @@ spacer {
               <li class="playlist-command" data-command="sortBy" data-param="duration">
                 動画の短い順に並べる
               </li>
-              <li class="playlist-command" data-command="resetPlayedItemFlag">全て未視聴にする</li>
+              <hr class="separator">
+              <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
               <li class="playlist-command" data-command="removePlayedItem">視聴済み動画を消す ●</li>
               <li class="playlist-command" data-command="removeNonActiveItem">リストの消去 ×</li>
 
@@ -10608,6 +10691,34 @@ spacer {
       }
       var self = this;
       window.console.time('loadMylist' + mylistId);
+
+      var replaceAll = function(videoListItems) {
+        self._model.setItem(videoListItems);
+        var item = self._model.findByWatchId(options.watchId);
+        if (item) {
+          item.setIsActive(true);
+          item.setIsPlayed(true);
+          self._activeItem = item;
+          ZenzaWatch.util.callAsync(function() {
+            self._view.scrollToItem(item);
+          }, self, 1000);
+        }
+        self.setIndex(self._model.indexOf(item));
+      };
+
+      var appendAll = function(videoListItems) {
+        self._model.appendItem(videoListItems);
+        var item = self._model.findByWatchId(options.watchId);
+        if (item) {
+          item.setIsActive(true);
+          item.setIsPlayed(true);
+          self._refreshIndex(false);
+        }
+        window.setTimeout(function() {
+          self._view.scrollToItem(videoListItems[0]);
+        }, 1000);
+      };
+
       return this._mylistApiLoader
         .getMylistItems(mylistId, options).then(function(items) {
           window.console.timeEnd('loadMylist' + mylistId);
@@ -10628,23 +10739,28 @@ spacer {
               VideoListItem.createByMylistItem(item)
             );
           });
-          //window.console.log('videoListItems!!', videoListItems);
-          
-          self._model.setItem(videoListItems);
-          var item = self._model.findByWatchId(options.watchId);
-          if (item) {
-            item.setIsActive(true);
-            item.setIsPlayed(true);
-            self._activeItem = item;
-            ZenzaWatch.util.callAsync(function() {
-              self._view.scrollToItem(item);
-            }, self, 1000);
+
+          if (videoListItems.length < 1) {
+            return Promise.reject({});
           }
-          self.setIndex(self._model.indexOf(item));
+          if (options.shuffle) {
+            videoListItems = _.shuffle(videoListItems);
+          }
+          //window.console.log('videoListItems!!', videoListItems);
+
+          if (!options.append) {
+            replaceAll(videoListItems);
+          } else {
+            appendAll(videoListItems);
+          }
+
           self.emit('update');
           return Promise.resolve({
             status: 'ok',
-            message: 'マイリストをロードしました'
+            message:
+              options.append ?
+                'マイリストの内容をプレイリストに追加しました' :
+                'マイリストの内容をプレイリストに読み込みしました'
           });
         });
     },
@@ -12063,6 +12179,13 @@ spacer {
       option = option || {watchId: this._watchId};
       // デフォルトで古い順にする
       option.sort = isNaN(option.sort) ? 7 : option.sort;
+      // 通常時はプレイリストの置き換え、
+      // 連続再生中はプレイリストに追加で読み込む
+      option.append = this._playlist.isEnable();
+
+      // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
+      option.shuffle = this._watchId === 'sm20353707'; // せめて定数にしろよ
+
       this._playlist.loadFromMylist(mylistId, option).then((result) => {
         PopupMessage.notify(result.message);
         this._videoInfoPanel.selectTab('playlist');
@@ -12392,6 +12515,7 @@ spacer {
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
       this._$playerContainer.removeClass('stalled loading');
+      this._playerConfig.setValue('lastWatchId', this._watchId);
 
       if (this._videoWatchOptions.isPlaylistStartRequest()) {
         this._initializePlaylist();

@@ -56,10 +56,9 @@ var PopupMessage = {};
       this._items = this._items.concat(itemList);
 
       if (this._isUniq) {
-        this._items =
-          _.uniq(this._items, false, function(item) { return item.getWatchId(); });
+        _.each(itemList, (i) => { this.removeSameWatchId(i); });
       }
-      //this._items.splice(this._maxItems);
+
       while (this._items.length > this._maxItems) { this._items.shift(); }
       this.emit('update', this._items);
 
@@ -664,6 +663,10 @@ var PopupMessage = {};
       outline-offset: 8px;
     }
 
+    .separator + .videoItem {
+      border-top: 1px dotted #333;
+    }
+
     .videoItem .thumbnailContainer {
       position: absolute;
       top: 0;
@@ -901,8 +904,7 @@ var PopupMessage = {};
       // ・・・のだが、データのいいかげんさから見て、
       // 本当に全部やってあるの？って信用できない。(古い動画は特にいいかげん)
       // なので念のためescapeしておく。過剰エスケープになっても気にしない
-      // いっそ全角文字にした方がマシか？
-      var title = ZenzaWatch.util.escapeHtml(item.getTitle());
+      var title = ZenzaWatch.util.escapeToZenkaku(item.getTitle());
 
       var count = item.getCount();
       tpl = tpl
@@ -1388,7 +1390,8 @@ var PopupMessage = {};
               <li class="playlist-command" data-command="sortBy" data-param="duration">
                 動画の短い順に並べる
               </li>
-              <li class="playlist-command" data-command="resetPlayedItemFlag">全て未視聴にする</li>
+              <hr class="separator">
+              <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
               <li class="playlist-command" data-command="removePlayedItem">視聴済み動画を消す ●</li>
               <li class="playlist-command" data-command="removeNonActiveItem">リストの消去 ×</li>
 
@@ -1650,6 +1653,34 @@ var PopupMessage = {};
       }
       var self = this;
       window.console.time('loadMylist' + mylistId);
+
+      var replaceAll = function(videoListItems) {
+        self._model.setItem(videoListItems);
+        var item = self._model.findByWatchId(options.watchId);
+        if (item) {
+          item.setIsActive(true);
+          item.setIsPlayed(true);
+          self._activeItem = item;
+          ZenzaWatch.util.callAsync(function() {
+            self._view.scrollToItem(item);
+          }, self, 1000);
+        }
+        self.setIndex(self._model.indexOf(item));
+      };
+
+      var appendAll = function(videoListItems) {
+        self._model.appendItem(videoListItems);
+        var item = self._model.findByWatchId(options.watchId);
+        if (item) {
+          item.setIsActive(true);
+          item.setIsPlayed(true);
+          self._refreshIndex(false);
+        }
+        window.setTimeout(function() {
+          self._view.scrollToItem(videoListItems[0]);
+        }, 1000);
+      };
+
       return this._mylistApiLoader
         .getMylistItems(mylistId, options).then(function(items) {
           window.console.timeEnd('loadMylist' + mylistId);
@@ -1670,23 +1701,28 @@ var PopupMessage = {};
               VideoListItem.createByMylistItem(item)
             );
           });
-          //window.console.log('videoListItems!!', videoListItems);
-          
-          self._model.setItem(videoListItems);
-          var item = self._model.findByWatchId(options.watchId);
-          if (item) {
-            item.setIsActive(true);
-            item.setIsPlayed(true);
-            self._activeItem = item;
-            ZenzaWatch.util.callAsync(function() {
-              self._view.scrollToItem(item);
-            }, self, 1000);
+
+          if (videoListItems.length < 1) {
+            return Promise.reject({});
           }
-          self.setIndex(self._model.indexOf(item));
+          if (options.shuffle) {
+            videoListItems = _.shuffle(videoListItems);
+          }
+          //window.console.log('videoListItems!!', videoListItems);
+
+          if (!options.append) {
+            replaceAll(videoListItems);
+          } else {
+            appendAll(videoListItems);
+          }
+
           self.emit('update');
           return Promise.resolve({
             status: 'ok',
-            message: 'マイリストをロードしました'
+            message:
+              options.append ?
+                'マイリストの内容をプレイリストに追加しました' :
+                'マイリストの内容をプレイリストに読み込みしました'
           });
         });
     },

@@ -830,7 +830,7 @@ var ajax = function() {};
           var onFail1st = function(e) {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
-            PopupMessage.alert('コメントの取得失敗: 1秒後にリトライ');
+            PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
 
             window.setTimeout(function() {
               self._load(
@@ -838,13 +838,13 @@ var ajax = function() {};
                 userId, isNeedKey,
                 optionalThreadId, userKey
               ).then(onSuccess, onFailFinally);
-            }, 1000);
+            }, 3000);
           };
 
 
           return new Promise(function(res, rej) {
             resolve = res;
-            rej = reject;
+            reject  = rej;
             self._load(
               server, threadId, duration,
               userId, isNeedKey,

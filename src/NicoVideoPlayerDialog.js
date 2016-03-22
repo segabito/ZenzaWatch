@@ -1201,6 +1201,13 @@ var Playlist = function() {};
       option = option || {watchId: this._watchId};
       // デフォルトで古い順にする
       option.sort = isNaN(option.sort) ? 7 : option.sort;
+      // 通常時はプレイリストの置き換え、
+      // 連続再生中はプレイリストに追加で読み込む
+      option.append = this._playlist.isEnable();
+
+      // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
+      option.shuffle = this._watchId === 'sm20353707'; // せめて定数にしろよ
+
       this._playlist.loadFromMylist(mylistId, option).then((result) => {
         PopupMessage.notify(result.message);
         this._videoInfoPanel.selectTab('playlist');
@@ -1530,6 +1537,7 @@ var Playlist = function() {};
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
       this._$playerContainer.removeClass('stalled loading');
+      this._playerConfig.setValue('lastWatchId', this._watchId);
 
       if (this._videoWatchOptions.isPlaylistStartRequest()) {
         this._initializePlaylist();
