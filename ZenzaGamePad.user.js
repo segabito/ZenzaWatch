@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://www.nicovideo.jp/*
-// @version     1.0.1
+// @version     1.0.2
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -34,8 +34,12 @@
       ZenzaWatch.external.execCommand(command, param);
     };
 
-    var onButtonDown = function(button) {
+    var onButtonDown = function(button, deviceId) {
       if (!isZenzaWatchOpen) { return; }
+      if (deviceId.match(/Vendor: 04b4 Product: 010a/i)) {
+        //USB Gamepad (Vendor: 04b4 Product: 010a)"
+        return onButtonDownSaturn(button, deviceId);
+      }
 
       switch (button) {
         case 0: // A
@@ -62,10 +66,10 @@
         case 7: // RT
           execCommand('playbackRate', 1.5);
           break;
-        case 8: // ビューボタン (Back)
+        case 8: // しいたけの左 ビューボタン (Back)
           execCommand('close');
           break;
-        case 9: // メニューボタン (Start)
+        case 9: // しいたけの右 メニューボタン (Start)
           execCommand('deflistAdd');
           break;
         case 10: // Lスティック
@@ -86,6 +90,38 @@
           execCommand('seekBy', +5);
           break;
       }
+    };
+
+    var onButtonDownSaturn = function(button, deviceId) {
+      switch (button) {
+        case 0: // A
+          execCommand('togglePlay');
+          break;
+        case 1: // B
+          execCommand('toggleMute');
+          break;
+        case 2: // C
+          execCommand('toggleComment');
+          break;
+        case 3: // X
+          execCommand('playbackRate', 0.5);
+          break;
+        case 4: // Y
+          execCommand('playbackRate', 1.0);
+          break;
+        case 5: // Z
+          execCommand('playbackRate', 1.5);
+          break;
+        case 6: // L
+          execCommand('playPreviousVideo');
+          break;
+        case 7: // R
+          execCommand('playNextVideo');
+          break;
+        case 8: // START
+          execCommand('deflistAdd');
+          break;
+       }
     };
 
     var onButtonRepeat = function(button) {
@@ -109,7 +145,24 @@
 
     var onAxisChange = function(axis, value) {
       if (!isZenzaWatchOpen) { return; }
+      if (Math.abs(value) < 0.1) { return; }
+      switch (axis) {
+        case 0: // Lスティック X
+          execCommand('seekBy', value < 0 ? -5 : 5);
+          break;
+        case 1: // Lスティック Y
+          execCommand(value < 0 ? 'volumeUp' : 'volumeDown');
+          break;
+        case 2: // Rスティック X
+          break;
+        case 3: // Rスティック Y
+          break;
+      }
+    };
 
+    var onAxisRepeat = function(axis, value) {
+      if (!isZenzaWatchOpen) { return; }
+      if (Math.abs(value) < 0.1) { return; }
       switch (axis) {
         case 0: // Lスティック X
           execCommand('seekBy', value < 0 ? -5 : 5);
@@ -212,7 +265,7 @@
             this._buttons[i].pressed = buttonStatus;
             if (buttonStatus) {
               this._buttons[i].repeat++;
-              if (this._buttons[i].repeat % 10 === 0) {
+              if (this._buttons[i].repeat % 5 === 0) {
                 //console.log('%cbuttonRepeat%s', 'background: lightblue;', i);
                 this.emit('onButtonRepeat', i);
               }
@@ -222,22 +275,26 @@
           }
           for (i = 0, len = this._axes.length; i < len; i++) {
             var axis = Math.round(axes[i] * 1000) / 1000;
-            if (Math.round(Math.abs(axis - this._axes[i].value)) >= 1) {
-              this._axes[i].repeat = 0;
-
-              //console.log('%c%s %s', 'background: lightblue;', 'onAxisChange', i, axis, 0);
+            var diff = Math.round(Math.abs(axis - this._axes[i].value));
+            if (diff >= 1) {
+              //window.console.log(
+              //  '%c%s %s',
+              //  'background: lightblue;', 'onAxisChange',
+              //  i, axis, 0, this._axes[i]);
               this.emit('onAxisChange', i, axis);
-              if (axis <= 0.05) {
-                this.emit('onAxisRelease', i);
-              } else {
-                this._axes[i].repeat++;
-                if (this._axes[i].repeat % 10 === 0) {
-                  //console.log('%caxisRepeat%s:%s', 'background: lightblue;', i, axis);
-                  this.emit('onAxisRepeat', i, axis);
-                }
-              }
-              this._axes[i].value = axis;
             }
+            if (Math.abs(axis) <= 0.1) {
+              this._axes[i].repeat = 0;
+              this.emit('onAxisRelease', i);
+            } else {
+              this._axes[i].repeat++;
+              //if (this._axes[i].repeat % 5 === 0) {
+              //  //window.console.log('%caxisRepeat%s:%s', 'background: lightblue;', i, axis);
+              //  this.emit('onAxisRepeat', i, axis);
+              //}
+            }
+            this._axes[i].value = axis;
+            
           }
           //console.log(JSON.stringify(this.dump()));
         },
@@ -399,6 +456,13 @@
         initializeGamepadConnectEvent();
       };
 
+      ZenzaGamePad.startPolling = function() {
+        if (pollingTimer) { pollingTimer.start(); }
+      };
+      ZenzaGamePad.stopPolling = function() {
+        if (pollingTimer) { pollingTimer.pause(); }
+      };
+
       return ZenzaGamePad;
     })($, PollingTimer, GamePadModel);
 
@@ -406,8 +470,11 @@
     var initGamePad = function() {
       initGamePad = _.noop;
 
+      var isActivated = false;
       var deviceId, deviceIndex;
       var notifyDetect = function() {
+        if (!document.hasFocus()) { return; }
+        isActivated = true;
         notifyDetect = _.noop;
 
         // 初めてボタンかキーが押されたタイミングで通知する
@@ -419,11 +486,13 @@
 
       var _onButtonDown = function(number /*, deviceIndex*/) {
         notifyDetect();
-        onButtonDown(number);
+        if (!isActivated) { return; }
+        onButtonDown(number, deviceId);
         //console.log('%conButtonDown: number=%s, device=%s', 'background: lightblue;', number, deviceIndex);
       };
       var _onButtonRepeat = function(number /*, deviceIndex*/) {
-        onButtonRepeat(number);
+        if (!isActivated) { return; }
+        onButtonRepeat(number, deviceId);
         //console.log('%conButtonRepeat: number=%s, device=%s', 'background: lightblue;', number, deviceIndex);
       };
       var _onButtonUp = function(number /*, deviceIndex*/) {
@@ -431,13 +500,17 @@
       };
       var _onAxisChange = function(number, value, deviceIndex) {
         notifyDetect();
-        onAxisChange(number, value, deviceIndex);
+        if (!isActivated) { return; }
+        onAxisChange(number, value, deviceId);
         //console.log('%conAxisChange: number=%s, value=%s, device=%s', 'background: lightblue;', number, value, deviceIndex);
       };
       var _onAxisRepeat = function(number, value, deviceIndex) {
         //console.log('%conAxisChange: number=%s, value=%s, device=%s', 'background: lightblue;', number, value, deviceIndex);
+        if (!isActivated) { return; }
+        onAxisRepeat(number, value, deviceId);
       };
       var _onAxisRelease = function(/* number, deviceIndex */) {
+        if (!isActivated) { return; }
       };
 
       var onDeviceConnect = function(index, id) {
@@ -460,16 +533,18 @@
     var onZenzaWatchOpen = function() {
       isZenzaWatchOpen = true;
       initGamePad();
+      ZenzaGamePad.startPolling();
     };
 
     var onZenzaWatchClose = function() {
       isZenzaWatchOpen = false;
+      ZenzaGamePad.stopPolling();
     };
 
 
     var initialize = function() {
       ZenzaWatch.emitter.on('DialogPlayerOpen',  onZenzaWatchOpen);
-      ZenzaWatch.emitter.of('DialogPlayerClose', onZenzaWatchClose);
+      ZenzaWatch.emitter.on('DialogPlayerClose', onZenzaWatchClose);
     };
 
     initialize();
