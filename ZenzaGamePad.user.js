@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://www.nicovideo.jp/*
-// @version     1.0.2
+// @version     1.0.3
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -30,11 +30,30 @@
     };
     console = debugMode ? window.console : dummyConsole;
 
+    var isPauseButtonDown = false;
+    var isRate1ButtonDown = false;
+
     var execCommand = function(command, param) {
       ZenzaWatch.external.execCommand(command, param);
     };
 
-    var onButtonDown = function(button, deviceId) {
+    var speedUp = function() {
+      // TODO:
+      // configを直接参照するのはお行儀が悪いのでexternalのインターフェースをつける
+      var current = parseFloat(ZenzaWatch.config.getValue('playbackRate'), 10);
+      window.console.log('speedUp', current);
+      execCommand('playbackRate', Math.floor(Math.min(current + 0.1, 3) * 10) / 10);
+    };
+
+    var speedDown = function() {
+      // TODO:
+      // configを直接参照するのはお行儀が悪いのでexternalのインターフェースをつける
+      var current = parseFloat(ZenzaWatch.config.getValue('playbackRate'), 10);
+      window.console.log('speedDown', current);
+      execCommand('playbackRate', Math.floor(Math.max(current - 0.1, 0.1) * 10) / 10);
+    };
+
+     var onButtonDown = function(button, deviceId) {
       if (!isZenzaWatchOpen) { return; }
       if (deviceId.match(/Vendor: 04b4 Product: 010a/i)) {
         //USB Gamepad (Vendor: 04b4 Product: 010a)"
@@ -43,6 +62,7 @@
 
       switch (button) {
         case 0: // A
+          isPauseButtonDown = true;
           execCommand('togglePlay');
           break;
         case 1: // B
@@ -52,7 +72,8 @@
           execCommand('toggleComment');
           break;
         case 3: // Y
-          execCommand('playbackRate', 1.0);
+          isRate1ButtonDown = true;
+          execCommand('playbackRate', 0.1);
           break;
         case 4: // LB
           execCommand('playPreviousVideo');
@@ -64,7 +85,7 @@
           execCommand('playbackRate', 0.5);
           break;
         case 7: // RT
-          execCommand('playbackRate', 1.5);
+          execCommand('playbackRate', 3);
           break;
         case 8: // しいたけの左 ビューボタン (Back)
           execCommand('close');
@@ -78,16 +99,24 @@
         case 11: // Rスティック
           break;
         case 12: // up
-          execCommand('volumeUp');
+          if (isPauseButtonDown) {
+            speedUp();
+          } else {
+            execCommand('volumeUp');
+          }
           break;
         case 13: // down
-          execCommand('volumeDown');
+          if (isPauseButtonDown) {
+            speedUp();
+          } else {
+            execCommand('volumeDown');
+          }
           break;
         case 14: // left
-          execCommand('seekBy', -5);
+          execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
           break;
         case 15: // right
-          execCommand('seekBy', +5);
+          execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
           break;
       }
     };
@@ -95,6 +124,7 @@
     var onButtonDownSaturn = function(button, deviceId) {
       switch (button) {
         case 0: // A
+          isPauseButtonDown = true;
           execCommand('togglePlay');
           break;
         case 1: // B
@@ -107,10 +137,11 @@
           execCommand('playbackRate', 0.5);
           break;
         case 4: // Y
-          execCommand('playbackRate', 1.0);
+          isRate1ButtonDown = true;
+          execCommand('playbackRate', 0.1);
           break;
         case 5: // Z
-          execCommand('playbackRate', 1.5);
+          execCommand('playbackRate', 3);
           break;
         case 6: // L
           execCommand('playPreviousVideo');
@@ -124,21 +155,105 @@
        }
     };
 
+
+    var onButtonUp = function(button, deviceId) {
+      if (!isZenzaWatchOpen) { return; }
+      if (deviceId.match(/Vendor: 04b4 Product: 010a/i)) {
+        //USB Gamepad (Vendor: 04b4 Product: 010a)"
+        return onButtonUpSaturn(button, deviceId);
+      }
+
+      switch (button) {
+        case 0: // A
+          isPauseButtonDown = false;
+          break;
+        case 1: // B
+          break;
+        case 2: // X
+          break;
+        case 3: // Y
+          isRate1ButtonDown = false;
+          execCommand('playbackRate', 1.0);
+          break;
+        case 4: // LB
+          break;
+        case 5: // RB
+          break;
+        case 6: // LT
+          break;
+        case 7: // RT
+          execCommand('playbackRate', 1.5);
+          break;
+        case 8: // しいたけの左 ビューボタン (Back)
+          break;
+        case 9: // しいたけの右 メニューボタン (Start)
+          break;
+        case 10: // Lスティック
+          break;
+        case 11: // Rスティック
+          break;
+        case 12: // up
+          break;
+        case 13: // down
+          break;
+        case 14: // left
+          break;
+        case 15: // right
+          break;
+      }
+    };
+
+    var onButtonUpSaturn = function(button, deviceId) {
+      switch (button) {
+        case 0: // A
+          isPauseButtonDown = false;
+          break;
+        case 1: // B
+          break;
+        case 2: // C
+          break;
+        case 3: // X
+          break;
+        case 4: // Y
+          isRate1ButtonDown = false;
+          execCommand('playbackRate', 1.0);
+          break;
+        case 5: // Z
+          execCommand('playbackRate', 1.5);
+          break;
+        case 6: // L
+          break;
+        case 7: // R
+          break;
+        case 8: // START
+          break;
+       }
+    };
+
+
     var onButtonRepeat = function(button) {
       if (!isZenzaWatchOpen) { return; }
 
       switch (button) {
         case 12: // up
-          execCommand('volumeUp');
+          if (isPauseButtonDown) {
+            speedUp();
+          } else {
+            execCommand('volumeUp');
+          }
           break;
         case 13: // down
-          execCommand('volumeDown');
+          if (isPauseButtonDown) {
+            speedUp();
+          } else {
+            execCommand('volumeDown');
+          }
           break;
         case 14: // left
-          execCommand('seekBy', -5);
+          execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
           break;
         case 15: // right
-          execCommand('seekBy', +5);
+          execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
           break;
       }
     };
@@ -148,14 +263,22 @@
       if (Math.abs(value) < 0.1) { return; }
       switch (axis) {
         case 0: // Lスティック X
-          execCommand('seekBy', value < 0 ? -5 : 5);
+          var step = isRate1ButtonDown ? 1 : 5;
+          execCommand('seekBy', (value < 0 ? -1 : 1) * step);
           break;
         case 1: // Lスティック Y
-          execCommand(value < 0 ? 'volumeUp' : 'volumeDown');
+          if (isPauseButtonDown) {
+            if (value < 0) { speedUp(); }
+            else {         speedDown(); }
+          } else {
+            execCommand(value < 0 ? 'volumeUp' : 'volumeDown');
+          }
           break;
         case 2: // Rスティック X
           break;
         case 3: // Rスティック Y
+          if (value < 0) { speedUp(); }
+          else {         speedDown(); }
           break;
       }
     };
@@ -165,14 +288,22 @@
       if (Math.abs(value) < 0.1) { return; }
       switch (axis) {
         case 0: // Lスティック X
-          execCommand('seekBy', value < 0 ? -5 : 5);
+          var step = isRate1ButtonDown ? 1 : +5;
+          execCommand('seekBy', (value < 0 ? -1 : 1) * step);
           break;
         case 1: // Lスティック Y
-          execCommand(value < 0 ? 'volumeUp' : 'volumeDown');
+          if (isPauseButtonDown) {
+            if (value < 0) { speedUp(); }
+            else {         speedDown(); }
+          } else {
+            execCommand(value < 0 ? 'volumeUp' : 'volumeDown');
+          }
           break;
         case 2: // Rスティック X
           break;
         case 3: // Rスティック Y
+          if (value < 0) { speedUp(); }
+          else {         speedDown(); }
           break;
       }
     };
@@ -497,6 +628,8 @@
       };
       var _onButtonUp = function(number /*, deviceIndex*/) {
         //console.log('%conButtonUp: number=%s, device=%s', 'background: lightblue;', number, deviceIndex);
+        if (!isActivated) { return; }
+        onButtonUp(number, deviceId);
       };
       var _onAxisChange = function(number, value, deviceIndex) {
         notifyDetect();
