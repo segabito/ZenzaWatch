@@ -420,6 +420,80 @@ var ZenzaWatch = {
     };
     initialize();
   };
+
+
+
+  var smileApi = function() {
+    if (window.name.indexOf('storyboard') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
+
+    var parentHost = document.referrer.split('/')[2];
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+      window.console.log('disable bridge');
+      return;
+    }
+
+    var type = 'storyboard';
+    var token = location.hash ? location.hash.substr(1) : null;
+
+
+    window.addEventListener('message', function(event) {
+      window.console.log('StoryBoardLoaderWindow.onMessage', event.data);
+      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      //var command = data.command;
+
+      if (data.token !== token) { return; }
+
+
+      if (!data.url) { return; }
+      var sessionId = data.sessionId;
+
+      xmlHttpRequest({
+        url: data.url,
+        onload: function(resp) {
+          window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp);
+
+          if (isTimeout) { return; }
+          else { window.clearTimeout(timeoutTimer); }
+
+          try {
+            postMessage(type, {
+              sessionId: sessionId,
+              status: 'ok',
+              token: token,
+              url: data.url,
+              body: resp.responseText
+            });
+          } catch (e) {
+            console.log(
+              '%cError: parent.postMessage - ',
+              'color: red; background: yellow',
+              e, event.origin, event.data);
+          }
+        }
+      });
+
+      timeoutTimer = window.setTimeout(function() {
+        isTimeout = true;
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'timeout',
+          command: 'loadUrl',
+          url: data.url
+        });
+      }, 30000);
+
+    });
+
+    try {
+      postMessage(type, { status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+
+  };
+
+
 //===END===
 
    // クロスドメインでのvideoInfoLoader情報の通信用

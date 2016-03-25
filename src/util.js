@@ -504,7 +504,7 @@ var console;
       var result = {};
       _.each(query.split('&'), function(item) {
         var sp = item.split('=');
-        var key = sp[0];
+        var key = decodeURIComponent(sp[0]);
         var val = decodeURIComponent(sp.slice(1).join('='));
         result[key] = val;
       });
@@ -1128,7 +1128,7 @@ var console;
             key = 'NEXT';
             break;
           case 27:
-            key = 'ESC';
+            key = e.shiftKey ? 'RE_OPEN' : 'ESC';
             break;
           case 37: // LEFT
             if (e.shiftKey) { key = 'SEEK'; param = -5; }

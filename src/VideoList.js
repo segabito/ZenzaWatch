@@ -601,7 +601,7 @@ var PopupMessage = {};
       position: relative;
       display: inline-block;
       width: 100%;
-      min-height: 88px;
+      height: 88px;
       overflow: hidden;
       transition:
         transform 0.4s ease, box-shadow 0.4s ease,

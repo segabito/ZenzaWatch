@@ -14,6 +14,7 @@
 // @match          http://info.nicovideo.jp/*
 // @match          http://search.nicovideo.jp/*
 // @match          http://uad.nicovideo.jp/*
+// @match          http://*.nicovideo.jp/smile*
 // @exclude        http://ads*.nicovideo.jp/*
 // @exclude        http://www.upload.nicovideo.jp/*
 // @exclude        http://ch.nicovideo.jp/tool/*
@@ -22,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.12.5
+// @version        0.12.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -561,7 +562,7 @@ var monkey = function() {
       var result = {};
       _.each(query.split('&'), function(item) {
         var sp = item.split('=');
-        var key = sp[0];
+        var key = decodeURIComponent(sp[0]);
         var val = decodeURIComponent(sp.slice(1).join('='));
         result[key] = val;
       });
@@ -1185,7 +1186,7 @@ var monkey = function() {
             key = 'NEXT';
             break;
           case 27:
-            key = 'ESC';
+            key = e.shiftKey ? 'RE_OPEN' : 'ESC';
             break;
           case 37: // LEFT
             if (e.shiftKey) { key = 'SEEK'; param = -5; }
@@ -2913,6 +2914,135 @@ var monkey = function() {
 
 
 
+    var StoryBoardInfoLoader = (function() {
+      var crossDomainGates = {};
+
+      var initializeByServer = function(server, fileId) {
+        if (crossDomainGates[server]) {
+          return crossDomainGates[server];
+        }
+
+        var baseUrl = '//' + server + '/smile?i=' + fileId;
+        window.console.log('create CrossDomainGate: ', server, baseUrl);
+
+        crossDomainGates[server] = new CrossDomainGate({
+          baseUrl: baseUrl,
+          origin: 'http://' + server + '/',
+          type: 'storyboard',
+          messager: WindowMessageEmitter
+        });
+
+        return crossDomainGates[server];
+      };
+
+      var reject = function(err) {
+        return new Promise(function(res, rej) {
+          window.setTimeout(function() { rej(err); }, 0);
+        });
+      };
+
+      var parseStoryboard = function($storyboard, url) {
+        var storyboardId = $storyboard.attr('id') || '1';
+        return {
+          id:       storyboardId,
+          url:      url.replace('sb=1', 'sb=' + storyboardId),
+          thumbnail:{
+            width:    $storyboard.find('thumbnail_width').text(),
+            height:   $storyboard.find('thumbnail_height').text(),
+            number:   $storyboard.find('thumbnail_number').text(),
+            interval: $storyboard.find('thumbnail_interval').text()
+          },
+          board: {
+            rows:   $storyboard.find('board_rows').text(),
+            cols:   $storyboard.find('board_cols').text(),
+            number: $storyboard.find('board_number').text()
+          }
+        };
+      };
+
+      var parseXml = function(xml, url) {
+        var $xml = $(xml), $storyboard = $xml.find('storyboard');
+
+        if ($storyboard.length < 1) {
+          return null;
+        }
+
+        var info = {
+          status:   'ok',
+          message:  '成功',
+          url:      url,
+          movieId:  $xml.find('movie').attr('id'),
+          duration: $xml.find('duration').text(),
+          storyboard: []
+        };
+
+        for (var i = 0, len = $storyboard.length; i < len; i++) {
+          var sbInfo = parseStoryboard($($storyboard[i]), url);
+          info.storyboard.push(sbInfo);
+        }
+        info.storyboard.sort(function(a, b) {
+          var idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
+          return (idA < idB) ? 1 : -1;
+        });
+        return info;
+      };
+
+
+      var load = function(videoFileUrl) {
+        var a = document.createElement('a');
+        a.href = videoFileUrl;
+        var server = a.host;
+        var search = a.search;
+
+        if (!/\?(.)=(\d+)\.(\d+)/.test(search)) {
+          return reject({status: 'fail', message: 'invalid url', url: videoFileUrl});
+        }
+
+        var fileType = RegExp.$1;
+        var fileId   = RegExp.$2;
+        var key      = RegExp.$3;
+
+        if (fileType !== 'm') {
+          return reject({status: 'fail', message: 'unknown file type', url: videoFileUrl});
+        }
+
+        var gate = initializeByServer(server, fileId);
+
+        return new Promise(function(resolve, reject) {
+          var url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
+
+          gate.load(url).then(function(result) {
+            var info = parseXml(result, url);
+            if (info) {
+              resolve(info);
+            } else {
+              reject({
+                status: 'fail',
+                message: 'storyboard not exist (1)',
+                result: result,
+                url: url
+              });
+            }
+          }, function(err) {
+            reject({
+              status: 'fail',
+              message: 'storyboard not exist (2)',
+              result: err,
+              url: url
+            });
+          });
+        });
+      };
+
+      return {
+        load: load
+      };
+    })();
+    ZenzaWatch.api.StoryBoardInfoLoader = StoryBoardInfoLoader;
+
+
+
+
 
   /**
    * VideoPlayer + CommentPlayer = NicoVideoPlayer
@@ -3162,8 +3292,8 @@ var monkey = function() {
     getVpos: function() {
       return Math.floor(this._videoPlayer.getCurrentTime() * 100);
     },
-    setComment: function(xmlText) {
-      this._commentPlayer.setComment(xmlText);
+    setComment: function(xmlText, options) {
+      this._commentPlayer.setComment(xmlText, options);
     },
     getChatList: function() {
       return this._commentPlayer.getChatList();
@@ -3396,6 +3526,12 @@ var monkey = function() {
     },
     getRelatedVideoItems: function() {
       return this._relatedVideo.playlist || [];
+    },
+    getReplacementWords: function() {
+      if (!this._flvInfo.ng_up) { return null; }
+      return ZenzaWatch.util.parseQuery(
+        this._flvInfo.ng_up || ''
+      );
     }
   });
 
@@ -3979,6 +4115,18 @@ var monkey = function() {
     }
   });
 
+
+
+
+/*
+// マスコットキャラクターのサムネーヨちゃん
+　∧ ∧　 　 　┌─────────────
+　( ´ー｀)　　 ＜　サムネーヨ
+ 　＼　< 　　　 └───/|────────
+　　　＼.＼＿＿＿＿__／/
+　　　　 ＼　　　　　　　／
+　　　　　　∪∪￣∪∪
+*/
 
 
 
@@ -6264,13 +6412,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
-    setComment: function(xml) {
+    setComment: function(xml, options) {
       var parser = new DOMParser();
       if (typeof xml.getElementsByTagName === 'function') {
-        this._model.setXml(xml);
+        this._model.setXml(xml, options);
       } else if (typeof xml === 'string') {
         xml = parser.parseFromString(xml, 'text/xml');
-        this._model.setXml(xml);
+        this._model.setXml(xml, options);
       } else {
         PopupMessage.alert('コメントの読み込み失敗');
       }
@@ -6428,8 +6576,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       ZenzaWatch.emitter.on('updateOptionCss', onChange);
       //NicoChatViewModel.emitter.on('updateBaseChatScale', onChange);
     },
-    setXml: function(xml) {
+    setXml: function(xml, options) {
       window.console.time('コメントのパース処理');
+
+      this._options = options || {};
 
       this._xml = xml;
       this._topGroup.reset();
@@ -6461,8 +6611,22 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         }
         group.push(nicoChat);
       }
+
+      if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
+        window.console.time('コメント置換フィルタ適用');
+        this._wordReplacer = this._compileWordReplacer(options.replacement);
+        this._preProcessWordReplacement(top,    this._wordReplacer);
+        this._preProcessWordReplacement(naka,   this._wordReplacer);
+        this._preProcessWordReplacement(bottom, this._wordReplacer);
+        window.console.timeEnd('コメント置換フィルタ適用');
+      } else {
+        this._wordReplacer = null;
+      }
+      // TODO: ＠逆再生、＠デフォルトぐらいはサポートしたい
+      // this._preProcessNicoScript();
+
       this._topGroup   .addChatArray(top);
-      this._nakaGroup.addChatArray(naka);
+      this._nakaGroup  .addChatArray(naka);
       this._bottomGroup.addChatArray(bottom);
 
       window.console.timeEnd('コメントのパース処理');
@@ -6471,6 +6635,52 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       console.log('naka: ',   this._nakaGroup  .getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('parsed');
+    },
+
+    /**
+     * コメント置換器となる関数を生成
+     * なにがやりたかったのやら
+     */
+    _compileWordReplacer(replacement) {
+      var func  = function (text) { return text; };
+
+      var makeFullReplacement = function(f, src, dest) {
+        return function(text) {
+          return f(text.indexOf(src) >= 0 ? dest : text);
+        };
+      };
+
+      var makeRegReplacement = function(f, src, dest) {
+        var reg = new RegExp(ZenzaWatch.util.escapeRegs(src), 'g');
+        return function(text) {
+          return f(text.replace(reg, dest));
+        };
+      };
+
+      _.each(Object.keys(replacement), function(key) {
+        var val = replacement[key];
+        window.console.log('コメント置換フィルタ: "%s" => "%s"', key, val);
+
+        if (key.charAt(0) === '*') {
+          func = makeFullReplacement(func, key.substr(1), val);
+        } else {
+          func = makeRegReplacement(func, key, val);
+        }
+      });
+
+      return func;
+    },
+    /**
+     * 投稿者が設定したコメント置換フィルタを適用する
+     */
+    _preProcessWordReplacement(group, replacementFunc) {
+      _.each(group, (nicoChat) => {
+        var text = nicoChat.getText();
+        var newText = replacementFunc(text);
+        if (text !== newText) {
+          nicoChat.setText(newText);
+        }
+      });
     },
     getChatList: function() {
       return {
@@ -6500,6 +6710,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         default:
           group = this._nakaGroup;
           break;
+      }
+      if (this._wordReplacer) {
+        nicoChat.setText(this._wordReplacer(nicoChat.getText()));
       }
       group.addChat(nicoChat, group);
       this.emit('addChat');
@@ -9639,7 +9852,7 @@ spacer {
       position: relative;
       display: inline-block;
       width: 100%;
-      min-height: 88px;
+      height: 88px;
       overflow: hidden;
       transition:
         transform 0.4s ease, box-shadow 0.4s ease,
@@ -12036,10 +12249,19 @@ spacer {
     },
     _onKeyDown: function(name , e, param) {
       if (!this._isOpen) {
+        var lastWatchId = this._playerConfig.getValue('lastWatchId');
+        if (name === 'RE_OPEN' && lastWatchId) {
+          this.open(lastWatchId);
+        }
         return;
       }
       var v;
       switch (name) {
+        case 'RE_OPEN':
+          this.reload({
+            currentTime: this.getCurrentTime()
+          });
+          break;
         case 'SPACE':
         case 'PAUSE':
           this._nicoVideoPlayer.togglePlay();
@@ -12084,10 +12306,10 @@ spacer {
           this._nicoVideoPlayer.setCurrentTime(c + param);
           break;
         case 'NEXT_VIDEO':
-          if (this.isPlaylistEnable()) { this.playNextVideo(); }
+          this.playNextVideo();
           break;
         case 'PREV_VIDEO':
-          if (this.isPlaylistEnable()) { this.playPreviousVideo(); }
+          this.playPreviousVideo();
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
@@ -12453,7 +12675,7 @@ spacer {
         }
       }
 
-      ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
+      //ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type, Math.random());
     },
     _onVideoInfoLoaderFail: function(requestId, watchId, e) {
       window.console.timeEnd('VideoInfoLoader');
@@ -12494,7 +12716,10 @@ spacer {
         return;
       }
       PopupMessage.notify('コメント取得成功');
-      this._nicoVideoPlayer.setComment(result.xml);
+      var options = {
+        replacement: this._videoInfo.getReplacementWords()
+      };
+      this._nicoVideoPlayer.setComment(result.xml, options);
       this._threadInfo = result.threadInfo;
       this._isCommentReady = true;
       this.emit('commentReady', result);
@@ -12597,7 +12822,10 @@ spacer {
       if (this.isPlaylistEnable() && this._playlist.hasNext()) {
         this.playNextVideo();
         return;
+      } else if (this._playlist) {
+        this._playlist.toggleEnable(false);
       }
+
 
       var isAutoCloseFullScreen =
         this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
@@ -17025,6 +17253,80 @@ spacer {
     initialize();
   };
 
+
+
+  var smileApi = function() {
+    if (window.name.indexOf('storyboard') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
+
+    var parentHost = document.referrer.split('/')[2];
+    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+      window.console.log('disable bridge');
+      return;
+    }
+
+    var type = 'storyboard';
+    var token = location.hash ? location.hash.substr(1) : null;
+
+
+    window.addEventListener('message', function(event) {
+      window.console.log('StoryBoardLoaderWindow.onMessage', event.data);
+      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
+      //var command = data.command;
+
+      if (data.token !== token) { return; }
+
+
+      if (!data.url) { return; }
+      var sessionId = data.sessionId;
+
+      xmlHttpRequest({
+        url: data.url,
+        onload: function(resp) {
+          window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp);
+
+          if (isTimeout) { return; }
+          else { window.clearTimeout(timeoutTimer); }
+
+          try {
+            postMessage(type, {
+              sessionId: sessionId,
+              status: 'ok',
+              token: token,
+              url: data.url,
+              body: resp.responseText
+            });
+          } catch (e) {
+            console.log(
+              '%cError: parent.postMessage - ',
+              'color: red; background: yellow',
+              e, event.origin, event.data);
+          }
+        }
+      });
+
+      timeoutTimer = window.setTimeout(function() {
+        isTimeout = true;
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'timeout',
+          command: 'loadUrl',
+          url: data.url
+        });
+      }, 30000);
+
+    });
+
+    try {
+      postMessage(type, { status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
+
+  };
+
+
+
   var host = window.location.host || '';
   var href = (location.href || '').replace(/#.*$/, '');
   if (href === 'http://www.nicovideo.jp/favicon.ico' &&
@@ -17033,6 +17335,8 @@ spacer {
   } else if (href ==='http://api.ce.nicovideo.jp/api/v1/system.unixtime' &&
       window.name === 'vitaApiLoader') {
     vitaApi();
+  } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
+    smileApi();
   } else if (host === 'ext.nicovideo.jp' && location.pathname.indexOf('/thumb/') === 0) {
     blogPartsApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {

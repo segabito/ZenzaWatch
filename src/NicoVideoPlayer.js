@@ -260,8 +260,8 @@ var AsyncEmitter = function() {};
     getVpos: function() {
       return Math.floor(this._videoPlayer.getCurrentTime() * 100);
     },
-    setComment: function(xmlText) {
-      this._commentPlayer.setComment(xmlText);
+    setComment: function(xmlText, options) {
+      this._commentPlayer.setComment(xmlText, options);
     },
     getChatList: function() {
       return this._commentPlayer.getChatList();
@@ -494,6 +494,12 @@ var AsyncEmitter = function() {};
     },
     getRelatedVideoItems: function() {
       return this._relatedVideo.playlist || [];
+    },
+    getReplacementWords: function() {
+      if (!this._flvInfo.ng_up) { return null; }
+      return ZenzaWatch.util.parseQuery(
+        this._flvInfo.ng_up || ''
+      );
     }
   });
 

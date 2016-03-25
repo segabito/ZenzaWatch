@@ -1058,10 +1058,19 @@ var Playlist = function() {};
     },
     _onKeyDown: function(name , e, param) {
       if (!this._isOpen) {
+        var lastWatchId = this._playerConfig.getValue('lastWatchId');
+        if (name === 'RE_OPEN' && lastWatchId) {
+          this.open(lastWatchId);
+        }
         return;
       }
       var v;
       switch (name) {
+        case 'RE_OPEN':
+          this.reload({
+            currentTime: this.getCurrentTime()
+          });
+          break;
         case 'SPACE':
         case 'PAUSE':
           this._nicoVideoPlayer.togglePlay();
@@ -1106,10 +1115,10 @@ var Playlist = function() {};
           this._nicoVideoPlayer.setCurrentTime(c + param);
           break;
         case 'NEXT_VIDEO':
-          if (this.isPlaylistEnable()) { this.playNextVideo(); }
+          this.playNextVideo();
           break;
         case 'PREV_VIDEO':
-          if (this.isPlaylistEnable()) { this.playPreviousVideo(); }
+          this.playPreviousVideo();
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
@@ -1475,7 +1484,7 @@ var Playlist = function() {};
         }
       }
 
-      ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type);
+      //ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type, Math.random());
     },
     _onVideoInfoLoaderFail: function(requestId, watchId, e) {
       window.console.timeEnd('VideoInfoLoader');
@@ -1516,7 +1525,10 @@ var Playlist = function() {};
         return;
       }
       PopupMessage.notify('コメント取得成功');
-      this._nicoVideoPlayer.setComment(result.xml);
+      var options = {
+        replacement: this._videoInfo.getReplacementWords()
+      };
+      this._nicoVideoPlayer.setComment(result.xml, options);
       this._threadInfo = result.threadInfo;
       this._isCommentReady = true;
       this.emit('commentReady', result);
@@ -1619,7 +1631,10 @@ var Playlist = function() {};
       if (this.isPlaylistEnable() && this._playlist.hasNext()) {
         this.playNextVideo();
         return;
+      } else if (this._playlist) {
+        this._playlist.toggleEnable(false);
       }
+
 
       var isAutoCloseFullScreen =
         this._videoWatchOptions.hasKey('autoCloseFullScreen') ?

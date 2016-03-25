@@ -1613,7 +1613,153 @@ var ajax = function() {};
       });
     }
 
+
+
+    var StoryBoardInfoLoader = (function() {
+      var crossDomainGates = {};
+
+      var initializeByServer = function(server, fileId) {
+        if (crossDomainGates[server]) {
+          return crossDomainGates[server];
+        }
+
+        var baseUrl = '//' + server + '/smile?i=' + fileId;
+        window.console.log('create CrossDomainGate: ', server, baseUrl);
+
+        crossDomainGates[server] = new CrossDomainGate({
+          baseUrl: baseUrl,
+          origin: 'http://' + server + '/',
+          type: 'storyboard',
+          messager: WindowMessageEmitter
+        });
+
+        return crossDomainGates[server];
+      };
+
+      var reject = function(err) {
+        return new Promise(function(res, rej) {
+          window.setTimeout(function() { rej(err); }, 0);
+        });
+      };
+
+      var parseStoryboard = function($storyboard, url) {
+        var storyboardId = $storyboard.attr('id') || '1';
+        return {
+          id:       storyboardId,
+          url:      url.replace('sb=1', 'sb=' + storyboardId),
+          thumbnail:{
+            width:    $storyboard.find('thumbnail_width').text(),
+            height:   $storyboard.find('thumbnail_height').text(),
+            number:   $storyboard.find('thumbnail_number').text(),
+            interval: $storyboard.find('thumbnail_interval').text()
+          },
+          board: {
+            rows:   $storyboard.find('board_rows').text(),
+            cols:   $storyboard.find('board_cols').text(),
+            number: $storyboard.find('board_number').text()
+          }
+        };
+      };
+
+      var parseXml = function(xml, url) {
+        var $xml = $(xml), $storyboard = $xml.find('storyboard');
+
+        if ($storyboard.length < 1) {
+          return null;
+        }
+
+        var info = {
+          status:   'ok',
+          message:  '成功',
+          url:      url,
+          movieId:  $xml.find('movie').attr('id'),
+          duration: $xml.find('duration').text(),
+          storyboard: []
+        };
+
+        for (var i = 0, len = $storyboard.length; i < len; i++) {
+          var sbInfo = parseStoryboard($($storyboard[i]), url);
+          info.storyboard.push(sbInfo);
+        }
+        info.storyboard.sort(function(a, b) {
+          var idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
+          return (idA < idB) ? 1 : -1;
+        });
+        return info;
+      };
+
+
+      var load = function(videoFileUrl) {
+        var a = document.createElement('a');
+        a.href = videoFileUrl;
+        var server = a.host;
+        var search = a.search;
+
+        if (!/\?(.)=(\d+)\.(\d+)/.test(search)) {
+          return reject({status: 'fail', message: 'invalid url', url: videoFileUrl});
+        }
+
+        var fileType = RegExp.$1;
+        var fileId   = RegExp.$2;
+        var key      = RegExp.$3;
+
+        if (fileType !== 'm') {
+          return reject({status: 'fail', message: 'unknown file type', url: videoFileUrl});
+        }
+
+        var gate = initializeByServer(server, fileId);
+
+        return new Promise(function(resolve, reject) {
+          var url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
+
+          gate.load(url).then(function(result) {
+            var info = parseXml(result, url);
+            if (info) {
+              resolve(info);
+            } else {
+              reject({
+                status: 'fail',
+                message: 'storyboard not exist (1)',
+                result: result,
+                url: url
+              });
+            }
+          }, function(err) {
+            reject({
+              status: 'fail',
+              message: 'storyboard not exist (2)',
+              result: err,
+              url: url
+            });
+          });
+        });
+      };
+
+      return {
+        load: load
+      };
+    })();
+    ZenzaWatch.api.StoryBoardInfoLoader = StoryBoardInfoLoader;
+
+
 //===END===
+    ZenzaWatch.emitter.on('loadVideoInfo', function(data, type, r) {
+      var info = data.flvInfo;
+      var url = info.url;
+      if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
+        return;
+      }
+
+      ZenzaWatch.api.StoryBoardInfoLoader.load(url).then(
+        function(result) {
+          window.console.info(result);
+        },
+        function(err) {
+          window.console.info(err);
+        }
+      );
+    });
+
 /*
 create_time : 1458338784
 description_short : "GWって「ガンバレ、私」ってこと？天気の良さがうらめしい（１号）です。これからたくさんの方に「初音..."

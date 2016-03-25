@@ -69,13 +69,13 @@ var NicoTextParser = {};
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
-    setComment: function(xml) {
+    setComment: function(xml, options) {
       var parser = new DOMParser();
       if (typeof xml.getElementsByTagName === 'function') {
-        this._model.setXml(xml);
+        this._model.setXml(xml, options);
       } else if (typeof xml === 'string') {
         xml = parser.parseFromString(xml, 'text/xml');
-        this._model.setXml(xml);
+        this._model.setXml(xml, options);
       } else {
         PopupMessage.alert('コメントの読み込み失敗');
       }
@@ -233,8 +233,10 @@ var NicoTextParser = {};
       ZenzaWatch.emitter.on('updateOptionCss', onChange);
       //NicoChatViewModel.emitter.on('updateBaseChatScale', onChange);
     },
-    setXml: function(xml) {
+    setXml: function(xml, options) {
       window.console.time('コメントのパース処理');
+
+      this._options = options || {};
 
       this._xml = xml;
       this._topGroup.reset();
@@ -266,8 +268,22 @@ var NicoTextParser = {};
         }
         group.push(nicoChat);
       }
+
+      if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
+        window.console.time('コメント置換フィルタ適用');
+        this._wordReplacer = this._compileWordReplacer(options.replacement);
+        this._preProcessWordReplacement(top,    this._wordReplacer);
+        this._preProcessWordReplacement(naka,   this._wordReplacer);
+        this._preProcessWordReplacement(bottom, this._wordReplacer);
+        window.console.timeEnd('コメント置換フィルタ適用');
+      } else {
+        this._wordReplacer = null;
+      }
+      // TODO: ＠逆再生、＠デフォルトぐらいはサポートしたい
+      // this._preProcessNicoScript();
+
       this._topGroup   .addChatArray(top);
-      this._nakaGroup.addChatArray(naka);
+      this._nakaGroup  .addChatArray(naka);
       this._bottomGroup.addChatArray(bottom);
 
       window.console.timeEnd('コメントのパース処理');
@@ -276,6 +292,52 @@ var NicoTextParser = {};
       console.log('naka: ',   this._nakaGroup  .getNonFilteredMembers().length);
       console.log('bottom: ', this._bottomGroup.getNonFilteredMembers().length);
       this.emit('parsed');
+    },
+
+    /**
+     * コメント置換器となる関数を生成
+     * なにがやりたかったのやら
+     */
+    _compileWordReplacer(replacement) {
+      var func  = function (text) { return text; };
+
+      var makeFullReplacement = function(f, src, dest) {
+        return function(text) {
+          return f(text.indexOf(src) >= 0 ? dest : text);
+        };
+      };
+
+      var makeRegReplacement = function(f, src, dest) {
+        var reg = new RegExp(ZenzaWatch.util.escapeRegs(src), 'g');
+        return function(text) {
+          return f(text.replace(reg, dest));
+        };
+      };
+
+      _.each(Object.keys(replacement), function(key) {
+        var val = replacement[key];
+        window.console.log('コメント置換フィルタ: "%s" => "%s"', key, val);
+
+        if (key.charAt(0) === '*') {
+          func = makeFullReplacement(func, key.substr(1), val);
+        } else {
+          func = makeRegReplacement(func, key, val);
+        }
+      });
+
+      return func;
+    },
+    /**
+     * 投稿者が設定したコメント置換フィルタを適用する
+     */
+    _preProcessWordReplacement(group, replacementFunc) {
+      _.each(group, (nicoChat) => {
+        var text = nicoChat.getText();
+        var newText = replacementFunc(text);
+        if (text !== newText) {
+          nicoChat.setText(newText);
+        }
+      });
     },
     getChatList: function() {
       return {
@@ -305,6 +367,9 @@ var NicoTextParser = {};
         default:
           group = this._nakaGroup;
           break;
+      }
+      if (this._wordReplacer) {
+        nicoChat.setText(this._wordReplacer(nicoChat.getText()));
       }
       group.addChat(nicoChat, group);
       this.emit('addChat');
