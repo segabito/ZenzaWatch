@@ -4863,6 +4863,9 @@ var monkey = function() {
       top: -24px;
     }
 
+    .fullScreen .seekBarContainer .seekBarShadow {
+    }
+
     .abort   .seekBarContainer,
     .loading .seekBarContainer,
     .error   .seekBarContainer {
@@ -6470,6 +6473,10 @@ var monkey = function() {
     .seekBarContainer:hover .seekBarToolTip {
       opacity: 1;
       pointer-events: none;
+    }
+
+    .fullScreen .seekBarContainer:not(:hover) .seekBarToolTip {
+      left: -9999px !important;
     }
 
     .seekBarToolTip .currentTime {
