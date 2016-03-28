@@ -1556,8 +1556,18 @@ var Playlist = function() {};
       if (this._videoWatchOptions.isPlaylistStartRequest()) {
         this._initializePlaylist();
 
-        var opt = this._videoWatchOptions.getMylistLoadOptions();
-        this._playlist.loadFromMylist(opt.group_id, opt);
+        var option = this._videoWatchOptions.getMylistLoadOptions();
+        var query = this._videoWatchOptions.getQuery();
+
+        // 通常時はプレイリストの置き換え、
+        // 連続再生中はプレイリストに追加で読み込む
+        option.append = this.isPlaying() && this._playlist.isEnable();
+
+        // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
+        option.shuffle = parseInt(query.shuffle, 10) === 1;
+        console.log('playlist option:', option);
+
+        this._playlist.loadFromMylist(option.group_id, option);
         this._playlist.toggleEnable(true);
       } else if (PlaylistSession.isExist() && !this._playlist) {
         this._initializePlaylist();

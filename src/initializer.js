@@ -61,6 +61,43 @@ var AsyncEmitter = function() {};
         }
       });
 
+
+      // マイリストページの連続再生ボタン横に「シャッフル再生」を追加する
+      if (window.Nico) {
+        window.Nico.onReady(function() {
+          var addShufflePlaylistLink = _.throttle(_.debounce(function() {
+            if ($('.zenzaPlaylistShuffleStart').length > 0) {
+              return;
+            }
+
+            var $a = $('a[href*="playlist_type=mylist_playlist"]:first');
+            if ($a.length < 1) { return false; }
+            var a = $a[0];
+            var search = (a.search || '').substr(1);
+            //var query = ZenzaWatch.util.parseQuery(search);
+            //window.console.log(a, query);
+            var css = {
+              'display': 'inline-block',
+              'padding': '8px 6px'
+            };
+            var $shuffle = $(a).clone().text('シャッフル再生');
+            $shuffle.addClass('zenzaPlaylistShuffleStart').attr(
+              'href', '//www.nicovideo.jp/watch/sm20353707?' +
+              search + '&shuffle=1'
+            ).css(css);
+
+            $a.css(css).after($shuffle);
+            return true;
+          }, 100), 1000);
+          if (!addShufflePlaylistLink()) {
+            // マイページのほうはボタンが遅延生成されるためやっかい
+            if (location.pathname.indexOf('/my/mylist') === 0) {
+              $('#myContBody').on('DOMNodeInserted.zenzawatch', addShufflePlaylistLink);
+            }
+          }
+        });
+      }
+
       if (location.host === 'ch.nicovideo.jp') {
         $('#sec_current a.item').closest('li').each((i, li) => {
           var $li = $(li), $img = $li.find('img');

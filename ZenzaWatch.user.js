@@ -13234,8 +13234,18 @@ spacer {
       if (this._videoWatchOptions.isPlaylistStartRequest()) {
         this._initializePlaylist();
 
-        var opt = this._videoWatchOptions.getMylistLoadOptions();
-        this._playlist.loadFromMylist(opt.group_id, opt);
+        var option = this._videoWatchOptions.getMylistLoadOptions();
+        var query = this._videoWatchOptions.getQuery();
+
+        // 通常時はプレイリストの置き換え、
+        // 連続再生中はプレイリストに追加で読み込む
+        option.append = this.isPlaying() && this._playlist.isEnable();
+
+        // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
+        option.shuffle = parseInt(query.shuffle, 10) === 1;
+        console.log('playlist option:', option);
+
+        this._playlist.loadFromMylist(option.group_id, option);
         this._playlist.toggleEnable(true);
       } else if (PlaylistSession.isExist() && !this._playlist) {
         this._initializePlaylist();
@@ -16957,6 +16967,43 @@ spacer {
           $a.attr('href', replaced);
         }
       });
+
+
+      // マイリストページの連続再生ボタン横に「シャッフル再生」を追加する
+      if (window.Nico) {
+        window.Nico.onReady(function() {
+          var addShufflePlaylistLink = _.throttle(_.debounce(function() {
+            if ($('.zenzaPlaylistShuffleStart').length > 0) {
+              return;
+            }
+
+            var $a = $('a[href*="playlist_type=mylist_playlist"]:first');
+            if ($a.length < 1) { return false; }
+            var a = $a[0];
+            var search = (a.search || '').substr(1);
+            //var query = ZenzaWatch.util.parseQuery(search);
+            //window.console.log(a, query);
+            var css = {
+              'display': 'inline-block',
+              'padding': '8px 6px'
+            };
+            var $shuffle = $(a).clone().text('シャッフル再生');
+            $shuffle.addClass('zenzaPlaylistShuffleStart').attr(
+              'href', '//www.nicovideo.jp/watch/sm20353707?' +
+              search + '&shuffle=1'
+            ).css(css);
+
+            $a.css(css).after($shuffle);
+            return true;
+          }, 100), 1000);
+          if (!addShufflePlaylistLink()) {
+            // マイページのほうはボタンが遅延生成されるためやっかい
+            if (location.pathname.indexOf('/my/mylist') === 0) {
+              $('#myContBody').on('DOMNodeInserted.zenzawatch', addShufflePlaylistLink);
+            }
+          }
+        });
+      }
 
       if (location.host === 'ch.nicovideo.jp') {
         $('#sec_current a.item').closest('li').each((i, li) => {
