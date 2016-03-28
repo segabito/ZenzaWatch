@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {}
 };
 var AsyncEmitter = function() {};
+var StoryBoard = function() {};
 
 //===BEGIN===
 
@@ -828,7 +829,9 @@ var AsyncEmitter = function() {};
       var $view = this._$view = $(VideoControlBar.__tpl__);
       var $container = this._$playerContainer;
       var config = this._playerConfig;
-      var self = this;
+      var onCommand = function(command, param) {
+        this.emit('command', command, param);
+      }.bind(this);
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
@@ -841,12 +844,12 @@ var AsyncEmitter = function() {};
       });
 
       this._$seekBar
-        .on('mousedown', _.bind(this._onSeekBarMouseDown, this))
-        .on('mousemove', _.bind(this._onSeekBarMouseMove, this))
-        .on('mousemove', _.debounce(_.bind(this._onSeekBarMouseMoveEnd, this), 1000));
+        .on('mousedown', this._onSeekBarMouseDown.bind(this))
+        .on('mousemove', this._onSeekBarMouseMove.bind(this))
+        .on('mousemove', _.debounce(this._onSeekBarMouseMoveEnd.bind(this), 1000));
 
       $view.find('.controlButton')
-        .on('click', _.bind(this._onControlButton, this));
+        .on('click', this._onControlButton.bind(this));
 
       this._$currentTime = $view.find('.currentTime');
       this._$duration    = $view.find('.duration');
@@ -855,28 +858,34 @@ var AsyncEmitter = function() {};
         $container: this._$seekBarContainer.find('.seekBar')
       });
       var updateHeatMapVisibility = function(v) {
-        self._$seekBarContainer.toggleClass('noHeatMap', !v);
-      };
+        this._$seekBarContainer.toggleClass('noHeatMap', !v);
+      }.bind(this);
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
       this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
 
+      this._storyBoard = new StoryBoard({
+        playerConfig: config,
+        player: this._player
+      });
+
+      this._storyBoard.on('command', onCommand);
+
       this._seekBarToolTip = new SeekBarToolTip({
-        $container: this._$seekBarContainer
+        $container: this._$seekBarContainer,
+        storyBoard: this._storyBoard
       });
-      this._seekBarToolTip.on('command', function(command, param) {
-        self.emit('command', command, param);
-      });
+      this._seekBarToolTip.on('command', onCommand);
+
 
       this._commentPreview = new CommentPreview({
         $container: this._$seekBarContainer
       });
-      this._commentPreview.on('command', function(command, param) {
-        self.emit('command', command, param);
-      });
+      this._commentPreview.on('command', onCommand);
       var updateEnableCommentPreview = function(v) {
-        self._$seekBarContainer.toggleClass('enablePreview', v);
-        self._commentPreview.setIsEnable(v);
-      };
+        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
+        this._commentPreview.setIsEnable(v);
+      }.bind(this);
+
       updateEnableCommentPreview(config.getValue('enableCommentPreview'));
       config.on('update-enableCommentPreview', updateEnableCommentPreview);
 
@@ -886,10 +895,10 @@ var AsyncEmitter = function() {};
       this._$playbackRateMenu       = $view.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
 
-      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
+      ZenzaWatch.emitter.on('hideHover', function() {
         this._hideMenu();
         this._commentPreview.hide();
-      }, this));
+      }.bind(this));
 
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
@@ -1088,11 +1097,13 @@ var AsyncEmitter = function() {};
       this.setDuration(0);
       this.setCurrentTime(0);
       this._heatMap.reset();
+      this._storyBoard.reset();
       this.resetBufferedRange();
     },
-    _onPlayerCanPlay: function() {
+    _onPlayerCanPlay: function(watchId, videoInfo) {
       var duration = this._player.getDuration();
       this.setDuration(duration);
+      this._storyBoard.onVideoCanPlay(watchId, videoInfo);
 
       this._heatMap.setDuration(duration);
     },
@@ -1548,7 +1559,7 @@ var AsyncEmitter = function() {};
       background: rgba(0, 0, 0, 0.8);
     }
 
-    .seekBarContainer.enablePreview:hover .zenzaCommentPreview.show {
+    .seekBarContainer.enableCommentPreview:hover .zenzaCommentPreview.show {
       display: block;
     }
     .zenzaCommentPreview.show:hover {
@@ -1897,14 +1908,14 @@ var AsyncEmitter = function() {};
       opacity: 0.5;
     }
 
-    .enablePreview .seekBarToolTip .controlButton.enableCommentPreview {
+    .enableCommentPreview .seekBarToolTip .controlButton.enableCommentPreview {
       opacity: 1;
     }
   */});
   SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="seekBarToolTip">
       <div class="seekBarToolTipInner">
-
+        <div class="seekBarThumbnailContainer"></div>
         <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
           <div class="controlButtonInner">⇦</div>
         </div>
@@ -1924,12 +1935,12 @@ var AsyncEmitter = function() {};
   _.assign(SeekBarToolTip .prototype, {
     initialize: function(params) {
       this._$container = params.$container;
+      this._storyBoard = params.storyBoard;
       this._initializeDom(params.$container);
     },
     _initializeDom: function($container) {
       ZenzaWatch.util.addStyle(SeekBarToolTip.__css__);
       var $view = this._$view = $(SeekBarToolTip.__tpl__);
-      var self = this;
 
       this._$currentTime = $view.find('.currentTime');
 
@@ -1938,8 +1949,13 @@ var AsyncEmitter = function() {};
         var $target = $(e.target).closest('.controlButton');
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param');
-        self.emit('command', command, param);
+        this.emit('command', command, param);
+      }.bind(this));
+
+      this._seekBarThumbnail = this._storyBoard.getSeekBarThumbnail({
+        $container: $view.find('.seekBarThumbnailContainer')
       });
+
 
       $container.append($view);
     },
@@ -1955,6 +1971,7 @@ var AsyncEmitter = function() {};
         left = Math.max(0, Math.min(left - w / 2, vw - w));
         this._$view.css('left', left);
       }
+      this._seekBarThumbnail.setCurrentTime(sec);
     }
   });
 

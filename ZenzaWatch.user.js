@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.12.6
+// @version        0.13.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -251,6 +251,7 @@ var monkey = function() {
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
+        enableStoryBoard: false, // シークバーサムネイル関連
 
         forceEconomy: false,
         // NG設定
@@ -2752,7 +2753,10 @@ var monkey = function() {
         this._loaderWindow.location.href = this._baseUrl + '#' + TOKEN;
       },
       _onMessage: function(data, type) {
-        if (type !== this._type) { return; }
+        if (type !== this._type) {
+          //window.console.info('invalid type', type, this._type, data);
+          return;
+        }
         var info      = data.message;
         var token     = info.token;
         var sessionId = info.sessionId;
@@ -2923,12 +2927,12 @@ var monkey = function() {
         }
 
         var baseUrl = '//' + server + '/smile?i=' + fileId;
-        window.console.log('create CrossDomainGate: ', server, baseUrl);
+        //window.console.log('create CrossDomainGate: ', server, baseUrl);
 
         crossDomainGates[server] = new CrossDomainGate({
           baseUrl: baseUrl,
           origin: 'http://' + server + '/',
-          type: 'storyboard',
+          type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
           messager: WindowMessageEmitter
         });
 
@@ -2941,29 +2945,29 @@ var monkey = function() {
         });
       };
 
-      var parseStoryboard = function($storyboard, url) {
-        var storyboardId = $storyboard.attr('id') || '1';
+      var parseStoryBoard = function($storyBoard, url) {
+        var storyBoardId = $storyBoard.attr('id') || '1';
         return {
-          id:       storyboardId,
-          url:      url.replace('sb=1', 'sb=' + storyboardId),
+          id:       storyBoardId,
+          url:      url.replace('sb=1', 'sb=' + storyBoardId),
           thumbnail:{
-            width:    $storyboard.find('thumbnail_width').text(),
-            height:   $storyboard.find('thumbnail_height').text(),
-            number:   $storyboard.find('thumbnail_number').text(),
-            interval: $storyboard.find('thumbnail_interval').text()
+            width:    $storyBoard.find('thumbnail_width').text(),
+            height:   $storyBoard.find('thumbnail_height').text(),
+            number:   $storyBoard.find('thumbnail_number').text(),
+            interval: $storyBoard.find('thumbnail_interval').text()
           },
           board: {
-            rows:   $storyboard.find('board_rows').text(),
-            cols:   $storyboard.find('board_cols').text(),
-            number: $storyboard.find('board_number').text()
+            rows:   $storyBoard.find('board_rows').text(),
+            cols:   $storyBoard.find('board_cols').text(),
+            number: $storyBoard.find('board_number').text()
           }
         };
       };
 
       var parseXml = function(xml, url) {
-        var $xml = $(xml), $storyboard = $xml.find('storyboard');
+        var $xml = $(xml), $storyBoard = $xml.find('storyboard');
 
-        if ($storyboard.length < 1) {
+        if ($storyBoard.length < 1) {
           return null;
         }
 
@@ -2973,14 +2977,14 @@ var monkey = function() {
           url:      url,
           movieId:  $xml.find('movie').attr('id'),
           duration: $xml.find('duration').text(),
-          storyboard: []
+          storyBoard: []
         };
 
-        for (var i = 0, len = $storyboard.length; i < len; i++) {
-          var sbInfo = parseStoryboard($($storyboard[i]), url);
-          info.storyboard.push(sbInfo);
+        for (var i = 0, len = $storyBoard.length; i < len; i++) {
+          var sbInfo = parseStoryBoard($($storyBoard[i]), url);
+          info.storyBoard.push(sbInfo);
         }
-        info.storyboard.sort(function(a, b) {
+        info.storyBoard.sort(function(a, b) {
           var idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
           return (idA < idB) ? 1 : -1;
         });
@@ -3018,7 +3022,7 @@ var monkey = function() {
             } else {
               reject({
                 status: 'fail',
-                message: 'storyboard not exist (1)',
+                message: 'storyBoard not exist (1)',
                 result: result,
                 url: url
               });
@@ -3026,7 +3030,7 @@ var monkey = function() {
           }, function(err) {
             reject({
               status: 'fail',
-              message: 'storyboard not exist (2)',
+              message: 'storyBoard not exist (2)',
               result: err,
               url: url
             });
@@ -4119,14 +4123,457 @@ var monkey = function() {
 
 
 /*
-// マスコットキャラクターのサムネーヨちゃん
-　∧ ∧　 　 　┌─────────────
-　( ´ー｀)　　 ＜　サムネーヨ
- 　＼　< 　　　 └───/|────────
+// マスコットキャラクターのサムネーヨちゃん サムネイルがない時にあらわれる
+　 ∧  ∧　  　┌────────────
+　( ´ー｀)　 ＜　サムネーヨ
+ 　＼　< 　　　└───/|────────
 　　　＼.＼＿＿＿＿__／/
-　　　　 ＼　　　　　　　／
-　　　　　　∪∪￣∪∪
+　　　　 ＼　　　　　／
+　　　　　 ∪∪￣∪∪
 */
+
+
+
+  var StoryBoardModel = function() { this.initialize.apply(this, arguments); };
+  _.extend(StoryBoardModel.prototype, AsyncEmitter.prototype);
+
+  _.assign(StoryBoardModel.prototype,{
+      initialize: function(params) {
+        //this._isEnabled       = params.isEnabled;
+      },
+      _createBlankData: function(info) {
+        _.assign(info, {
+          duration: 1,
+          url: '',
+          storyBoard: [{
+            id: 1,
+            url: '',
+            thumbnail: {
+              width: 1,
+              height: 1,
+              number: 1,
+              interval: 1
+            },
+            board: {
+              rows: 1,
+              cols: 1,
+              number: 1
+            }
+          }]
+        });
+        return info;
+      },
+
+      update: function(info) {
+        if (!info || info.status !== 'ok') {
+          this._info = this._createBlankData();
+          this._isEnabled = false;
+        } else {
+          this._info = info;
+          this._isEnabled = true;
+        }
+
+        this.emitAsync('update');
+      },
+
+      reset: function() {
+        this._isEnabled = false;
+        this.emitAsync('reset');
+      },
+
+      unload: function() {
+        this._isEnabled = false;
+        this.emitAsync('unload');
+      },
+
+      isEnabled: function() {
+        return !!this._isEnabled;
+      },
+
+      hasSubStoryBoard: function() {
+        return this._info.storyBoard.length > 1;
+      },
+
+      getStatus:   function() { return this._info.status; },
+      getMessage:  function() { return this._info.message; },
+      getDuration: function() { return parseInt(this._info.duration, 10); },
+
+      getUrl: function(i) { return this._info.storyBoard[i || 0].url; },
+      getWidth:
+        function(i) { return parseInt(this._info.storyBoard[i || 0].thumbnail.width, 10); },
+      getHeight:
+        function(i) { return parseInt(this._info.storyBoard[i || 0].thumbnail.height, 10); },
+      getInterval:
+        function(i) { return parseInt(this._info.storyBoard[i || 0].thumbnail.interval, 10); },
+      getCount: function(i) {
+        return Math.max(
+          Math.ceil(this.getDuration() / Math.max(0.01, this.getInterval())),
+          parseInt(this._info.storyBoard[i || 0].thumbnail.number, 10)
+        );
+      },
+      getRows: function(i) { return parseInt(this._info.storyBoard[i || 0].board.rows, 10); },
+      getCols: function(i) { return parseInt(this._info.storyBoard[i || 0].board.cols, 10); },
+      getPageCount: function(i) { return parseInt(this._info.storyBoard[i || 0].board.number, 10); },
+      getTotalRows: function(i) {
+        return Math.ceil(this.getCount(i) / this.getCols(i));
+      },
+
+      getPageWidth:    function(i) { return this.getWidth(i)  * this.getCols(i); },
+      getPageHeight:   function(i) { return this.getHeight(i) * this.getRows(i); },
+      getCountPerPage: function(i) { return this.getRows(i)   * this.getCols(i); },
+
+      /**
+       *  nページ目のURLを返す。 ゼロオリジン
+       */
+      getPageUrl: function(page, storyBoardIndex) {
+        page = Math.max(0, Math.min(this.getPageCount(storyBoardIndex) - 1, page));
+        return this.getUrl(storyBoardIndex) + '&board=' + (page + 1);
+      },
+
+      /**
+       * msに相当するサムネは何番目か？を返す
+       */
+      getIndex: function(ms, storyBoardIndex) {
+        // msec -> sec
+        var v = Math.floor(ms / 1000);
+        v = Math.max(0, Math.min(this.getDuration(), v));
+
+        // サムネの総数 ÷ 秒数
+        // Math.maxはゼロ除算対策
+        var n = this.getCount(storyBoardIndex) / Math.max(1, this.getDuration());
+
+        return parseInt(Math.floor(v * n), 10);
+      },
+
+      /**
+       * Indexのサムネイルは何番目のページにあるか？を返す
+       */
+      getPageIndex: function(thumbnailIndex, storyBoardIndex) {
+        var perPage   = this.getCountPerPage(storyBoardIndex);
+        var pageIndex = parseInt(thumbnailIndex / perPage, 10);
+        return Math.max(0, Math.min(this.getPageCount(storyBoardIndex), pageIndex));
+      },
+
+      /**
+       *  msに相当するサムネは何ページの何番目にあるか？を返す
+       */
+      getThumbnailPosition: function(ms, storyBoardIndex) {
+        var thumbnailIndex = this.getIndex(ms, storyBoardIndex);
+        var pageIndex      = this.getPageIndex(thumbnailIndex);
+
+        var mod = thumbnailIndex % this.getCountPerPage(storyBoardIndex);
+        var row = Math.floor(mod / Math.max(1, this.getCols()));
+        var col = mod % this.getRows(storyBoardIndex);
+
+        return {
+          page: pageIndex,
+          index: thumbnailIndex,
+          row: row,
+          col: col
+        };
+      },
+
+      /**
+       * nページ目のx, y座標をmsに変換して返す
+       */
+      getPointms: function(x, y, page, storyBoardIndex) {
+        var width  = Math.max(1, this.getWidth(storyBoardIndex));
+        var height = Math.max(1, this.getHeight(storyBoardIndex));
+        var row = Math.floor(y / height);
+        var col = Math.floor(x / width);
+        var mod = x % width;
+
+
+        // 何番目のサムネに相当するか？
+        var point =
+          page * this.getCountPerPage(storyBoardIndex) +
+          row  * this.getCols(storyBoardIndex)         +
+          col +
+          (mod / width) // 小数点以下は、n番目の左端から何%あたりか
+          ;
+
+        // 全体の何%あたり？
+        var percent = point / Math.max(1, this.getCount(storyBoardIndex));
+        percent = Math.max(0, Math.min(100, percent));
+
+        // msは㍉秒単位なので1000倍
+        return Math.floor(this.getDuration() * percent * 1000);
+      },
+
+      /**
+       * msは何ページ目に当たるか？を返す
+       */
+      getmsPage: function(ms, storyBoardIndex) {
+        var index = this._storyBoard.getIndex(ms, storyBoardIndex);
+        var page  = this._storyBoard.getPageIndex(index, storyBoardIndex);
+
+        return page;
+      },
+
+      /**
+       * nページ目のCols, Rowsがsubではどこになるかを返す
+       */
+      getPointPageColAndRowForSub: function(page, row, col) {
+        var mainPageCount = this.getCountPerPage();
+        var subPageCount  = this.getCountPerPage(1);
+        var mainCols = this.getCols();
+        var subCols = this.getCols(1);
+
+        var mainIndex = mainPageCount * page + mainCols * row + col;
+        var subOffset = mainIndex % subPageCount;
+
+        var subPage = Math.floor(mainIndex / subPageCount);
+        var subRow = Math.floor(subOffset / subCols);
+        var subCol = subOffset % subCols;
+
+        return {
+          page: subPage,
+          row: subRow,
+          col: subCol
+        };
+      }
+
+    });
+
+
+    var SeekBarThumbnail = function() { this.initialize.apply(this, arguments); };
+    SeekBarThumbnail.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+      <div class="zenzaSeekThumbnail">
+        <div class="zenzaSeekThumbnail-image">
+        </div>
+      </div>
+    */});
+    SeekBarThumbnail.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+      .error .zenzaSeekThumbnail,
+      .loading .zenzaSeekThumbnail {
+        display: none !important;
+      }
+
+      .zenzaSeekThumbnail {
+        display: none;
+        pointer-events: none;
+      }
+
+      .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
+        display: block;
+      }
+
+      .zenzaSeekThumbnail-image {
+        margin: 4px;
+        background: none repeat scroll 0 0 #999;
+        border: 1px inset;
+        margin: auto;
+      }
+
+    */});
+    _.extend(SeekBarThumbnail.prototype, AsyncEmitter.prototype);
+    _.assign(SeekBarThumbnail.prototype, {
+      initialize: function(params) {
+        this._model      = params.model;
+        this._$container = params.$container;
+        this._scale      = _.isNumber(params.scale) ? params.scale : 0.8;
+
+        this._preloadImages =
+          _.debounce(this._preloadImages.bind(this), 60 * 1000 * 5);
+        this._model.on('reset',  this._onModelReset.bind(this));
+        this._model.on('update', this._onModelUpdate.bind(this));
+
+        ZenzaWatch.debug.seekBarThumbnail = this;
+      },
+      _onModelUpdate: function() {
+        if (!this._model.isEnabled()) {
+          this._isEnabled = false;
+          this.hide();
+          return;
+        }
+        this.initializeView();
+
+        var model = this._model;
+        this._isEnabled = true;
+        this._colWidth  = model.getWidth();
+        this._rowHeight = model.getHeight();
+        this._$image.css({
+          width:  this._colWidth  * this._scale,
+          height: this._rowHeight * this._scale,
+          'background-size':
+            (model.getCols() * this._colWidth  * this._scale) + 'px ' +
+            (model.getRows() * this._rowHeight * this._scale) + 'px'
+        });
+        //this._$view.css('height', this._rowHeight * this + 4);
+
+        this._preloadImages();
+        this.show();
+      },
+      _onModelReset: function() {
+        this.hide();
+        this._imageUrl = '';
+        if (this._$image) { this._$image.css('background-image', ''); }
+      },
+      _preloadImages: function() {
+        // セッションの有効期限が切れる前に全部の画像をロードしてキャッシュに収めておく
+        // やっておかないと、しばらく放置した時に読み込めない
+        var model = this._model;
+        if (!model.isEnabled()) {
+          return;
+        }
+        var pages = model.getPageCount();
+        var div = document.createElement('div');
+        for (var i = 0; i < pages; i++) {
+          var url = model.getPageUrl(i);
+          var img = document.createElement('img');
+          img.src = url;
+          div.appendChild(img);
+        }
+
+        this._$preloadImageContainer.html(div.innerHTML);
+      },
+      show: function() {
+        if (!this._$view) { return; }
+        this._$view.addClass('show');
+      },
+      hide: function() {
+        if (!this._$view) { return; }
+        this._$view.removeClass('show');
+      },
+      initializeView: function() {
+        this.initializeView = _.noop;
+
+        if (!SeekBarThumbnail.styleAdded) {
+          ZenzaWatch.util.addStyle(SeekBarThumbnail.__css__);
+          SeekBarThumbnail.styleAdded = true;
+        }
+        var $view = this._$view = $(SeekBarThumbnail.__tpl__);
+        this._$image = $view.find('.zenzaSeekThumbnail-image');
+
+        this._$preloadImageContainer =
+          $('<div class="preloadImageContaienr" style="display: none !important;"></div>');
+        $('body').append(this._$preloadImageContainer);
+
+        if (this._$container) {
+          this._$container.append($view);
+        }
+      },
+      setCurrentTime: function(sec) {
+        if (!this._model.isEnabled() || !this._$image) { return; }
+
+        var ms = Math.floor(sec * 1000);
+        var model = this._model;
+        var pos = model.getThumbnailPosition(ms, 0);
+        var url = model.getPageUrl(pos.page);
+        var x = pos.col * this._colWidth  * -1 * this._scale;
+        var y = pos.row * this._rowHeight * -1 * this._scale;
+        var css = {};
+        var updated = false;
+
+        if (this._imageUrl !== url) {
+          css.backgroundImage = 'url(' + url + ')';
+          updated = true;
+        }
+        if (this._imageX !== x || this._imageY !== y) {
+          css.backgroundPosition = x + 'px ' + y + 'px';
+          this._imageX = x;
+          this._imageY = y;
+          updated = true;
+        }
+
+        if (updated) {
+          this._$image.css(css);
+        }
+      }
+    });
+
+    var StoryBoard = function() { this.initialize.apply(this, arguments); };
+    _.extend(StoryBoard.prototype, AsyncEmitter.prototype);
+    _.assign(StoryBoard.prototype, {
+      initialize: function(params) {
+
+        //this._player = params.player;
+        this._playerConfig  = params.playerConfig;
+        this._loader = params.loader || ZenzaWatch.api.StoryBoardInfoLoader;
+        this._isEnable = true;
+        //  _.isBoolean(params.enable) ? params.enable : ZenzaWatch.util.isPremium();
+
+        /*
+        evt.addEventListener('onStoryBoardSelect',
+          this._onStoryBoardSelect.bind(this));
+        */
+        this._initializeStoryBoard();
+        ZenzaWatch.debug.storyBoard = this;
+      },
+
+      _initializeStoryBoard: function() {
+        this._initializeStoryBoard = _.noop;
+
+        if (!this._model) {
+          this._model = new StoryBoardModel({
+          });
+        }
+        //if (!this._view) {
+        //  this._view = StoryBoardView({
+        //    model: this._model,
+        //    frameSkip: this._playerConfig.get('frameSkip')
+        //  });
+        //}
+      },
+      reset: function() {
+        this._model.reset();
+      },
+      onVideoCanPlay: function(watchId, videoInfo) {
+        if (!this._isEnable) { return; }
+        if (!ZenzaWatch.util.isPremium()) { return; }
+        if (!this._playerConfig.getValue('enableStoryBoard')) { return; }
+
+        var url = videoInfo.getVideoUrl();
+        if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
+          return;
+        }
+
+        this._initializeStoryBoard();
+        this._watchId = watchId;
+        ZenzaWatch.api.StoryBoardInfoLoader.load(url).then(
+          this._onStoryBoardInfoLoad.bind(this),
+          this._onStoryBoardInfoLoadFail.bind(this)
+        );
+      },
+      _onStoryBoardInfoLoad: function(info) {
+        window.console.log('onStoryBoardInfoLoad', info);
+        this._model.update(info);
+      },
+      _onStoryBoardInfoLoadFail: function(err) {
+        window.console.log('onStoryBoardInfoFail', err);
+      },
+
+      getSeekBarThumbnail: function(params) {
+        if (this._seekBarThumbnail) {
+          return this._seekBarThumbnail;
+        }
+        this._seekBarThumbnail = new SeekBarThumbnail({
+          model: this._model,
+          $container: params.$container
+        });
+        return this._seekBarThumbnail;
+      },
+
+      _onStoryBoardSelect: function(ms) {
+        window.console.log('_onStoryBoardSelect: ', ms);
+        //this._watchController.setms(ms);
+        this._emit('command', 'seek', ms / 100);
+      },
+
+      toggleEnable: function(v) {
+        if (!_.isBoolean(v)) {
+          this._isEnable = !this._isEnable;
+          this.emit('update');
+          return;
+        }
+
+        if (this._isEnable !== v) {
+          this._isEnable = v;
+          this.emit('update');
+        }
+      }
+    });
+
 
 
 
@@ -4950,7 +5397,9 @@ var monkey = function() {
       var $view = this._$view = $(VideoControlBar.__tpl__);
       var $container = this._$playerContainer;
       var config = this._playerConfig;
-      var self = this;
+      var onCommand = function(command, param) {
+        this.emit('command', command, param);
+      }.bind(this);
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
@@ -4963,12 +5412,12 @@ var monkey = function() {
       });
 
       this._$seekBar
-        .on('mousedown', _.bind(this._onSeekBarMouseDown, this))
-        .on('mousemove', _.bind(this._onSeekBarMouseMove, this))
-        .on('mousemove', _.debounce(_.bind(this._onSeekBarMouseMoveEnd, this), 1000));
+        .on('mousedown', this._onSeekBarMouseDown.bind(this))
+        .on('mousemove', this._onSeekBarMouseMove.bind(this))
+        .on('mousemove', _.debounce(this._onSeekBarMouseMoveEnd.bind(this), 1000));
 
       $view.find('.controlButton')
-        .on('click', _.bind(this._onControlButton, this));
+        .on('click', this._onControlButton.bind(this));
 
       this._$currentTime = $view.find('.currentTime');
       this._$duration    = $view.find('.duration');
@@ -4977,28 +5426,34 @@ var monkey = function() {
         $container: this._$seekBarContainer.find('.seekBar')
       });
       var updateHeatMapVisibility = function(v) {
-        self._$seekBarContainer.toggleClass('noHeatMap', !v);
-      };
+        this._$seekBarContainer.toggleClass('noHeatMap', !v);
+      }.bind(this);
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
       this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
 
+      this._storyBoard = new StoryBoard({
+        playerConfig: config,
+        player: this._player
+      });
+
+      this._storyBoard.on('command', onCommand);
+
       this._seekBarToolTip = new SeekBarToolTip({
-        $container: this._$seekBarContainer
+        $container: this._$seekBarContainer,
+        storyBoard: this._storyBoard
       });
-      this._seekBarToolTip.on('command', function(command, param) {
-        self.emit('command', command, param);
-      });
+      this._seekBarToolTip.on('command', onCommand);
+
 
       this._commentPreview = new CommentPreview({
         $container: this._$seekBarContainer
       });
-      this._commentPreview.on('command', function(command, param) {
-        self.emit('command', command, param);
-      });
+      this._commentPreview.on('command', onCommand);
       var updateEnableCommentPreview = function(v) {
-        self._$seekBarContainer.toggleClass('enablePreview', v);
-        self._commentPreview.setIsEnable(v);
-      };
+        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
+        this._commentPreview.setIsEnable(v);
+      }.bind(this);
+
       updateEnableCommentPreview(config.getValue('enableCommentPreview'));
       config.on('update-enableCommentPreview', updateEnableCommentPreview);
 
@@ -5008,10 +5463,10 @@ var monkey = function() {
       this._$playbackRateMenu       = $view.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
 
-      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
+      ZenzaWatch.emitter.on('hideHover', function() {
         this._hideMenu();
         this._commentPreview.hide();
-      }, this));
+      }.bind(this));
 
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
@@ -5210,11 +5665,13 @@ var monkey = function() {
       this.setDuration(0);
       this.setCurrentTime(0);
       this._heatMap.reset();
+      this._storyBoard.reset();
       this.resetBufferedRange();
     },
-    _onPlayerCanPlay: function() {
+    _onPlayerCanPlay: function(watchId, videoInfo) {
       var duration = this._player.getDuration();
       this.setDuration(duration);
+      this._storyBoard.onVideoCanPlay(watchId, videoInfo);
 
       this._heatMap.setDuration(duration);
     },
@@ -5670,7 +6127,7 @@ var monkey = function() {
       background: rgba(0, 0, 0, 0.8);
     }
 
-    .seekBarContainer.enablePreview:hover .zenzaCommentPreview.show {
+    .seekBarContainer.enableCommentPreview:hover .zenzaCommentPreview.show {
       display: block;
     }
     .zenzaCommentPreview.show:hover {
@@ -6019,14 +6476,14 @@ var monkey = function() {
       opacity: 0.5;
     }
 
-    .enablePreview .seekBarToolTip .controlButton.enableCommentPreview {
+    .enableCommentPreview .seekBarToolTip .controlButton.enableCommentPreview {
       opacity: 1;
     }
   */});
   SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="seekBarToolTip">
       <div class="seekBarToolTipInner">
-
+        <div class="seekBarThumbnailContainer"></div>
         <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
           <div class="controlButtonInner">⇦</div>
         </div>
@@ -6046,12 +6503,12 @@ var monkey = function() {
   _.assign(SeekBarToolTip .prototype, {
     initialize: function(params) {
       this._$container = params.$container;
+      this._storyBoard = params.storyBoard;
       this._initializeDom(params.$container);
     },
     _initializeDom: function($container) {
       ZenzaWatch.util.addStyle(SeekBarToolTip.__css__);
       var $view = this._$view = $(SeekBarToolTip.__tpl__);
-      var self = this;
 
       this._$currentTime = $view.find('.currentTime');
 
@@ -6060,8 +6517,13 @@ var monkey = function() {
         var $target = $(e.target).closest('.controlButton');
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param');
-        self.emit('command', command, param);
+        this.emit('command', command, param);
+      }.bind(this));
+
+      this._seekBarThumbnail = this._storyBoard.getSeekBarThumbnail({
+        $container: $view.find('.seekBarThumbnailContainer')
       });
+
 
       $container.append($view);
     },
@@ -6077,6 +6539,7 @@ var monkey = function() {
         left = Math.max(0, Math.min(left - w / 2, vw - w));
         this._$view.css('left', left);
       }
+      this._seekBarThumbnail.setCurrentTime(sec);
     }
   });
 
@@ -6242,10 +6705,10 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
         .replace(/([^\x01-\x7E^\xA0]+)/g, '<group>$1</group>')
         .replace(/([\u0020]+)/g, // '<span class="han_space type0020">$1</span>')
 
-          function(g) { return '<span class="han_space type0020">'+ S.repeat(g.length) + '</span>'; } )
+          function(g) { return '<span class="han_space type0020">'+ _.repeat(S, g.length) + '</span>'; } )
           //'<span class="han_space type0020">$1</span>')
         .replace(/([\u00A0]+)/g, //  '<span class="han_space type00A0">$1</span>')
-          function(g) { return '<span class="han_space type00A0">'+ S.repeat(g.length) + '</span>'; } )
+          function(g) { return '<span class="han_space type00A0">'+ _.repeat(S, g.length) + '</span>'; } )
         .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>')
         .replace(/[\t]/g ,      '^');
 
@@ -6323,7 +6786,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
         //  .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
         // 全角スペース
           .replace(/([\u3000]+)/g , //'<span class="zen_space type3000">$1</span>')
-            function(g) { return '<span class="zen_space type3000">'+ S.repeat(g.length) + '</span>'; } )
+            function(g) { return '<span class="zen_space type3000">'+ _.repeat(S, g.length) + '</span>'; } )
         // バックスラッシュ
           .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
         // ゼロ幅文字. ゼロ幅だけどdisplay: none; にすると狂う
@@ -12252,6 +12715,7 @@ spacer {
         var lastWatchId = this._playerConfig.getValue('lastWatchId');
         if (name === 'RE_OPEN' && lastWatchId) {
           this.open(lastWatchId);
+          e.preventDefault();
         }
         return;
       }
@@ -12405,8 +12869,9 @@ spacer {
       // 連続再生中はプレイリストに追加で読み込む
       option.append = this._playlist.isEnable();
 
+      var query = this._videoWatchOptions.getQuery();
       // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
-      option.shuffle = this._watchId === 'sm20353707'; // せめて定数にしろよ
+      option.shuffle = parseInt(query.shuffle, 10) === 1;
 
       this._playlist.loadFromMylist(mylistId, option).then((result) => {
         PopupMessage.notify(result.message);
@@ -14465,11 +14930,12 @@ spacer {
     {* mix-blend-mode使ってみたかっただけ。 飽きたら消す。 *}
     .zenzaSettingPanelShadow1.show {
       background: #88c;
-      mix-blend-mode: difference;
+      {*mix-blend-mode: difference;*}
+      display: none;
     }
     .zenzaSettingPanelShadow2.show {
       background: #000;
-      opacity: 0.5;
+      opacity: 0.8;
     }
 
     .zenzaSettingPanel .settingPanelInner {
@@ -14739,8 +15205,15 @@ spacer {
         </div>
         -->
 
-         <!--
-        <p class="caption">開発中・テスト関係の項目</p>
+        <p class="caption">開発中・テスト中の項目</p>
+        <div class="overrideWatchLinkControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
+            シークバーにサムネイルを表示 (重いかも)
+          </label>
+        </div>
+
+        <!--
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">
@@ -14858,6 +15331,7 @@ spacer {
         case 'enableHeatMap':
         case 'showComment':
         case 'autoFullScreen':
+        case 'enableStoryBoard':
         case 'debug':
           this._$panel
             .find('.' + key + 'Control').toggleClass('checked', value)
@@ -17265,12 +17739,12 @@ spacer {
       return;
     }
 
-    var type = 'storyboard';
+    var type = window.name.replace(/Loader$/, '');
     var token = location.hash ? location.hash.substr(1) : null;
 
 
     window.addEventListener('message', function(event) {
-      window.console.log('StoryBoardLoaderWindow.onMessage', event.data);
+      //window.console.log('StoryBoardLoaderWindow.onMessage', event.data, type);
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       //var command = data.command;
 
@@ -17279,11 +17753,12 @@ spacer {
 
       if (!data.url) { return; }
       var sessionId = data.sessionId;
+      window.console.log('StoryBoardLoaderWindow.load', data.url, type);
 
       xmlHttpRequest({
         url: data.url,
         onload: function(resp) {
-          window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp);
+          //window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp, type);
 
           if (isTimeout) { return; }
           else { window.clearTimeout(timeoutTimer); }
@@ -17318,6 +17793,7 @@ spacer {
     });
 
     try {
+      //window.console.log('%cpost initialized:', 'font-weight: bolder;', type);
       postMessage(type, { status: 'initialized' });
     } catch (e) {
       console.log('err', e);

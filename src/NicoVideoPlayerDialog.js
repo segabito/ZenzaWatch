@@ -1061,6 +1061,7 @@ var Playlist = function() {};
         var lastWatchId = this._playerConfig.getValue('lastWatchId');
         if (name === 'RE_OPEN' && lastWatchId) {
           this.open(lastWatchId);
+          e.preventDefault();
         }
         return;
       }
@@ -1214,8 +1215,9 @@ var Playlist = function() {};
       // 連続再生中はプレイリストに追加で読み込む
       option.append = this._playlist.isEnable();
 
+      var query = this._videoWatchOptions.getQuery();
       // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
-      option.shuffle = this._watchId === 'sm20353707'; // せめて定数にしろよ
+      option.shuffle = parseInt(query.shuffle, 10) === 1;
 
       this._playlist.loadFromMylist(mylistId, option).then((result) => {
         PopupMessage.notify(result.message);

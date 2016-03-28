@@ -69,11 +69,12 @@ var AsyncEmitter = function() {};
     {* mix-blend-mode使ってみたかっただけ。 飽きたら消す。 *}
     .zenzaSettingPanelShadow1.show {
       background: #88c;
-      mix-blend-mode: difference;
+      {*mix-blend-mode: difference;*}
+      display: none;
     }
     .zenzaSettingPanelShadow2.show {
       background: #000;
-      opacity: 0.5;
+      opacity: 0.8;
     }
 
     .zenzaSettingPanel .settingPanelInner {
@@ -343,8 +344,15 @@ var AsyncEmitter = function() {};
         </div>
         -->
 
-         <!--
-        <p class="caption">開発中・テスト関係の項目</p>
+        <p class="caption">開発中・テスト中の項目</p>
+        <div class="overrideWatchLinkControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
+            シークバーにサムネイルを表示 (重いかも)
+          </label>
+        </div>
+
+        <!--
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">
@@ -462,6 +470,7 @@ var AsyncEmitter = function() {};
         case 'enableHeatMap':
         case 'showComment':
         case 'autoFullScreen':
+        case 'enableStoryBoard':
         case 'debug':
           this._$panel
             .find('.' + key + 'Control').toggleClass('checked', value)

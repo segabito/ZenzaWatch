@@ -1453,7 +1453,10 @@ var ajax = function() {};
         this._loaderWindow.location.href = this._baseUrl + '#' + TOKEN;
       },
       _onMessage: function(data, type) {
-        if (type !== this._type) { return; }
+        if (type !== this._type) {
+          //window.console.info('invalid type', type, this._type, data);
+          return;
+        }
         var info      = data.message;
         var token     = info.token;
         var sessionId = info.sessionId;
@@ -1624,12 +1627,12 @@ var ajax = function() {};
         }
 
         var baseUrl = '//' + server + '/smile?i=' + fileId;
-        window.console.log('create CrossDomainGate: ', server, baseUrl);
+        //window.console.log('create CrossDomainGate: ', server, baseUrl);
 
         crossDomainGates[server] = new CrossDomainGate({
           baseUrl: baseUrl,
           origin: 'http://' + server + '/',
-          type: 'storyboard',
+          type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
           messager: WindowMessageEmitter
         });
 
@@ -1642,29 +1645,29 @@ var ajax = function() {};
         });
       };
 
-      var parseStoryboard = function($storyboard, url) {
-        var storyboardId = $storyboard.attr('id') || '1';
+      var parseStoryBoard = function($storyBoard, url) {
+        var storyBoardId = $storyBoard.attr('id') || '1';
         return {
-          id:       storyboardId,
-          url:      url.replace('sb=1', 'sb=' + storyboardId),
+          id:       storyBoardId,
+          url:      url.replace('sb=1', 'sb=' + storyBoardId),
           thumbnail:{
-            width:    $storyboard.find('thumbnail_width').text(),
-            height:   $storyboard.find('thumbnail_height').text(),
-            number:   $storyboard.find('thumbnail_number').text(),
-            interval: $storyboard.find('thumbnail_interval').text()
+            width:    $storyBoard.find('thumbnail_width').text(),
+            height:   $storyBoard.find('thumbnail_height').text(),
+            number:   $storyBoard.find('thumbnail_number').text(),
+            interval: $storyBoard.find('thumbnail_interval').text()
           },
           board: {
-            rows:   $storyboard.find('board_rows').text(),
-            cols:   $storyboard.find('board_cols').text(),
-            number: $storyboard.find('board_number').text()
+            rows:   $storyBoard.find('board_rows').text(),
+            cols:   $storyBoard.find('board_cols').text(),
+            number: $storyBoard.find('board_number').text()
           }
         };
       };
 
       var parseXml = function(xml, url) {
-        var $xml = $(xml), $storyboard = $xml.find('storyboard');
+        var $xml = $(xml), $storyBoard = $xml.find('storyboard');
 
-        if ($storyboard.length < 1) {
+        if ($storyBoard.length < 1) {
           return null;
         }
 
@@ -1674,14 +1677,14 @@ var ajax = function() {};
           url:      url,
           movieId:  $xml.find('movie').attr('id'),
           duration: $xml.find('duration').text(),
-          storyboard: []
+          storyBoard: []
         };
 
-        for (var i = 0, len = $storyboard.length; i < len; i++) {
-          var sbInfo = parseStoryboard($($storyboard[i]), url);
-          info.storyboard.push(sbInfo);
+        for (var i = 0, len = $storyBoard.length; i < len; i++) {
+          var sbInfo = parseStoryBoard($($storyBoard[i]), url);
+          info.storyBoard.push(sbInfo);
         }
-        info.storyboard.sort(function(a, b) {
+        info.storyBoard.sort(function(a, b) {
           var idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
           return (idA < idB) ? 1 : -1;
         });
@@ -1719,7 +1722,7 @@ var ajax = function() {};
             } else {
               reject({
                 status: 'fail',
-                message: 'storyboard not exist (1)',
+                message: 'storyBoard not exist (1)',
                 result: result,
                 url: url
               });
@@ -1727,7 +1730,7 @@ var ajax = function() {};
           }, function(err) {
             reject({
               status: 'fail',
-              message: 'storyboard not exist (2)',
+              message: 'storyBoard not exist (2)',
               result: err,
               url: url
             });

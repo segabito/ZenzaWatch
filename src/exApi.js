@@ -433,12 +433,12 @@ var ZenzaWatch = {
       return;
     }
 
-    var type = 'storyboard';
+    var type = window.name.replace(/Loader$/, '');
     var token = location.hash ? location.hash.substr(1) : null;
 
 
     window.addEventListener('message', function(event) {
-      window.console.log('StoryBoardLoaderWindow.onMessage', event.data);
+      //window.console.log('StoryBoardLoaderWindow.onMessage', event.data, type);
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       //var command = data.command;
 
@@ -447,11 +447,12 @@ var ZenzaWatch = {
 
       if (!data.url) { return; }
       var sessionId = data.sessionId;
+      window.console.log('StoryBoardLoaderWindow.load', data.url, type);
 
       xmlHttpRequest({
         url: data.url,
         onload: function(resp) {
-          window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp);
+          //window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp, type);
 
           if (isTimeout) { return; }
           else { window.clearTimeout(timeoutTimer); }
@@ -486,6 +487,7 @@ var ZenzaWatch = {
     });
 
     try {
+      //window.console.log('%cpost initialized:', 'font-weight: bolder;', type);
       postMessage(type, { status: 'initialized' });
     } catch (e) {
       console.log('err', e);
