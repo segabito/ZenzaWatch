@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.13.0
+// @version        0.13.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -4691,6 +4691,13 @@ var monkey = function() {
       white-space: nowrap;
       overflow: visible;
     }
+    .fullScreen .controlItemContainer.center {
+      top: auto;
+      bottom: 0px;
+    }
+
+
+
     .controlItemContainer.center .scalingUI {
       background: #333;
       transform-origin: top center;
@@ -4699,6 +4706,11 @@ var monkey = function() {
     .controlItemContainer.right {
       right: 0;
     }
+    .fullScreen .controlItemContainer.right {
+      top: auto;
+      bottom: 0px;
+    }
+
     .mouseMoving .controlItemContainer.right {
     }
     .mouseMoving .controlItemContainer.right .controlButton{
@@ -4831,6 +4843,11 @@ var monkey = function() {
       width: 100%;
       cursor: pointer;
       z-index: 150;
+    }
+    .fullScreen .seekBarContainer {
+      top: auto;
+      bottom: 0;
+      z-index: 300;
     }
 
     {* 見えないマウス判定 *}

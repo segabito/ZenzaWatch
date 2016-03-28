@@ -123,6 +123,13 @@ var StoryBoard = function() {};
       white-space: nowrap;
       overflow: visible;
     }
+    .fullScreen .controlItemContainer.center {
+      top: auto;
+      bottom: 0px;
+    }
+
+
+
     .controlItemContainer.center .scalingUI {
       background: #333;
       transform-origin: top center;
@@ -131,6 +138,11 @@ var StoryBoard = function() {};
     .controlItemContainer.right {
       right: 0;
     }
+    .fullScreen .controlItemContainer.right {
+      top: auto;
+      bottom: 0px;
+    }
+
     .mouseMoving .controlItemContainer.right {
     }
     .mouseMoving .controlItemContainer.right .controlButton{
@@ -263,6 +275,11 @@ var StoryBoard = function() {};
       width: 100%;
       cursor: pointer;
       z-index: 150;
+    }
+    .fullScreen .seekBarContainer {
+      top: auto;
+      bottom: 0;
+      z-index: 300;
     }
 
     {* 見えないマウス判定 *}
