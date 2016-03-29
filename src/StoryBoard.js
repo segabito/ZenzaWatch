@@ -873,7 +873,7 @@ var AsyncEmitter = function() {};
         var per = ms / (duration * 1000);
         var width = storyBoard.getWidth();
         var boardWidth = storyBoard.getCount() * width;
-        var targetLeft = boardWidth * per;
+        var targetLeft = boardWidth * per - this._$inner.innerWidth() * per;
 
         this.scrollLeft(targetLeft);
       },
