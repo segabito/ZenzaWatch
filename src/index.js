@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.13.1
+// @version        0.14.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -81,6 +81,8 @@ var monkey = function() {
 //@require CommentPlayer.js
 
 //@require VideoList.js
+
+//@require VideoSession.js
 
 //@require NicoVideoPlayerDialog.js
 

@@ -18,6 +18,7 @@ var VideoInfoModel = function() {};
 var CommentInputPanel = function() {};
 var SettingPanel = function() {};
 var Playlist = function() {};
+var VideoSession = function() {};
 
 //===BEGIN===
 
@@ -331,7 +332,7 @@ var Playlist = function() {};
 
     .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
       transform: perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
-      opacity: 1;
+      opacity: 0.9;
       height: 100%;
       margin-left: 20%;
     }
@@ -410,6 +411,13 @@ var Playlist = function() {};
       right:  0 !important;
       bottom: 40px !important;
       border: 0 !important;
+    }
+
+    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
+    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
+    .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .videoPlayer,
+    .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
+      padding-bottom: 96px;
     }
 
     .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
@@ -701,6 +709,7 @@ var Playlist = function() {};
       box-shadow: 8px 8px 4px rgba(128, 0, 0, 0.8);
       white-space: nowrap;
     }
+
 
   */});
 
@@ -1219,13 +1228,14 @@ var Playlist = function() {};
       // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
       option.shuffle = parseInt(query.shuffle, 10) === 1;
 
-      this._playlist.loadFromMylist(mylistId, option).then((result) => {
+      this._playlist.loadFromMylist(mylistId, option).then(function(result) {
         PopupMessage.notify(result.message);
         this._videoInfoPanel.selectTab('playlist');
         this._playlist.insertCurrentVideo(this._videoInfo);
-      }, () => {
+      }.bind(this),
+      function() {
         PopupMessage.alert('マイリストのロード失敗');
-      });
+      }.bind(this));
     },
     _onPlaylistStatusUpdate: function() {
       var playlist = this._playlist;
@@ -1461,7 +1471,15 @@ var Playlist = function() {};
         var videoUrl  = flvInfo.url;
 
         this._videoInfo = new VideoInfoModel(videoInfo);
+        this._videoSession = new VideoSession({
+          videoInfo: this._videoInfo,
+          videoWatchOptions: this._videoWatchOptions
+        });
         this._setThumbnail(videoInfo.thumbnail);
+//        this._videoSession.create().then(function(videoUrl) {
+//          this._nicoVideoPlayer.setVideo(videoUrl);
+//          this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
+//        }.bind(this));
         this._nicoVideoPlayer.setVideo(videoUrl);
         this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
 
@@ -1672,6 +1690,7 @@ var Playlist = function() {};
       }
       this.hide();
       this._refresh();
+      if (this._videoSession) { this._videoSession.close(); }
       this.emit('close');
       ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
     },
@@ -1829,14 +1848,14 @@ var Playlist = function() {};
       timeout = window.setTimeout(_onTimeout, 30000);
 
       text = ZenzaWatch.util.escapeHtml(text);
-      return new Promise((res, rej) => {
+      return new Promise(function(res, rej) {
         resolve = res;
         reject = rej;
         this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
           _onSuccess,
           _onFail1st
         );
-      });
+      }.bind(this));
     },
     getDuration: function() {
       // 動画がプレイ可能≒メタデータパース済みの時はそちらの方が信頼できる

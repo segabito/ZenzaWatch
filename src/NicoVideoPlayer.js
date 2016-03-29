@@ -8,6 +8,7 @@ var ZenzaWatch = {
 var FullScreen = {};
 var NicoCommentPlayer = function() {};
 var AsyncEmitter = function() {};
+var VideoInfoLoader = {};
 
 //===BEGIN===
 

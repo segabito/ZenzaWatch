@@ -686,6 +686,33 @@ var StoryBoard = function() {};
       font-size: 18px;
     }
 
+    .toggleStoryBoard {
+      visibility: hidden;
+      font-size: 13px;
+      {*width: 32px;*}
+      height: 32px;
+      margin-top: -2px;
+      line-height: 30px;
+      pointer-events: none;
+    }
+    .storyBoardAvailable .toggleStoryBoard {
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .zenzaStoryBoardOpen .storyBoardAvailable .toggleStoryBoard {
+      text-shadow: 0px 0px 2px #9cf;
+      color: #9cf;
+    }
+
+    .toggleStoryBoard .controlButtonInner {
+      transform: scaleX(-1);
+    }
+
+    .toggleStoryBoard:active {
+      font-size: 10px;
+    }
+
+
 
 
 
@@ -706,6 +733,11 @@ var StoryBoard = function() {};
 
       <div class="controlItemContainer center">
         <div class="scalingUI">
+          <div class="toggleStoryBoard controlButton playControl" data-command="toggleStoryBoard">
+            <div class="controlButtonInner">＜●＞</div>
+            <div class="tooltip">シーンサーチ</div>
+          </div>
+
           <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
             <div class="controlButtonInner">&#8635;</div>
             <div class="tooltip">リピート</div>
@@ -885,7 +917,8 @@ var StoryBoard = function() {};
 
       this._storyBoard = new StoryBoard({
         playerConfig: config,
-        player: this._player
+        player: this._player,
+        $container: $view
       });
 
       this._storyBoard.on('command', onCommand);
@@ -1056,6 +1089,9 @@ var StoryBoard = function() {};
         case 'playbackRateMenu':
           this.togglePlaybackRateMenu();
           break;
+        case 'toggleStoryBoard':
+          this._storyBoard.toggle();
+          break;
         default:
           this.emit('command', command, param);
           break;
@@ -1148,7 +1184,8 @@ var StoryBoard = function() {};
       this.setBufferedRange(range, currentTime);
     },
     _startTimer: function() {
-      this._timer = window.setInterval(_.bind(this._onTimer, this), 300);
+      this._timerCount = 0;
+      this._timer = window.setInterval(_.bind(this._onTimer, this), 30);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -1217,9 +1254,13 @@ var StoryBoard = function() {};
       $(window).off('blur.ZenzaWatchSeekBar');
     },
     _onTimer: function() {
+      this._timerCount++;
       var player = this._player;
       var currentTime = player.getCurrentTime();
-      this.setCurrentTime(currentTime);
+      if (this._timerCount % 10 === 0) {
+        this.setCurrentTime(currentTime);
+      }
+      this._storyBoard.setCurrentTime(currentTime);
     },
     _onLoadVideoInfo: function(videoInfo) {
       this.setDuration(videoInfo.getDuration());
@@ -1902,7 +1943,8 @@ var StoryBoard = function() {};
       transition: opacity 0.2s ease;
     }
 
-    .seekBarContainer:hover .seekBarToolTip {
+    .dragging                .seekBarToolTip,
+    .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
       pointer-events: none;
     }

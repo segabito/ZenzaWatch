@@ -987,6 +987,8 @@ var RelatedVideoList = function() {};
       display: none;
     }
 
+    .zenzaScreenMode_wide .loading  .zenzaWatchVideoHeaderPanel,
+    .fullScreen           .loading  .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
     .fullScreen           .mouseMoving .zenzaWatchVideoHeaderPanel {
       opacity: 0.5;

@@ -41,7 +41,7 @@ var PopupMessage = {};
       Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
 
       if (this._isUniq) {
-        _.each(itemList, (i) => { this.removeSameWatchId(i); });
+        _.each(itemList, function(i) { this.removeSameWatchId(i); }.bind(this));
       }
 
       this._items.splice(this._maxItems);
@@ -56,7 +56,7 @@ var PopupMessage = {};
       this._items = this._items.concat(itemList);
 
       if (this._isUniq) {
-        _.each(itemList, (i) => { this.removeSameWatchId(i); });
+        _.each(itemList, function(i) { this.removeSameWatchId(i); }.bind(this));
       }
 
       while (this._items.length > this._maxItems) { this._items.shift(); }
@@ -119,7 +119,7 @@ var PopupMessage = {};
     },
     findByItemId: function(itemId) {
       itemId = parseInt(itemId, 10);
-      return _.find(this._items, (item) => {
+      return _.find(this._items, function(item) {
         if (item.getItemId() === itemId) {
           if (!item.hasBind) {
             item.hasBind = true;
@@ -127,11 +127,11 @@ var PopupMessage = {};
           }
           return true;
         }
-      });
+      }.bind(this));
     },
     findByWatchId: function(watchId) {
       watchId = watchId + '';
-      return _.find(this._items, (item) => {
+      return _.find(this._items, function(item) {
         if (item.getWatchId() === watchId) {
           if (!item.hasBind) {
             item.hasBind = true;
@@ -139,7 +139,7 @@ var PopupMessage = {};
           }
           return true;
         }
-      });
+      }.bind(this));
     },
     removeItem: function(item) {
       var beforeLen = this._items.length;
@@ -513,9 +513,9 @@ var PopupMessage = {};
             $item.remove();
             this.emit('command', command, param, itemId);
             //$item.addClass('deleting');
-            //window.setTimeout(() => {
+            //window.setTimeout(function() {
             //  this.emit('command', command, param, itemId);
-            //}, 300);
+            //}.bind(this), 300);
             break;
           default:
             this.emit('command', command, param, itemId);
@@ -1209,14 +1209,14 @@ var PopupMessage = {};
 
       var onSuccess = _.bind(this._onDeflistAddSuccess, this, timer, unlock);
       var onFail    = _.bind(this._onDeflistAddFail,    this, timer, unlock);
-      return this._thumbInfoLoader.load(watchId).then((info) => {
+      return this._thumbInfoLoader.load(watchId).then(function(info) {
         var description = '投稿者: ' + info.owner.name;
         return this._mylistApiLoader.addDeflistItem(watchId, description)
           .then(onSuccess, onFail);
-      }, () => {
+      }.bind(this), function() {
         return this._mylistApiLoader.addDeflistItem(watchId)
           .then(onSuccess, onFail);
-      });
+      }.bind(this));
     },
     _onDeflistAddSuccess: function(timer, unlock, result) {
       window.clearTimeout(timer);
@@ -1482,7 +1482,7 @@ var PopupMessage = {};
         case 'sortBy':
           var $view = this._$view;
           $view.addClass('shuffle');
-          window.setTimeout(() => { this._$view.removeClass('shuffle'); }, 1000);
+          window.setTimeout(function() { this._$view.removeClass('shuffle'); }.bind(this), 1000);
           this.emit('command', command, param);
           break;
         default:
@@ -1732,7 +1732,7 @@ var PopupMessage = {};
 
       var model = this._model;
       var index = this._index;
-      return this._thumbInfoLoader.load(watchId).then((info) => {
+      return this._thumbInfoLoader.load(watchId).then(function (info) {
          // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         info.id = watchId;
         var item = VideoListItem.createByThumbInfo(info);
@@ -1747,8 +1747,8 @@ var PopupMessage = {};
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );
-      },
-      (result) => {
+      }.bind(this),
+      function(result) {
         var item = VideoListItem.createBlankInfo(watchId);
         model.insertItem(item, index + 1);
         this._refreshIndex(true);
@@ -1757,7 +1757,7 @@ var PopupMessage = {};
 
         window.console.error(result);
         this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
-      });
+      }.bind(this));
     },
     insertCurrentVideo: function(videoInfo) {
       this._initializeView();
@@ -1796,7 +1796,7 @@ var PopupMessage = {};
       if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }
 
       var model = this._model;
-      return this._thumbInfoLoader.load(watchId).then((info) => {
+      return this._thumbInfoLoader.load(watchId).then(function(info) {
          // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         info.id = watchId;
         var item = VideoListItem.createByThumbInfo(info);
@@ -1809,8 +1809,8 @@ var PopupMessage = {};
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );
-      },
-      (result) => {
+      }.bind(this),
+      function(result) {
         var item = VideoListItem.createBlankInfo(watchId);
         model.appendItem(item);
         this._refreshIndex(true);
@@ -1818,7 +1818,7 @@ var PopupMessage = {};
 
         window.console.error(result);
         this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
-      });
+      }.bind(this));
     },
     getIndex: function() {
       return this._activeItem ? this._index : -1;

@@ -45,13 +45,13 @@ var AsyncEmitter = function() {};
     };
 
     var replaceRedirectLinks = function() {
-      $('a[href*="www.flog.jp/j.php/http://"]').each((i, a) => {
+      $('a[href*="www.flog.jp/j.php/http://"]').each(function (i, a) {
         var $a = $(a), href = $a.attr('href');
         var replaced = href.replace(/^.*https?:/, '');
         $a.attr('href', replaced);
       });
 
-      $('a[href*="rd.nicovideo.jp/cc/"]').each((i, a) => {
+      $('a[href*="rd.nicovideo.jp/cc/"]').each(function (i, a) {
         var $a = $(a), href = $a.attr('href');
         if (href.match(/cc_video_id=([a-z0-9+]+)/)) {
           var watchId = RegExp.$1;
@@ -63,7 +63,7 @@ var AsyncEmitter = function() {};
 
 
       // マイリストページの連続再生ボタン横に「シャッフル再生」を追加する
-      if (window.Nico) {
+      if (window.Nico && window.Nico.onReady) {
         window.Nico.onReady(function() {
           var addShufflePlaylistLink = _.throttle(_.debounce(function() {
             if ($('.zenzaPlaylistShuffleStart').length > 0) {
@@ -99,7 +99,7 @@ var AsyncEmitter = function() {};
       }
 
       if (location.host === 'ch.nicovideo.jp') {
-        $('#sec_current a.item').closest('li').each((i, li) => {
+        $('#sec_current a.item').closest('li').each(function(i, li)  {
           var $li = $(li), $img = $li.find('img');
           var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
           var $a = $li.find('a');
@@ -108,7 +108,7 @@ var AsyncEmitter = function() {};
             $a.attr('href', '//www.nicovideo.jp/watch/' + watchId);
           }
         });
-        $('.playerNavContainer .video img').each((i, img) => {
+        $('.playerNavContainer .video img').each(function(i, img) {
           var $img = $(img);
           var $video = $img.closest('.video');
           if ($video.length < 1) { return; }

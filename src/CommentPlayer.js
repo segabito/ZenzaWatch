@@ -331,13 +331,13 @@ var NicoTextParser = {};
      * 投稿者が設定したコメント置換フィルタを適用する
      */
     _preProcessWordReplacement(group, replacementFunc) {
-      _.each(group, (nicoChat) => {
+      _.each(group, function(nicoChat) {
         var text = nicoChat.getText();
         var newText = replacementFunc(text);
         if (text !== newText) {
           nicoChat.setText(newText);
         }
-      });
+      }.bind(this));
     },
     getChatList: function() {
       return {
