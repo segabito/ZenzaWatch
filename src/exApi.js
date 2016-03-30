@@ -447,7 +447,7 @@ var ZenzaWatch = {
 
       if (!data.url) { return; }
       var sessionId = data.sessionId;
-      window.console.log('StoryBoardLoaderWindow.load', data.url, type);
+      //window.console.log('StoryBoardLoaderWindow.load', data.url, type);
 
       xmlHttpRequest({
         url: data.url,

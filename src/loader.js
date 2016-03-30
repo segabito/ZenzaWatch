@@ -1465,7 +1465,7 @@ var ajax = function() {};
         var session   = this._sessions[sessionId];
 
         if (status === 'initialized') {
-          window.console.log(type + ' initialized');
+          //window.console.log(type + ' initialized');
           this._initializeStatus = 'done';
           this._sessions.initial.resolve();
           this.emitAsync('initialize', {status: 'ok'});

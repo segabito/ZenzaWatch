@@ -417,7 +417,7 @@ var VideoSession = function() {};
     .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .videoPlayer,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
-      padding-bottom: 96px;
+      padding-bottom: 80px;
     }
 
     .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,

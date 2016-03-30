@@ -30,7 +30,9 @@ var AsyncEmitter = function() {};
         this._isAvailable = false;
       },
       _createBlankData: function(info) {
+        info = info || {};
         _.assign(info, {
+          status: 'fail',
           duration: 1,
           url: '',
           storyBoard: [{
@@ -433,6 +435,7 @@ var AsyncEmitter = function() {};
       },
       _onStoryBoardInfoLoadFail: function(err) {
         window.console.log('onStoryBoardInfoFail', err);
+        this._model.update(null);
         this._$container.removeClass('storyBoardAvailable');
       },
 
@@ -691,6 +694,7 @@ var AsyncEmitter = function() {};
         var $inner = this._$inner = $view.find('.storyBoardInner');
         this._$failMessage   = $view.find('.failMessage');
         this._$cursorTime    = $view.find('.cursorTime');
+        this._$pointer       = $view.find('.storyBoardPointer');
         //this._$disableButton = $view.find('.setToDisable button');
 
         $view
@@ -848,7 +852,11 @@ var AsyncEmitter = function() {};
       _updateSuccessDom: function() {
         var list = new StoryBoardBlockList(this._model);
         this._storyBoardBlockList = list;
-        this._$inner.empty().append(list.getView());
+        this._$pointer.css({
+          width:  this._model.getWidth(),
+          height: this._model.getHeight(),
+        });
+        this._$inner.empty().append(list.getView()).append(this._$pointer);
       },
       _lazyLoadImage: function(pageNumber) { //return;
         if (this._storyBoardBlockList) {
@@ -866,6 +874,7 @@ var AsyncEmitter = function() {};
       setCurrentTime: function(sec) {
         if (!this._model.isAvailable()) { return; }
         if (this._isHover) { return; }
+        if (!this._$view) { return; }
 
         var ms = sec * 1000;
         var storyBoard = this._model;
@@ -873,9 +882,10 @@ var AsyncEmitter = function() {};
         var per = ms / (duration * 1000);
         var width = storyBoard.getWidth();
         var boardWidth = storyBoard.getCount() * width;
-        var targetLeft = boardWidth * per - this._$inner.innerWidth() * per;
+        var targetLeft = boardWidth * per;
 
-        this.scrollLeft(targetLeft);
+        this._$pointer.css('left', targetLeft);
+        this.scrollLeft(targetLeft - this._$inner.innerWidth() * per);
       },
       _onScroll: function() {
         var storyBoard = this._model;
@@ -909,11 +919,12 @@ var AsyncEmitter = function() {};
     StoryBoardView.__tpl__ = [
         '<div id="storyBoardContainer" class="storyBoardContainer">',
           '<div class="storyBoardHeader">',
-//            '<div class="setToDisable command" data-command="toggleStoryBoard"><button>閉じる　▼</button></div>',
             '<div class="cursorTime"></div>',
           '</div>',
 
-          '<div class="storyBoardInner"></div>',
+          '<div class="storyBoardInner">',
+            '<div class="storyBoardPointer"></div>',
+          '</div>',
           '<div class="failMessage">',
           '</div>',
         '</div>',
@@ -935,18 +946,26 @@ var AsyncEmitter = function() {};
         z-index: 9005;
         overflow: visible;
         box-shadow: 0 -2px 2px #666;
+        pointer-events: none;
 
+        transform: translateZ(0);
         transition: bottom 0.5s ease-in-out;
       }
-
-      .storyBoardContainer.show {
-        bottom: 40px;
-        z-index: 50;
+      .storyBoardContainer * {
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        -webkit-box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
       }
-      .storyBoardContainer:not(.show) {
-        pointer-events: none;
-        opacity: 0;
 
+      .dragging .storyBoardContainer,
+      .storyBoardContainer.show {
+        bottom: 32px;
+        z-index: 50;
+        opacity: 1;
+        pointer-events: auto;
       }
 
       .storyBoardContainer .storyBoardInner {
@@ -1113,6 +1132,17 @@ var AsyncEmitter = function() {};
         color: #999;
         cursor: default;
         font-size: 80%;
+      }
+
+      .storyBoardPointer {
+        position: absolute;
+        top: 0;
+        z-index: 100;
+        pointer-events: none;
+        transform: translate(-50%, 0);
+        border: 2px solid #006;
+        background: #ff9;
+        opacity: 0.5;
       }
 
     */});
