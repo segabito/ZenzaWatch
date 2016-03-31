@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.14.1
+// @version        0.14.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -4523,6 +4523,7 @@ var monkey = function() {
         }
       },
       reset: function() {
+        this._$container.removeClass('storyBoardAvailable');
         this._model.reset();
       },
       onVideoCanPlay: function(watchId, videoInfo) {
@@ -4564,7 +4565,7 @@ var monkey = function() {
       },
 
       setCurrentTime: function(sec) {
-        if (this._view) {
+        if (this._view && this._model.isAvailable()) {
           this._view.setCurrentTime(sec);
         }
       },
@@ -4590,13 +4591,15 @@ var monkey = function() {
         this._backgroundPosition = '0 -' + height * option.row + 'px';
         this._src = option.src;
         this._page = option.page;
-        this._isLoaded = false;
+        this._isLoaded = true;
 
         var $view = $('<div class="board"/>')
           .css({
             width: option.pageWidth,
             height: height,
-            backgroundPosition: '0 -' + height * option.row + 'px'
+            'background-image': 'url(' + this._src + ')',
+            'background-position': this._backgroundPosition,
+            //'background-size': '',
           })
           .attr({
             'data-src': option.src,
@@ -4611,44 +4614,22 @@ var monkey = function() {
 
         this._$view = $view;
        },
-       loadImage: function() {
-         if (this._isLoaded) {
-           return;
-         }
-         var $view = this._$view;
-         var img = new Image();
-         img.onload = function() {
-           $view
-           .css({
-             'background-image': 'url(' + this._src + ')',
-             'background-position': this._backgroundPosition,
-             'background-size': '',
-           })
-           .removeClass('lazyImage page-' + this._page);
-           $view = img = null;
-         }.bind(this);
-         img.onerror = function() {
-           $view = img = null;
-         };
-         img.src = this._src;
-         this._isLoaded = true;
-       },
+       loadImage: function() {},
        getPage: function() { return this._page; },
        getView: function() { return this._$view; }
     });
+
     var StoryBoardBlockBorder = function(width, height, cols) {
       this.initialize(width, height, cols);
     };
     _.assign(StoryBoardBlockBorder.prototype, {
       initialize: function(width, height, cols) {
-        var $border = $('<div class="border"/>').css({
+        var $border = $(_.repeat('<div class="border"/>', cols)).css({
           width: width,
           height: height
         });
         var $div = $('<div />');
-        for (var i = 0; i < cols; i++) {
-          $div.append($border.clone());
-        }
+        $div.append($border);
         this._$view = $div;
       },
       getView: function() {
@@ -4682,7 +4663,6 @@ var monkey = function() {
           });
         this._$view = $view;
         this._blocks = [];
-        this._lazyLoaded = [];
 
         for (var i = 0; i < pages; i++) {
           var src = storyBoard.getPageUrl(i);
@@ -4710,27 +4690,13 @@ var monkey = function() {
         this._blocks.push(block);
         this._$view.append(block.getView());
       },
-      loadImage: function(pageNumber) {
-        if (pageNumber < 1 || this._lazyLoaded[pageNumber]) {
-          return;
-        }
-        this._lazyLoaded[pageNumber] = true;
-        for (var i = 0, len = this._blocks.length; i < len; i++) {
-          var block = this._blocks[i];
-          if (block.getPage() <= pageNumber) {
-            block.loadImage();
-          }
-        }
-     },
-     clear: function() {
-       this._$view.remove();
-       if (this._lazyLoadImageTimer) {
-         window.clearTimeout(this._lazyLoadImageTimer);
-       }
-     },
-     getView: function() {
-        return this._$view;
-     }
+      loadImage: function(pageNumber) { },
+      clear: function() {
+        this._$view.remove();
+      },
+      getView: function() {
+         return this._$view;
+      }
     });
 
 
@@ -4808,7 +4774,6 @@ var monkey = function() {
         this._$failMessage   = $view.find('.failMessage');
         this._$cursorTime    = $view.find('.cursorTime');
         this._$pointer       = $view.find('.storyBoardPointer');
-        //this._$disableButton = $view.find('.setToDisable button');
 
         $view
           .on('click',     '.board',   this._onBoardClick.bind(this))
@@ -4824,8 +4789,8 @@ var monkey = function() {
           .hover(onHoverIn, onHoverOut)
           .on('touchstart',  this._onTouchStart.bind(this))
           .on('touchend',    this._onTouchEnd  .bind(this))
-          .on('touchmove',   this._onTouchMove .bind(this))
-          .on('scroll', _.throttle(function() { this._onScroll(); }.bind(this), 500));
+          .on('touchmove',   this._onTouchMove .bind(this));
+          //.on('scroll', _.throttle(function() { this._onScroll(); }.bind(this), 500));
 
         //this._$disableButton.on('click', this._onDisableButtonClick.bind(this));
 
@@ -4848,7 +4813,6 @@ var monkey = function() {
         this._$cursorTime.css({left: -999});
 
         this._isHover = false;
-        if ($board.hasClass('lazyImage')) { this._lazyLoadImage(page); }
 
         this.emit('select', ms);
       },
@@ -4875,7 +4839,6 @@ var monkey = function() {
 
         this._isHover = true;
         this._isMouseMoving = true;
-        if ($board.hasClass('lazyImage')) { this._lazyLoadImage(page); }
       },
       _onBoardMouseMoveEnd: function(e) {
         this._isMouseMoving = false;
@@ -4892,7 +4855,7 @@ var monkey = function() {
         this._isHover = true;
         this._isMouseMoving = true;
         var left = this.scrollLeft();
-        this.scrollLeft(left + delta * 10);
+        this.scrollLeft(left + delta * 5);
       },
       _onMouseWheelEnd: function(e, delta) {
         this._isMouseMoving = false;
@@ -4931,8 +4894,9 @@ var monkey = function() {
         if (left === undefined) {
           return $inner.scrollLeft();
         } else if (left === 0 || Math.abs(this._scrollLeft - left) >= 1) {
-          $inner.scrollLeft(left);
-          this._scrollLeft = left;
+          var sl = $inner.scrollLeft();
+          this._scrollLeft = (left + sl) / 2;
+          $inner.scrollLeft(this._scrollLeft);
         }
       },
       scrollToNext: function() {
@@ -4949,6 +4913,7 @@ var monkey = function() {
         if (this._currentUrl !== url) {
           // 前と同じurl == 同じ動画なら再作成する必要なし
           this._currentUrl = url;
+          // 20ms前後かかってるけどもっと軽くできるはず・・・
           window.console.time('createStoryBoardDOM');
           this._updateSuccessDom();
           window.console.timeEnd('createStoryBoardDOM');
@@ -4970,11 +4935,6 @@ var monkey = function() {
           height: this._model.getHeight(),
         });
         this._$inner.empty().append(list.getView()).append(this._$pointer);
-      },
-      _lazyLoadImage: function(pageNumber) { //return;
-        if (this._storyBoardBlockList) {
-          this._storyBoardBlockList.loadImage(pageNumber);
-        }
       },
       _updateFail: function() {
         this._$view.removeClass('success').addClass('fail');
@@ -5001,10 +4961,6 @@ var monkey = function() {
         this.scrollLeft(targetLeft - this._$inner.innerWidth() * per);
       },
       _onScroll: function() {
-        var storyBoard = this._model;
-        var scrollLeft = this.scrollLeft();
-        var page = Math.round(scrollLeft / (storyBoard.getPageWidth() * storyBoard.getRows()));
-        this._lazyLoadImage(Math.min(page, storyBoard.getPageCount() - 1));
       },
       _onDisableButtonClick: function(e) {
         e.preventDefault();
@@ -5120,10 +5076,6 @@ var monkey = function() {
         pointer-events: none;
       }
 
-      .storyBoardContainer .boardList .board.lazyImage:not(.hasSub) {
-        background-color: #ccc;
-        cursor: wait;
-      }
       .storyBoardContainer .boardList .board.loadFail {
         background-color: #c99;
       }
@@ -5167,85 +5119,6 @@ var monkey = function() {
         display: none;
       }
 
-      
-      .storyBoardContainer .setToDisable {
-        position: absolute;
-        display: inline-block;
-        left: 50px;
-        bottom: -32px;
-        transition: bottom 0.3s ease-in-out;
-      }
-
-      .storyBoardContainer:hover .setToDisable {
-        bottom: 0;
-      }
-      
-      .storyBoardContainer .setToDisable button,
-      .setToEnableButtonContainer button {
-        background: none repeat scroll 0 0 #999;
-        border-color: #666;
-        border-radius: 18px 18px 0 0;
-        border-style: solid;
-        border-width: 2px 2px 0;
-        width: 200px;
-        overflow: auto;
-        white-space: nowrap;
-        cursor: pointer;
-        box-shadow: 0 -2px 2px #666;
-      }
-      
-
-      .full_with_browser .setToEnableButtonContainer button {
-        box-shadow: none;
-        color: #888;
-        background: #000;
-      }
-
-      .full_with_browser .storyBoardContainer .setToDisable,
-      .full_with_browser .setToEnableButtonContainer {
-        background: #000; {* Firefox対策 *}
-      }
-
-      .setToEnableButtonContainer button {
-        width: 200px;
-      }
-
-      .storyBoardContainer .setToDisable button:hover,
-      .setToEnableButtonContainer:not(.loading):not(.fail) button:hover {
-        background: #ccc;
-        transition: none;
-      }
-
-      .storyBoardContainer .setToDisable button.clicked,
-      .setToEnableButtonContainer.loading button,
-      .setToEnableButtonContainer.fail button,
-      .setToEnableButtonContainer button.clicked {
-        border-style: inset;
-        box-shadow: none;
-      }
-
-      .setToEnableButtonContainer {
-        position: fixed;
-        z-index: 9003;
-        right: 300px;
-        bottom: 0px;
-        transition: bottom 0.5s ease-in-out;
-      }
-
-      .setToEnableButtonContainer.loadingVideo {
-        bottom: -50px;
-      }
-
-      .setToEnableButtonContainer.loading *,
-      .setToEnableButtonContainer.loadingVideo *{
-        cursor: wait;
-        font-size: 80%;
-      }
-      .setToEnableButtonContainer.fail {
-        color: #999;
-        cursor: default;
-        font-size: 80%;
-      }
 
       .storyBoardPointer {
         position: absolute;
@@ -5256,6 +5129,12 @@ var monkey = function() {
         border: 2px solid #006;
         background: #ff9;
         opacity: 0.5;
+      }
+
+      .storyBoardContainer:hover .storyBoardPointer {
+        opacity: 0.8;
+        box-shadow: 0 0 8px #ccc;
+        transition: left 0.4s ease-in;
       }
 
     */});
