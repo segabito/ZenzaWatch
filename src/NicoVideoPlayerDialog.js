@@ -168,6 +168,14 @@ var VideoSession = function() {};
       options.query = {};
       return options;
     },
+    createOptionsForReload: function(options) {
+      options = options || {};
+      delete this._options.economy;
+      _.defaults(options, this._options);
+      options.openNow = true;
+      options.query = {};
+      return options;
+    },
     createOptionsForSession: function(options) {
       options = options || {};
       _.defaults(options, this._options);
@@ -1396,7 +1404,7 @@ var VideoSession = function() {};
       return this._isOpen;
     },
     reload: function(options) {
-      options = this._videoWatchOptions.createOptionsForVideoChange(options);
+      options = this._videoWatchOptions.createOptionsForReload(options);
       
       if (this._lastCurrentTime > 0) {
         options.currentTime = this._lastCurrentTime;
@@ -1631,7 +1639,7 @@ var VideoSession = function() {};
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
       if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
-        this.reload();
+        this.reload({ currentTime: this.getCurrentTime() });
       } else {
         if (this._videoInfo &&
             (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy())

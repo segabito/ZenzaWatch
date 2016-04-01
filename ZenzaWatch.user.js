@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.14.2
+// @version        0.14.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -4812,7 +4812,7 @@ var monkey = function() {
         window.setTimeout(function() { $view.removeClass('clicked'); }, 1000);
         this._$cursorTime.css({left: -999});
 
-        this._isHover = false;
+        window.setTimeout(function() { this._isHover = false; }.bind(this), 3000);
 
         this.emit('select', ms);
       },
@@ -4946,7 +4946,6 @@ var monkey = function() {
       },
       setCurrentTime: function(sec) {
         if (!this._model.isAvailable()) { return; }
-        if (this._isHover) { return; }
         if (!this._$view) { return; }
 
         var ms = sec * 1000;
@@ -4958,6 +4957,8 @@ var monkey = function() {
         var targetLeft = boardWidth * per;
 
         this._$pointer.css('left', targetLeft);
+
+        if (this._isHover) { return; }
         this.scrollLeft(targetLeft - this._$inner.innerWidth() * per);
       },
       _onScroll: function() {
@@ -5134,7 +5135,7 @@ var monkey = function() {
       .storyBoardContainer:hover .storyBoardPointer {
         opacity: 0.8;
         box-shadow: 0 0 8px #ccc;
-        transition: left 0.4s ease-in;
+        transition: left 0.4s ease-out;
       }
 
     */});
@@ -12503,6 +12504,14 @@ spacer {
       options.query = {};
       return options;
     },
+    createOptionsForReload: function(options) {
+      options = options || {};
+      delete this._options.economy;
+      _.defaults(options, this._options);
+      options.openNow = true;
+      options.query = {};
+      return options;
+    },
     createOptionsForSession: function(options) {
       options = options || {};
       _.defaults(options, this._options);
@@ -13731,7 +13740,7 @@ spacer {
       return this._isOpen;
     },
     reload: function(options) {
-      options = this._videoWatchOptions.createOptionsForVideoChange(options);
+      options = this._videoWatchOptions.createOptionsForReload(options);
       
       if (this._lastCurrentTime > 0) {
         options.currentTime = this._lastCurrentTime;
@@ -13966,7 +13975,7 @@ spacer {
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
       if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
-        this.reload();
+        this.reload({ currentTime: this.getCurrentTime() });
       } else {
         if (this._videoInfo &&
             (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy())

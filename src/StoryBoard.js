@@ -699,7 +699,7 @@ var AsyncEmitter = function() {};
         window.setTimeout(function() { $view.removeClass('clicked'); }, 1000);
         this._$cursorTime.css({left: -999});
 
-        this._isHover = false;
+        window.setTimeout(function() { this._isHover = false; }.bind(this), 3000);
 
         this.emit('select', ms);
       },
@@ -833,7 +833,6 @@ var AsyncEmitter = function() {};
       },
       setCurrentTime: function(sec) {
         if (!this._model.isAvailable()) { return; }
-        if (this._isHover) { return; }
         if (!this._$view) { return; }
 
         var ms = sec * 1000;
@@ -845,6 +844,8 @@ var AsyncEmitter = function() {};
         var targetLeft = boardWidth * per;
 
         this._$pointer.css('left', targetLeft);
+
+        if (this._isHover) { return; }
         this.scrollLeft(targetLeft - this._$inner.innerWidth() * per);
       },
       _onScroll: function() {
@@ -1021,7 +1022,7 @@ var AsyncEmitter = function() {};
       .storyBoardContainer:hover .storyBoardPointer {
         opacity: 0.8;
         box-shadow: 0 0 8px #ccc;
-        transition: left 0.4s ease-in;
+        transition: left 0.4s ease-out;
       }
 
     */});
