@@ -1791,6 +1791,12 @@ var PopupMessage = {};
       this._refreshIndex(true);
 
     },
+    removeItemByWatchId: function(watchId) {
+      var item = this._model.findByWatchId(watchId);
+      if (!item || item.isActive()) { return; }
+      this._model.removeItem(item);
+      this._refreshIndex(true);
+    },
     append: function(watchId) {
       this._initializeView();
       if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }

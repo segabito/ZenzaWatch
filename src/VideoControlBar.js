@@ -127,12 +127,18 @@ var StoryBoard = function() {};
       top: auto;
       bottom: 0px;
     }
+    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
+      background: rgba(32, 32, 32, 0.3);
+    }
 
 
 
     .controlItemContainer.center .scalingUI {
-      background: #333;
+      background: #222;
       transform-origin: top center;
+    }
+    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI {
+      background: rgba(32, 32, 32, 0.3);
     }
 
     .controlItemContainer.right {
@@ -344,6 +350,11 @@ var StoryBoard = function() {};
       {*mix-blend-mode: lighten;*}
       z-index: 100;
       background: #663;
+    }
+
+    .zenzaStoryBoardOpen .bufferRange {
+      background: #ccc;
+      opacity: 0.5;
     }
 
     .noHeatMap .bufferRange {

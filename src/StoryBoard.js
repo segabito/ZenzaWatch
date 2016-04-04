@@ -796,7 +796,9 @@ var AsyncEmitter = function() {};
         var url = this._model.getUrl();
         var $view = this._$view;
 
-        $view.addClass('success');
+        $view
+          .addClass('success')
+          .css('transform', 'translate(0px, -'+ this._model.getHeight() +'px) translateZ(0)');
         if (this._currentUrl !== url) {
           // 前と同じurl == 同じ動画なら再作成する必要なし
           this._currentUrl = url;
@@ -892,21 +894,25 @@ var AsyncEmitter = function() {};
     StoryBoardView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
       .storyBoardContainer {
         position: fixed;
-        bottom: -300px;
+        top: calc(100vh + 500px);
+        opacity: 0;
         left: 0;
         right: 0;
         width: 100%;
         box-sizing: border-box;
         -moz-box-sizing: border-box;
         -webkit-box-sizing: border-box;
-        background: #999;
+        background-color: rgba(50, 50, 50, 0.5);
         z-index: 9005;
-        overflow: visible;
+        overflow: hidden;
         box-shadow: 0 -2px 2px #666;
         pointer-events: none;
 
         transform: translateZ(0);
-        transition: bottom 0.5s ease-in-out;
+        transition:
+          bottom 0.5s ease-in-out,
+          top 0.5s ease-in-out,
+          transform 0.5s ease-in-out;
       }
       .storyBoardContainer * {
         box-sizing: border-box;
@@ -919,10 +925,15 @@ var AsyncEmitter = function() {};
 
       .dragging .storyBoardContainer,
       .storyBoardContainer.show {
-        bottom: 32px;
+        top: 0px;
         z-index: 50;
         opacity: 1;
         pointer-events: auto;
+      }
+
+      .fullScreen  .dragging .storyBoardContainer,
+      .fullScreen            .storyBoardContainer.show{
+        top: 30px;
       }
 
       .storyBoardContainer .storyBoardInner {
@@ -934,11 +945,24 @@ var AsyncEmitter = function() {};
         background: #222;
         margin: 0;
       }
-      .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
-      }
+
 
       .storyBoardContainer .storyBoardInner:hover {
         overflow-x: auto;
+      }
+      .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+        background: #333;
+      }
+
+      .storyBoardContainer .storyBoardInner::-webkit-scrollbar-thumb {
+        border-radius: 0;
+        background: #ff9;
+      }
+
+      .storyBoardContainer .storyBoardInner::-webkit-scrollbar-button {
+        display: none;
       }
 
       .storyBoardContainer.success .storyBoardInner {

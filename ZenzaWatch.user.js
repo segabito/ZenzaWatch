@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.14.3
+// @version        0.14.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -251,8 +251,8 @@ var monkey = function() {
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
-        enableStoryBoard: false, // シークバーサムネイル関連
-        enableStoryBoardBar: false, // シークバーサムネイル関連
+        enableStoryBoard: true, // シークバーサムネイル関連
+        enableStoryBoardBar: false, // シーンサーチ
 
         forceEconomy: false,
         // NG設定
@@ -3154,8 +3154,10 @@ var monkey = function() {
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          this._videoPlayer.setPlaybackRate(value);
-          this._commentPlayer.setPlaybackRate(value);
+          if (ZenzaWatch.util.isPremium()) {
+            this._videoPlayer.setPlaybackRate(value);
+            this._commentPlayer.setPlaybackRate(value);
+          }
           break;
         case 'autoPlay':
           this._videoPlayer.setIsAutoPlay(value);
@@ -3281,9 +3283,11 @@ var monkey = function() {
       this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
-      playbackRate = Math.max(0, Math.min(playbackRate, 10));
-      this._videoPlayer.setPlaybackRate(playbackRate);
-      this._commentPlayer.setPlaybackRate(playbackRate);
+      if (ZenzaWatch.util.isPremium()) {
+        playbackRate = Math.max(0, Math.min(playbackRate, 10));
+        this._videoPlayer.setPlaybackRate(playbackRate);
+        this._commentPlayer.setPlaybackRate(playbackRate);
+      }
     },
     setCurrentTime: function(t) {
       this._videoPlayer.setCurrentTime(Math.max(0, t));
@@ -3688,7 +3692,9 @@ var monkey = function() {
           player.setCurrentTime(ct + parseInt(param, 10));
           break;
         case 'playbackRate':
-          playerConfig.setValue('playbackRate', parseFloat(param, 10));
+          if (ZenzaWatch.util.isPremium()) {
+            playerConfig.setValue('playbackRate', parseFloat(param, 10));
+          }
           break;
         case 'mymemory':
           this._createMymemory();
@@ -4081,11 +4087,13 @@ var monkey = function() {
     },
     setPlaybackRate: function(v) {
       console.log('setPlaybackRate', v);
-      // たまにリセットされたり反映されなかったりする？
-      this._playbackRate = v;
-      var video = this._video;
-      video.playbackRate = 1;
-      window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
+      if (ZenzaWatch.util.isPremium()) {
+        // たまにリセットされたり反映されなかったりする？
+        this._playbackRate = v;
+        var video = this._video;
+        video.playbackRate = 1;
+        window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
+      }
     },
     getPlaybackRate: function() {
       return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;
@@ -4909,7 +4917,9 @@ var monkey = function() {
         var url = this._model.getUrl();
         var $view = this._$view;
 
-        $view.addClass('success');
+        $view
+          .addClass('success')
+          .css('transform', 'translate(0px, -'+ this._model.getHeight() +'px) translateZ(0)');
         if (this._currentUrl !== url) {
           // 前と同じurl == 同じ動画なら再作成する必要なし
           this._currentUrl = url;
@@ -5005,21 +5015,25 @@ var monkey = function() {
     StoryBoardView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
       .storyBoardContainer {
         position: fixed;
-        bottom: -300px;
+        top: calc(100vh + 500px);
+        opacity: 0;
         left: 0;
         right: 0;
         width: 100%;
         box-sizing: border-box;
         -moz-box-sizing: border-box;
         -webkit-box-sizing: border-box;
-        background: #999;
+        background-color: rgba(50, 50, 50, 0.5);
         z-index: 9005;
-        overflow: visible;
+        overflow: hidden;
         box-shadow: 0 -2px 2px #666;
         pointer-events: none;
 
         transform: translateZ(0);
-        transition: bottom 0.5s ease-in-out;
+        transition:
+          bottom 0.5s ease-in-out,
+          top 0.5s ease-in-out,
+          transform 0.5s ease-in-out;
       }
       .storyBoardContainer * {
         box-sizing: border-box;
@@ -5032,10 +5046,15 @@ var monkey = function() {
 
       .dragging .storyBoardContainer,
       .storyBoardContainer.show {
-        bottom: 32px;
+        top: 0px;
         z-index: 50;
         opacity: 1;
         pointer-events: auto;
+      }
+
+      .fullScreen  .dragging .storyBoardContainer,
+      .fullScreen            .storyBoardContainer.show{
+        top: 30px;
       }
 
       .storyBoardContainer .storyBoardInner {
@@ -5047,11 +5066,24 @@ var monkey = function() {
         background: #222;
         margin: 0;
       }
-      .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
-      }
+
 
       .storyBoardContainer .storyBoardInner:hover {
         overflow-x: auto;
+      }
+      .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+        background: #333;
+      }
+
+      .storyBoardContainer .storyBoardInner::-webkit-scrollbar-thumb {
+        border-radius: 0;
+        background: #ff9;
+      }
+
+      .storyBoardContainer .storyBoardInner::-webkit-scrollbar-button {
+        display: none;
       }
 
       .storyBoardContainer.success .storyBoardInner {
@@ -5261,12 +5293,18 @@ var monkey = function() {
       top: auto;
       bottom: 0px;
     }
+    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
+      background: rgba(32, 32, 32, 0.3);
+    }
 
 
 
     .controlItemContainer.center .scalingUI {
-      background: #333;
+      background: #222;
       transform-origin: top center;
+    }
+    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI {
+      background: rgba(32, 32, 32, 0.3);
     }
 
     .controlItemContainer.right {
@@ -5478,6 +5516,11 @@ var monkey = function() {
       {*mix-blend-mode: lighten;*}
       z-index: 100;
       background: #663;
+    }
+
+    .zenzaStoryBoardOpen .bufferRange {
+      background: #ccc;
+      opacity: 0.5;
     }
 
     .noHeatMap .bufferRange {
@@ -10138,6 +10181,7 @@ spacer {
       var before = this._wordFilterList.join('\n');
       this._wordFilterList.push(text.trim());
       this._wordFilterList = _.uniq(this._wordFilterList);
+      if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(0, 20); }
       var after = this._wordFilterList.join('\n');
       if (before !== after) {
         this._wordReg = null;
@@ -10156,6 +10200,7 @@ spacer {
       if (before !== after) {
         this._wordReg = null;
         this._wordFilterList = tmp;
+        if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(0, 20); }
         this._onChange();
       }
     },
@@ -10167,6 +10212,7 @@ spacer {
       var before = this._userIdFilterList.join('\n');
       this._userIdFilterList.push(text);
       this._userIdFilterList = _.uniq(this._userIdFilterList);
+      if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(0, 20); }
       var after = this._userIdFilterList.join('\n');
       if (before !== after) {
         this._userIdReg = null;
@@ -10185,6 +10231,7 @@ spacer {
       if (before !== after) {
         this._userIdReg = null;
         this._userIdFilterList = tmp;
+        if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(0, 20); }
         this._onChange();
       }
     },
@@ -10196,6 +10243,7 @@ spacer {
       var before = this._commandFilterList.join('\n');
       this._commandFilterList.push(text);
       this._commandFilterList = _.uniq(this._commandFilterList);
+      if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(0, 20); }
       var after = this._commandFilterList.join('\n');
       if (before !== after) {
         this._commandReg = null;
@@ -10214,6 +10262,7 @@ spacer {
       if (before !== after) {
         this._commandReg = null;
         this._commandFilterList = tmp;
+        if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(0, 20); }
         this._onChange();
       }
     },
@@ -12137,6 +12186,12 @@ spacer {
       this._refreshIndex(true);
 
     },
+    removeItemByWatchId: function(watchId) {
+      var item = this._model.findByWatchId(watchId);
+      if (!item || item.isActive()) { return; }
+      this._model.removeItem(item);
+      this._refreshIndex(true);
+    },
     append: function(watchId) {
       this._initializeView();
       if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }
@@ -12757,10 +12812,13 @@ spacer {
       border: 0 !important;
     }
 
-    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
-    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .videoPlayer,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
+      padding-bottom: 40px;
+    }
+
+    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
+    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame{
       padding-bottom: 80px;
     }
 
@@ -13399,10 +13457,14 @@ spacer {
         case 'close':
           this.close(param);
           break;
+        case 'playbackRate':
+          if (ZenzaWatch.util.isPremium()) {
+            this._playerConfig.setValue(command, param);
+          }
+          break;
         case 'baseFontFamily':
         case 'baseChatScale':
         case 'enableFilter':
-        case 'playbackRate':
         case 'screenMode':
         case 'sharedNgLevel':
           this._playerConfig.setValue(command, param);
@@ -13466,7 +13528,7 @@ spacer {
           break;
         case 'SEEK':
           var c = this._nicoVideoPlayer.getCurrentTime();
-          this._nicoVideoPlayer.setCurrentTime(c + param);
+          this.setCurrentTime(c + param);
           break;
         case 'NEXT_VIDEO':
           this.playNextVideo();
@@ -13760,7 +13822,26 @@ spacer {
       if (!this._nicoVideoPlayer) {
         return;
       }
-      this._nicoVideoPlayer.setCurrentTime(sec);
+      if (ZenzaWatch.util.isPremium() || this.isInSeekableBuffer(sec)) {
+        this._nicoVideoPlayer.setCurrentTime(sec);
+      }
+    },
+    // 政治的な理由により一般会員はバッファ内しかシークできないようにする必要があるため、
+    // 指定した秒がバッファ内かどうかを判定して返す
+    isInSeekableBuffer: function(sec) {
+      // プレミアム会員は常にどこでもシーク可能
+      var range = this.getBufferedRange();
+      for (var i = 0, len = range.length; i < len; i++) {
+        try {
+          var start = range.start(i);
+          var end   = range.end(i);
+          if (start <= sec && end >= sec) {
+            return true;
+          }
+        } catch (e) {
+        }
+      }
+      return false;
     },
     getId: function() {
       return this._id;
@@ -13907,7 +13988,7 @@ spacer {
       // パラメータで開始秒数が指定されていたらそこにシーク
       var currentTime = this._videoWatchOptions.getCurrentTime();
       if (currentTime > 0) {
-        this._nicoVideoPlayer.setCurrentTime(currentTime);
+        this.setCurrentTime(currentTime);
       }
     },
     _onVideoCanPlay: function() {
@@ -13937,7 +14018,13 @@ spacer {
       } else {
         this._initializePlaylist();
       }
+      // チャンネル動画は、1本の動画がwatchId表記とvideoId表記で2本登録されてしまう。
+      // そこでvideoId表記のほうを除去する
       this._playlist.insertCurrentVideo(this._videoInfo);
+      if (this._videoInfo.getWatchId() !==this._videoInfo.getVideoId() &&
+          this._videoInfo.getVideoId().indexOf('so') === 0) {
+        this._playlist.removeItemByWatchId(this._videoInfo.getVideoId());
+      }
 
       this.emitAsync('canPlay', this._watchId, this._videoInfo);
 
@@ -15817,6 +15904,12 @@ spacer {
           </label>
         </div>
 
+        <div class="overrideWatchLinkControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
+            シークバーにサムネイルを表示 (重いかも)
+          </label>
+        </div>
 
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
@@ -15834,7 +15927,7 @@ spacer {
                 <option value="1.5">1.5倍</option>
                 <option value="2.0">2倍</option>
             </select>
-            ボタンの大きさ(倍率)
+            ボタンの大きさ(倍率) ※ 一部レイアウトが崩れます
           </label>
         </div>
 
@@ -15924,15 +16017,8 @@ spacer {
         </div>
         -->
 
-        <p class="caption">開発中・テスト中の項目</p>
-        <div class="overrideWatchLinkControl control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
-            シークバーにサムネイルを表示 (重いかも)
-          </label>
-        </div>
-
         <!--
+        <p class="caption">開発中・テスト中の項目</p>
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">

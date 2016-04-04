@@ -237,6 +237,12 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="overrideWatchLinkControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
+            シークバーにサムネイルを表示 (重いかも)
+          </label>
+        </div>
 
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
@@ -254,7 +260,7 @@ var AsyncEmitter = function() {};
                 <option value="1.5">1.5倍</option>
                 <option value="2.0">2倍</option>
             </select>
-            ボタンの大きさ(倍率)
+            ボタンの大きさ(倍率) ※ 一部レイアウトが崩れます
           </label>
         </div>
 
@@ -344,15 +350,8 @@ var AsyncEmitter = function() {};
         </div>
         -->
 
-        <p class="caption">開発中・テスト中の項目</p>
-        <div class="overrideWatchLinkControl control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
-            シークバーにサムネイルを表示 (重いかも)
-          </label>
-        </div>
-
         <!--
+        <p class="caption">開発中・テスト中の項目</p>
         <div class="debugControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="debug">

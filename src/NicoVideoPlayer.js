@@ -118,8 +118,10 @@ var VideoInfoLoader = {};
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          this._videoPlayer.setPlaybackRate(value);
-          this._commentPlayer.setPlaybackRate(value);
+          if (ZenzaWatch.util.isPremium()) {
+            this._videoPlayer.setPlaybackRate(value);
+            this._commentPlayer.setPlaybackRate(value);
+          }
           break;
         case 'autoPlay':
           this._videoPlayer.setIsAutoPlay(value);
@@ -245,9 +247,11 @@ var VideoInfoLoader = {};
       this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
-      playbackRate = Math.max(0, Math.min(playbackRate, 10));
-      this._videoPlayer.setPlaybackRate(playbackRate);
-      this._commentPlayer.setPlaybackRate(playbackRate);
+      if (ZenzaWatch.util.isPremium()) {
+        playbackRate = Math.max(0, Math.min(playbackRate, 10));
+        this._videoPlayer.setPlaybackRate(playbackRate);
+        this._commentPlayer.setPlaybackRate(playbackRate);
+      }
     },
     setCurrentTime: function(t) {
       this._videoPlayer.setCurrentTime(Math.max(0, t));
@@ -652,7 +656,9 @@ var VideoInfoLoader = {};
           player.setCurrentTime(ct + parseInt(param, 10));
           break;
         case 'playbackRate':
-          playerConfig.setValue('playbackRate', parseFloat(param, 10));
+          if (ZenzaWatch.util.isPremium()) {
+            playerConfig.setValue('playbackRate', parseFloat(param, 10));
+          }
           break;
         case 'mymemory':
           this._createMymemory();
@@ -1045,11 +1051,13 @@ var VideoInfoLoader = {};
     },
     setPlaybackRate: function(v) {
       console.log('setPlaybackRate', v);
-      // たまにリセットされたり反映されなかったりする？
-      this._playbackRate = v;
-      var video = this._video;
-      video.playbackRate = 1;
-      window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
+      if (ZenzaWatch.util.isPremium()) {
+        // たまにリセットされたり反映されなかったりする？
+        this._playbackRate = v;
+        var video = this._video;
+        video.playbackRate = 1;
+        window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
+      }
     },
     getPlaybackRate: function() {
       return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;

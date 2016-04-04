@@ -7,6 +7,10 @@ var ZenzaWatch = {
 var NicoVideoApi = {};
 var console;
 
+
+
+// アロー関数はiOSで未サポートなので注意
+
 //===BEGIN===
 
     var AsyncEmitter = (function() {
@@ -193,8 +197,8 @@ var console;
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
-        enableStoryBoard: false, // シークバーサムネイル関連
-        enableStoryBoardBar: false, // シークバーサムネイル関連
+        enableStoryBoard: true, // シークバーサムネイル関連
+        enableStoryBoardBar: false, // シーンサーチ
 
         forceEconomy: false,
         // NG設定

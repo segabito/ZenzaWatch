@@ -421,10 +421,13 @@ var VideoSession = function() {};
       border: 0 !important;
     }
 
-    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
-    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .videoPlayer,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
+      padding-bottom: 40px;
+    }
+
+    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
+    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame{
       padding-bottom: 80px;
     }
 
@@ -1063,10 +1066,14 @@ var VideoSession = function() {};
         case 'close':
           this.close(param);
           break;
+        case 'playbackRate':
+          if (ZenzaWatch.util.isPremium()) {
+            this._playerConfig.setValue(command, param);
+          }
+          break;
         case 'baseFontFamily':
         case 'baseChatScale':
         case 'enableFilter':
-        case 'playbackRate':
         case 'screenMode':
         case 'sharedNgLevel':
           this._playerConfig.setValue(command, param);
@@ -1130,7 +1137,7 @@ var VideoSession = function() {};
           break;
         case 'SEEK':
           var c = this._nicoVideoPlayer.getCurrentTime();
-          this._nicoVideoPlayer.setCurrentTime(c + param);
+          this.setCurrentTime(c + param);
           break;
         case 'NEXT_VIDEO':
           this.playNextVideo();
@@ -1424,7 +1431,26 @@ var VideoSession = function() {};
       if (!this._nicoVideoPlayer) {
         return;
       }
-      this._nicoVideoPlayer.setCurrentTime(sec);
+      if (ZenzaWatch.util.isPremium() || this.isInSeekableBuffer(sec)) {
+        this._nicoVideoPlayer.setCurrentTime(sec);
+      }
+    },
+    // 政治的な理由により一般会員はバッファ内しかシークできないようにする必要があるため、
+    // 指定した秒がバッファ内かどうかを判定して返す
+    isInSeekableBuffer: function(sec) {
+      // プレミアム会員は常にどこでもシーク可能
+      var range = this.getBufferedRange();
+      for (var i = 0, len = range.length; i < len; i++) {
+        try {
+          var start = range.start(i);
+          var end   = range.end(i);
+          if (start <= sec && end >= sec) {
+            return true;
+          }
+        } catch (e) {
+        }
+      }
+      return false;
     },
     getId: function() {
       return this._id;
@@ -1571,7 +1597,7 @@ var VideoSession = function() {};
       // パラメータで開始秒数が指定されていたらそこにシーク
       var currentTime = this._videoWatchOptions.getCurrentTime();
       if (currentTime > 0) {
-        this._nicoVideoPlayer.setCurrentTime(currentTime);
+        this.setCurrentTime(currentTime);
       }
     },
     _onVideoCanPlay: function() {
@@ -1601,7 +1627,13 @@ var VideoSession = function() {};
       } else {
         this._initializePlaylist();
       }
+      // チャンネル動画は、1本の動画がwatchId表記とvideoId表記で2本登録されてしまう。
+      // そこでvideoId表記のほうを除去する
       this._playlist.insertCurrentVideo(this._videoInfo);
+      if (this._videoInfo.getWatchId() !==this._videoInfo.getVideoId() &&
+          this._videoInfo.getVideoId().indexOf('so') === 0) {
+        this._playlist.removeItemByWatchId(this._videoInfo.getVideoId());
+      }
 
       this.emitAsync('canPlay', this._watchId, this._videoInfo);
 

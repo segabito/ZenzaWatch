@@ -2700,6 +2700,7 @@ spacer {
       var before = this._wordFilterList.join('\n');
       this._wordFilterList.push(text.trim());
       this._wordFilterList = _.uniq(this._wordFilterList);
+      if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(0, 20); }
       var after = this._wordFilterList.join('\n');
       if (before !== after) {
         this._wordReg = null;
@@ -2718,6 +2719,7 @@ spacer {
       if (before !== after) {
         this._wordReg = null;
         this._wordFilterList = tmp;
+        if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(0, 20); }
         this._onChange();
       }
     },
@@ -2729,6 +2731,7 @@ spacer {
       var before = this._userIdFilterList.join('\n');
       this._userIdFilterList.push(text);
       this._userIdFilterList = _.uniq(this._userIdFilterList);
+      if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(0, 20); }
       var after = this._userIdFilterList.join('\n');
       if (before !== after) {
         this._userIdReg = null;
@@ -2747,6 +2750,7 @@ spacer {
       if (before !== after) {
         this._userIdReg = null;
         this._userIdFilterList = tmp;
+        if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(0, 20); }
         this._onChange();
       }
     },
@@ -2758,6 +2762,7 @@ spacer {
       var before = this._commandFilterList.join('\n');
       this._commandFilterList.push(text);
       this._commandFilterList = _.uniq(this._commandFilterList);
+      if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(0, 20); }
       var after = this._commandFilterList.join('\n');
       if (before !== after) {
         this._commandReg = null;
@@ -2776,6 +2781,7 @@ spacer {
       if (before !== after) {
         this._commandReg = null;
         this._commandFilterList = tmp;
+        if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(0, 20); }
         this._onChange();
       }
     },
