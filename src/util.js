@@ -207,6 +207,8 @@ var console;
         userIdFilter: '',
         commandFilter: '',
 
+        enableCommentPanel: false,
+        enableCommentPanelAutoScroll: true,
 
         playlistLoop: false,
 
@@ -1051,6 +1053,19 @@ var console;
     };
     ZenzaWatch.util.escapeRegs = escapeRegs;
 
+    var copyToClipBoard = ZenzaWatch.util.copyToClipBoard = function(text) {
+      var clip = document.createElement('input');
+      clip.type           = 'text';
+      clip.style.position = 'fixed';
+      clip.style.left     = '-9999px';
+      clip.value          = text;
+
+	    document.body.appendChild(clip);
+    	clip.select();
+	    document.execCommand('copy');
+
+      window.setTimeout(function() { clip.remove(); }, 0);
+    };
 
     var ajax = function(params) {
 

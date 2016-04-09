@@ -670,21 +670,31 @@ var AsyncEmitter = function() {};
           .on('wheel',            this._onMouseWheel   .bind(this))
           .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
 
-        var onHoverIn  = function() { this._isHover = true;  }.bind(this);
-        var onHoverOut = function() { this._isHover = false; }.bind(this);
+
+        var hoverOutTimer;
+        var onHoverOutTimer = function() {
+          this._isHover = false;
+        }.bind(this);
+
+        var onHoverIn  = function() {
+          if (hoverOutTimer) { window.clearTimeout(hoverOutTimer); }
+          this._isHover = true;
+        }.bind(this);
+
+        var onHoverOut = function() {
+          if (hoverOutTimer) { window.clearTimeout(hoverOutTimer); }
+          hoverOutTimer = window.setTimeout(onHoverOutTimer, 1500);
+        }.bind(this);
+
         $inner
           .hover(onHoverIn, onHoverOut)
           .on('touchstart',  this._onTouchStart.bind(this))
           .on('touchend',    this._onTouchEnd  .bind(this))
           .on('touchmove',   this._onTouchMove .bind(this));
-          //.on('scroll', _.throttle(function() { this._onScroll(); }.bind(this), 500));
-
-        //this._$disableButton.on('click', this._onDisableButtonClick.bind(this));
 
         this._$container.append($view);
         $('body').on('touchend', function() { this._isHover = false; }.bind(this));
 
-        window.sb= $view;
       },
       _onBoardClick: function(e) {
         var $board = $(e.target).closest('.board'), offset = $board.offset();
@@ -836,7 +846,9 @@ var AsyncEmitter = function() {};
       setCurrentTime: function(sec) {
         if (!this._model.isAvailable()) { return; }
         if (!this._$view) { return; }
+        if (this._lastCurrentTime === sec) { return; }
 
+        this._lastCurrentTime = sec;
         var ms = sec * 1000;
         var storyBoard = this._model;
         var duration = Math.max(1, storyBoard.getDuration());
@@ -950,17 +962,20 @@ var AsyncEmitter = function() {};
       .storyBoardContainer .storyBoardInner:hover {
         overflow-x: auto;
       }
+      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar,*}
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
         width: 10px;
         height: 10px;
         background: #333;
       }
 
+      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-thumb,*}
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar-thumb {
         border-radius: 0;
         background: #ff9;
       }
 
+      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-button,*}
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar-button {
         display: none;
       }

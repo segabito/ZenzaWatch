@@ -19,6 +19,7 @@ var CommentInputPanel = function() {};
 var SettingPanel = function() {};
 var Playlist = function() {};
 var VideoSession = function() {};
+var CommentPanel = function() {};
 
 //===BEGIN===
 
@@ -883,6 +884,9 @@ var VideoSession = function() {};
           node: this._$playerContainer
         });
         this._videoInfoPanel.on('command', _.bind(this._onCommand, this));
+        if (this._playerConfig.getValue('enableCommentPanel')) {
+          this._initializeCommentPanel();
+        }
       }, this), 0);
 
       nicoVideoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
@@ -1065,6 +1069,9 @@ var VideoSession = function() {};
           break;
         case 'close':
           this.close(param);
+          break;
+        case 'reloadComment':
+          this.reloadComment();
           break;
         case 'playbackRate':
           if (ZenzaWatch.util.isPremium()) {
@@ -1261,6 +1268,11 @@ var VideoSession = function() {};
       }
       this._videoInfoPanel.blinkTab('playlist');
     },
+    _onCommentPanelStatusUpdate: function() {
+      var commentPanel = this._commentPanel;
+      this._playerConfig.setValue(
+        'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
+    },
     _onDeflistAdd: function(watchId) {
       var $container = this._$playerContainer;
       if ($container.hasClass('updatingDeflist')) { return; } //busy
@@ -1323,8 +1335,10 @@ var VideoSession = function() {};
       });
     },
     _onCommentParsed: function() {
+
       this.emit('commentParsed');
       ZenzaWatch.emitter.emit('commentParsed');
+      ///this._commentPanel.setChatList(this.getChatList());
     },
     _onCommentChange: function() {
       this.emit('commentChange');
@@ -1479,66 +1493,53 @@ var VideoSession = function() {};
         return;
       }
 
-      if (type !== 'WATCH_API') {
-        this._setThumbnail(videoInfo.thumbImage);
-        this._nicoVideoPlayer.setVideo(videoInfo.url);
-        this._videoInfo = {};
 
-        this._threadId = videoInfo.thread_id;
+      var flvInfo   = videoInfo.flvInfo;
+      var videoUrl  = flvInfo.url;
 
-        this._messageApiLoader.load(
-          videoInfo.ms,
-          videoInfo.thread_id,
-          videoInfo.l,
-          videoInfo.user_id,
-          videoInfo.needs_key === '1',
-          videoInfo.optional_thread_id
-        ).then(
-          _.bind(this._onCommentLoadSuccess, this, requestId),
-          _.bind(this._onCommentLoadFail, this, requestId)
-        );
+      this._flvInfo = flvInfo;
+      this._threadId = flvInfo.thread_id;
 
-        this._$playerContainer.addClass('noVideoInfoPanel');
+      this._videoInfo = new VideoInfoModel(videoInfo);
+      this._videoSession = new VideoSession({
+        videoInfo: this._videoInfo,
+        videoWatchOptions: this._videoWatchOptions
+      });
+      this._setThumbnail(videoInfo.thumbnail);
 
-      } else {
-        var flvInfo   = videoInfo.flvInfo;
-        var videoUrl  = flvInfo.url;
+//      this._videoSession.create().then(function(videoUrl) {
+//        this._nicoVideoPlayer.setVideo(videoUrl);
+//        this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
+//      }.bind(this));
+      this._nicoVideoPlayer.setVideo(videoUrl);
+      this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
 
-        this._videoInfo = new VideoInfoModel(videoInfo);
-        this._videoSession = new VideoSession({
-          videoInfo: this._videoInfo,
-          videoWatchOptions: this._videoWatchOptions
-        });
-        this._setThumbnail(videoInfo.thumbnail);
-//        this._videoSession.create().then(function(videoUrl) {
-//          this._nicoVideoPlayer.setVideo(videoUrl);
-//          this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
-//        }.bind(this));
-        this._nicoVideoPlayer.setVideo(videoUrl);
-        this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
 
-        this._threadId = flvInfo.thread_id;
+      this.loadComment(flvInfo);
 
-        this._messageApiLoader.load(
-          flvInfo.ms,
-          flvInfo.thread_id,
-          flvInfo.l,
-          flvInfo.user_id,
-          flvInfo.needs_key === '1',
-          flvInfo.optional_thread_id,
-          flvInfo.userkey
-        ).then(
-          _.bind(this._onCommentLoadSuccess, this, requestId),
-          _.bind(this._onCommentLoadFail, this, requestId)
-        );
-
-        this.emit('loadVideoInfo', this._videoInfo);
-        if (this._videoInfoPanel) {
-          this._videoInfoPanel.update(this._videoInfo);
-        }
+      this.emit('loadVideoInfo', this._videoInfo);
+      if (this._videoInfoPanel) {
+        this._videoInfoPanel.update(this._videoInfo);
       }
 
-      //ZenzaWatch.emitter.emitAsync('loadVideoInfo', videoInfo, type, Math.random());
+    },
+    loadComment: function(flvInfo) {
+      this._messageApiLoader.load(
+        flvInfo.ms,
+        flvInfo.thread_id,
+        flvInfo.l,
+        flvInfo.user_id,
+        flvInfo.needs_key === '1',
+        flvInfo.optional_thread_id,
+        flvInfo.userkey
+      ).then(
+        _.bind(this._onCommentLoadSuccess, this, this._requestId),
+        _.bind(this._onCommentLoadFail,    this, this._requestId)
+      );
+    },
+    reloadComment: function() {
+      this._nicoVideoPlayer.closeCommentPlayer();
+      this.loadComment(this._flvInfo, this._requestId);
     },
     _onVideoInfoLoaderFail: function(requestId, watchId, e) {
       window.console.timeEnd('VideoInfoLoader');
@@ -1605,6 +1606,7 @@ var VideoSession = function() {};
       this._$playerContainer.removeClass('stalled loading');
       this._playerConfig.setValue('lastWatchId', this._watchId);
 
+
       if (this._videoWatchOptions.isPlaylistStartRequest()) {
         this._initializePlaylist();
 
@@ -1635,9 +1637,10 @@ var VideoSession = function() {};
         this._playlist.removeItemByWatchId(this._videoInfo.getVideoId());
       }
 
+
       this.emitAsync('canPlay', this._watchId, this._videoInfo);
 
-      if (this._playerConfig.getValue('autoPlay')) {
+      if (this._playerConfig.getValue('autoPlay') && this._isOpen) {
         this.play();
       }
     },
@@ -1753,6 +1756,18 @@ var VideoSession = function() {};
       });
       this._playlist.on('command', _.bind(this._onCommand, this));
       this._playlist.on('update', _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
+    },
+    _initializeCommentPanel: function() {
+      if (this._commentPanel) { return; }
+      var $container = this._videoInfoPanel.appendTab('comment', 'コメント');
+      this._commentPanel = new CommentPanel({
+        player: this,
+        $container: $container,
+        autoScroll: this._playerConfig.getValue('enableCommentPanelAutoScroll')
+      });
+      this._commentPanel.on('command', this._onCommand.bind(this));
+      this._commentPanel.on('update', _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
+      //this._videoInfoPanel.selectTab('comment');
     },
     isPlaylistEnable: function() {
       return this._playlist && this._playlist.isEnable();

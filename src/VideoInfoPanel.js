@@ -50,9 +50,8 @@ var RelatedVideoList = function() {};
       box-sizing: border-box;
       display: inline-block;
       height: 32px;
-      font-size: 14px;
-      padding: 0 8px;
-      letter-spacing: 0.1em;
+      font-size: 12px;
+      letter-spacing: 0;
       line-height: 32px;
       color: #666;
       background: #222;
@@ -61,6 +60,8 @@ var RelatedVideoList = function() {};
       transition: text-shadow 0.2s ease, color 0.2s ease;
     }
     .zenzaWatchVideoInfoPanel .tabSelect.activeTab {
+      font-size: 14px;
+      letter-spacing: 0.1em;
       color: #ccc;
       background: #333;
       {*border-width: 1px 1px 0 1px;

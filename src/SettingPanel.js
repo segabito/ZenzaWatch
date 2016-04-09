@@ -244,6 +244,14 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="overrideWatchLinkControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableCommentPanel">
+            右パネルにコメント一覧を表示 (重いかも)
+          </label>
+        </div>
+
+
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableAutoMylistComment">
@@ -470,6 +478,7 @@ var AsyncEmitter = function() {};
         case 'showComment':
         case 'autoFullScreen':
         case 'enableStoryBoard':
+        case 'enableCommentPanel':
         case 'debug':
           this._$panel
             .find('.' + key + 'Control').toggleClass('checked', value)

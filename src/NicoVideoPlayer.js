@@ -288,6 +288,9 @@ var VideoInfoLoader = {};
       this._videoPlayer.close();
       this._commentPlayer.close();
     },
+    closeCommentPlayer: function() {
+      this._commentPlayer.close();
+    },
     toggleFullScreen: function() {
       if (FullScreen.now()) {
         FullScreen.cancel();

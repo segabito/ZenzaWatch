@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.14.5
+// @version        0.15.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -80,6 +80,8 @@ var monkey = function() {
 
 //@require CommentPlayer.js
 
+//@require CommentPanel.js
+
 //@require VideoList.js
 
 //@require VideoSession.js
@@ -99,6 +101,8 @@ var monkey = function() {
 };
 
 //@require exApi.js
+
+  if (window.ZenzaWatch) { return; }
 
   var host = window.location.host || '';
   var href = (location.href || '').replace(/#.*$/, '');
