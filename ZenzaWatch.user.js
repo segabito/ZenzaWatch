@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.15.0
+// @version        0.15.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -5192,7 +5192,8 @@ var monkey = function() {
         z-index: 100;
         pointer-events: none;
         transform: translate(-50%, 0);
-        border: 2px solid #006;
+                   {*border: 1px solid #006;*}
+        box-shadow: 0 0 4px #333;
         background: #ff9;
         opacity: 0.5;
       }
@@ -5543,9 +5544,10 @@ var monkey = function() {
 
     .bufferRange {
       position: absolute;
-      height: 100%;
+      height: 110%;
       top: 0px;
       box-shadow: 0 0 4px #888;
+      border-radius: 4px;
       {*mix-blend-mode: lighten;*}
       z-index: 100;
       background: #663;
@@ -5564,12 +5566,13 @@ var monkey = function() {
       position: absolute;
       top: 50%;
       width: 6px;
-      height: 100%;
-      background: #ccc;
+      height: 110%;
+      background: rgba(2555, 255, 255, 0.8);
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
       transision: left 0.3s ease;
+      box-shadow: 0 0 4px #fff, 0 0 8px #ffc
     }
     .dragging .seekBar .seekBarPointer {
       transision: none;
@@ -6516,8 +6519,8 @@ var monkey = function() {
             if (this._bufferStart !== start ||
                 this._bufferEnd   !== end) {
               $range.css({
-                left: this._timeToPer(start) + '%',
-                width: this._timeToPer(width) + '%' //TODO: 100%を突き抜けないようにする
+                left: (this._timeToPer(start) - 1) + '%',
+                width: (this._timeToPer(width) + 2)+ '%'
               });
               this._bufferStart = start;
               this._bufferEnd   = end;
@@ -10552,7 +10555,7 @@ spacer {
       this.emitAsync('update', this._items);
     },
     getInViewIndex: function(sec) {
-      return _.sortedLastIndex(this._positions, sec - 1);
+      return Math.max(0, _.sortedLastIndex(this._positions, sec + 1) - 1);
     },
     setCurrentTime: function(sec) {
       if (this._currentTime !== sec && _.isNumber(sec)) {

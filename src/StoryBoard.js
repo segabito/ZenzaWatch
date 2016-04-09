@@ -1053,7 +1053,8 @@ var AsyncEmitter = function() {};
         z-index: 100;
         pointer-events: none;
         transform: translate(-50%, 0);
-        border: 2px solid #006;
+                   {*border: 1px solid #006;*}
+        box-shadow: 0 0 4px #333;
         background: #ff9;
         opacity: 0.5;
       }

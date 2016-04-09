@@ -344,9 +344,10 @@ var StoryBoard = function() {};
 
     .bufferRange {
       position: absolute;
-      height: 100%;
+      height: 110%;
       top: 0px;
       box-shadow: 0 0 4px #888;
+      border-radius: 4px;
       {*mix-blend-mode: lighten;*}
       z-index: 100;
       background: #663;
@@ -365,12 +366,13 @@ var StoryBoard = function() {};
       position: absolute;
       top: 50%;
       width: 6px;
-      height: 100%;
-      background: #ccc;
+      height: 110%;
+      background: rgba(2555, 255, 255, 0.8);
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
       transision: left 0.3s ease;
+      box-shadow: 0 0 4px #fff, 0 0 8px #ffc
     }
     .dragging .seekBar .seekBarPointer {
       transision: none;
@@ -1317,8 +1319,8 @@ var StoryBoard = function() {};
             if (this._bufferStart !== start ||
                 this._bufferEnd   !== end) {
               $range.css({
-                left: this._timeToPer(start) + '%',
-                width: this._timeToPer(width) + '%' //TODO: 100%を突き抜けないようにする
+                left: (this._timeToPer(start) - 1) + '%',
+                width: (this._timeToPer(width) + 2)+ '%'
               });
               this._bufferStart = start;
               this._bufferEnd   = end;

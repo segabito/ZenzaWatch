@@ -124,7 +124,7 @@ var PopupMessage = {};
       this.emitAsync('update', this._items);
     },
     getInViewIndex: function(sec) {
-      return _.sortedLastIndex(this._positions, sec - 1);
+      return Math.max(0, _.sortedLastIndex(this._positions, sec + 1) - 1);
     },
     setCurrentTime: function(sec) {
       if (this._currentTime !== sec && _.isNumber(sec)) {
