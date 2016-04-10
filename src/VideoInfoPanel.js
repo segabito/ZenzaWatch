@@ -14,6 +14,8 @@ var RelatedVideoList = function() {};
   VideoInfoPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
       display: none;
+      pointer-events: none;
+      overflow: hidden;
     }
 
     .zenzaWatchVideoInfoPanel .tabs.activeTab {

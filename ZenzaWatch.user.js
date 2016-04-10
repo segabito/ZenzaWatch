@@ -10718,6 +10718,7 @@ spacer {
       $body
         .on('click',     this._onClick    .bind(this))
         .on('dblclick',  this._onDblClick .bind(this))
+//        .on('mousemove', _.debounce(this._onMouseMove.bind(this), 100))
         .on('mouseover', this._onMouseOver.bind(this))
         .on('mouseleave', this._onMouseOut .bind(this))
         .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); });
@@ -10752,6 +10753,7 @@ spacer {
         if (this._$list) {
           this._$list.html(this._html);
           this._$items = this._$body.find('.commentListItem');
+          this._$menu.removeClass('show');
         }
       }, this, 0);
 
@@ -10800,6 +10802,8 @@ spacer {
 
       var itemId = $item.attr('data-item-id');
       this.emit('command', 'select', null, itemId);
+    },
+    _onMouseMove: function() {
     },
     _onMouseOver: function() {
       //window.console.info('Active!');
@@ -10878,11 +10882,6 @@ spacer {
       line-height: 0;
     }
 
-    .scrollToTop:hover {
-      opacity: 0.9;
-      box-shadow: 0 0 8px #fff;
-    }
-
     .listMenu {
       position: absolute;
       display: block;
@@ -10946,6 +10945,7 @@ spacer {
 {*pointer-events: none;*}
       z-index: 50;
     }
+
     .active .commentListItem {
       pointer-events: auto;
     }
@@ -10993,6 +10993,20 @@ spacer {
       padding: 0 4px;
     }
 
+    .active .commentListItem:hover {
+      overflow-y: visible;
+      z-index: 60;
+      height: auto;
+      box-shadow: 2px 2px 0 #000;
+    }
+
+    .active .commentListItem:hover .text {
+      white-space: normal;
+      word-break: break-all;
+      overflow-y: visible;
+      height: auto;
+    }
+
     .commentListItem.fork1 .timepos {
       text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
     }
@@ -11033,14 +11047,13 @@ spacer {
       data-item-id="%itemId%"
       data-no="%no%" data-vpos"%vpos%"
         style="top: %top%px;" data-top="%top%"
+data-title="%no%: %date% ID:%userId%
+  %text%"
       >
       <p class="info">
         <span class="timepos">%timepos%</span>&nbsp;&nbsp;<span class="date">%date%</span>
       </p>
-      <p class="text" style="%shadow%"
-title="%no%: %date% ID:%userId%
-  %text%"
-      >%trimText%</p>
+      <p class="text" style="%shadow%">%trimText%</p>
     </div>
   */});
 
@@ -11334,6 +11347,8 @@ title="%no%: %date% ID:%userId%
       this._$view.toggleClass(className, v);
     },
     _onModelCurrentTimeUpdate: function(sec, viewIndex) {
+      if (!this._$view || !this._$view.is(':visible')) { return; }
+
       this._lastCurrentTime = sec;
       this._listView.setCurrentPoint(viewIndex);
     },
@@ -17338,6 +17353,8 @@ title="%no%: %date% ID:%userId%
   VideoInfoPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
     .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
       display: none;
+      pointer-events: none;
+      overflow: hidden;
     }
 
     .zenzaWatchVideoInfoPanel .tabs.activeTab {
