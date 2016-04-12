@@ -237,7 +237,7 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
-        <div class="overrideWatchLinkControl control toggle">
+        <div class="overrideWatchLinkControl control toggle forPremium">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
             シークバーにサムネイルを表示 (重いかも)

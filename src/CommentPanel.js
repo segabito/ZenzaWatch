@@ -451,6 +451,21 @@ var PopupMessage = {};
       line-height: 0;
     }
 
+    body::-webkit-scrollbar {
+      background: #222;
+    }
+
+    body::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #666;
+    }
+
+    body::-webkit-scrollbar-button {
+      background: #666;
+      display: none;
+    }
+
+
     .listMenu {
       position: absolute;
       display: block;

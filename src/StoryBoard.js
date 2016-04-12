@@ -243,6 +243,9 @@ var AsyncEmitter = function() {};
         display: none;
         pointer-events: none;
       }
+      .dragging .zenzaSeekThumbnail {
+        pointer-events: auto;
+      }
 
       .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
         display: block;
@@ -683,7 +686,7 @@ var AsyncEmitter = function() {};
 
         var onHoverOut = function() {
           if (hoverOutTimer) { window.clearTimeout(hoverOutTimer); }
-          hoverOutTimer = window.setTimeout(onHoverOutTimer, 1500);
+          hoverOutTimer = window.setTimeout(onHoverOutTimer, 1000);
         }.bind(this);
 
         $inner
@@ -943,9 +946,14 @@ var AsyncEmitter = function() {};
         pointer-events: auto;
       }
 
+      .dragging .storyBoardContainer {
+        pointer-events: none;
+      }
+
+
       .fullScreen  .dragging .storyBoardContainer,
       .fullScreen            .storyBoardContainer.show{
-        top: 30px;
+        top: calc(100% - 10px);
       }
 
       .storyBoardContainer .storyBoardInner {

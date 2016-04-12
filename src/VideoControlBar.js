@@ -125,7 +125,7 @@ var StoryBoard = function() {};
     }
     .fullScreen .controlItemContainer.center {
       top: auto;
-      bottom: 0px;
+           {*bottom: 0px;*}
     }
     .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
       background: rgba(32, 32, 32, 0.3);
@@ -146,7 +146,7 @@ var StoryBoard = function() {};
     }
     .fullScreen .controlItemContainer.right {
       top: auto;
-      bottom: 0px;
+           {*bottom: 0px;*}
     }
 
     .mouseMoving .controlItemContainer.right {
@@ -365,17 +365,18 @@ var StoryBoard = function() {};
     .seekBar .seekBarPointer {
       position: absolute;
       top: 50%;
-      width: 6px;
+      width: 12px;
       height: 110%;
-      background: rgba(2555, 255, 255, 0.8);
+      background: rgba(255, 255, 200, 0.8);
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
-      transision: left 0.3s ease;
-      box-shadow: 0 0 4px #fff, 0 0 8px #ffc
+      transition: left 0.3s ease;
+      box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;
+      mix-blend-mode: lighten;
     }
     .dragging .seekBar .seekBarPointer {
-      transision: none;
+      transition: none;
     }
 
     .videoControlBar .videoTime {
@@ -746,7 +747,7 @@ var StoryBoard = function() {};
 
       <div class="controlItemContainer center">
         <div class="scalingUI">
-          <div class="toggleStoryBoard controlButton playControl" data-command="toggleStoryBoard">
+          <div class="toggleStoryBoard controlButton playControl forPremium" data-command="toggleStoryBoard">
             <div class="controlButtonInner">＜●＞</div>
             <div class="tooltip">シーンサーチ</div>
           </div>
@@ -770,7 +771,7 @@ var StoryBoard = function() {};
             </div>
           </div>
 
-          <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
+          <div class="playbackRateMenu controlButton forPremium" data-command="playbackRateMenu">
             <div class="controlButtonInner">1x</div>
             <div class="tooltip">再生速度</div>
             <div class="playbackRateSelectMenu zenzaPopupMenu">
@@ -1219,7 +1220,9 @@ var StoryBoard = function() {};
       this._beginMouseDrag();
     },
     _onSeekBarMouseMove: function(e) {
-      e.stopPropagation();
+      if (!this._$view.hasClass('dragging')) {
+        e.stopPropagation();
+      }
       var left = e.offsetX;
       var sec = this._posToTime(left);
       this._seekBarMouseX = left;

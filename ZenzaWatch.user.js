@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.15.1
+// @version        0.15.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -3647,19 +3647,19 @@ var monkey = function() {
           <li class="seek" data-command="seek" data-param="-30">30秒戻る</li>
           <li class="seek" data-command="seek" data-param="30" >30秒進む</li>
 
-          <hr class="separator">
+          <hr class="separator forPremium">
 
-          <li class="playbackRate" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="0.3">超スロー(0.3x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="0.5">スロー再生(0.5x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.0">標準速度</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.2">高速(1.2x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.4">高速(1.4x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.5">高速(1.5x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="2">倍速(2x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.3">超スロー(0.3x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.5">スロー再生(0.5x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.0">標準速度</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.2">高速(1.2x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.4">高速(1.4x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.5">高速(1.5x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="2">倍速(2x)</li>
           <!--
-          <li class="playbackRate" data-command="playbackRate" data-param="4">4倍速(4x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="4">4倍速(4x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
           -->
           <hr class="separator">
           <li class="debug"        data-command="debug">デバッグ</li>
@@ -4382,6 +4382,9 @@ var monkey = function() {
         display: none;
         pointer-events: none;
       }
+      .dragging .zenzaSeekThumbnail {
+        pointer-events: auto;
+      }
 
       .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
         display: block;
@@ -4822,7 +4825,7 @@ var monkey = function() {
 
         var onHoverOut = function() {
           if (hoverOutTimer) { window.clearTimeout(hoverOutTimer); }
-          hoverOutTimer = window.setTimeout(onHoverOutTimer, 1500);
+          hoverOutTimer = window.setTimeout(onHoverOutTimer, 1000);
         }.bind(this);
 
         $inner
@@ -5082,9 +5085,14 @@ var monkey = function() {
         pointer-events: auto;
       }
 
+      .dragging .storyBoardContainer {
+        pointer-events: none;
+      }
+
+
       .fullScreen  .dragging .storyBoardContainer,
       .fullScreen            .storyBoardContainer.show{
-        top: 30px;
+        top: calc(100% - 10px);
       }
 
       .storyBoardContainer .storyBoardInner {
@@ -5325,7 +5333,7 @@ var monkey = function() {
     }
     .fullScreen .controlItemContainer.center {
       top: auto;
-      bottom: 0px;
+           {*bottom: 0px;*}
     }
     .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
       background: rgba(32, 32, 32, 0.3);
@@ -5346,7 +5354,7 @@ var monkey = function() {
     }
     .fullScreen .controlItemContainer.right {
       top: auto;
-      bottom: 0px;
+           {*bottom: 0px;*}
     }
 
     .mouseMoving .controlItemContainer.right {
@@ -5565,17 +5573,18 @@ var monkey = function() {
     .seekBar .seekBarPointer {
       position: absolute;
       top: 50%;
-      width: 6px;
+      width: 12px;
       height: 110%;
-      background: rgba(2555, 255, 255, 0.8);
+      background: rgba(255, 255, 200, 0.8);
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
-      transision: left 0.3s ease;
-      box-shadow: 0 0 4px #fff, 0 0 8px #ffc
+      transition: left 0.3s ease;
+      box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;
+      mix-blend-mode: lighten;
     }
     .dragging .seekBar .seekBarPointer {
-      transision: none;
+      transition: none;
     }
 
     .videoControlBar .videoTime {
@@ -5946,7 +5955,7 @@ var monkey = function() {
 
       <div class="controlItemContainer center">
         <div class="scalingUI">
-          <div class="toggleStoryBoard controlButton playControl" data-command="toggleStoryBoard">
+          <div class="toggleStoryBoard controlButton playControl forPremium" data-command="toggleStoryBoard">
             <div class="controlButtonInner">＜●＞</div>
             <div class="tooltip">シーンサーチ</div>
           </div>
@@ -5970,7 +5979,7 @@ var monkey = function() {
             </div>
           </div>
 
-          <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
+          <div class="playbackRateMenu controlButton forPremium" data-command="playbackRateMenu">
             <div class="controlButtonInner">1x</div>
             <div class="tooltip">再生速度</div>
             <div class="playbackRateSelectMenu zenzaPopupMenu">
@@ -6419,7 +6428,9 @@ var monkey = function() {
       this._beginMouseDrag();
     },
     _onSeekBarMouseMove: function(e) {
-      e.stopPropagation();
+      if (!this._$view.hasClass('dragging')) {
+        e.stopPropagation();
+      }
       var left = e.offsetX;
       var sec = this._posToTime(left);
       this._seekBarMouseX = left;
@@ -10882,6 +10893,21 @@ spacer {
       line-height: 0;
     }
 
+    body::-webkit-scrollbar {
+      background: #222;
+    }
+
+    body::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #666;
+    }
+
+    body::-webkit-scrollbar-button {
+      background: #666;
+      display: none;
+    }
+
+
     .listMenu {
       position: absolute;
       display: block;
@@ -12104,6 +12130,21 @@ data-title="%no%: %date% ID:%userId%
       overflow-x: hidden;
       counter-reset: video;
     }
+
+    body::-webkit-scrollbar {
+      background: #222;
+    }
+
+    body::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #666;
+    }
+
+    body::-webkit-scrollbar-button {
+      background: #666;
+      display: none;
+    }
+
 
     .scrollToTop {
       position: fixed;
@@ -13728,7 +13769,8 @@ data-title="%no%: %date% ID:%userId%
       pointer-events: none;
     }
     body.showNicoVideoPlayerDialog .ads {
-      display: none;
+      display: none !important;
+      pointer-events: none;
     }
 
     {* 大百科の奴 *}
@@ -13755,6 +13797,10 @@ data-title="%no%: %date% ID:%userId%
       transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;
+    }
+
+    .regularUser  .forPremium {
+      display: none;
     }
 
     .zenzaVideoPlayerDialog * {
@@ -13952,7 +13998,7 @@ data-title="%no%: %date% ID:%userId%
 
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .videoPlayer,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
-      padding-bottom: 40px;
+      padding-bottom: 50px;
     }
 
     .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
@@ -14307,10 +14353,12 @@ data-title="%no%: %date% ID:%userId%
       }, this));
 
       this.setIsBackComment(config.getValue('backComment'));
-      $container.toggleClass('showComment', config.getValue('showComment'));
-      $container.toggleClass('mute', config.getValue('mute'));
-      $container.toggleClass('loop', config.getValue('loop'));
-      $container.toggleClass('debug', config.getValue('debug'));
+      $container
+        .toggleClass('showComment', config.getValue('showComment'))
+        .toggleClass('mute', config.getValue('mute'))
+        .toggleClass('loop', config.getValue('loop'))
+        .toggleClass('regularUser', !ZenzaWatch.util.isPremium())
+        .toggleClass('debug', config.getValue('debug'));
 
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       var lastX = 0, lastY = 0;
@@ -17056,7 +17104,7 @@ data-title="%no%: %date% ID:%userId%
           </label>
         </div>
 
-        <div class="overrideWatchLinkControl control toggle">
+        <div class="overrideWatchLinkControl control toggle forPremium">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
             シークバーにサムネイルを表示 (重いかも)

@@ -572,6 +572,21 @@ var PopupMessage = {};
       counter-reset: video;
     }
 
+    body::-webkit-scrollbar {
+      background: #222;
+    }
+
+    body::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #666;
+    }
+
+    body::-webkit-scrollbar-button {
+      background: #666;
+      display: none;
+    }
+
+
     .scrollToTop {
       position: fixed;
       width: 32px;

@@ -596,19 +596,19 @@ var VideoInfoLoader = {};
           <li class="seek" data-command="seek" data-param="-30">30秒戻る</li>
           <li class="seek" data-command="seek" data-param="30" >30秒進む</li>
 
-          <hr class="separator">
+          <hr class="separator forPremium">
 
-          <li class="playbackRate" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="0.3">超スロー(0.3x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="0.5">スロー再生(0.5x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.0">標準速度</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.2">高速(1.2x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.4">高速(1.4x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.5">高速(1.5x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="2">倍速(2x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.3">超スロー(0.3x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.5">スロー再生(0.5x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.0">標準速度</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.2">高速(1.2x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.4">高速(1.4x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.5">高速(1.5x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="2">倍速(2x)</li>
           <!--
-          <li class="playbackRate" data-command="playbackRate" data-param="4">4倍速(4x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="4">4倍速(4x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
           -->
           <hr class="separator">
           <li class="debug"        data-command="debug">デバッグ</li>

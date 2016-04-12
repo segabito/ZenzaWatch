@@ -200,7 +200,8 @@ var CommentPanel = function() {};
       pointer-events: none;
     }
     body.showNicoVideoPlayerDialog .ads {
-      display: none;
+      display: none !important;
+      pointer-events: none;
     }
 
     {* 大百科の奴 *}
@@ -227,6 +228,10 @@ var CommentPanel = function() {};
       transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;
+    }
+
+    .regularUser  .forPremium {
+      display: none;
     }
 
     .zenzaVideoPlayerDialog * {
@@ -424,7 +429,7 @@ var CommentPanel = function() {};
 
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .videoPlayer,
     .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
-      padding-bottom: 40px;
+      padding-bottom: 50px;
     }
 
     .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
@@ -779,10 +784,12 @@ var CommentPanel = function() {};
       }, this));
 
       this.setIsBackComment(config.getValue('backComment'));
-      $container.toggleClass('showComment', config.getValue('showComment'));
-      $container.toggleClass('mute', config.getValue('mute'));
-      $container.toggleClass('loop', config.getValue('loop'));
-      $container.toggleClass('debug', config.getValue('debug'));
+      $container
+        .toggleClass('showComment', config.getValue('showComment'))
+        .toggleClass('mute', config.getValue('mute'))
+        .toggleClass('loop', config.getValue('loop'))
+        .toggleClass('regularUser', !ZenzaWatch.util.isPremium())
+        .toggleClass('debug', config.getValue('debug'));
 
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       var lastX = 0, lastY = 0;
