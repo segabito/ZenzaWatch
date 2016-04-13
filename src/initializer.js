@@ -136,9 +136,9 @@ var AsyncEmitter = function() {};
         return;
       }
 
-      if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
-        return;
-      }
+      //if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
+      //  return;
+      //}
 
       replaceRedirectLinks();
 

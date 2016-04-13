@@ -46,7 +46,7 @@ var VideoInfoLoader = {};
     },
     _onHeartBeat: function() {
       //視聴権のcookieを取得するだけなのでwatchページを叩くだけでもいいはず
-      window.console.log('HeartBeat'); 
+      window.console.log('HeartBeat');
       //VideoInfoLoader.load(
       //  this._videoInfo.getWatchId(),
       //  this._videoWatchOptions.getVideoLoadOptions()

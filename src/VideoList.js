@@ -640,6 +640,8 @@ var PopupMessage = {};
         pointer-events: none;
         z-index: 1;
         line-height: 88px;
+        opacity: 0.6;
+
         transform: translate(0, -50%);
     }
 

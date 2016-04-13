@@ -315,17 +315,17 @@ var AsyncEmitter = function() {};
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
           <span class="info">
-            １行ごとに入力。上限はありませんが、増やしすぎると重くなります。
+            １行ごとに入力。プレミアム会員に上限はありませんが、増やしすぎると重くなります。
           </span>
-          <p>NGワード</p>
+          <p>NGワード (一般会員は20まで)</p>
           <textarea
             class="filterEdit wordFilterEdit"
             data-command="setWordFilterList"></textarea>
-          <p>NGコマンド</p>
+          <p>NGコマンド (一般会員は10まで)</p>
           <textarea
             class="filterEdit commandFilterEdit"
             data-command="setCommandFilterList"></textarea>
-          <p>NGユーザー</p>
+          <p>NGユーザー (一般会員は10まで)</p>
           <textarea
             class="filterEdit userIdFilterEdit"
             data-command="setUserIdFilterList"></textarea>

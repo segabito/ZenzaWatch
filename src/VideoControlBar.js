@@ -371,10 +371,12 @@ var StoryBoard = function() {};
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
-      transition: left 0.3s ease;
+      transition: left 0.2s linear;
       box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;
       mix-blend-mode: lighten;
     }
+
+    .loading  .seekBar .seekBarPointer,
     .dragging .seekBar .seekBarPointer {
       transition: none;
     }
@@ -1214,7 +1216,6 @@ var StoryBoard = function() {};
       var left = e.offsetX;
       var sec = this._posToTime(left);
 
-      // TODO: 一般会員はバッファ内のみシーク
       this._player.setCurrentTime(sec);
 
       this._beginMouseDrag();

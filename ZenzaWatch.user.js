@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.15.3
+// @version        1.0.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -5579,10 +5579,12 @@ var monkey = function() {
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
-      transition: left 0.3s ease;
+      transition: left 0.2s linear;
       box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;
       mix-blend-mode: lighten;
     }
+
+    .loading  .seekBar .seekBarPointer,
     .dragging .seekBar .seekBarPointer {
       transition: none;
     }
@@ -6422,7 +6424,6 @@ var monkey = function() {
       var left = e.offsetX;
       var sec = this._posToTime(left);
 
-      // TODO: 一般会員はバッファ内のみシーク
       this._player.setCurrentTime(sec);
 
       this._beginMouseDrag();
@@ -10228,7 +10229,7 @@ spacer {
       var before = this._wordFilterList.join('\n');
       this._wordFilterList.push(text.trim());
       this._wordFilterList = _.uniq(this._wordFilterList);
-      if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(0, 20); }
+      if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(20); }
       var after = this._wordFilterList.join('\n');
       if (before !== after) {
         this._wordReg = null;
@@ -10247,7 +10248,7 @@ spacer {
       if (before !== after) {
         this._wordReg = null;
         this._wordFilterList = tmp;
-        if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(0, 20); }
+        if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(20); }
         this._onChange();
       }
     },
@@ -10259,7 +10260,7 @@ spacer {
       var before = this._userIdFilterList.join('\n');
       this._userIdFilterList.push(text);
       this._userIdFilterList = _.uniq(this._userIdFilterList);
-      if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(0, 20); }
+      if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(10); }
       var after = this._userIdFilterList.join('\n');
       if (before !== after) {
         this._userIdReg = null;
@@ -10278,7 +10279,7 @@ spacer {
       if (before !== after) {
         this._userIdReg = null;
         this._userIdFilterList = tmp;
-        if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(0, 20); }
+        if (!ZenzaWatch.util.isPremium()) { this._userIdFilterList.splice(10); }
         this._onChange();
       }
     },
@@ -10290,7 +10291,7 @@ spacer {
       var before = this._commandFilterList.join('\n');
       this._commandFilterList.push(text);
       this._commandFilterList = _.uniq(this._commandFilterList);
-      if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(0, 20); }
+      if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(10); }
       var after = this._commandFilterList.join('\n');
       if (before !== after) {
         this._commandReg = null;
@@ -10309,7 +10310,7 @@ spacer {
       if (before !== after) {
         this._commandReg = null;
         this._commandFilterList = tmp;
-        if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(0, 20); }
+        if (!ZenzaWatch.util.isPremium()) { this._commandFilterList.splice(10); }
         this._onChange();
       }
     },
@@ -12199,6 +12200,8 @@ data-title="%no%: %date% ID:%userId%
         pointer-events: none;
         z-index: 1;
         line-height: 88px;
+        opacity: 0.6;
+
         transform: translate(0, -50%);
     }
 
@@ -13577,7 +13580,7 @@ data-title="%no%: %date% ID:%userId%
     },
     _onHeartBeat: function() {
       //視聴権のcookieを取得するだけなのでwatchページを叩くだけでもいいはず
-      window.console.log('HeartBeat'); 
+      window.console.log('HeartBeat');
       //VideoInfoLoader.load(
       //  this._videoInfo.getWatchId(),
       //  this._videoWatchOptions.getVideoLoadOptions()
@@ -15012,8 +15015,9 @@ data-title="%no%: %date% ID:%userId%
       if (!this._nicoVideoPlayer) {
         return 0;
       }
-      if (!this._hasError) {
-        this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
+      var ct = this._nicoVideoPlayer.getCurrentTime() * 1;
+      if (!this._hasError && ct > 0) {
+        this._lastCurrentTime = ct;
       }
       return this._lastCurrentTime;
     },
@@ -15023,6 +15027,7 @@ data-title="%no%: %date% ID:%userId%
       }
       if (ZenzaWatch.util.isPremium() || this.isInSeekableBuffer(sec)) {
         this._nicoVideoPlayer.setCurrentTime(sec);
+        this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
       }
     },
     // 政治的な理由により一般会員はバッファ内しかシークできないようにする必要があるため、
@@ -17182,17 +17187,17 @@ data-title="%no%: %date% ID:%userId%
         <p class="caption">NG設定</p>
         <div class="filterEditContainer">
           <span class="info">
-            １行ごとに入力。上限はありませんが、増やしすぎると重くなります。
+            １行ごとに入力。プレミアム会員に上限はありませんが、増やしすぎると重くなります。
           </span>
-          <p>NGワード</p>
+          <p>NGワード (一般会員は20まで)</p>
           <textarea
             class="filterEdit wordFilterEdit"
             data-command="setWordFilterList"></textarea>
-          <p>NGコマンド</p>
+          <p>NGコマンド (一般会員は10まで)</p>
           <textarea
             class="filterEdit commandFilterEdit"
             data-command="setCommandFilterList"></textarea>
-          <p>NGユーザー</p>
+          <p>NGユーザー (一般会員は10まで)</p>
           <textarea
             class="filterEdit userIdFilterEdit"
             data-command="setUserIdFilterList"></textarea>
@@ -19028,9 +19033,9 @@ data-title="%no%: %date% ID:%userId%
         return;
       }
 
-      if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
-        return;
-      }
+      //if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
+      //  return;
+      //}
 
       replaceRedirectLinks();
 

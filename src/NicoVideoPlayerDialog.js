@@ -1443,8 +1443,9 @@ var CommentPanel = function() {};
       if (!this._nicoVideoPlayer) {
         return 0;
       }
-      if (!this._hasError) {
-        this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
+      var ct = this._nicoVideoPlayer.getCurrentTime() * 1;
+      if (!this._hasError && ct > 0) {
+        this._lastCurrentTime = ct;
       }
       return this._lastCurrentTime;
     },
@@ -1454,6 +1455,7 @@ var CommentPanel = function() {};
       }
       if (ZenzaWatch.util.isPremium() || this.isInSeekableBuffer(sec)) {
         this._nicoVideoPlayer.setCurrentTime(sec);
+        this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
       }
     },
     // 政治的な理由により一般会員はバッファ内しかシークできないようにする必要があるため、
