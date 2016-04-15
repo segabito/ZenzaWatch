@@ -492,7 +492,7 @@ var console;
 
     var addStyle = function(styles, id) {
       var elm = document.createElement('style');
-      window.setTimeout(function() {
+      //window.setTimeout(function() {
         elm.type = 'text/css';
         if (id) { elm.id = id; }
 
@@ -502,7 +502,7 @@ var console;
         var head = document.getElementsByTagName('head');
         head = head[0];
         head.appendChild(elm);
-      }, 0);
+      //}, 0);
       return elm;
     };
 
@@ -996,6 +996,11 @@ var console;
     };
     ZenzaWatch.util.isFirefox = isFirefox;
 
+    var isWebkit = function() {
+      return navigator.userAgent.toLowerCase().indexOf('webkit') >= 0;
+    };
+    ZenzaWatch.util.isWebkit = isWebkit;
+
     var escapeHtml = function(text) {
       var map = {
         '&':    '&amp;',
@@ -1274,6 +1279,68 @@ var console;
       }
     }
   });
+
+  var RequestAnimationFrame = function(callback, frameSkip) {
+    this.initialize(callback, frameSkip);
+  };
+  _.assign(RequestAnimationFrame.prototype, {
+    initialize: function(callback, frameSkip) {
+      this.requestAnimationFrame =
+        (window.requestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.webkitRequestAnimationFrame).bind(window);
+      this.cancelAnimationFrame =
+        (window.cancelAnimationFrame ||
+        window.mozCancelAnimationFrame ||
+        window.webkitCancelAnimationFrame).bind(window);
+
+      this._frameSkip = Math.max(0, typeof frameSkip === 'number' ? frameSkip : 0);
+      this._frameCount = 0;
+      this._callback = callback;
+      this._enable = false;
+      this._onFrame = this._onFrame.bind(this);
+    },
+    _onFrame: function() {
+      if (this._enable) {
+        this._frameCount++;
+        try {
+          if (this._frameCount % (this._frameSkip + 1) === 0) {
+            this._callback();
+          }
+        } catch (e) {
+          console.log('%cException!', 'background: red;', e);
+        }
+
+        if (this.requestAnimationFrame) {
+          this._requestId = this.requestAnimationFrame(this._onFrame);
+        } else {
+          this._requestId = window.setTimeout(this._onFrame, 100);
+        }
+      }
+    },
+    enable: function() {
+      if (this._enable) { return; }
+      this._enable = true;
+
+      if (this.requestAnimationFrame) {
+        this._requestId = this.requestAnimationFrame(this._onFrame);
+      } else {
+        this._requestId = window.setTimeout(this._onFrame, 100);
+      }
+    },
+    disable: function() {
+      this._enable = false;
+
+      if (!this._requestId) { return; }
+      if (this.cancelAnimationFrame) {
+        this.cancelAnimationFrame(this._requestId);
+      } else {
+        window.clearTimeout(this._requestId);
+      }
+      this._requestId = null;
+    }
+  });
+  ZenzaWatch.util.RequestAnimationFrame = RequestAnimationFrame;
 
 
 //===END===

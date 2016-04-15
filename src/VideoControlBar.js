@@ -203,7 +203,7 @@ var StoryBoard = function() {};
       z-index: 100;
       opacity: 0.8;
     }
-    .controlButton:hover .tooltip {
+    .mouseMoving .controlButton:hover .tooltip {
       display: block;
       opacity: 1;
     }
@@ -354,13 +354,15 @@ var StoryBoard = function() {};
     }
 
     .zenzaStoryBoardOpen .bufferRange {
-      background: #ccc;
+      background: #ff9;
+      mix-blend-mode: lighten;
       opacity: 0.5;
     }
 
     .noHeatMap .bufferRange {
       background: #666;
     }
+
 
     .seekBar .seekBarPointer {
       position: absolute;
@@ -507,8 +509,6 @@ var StoryBoard = function() {};
       font-size: 15px;
     }
 
-    .screenModeMenu:hover {
-    }
 
     .screenModeMenu.show {
       background: #888;
@@ -596,8 +596,6 @@ var StoryBoard = function() {};
     }
     .mute .videoControlBar .muteSwitch {
       color: #888;
-    }
-    .videoControlBar .muteSwitch:hover {
     }
     .videoControlBar .muteSwitch:active {
       font-size: 15px;
@@ -1201,7 +1199,7 @@ var StoryBoard = function() {};
     },
     _startTimer: function() {
       this._timerCount = 0;
-      this._timer = window.setInterval(_.bind(this._onTimer, this), 30);
+      this._timer = window.setInterval(_.bind(this._onTimer, this), 10);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -1250,6 +1248,7 @@ var StoryBoard = function() {};
 
       this._player.setCurrentTime(sec);
       this._seekBarToolTip.update(sec, left);
+      this._storyBoard.setCurrentTime(sec, true);
     },
     _onBodyMouseUp: function() {
       this._endMouseDrag();
@@ -1274,7 +1273,7 @@ var StoryBoard = function() {};
       this._timerCount++;
       var player = this._player;
       var currentTime = player.getCurrentTime();
-      if (this._timerCount % 10 === 0) {
+      if (this._timerCount % 30 === 0) {
         this.setCurrentTime(currentTime);
       }
       this._storyBoard.setCurrentTime(currentTime);
@@ -1655,8 +1654,6 @@ var StoryBoard = function() {};
     }
     .zenzaCommentPreview:hover .zenzaCommentPreviewInner {
       pointer-events: auto;
-    }
-    .seekBarContainer .zenzaCommentPreview.show:hover .zenzaCommentPreviewInner {
     }
 
     .zenzaCommentPreviewInner .nicoChat {

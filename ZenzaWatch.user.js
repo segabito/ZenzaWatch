@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.0
+// @version        1.0.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -546,7 +546,7 @@ var monkey = function() {
 
     var addStyle = function(styles, id) {
       var elm = document.createElement('style');
-      window.setTimeout(function() {
+      //window.setTimeout(function() {
         elm.type = 'text/css';
         if (id) { elm.id = id; }
 
@@ -556,7 +556,7 @@ var monkey = function() {
         var head = document.getElementsByTagName('head');
         head = head[0];
         head.appendChild(elm);
-      }, 0);
+      //}, 0);
       return elm;
     };
 
@@ -1050,6 +1050,11 @@ var monkey = function() {
     };
     ZenzaWatch.util.isFirefox = isFirefox;
 
+    var isWebkit = function() {
+      return navigator.userAgent.toLowerCase().indexOf('webkit') >= 0;
+    };
+    ZenzaWatch.util.isWebkit = isWebkit;
+
     var escapeHtml = function(text) {
       var map = {
         '&':    '&amp;',
@@ -1328,6 +1333,68 @@ var monkey = function() {
       }
     }
   });
+
+  var RequestAnimationFrame = function(callback, frameSkip) {
+    this.initialize(callback, frameSkip);
+  };
+  _.assign(RequestAnimationFrame.prototype, {
+    initialize: function(callback, frameSkip) {
+      this.requestAnimationFrame =
+        (window.requestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.webkitRequestAnimationFrame).bind(window);
+      this.cancelAnimationFrame =
+        (window.cancelAnimationFrame ||
+        window.mozCancelAnimationFrame ||
+        window.webkitCancelAnimationFrame).bind(window);
+
+      this._frameSkip = Math.max(0, typeof frameSkip === 'number' ? frameSkip : 0);
+      this._frameCount = 0;
+      this._callback = callback;
+      this._enable = false;
+      this._onFrame = this._onFrame.bind(this);
+    },
+    _onFrame: function() {
+      if (this._enable) {
+        this._frameCount++;
+        try {
+          if (this._frameCount % (this._frameSkip + 1) === 0) {
+            this._callback();
+          }
+        } catch (e) {
+          console.log('%cException!', 'background: red;', e);
+        }
+
+        if (this.requestAnimationFrame) {
+          this._requestId = this.requestAnimationFrame(this._onFrame);
+        } else {
+          this._requestId = window.setTimeout(this._onFrame, 100);
+        }
+      }
+    },
+    enable: function() {
+      if (this._enable) { return; }
+      this._enable = true;
+
+      if (this.requestAnimationFrame) {
+        this._requestId = this.requestAnimationFrame(this._onFrame);
+      } else {
+        this._requestId = window.setTimeout(this._onFrame, 100);
+      }
+    },
+    disable: function() {
+      this._enable = false;
+
+      if (!this._requestId) { return; }
+      if (this.cancelAnimationFrame) {
+        this.cancelAnimationFrame(this._requestId);
+      } else {
+        window.clearTimeout(this._requestId);
+      }
+      this._requestId = null;
+    }
+  });
+  ZenzaWatch.util.RequestAnimationFrame = RequestAnimationFrame;
 
 
 
@@ -4410,6 +4477,7 @@ var monkey = function() {
         this._model.on('reset',  this._onModelReset.bind(this));
         this._model.on('update', this._onModelUpdate.bind(this));
 
+
         ZenzaWatch.debug.seekBarThumbnail = this;
       },
       _onModelUpdate: function() {
@@ -4427,6 +4495,7 @@ var monkey = function() {
         this._$image.css({
           width:  this._colWidth  * this._scale,
           height: this._rowHeight * this._scale,
+          opacity: '',
           'background-size':
             (model.getCols() * this._colWidth  * this._scale) + 'px ' +
             (model.getRows() * this._rowHeight * this._scale) + 'px'
@@ -4534,8 +4603,7 @@ var monkey = function() {
         this._initializeStoryBoard = _.noop;
 
         if (!this._model) {
-          this._model = new StoryBoardModel({
-          });
+          this._model = new StoryBoardModel({});
         }
         if (!this._view) {
           this._view = new StoryBoardView({
@@ -4593,9 +4661,9 @@ var monkey = function() {
         return this._seekBarThumbnail;
       },
 
-      setCurrentTime: function(sec) {
+      setCurrentTime: function(sec, forceUpdate) {
         if (this._view && this._model.isAvailable()) {
-          this._view.setCurrentTime(sec);
+          this._view.setCurrentTime(sec, forceUpdate);
         }
       },
 
@@ -4750,6 +4818,10 @@ var monkey = function() {
         sb.on('update', this._onStoryBoardUpdate.bind(this));
         sb.on('reset',  this._onStoryBoardReset .bind(this));
 
+        this._requestAnimationFrame = new ZenzaWatch.util.RequestAnimationFrame(
+          this._onRequestAnimationFrame.bind(this), 1
+        );
+
       },
       enable: function() {
         this._isEnable = true;
@@ -4762,12 +4834,14 @@ var monkey = function() {
         this._$view.addClass('show');
         this._$body.addClass('zenzaStoryBoardOpen');
         this._$container.addClass('zenzaStoryBoardOpen');
+        this._requestAnimationFrame.enable();
       },
       close: function() {
         if (!this._$view) { return; }
         this._$view.removeClass('show');
         this._$body.removeClass('zenzaStoryBoardOpen');
         this._$container.removeClass('zenzaStoryBoardOpen');
+        this._requestAnimationFrame.disable();
       },
       disable: function() {
         this._isEnable = false;
@@ -4805,6 +4879,7 @@ var monkey = function() {
         this._$pointer       = $view.find('.storyBoardPointer');
 
         $view
+          .toggleClass('webkit', ZenzaWatch.util.isWebkit())
           .on('click',     '.board',   this._onBoardClick.bind(this))
         //  .on('click',     '.command', this._onCommandClick.bind(this))
           .on('mousemove', '.board',   this._onBoardMouseMove.bind(this))
@@ -4851,7 +4926,7 @@ var monkey = function() {
         window.setTimeout(function() { $view.removeClass('clicked'); }, 1000);
         this._$cursorTime.css({left: -999});
 
-        window.setTimeout(function() { this._isHover = false; }.bind(this), 3000);
+        //window.setTimeout(function() { this._isHover = false; }.bind(this), 3000);
 
         this.emit('select', ms);
       },
@@ -4891,10 +4966,11 @@ var monkey = function() {
           // 横ホイールがある環境ならなにもしない
           return;
         }
+        e.preventDefault();
         this._isHover = true;
         this._isMouseMoving = true;
         var left = this.scrollLeft();
-        this.scrollLeft(left + delta * 5);
+        this.scrollLeft(left + delta * 5, true);
       },
       _onMouseWheelEnd: function(e, delta) {
         this._isMouseMoving = false;
@@ -4926,16 +5002,23 @@ var monkey = function() {
           this._updateFail();
         }
       },
-      scrollLeft: function(left) {
+      scrollLeft: function(left, forceUpdate) {
         var $inner = this._$inner;
-        if (!this._$inner) { return 0; }
+        if (!$inner) { return 0; }
       
         if (left === undefined) {
+          //return this._scrollLeft = $inner.scrollLeft();
           return $inner.scrollLeft();
         } else if (left === 0 || Math.abs(this._scrollLeft - left) >= 1) {
-          var sl = $inner.scrollLeft();
-          this._scrollLeft = (left + sl) / 2;
-          $inner.scrollLeft(this._scrollLeft);
+          if (left === 0 || forceUpdate) {
+            $inner.scrollLeft(left);
+            this._scrollLeftChanged = false;
+          } else {
+            var sl = $inner.scrollLeft();
+            this._scrollLeft = (left + sl) / 2;
+            //$inner.scrollLeft(this._scrollLeft);
+            this._scrollLeftChanged = true;
+          }
         }
       },
       scrollToNext: function() {
@@ -4947,10 +5030,10 @@ var monkey = function() {
       _updateSuccess: function() {
         var url = this._model.getUrl();
         var $view = this._$view;
-
         $view
-          .addClass('success')
-          .css('transform', 'translate(0px, -'+ this._model.getHeight() +'px) translateZ(0)');
+          .css('transform', 'translate(0px, -'+ this._model.getHeight() +'px) translateZ(0)')
+          .addClass('success');
+
         if (this._currentUrl !== url) {
           // 前と同じurl == 同じ動画なら再作成する必要なし
           this._currentUrl = url;
@@ -4985,7 +5068,20 @@ var monkey = function() {
           this._$inner.empty();
         }
       },
-      setCurrentTime: function(sec) {
+      _onRequestAnimationFrame: function() {
+        if (!this._model.isAvailable()) { return; }
+        if (!this._$view) { return; }
+
+        if (this._scrollLeftChanged) {
+          this._$inner.scrollLeft(this._scrollLeft);
+          this.__scrollLeftChanged = false;
+        }
+        if (this._pointerLeftChanged) {
+          this._$pointer.css('left', this._pointerLeft);
+          this._pointerLeftChanged = false;
+        }
+      },
+      setCurrentTime: function(sec, forceUpdate) {
         if (!this._model.isAvailable()) { return; }
         if (!this._$view) { return; }
         if (this._lastCurrentTime === sec) { return; }
@@ -4999,10 +5095,18 @@ var monkey = function() {
         var boardWidth = storyBoard.getCount() * width;
         var targetLeft = boardWidth * per;
 
-        this._$pointer.css('left', targetLeft);
+        if (this._pointerLeft !== targetLeft) {
+          this._pointerLeft = targetLeft;
+          this._pointerLeftChanged = true;
+          //this._$pointer.css('left', targetLeft);
+        }
 
-        if (this._isHover) { return; }
-        this.scrollLeft(targetLeft - this._$inner.innerWidth() * per);
+        if (forceUpdate) {
+          this.scrollLeft(targetLeft - this._$inner.innerWidth() * per, true);
+        } else {
+          if (this._isHover) { return; }
+          this.scrollLeft(targetLeft - this._$inner.innerWidth() * per);
+        }
       },
       _onScroll: function() {
       },
@@ -5061,13 +5165,18 @@ var monkey = function() {
         overflow: hidden;
         box-shadow: 0 -2px 2px #666;
         pointer-events: none;
-
         transform: translateZ(0);
+        display: none;
+      }
+
+      .storyBoardContainer.success {
+        display: block;
         transition:
           bottom 0.5s ease-in-out,
           top 0.5s ease-in-out,
           transform 0.5s ease-in-out;
       }
+
       .storyBoardContainer * {
         box-sizing: border-box;
         -moz-box-sizing: border-box;
@@ -5106,20 +5215,21 @@ var monkey = function() {
       }
 
 
+      .storyBoardContainer.webkit .storyBoardInner,
       .storyBoardContainer .storyBoardInner:hover {
         overflow-x: auto;
       }
       {*.storyBoardContainer .storyBoardInner::-moz-scrollbar,*}
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-        background: #333;
+        width: 6px;
+        height: 6px;
+        background: rgba(0, 0, 0, 0);
       }
 
       {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-thumb,*}
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar-thumb {
-        border-radius: 0;
-        background: #ff9;
+        border-radius: 6px;
+        background: #f8f;
       }
 
       {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-button,*}
@@ -5411,7 +5521,7 @@ var monkey = function() {
       z-index: 100;
       opacity: 0.8;
     }
-    .controlButton:hover .tooltip {
+    .mouseMoving .controlButton:hover .tooltip {
       display: block;
       opacity: 1;
     }
@@ -5562,13 +5672,15 @@ var monkey = function() {
     }
 
     .zenzaStoryBoardOpen .bufferRange {
-      background: #ccc;
+      background: #ff9;
+      mix-blend-mode: lighten;
       opacity: 0.5;
     }
 
     .noHeatMap .bufferRange {
       background: #666;
     }
+
 
     .seekBar .seekBarPointer {
       position: absolute;
@@ -5715,8 +5827,6 @@ var monkey = function() {
       font-size: 15px;
     }
 
-    .screenModeMenu:hover {
-    }
 
     .screenModeMenu.show {
       background: #888;
@@ -5804,8 +5914,6 @@ var monkey = function() {
     }
     .mute .videoControlBar .muteSwitch {
       color: #888;
-    }
-    .videoControlBar .muteSwitch:hover {
     }
     .videoControlBar .muteSwitch:active {
       font-size: 15px;
@@ -6409,7 +6517,7 @@ var monkey = function() {
     },
     _startTimer: function() {
       this._timerCount = 0;
-      this._timer = window.setInterval(_.bind(this._onTimer, this), 30);
+      this._timer = window.setInterval(_.bind(this._onTimer, this), 10);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -6458,6 +6566,7 @@ var monkey = function() {
 
       this._player.setCurrentTime(sec);
       this._seekBarToolTip.update(sec, left);
+      this._storyBoard.setCurrentTime(sec, true);
     },
     _onBodyMouseUp: function() {
       this._endMouseDrag();
@@ -6482,7 +6591,7 @@ var monkey = function() {
       this._timerCount++;
       var player = this._player;
       var currentTime = player.getCurrentTime();
-      if (this._timerCount % 10 === 0) {
+      if (this._timerCount % 30 === 0) {
         this.setCurrentTime(currentTime);
       }
       this._storyBoard.setCurrentTime(currentTime);
@@ -6863,8 +6972,6 @@ var monkey = function() {
     }
     .zenzaCommentPreview:hover .zenzaCommentPreviewInner {
       pointer-events: auto;
-    }
-    .seekBarContainer .zenzaCommentPreview.show:hover .zenzaCommentPreviewInner {
     }
 
     .zenzaCommentPreviewInner .nicoChat {

@@ -2051,6 +2051,7 @@ http://www.nicovideo.jp/watch/sm2406770?playlist_type=tag&tag=VOCALOID&sort=n&or
 http://www.nicovideo.jp/watch/sm26625313?playlist_type=mylist_playlist&group_id=15689839&mylist_sort=1
 http://www.nicovideo.jp/watch/sm8535320?playlist_type=mylist_playlist&group_id=deflist&mylist_sort=1
 
+http://www.nicovideo.jp/watch/sm28528855?playlist_type=tag&tag=%E3%81%86%E3%82%8F%E3%82%AD%E3%83%84&sort=n&order=d&page=1&continuous=1
 
 // thumbInfo
 commentCount: 4370138
