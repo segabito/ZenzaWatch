@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.1
+// @version        1.0.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -456,6 +456,7 @@ var monkey = function() {
         div[data-follow-container] {
           position: static !important;
         }
+
       */});
 
       var initialize = function() {
@@ -757,7 +758,16 @@ var monkey = function() {
       }
 
 
+      {* 将棋盤ランキングを「ただ開いてるだけで」重いのを改善する *}
+      section.matrix .item_cell_empty:before {
+        -webkit-animation: none !important;
+        -moz-animation: none !imortant;
+        animation: none !important;
 
+        -webkit-animation-iteration-count: 0 !important;
+        -moz-animation-iteration-count: 0 !important;
+        animation-iteration-count: 0 !important;
+      }
 
     */});
     // 非ログイン状態のwatchページ用
@@ -13495,7 +13505,7 @@ data-title="%no%: %date% ID:%userId%
         this._refreshIndex();
         this.emit('update');
         this.emit('command', 'notifyHtml',
-          'リストに追加: ' +
+          'リストの末尾に追加: ' +
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );

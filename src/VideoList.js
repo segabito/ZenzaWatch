@@ -1828,7 +1828,7 @@ var PopupMessage = {};
         this._refreshIndex();
         this.emit('update');
         this.emit('command', 'notifyHtml',
-          'リストに追加: ' +
+          'リストの末尾に追加: ' +
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );

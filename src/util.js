@@ -402,6 +402,7 @@ var console;
         div[data-follow-container] {
           position: static !important;
         }
+
       */});
 
       var initialize = function() {
@@ -703,7 +704,16 @@ var console;
       }
 
 
+      {* 将棋盤ランキングを「ただ開いてるだけで」重いのを改善する *}
+      section.matrix .item_cell_empty:before {
+        -webkit-animation: none !important;
+        -moz-animation: none !imortant;
+        animation: none !important;
 
+        -webkit-animation-iteration-count: 0 !important;
+        -moz-animation-iteration-count: 0 !important;
+        animation-iteration-count: 0 !important;
+      }
 
     */});
     // 非ログイン状態のwatchページ用
