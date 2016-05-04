@@ -3,11 +3,21 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://www.nicovideo.jp/*
-// @version     1.1.0
+// @version     1.2.0
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
 // ==/UserScript==
+
+
+// 推奨
+//
+// XInput系 (XboxOne, Xbox360コントローラ等)
+// DualShock4
+// USBサターンパッド
+// 8bitdo FC30系
+
+
 
 (function() {
 
@@ -771,8 +781,9 @@
         var onTimerInterval = function() {
           if (!primaryGamepad) {
             detectGamepad();
+            return;
           }
-          if (!primaryGamepad || !primaryGamepad.isConnected) {
+          if (!primaryGamepad.isConnected) {
             return;
           }
           primaryGamepad.update();
@@ -870,23 +881,28 @@
         onPovRepeat(pov, deviceId);
       };
 
+      var bindEvents = function() {
+        bindEvents = _.noop;
+
+        ZenzaGamePad.on('onButtonDown',   _onButtonDown);
+        ZenzaGamePad.on('onButtonRepeat', _onButtonRepeat);
+        ZenzaGamePad.on('onButtonUp',     _onButtonUp);
+        ZenzaGamePad.on('onAxisChange',   _onAxisChange);
+        ZenzaGamePad.on('onAxisRepeat',   _onAxisRepeat);
+        ZenzaGamePad.on('onAxisRelease',  _onAxisRelease);
+        ZenzaGamePad.on('onPovChange',    _onPovChange);
+        ZenzaGamePad.on('onPovRepeat',    _onPovRepeat);
+      };
 
       var onDeviceConnect = function(index, id) {
-         onDeviceConnect = _.noop;
          deviceIndex = index;
          deviceId = id;
 
-         ZenzaGamePad.on('onButtonDown',   _onButtonDown);
-         ZenzaGamePad.on('onButtonRepeat', _onButtonRepeat);
-         ZenzaGamePad.on('onButtonUp',     _onButtonUp);
-         ZenzaGamePad.on('onAxisChange',   _onAxisChange);
-         ZenzaGamePad.on('onAxisRepeat',   _onAxisRepeat);
-         ZenzaGamePad.on('onAxisRelease',  _onAxisRelease);
-         ZenzaGamePad.on('onPovChange',    _onPovChange);
-         ZenzaGamePad.on('onPovRepeat',    _onPovRepeat);
+         bindEvents();
       };
 
       ZenzaGamePad.on('onDeviceConnect', onDeviceConnect);
+      //ZenzaGamePad.on('onDeviceDisConnect', onDeviceDisConnect);
       ZenzaGamePad.startDetect();
     };
 

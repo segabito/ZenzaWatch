@@ -60,7 +60,8 @@ var NicoTextParser = {};
       this._view      = new NicoCommentCss3PlayerView({
         viewModel: this._viewModel,
         playbackRate: params.playbackRate,
-        show: params.showComment
+        show: params.showComment,
+        opacity: _.isNumber(params.commentOpacity) ? params.commentOpacity : 1.0
       });
 
       this._model.on('change'      , _.bind(this._onCommentChange, this));
@@ -752,7 +753,7 @@ var NicoTextParser = {};
     addChatArray: function(nicoChatArray) {
       var members = this._members;
       var newMembers = [];
-      $(nicoChatArray).each(function(i, nicoChat) {
+      _.each(nicoChatArray, function(nicoChat) {
         newMembers.push(nicoChat);
         members.push(nicoChat);
         nicoChat.setGroup(this);
@@ -1146,7 +1147,7 @@ var NicoTextParser = {};
     _parseCmd: function(cmd, isFork) {
       var tmp = cmd.split(/ +/);
       var result = {};
-      $(tmp).each(function(i, c) {
+      _.each(tmp, function(c) {
         if (NicoChat.COLORS[c]) {
           result.COLOR = NicoChat.COLORS[c];
         } else if (NicoChat._COLOR_MATCH.test(c)) {
@@ -2712,7 +2713,7 @@ spacer {
 
       var before = this._wordFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -2743,7 +2744,7 @@ spacer {
 
       var before = this._userIdFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -2774,7 +2775,7 @@ spacer {
 
       var before = this._commandFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -2901,7 +2902,7 @@ spacer {
     _buildFilterReg: function(filterList) {
       if (filterList.length < 1) { return null; }
       var r = [];
-      $(filterList).each(function(i, filter) {
+      _.each(filterList, function(filter) {
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('(' + r.join('|') + ')', 'i');
@@ -2909,7 +2910,7 @@ spacer {
     _buildFilterPerfectMatchinghReg: function(filterList) {
       if (filterList.length < 1) { return null; }
       var r = [];
-      $(filterList).each(function(i, filter) {
+      _.each(filterList, function(filter) {
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('^(' + r.join('|') + ')$');

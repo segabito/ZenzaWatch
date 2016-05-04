@@ -80,7 +80,7 @@ var VideoInfoLoader = {};
     },
     _initializeEvents: function() {
       this._videoPlayer.on('volumeChange', _.bind(this._onVolumeChange, this));
-      this._videoPlayer.on('dblclick', _.bind(this.toggleFullScreen, this));
+      this._videoPlayer.on('dblclick', _.bind(this._onDblClick, this));
       this._videoPlayer.on('aspectRatioFix', _.bind(this._onAspectRatioFix, this));
       this._videoPlayer.on('play',    _.bind(this._onPlay, this));
       this._videoPlayer.on('playing', _.bind(this._onPlaying, this));
@@ -217,6 +217,11 @@ var VideoInfoLoader = {};
     },
     _onClick: function() {
       this._contextMenu.hide();
+    },
+    _onDblClick: function() {
+      if (this._playerConfig.getValue('enableFullScreenOnDoubleClick')) {
+        this.toggleFullScreen();
+      }
     },
     _onContextMenu: function(e) {
       this._contextMenu.show(e.offsetX, e.offsetY);

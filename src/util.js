@@ -197,6 +197,7 @@ var console;
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
+        enableFullScreenOnDoubleClick: true,
         enableStoryBoard: true, // シークバーサムネイル関連
         enableStoryBoardBar: false, // シーンサーチ
 
@@ -204,6 +205,7 @@ var console;
         // NG設定
         enableFilter: true,
         wordFilter: '',
+        wordFilterReg: '',
         userIdFilter: '',
         commandFilter: '',
 
@@ -222,6 +224,11 @@ var console;
 
         speakLark: false, // 一発ネタのコメント読み上げ機能. 飽きたら消す
         speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
+
+
+
+
+        commentLayerOpacity: 1.0, //
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -701,18 +708,6 @@ var console;
         border-width: 0 0 1px 1px;
         background: #333;
         box-sizing: border-box;
-      }
-
-
-      {* 将棋盤ランキングを「ただ開いてるだけで」重いのを改善する *}
-      section.matrix .item_cell_empty:before {
-        -webkit-animation: none !important;
-        -moz-animation: none !imortant;
-        animation: none !important;
-
-        -webkit-animation-iteration-count: 0 !important;
-        -moz-animation-iteration-count: 0 !important;
-        animation-iteration-count: 0 !important;
       }
 
     */});

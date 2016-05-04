@@ -202,7 +202,8 @@ var ajax = function() {};
 
           if (!data) {
             videoInfoLoader.emitAsync('fail', watchId, {
-              message: '動画情報の取得に失敗(watchApi)'
+              message: '動画情報の取得に失敗(watchApi)',
+              type: 'watchapi'
             });
             return;
           }
@@ -227,7 +228,8 @@ var ajax = function() {};
                 onLoad,
                 function() {
                   videoInfoLoader.emitAsync('fail', watchId, {
-                    message: '動画情報の取得に失敗(watchApi)'
+                    message: '動画情報の取得に失敗(watchApi)',
+                    type: 'watchapi'
                   });
                 }
               );
@@ -263,7 +265,8 @@ var ajax = function() {};
           onLoad,
           function() {
             videoInfoLoader.emitAsync('fail', watchId, {
-              message: '動画情報の取得に失敗(watchApi)'
+              message: '動画情報の取得に失敗(watchApi)',
+              type: 'watchapi'
             });
           }
         );

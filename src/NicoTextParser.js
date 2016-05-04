@@ -136,7 +136,7 @@ body {
 }
 
 .default {}
-.gothic  {font-family: 'ＭＳ Ｐゴシック'; }
+.gothic  {font-family: 'ＭＳ Ｐゴシック', sans-serif, Arial, 'Menlo'; }
 .mincho  {font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace; }
 .mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
@@ -243,7 +243,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 
 /**
  *  たぶんこんな感じ
- *  1. 全角文字(半角スペース<s>含む</s>含まない)でグループ化
+ *  1. 全角文字(半角スペース含まない)でグループ化
  *  2. グループ内でフォント変化文字が1つある場合はグループ全体がそのフォント
  *  3. 二つ以上ある場合は、一番目がグループ内のベースフォント、
  *     二番目以降はそのフォントにチェンジ
@@ -251,6 +251,10 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
  *     グループ全体のベースフォントがグループ1の奴になる
  *
  *  Vista以降だともうちょっと複雑らしい
+ *
+ *
+ *  もし新規でニコニコ動画のようなシステムを作るのであれば、こんな複雑怪奇な物を実装する必要はない。
+ *  ならどうしてやっているのかといえば、過去のコメントアートを再現したいからである。
  */
   NicoTextParser.likeXP = function(text) {
     var S = '<spacer> </spacer>';

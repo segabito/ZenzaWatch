@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.2
+// @version        1.0.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -251,6 +251,7 @@ var monkey = function() {
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
+        enableFullScreenOnDoubleClick: true,
         enableStoryBoard: true, // シークバーサムネイル関連
         enableStoryBoardBar: false, // シーンサーチ
 
@@ -258,6 +259,7 @@ var monkey = function() {
         // NG設定
         enableFilter: true,
         wordFilter: '',
+        wordFilterReg: '',
         userIdFilter: '',
         commandFilter: '',
 
@@ -276,6 +278,11 @@ var monkey = function() {
 
         speakLark: false, // 一発ネタのコメント読み上げ機能. 飽きたら消す
         speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
+
+
+
+
+        commentLayerOpacity: 1.0, //
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -755,18 +762,6 @@ var monkey = function() {
         border-width: 0 0 1px 1px;
         background: #333;
         box-sizing: border-box;
-      }
-
-
-      {* 将棋盤ランキングを「ただ開いてるだけで」重いのを改善する *}
-      section.matrix .item_cell_empty:before {
-        -webkit-animation: none !important;
-        -moz-animation: none !imortant;
-        animation: none !important;
-
-        -webkit-animation-iteration-count: 0 !important;
-        -moz-animation-iteration-count: 0 !important;
-        animation-iteration-count: 0 !important;
       }
 
     */});
@@ -1595,7 +1590,8 @@ var monkey = function() {
 
           if (!data) {
             videoInfoLoader.emitAsync('fail', watchId, {
-              message: '動画情報の取得に失敗(watchApi)'
+              message: '動画情報の取得に失敗(watchApi)',
+              type: 'watchapi'
             });
             return;
           }
@@ -1620,7 +1616,8 @@ var monkey = function() {
                 onLoad,
                 function() {
                   videoInfoLoader.emitAsync('fail', watchId, {
-                    message: '動画情報の取得に失敗(watchApi)'
+                    message: '動画情報の取得に失敗(watchApi)',
+                    type: 'watchapi'
                   });
                 }
               );
@@ -1656,7 +1653,8 @@ var monkey = function() {
           onLoad,
           function() {
             videoInfoLoader.emitAsync('fail', watchId, {
-              message: '動画情報の取得に失敗(watchApi)'
+              message: '動画情報の取得に失敗(watchApi)',
+              type: 'watchapi'
             });
           }
         );
@@ -3208,7 +3206,7 @@ var monkey = function() {
     },
     _initializeEvents: function() {
       this._videoPlayer.on('volumeChange', _.bind(this._onVolumeChange, this));
-      this._videoPlayer.on('dblclick', _.bind(this.toggleFullScreen, this));
+      this._videoPlayer.on('dblclick', _.bind(this._onDblClick, this));
       this._videoPlayer.on('aspectRatioFix', _.bind(this._onAspectRatioFix, this));
       this._videoPlayer.on('play',    _.bind(this._onPlay, this));
       this._videoPlayer.on('playing', _.bind(this._onPlaying, this));
@@ -3345,6 +3343,11 @@ var monkey = function() {
     },
     _onClick: function() {
       this._contextMenu.hide();
+    },
+    _onDblClick: function() {
+      if (this._playerConfig.getValue('enableFullScreenOnDoubleClick')) {
+        this.toggleFullScreen();
+      }
     },
     _onContextMenu: function(e) {
       this._contextMenu.show(e.offsetX, e.offsetY);
@@ -5423,11 +5426,6 @@ var monkey = function() {
       background: #000 !important;
     }
 
-    .stalled .videoControlBar {
-      opacity: 0.7;
-      background: rgba(0, 0, 0, 0.5);
-    }
-
 
     .zenzaScreenMode_wide .videoControlBar.dragging,
     .fullScreen           .videoControlBar.dragging,
@@ -7417,7 +7415,7 @@ body {
 }
 
 .default {}
-.gothic  {font-family: 'ＭＳ Ｐゴシック'; }
+.gothic  {font-family: 'ＭＳ Ｐゴシック', sans-serif, Arial, 'Menlo'; }
 .mincho  {font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace; }
 .mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
@@ -7524,7 +7522,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 
 /**
  *  たぶんこんな感じ
- *  1. 全角文字(半角スペース<s>含む</s>含まない)でグループ化
+ *  1. 全角文字(半角スペース含まない)でグループ化
  *  2. グループ内でフォント変化文字が1つある場合はグループ全体がそのフォント
  *  3. 二つ以上ある場合は、一番目がグループ内のベースフォント、
  *     二番目以降はそのフォントにチェンジ
@@ -7532,6 +7530,10 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
  *     グループ全体のベースフォントがグループ1の奴になる
  *
  *  Vista以降だともうちょっと複雑らしい
+ *
+ *
+ *  もし新規でニコニコ動画のようなシステムを作るのであれば、こんな複雑怪奇な物を実装する必要はない。
+ *  ならどうしてやっているのかといえば、過去のコメントアートを再現したいからである。
  */
   NicoTextParser.likeXP = function(text) {
     var S = '<spacer> </spacer>';
@@ -7706,7 +7708,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._view      = new NicoCommentCss3PlayerView({
         viewModel: this._viewModel,
         playbackRate: params.playbackRate,
-        show: params.showComment
+        show: params.showComment,
+        opacity: _.isNumber(params.commentOpacity) ? params.commentOpacity : 1.0
       });
 
       this._model.on('change'      , _.bind(this._onCommentChange, this));
@@ -8398,7 +8401,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     addChatArray: function(nicoChatArray) {
       var members = this._members;
       var newMembers = [];
-      $(nicoChatArray).each(function(i, nicoChat) {
+      _.each(nicoChatArray, function(nicoChat) {
         newMembers.push(nicoChat);
         members.push(nicoChat);
         nicoChat.setGroup(this);
@@ -8792,7 +8795,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     _parseCmd: function(cmd, isFork) {
       var tmp = cmd.split(/ +/);
       var result = {};
-      $(tmp).each(function(i, c) {
+      _.each(tmp, function(c) {
         if (NicoChat.COLORS[c]) {
           result.COLOR = NicoChat.COLORS[c];
         } else if (NicoChat._COLOR_MATCH.test(c)) {
@@ -10358,7 +10361,7 @@ spacer {
 
       var before = this._wordFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -10389,7 +10392,7 @@ spacer {
 
       var before = this._userIdFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -10420,7 +10423,7 @@ spacer {
 
       var before = this._commandFilterList.join('\n');
       var tmp = [];
-      $(list).each(function(i, text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push(text.trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -10547,7 +10550,7 @@ spacer {
     _buildFilterReg: function(filterList) {
       if (filterList.length < 1) { return null; }
       var r = [];
-      $(filterList).each(function(i, filter) {
+      _.each(filterList, function(filter) {
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('(' + r.join('|') + ')', 'i');
@@ -10555,7 +10558,7 @@ spacer {
     _buildFilterPerfectMatchinghReg: function(filterList) {
       if (filterList.length < 1) { return null; }
       var r = [];
-      $(filterList).each(function(i, filter) {
+      _.each(filterList, function(filter) {
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('^(' + r.join('|') + ')$');
@@ -11135,6 +11138,7 @@ spacer {
       color: #ccc;
       margin: 0;
       padding: 0 4px;
+      font-family: arial, 'Menlo';
     }
 
     .active .commentListItem:hover {
@@ -14402,6 +14406,7 @@ data-title="%no%: %date% ID:%userId%
       display: none;
       pointer-events: none;
     }
+
     .zenzaPlayerContainer.error .errorMessageContainer {
       display: inline-block;
       position: absolute;
@@ -14415,7 +14420,6 @@ data-title="%no%: %date% ID:%userId%
       box-shadow: 8px 8px 4px rgba(128, 0, 0, 0.8);
       white-space: nowrap;
     }
-
 
   */});
 
@@ -14765,6 +14769,12 @@ data-title="%no%: %date% ID:%userId%
           break;
         case 'close':
           this.close(param);
+          break;
+        case 'reload':
+          this.reload({currentTime: this.getCurrentTime()});
+          break;
+        case 'openGinza':
+          window.open('//www.nicovideo.jp/watch/' + this._watchId, 'watchGinza');
           break;
         case 'reloadComment':
           this.reloadComment();
@@ -15236,7 +15246,6 @@ data-title="%no%: %date% ID:%userId%
       );
     },
     reloadComment: function() {
-      this._nicoVideoPlayer.closeCommentPlayer();
       this.loadComment(this._flvInfo, this._requestId);
     },
     _onVideoInfoLoaderFail: function(requestId, watchId, e) {
@@ -15245,7 +15254,7 @@ data-title="%no%: %date% ID:%userId%
         return;
       }
       var message = e.message;
-      this._setErrorMessage(message);
+      this._setErrorMessage(message, watchId);
       this._hasError = true;
       if (e.info) {
         this._videoInfo = new VideoInfoModel(e.info);
@@ -15281,6 +15290,7 @@ data-title="%no%: %date% ID:%userId%
       var options = {
         replacement: this._videoInfo.getReplacementWords()
       };
+      this._nicoVideoPlayer.closeCommentPlayer();
       this._nicoVideoPlayer.setComment(result.xml, options);
       this._threadInfo = result.threadInfo;
       this._isCommentReady = true;
@@ -15749,6 +15759,22 @@ data-title="%no%: %date% ID:%userId%
       bottom: 64px;
     }
 
+    .menuItemContainer.onErrorMenu {
+      position: absolute;
+      left: 50%;
+      top: 60%;
+      transform: translate(-50%, 0);
+      display: none;
+      white-space: nowrap;
+
+    }
+    .error .menuItemContainer.onErrorMenu {
+      display: block !important;
+      opacity: 1 !important;
+    }
+    .error .menuItemContainer.onErrorMenu .menuButton {
+      opacity: 0.8 !important;
+    }
 
     .menuButton {
       position: absolute;
@@ -15814,6 +15840,30 @@ data-title="%no%: %date% ID:%userId%
     .menuButton:hover {
       cursor: pointer;
       opacity: 1;
+    }
+
+    .menuItemContainer.onErrorMenu .menuButton {
+      position: relative;
+      display: inline-block;
+      margin: 0 16px;
+      padding: 8px;
+      background: #888;
+      color: #000;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #333;
+      border: 2px outset;
+      width: 100px;
+      font-size: 14px;
+      line-height: 16px;
+    }
+    .menuItemContainer.onErrorMenu .menuButton:active {
+      background: #ccc;
+      box-shadow: 4px 4px 0 #333, 0 0 8px #ccc;
+    }
+    .menuItemContainer.onErrorMenu .menuButton:active {
+      transform: translate(4px, 4px);
+      border: 2px inset;
+      box-shadow: none;
     }
 
     .showCommentSwitch {
@@ -16265,6 +16315,17 @@ data-title="%no%: %date% ID:%userId%
         </div>
       </div>
 
+      <div class="menuItemContainer onErrorMenu">
+        <div class="menuButton openGinzaMenu" data-command="openGinza">
+          <div class="menuButtonInner">GINZAで視聴</div>
+        </div>
+
+        <div class="menuButton reloadMenu" data-command="reload">
+          <div class="menuButtonInner">リロード</div>
+        </div>
+
+      </div>
+
     </div>
   */});
 
@@ -16455,6 +16516,8 @@ data-title="%no%: %date% ID:%userId%
         case 'toggleComment':
         case 'toggleBackComment':
         case 'toggleShowComment':
+        case 'openGinza':
+        case 'reload':
           this.emit('command', command);
           break;
        }

@@ -713,6 +713,7 @@ var CommentPanel = function() {};
       display: none;
       pointer-events: none;
     }
+
     .zenzaPlayerContainer.error .errorMessageContainer {
       display: inline-block;
       position: absolute;
@@ -726,7 +727,6 @@ var CommentPanel = function() {};
       box-shadow: 8px 8px 4px rgba(128, 0, 0, 0.8);
       white-space: nowrap;
     }
-
 
   */});
 
@@ -1076,6 +1076,12 @@ var CommentPanel = function() {};
           break;
         case 'close':
           this.close(param);
+          break;
+        case 'reload':
+          this.reload({currentTime: this.getCurrentTime()});
+          break;
+        case 'openGinza':
+          window.open('//www.nicovideo.jp/watch/' + this._watchId, 'watchGinza');
           break;
         case 'reloadComment':
           this.reloadComment();
@@ -1547,7 +1553,6 @@ var CommentPanel = function() {};
       );
     },
     reloadComment: function() {
-      this._nicoVideoPlayer.closeCommentPlayer();
       this.loadComment(this._flvInfo, this._requestId);
     },
     _onVideoInfoLoaderFail: function(requestId, watchId, e) {
@@ -1556,7 +1561,7 @@ var CommentPanel = function() {};
         return;
       }
       var message = e.message;
-      this._setErrorMessage(message);
+      this._setErrorMessage(message, watchId);
       this._hasError = true;
       if (e.info) {
         this._videoInfo = new VideoInfoModel(e.info);
@@ -1592,6 +1597,7 @@ var CommentPanel = function() {};
       var options = {
         replacement: this._videoInfo.getReplacementWords()
       };
+      this._nicoVideoPlayer.closeCommentPlayer();
       this._nicoVideoPlayer.setComment(result.xml, options);
       this._threadInfo = result.threadInfo;
       this._isCommentReady = true;
@@ -2060,6 +2066,22 @@ var CommentPanel = function() {};
       bottom: 64px;
     }
 
+    .menuItemContainer.onErrorMenu {
+      position: absolute;
+      left: 50%;
+      top: 60%;
+      transform: translate(-50%, 0);
+      display: none;
+      white-space: nowrap;
+
+    }
+    .error .menuItemContainer.onErrorMenu {
+      display: block !important;
+      opacity: 1 !important;
+    }
+    .error .menuItemContainer.onErrorMenu .menuButton {
+      opacity: 0.8 !important;
+    }
 
     .menuButton {
       position: absolute;
@@ -2125,6 +2147,30 @@ var CommentPanel = function() {};
     .menuButton:hover {
       cursor: pointer;
       opacity: 1;
+    }
+
+    .menuItemContainer.onErrorMenu .menuButton {
+      position: relative;
+      display: inline-block;
+      margin: 0 16px;
+      padding: 8px;
+      background: #888;
+      color: #000;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #333;
+      border: 2px outset;
+      width: 100px;
+      font-size: 14px;
+      line-height: 16px;
+    }
+    .menuItemContainer.onErrorMenu .menuButton:active {
+      background: #ccc;
+      box-shadow: 4px 4px 0 #333, 0 0 8px #ccc;
+    }
+    .menuItemContainer.onErrorMenu .menuButton:active {
+      transform: translate(4px, 4px);
+      border: 2px inset;
+      box-shadow: none;
     }
 
     .showCommentSwitch {
@@ -2576,6 +2622,17 @@ var CommentPanel = function() {};
         </div>
       </div>
 
+      <div class="menuItemContainer onErrorMenu">
+        <div class="menuButton openGinzaMenu" data-command="openGinza">
+          <div class="menuButtonInner">GINZAで視聴</div>
+        </div>
+
+        <div class="menuButton reloadMenu" data-command="reload">
+          <div class="menuButtonInner">リロード</div>
+        </div>
+
+      </div>
+
     </div>
   */});
 
@@ -2766,6 +2823,8 @@ var CommentPanel = function() {};
         case 'toggleComment':
         case 'toggleBackComment':
         case 'toggleShowComment':
+        case 'openGinza':
+        case 'reload':
           this.emit('command', command);
           break;
        }

@@ -575,6 +575,7 @@ var PopupMessage = {};
       color: #ccc;
       margin: 0;
       padding: 0 4px;
+      font-family: arial, 'Menlo';
     }
 
     .active .commentListItem:hover {

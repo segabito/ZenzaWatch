@@ -95,11 +95,6 @@ var StoryBoard = function() {};
       background: #000 !important;
     }
 
-    .stalled .videoControlBar {
-      opacity: 0.7;
-      background: rgba(0, 0, 0, 0.5);
-    }
-
 
     .zenzaScreenMode_wide .videoControlBar.dragging,
     .fullScreen           .videoControlBar.dragging,
