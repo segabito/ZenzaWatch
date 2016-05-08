@@ -124,7 +124,7 @@ var RelatedVideoList = function() {};
     .zenzaWatchVideoInfoPanel.userVideo .channelVideo,
     .zenzaWatchVideoInfoPanel.channelVideo .userVideo
     {
-      display: none;
+      display: none !important;
     }
 
 
@@ -293,9 +293,10 @@ var RelatedVideoList = function() {};
       display: inline-block;
     }
 
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend,
-    .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd,
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistSetMylist {
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo {
       display: inline-block;
       font-size: 16px;
       line-height: 20px;
@@ -304,37 +305,42 @@ var RelatedVideoList = function() {};
       background: #666;
       color: #ccc !important;
       background: #666;
+      text-decoration: none;
       border: 1px outset;
       transition: transform 0.2s ease;
       cursor: pointer;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend,
-    .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd {
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
       display: none;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover .playlistAppend,
-    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover .deflistAdd {
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab .owner:hover .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .deflistAdd {
       display: inline-block;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend {
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend {
       position: absolute;
       bottom: 4px;
       left: 16px;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd {
+    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
       position: absolute;
       bottom: 4px;
       left: 48px;
     }
 
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend:hover,
-    .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd:hover,
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistSetMylist:hover {
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:hover,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:hover,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:hover,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:hover {
       transform: scale(1.5);
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend:active,
-    .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd:active,
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistSetMylist:active {
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:active,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:active,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:active,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:active {
       transform: scale(1.2);
       border: 1px inset;
     }
@@ -626,6 +632,21 @@ var RelatedVideoList = function() {};
       left: 0;
       width: 100%;
     }
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar {
+      background: #222;
+    }
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #666;
+    }
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-button {
+      background: #666;
+      display: none;
+    }
+
   */});
 
   VideoInfoPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -646,6 +667,9 @@ var RelatedVideoList = function() {};
             </a>
             <span class="owner">
               <span class="ownerName"></span>
+              <a class="playlistSetUploadedVideo userVideo"
+                data-command="playlistSetUploadedVideo"
+                title="投稿動画一覧をプレイリストで開く">▶</a>
             </span>
           </div>
           <div class="publicStatus"></div>
@@ -708,10 +732,17 @@ var RelatedVideoList = function() {};
         this.selectTab(tabName);
       }, this));
 
-      this._$view.on('click', function(e) {
+      $view.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-      }).on('wheel', function(e) {
+        var command = $(e.target).attr('data-command');
+        switch (command) {
+          case 'playlistSetUploadedVideo':
+            var owner = this._videoInfo.getOwnerInfo();
+            this.emit('command', 'playlistSetUploadedVideo', owner.id);
+            break;
+        }
+      }.bind(this)).on('wheel', function(e) {
         e.stopPropagation();
       });
       $icon.on('load', function() {
@@ -1018,7 +1049,7 @@ var RelatedVideoList = function() {};
     .zenzaWatchVideoHeaderPanel.userVideo .channelVideo,
     .zenzaWatchVideoHeaderPanel.channelVideo .userVideo
     {
-      display: none;
+      display: none !important;
     }
 
     .zenzaWatchVideoHeaderPanel .videoTitle {

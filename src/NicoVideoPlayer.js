@@ -495,13 +495,15 @@ var VideoInfoLoader = {};
       } else {
         // 退会しているユーザーだと空になっている
         var u = this._watchApiData.uploaderInfo || {};
+        var f = this._flashvars || {};
         ownerInfo = {
           icon: u.icon_url || 'http://res.nimg.jp/img/user/thumb/blank.jpg',
           url:  u.id ? ('http://www.nicovideo.jp/user/' + u.id) : '#',
-          id:   u.id || '',
+          id:   u.id || f.videoUserId || '',
           name: u.nickname || '(非公開ユーザー)',
           favorite: !!u.is_favorited, // こっちはbooleanという
-          type: 'user'
+          type: 'user',
+          isMyVideoPublic: !!u.is_user_myvideo_public
         };
       }
 

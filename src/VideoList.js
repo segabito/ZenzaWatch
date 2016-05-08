@@ -1017,6 +1017,12 @@ var PopupMessage = {};
         item_type:      item.item_type
       });
     }
+
+    // APIレスポンスの統一されてなさよ・・・
+    if (!item.length_seconds && _.isString(item.length)) {
+      var tmp = item.length.split(':');
+      item.length_seconds = tmp[0] * 60 + tmp[1] * 1;
+    }
     return new VideoListItem({
       _format:        'mylistItemRiapi',
       id:             item.id,
@@ -1523,7 +1529,7 @@ var PopupMessage = {};
     var KEY = 'ZenzaWatchPlaylist';
     
     return {
-      isExist: function() { //return false;
+      isExist: function() {
         var data = storage.getItem(KEY);
         if (!data) { return false; }
         try {
@@ -1547,7 +1553,6 @@ var PopupMessage = {};
       }
     };
   })(sessionStorage);
-
 
   var Playlist = function() { this.initialize.apply(this, arguments); };
   _.extend(Playlist.prototype, VideoList.prototype);
@@ -1663,41 +1668,40 @@ var PopupMessage = {};
       this._model.setItem(items);
       this.setIndex(items.length > 0 ? 0 : -1);
     },
+    _replaceAll: function(videoListItems, options) {
+      options = options || {};
+      this._model.setItem(videoListItems);
+      var item = this._model.findByWatchId(options.watchId);
+      if (item) {
+        item.setIsActive(true);
+        item.setIsPlayed(true);
+        this._activeItem = item;
+        ZenzaWatch.util.callAsync(function() {
+          this._view.scrollToItem(item);
+        }, this, 1000);
+      }
+      this.setIndex(this._model.indexOf(item));
+    },
+    _appendAll: function(videoListItems, options) {
+      options = options || {};
+      this._model.appendItem(videoListItems);
+      var item = this._model.findByWatchId(options.watchId);
+      if (item) {
+        item.setIsActive(true);
+        item.setIsPlayed(true);
+        this._refreshIndex(false);
+      }
+      ZenzaWatch.util.callAsync(function() {
+        this._view.scrollToItem(videoListItems[0]);
+      }, this, 1000);
+    },
     loadFromMylist: function(mylistId, options) {
       this._initializeView();
 
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
-      var self = this;
       window.console.time('loadMylist' + mylistId);
-
-      var replaceAll = function(videoListItems) {
-        self._model.setItem(videoListItems);
-        var item = self._model.findByWatchId(options.watchId);
-        if (item) {
-          item.setIsActive(true);
-          item.setIsPlayed(true);
-          self._activeItem = item;
-          ZenzaWatch.util.callAsync(function() {
-            self._view.scrollToItem(item);
-          }, self, 1000);
-        }
-        self.setIndex(self._model.indexOf(item));
-      };
-
-      var appendAll = function(videoListItems) {
-        self._model.appendItem(videoListItems);
-        var item = self._model.findByWatchId(options.watchId);
-        if (item) {
-          item.setIsActive(true);
-          item.setIsPlayed(true);
-          self._refreshIndex(false);
-        }
-        window.setTimeout(function() {
-          self._view.scrollToItem(videoListItems[0]);
-        }, 1000);
-      };
 
       return this._mylistApiLoader
         .getMylistItems(mylistId, options).then(function(items) {
@@ -1729,12 +1733,12 @@ var PopupMessage = {};
           //window.console.log('videoListItems!!', videoListItems);
 
           if (!options.append) {
-            replaceAll(videoListItems);
+            this._replaceAll(videoListItems, options);
           } else {
-            appendAll(videoListItems);
+            this._appendAll(videoListItems, options);
           }
 
-          self.emit('update');
+          this.emit('update');
           return Promise.resolve({
             status: 'ok',
             message:
@@ -1742,7 +1746,62 @@ var PopupMessage = {};
                 'マイリストの内容をプレイリストに追加しました' :
                 'マイリストの内容をプレイリストに読み込みしました'
           });
-        });
+        }.bind(this));
+    },
+    loadUploadedVideo: function(userId, options) {
+      this._initializeView();
+
+      if (!this._uploadedVideoApiLoader) {
+        this._uploadedVideoApiLoader = new ZenzaWatch.api.UploadedVideoApiLoader();
+      }
+
+      window.console.time('loadUploadedVideos' + userId);
+
+      return this._uploadedVideoApiLoader
+        .getUploadedVideos(userId, options).then(function(items) {
+          window.console.timeEnd('loadUploadedVideos' + userId);
+          var videoListItems = [];
+
+          //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
+          _.each(items, function(item) {
+            if (item.item_data) {
+              if (parseInt(item.item_type, 10) !== 0) { return; } // not video
+              if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
+            } else {
+              //if (excludeId.test(item.id)) { return; } // not video
+              if (item.thumbnail_url.indexOf('video_deleted') >= 0) { return; }
+            }
+            videoListItems.push(
+              VideoListItem.createByMylistItem(item)
+            );
+          });
+
+          if (videoListItems.length < 1) {
+            return Promise.reject({});
+          }
+
+          // 投稿動画一覧は新しい順に渡されるので、プレイリストではreverse＝古い順にする
+          videoListItems.reverse();
+          if (options.shuffle) {
+            videoListItems = _.shuffle(videoListItems);
+          }
+          //window.console.log('videoListItems!!', videoListItems);
+
+          if (!options.append) {
+            this._replaceAll(videoListItems, options);
+          } else {
+            this._appendAll(videoListItems, options);
+          }
+
+          this.emit('update');
+          return Promise.resolve({
+            status: 'ok',
+            message:
+              options.append ?
+                '投稿動画一覧をプレイリストに追加しました' :
+                '投稿動画一覧をプレイリストに読み込みしました'
+          });
+        }.bind(this));
     },
     insert: function(watchId) {
       this._initializeView();

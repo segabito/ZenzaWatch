@@ -1384,6 +1384,66 @@ var ajax = function() {};
     ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
     ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
 //    window.mmm = ZenzaWatch.init.mylistApiLoader;
+//
+    var UploadedVideoApiLoader = (function() {
+      var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
+      var cacheStorage = null;
+
+      function UploadedVideoApiLoader() {
+        this.initialize.apply(this, arguments);
+      }
+      _.assign(UploadedVideoApiLoader.prototype, {
+        initialize: function() {
+          if (!cacheStorage) {
+            cacheStorage = new CacheStorage(sessionStorage);
+          }
+        },
+        getUploadedVideos: function(userId, options) {
+          var url = 'http://riapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+          var cacheKey = 'uploadedvideo: ' + userId;
+
+          return new Promise(function(resolve, reject) {
+
+            var cacheData = cacheStorage.getItem(cacheKey);
+            if (cacheData) {
+              console.log('cache exists: ', cacheKey, cacheData);
+              ZenzaWatch.util.callAsync(function() {
+                resolve(cacheData);
+              }, this);
+              return;
+            }
+
+            return ajax({
+              url: url,
+              timeout: 60000,
+              cache: false,
+              dataType: 'json',
+              xhrFields: { withCredentials: true }
+            }).then(function(result) {
+              if (result.status !== 'ok' || !result.list) {
+                return reject({
+                  result: result,
+                  message: result.message
+                });
+              }
+
+              var data = result.list;
+              cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
+              return resolve(data);
+            }, function(err) {
+              this.reject({
+                result: err,
+                message: '動画一覧の取得失敗(2)'
+              });
+            });
+          });
+        },
+      });
+      return UploadedVideoApiLoader;
+    })();
+    ZenzaWatch.api.UploadedVideoApiLoader = UploadedVideoApiLoader;
+    ZenzaWatch.init.UploadedVideoApiLoader = new UploadedVideoApiLoader();
+//    window.uuu = ZenzaWatch.init.mylistApiLoader;
 
 
     var CrossDomainGate = function() { this.initialize.apply(this, arguments); };

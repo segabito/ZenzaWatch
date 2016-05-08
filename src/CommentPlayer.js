@@ -2911,19 +2911,7 @@ spacer {
 
         if (wordReg    && wordReg.test(nicoChat.getText()))      { return false; }
 
-          if (wordRegReg && wordRegReg.test(nicoChat.getText())) {
-            window.console.log(
-              '%cNGワード(正規表現): "%s" %s %s秒 %s',
-              'background: yellow;',
-              RegExp.$1,
-              nicoChat.getType(),
-              nicoChat.getVpos() / 100,
-              nicoChat.getText()
-            );
-            return false;
-          }
-
-        //if (wordRegReg && wordRegReg.test(nicoChat.getText()))   { return false; }
+        if (wordRegReg && wordRegReg.test(nicoChat.getText()))   { return false; }
 
         if (userIdReg  && userIdReg .test(nicoChat.getUserId())) { return false; }
 

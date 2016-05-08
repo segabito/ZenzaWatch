@@ -206,7 +206,7 @@ var console;
         enableFilter: true,
         wordFilter: '',
         wordRegFilter: '',
-        wordRegFilterFlags: '',
+        wordRegFilterFlags: 'i',
         userIdFilter: '',
         commandFilter: '',
 
@@ -250,6 +250,7 @@ var console;
       }
 
       var config = {};
+      var noEmit = false;
 
       _.each(Object.keys(defaultConfig), function(key) {
         var storageKey = prefix + key;
@@ -296,8 +297,10 @@ var console;
           config[key] = value;
 
           console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
-          this.emitAsync('update', key, value);
-          this.emitAsync('update-' + key, value);
+          if (!noEmit) {
+            this.emitAsync('update', key, value);
+            this.emitAsync('update-' + key, value);
+          }
         }
       };
 
@@ -325,6 +328,47 @@ var console;
           this.emitAsync('update', key, value);
           this.emitAsync('update-' + key, value);
          }
+      };
+
+
+      emitter.exportConfig = function() {
+        var result = {};
+        _.each(Object.keys(defaultConfig), function(key) {
+          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          var storageKey = prefix + key;
+          if (localStorage.hasOwnProperty(storageKey) &&
+              defaultConfig[key] !== emitter.getValue(key)) {
+            result[key] = emitter.getValue(key);
+          }
+        });
+        return result;
+      };
+
+      emitter.importConfig = function(data) {
+        noEmit = true;
+        _.each(Object.keys(data), function(key) {
+          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          window.console.log('import config: %s=%s', key, data[key]);
+          try {
+            emitter.setValue(key, data[key]);
+          } catch (e) {}
+        });
+        noEmit = false;
+      };
+
+      emitter.clearConfig = function() {
+        noEmit = true;
+        _.each(Object.keys(defaultConfig), function(key) {
+          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          var storageKey = prefix + key;
+          try {
+            if (localStorage.hasOwnProperty(storageKey)) {
+              localStorage.removeItem(storageKey);
+            }
+            config[key] = defaultConfig[key];
+          } catch (e) {}
+        });
+        noEmit = false;
       };
 
       emitter.getKeys = function() {

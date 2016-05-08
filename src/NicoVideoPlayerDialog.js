@@ -1015,6 +1015,9 @@ var CommentPanel = function() {};
         case 'playlistSetMylist':
           this._onPlaylistSetMylist(param);
           break;
+        case 'playlistSetUploadedVideo':
+          this._onPlaylistSetUploadedVideo(param);
+          break;
         case 'playNextVideo':
           this.playNextVideo();
           break;
@@ -1276,7 +1279,6 @@ var CommentPanel = function() {};
       option.append = this._playlist.isEnable();
 
       var query = this._videoWatchOptions.getQuery();
-      // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
       option.shuffle = parseInt(query.shuffle, 10) === 1;
 
       this._playlist.loadFromMylist(mylistId, option).then(function(result) {
@@ -1287,6 +1289,23 @@ var CommentPanel = function() {};
       function() {
         PopupMessage.alert('マイリストのロード失敗');
       }.bind(this));
+    },
+    _onPlaylistSetUploadedVideo: function(userId, option) {
+      this._initializePlaylist();
+      option = option || {watchId: this._watchId};
+      // 通常時はプレイリストの置き換え、
+      // 連続再生中はプレイリストに追加で読み込む
+      option.append = this._playlist.isEnable();
+
+      this._playlist.loadUploadedVideo(userId, option).then(function(result) {
+        PopupMessage.notify(result.message);
+        this._videoInfoPanel.selectTab('playlist');
+        this._playlist.insertCurrentVideo(this._videoInfo);
+      }.bind(this),
+      function(err) {
+        PopupMessage.alert(err.message || '投稿動画一覧のロード失敗');
+      }.bind(this));
+
     },
     _onPlaylistStatusUpdate: function() {
       var playlist = this._playlist;

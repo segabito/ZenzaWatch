@@ -15,6 +15,7 @@ var VideoInfoLoader = {};
 var WatchPageState = {};
 var WindowMessageEmitter = {};
 var NicoVideoApi = {};
+var PlaylistSession = {};
 
 var MessageApiLoader = function() {};
 var NicoVideoPlayer = function() {};
@@ -133,6 +134,10 @@ var AsyncEmitter = function() {};
 
       var isGinza = ZenzaWatch.util.isGinzaWatchUrl();
       if (!ZenzaWatch.util.isLogin()) {
+        return;
+      }
+
+      if (isGinza && !window.WatchCommon) { // コメント編集モードなど
         return;
       }
 
@@ -290,9 +295,21 @@ var AsyncEmitter = function() {};
       var open = function(watchId, params) {
         dialog.open(watchId, params);
       };
+
+      var importPlaylist = function(data) {
+        PlaylistSession.save(data);
+      };
+      var exportPlaylist = function() {
+        return PlaylistSession.restore() || {};
+      };
+
       ZenzaWatch.external = {
         execCommand: command,
-        open: open
+        open: open,
+        playlist: {
+          import: importPlaylist,
+          export: exportPlaylist
+        }
       };
     };
 
