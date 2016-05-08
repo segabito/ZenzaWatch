@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name        ZenzaWatch Advanced Settings
 // @namespace   https://github.com/segabito/
-// @description ZenzaWatchの細かな設定をする (わかる人用)
+// @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     1.0.0
+// @version     0.1
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -26,6 +26,38 @@
       log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop
     };
     console = debugMode ? window.console : dummyConsole;
+    var __tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+      <span class="openZenzaAdvancedSettingPanel"><span></span>ZenzaWatch上級者設定</span>
+    */});
+
+    var __css__ = ZenzaWatch.util.hereDoc(function() {/*
+      .userDetail .openZenzaAdvancedSettingPanel {
+        display: inline-block;
+        position: absolute;
+        top: 40px;
+        right: 8px;
+        padding: 2px 8px;
+        text-align: center;
+        background: #fff;
+        border: #ccc solid 1px;
+        color: #0033cc;
+        cursor: pointer;
+      }
+
+      .userDetail .openZenzaAdvancedSettingPanel:active {
+        background: #ccc;
+      }
+
+      .openZenzaAdvancedSettingPanel span {
+        display: inline-block;
+        width: 10px;
+        height: 8px;
+        background: url(http://uni.res.nimg.jp/img/zero_my/icons.png) no-repeat;
+        background-position: -8px -141px;
+      }
+    */});
+
+
 
     var SettingPanel = function() { this.initialize.apply(this, arguments); };
     SettingPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -121,26 +153,33 @@
 
       .zenzaAdvancedSettingPanel input[type=text] {
         font-size: 24px;
-        background: #000;
-        color: #ccc;
+        background: #ccc;
+        color: #000;
         width: 90%;
         margin: 0 5%;
         padding: 8px;
         border-radius: 8px;
       }
       .zenzaAdvancedSettingPanel input[type=text].update {
-        color: #fff;
-        background: #003;
+        color: #003;
+        background: #fff;
+        box-shadow: 0 0 8px #ff9;
       }
+      .zenzaAdvancedSettingPanel input[type=text].update:before {
+        content: 'ok';
+        position: absolute;
+        left: 0;
+        z-index: 100;
+        color: blue;
+      }
+
       .zenzaAdvancedSettingPanel input[type=text].error {
-        color: #f00;
-        background: #300;
+        color: #300;
+        background: #f00;
       }
 
       .zenzaAdvancedSettingPanel select {
         font-size:24px;
-        background: #000;
-        color: #ccc;
         margin: 0 5%;
         border-radius: 8px;
        }
@@ -167,24 +206,53 @@
         transform-origin: center center;
       }
 
+      .zenzaAdvancedSetting-rawData,
+      .zenzaAdvancedSetting-playlistData {
+        width: 90%;
+        height: 300px;
+        margin: 0 5%;
+        word-break: break-all;
+        overflow: scroll;
+      }
+
       .zenzaAdvancedSetting-close:active {
         box-shadow: none;
         border: inset 2px;
         transform: scale(0.8);
       }
+
+      .zenzaAdvancedSettingPanel:not(.debug) .debugOnly {
+        display: none !important;
+      }
+
     */});
     SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
       <div class="zenzaAdvancedSettingPanel">
         <div class="settingPanelInner">
-          <div class="enableFullScreenOnDoubleClick control toggle">
+          <div class="enableFullScreenOnDoubleClickControl control toggle">
             <label>
               <input type="checkbox" class="checkbox" data-setting-name="enableFullScreenOnDoubleClick">
-              画面ダブルクリックでフルスクリーン
+              画面ダブルクリックでフルスクリーン切り換え
+            </label>
+          </div>
+
+          <div class="autoCloseFullScreenControl control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="autoCloseFullScreen">
+              再生終了時に自動でフルスクリーン解除
+
+            </label>
+          </div>
+
+          <div class="continueNextPageControl control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="continueNextPage">
+              再生中にページを切り換えても続きから再開する
             </label>
           </div>
 
           <p class="caption sub">NGワード正規表現</p>
-          <span class="example">入力例: 「([wWｗＷ]+$|^ん[？\?]$|洗った？$)」</span>
+          <span class="example">入力例: 「([wWｗＷ]+$|^ん[？\?]$|洗った？$)」 文法エラーがある時は更新されません</span>
           <input type="text" class="textInput wordRegFilterInput"
             data-setting-name="wordRegFilter">
 
@@ -192,6 +260,25 @@
           <span class="example">入力例: 「i」</span>
           <input type="text" class="textInput wordRegFilterFlagsInput"
             data-setting-name="wordRegFilterFlags">
+
+
+          <div class="debugControl control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="debug">
+              デバッグモード
+            </label>
+          </div>
+
+          <div class="debugOnly">
+            <p class="caption sub">生データ(ZenzaWatch設定)</p>
+            <span class="example">丸ごとコピペで保存/復元可能。 ここを消すと設定がリセットされます。</span>
+            <textarea class="zenzaAdvancedSetting-rawData"></textarea>
+
+            <p class="caption sub">生データ(プレイリスト)</p>
+            <span class="example">丸ごとコピペで保存/復元可能。 編集は自己責任で</span>
+            <textarea class="zenzaAdvancedSetting-playlistData"></textarea>
+
+          </div>
 
           <div class="zenzaAdvancedSetting-close">閉じる</div>
 
@@ -204,7 +291,8 @@
         this._playerConfig     = params.playerConfig;
         this._$container       = params.$container;
 
-        this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
+        this._update$rawData = _.debounce(this._update$rawData.bind(this), 500);
+        this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
         this._initializeDom();
       },
       _initializeDom: function() {
@@ -216,13 +304,56 @@
 
         var $panel = this._$panel = $container.find('.zenzaAdvancedSettingPanel');
         this._$view =
-          $container.find('.zenzaAdvancedSettingPanel, .zenzaAdvancedSettingPanelShadow1, .zenzaAdvancedSettingPanelShadow2');
+          $container.find('.zenzaAdvancedSettingPanel');
         this._$view.on('click', function(e) {
           e.stopPropagation();
         });
         this._$view.on('wheel', function(e) {
           e.stopPropagation();
         });
+
+        this._$rawData = $panel.find('.zenzaAdvancedSetting-rawData');
+        this._$rawData.val(JSON.stringify(config.exportConfig()));
+        this._$rawData.on('change', function() {
+          var val = this._$rawData.val();
+          var data;
+          if (val === '') { val = '{}'; }
+
+          try {
+            data = JSON.parse(val);
+          } catch (e) {
+            alert(e);
+            return;
+          }
+
+          if (confirm('設定データを直接書き換えしますか？')) {
+            config.clearConfig();
+            config.importConfig(data);
+            location.reload();
+          }
+
+        }.bind(this));
+
+        this._$playlistData = $panel.find('.zenzaAdvancedSetting-playlistData');
+        this._$playlistData.val(JSON.stringify(ZenzaWatch.external.playlist.export()));
+        this._$playlistData.on('change', function() {
+          var val = this._$playlistData.val();
+          var data;
+          if (val === '') { val = '{}'; }
+
+          try {
+            data = JSON.parse(val);
+          } catch (e) {
+            alert(e);
+            return;
+          }
+
+          if (confirm('プレイリストデータを直接書き換えしますか？')) {
+            ZenzaWatch.external.playlist.import(data);
+            location.reload();
+          }
+
+        }.bind(this));
 
         var onInputItemChange = this._onInputItemChange.bind(this);
         var $check = $panel.find('input[type=checkbox]');
@@ -258,6 +389,8 @@
           this.hide();
         }.bind(this));
 
+        $panel.toggleClass('debug', config.getValue('debug'));
+
         //ZenzaWatch.emitter.on('hideHover', _.bind(function() {
         //  this.hide();
         //}, this));
@@ -265,17 +398,25 @@
       },
       _onPlayerConfigUpdate: function(key, value) {
         switch (key) {
+          case 'debug':
+            this._$panel.toggleClass('debug', value);
+            break;
           case 'wordRegFilter':
           case 'wordRegFilterFlags':
             this._$panel.find('.' + key + 'Input').val(value);
             break;
           case 'enableFullScreenOnDoubleClick':
-          case 'debug':
+          case 'autoCloseFullScreen':
+          case 'continueNextPage':
             this._$panel
               .find('.' + key + 'Control').toggleClass('checked', value)
               .find('input[type=checkbox]').prop('checked', value);
             break;
         }
+        this._update$rawData();
+      },
+      _update$rawData: function() {
+        this._$rawData.val(JSON.stringify(this._playerConfig.exportConfig()));
       },
       _onToggleItemChange: function(e) {
         var $target = $(e.target);
@@ -324,22 +465,17 @@
 
         this._playerConfig.setValue(settingName, val);
       },
-      toggle: function(v) {
-        var eventName = 'click.ZenzaAdvancedSettingPanel';
-        var $container = this._$container.off(eventName);
-        var $body = $('body').off(eventName);
-        var $view = this._$view.toggleClass('show', v);
-
-        var onBodyClick = function() {
-          $view.removeClass('show');
-          $container.off(eventName);
-          $body.off(eventName);
-        };
-
-        if ($view.hasClass('show')) {
-          $container.on(eventName, onBodyClick);
-          $body.on(eventName, onBodyClick);
+      _beforeShow: function() {
+        if (this._$playlistData) {
+          this._$playlistData.val(
+            JSON.stringify(ZenzaWatch.external.playlist.export())
+          );
         }
+      },
+      toggle: function(v) {
+        ZenzaWatch.external.execCommand('close');
+        this._$view.toggleClass('show', v);
+        if (this._$view.hasClass('show')) { this._beforeShow(); }
       },
       show: function() {
         this.toggle(true);
@@ -356,11 +492,17 @@
         playerConfig: ZenzaWatch.config,
         $container: $('body')
       });
-      panel.show();
     };
 
     var initialize = function() {
-      initializePanel();
+      var $button = $(__tpl__);
+      ZenzaWatch.util.addStyle(__css__);
+
+      $('.accountEdit').after($button);
+      $button.on('click', function() {
+        initializePanel();
+        panel.toggle();
+      });
     };
 
     initialize();
