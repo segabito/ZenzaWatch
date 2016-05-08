@@ -38,7 +38,9 @@ var VideoInfoLoader = {};
       this._commentPlayer = new NicoCommentPlayer({
         offScreenLayer: params.offScreenLayer,
         enableFilter:   params.enableFilter,
-        wordFilter:  params.wordFilter,
+        wordFilter:         params.wordFilter,
+        wordRegFilter:      params.wordRegFilter,
+        wordRegFilterFlags: params.wordRegFilterFlags,
         userIdFilter:   params.userIdFilter,
         commandFilter:  params.commandFilter,
         showComment:    conf.getValue('showComment'),

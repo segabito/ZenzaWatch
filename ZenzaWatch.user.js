@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           ZenzaWatch
 // @namespace      https://github.com/segabito/
-// @description    Ginzaに行かなくても動画を再生
+// @description    速くて軽いHTML5版プレイヤー。 Flash不要。
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/thumb/*
@@ -23,7 +23,6 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -35,9 +34,12 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
+  var VER = '1.0.5';
+
   console.log('jQuery version: ', $.fn.jquery);
 
     var ZenzaWatch = {
+      version: VER,
       debug: {},
       api: {},
       init: {},
@@ -259,7 +261,8 @@ var monkey = function() {
         // NG設定
         enableFilter: true,
         wordFilter: '',
-        wordFilterReg: '',
+        wordRegFilter: '',
+        wordRegFilterFlags: '',
         userIdFilter: '',
         commandFilter: '',
 
@@ -3164,7 +3167,9 @@ var monkey = function() {
       this._commentPlayer = new NicoCommentPlayer({
         offScreenLayer: params.offScreenLayer,
         enableFilter:   params.enableFilter,
-        wordFilter:  params.wordFilter,
+        wordFilter:         params.wordFilter,
+        wordRegFilter:      params.wordRegFilter,
+        wordRegFilterFlags: params.wordRegFilterFlags,
         userIdFilter:   params.userIdFilter,
         commandFilter:  params.commandFilter,
         showComment:    conf.getValue('showComment'),
@@ -4446,10 +4451,12 @@ var monkey = function() {
 
 
     var SeekBarThumbnail = function() { this.initialize.apply(this, arguments); };
+    SeekBarThumbnail.BASE_WIDTH  = 160;
+    SeekBarThumbnail.BASE_HEIGHT =  90;
+
     SeekBarThumbnail.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
       <div class="zenzaSeekThumbnail">
-        <div class="zenzaSeekThumbnail-image">
-        </div>
+        <div class="zenzaSeekThumbnail-image"></div>
       </div>
     */});
     SeekBarThumbnail.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -4468,13 +4475,20 @@ var monkey = function() {
 
       .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
         display: block;
+        width: 160px;
+        height: 90px;
+        margin: auto;
+        {*border: inset 1px;*}
+        overflow: hidden;
+        box-sizing: content-box;
       }
 
       .zenzaSeekThumbnail-image {
         margin: 4px;
         background: none repeat scroll 0 0 #999;
-        border: 1px inset;
+        border: 0;
         margin: auto;
+        transform-origin: center top;
       }
 
     */});
@@ -4503,16 +4517,26 @@ var monkey = function() {
 
         var model = this._model;
         this._isAvailable = true;
-        this._colWidth  = model.getWidth();
-        this._rowHeight = model.getHeight();
-        this._$image.css({
+        var width  = this._colWidth  = Math.max(1, model.getWidth());
+        var height = this._rowHeight = Math.max(1, model.getHeight());
+        var scale = Math.min(
+          SeekBarThumbnail.BASE_WIDTH  / width,
+          SeekBarThumbnail.BASE_HEIGHT / height
+        );
+
+        var css = {
           width:  this._colWidth  * this._scale,
           height: this._rowHeight * this._scale,
           opacity: '',
           'background-size':
             (model.getCols() * this._colWidth  * this._scale) + 'px ' +
             (model.getRows() * this._rowHeight * this._scale) + 'px'
-        });
+        };
+        if (scale > 1.0) {
+          css.transform = 'scale(' + scale + ')';
+        }
+
+        this._$image.css(css);
         //this._$view.css('height', this._rowHeight * this + 4);
 
         this._preloadImages();
@@ -5495,8 +5519,7 @@ var monkey = function() {
       color: #fff;
       opacity: 0.8;
       margin-right: 8px;
-      {*border: 1px solid #ccc;
-      border-radius: 8px;*}
+      vertical-align: middle;
     }
     .controlButton:hover {
       text-shadow: 0 0 8px #ff9;
@@ -5936,6 +5959,7 @@ var monkey = function() {
       display: inline-block;
       width: 80px;
       position: relative;
+      vertical-align: middle;
     }
 
     .videoControlBar .volumeControl .volumeControlInner {
@@ -7293,11 +7317,27 @@ var monkey = function() {
       left: -9999px !important;
     }
 
+    .seekBarToolTip .seekBarToolTipInner {
+      font-size: 0 !important;
+    }
+    
+    .seekBarToolTip .seekBarToolTipButtonContainer {
+      display: flex;
+    }
+
+    .seekBarToolTip .seekBarToolTipButtonContainer>* {
+      flex: 1;
+    }
+
     .seekBarToolTip .currentTime {
       display: inline-block;
+      height: 16px;
+      margin: 4px 0;
       color: #fff;
       background: #666;
       text-align: center;
+      font-size: 10px;
+      line-height: 16px;
     }
 
     .seekBarToolTip .controlButton {
@@ -7305,6 +7345,7 @@ var monkey = function() {
       height: 24px;
       line-height: 22px;
       font-size: 18px;
+      margin: 0;
     }
     .seekBarToolTip .controlButton:active {
       font-size: 14px;
@@ -7316,25 +7357,27 @@ var monkey = function() {
 
     .enableCommentPreview .seekBarToolTip .controlButton.enableCommentPreview {
       opacity: 1;
+      background: rgba(0,0,0,0.01);
     }
   */});
   SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="seekBarToolTip">
       <div class="seekBarToolTipInner">
         <div class="seekBarThumbnailContainer"></div>
-        <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
-          <div class="controlButtonInner">⇦</div>
-        </div>
+        <div class="seekBarToolTipButtonContainer">
+          <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
+            <div class="controlButtonInner">⇦</div>
+          </div>
 
-        <div class="currentTime"></div>
-        <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
-          <div class="menuButtonInner">💬</div>
-        </div>
+          <div class="currentTime"></div>
+          <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
+            <div class="menuButtonInner">💬</div>
+          </div>
 
-        <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
-          <div class="controlButtonInner">⇨</div>
+          <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
+            <div class="controlButtonInner">⇨</div>
+          </div>
         </div>
-
       </div>
     </div>
   */});
@@ -7821,6 +7864,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     getWordFilterList: function() {
       return this._model.getWordFilterList();
     },
+    setWordRegFilter: function(list) {
+      this._model.setWordRegFilter(list);
+    },
     addUserIdFilter: function(text) {
       this._model.addUserIdFilter(text);
     },
@@ -7877,7 +7923,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       var onChange = _.debounce(_.bind(this._onChange, this), 100);
       this._topGroup   .on('change', onChange);
-      this._nakaGroup.on('change', onChange);
+      this._nakaGroup  .on('change', onChange);
       this._bottomGroup.on('change', onChange);
       ZenzaWatch.emitter.on('updateOptionCss', onChange);
       //NicoChatViewModel.emitter.on('updateBaseChatScale', onChange);
@@ -8095,6 +8141,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     getWordFilterList: function() {
       return this._nicoChatFilter.getWordFilterList();
+    },
+    setWordRegFilter: function(list) {
+      this._nicoChatFilter.setWordRegFilter(list);
     },
     addUserIdFilter: function(text) {
       this._nicoChatFilter.addUserIdFilter(text);
@@ -10329,11 +10378,16 @@ spacer {
 
       this._enable = typeof params.enable === 'boolean' ? params.enable : true;
 
-      this._wordReg  = null;
+      this._wordReg     = null;
+      this._wordRegReg  = null;
       this._userIdReg   = null;
       this._commandReg  = null;
 
       this._onChange = _.debounce(_.bind(this._onChange, this), 50);
+
+      if (params.wordRegFilter) {
+        this.setWordRegFilter(params.wordRegFilter, params.wordRegFilterFlags);
+      }
     },
     setEnable: function(v) {
       v = !!v;
@@ -10375,7 +10429,18 @@ spacer {
     getWordFilterList: function() {
       return this._wordFilterList;
     },
-
+    setWordRegFilter: function(source, flags) {
+      if (this._wordRegReg) {
+        if (this._wordRegReg.source === source && this._flags === flags) { return; }
+      }
+      try {
+        this._wordRegReg = new RegExp(source, flags);
+      } catch(e) {
+        window.console.error(e);
+        return;
+      }
+      this._onChange();
+    },
     addUserIdFilter: function(text) {
       var before = this._userIdFilterList.join('\n');
       this._userIdFilterList.push(text);
@@ -10464,9 +10529,10 @@ spacer {
       if (!this._commandReg) {
         this._commandReg = this._buildFilterReg(this._commandFilterList);
       }
-      var commentReg  = this._wordReg;
-      var userIdReg   = this._userIdReg;
-      var commandReg  = this._commandReg;
+      var wordReg    = this._wordReg;
+      var wordRegReg = this._wordRegReg;
+      var userIdReg  = this._userIdReg;
+      var commandReg = this._commandReg;
 
       if (Config.getValue('debug')) {
         return function(nicoChat) {
@@ -10482,8 +10548,20 @@ spacer {
             return false;
           }
 
-          if (commentReg && commentReg.test(nicoChat.getText())) {
+          if (wordReg && wordReg.test(nicoChat.getText())) {
             window.console.log('%cNGワード: "%s" %s %s秒 %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (wordRegReg && wordRegReg.test(nicoChat.getText())) {
+            window.console.log(
+              '%cNGワード(正規表現): "%s" %s %s秒 %s',
+              'background: yellow;',
               RegExp.$1,
               nicoChat.getType(),
               nicoChat.getVpos() / 100,
@@ -10522,7 +10600,21 @@ spacer {
       return function(nicoChat) {
         if (nicoChat.getScore() <= threthold) { return false; }
 
-        if (commentReg && commentReg.test(nicoChat.getText()))   { return false; }
+        if (wordReg    && wordReg.test(nicoChat.getText()))      { return false; }
+
+          if (wordRegReg && wordRegReg.test(nicoChat.getText())) {
+            window.console.log(
+              '%cNGワード(正規表現): "%s" %s %s秒 %s',
+              'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+        //if (wordRegReg && wordRegReg.test(nicoChat.getText()))   { return false; }
 
         if (userIdReg  && userIdReg .test(nicoChat.getUserId())) { return false; }
 
@@ -12184,8 +12276,8 @@ data-title="%no%: %date% ID:%userId%
           case 'deflistAdd':
             this.emit('deflistAdd', param, itemId);
             break;
-          case 'playlistAdd':
-            this.emit('playlistAdd', param, itemId);
+          case 'playlistAppend':
+            this.emit('playlistAppend', param, itemId);
             break;
           case 'scrollToTop':
             this.scrollTop(0, 300);
@@ -12232,7 +12324,7 @@ data-title="%no%: %date% ID:%userId%
       if (_.isFunction(itemId.getItemId)) { itemId = itemId.getItemId(); }
       var $target = this._$body.find('.item' + itemId);
       if ($target.length < 1) { return; }
-      var top = $target.offset().top;
+      var top = Math.max(0, $target.offset().top - 8);
       this.scrollTop(top);
     }
   });
@@ -12385,7 +12477,7 @@ data-title="%no%: %date% ID:%userId%
       height: 72px;
     }
 
-    .videoItem .thumbnailContainer .playlistAdd,
+    .videoItem .thumbnailContainer .playlistAppend,
     .videoItem .playlistRemove,
     .videoItem .thumbnailContainer .deflistAdd {
       position: absolute;
@@ -12403,7 +12495,7 @@ data-title="%no%: %date% ID:%userId%
       cursor: pointer;
       transition: transform 0.2s;
     }
-    .videoItem .thumbnailContainer .playlistAdd {
+    .videoItem .thumbnailContainer .playlistAppend {
       left: 0;
       bottom: 0;
     }
@@ -12415,7 +12507,7 @@ data-title="%no%: %date% ID:%userId%
       right: 0;
       bottom: 0;
     }
-    .playlist .videoItem .playlistAdd {
+    .playlist .videoItem .playlistAppend {
       display: none !important;
     }
     .videoItem .playlistRemove {
@@ -12427,21 +12519,21 @@ data-title="%no%: %date% ID:%userId%
 
 
     .playlist .videoItem:not(.active):hover .playlistRemove,
-    .videoItem:hover .thumbnailContainer .playlistAdd,
+    .videoItem:hover .thumbnailContainer .playlistAppend,
     .videoItem:hover .thumbnailContainer .deflistAdd {
       display: inline-block;
       border: 1px outset;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:hover,
-    .videoItem:hover .thumbnailContainer .playlistAdd:hover,
+    .videoItem:hover .thumbnailContainer .playlistAppend:hover,
     .videoItem:hover .thumbnailContainer .deflistAdd:hover {
       transform: scale(1.5);
       box-shadow: 2px 2px 2px #000;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:active,
-    .videoItem:hover .thumbnailContainer .playlistAdd:active,
+    .videoItem:hover .thumbnailContainer .playlistAppend:active,
     .videoItem:hover .thumbnailContainer .deflistAdd:active {
       transform: scale(0.9);
       border: 1px inset;
@@ -12516,6 +12608,7 @@ data-title="%no%: %date% ID:%userId%
     .videoItem.active {
       outline: dashed 2px #ff8;
       outline-offset: 4px;
+      border: none !important;
     }
 
     @keyframes dropbox {
@@ -12569,7 +12662,7 @@ data-title="%no%: %date% ID:%userId%
         <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="select" data-param="%itemId%">
           <img class="thumbnail" data-src="%thumbnail%" src="%thumbnail%">
           <span class="duration">%duration%</span>
-          <span class="command playlistAdd" data-command="playlistAdd" data-param="%watchId%" title="プレイリストに追加">▶</span>
+          <span class="command playlistAppend" data-command="playlistAppend" data-param="%watchId%" title="プレイリストに追加">▶</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
         </a>
       </div>
@@ -12851,7 +12944,7 @@ data-title="%no%: %date% ID:%userId%
       });
       this._view.on('command', _.bind(this._onCommand, this));
       this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
-      this._view.on('playlistAdd', _.bind(this._onPlaylistAdd, this));
+      this._view.on('playlistAppend', _.bind(this._onPlaylistAdd, this));
     },
     update: function(listData, watchId) {
       if (!this._view) { this._initializeView(); }
@@ -12874,7 +12967,7 @@ data-title="%no%: %date% ID:%userId%
       this.emit('command', command, param);
     },
     _onPlaylistAdd: function(watchId , itemId) {
-      this.emit('command', 'playlistAdd', watchId);
+      this.emit('command', 'playlistAppend', watchId);
       if (this._isUpdatingPlaylist) { return; }
       var item = this._model.findByItemId(itemId);
 
@@ -13659,6 +13752,12 @@ data-title="%no%: %date% ID:%userId%
     scrollToActiveItem: function() {
       if (this._activeItem) {
         this._view.scrollToItem(this._activeItem);
+      }
+    },
+    scrollToWatchId: function(watchId) {
+      var item = this._model.findByWatchId(watchId);
+      if (item) {
+        this._view.scrollToItem(item);
       }
     }
   });
@@ -14571,6 +14670,8 @@ data-title="%no%: %date% ID:%userId%
         loop:          config.getValue('loop'),
         enableFilter:  config.getValue('enableFilter'),
         wordFilter:    config.getValue('wordFilter'),
+        wordRegFilter: config.getValue('wordRegFilter'),
+        wordRegFilterFlags: config.getValue('wordRegFilterFlags'),
         commandFilter: config.getValue('commandFilter'),
         userIdFilter:  config.getValue('userIdFilter')
       });
@@ -14697,7 +14798,8 @@ data-title="%no%: %date% ID:%userId%
           this._onDeflistAdd(param);
           break;
         case 'playlistAdd':
-          this._onPlaylistAdd(param);
+        case 'playlistAppend':
+          this._onPlaylistAppend(param);
           break;
         case 'playlistInsert':
           this._onPlaylistInsert(param);
@@ -14734,6 +14836,11 @@ data-title="%no%: %date% ID:%userId%
         case 'addWordFilter':
           this._nicoVideoPlayer.addWordFilter(param);
           PopupMessage.notify('NGワード追加: ' + param);
+          break;
+        case 'setWordRegFilter':
+        case 'setWordRegFilterFlags':
+          this._nicoVideoPlayer.setWordRegFilter(param);
+          PopupMessage.notify('NGワード正規表現更新');
           break;
         case 'addUserIdFilter':
           this._nicoVideoPlayer.addUserIdFilter(param);
@@ -14897,6 +15004,9 @@ data-title="%no%: %date% ID:%userId%
         case 'wordFilter':
           this._nicoVideoPlayer.setWordFilterList(value);
           break;
+        case 'setWordRegFilter':
+          this._nicoVideoPlayer.setWordRegFilter(value);
+          break;
         case 'userIdFilter':
           this._nicoVideoPlayer.setUserIdFilterList(value);
           break;
@@ -14935,9 +15045,14 @@ data-title="%no%: %date% ID:%userId%
     },
     _onClick: function() {
     },
-    _onPlaylistAdd: function(watchId) {
+    _onPlaylistAppend: function(watchId) {
       this._initializePlaylist();
-      this._playlist.append(watchId);
+
+      var onAppend = _.debounce(function() {
+        this._videoInfoPanel.selectTab('playlist');
+        this._playlist.scrollToWatchId(watchId);
+      }.bind(this), 500);
+      this._playlist.append(watchId).then(onAppend, onAppend);
     },
     _onPlaylistInsert: function(watchId) {
       this._initializePlaylist();
@@ -17802,6 +17917,7 @@ data-title="%no%: %date% ID:%userId%
       margin-right: 8px;
       box-shadow: 2px 2px 2px #666;
       transition: opacity 1s ease;
+      vertical-align: middle;
     }
     .zenzaWatchVideoInfoPanel .ownerIcon.loading {
       opacity: 0;
@@ -17864,13 +17980,13 @@ data-title="%no%: %date% ID:%userId%
       display: inline-block;
     }
 
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAdd,
+    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd,
     .zenzaWatchVideoInfoPanel .videoDescription .playlistSetMylist {
       display: inline-block;
       font-size: 16px;
-      line-height: 22px;
-      width: 22px;
+      line-height: 20px;
+      width: 24px;
       height: 22px;
       background: #666;
       color: #ccc !important;
@@ -17879,15 +17995,15 @@ data-title="%no%: %date% ID:%userId%
       transition: transform 0.2s ease;
       cursor: pointer;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAdd,
+    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd {
       display: none;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover .playlistAdd,
+    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoDescription .watch:hover .deflistAdd {
       display: inline-block;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAdd {
+    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend {
       position: absolute;
       bottom: 4px;
       left: 16px;
@@ -17898,12 +18014,12 @@ data-title="%no%: %date% ID:%userId%
       left: 48px;
     }
 
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAdd:hover,
+    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend:hover,
     .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd:hover,
     .zenzaWatchVideoInfoPanel .videoDescription .playlistSetMylist:hover {
       transform: scale(1.5);
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .playlistAdd:active,
+    .zenzaWatchVideoInfoPanel .videoDescription .playlistAppend:active,
     .zenzaWatchVideoInfoPanel .videoDescription .deflistAdd:active,
     .zenzaWatchVideoInfoPanel .videoDescription .playlistSetMylist:active {
       transform: scale(1.2);
@@ -18348,23 +18464,23 @@ data-title="%no%: %date% ID:%userId%
             var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
             $watchLink.addClass('popupThumbnail').append($img);
           }
-          var $playlistAdd =
-            $('<a class="playlistAdd" title="プレイリストで開く">▶</a>')
+          var $playlistAppend =
+            $('<a class="playlistAppend" title="プレイリストで開く">▶</a>')
               .attr('data-watch-id', videoId);
           var $deflistAdd =
             $('<a class="deflistAdd" title="とりあえずマイリスト">&#x271A;</a>')
               .attr('data-watch-id', videoId);
-          $watchLink.append($playlistAdd);
+          $watchLink.append($playlistAppend);
           $watchLink.append($deflistAdd);
         });
         this._$description.find('.mylistLink').each(function(i, mylistLink) {
           var $mylistLink = $(mylistLink);
           var mylistId = $mylistLink.text().split('/')[1];
-          var $playlistAdd =
+          var $playlistAppend =
             $('<a class="playlistSetMylist" title="プレイリストで開く">▶</a>')
             .attr('data-mylist-id', mylistId)
             ;
-          $mylistLink.append($playlistAdd);
+          $mylistLink.append($playlistAppend);
         });
       }, this);
     },
@@ -18381,11 +18497,11 @@ data-title="%no%: %date% ID:%userId%
         //dialog.open(RegExp.$1);
       } else if (text.match(/^mylist\/(\d+)/)) {
         return;
-      } else if ($target.hasClass('playlistAdd')) {
+      } else if ($target.hasClass('playlistAppend')) {
         watchId = $target.attr('data-watch-id');
         e.preventDefault(); e.stopPropagation();
         if (watchId) {
-          this.emit('command', 'playlistAdd', watchId);
+          this.emit('command', 'playlistAppend', watchId);
         }
       } else if ($target.hasClass('deflistAdd')) {
         watchId = $target.attr('data-watch-id');

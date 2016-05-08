@@ -227,10 +227,12 @@ var AsyncEmitter = function() {};
 
 
     var SeekBarThumbnail = function() { this.initialize.apply(this, arguments); };
+    SeekBarThumbnail.BASE_WIDTH  = 160;
+    SeekBarThumbnail.BASE_HEIGHT =  90;
+
     SeekBarThumbnail.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
       <div class="zenzaSeekThumbnail">
-        <div class="zenzaSeekThumbnail-image">
-        </div>
+        <div class="zenzaSeekThumbnail-image"></div>
       </div>
     */});
     SeekBarThumbnail.__css__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -249,13 +251,20 @@ var AsyncEmitter = function() {};
 
       .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
         display: block;
+        width: 160px;
+        height: 90px;
+        margin: auto;
+        {*border: inset 1px;*}
+        overflow: hidden;
+        box-sizing: content-box;
       }
 
       .zenzaSeekThumbnail-image {
         margin: 4px;
         background: none repeat scroll 0 0 #999;
-        border: 1px inset;
+        border: 0;
         margin: auto;
+        transform-origin: center top;
       }
 
     */});
@@ -284,16 +293,26 @@ var AsyncEmitter = function() {};
 
         var model = this._model;
         this._isAvailable = true;
-        this._colWidth  = model.getWidth();
-        this._rowHeight = model.getHeight();
-        this._$image.css({
+        var width  = this._colWidth  = Math.max(1, model.getWidth());
+        var height = this._rowHeight = Math.max(1, model.getHeight());
+        var scale = Math.min(
+          SeekBarThumbnail.BASE_WIDTH  / width,
+          SeekBarThumbnail.BASE_HEIGHT / height
+        );
+
+        var css = {
           width:  this._colWidth  * this._scale,
           height: this._rowHeight * this._scale,
           opacity: '',
           'background-size':
             (model.getCols() * this._colWidth  * this._scale) + 'px ' +
             (model.getRows() * this._rowHeight * this._scale) + 'px'
-        });
+        };
+        if (scale > 1.0) {
+          css.transform = 'scale(' + scale + ')';
+        }
+
+        this._$image.css(css);
         //this._$view.css('height', this._rowHeight * this + 4);
 
         this._preloadImages();

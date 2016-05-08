@@ -68,8 +68,16 @@ function deploy(srcFile) {
 function loadIndexFile(srcDir, indexFile, outFile) {
   var fs = require('fs');
   var lines = [];
+  var ver = null;
   fs.readFileSync(srcDir + '/' + indexFile, 'utf-8').split('\n').some(function(line) {
-    if (line.match(/^\s*\/\/@require (.+)$/)) {
+    if (line.match(/^(\s*)\/\/\s*@version(.*)$/)) {
+      if (!ver) {
+        ver = RegExp.$2.trim();
+        console.log('ver = ' + ver);
+      } else {
+        lines.push(RegExp.$1 + 'var VER = \'' + ver + '\';');
+      }
+    } else if (line.match(/^\s*\/\/@require (.+)$/)) {
       console.log('require ' + RegExp.$1);
       lines.push(requireFile(srcDir, RegExp.$1));
     } else {

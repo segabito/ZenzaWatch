@@ -878,6 +878,8 @@ var CommentPanel = function() {};
         loop:          config.getValue('loop'),
         enableFilter:  config.getValue('enableFilter'),
         wordFilter:    config.getValue('wordFilter'),
+        wordRegFilter: config.getValue('wordRegFilter'),
+        wordRegFilterFlags: config.getValue('wordRegFilterFlags'),
         commandFilter: config.getValue('commandFilter'),
         userIdFilter:  config.getValue('userIdFilter')
       });
@@ -1004,7 +1006,8 @@ var CommentPanel = function() {};
           this._onDeflistAdd(param);
           break;
         case 'playlistAdd':
-          this._onPlaylistAdd(param);
+        case 'playlistAppend':
+          this._onPlaylistAppend(param);
           break;
         case 'playlistInsert':
           this._onPlaylistInsert(param);
@@ -1041,6 +1044,11 @@ var CommentPanel = function() {};
         case 'addWordFilter':
           this._nicoVideoPlayer.addWordFilter(param);
           PopupMessage.notify('NGワード追加: ' + param);
+          break;
+        case 'setWordRegFilter':
+        case 'setWordRegFilterFlags':
+          this._nicoVideoPlayer.setWordRegFilter(param);
+          PopupMessage.notify('NGワード正規表現更新');
           break;
         case 'addUserIdFilter':
           this._nicoVideoPlayer.addUserIdFilter(param);
@@ -1204,6 +1212,9 @@ var CommentPanel = function() {};
         case 'wordFilter':
           this._nicoVideoPlayer.setWordFilterList(value);
           break;
+        case 'setWordRegFilter':
+          this._nicoVideoPlayer.setWordRegFilter(value);
+          break;
         case 'userIdFilter':
           this._nicoVideoPlayer.setUserIdFilterList(value);
           break;
@@ -1242,9 +1253,14 @@ var CommentPanel = function() {};
     },
     _onClick: function() {
     },
-    _onPlaylistAdd: function(watchId) {
+    _onPlaylistAppend: function(watchId) {
       this._initializePlaylist();
-      this._playlist.append(watchId);
+
+      var onAppend = _.debounce(function() {
+        this._videoInfoPanel.selectTab('playlist');
+        this._playlist.scrollToWatchId(watchId);
+      }.bind(this), 500);
+      this._playlist.append(watchId).then(onAppend, onAppend);
     },
     _onPlaylistInsert: function(watchId) {
       this._initializePlaylist();

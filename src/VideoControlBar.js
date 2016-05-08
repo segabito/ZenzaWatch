@@ -164,8 +164,7 @@ var StoryBoard = function() {};
       color: #fff;
       opacity: 0.8;
       margin-right: 8px;
-      {*border: 1px solid #ccc;
-      border-radius: 8px;*}
+      vertical-align: middle;
     }
     .controlButton:hover {
       text-shadow: 0 0 8px #ff9;
@@ -605,6 +604,7 @@ var StoryBoard = function() {};
       display: inline-block;
       width: 80px;
       position: relative;
+      vertical-align: middle;
     }
 
     .videoControlBar .volumeControl .volumeControlInner {
@@ -1962,11 +1962,27 @@ var StoryBoard = function() {};
       left: -9999px !important;
     }
 
+    .seekBarToolTip .seekBarToolTipInner {
+      font-size: 0 !important;
+    }
+    
+    .seekBarToolTip .seekBarToolTipButtonContainer {
+      display: flex;
+    }
+
+    .seekBarToolTip .seekBarToolTipButtonContainer>* {
+      flex: 1;
+    }
+
     .seekBarToolTip .currentTime {
       display: inline-block;
+      height: 16px;
+      margin: 4px 0;
       color: #fff;
       background: #666;
       text-align: center;
+      font-size: 10px;
+      line-height: 16px;
     }
 
     .seekBarToolTip .controlButton {
@@ -1974,6 +1990,7 @@ var StoryBoard = function() {};
       height: 24px;
       line-height: 22px;
       font-size: 18px;
+      margin: 0;
     }
     .seekBarToolTip .controlButton:active {
       font-size: 14px;
@@ -1985,25 +2002,27 @@ var StoryBoard = function() {};
 
     .enableCommentPreview .seekBarToolTip .controlButton.enableCommentPreview {
       opacity: 1;
+      background: rgba(0,0,0,0.01);
     }
   */});
   SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="seekBarToolTip">
       <div class="seekBarToolTipInner">
         <div class="seekBarThumbnailContainer"></div>
-        <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
-          <div class="controlButtonInner">⇦</div>
-        </div>
+        <div class="seekBarToolTipButtonContainer">
+          <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
+            <div class="controlButtonInner">⇦</div>
+          </div>
 
-        <div class="currentTime"></div>
-        <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
-          <div class="menuButtonInner">💬</div>
-        </div>
+          <div class="currentTime"></div>
+          <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
+            <div class="menuButtonInner">💬</div>
+          </div>
 
-        <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
-          <div class="controlButtonInner">⇨</div>
+          <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
+            <div class="controlButtonInner">⇨</div>
+          </div>
         </div>
-
       </div>
     </div>
   */});

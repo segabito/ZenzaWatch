@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           ZenzaWatch
 // @namespace      https://github.com/segabito/
-// @description    Ginzaに行かなくても動画を再生
+// @description    速くて軽いHTML5版プレイヤー。 Flash不要。
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/thumb/*
@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.4
+// @version        1.0.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -35,9 +35,12 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
+  //@version
+
   console.log('jQuery version: ', $.fn.jquery);
 
     var ZenzaWatch = {
+      version: VER,
       debug: {},
       api: {},
       init: {},

@@ -173,6 +173,9 @@ var NicoTextParser = {};
     getWordFilterList: function() {
       return this._model.getWordFilterList();
     },
+    setWordRegFilter: function(list) {
+      this._model.setWordRegFilter(list);
+    },
     addUserIdFilter: function(text) {
       this._model.addUserIdFilter(text);
     },
@@ -229,7 +232,7 @@ var NicoTextParser = {};
 
       var onChange = _.debounce(_.bind(this._onChange, this), 100);
       this._topGroup   .on('change', onChange);
-      this._nakaGroup.on('change', onChange);
+      this._nakaGroup  .on('change', onChange);
       this._bottomGroup.on('change', onChange);
       ZenzaWatch.emitter.on('updateOptionCss', onChange);
       //NicoChatViewModel.emitter.on('updateBaseChatScale', onChange);
@@ -447,6 +450,9 @@ var NicoTextParser = {};
     },
     getWordFilterList: function() {
       return this._nicoChatFilter.getWordFilterList();
+    },
+    setWordRegFilter: function(list) {
+      this._nicoChatFilter.setWordRegFilter(list);
     },
     addUserIdFilter: function(text) {
       this._nicoChatFilter.addUserIdFilter(text);
@@ -2681,11 +2687,16 @@ spacer {
 
       this._enable = typeof params.enable === 'boolean' ? params.enable : true;
 
-      this._wordReg  = null;
+      this._wordReg     = null;
+      this._wordRegReg  = null;
       this._userIdReg   = null;
       this._commandReg  = null;
 
       this._onChange = _.debounce(_.bind(this._onChange, this), 50);
+
+      if (params.wordRegFilter) {
+        this.setWordRegFilter(params.wordRegFilter, params.wordRegFilterFlags);
+      }
     },
     setEnable: function(v) {
       v = !!v;
@@ -2727,7 +2738,18 @@ spacer {
     getWordFilterList: function() {
       return this._wordFilterList;
     },
-
+    setWordRegFilter: function(source, flags) {
+      if (this._wordRegReg) {
+        if (this._wordRegReg.source === source && this._flags === flags) { return; }
+      }
+      try {
+        this._wordRegReg = new RegExp(source, flags);
+      } catch(e) {
+        window.console.error(e);
+        return;
+      }
+      this._onChange();
+    },
     addUserIdFilter: function(text) {
       var before = this._userIdFilterList.join('\n');
       this._userIdFilterList.push(text);
@@ -2816,9 +2838,10 @@ spacer {
       if (!this._commandReg) {
         this._commandReg = this._buildFilterReg(this._commandFilterList);
       }
-      var commentReg  = this._wordReg;
-      var userIdReg   = this._userIdReg;
-      var commandReg  = this._commandReg;
+      var wordReg    = this._wordReg;
+      var wordRegReg = this._wordRegReg;
+      var userIdReg  = this._userIdReg;
+      var commandReg = this._commandReg;
 
       if (Config.getValue('debug')) {
         return function(nicoChat) {
@@ -2834,8 +2857,20 @@ spacer {
             return false;
           }
 
-          if (commentReg && commentReg.test(nicoChat.getText())) {
+          if (wordReg && wordReg.test(nicoChat.getText())) {
             window.console.log('%cNGワード: "%s" %s %s秒 %s', 'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+          if (wordRegReg && wordRegReg.test(nicoChat.getText())) {
+            window.console.log(
+              '%cNGワード(正規表現): "%s" %s %s秒 %s',
+              'background: yellow;',
               RegExp.$1,
               nicoChat.getType(),
               nicoChat.getVpos() / 100,
@@ -2874,7 +2909,21 @@ spacer {
       return function(nicoChat) {
         if (nicoChat.getScore() <= threthold) { return false; }
 
-        if (commentReg && commentReg.test(nicoChat.getText()))   { return false; }
+        if (wordReg    && wordReg.test(nicoChat.getText()))      { return false; }
+
+          if (wordRegReg && wordRegReg.test(nicoChat.getText())) {
+            window.console.log(
+              '%cNGワード(正規表現): "%s" %s %s秒 %s',
+              'background: yellow;',
+              RegExp.$1,
+              nicoChat.getType(),
+              nicoChat.getVpos() / 100,
+              nicoChat.getText()
+            );
+            return false;
+          }
+
+        //if (wordRegReg && wordRegReg.test(nicoChat.getText()))   { return false; }
 
         if (userIdReg  && userIdReg .test(nicoChat.getUserId())) { return false; }
 

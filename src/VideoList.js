@@ -503,8 +503,8 @@ var PopupMessage = {};
           case 'deflistAdd':
             this.emit('deflistAdd', param, itemId);
             break;
-          case 'playlistAdd':
-            this.emit('playlistAdd', param, itemId);
+          case 'playlistAppend':
+            this.emit('playlistAppend', param, itemId);
             break;
           case 'scrollToTop':
             this.scrollTop(0, 300);
@@ -551,7 +551,7 @@ var PopupMessage = {};
       if (_.isFunction(itemId.getItemId)) { itemId = itemId.getItemId(); }
       var $target = this._$body.find('.item' + itemId);
       if ($target.length < 1) { return; }
-      var top = $target.offset().top;
+      var top = Math.max(0, $target.offset().top - 8);
       this.scrollTop(top);
     }
   });
@@ -704,7 +704,7 @@ var PopupMessage = {};
       height: 72px;
     }
 
-    .videoItem .thumbnailContainer .playlistAdd,
+    .videoItem .thumbnailContainer .playlistAppend,
     .videoItem .playlistRemove,
     .videoItem .thumbnailContainer .deflistAdd {
       position: absolute;
@@ -722,7 +722,7 @@ var PopupMessage = {};
       cursor: pointer;
       transition: transform 0.2s;
     }
-    .videoItem .thumbnailContainer .playlistAdd {
+    .videoItem .thumbnailContainer .playlistAppend {
       left: 0;
       bottom: 0;
     }
@@ -734,7 +734,7 @@ var PopupMessage = {};
       right: 0;
       bottom: 0;
     }
-    .playlist .videoItem .playlistAdd {
+    .playlist .videoItem .playlistAppend {
       display: none !important;
     }
     .videoItem .playlistRemove {
@@ -746,21 +746,21 @@ var PopupMessage = {};
 
 
     .playlist .videoItem:not(.active):hover .playlistRemove,
-    .videoItem:hover .thumbnailContainer .playlistAdd,
+    .videoItem:hover .thumbnailContainer .playlistAppend,
     .videoItem:hover .thumbnailContainer .deflistAdd {
       display: inline-block;
       border: 1px outset;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:hover,
-    .videoItem:hover .thumbnailContainer .playlistAdd:hover,
+    .videoItem:hover .thumbnailContainer .playlistAppend:hover,
     .videoItem:hover .thumbnailContainer .deflistAdd:hover {
       transform: scale(1.5);
       box-shadow: 2px 2px 2px #000;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:active,
-    .videoItem:hover .thumbnailContainer .playlistAdd:active,
+    .videoItem:hover .thumbnailContainer .playlistAppend:active,
     .videoItem:hover .thumbnailContainer .deflistAdd:active {
       transform: scale(0.9);
       border: 1px inset;
@@ -835,6 +835,7 @@ var PopupMessage = {};
     .videoItem.active {
       outline: dashed 2px #ff8;
       outline-offset: 4px;
+      border: none !important;
     }
 
     @keyframes dropbox {
@@ -888,7 +889,7 @@ var PopupMessage = {};
         <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="select" data-param="%itemId%">
           <img class="thumbnail" data-src="%thumbnail%" src="%thumbnail%">
           <span class="duration">%duration%</span>
-          <span class="command playlistAdd" data-command="playlistAdd" data-param="%watchId%" title="プレイリストに追加">▶</span>
+          <span class="command playlistAppend" data-command="playlistAppend" data-param="%watchId%" title="プレイリストに追加">▶</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
         </a>
       </div>
@@ -1170,7 +1171,7 @@ var PopupMessage = {};
       });
       this._view.on('command', _.bind(this._onCommand, this));
       this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
-      this._view.on('playlistAdd', _.bind(this._onPlaylistAdd, this));
+      this._view.on('playlistAppend', _.bind(this._onPlaylistAdd, this));
     },
     update: function(listData, watchId) {
       if (!this._view) { this._initializeView(); }
@@ -1193,7 +1194,7 @@ var PopupMessage = {};
       this.emit('command', command, param);
     },
     _onPlaylistAdd: function(watchId , itemId) {
-      this.emit('command', 'playlistAdd', watchId);
+      this.emit('command', 'playlistAppend', watchId);
       if (this._isUpdatingPlaylist) { return; }
       var item = this._model.findByItemId(itemId);
 
@@ -1978,6 +1979,12 @@ var PopupMessage = {};
     scrollToActiveItem: function() {
       if (this._activeItem) {
         this._view.scrollToItem(this._activeItem);
+      }
+    },
+    scrollToWatchId: function(watchId) {
+      var item = this._model.findByWatchId(watchId);
+      if (item) {
+        this._view.scrollToItem(item);
       }
     }
   });

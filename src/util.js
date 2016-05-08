@@ -205,7 +205,8 @@ var console;
         // NG設定
         enableFilter: true,
         wordFilter: '',
-        wordFilterReg: '',
+        wordRegFilter: '',
+        wordRegFilterFlags: '',
         userIdFilter: '',
         commandFilter: '',
 
