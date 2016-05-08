@@ -3,10 +3,11 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://www.nicovideo.jp/*
-// @version     1.2.0
+// @version     1.2.1
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
+// @noframes
 // ==/UserScript==
 
 
