@@ -74,6 +74,8 @@ function loadIndexFile(srcDir, indexFile, outFile) {
       if (!ver) {
         ver = RegExp.$2.trim();
         console.log('ver = ' + ver);
+        lines.push(line);
+
       } else {
         lines.push(RegExp.$1 + 'var VER = \'' + ver + '\';');
       }
