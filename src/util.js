@@ -1393,4 +1393,88 @@ var console;
   ZenzaWatch.util.RequestAnimationFrame = RequestAnimationFrame;
 
 
+  var FrameLayer = function() { this.initialize.apply(this, arguments); };
+  FrameLayer.createReservedFrame = function() {
+    var iframe = document.createElement('iframe');
+    iframe.className = 'reservedFrame';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    iframe.srcdocType = typeof iframe.srcdoc;
+    iframe.srcdoc = '<html></html>';
+    document.body.appendChild(iframe);
+  };
+
+  _.extend(FrameLayer.prototype, AsyncEmitter.prototype);
+  _.assign(FrameLayer.prototype, {
+    initialize: function(params) {
+      this._$container  = params.$container;
+      this._retryGetIframeCount = 0;
+
+      this._initializeView(params, 0);
+    },
+    _initializeView: function(params, retryCount) {
+
+      var iframe = this._getIframe();
+      iframe.className = params.className || '';
+
+      var onload = function() {
+        var win, doc;
+        iframe.onload = null;
+        try {
+          win = iframe.contentWindow;
+          doc = iframe.contentWindow.document;
+        } catch (e) {
+          window.console.error(e);
+          window.console.log('変な広告に乗っ取られました');
+          iframe.remove();
+          if (retryCount < 3) {
+            this._initializeView(params, retryCount + 1);
+          }
+          return;
+        }
+
+        this.emit('load', win);
+      }.bind(this);
+
+      var html = this._html = params.html;
+      this._$container.append(iframe);
+      if (iframe.srcdocType === 'string') {
+        iframe.onload = onload;
+        iframe.srcdoc = html;
+      } else {
+        // MS IE/Edge用
+        iframe.contentWindow.document.open();
+        iframe.contentWindow.document.write(html);
+        iframe.contentWindow.document.close();
+        window.setTimeout(onload, 0);
+      }
+    },
+    _getIframe: function() {
+      var reserved = document.getElementsByClassName('reservedFrame');
+      var iframe;
+      if (reserved && reserved.length > 0) {
+        iframe = reserved[0];
+        document.body.removeChild(iframe);
+        iframe.style.position = '';
+        iframe.style.left = '';
+      } else {
+        iframe = document.createElement('iframe');
+      }
+
+      try {
+        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
+        iframe.srcdoc = '<html></html>';
+      } catch (e) {
+        // 行儀の悪い広告にiframeを乗っ取られた？
+        window.console.error('Error: ', e);
+        this._retryGetIframeCount++;
+        if (this._retryGetIframeCount < 5) {
+          return this._getIframe();
+        }
+      }
+      return iframe;
+    }
+  });
+
+
 //===END===

@@ -195,80 +195,12 @@ var PopupMessage = {};
     },
     _initializeView: function(params, retryCount) {
       var html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
-
-      var iframe = this._getIframe();
-      iframe.className = 'videoListFrame';
-
-      var onLoad = _.bind(this._onIframeLoad, this);
-      //var onResize = _.bind(this._onResize, this);
-      //var onScroll = _.bind(this._onScroll, this);
-      var self = this;
-
-      var onload = function() {
-        var win, doc;
-        iframe.onload = null;
-        try {
-          win = iframe.contentWindow;
-          doc = iframe.contentWindow.document;
-        } catch (e) {
-          window.console.error(e);
-          window.console.log('変な広告に乗っ取られました');
-          iframe.remove();
-          if (retryCount < 3) {
-            self._initializeView(params, retryCount + 1);
-          }
-          return;
-        }
-
-        self._view = iframe;
-
-        ///win.addEventListener('resize', function() {
-        ///  var w = win.innerWidth, h = win.innerHeight;
-        ///  onResize(w, h);
-        ///});
-        ///win.addEventListener('scroll', function() {
-        ///  onScroll(doc.body.scrollTop, doc.body.scrollLeft);
-        ///});
-
-        onLoad(win);
-      };
-
-      this._$container.append(iframe);
-      if (iframe.srcdocType === 'string') {
-        iframe.onload = onload;
-        iframe.srcdoc = html;
-      } else {
-        // MS IE/Edge用
-        iframe.contentWindow.document.open();
-        iframe.contentWindow.document.write(html);
-        iframe.contentWindow.document.close();
-        window.setTimeout(onload, 0);
-      }
-    },
-    _getIframe: function() {
-      var reserved = document.getElementsByClassName('reservedFrame');
-      var iframe;
-      if (reserved && reserved.length > 0) {
-        iframe = reserved[0];
-        document.body.removeChild(iframe);
-        iframe.style.position = '';
-        iframe.style.left = '';
-      } else {
-        iframe = document.createElement('iframe');
-      }
-
-      try {
-        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
-        iframe.srcdoc = '<html></html>';
-      } catch (e) {
-        // 行儀の悪い広告にiframeを乗っ取られた？
-        window.console.error('Error: ', e);
-        this._retryGetIframeCount++;
-        if (this._retryGetIframeCount < 5) {
-          return this._getIframe();
-        }
-      }
-      return iframe;
+      this._frame = new FrameLayer({
+        $container: params.$container,
+        html: html,
+        className: 'commentListFrame'
+      });
+      this._frame.on('load', this._onIframeLoad.bind(this));
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;

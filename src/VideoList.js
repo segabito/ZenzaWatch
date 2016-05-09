@@ -263,80 +263,12 @@ var PopupMessage = {};
     },
     _initializeView: function(params, retryCount) {
       var html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
-
-      var iframe = this._getIframe();
-      iframe.className = 'videoListFrame';
-
-      var onLoad = _.bind(this._onIframeLoad, this);
-      var onResize = _.bind(this._onResize, this);
-      var onScroll = _.bind(this._onScroll, this);
-      var self = this;
-
-      var onload = function() {
-        var win, doc;
-        iframe.onload = null;
-        try {
-          win = iframe.contentWindow;
-          doc = iframe.contentWindow.document;
-        } catch (e) {
-          window.console.error(e);
-          window.console.log('変な広告に乗っ取られました');
-          iframe.remove();
-          if (retryCount < 3) {
-            self._initializeView(params, retryCount + 1);
-          }
-          return;
-        }
-
-        self._view = iframe;
-
-        win.addEventListener('resize', function() {
-          var w = win.innerWidth, h = win.innerHeight;
-          onResize(w, h);
-        });
-        win.addEventListener('scroll', function() {
-          onScroll(doc.body.scrollTop, doc.body.scrollLeft);
-        });
-
-        onLoad(win);
-      };
-
-      this._$container.append(iframe);
-      if (iframe.srcdocType === 'string') {
-        iframe.onload = onload;
-        iframe.srcdoc = html;
-      } else {
-        // MS IE/Edge用
-        iframe.contentWindow.document.open();
-        iframe.contentWindow.document.write(html);
-        iframe.contentWindow.document.close();
-        window.setTimeout(onload, 0);
-      }
-    },
-    _getIframe: function() {
-      var reserved = document.getElementsByClassName('reservedFrame');
-      var iframe;
-      if (reserved && reserved.length > 0) {
-        iframe = reserved[0];
-        document.body.removeChild(iframe);
-        iframe.style.position = '';
-        iframe.style.left = '';
-      } else {
-        iframe = document.createElement('iframe');
-      }
-
-      try {
-        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
-        iframe.srcdoc = '<html></html>';
-      } catch (e) {
-        // 行儀の悪い広告にiframeを乗っ取られた？
-        window.console.error('Error: ', e);
-        this._retryGetIframeCount++;
-        if (this._retryGetIframeCount < 5) {
-          return this._getIframe();
-        }
-      }
-      return iframe;
+      this._frame = new FrameLayer({
+        $container: params.$container,
+        html: html,
+        className: 'videoListFrame'
+      });
+      this._frame.on('load', this._onIframeLoad.bind(this));
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
@@ -521,12 +453,6 @@ var PopupMessage = {};
             this.emit('command', command, param, itemId);
         }
       }
-    },
-    _onResize: function(width, height) {
-      //window.console.log('resize videoList', width, height);
-    },
-    _onScroll: function(top, left) {
-      //window.console.log('scroll videoList', top, left);
     },
     addClass: function(className) {
       this.toggleClass(className, true);
@@ -1175,9 +1101,10 @@ var PopupMessage = {};
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
-      this._view.on('command', _.bind(this._onCommand, this));
-      this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
-      this._view.on('playlistAppend', _.bind(this._onPlaylistAdd, this));
+
+      this._view.on('command',        this._onCommand     .bind(this));
+      this._view.on('deflistAdd',     this._onDeflistAdd  .bind(this));
+      this._view.on('playlistAppend', this._onPlaylistAdd .bind(this));
     },
     update: function(listData, watchId) {
       if (!this._view) { this._initializeView(); }
@@ -2049,6 +1976,91 @@ var PopupMessage = {};
   });
 
 //===END===
+
+
+  var FrameLayer = function() { this.initialize.apply(this, arguments); };
+  FrameLayer.createReservedFrame = function() {
+    var iframe = document.createElement('iframe');
+    iframe.className = 'reservedFrame';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    iframe.srcdocType = typeof iframe.srcdoc;
+    iframe.srcdoc = '<html></html>';
+    document.body.appendChild(iframe);
+  };
+
+  _.extend(FrameLayer.prototype, AsyncEmitter.prototype);
+  _.assign(FrameLayer.prototype, {
+    initialize: function(params) {
+      this._$container  = params.$container;
+      this._retryGetIframeCount = 0;
+
+      this._initializeView(params, 0);
+    },
+    _initializeView: function(params, retryCount) {
+
+      var iframe = this._getIframe();
+      iframe.className = params.className || ''; // 'videoListFrame';
+
+      var onload = function() {
+        var win, doc;
+        iframe.onload = null;
+        try {
+          win = iframe.contentWindow;
+          doc = iframe.contentWindow.document;
+        } catch (e) {
+          window.console.error(e);
+          window.console.log('変な広告に乗っ取られました');
+          iframe.remove();
+          if (retryCount < 3) {
+            this._initializeView(params, retryCount + 1);
+          }
+          return;
+        }
+
+        this.emit('load', win);
+      }.bind(this);
+
+      var html = this._html = params.html;
+      this._$container.append(iframe);
+      if (iframe.srcdocType === 'string') {
+        iframe.onload = onload;
+        iframe.srcdoc = html;
+      } else {
+        // MS IE/Edge用
+        iframe.contentWindow.document.open();
+        iframe.contentWindow.document.write(html);
+        iframe.contentWindow.document.close();
+        window.setTimeout(onload, 0);
+      }
+    },
+    _getIframe: function() {
+      var reserved = document.getElementsByClassName('reservedFrame');
+      var iframe;
+      if (reserved && reserved.length > 0) {
+        iframe = reserved[0];
+        document.body.removeChild(iframe);
+        iframe.style.position = '';
+        iframe.style.left = '';
+      } else {
+        iframe = document.createElement('iframe');
+      }
+
+      try {
+        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
+        iframe.srcdoc = '<html></html>';
+      } catch (e) {
+        // 行儀の悪い広告にiframeを乗っ取られた？
+        window.console.error('Error: ', e);
+        this._retryGetIframeCount++;
+        if (this._retryGetIframeCount < 5) {
+          return this._getIframe();
+        }
+      }
+      return iframe;
+    }
+  });
+
 //
      //ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
 //

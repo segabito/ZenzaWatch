@@ -1888,7 +1888,6 @@ var CommentPanel = function() {};
 
       var timeout;
       var resolve, reject;
-      var self = this;
       window.console.time('コメント投稿');
 
       var _onSuccess = function(result) {
@@ -1897,11 +1896,11 @@ var CommentPanel = function() {};
         PopupMessage.notify('コメント投稿成功');
         $container.removeClass('postChat');
 
-        self._threadInfo.blockNo = result.blockNo;
+        this._threadInfo.blockNo = result.blockNo;
         window.clearTimeout(timeout);
 
         resolve(result);
-      };
+      }.bind(this);
 
       var _onFailFinal = function(err) {
         err = err || {};
@@ -1915,16 +1914,16 @@ var CommentPanel = function() {};
         PopupMessage.alert(err.message);
         $container.removeClass('postChat');
         if (err.blockNo && typeof err.blockNo === 'number') {
-          self._threadInfo.blockNo = err.blockNo;
+          this._threadInfo.blockNo = err.blockNo;
         }
         reject(err);
-      };
+      }.bind(this);
 
       var _onTimeout = function() {
         PopupMessage.alert('コメント投稿失敗(timeout)');
         $container.removeClass('postChat');
         reject({});
-      };
+      }.bind(this);
 
       var _onFail1st = function(err) {
         err = err || {};
@@ -1936,7 +1935,7 @@ var CommentPanel = function() {};
         window.console.log('_onFail1st: ', parseInt(err.code, 10));
 
         if (err.blockNo && typeof err.blockNo === 'number') {
-          self._threadInfo.blockNo = err.blockNo;
+          this._threadInfo.blockNo = err.blockNo;
         }
 
         window.clearTimeout(timeout);
@@ -1948,7 +1947,7 @@ var CommentPanel = function() {};
           _onFailFinal
         );
 
-      };
+      }.bind(this);
 
       timeout = window.setTimeout(_onTimeout, 30000);
 
@@ -2924,30 +2923,47 @@ var CommentPanel = function() {};
     .videoControlBar {
       height: %CONTROL_BAR_HEIGHT%px !important;
     }
+
+    .zenzaPlayerContainer .commentLayerFrame {
+      opacity: %COMMENT_LAYER_OPACITY%;
+    }
+
   */});
   DynamicCss.prototype = {
     initialize: function(params) {
       var config = this._playerConfig = params.playerConfig;
 
       this._scale = 1.0;
+      this._commentLayerOpacity = 1.0;
 
       var update = _.bind(this._update, this);
       config.on('update-menuScale', update);
+      config.on('update-commentLayerOpacity', update);
       update();
     },
     _update: function() {
       var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
-      if (this._scale === scale) { return; }
+      var commentLayerOpacity =
+        parseFloat(this._playerConfig.getValue('commentLayerOpacity'), 10);
+
+      if (this._scale === scale &&
+          this._commentLayerOpacity === commentLayerOpacity) { return; }
+
       if (!this._style) {
         this._style = ZenzaWatch.util.addStyle('');
       }
+
       this._scale = scale;
+      this._commentLayerOpacity = commentLayerOpacity;
+
       var tpl = DynamicCss.__css__
         .replace(/%SCALE%/g, scale)
         .replace(/%CONTROL_BAR_HEIGHT%/g,
           (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
           VideoControlBar.BASE_SEEKBAR_HEIGHT
-          );
+          )
+        .replace(/%COMMENT_LAYER_OPACITY%/g, commentLayerOpacity)
+        ;
       this._style.innerHTML = tpl;
     }
   };

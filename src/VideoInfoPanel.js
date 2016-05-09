@@ -576,7 +576,8 @@ var RelatedVideoList = function() {};
       margin: 0;
     }
 
-    .zenzaWatchVideoInfoPanel .videoListFrame {
+    .zenzaWatchVideoInfoPanel .videoListFrame,
+    .zenzaWatchVideoInfoPanel .commentListFrame {
       width: 100%;
       height: 100%;
       box-sizing: border-box;

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           ZenzaWatch
 // @namespace      https://github.com/segabito/
-// @description    速くて軽いHTML5版プレイヤー。 Flash不要。
+// @description    ニコニコ動画用の速くて軽いHTML5プレイヤー。 Flash不要
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/thumb/*
@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.5
+// @version        1.0.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -35,7 +35,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.5';
+  var VER = '1.0.7';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1448,6 +1448,90 @@ var monkey = function() {
     }
   });
   ZenzaWatch.util.RequestAnimationFrame = RequestAnimationFrame;
+
+
+  var FrameLayer = function() { this.initialize.apply(this, arguments); };
+  FrameLayer.createReservedFrame = function() {
+    var iframe = document.createElement('iframe');
+    iframe.className = 'reservedFrame';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    iframe.srcdocType = typeof iframe.srcdoc;
+    iframe.srcdoc = '<html></html>';
+    document.body.appendChild(iframe);
+  };
+
+  _.extend(FrameLayer.prototype, AsyncEmitter.prototype);
+  _.assign(FrameLayer.prototype, {
+    initialize: function(params) {
+      this._$container  = params.$container;
+      this._retryGetIframeCount = 0;
+
+      this._initializeView(params, 0);
+    },
+    _initializeView: function(params, retryCount) {
+
+      var iframe = this._getIframe();
+      iframe.className = params.className || '';
+
+      var onload = function() {
+        var win, doc;
+        iframe.onload = null;
+        try {
+          win = iframe.contentWindow;
+          doc = iframe.contentWindow.document;
+        } catch (e) {
+          window.console.error(e);
+          window.console.log('変な広告に乗っ取られました');
+          iframe.remove();
+          if (retryCount < 3) {
+            this._initializeView(params, retryCount + 1);
+          }
+          return;
+        }
+
+        this.emit('load', win);
+      }.bind(this);
+
+      var html = this._html = params.html;
+      this._$container.append(iframe);
+      if (iframe.srcdocType === 'string') {
+        iframe.onload = onload;
+        iframe.srcdoc = html;
+      } else {
+        // MS IE/Edge用
+        iframe.contentWindow.document.open();
+        iframe.contentWindow.document.write(html);
+        iframe.contentWindow.document.close();
+        window.setTimeout(onload, 0);
+      }
+    },
+    _getIframe: function() {
+      var reserved = document.getElementsByClassName('reservedFrame');
+      var iframe;
+      if (reserved && reserved.length > 0) {
+        iframe = reserved[0];
+        document.body.removeChild(iframe);
+        iframe.style.position = '';
+        iframe.style.left = '';
+      } else {
+        iframe = document.createElement('iframe');
+      }
+
+      try {
+        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
+        iframe.srcdoc = '<html></html>';
+      } catch (e) {
+        // 行儀の悪い広告にiframeを乗っ取られた？
+        window.console.error('Error: ', e);
+        this._retryGetIframeCount++;
+        if (this._retryGetIframeCount < 5) {
+          return this._getIframe();
+        }
+      }
+      return iframe;
+    }
+  });
 
 
 
@@ -6163,7 +6247,7 @@ var monkey = function() {
       {*width: 32px;*}
       height: 32px;
       margin-top: -2px;
-      line-height: 30px;
+      line-height: 36px;
       pointer-events: none;
     }
     .storyBoardAvailable .toggleStoryBoard {
@@ -7544,11 +7628,12 @@ var monkey = function() {
     // wikiの記述だと\u2588はstrongではないっぽいけど、そうじゃないと辻褄が合わないCAがいくつかある。
     // wikiが間違いなのか、まだ知らない法則があるのか・・・？
     //
-    GOTHIC: /[ｧ-ﾝﾞ･ﾟ]/,
+//    GOTHIC: /[ｧ-ﾝﾞ･ﾟ]/,
+    GOTHIC: /[\uFF67-\uFF9D\uFF9E\uFF65\uFF9F]/,
     MINCHO: /([\u02C9\u2105\u2109\u2196-\u2199\u220F\u2215\u2248\u2264\u2265\u2299\u2474-\u2482\u250D\u250E\u2511\u2512\u2515\u2516\u2519\u251A\u251E\u251F\u2521\u2522\u2526\u2527\u2529\u252A\u252D\u252E\u2531\u2532\u2535\u2536\u2539\u253A\u253D\u253E\u2540\u2541\u2543-\u254A\u2550-\u256C\u2584\u2588\u258C\u2593\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B])/,
     GULIM: /([\u0126\u0127\u0132\u0133\u0138\u013F\u0140\u0149-\u014B\u0166\u0167\u02D0\u02DA\u2074\u207F\u2081-\u2084\u2113\u2153\u2154\u215C-\u215E\u2194-\u2195\u223C\u249C-\u24B5\u24D0-\u24E9\u2592\u25A3-\u25A9\u25B6\u25B7\u25C0\u25C1\u25C8\u25D0\u25D1\u260E\u260F\u261C\u261E\u2660\u2661\u2663-\u2665\u2667-\u2669\u266C\u3131-\u318E\u3200-\u321C\u3260-\u327B\u3380-\u3384\u3388-\u338D\u3390-\u339B\u339F\u33A0\u33A2-\u33CA\u33CF\u33D0\u33D3\u33D6\u33D8\u33DB-\u33DD\uF900-\uF928\uF92A-\uF994\uF996-\uFA0B\uFFE6])/,
     MING_LIU: /([\uEF00-\uEF1F])/,
-    GR: /<group>([^\x01-\x7E^\xA0]*?([ｧ-ﾝﾞ･ﾟ\u02C9\u2105\u2109\u2196-\u2199\u220F\u2215\u2248\u2264\u2265\u2299\u2474-\u2482\u250D\u250E\u2511\u2512\u2515\u2516\u2519\u251A\u251E\u251F\u2521\u2522\u2526\u2527\u2529\u252A\u252D\u252E\u2531\u2532\u2535\u2536\u2539\u253A\u253D\u253E\u2540\u2541\u2543-\u254A\u2550-\u256C\u2584\u2588\u258C\u2593\u0126\u0127\u0132\u0133\u0138\u013F\u0140\u0149-\u014B\u0166\u0167\u02D0\u02DA\u2074\u207F\u2081-\u2084\u2113\u2153\u2154\u215C-\u215E\u2194-\u2195\u223C\u249C-\u24B5\u24D0-\u24E9\u2592\u25A3-\u25A9\u25B6\u25B7\u25C0\u25C1\u25C8\u25D0\u25D1\u260E\u260F\u261C\u261E\u2660\u2661\u2663-\u2665\u2667-\u2669\u266C\u3131-\u318E\u3200-\u321C\u3260-\u327B\u3380-\u3384\u3388-\u338D\u3390-\u339B\u339F\u33A0\u33A2-\u33CA\u33CF\u33D0\u33D3\u33D6\u33D8\u33DB-\u33DD\uF900-\uF928\uF92A-\uF994\uF996-\uFA0B\uFFE6\uEF00-\uEF1F\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B])[^\x01-\x7E^\xA0]*?)<\/group>/g,
+    GR: /<group>([^\x01-\x7E^\xA0]*?([\uFF67-\uFF9D\uFF9E\uFF65\uFF9F\u02C9\u2105\u2109\u2196-\u2199\u220F\u2215\u2248\u2264\u2265\u2299\u2474-\u2482\u250D\u250E\u2511\u2512\u2515\u2516\u2519\u251A\u251E\u251F\u2521\u2522\u2526\u2527\u2529\u252A\u252D\u252E\u2531\u2532\u2535\u2536\u2539\u253A\u253D\u253E\u2540\u2541\u2543-\u254A\u2550-\u256C\u2584\u2588\u258C\u2593\u0126\u0127\u0132\u0133\u0138\u013F\u0140\u0149-\u014B\u0166\u0167\u02D0\u02DA\u2074\u207F\u2081-\u2084\u2113\u2153\u2154\u215C-\u215E\u2194-\u2195\u223C\u249C-\u24B5\u24D0-\u24E9\u2592\u25A3-\u25A9\u25B6\u25B7\u25C0\u25C1\u25C8\u25D0\u25D1\u260E\u260F\u261C\u261E\u2660\u2661\u2663-\u2665\u2667-\u2669\u266C\u3131-\u318E\u3200-\u321C\u3260-\u327B\u3380-\u3384\u3388-\u338D\u3390-\u339B\u339F\u33A0\u33A2-\u33CA\u33CF\u33D0\u33D3\u33D6\u33D8\u33DB-\u33DD\uF900-\uF928\uF92A-\uF994\uF996-\uFA0B\uFFE6\uEF00-\uEF1F\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B])[^\x01-\x7E^\xA0]*?)<\/group>/g,
     STRONG_MINCHO: /([\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B\u2588])/,
     // ドット絵系によく使われる文字. 綺麗に見せるためにエフェクトを変えたい
     BLOCK: /([\u2581-\u258F\u25E2-\u25E5]+)/g,
@@ -7667,6 +7752,11 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   font-family: Arial;
 }
 
+{* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 *}
+.invisible_code {
+  font-family: gulim;
+}
+
 
   */});
 
@@ -7767,7 +7857,11 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
           .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように
           .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
-            '<span class="invisible_code">$1</span>')
+            //'<span class="invisible_code">$1</span>')
+            function(g) {
+              var e = window.escape(g);
+              return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
+            })
         // 結合文字 前の文字と同じ幅になるらしい
         // http://www.nicovideo.jp/watch/1376820446 このへんで見かけた
           .replace(/(.)[\u0655]/g ,  '$1<span class="type0655">$1</span>')
@@ -10945,80 +11039,12 @@ spacer {
     },
     _initializeView: function(params, retryCount) {
       var html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
-
-      var iframe = this._getIframe();
-      iframe.className = 'videoListFrame';
-
-      var onLoad = _.bind(this._onIframeLoad, this);
-      //var onResize = _.bind(this._onResize, this);
-      //var onScroll = _.bind(this._onScroll, this);
-      var self = this;
-
-      var onload = function() {
-        var win, doc;
-        iframe.onload = null;
-        try {
-          win = iframe.contentWindow;
-          doc = iframe.contentWindow.document;
-        } catch (e) {
-          window.console.error(e);
-          window.console.log('変な広告に乗っ取られました');
-          iframe.remove();
-          if (retryCount < 3) {
-            self._initializeView(params, retryCount + 1);
-          }
-          return;
-        }
-
-        self._view = iframe;
-
-        ///win.addEventListener('resize', function() {
-        ///  var w = win.innerWidth, h = win.innerHeight;
-        ///  onResize(w, h);
-        ///});
-        ///win.addEventListener('scroll', function() {
-        ///  onScroll(doc.body.scrollTop, doc.body.scrollLeft);
-        ///});
-
-        onLoad(win);
-      };
-
-      this._$container.append(iframe);
-      if (iframe.srcdocType === 'string') {
-        iframe.onload = onload;
-        iframe.srcdoc = html;
-      } else {
-        // MS IE/Edge用
-        iframe.contentWindow.document.open();
-        iframe.contentWindow.document.write(html);
-        iframe.contentWindow.document.close();
-        window.setTimeout(onload, 0);
-      }
-    },
-    _getIframe: function() {
-      var reserved = document.getElementsByClassName('reservedFrame');
-      var iframe;
-      if (reserved && reserved.length > 0) {
-        iframe = reserved[0];
-        document.body.removeChild(iframe);
-        iframe.style.position = '';
-        iframe.style.left = '';
-      } else {
-        iframe = document.createElement('iframe');
-      }
-
-      try {
-        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
-        iframe.srcdoc = '<html></html>';
-      } catch (e) {
-        // 行儀の悪い広告にiframeを乗っ取られた？
-        window.console.error('Error: ', e);
-        this._retryGetIframeCount++;
-        if (this._retryGetIframeCount < 5) {
-          return this._getIframe();
-        }
-      }
-      return iframe;
+      this._frame = new FrameLayer({
+        $container: params.$container,
+        html: html,
+        className: 'commentListFrame'
+      });
+      this._frame.on('load', this._onIframeLoad.bind(this));
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
@@ -12131,80 +12157,12 @@ data-title="%no%: %date% ID:%userId%
     },
     _initializeView: function(params, retryCount) {
       var html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
-
-      var iframe = this._getIframe();
-      iframe.className = 'videoListFrame';
-
-      var onLoad = _.bind(this._onIframeLoad, this);
-      var onResize = _.bind(this._onResize, this);
-      var onScroll = _.bind(this._onScroll, this);
-      var self = this;
-
-      var onload = function() {
-        var win, doc;
-        iframe.onload = null;
-        try {
-          win = iframe.contentWindow;
-          doc = iframe.contentWindow.document;
-        } catch (e) {
-          window.console.error(e);
-          window.console.log('変な広告に乗っ取られました');
-          iframe.remove();
-          if (retryCount < 3) {
-            self._initializeView(params, retryCount + 1);
-          }
-          return;
-        }
-
-        self._view = iframe;
-
-        win.addEventListener('resize', function() {
-          var w = win.innerWidth, h = win.innerHeight;
-          onResize(w, h);
-        });
-        win.addEventListener('scroll', function() {
-          onScroll(doc.body.scrollTop, doc.body.scrollLeft);
-        });
-
-        onLoad(win);
-      };
-
-      this._$container.append(iframe);
-      if (iframe.srcdocType === 'string') {
-        iframe.onload = onload;
-        iframe.srcdoc = html;
-      } else {
-        // MS IE/Edge用
-        iframe.contentWindow.document.open();
-        iframe.contentWindow.document.write(html);
-        iframe.contentWindow.document.close();
-        window.setTimeout(onload, 0);
-      }
-    },
-    _getIframe: function() {
-      var reserved = document.getElementsByClassName('reservedFrame');
-      var iframe;
-      if (reserved && reserved.length > 0) {
-        iframe = reserved[0];
-        document.body.removeChild(iframe);
-        iframe.style.position = '';
-        iframe.style.left = '';
-      } else {
-        iframe = document.createElement('iframe');
-      }
-
-      try {
-        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
-        iframe.srcdoc = '<html></html>';
-      } catch (e) {
-        // 行儀の悪い広告にiframeを乗っ取られた？
-        window.console.error('Error: ', e);
-        this._retryGetIframeCount++;
-        if (this._retryGetIframeCount < 5) {
-          return this._getIframe();
-        }
-      }
-      return iframe;
+      this._frame = new FrameLayer({
+        $container: params.$container,
+        html: html,
+        className: 'videoListFrame'
+      });
+      this._frame.on('load', this._onIframeLoad.bind(this));
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
@@ -12389,12 +12347,6 @@ data-title="%no%: %date% ID:%userId%
             this.emit('command', command, param, itemId);
         }
       }
-    },
-    _onResize: function(width, height) {
-      //window.console.log('resize videoList', width, height);
-    },
-    _onScroll: function(top, left) {
-      //window.console.log('scroll videoList', top, left);
     },
     addClass: function(className) {
       this.toggleClass(className, true);
@@ -13043,9 +12995,10 @@ data-title="%no%: %date% ID:%userId%
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
-      this._view.on('command', _.bind(this._onCommand, this));
-      this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
-      this._view.on('playlistAppend', _.bind(this._onPlaylistAdd, this));
+
+      this._view.on('command',        this._onCommand     .bind(this));
+      this._view.on('deflistAdd',     this._onDeflistAdd  .bind(this));
+      this._view.on('playlistAppend', this._onPlaylistAdd .bind(this));
     },
     update: function(listData, watchId) {
       if (!this._view) { this._initializeView(); }
@@ -15834,7 +15787,6 @@ data-title="%no%: %date% ID:%userId%
 
       var timeout;
       var resolve, reject;
-      var self = this;
       window.console.time('コメント投稿');
 
       var _onSuccess = function(result) {
@@ -15843,11 +15795,11 @@ data-title="%no%: %date% ID:%userId%
         PopupMessage.notify('コメント投稿成功');
         $container.removeClass('postChat');
 
-        self._threadInfo.blockNo = result.blockNo;
+        this._threadInfo.blockNo = result.blockNo;
         window.clearTimeout(timeout);
 
         resolve(result);
-      };
+      }.bind(this);
 
       var _onFailFinal = function(err) {
         err = err || {};
@@ -15861,16 +15813,16 @@ data-title="%no%: %date% ID:%userId%
         PopupMessage.alert(err.message);
         $container.removeClass('postChat');
         if (err.blockNo && typeof err.blockNo === 'number') {
-          self._threadInfo.blockNo = err.blockNo;
+          this._threadInfo.blockNo = err.blockNo;
         }
         reject(err);
-      };
+      }.bind(this);
 
       var _onTimeout = function() {
         PopupMessage.alert('コメント投稿失敗(timeout)');
         $container.removeClass('postChat');
         reject({});
-      };
+      }.bind(this);
 
       var _onFail1st = function(err) {
         err = err || {};
@@ -15882,7 +15834,7 @@ data-title="%no%: %date% ID:%userId%
         window.console.log('_onFail1st: ', parseInt(err.code, 10));
 
         if (err.blockNo && typeof err.blockNo === 'number') {
-          self._threadInfo.blockNo = err.blockNo;
+          this._threadInfo.blockNo = err.blockNo;
         }
 
         window.clearTimeout(timeout);
@@ -15894,7 +15846,7 @@ data-title="%no%: %date% ID:%userId%
           _onFailFinal
         );
 
-      };
+      }.bind(this);
 
       timeout = window.setTimeout(_onTimeout, 30000);
 
@@ -16870,30 +16822,47 @@ data-title="%no%: %date% ID:%userId%
     .videoControlBar {
       height: %CONTROL_BAR_HEIGHT%px !important;
     }
+
+    .zenzaPlayerContainer .commentLayerFrame {
+      opacity: %COMMENT_LAYER_OPACITY%;
+    }
+
   */});
   DynamicCss.prototype = {
     initialize: function(params) {
       var config = this._playerConfig = params.playerConfig;
 
       this._scale = 1.0;
+      this._commentLayerOpacity = 1.0;
 
       var update = _.bind(this._update, this);
       config.on('update-menuScale', update);
+      config.on('update-commentLayerOpacity', update);
       update();
     },
     _update: function() {
       var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
-      if (this._scale === scale) { return; }
+      var commentLayerOpacity =
+        parseFloat(this._playerConfig.getValue('commentLayerOpacity'), 10);
+
+      if (this._scale === scale &&
+          this._commentLayerOpacity === commentLayerOpacity) { return; }
+
       if (!this._style) {
         this._style = ZenzaWatch.util.addStyle('');
       }
+
       this._scale = scale;
+      this._commentLayerOpacity = commentLayerOpacity;
+
       var tpl = DynamicCss.__css__
         .replace(/%SCALE%/g, scale)
         .replace(/%CONTROL_BAR_HEIGHT%/g,
           (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
           VideoControlBar.BASE_SEEKBAR_HEIGHT
-          );
+          )
+        .replace(/%COMMENT_LAYER_OPACITY%/g, commentLayerOpacity)
+        ;
       this._style.innerHTML = tpl;
     }
   };
@@ -17650,6 +17619,25 @@ data-title="%no%: %date% ID:%userId%
             フォントサイズ(倍率)
             </label>
           </div>
+
+          <div class="commentLayerOpacityControl control">
+            <label>
+            <select class="commentLayerOpacity" data-setting-name="commentLayerOpacity">
+              <option value="0.1">10%</option>
+              <option value="0.2">20%</option>
+              <option value="0.3">30%</option>
+              <option value="0.4">40%</option>
+              <option value="0.5">50%</option>
+              <option value="0.6">60%</option>
+              <option value="0.7">70%</option>
+              <option value="0.8">80%</option>
+              <option value="0.9">90%</option>
+              <option value="1" selected>100%</option>
+            </select>
+            フォントの透明
+            </label>
+          </div>
+
         </div>
 
         <p class="caption">NG設定</p>
@@ -18436,7 +18424,8 @@ data-title="%no%: %date% ID:%userId%
       margin: 0;
     }
 
-    .zenzaWatchVideoInfoPanel .videoListFrame {
+    .zenzaWatchVideoInfoPanel .videoListFrame,
+    .zenzaWatchVideoInfoPanel .commentListFrame {
       width: 100%;
       height: 100%;
       box-sizing: border-box;
@@ -19287,131 +19276,15 @@ data-title="%no%: %date% ID:%userId%
 
   var initializeGinzaSlayer =
   (function() {
-    // なにかの実験場
-    //
-    //
-
-    var ProxyExternalContent = function() { this._initialize.apply(this, arguments); };
-    _.extend(ProxyExternalContent.prototype, AsyncEmitter.prototype);
-    _.assign(ProxyExternalContent.prototype, {
-      _initialize: function($originalContent, externalInterface) {
-        this._$originalContent = $originalContent;
-        var i, len;
-
-        var JS2SWF = externalInterface.JS2SWF;
-
-        var createJS2SWF = function(name) {
-          return function() {
-            window.console.log('%cJS -> SWF: ', 'background: lightgreen; ', name, arguments);
-            return $originalContent[name].apply($originalContent, arguments.length > 0 ? arguments : []);
-          };
-        };
-
-        for (i = 0, len = JS2SWF.length; i < len; i++) {
-          var name = JS2SWF[i];
-          //window.console.log('crete JS2SWF: %s', name);
-          this[name] = createJS2SWF(name);
-        }
-      }
-    });
-
-    var ProxyConnector = function() { this._initialize.apply(this, arguments); };
-    _.extend(ProxyConnector.prototype, AsyncEmitter.prototype);
-    _.assign(ProxyConnector.prototype, {
-      _initialize: function(originConnector, externalInterface) {
-        this._originConnector = originConnector;
-        var i, len;
-        var SWF2JS = externalInterface.SWF2JS;
-
-        var createSWF2JS = function(name) {
-          return function() {
-            window.console.log('%cSWF -> JS: ', 'background: cyan; ', name, arguments);
-            //originConnector[name].apply(originConnector, arguments.length > 0 ? arguments : []);
-          };
-        };
-
-        for (i = 0, len = SWF2JS.length; i < len; i++) {
-          var name = SWF2JS[i];
-          //window.console.log('crete SWF2JS: %s', name);
-          this[name] = createSWF2JS(name);
-        }
-
-      },
-      setStartupLogTimestamp: function() {
-      }
-    });
-
-
-    var swf2js, js2swf;
-    var replaceConnector = function(target, externalInterface) {
-      var connectorInstance = target.getInstance();
-      var $externalPlayer  = connectorInstance.getExternalNicoplayer();
-      connectorInstance._externalNicoplayer_org = connectorInstance._externalContent;
-      js2swf = connectorInstance._externalNicoplayer =
-        new ProxyExternalContent($externalPlayer, externalInterface);
-
-      connectorInstance.startJS_org = connectorInstance.startJS;
-      connectorInstance.startJS = function(connector) {
-        this._connector_org = connector;
-        swf2js = new ProxyConnector(connector, externalInterface);
-        this.startJS_org(swf2js);
-      };
-      swf2js = new ProxyConnector(null, externalInterface);
-    };
-
-
-
-    var initializeGinzaSlayer = function(dialog, watchId) {
-      var target = window.PlayerApp.ns.player.Nicoplayer;
-      var externalInterface = window.PlayerApp.ns.player.NicoplayerExternalInterface;
-      replaceConnector(target, externalInterface);
-
-      $('#external_nicoplayer').remove();
-
-      dialog.on('canPlay', function() {
-        swf2js.onVideoInitialized(true);
-      });
-      dialog.on('commentParsed', function() {
-        swf2js.onCommentListInitialized(true);
-        //swf2js.onCommentListUpdated(TODO: 変換して渡す);
-      });
-      dialog.on('ended', function() {
-        swf2js.onVideoEnded(false);
-      });
-
-      js2swf.ext_getPlayheadTime = function() {
-        return dialog.getCurrentTime();
-      };
-      js2swf.externalChangeVideo = function(videoInfo) {
-        window.console.log('externalChangeVideo');
-        dialog.open(videoInfo.v, {
-          economy: Config.getValue('forceEconomy')
-        });
-      };
-      js2swf.ext_getTotalTime = function() {
-        return dialog._nicoVideoPlayer.getDuration();
-      };
-
-      dialog.open(watchId, {
-        economy: Config.getValue('forceEconomy')
-      });
-      $('#nicoplayerContainer').append($('.zenzaVideoPlayerDialog').detach());
-    };
-
     var initialize = function(dialog) {
       $('.notify_update_flash_player').remove();
       $('body').addClass('ginzaSlayer');
 
-
       var watchId = getWatchId();
-      if (Config.getValue('enableGinzaSlayer')) {
-        initializeGinzaSlayer(dialog, watchId);
-      } else {
-        dialog.open(watchId, {
-          economy: Config.getValue('forceEconomy')
-        });
-        $('#external_nicoplayer').remove();
-      }
+      dialog.open(watchId, {
+        economy: Config.getValue('forceEconomy')
+      });
+      $('#external_nicoplayer').remove();
 
     };
 

@@ -701,7 +701,7 @@ var StoryBoard = function() {};
       {*width: 32px;*}
       height: 32px;
       margin-top: -2px;
-      line-height: 30px;
+      line-height: 36px;
       pointer-events: none;
     }
     .storyBoardAvailable .toggleStoryBoard {

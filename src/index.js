@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           ZenzaWatch
 // @namespace      https://github.com/segabito/
-// @description    速くて軽いHTML5版プレイヤー。 Flash不要。
+// @description    ニコニコ動画用の速くて軽いHTML5プレイヤー。 Flash不要
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/thumb/*
@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.5
+// @version        1.0.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
