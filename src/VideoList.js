@@ -227,6 +227,12 @@ var PopupMessage = {};
   body {
     -webkit-user-select: none;
     -moz-user-select: none;
+    min-height: 100%;
+  }
+
+  body.drag-file>* {
+    opacity: 0.5;
+    pointer-events: none;
   }
 </style>
 <style id="listItemStyle">%CSS%</style>
@@ -252,6 +258,7 @@ var PopupMessage = {};
       this._cache = {};
       this._maxItems = params.max || 100;
       this._dragdrop = _.isBoolean(params.dragdrop) ? params.dragdrop : false;
+      this._dropfile = _.isBoolean(params.dropfile) ? params.dropfile : false;
 
       this._model = params.model;
       if (this._model) {
@@ -259,9 +266,9 @@ var PopupMessage = {};
         this._model.on('itemUpdate', _.bind(this._onModelItemUpdate, this));
       }
 
-      this._initializeView(params, 0);
+      this._initializeView(params);
     },
-    _initializeView: function(params, retryCount) {
+    _initializeView: function(params) {
       var html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
       this._frame = new FrameLayer({
         $container: params.$container,
@@ -288,6 +295,13 @@ var PopupMessage = {};
 
       if (this._dragdrop) {
         $body.on('mousedown', _.bind(this._onBodyMouseDown, this));
+      }
+
+      if (this._dropfile) {
+        $body.on('dragover',  this._onBodyDragOverFile .bind(this));
+        $body.on('dragenter', this._onBodyDragEnterFile.bind(this));
+        $body.on('dragleave', this._onBodyDragLeaveFile.bind(this));
+        $body.on('drop',      this._onBodyDropFile     .bind(this));
       }
     },
     _onBodyMouseDown: function(e) {
@@ -367,6 +381,35 @@ var PopupMessage = {};
         this._$dragging.removeClass('dragging').css('transform', '');
       }
       this._$dragging = null;
+    },
+    _onBodyDragOverFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.addClass('drag-file');
+    },
+    _onBodyDragEnterFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.addClass('drag-file');
+    },
+    _onBodyDragLeaveFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.removeClass('drag-file');
+    },
+    _onBodyDropFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.removeClass('drag-file');
+
+      var file = e.originalEvent.dataTransfer.files[0];
+      if (!/\.playlist\.json$/.test(file.name)) { return; }
+
+      var fileReader = new FileReader();
+      fileReader.onload = function(ev) {
+        window.console.log('file data: ', ev.target.result);
+        this.emit('filedrop', ev.target.result, file.name);
+      }.bind(this);
+
+      fileReader.readAsText(file);
+
+      return false;
     },
     _onModelUpdate: function(itemList, replaceAll) {
       window.console.time('update playlistView');
@@ -1341,6 +1384,10 @@ var PopupMessage = {};
               <li class="playlist-command" data-command="sortBy" data-param="duration">
                 動画の短い順に並べる
               </li>
+              <!--
+              <hr class="separator">
+              <li class="playlist-command" data-command="exportFile">ファイルにエクスポート</li>
+              -->
               <hr class="separator">
               <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
               <li class="playlist-command" data-command="removePlayedItem">視聴済み動画を消す ●</li>
@@ -1377,6 +1424,7 @@ var PopupMessage = {};
         model: this._model,
         className: 'playlist',
         dragdrop: true,
+        dropfile: true,
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
@@ -1384,6 +1432,7 @@ var PopupMessage = {};
       listView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
       listView.on('moveItem',
         _.bind(function(src, dest) { this.emit('moveItem', src, dest); }, this));
+      listView.on('filedrop', this._onFileDrop.bind(this));
 
       this._playlist.on('update',
         _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
@@ -1449,6 +1498,10 @@ var PopupMessage = {};
         ;
       this._$index.text(playlist.getIndex() + 1);
       this._$length.text(playlist.getLength());
+    },
+    _onFileDrop: function(data) {
+      if (!ZenzaWatch.util.isValidJson(data)) { return; }
+      this.emit('command', 'importFile', data);
     }
   });
 
@@ -1573,9 +1626,46 @@ var PopupMessage = {};
         case 'removeNonActiveItem':
           this.removeNonActiveItem();
           break;
+        case 'exportFile':
+          this._onExportFileCommand();
+          break;
+        case 'importFile':
+          this._onImportFileCommand(param);
+          break;
         default:
           this.emit('command', command, param);
       }
+    },
+    _onExportFileCommand: function() {
+      var dt = new Date();
+      var title = prompt('ファイル名', dt.toLocaleString() + 'の再生リスト');
+      if (!title) { return; }
+
+      var data = JSON.stringify(this.serialize());
+
+      var blob = new Blob([data], { 'type': 'text/html' });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.setAttribute('download', title + '.playlist.json');
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(function() { a.remove(); }, 1000);
+    },
+    _onImportFileCommand: function(fileData) {
+      this.unserialize(JSON.parse(fileData));
+      ZenzaWatch.util.callAsync(function() {
+        if (this._activeItem) {
+          this.emit('command', 'openNow', this._activeItem.getWatchId());
+          return;
+        }
+        var firstItem = this._model.getItemByIndex(0);
+        if (firstItem) {
+          this.emit('command', 'openNow', firstItem.getWatchId());
+        }
+
+      }, this, 3000);
     },
     _onMoveItem: function(srcItemId, destItemId) {
       var srcItem  = this._model.findByItemId(srcItemId);
@@ -1977,89 +2067,6 @@ var PopupMessage = {};
 
 //===END===
 
-
-  var FrameLayer = function() { this.initialize.apply(this, arguments); };
-  FrameLayer.createReservedFrame = function() {
-    var iframe = document.createElement('iframe');
-    iframe.className = 'reservedFrame';
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-9999px';
-    iframe.srcdocType = typeof iframe.srcdoc;
-    iframe.srcdoc = '<html></html>';
-    document.body.appendChild(iframe);
-  };
-
-  _.extend(FrameLayer.prototype, AsyncEmitter.prototype);
-  _.assign(FrameLayer.prototype, {
-    initialize: function(params) {
-      this._$container  = params.$container;
-      this._retryGetIframeCount = 0;
-
-      this._initializeView(params, 0);
-    },
-    _initializeView: function(params, retryCount) {
-
-      var iframe = this._getIframe();
-      iframe.className = params.className || ''; // 'videoListFrame';
-
-      var onload = function() {
-        var win, doc;
-        iframe.onload = null;
-        try {
-          win = iframe.contentWindow;
-          doc = iframe.contentWindow.document;
-        } catch (e) {
-          window.console.error(e);
-          window.console.log('変な広告に乗っ取られました');
-          iframe.remove();
-          if (retryCount < 3) {
-            this._initializeView(params, retryCount + 1);
-          }
-          return;
-        }
-
-        this.emit('load', win);
-      }.bind(this);
-
-      var html = this._html = params.html;
-      this._$container.append(iframe);
-      if (iframe.srcdocType === 'string') {
-        iframe.onload = onload;
-        iframe.srcdoc = html;
-      } else {
-        // MS IE/Edge用
-        iframe.contentWindow.document.open();
-        iframe.contentWindow.document.write(html);
-        iframe.contentWindow.document.close();
-        window.setTimeout(onload, 0);
-      }
-    },
-    _getIframe: function() {
-      var reserved = document.getElementsByClassName('reservedFrame');
-      var iframe;
-      if (reserved && reserved.length > 0) {
-        iframe = reserved[0];
-        document.body.removeChild(iframe);
-        iframe.style.position = '';
-        iframe.style.left = '';
-      } else {
-        iframe = document.createElement('iframe');
-      }
-
-      try {
-        iframe.srcdocType = iframe.srcdocType || typeof iframe.srcdoc;
-        iframe.srcdoc = '<html></html>';
-      } catch (e) {
-        // 行儀の悪い広告にiframeを乗っ取られた？
-        window.console.error('Error: ', e);
-        this._retryGetIframeCount++;
-        if (this._retryGetIframeCount < 5) {
-          return this._getIframe();
-        }
-      }
-      return iframe;
-    }
-  });
 
 //
      //ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});

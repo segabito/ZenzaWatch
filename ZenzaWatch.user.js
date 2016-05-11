@@ -23,7 +23,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.7
+// @version        1.0.8
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -35,7 +35,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.7';
+  var VER = '1.0.8';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1177,6 +1177,15 @@ var monkey = function() {
 	    document.execCommand('copy');
 
       window.setTimeout(function() { clip.remove(); }, 0);
+    };
+
+    ZenzaWatch.util.isValidJson = function(data) {
+      try {
+        JSON.parse(data);
+        return true;
+      } catch (e) {
+        return false;
+      }
     };
 
     var ajax = function(params) {
@@ -4066,7 +4075,9 @@ var monkey = function() {
       a.setAttribute('download', title + '.html');
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
-      a.dispatchEvent(new CustomEvent('click'));
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(function() { a.remove(); }, 1000);
     }
   });
 
@@ -12121,6 +12132,12 @@ data-title="%no%: %date% ID:%userId%
   body {
     -webkit-user-select: none;
     -moz-user-select: none;
+    min-height: 100%;
+  }
+
+  body.drag-file>* {
+    opacity: 0.5;
+    pointer-events: none;
   }
 </style>
 <style id="listItemStyle">%CSS%</style>
@@ -12146,6 +12163,7 @@ data-title="%no%: %date% ID:%userId%
       this._cache = {};
       this._maxItems = params.max || 100;
       this._dragdrop = _.isBoolean(params.dragdrop) ? params.dragdrop : false;
+      this._dropfile = _.isBoolean(params.dropfile) ? params.dropfile : false;
 
       this._model = params.model;
       if (this._model) {
@@ -12153,9 +12171,9 @@ data-title="%no%: %date% ID:%userId%
         this._model.on('itemUpdate', _.bind(this._onModelItemUpdate, this));
       }
 
-      this._initializeView(params, 0);
+      this._initializeView(params);
     },
-    _initializeView: function(params, retryCount) {
+    _initializeView: function(params) {
       var html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
       this._frame = new FrameLayer({
         $container: params.$container,
@@ -12182,6 +12200,13 @@ data-title="%no%: %date% ID:%userId%
 
       if (this._dragdrop) {
         $body.on('mousedown', _.bind(this._onBodyMouseDown, this));
+      }
+
+      if (this._dropfile) {
+        $body.on('dragover',  this._onBodyDragOverFile .bind(this));
+        $body.on('dragenter', this._onBodyDragEnterFile.bind(this));
+        $body.on('dragleave', this._onBodyDragLeaveFile.bind(this));
+        $body.on('drop',      this._onBodyDropFile     .bind(this));
       }
     },
     _onBodyMouseDown: function(e) {
@@ -12261,6 +12286,35 @@ data-title="%no%: %date% ID:%userId%
         this._$dragging.removeClass('dragging').css('transform', '');
       }
       this._$dragging = null;
+    },
+    _onBodyDragOverFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.addClass('drag-file');
+    },
+    _onBodyDragEnterFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.addClass('drag-file');
+    },
+    _onBodyDragLeaveFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.removeClass('drag-file');
+    },
+    _onBodyDropFile: function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this._$body.removeClass('drag-file');
+
+      var file = e.originalEvent.dataTransfer.files[0];
+      if (!/\.playlist\.json$/.test(file.name)) { return; }
+
+      var fileReader = new FileReader();
+      fileReader.onload = function(ev) {
+        window.console.log('file data: ', ev.target.result);
+        this.emit('filedrop', ev.target.result, file.name);
+      }.bind(this);
+
+      fileReader.readAsText(file);
+
+      return false;
     },
     _onModelUpdate: function(itemList, replaceAll) {
       window.console.time('update playlistView');
@@ -13235,6 +13289,10 @@ data-title="%no%: %date% ID:%userId%
               <li class="playlist-command" data-command="sortBy" data-param="duration">
                 動画の短い順に並べる
               </li>
+              <!--
+              <hr class="separator">
+              <li class="playlist-command" data-command="exportFile">ファイルにエクスポート</li>
+              -->
               <hr class="separator">
               <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
               <li class="playlist-command" data-command="removePlayedItem">視聴済み動画を消す ●</li>
@@ -13271,6 +13329,7 @@ data-title="%no%: %date% ID:%userId%
         model: this._model,
         className: 'playlist',
         dragdrop: true,
+        dropfile: true,
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
@@ -13278,6 +13337,7 @@ data-title="%no%: %date% ID:%userId%
       listView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
       listView.on('moveItem',
         _.bind(function(src, dest) { this.emit('moveItem', src, dest); }, this));
+      listView.on('filedrop', this._onFileDrop.bind(this));
 
       this._playlist.on('update',
         _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
@@ -13343,6 +13403,10 @@ data-title="%no%: %date% ID:%userId%
         ;
       this._$index.text(playlist.getIndex() + 1);
       this._$length.text(playlist.getLength());
+    },
+    _onFileDrop: function(data) {
+      if (!ZenzaWatch.util.isValidJson(data)) { return; }
+      this.emit('command', 'importFile', data);
     }
   });
 
@@ -13467,9 +13531,46 @@ data-title="%no%: %date% ID:%userId%
         case 'removeNonActiveItem':
           this.removeNonActiveItem();
           break;
+        case 'exportFile':
+          this._onExportFileCommand();
+          break;
+        case 'importFile':
+          this._onImportFileCommand(param);
+          break;
         default:
           this.emit('command', command, param);
       }
+    },
+    _onExportFileCommand: function() {
+      var dt = new Date();
+      var title = prompt('ファイル名', dt.toLocaleString() + 'の再生リスト');
+      if (!title) { return; }
+
+      var data = JSON.stringify(this.serialize());
+
+      var blob = new Blob([data], { 'type': 'text/html' });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.setAttribute('download', title + '.playlist.json');
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(function() { a.remove(); }, 1000);
+    },
+    _onImportFileCommand: function(fileData) {
+      this.unserialize(JSON.parse(fileData));
+      ZenzaWatch.util.callAsync(function() {
+        if (this._activeItem) {
+          this.emit('command', 'openNow', this._activeItem.getWatchId());
+          return;
+        }
+        var firstItem = this._model.getItemByIndex(0);
+        if (firstItem) {
+          this.emit('command', 'openNow', firstItem.getWatchId());
+        }
+
+      }, this, 3000);
     },
     _onMoveItem: function(srcItemId, destItemId) {
       var srcItem  = this._model.findByItemId(srcItemId);
@@ -19406,7 +19507,8 @@ data-title="%no%: %date% ID:%userId%
         return;
       }
 
-      if (isGinza && !window.WatchCommon) { // コメント編集モードなど
+      if (isGinza && !window.PlayerApp) { // コメント編集モードなど
+        window.console.log('コメント編集モード？');
         return;
       }
 

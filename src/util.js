@@ -1122,6 +1122,15 @@ var console;
       window.setTimeout(function() { clip.remove(); }, 0);
     };
 
+    ZenzaWatch.util.isValidJson = function(data) {
+      try {
+        JSON.parse(data);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    };
+
     var ajax = function(params) {
 
       if (location.host !== 'www.nicovideo.jp') {

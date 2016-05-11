@@ -748,7 +748,9 @@ var VideoInfoLoader = {};
       a.setAttribute('download', title + '.html');
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
-      a.dispatchEvent(new CustomEvent('click'));
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(function() { a.remove(); }, 1000);
     }
   });
 

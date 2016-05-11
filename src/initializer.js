@@ -137,7 +137,8 @@ var AsyncEmitter = function() {};
         return;
       }
 
-      if (isGinza && !window.WatchCommon) { // コメント編集モードなど
+      if (isGinza && !window.PlayerApp) { // コメント編集モードなど
+        window.console.log('コメント編集モード？');
         return;
       }
 
