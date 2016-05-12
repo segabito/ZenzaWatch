@@ -1837,7 +1837,7 @@ var NicoTextParser = {};
   line-height: 1.235;
   opacity: 0;
   text-shadow:
-     1px  1px 0 #000;
+    1px 1px 0px #000{*, -1px -1px 0px #ccc*};
   transform-origin: 0% 0%;
   animation-timing-function: linear;
   {* will-change: transform;*}

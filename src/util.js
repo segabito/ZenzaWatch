@@ -230,6 +230,7 @@ var console;
 
 
         commentLayerOpacity: 1.0, //
+        textShadow: '1px 1px 0 #000', //
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中

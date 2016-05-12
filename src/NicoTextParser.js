@@ -240,7 +240,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 }
 
 {* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 *}
-.invisible_code {
+.mincho .invisible_code {
   font-family: gulim;
 }
 

@@ -230,7 +230,7 @@ var PopupMessage = {};
     min-height: 100%;
   }
 
-  body.drag-file>* {
+  body.drag-over>* {
     opacity: 0.5;
     pointer-events: none;
   }
@@ -298,10 +298,11 @@ var PopupMessage = {};
       }
 
       if (this._dropfile) {
-        $body.on('dragover',  this._onBodyDragOverFile .bind(this));
-        $body.on('dragenter', this._onBodyDragEnterFile.bind(this));
-        $body.on('dragleave', this._onBodyDragLeaveFile.bind(this));
-        $body.on('drop',      this._onBodyDropFile     .bind(this));
+        $body
+          .on('dragover',  this._onBodyDragOverFile .bind(this))
+          .on('dragenter', this._onBodyDragEnterFile.bind(this))
+          .on('dragleave', this._onBodyDragLeaveFile.bind(this))
+          .on('drop',      this._onBodyDropFile     .bind(this));
       }
     },
     _onBodyMouseDown: function(e) {
@@ -384,19 +385,19 @@ var PopupMessage = {};
     },
     _onBodyDragOverFile: function(e) {
       e.preventDefault(); e.stopPropagation();
-      this._$body.addClass('drag-file');
+      this._$body.addClass('drag-over');
     },
     _onBodyDragEnterFile: function(e) {
       e.preventDefault(); e.stopPropagation();
-      this._$body.addClass('drag-file');
+      this._$body.addClass('drag-over');
     },
     _onBodyDragLeaveFile: function(e) {
       e.preventDefault(); e.stopPropagation();
-      this._$body.removeClass('drag-file');
+      this._$body.removeClass('drag-over');
     },
     _onBodyDropFile: function(e) {
       e.preventDefault(); e.stopPropagation();
-      this._$body.removeClass('drag-file');
+      this._$body.removeClass('drag-over');
 
       var file = e.originalEvent.dataTransfer.files[0];
       if (!/\.playlist\.json$/.test(file.name)) { return; }
@@ -408,8 +409,6 @@ var PopupMessage = {};
       }.bind(this);
 
       fileReader.readAsText(file);
-
-      return false;
     },
     _onModelUpdate: function(itemList, replaceAll) {
       window.console.time('update playlistView');
@@ -1344,10 +1343,55 @@ var PopupMessage = {};
       right: 0px;
       top: 24px;
       min-width: 150px;
+      background: #333 !important;
     }
 
     .playlist-menu li {
       line-height: 20px;
+      border: none !important;
+    }
+
+    .playlist-menu .separator {
+      border: 1px inset;
+      border-radius: 3px;
+      margin: 8px 8px;
+    }
+
+
+    .playlist-file-drop {
+      display: none;
+      position: absolute;
+      width: 94%;
+      height: 94%;
+      top: 3%;
+      left: 3%;
+      background: #000;
+      color: #ccc;
+      opacity: 0.8;
+      border: 2px solid #ccc;
+      box-shadow: 0 0 4px #fff;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .playlist-file-drop.show {
+      display: block;
+      opacity: 0.98 !important;
+    }
+
+    .playlist-file-drop.drag-over {
+      box-shadow: 0 0 8px #fe9;
+      background: #030;
+    }
+
+    .playlist-file-drop * {
+      pointer-events: none;
+    }
+
+    .playlist-file-drop-inner {
+      padding: 8px;
+      height: 100%;
+      border: 1px dotted #888;
     }
   */});
   PlaylistView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
@@ -1384,10 +1428,11 @@ var PopupMessage = {};
               <li class="playlist-command" data-command="sortBy" data-param="duration">
                 動画の短い順に並べる
               </li>
-              <!--
+
               <hr class="separator">
-              <li class="playlist-command" data-command="exportFile">ファイルにエクスポート</li>
-              -->
+              <li class="playlist-command" data-command="exportFile">ファイルに保存 &#x1F4BE;</li>
+              <li class="playlist-command" data-command="importFileMenu">ファイルから復元</li>
+
               <hr class="separator">
               <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
               <li class="playlist-command" data-command="removePlayedItem">視聴済み動画を消す ●</li>
@@ -1399,6 +1444,11 @@ var PopupMessage = {};
         </div>
       </div>
       <div class="playlist-frame"></div>
+      <div class="playlist-file-drop">
+        <div class="playlist-file-drop-inner">
+          ファイルをここにドロップ
+        </div>
+      </div>
     </div>
   */});
 
@@ -1415,7 +1465,8 @@ var PopupMessage = {};
 
       this._$index  = $view.find('.playlist-index');
       this._$length = $view.find('.playlist-length');
-      var $menu = this._$menu = this._$view.find('.playlist-menu');
+      var $menu     = this._$menu = this._$view.find('.playlist-menu');
+      var $fileDrop = this._$fileDrop = $view.find('.playlist-file-drop');
 
       ZenzaWatch.debug.playlistView = this._$view;
 
@@ -1432,7 +1483,9 @@ var PopupMessage = {};
       listView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
       listView.on('moveItem',
         _.bind(function(src, dest) { this.emit('moveItem', src, dest); }, this));
-      listView.on('filedrop', this._onFileDrop.bind(this));
+      listView.on('filedrop', function(data) {
+        this.emit('command', 'importFile', data);
+      }.bind(this));
 
       this._playlist.on('update',
         _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
@@ -1440,8 +1493,14 @@ var PopupMessage = {};
       this._$view.on('click', '.playlist-command', _.bind(this._onPlaylistCommandClick, this));
       ZenzaWatch.emitter.on('hideHover', function() {
         $menu.removeClass('show');
+        $fileDrop.removeClass('show');
       });
 
+      $fileDrop
+        .on('dragover',  this._onDragOverFile .bind(this))
+        .on('dragenter', this._onDragEnterFile.bind(this))
+        .on('dragleave', this._onDragLeaveFile.bind(this))
+        .on('drop',      this._onDropFile.bind(this));
 
       _.each([
         'addClass',
@@ -1473,6 +1532,10 @@ var PopupMessage = {};
       e.stopPropagation();
       if (!command) { return; }
       switch (command) {
+        case 'importFileMenu':
+          this._$menu.removeClass('show');
+          this._$fileDrop.addClass('show');
+          return;
         case 'toggleMenu':
           e.stopPropagation();
           e.preventDefault();
@@ -1499,9 +1562,32 @@ var PopupMessage = {};
       this._$index.text(playlist.getIndex() + 1);
       this._$length.text(playlist.getLength());
     },
-    _onFileDrop: function(data) {
-      if (!ZenzaWatch.util.isValidJson(data)) { return; }
-      this.emit('command', 'importFile', data);
+    _onDragOverFile: function(e) {
+      e.preventDefault();
+      this._$fileDrop.addClass('drag-over');
+    },
+    _onDragEnterFile: function(e) {
+      e.preventDefault();
+      this._$fileDrop.addClass('drag-over');
+    },
+    _onDragLeaveFile: function(e) {
+      e.preventDefault();
+      this._$fileDrop.removeClass('drag-over');
+    },
+    _onDropFile: function(e) {
+      e.preventDefault();
+      this._$fileDrop.removeClass('show drag-over');
+
+      var file = e.originalEvent.dataTransfer.files[0];
+      if (!/\.playlist\.json$/.test(file.name)) { return; }
+
+      var fileReader = new FileReader();
+      fileReader.onload = function(ev) {
+        window.console.log('file data: ', ev.target.result);
+        this.emit('command', 'importFile', ev.target.result);
+      }.bind(this);
+
+      fileReader.readAsText(file);
     }
   });
 
@@ -1654,6 +1740,8 @@ var PopupMessage = {};
       window.setTimeout(function() { a.remove(); }, 1000);
     },
     _onImportFileCommand: function(fileData) {
+      if (!ZenzaWatch.util.isValidJson(fileData)) { return; }
+
       this.unserialize(JSON.parse(fileData));
       ZenzaWatch.util.callAsync(function() {
         if (this._activeItem) {
