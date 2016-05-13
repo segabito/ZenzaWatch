@@ -137,11 +137,6 @@ var AsyncEmitter = function() {};
         return;
       }
 
-      if (isGinza && !window.PlayerApp) { // コメント編集モードなど
-        window.console.log('コメント編集モード？');
-        return;
-      }
-
       //if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
       //  return;
       //}

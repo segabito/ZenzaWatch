@@ -141,6 +141,11 @@ var PopupMessage = {};
         }
       }.bind(this));
     },
+    findActiveItem: function() {
+      return _.find(this._items, function(item) {
+        return item.isActive();
+      }.bind(this));
+    },
     removeItem: function(item) {
       var beforeLen = this._items.length;
       _.pull(this._items, item);
@@ -1431,7 +1436,8 @@ var PopupMessage = {};
 
               <hr class="separator">
               <li class="playlist-command" data-command="exportFile">ファイルに保存 &#x1F4BE;</li>
-              <li class="playlist-command" data-command="importFileMenu">ファイルから復元</li>
+              <!--
+              <li class="playlist-command" data-command="importFileMenu">ファイルから復元</li>-->
 
               <hr class="separator">
               <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
@@ -1496,7 +1502,7 @@ var PopupMessage = {};
         $fileDrop.removeClass('show');
       });
 
-      $fileDrop
+      $('.zenzaVideoPlayerDialog')
         .on('dragover',  this._onDragOverFile .bind(this))
         .on('dragenter', this._onDragEnterFile.bind(this))
         .on('dragleave', this._onDragLeaveFile.bind(this))
@@ -1563,19 +1569,19 @@ var PopupMessage = {};
       this._$length.text(playlist.getLength());
     },
     _onDragOverFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.addClass('drag-over');
     },
     _onDragEnterFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.addClass('drag-over');
     },
     _onDragLeaveFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.removeClass('drag-over');
     },
     _onDropFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.removeClass('show drag-over');
 
       var file = e.originalEvent.dataTransfer.files[0];
@@ -1724,7 +1730,7 @@ var PopupMessage = {};
     },
     _onExportFileCommand: function() {
       var dt = new Date();
-      var title = prompt('ファイル名', dt.toLocaleString() + 'の再生リスト');
+      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', dt.toLocaleString() + 'の再生リスト');
       if (!title) { return; }
 
       var data = JSON.stringify(this.serialize());
@@ -1742,18 +1748,19 @@ var PopupMessage = {};
     _onImportFileCommand: function(fileData) {
       if (!ZenzaWatch.util.isValidJson(fileData)) { return; }
 
+      //this.emit('command', 'openNow', 'sm20353707');
+      this.emit('command', 'pause');
+      this.emit('command', 'notify', 'プレイリストを復元');
       this.unserialize(JSON.parse(fileData));
-      ZenzaWatch.util.callAsync(function() {
-        if (this._activeItem) {
-          this.emit('command', 'openNow', this._activeItem.getWatchId());
-          return;
-        }
-        var firstItem = this._model.getItemByIndex(0);
-        if (firstItem) {
-          this.emit('command', 'openNow', firstItem.getWatchId());
-        }
 
-      }, this, 3000);
+      ZenzaWatch.util.callAsync(function() {
+        var index = Math.max(0, fileData.index || 0);
+        var item = this._model.getItemByIndex(index);
+        if (item) {
+          this.setIndex(index, true);
+          this.emit('command', 'openNow', item.getWatchId());
+        }
+      }, this, 2000);
     },
     _onMoveItem: function(srcItemId, destItemId) {
       var srcItem  = this._model.findByItemId(srcItemId);

@@ -976,7 +976,13 @@ var CommentPanel = function() {};
           this._nicoVideoPlayer.volumeDown();
           break;
         case 'togglePlay':
-            this.togglePlay();
+          this.togglePlay();
+          break;
+        case 'pause':
+          this.pause();
+          break;
+        case 'play':
+          this.play();
           break;
         case 'toggleComment':
         case 'toggleShowComment':

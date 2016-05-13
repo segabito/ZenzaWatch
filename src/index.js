@@ -17,13 +17,14 @@
 // @match          http://*.nicovideo.jp/smile*
 // @exclude        http://ads*.nicovideo.jp/*
 // @exclude        http://www.upload.nicovideo.jp/*
+// @exclude        http://www.nicovideo.jp/watch/*?edit=*
 // @exclude        http://ch.nicovideo.jp/tool/*
 // @exclude        http://flapi.nicovideo.jp/*
 // @exclude        http://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.9
+// @version        1.0.10
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 

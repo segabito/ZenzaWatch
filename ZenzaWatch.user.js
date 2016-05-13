@@ -17,13 +17,14 @@
 // @match          http://*.nicovideo.jp/smile*
 // @exclude        http://ads*.nicovideo.jp/*
 // @exclude        http://www.upload.nicovideo.jp/*
+// @exclude        http://www.nicovideo.jp/watch/*?edit=*
 // @exclude        http://ch.nicovideo.jp/tool/*
 // @exclude        http://flapi.nicovideo.jp/*
 // @exclude        http://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.9
+// @version        1.0.10
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -35,7 +36,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.9';
+  var VER = '1.0.10';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -12047,6 +12048,11 @@ data-title="%no%: %date% ID:%userId%
         }
       }.bind(this));
     },
+    findActiveItem: function() {
+      return _.find(this._items, function(item) {
+        return item.isActive();
+      }.bind(this));
+    },
     removeItem: function(item) {
       var beforeLen = this._items.length;
       _.pull(this._items, item);
@@ -13337,7 +13343,8 @@ data-title="%no%: %date% ID:%userId%
 
               <hr class="separator">
               <li class="playlist-command" data-command="exportFile">ファイルに保存 &#x1F4BE;</li>
-              <li class="playlist-command" data-command="importFileMenu">ファイルから復元</li>
+              <!--
+              <li class="playlist-command" data-command="importFileMenu">ファイルから復元</li>-->
 
               <hr class="separator">
               <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
@@ -13402,7 +13409,7 @@ data-title="%no%: %date% ID:%userId%
         $fileDrop.removeClass('show');
       });
 
-      $fileDrop
+      $('.zenzaVideoPlayerDialog')
         .on('dragover',  this._onDragOverFile .bind(this))
         .on('dragenter', this._onDragEnterFile.bind(this))
         .on('dragleave', this._onDragLeaveFile.bind(this))
@@ -13469,19 +13476,19 @@ data-title="%no%: %date% ID:%userId%
       this._$length.text(playlist.getLength());
     },
     _onDragOverFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.addClass('drag-over');
     },
     _onDragEnterFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.addClass('drag-over');
     },
     _onDragLeaveFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.removeClass('drag-over');
     },
     _onDropFile: function(e) {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       this._$fileDrop.removeClass('show drag-over');
 
       var file = e.originalEvent.dataTransfer.files[0];
@@ -13630,7 +13637,7 @@ data-title="%no%: %date% ID:%userId%
     },
     _onExportFileCommand: function() {
       var dt = new Date();
-      var title = prompt('ファイル名', dt.toLocaleString() + 'の再生リスト');
+      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', dt.toLocaleString() + 'の再生リスト');
       if (!title) { return; }
 
       var data = JSON.stringify(this.serialize());
@@ -13648,18 +13655,19 @@ data-title="%no%: %date% ID:%userId%
     _onImportFileCommand: function(fileData) {
       if (!ZenzaWatch.util.isValidJson(fileData)) { return; }
 
+      //this.emit('command', 'openNow', 'sm20353707');
+      this.emit('command', 'pause');
+      this.emit('command', 'notify', 'プレイリストを復元');
       this.unserialize(JSON.parse(fileData));
-      ZenzaWatch.util.callAsync(function() {
-        if (this._activeItem) {
-          this.emit('command', 'openNow', this._activeItem.getWatchId());
-          return;
-        }
-        var firstItem = this._model.getItemByIndex(0);
-        if (firstItem) {
-          this.emit('command', 'openNow', firstItem.getWatchId());
-        }
 
-      }, this, 3000);
+      ZenzaWatch.util.callAsync(function() {
+        var index = Math.max(0, fileData.index || 0);
+        var item = this._model.getItemByIndex(index);
+        if (item) {
+          this.setIndex(index, true);
+          this.emit('command', 'openNow', item.getWatchId());
+        }
+      }, this, 2000);
     },
     _onMoveItem: function(srcItemId, destItemId) {
       var srcItem  = this._model.findByItemId(srcItemId);
@@ -15065,7 +15073,13 @@ data-title="%no%: %date% ID:%userId%
           this._nicoVideoPlayer.volumeDown();
           break;
         case 'togglePlay':
-            this.togglePlay();
+          this.togglePlay();
+          break;
+        case 'pause':
+          this.pause();
+          break;
+        case 'play':
+          this.play();
           break;
         case 'toggleComment':
         case 'toggleShowComment':
@@ -19593,11 +19607,6 @@ data-title="%no%: %date% ID:%userId%
 
       var isGinza = ZenzaWatch.util.isGinzaWatchUrl();
       if (!ZenzaWatch.util.isLogin()) {
-        return;
-      }
-
-      if (isGinza && !window.PlayerApp) { // コメント編集モードなど
-        window.console.log('コメント編集モード？');
         return;
       }
 
