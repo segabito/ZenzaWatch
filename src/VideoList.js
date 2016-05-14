@@ -1380,7 +1380,7 @@ var PopupMessage = {};
     }
 
     .playlist-file-drop.show {
-      display: block;
+      {*display: block;*}
       opacity: 0.98 !important;
     }
 
@@ -1398,6 +1398,16 @@ var PopupMessage = {};
       height: 100%;
       border: 1px dotted #888;
     }
+
+    .playlist-import-file-select {
+      position: absolute;
+      text-indent: -9999px;
+      width: 100%;
+      height: 20px;
+      opacity: 0;
+      cursor: pointer;
+    }
+
   */});
   PlaylistView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="playlist-container">
@@ -1436,8 +1446,11 @@ var PopupMessage = {};
 
               <hr class="separator">
               <li class="playlist-command" data-command="exportFile">ファイルに保存 &#x1F4BE;</li>
-              <!--
-              <li class="playlist-command" data-command="importFileMenu">ファイルから復元</li>-->
+              
+              <li class="playlist-command" data-command="importFileMenu">
+                <input type="file" class="playlist-import-file-select" accept=".json">
+                ファイルから読み込む
+              </li>
 
               <hr class="separator">
               <li class="playlist-command" data-command="resetPlayedItemFlag">すべて未視聴にする</li>
@@ -1473,6 +1486,7 @@ var PopupMessage = {};
       this._$length = $view.find('.playlist-length');
       var $menu     = this._$menu = this._$view.find('.playlist-menu');
       var $fileDrop = this._$fileDrop = $view.find('.playlist-file-drop');
+      var $fileSelect = this._$fileSelect = $view.find('.playlist-import-file-select');
 
       ZenzaWatch.debug.playlistView = this._$view;
 
@@ -1507,6 +1521,8 @@ var PopupMessage = {};
         .on('dragenter', this._onDragEnterFile.bind(this))
         .on('dragleave', this._onDragLeaveFile.bind(this))
         .on('drop',      this._onDropFile.bind(this));
+
+      $fileSelect.on('change', this._onImportFileSelect.bind(this));
 
       _.each([
         'addClass',
@@ -1594,6 +1610,21 @@ var PopupMessage = {};
       }.bind(this);
 
       fileReader.readAsText(file);
+    },
+    _onImportFileSelect: function(e) {
+      e.preventDefault();
+
+      var file = e.originalEvent.target.files[0];
+      if (!/\.playlist\.json$/.test(file.name)) { return; }
+
+      var fileReader = new FileReader();
+      fileReader.onload = function(ev) {
+        window.console.log('file data: ', ev.target.result);
+        this.emit('command', 'importFile', ev.target.result);
+      }.bind(this);
+
+      fileReader.readAsText(file);
+
     }
   });
 
