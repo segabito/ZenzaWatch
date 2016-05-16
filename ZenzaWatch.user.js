@@ -4,6 +4,7 @@
 // @description    ニコニコ動画用の速くて軽いHTML5プレイヤー。 Flash不要
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
+// @match          http://ext.nicovideo.jp/#*
 // @match          http://ext.nicovideo.jp/thumb/*
 // @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime
 // @match          http://blog.nicovideo.jp/*
@@ -24,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.11
+// @version        1.0.12
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -36,7 +37,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.11';
+  var VER = '1.0.12';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1732,6 +1733,8 @@ var monkey = function() {
           ZenzaWatch.debug.watchApiData = data;
 
           if (!data) {
+            var $dom = $('<div>' + req + '</div>');
+            var msg = $dom.find('#PAGEBODY .font12').text();
             videoInfoLoader.emitAsync('fail', watchId, {
               message: '動画情報の取得に失敗(watchApi)',
               type: 'watchapi'
@@ -7736,7 +7739,7 @@ han_group { font-family: 'Arial'; }
 .small  .tab_space > spacer { width:  32.0625px;  }
 *}
 
-.tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0; }
+.tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0 !important; }
 .big    .tab_space { letter-spacing: 1.6241em; }
 .medium .tab_space { letter-spacing: 1.6252em; }
 .small  .tab_space { letter-spacing: 1.5375em; }
@@ -12803,17 +12806,18 @@ data-title="%no%: %date% ID:%userId%
       // 本当に全部やってあるの？って信用できない。(古い動画は特にいいかげん)
       // なので念のためescapeしておく。過剰エスケープになっても気にしない
       var title = ZenzaWatch.util.escapeToZenkaku(item.getTitle());
+      var esc = ZenzaWatch.util.escapeHtml;
 
       var count = item.getCount();
       tpl = tpl
         .replace(/%active%/g,     item.isActive() ? 'active' : '')
         .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
         .replace(/%updating%/g,   item.isUpdating() ? 'updating' : '')
-        .replace(/%watchId%/g,    item.getWatchId())
-        .replace(/%itemId%/g,     item.getItemId())
-        .replace(/%postedAt%/g,   item.getPostedAt())
+        .replace(/%watchId%/g,    esc(item.getWatchId()))
+        .replace(/%itemId%/g,     parseInt(item.getItemId(), 10))
+        .replace(/%postedAt%/g,   esc(item.getPostedAt()))
         .replace(/%videoTitle%/g, title)
-        .replace(/%thumbnail%/g,  item.getThumbnail())
+        .replace(/%thumbnail%/g,  esc(item.getThumbnail()))
         .replace(/%duration%/g,   this._secToTime(item.getDuration()))
         .replace(/%viewCount%/g,    this._addComma(count.view))
         .replace(/%commentCount%/g, this._addComma(count.comment))
@@ -12834,7 +12838,7 @@ data-title="%no%: %date% ID:%userId%
       return [m, s].join(':');
     },
     _addComma: function(m) {
-      return m.toLocaleString ? m.toLocaleString() : m;
+      return m.toLocaleString ? m.toLocaleString() : ZenzaWatch.util.escapeHtml(m);
     }
   });
 
@@ -13668,7 +13672,7 @@ data-title="%no%: %date% ID:%userId%
     },
     _onExportFileCommand: function() {
       var dt = new Date();
-      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', dt.toLocaleString() + 'の再生リスト');
+      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', dt.toLocaleString() + 'のプレイリスト');
       if (!title) { return; }
 
       var data = JSON.stringify(this.serialize());

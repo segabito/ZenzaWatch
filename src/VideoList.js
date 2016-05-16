@@ -896,17 +896,18 @@ var PopupMessage = {};
       // 本当に全部やってあるの？って信用できない。(古い動画は特にいいかげん)
       // なので念のためescapeしておく。過剰エスケープになっても気にしない
       var title = ZenzaWatch.util.escapeToZenkaku(item.getTitle());
+      var esc = ZenzaWatch.util.escapeHtml;
 
       var count = item.getCount();
       tpl = tpl
         .replace(/%active%/g,     item.isActive() ? 'active' : '')
         .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
         .replace(/%updating%/g,   item.isUpdating() ? 'updating' : '')
-        .replace(/%watchId%/g,    item.getWatchId())
-        .replace(/%itemId%/g,     item.getItemId())
-        .replace(/%postedAt%/g,   item.getPostedAt())
+        .replace(/%watchId%/g,    esc(item.getWatchId()))
+        .replace(/%itemId%/g,     parseInt(item.getItemId(), 10))
+        .replace(/%postedAt%/g,   esc(item.getPostedAt()))
         .replace(/%videoTitle%/g, title)
-        .replace(/%thumbnail%/g,  item.getThumbnail())
+        .replace(/%thumbnail%/g,  esc(item.getThumbnail()))
         .replace(/%duration%/g,   this._secToTime(item.getDuration()))
         .replace(/%viewCount%/g,    this._addComma(count.view))
         .replace(/%commentCount%/g, this._addComma(count.comment))
@@ -927,7 +928,7 @@ var PopupMessage = {};
       return [m, s].join(':');
     },
     _addComma: function(m) {
-      return m.toLocaleString ? m.toLocaleString() : m;
+      return m.toLocaleString ? m.toLocaleString() : ZenzaWatch.util.escapeHtml(m);
     }
   });
 
@@ -1761,7 +1762,7 @@ var PopupMessage = {};
     },
     _onExportFileCommand: function() {
       var dt = new Date();
-      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', dt.toLocaleString() + 'の再生リスト');
+      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', dt.toLocaleString() + 'のプレイリスト');
       if (!title) { return; }
 
       var data = JSON.stringify(this.serialize());

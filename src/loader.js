@@ -201,6 +201,8 @@ var ajax = function() {};
           ZenzaWatch.debug.watchApiData = data;
 
           if (!data) {
+            var $dom = $('<div>' + req + '</div>');
+            var msg = $dom.find('#PAGEBODY .font12').text();
             videoInfoLoader.emitAsync('fail', watchId, {
               message: '動画情報の取得に失敗(watchApi)',
               type: 'watchapi'

@@ -210,7 +210,7 @@ han_group { font-family: 'Arial'; }
 .small  .tab_space > spacer { width:  32.0625px;  }
 *}
 
-.tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0; }
+.tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0 !important; }
 .big    .tab_space { letter-spacing: 1.6241em; }
 .medium .tab_space { letter-spacing: 1.6252em; }
 .small  .tab_space { letter-spacing: 1.5375em; }

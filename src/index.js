@@ -4,6 +4,7 @@
 // @description    ニコニコ動画用の速くて軽いHTML5プレイヤー。 Flash不要
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
+// @match          http://ext.nicovideo.jp/#*
 // @match          http://ext.nicovideo.jp/thumb/*
 // @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime
 // @match          http://blog.nicovideo.jp/*
@@ -24,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.11
+// @version        1.0.12
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
