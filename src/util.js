@@ -54,13 +54,15 @@ var console;
         name = name.toLowerCase();
         if (!this._events.hasOwnProperty(name)) { return; }
         var e = this._events[name];
+        var arg = Array.prototype.slice.call(arguments, 1);
         for (var i =0, len = e.length; i < len; i++) {
-          try {
-            e[i].apply(null, Array.prototype.slice.call(arguments, 1));
-          } catch (ex) {
-            console.log('%c' + name, 'background:red; color: white;', i, e[i], ex);
-            throw ex;
-          }
+          // TODO: debug=trueの時だけcatch
+          //try {
+            e[i].apply(null, arg); //Array.prototype.slice.call(arguments, 1));
+          //} catch (ex) {
+          //  console.log('%c' + name, 'background:red; color: white;', i, e[i], ex);
+          //  throw ex;
+          //}
         }
       };
 
@@ -69,12 +71,12 @@ var console;
         var args = arguments;
 
         window.setTimeout(_.bind(function() {
-          try {
+          //try {
             this.emit.apply(this, args);
-          } catch (e) {
-            console.log(e);
-            throw e;
-          }
+          //} catch (e) {
+          //  console.log(e);
+          //  throw e;
+          //}
         }, this), 0);
       };
 
@@ -1132,6 +1134,27 @@ var console;
       }
     };
 
+    ZenzaWatch.util.openTweetWindow = function(videoInfo) {
+      // TODO: どこかutil的な関数に追い出す
+      var watchId = videoInfo.getWatchId();
+      var nicomsUrl = 'http://nico.ms/' + watchId;
+      var watchUrl = 'http://www.nicovideo.jp/watch/' + watchId;
+
+      var sec = videoInfo.getDuration();
+      var m = Math.floor(sec / 60);
+      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+      var dur = ['(', m, ':', s, ')'].join('');
+      var nicoch = videoInfo.isChannel() ? ',+nicoch' : '';
+      var url =
+        'https://twitter.com/intent/tweet?' +
+        'url='       + encodeURIComponent(nicomsUrl) +
+        '&text='     + encodeURIComponent(videoInfo.getTitle() + dur) +
+        '&hashtags=' + encodeURIComponent(videoInfo.getVideoId() + nicoch) +
+        '&original_referer=' + encodeURIComponent(watchUrl) +
+        '';
+      window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
+    };
+
     var ajax = function(params) {
 
       if (location.host !== 'www.nicovideo.jp') {
@@ -1315,9 +1338,16 @@ var console;
     },
     update: function() {
       if (this._enable) {
-        this._$meta
-          .attr('content', //'width=' + window.screen.width + ',' +
-            'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        if (false && _.isNumber(window.devicePixelRatio)) {
+          this._$meta
+            .attr('content',
+              'width=' + window.innerWidth * window.devicePixelRatio + ',' +
+              'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        } else {
+          this._$meta
+            .attr('content',
+              'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        }
         return;
       }
       if (this._defaultContent) {

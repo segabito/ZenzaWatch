@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/#*
 // @match          http://ext.nicovideo.jp/thumb/*
-// @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime
+// @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime*
 // @match          http://blog.nicovideo.jp/*
 // @match          http://ch.nicovideo.jp/*
 // @match          http://com.nicovideo.jp/*
@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.12
+// @version        1.0.14
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -37,7 +37,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.12';
+  var VER = '1.0.14';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -113,13 +113,15 @@ var monkey = function() {
         name = name.toLowerCase();
         if (!this._events.hasOwnProperty(name)) { return; }
         var e = this._events[name];
+        var arg = Array.prototype.slice.call(arguments, 1);
         for (var i =0, len = e.length; i < len; i++) {
-          try {
-            e[i].apply(null, Array.prototype.slice.call(arguments, 1));
-          } catch (ex) {
-            console.log('%c' + name, 'background:red; color: white;', i, e[i], ex);
-            throw ex;
-          }
+          // TODO: debug=trueの時だけcatch
+          //try {
+            e[i].apply(null, arg); //Array.prototype.slice.call(arguments, 1));
+          //} catch (ex) {
+          //  console.log('%c' + name, 'background:red; color: white;', i, e[i], ex);
+          //  throw ex;
+          //}
         }
       };
 
@@ -128,12 +130,12 @@ var monkey = function() {
         var args = arguments;
 
         window.setTimeout(_.bind(function() {
-          try {
+          //try {
             this.emit.apply(this, args);
-          } catch (e) {
-            console.log(e);
-            throw e;
-          }
+          //} catch (e) {
+          //  console.log(e);
+          //  throw e;
+          //}
         }, this), 0);
       };
 
@@ -1191,6 +1193,27 @@ var monkey = function() {
       }
     };
 
+    ZenzaWatch.util.openTweetWindow = function(videoInfo) {
+      // TODO: どこかutil的な関数に追い出す
+      var watchId = videoInfo.getWatchId();
+      var nicomsUrl = 'http://nico.ms/' + watchId;
+      var watchUrl = 'http://www.nicovideo.jp/watch/' + watchId;
+
+      var sec = videoInfo.getDuration();
+      var m = Math.floor(sec / 60);
+      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+      var dur = ['(', m, ':', s, ')'].join('');
+      var nicoch = videoInfo.isChannel() ? ',+nicoch' : '';
+      var url =
+        'https://twitter.com/intent/tweet?' +
+        'url='       + encodeURIComponent(nicomsUrl) +
+        '&text='     + encodeURIComponent(videoInfo.getTitle() + dur) +
+        '&hashtags=' + encodeURIComponent(videoInfo.getVideoId() + nicoch) +
+        '&original_referer=' + encodeURIComponent(watchUrl) +
+        '';
+      window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
+    };
+
     var ajax = function(params) {
 
       if (location.host !== 'www.nicovideo.jp') {
@@ -1374,9 +1397,16 @@ var monkey = function() {
     },
     update: function() {
       if (this._enable) {
-        this._$meta
-          .attr('content', //'width=' + window.screen.width + ',' +
-            'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        if (false && _.isNumber(window.devicePixelRatio)) {
+          this._$meta
+            .attr('content',
+              'width=' + window.innerWidth * window.devicePixelRatio + ',' +
+              'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        } else {
+          this._$meta
+            .attr('content',
+              'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
+        }
         return;
       }
       if (this._defaultContent) {
@@ -8568,6 +8598,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 
   var NicoCommentViewModel = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoCommentViewModel.prototype, AsyncEmitter.prototype);
 
   // この数字はレイアウト計算上の仮想領域の物であり、実際に表示するサイズはview依存
   NicoCommentViewModel.SCREEN = {
@@ -8583,24 +8614,19 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._nicoComment = nicoComment;
       this._offScreen   = offScreen;
 
-      var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
-
       this._currentTime = 0;
 
       this._topGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.TOP), offScreen);
       this._nakaGroup =
-        new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.NAKA  ), offScreen);
+        new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.NAKA), offScreen);
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      nicoComment.on('setXml', _.bind(this._onSetXml, this));
-      nicoComment.on('clear',  _.bind(this._onClear,  this));
-      nicoComment.on('change', _.bind(this._onChange,  this));
-      nicoComment.on('currentTime', _.bind(this._onCurrentTime,   this));
+      nicoComment.on('setXml',      this._onSetXml     .bind(this));
+      nicoComment.on('clear',       this._onClear      .bind(this));
+      nicoComment.on('change',      this._onChange     .bind(this));
+      nicoComment.on('currentTime', this._onCurrentTime.bind(this));
     },
     _onSetXml: function() {
       this.emit('setXml');
@@ -12809,6 +12835,7 @@ data-title="%no%: %date% ID:%userId%
       var esc = ZenzaWatch.util.escapeHtml;
 
       var count = item.getCount();
+
       tpl = tpl
         .replace(/%active%/g,     item.isActive() ? 'active' : '')
         .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
@@ -12958,7 +12985,7 @@ data-title="%no%: %date% ID:%userId%
       return this._itemId;
     },
     getWatchId: function() {
-      return this._getData('id', '');
+      return this._getData('id', '').toString();
     },
     getTitle: function() {
       return this._getData('title', '');
@@ -15215,7 +15242,7 @@ data-title="%no%: %date% ID:%userId%
           this._nicoVideoPlayer.setIsCommentFilterEnable(param);
           break;
         case 'tweet':
-          this.openTweetWindow(this._videoInfo);
+          ZenzaWatch.util.openTweetWindow(this._videoInfo);
           break;
         case 'openNow':
           this.open(param, {openNow: true});
@@ -16138,26 +16165,6 @@ data-title="%no%: %date% ID:%userId%
     },
     getMymemory: function() {
       return this._nicoVideoPlayer.getMymemory();
-    },
-    openTweetWindow: function(videoInfo) {
-      // TODO: どこかutil的な関数に追い出す
-      var watchId = videoInfo.getWatchId();
-      var nicomsUrl = 'http://nico.ms/' + watchId;
-      var watchUrl = 'http://www.nicovideo.jp/watch/' + watchId;
-
-      var sec = videoInfo.getDuration();
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      var dur = ['(', m, ':', s, ')'].join('');
-      var nicoch = videoInfo.isChannel() ? ',+nicoch' : '';
-      var url =
-        'https://twitter.com/intent/tweet?' +
-        'url='       + encodeURIComponent(nicomsUrl) +
-        '&text='     + encodeURIComponent(videoInfo.getTitle() + dur) +
-        '&hashtags=' + encodeURIComponent(videoInfo.getVideoId() + nicoch) +
-        '&original_referer=' + encodeURIComponent(watchUrl) +
-        '';
-      window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
     }
   });
 

@@ -1083,7 +1083,7 @@ var CommentPanel = function() {};
           this._nicoVideoPlayer.setIsCommentFilterEnable(param);
           break;
         case 'tweet':
-          this.openTweetWindow(this._videoInfo);
+          ZenzaWatch.util.openTweetWindow(this._videoInfo);
           break;
         case 'openNow':
           this.open(param, {openNow: true});
@@ -2006,26 +2006,6 @@ var CommentPanel = function() {};
     },
     getMymemory: function() {
       return this._nicoVideoPlayer.getMymemory();
-    },
-    openTweetWindow: function(videoInfo) {
-      // TODO: どこかutil的な関数に追い出す
-      var watchId = videoInfo.getWatchId();
-      var nicomsUrl = 'http://nico.ms/' + watchId;
-      var watchUrl = 'http://www.nicovideo.jp/watch/' + watchId;
-
-      var sec = videoInfo.getDuration();
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      var dur = ['(', m, ':', s, ')'].join('');
-      var nicoch = videoInfo.isChannel() ? ',+nicoch' : '';
-      var url =
-        'https://twitter.com/intent/tweet?' +
-        'url='       + encodeURIComponent(nicomsUrl) +
-        '&text='     + encodeURIComponent(videoInfo.getTitle() + dur) +
-        '&hashtags=' + encodeURIComponent(videoInfo.getVideoId() + nicoch) +
-        '&original_referer=' + encodeURIComponent(watchUrl) +
-        '';
-      window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
     }
   });
 

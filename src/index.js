@@ -6,7 +6,7 @@
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/#*
 // @match          http://ext.nicovideo.jp/thumb/*
-// @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime
+// @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime*
 // @match          http://blog.nicovideo.jp/*
 // @match          http://ch.nicovideo.jp/*
 // @match          http://com.nicovideo.jp/*
@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.12
+// @version        1.0.14
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 

@@ -660,6 +660,7 @@ var NicoTextParser = {};
 
 
   var NicoCommentViewModel = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoCommentViewModel.prototype, AsyncEmitter.prototype);
 
   // この数字はレイアウト計算上の仮想領域の物であり、実際に表示するサイズはview依存
   NicoCommentViewModel.SCREEN = {
@@ -675,24 +676,19 @@ var NicoTextParser = {};
       this._nicoComment = nicoComment;
       this._offScreen   = offScreen;
 
-      var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
-
       this._currentTime = 0;
 
       this._topGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.TOP), offScreen);
       this._nakaGroup =
-        new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.NAKA  ), offScreen);
+        new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.NAKA), offScreen);
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      nicoComment.on('setXml', _.bind(this._onSetXml, this));
-      nicoComment.on('clear',  _.bind(this._onClear,  this));
-      nicoComment.on('change', _.bind(this._onChange,  this));
-      nicoComment.on('currentTime', _.bind(this._onCurrentTime,   this));
+      nicoComment.on('setXml',      this._onSetXml     .bind(this));
+      nicoComment.on('clear',       this._onClear      .bind(this));
+      nicoComment.on('change',      this._onChange     .bind(this));
+      nicoComment.on('currentTime', this._onCurrentTime.bind(this));
     },
     _onSetXml: function() {
       this.emit('setXml');

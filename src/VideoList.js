@@ -899,6 +899,7 @@ var PopupMessage = {};
       var esc = ZenzaWatch.util.escapeHtml;
 
       var count = item.getCount();
+
       tpl = tpl
         .replace(/%active%/g,     item.isActive() ? 'active' : '')
         .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
@@ -1048,7 +1049,7 @@ var PopupMessage = {};
       return this._itemId;
     },
     getWatchId: function() {
-      return this._getData('id', '');
+      return this._getData('id', '').toString();
     },
     getTitle: function() {
       return this._getData('title', '');
