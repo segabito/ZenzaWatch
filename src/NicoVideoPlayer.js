@@ -485,8 +485,8 @@ var VideoInfoLoader = {};
       if (this.isChannel()) {
         var c = this._watchApiData.channelInfo || {};
         ownerInfo = {
-          icon: c.icon_url || 'http://res.nimg.jp/img/user/thumb/blank.jpg',
-          url: 'http://ch.nicovideo.jp/ch' + c.id,
+          icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+          url: '//ch.nicovideo.jp/ch' + c.id,
           id: c.id,
           name: c.name,
           favorite: c.is_favorited === 1, // こっちは01で
@@ -497,8 +497,8 @@ var VideoInfoLoader = {};
         var u = this._watchApiData.uploaderInfo || {};
         var f = this._flashvars || {};
         ownerInfo = {
-          icon: u.icon_url || 'http://res.nimg.jp/img/user/thumb/blank.jpg',
-          url:  u.id ? ('http://www.nicovideo.jp/user/' + u.id) : '#',
+          icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+          url:  u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
           id:   u.id || f.videoUserId || '',
           name: u.nickname || '(非公開ユーザー)',
           favorite: !!u.is_favorited, // こっちはbooleanという
@@ -731,7 +731,7 @@ var VideoInfoLoader = {};
       var info = [
         '<div>',
           '<h2>', videoInfo.getTitle(), '</h2>',
-          '<a href="http://www.nicovideo.jp/watch/', videoInfo.getWatchId(), '?from=', Math.floor(this._player.getCurrentTime()),'">元動画</a><br>',
+          '<a href="//www.nicovideo.jp/watch/', videoInfo.getWatchId(), '?from=', Math.floor(this._player.getCurrentTime()),'">元動画</a><br>',
           '作成環境: ', navigator.userAgent, '<br>',
           '作成日: ', (new Date).toLocaleString(), '<br>',
           '<button ',

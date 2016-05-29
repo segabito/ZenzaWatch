@@ -967,7 +967,7 @@ var PopupMessage = {};
       num_res:        0,
       mylist_counter: 0,
       view_counter:   0,
-      thumbnail_url:  'http://uni.res.nimg.jp/img/user/thumb/blank_s.jpg',
+      thumbnail_url:  '//uni.res.nimg.jp/img/user/thumb/blank_s.jpg',
       first_retrieve: postedAt,
     });
   };

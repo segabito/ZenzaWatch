@@ -12,6 +12,7 @@
 // @match          http://com.nicovideo.jp/*
 // @match          http://commons.nicovideo.jp/*
 // @match          http://dic.nicovideo.jp/*
+// @match          http://ex.nicovideo.jp/*
 // @match          http://info.nicovideo.jp/*
 // @match          http://search.nicovideo.jp/*
 // @match          http://uad.nicovideo.jp/*
@@ -25,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.14
+// @version        1.0.16
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -111,10 +112,11 @@ var monkey = function() {
 
   var host = window.location.host || '';
   var href = (location.href || '').replace(/#.*$/, '');
-  if (href === 'http://www.nicovideo.jp/favicon.ico' &&
+  var prot = location.protocol;
+  if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
       window.name === 'nicovideoApiLoader') {
     nicovideoApi();
-  } else if (href ==='http://api.ce.nicovideo.jp/api/v1/system.unixtime' &&
+  } else if (href === prot + '//api.ce.nicovideo.jp/api/v1/system.unixtime' &&
       window.name === 'vitaApiLoader') {
     vitaApi();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {

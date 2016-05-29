@@ -1673,7 +1673,7 @@ var CommentPanel = function() {};
         // 連続再生中はプレイリストに追加で読み込む
         option.append = this.isPlaying() && this._playlist.isEnable();
 
-        // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
+        // //www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
         option.shuffle = parseInt(query.shuffle, 10) === 1;
         console.log('playlist option:', option);
 
@@ -1934,7 +1934,9 @@ var CommentPanel = function() {};
       var _onFail1st = function(err) {
         err = err || {};
 
-        if (parseInt(err.code, 10) !== 4) {
+        var errorCode = parseInt(err.code, 10);
+        //if (parseInt(err.code, 10) !== 4) {
+        if (!_.contains([2, 3, 4, 5], errorCode)) {
           return _onFailFinal(err);
         }
 
@@ -2460,7 +2462,7 @@ var CommentPanel = function() {};
       margin: -4px 4px 0 0;
       vertical-align: middle;
       margin-right: 15px;
-      background: url("http://uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
+      background: url("//uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
       transform: scale(1.5); -webkit-transform: scale(1.5);
       transform-origin: 0 0 0; -webkit-transform-origin: 0 0 0;
       transition: transform 0.1s ease, box-shadow 0.1s ease;

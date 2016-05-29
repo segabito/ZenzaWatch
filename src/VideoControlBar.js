@@ -286,13 +286,14 @@ var StoryBoard = function() {};
     .seekBarContainer .seekBarShadow {
       position: absolute;
       background: transparent;
+      opacity: 0;
       width: 100vw;
       height: 8px;
       top: -8px;
     }
-    .seekBarContainer:hover .seekBarShadow {
-      height: 24px;
-      top: -24px;
+    .mouseMoving .seekBarContainer:hover .seekBarShadow {
+      height: 40px;
+      top: -40px;
     }
 
     .fullScreen .seekBarContainer .seekBarShadow {
@@ -1937,11 +1938,10 @@ var StoryBoard = function() {};
     .seekBarToolTip {
       position: absolute;
       display: inline-block;
-      bottom: 10px;
       z-index: 300;
       position: absolute;
       padding: 1px;
-      bottom: 10px;
+      bottom: 24px;
       left: 0;
       white-space: nowrap;
       font-size: 10px;

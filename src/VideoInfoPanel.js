@@ -1346,19 +1346,19 @@ var RelatedVideoList = function() {};
       var $tagList = this._$tagList.empty().detach();
       var createDicIcon = function(text, hasDic) {
         var $dic = $('<a target="_blank" class="nicodic"/>');
-        $dic.attr('href', 'http://dic.nicovideo.jp/a/' + encodeURIComponent(text));
+        $dic.attr('href', '//dic.nicovideo.jp/a/' + encodeURIComponent(text));
         var $icon = $('<img class="icon"/>');
         $icon.attr('src',
           hasDic ?
-            'http://live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
-            'http://live.nicovideo.jp/img/2012/watch/tag_icon003.png'
+            '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
+            '//live.nicovideo.jp/img/2012/watch/tag_icon003.png'
         );
         $dic.append($icon);
         return $dic;
       };
       var createLink = function(text) {
         var $link = $('<a class="tagLink" />');
-        $link.attr('href', 'http://www.nicovideo.jp/tag/' + encodeURIComponent(text));
+        $link.attr('href', '//www.nicovideo.jp/tag/' + encodeURIComponent(text));
         $link.html(text);
         return $link;
       };

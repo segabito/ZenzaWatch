@@ -90,7 +90,7 @@ var ajax = function() {};
 
 
     var VideoInfoLoader = (function() {
-      var BASE_URL = 'http://ext.nicovideo.jp/thumb_watch';
+      var BASE_URL = location.protocol + '//ext.nicovideo.jp/thumb_watch';
       var loaderFrame, loaderWindow;
       var videoInfoLoader = new AsyncEmitter();
       var cacheStorage = new CacheStorage(sessionStorage);
@@ -224,7 +224,7 @@ var ajax = function() {};
                 //},
                 headers: {
 //                  'Referer': 'http://www.nicovideo.jp/',
-                  'X-Alt-Referer': 'http://www.nicovideo.jp/'
+                  'X-Alt-Referer': location.protocol + '//www.nicovideo.jp/'
                 }
               }).then(
                 onLoad,
@@ -261,7 +261,7 @@ var ajax = function() {};
           //},
           headers: {
 //            'Referer': 'http://www.nicovideo.jp/',
-            'X-Alt-Referer': 'http://www.nicovideo.jp/'
+            'X-Alt-Referer': location.protocol + '//www.nicovideo.jp/'
           }
         }).then(
           onLoad,
@@ -292,8 +292,8 @@ var ajax = function() {};
 
 
     var ThumbInfoLoader = (function() {
-      var BASE_URL = 'http://ext.nicovideo.jp/';
-      var MESSAGE_ORIGIN = 'http://ext.nicovideo.jp/';
+      var BASE_URL = location.protocol + '//ext.nicovideo.jp/';
+      var MESSAGE_ORIGIN = location.protocol + '//ext.nicovideo.jp/';
       var gate = null;
       var cacheStorage;
 
@@ -416,8 +416,8 @@ var ajax = function() {};
 // ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
 
     var VitaApiLoader = (function() {
-      var BASE_URL = 'http://api.ce.nicovideo.jp/api/v1/system.unixtime';
-      var MESSAGE_ORIGIN = 'http://api.ce.nicovideo.jp/';
+      var BASE_URL = location.protocol + '//api.ce.nicovideo.jp/api/v1/system.unixtime'; // このへんのAPIまでSSL化されることはあるか...？
+      var MESSAGE_ORIGIN = location.protocol + '//api.ce.nicovideo.jp/';
       var gate = null;
       var cacheStorage;
       var STORAGE_PREFIX = 'vitaApi_';
@@ -528,9 +528,9 @@ var ajax = function() {};
         },
         getThreadKey: function(threadId) {
           // memo:
-          // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           var url =
-            'http://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
+            '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
             '&language_id=0';
 
           var self = this;
@@ -558,9 +558,9 @@ var ajax = function() {};
         },
         getPostKey: function(threadId, blockNo) {
           // memo:
-          // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           var url =
-            'http://flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
+            '//flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
             '&block_no=' + blockNo +
             //'&version=1&yugi=' +
             '&language_id=0';
@@ -952,7 +952,7 @@ var ajax = function() {};
           }
         },
         getDeflistItems: function(options) {
-          var url = 'http://www.nicovideo.jp/api/deflist/list';
+          var url = '//www.nicovideo.jp/api/deflist/list';
           //var url = 'http://riapi.nicovideo.jp/api/watch/deflistvideo';
           var cacheKey = 'deflistItems';
           var sortItem = this.sortItem;
@@ -1000,7 +1000,7 @@ var ajax = function() {};
         getMylistItems: function(groupId, options) {
           if (groupId === 'deflist') { return this.getDeflistItems(options); }
           // riapiじゃないと自分のマイリストしか取れないことが発覚
-          var url = 'http://riapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
+          var url = '//riapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
           var sortItem = this.sortItem;
 
@@ -1142,7 +1142,7 @@ var ajax = function() {};
           return items;
         },
         getMylistList: function() {
-          var url = 'http://www.nicovideo.jp/api/mylistgroup/list';
+          var url = '//www.nicovideo.jp/api/mylistgroup/list';
           var cacheKey = 'mylistList';
 
           return new Promise(function(resolve, reject) {
@@ -1192,7 +1192,7 @@ var ajax = function() {};
         },
         removeDeflistItem: function(watchId) {
           return this.findDeflistItemByWatchId(watchId).then(function(item) {
-            var url = 'http://www.nicovideo.jp/api/deflist/delete';
+            var url = '//www.nicovideo.jp/api/deflist/delete';
             var data = 'id_list[0][]=' + item.item_id + '&token=' + token;
             var cacheKey = 'deflistItems';
             var req = {
@@ -1237,7 +1237,7 @@ var ajax = function() {};
           });
          },
         _addDeflistItem: function(watchId, description, isRetry) {
-          var url = 'http://www.nicovideo.jp/api/deflist/add';
+          var url = '//www.nicovideo.jp/api/deflist/add';
           var data = 'item_id=' + watchId + '&token=' + token;
           if (description) {
             data += '&description='+ encodeURIComponent(description);
@@ -1320,7 +1320,7 @@ var ajax = function() {};
           return this._addDeflistItem(watchId, description, false);
         },
         addMylistItem: function(watchId, groupId, description) {
-          var url = 'http://www.nicovideo.jp/api/mylist/add';
+          var url = '//www.nicovideo.jp/api/mylist/add';
           var data = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
           if (description) {
             data += '&description='+ encodeURIComponent(description);
@@ -1401,7 +1401,7 @@ var ajax = function() {};
           }
         },
         getUploadedVideos: function(userId, options) {
-          var url = 'http://riapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+          var url = '//riapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
           var cacheKey = 'uploadedvideo: ' + userId;
 
           return new Promise(function(resolve, reject) {
@@ -1674,8 +1674,8 @@ var ajax = function() {};
 
     if (location.host !== 'www.nicovideo.jp') {
       NicoVideoApi = new CrossDomainGate({
-        baseUrl: 'http://www.nicovideo.jp/favicon.ico',
-        origin: 'http://www.nicovideo.jp/',
+        baseUrl: location.protocol + '//www.nicovideo.jp/favicon.ico',
+        origin: location.protocol + '//www.nicovideo.jp/',
         type: 'nicovideoApi',
         messager: WindowMessageEmitter
       });
@@ -1696,7 +1696,7 @@ var ajax = function() {};
 
         crossDomainGates[server] = new CrossDomainGate({
           baseUrl: baseUrl,
-          origin: 'http://' + server + '/',
+          origin: location.protocol + '//' + server + '/',
           type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
           messager: WindowMessageEmitter
         });

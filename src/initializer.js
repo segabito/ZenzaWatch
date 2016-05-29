@@ -469,7 +469,7 @@ var AsyncEmitter = function() {};
             initialize();
             return;
           }
-          NicoVideoApi.ajax({url: 'http://www.nicovideo.jp/'})
+          NicoVideoApi.ajax({url: '//www.nicovideo.jp/'})
             .then(function(result) {
               var $dom = $('<div>' + result + '</div>');
               var isLogin = $dom.find('#siteHeaderLogin').length < 1;

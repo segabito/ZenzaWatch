@@ -12,6 +12,7 @@
 // @match          http://com.nicovideo.jp/*
 // @match          http://commons.nicovideo.jp/*
 // @match          http://dic.nicovideo.jp/*
+// @match          http://ex.nicovideo.jp/*
 // @match          http://info.nicovideo.jp/*
 // @match          http://search.nicovideo.jp/*
 // @match          http://uad.nicovideo.jp/*
@@ -25,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.14
+// @version        1.0.16
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -37,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.14';
+  var VER = '1.0.16';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -664,7 +665,7 @@ var monkey = function() {
       var fileId = parseInt(videoId.substr(2), 10);
       var num = (fileId % 4) + 1;
       var large = hasLargeThumbnail(videoId) ? '.L' : '';
-      return 'http://tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
+      return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
     };
     ZenzaWatch.util.getThumbnailUrlByVideoId = getThumbnailUrlByVideoId;
 
@@ -884,10 +885,11 @@ var monkey = function() {
 
         var onMessage = function(event) {
           if (_.indexOf(knownSource, event.source) < 0 &&
-              event.origin !== 'http://ext.nicovideo.jp'
+              event.origin !== location.protocol + '//ext.nicovideo.jp'
               ) { return; }
           try {
             var data = JSON.parse(event.data);
+
             if (data.id !== 'ZenzaWatch') { return; }
 
             asyncEmitter.emit('onMessage', data.body, data.type);
@@ -1197,7 +1199,7 @@ var monkey = function() {
       // TODO: どこかutil的な関数に追い出す
       var watchId = videoInfo.getWatchId();
       var nicomsUrl = 'http://nico.ms/' + watchId;
-      var watchUrl = 'http://www.nicovideo.jp/watch/' + watchId;
+      var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
       var sec = videoInfo.getDuration();
       var m = Math.floor(sec / 60);
@@ -1652,7 +1654,7 @@ var monkey = function() {
 
 
     var VideoInfoLoader = (function() {
-      var BASE_URL = 'http://ext.nicovideo.jp/thumb_watch';
+      var BASE_URL = location.protocol + '//ext.nicovideo.jp/thumb_watch';
       var loaderFrame, loaderWindow;
       var videoInfoLoader = new AsyncEmitter();
       var cacheStorage = new CacheStorage(sessionStorage);
@@ -1786,7 +1788,7 @@ var monkey = function() {
                 //},
                 headers: {
 //                  'Referer': 'http://www.nicovideo.jp/',
-                  'X-Alt-Referer': 'http://www.nicovideo.jp/'
+                  'X-Alt-Referer': location.protocol + '//www.nicovideo.jp/'
                 }
               }).then(
                 onLoad,
@@ -1823,7 +1825,7 @@ var monkey = function() {
           //},
           headers: {
 //            'Referer': 'http://www.nicovideo.jp/',
-            'X-Alt-Referer': 'http://www.nicovideo.jp/'
+            'X-Alt-Referer': location.protocol + '//www.nicovideo.jp/'
           }
         }).then(
           onLoad,
@@ -1854,8 +1856,8 @@ var monkey = function() {
 
 
     var ThumbInfoLoader = (function() {
-      var BASE_URL = 'http://ext.nicovideo.jp/';
-      var MESSAGE_ORIGIN = 'http://ext.nicovideo.jp/';
+      var BASE_URL = location.protocol + '//ext.nicovideo.jp/';
+      var MESSAGE_ORIGIN = location.protocol + '//ext.nicovideo.jp/';
       var gate = null;
       var cacheStorage;
 
@@ -1978,8 +1980,8 @@ var monkey = function() {
 // ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
 
     var VitaApiLoader = (function() {
-      var BASE_URL = 'http://api.ce.nicovideo.jp/api/v1/system.unixtime';
-      var MESSAGE_ORIGIN = 'http://api.ce.nicovideo.jp/';
+      var BASE_URL = location.protocol + '//api.ce.nicovideo.jp/api/v1/system.unixtime'; // このへんのAPIまでSSL化されることはあるか...？
+      var MESSAGE_ORIGIN = location.protocol + '//api.ce.nicovideo.jp/';
       var gate = null;
       var cacheStorage;
       var STORAGE_PREFIX = 'vitaApi_';
@@ -2090,9 +2092,9 @@ var monkey = function() {
         },
         getThreadKey: function(threadId) {
           // memo:
-          // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           var url =
-            'http://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
+            '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
             '&language_id=0';
 
           var self = this;
@@ -2120,9 +2122,9 @@ var monkey = function() {
         },
         getPostKey: function(threadId, blockNo) {
           // memo:
-          // http://flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           var url =
-            'http://flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
+            '//flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
             '&block_no=' + blockNo +
             //'&version=1&yugi=' +
             '&language_id=0';
@@ -2514,7 +2516,7 @@ var monkey = function() {
           }
         },
         getDeflistItems: function(options) {
-          var url = 'http://www.nicovideo.jp/api/deflist/list';
+          var url = '//www.nicovideo.jp/api/deflist/list';
           //var url = 'http://riapi.nicovideo.jp/api/watch/deflistvideo';
           var cacheKey = 'deflistItems';
           var sortItem = this.sortItem;
@@ -2562,7 +2564,7 @@ var monkey = function() {
         getMylistItems: function(groupId, options) {
           if (groupId === 'deflist') { return this.getDeflistItems(options); }
           // riapiじゃないと自分のマイリストしか取れないことが発覚
-          var url = 'http://riapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
+          var url = '//riapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
           var sortItem = this.sortItem;
 
@@ -2704,7 +2706,7 @@ var monkey = function() {
           return items;
         },
         getMylistList: function() {
-          var url = 'http://www.nicovideo.jp/api/mylistgroup/list';
+          var url = '//www.nicovideo.jp/api/mylistgroup/list';
           var cacheKey = 'mylistList';
 
           return new Promise(function(resolve, reject) {
@@ -2754,7 +2756,7 @@ var monkey = function() {
         },
         removeDeflistItem: function(watchId) {
           return this.findDeflistItemByWatchId(watchId).then(function(item) {
-            var url = 'http://www.nicovideo.jp/api/deflist/delete';
+            var url = '//www.nicovideo.jp/api/deflist/delete';
             var data = 'id_list[0][]=' + item.item_id + '&token=' + token;
             var cacheKey = 'deflistItems';
             var req = {
@@ -2799,7 +2801,7 @@ var monkey = function() {
           });
          },
         _addDeflistItem: function(watchId, description, isRetry) {
-          var url = 'http://www.nicovideo.jp/api/deflist/add';
+          var url = '//www.nicovideo.jp/api/deflist/add';
           var data = 'item_id=' + watchId + '&token=' + token;
           if (description) {
             data += '&description='+ encodeURIComponent(description);
@@ -2882,7 +2884,7 @@ var monkey = function() {
           return this._addDeflistItem(watchId, description, false);
         },
         addMylistItem: function(watchId, groupId, description) {
-          var url = 'http://www.nicovideo.jp/api/mylist/add';
+          var url = '//www.nicovideo.jp/api/mylist/add';
           var data = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
           if (description) {
             data += '&description='+ encodeURIComponent(description);
@@ -2963,7 +2965,7 @@ var monkey = function() {
           }
         },
         getUploadedVideos: function(userId, options) {
-          var url = 'http://riapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+          var url = '//riapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
           var cacheKey = 'uploadedvideo: ' + userId;
 
           return new Promise(function(resolve, reject) {
@@ -3236,8 +3238,8 @@ var monkey = function() {
 
     if (location.host !== 'www.nicovideo.jp') {
       NicoVideoApi = new CrossDomainGate({
-        baseUrl: 'http://www.nicovideo.jp/favicon.ico',
-        origin: 'http://www.nicovideo.jp/',
+        baseUrl: location.protocol + '//www.nicovideo.jp/favicon.ico',
+        origin: location.protocol + '//www.nicovideo.jp/',
         type: 'nicovideoApi',
         messager: WindowMessageEmitter
       });
@@ -3258,7 +3260,7 @@ var monkey = function() {
 
         crossDomainGates[server] = new CrossDomainGate({
           baseUrl: baseUrl,
-          origin: 'http://' + server + '/',
+          origin: location.protocol + '//' + server + '/',
           type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
           messager: WindowMessageEmitter
         });
@@ -3847,8 +3849,8 @@ var monkey = function() {
       if (this.isChannel()) {
         var c = this._watchApiData.channelInfo || {};
         ownerInfo = {
-          icon: c.icon_url || 'http://res.nimg.jp/img/user/thumb/blank.jpg',
-          url: 'http://ch.nicovideo.jp/ch' + c.id,
+          icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+          url: '//ch.nicovideo.jp/ch' + c.id,
           id: c.id,
           name: c.name,
           favorite: c.is_favorited === 1, // こっちは01で
@@ -3859,8 +3861,8 @@ var monkey = function() {
         var u = this._watchApiData.uploaderInfo || {};
         var f = this._flashvars || {};
         ownerInfo = {
-          icon: u.icon_url || 'http://res.nimg.jp/img/user/thumb/blank.jpg',
-          url:  u.id ? ('http://www.nicovideo.jp/user/' + u.id) : '#',
+          icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+          url:  u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
           id:   u.id || f.videoUserId || '',
           name: u.nickname || '(非公開ユーザー)',
           favorite: !!u.is_favorited, // こっちはbooleanという
@@ -4093,7 +4095,7 @@ var monkey = function() {
       var info = [
         '<div>',
           '<h2>', videoInfo.getTitle(), '</h2>',
-          '<a href="http://www.nicovideo.jp/watch/', videoInfo.getWatchId(), '?from=', Math.floor(this._player.getCurrentTime()),'">元動画</a><br>',
+          '<a href="//www.nicovideo.jp/watch/', videoInfo.getWatchId(), '?from=', Math.floor(this._player.getCurrentTime()),'">元動画</a><br>',
           '作成環境: ', navigator.userAgent, '<br>',
           '作成日: ', (new Date).toLocaleString(), '<br>',
           '<button ',
@@ -5878,13 +5880,14 @@ var monkey = function() {
     .seekBarContainer .seekBarShadow {
       position: absolute;
       background: transparent;
+      opacity: 0;
       width: 100vw;
       height: 8px;
       top: -8px;
     }
-    .seekBarContainer:hover .seekBarShadow {
-      height: 24px;
-      top: -24px;
+    .mouseMoving .seekBarContainer:hover .seekBarShadow {
+      height: 40px;
+      top: -40px;
     }
 
     .fullScreen .seekBarContainer .seekBarShadow {
@@ -7529,11 +7532,10 @@ var monkey = function() {
     .seekBarToolTip {
       position: absolute;
       display: inline-block;
-      bottom: 10px;
       z-index: 300;
       position: absolute;
       padding: 1px;
-      bottom: 10px;
+      bottom: 24px;
       left: 0;
       white-space: nowrap;
       font-size: 10px;
@@ -12903,7 +12905,7 @@ data-title="%no%: %date% ID:%userId%
       num_res:        0,
       mylist_counter: 0,
       view_counter:   0,
-      thumbnail_url:  'http://uni.res.nimg.jp/img/user/thumb/blank_s.jpg',
+      thumbnail_url:  '//uni.res.nimg.jp/img/user/thumb/blank_s.jpg',
       first_retrieve: postedAt,
     });
   };
@@ -15832,7 +15834,7 @@ data-title="%no%: %date% ID:%userId%
         // 連続再生中はプレイリストに追加で読み込む
         option.append = this.isPlaying() && this._playlist.isEnable();
 
-        // http://www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
+        // //www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
         option.shuffle = parseInt(query.shuffle, 10) === 1;
         console.log('playlist option:', option);
 
@@ -16093,7 +16095,9 @@ data-title="%no%: %date% ID:%userId%
       var _onFail1st = function(err) {
         err = err || {};
 
-        if (parseInt(err.code, 10) !== 4) {
+        var errorCode = parseInt(err.code, 10);
+        //if (parseInt(err.code, 10) !== 4) {
+        if (!_.contains([2, 3, 4, 5], errorCode)) {
           return _onFailFinal(err);
         }
 
@@ -16619,7 +16623,7 @@ data-title="%no%: %date% ID:%userId%
       margin: -4px 4px 0 0;
       vertical-align: middle;
       margin-right: 15px;
-      background: url("http://uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
+      background: url("//uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
       transform: scale(1.5); -webkit-transform: scale(1.5);
       transform-origin: 0 0 0; -webkit-transform-origin: 0 0 0;
       transition: transform 0.1s ease, box-shadow 0.1s ease;
@@ -19440,19 +19444,19 @@ data-title="%no%: %date% ID:%userId%
       var $tagList = this._$tagList.empty().detach();
       var createDicIcon = function(text, hasDic) {
         var $dic = $('<a target="_blank" class="nicodic"/>');
-        $dic.attr('href', 'http://dic.nicovideo.jp/a/' + encodeURIComponent(text));
+        $dic.attr('href', '//dic.nicovideo.jp/a/' + encodeURIComponent(text));
         var $icon = $('<img class="icon"/>');
         $icon.attr('src',
           hasDic ?
-            'http://live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
-            'http://live.nicovideo.jp/img/2012/watch/tag_icon003.png'
+            '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
+            '//live.nicovideo.jp/img/2012/watch/tag_icon003.png'
         );
         $dic.append($icon);
         return $dic;
       };
       var createLink = function(text) {
         var $link = $('<a class="tagLink" />');
-        $link.attr('href', 'http://www.nicovideo.jp/tag/' + encodeURIComponent(text));
+        $link.attr('href', '//www.nicovideo.jp/tag/' + encodeURIComponent(text));
         $link.html(text);
         return $link;
       };
@@ -19984,7 +19988,7 @@ data-title="%no%: %date% ID:%userId%
             initialize();
             return;
           }
-          NicoVideoApi.ajax({url: 'http://www.nicovideo.jp/'})
+          NicoVideoApi.ajax({url: '//www.nicovideo.jp/'})
             .then(function(result) {
               var $dom = $('<div>' + result + '</div>');
               var isLogin = $dom.find('#siteHeaderLogin').length < 1;
@@ -20037,7 +20041,6 @@ data-title="%no%: %date% ID:%userId%
   };
 
   var postMessage = function(type, message, token) {
-//    var origin  = 'http://' + location.host.replace(/^.*?\./, 'www.');
     var origin = document.referrer;
     try {
       parent.postMessage(JSON.stringify({
@@ -20499,10 +20502,11 @@ data-title="%no%: %date% ID:%userId%
 
   var host = window.location.host || '';
   var href = (location.href || '').replace(/#.*$/, '');
-  if (href === 'http://www.nicovideo.jp/favicon.ico' &&
+  var prot = location.protocol;
+  if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
       window.name === 'nicovideoApiLoader') {
     nicovideoApi();
-  } else if (href ==='http://api.ce.nicovideo.jp/api/v1/system.unixtime' &&
+  } else if (href === prot + '//api.ce.nicovideo.jp/api/v1/system.unixtime' &&
       window.name === 'vitaApiLoader') {
     vitaApi();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {

@@ -39,7 +39,6 @@ var ZenzaWatch = {
   };
 
   var postMessage = function(type, message, token) {
-//    var origin  = 'http://' + location.host.replace(/^.*?\./, 'www.');
     var origin = document.referrer;
     try {
       parent.postMessage(JSON.stringify({
@@ -526,7 +525,7 @@ var ZenzaWatch = {
     if (!videoInfo.thumbPlayKey) {
       console.log('%cthumbPlayKey not found', 'background: red;');
     }
-    var url = 'http://ext.nicovideo.jp/thumb_watch?v=' + videoInfo.v + '&k=' + videoInfo.thumbPlayKey + eco;
+    var url = '//ext.nicovideo.jp/thumb_watch?v=' + videoInfo.v + '&k=' + videoInfo.thumbPlayKey + eco;
     xmlHttpRequest({
       url: url,
       onload: function(req) {

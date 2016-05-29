@@ -605,7 +605,7 @@ var console;
       var fileId = parseInt(videoId.substr(2), 10);
       var num = (fileId % 4) + 1;
       var large = hasLargeThumbnail(videoId) ? '.L' : '';
-      return 'http://tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
+      return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
     };
     ZenzaWatch.util.getThumbnailUrlByVideoId = getThumbnailUrlByVideoId;
 
@@ -825,10 +825,11 @@ var console;
 
         var onMessage = function(event) {
           if (_.indexOf(knownSource, event.source) < 0 &&
-              event.origin !== 'http://ext.nicovideo.jp'
+              event.origin !== location.protocol + '//ext.nicovideo.jp'
               ) { return; }
           try {
             var data = JSON.parse(event.data);
+
             if (data.id !== 'ZenzaWatch') { return; }
 
             asyncEmitter.emit('onMessage', data.body, data.type);
@@ -1138,7 +1139,7 @@ var console;
       // TODO: どこかutil的な関数に追い出す
       var watchId = videoInfo.getWatchId();
       var nicomsUrl = 'http://nico.ms/' + watchId;
-      var watchUrl = 'http://www.nicovideo.jp/watch/' + watchId;
+      var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
       var sec = videoInfo.getDuration();
       var m = Math.floor(sec / 60);
