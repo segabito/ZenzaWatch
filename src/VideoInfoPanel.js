@@ -1318,7 +1318,7 @@ var RelatedVideoList = function() {};
         .attr('href', hashLink);
 
       this._$originalLink
-        .attr('href', '//nico.ms/' + videoId)
+        .attr('href', 'http://nico.ms/' + videoId)
         .attr('data-video-id',       videoId);
 
       this._$parentLink.attr('href', '//commons.nicovideo.jp/tree/' + videoId);

@@ -781,15 +781,12 @@ var StoryBoard = function() {};
                 <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
 
                 <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
-                <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
-                <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
-
+                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
 
                 <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
-                <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
+                <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
                 <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-                <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
+                <li class="playbackRate" data-rate="0.25"><span>0.25倍</span></li>
                 <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
               </ul>
             </div>
@@ -998,7 +995,7 @@ var StoryBoard = function() {};
       var updatePlaybackRate = function(rate) {
         $label.text(rate + 'x');
         $menu.find('.selected').removeClass('selected');
-        var fr = parseFloat(rate);
+        var fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $menu.find('.playbackRate').each(function(i, item) {
           var $item = $(item);
           var r = parseFloat($item.attr('data-rate'), 10);

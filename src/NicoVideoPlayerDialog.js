@@ -755,7 +755,8 @@ var CommentPanel = function() {};
       this._playerConfig.on('update-screenMode', _.bind(this._updateScreenMode, this));
       this._initializeDom();
 
-      this._keyEmitter.on('keyDown', _.bind(this._onKeyDown, this));
+      this._keyEmitter.on('keyDown', this._onKeyDown.bind(this));
+      this._keyEmitter.on('keyUp',   this._onKeyUp  .bind(this));
 
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
       this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
@@ -1045,6 +1046,7 @@ var CommentPanel = function() {};
           this._settingPanel.toggle();
           break;
         case 'seek':
+        case 'seekTo':
           this.setCurrentTime(param * 1);
           break;
         case 'seekBy':
@@ -1108,6 +1110,22 @@ var CommentPanel = function() {};
             this._playerConfig.setValue(command, param);
           }
           break;
+        case 'shiftUp':
+          if (!ZenzaWatch.util.isPremium()) { break; }
+          {
+            v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
+            if (v < 1.5) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
+            this._playerConfig.setValue('playbackRate', v);
+          }
+          break;
+        case 'shiftDown':
+          if (!ZenzaWatch.util.isPremium()) { break; }
+          {
+            v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
+            if (v > 1.5) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
+            this._playerConfig.setValue('playbackRate', v);
+          }
+          break;
         case 'baseFontFamily':
         case 'baseChatScale':
         case 'enableFilter':
@@ -1118,6 +1136,12 @@ var CommentPanel = function() {};
       }
     },
     _onKeyDown: function(name , e, param) {
+      this._onKeyEvent(name, e, param);
+    },
+    _onKeyUp: function(name , e, param) {
+      this._onKeyEvent(name, e, param);
+    },
+    _onKeyEvent: function(name , e, param) {
       if (!this._isOpen) {
         var lastWatchId = this._playerConfig.getValue('lastWatchId');
         if (name === 'RE_OPEN' && lastWatchId) {
@@ -1126,16 +1150,15 @@ var CommentPanel = function() {};
         }
         return;
       }
-      var v;
       switch (name) {
         case 'RE_OPEN':
-          this.reload({
-            currentTime: this.getCurrentTime()
-          });
+          this.execCommand('reload');
+          break;
+        case 'PAUSE':
+          this.pause();
           break;
         case 'SPACE':
-        case 'PAUSE':
-          this._nicoVideoPlayer.togglePlay();
+          this.togglePlay();
           break;
         case 'ESC':
           // ESCキーは連打にならないようブロック期間を設ける
@@ -1159,28 +1182,37 @@ var CommentPanel = function() {};
           this._onDeflistAdd(param);
           break;
         case 'VIEW_COMMENT':
-          v = this._playerConfig.getValue('showComment');
-          this._playerConfig.setValue('showComment', !v);
+          this.execCommand('toggleShowComment');
           break;
         case 'MUTE':
-          v = this._playerConfig.getValue('mute');
-          this._playerConfig.setValue('mute', !v);
+          this.execCommand('toggleMute');
           break;
         case 'VOL_UP':
-          this._nicoVideoPlayer.volumeUp();
+          this.execCommand('volumeUp');
           break;
         case 'VOL_DOWN':
-          this._nicoVideoPlayer.volumeDown();
+          this.execCommand('volumeDown');
           break;
-        case 'SEEK':
-          var c = this._nicoVideoPlayer.getCurrentTime();
-          this.setCurrentTime(c + param);
+        case 'SEEK_TO':
+          this.execCommand('seekTo', param);
+          break;
+        case 'SEEK_BY':
+          this.execCommand('seekBy', param);
           break;
         case 'NEXT_VIDEO':
           this.playNextVideo();
           break;
         case 'PREV_VIDEO':
           this.playPreviousVideo();
+          break;
+        case 'PLAYBACK_RATE':
+          this.execCommand('playbackRate', param);
+          break;
+        case 'SHIFT_UP':
+          this.execCommand('shiftUp');
+          break;
+        case 'SHIFT_DOWN':
+          this.execCommand('shiftDown');
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');

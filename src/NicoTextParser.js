@@ -137,7 +137,7 @@ body {
 }
 
 .default {}
-.gothic  {font-family: 'ＭＳ Ｐゴシック', sans-serif, Arial, 'Menlo'; }
+.gothic  {font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo'; }
 .mincho  {font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace; }
 .mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }

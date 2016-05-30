@@ -1209,12 +1209,6 @@ var console;
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
 
-      var initialize = function() {
-        initialize = _.noop;
-        $('body').on('keydown.zenzaWatch', onKeyDown);
-        ZenzaWatch.emitter.on('keydown', onKeyDown);
-      };
-
       var onKeyDown = function(e) {
         if (e.target.tagName === 'SELECT' ||
             e.target.tagName === 'INPUT' ||
@@ -1240,14 +1234,17 @@ var console;
           case 27:
             key = e.shiftKey ? 'RE_OPEN' : 'ESC';
             break;
+          case 36: // HOME
+            if (e.shiftKey) { key = 'SEEK_TO'; param = 0; }
+            break;
           case 37: // LEFT
-            if (e.shiftKey) { key = 'SEEK'; param = -5; }
+            if (e.shiftKey) { key = 'SEEK_BY'; param = -5; }
             break;
           case 38: // UP
             if (e.shiftKey) { key = 'VOL_UP'; }
             break;
           case 39: // RIGHT
-            if (e.shiftKey) { key = 'SEEK'; param = 5;}
+            if (e.shiftKey) { key = 'SEEK_BY'; param = 5;}
             break;
           case 40: // DOWN
             if (e.shiftKey) { key = 'VOL_DOWN'; }
@@ -1270,11 +1267,21 @@ var console;
           case 32:
             key = 'SPACE';
             break;
+          case 49: // 1
+            key = 'PLAYBACK_RATE';
+            param = 0.1;
+            break;
           case 74: //J
             key = 'NEXT_VIDEO';
             break;
           case 75: //J
             key = 'PREV_VIDEO';
+            break;
+          case 188: // <
+            if (e.shiftKey) { key = 'SHIFT_DOWN'; }
+            break;
+          case 190: // >
+            if (e.shiftKey) { key = 'SHIFT_UP'; }
             break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
@@ -1283,6 +1290,37 @@ var console;
         if (key) {
           emitter.emit('keyDown', key, e, param);
         }
+      };
+
+      var onKeyUp = function(e) {
+        if (e.target.tagName === 'SELECT' ||
+            e.target.tagName === 'INPUT' ||
+            e.target.tagName === 'TEXTAREA') {
+          return;
+        }
+        if (e.ctrlKey || e.altKey) {
+          return;
+        }
+        var key = '';
+        var param = '';
+        switch (e.keyCode) {
+          case 49:
+            key = 'PLAYBACK_RATE';
+            param = 1;
+            break;
+        }
+        if (key) {
+          emitter.emit('keyUp', key, e, param);
+        }
+      };
+
+      var initialize = function() {
+        initialize = _.noop;
+        $('body')
+          .on('keydown.zenzaWatch', onKeyDown)
+          .on('keyup.zenzaWatch',   onKeyUp);
+        ZenzaWatch.emitter.on('keydown', onKeyDown);
+        ZenzaWatch.emitter.up('keyup',   onKeyUp);
       };
 
       ZenzaWatch.emitter.on('ready', initialize);

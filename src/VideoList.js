@@ -297,6 +297,10 @@ var PopupMessage = {};
       $body.on('keydown', function(e) {
         ZenzaWatch.emitter.emit('keydown', e);
       });
+      $body.on('keyup', function(e) {
+        ZenzaWatch.emitter.emit('keyup', e);
+      });
+
 
       if (this._dragdrop) {
         $body.on('mousedown', _.bind(this._onBodyMouseDown, this));

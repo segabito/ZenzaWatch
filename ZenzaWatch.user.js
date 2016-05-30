@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.16
+// @version        1.0.17
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.16';
+  var VER = '1.0.17';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1269,12 +1269,6 @@ var monkey = function() {
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
 
-      var initialize = function() {
-        initialize = _.noop;
-        $('body').on('keydown.zenzaWatch', onKeyDown);
-        ZenzaWatch.emitter.on('keydown', onKeyDown);
-      };
-
       var onKeyDown = function(e) {
         if (e.target.tagName === 'SELECT' ||
             e.target.tagName === 'INPUT' ||
@@ -1300,14 +1294,17 @@ var monkey = function() {
           case 27:
             key = e.shiftKey ? 'RE_OPEN' : 'ESC';
             break;
+          case 36: // HOME
+            if (e.shiftKey) { key = 'SEEK_TO'; param = 0; }
+            break;
           case 37: // LEFT
-            if (e.shiftKey) { key = 'SEEK'; param = -5; }
+            if (e.shiftKey) { key = 'SEEK_BY'; param = -5; }
             break;
           case 38: // UP
             if (e.shiftKey) { key = 'VOL_UP'; }
             break;
           case 39: // RIGHT
-            if (e.shiftKey) { key = 'SEEK'; param = 5;}
+            if (e.shiftKey) { key = 'SEEK_BY'; param = 5;}
             break;
           case 40: // DOWN
             if (e.shiftKey) { key = 'VOL_DOWN'; }
@@ -1330,11 +1327,21 @@ var monkey = function() {
           case 32:
             key = 'SPACE';
             break;
+          case 49: // 1
+            key = 'PLAYBACK_RATE';
+            param = 0.1;
+            break;
           case 74: //J
             key = 'NEXT_VIDEO';
             break;
           case 75: //J
             key = 'PREV_VIDEO';
+            break;
+          case 188: // <
+            if (e.shiftKey) { key = 'SHIFT_DOWN'; }
+            break;
+          case 190: // >
+            if (e.shiftKey) { key = 'SHIFT_UP'; }
             break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
@@ -1343,6 +1350,37 @@ var monkey = function() {
         if (key) {
           emitter.emit('keyDown', key, e, param);
         }
+      };
+
+      var onKeyUp = function(e) {
+        if (e.target.tagName === 'SELECT' ||
+            e.target.tagName === 'INPUT' ||
+            e.target.tagName === 'TEXTAREA') {
+          return;
+        }
+        if (e.ctrlKey || e.altKey) {
+          return;
+        }
+        var key = '';
+        var param = '';
+        switch (e.keyCode) {
+          case 49:
+            key = 'PLAYBACK_RATE';
+            param = 1;
+            break;
+        }
+        if (key) {
+          emitter.emit('keyUp', key, e, param);
+        }
+      };
+
+      var initialize = function() {
+        initialize = _.noop;
+        $('body')
+          .on('keydown.zenzaWatch', onKeyDown)
+          .on('keyup.zenzaWatch',   onKeyUp);
+        ZenzaWatch.emitter.on('keydown', onKeyDown);
+        ZenzaWatch.emitter.up('keyup',   onKeyUp);
       };
 
       ZenzaWatch.emitter.on('ready', initialize);
@@ -3972,12 +4010,11 @@ var monkey = function() {
           <hr class="separator forPremium">
 
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.3">超スロー(0.3x)</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.5">スロー再生(0.5x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.5">0.5x</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.75">0.75x</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.0">標準速度</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.2">高速(1.2x)</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.4">高速(1.4x)</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.5">高速(1.5x)</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.25">1.25x</li>
+          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.5">1.5x</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="2">倍速(2x)</li>
           <!--
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="4">4倍速(4x)</li>
@@ -6375,15 +6412,12 @@ var monkey = function() {
                 <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
 
                 <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate" data-rate="1.4"><span>1.4倍</span></li>
-                <li class="playbackRate" data-rate="1.2"><span>1.2倍</span></li>
-                <li class="playbackRate" data-rate="1.1"><span>1.1倍</span></li>
-
+                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
 
                 <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
-                <li class="playbackRate" data-rate="0.8"><span>0.8倍</span></li>
+                <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
                 <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-                <li class="playbackRate" data-rate="0.3"><span>0.3倍</span></li>
+                <li class="playbackRate" data-rate="0.25"><span>0.25倍</span></li>
                 <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
               </ul>
             </div>
@@ -6592,7 +6626,7 @@ var monkey = function() {
       var updatePlaybackRate = function(rate) {
         $label.text(rate + 'x');
         $menu.find('.selected').removeClass('selected');
-        var fr = parseFloat(rate);
+        var fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $menu.find('.playbackRate').each(function(i, item) {
           var $item = $(item);
           var r = parseFloat($item.attr('data-rate'), 10);
@@ -7698,7 +7732,7 @@ body {
 }
 
 .default {}
-.gothic  {font-family: 'ＭＳ Ｐゴシック', sans-serif, Arial, 'Menlo'; }
+.gothic  {font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo'; }
 .mincho  {font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
 .gulim   {font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace; }
 .mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
@@ -12235,6 +12269,10 @@ data-title="%no%: %date% ID:%userId%
       $body.on('keydown', function(e) {
         ZenzaWatch.emitter.emit('keydown', e);
       });
+      $body.on('keyup', function(e) {
+        ZenzaWatch.emitter.emit('keyup', e);
+      });
+
 
       if (this._dragdrop) {
         $body.on('mousedown', _.bind(this._onBodyMouseDown, this));
@@ -14916,7 +14954,8 @@ data-title="%no%: %date% ID:%userId%
       this._playerConfig.on('update-screenMode', _.bind(this._updateScreenMode, this));
       this._initializeDom();
 
-      this._keyEmitter.on('keyDown', _.bind(this._onKeyDown, this));
+      this._keyEmitter.on('keyDown', this._onKeyDown.bind(this));
+      this._keyEmitter.on('keyUp',   this._onKeyUp  .bind(this));
 
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
       this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
@@ -15206,6 +15245,7 @@ data-title="%no%: %date% ID:%userId%
           this._settingPanel.toggle();
           break;
         case 'seek':
+        case 'seekTo':
           this.setCurrentTime(param * 1);
           break;
         case 'seekBy':
@@ -15269,6 +15309,22 @@ data-title="%no%: %date% ID:%userId%
             this._playerConfig.setValue(command, param);
           }
           break;
+        case 'shiftUp':
+          if (!ZenzaWatch.util.isPremium()) { break; }
+          {
+            v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
+            if (v < 1.5) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
+            this._playerConfig.setValue('playbackRate', v);
+          }
+          break;
+        case 'shiftDown':
+          if (!ZenzaWatch.util.isPremium()) { break; }
+          {
+            v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
+            if (v > 1.5) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
+            this._playerConfig.setValue('playbackRate', v);
+          }
+          break;
         case 'baseFontFamily':
         case 'baseChatScale':
         case 'enableFilter':
@@ -15279,6 +15335,12 @@ data-title="%no%: %date% ID:%userId%
       }
     },
     _onKeyDown: function(name , e, param) {
+      this._onKeyEvent(name, e, param);
+    },
+    _onKeyUp: function(name , e, param) {
+      this._onKeyEvent(name, e, param);
+    },
+    _onKeyEvent: function(name , e, param) {
       if (!this._isOpen) {
         var lastWatchId = this._playerConfig.getValue('lastWatchId');
         if (name === 'RE_OPEN' && lastWatchId) {
@@ -15287,16 +15349,15 @@ data-title="%no%: %date% ID:%userId%
         }
         return;
       }
-      var v;
       switch (name) {
         case 'RE_OPEN':
-          this.reload({
-            currentTime: this.getCurrentTime()
-          });
+          this.execCommand('reload');
+          break;
+        case 'PAUSE':
+          this.pause();
           break;
         case 'SPACE':
-        case 'PAUSE':
-          this._nicoVideoPlayer.togglePlay();
+          this.togglePlay();
           break;
         case 'ESC':
           // ESCキーは連打にならないようブロック期間を設ける
@@ -15320,28 +15381,37 @@ data-title="%no%: %date% ID:%userId%
           this._onDeflistAdd(param);
           break;
         case 'VIEW_COMMENT':
-          v = this._playerConfig.getValue('showComment');
-          this._playerConfig.setValue('showComment', !v);
+          this.execCommand('toggleShowComment');
           break;
         case 'MUTE':
-          v = this._playerConfig.getValue('mute');
-          this._playerConfig.setValue('mute', !v);
+          this.execCommand('toggleMute');
           break;
         case 'VOL_UP':
-          this._nicoVideoPlayer.volumeUp();
+          this.execCommand('volumeUp');
           break;
         case 'VOL_DOWN':
-          this._nicoVideoPlayer.volumeDown();
+          this.execCommand('volumeDown');
           break;
-        case 'SEEK':
-          var c = this._nicoVideoPlayer.getCurrentTime();
-          this.setCurrentTime(c + param);
+        case 'SEEK_TO':
+          this.execCommand('seekTo', param);
+          break;
+        case 'SEEK_BY':
+          this.execCommand('seekBy', param);
           break;
         case 'NEXT_VIDEO':
           this.playNextVideo();
           break;
         case 'PREV_VIDEO':
           this.playPreviousVideo();
+          break;
+        case 'PLAYBACK_RATE':
+          this.execCommand('playbackRate', param);
+          break;
+        case 'SHIFT_UP':
+          this.execCommand('shiftUp');
+          break;
+        case 'SHIFT_DOWN':
+          this.execCommand('shiftDown');
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
@@ -19416,7 +19486,7 @@ data-title="%no%: %date% ID:%userId%
         .attr('href', hashLink);
 
       this._$originalLink
-        .attr('href', '//nico.ms/' + videoId)
+        .attr('href', 'http://nico.ms/' + videoId)
         .attr('data-video-id',       videoId);
 
       this._$parentLink.attr('href', '//commons.nicovideo.jp/tree/' + videoId);
