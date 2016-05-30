@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://www.nicovideo.jp/*
-// @version     1.2.1
+// @version     1.2.2
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -80,7 +80,8 @@
         //USB Gamepad (Vendor: 04b4 Product: 010a)"
         return onButtonDownSaturn(button, deviceId);
       }
-      if (deviceId.match(/Vendor: (3810|05a0)/i)) {
+      // FC30なのにみんなVendor違うってどういうことだよ
+      if (deviceId.match(/Vendor: (3810|05a0|1235)/i)) {
         return onButtonDownFC30(button, deviceId);
       }
 
@@ -180,7 +181,7 @@
     };
 
     var onButtonDownFC30 = function(button, deviceId) {
-      if (deviceId.match(/Product: 3232/i)) { // FC30 Zero
+      if (deviceId.match(/Product: (3232)/i)) { // FC30 Zero / FC30
         button = swapABXY_FC30(button);
       }
 
@@ -246,7 +247,7 @@
         //USB Gamepad (Vendor: 04b4 Product: 010a)"
         return onButtonUpSaturn(button, deviceId);
       }
-      if (deviceId.match(/Vendor: (3810|05a0)/i)) {
+      if (deviceId.match(/Vendor: (3810|05a0|1235)/i)) {
         return onButtonUpFC30(button, deviceId);
       }
 
@@ -319,7 +320,7 @@
     };
 
     var onButtonUpFC30 = function(button, deviceId) {
-      if (deviceId.match(/Product: 3232/i)) { // FC30 Zero
+      if (deviceId.match(/Product: (3232)/i)) { // FC30Zero / FC30
         button = swapABXY_FC30(button);
       }
 
