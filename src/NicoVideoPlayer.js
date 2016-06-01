@@ -781,7 +781,7 @@ var VideoInfoLoader = {};
 
       console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
-      this._$video = $('<video class="videoPlayer nico" preload="auto" />')
+      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay/>')
         .addClass(this._id)
         .attr(options);
       this._video = this._$video[0];

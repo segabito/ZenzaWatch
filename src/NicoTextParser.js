@@ -234,6 +234,14 @@ han_group { font-family: 'Arial'; }
 
 spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px;}
 
+.mesh_space {
+  display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
+  vertical-align: middle; font-weight: normal;
+  white-space: nowrap;
+}
+.big    .mesh_space { width: 40px; }
+.medium .mesh_space { width: 25px; }
+.small  .mesh_space { width: 16px; }
 
 .backslash {
   font-family: Arial;
@@ -244,6 +252,9 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   font-family: gulim;
 }
 
+.block_space {
+  font-family: Simsun, 'IPAMonaGothic', Gulim, PmingLiu;
+}
 
   */});
 
@@ -342,6 +353,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
         htmlText
           .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
           .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
+          .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように
           .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
             //'<span class="invisible_code">$1</span>')

@@ -1905,6 +1905,10 @@ var NicoTextParser = {};
   background: currentColor;
 }
 
+.nicoChat .mesh_space {
+  text-shadow: none;
+}
+
 .nicoChat .block_space {
   text-shadow: none;
 }

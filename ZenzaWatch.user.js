@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.17
+// @version        1.0.18
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.17';
+  var VER = '1.0.18';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -4183,7 +4183,7 @@ var monkey = function() {
 
       console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
-      this._$video = $('<video class="videoPlayer nico" preload="auto" />')
+      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay/>')
         .addClass(this._id)
         .attr(options);
       this._video = this._$video[0];
@@ -7829,6 +7829,14 @@ han_group { font-family: 'Arial'; }
 
 spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px;}
 
+.mesh_space {
+  display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
+  vertical-align: middle; font-weight: normal;
+  white-space: nowrap;
+}
+.big    .mesh_space { width: 40px; }
+.medium .mesh_space { width: 25px; }
+.small  .mesh_space { width: 16px; }
 
 .backslash {
   font-family: Arial;
@@ -7839,6 +7847,9 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   font-family: gulim;
 }
 
+.block_space {
+  font-family: Simsun, 'IPAMonaGothic', Gulim, PmingLiu;
+}
 
   */});
 
@@ -7937,6 +7948,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
         htmlText
           .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
           .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
+          .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように
           .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
             //'<span class="invisible_code">$1</span>')
@@ -9877,6 +9889,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 .nicoChat .fill_space {
   text-shadow: none;
   background: currentColor;
+}
+
+.nicoChat .mesh_space {
+  text-shadow: none;
 }
 
 .nicoChat .block_space {
