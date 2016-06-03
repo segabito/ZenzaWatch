@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.18
+// @version        1.0.19
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.18';
+  var VER = '1.0.19';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1380,7 +1380,7 @@ var monkey = function() {
           .on('keydown.zenzaWatch', onKeyDown)
           .on('keyup.zenzaWatch',   onKeyUp);
         ZenzaWatch.emitter.on('keydown', onKeyDown);
-        ZenzaWatch.emitter.up('keyup',   onKeyUp);
+        ZenzaWatch.emitter.on('keyup',   onKeyUp);
       };
 
       ZenzaWatch.emitter.on('ready', initialize);
@@ -5994,14 +5994,15 @@ var monkey = function() {
       position: absolute;
       top: 50%;
       width: 12px;
-      height: 110%;
+      height: 140%;
       background: rgba(255, 255, 200, 0.8);
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
       transition: left 0.2s linear;
-      box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;
+                  {*box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;*}
       mix-blend-mode: lighten;
+      opacity: 0.8;
     }
 
     .loading  .seekBar .seekBarPointer,

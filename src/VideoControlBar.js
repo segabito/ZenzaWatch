@@ -363,14 +363,15 @@ var StoryBoard = function() {};
       position: absolute;
       top: 50%;
       width: 12px;
-      height: 110%;
+      height: 140%;
       background: rgba(255, 255, 200, 0.8);
       border-radius: 2px;
       transform: translate(-50%, -50%);
       z-index: 200;
       transition: left 0.2s linear;
-      box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;
+                  {*box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;*}
       mix-blend-mode: lighten;
+      opacity: 0.8;
     }
 
     .loading  .seekBar .seekBarPointer,

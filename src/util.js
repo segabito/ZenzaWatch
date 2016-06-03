@@ -1320,7 +1320,7 @@ var console;
           .on('keydown.zenzaWatch', onKeyDown)
           .on('keyup.zenzaWatch',   onKeyUp);
         ZenzaWatch.emitter.on('keydown', onKeyDown);
-        ZenzaWatch.emitter.up('keyup',   onKeyUp);
+        ZenzaWatch.emitter.on('keyup',   onKeyUp);
       };
 
       ZenzaWatch.emitter.on('ready', initialize);
