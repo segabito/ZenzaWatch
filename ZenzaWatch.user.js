@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.0.19
+// @version        1.1.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.0.19';
+  var VER = '1.1.0';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -8233,6 +8233,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._topGroup.reset();
       this._nakaGroup.reset();
       this._bottomGroup.reset();
+      var nicoScripter = new NicoScripter();
 
       var chats = xml.getElementsByTagName('chat');
       var top = [], bottom = [], naka = [];
@@ -8258,6 +8259,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
             break;
         }
         group.push(nicoChat);
+        if (nicoChat.isNicoScript()) {
+          nicoScripter.add(nicoChat);
+        }
       }
 
       if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
@@ -8270,8 +8274,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       } else {
         this._wordReplacer = null;
       }
-      // TODO: ＠逆再生、＠デフォルトぐらいはサポートしたい
-      // this._preProcessNicoScript();
+
+      if (nicoScripter.isExist()) {
+        window.console.time('ニコスクリプト適用');
+        nicoScripter.apply(top);
+        nicoScripter.apply(naka);
+        nicoScripter.apply(bottom);
+        window.console.timeEnd('ニコスクリプト適用');
+      }
 
       this._topGroup   .addChatArray(top);
       this._nakaGroup  .addChatArray(naka);
@@ -9011,7 +9021,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     NAKA:   'naka',
     BOTTOM: 'shita'
   };
-  NicoChat._CMD_DURATION = /@([\d+])/;
+
+  NicoChat._CMD_DURATION = /(@|＠)([\d]+)/;
   NicoChat._CMD_REPLACE = /(ue|shita|sita|big|small|ender|full|[ ])/g;
   NicoChat._COLOR_MATCH = /(#[0-9a-f]+)/i;
   NicoChat._COLOR_NAME_MATCH = /([a-z]+)/i;
@@ -9062,8 +9073,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._no = 0;
       this._fork = 0;
       this._isInvisible = false;
+      this._isReverse = false;
 
       this._currentTime = 0;
+      this._hasDurationSet = false;
     },
     initialize: function(chat) {
       this._id = 'chat' + NicoChat.id++;
@@ -9091,7 +9104,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._no =
         parseInt(chat.getAttribute('no') || '0', 10) + this._fork * 100000000;
       if (this._fork > 0 && text.match(/^[\/＠@]/)) {
-        //this._isNicoScript = true;
+        this._isNicoScript = true;
         this._isInvisible = true;
       }
 
@@ -9128,6 +9141,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         }
 
         if (pcmd.duration) {
+          this._hasDurationSet = true;
           this._duration = Math.max(0.01, parseFloat(pcmd.duration, 10));
         }
 
@@ -9142,7 +9156,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         } else if (NicoChat._COLOR_MATCH.test(c)) {
           result.COLOR = c;
         } else if (isFork && NicoChat._CMD_DURATION.test(c)) {
-          result.duration = RegExp.$1;
+          result.duration = RegExp.$2;
         } else {
           result[c] = true;
         }
@@ -9191,15 +9205,21 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     isInvisible: function() { return this._isInvisible; },
     isNicoScript: function() { return this._isNicoScript; },
     getDuration: function() { return this._duration; },
+    hasDurationSet: function() { return !!this._hasDurationSet; },
+    setDuration: function(v) { this._duration = v; this._hasDurationSet = true; },
     getUserId: function() { return this._userId; },
     getVpos: function() { return this._vpos; },
+    getBeginTime: function() { return this.getVpos() / 100; },
     isDeleted: function() { return !!this._deleted; },
     getColor: function() { return this._color; },
+    setColor: function(v) { this._color = v; },
     getSize: function() { return this._size; },
     getType: function() { return this._type; },
     getScore: function() { return this._score; },
     getNo: function() { return this._no; },
-    getFork: function() { return this._fork; }
+    getFork: function() { return this._fork; },
+    isReverse: function() { return this._isReverse; },
+    setIsReverse: function(v) { this._isReverse = !!v; }
   });
 
 
@@ -9218,7 +9238,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   // ここの値はレイアウト計算上の仮想領域の物であり、実際の表示はviewに依存
   NicoChatViewModel.DURATION = {
     TOP:    3,
-    NAKA: 4,
+    NAKA:   4,
     BOTTOM: 3
   };
 
@@ -9569,7 +9589,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // 本来はちょっとでもオーバーしたらランダムすべきだが、
       // 本家とまったく同じサイズ計算は難しいのでマージンを入れる
       // コメントアートの再現という点では有効な妥協案
-      var overflowMargin = 5;
+      var overflowMargin = 10;
       var rnd =  Math.max(0, NicoCommentViewModel.SCREEN.HEIGHT - this._height);
       var yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height + overflowMargin;
       var yMin = 0 - overflowMargin;
@@ -9703,6 +9723,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     isMine: function()     { return this._nicoChat.isMine(); },
     isUpdating: function() { return this._nicoChat.isUpdating(); },
     isPostFail: function() { return this._nicoChat.isPostFail(); },
+    isReverse: function() { return this._nicoChat.isReverse(); },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -10499,7 +10520,6 @@ spacer {
       return result.join('');
     },
     _buildChatCss: function(chat, type, currentTime) {
-      //if (chat.isNicoScript()) { return this._buildNicoScriptCss(chat, type, currentTime); }
       var result;
       var scaleCss;
       var id = chat.getId();
@@ -10535,6 +10555,8 @@ spacer {
         var durationDiff = screenDiff / speed / playbackRate;
         duration += durationDiff;
         delay -= (durationDiff * 0.5);
+        // 逆再生
+        var reverse = chat.isReverse() ? '  animation-direction: reverse;\n' : '';
 
         result = ['',
           ' @keyframes idou', id, ' {\n',
@@ -10552,6 +10574,7 @@ spacer {
           '  animation-name: idou', id, ';\n',
           '  animation-duration: ', duration, 's;\n',
           '  animation-delay: ', delay, 's;\n',
+          reverse,
           ' }\n',
           '\n\n'];
       } else {
@@ -10944,6 +10967,201 @@ spacer {
       this.emit('change');
     }
   });
+
+
+  var NicoScripter = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoScripter.prototype, AsyncEmitter.prototype);
+  _.assign(NicoScripter.prototype, {
+    initialize: function() {
+      this.reset();
+    },
+    reset: function() {
+      this._hasSort = false;
+      this._list = [];
+    },
+    add: function(nicoChat) {
+      this._hasSort = false;
+      this._list.push(nicoChat);
+    },
+    isExist: function() {
+      return this._list.length > 0;
+    },
+    _sort: function() {
+      if (this._hasSort) { return; }
+      var list = this._list.concat().sort(function(a, b) {
+        var av = a.getVpos(), bv = b.getVpos();
+        if (av !== bv) {
+          return av - bv;
+        } else {
+          return a.getNo() < b.getNo() ? -1 : 1;
+        }
+      });
+      this._list = list;
+      this._hasSort = true;
+    },
+    _parseNicos: function(nicos) {
+      var text = nicos.getText().trim();
+      var params;
+      var type;
+      switch (text) {
+        case '@デフォルト': case '＠デフォルト':
+          type = 'DEFAULT';
+          if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
+          break;
+        case '@逆': case '＠逆':
+          type = 'REVERSE';
+          if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
+          break;
+        default:
+          if (text.indexOf('@置換') === 0 || text.indexOf('＠置換') === 0) {
+            type = 'REPLACE';
+            params = this._parse置換(text);
+            if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
+          } else if (text.match(/^\/replace\((.*?)\)/)) {
+            type = 'REPLACE';
+            params = this._parseReplace(RegExp.$1);
+            if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
+          } else { return null; }
+      }
+      return {
+        type: type,
+        params: params
+      };
+    },
+    _parseParams: function(str) {
+      // 雑なパース
+      var result = {}, v = '', lastC = '', key, isStr = false, quot = '';
+      for (var i = 0, len = str.length; i < len; i++) {
+        var c = str.charAt(i);
+        switch (c) {
+          case ':':
+            key = v.trim();
+            v = '';
+            break;
+          case ',':
+            if (isStr) { v += c; }
+            else {
+              if (key !== '' && v !== '') { result[key] = v.trim(); }
+              key = v = '';
+            }
+            break;
+          case ' ':
+            if (v !== '') { v+= c; }
+            break;
+          case "'": case '"':
+            if (v !== '') {
+              if (quot !== c) {
+                v += c;
+              } else if (isStr) {
+                if (lastC === '\\') { v += c; }
+                else {
+                  v = v.replace(/(\\r|\\n)/g, '\n');
+                  result[key] = v;
+                  key = v = '';
+                  isStr = false;
+                }
+              } else {
+                window.console.error('parse fail?', isStr, lastC, str);
+                return null;
+              }
+            } else {
+              quot = c;
+              isStr = true;
+            }
+            break;
+          default:
+            v += c;
+        }
+        lastC = c;
+      }
+      if (key !== '' && v !== '') { result[key] = v.trim(); }
+
+      return result;
+    },
+    _parseReplace: function(str) {
+      var result = this._parseParams(str);
+
+      if (!result) { return null; }
+      return {
+        src:     result.src,
+        dest:    result.dest || '',
+        fill:    result.fill   === 'true' ? true : false,
+        target:  result.target || 'user',
+        partial: result.partial === 'false' ? false: true
+      };
+    },
+    _parse置換: function(str) {
+      var tmp = str.split(/[ ]+/);
+      //＠置換キーワード置換後置換範囲投コメ一致条件
+      return {
+        src:  tmp[1],
+        dest: tmp[2] || '',
+        fill:    tmp[3] === '全'       ? true : false,          //全体を置き換えるかどうか
+        target:  tmp[4] === '含む'     ? 'owner user' : 'user', // 投稿者コメントを含めるかどうか
+        partial: tmp[5] === '完全一致' ? false : true           // 完全一致のみを見るかどうか
+      };
+    },
+    apply: function(group) {
+      this._sort();
+      // どうせ1%も使われていないので
+      // 最適化もへったくれもない
+      var applyFunc = {
+        'DEFAULT': function(nicoChat, nicos) {
+          var nicosColor = nicos.getColor();
+          var chatColor = nicoChat.getColor();
+          if (nicosColor && !chatColor) {
+            nicoChat.setColor(nicosColor);
+          }
+          // TODO: コメントサイズやue, shitaも対応する
+        },
+        'REVERSE': function(nicoChat) {
+          nicoChat.setIsReverse(true);
+        },
+        'REPLACE': function(nicoChat, nicos, params) {
+          if (!params) { return; }
+          if (nicoChat.getFork() > 0 && (params.target || '').indexOf('owner') < 0) { return; }
+
+          var isMatch = false;
+          var text = nicoChat.getText();
+
+          if (params.partial === true) {
+            isMatch = text.indexOf(params.src) >= 0;
+          } else {
+            isMatch = text === params.src;
+          }
+          if (!isMatch) { return; }
+          
+          if (params.fill === true) {
+            text = params.dest;
+          } else {
+            var reg = new RegExp(ZenzaWatch.util.escapeRegs(params.src), 'g');
+            text = text.replace(reg, ZenzaWatch.util.escapeRegs(params.dest));
+          }
+          nicoChat.setText(text);
+        }
+      };
+
+      _.each(this._list, (function(nicos) {
+        var p = this._parseNicos(nicos);
+        if (!p) { return; }
+        var func = applyFunc[p.type];
+        if (!func) { return; }
+
+        var beginTime = nicos.getBeginTime();
+        var endTime   = beginTime + nicos.getDuration();
+        //window.console.log('nicos:', nicos.getText(), p.type, beginTime, endTime, nicos, p);
+
+        _.each(group.getMembers ? group.getMembers : group, function(nicoChat) {
+          if (nicoChat.isNicoScript()) { return; }
+          var ct = nicoChat.getBeginTime();
+          if (beginTime > ct || endTime < ct) { return; }
+          func(nicoChat, nicos, p.params);
+        });
+      }).bind(this));
+    }
+  });
+
+
 
 
 

@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://www.nicovideo.jp/*
-// @version     1.2.2
+// @version     1.2.4
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -705,7 +705,12 @@
         }
         var gamepads = navigator.getGamepads();
         if (gamepads.length > 0) {
-          var pad = _.find(gamepads, (pad) => { return pad !== undefined && pad.id; });
+          var pad = _.find(gamepads, (pad) => {
+            return  pad !== undefined &&
+                    pad.id &&
+                    // windowsにDualShock4を繋ぐとあらわれる謎のデバイス
+                    !pad.id.match(/Vendor: 00ff/i);
+          });
           if (!pad) { return; }
           window.console.log(
             '%cdetect gamepad index: %s, id: "%s"',
