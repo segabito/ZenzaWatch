@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.1.0
+// @version        1.1.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.1.0';
+  var VER = '1.1.1';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -11001,9 +11001,10 @@ spacer {
     },
     _parseNicos: function(nicos) {
       var text = nicos.getText().trim();
+      var text1 = (text || '').split(/[ 　]+/)[0];
       var params;
       var type;
-      switch (text) {
+      switch (text1) {
         case '@デフォルト': case '＠デフォルト':
           type = 'DEFAULT';
           if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }

@@ -3014,9 +3014,10 @@ spacer {
     },
     _parseNicos: function(nicos) {
       var text = nicos.getText().trim();
+      var text1 = (text || '').split(/[ 　]+/)[0];
       var params;
       var type;
-      switch (text) {
+      switch (text1) {
         case '@デフォルト': case '＠デフォルト':
           type = 'DEFAULT';
           if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
