@@ -191,16 +191,16 @@ han_group { font-family: 'Arial'; }
      半角文字に挟まれていないはずである。
    *}
     .gothic > .type2001 {
-      font-family: 'ＭＳ Ｐゴシック';
+      font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';
     }
     .mincho > .type2001 {
-      font-family: Simsun;
+      font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace
     }
     .gulim > .type2001 {
-      font-family: Gulim;
+      font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace;
     }
     .mingLiu > .type2001 {
-      font-family: PmingLiu, mingLiu;
+      font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace;
     }
 
 {*
@@ -391,7 +391,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 //        }
 //      }
     // \u2001だけのグループ＝全角文字に隣接してない ≒ 半角に挟まれている
-      htmlText.replace(/(.)<group>([\u2001]+)(<\/group>)(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
+      htmlText = htmlText.replace(/(.)<group>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
 
       htmlText = htmlText.replace(/<group>/g, '<group class="' + strongFont + '">');
 

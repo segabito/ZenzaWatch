@@ -7787,16 +7787,16 @@ han_group { font-family: 'Arial'; }
      半角文字に挟まれていないはずである。
    *}
     .gothic > .type2001 {
-      font-family: 'ＭＳ Ｐゴシック';
+      font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';
     }
     .mincho > .type2001 {
-      font-family: Simsun;
+      font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace
     }
     .gulim > .type2001 {
-      font-family: Gulim;
+      font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace;
     }
     .mingLiu > .type2001 {
-      font-family: PmingLiu, mingLiu;
+      font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace;
     }
 
 {*
@@ -7987,7 +7987,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 //        }
 //      }
     // \u2001だけのグループ＝全角文字に隣接してない ≒ 半角に挟まれている
-      htmlText.replace(/(.)<group>([\u2001]+)(<\/group>)(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
+      htmlText = htmlText.replace(/(.)<group>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
 
       htmlText = htmlText.replace(/<group>/g, '<group class="' + strongFont + '">');
 
@@ -10374,15 +10374,15 @@ spacer {
 
       var i, inViewElements;
       var commentLayer = this._commentLayer;
-      inViewElements = commentLayer.getElementsByClassName('nicoChat');
-      //inViewElements = commentLayer.querySelectorAll('nicoChat.fork0');
+      //inViewElements = commentLayer.getElementsByClassName('nicoChat');
+      inViewElements = commentLayer.querySelectorAll('nicoChat.fork0');
       for (i = inViewElements.length - max - 1; i >= 0; i--) {
         inViewElements[i].remove();
       }
-      //inViewElements = commentLayer.querySelectorAll('nicoChat.fork1');
-      //for (i = inViewElements.length - max - 1; i >= 0; i--) {
-      //  inViewElements[i].remove();
-      //}
+      inViewElements = commentLayer.querySelectorAll('nicoChat.fork1');
+      for (i = inViewElements.length - max - 1; i >= 0; i--) {
+        inViewElements[i].remove();
+      }
     },
 
     buildHtml: function(currentTime) {
@@ -10580,18 +10580,20 @@ spacer {
       } else {
         scaleCss =
           scale === 1.0 ?
-            ' transform: translate3d(-50%, 0, 0) scale(1);' :
-            (' transform: translate3d(-50%, 0, 0) scale(' + scale + ');');
+            ' transform: scale(1) translate3d(-50%, 0, 0);' :
+            (' transform: scale(' + scale + ') translate3d(-50%, 0, 0);');
+            //' transform:  scale(1);' : (' transform: scale(' + scale + ');');
 
         result = ['',
           ' #', id, ' {\n',
           '  z-index: ', zIndex, ';\n',
           '  top:', ypos, 'px;\n',
-          '  left: 50% ;\n',
+          //'  left: calc(50% - ', (width / 2) , 'px);\n',
+          '  left: 50%;\n',
           colorCss,
           '  font-size:', fontSizePx,  'px;\n',
 //          '  line-height:', lineHeight,  'px;\n',
-          '  width:', width, 'px;\n',
+//          '  width:', width, 'px;\n',
 //          '  height:', height, 'px;\n',
           scaleCss,
 //          '  animation-name: fixed', id, ';\n',
@@ -11007,21 +11009,18 @@ spacer {
       switch (text1) {
         case '@デフォルト': case '＠デフォルト':
           type = 'DEFAULT';
-          if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
           break;
         case '@逆': case '＠逆':
           type = 'REVERSE';
-          if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
+          params = this._parse逆(text);
           break;
         default:
           if (text.indexOf('@置換') === 0 || text.indexOf('＠置換') === 0) {
             type = 'REPLACE';
             params = this._parse置換(text);
-            if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
           } else if (text.match(/^\/replace\((.*?)\)/)) {
             type = 'REPLACE';
             params = this._parseReplace(RegExp.$1);
-            if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
           } else { return null; }
       }
       return {
@@ -11056,7 +11055,10 @@ spacer {
               } else if (isStr) {
                 if (lastC === '\\') { v += c; }
                 else {
-                  v = v.replace(/(\\r|\\n)/g, '\n');
+                  if (quot === '"') {
+                    // ダブルクォートの時だけエスケープがあるらしい
+                    v = v.replace(/(\\r|\\n)/g, '\n').replace(/(\\t)/g, '\t');
+                  }
                   result[key] = v;
                   key = v = '';
                   isStr = false;
@@ -11092,7 +11094,7 @@ spacer {
       };
     },
     _parse置換: function(str) {
-      var tmp = str.split(/[ ]+/);
+      var tmp = str.split(/[ 　]+/);
       //＠置換キーワード置換後置換範囲投コメ一致条件
       return {
         src:  tmp[1],
@@ -11100,6 +11102,15 @@ spacer {
         fill:    tmp[3] === '全'       ? true : false,          //全体を置き換えるかどうか
         target:  tmp[4] === '含む'     ? 'owner user' : 'user', // 投稿者コメントを含めるかどうか
         partial: tmp[5] === '完全一致' ? false : true           // 完全一致のみを見るかどうか
+      };
+    },
+    _parse逆: function(str) {
+      var tmp = str.split(/[ 　]+/);
+      //＠逆　投コメ
+      var target = (tmp[1] || '').trim();
+      //＠置換キーワード置換後置換範囲投コメ一致条件
+      return {
+        target: (target === 'コメ' || target === '投コメ') ? target : '全',
       };
     },
     apply: function(group) {
@@ -11115,8 +11126,14 @@ spacer {
           }
           // TODO: コメントサイズやue, shitaも対応する
         },
-        'REVERSE': function(nicoChat) {
-          nicoChat.setIsReverse(true);
+        'REVERSE': function(nicoChat, nicos, params) {
+          if (params.target === '全') {
+            nicoChat.setIsReverse(true);
+          } else if (params.target === '投コメ') {
+            if (nicoChat.getFork() > 0)   { nicoChat.setIsReverse(true); }
+          } else if (params.target === 'コメ') {
+            if (nicoChat.getFork() === 0) { nicoChat.setIsReverse(true); }
+          }
         },
         'REPLACE': function(nicoChat, nicos, params) {
           if (!params) { return; }
@@ -11147,6 +11164,8 @@ spacer {
         if (!p) { return; }
         var func = applyFunc[p.type];
         if (!func) { return; }
+
+        if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
 
         var beginTime = nicos.getBeginTime();
         var endTime   = beginTime + nicos.getDuration();
