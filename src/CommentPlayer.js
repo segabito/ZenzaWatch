@@ -246,7 +246,8 @@ var NicoTextParser = {};
       this._topGroup.reset();
       this._nakaGroup.reset();
       this._bottomGroup.reset();
-      var nicoScripter = new NicoScripter();
+      var nicoScripter = this._nicoScripter = new NicoScripter();
+      var nicoChats = [];
 
       var chats = xml.getElementsByTagName('chat');
       var top = [], bottom = [], naka = [];
@@ -255,9 +256,32 @@ var NicoTextParser = {};
         if (!chat.firstChild) continue;
 
         var nicoChat = new NicoChat(chat);
-
         if (nicoChat.isDeleted()) { continue; }
 
+        if (nicoChat.isNicoScript()) {
+          nicoScripter.add(nicoChat);
+        }
+
+        nicoChats.push(nicoChat);
+
+      }
+
+      if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
+        window.console.time('コメント置換フィルタ適用');
+        this._wordReplacer = this._compileWordReplacer(options.replacement);
+        this._preProcessWordReplacement(top, nicoChats);
+        window.console.timeEnd('コメント置換フィルタ適用');
+      } else {
+        this._wordReplacer = null;
+      }
+
+      if (nicoScripter.isExist()) {
+        window.console.time('ニコスクリプト適用');
+        nicoScripter.apply(nicoChats);
+        window.console.timeEnd('ニコスクリプト適用');
+      }
+
+      _.each(nicoChats, function(nicoChat) {
         var type = nicoChat.getType();
         var group;
         switch (type) {
@@ -272,29 +296,7 @@ var NicoTextParser = {};
             break;
         }
         group.push(nicoChat);
-        if (nicoChat.isNicoScript()) {
-          nicoScripter.add(nicoChat);
-        }
-      }
-
-      if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
-        window.console.time('コメント置換フィルタ適用');
-        this._wordReplacer = this._compileWordReplacer(options.replacement);
-        this._preProcessWordReplacement(top,    this._wordReplacer);
-        this._preProcessWordReplacement(naka,   this._wordReplacer);
-        this._preProcessWordReplacement(bottom, this._wordReplacer);
-        window.console.timeEnd('コメント置換フィルタ適用');
-      } else {
-        this._wordReplacer = null;
-      }
-
-      if (nicoScripter.isExist()) {
-        window.console.time('ニコスクリプト適用');
-        nicoScripter.apply(top);
-        nicoScripter.apply(naka);
-        nicoScripter.apply(bottom);
-        window.console.timeEnd('ニコスクリプト適用');
-      }
+      });
 
       this._topGroup   .addChatArray(top);
       this._nakaGroup  .addChatArray(naka);
@@ -2578,7 +2580,7 @@ spacer {
           ' }\n',
           '',
           ' #', id, ' {\n',
-          '  z-index: ', zIndex , ';\n',
+          '  z-index: ', (zIndex + 100000) , ';\n', // NAKAコメントは常にue, shitaより手前？
           '  top:', ypos, 'px;\n',
           '  left:', leftPos, 'px;\n',
           colorCss,
@@ -2983,216 +2985,5 @@ spacer {
     }
   });
 
-
-  var NicoScripter = function() { this.initialize.apply(this, arguments); };
-  _.extend(NicoScripter.prototype, AsyncEmitter.prototype);
-  _.assign(NicoScripter.prototype, {
-    initialize: function() {
-      this.reset();
-    },
-    reset: function() {
-      this._hasSort = false;
-      this._list = [];
-    },
-    add: function(nicoChat) {
-      this._hasSort = false;
-      this._list.push(nicoChat);
-    },
-    isExist: function() {
-      return this._list.length > 0;
-    },
-    _sort: function() {
-      if (this._hasSort) { return; }
-      var list = this._list.concat().sort(function(a, b) {
-        var av = a.getVpos(), bv = b.getVpos();
-        if (av !== bv) {
-          return av - bv;
-        } else {
-          return a.getNo() < b.getNo() ? -1 : 1;
-        }
-      });
-      this._list = list;
-      this._hasSort = true;
-    },
-    _parseNicos: function(nicos) {
-      var text = nicos.getText().trim();
-      var text1 = (text || '').split(/[ 　]+/)[0];
-      var params;
-      var type;
-      switch (text1) {
-        case '@デフォルト': case '＠デフォルト':
-          type = 'DEFAULT';
-          break;
-        case '@逆': case '＠逆':
-          type = 'REVERSE';
-          params = this._parse逆(text);
-          break;
-        default:
-          if (text.indexOf('@置換') === 0 || text.indexOf('＠置換') === 0) {
-            type = 'REPLACE';
-            params = this._parse置換(text);
-          } else if (text.match(/^\/replace\((.*?)\)/)) {
-            type = 'REPLACE';
-            params = this._parseReplace(RegExp.$1);
-          } else { return null; }
-      }
-      return {
-        type: type,
-        params: params
-      };
-    },
-    _parseParams: function(str) {
-      // 雑なパース
-      var result = {}, v = '', lastC = '', key, isStr = false, quot = '';
-      for (var i = 0, len = str.length; i < len; i++) {
-        var c = str.charAt(i);
-        switch (c) {
-          case ':':
-            key = v.trim();
-            v = '';
-            break;
-          case ',':
-            if (isStr) { v += c; }
-            else {
-              if (key !== '' && v !== '') { result[key] = v.trim(); }
-              key = v = '';
-            }
-            break;
-          case ' ':
-            if (v !== '') { v+= c; }
-            break;
-          case "'": case '"':
-            if (v !== '') {
-              if (quot !== c) {
-                v += c;
-              } else if (isStr) {
-                if (lastC === '\\') { v += c; }
-                else {
-                  if (quot === '"') {
-                    // ダブルクォートの時だけエスケープがあるらしい
-                    v = v.replace(/(\\r|\\n)/g, '\n').replace(/(\\t)/g, '\t');
-                  }
-                  result[key] = v;
-                  key = v = '';
-                  isStr = false;
-                }
-              } else {
-                window.console.error('parse fail?', isStr, lastC, str);
-                return null;
-              }
-            } else {
-              quot = c;
-              isStr = true;
-            }
-            break;
-          default:
-            v += c;
-        }
-        lastC = c;
-      }
-      if (key !== '' && v !== '') { result[key] = v.trim(); }
-
-      return result;
-    },
-    _parseReplace: function(str) {
-      var result = this._parseParams(str);
-
-      if (!result) { return null; }
-      return {
-        src:     result.src,
-        dest:    result.dest || '',
-        fill:    result.fill   === 'true' ? true : false,
-        target:  result.target || 'user',
-        partial: result.partial === 'false' ? false: true
-      };
-    },
-    _parse置換: function(str) {
-      var tmp = str.split(/[ 　]+/);
-      //＠置換キーワード置換後置換範囲投コメ一致条件
-      return {
-        src:  tmp[1],
-        dest: tmp[2] || '',
-        fill:    tmp[3] === '全'       ? true : false,          //全体を置き換えるかどうか
-        target:  tmp[4] === '含む'     ? 'owner user' : 'user', // 投稿者コメントを含めるかどうか
-        partial: tmp[5] === '完全一致' ? false : true           // 完全一致のみを見るかどうか
-      };
-    },
-    _parse逆: function(str) {
-      var tmp = str.split(/[ 　]+/);
-      //＠逆　投コメ
-      var target = (tmp[1] || '').trim();
-      //＠置換キーワード置換後置換範囲投コメ一致条件
-      return {
-        target: (target === 'コメ' || target === '投コメ') ? target : '全',
-      };
-    },
-    apply: function(group) {
-      this._sort();
-      // どうせ1%も使われていないので
-      // 最適化もへったくれもない
-      var applyFunc = {
-        'DEFAULT': function(nicoChat, nicos) {
-          var nicosColor = nicos.getColor();
-          var chatColor = nicoChat.getColor();
-          if (nicosColor && !chatColor) {
-            nicoChat.setColor(nicosColor);
-          }
-          // TODO: コメントサイズやue, shitaも対応する
-        },
-        'REVERSE': function(nicoChat, nicos, params) {
-          if (params.target === '全') {
-            nicoChat.setIsReverse(true);
-          } else if (params.target === '投コメ') {
-            if (nicoChat.getFork() > 0)   { nicoChat.setIsReverse(true); }
-          } else if (params.target === 'コメ') {
-            if (nicoChat.getFork() === 0) { nicoChat.setIsReverse(true); }
-          }
-        },
-        'REPLACE': function(nicoChat, nicos, params) {
-          if (!params) { return; }
-          if (nicoChat.getFork() > 0 && (params.target || '').indexOf('owner') < 0) { return; }
-
-          var isMatch = false;
-          var text = nicoChat.getText();
-
-          if (params.partial === true) {
-            isMatch = text.indexOf(params.src) >= 0;
-          } else {
-            isMatch = text === params.src;
-          }
-          if (!isMatch) { return; }
-          
-          if (params.fill === true) {
-            text = params.dest;
-          } else {
-            var reg = new RegExp(ZenzaWatch.util.escapeRegs(params.src), 'g');
-            text = text.replace(reg, ZenzaWatch.util.escapeRegs(params.dest));
-          }
-          nicoChat.setText(text);
-        }
-      };
-
-      _.each(this._list, (function(nicos) {
-        var p = this._parseNicos(nicos);
-        if (!p) { return; }
-        var func = applyFunc[p.type];
-        if (!func) { return; }
-
-        if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
-
-        var beginTime = nicos.getBeginTime();
-        var endTime   = beginTime + nicos.getDuration();
-        //window.console.log('nicos:', nicos.getText(), p.type, beginTime, endTime, nicos, p);
-
-        _.each(group.getMembers ? group.getMembers : group, function(nicoChat) {
-          if (nicoChat.isNicoScript()) { return; }
-          var ct = nicoChat.getBeginTime();
-          if (beginTime > ct || endTime < ct) { return; }
-          func(nicoChat, nicos, p.params);
-        });
-      }).bind(this));
-    }
-  });
-
-
+//===END===
 

@@ -1208,6 +1208,7 @@ var console;
 
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
+      var isVerySlow = false;
 
       var onKeyDown = function(e) {
         if (e.target.tagName === 'SELECT' ||
@@ -1238,13 +1239,13 @@ var console;
             if (e.shiftKey) { key = 'SEEK_TO'; param = 0; }
             break;
           case 37: // LEFT
-            if (e.shiftKey) { key = 'SEEK_BY'; param = -5; }
+            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ? -1 : -5; }
             break;
           case 38: // UP
             if (e.shiftKey) { key = 'VOL_UP'; }
             break;
           case 39: // RIGHT
-            if (e.shiftKey) { key = 'SEEK_BY'; param = 5;}
+            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ?  1 :  5; }
             break;
           case 40: // DOWN
             if (e.shiftKey) { key = 'VOL_DOWN'; }
@@ -1269,6 +1270,7 @@ var console;
             break;
           case 49: // 1
             key = 'PLAYBACK_RATE';
+            isVerySlow = true;
             param = 0.1;
             break;
           case 74: //J
@@ -1306,6 +1308,7 @@ var console;
         switch (e.keyCode) {
           case 49:
             key = 'PLAYBACK_RATE';
+            isVerySlow = false;
             param = 1;
             break;
         }

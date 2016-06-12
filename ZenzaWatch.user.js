@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.1.1
+// @version        1.1.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.1.1';
+  var VER = '1.1.2';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1268,6 +1268,7 @@ var monkey = function() {
 
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
+      var isVerySlow = false;
 
       var onKeyDown = function(e) {
         if (e.target.tagName === 'SELECT' ||
@@ -1298,13 +1299,13 @@ var monkey = function() {
             if (e.shiftKey) { key = 'SEEK_TO'; param = 0; }
             break;
           case 37: // LEFT
-            if (e.shiftKey) { key = 'SEEK_BY'; param = -5; }
+            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ? -1 : -5; }
             break;
           case 38: // UP
             if (e.shiftKey) { key = 'VOL_UP'; }
             break;
           case 39: // RIGHT
-            if (e.shiftKey) { key = 'SEEK_BY'; param = 5;}
+            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ?  1 :  5; }
             break;
           case 40: // DOWN
             if (e.shiftKey) { key = 'VOL_DOWN'; }
@@ -1329,6 +1330,7 @@ var monkey = function() {
             break;
           case 49: // 1
             key = 'PLAYBACK_RATE';
+            isVerySlow = true;
             param = 0.1;
             break;
           case 74: //J
@@ -1366,6 +1368,7 @@ var monkey = function() {
         switch (e.keyCode) {
           case 49:
             key = 'PLAYBACK_RATE';
+            isVerySlow = false;
             param = 1;
             break;
         }
@@ -8233,7 +8236,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._topGroup.reset();
       this._nakaGroup.reset();
       this._bottomGroup.reset();
-      var nicoScripter = new NicoScripter();
+      var nicoScripter = this._nicoScripter = new NicoScripter();
+      var nicoChats = [];
 
       var chats = xml.getElementsByTagName('chat');
       var top = [], bottom = [], naka = [];
@@ -8242,9 +8246,32 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         if (!chat.firstChild) continue;
 
         var nicoChat = new NicoChat(chat);
-
         if (nicoChat.isDeleted()) { continue; }
 
+        if (nicoChat.isNicoScript()) {
+          nicoScripter.add(nicoChat);
+        }
+
+        nicoChats.push(nicoChat);
+
+      }
+
+      if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
+        window.console.time('コメント置換フィルタ適用');
+        this._wordReplacer = this._compileWordReplacer(options.replacement);
+        this._preProcessWordReplacement(top, nicoChats);
+        window.console.timeEnd('コメント置換フィルタ適用');
+      } else {
+        this._wordReplacer = null;
+      }
+
+      if (nicoScripter.isExist()) {
+        window.console.time('ニコスクリプト適用');
+        nicoScripter.apply(nicoChats);
+        window.console.timeEnd('ニコスクリプト適用');
+      }
+
+      _.each(nicoChats, function(nicoChat) {
         var type = nicoChat.getType();
         var group;
         switch (type) {
@@ -8259,29 +8286,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
             break;
         }
         group.push(nicoChat);
-        if (nicoChat.isNicoScript()) {
-          nicoScripter.add(nicoChat);
-        }
-      }
-
-      if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
-        window.console.time('コメント置換フィルタ適用');
-        this._wordReplacer = this._compileWordReplacer(options.replacement);
-        this._preProcessWordReplacement(top,    this._wordReplacer);
-        this._preProcessWordReplacement(naka,   this._wordReplacer);
-        this._preProcessWordReplacement(bottom, this._wordReplacer);
-        window.console.timeEnd('コメント置換フィルタ適用');
-      } else {
-        this._wordReplacer = null;
-      }
-
-      if (nicoScripter.isExist()) {
-        window.console.time('ニコスクリプト適用');
-        nicoScripter.apply(top);
-        nicoScripter.apply(naka);
-        nicoScripter.apply(bottom);
-        window.console.timeEnd('ニコスクリプト適用');
-      }
+      });
 
       this._topGroup   .addChatArray(top);
       this._nakaGroup  .addChatArray(naka);
@@ -10565,7 +10570,7 @@ spacer {
           ' }\n',
           '',
           ' #', id, ' {\n',
-          '  z-index: ', zIndex , ';\n',
+          '  z-index: ', (zIndex + 100000) , ';\n', // NAKAコメントは常にue, shitaより手前？
           '  top:', ypos, 'px;\n',
           '  left:', leftPos, 'px;\n',
           colorCss,
@@ -10971,6 +10976,7 @@ spacer {
   });
 
 
+
   var NicoScripter = function() { this.initialize.apply(this, arguments); };
   _.extend(NicoScripter.prototype, AsyncEmitter.prototype);
   _.assign(NicoScripter.prototype, {
@@ -11001,8 +11007,8 @@ spacer {
       this._list = list;
       this._hasSort = true;
     },
-    _parseNicos: function(nicos) {
-      var text = nicos.getText().trim();
+    _parseNicos: function(text) {
+      text = text.trim();
       var text1 = (text || '').split(/[ 　]+/)[0];
       var params;
       var type;
@@ -11018,15 +11024,31 @@ spacer {
           if (text.indexOf('@置換') === 0 || text.indexOf('＠置換') === 0) {
             type = 'REPLACE';
             params = this._parse置換(text);
-          } else if (text.match(/^\/replace\((.*?)\)/)) {
-            type = 'REPLACE';
-            params = this._parseReplace(RegExp.$1);
-          } else { return null; }
+          } else {
+            type = 'PIPE';
+            var lines = this._splitLines(text);
+            params = this._parseNiwango(lines);
+          }
       }
       return {
         type: type,
         params: params
       };
+    },
+    _parseNiwango: function(lines) {
+      // 構文はいったん無視して、対応できる命令だけ拾っていく。
+      // ニワン語のフル実装は夢
+      var type, params;
+      var result = [];
+      for (var i = 0, len = lines.length; i < len; i++) {
+        var text = lines[i];
+        if (text.match(/^\/?replace\((.*?)\)/)) {
+          type = 'REPLACE';
+          params = this._parseReplace(RegExp.$1);
+          result.push({type: type, params: params});
+        }
+      }
+      return result;
     },
     _parseParams: function(str) {
       // 雑なパース
@@ -11081,6 +11103,42 @@ spacer {
 
       return result;
     },
+    _splitLines: function(str) {
+      var result = [], v = '', lastC = '', isStr = false, quot = '';
+      for (var i = 0, len = str.length; i < len; i++) {
+        var c = str.charAt(i);
+        switch (c) {
+          case ';':
+            if (isStr) { v += c; }
+            else {
+              result.push(v.trim());
+              v = '';
+            }
+            break;
+          case ' ':
+            if (v !== '') { v += c; }
+            break;
+          case "'": case '"':
+            if (isStr) {
+              if (quot === c) {
+                if (lastC !== '\\') { isStr = false; }
+              }
+              v += c;
+            } else {
+              quot = c;
+              isStr = true;
+              v += c;
+            }
+            break;
+          default:
+            v += c;
+        }
+        lastC = c;
+      }
+      if (v !== '') { result.push(v.trim()); }
+
+      return result;
+    },
     _parseReplace: function(str) {
       var result = this._parseParams(str);
 
@@ -11115,7 +11173,7 @@ spacer {
     },
     apply: function(group) {
       this._sort();
-      // どうせ1%も使われていないので
+      // どうせ全動画の1%も使われていないので
       // 最適化もへったくれもない
       var applyFunc = {
         'DEFAULT': function(nicoChat, nicos) {
@@ -11156,11 +11214,20 @@ spacer {
             text = text.replace(reg, ZenzaWatch.util.escapeRegs(params.dest));
           }
           nicoChat.setText(text);
+        },
+        'PIPE': function(nicoChat, nicos, lines) {
+          _.each(lines, function(line) {
+            var type = line.type;
+            var f = applyFunc[type];
+            if (f) {
+              f(nicoChat, nicos, line.params);
+            }
+          });
         }
       };
 
       _.each(this._list, (function(nicos) {
-        var p = this._parseNicos(nicos);
+        var p = this._parseNicos(nicos.getText());
         if (!p) { return; }
         var func = applyFunc[p.type];
         if (!func) { return; }
@@ -11180,8 +11247,6 @@ spacer {
       }).bind(this));
     }
   });
-
-
 
 
 

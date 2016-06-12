@@ -1,0 +1,22 @@
+{
+  "name": "ZenzaWatch",
+  "version": "0.0.0",
+  "description": "niconico HTML5 Player",
+  "main": "ZenzaWatch.user.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/segabito/ZenzaWatch.git"
+  },
+  "author": "",
+  "license": "Public Domain",
+  "bugs": {
+    "url": "https://github.com/segabito/ZenzaWatch/issues"
+  },
+  "homepage": "https://github.com/segabito/ZenzaWatch"
+}
