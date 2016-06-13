@@ -1831,7 +1831,7 @@ var NicoTextParser = {};
   height: 385px;
   right: 0;
   bottom: 0;
-  transform: translate(-50%, -50%);
+  transform: translate3d(-50%, -50%, 0);
   box-sizing: border-box;
 }
 

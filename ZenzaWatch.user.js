@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.1.2
+// @version        1.1.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.1.2';
+  var VER = '1.1.3';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -9821,7 +9821,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   height: 385px;
   right: 0;
   bottom: 0;
-  transform: translate(-50%, -50%);
+  transform: translate3d(-50%, -50%, 0);
   box-sizing: border-box;
 }
 
@@ -11241,7 +11241,10 @@ spacer {
         _.each(group.getMembers ? group.getMembers : group, function(nicoChat) {
           if (nicoChat.isNicoScript()) { return; }
           var ct = nicoChat.getBeginTime();
+          //if (ct === beginTime && nicoChat.getId() < nicos.getId()) { return; }
+          //else
           if (beginTime > ct || endTime < ct) { return; }
+
           func(nicoChat, nicos, p.params);
         });
       }).bind(this));
@@ -13345,7 +13348,7 @@ data-title="%no%: %date% ID:%userId%
       return this._itemId;
     },
     getWatchId: function() {
-      return this._getData('id', '').toString();
+      return (this._getData('id', '') || '').toString();
     },
     getTitle: function() {
       return this._getData('title', '');
@@ -14153,12 +14156,13 @@ data-title="%no%: %date% ID:%userId%
           _.each(items, function(item) {
             // マイリストはitem_typeがint
             // とりまいはitem_typeがstringっていうね
+            if (!item.id) { return; }
             if (item.item_data) {
               if (parseInt(item.item_type, 10) !== 0) { return; } // not video
               if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
             } else {
               //if (excludeId.test(item.id)) { return; } // not video
-              if (item.thumbnail_url.indexOf('video_deleted') >= 0) { return; }
+              if (item.thumbnail_url && item.thumbnail_url.indexOf('video_deleted') >= 0) { return; }
             }
             videoListItems.push(
               VideoListItem.createByMylistItem(item)

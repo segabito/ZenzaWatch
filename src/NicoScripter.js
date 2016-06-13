@@ -273,7 +273,10 @@ var AsyncEmitter = {};
         _.each(group.getMembers ? group.getMembers : group, function(nicoChat) {
           if (nicoChat.isNicoScript()) { return; }
           var ct = nicoChat.getBeginTime();
+          //if (ct === beginTime && nicoChat.getId() < nicos.getId()) { return; }
+          //else
           if (beginTime > ct || endTime < ct) { return; }
+
           func(nicoChat, nicos, p.params);
         });
       }).bind(this));

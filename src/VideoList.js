@@ -1053,7 +1053,7 @@ var PopupMessage = {};
       return this._itemId;
     },
     getWatchId: function() {
-      return this._getData('id', '').toString();
+      return (this._getData('id', '') || '').toString();
     },
     getTitle: function() {
       return this._getData('title', '');
@@ -1861,12 +1861,13 @@ var PopupMessage = {};
           _.each(items, function(item) {
             // マイリストはitem_typeがint
             // とりまいはitem_typeがstringっていうね
+            if (!item.id) { return; }
             if (item.item_data) {
               if (parseInt(item.item_type, 10) !== 0) { return; } // not video
               if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
             } else {
               //if (excludeId.test(item.id)) { return; } // not video
-              if (item.thumbnail_url.indexOf('video_deleted') >= 0) { return; }
+              if (item.thumbnail_url && item.thumbnail_url.indexOf('video_deleted') >= 0) { return; }
             }
             videoListItems.push(
               VideoListItem.createByMylistItem(item)
