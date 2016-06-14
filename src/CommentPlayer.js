@@ -269,7 +269,7 @@ var NicoTextParser = {};
       if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
         window.console.time('コメント置換フィルタ適用');
         this._wordReplacer = this._compileWordReplacer(options.replacement);
-        this._preProcessWordReplacement(top, nicoChats);
+        this._preProcessWordReplacement(nicoChats, this._wordReplacer);
         window.console.timeEnd('コメント置換フィルタ適用');
       } else {
         this._wordReplacer = null;
