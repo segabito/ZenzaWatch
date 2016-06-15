@@ -1269,11 +1269,33 @@ var console;
             key = 'SPACE';
             break;
           case 49: // 1
-            key = 'PLAYBACK_RATE';
-            isVerySlow = true;
-            param = 0.1;
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'small';
+            } else {
+              key = 'PLAYBACK_RATE';
+              isVerySlow = true;
+              param = 0.1;
+            }
             break;
-          case 74: //J
+          case 222: // Shift + 2 ???
+          case 50: // 2
+            // なぜかMacBookではShift + 2で222が飛んでくる。不明。
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'sideView'; }
+            break;
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'sideView'; }
+            break;
+          case 51: // 3
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = '3D'; }
+            break;
+          case 52: // 4
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'normal'; }
+            break;
+          case 53: // 5
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'big'; }
+            break;
+          case 54: // 6
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'wide'; }
+            break;
+          case 55: //J
             key = 'NEXT_VIDEO';
             break;
           case 75: //J

@@ -1214,6 +1214,9 @@ var CommentPanel = function() {};
         case 'SHIFT_DOWN':
           this.execCommand('shiftDown');
           break;
+        case 'SCREEN_MODE':
+          this.execCommand('screenMode', param);
+          break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
       if (!_.contains(['small', 'sideView'], screenMode)) {

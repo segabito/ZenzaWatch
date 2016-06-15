@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.1.4
+// @version        1.1.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.1.4';
+  var VER = '1.1.5';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1329,11 +1329,33 @@ var monkey = function() {
             key = 'SPACE';
             break;
           case 49: // 1
-            key = 'PLAYBACK_RATE';
-            isVerySlow = true;
-            param = 0.1;
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'small';
+            } else {
+              key = 'PLAYBACK_RATE';
+              isVerySlow = true;
+              param = 0.1;
+            }
             break;
-          case 74: //J
+          case 222: // Shift + 2 ???
+          case 50: // 2
+            // なぜかMacBookではShift + 2で222が飛んでくる。不明。
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'sideView'; }
+            break;
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'sideView'; }
+            break;
+          case 51: // 3
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = '3D'; }
+            break;
+          case 52: // 4
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'normal'; }
+            break;
+          case 53: // 5
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'big'; }
+            break;
+          case 54: // 6
+            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'wide'; }
+            break;
+          case 55: //J
             key = 'NEXT_VIDEO';
             break;
           case 75: //J
@@ -15736,6 +15758,9 @@ data-title="%no%: %date% ID:%userId%
           break;
         case 'SHIFT_DOWN':
           this.execCommand('shiftDown');
+          break;
+        case 'SCREEN_MODE':
+          this.execCommand('screenMode', param);
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
