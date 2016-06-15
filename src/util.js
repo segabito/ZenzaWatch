@@ -1281,8 +1281,6 @@ var console;
             // なぜかMacBookではShift + 2で222が飛んでくる。不明。
             if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'sideView'; }
             break;
-            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'sideView'; }
-            break;
           case 51: // 3
             if (e.shiftKey) { key = 'SCREEN_MODE'; param = '3D'; }
             break;
@@ -1295,10 +1293,10 @@ var console;
           case 54: // 6
             if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'wide'; }
             break;
-          case 55: //J
+          case 74: //J
             key = 'NEXT_VIDEO';
             break;
-          case 75: //J
+          case 75: //K
             key = 'PREV_VIDEO';
             break;
           case 188: // <

@@ -260,7 +260,7 @@ var PopupMessage = {};
 
       this._retryGetIframeCount = 0;
 
-      this._cache = {};
+      this._htmlCache = {};
       this._maxItems = params.max || 100;
       this._dragdrop = _.isBoolean(params.dragdrop) ? params.dragdrop : false;
       this._dropfile = _.isBoolean(params.dropfile) ? params.dropfile : false;
@@ -270,6 +270,9 @@ var PopupMessage = {};
         this._model.on('update',     _.debounce(_.bind(this._onModelUpdate, this), 100));
         this._model.on('itemUpdate', _.bind(this._onModelItemUpdate, this));
       }
+      
+      this._isLazyLoadImage = window.IntersectionObserver ? true : false;
+      this._hasLazyLoad = {};
 
       this._initializeView(params);
     },
@@ -292,6 +295,7 @@ var PopupMessage = {};
       var $list = this._$list = $(doc.getElementById('listContainer'));
       if (this._html) {
         $list.html(this._html);
+        this._setInviewObserver();
       }
       $body.on('click', _.bind(this._onClick, this));
       $body.on('keydown', function(e) {
@@ -425,15 +429,19 @@ var PopupMessage = {};
       itemList = _.isArray(itemList) ? itemList: [itemList];
       var itemViews = [], Builder = this._ItemBuilder;
 
-      if (replaceAll) { this._cache = {}; }
+      if (replaceAll) { this._htmlCache = {}; }
 
       _.each(itemList, _.bind(function (item) {
         var id = item.getItemId();
-        if (this._cache[id]) {
+        if (this._htmlCache[id]) {
           //window.console.log('from cache');
-          itemViews.push(this._cache[id]);
+          itemViews.push(this._htmlCache[id]);
         } else {
-          var tpl = this._cache[id] = (new Builder({item: item})).toString();
+          var isLazy = this._isLazyLoadImage && !this._hasLazyLoad[item.getWatchId()];
+          var tpl = this._htmlCache[id] = (new Builder({
+            item: item,
+            isLazyLoadImage: isLazy
+          })).toString();
           itemViews.push(tpl);
         }
       }, this));
@@ -442,6 +450,7 @@ var PopupMessage = {};
 
       ZenzaWatch.util.callAsync(function() {
         if (this._$list) { this._$list.html(this._html); }
+        this._setInviewObserver();
       }, this, 0);
 
       ZenzaWatch.util.callAsync(function() {
@@ -450,13 +459,47 @@ var PopupMessage = {};
       }, this, 100);
       window.console.timeEnd('update playlistView');
     },
+    _setInviewObserver: function() {
+      if (!this._isLazyLoadImage || !this._document) { return; }
+      if (this._intersectionObserver) {
+        this._intersectionObserver.disconnect();
+      }
+      var onInview;
+      if (!this._onImageInview_bind) {
+        this._onImageInview_bind = this._onImageInview.bind(this);
+      }
+      onInview = this._onImageInview_bind;
+      var observer = this._intersectionObserver = new window.IntersectionObserver(onInview);
+      var images = this._document.querySelectorAll('img.lazy-load');
+      for (var i = 0, len = images.length; i < len; i++) {
+        observer.observe(images[i]);
+      }
+    },
+    _onImageInview: function(entries) {
+      var observer = this._intersectionObserver;
+      for (var i = 0, len = entries.length; i < len; i++) {
+        var entry = entries[i];
+        var image = entry.target;
+        var $image = $(image);
+        var src = $image.attr('data-src');
+        var watchId = $image.attr('data-watch-id');
+        var itemId = $image.attr('data-item-id');
+        $image.removeClass('lazy-load');
+        observer.unobserve(image);
+
+        if (!src) { continue; }
+        $image.attr('src', src);
+        if (watchId) { this._hasLazyLoad[watchId] = true; }
+        if (itemId) { this._htmlCache[itemId] = null; }
+      }
+    },
     _onModelItemUpdate: function(item, key, value) {
       //window.console.log('_onModelItemUpdate', item, item.getItemId(), item.getTitle(), key, value);
       if (!this._$body) { return; }
       var itemId = item.getItemId();
       var $item = this._$body.find('.videoItem.item' + itemId);
 
-      this._cache[itemId] = (new this._ItemBuilder({item: item})).toString();
+      this._htmlCache[itemId] = (new this._ItemBuilder({item: item})).toString();
       if (key === 'active') {
         this._$body.find('.videoItem.active').removeClass('active');
 
@@ -466,7 +509,7 @@ var PopupMessage = {};
       } else if (key === 'updating' || key === 'played') {
         $item.toggleClass(key, value);
       } else {
-        var $newItem = $(this._cache[itemId]);
+        var $newItem = $(this._htmlCache[itemId]);
         $item.before($newItem);
         $item.remove();
       }
@@ -864,7 +907,7 @@ var PopupMessage = {};
       <span class="command playlistRemove" data-command="playlistRemove" data-param="%watchId%" title="プレイリストから削除">×</span>
       <div class="thumbnailContainer">
         <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="select" data-param="%itemId%">
-          <img class="thumbnail" data-src="%thumbnail%" src="%thumbnail%">
+          <img class="thumbnail %isLazy%" %src%="%thumbnail%" data-watch-id="%watchId%" data-item-id="%itemId%">
           <span class="duration">%duration%</span>
           <span class="command playlistAppend" data-command="playlistAppend" data-param="%watchId%" title="プレイリストに追加">▶</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
@@ -890,6 +933,7 @@ var PopupMessage = {};
     initialize: function(params) {
       this.watchId = params.watchId;
       this._item = params.item;
+      this._isLazy = _.isBoolean(params.isLazyLoadImage) ? params.isLazyLoadImage : false;
     },
     build: function() {
       var tpl = VideoListItemView.__tpl__;
@@ -917,6 +961,8 @@ var PopupMessage = {};
         .replace(/%viewCount%/g,    this._addComma(count.view))
         .replace(/%commentCount%/g, this._addComma(count.comment))
         .replace(/%mylistCount%/g,  this._addComma(count.mylist))
+        .replace(/%isLazy%/g,  this._isLazy ? 'lazy-load' : '')
+        .replace(/%src%/g,  this._isLazy ? 'data-src' : 'src')
         .replace(/%className%/g, '')
         ;
       return tpl;
@@ -1850,18 +1896,17 @@ var PopupMessage = {};
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
-      window.console.time('loadMylist' + mylistId);
+      window.console.time('loadMylist: ' + mylistId);
 
       return this._mylistApiLoader
         .getMylistItems(mylistId, options).then(function(items) {
-          window.console.timeEnd('loadMylist' + mylistId);
+          window.console.timeEnd('loadMylist: ' + mylistId);
           var videoListItems = [];
-
           //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
           _.each(items, function(item) {
             // マイリストはitem_typeがint
             // とりまいはitem_typeがstringっていうね
-            if (!item.id) { return; }
+            if (item.id === null) { return; } // ごく稀にある？idが抹消されたレコード
             if (item.item_data) {
               if (parseInt(item.item_type, 10) !== 0) { return; } // not video
               if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
@@ -1874,13 +1919,17 @@ var PopupMessage = {};
             );
           });
 
+          //window.console.log('videoListItems!!', videoListItems);
+
           if (videoListItems.length < 1) {
-            return Promise.reject({});
+            return Promise.reject({
+              status: 'fail',
+              message: 'マイリストの取得に失敗しました'
+            });
           }
           if (options.shuffle) {
             videoListItems = _.shuffle(videoListItems);
           }
-          //window.console.log('videoListItems!!', videoListItems);
 
           if (!options.append) {
             this._replaceAll(videoListItems, options);
