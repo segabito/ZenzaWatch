@@ -268,7 +268,8 @@ var AsyncEmitter = function() {};
                 <option value="1.5">1.5倍</option>
                 <option value="2.0">2倍</option>
             </select>
-            ボタンの大きさ(倍率) ※ 一部レイアウトが崩れます
+            ボタンの大きさ(倍率)
+            <small>※ 一部レイアウトが崩れます</small>
           </label>
         </div>
 

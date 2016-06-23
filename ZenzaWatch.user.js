@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.1.6
+// @version        1.1.9
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.1.6';
+  var VER = '1.1.9';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -5674,7 +5674,7 @@ var monkey = function() {
       position: fixed;
       top:  calc(-50vh + 50% + 100vh);
       left: calc(-50vw + 50%);
-      transform: translate(0, -100%);
+      transform: translate3d(0, -100%, 0);
       width: 100vw;
       height: %BASE_HEIGHT%px;
       z-index: 150000;
@@ -5777,7 +5777,7 @@ var monkey = function() {
            {*bottom: 0px;*}
     }
     .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
-      background: rgba(32, 32, 32, 0.3);
+      background: transparent;
     }
 
 
@@ -5786,8 +5786,12 @@ var monkey = function() {
       background: #222;
       transform-origin: top center;
     }
+
     .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI {
-      background: rgba(32, 32, 32, 0.3);
+      background: rgba(32, 32, 32, 0.5);
+    }
+    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI:hover {
+      background: rgba(32, 32, 32, 0.8);
     }
 
     .controlItemContainer.right {
@@ -5950,7 +5954,9 @@ var monkey = function() {
       top: -40px;
     }
 
-    .fullScreen .seekBarContainer .seekBarShadow {
+    .fullScreen .seekBarContainer:hover .seekBarShadow {
+      height: 12px;
+      top: -12px;
     }
 
     .abort   .seekBarContainer,
@@ -7604,6 +7610,10 @@ var monkey = function() {
       transition: opacity 0.2s ease;
     }
 
+    .fullScreen .seekBarToolTip {
+      bottom: 12px;
+    }
+
     .dragging                .seekBarToolTip,
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
@@ -7757,9 +7767,9 @@ body {
 
 .default {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo'; }
-.mincho  {font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
-.gulim   {font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace; }
-.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
+.mincho  {font-family: Simsun,            Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
+.gulim   {font-family: Gulim,             Osaka-mono, "Osaka−等幅",              'ＭＳ ゴシック', monospace; }
+.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
 han_group { font-family: 'Arial'; }
 
 .nicoChat {
@@ -9869,7 +9879,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     1px 1px 0px #000{*, -1px -1px 0px #ccc*};
   transform-origin: 0% 0%;
   animation-timing-function: linear;
-  {* will-change: transform;*}
+  will-change: transform, opacity;
   color: #fff;
 }
 .nicoChat.fixed {
@@ -10157,7 +10167,10 @@ spacer {
           // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
           var aspectRatio = Math.max(self._aspectRatio, 9 / 16);
           var targetHeight = Math.min(h, w * aspectRatio);
-          commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
+          //commentLayer.style.transform = 'scale3d(' + targetHeight / 385 + ', 1, 1)';
+          var scale = targetHeight / 385;
+          commentLayer.style.transform =
+            'scale3d(' + scale + ',' + scale + ', 1)';
         };
         win.addEventListener('resize', onResize);
 
@@ -10573,7 +10586,10 @@ spacer {
         // 4:3ベースに計算されたタイミングを16:9に補正する
         // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
         // TODO: 環境によって重くなるようだったらオプションにする
-        scaleCss = (scale === 1.0) ? 'scale(1)' : (' scale(' + scale + ')');
+        scaleCss =
+          (scale === 1.0) ?
+            'scale3d(1, 1, 1)' :
+            (' scale3d(' + scale + ', ' + scale + ', 1)');
         var outerScreenWidth = screenWidthFull * 1.1;
         var screenDiff = outerScreenWidth - screenWidth;
         var leftPos = screenWidth + screenDiff / 2;
@@ -10605,8 +10621,8 @@ spacer {
       } else {
         scaleCss =
           scale === 1.0 ?
-            ' transform: scale(1) translate3d(-50%, 0, 0);' :
-            (' transform: scale(' + scale + ') translate3d(-50%, 0, 0);');
+            ' transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
+            (' transform: scale3d(' + scale + ', ' + scale + ', 1) translate3d(-50%, 0, 0);');
             //' transform:  scale(1);' : (' transform: scale(' + scale + ');');
 
         result = ['',
@@ -14820,6 +14836,7 @@ data-title="%no%: %date% ID:%userId%
       transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;
+      transform: translatez(0);
     }
 
     .regularUser  .forPremium {
@@ -14921,6 +14938,10 @@ data-title="%no%: %date% ID:%userId%
       cursor: none;
       transform: translateZ(0);
       background: #000;
+      will-change: transform, opacity;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
 
     .zenzaPlayerContainer .videoPlayer.loading {
@@ -14937,7 +14958,7 @@ data-title="%no%: %date% ID:%userId%
     }
 
     .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
-      transform: perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
+      transform: translateZ(0) perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
       opacity: 0.9;
       height: 100%;
       margin-left: 20%;
@@ -14958,6 +14979,10 @@ data-title="%no%: %date% ID:%userId%
       pointer-events: none;
       transform: translateZ(0);
       cursor: none;
+      will-change: transform, opacity;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
     .zenzaScreenMode_3D       .zenzaPlayerContainer .commentLayerFrame,
     .zenzaScreenMode_sideView .zenzaPlayerContainer .commentLayerFrame,
@@ -16658,6 +16683,11 @@ data-title="%no%: %date% ID:%userId%
       z-index: 130000;
       {*border: 1px solid #ccc;*}
       overflow: visible;
+
+      will-change: transform, opacity;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
 
     .menuItemContainer.rightTop {
@@ -18293,7 +18323,8 @@ data-title="%no%: %date% ID:%userId%
                 <option value="1.5">1.5倍</option>
                 <option value="2.0">2倍</option>
             </select>
-            ボタンの大きさ(倍率) ※ 一部レイアウトが崩れます
+            ボタンの大きさ(倍率)
+            <small>※ 一部レイアウトが崩れます</small>
           </label>
         </div>
 
@@ -18732,7 +18763,6 @@ data-title="%no%: %date% ID:%userId%
     }
 
 
-
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel>*,
     .fullScreen            .zenzaWatchVideoInfoPanel>* {
       display: none;
@@ -18761,7 +18791,8 @@ data-title="%no%: %date% ID:%userId%
       background: none;
       opacity: 0;
       box-shadow: none;
-      transition: opacity 0.4s ease, right 0.4s ease 1s;
+      transition: opacity 0.4s ease, transform 0.4s ease 1s;
+      will-change: opacity, transform, transform;
     }
 
     .zenzaScreenMode_wide .mouseMoving  .zenzaWatchVideoInfoPanel,
@@ -18774,12 +18805,13 @@ data-title="%no%: %date% ID:%userId%
 
     .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover,
     .fullScreen           .zenzaWatchVideoInfoPanel:hover {
-      right: 0;
+      {*right: 0;*}
       background: #333;
       box-shadow: 4px 4px 4px #000;
       border: none;
       opacity: 0.9;
-      transition: opacity 0.4s ease, right 0.4s ease 1s;
+      transform: translate3d(-288px, 0, 0);
+      transition: opacity 0.4s ease, transform 0.4s ease 1s;
     }
 
     .zenzaWatchVideoInfoPanel .owner {
@@ -18959,6 +18991,8 @@ data-title="%no%: %date% ID:%userId%
       margin-right: 4px;
       padding: 4px;
       line-height: 20px;
+      border: 1px solid #888;
+      border-radius: 4px;
     }
 
     .zenzaWatchVideoInfoPanel .videoTags li .nicodic {
@@ -19725,8 +19759,10 @@ data-title="%no%: %date% ID:%userId%
       list-style-type: none;
       display: inline-block;
       margin-right: 8px;
-      padding: 0;
+      padding: 0 4px;
       line-height: 20px;
+      border: 1px solid #888;
+      border-radius: 4px;
     }
 
     .zenzaWatchVideoHeaderPanel .videoTags li .nicodic {

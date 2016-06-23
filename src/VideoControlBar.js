@@ -20,7 +20,7 @@ var StoryBoard = function() {};
       position: fixed;
       top:  calc(-50vh + 50% + 100vh);
       left: calc(-50vw + 50%);
-      transform: translate(0, -100%);
+      transform: translate3d(0, -100%, 0);
       width: 100vw;
       height: %BASE_HEIGHT%px;
       z-index: 150000;
@@ -123,7 +123,7 @@ var StoryBoard = function() {};
            {*bottom: 0px;*}
     }
     .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
-      background: rgba(32, 32, 32, 0.3);
+      background: transparent;
     }
 
 
@@ -132,8 +132,12 @@ var StoryBoard = function() {};
       background: #222;
       transform-origin: top center;
     }
+
     .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI {
-      background: rgba(32, 32, 32, 0.3);
+      background: rgba(32, 32, 32, 0.5);
+    }
+    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI:hover {
+      background: rgba(32, 32, 32, 0.8);
     }
 
     .controlItemContainer.right {
@@ -296,7 +300,9 @@ var StoryBoard = function() {};
       top: -40px;
     }
 
-    .fullScreen .seekBarContainer .seekBarShadow {
+    .fullScreen .seekBarContainer:hover .seekBarShadow {
+      height: 12px;
+      top: -12px;
     }
 
     .abort   .seekBarContainer,
@@ -1948,6 +1954,10 @@ var StoryBoard = function() {};
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s ease;
+    }
+
+    .fullScreen .seekBarToolTip {
+      bottom: 12px;
     }
 
     .dragging                .seekBarToolTip,

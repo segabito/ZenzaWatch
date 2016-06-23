@@ -168,7 +168,6 @@ var RelatedVideoList = function() {};
     }
 
 
-
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel>*,
     .fullScreen            .zenzaWatchVideoInfoPanel>* {
       display: none;
@@ -197,7 +196,8 @@ var RelatedVideoList = function() {};
       background: none;
       opacity: 0;
       box-shadow: none;
-      transition: opacity 0.4s ease, right 0.4s ease 1s;
+      transition: opacity 0.4s ease, transform 0.4s ease 1s;
+      will-change: opacity, transform, transform;
     }
 
     .zenzaScreenMode_wide .mouseMoving  .zenzaWatchVideoInfoPanel,
@@ -210,12 +210,13 @@ var RelatedVideoList = function() {};
 
     .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover,
     .fullScreen           .zenzaWatchVideoInfoPanel:hover {
-      right: 0;
+      {*right: 0;*}
       background: #333;
       box-shadow: 4px 4px 4px #000;
       border: none;
       opacity: 0.9;
-      transition: opacity 0.4s ease, right 0.4s ease 1s;
+      transform: translate3d(-288px, 0, 0);
+      transition: opacity 0.4s ease, transform 0.4s ease 1s;
     }
 
     .zenzaWatchVideoInfoPanel .owner {
@@ -395,6 +396,8 @@ var RelatedVideoList = function() {};
       margin-right: 4px;
       padding: 4px;
       line-height: 20px;
+      border: 1px solid #888;
+      border-radius: 4px;
     }
 
     .zenzaWatchVideoInfoPanel .videoTags li .nicodic {
@@ -1161,8 +1164,10 @@ var RelatedVideoList = function() {};
       list-style-type: none;
       display: inline-block;
       margin-right: 8px;
-      padding: 0;
+      padding: 0 4px;
       line-height: 20px;
+      border: 1px solid #888;
+      border-radius: 4px;
     }
 
     .zenzaWatchVideoHeaderPanel .videoTags li .nicodic {

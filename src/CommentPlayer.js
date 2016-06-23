@@ -1859,7 +1859,7 @@ var NicoTextParser = {};
     1px 1px 0px #000{*, -1px -1px 0px #ccc*};
   transform-origin: 0% 0%;
   animation-timing-function: linear;
-  {* will-change: transform;*}
+  will-change: transform, opacity;
   color: #fff;
 }
 .nicoChat.fixed {
@@ -2147,7 +2147,10 @@ spacer {
           // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
           var aspectRatio = Math.max(self._aspectRatio, 9 / 16);
           var targetHeight = Math.min(h, w * aspectRatio);
-          commentLayer.style.transform = 'scale(' + targetHeight / 385 + ')';
+          //commentLayer.style.transform = 'scale3d(' + targetHeight / 385 + ', 1, 1)';
+          var scale = targetHeight / 385;
+          commentLayer.style.transform =
+            'scale3d(' + scale + ',' + scale + ', 1)';
         };
         win.addEventListener('resize', onResize);
 
@@ -2563,7 +2566,10 @@ spacer {
         // 4:3ベースに計算されたタイミングを16:9に補正する
         // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
         // TODO: 環境によって重くなるようだったらオプションにする
-        scaleCss = (scale === 1.0) ? 'scale(1)' : (' scale(' + scale + ')');
+        scaleCss =
+          (scale === 1.0) ?
+            'scale3d(1, 1, 1)' :
+            (' scale3d(' + scale + ', ' + scale + ', 1)');
         var outerScreenWidth = screenWidthFull * 1.1;
         var screenDiff = outerScreenWidth - screenWidth;
         var leftPos = screenWidth + screenDiff / 2;
@@ -2595,8 +2601,8 @@ spacer {
       } else {
         scaleCss =
           scale === 1.0 ?
-            ' transform: scale(1) translate3d(-50%, 0, 0);' :
-            (' transform: scale(' + scale + ') translate3d(-50%, 0, 0);');
+            ' transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
+            (' transform: scale3d(' + scale + ', ' + scale + ', 1) translate3d(-50%, 0, 0);');
             //' transform:  scale(1);' : (' transform: scale(' + scale + ');');
 
         result = ['',

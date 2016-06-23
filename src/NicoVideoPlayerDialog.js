@@ -228,6 +228,7 @@ var CommentPanel = function() {};
       transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;
+      transform: translatez(0);
     }
 
     .regularUser  .forPremium {
@@ -329,6 +330,10 @@ var CommentPanel = function() {};
       cursor: none;
       transform: translateZ(0);
       background: #000;
+      will-change: transform, opacity;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
 
     .zenzaPlayerContainer .videoPlayer.loading {
@@ -345,7 +350,7 @@ var CommentPanel = function() {};
     }
 
     .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
-      transform: perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
+      transform: translateZ(0) perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
       opacity: 0.9;
       height: 100%;
       margin-left: 20%;
@@ -366,6 +371,10 @@ var CommentPanel = function() {};
       pointer-events: none;
       transform: translateZ(0);
       cursor: none;
+      will-change: transform, opacity;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
     .zenzaScreenMode_3D       .zenzaPlayerContainer .commentLayerFrame,
     .zenzaScreenMode_sideView .zenzaPlayerContainer .commentLayerFrame,
@@ -2066,6 +2075,11 @@ var CommentPanel = function() {};
       z-index: 130000;
       {*border: 1px solid #ccc;*}
       overflow: visible;
+
+      will-change: transform, opacity;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
 
     .menuItemContainer.rightTop {
