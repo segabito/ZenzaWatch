@@ -806,7 +806,7 @@ var ajax = function() {};
               thread:     thread.getAttribute('thread'),
               serverTime: thread.getAttribute('server_time'),
               lastRes:    lastRes,
-              blockNo:    Math.floor((lastRes + 1) / 100),
+              blockNo:    Math.floor((lastRes * 1 + 1) / 100),
               ticket:     ticket,
               revision:   thread.getAttribute('revision')
             };

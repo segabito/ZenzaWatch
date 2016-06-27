@@ -297,7 +297,8 @@ var PopupMessage = {};
         $list.html(this._html);
         this._setInviewObserver();
       }
-      $body.on('click', _.bind(this._onClick, this));
+      $body.on('click', this._onClick.bind(this));
+      $body.on('dblclick', this._onDblclick.bind(this));
       $body.on('keydown', function(e) {
         ZenzaWatch.emitter.emit('keydown', e);
       });
@@ -548,6 +549,9 @@ var PopupMessage = {};
         }
       }
     },
+    _onDblclick: function(e) {
+      this.emit('dblclick', e);
+    },
     addClass: function(className) {
       this.toggleClass(className, true);
     },
@@ -782,7 +786,7 @@ var PopupMessage = {};
     .playlist .videoItem:not(.active):hover .playlistRemove:active,
     .videoItem:hover .thumbnailContainer .playlistAppend:active,
     .videoItem:hover .thumbnailContainer .deflistAdd:active {
-      transform: scale(0.9);
+      transform: scale(1.4);
       border: 1px inset;
     }
 
@@ -1558,6 +1562,7 @@ var PopupMessage = {};
       listView.on('filedrop', function(data) {
         this.emit('command', 'importFile', data);
       }.bind(this));
+      listView.on('dblclick', this._onListDblclick.bind(this));
 
       this._playlist.on('update',
         _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
@@ -1677,6 +1682,10 @@ var PopupMessage = {};
 
       fileReader.readAsText(file);
 
+    },
+    _onListDblclick: function(e) {
+      e.stopPropagation();
+      this.emit('command', 'scrollToActiveItem');
     }
   });
 
@@ -1806,6 +1815,9 @@ var PopupMessage = {};
           break;
         case 'importFile':
           this._onImportFileCommand(param);
+          break;
+        case 'scrollToActiveItem':
+          this.scrollToActiveItem();
           break;
         default:
           this.emit('command', command, param);

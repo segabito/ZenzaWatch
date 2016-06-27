@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.1.9
+// @version        1.1.10
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.1.9';
+  var VER = '1.1.10';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -2431,7 +2431,7 @@ var monkey = function() {
               thread:     thread.getAttribute('thread'),
               serverTime: thread.getAttribute('server_time'),
               lastRes:    lastRes,
-              blockNo:    Math.floor((lastRes + 1) / 100),
+              blockNo:    Math.floor((lastRes * 1 + 1) / 100),
               ticket:     ticket,
               revision:   thread.getAttribute('revision')
             };
@@ -3433,6 +3433,18 @@ var monkey = function() {
       };
     })();
     ZenzaWatch.api.StoryBoardInfoLoader = StoryBoardInfoLoader;
+
+
+
+
+  var SearchQueryBuilder = function() { this.initialize.apply(this, arguments); };
+  _.assign(SearchQueryBuilder.prototype, {
+    initialize: function() {
+    },
+    build: function() {
+    }
+  });
+
 
 
 
@@ -12628,7 +12640,8 @@ data-title="%no%: %date% ID:%userId%
         $list.html(this._html);
         this._setInviewObserver();
       }
-      $body.on('click', _.bind(this._onClick, this));
+      $body.on('click', this._onClick.bind(this));
+      $body.on('dblclick', this._onDblclick.bind(this));
       $body.on('keydown', function(e) {
         ZenzaWatch.emitter.emit('keydown', e);
       });
@@ -12879,6 +12892,9 @@ data-title="%no%: %date% ID:%userId%
         }
       }
     },
+    _onDblclick: function(e) {
+      this.emit('dblclick', e);
+    },
     addClass: function(className) {
       this.toggleClass(className, true);
     },
@@ -13113,7 +13129,7 @@ data-title="%no%: %date% ID:%userId%
     .playlist .videoItem:not(.active):hover .playlistRemove:active,
     .videoItem:hover .thumbnailContainer .playlistAppend:active,
     .videoItem:hover .thumbnailContainer .deflistAdd:active {
-      transform: scale(0.9);
+      transform: scale(1.4);
       border: 1px inset;
     }
 
@@ -13889,6 +13905,7 @@ data-title="%no%: %date% ID:%userId%
       listView.on('filedrop', function(data) {
         this.emit('command', 'importFile', data);
       }.bind(this));
+      listView.on('dblclick', this._onListDblclick.bind(this));
 
       this._playlist.on('update',
         _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
@@ -14008,6 +14025,10 @@ data-title="%no%: %date% ID:%userId%
 
       fileReader.readAsText(file);
 
+    },
+    _onListDblclick: function(e) {
+      e.stopPropagation();
+      this.emit('command', 'scrollToActiveItem');
     }
   });
 
@@ -14137,6 +14158,9 @@ data-title="%no%: %date% ID:%userId%
           break;
         case 'importFile':
           this._onImportFileCommand(param);
+          break;
+        case 'scrollToActiveItem':
+          this.scrollToActiveItem();
           break;
         default:
           this.emit('command', command, param);
@@ -14836,7 +14860,14 @@ data-title="%no%: %date% ID:%userId%
       transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;
-      transform: translatez(0);
+    }
+
+    .zenzaScreenMode_big     .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_normal  .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_wide    .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_3D      .zenzaVideoPlayerDialog,
+    .fullScreen              .zenzaVideoPlayerDialog
+      {*transform: translatez(0);*}
     }
 
     .regularUser  .forPremium {

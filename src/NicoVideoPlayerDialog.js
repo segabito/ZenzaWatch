@@ -228,7 +228,14 @@ var CommentPanel = function() {};
       transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;
-      transform: translatez(0);
+    }
+
+    .zenzaScreenMode_big     .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_normal  .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_wide    .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_3D      .zenzaVideoPlayerDialog,
+    .fullScreen              .zenzaVideoPlayerDialog
+      {*transform: translatez(0);*}
     }
 
     .regularUser  .forPremium {
