@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {}
 };
 var AsyncEmitter = function() {};
+var FrameLayer = function() {};
 var PopupMessage = {};
 
 //===BEGIN===
@@ -191,9 +192,10 @@ var PopupMessage = {};
         this._model.on('update',     _.debounce(_.bind(this._onModelUpdate, this), 100));
       }
 
+      this.scrollTop = ZenzaWatch.util.createDrawCallFunc(this.scrollTop.bind(this));
       this._initializeView(params, 0);
     },
-    _initializeView: function(params, retryCount) {
+    _initializeView: function(params) {
       var html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
       this._frame = new FrameLayer({
         $container: params.$container,

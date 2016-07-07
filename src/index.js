@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.1.10
+// @version        1.2.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -58,7 +58,7 @@ var monkey = function() {
         callAsync: function(func, self, delay) {
           delay = delay || 0;
           if (self) {
-            window.setTimeout(_.bind(func, self), delay);
+            window.setTimeout(func.bind(self), delay);
           } else {
             window.setTimeout(func, delay);
           }

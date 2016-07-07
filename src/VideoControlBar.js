@@ -33,7 +33,7 @@ var StoryBoard = function() {};
     }
     .changeScreenMode .videoControlBar {
       opacity: 0;
-      transform: translate(0, 0);
+      transform: translate3d(0, 0, 0);
       transition: none;
     }
     .zenzaScreenMode_small    .videoControlBar,
@@ -885,6 +885,11 @@ var StoryBoard = function() {};
       player.on('commentParsed',  _.bind(this._onCommentParsed, this));
       player.on('commentChange',  _.bind(this._onCommentChange, this));
 
+      this.setCurrentTime =
+        ZenzaWatch.util.createDrawCallFunc(this.setCurrentTime.bind(this));
+      this.setBufferedRange =
+        ZenzaWatch.util.createDrawCallFunc(this.setBufferedRange.bind(this));
+
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
@@ -1199,7 +1204,7 @@ var StoryBoard = function() {};
     },
     _startTimer: function() {
       this._timerCount = 0;
-      this._timer = window.setInterval(_.bind(this._onTimer, this), 10);
+      this._timer = window.setInterval(this._onTimer.bind(this), 10);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -1214,7 +1219,7 @@ var StoryBoard = function() {};
       var left = e.offsetX;
       var sec = this._posToTime(left);
 
-      this._player.setCurrentTime(sec);
+      this.emit('command', 'seek', sec);
 
       this._beginMouseDrag();
     },
@@ -1246,7 +1251,7 @@ var StoryBoard = function() {};
       var left = e.clientX - offset.left;
       var sec = this._posToTime(left);
 
-      this._player.setCurrentTime(sec);
+      this.emit('command', 'seek', sec);
       this._seekBarToolTip.update(sec, left);
       this._storyBoard.setCurrentTime(sec, true);
     },
@@ -2039,6 +2044,8 @@ var StoryBoard = function() {};
       this._$container = params.$container;
       this._storyBoard = params.storyBoard;
       this._initializeDom(params.$container);
+
+      this.update = ZenzaWatch.util.createDrawCallFunc(this.update.bind(this));
     },
     _initializeDom: function($container) {
       ZenzaWatch.util.addStyle(SeekBarToolTip.__css__);
@@ -2179,7 +2186,7 @@ var StoryBoard = function() {};
       if (this._timer) {
         window.clearInterval(this._timer);
       }
-      this._timer = window.setInterval(_.bind(this._onTimer, this), 300);
+      this._timer = window.setInterval(this._onTimer.bind(this), 300);
     },
     disable: function() {
       this._enabled = false;

@@ -1205,6 +1205,25 @@ var console;
     };
     ZenzaWatch.util.isZenzaPlayableVideo = isZenzaPlayableVideo;
 
+    ZenzaWatch.util.createDrawCallFunc = function(func) {
+      var requestAnimationFrame =
+        (window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame).bind(window);
+      if (!requestAnimationFrame) { return func; }
+
+      var busy = false, arg;
+
+      var onFrame = function() {
+        func.apply(null, arg);
+        busy = false;
+      };
+
+      return function() {
+        if (busy) { return; }
+        busy = true;
+        arg = arguments;
+        requestAnimationFrame(onFrame);
+      };
+    };
 
     var ShortcutKeyEmitter = (function() {
       var emitter = new AsyncEmitter();
@@ -1263,7 +1282,7 @@ var console;
             key = 'VIEW_COMMENT';
             break;
           case 84: //T
-            key = 'DEFLIST';
+            key = e.shiftKey ? 'DEFLIST_REMOVE' : 'DEFLIST';
             break;
           case 32:
             key = 'SPACE';

@@ -1859,7 +1859,7 @@ var NicoTextParser = {};
     1px 1px 0px #000{*, -1px -1px 0px #ccc*};
   transform-origin: 0% 0%;
   animation-timing-function: linear;
-  will-change: transform, opacity;
+  {*will-change: transform, opacity;*}
   color: #fff;
 }
 .nicoChat.fixed {
@@ -2076,6 +2076,9 @@ spacer {
         );
       }
 
+      // 様子見
+      //this._updateDom = ZenzaWatch.util.createDrawCallFunc(this._updateDom.bind(this));
+
       // ウィンドウが非表示の時にブラウザが描画をサボっているので、
       // 表示になったタイミングで粛正する
       //$(window).on('focus', _refresh);
@@ -2085,6 +2088,7 @@ spacer {
         }
       });
       ZenzaWatch.debug.css3Player = this;
+
     },
     _initializeView: function(params, retryCount) {
 
@@ -2373,12 +2377,15 @@ spacer {
 
       // DOMへの追加
       if (css.length > 0) {
-        var fragment = document.createDocumentFragment();
-        while (dom.length > 0) { fragment.appendChild(dom.shift()); }
-        this._commentLayer.appendChild(fragment);
-        this._style.innerHTML += css.join('');
-        this._gcInviewElements();
+        this._updateDom(dom, css);
       }
+    },
+    _updateDom: function(dom, css) {
+      var fragment = document.createDocumentFragment();
+      while (dom.length > 0) { fragment.appendChild(dom.shift()); }
+      this._commentLayer.appendChild(fragment);
+      this._style.innerHTML += css.join('');
+      this._gcInviewElements();
     },
     /**
      * 表示された要素を古い順に除去していく
@@ -2393,11 +2400,11 @@ spacer {
       var i, inViewElements;
       var commentLayer = this._commentLayer;
       //inViewElements = commentLayer.getElementsByClassName('nicoChat');
-      inViewElements = commentLayer.querySelectorAll('nicoChat.fork0');
+      inViewElements = commentLayer.querySelectorAll('.nicoChat.fork0');
       for (i = inViewElements.length - max - 1; i >= 0; i--) {
         inViewElements[i].remove();
       }
-      inViewElements = commentLayer.querySelectorAll('nicoChat.fork1');
+      inViewElements = commentLayer.querySelectorAll('.nicoChat.fork1');
       for (i = inViewElements.length - max - 1; i >= 0; i--) {
         inViewElements[i].remove();
       }
@@ -2408,7 +2415,7 @@ spacer {
       window.console.time('buildHtml');
 
       var groups = [
-        this._viewModel.getGroup(NicoChat.TYPE.NAKA  ),
+        this._viewModel.getGroup(NicoChat.TYPE.NAKA),
         this._viewModel.getGroup(NicoChat.TYPE.BOTTOM),
         this._viewModel.getGroup(NicoChat.TYPE.TOP)
       ];
@@ -2495,6 +2502,7 @@ spacer {
 
       span.className = className.join(' ');
       span.id = chat.getId();
+      //span.ontransitionend = 'this.remove();';
       if (!chat.isInvisible()) { span.innerHTML = chat.getHtmlText(); }
       span.setAttribute('data-meta', chat.toString());
       return span;

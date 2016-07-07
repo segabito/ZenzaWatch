@@ -294,6 +294,7 @@ var RelatedVideoList = function() {};
       display: inline-block;
     }
 
+    .videoTags li .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist,
@@ -396,8 +397,8 @@ var RelatedVideoList = function() {};
       margin-right: 4px;
       padding: 4px;
       line-height: 20px;
-      border: 1px solid #888;
-      border-radius: 4px;
+      {*border: 1px solid #888;
+      border-radius: 4px;*}
     }
 
     .zenzaWatchVideoInfoPanel .videoTags li .nicodic {
@@ -699,11 +700,9 @@ var RelatedVideoList = function() {};
       this._videoTitlePanel = new VideoHeaderPanel(params);
       this._dialog = params.dialog;
 
-      this._dialog.on('canplay', _.bind(this._onVideoCanPlay, this));
+      this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
 
-      this._videoTitlePanel.on('command', _.bind(function(command, param) {
-        this.emit('command', command, param);
-      }, this));
+      this._videoTitlePanel.on('command', this._onCommand.bind(this));
 
       if (params.node) {
         this.appendTo(params.node);
@@ -739,12 +738,11 @@ var RelatedVideoList = function() {};
       $view.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-        var command = $(e.target).attr('data-command');
-        switch (command) {
-          case 'playlistSetUploadedVideo':
-            var owner = this._videoInfo.getOwnerInfo();
-            this.emit('command', 'playlistSetUploadedVideo', owner.id);
-            break;
+        var $target = $(e.target);
+        var command = $target.attr('data-command');
+        var param   = $target.attr('data-param') || '';
+        if (command) {
+          this._onCommand(command, command, param);
         }
       }.bind(this)).on('wheel', function(e) {
         e.stopPropagation();
@@ -877,13 +875,42 @@ var RelatedVideoList = function() {};
         this._relatedVideoList = new RelatedVideoList({
           $container: this._$view.find('.relatedVideoContainer')
         });
-        this._relatedVideoList.on('command', _.bind(this._onCommand, this));
+        this._relatedVideoList.on('command', this._onCommand.bind(this));
       }
       var relatedVideo = videoInfo.getRelatedVideoItems();
       this._relatedVideoList.update(relatedVideo, watchId);
     },
     _onCommand: function(command, param) {
-      this.emit('command', command, param);
+      //window.console.log('VideoInfoPanel.onCommand: ', command, param);
+      switch (command) {
+        case 'owner-video-search':
+          this._onOwnerVideoSearch(param);
+          break;
+        case 'playlistSetUploadedVideo':
+          var owner = this._videoInfo.getOwnerInfo();
+          this.emit('command', 'playlistSetUploadedVideo', owner.id);
+          break;
+        default:
+          this.emit('command', command, param);
+        break;
+      }
+    },
+    _onOwnerVideoSearch: function(word) {
+      var videoInfo = this._videoInfo;
+      var option = {
+        searchType: 'tag',
+        order: 'd',
+        sort: 'f',
+        playlistSort: true
+      };
+      var ownerId = parseInt(videoInfo.getOwnerInfo().id, 10);
+      if (videoInfo.isChannel()) {
+        option.channelId = ownerId;
+      } else {
+        option.userId = ownerId;
+      }
+      //window.console.log('_onOwnerVideoSearch:', word, option);
+      this.emit('command', 'playlistSetSearchVideo', {word: word, option: option});
     },
     appendTo: function(node) {
       var $node = $(node);
@@ -1163,11 +1190,11 @@ var RelatedVideoList = function() {};
     .zenzaWatchVideoHeaderPanel .videoTags li {
       list-style-type: none;
       display: inline-block;
-      margin-right: 8px;
-      padding: 0 4px;
+               {*margin-right: 8px;*}
+               {*padding: 0 4px;*}
       line-height: 20px;
-      border: 1px solid #888;
-      border-radius: 4px;
+      {*border: 1px solid #888;
+      border-radius: 4px;*}
     }
 
     .zenzaWatchVideoHeaderPanel .videoTags li .nicodic {
@@ -1182,6 +1209,24 @@ var RelatedVideoList = function() {};
     .zenzaWatchVideoHeaderPanel .videoTags li .tagLink:hover {
       color: #ccf;
     }
+
+    .videoTags li .playlistAppend {
+      visibility: hidden;
+    }
+
+    .videoTags li:hover .playlistAppend {
+      visibility: visible;
+      transition: transform 0.2s ease;
+    }
+
+    .videoTags li:hover .playlistAppend:hover {
+      transform: scale(1.5);
+    }
+
+    .videoTags li:hover .playlistAppend:active {
+      transform: scale(1.4);
+    }
+
 
     body:not(.fullScreen).zenzaScreenMode_3D     .backComment .zenzaWatchVideoHeaderPanel,
     body:not(.fullScreen).zenzaScreenMode_normal .backComment .zenzaWatchVideoHeaderPanel,
@@ -1280,7 +1325,7 @@ var RelatedVideoList = function() {};
       this._$tagList      = $view.find('.videoTags');
 
       var stopPropagation = function(e) { e.stopPropagation(); };
-      this._$tagList.on('click', stopPropagation);
+      //this._$tagList.on('click', stopPropagation);
       this._$ginzaLink.on('click', stopPropagation);
       this._$hashLink.on('click', stopPropagation);
       this._$uadLink.on('click', stopPropagation);
@@ -1299,7 +1344,14 @@ var RelatedVideoList = function() {};
       this._$view.on('click', function(e) {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-      }).on('wheel', function(e) {
+
+        var $target = $(e.target);
+        var command = $target.attr('data-command');
+        var param   = $target.attr('data-param') || '';
+        if (command) {
+          this.emit('command', command, param);
+        }
+      }.bind(this)).on('wheel', function(e) {
         e.stopPropagation();
       });
     },
@@ -1367,13 +1419,22 @@ var RelatedVideoList = function() {};
         $link.html(text);
         return $link;
       };
+      var createSearch = function(text) {
+        var $search =
+          $('<a class="playlistAppend" title="投稿者の動画">▶</a>')
+            .attr('data-command', 'owner-video-search')
+            .attr('data-param', text);
+        return $search;
+      };
       $(tagList).each(function(i, tag) {
         var text = tag.tag;
         var $dic = createDicIcon(text, tag.dic);
         var $link = createLink(text);
+        var $search = createSearch(text);
         var $tag = $('<li class="zenza-tag" />');
         $tag.append($dic);
         $tag.append($link);
+        $tag.append($search);
         $tagList.append($tag);
       });
       $container.append($tagList);
@@ -1381,7 +1442,7 @@ var RelatedVideoList = function() {};
       //http://ex.nicovideo.jp/game
       // なぜかここで勝手に変なタグが挿入されるため、後から除去する
       ZenzaWatch.util.callAsync(function() {
-        $tagList.find('li:not(.zenza-tag), .zenza-tag a:not(.nicodic):not(.tagLink)').remove();
+        $tagList.find('li:not(.zenza-tag), .zenza-tag a:not(.nicodic):not(.tagLink):not(.playlistAppend)').remove();
       }, 100);
     },
     _onGinzaLinkMouseDown: function() {

@@ -135,10 +135,9 @@ var CommentPanel = function() {};
     isPlaylistStartRequest: function() {
       var eventType = this.getEventType();
       var query = this.getQuery();
-      //window.console.log('isPlaylistStartRequest', eventType, query);
       if (eventType === 'click' &&
-          query.playlist_type === 'mylist_playlist' &&
-          query.group_id) {
+          _.contains(['mylist_playlist', 'tag', 'search'], query.playlist_type) &&
+          (query.group_id || query.order)) {
         return true;
       }
       return false;
@@ -185,9 +184,8 @@ var CommentPanel = function() {};
     }
   });
 
-
-  var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
-  NicoVideoPlayerDialog.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  var NicoVideoPlayerDialogView = function() { this.initialize.apply(this, arguments); };
+  NicoVideoPlayerDialogView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
 
     {*
       プレイヤーが動いてる間、裏の余計な物のマウスイベントを無効化
@@ -290,7 +288,6 @@ var CommentPanel = function() {};
       background: #000;
       width: 672px;
       height: 385px;
-      {*transform: translateZ(0);*}
       transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
       background-size: cover;
       background-repeat: no-repeat;
@@ -320,7 +317,7 @@ var CommentPanel = function() {};
     }
 
     .fullScreen .zenzaPlayerContainer {
-      transform: translateZ(0);
+      {*transform: translateZ(0);*}
     }
 
 
@@ -335,7 +332,7 @@ var CommentPanel = function() {};
       border: 0;
       z-index: 100;
       cursor: none;
-      transform: translateZ(0);
+              {*transform: translateZ(0);*}
       background: #000;
       will-change: transform, opacity;
       user-select: none;
@@ -376,7 +373,7 @@ var CommentPanel = function() {};
       z-index: 101;
       transition: opacity 1s ease, height 0.4s ease;
       pointer-events: none;
-      transform: translateZ(0);
+      {*transform: translateZ(0);*}
       cursor: none;
       will-change: transform, opacity;
       user-select: none;
@@ -746,7 +743,7 @@ var CommentPanel = function() {};
 
   */});
 
-  NicoVideoPlayerDialog.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  NicoVideoPlayerDialogView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="zenzaVideoPlayerDialog">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
@@ -759,6 +756,295 @@ var CommentPanel = function() {};
       </div>
     </div>
   */});
+
+  _.extend(NicoVideoPlayerDialogView.prototype, AsyncEmitter.prototype);
+  _.assign(NicoVideoPlayerDialogView.prototype, {
+    initialize: function(params) {
+      var dialog = this._dialog       = params.dialog;
+      this._playerConfig = params.playerConfig;
+      this._nicoVideoPlayer = params.nicoVideoPlayer;
+
+      this._aspectRatio = 9 / 16;
+
+      dialog.on('canPlay',           this._onVideoCanPlay.bind(this));
+      dialog.on('error',             this._onVideoError.bind(this));
+      dialog.on('play',              this._onVideoPlay.bind(this));
+      dialog.on('playing',           this._onVideoPlaying.bind(this));
+      dialog.on('pause',             this._onVideoPause.bind(this));
+      dialog.on('stalled',           this._onVideoStalled.bind(this));
+      dialog.on('abort',             this._onVideoAbort.bind(this));
+      dialog.on('aspectRatioFix',    this._onVideoAspectRatioFix.bind(this));
+      dialog.on('volumeChange',      this._onVolumeChange.bind(this));
+      dialog.on('volumeChangeEnd',   this._onVolumeChangeEnd.bind(this));
+      dialog.on('beginUpdate',       this._onBeginUpdate.bind(this));
+      dialog.on('endUpdate',         this._onEndUpdate.bind(this));
+      dialog.on('screenModeChange', this._onScreenModeChange.bind(this));
+
+      this._initializeDom();
+    },
+    _initializeDom: function() {
+      ZenzaWatch.util.addStyle(NicoVideoPlayerDialogView.__css__);
+      var $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
+      var onCommand = function(command, param) {
+        this.emit('command', command, param);
+      }.bind(this);
+      var config = this._playerConfig;
+      var dialog = this._dialog;
+
+      var $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
+      $container.on('click', function(e) {
+        ZenzaWatch.emitter.emitAsync('hideHover');
+        if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
+          onCommand('togglePlay');
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        $container.removeClass('menuOpen');
+      }.bind(this));
+
+      this.setIsBackComment(config.getValue('backComment'));
+      $container
+        .toggleClass('showComment', config.getValue('showComment'))
+        .toggleClass('mute', config.getValue('mute'))
+        .toggleClass('loop', config.getValue('loop'))
+        .toggleClass('regularUser', !ZenzaWatch.util.isPremium())
+        .toggleClass('debug', config.getValue('debug'));
+
+      // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
+      var lastX = 0, lastY = 0;
+      var onMouseMove    = this._onMouseMove.bind(this);
+      var onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 1500);
+      $container.on('mousemove', function(e) {
+          if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
+            return;
+          }
+          lastX = e.screenX;
+          lastY = e.screenY;
+          onMouseMove(e);
+          onMouseMoveEnd(e);
+        }.bind(this));
+//        .on('mousedown', onMouseMove)
+//        .on('mousedown', onMouseMoveEnd);
+
+      $dialog.on('click', _.bind(this._onClick, this));
+
+      this._hoverMenu = new VideoHoverMenu({
+        $playerContainer: $container,
+        playerConfig: config
+      });
+      this._hoverMenu.on('command', onCommand);
+
+      this._commentInput = new CommentInputPanel({
+        $playerContainer: $container,
+        playerConfig: config
+      });
+
+      this._commentInput.on('post', function(e, chat, cmd) {
+        this.emit('postChat', e, chat, cmd);
+      }.bind(this));
+
+      var isPlaying = false;
+      this._commentInput.on('focus', function(isAutoPause) {
+        isPlaying = this._nicoVideoPlayer.isPlaying();
+        if (isAutoPause) {
+          this.emit('command', 'pause');
+        }
+      }.bind(this));
+      this._commentInput.on('blur', function(isAutoPause) {
+        if (isAutoPause && isPlaying && dialog.isOpen()) {
+          this.emit('command', 'play');
+        }
+      }.bind(this));
+      this._commentInput.on('esc', function() {
+        this._escBlockExpiredAt = Date.now() + 1000 * 2;
+      }.bind(this));
+
+      this._settingPanel = new SettingPanel({
+        $playerContainer: $container,
+        playerConfig: config,
+        player: this._dialog
+      });
+      this._settingPanel.on('command', onCommand);
+
+      this._videoControlBar = new VideoControlBar({
+        $playerContainer: $container,
+        playerConfig: config,
+        player: this._dialog
+      });
+      this._videoControlBar.on('command', onCommand);
+
+      this._$errorMessageContainer = $container.find('.errorMessageContainer');
+
+      this._initializeResponsive();
+
+      ZenzaWatch.emitter.on('showMenu', function() { $container.addClass('menuOpen'); });
+      ZenzaWatch.emitter.on('hideMenu', function() { $container.removeClass('menuOpen'); });
+      $('body').append($dialog);
+    },
+    _initializeResponsive: function() {
+      $(window).on('resize', _.debounce(_.bind(this._updateResponsive, this),  500));
+    },
+    _updateResponsive: function() {
+      var $w = $(window);
+      var $container = this._$playerContainer;
+      var $bar    = $container.find('.videoControlBar');
+      var $header = $container.find('.zenzaWatchVideoHeaderPanel');
+
+      // 画面の縦幅にシークバー分の余裕がある時は常時表示
+      var update = function() {
+        var w = $w.innerWidth(), h = $w.innerHeight();
+        var videoControlBarHeight = $bar.outerHeight();
+        var vMargin = h - w * this._aspectRatio;
+        //var hMargin = w - h / self._aspectRatio;
+
+        $container
+          .toggleClass('showVideoControlBar',
+            vMargin >= videoControlBarHeight)
+          .toggleClass('showVideoHeaderPanel',
+            vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
+      }.bind(this);
+
+      update();
+    },
+    _onMouseMove: function() {
+      this._$playerContainer.addClass('mouseMoving');
+    },
+    _onMouseMoveEnd: function() {
+      this._$playerContainer.removeClass('mouseMoving');
+    },
+    _onVideoCanPlay: function() {
+      this._$playerContainer.removeClass('stalled loading');
+    },
+    _onVideoError: function() {
+      this._$playerContainer
+        .addClass('error')
+        .removeClass('playing loading');
+    },
+    _onVideoPlay: function() {
+      this._$playerContainer
+        .addClass('playing')
+        .removeClass('stalled loading error abort');
+    },
+    _onVideoPlaying: function() {
+      this._$playerContainer
+        .addClass('playing')
+        .removeClass('stalled loading error abort');
+    },
+    _onVideoPause: function() {
+      this._$playerContainer.removeClass('playing');
+    },
+    _onVideoStalled: function() {
+      // stallは詰まっているだけでありplayingなので、removeClassしない
+      this._$playerContainer.addClass('stalled');
+    },
+    _onVideoAbort: function() {
+      this._$playerContainer
+        .addClass('abort')
+        .removeClass('playing loading');
+    },
+    _onVideoAspectRatioFix: function(ratio) {
+      this._aspectRatio = ratio;
+      this._updateResponsive();
+    },
+    _onVolumeChange: function(/*vol, mute*/) {
+      this._$playerContainer.addClass('volumeChanging');
+    },
+    _onVolumeChangeEnd: function(/*vol, mute*/) {
+      this._$playerContainer.removeClass('volumeChanging');
+    },
+    _onScreenModeChange: function(mode) {
+      this.clearClass();
+      var $container = this._$playerContainer.addClass('changeScreenMode');
+      $('body, html').addClass('zenzaScreenMode_' + mode);
+      window.setTimeout(function() {
+        $container.removeClass('changeScreenMode');
+      }, 1000);
+    },
+    _onBeginUpdate: function(type) {
+      this._$playerContainer.addClass('is-updating-' + type);
+    },
+    _onEndUpdate: function(type) {
+      this._$playerContainer.removeClass('is-updating-' + type);
+    },
+    show: function() {
+      this._$dialog.addClass('show');
+      if (!FullScreen.now()) {
+        $('body').removeClass('fullScreen');
+      }
+      $('body, html').addClass('showNicoVideoPlayerDialog');
+    },
+    hide: function() {
+      this._$dialog.removeClass('show');
+      this._settingPanel.hide();
+      $('body, html').removeClass('showNicoVideoPlayerDialog');
+      this.clearClass();
+    },
+    clearClass: function() {
+      var modes = [
+        'zenzaScreenMode_3D',
+        'zenzaScreenMode_small',
+        'zenzaScreenMode_sideView',
+        'zenzaScreenMode_normal',
+        'zenzaScreenMode_big',
+        'zenzaScreenMode_wide',
+      ].join(' ');
+      $('body, html').removeClass(modes);
+    },
+    resetVideoLoadingStatus: function() {
+      this._$playerContainer
+        .addClass('loading')
+        .removeClass('playing stalled error abort');
+    },
+    _onClick: function() {
+    },
+    setNicoVideoPlayer: function(nicoVideoPlayer) {
+      this._nicoVideoPlayer = nicoVideoPlayer;
+    },
+    setIsBackComment: function(v) {
+      this._$playerContainer.toggleClass('backComment', !!v);
+    },
+    setThumbnail: function(thumbnail) {
+      if (thumbnail) {
+        this._$playerContainer.css('background-image', 'url(' + thumbnail + ')');
+        //this._nicoVideoPlayer.setThumbnail(thumbnail);
+      } else {
+        this._$playerContainer.css('background-image', '');
+      }
+    },
+    focusToCommentInput: function() {
+      // 即フォーカスだと入力欄に"C"が入ってしまうのを雑に対処
+      ZenzaWatch.util.callAsync(function() { this._commentInput.focus(); }, this);
+    },
+    toggleSettingPanel: function() {
+      this._settingPanel.toggle();
+    },
+    setErrorMessage: function(msg) {
+      this._$errorMessageContainer.text(msg);
+    },
+    get$Container: function() {
+      return this._$playerContainer;
+    },
+    addClass: function(name) {
+      return this._$playerContainer.addClass(name);
+    },
+    removeClass: function(name) {
+      return this._$playerContainer.removeClass(name);
+    },
+    toggleClass: function(name, v) {
+      if (_.isBoolean(v)) {
+        return this._$playerContainer.toggleClass(name, v);
+      } else {
+        return this._$playerContainer.toggleClass(name);
+      }
+    },
+    hasClass: function(name) {
+      return this._$playerContainer.hasClass(name);
+    }
+  });
+
+
+  var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
+
 
   _.extend(NicoVideoPlayerDialog.prototype, AsyncEmitter.prototype);
   _.assign(NicoVideoPlayerDialog.prototype, {
@@ -777,110 +1063,25 @@ var CommentPanel = function() {};
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
       this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
 
-      this._aspectRatio = 9 / 16;
-
       this._escBlockExpiredAt = -1;
 
       this._dynamicCss = new DynamicCss({playerConfig: this._playerConfig});
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(NicoVideoPlayerDialog.__css__);
-      var $dialog = this._$dialog = $(NicoVideoPlayerDialog.__tpl__);
-      var onCommand = _.bind(this._onCommand, this);
-      var config = this._playerConfig;
-
-      var $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
-      $container.on('click', _.bind(function(e) {
-        ZenzaWatch.emitter.emitAsync('hideHover');
-        if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
-          this.togglePlay();
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        $container.removeClass('menuOpen');
-      }, this));
-
-      this.setIsBackComment(config.getValue('backComment'));
-      $container
-        .toggleClass('showComment', config.getValue('showComment'))
-        .toggleClass('mute', config.getValue('mute'))
-        .toggleClass('loop', config.getValue('loop'))
-        .toggleClass('regularUser', !ZenzaWatch.util.isPremium())
-        .toggleClass('debug', config.getValue('debug'));
-
-      // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
-      var lastX = 0, lastY = 0;
-      var onMouseMove    = _.bind(this._onMouseMove, this);
-      var onMouseMoveEnd = _.debounce(_.bind(this._onMouseMoveEnd, this), 1500);
-      $container.on('mousemove', _.bind(function(e) {
-          if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
-            return;
-          }
-          lastX = e.screenX;
-          lastY = e.screenY;
-          onMouseMove(e);
-          onMouseMoveEnd(e);
-        }, this))
-        .on('mouseown', onMouseMove)
-        .on('mouseown', onMouseMoveEnd);
-
-      $dialog.on('click', _.bind(this._onClick, this));
-
-      this._hoverMenu = new VideoHoverMenu({
-        $playerContainer: $container,
-        playerConfig: config
+      this._view = new NicoVideoPlayerDialogView({
+        dialog: this,
+        playerConfig: this._playerConfig,
+        nicoVideoPlayer: this._nicoVideoPlayer
       });
-      this._hoverMenu.on('command', onCommand);
-
-      this._commentInput = new CommentInputPanel({
-        $playerContainer: $container,
-        playerConfig: config
-      });
-      this._commentInput.on('post', _.bind(function(e, chat, cmd) {
+      this._$playerContainer = this._view.get$Container();
+      this._view.on('command', this._onCommand.bind(this));
+      this._view.on('postChat', _.bind(function(e, chat, cmd) {
         this.addChat(chat, cmd).then(function() {
           e.resolve();
         }, function() {
           e.reject();
         });
       }, this));
-
-      var isPlaying = false;
-      this._commentInput.on('focus', _.bind(function(isAutoPause) {
-        isPlaying = this._nicoVideoPlayer.isPlaying();
-        if (isAutoPause) {
-          this.pause();
-        }
-      }, this));
-      this._commentInput.on('blur', _.bind(function(isAutoPause) {
-        if (isAutoPause && isPlaying && this._isOpen) {
-          this.play();
-        }
-      }, this));
-      this._commentInput.on('esc', _.bind(function() {
-        this._escBlockExpiredAt = Date.now() + 1000 * 2;
-      }, this));
-
-      this._settingPanel = new SettingPanel({
-        $playerContainer: $container,
-        playerConfig: config,
-        player: this
-      });
-      this._settingPanel.on('command', onCommand);
-
-      this._videoControlBar = new VideoControlBar({
-        $playerContainer: $container,
-        playerConfig: config,
-        player: this
-      });
-      this._videoControlBar.on('command', onCommand);
-
-      this._$errorMessageContainer = $container.find('.errorMessageContainer');
-
-      this._initializeResponsive();
-
-      ZenzaWatch.emitter.on('showMenu', function() { $container.addClass('menuOpen'); });
-      ZenzaWatch.emitter.on('hideMenu', function() { $container.removeClass('menuOpen'); });
-      $('body').append($dialog);
     },
     _initializeNicoVideoPlayer: function() {
       if (this._nicoVideoPlayer) {
@@ -900,69 +1101,42 @@ var CommentPanel = function() {};
         commandFilter: config.getValue('commandFilter'),
         userIdFilter:  config.getValue('userIdFilter')
       });
+      this._view.setNicoVideoPlayer(nicoVideoPlayer);
 
       this._messageApiLoader = new MessageApiLoader();
 
-      window.setTimeout(_.bind(function() {
+      window.setTimeout(function() {
         this._videoInfoPanel = new VideoInfoPanel({
           dialog: this,
           player: nicoVideoPlayer,
           node: this._$playerContainer
         });
-        this._videoInfoPanel.on('command', _.bind(this._onCommand, this));
+        this._videoInfoPanel.on('command', this._onCommand.bind(this));
         if (this._playerConfig.getValue('enableCommentPanel')) {
           this._initializeCommentPanel();
         }
-      }, this), 0);
+      }.bind(this), 0);
 
-      nicoVideoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
-      nicoVideoPlayer.on('ended',          _.bind(this._onVideoEnded,     this));
-      nicoVideoPlayer.on('canPlay',        _.bind(this._onVideoCanPlay,   this));
-      nicoVideoPlayer.on('play',           _.bind(this._onVideoPlay,           this));
-      nicoVideoPlayer.on('pause',          _.bind(this._onVideoPause,          this));
-      nicoVideoPlayer.on('playing',        _.bind(this._onVideoPlaying,        this));
-      nicoVideoPlayer.on('stalled',        _.bind(this._onVideoStalled,        this));
-      nicoVideoPlayer.on('progress',       _.bind(this._onVideoProgress,       this));
-      nicoVideoPlayer.on('aspectRatioFix', _.bind(this._onVideoAspectRatioFix, this));
-      nicoVideoPlayer.on('commentParsed',  _.bind(this._onCommentParsed, this));
-      nicoVideoPlayer.on('commentChange',  _.bind(this._onCommentChange, this));
-      nicoVideoPlayer.on('commentFilterChange', _.bind(this._onCommentFilterChange, this));
+      nicoVideoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
+      nicoVideoPlayer.on('ended',          this._onVideoEnded.bind(this));
+      nicoVideoPlayer.on('canPlay',        this._onVideoCanPlay.bind(this));
+      nicoVideoPlayer.on('play',           this._onVideoPlay.bind(this));
+      nicoVideoPlayer.on('pause',          this._onVideoPause.bind(this));
+      nicoVideoPlayer.on('playing',        this._onVideoPlaying.bind(this));
+      nicoVideoPlayer.on('stalled',        this._onVideoStalled.bind(this));
+      nicoVideoPlayer.on('progress',       this._onVideoProgress.bind(this));
+      nicoVideoPlayer.on('aspectRatioFix', this._onVideoAspectRatioFix.bind(this));
+      nicoVideoPlayer.on('commentParsed',  this._onCommentParsed.bind(this));
+      nicoVideoPlayer.on('commentChange',  this._onCommentChange.bind(this));
+      nicoVideoPlayer.on('commentFilterChange', this._onCommentFilterChange.bind(this));
 
-      nicoVideoPlayer.on('error', _.bind(this._onVideoError, this));
-      nicoVideoPlayer.on('abort', _.bind(this._onVideoAbort, this));
+      nicoVideoPlayer.on('error', this._onVideoError.bind(this));
+      nicoVideoPlayer.on('abort', this._onVideoAbort.bind(this));
 
-      nicoVideoPlayer.on('volumeChange',
-        _.bind(this._onVolumeChange, this));
-      nicoVideoPlayer.on('volumeChange',
-        _.debounce(_.bind(this._onVolumeChangeEnd, this), 1500));
+      nicoVideoPlayer.on('volumeChange', this._onVolumeChange.bind(this));
+      nicoVideoPlayer.on('volumeChange', _.debounce(this._onVolumeChangeEnd.bind(this), 1500));
 
       return nicoVideoPlayer;
-    },
-    _initializeResponsive: function() {
-      $(window).on('resize', _.debounce(_.bind(this._updateResponsive, this),  500));
-    },
-    _updateResponsive: function() {
-      var $w = $(window);
-      var self = this;
-      var $container = self._$playerContainer;
-      var $bar    = $container.find('.videoControlBar');
-      var $header = $container.find('.zenzaWatchVideoHeaderPanel');
-
-      // 画面の縦幅にシークバー分の余裕がある時は常時表示
-      var update = function() {
-        var w = $w.innerWidth(), h = $w.innerHeight();
-        var videoControlBarHeight = $bar.outerHeight();
-        var vMargin = h - w * self._aspectRatio;
-        //var hMargin = w - h / self._aspectRatio;
-
-        $container
-          .toggleClass('showVideoControlBar',
-            vMargin >= videoControlBarHeight)
-          .toggleClass('showVideoHeaderPanel',
-            vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
-      };
-
-      update();
     },
     execCommand: function(command, param) {
       this._onCommand(command, param);
@@ -1028,6 +1202,9 @@ var CommentPanel = function() {};
         case 'deflistAdd':
           this._onDeflistAdd(param);
           break;
+        case 'deflistRemove':
+          this._onDeflistRemove(param);
+          break;
         case 'playlistAdd':
         case 'playlistAppend':
           this._onPlaylistAppend(param);
@@ -1040,6 +1217,9 @@ var CommentPanel = function() {};
           break;
         case 'playlistSetUploadedVideo':
           this._onPlaylistSetUploadedVideo(param);
+          break;
+        case 'playlistSetSearchVideo':
+          this._onPlaylistSetSearchVideo(param);
           break;
         case 'playNextVideo':
           this.playNextVideo();
@@ -1055,11 +1235,14 @@ var CommentPanel = function() {};
         case 'mylistAdd':
           this._onMylistAdd(param.mylistId, param.mylistName);
           break;
+        case 'mylistRemove':
+          this._onMylistRemove(param.mylistId, param.mylistName);
+          break;
         case 'mylistWindow':
           ZenzaWatch.util.openMylistWindow(this._videoInfo.getWatchId());
           break;
         case 'settingPanel':
-          this._settingPanel.toggle();
+          this._view.toggleSettingPanel();
           break;
         case 'seek':
         case 'seekTo':
@@ -1191,11 +1374,13 @@ var CommentPanel = function() {};
           this._nicoVideoPlayer.requestFullScreen();
           break;
         case 'INPUT_COMMENT':
-          // 即フォーカスだと入力欄に"C"が入ってしまうのを雑に対処
-          ZenzaWatch.util.callAsync(function() { this._commentInput.focus(); }, this);
+          this._view.focusToCommentInput();
           break;
         case 'DEFLIST':
           this._onDeflistAdd(param);
+          break;
+        case 'DEFLIST_REMOVE':
+          this._onDeflistRemove(param);
           break;
         case 'VIEW_COMMENT':
           this.execCommand('toggleShowComment');
@@ -1247,22 +1432,22 @@ var CommentPanel = function() {};
           break;
         case 'showComment':
           PopupMessage.notify('コメント表示: ' + (value ? 'ON' : 'OFF'));
-          this._$playerContainer.toggleClass('showComment', value);
+          this._view.toggleClass('showComment', value);
           break;
         case 'loop':
           PopupMessage.notify('リピート再生: ' + (value ? 'ON' : 'OFF'));
-          this._$playerContainer.toggleClass('loop', value);
+          this._view.toggleClass('loop', value);
           break;
         case 'mute':
           PopupMessage.notify('ミュート: ' + (value ? 'ON' : 'OFF'));
-          this._$playerContainer.toggleClass('mute', value);
+          this._view.toggleClass('mute', value);
           break;
         case 'sharedNgLevel':
           PopupMessage.notify('NG共有: ' +
             {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
           break;
         case 'debug':
-          this._$playerContainer.toggleClass('debug', value);
+          this._view.toggleClass('debug', value);
           PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
           break;
         case 'enableFilter':
@@ -1284,32 +1469,13 @@ var CommentPanel = function() {};
       }
     },
     setIsBackComment: function(v) {
-      this._$playerContainer.toggleClass('backComment', !!v);
-    },
-    _onMouseMove: function() {
-      this._$playerContainer.addClass('mouseMoving');
-    },
-    _onMouseMoveEnd: function() {
-      this._$playerContainer.removeClass('mouseMoving');
+      this._view.setIsBackComment(v);
     },
     _updateScreenMode: function(mode) {
-      this._clearClass();
-      var $container = this._$playerContainer.addClass('changeScreenMode');
-      $('body, html').addClass('zenzaScreenMode_' + mode);
-      window.setTimeout(function() {
-        $container.removeClass('changeScreenMode');
-      }, 1000);
+      this.emit('screenModeChange', mode);
     },
     _clearClass: function() {
-      var modes = [
-        'zenzaScreenMode_3D',
-        'zenzaScreenMode_small',
-        'zenzaScreenMode_sideView',
-        'zenzaScreenMode_normal',
-        'zenzaScreenMode_big',
-        'zenzaScreenMode_wide',
-      ].join(' ');
-      $('body, html').removeClass(modes);
+      this._view.clearClass();
     },
     _onClick: function() {
     },
@@ -1364,6 +1530,32 @@ var CommentPanel = function() {};
       }.bind(this));
 
     },
+    _onPlaylistSetSearchVideo: function(params) {
+      this._initializePlaylist();
+
+      var option = params.option || {};
+      var word = params.word;
+      option = option || {};
+      // 通常時はプレイリストの置き換え、
+      // 連続再生中はプレイリストに追加で読み込む
+      option.append = this._playlist.isEnable();
+
+      var query = this._videoWatchOptions.getQuery();
+      _.assign(option, query);
+
+      //window.console.log('_onPlaylistSetSearchVideo:', word, option);
+      this._playlist.loadSearchVideo(word, option).then(function(result) {
+        PopupMessage.notify(result.message);
+        this._videoInfoPanel.selectTab('playlist');
+        this._playlist.insertCurrentVideo(this._videoInfo);
+        ZenzaWatch.util.callAsync(function() {
+          this._playlist.scrollToActiveItem();
+        }, this, 1000);
+      }.bind(this),
+      function(err) {
+        PopupMessage.alert(err.message || '検索失敗または該当無し: 「' + word + '」');
+      }.bind(this));
+    },
     _onPlaylistStatusUpdate: function() {
       var playlist = this._playlist;
       this._playerConfig.setValue('playlistLoop', playlist.isLoop());
@@ -1409,6 +1601,31 @@ var CommentPanel = function() {};
         PopupMessage.alert(err.message);
       });
     },
+    _onDeflistRemove: function(watchId) {
+      var $container = this._$playerContainer;
+      if ($container.hasClass('updatingDeflist')) { return; } //busy
+      var removeClass = function() {
+        $container.removeClass('updatingDeflist');
+      };
+      $container.addClass('updatingDeflist');
+      var timer = window.setTimeout(removeClass, 10000);
+
+      watchId = watchId || this._videoInfo.getWatchId();
+      if (!this._mylistApiLoader) {
+        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      }
+
+      return this._mylistApiLoader.removeDeflistItem(watchId)
+        .then(function(result) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(removeClass, 2000);
+        PopupMessage.notify(result.message);
+      }, function(err) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(removeClass, 2000);
+        PopupMessage.alert(err.message);
+      });
+    },
     _onMylistAdd: function(groupId, mylistName) {
       var $container = this._$playerContainer;
       if ($container.hasClass('updatingMylist')) { return; } //busy
@@ -1439,6 +1656,34 @@ var CommentPanel = function() {};
         PopupMessage.alert(err.message + ': ' + mylistName);
       });
     },
+    _onMylistRemove: function(groupId, mylistName) {
+      var $container = this._$playerContainer;
+      if ($container.hasClass('updatingMylist')) { return; } //busy
+
+      var removeClass = function() {
+        $container.removeClass('updatingMylist');
+      };
+
+      $container.addClass('updatingMylist');
+      var timer = window.setTimeout(removeClass, 10000);
+
+      var watchId = this._videoInfo.getWatchId();
+
+      if (!this._mylistApiLoader) {
+        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      }
+
+      return this._mylistApiLoader.removeMylistItem(watchId, groupId)
+        .then(function(result) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(removeClass, 2000);
+        PopupMessage.notify(result.message + ': ' + mylistName);
+      }, function(err) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(removeClass, 2000);
+        PopupMessage.alert(err.message + ': ' + mylistName);
+      });
+    },
     _onCommentParsed: function() {
 
       this.emit('commentParsed');
@@ -1458,20 +1703,13 @@ var CommentPanel = function() {};
       this.emit('commentFilterChange', filter);
     },
     show: function() {
-      this._$dialog.addClass('show');
-      if (!FullScreen.now()) {
-        $('body').removeClass('fullScreen');
-      }
-      $('body, html').addClass('showNicoVideoPlayerDialog');
+      this._view.show();
       this._updateScreenMode(this._playerConfig.getValue('screenMode'));
       this._isOpen = true;
     },
     hide: function() {
-      this._$dialog.removeClass('show');
-      this._settingPanel.hide();
-      $('body, html').removeClass('showNicoVideoPlayerDialog');
-      this._clearClass();
       this._isOpen = false;
+      this._view.hide();
     },
     open: function(watchId, options) {
       if (!watchId) { return; }
@@ -1498,10 +1736,8 @@ var CommentPanel = function() {};
         nicoVideoPlayer.close();
         this._videoInfoPanel.clear();
       }
-
-      this._$playerContainer.addClass('loading');
-      this._$playerContainer.removeClass('playing stalled error abort');
-
+      
+      this._view.resetVideoLoadingStatus();
 
       // watchIdからサムネイルを逆算できる時は最速でセットする
       var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(watchId);
@@ -1514,6 +1750,7 @@ var CommentPanel = function() {};
       this._lastCurrentTime = 0;
       this._lastOpenAt = Date.now();
       this._hasError = false;
+      this._isFirstSeek = true;
       window.console.time('VideoInfoLoader');
 
       this._bindLoaderEvents();
@@ -1551,7 +1788,10 @@ var CommentPanel = function() {};
       if (!this._nicoVideoPlayer) {
         return;
       }
-      if (ZenzaWatch.util.isPremium() || this.isInSeekableBuffer(sec)) {
+      if (ZenzaWatch.util.isPremium() ||
+          this._isFirstSeek ||
+          this.isInSeekableBuffer(sec)) {
+        this._isFirstSeek = false;
         this._nicoVideoPlayer.setCurrentTime(sec);
         this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
       }
@@ -1599,7 +1839,6 @@ var CommentPanel = function() {};
       if (this._requestId !== requestId) {
         return;
       }
-
 
       var flvInfo   = videoInfo.flvInfo;
       var videoUrl  = flvInfo.url;
@@ -1671,15 +1910,10 @@ var CommentPanel = function() {};
       }
     },
     _setThumbnail: function(thumbnail) {
-      if (thumbnail) {
-        this._$playerContainer.css('background-image', 'url(' + thumbnail + ')');
-        //this._nicoVideoPlayer.setThumbnail(thumbnail);
-      } else {
-        this._$playerContainer.css('background-image', '');
-      }
+      this._view.setThumbnail(thumbnail);
     },
     _setErrorMessage: function(msg) {
-      this._$errorMessageContainer.text(msg);
+      this._view.setErrorMessage(msg);
     },
     _onCommentLoadSuccess: function(requestId, result) {
       if (requestId !== this._requestId) {
@@ -1710,7 +1944,6 @@ var CommentPanel = function() {};
     },
     _onVideoCanPlay: function() {
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
-      this._$playerContainer.removeClass('stalled loading');
       this._playerConfig.setValue('lastWatchId', this._watchId);
 
 
@@ -1728,7 +1961,14 @@ var CommentPanel = function() {};
         option.shuffle = parseInt(query.shuffle, 10) === 1;
         console.log('playlist option:', option);
 
-        this._playlist.loadFromMylist(option.group_id, option);
+        if (query.playlist_type === 'mylist_playlist') {
+          this._playlist.loadFromMylist(option.group_id, option);
+        } else {
+          var word = query.tag || query.keyword;
+          option.searchType = query.tag ? 'tag' : '';
+          _.assign(option, query);
+          this._playlist.loadSearchVideo(word, option);
+        }
         this._playlist.toggleEnable(true);
       } else if (PlaylistSession.isExist() && !this._playlist) {
         this._initializePlaylist();
@@ -1751,32 +1991,15 @@ var CommentPanel = function() {};
         this.play();
       }
     },
-    _onVideoPlay: function() {
-      this._$playerContainer.addClass('playing');
-      this._$playerContainer.removeClass('stalled loading error abort');
-      this.emit('play');
-    },
-    _onVideoPlaying: function() {
-      this._$playerContainer.addClass('playing');
-      this._$playerContainer.removeClass('stalled loading error abort');
-      this.emit('playing');
-    },
-    _onVideoPause: function() {
-      this._$playerContainer.removeClass('playing');
-      this.emit('pause');
-    },
-    _onVideoStalled: function() {
-      // stallは詰まっているだけでありplayingなので、removeClassしない
-      this._$playerContainer.addClass('stalled');
-      this.emit('stalled');
-    },
+    _onVideoPlay:    function() { this.emit('play'); },
+    _onVideoPlaying: function() { this.emit('playing'); },
+    _onVideoPause:   function() { this.emit('pause'); },
+    _onVideoStalled: function() { this.emit('stalled'); },
     _onVideoProgress: function(range, currentTime) {
       this.emit('progress', range, currentTime);
     },
     _onVideoError: function() {
       this._hasError = true;
-      this._$playerContainer.addClass('error');
-      this._$playerContainer.removeClass('playing loading');
       this.emit('error');
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
@@ -1796,13 +2019,9 @@ var CommentPanel = function() {};
       }
     },
     _onVideoAbort: function() {
-      this._$playerContainer.addClass('abort');
-      this._$playerContainer.removeClass('playing loading');
       this.emit('abort');
     },
     _onVideoAspectRatioFix: function(ratio) {
-      this._aspectRatio = ratio;
-      this._updateResponsive();
       this.emit('aspectRatioFix', ratio);
     },
     _onVideoEnded: function() {
@@ -1815,7 +2034,6 @@ var CommentPanel = function() {};
         this._playlist.toggleEnable(false);
       }
 
-
       var isAutoCloseFullScreen =
         this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
           this._videoWatchOptions.isAutoCloseFullScreen() :
@@ -1824,14 +2042,11 @@ var CommentPanel = function() {};
         FullScreen.cancel();
       }
       ZenzaWatch.emitter.emitAsync('videoEnded');
-
     },
     _onVolumeChange: function(vol, mute) {
-      this._$playerContainer.addClass('volumeChanging');
       this.emit('volumeChange', vol, mute);
     },
     _onVolumeChangeEnd: function(vol, mute) {
-      this._$playerContainer.removeClass('volumeChanging');
       this.emit('volumeChangeEnd', vol, mute);
     },
     close: function() {
@@ -2733,27 +2948,29 @@ var CommentPanel = function() {};
 
       var $container = this._$playerContainer;
       $container.find('.menuButton')
-        .on('click', _.bind(this._onMenuButtonClick, this));
+        .on('contextmenu', function(e) { e.preventDefault(); e.stopPropagation(); })
+        .on('click',     this._onMenuButtonClick.bind(this))
+        .on('mousedown', this._onMenuButtonMouseDown.bind(this));
 
       this._$deflistAdd       = $container.find('.deflistAdd');
       this._$mylistAddMenu    = $container.find('.mylistAddMenu');
       this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
       this._$closeButton      = $container.find('.closeButton');
       this._$closeButton.on('mousedown',
-        _.debounce(_.bind(this.emit, this, 'command', 'close'), 300));
+        _.debounce(this.emit.bind(this, 'command', 'close'), 300));
 
       this._$ngSettingMenu       = $container.find('.ngSettingMenu');
       this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
 
-      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
 
       this._$mylistSelectMenu.on('wheel', function(e) {
         e.stopPropagation();
       });
 
-      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
+      ZenzaWatch.emitter.on('hideHover', function() {
         this._hideMenu();
-      }, this));
+      }.bind(this));
 
     },
     _initializeMylistSelectMenu: function() {
@@ -2793,17 +3010,24 @@ var CommentPanel = function() {};
       $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
         e.preventDefault();
         e.stopPropagation();
+      });
+      $menu.on('mousedown', '.mylistIcon, .mylistLink', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         var $target  = $(e.target).closest('.mylistIcon, .mylistLink');
         var command    = $target.attr('data-command');
         var mylistId   = $target.attr('data-mylist-id');
         var mylistName = $target.attr('data-mylist-name');
 
-        self.toggleMylistMenu(false);
+        ZenzaWatch.util.callAsync(function() {
+          self.toggleMylistMenu(false);
+        }, this);
 
         if (command === 'open') {
           location.href = '//www.nicovideo.jp/my/mylist/#/' + mylistId;
         } else {
-          self.emit('command', 'mylistAdd', {mylistId: mylistId, mylistName: mylistName});
+          var cmd = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
+          self.emit('command', cmd, {mylistId: mylistId, mylistName: mylistName});
         }
       });
 
@@ -2856,10 +3080,7 @@ var CommentPanel = function() {};
       updateNgLevel(config.getValue('sharedNgLevel'));
       config.on('update-sharedNgLevel', updateNgLevel);
     },
-    _onMenuButtonClick: function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
+    _onMenuButtonMouseDown: function(e) {
       var $target = $(e.target).closest('.menuButton');
       var command = $target.attr('data-command');
       switch (command) {
@@ -2867,9 +3088,28 @@ var CommentPanel = function() {};
           if (e.shiftKey) {
             this.emit('command', 'mylistWindow');
           } else {
-            this.emit('command', 'deflistAdd');
+            this.emit('command', e.which > 1 ? 'deflistRemove' : 'deflistAdd');
           }
           break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    _onMenuButtonClick: function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var $target = $(e.target).closest('.menuButton');
+      var command = $target.attr('data-command');
+      switch (command) {
+        //case 'deflistAdd':
+        //  if (e.shiftKey) {
+        //    this.emit('command', 'mylistWindow');
+        //  } else {
+        //    this.emit('command', e.which > 1 ? 'deflistRemove' : 'deflistAdd');
+        //  }
+        //  break;
         case 'mylistMenu':
           if (e.shiftKey) {
             this.emit('command', 'mylistWindow');

@@ -281,6 +281,9 @@ var AsyncEmitter = function() {};
         this._model.on('update', this._onModelUpdate.bind(this));
 
 
+        this._updateImageCss =
+          ZenzaWatch.util.createDrawCallFunc(this._updateImageCss.bind(this));
+
         ZenzaWatch.debug.seekBarThumbnail = this;
       },
       _onModelUpdate: function() {
@@ -392,8 +395,11 @@ var AsyncEmitter = function() {};
         }
 
         if (updated) {
-          this._$image.css(css);
+          this._updateImageCss(css);
         }
+      },
+      _updateImageCss: function(css) {
+        this._$image.css(css);
       }
     });
 
@@ -844,7 +850,7 @@ var AsyncEmitter = function() {};
         var url = this._model.getUrl();
         var $view = this._$view;
         $view
-          .css('transform', 'translate(0px, -'+ this._model.getHeight() +'px) translateZ(0)')
+          .css('transform', 'translate3d(0px, -'+ this._model.getHeight() +'px, 0)')
           .addClass('success');
 
         if (this._currentUrl !== url) {

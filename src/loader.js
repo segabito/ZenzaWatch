@@ -559,12 +559,13 @@ var ajax = function() {};
         getPostKey: function(threadId, blockNo) {
           // memo:
           // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
           var url =
-            '//flapi.nicovideo.jp/api/getpostkey?thread=' + threadId +
+            '//flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
             '&block_no=' + blockNo +
-            //'&version=1&yugi=' +
-            '&language_id=0';
-
+            '&version=1&version_sub=2&yugi=' +
+  //          '&language_id=0';
+            '';
           console.log('getPostkey url: ', url);
           return new Promise(function(resolve, reject) {
             ajax({
@@ -952,6 +953,7 @@ var ajax = function() {};
           }
         },
         getDeflistItems: function(options) {
+          options = options || {};
           var url = '//www.nicovideo.jp/api/deflist/list';
           //var url = 'http://riapi.nicovideo.jp/api/watch/deflistvideo';
           var cacheKey = 'deflistItems';
@@ -998,6 +1000,7 @@ var ajax = function() {};
           });
         },
         getMylistItems: function(groupId, options) {
+          options = options || {};
           if (groupId === 'deflist') { return this.getDeflistItems(options); }
           // riapiじゃないと自分のマイリストしか取れないことが発覚
           var url = '//riapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
@@ -1190,6 +1193,34 @@ var ajax = function() {};
             return Promise.reject();
           });
         },
+        findMylistItemByWatchId: function(watchId, groupId) {
+          return this._getMylistItemsFromWapi(groupId).then(function(items) {
+            for (var i = 0, len = items.length; i < len; i++) {
+              var item = items[i], wid = item.id || item.item_data.watch_id;
+              if (wid === watchId) {
+                return Promise.resolve(item);
+              }
+            }
+            return Promise.reject();
+          });
+        },
+        _getMylistItemsFromWapi: function(groupId) {
+          // めんどくさいが、マイリスト取得APIは2種類ある
+          // こっちは自分のマイリストだけを取る奴。 編集にはこっちが必要。
+          var url = '//www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
+          return ajax({
+            url: url,
+            timeout: 60000,
+            cache: false,
+            dataType: 'json',
+            xhrFields: { withCredentials: true }
+          }).then(function(result) {
+            if (result.status === 'ok' && result.mylistitem) {
+              return Promise.resolve(result.mylistitem);
+            }
+            return Promise.reject();
+          });
+        },
         removeDeflistItem: function(watchId) {
           return this.findDeflistItemByWatchId(watchId).then(function(item) {
             var url = '//www.nicovideo.jp/api/deflist/delete';
@@ -1229,6 +1260,54 @@ var ajax = function() {};
             });
 
           }, function(err) {
+            return Promise.reject({
+              status: 'fail',
+              result: err,
+              message: '動画が見つかりません'
+            });
+          });
+        },
+        removeMylistItem: function(watchId, groupId) {
+          return this.findMylistItemByWatchId(watchId, groupId).then(function(item) {
+            var url = '//www.nicovideo.jp/api/mylist/delete';
+            window.console.log('delete item:', item);
+            var data = 'id_list[0][]=' + item.item_id + '&token=' + token + '&group_id=' + groupId;
+            var cacheKey = 'mylistItems: ' + groupId;
+            var req = {
+              url: url,
+              method: 'POST',
+              data: data,
+              dataType: 'json',
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            };
+
+            return ajax(req).then(function(result) {
+              if (result.status && result.status === 'ok') {
+                cacheStorage.removeItem(cacheKey);
+                ZenzaWatch.emitter.emitAsync('mylistRemove', watchId, groupId);
+                return Promise.resolve({
+                  status: 'ok',
+                  result: result,
+                  message: 'マイリストから削除'
+                });
+              }
+
+              return Promise.reject({
+                status: 'fail',
+                result: result,
+                code: result.error.code,
+                message: result.error.description
+              });
+
+            }, function(err) {
+              return Promise.reject({
+                result: err,
+                message: 'マイリストから削除失敗(2)'
+              });
+            });
+
+          }, function(err) {
+            window.console.error(err);
             return Promise.reject({
               status: 'fail',
               result: err,

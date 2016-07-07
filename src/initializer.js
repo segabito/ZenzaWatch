@@ -99,6 +99,16 @@ var AsyncEmitter = function() {};
         });
       }
 
+      if (location.host === 'www.nicovideo.jp' &&
+          (location.pathname.indexOf('/search/') === 0 || location.pathname.indexOf('/tag/') === 0)) {
+        (function() {
+          var $target = $('.autoPlay a');
+          var search = (location.search || '').substr(1);
+          var href = $target.attr('href') + '&' + search;
+          $target.attr('href', href);
+        })();
+      }
+
       if (location.host === 'ch.nicovideo.jp') {
         $('#sec_current a.item').closest('li').each(function(i, li)  {
           var $li = $(li), $img = $li.find('img');

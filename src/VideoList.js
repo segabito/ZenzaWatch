@@ -287,7 +287,7 @@ var PopupMessage = {};
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
-      this._$window = $(w);
+      var $win = this._$window = $(w);
       var $body = this._$body = $(doc.body);
       if (this._className) {
         $body.addClass(this._className);
@@ -306,9 +306,21 @@ var PopupMessage = {};
         ZenzaWatch.emitter.emit('keyup', e);
       });
 
+      // 表示/非表示が変わるたびにChromeでscrollTopが0になるバグ？暫定対策
+      var lastScrollTop = 0;
+      $win.on('scroll', _.debounce(function() {
+        lastScrollTop = this.scrollTop();
+        //window.console.log('scrollTop: ', this._className, this.scrollTop());
+      }.bind(this), 100));
+      $win.on('mouseenter', _.throttle(function() {
+        //window.console.log('restore scrollTop: ', lastScrollTop);
+        this.scrollTop(lastScrollTop + 1);
+        this.scrollTop(lastScrollTop);
+      }.bind(this), 5000));
+
 
       if (this._dragdrop) {
-        $body.on('mousedown', _.bind(this._onBodyMouseDown, this));
+        $body.on('mousedown', this._onBodyMouseDown.bind(this));
       }
 
       if (this._dropfile) {
@@ -2011,6 +2023,71 @@ var PopupMessage = {};
               options.append ?
                 '投稿動画一覧をプレイリストに追加しました' :
                 '投稿動画一覧をプレイリストに読み込みしました'
+          });
+        }.bind(this));
+    },
+    loadSearchVideo: function(word, options) {
+      this._initializeView();
+
+      if (!this._searchApiLoader) {
+        this._nicoSearchApiLoader = ZenzaWatch.init.nicoSearchApiLoader;
+      }
+
+      window.console.time('loadSearchVideos' + word);
+      options = options || {};
+
+      return this._nicoSearchApiLoader
+        .search(word, options).then(function(result) {
+          window.console.timeEnd('loadSearchVideos' + word);
+          var items = result.list || [];
+          var videoListItems = [];
+
+          //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
+          _.each(items, function(item) {
+            if (item.item_data) {
+              if (parseInt(item.item_type, 10) !== 0) { return; } // not video
+              if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
+            } else {
+              //if (excludeId.test(item.id)) { return; } // not video
+              if (item.thumbnail_url.indexOf('video_deleted') >= 0) { return; }
+            }
+            videoListItems.push(
+              VideoListItem.createByMylistItem(item)
+            );
+          });
+
+          if (videoListItems.length < 1) {
+            return Promise.reject({});
+          }
+
+          if (options.playlistSort) {
+            // 連続再生のために結果を古い順に並べる
+            // 検索対象のソート順とは別
+            videoListItems = _.sortBy(
+              videoListItems,
+              function(item) { return item.create_time;}
+            );
+            videoListItems.reverse();
+          }
+
+          if (options.shuffle) {
+            videoListItems = _.shuffle(videoListItems);
+          }
+          //window.console.log('videoListItems!!', videoListItems);
+
+          if (!options.append) {
+            this._replaceAll(videoListItems, options);
+          } else {
+            this._appendAll(videoListItems, options);
+          }
+
+          this.emit('update');
+          return Promise.resolve({
+            status: 'ok',
+            message:
+              options.append ?
+                '検索結果をプレイリストに追加しました' :
+                '検索結果をプレイリストに読み込みしました'
           });
         }.bind(this));
     },
