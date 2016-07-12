@@ -372,6 +372,16 @@ var NicoTextParser = {};
     addChat: function(nicoChat) {
       if (nicoChat.isDeleted()) { return; }
       var type = nicoChat.getType();
+      if (this._wordReplacer) {
+        nicoChat.setText(this._wordReplacer(nicoChat.getText()));
+      }
+
+      if (this._nicoScripter.isExist()) {
+        window.console.time('ニコスクリプト適用');
+        this._nicoScripter.apply([nicoChat]);
+        window.console.timeEnd('ニコスクリプト適用');
+      }
+
       var group;
       switch (type) {
         case NicoChat.TYPE.TOP:
@@ -384,9 +394,7 @@ var NicoTextParser = {};
           group = this._nakaGroup;
           break;
       }
-      if (this._wordReplacer) {
-        nicoChat.setText(this._wordReplacer(nicoChat.getText()));
-      }
+
       group.addChat(nicoChat, group);
       this.emit('addChat');
     },

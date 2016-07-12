@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.0
+// @version        1.2.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.0';
+  var VER = '1.2.1';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1273,8 +1273,8 @@ var monkey = function() {
       var busy = false, arg;
 
       var onFrame = function() {
-        func.apply(null, arg);
         busy = false;
+        func.apply(null, arg);
       };
 
       return function() {
@@ -8816,6 +8816,16 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     addChat: function(nicoChat) {
       if (nicoChat.isDeleted()) { return; }
       var type = nicoChat.getType();
+      if (this._wordReplacer) {
+        nicoChat.setText(this._wordReplacer(nicoChat.getText()));
+      }
+
+      if (this._nicoScripter.isExist()) {
+        window.console.time('ニコスクリプト適用');
+        this._nicoScripter.apply([nicoChat]);
+        window.console.timeEnd('ニコスクリプト適用');
+      }
+
       var group;
       switch (type) {
         case NicoChat.TYPE.TOP:
@@ -8828,9 +8838,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
           group = this._nakaGroup;
           break;
       }
-      if (this._wordReplacer) {
-        nicoChat.setText(this._wordReplacer(nicoChat.getText()));
-      }
+
       group.addChat(nicoChat, group);
       this.emit('addChat');
     },
@@ -17056,6 +17064,7 @@ data-title="%no%: %date% ID:%userId%
       this._nicoVideoPlayer.closeCommentPlayer();
       this._nicoVideoPlayer.setComment(result.xml, options);
       this._threadInfo = result.threadInfo;
+
       this._isCommentReady = true;
       this.emit('commentReady', result);
     },
@@ -17327,30 +17336,57 @@ data-title="%no%: %date% ID:%userId%
         reject({});
       }.bind(this);
 
+      var _retryPost = function() {
+        window.clearTimeout(timeout);
+        window.console.info('retry: コメント投稿');
+        timeout = window.setTimeout(_onTimeout, 30000);
+
+        return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+          _onSuccess,
+          _onFailFinal
+        );
+      }.bind(this);
+
+      var _onTicketFail = function(err) {
+        var flvInfo = this._flvInfo;
+        this._messageApiLoader.load(
+          flvInfo.ms,
+          flvInfo.thread_id,
+          flvInfo.l,
+          flvInfo.user_id,
+          flvInfo.needs_key === '1',
+          flvInfo.optional_thread_id,
+          flvInfo.userkey
+        ).then(
+          function(result) {
+            window.console.log('ticket再取得 success');
+            this._threadInfo = result.threadInfo;
+            return _retryPost();
+          }.bind(this),
+          function(e) {
+            window.console.log('ticket再取得 fail: ', e);
+            _onFailFinal(err);
+          }
+        );
+      }.bind(this);
+
       var _onFail1st = function(err) {
         err = err || {};
 
         var errorCode = parseInt(err.code, 10);
-        //if (parseInt(err.code, 10) !== 4) {
-        if (!_.contains([2, 3, 4, 5], errorCode)) {
-          return _onFailFinal(err);
-        }
-
-        window.console.log('_onFail1st: ', parseInt(err.code, 10));
+        window.console.log('_onFail1st: ', errorCode);
 
         if (err.blockNo && typeof err.blockNo === 'number') {
           this._threadInfo.blockNo = err.blockNo;
         }
 
-        window.clearTimeout(timeout);
-        window.console.info('retry: コメント投稿');
-        timeout = window.setTimeout(_onTimeout, 30000);
+        if (errorCode === 3) {
+          return _onTicketFail(err);
+        } else if (!_.contains([2, 4, 5], errorCode)) {
+          return _onFailFinal(err);
+        }
 
-        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
-          _onSuccess,
-          _onFailFinal
-        );
-
+        return _retryPost();
       }.bind(this);
 
       timeout = window.setTimeout(_onTimeout, 30000);

@@ -1213,8 +1213,8 @@ var console;
       var busy = false, arg;
 
       var onFrame = function() {
-        func.apply(null, arg);
         busy = false;
+        func.apply(null, arg);
       };
 
       return function() {

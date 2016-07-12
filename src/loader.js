@@ -1924,5 +1924,10 @@ thumbnail_style : {offset_x: 0, offset_y: -15, width: 160}
 thumbnail_url : "http://tn-skr3.smilevideo.jp/smile?i=10555830"
 title : "【初音ミク】「magnet」のプレイ動画をちょっとだけ公開してみた【Project DIVA 2nd】"
 view_counter : "123929"
+
+
+
+
+<packet><thread thread="13xxxxxxxx" version="20090904" res_from="6369" userkey="xxxxxx" user_id="yyyyyy" scores="1" nicoru="1" with_global="1"/></packet>
 */
 console.log(VideoInfoLoader);
