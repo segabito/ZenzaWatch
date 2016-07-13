@@ -299,7 +299,42 @@ var monkey = function() {
         lastPlayerId: '',
         playbackRate: 1.0,
         lastWatchId: 'sm9',
-        message: ''
+        message: '',
+
+
+        KEY_CLOSE:      27,          // ESC
+        KEY_RE_OPEN:    27 + 0x1000, // SHIFT + ESC
+        KEY_HOME:       36 + 0x1000, // SHIFT + HOME
+
+        KEY_SEEK_LEFT:  37 + 0x1000, // SHIFT + LEFT
+        KEY_SEEK_RIGHT: 39 + 0x1000, // SHIFT + RIGHT
+
+        KEY_VOL_UP:     38 + 0x1000, // SHIFT + UP
+        KEY_VOL_DOWN:   40 + 0x1000, // SHIFT + DOWN
+
+        KEY_INPUT_COMMENT:  67, // C
+        KEY_FULLSCREEN:     70, // F
+        KEY_MUTE:           77, // M
+        KEY_TOGGLE_COMMENT: 86, // V
+
+        KEY_DEFLIST_ADD:    84,          // T
+        KEY_DEFLIST_REMOVE: 84 + 0x1000, // SHIFT + T
+
+        KEY_TOGGLE_PLAY: 32, // SPACE
+
+        KEY_SCREEN_MODE_1: 49 + 0x1000, // SHIFT + 1
+        KEY_SCREEN_MODE_2: 50 + 0x1000, // SHIFT + 2
+        KEY_SCREEN_MODE_3: 51 + 0x1000, // SHIFT + 3
+        KEY_SCREEN_MODE_4: 52 + 0x1000, // SHIFT + 4
+        KEY_SCREEN_MODE_5: 53 + 0x1000, // SHIFT + 5
+        KEY_SCREEN_MODE_6: 54 + 0x1000, // SHIFT + 6
+
+        KEY_SHIFT_RESET: 49, // 1
+        KEY_SHIFT_DOWN: 188 + 0x1000, // <
+        KEY_SHIFT_UP:   190 + 0x1000, // >
+
+        KEY_NEXT_VIDEO: 74, // J
+        KEY_PREV_VIDEO: 75, // K
       };
 
       if (navigator &&
@@ -1285,9 +1320,47 @@ var monkey = function() {
       };
     };
 
-    var ShortcutKeyEmitter = (function() {
+    var ShortcutKeyEmitter = (function(config) {
       var emitter = new AsyncEmitter();
       var isVerySlow = false;
+
+      // コンソールでキーバインド変更
+      //
+      // 例: ENTERでコメント入力開始
+      // ZenzaWatch.config.setValue('KEY_INPUT_COMMENT', 13);
+      // SHIFTをつけたいときは 13 + 0x1000
+      
+      var map = {
+        CLOSE: 0,
+        RE_OPEN: 0,
+        HOME: 0,
+        SEEK_LEFT: 0,
+        SEEK_RIGHT: 0,
+        VOL_UP: 0,
+        VOL_DOWN: 0,
+        INPUT_COMMENT: 0,
+        FULLSCREEN: 0,
+        MUTE: 0,
+        TOGGLE_COMMENT: 0,
+        DEFLIST_ADD: 0,
+        DEFLIST_REMOVE: 0,
+        TOGGLE_PLAY: 0,
+        SCREEN_MODE_1: 0,
+        SCREEN_MODE_2: 0,
+        SCREEN_MODE_3: 0,
+        SCREEN_MODE_4: 0,
+        SCREEN_MODE_5: 0,
+        SCREEN_MODE_6: 0,
+        SHIFT_RESET: 0,
+        SHIFT_DOWN: 0,
+        SHIFT_UP: 0,
+        NEXT_VIDEO: 0,
+        PREV_VIDEO: 0
+      };
+
+      _.each(Object.keys(map), function(key) {
+        map[key] = parseInt(config.getValue('KEY_' + key), 10);
+      });
 
       var onKeyDown = function(e) {
         if (e.target.tagName === 'SELECT' ||
@@ -1298,91 +1371,99 @@ var monkey = function() {
         if (e.ctrlKey || e.altKey) {
           return;
         }
+        var keyCode = e.keyCode + (e.shiftKey ? 0x1000 : 0);
         var key = '';
         var param = '';
-        switch (e.keyCode) {
-          case 178:
-          case 179:
-            key = 'PAUSE';
+        switch (keyCode) {
+          case 178: case 179:
+            key = 'TOGGLE_PLAY';
             break;
           case 177:
-            key = 'PREV';
+            key = 'PREV_VIDEO';
             break;
           case 176:
-            key = 'NEXT';
+            key = 'NEXT_VIDEO';
             break;
-          case 27:
-            key = e.shiftKey ? 'RE_OPEN' : 'ESC';
+          case map.CLOSE:
+            key = 'ESC';
             break;
-          case 36: // HOME
-            if (e.shiftKey) { key = 'SEEK_TO'; param = 0; }
+          case map.RE_OPEN:
+            key = 'RE_OPEN';
             break;
+          case map.HOME:
+            key = 'SEEK_TO'; param = 0;
+            break;
+          case map.SEEK_LEFT:
           case 37: // LEFT
             if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ? -1 : -5; }
             break;
-          case 38: // UP
-            if (e.shiftKey) { key = 'VOL_UP'; }
+          case map.VOL_UP:
+            key = 'VOL_UP';
             break;
+          case map.SEEK_RIGHT:
           case 39: // RIGHT
             if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ?  1 :  5; }
             break;
-          case 40: // DOWN
-            if (e.shiftKey) { key = 'VOL_DOWN'; }
+          case map.VOL_DOWN:
+            key = 'VOL_DOWN';
             break;
-          case 67: // C
+          case map.INPUT_COMMENT:
             key = 'INPUT_COMMENT';
             break;
-          case 70: // F
+          case map.FULLSCREEN:
             key = 'FULL';
             break;
-          case 77: // M
+          case map.MUTE:
             key = 'MUTE';
             break;
-          case 86: // V
+          case map.TOGGLE_COMMENT:
             key = 'VIEW_COMMENT';
             break;
-          case 84: //T
-            key = e.shiftKey ? 'DEFLIST_REMOVE' : 'DEFLIST';
+          case map.DEFLIST_ADD:
+            key = 'DEFLIST';
             break;
-          case 32:
-            key = 'SPACE';
+          case map.DEFLIST_REMOVE:
+            key = 'DEFLIST_REMOVE';
             break;
-          case 49: // 1
-            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'small';
-            } else {
-              key = 'PLAYBACK_RATE';
-              isVerySlow = true;
-              param = 0.1;
-            }
+          case map.TOGGLE_PLAY:
+            key = 'TOGGLE_PLAY';
             break;
-          case 222: // Shift + 2 ???
-          case 50: // 2
-            // なぜかMacBookではShift + 2で222が飛んでくる。不明。
-            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'sideView'; }
+          case map.SHIFT_RESET:
+            key = 'PLAYBACK_RATE';
+            isVerySlow = true;
+            param = 0.1;
             break;
-          case 51: // 3
-            if (e.shiftKey) { key = 'SCREEN_MODE'; param = '3D'; }
+          case map.SCREEN_MODE_1:
+            key = 'SCREEN_MODE'; param = 'small';
             break;
-          case 52: // 4
-            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'normal'; }
+          case map.SCREEN_MODE_2:
+          case 222 + 0x1000: // Shift + 2 ???
+            // なぜかMacChrome+JISキーではShift+2で222が飛んでくる。不明。
+            key = 'SCREEN_MODE'; param = 'sideView';
             break;
-          case 53: // 5
-            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'big'; }
+          case map.SCREEN_MODE_3:
+            key = 'SCREEN_MODE'; param = '3D';
             break;
-          case 54: // 6
-            if (e.shiftKey) { key = 'SCREEN_MODE'; param = 'wide'; }
+          case map.SCREEN_MODE_4:
+            key = 'SCREEN_MODE'; param = 'normal';
             break;
-          case 74: //J
+          case map.SCREEN_MODE_5:
+            key = 'SCREEN_MODE'; param = 'big';
+            break;
+          case map.SCREEN_MODE_6:
+            key = 'SCREEN_MODE'; param = 'wide';
+            break;
+          case map.NEXT_VIDEO:
             key = 'NEXT_VIDEO';
             break;
-          case 75: //K
+          case map.PREV_VIDEO:
             key = 'PREV_VIDEO';
             break;
-          case 188: // <
-            if (e.shiftKey) { key = 'SHIFT_DOWN'; }
+          case map.SHIFT_DOWN:
+            key = 'SHIFT_DOWN';
             break;
-          case 190: // >
-            if (e.shiftKey) { key = 'SHIFT_UP'; }
+          case map.SHIFT_UP:
+            key = 'SHIFT_UP';
             break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
@@ -1405,7 +1486,7 @@ var monkey = function() {
         var key = '';
         var param = '';
         switch (e.keyCode) {
-          case 49:
+          case map.SHIFT_RESET:
             key = 'PLAYBACK_RATE';
             isVerySlow = false;
             param = 1;
@@ -6858,6 +6939,7 @@ var monkey = function() {
                 <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
                 <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
 
+                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
                 <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
                 <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
 
@@ -16451,7 +16533,7 @@ data-title="%no%: %date% ID:%userId%
           if (!ZenzaWatch.util.isPremium()) { break; }
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
-            if (v < 1.5) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
+            if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -16459,7 +16541,7 @@ data-title="%no%: %date% ID:%userId%
           if (!ZenzaWatch.util.isPremium()) { break; }
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
-            if (v > 1.5) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
+            if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -16495,6 +16577,7 @@ data-title="%no%: %date% ID:%userId%
           this.pause();
           break;
         case 'SPACE':
+        case 'TOGGLE_PLAY':
           this.togglePlay();
           break;
         case 'ESC':

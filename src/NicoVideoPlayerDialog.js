@@ -1313,7 +1313,7 @@ var CommentPanel = function() {};
           if (!ZenzaWatch.util.isPremium()) { break; }
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
-            if (v < 1.5) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
+            if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -1321,7 +1321,7 @@ var CommentPanel = function() {};
           if (!ZenzaWatch.util.isPremium()) { break; }
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
-            if (v > 1.5) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
+            if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -1357,6 +1357,7 @@ var CommentPanel = function() {};
           this.pause();
           break;
         case 'SPACE':
+        case 'TOGGLE_PLAY':
           this.togglePlay();
           break;
         case 'ESC':

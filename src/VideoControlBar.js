@@ -787,6 +787,7 @@ var StoryBoard = function() {};
                 <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
                 <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
 
+                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
                 <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
                 <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
 
