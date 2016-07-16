@@ -507,6 +507,7 @@ var NicoTextParser = {};
     <style type="text/css" id="optionCss">%OPTION_CSS%</style>
     <style type="text/css">
 
+      .nicoChat { visibility: hidden; }
     </style>
     <body>
     <div id="offScreenLayer"
@@ -1934,6 +1935,8 @@ var NicoTextParser = {};
 .nicoChat .fill_space {
   text-shadow: none;
   background: currentColor;
+  outline: 4px solid;
+  outline-offset: -1px;
 }
 
 .nicoChat .mesh_space {
@@ -1942,6 +1945,7 @@ var NicoTextParser = {};
 
 .nicoChat .block_space {
   text-shadow: none;
+  font-weight: 900;
 }
 
 .debug .nicoChat.ue {

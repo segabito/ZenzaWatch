@@ -138,9 +138,9 @@ body {
 
 .default {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo'; }
-.mincho  {font-family: Simsun,            Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
-.gulim   {font-family: Gulim,             Osaka-mono, "Osaka−等幅",              'ＭＳ ゴシック', monospace; }
-.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace; }
+.mincho  {font-family: Simsun,            Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
+.gulim   {font-family: Gulim,             Osaka-mono, "Osaka−等幅",              'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
+.mingLiu {font-family: PmingLiu, mingLiu, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
 han_group { font-family: 'Arial'; }
 
 .nicoChat {
@@ -194,13 +194,13 @@ han_group { font-family: 'Arial'; }
       font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';
     }
     .mincho > .type2001 {
-      font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace
+      font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace
     }
     .gulim > .type2001 {
-      font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', monospace;
+      font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;
     }
     .mingLiu > .type2001 {
-      font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', monospace;
+      font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;
     }
 
 {*
@@ -242,6 +242,17 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 .big    .mesh_space { width: 40px; }
 .medium .mesh_space { width: 25px; }
 .small  .mesh_space { width: 16px; }
+
+{*
+.fill_space {
+  display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
+           vertical-align: bottom; font-weight: normal;
+  white-space: nowrap;
+}
+.big    .fill_space { width: 40px; height: 40px; }
+.medium .fill_space { width: 25px; height: 25px; }
+.small  .fill_space { width: 16px; height: 16px; }
+*}
 
 .backslash {
   font-family: Arial;
@@ -352,7 +363,10 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
       htmlText =
         htmlText
           .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
-          .replace(/([\u2588]+)/g, '<span class="fill_space">$1</span>')
+          .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
+            function(g) { return '<span class="fill_space">'+
+              _.repeat('◆', g.length) + '</span>';
+            } )
           .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように
           .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
