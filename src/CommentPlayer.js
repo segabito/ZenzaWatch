@@ -1935,7 +1935,7 @@ var NicoTextParser = {};
 .nicoChat .fill_space {
   text-shadow: none;
   background: currentColor;
-  outline: 4px solid;
+  outline: 2px solid;
   outline-offset: -1px;
 }
 

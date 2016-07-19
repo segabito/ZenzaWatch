@@ -223,9 +223,9 @@ var CommentPanel = function() {};
       font-size: 13px;
       text-align: left;
       box-sizing: border-box;
-      transition:
+      {*transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
-        right 0.4s ease-in, bottom 0.4s ease-in;
+        right 0.4s ease-in, bottom 0.4s ease-in;*}
     }
 
     .zenzaScreenMode_big     .zenzaVideoPlayerDialog,
@@ -741,6 +741,13 @@ var CommentPanel = function() {};
       white-space: nowrap;
     }
 
+    .popupMessageContainer {
+      top: 50px;
+      left: 50px;
+      z-index: 25000;
+      position: absolute;
+      pointer-events: none;
+    }
   */});
 
   NicoVideoPlayerDialogView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*

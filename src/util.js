@@ -435,31 +435,43 @@ var console;
 
       var __css__ = ZenzaWatch.util.hereDoc(function() {/*
         .zenzaPopupMessage {
-          position: fixed;
-          top: -50px;
-          left: 10px;
           z-index: 200000;
           opacity: 0;
           white-space: nowrap;
           font-weight: bolder;
-          padding: 8px 16px;
+          transform: translate3d(0, -200px, 0);
+          overflow: hidden;
+          box-sizing: border-box;
+          max-height: 0;
+          margin-bottom: 0px;
+          padding: 0px 8px;
           transition:
-            top 2s linear,
-            opacity 3s ease,
+            transform 2s linear,
+            opacity 2s ease,
             z-index 1s ease,
             box-shadow 1s ease,
+            max-height    2s ease 2s,
+            padding       2s ease 2s,
+            margin-bottom 2s ease 2s,
             background 5s ease;
           pointer-events: none;
           background: #000;
+          user-select: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
         }
 
         .zenzaPopupMessage.show {
           z-index: 250000;
-          top: 50px;
+          transform: translate3d(0, 0, 0);
           opacity: 0.8;
+          overflow: visible;
+          max-height: 100px;
+          margin-bottom: 16px;
+          padding: 8px 16px;
           box-shadow: 4px 4px 2px #ccc;
           transition:
-            top 0.5s linear,
+            transform 0.5s linear,
             opacity 1s ease,
             z-index 1s ease,
             box-shadow 0.5s ease,
@@ -511,7 +523,7 @@ var console;
 
         window.setTimeout(function() { $msg.addClass('show'); }, 100);
         window.setTimeout(function() { $msg.removeClass('show'); }, 3000);
-        window.setTimeout(function() { $msg.remove(); }, 10000);
+        window.setTimeout(function() { $msg.remove(); }, 8000);
       };
 
       var undefined;
@@ -1245,16 +1257,19 @@ var console;
         (window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame).bind(window);
       if (!requestAnimationFrame) { return func; }
 
-      var busy = false, arg;
+      var lastCalled = 0, arg;
+      var isBusy = function() {
+        return Date.now() - lastCalled < 1000;
+      };
 
       var onFrame = function() {
-        busy = false;
         func.apply(null, arg);
+        lastCalled = 0;
       };
 
       return function() {
-        if (busy) { return; }
-        busy = true;
+        if (isBusy()) { return; }
+        lastCalled = Date.now();
         arg = arguments;
         requestAnimationFrame(onFrame);
       };
