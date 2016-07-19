@@ -259,6 +259,15 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+
+        <div class="enableCommentLayoutWorker control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableCommentLayoutWorker">
+            コメント初期化を一部マルチスレッド化(実験中)
+          </label>
+        </div>
+
+
         <div class="menuScaleControl control toggle">
           <label>
             <select class="menuScale" data-setting-name="menuScale">

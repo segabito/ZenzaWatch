@@ -64,9 +64,11 @@ var NicoTextParser = {};
         opacity: _.isNumber(params.commentOpacity) ? params.commentOpacity : 1.0
       });
 
-      this._model.on('change'      , _.bind(this._onCommentChange, this));
-      this._model.on('filterChange', _.bind(this._onFilterChange, this));
-      this._model.on('parsed'      , _.bind(this._onCommentParsed, this));
+      var onCommentChange = _.throttle(this._onCommentChange.bind(this), 1000);
+      this._model.on('change'      , onCommentChange);
+      this._model.on('filterChange', this._onFilterChange.bind(this));
+      this._model.on('parsed'      , this._onCommentParsed.bind(this));
+      ZenzaWatch.emitter.on('commentLayoutChange', onCommentChange);
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
@@ -754,6 +756,18 @@ var NicoTextParser = {};
         default:
           return this._nakaGroup;
       }
+    },
+    getBulkLayoutData: function() {
+      return {
+        top:    this._topGroup.getBulkLayoutData(),
+        naka:   this._nakaGroup.getBulkLayoutData(),
+        bottom: this._bottomGroup.getBulkLayoutData()
+      };
+    },
+    setBulklayoutData: function(data) {
+      this._topGroup   .setBulkLayoutData(data.top);
+      this._nakaGroup  .setBulkLayoutData(data.naka);
+      this._bottomGroup.setBulkLayoutData(data.bottom);
     }
 });
 
@@ -881,7 +895,23 @@ var NicoTextParser = {};
         var nc = new NicoChatViewModel(nicoChat, this._offScreen);
         this._members.push(nc);
       }
-      this._groupCollision();
+
+      if (this._members.length < 2) { return; }
+
+      var worker = commentLayoutWorker.get();
+      if (worker) {
+        worker.addEventListener('message', function(e) {
+          this.setBulkLayoutData(e.data);
+          ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
+        }.bind(this));
+
+        worker.postMessage({
+          type: this._members[0].getType(),
+          members: this.getBulkLayoutData()
+        });
+      } else {
+        this._groupCollision();
+      }
     },
     _groupCollision: function() {
       this._createVSortedMembers();
@@ -895,13 +925,33 @@ var NicoTextParser = {};
       window.console.time(timeKey);
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
 
-      // 内部処理効率化の都合上、
-      // 自身を追加する前に判定を行っておくこと
-      this.checkCollision(nc);
+      var worker = commentLayoutWorker.get();
+      if (worker) {
+        worker.addEventListener('message', function(e) {
+          this.setBulkLayoutData(e.data);
+          ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
+        }.bind(this));
 
-      this._members.push(nc);
-      this._createVSortedMembers();
-      window.console.timeEnd(timeKey);
+        // 内部処理効率化の都合上、
+        // 自身を追加する前に判定を行っておくこと
+        this.checkCollision(nc);
+
+        this._members.push(nc);
+
+        worker.postMessage({
+          type: this._members[0].getType(),
+          members: this.getBulkLayoutData()
+        });
+      } else {
+        // 内部処理効率化の都合上、
+        // 自身を追加する前に判定を行っておくこと
+        this.checkCollision(nc);
+
+        this._members.push(nc);
+        this._createVSortedMembers();
+        window.console.timeEnd(timeKey);
+      }
+
     },
     reset: function() {
       var m = this._members;
@@ -945,7 +995,21 @@ var NicoTextParser = {};
         }
       }
     },
-
+    getBulkLayoutData: function() {
+      this._createVSortedMembers();
+      var m = this._vSortedMembers;
+      var result = [];
+      for (var i = 0, len = m.length; i < len; i++) {
+        result.push(m[i].getBulkLayoutData());
+      }
+      return result;
+    },
+    setBulkLayoutData: function(data) {
+      var m = this._vSortedMembers;
+      for (var i = 0, len = m.length; i < len; i++) {
+        m[i].setBulkLayoutData(data[i]);
+      }
+    },
     /**
      * vposでソートされたメンバーを生成. 計算効率改善用
      */
@@ -1600,6 +1664,27 @@ var NicoTextParser = {};
       }
 
       return false;
+    },
+
+    getBulkLayoutData: function() {
+      return {
+        id:          this.getId(),
+        fork:        this.getFork(),
+        type:        this.getType(),
+        isOverflow:  this.isOverflow(),
+        isInvisible: this.isInvisible(),
+        isFixed:     this._isFixed,
+        ypos:        this.getYpos(),
+        height:      this.getHeight(),
+        beginLeft:   this.getBeginLeftTiming(),
+        beginRight:  this.getBeginRightTiming(),
+        endLeft:     this.getEndLeftTiming(),
+        endRight:    this.getEndRightTiming()
+      };
+    },
+    setBulkLayoutData: function(data) {
+      this._isOverflow = data.isOverflow;
+      this._y = data.ypos;
     },
 
     /**

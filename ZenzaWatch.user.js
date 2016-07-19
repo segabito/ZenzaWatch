@@ -289,6 +289,7 @@ var monkey = function() {
         speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
 
 
+        enableCommentLayoutWorker: false, // コメントの配置計算を一部マルチスレッド化(テスト中)
 
 
         commentLayerOpacity: 1.0, //
@@ -499,7 +500,7 @@ var monkey = function() {
           opacity: 0;
           white-space: nowrap;
           font-weight: bolder;
-          transform: translate3d(0, -200px, 0);
+          transform: translate3d(0, -100px, 0);
           overflow: hidden;
           box-sizing: border-box;
           max-height: 0;
@@ -510,9 +511,9 @@ var monkey = function() {
             opacity 2s ease,
             z-index 1s ease,
             box-shadow 1s ease,
-            max-height    2s ease 2s,
-            padding       2s ease 2s,
-            margin-bottom 2s ease 2s,
+            max-height    1s ease 2s,
+            padding       1s ease 2s,
+            margin-bottom 1s ease 2s,
             background 5s ease;
           pointer-events: none;
           background: #000;
@@ -526,7 +527,7 @@ var monkey = function() {
           transform: translate3d(0, 0, 0);
           opacity: 0.8;
           overflow: visible;
-          max-height: 100px;
+          max-height: 200px;
           margin-bottom: 16px;
           padding: 8px 16px;
           box-shadow: 4px 4px 2px #ccc;
@@ -8619,9 +8620,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         opacity: _.isNumber(params.commentOpacity) ? params.commentOpacity : 1.0
       });
 
-      this._model.on('change'      , _.bind(this._onCommentChange, this));
-      this._model.on('filterChange', _.bind(this._onFilterChange, this));
-      this._model.on('parsed'      , _.bind(this._onCommentParsed, this));
+      var onCommentChange = _.throttle(this._onCommentChange.bind(this), 1000);
+      this._model.on('change'      , onCommentChange);
+      this._model.on('filterChange', this._onFilterChange.bind(this));
+      this._model.on('parsed'      , this._onCommentParsed.bind(this));
+      ZenzaWatch.emitter.on('commentLayoutChange', onCommentChange);
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
     },
@@ -9309,6 +9312,18 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         default:
           return this._nakaGroup;
       }
+    },
+    getBulkLayoutData: function() {
+      return {
+        top:    this._topGroup.getBulkLayoutData(),
+        naka:   this._nakaGroup.getBulkLayoutData(),
+        bottom: this._bottomGroup.getBulkLayoutData()
+      };
+    },
+    setBulklayoutData: function(data) {
+      this._topGroup   .setBulkLayoutData(data.top);
+      this._nakaGroup  .setBulkLayoutData(data.naka);
+      this._bottomGroup.setBulkLayoutData(data.bottom);
     }
 });
 
@@ -9436,7 +9451,23 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         var nc = new NicoChatViewModel(nicoChat, this._offScreen);
         this._members.push(nc);
       }
-      this._groupCollision();
+
+      if (this._members.length < 2) { return; }
+
+      var worker = commentLayoutWorker.get();
+      if (worker) {
+        worker.addEventListener('message', function(e) {
+          this.setBulkLayoutData(e.data);
+          ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
+        }.bind(this));
+
+        worker.postMessage({
+          type: this._members[0].getType(),
+          members: this.getBulkLayoutData()
+        });
+      } else {
+        this._groupCollision();
+      }
     },
     _groupCollision: function() {
       this._createVSortedMembers();
@@ -9450,13 +9481,33 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       window.console.time(timeKey);
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
 
-      // 内部処理効率化の都合上、
-      // 自身を追加する前に判定を行っておくこと
-      this.checkCollision(nc);
+      var worker = commentLayoutWorker.get();
+      if (worker) {
+        worker.addEventListener('message', function(e) {
+          this.setBulkLayoutData(e.data);
+          ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
+        }.bind(this));
 
-      this._members.push(nc);
-      this._createVSortedMembers();
-      window.console.timeEnd(timeKey);
+        // 内部処理効率化の都合上、
+        // 自身を追加する前に判定を行っておくこと
+        this.checkCollision(nc);
+
+        this._members.push(nc);
+
+        worker.postMessage({
+          type: this._members[0].getType(),
+          members: this.getBulkLayoutData()
+        });
+      } else {
+        // 内部処理効率化の都合上、
+        // 自身を追加する前に判定を行っておくこと
+        this.checkCollision(nc);
+
+        this._members.push(nc);
+        this._createVSortedMembers();
+        window.console.timeEnd(timeKey);
+      }
+
     },
     reset: function() {
       var m = this._members;
@@ -9500,7 +9551,21 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         }
       }
     },
-
+    getBulkLayoutData: function() {
+      this._createVSortedMembers();
+      var m = this._vSortedMembers;
+      var result = [];
+      for (var i = 0, len = m.length; i < len; i++) {
+        result.push(m[i].getBulkLayoutData());
+      }
+      return result;
+    },
+    setBulkLayoutData: function(data) {
+      var m = this._vSortedMembers;
+      for (var i = 0, len = m.length; i < len; i++) {
+        m[i].setBulkLayoutData(data[i]);
+      }
+    },
     /**
      * vposでソートされたメンバーを生成. 計算効率改善用
      */
@@ -10155,6 +10220,27 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       }
 
       return false;
+    },
+
+    getBulkLayoutData: function() {
+      return {
+        id:          this.getId(),
+        fork:        this.getFork(),
+        type:        this.getType(),
+        isOverflow:  this.isOverflow(),
+        isInvisible: this.isInvisible(),
+        isFixed:     this._isFixed,
+        ypos:        this.getYpos(),
+        height:      this.getHeight(),
+        beginLeft:   this.getBeginLeftTiming(),
+        beginRight:  this.getBeginRightTiming(),
+        endLeft:     this.getEndLeftTiming(),
+        endRight:    this.getEndRightTiming()
+      };
+    },
+    setBulkLayoutData: function(data) {
+      this._isOverflow = data.isOverflow;
+      this._y = data.ypos;
     },
 
     /**
@@ -11565,6 +11651,186 @@ spacer {
       this.emit('change');
     }
   });
+
+
+
+var commentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
+  var func = function() {
+
+    // 暫定設置
+    var NicoChat = {
+      TYPE: {
+        TOP:    'ue',
+        NAKA:   'naka',
+        BOTTOM: 'shita'
+      }
+    };
+
+    var NicoCommentViewModel = {
+      SCREEN: {
+        WIDTH_INNER:      512,
+        WIDTH_FULL_INNER: 640,
+        WIDTH:      512 + 32,
+        WIDTH_FULL: 640 + 32,
+        HEIGHT:     384 +  1
+      }
+    };
+
+
+    var isConflict = function(target, others) {
+      // 一度はみ出した文字は当たり判定を持たない
+      if (target.isOverflow || others.isOverflow || others.isInvisible) { return false; }
+
+      if (target.fork !== others.fork) { return false; }
+
+      // Y座標が合わないなら絶対衝突しない
+      var othersY = others.ypos;
+      var targetY = target.ypos;
+      if (othersY + others.height < targetY ||
+          othersY > targetY + target.height) {
+        return false;
+      }
+
+      // ターゲットと自分、どっちが右でどっちが左か？の判定
+      var rt, lt;
+      if (target.beginLeft <= others.beginLeft) {
+        lt = target;
+        rt = others;
+      } else {
+        lt = others;
+        rt = target;
+      }
+
+      if (target.isFixed) {
+
+        // 左にあるやつの終了より右にあるやつの開始が早いなら、衝突する
+        // > か >= で挙動が変わるCAがあったりして正解がわからない
+        if (lt.endRight > rt.beginLeft) {
+          return true;
+        }
+
+      } else {
+
+        // 左にあるやつの右端開始よりも右にあるやつの左端開始のほうが早いなら、衝突する
+        if (lt.beginRight >= rt.beginLeft) {
+          return true;
+        }
+
+        // 左にあるやつの右端終了よりも右にあるやつの左端終了のほうが早いなら、衝突する
+        if (lt.endRight >= rt.endLeft) {
+          return true;
+        }
+
+      }
+
+      return false;
+    };
+
+    var moveToNextLine = function(target, others) {
+      var margin = 1;
+      var othersHeight = others.height + margin;
+      // 本来はちょっとでもオーバーしたらランダムすべきだが、
+      // 本家とまったく同じサイズ計算は難しいのでマージンを入れる
+      // コメントアートの再現という点では有効な妥協案
+      var overflowMargin = 10;
+      var rnd =  Math.max(0, NicoCommentViewModel.SCREEN.HEIGHT - target.height);
+      var yMax = NicoCommentViewModel.SCREEN.HEIGHT - target.height + overflowMargin;
+      //var rnd =  Math.max(0, 385 - target.height);
+      //var yMax = 385 - target.height + overflowMargin;
+      var yMin = 0 - overflowMargin;
+
+      var type = target.type;
+      var ypos = target.ypos;
+
+      if (type !== NicoChat.TYPE.BOTTOM) {
+        ypos += othersHeight;
+        // 画面内に入りきらなかったらランダム配置
+        if (ypos > yMax) {
+          target.isOverflow = true;
+        }
+      } else {
+        ypos -= othersHeight;
+        // 画面内に入りきらなかったらランダム配置
+        if (ypos < yMin) {
+          target.isOverflow = true;
+        }
+      }
+
+      target.ypos = target.isOverflow ? Math.floor(Math.random() * rnd) : ypos;
+
+      return target;
+    };
+
+    var checkCollision = function(target, members) {
+      if (target.isInvisible) { return target; }
+
+      var o;
+      var beginLeft = target.beginLeft;
+      for (var i = 0, len = members.length; i < len; i++) {
+        o = members[i];
+
+        // 自分よりうしろのメンバーには影響を受けないので処理不要
+        if (o.id === target.id) { return target; }
+
+        if (beginLeft > o.endRight)  { continue; }
+
+
+        if (isConflict(target, o)) {
+          target = moveToNextLine(target, o);
+
+          // ずらした後は再度全チェックするのを忘れずに(再帰)
+          if (!target.isOverflow) {
+            return checkCollision(target, members);
+          }
+        }
+      }
+      return target;
+    };
+
+    var groupCollision = function(members) {
+      for (var i = 0, len = members.length; i < len; i++) {
+        members[i] = checkCollision(members[i], members);
+      }
+      return members;
+    };
+
+    self.onmessage = function(e) {
+      console.time('CommentLayoutWorker: ' + e.data.type);
+      var result = groupCollision(e.data.members);
+      console.timeEnd('CommentLayoutWorker: ' + e.data.type);
+
+      postMessage(result);
+      close();
+    };
+
+  };
+
+  return {
+    get: function() {
+      if (!ZenzaWatch.util.isWebWorkerAvailable()) {
+        return null;
+      }
+      return ZenzaWatch.util.createWebWorker(func);
+    }
+  };
+})(NicoChat, NicoCommentViewModel);
+
+ZenzaWatch.util.createWebWorker = function(func) {
+  var src = func.toString().replace(/^function.*?\{/, '').replace(/}$/, '');
+
+  var blob = new Blob([src], {type: 'text\/javascript'});
+  var url = URL.createObjectURL(blob);
+
+  //window.console.log('WebWorker src:', src);
+
+  return new Worker(url);
+};
+
+ZenzaWatch.util.isWebWorkerAvailable = function() {
+  return !!(Config.getValue('enableCommentLayoutWorker') && window.Blob && window.Worker && window.URL);
+};
+
+
 
 
 
@@ -19241,6 +19507,15 @@ data-title="%no%: %date% ID:%userId%
             マイリストコメントに投稿者名を入れる
           </label>
         </div>
+
+
+        <div class="enableCommentLayoutWorker control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableCommentLayoutWorker">
+            コメント初期化を一部マルチスレッド化(実験中)
+          </label>
+        </div>
+
 
         <div class="menuScaleControl control toggle">
           <label>

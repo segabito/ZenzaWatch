@@ -229,6 +229,7 @@ var console;
         speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
 
 
+        enableCommentLayoutWorker: false, // コメントの配置計算を一部マルチスレッド化(テスト中)
 
 
         commentLayerOpacity: 1.0, //
@@ -439,7 +440,7 @@ var console;
           opacity: 0;
           white-space: nowrap;
           font-weight: bolder;
-          transform: translate3d(0, -200px, 0);
+          transform: translate3d(0, -100px, 0);
           overflow: hidden;
           box-sizing: border-box;
           max-height: 0;
@@ -450,9 +451,9 @@ var console;
             opacity 2s ease,
             z-index 1s ease,
             box-shadow 1s ease,
-            max-height    2s ease 2s,
-            padding       2s ease 2s,
-            margin-bottom 2s ease 2s,
+            max-height    1s ease 2s,
+            padding       1s ease 2s,
+            margin-bottom 1s ease 2s,
             background 5s ease;
           pointer-events: none;
           background: #000;
@@ -466,7 +467,7 @@ var console;
           transform: translate3d(0, 0, 0);
           opacity: 0.8;
           overflow: visible;
-          max-height: 100px;
+          max-height: 200px;
           margin-bottom: 16px;
           padding: 8px 16px;
           box-shadow: 4px 4px 2px #ccc;

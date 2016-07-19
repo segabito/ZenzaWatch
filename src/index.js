@@ -88,6 +88,8 @@ var monkey = function() {
 
 //@require CommentPlayer.js
 
+//@require CommentLayoutWorker.js
+
 //@require NicoScripter.js
 
 //@require CommentPanel.js
