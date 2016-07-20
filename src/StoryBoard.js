@@ -701,8 +701,8 @@ var AsyncEmitter = function() {};
           .toggleClass('webkit', ZenzaWatch.util.isWebkit())
           .on('click',     '.board',   this._onBoardClick.bind(this))
         //  .on('click',     '.command', this._onCommandClick.bind(this))
-          .on('mousemove', '.board',   this._onBoardMouseMove.bind(this))
-          .on('mousemove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
+          .on('mousemove, touchmove', '.board',   this._onBoardMouseMove.bind(this))
+          .on('mousemove, touchmove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
           .on('wheel',            this._onMouseWheel   .bind(this))
           .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
 

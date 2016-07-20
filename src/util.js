@@ -443,18 +443,13 @@ var console;
           transform: translate3d(0, -100px, 0);
           overflow: hidden;
           box-sizing: border-box;
-          max-height: 0;
-          margin-bottom: 0px;
-          padding: 0px 8px;
           transition:
             transform 2s linear,
             opacity 2s ease,
             z-index 1s ease,
             box-shadow 1s ease,
-            max-height    1s ease 2s,
-            padding       1s ease 2s,
-            margin-bottom 1s ease 2s,
             background 5s ease;
+
           pointer-events: none;
           background: #000;
           user-select: none;
@@ -479,12 +474,30 @@ var console;
             background 0.5s ease;
          }
 
-        .zenzaPopupMessage.notify.show {
+        .zenzaPopupMessage.show.removing {
+          {*transform: translate3d(0, -100px, 0);*}
+          opacity: 0;
+          box-sizing: border-box;
+          max-height: 0;
+          margin-bottom: 0px;
+          padding: 0px 8px;
+          box-shadow: 0px 0px 2px #000;
+          transition:
+            transform 1s linear,
+            opacity 2s ease,
+            box-shadow 2s ease,
+            max-height    0.5s ease 2s,
+            padding       0.5s ease 2s,
+            margin-bottom 0.5s ease 2s,
+            background 5s ease;
+        }
+
+        .zenzaPopupMessage.notify {
           background: #0c0;
           color: #fff;
         }
 
-        .zenzaPopupMessage.alert.show {
+        .zenzaPopupMessage.alert {
           background: #c00;
           color: #fff;
         }
@@ -523,7 +536,7 @@ var console;
         $target.append($msg);
 
         window.setTimeout(function() { $msg.addClass('show'); }, 100);
-        window.setTimeout(function() { $msg.removeClass('show'); }, 3000);
+        window.setTimeout(function() { $msg.addClass('removing'); }, 3000);
         window.setTimeout(function() { $msg.remove(); }, 8000);
       };
 

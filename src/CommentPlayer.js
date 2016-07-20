@@ -9,6 +9,7 @@ var Config = {};
 var AsyncEmitter = {};
 var PopupMessage = {};
 var NicoTextParser = {};
+var CommentLaoutWorker = {};
 
 //===BEGIN===
 
@@ -898,7 +899,7 @@ var NicoTextParser = {};
 
       if (this._members.length < 2) { return; }
 
-      var worker = commentLayoutWorker.get();
+      var worker = CommentLayoutWorker.get();
       if (worker) {
         worker.addEventListener('message', function(e) {
           this.setBulkLayoutData(e.data);
@@ -917,7 +918,9 @@ var NicoTextParser = {};
       this._createVSortedMembers();
       var members = this._vSortedMembers;
       for (var i = 0, len = members.length; i < len; i++) {
-        this.checkCollision(members[i]);
+        var o = members[i];
+        this.checkCollision(o);
+        o.setIsLayouted(true);
       }
     },
     addChat: function(nicoChat) {
@@ -925,7 +928,7 @@ var NicoTextParser = {};
       window.console.time(timeKey);
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
 
-      var worker = commentLayoutWorker.get();
+      var worker = CommentLayoutWorker.get();
       if (worker) {
         worker.addEventListener('message', function(e) {
           this.setBulkLayoutData(e.data);
@@ -946,6 +949,7 @@ var NicoTextParser = {};
         // 内部処理効率化の都合上、
         // 自身を追加する前に判定を行っておくこと
         this.checkCollision(nc);
+        nc.setIsLayouted(true);
 
         this._members.push(nc);
         this._createVSortedMembers();
@@ -974,7 +978,6 @@ var NicoTextParser = {};
       var m = this._vSortedMembers;//this._members;
       var o;
       var beginLeft = target.getBeginLeftTiming();
-//      var endRight  = target.getEndRightTiming();
       for (var i = 0, len = m.length; i < len; i++) {
         o = m[i];
 
@@ -1377,6 +1380,9 @@ var NicoTextParser = {};
 
       this._setSize(nicoChat.getSize());
 
+
+      this._isLayouted = false;
+
       // 文字を設定
       // この時点で字幕の大きさが確定するので、
       // Z座標・beginRightTiming, endLeftTimingまでが確定する
@@ -1685,6 +1691,7 @@ var NicoTextParser = {};
     setBulkLayoutData: function(data) {
       this._isOverflow = data.isOverflow;
       this._y = data.ypos;
+      this._isLayouted = true;
     },
 
     /**
@@ -1735,11 +1742,14 @@ var NicoTextParser = {};
     getHtmlText: function() {
       return this._htmlText;
     },
+    setIsLayouted: function(v) {
+      this._isLayouted = v;
+    },
     isInView: function() {
       return this.isInViewBySecond(this.getCurrentTime());
     },
     isInViewBySecond: function(sec) {
-      if (sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
+      if (!this._isLayouted || sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
       if (sec > this._endRightTiming ) { return false; }
       //if (!this.isNicoScript() && this.isInvisible()) { return false; }
       if (this.isInvisible()) { return false; }
@@ -2188,7 +2198,6 @@ spacer {
 
     },
     _initializeView: function(params, retryCount) {
-
       if (retryCount === 0) {
         window.console.time('initialize NicoCommentCss3PlayerView');
       }
@@ -2848,7 +2857,7 @@ spacer {
     },
     addWordFilter: function(text) {
       var before = this._wordFilterList.join('\n');
-      this._wordFilterList.push(text.trim());
+      this._wordFilterList.push((text || '').trim());
       this._wordFilterList = _.uniq(this._wordFilterList);
       if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(20); }
       var after = this._wordFilterList.join('\n');
@@ -2862,7 +2871,7 @@ spacer {
 
       var before = this._wordFilterList.join('\n');
       var tmp = [];
-      _.each(list, function(text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push((text || '').trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -2904,7 +2913,7 @@ spacer {
 
       var before = this._userIdFilterList.join('\n');
       var tmp = [];
-      _.each(list, function(text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push((text || '').trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -2935,7 +2944,7 @@ spacer {
 
       var before = this._commandFilterList.join('\n');
       var tmp = [];
-      _.each(list, function(text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push((text || '').trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -3078,6 +3087,7 @@ spacer {
       if (filterList.length < 1) { return null; }
       var r = [];
       _.each(filterList, function(filter) {
+        if (!filter) { return; }
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('(' + r.join('|') + ')', 'i');
@@ -3086,6 +3096,7 @@ spacer {
       if (filterList.length < 1) { return null; }
       var r = [];
       _.each(filterList, function(filter) {
+        if (!filter) { return; }
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('^(' + r.join('|') + ')$');

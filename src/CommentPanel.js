@@ -142,6 +142,8 @@ var PopupMessage = {};
  * かなり実験要素が多いのでまだまだ変わる。
  */
   var CommentListView = function() { this.initialize.apply(this, arguments); };
+  CommentListView.ITEM_HEIGHT = 40;
+
   _.extend(CommentListView.prototype, AsyncEmitter.prototype);
   CommentListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
   */});
@@ -189,7 +191,7 @@ var PopupMessage = {};
 
       this._model = params.model;
       if (this._model) {
-        this._model.on('update',     _.debounce(_.bind(this._onModelUpdate, this), 100));
+        this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
       }
 
       this.scrollTop = ZenzaWatch.util.createDrawCallFunc(this.scrollTop.bind(this));
@@ -206,7 +208,7 @@ var PopupMessage = {};
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
-      this._$window = $(w);
+      var $win  = this._$window = $(w);
       var $body = this._$body = $(doc.body);
       if (this._className) {
         $body.addClass(this._className);
@@ -228,6 +230,13 @@ var PopupMessage = {};
 
       this._$menu.on('click', this._onMenuClick.bind(this));
 
+      $win
+        .on('scroll', this._onScroll.bind(this))
+        .on('resize', this._onResize.bind(this));
+
+      this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 30);
+      this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
+
       this._$begin = $('<span class="begin"/>');
       this._$end   = $('<span class="end"/>');
       ZenzaWatch.debug.$commentList = $list;
@@ -245,18 +254,20 @@ var PopupMessage = {};
         this._scrollTop = 0;
       }
 
-      _.each(itemList, _.bind(function (item, i) {
-        var tpl = (new Builder({item: item, index: i, height: 40})).toString();
-        itemViews.push(tpl);
-      }, this));
+      _.each(itemList, function (item, i) {
+        itemViews.push(new Builder({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
+      });
 
-      this._html = itemViews.join('');
+      this._itemViews = itemViews;
+      this._inviewItemList = {};
+      this._$newItems = null;
 
       ZenzaWatch.util.callAsync(function() {
         if (this._$list) {
-          this._$list.html(this._html);
+          this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length});
           this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
+          this._refreshInviewElements();
         }
       }, this, 0);
 
@@ -318,6 +329,54 @@ var PopupMessage = {};
       this._isActive = false;
       this._$body.removeClass('active');
     },
+    _onResize: function() {
+      this._refreshInviewElements();
+    },
+    _onScroll: function() {
+      this._refreshInviewElements();
+    },
+    _refreshInviewElements: function() {
+      if (!this._$list) { return; }
+      var itemHeight = CommentListView.ITEM_HEIGHT;
+      var $win = this._$window;
+      var scrollTop   = $win.scrollTop();
+      var innerHeight = $win.innerHeight();
+      if (innerHeight > window.innerHeight) { return; }
+      var windowBottom = scrollTop + innerHeight;
+      var itemViews = this._itemViews;
+      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight));
+      var endIndex   = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
+      var i;
+
+
+      var newItems = [], inviewItemList = this._inviewItemList;
+      for (i = startIndex; i < endIndex; i++) {
+        if (inviewItemList[i]) { continue; }
+        newItems.push(itemViews[i].toString());
+        inviewItemList[i] = true;
+      }
+      this._inviewItemList = inviewItemList;
+
+      if (newItems.length < 1) { return; }
+
+      //window.console.log('_refreshInviewElements: ',
+      //  scrollTop, windowBottom, startIndex, endIndex, newItems.length);
+
+      var $newItems = $(newItems.join(''));
+      if (this._$newItems) {
+        this._$newItems.append($newItems);
+      } else {
+        this._$newItems = $newItems;
+      }
+
+      this._appendNewItems();
+    },
+    _appendNewItems: function() {
+      if (this._$newItems) {
+        this._$list.append(this._$newItems);
+      }
+      this._$newItems = null;
+    },
     addClass: function(className) {
       this.toggleClass(className, true);
     },
@@ -350,17 +409,14 @@ var PopupMessage = {};
     setCurrentPoint: function(idx) {
       if (!this._$window) { return; }
       var innerHeight = this._$window.innerHeight();
-      if (!this._$items) { this._$items = this._$body.find('.commentListItem'); }
-      var $items = this._$items; //this._$body.find('.commentListItem');
-      var len = $items.length;
-      var item = $items[idx];
-      if (len < 1 || !item) { return; }
-
-      var $item = $(item);
-      var itemHeight = $item.outerHeight(); //40; // TODOOOOO:
-      var top = parseInt($item.attr('data-top'), 10);
+      var itemViews = this._itemViews;
+      var len  = itemViews.length;
+      var view = itemViews[idx];
+      if (len < 1 || !view) { return; }
 
       if (!this._isActive) {
+        var itemHeight = CommentListView.ITEM_HEIGHT;
+        var top = view.getTop();
         this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
       }
     }
@@ -608,6 +664,9 @@ data-title="%no%: %date% ID:%userId%
         tpl = tpl.replace('%shadow%', '');
       }
       return tpl;
+    },
+    getTop: function() {
+      return this._index * this._height;
     },
     toString: function() {
       return this.build();

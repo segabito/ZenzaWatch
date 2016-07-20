@@ -562,7 +562,13 @@ var PopupMessage = {};
       }
     },
     _onDblclick: function(e) {
-      this.emit('dblclick', e);
+      var $target = $(e.target).closest('.command');
+      var command = $target.attr('data-command');
+      if (!command) {
+        this.emit('dblclick', e);
+      } else {
+        e.stopPropagation();
+      }
     },
     addClass: function(className) {
       this.toggleClass(className, true);

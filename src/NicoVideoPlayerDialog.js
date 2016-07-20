@@ -747,6 +747,10 @@ var CommentPanel = function() {};
       z-index: 25000;
       position: absolute;
       pointer-events: none;
+      transform: translateZ(0);
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
   */});
 
@@ -3139,13 +3143,6 @@ var CommentPanel = function() {};
       var $target = $(e.target).closest('.menuButton');
       var command = $target.attr('data-command');
       switch (command) {
-        //case 'deflistAdd':
-        //  if (e.shiftKey) {
-        //    this.emit('command', 'mylistWindow');
-        //  } else {
-        //    this.emit('command', e.which > 1 ? 'deflistRemove' : 'deflistAdd');
-        //  }
-        //  break;
         case 'mylistMenu':
           if (e.shiftKey) {
             this.emit('command', 'mylistWindow');

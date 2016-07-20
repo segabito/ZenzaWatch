@@ -17,7 +17,7 @@ var postMessage = function() {};
 
 //===BEGIN===
 
-var commentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
+var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
   var func = function() {
 
     // 暫定設置
@@ -196,13 +196,4 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
 
 
 //===END===
-
-var worker = ZenzaWatch.debug.worker = ZenzaWatch.util.createWebWorker(CommentLayoutWorkerFunc);
-
-worker.addEventListener('message', function(e) {
-  window.console.log('msg: ', e.data, e);
-});
-
-worker.postMessage({hoge: 12345});
-
 

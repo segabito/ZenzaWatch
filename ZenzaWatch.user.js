@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.3
+// @version        1.2.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.3';
+  var VER = '1.2.4';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -503,18 +503,13 @@ var monkey = function() {
           transform: translate3d(0, -100px, 0);
           overflow: hidden;
           box-sizing: border-box;
-          max-height: 0;
-          margin-bottom: 0px;
-          padding: 0px 8px;
           transition:
             transform 2s linear,
             opacity 2s ease,
             z-index 1s ease,
             box-shadow 1s ease,
-            max-height    1s ease 2s,
-            padding       1s ease 2s,
-            margin-bottom 1s ease 2s,
             background 5s ease;
+
           pointer-events: none;
           background: #000;
           user-select: none;
@@ -539,12 +534,30 @@ var monkey = function() {
             background 0.5s ease;
          }
 
-        .zenzaPopupMessage.notify.show {
+        .zenzaPopupMessage.show.removing {
+          {*transform: translate3d(0, -100px, 0);*}
+          opacity: 0;
+          box-sizing: border-box;
+          max-height: 0;
+          margin-bottom: 0px;
+          padding: 0px 8px;
+          box-shadow: 0px 0px 2px #000;
+          transition:
+            transform 1s linear,
+            opacity 2s ease,
+            box-shadow 2s ease,
+            max-height    0.5s ease 2s,
+            padding       0.5s ease 2s,
+            margin-bottom 0.5s ease 2s,
+            background 5s ease;
+        }
+
+        .zenzaPopupMessage.notify {
           background: #0c0;
           color: #fff;
         }
 
-        .zenzaPopupMessage.alert.show {
+        .zenzaPopupMessage.alert {
           background: #c00;
           color: #fff;
         }
@@ -583,7 +596,7 @@ var monkey = function() {
         $target.append($msg);
 
         window.setTimeout(function() { $msg.addClass('show'); }, 100);
-        window.setTimeout(function() { $msg.removeClass('show'); }, 3000);
+        window.setTimeout(function() { $msg.addClass('removing'); }, 3000);
         window.setTimeout(function() { $msg.remove(); }, 8000);
       };
 
@@ -5732,8 +5745,8 @@ var monkey = function() {
           .toggleClass('webkit', ZenzaWatch.util.isWebkit())
           .on('click',     '.board',   this._onBoardClick.bind(this))
         //  .on('click',     '.command', this._onCommandClick.bind(this))
-          .on('mousemove', '.board',   this._onBoardMouseMove.bind(this))
-          .on('mousemove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
+          .on('mousemove, touchmove', '.board',   this._onBoardMouseMove.bind(this))
+          .on('mousemove, touchmove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
           .on('wheel',            this._onMouseWheel   .bind(this))
           .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
 
@@ -9454,7 +9467,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       if (this._members.length < 2) { return; }
 
-      var worker = commentLayoutWorker.get();
+      var worker = CommentLayoutWorker.get();
       if (worker) {
         worker.addEventListener('message', function(e) {
           this.setBulkLayoutData(e.data);
@@ -9473,7 +9486,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._createVSortedMembers();
       var members = this._vSortedMembers;
       for (var i = 0, len = members.length; i < len; i++) {
-        this.checkCollision(members[i]);
+        var o = members[i];
+        this.checkCollision(o);
+        o.setIsLayouted(true);
       }
     },
     addChat: function(nicoChat) {
@@ -9481,7 +9496,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       window.console.time(timeKey);
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
 
-      var worker = commentLayoutWorker.get();
+      var worker = CommentLayoutWorker.get();
       if (worker) {
         worker.addEventListener('message', function(e) {
           this.setBulkLayoutData(e.data);
@@ -9502,6 +9517,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         // 内部処理効率化の都合上、
         // 自身を追加する前に判定を行っておくこと
         this.checkCollision(nc);
+        nc.setIsLayouted(true);
 
         this._members.push(nc);
         this._createVSortedMembers();
@@ -9530,7 +9546,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var m = this._vSortedMembers;//this._members;
       var o;
       var beginLeft = target.getBeginLeftTiming();
-//      var endRight  = target.getEndRightTiming();
       for (var i = 0, len = m.length; i < len; i++) {
         o = m[i];
 
@@ -9933,6 +9948,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._setSize(nicoChat.getSize());
 
+
+      this._isLayouted = false;
+
       // 文字を設定
       // この時点で字幕の大きさが確定するので、
       // Z座標・beginRightTiming, endLeftTimingまでが確定する
@@ -10241,6 +10259,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     setBulkLayoutData: function(data) {
       this._isOverflow = data.isOverflow;
       this._y = data.ypos;
+      this._isLayouted = true;
     },
 
     /**
@@ -10291,11 +10310,14 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     getHtmlText: function() {
       return this._htmlText;
     },
+    setIsLayouted: function(v) {
+      this._isLayouted = v;
+    },
     isInView: function() {
       return this.isInViewBySecond(this.getCurrentTime());
     },
     isInViewBySecond: function(sec) {
-      if (sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
+      if (!this._isLayouted || sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
       if (sec > this._endRightTiming ) { return false; }
       //if (!this.isNicoScript() && this.isInvisible()) { return false; }
       if (this.isInvisible()) { return false; }
@@ -10744,7 +10766,6 @@ spacer {
 
     },
     _initializeView: function(params, retryCount) {
-
       if (retryCount === 0) {
         window.console.time('initialize NicoCommentCss3PlayerView');
       }
@@ -11404,7 +11425,7 @@ spacer {
     },
     addWordFilter: function(text) {
       var before = this._wordFilterList.join('\n');
-      this._wordFilterList.push(text.trim());
+      this._wordFilterList.push((text || '').trim());
       this._wordFilterList = _.uniq(this._wordFilterList);
       if (!ZenzaWatch.util.isPremium()) { this._wordFilterList.splice(20); }
       var after = this._wordFilterList.join('\n');
@@ -11418,7 +11439,7 @@ spacer {
 
       var before = this._wordFilterList.join('\n');
       var tmp = [];
-      _.each(list, function(text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push((text || '').trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -11460,7 +11481,7 @@ spacer {
 
       var before = this._userIdFilterList.join('\n');
       var tmp = [];
-      _.each(list, function(text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push((text || '').trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -11491,7 +11512,7 @@ spacer {
 
       var before = this._commandFilterList.join('\n');
       var tmp = [];
-      _.each(list, function(text) { tmp.push(text.trim()); });
+      _.each(list, function(text) { tmp.push((text || '').trim()); });
       tmp = _.compact(tmp);
       var after = tmp.join('\n');
 
@@ -11634,6 +11655,7 @@ spacer {
       if (filterList.length < 1) { return null; }
       var r = [];
       _.each(filterList, function(filter) {
+        if (!filter) { return; }
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('(' + r.join('|') + ')', 'i');
@@ -11642,6 +11664,7 @@ spacer {
       if (filterList.length < 1) { return null; }
       var r = [];
       _.each(filterList, function(filter) {
+        if (!filter) { return; }
         r.push(ZenzaWatch.util.escapeRegs(filter));
       });
       return new RegExp('^(' + r.join('|') + ')$');
@@ -11654,7 +11677,7 @@ spacer {
 
 
 
-var commentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
+var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
   var func = function() {
 
     // 暫定設置
@@ -12243,6 +12266,8 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
  * かなり実験要素が多いのでまだまだ変わる。
  */
   var CommentListView = function() { this.initialize.apply(this, arguments); };
+  CommentListView.ITEM_HEIGHT = 40;
+
   _.extend(CommentListView.prototype, AsyncEmitter.prototype);
   CommentListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
   */});
@@ -12290,7 +12315,7 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
 
       this._model = params.model;
       if (this._model) {
-        this._model.on('update',     _.debounce(_.bind(this._onModelUpdate, this), 100));
+        this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
       }
 
       this.scrollTop = ZenzaWatch.util.createDrawCallFunc(this.scrollTop.bind(this));
@@ -12307,7 +12332,7 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
-      this._$window = $(w);
+      var $win  = this._$window = $(w);
       var $body = this._$body = $(doc.body);
       if (this._className) {
         $body.addClass(this._className);
@@ -12329,6 +12354,13 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
 
       this._$menu.on('click', this._onMenuClick.bind(this));
 
+      $win
+        .on('scroll', this._onScroll.bind(this))
+        .on('resize', this._onResize.bind(this));
+
+      this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 30);
+      this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
+
       this._$begin = $('<span class="begin"/>');
       this._$end   = $('<span class="end"/>');
       ZenzaWatch.debug.$commentList = $list;
@@ -12346,18 +12378,20 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
         this._scrollTop = 0;
       }
 
-      _.each(itemList, _.bind(function (item, i) {
-        var tpl = (new Builder({item: item, index: i, height: 40})).toString();
-        itemViews.push(tpl);
-      }, this));
+      _.each(itemList, function (item, i) {
+        itemViews.push(new Builder({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
+      });
 
-      this._html = itemViews.join('');
+      this._itemViews = itemViews;
+      this._inviewItemList = {};
+      this._$newItems = null;
 
       ZenzaWatch.util.callAsync(function() {
         if (this._$list) {
-          this._$list.html(this._html);
+          this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length});
           this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
+          this._refreshInviewElements();
         }
       }, this, 0);
 
@@ -12419,6 +12453,54 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
       this._isActive = false;
       this._$body.removeClass('active');
     },
+    _onResize: function() {
+      this._refreshInviewElements();
+    },
+    _onScroll: function() {
+      this._refreshInviewElements();
+    },
+    _refreshInviewElements: function() {
+      if (!this._$list) { return; }
+      var itemHeight = CommentListView.ITEM_HEIGHT;
+      var $win = this._$window;
+      var scrollTop   = $win.scrollTop();
+      var innerHeight = $win.innerHeight();
+      if (innerHeight > window.innerHeight) { return; }
+      var windowBottom = scrollTop + innerHeight;
+      var itemViews = this._itemViews;
+      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight));
+      var endIndex   = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
+      var i;
+
+
+      var newItems = [], inviewItemList = this._inviewItemList;
+      for (i = startIndex; i < endIndex; i++) {
+        if (inviewItemList[i]) { continue; }
+        newItems.push(itemViews[i].toString());
+        inviewItemList[i] = true;
+      }
+      this._inviewItemList = inviewItemList;
+
+      if (newItems.length < 1) { return; }
+
+      //window.console.log('_refreshInviewElements: ',
+      //  scrollTop, windowBottom, startIndex, endIndex, newItems.length);
+
+      var $newItems = $(newItems.join(''));
+      if (this._$newItems) {
+        this._$newItems.append($newItems);
+      } else {
+        this._$newItems = $newItems;
+      }
+
+      this._appendNewItems();
+    },
+    _appendNewItems: function() {
+      if (this._$newItems) {
+        this._$list.append(this._$newItems);
+      }
+      this._$newItems = null;
+    },
     addClass: function(className) {
       this.toggleClass(className, true);
     },
@@ -12451,17 +12533,14 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
     setCurrentPoint: function(idx) {
       if (!this._$window) { return; }
       var innerHeight = this._$window.innerHeight();
-      if (!this._$items) { this._$items = this._$body.find('.commentListItem'); }
-      var $items = this._$items; //this._$body.find('.commentListItem');
-      var len = $items.length;
-      var item = $items[idx];
-      if (len < 1 || !item) { return; }
-
-      var $item = $(item);
-      var itemHeight = $item.outerHeight(); //40; // TODOOOOO:
-      var top = parseInt($item.attr('data-top'), 10);
+      var itemViews = this._itemViews;
+      var len  = itemViews.length;
+      var view = itemViews[idx];
+      if (len < 1 || !view) { return; }
 
       if (!this._isActive) {
+        var itemHeight = CommentListView.ITEM_HEIGHT;
+        var top = view.getTop();
         this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
       }
     }
@@ -12709,6 +12788,9 @@ data-title="%no%: %date% ID:%userId%
         tpl = tpl.replace('%shadow%', '');
       }
       return tpl;
+    },
+    getTop: function() {
+      return this._index * this._height;
     },
     toString: function() {
       return this.build();
@@ -13715,7 +13797,13 @@ data-title="%no%: %date% ID:%userId%
       }
     },
     _onDblclick: function(e) {
-      this.emit('dblclick', e);
+      var $target = $(e.target).closest('.command');
+      var command = $target.attr('data-command');
+      if (!command) {
+        this.emit('dblclick', e);
+      } else {
+        e.stopPropagation();
+      }
     },
     addClass: function(className) {
       this.toggleClass(className, true);
@@ -16266,6 +16354,10 @@ data-title="%no%: %date% ID:%userId%
       z-index: 25000;
       position: absolute;
       pointer-events: none;
+      transform: translateZ(0);
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
   */});
 
@@ -18658,13 +18750,6 @@ data-title="%no%: %date% ID:%userId%
       var $target = $(e.target).closest('.menuButton');
       var command = $target.attr('data-command');
       switch (command) {
-        //case 'deflistAdd':
-        //  if (e.shiftKey) {
-        //    this.emit('command', 'mylistWindow');
-        //  } else {
-        //    this.emit('command', e.which > 1 ? 'deflistRemove' : 'deflistAdd');
-        //  }
-        //  break;
         case 'mylistMenu':
           if (e.shiftKey) {
             this.emit('command', 'mylistWindow');
