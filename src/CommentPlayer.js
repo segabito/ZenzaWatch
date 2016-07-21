@@ -897,7 +897,7 @@ var CommentLaoutWorker = {};
         this._members.push(nc);
       }
 
-      if (this._members.length < 2) { return; }
+      if (this._members.length < 1) { return; }
 
       var worker = CommentLayoutWorker.get();
       if (worker) {
@@ -1965,6 +1965,7 @@ var CommentLaoutWorker = {};
   animation-timing-function: linear;
   {*will-change: transform, opacity;*}
   color: #fff;
+  {*-webkit-text-stroke: 0.1px rgba(0, 0, 0, 0.3);*}
 }
 .nicoChat.fixed {
 }
@@ -1989,18 +1990,21 @@ var CommentLaoutWorker = {};
 .nicoChat .type0655,
 .nicoChat .zero_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   color: yellow;
   background: #fff;
   opacity: 0.3;
@@ -2008,17 +2012,20 @@ var CommentLaoutWorker = {};
 
 .debug .nicoChat .tab_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   background: #ff0;
   opacity: 0.3;
 }
 
 .nicoChat .invisible_code {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
 .nicoChat .zero_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
@@ -2029,6 +2036,7 @@ var CommentLaoutWorker = {};
 
 .nicoChat .fill_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   background: currentColor;
   outline: 2px solid;
   outline-offset: -1px;
@@ -2036,10 +2044,12 @@ var CommentLaoutWorker = {};
 
 .nicoChat .mesh_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
 }
 
 .nicoChat .block_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   font-weight: 900;
 }
 
@@ -2063,11 +2073,13 @@ var CommentLaoutWorker = {};
 
 .nicoChat.fork1 {
   text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
+  -webkit-text-stroke: none;
 }
 .nicoChat.ue.fork1,
 .nicoChat.shita.fork1 {
   display: inline-block;
   text-shadow: 0 0 3px #080 !important;
+  -webkit-text-stroke: none;
 }
 
 .nicoChat.fork2 {

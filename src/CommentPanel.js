@@ -160,6 +160,10 @@ var PopupMessage = {};
     -moz-user-select: none;
   }
 
+  body.scrolling #listContainer *{
+    pointer-events: none;
+  }
+
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
@@ -232,6 +236,7 @@ var PopupMessage = {};
 
       $win
         .on('scroll', this._onScroll.bind(this))
+        .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500))
         .on('resize', this._onResize.bind(this));
 
       this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 30);
@@ -264,6 +269,7 @@ var PopupMessage = {};
 
       ZenzaWatch.util.callAsync(function() {
         if (this._$list) {
+          this._$list.html('');
           this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length});
           this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
@@ -333,7 +339,11 @@ var PopupMessage = {};
       this._refreshInviewElements();
     },
     _onScroll: function() {
+      this._$body.addClass('scrolling');
       this._refreshInviewElements();
+    },
+    _onScrollEnd: function() {
+      this._$body.removeClass('scrolling');
     },
     _refreshInviewElements: function() {
       if (!this._$list) { return; }
@@ -344,20 +354,29 @@ var PopupMessage = {};
       if (innerHeight > window.innerHeight) { return; }
       var windowBottom = scrollTop + innerHeight;
       var itemViews = this._itemViews;
-      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight));
+      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
       var endIndex   = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
       var i;
 
-
       var newItems = [], inviewItemList = this._inviewItemList;
       for (i = startIndex; i < endIndex; i++) {
-        if (inviewItemList[i]) { continue; }
+        if (inviewItemList[i] || !itemViews[i]) { continue; }
         newItems.push(itemViews[i].toString());
-        inviewItemList[i] = true;
+        inviewItemList[i] = itemViews[i].getDomId();
       }
-      this._inviewItemList = inviewItemList;
 
       if (newItems.length < 1) { return; }
+
+      // 見えないitemを除去。 見えない場所なのでrequestAnimationFrame不要
+      var $list = this._$list;
+      _.each(Object.keys(inviewItemList), function(i) {
+        if (i >= startIndex && i <= endIndex) { return; }
+        $list.find('#' + inviewItemList[i]).remove();
+        delete inviewItemList[i];
+      });
+
+      this._inviewItemList = inviewItemList;
+
 
       //window.console.log('_refreshInviewElements: ',
       //  scrollTop, windowBottom, startIndex, endIndex, newItems.length);
@@ -528,7 +547,7 @@ var PopupMessage = {};
       cursor: default;
     }
 
-    .commentListItem:nth-child(odd) {
+    .commentListItem.odd {
       background: #333;
     }
 
@@ -618,7 +637,7 @@ var PopupMessage = {};
   */});
 
   CommentListItemView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="commentListItem no%no% item%itemId% %updating% fork%fork%"
+    <div id="item%itemId%" class="commentListItem no%no% item%itemId% %updating% fork%fork% %odd-even%"
       data-item-id="%itemId%"
       data-no="%no%" data-vpos"%vpos%"
         style="top: %top%px;" data-top="%top%"
@@ -637,6 +656,8 @@ data-title="%no%: %date% ID:%userId%
       this._item   = params.item;
       this._index  = params.index;
       this._height = params.height;
+
+      this._id = CommentListItemView.counter++;
     },
     build: function() {
       var tpl = CommentListItemView.__tpl__;
@@ -646,6 +667,7 @@ data-title="%no%: %date% ID:%userId%
       var trimText = text.trim();
 
       tpl = tpl
+        .replace(/%domId%/g,    'item' + this._id)
         .replace(/%no%/g,       item.getNo())
         .replace(/%vpos%/g,     item.getVpos())
         .replace(/%fork%/g,     item.getFork())
@@ -655,6 +677,7 @@ data-title="%no%: %date% ID:%userId%
         .replace(/%date%/g,     item.getFormattedDate())
         .replace(/%text%/g,     text)
         .replace(/%trimText%/g, trimText)
+        .replace(/%odd-even%/g, (this._index % 2 === 0) ? 'even' : 'odd')
         .replace(/%top%/g,      this._index * this._height)
         ;
       var color = item.getColor();
@@ -664,6 +687,12 @@ data-title="%no%: %date% ID:%userId%
         tpl = tpl.replace('%shadow%', '');
       }
       return tpl;
+    },
+    getItemId: function() {
+      return this._item.getItemId();
+    },
+    getDomId: function() {
+      return 'item' + this._item.getItemId();
     },
     getTop: function() {
       return this._index * this._height;

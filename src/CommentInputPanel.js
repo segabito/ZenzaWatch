@@ -83,6 +83,10 @@ var AsyncEmitter = function() {};
       border-radius: 8px;
       opacity: 0.5;
     }
+    .mouseMoving:not(.active) .commentInputOuter {
+      box-shadow: 0 0 8px #fe9, 0 0 4px #fe9 inset;
+    }
+
     .commentInputPanel.active .commentInputOuter,
     .commentInputPanel:hover  .commentInputOuter {
       border: none;

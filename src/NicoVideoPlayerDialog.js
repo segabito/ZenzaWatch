@@ -789,7 +789,7 @@ var CommentPanel = function() {};
       dialog.on('volumeChangeEnd',   this._onVolumeChangeEnd.bind(this));
       dialog.on('beginUpdate',       this._onBeginUpdate.bind(this));
       dialog.on('endUpdate',         this._onEndUpdate.bind(this));
-      dialog.on('screenModeChange', this._onScreenModeChange.bind(this));
+      dialog.on('screenModeChange',  this._onScreenModeChange.bind(this));
 
       this._initializeDom();
     },

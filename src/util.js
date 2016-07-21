@@ -212,7 +212,7 @@ var console;
         userIdFilter: '',
         commandFilter: '',
 
-        enableCommentPanel: false,
+        enableCommentPanel: true,
         enableCommentPanelAutoScroll: true,
 
         playlistLoop: false,
@@ -431,18 +431,21 @@ var console;
       var __view__ = ZenzaWatch.util.hereDoc(function() {/*
         <div class="zenzaPopupMessage">
           <span>%MSG%</span>
-        </div>
+        </div><br>
       */});
 
       var __css__ = ZenzaWatch.util.hereDoc(function() {/*
         .zenzaPopupMessage {
           z-index: 200000;
           opacity: 0;
+          display: inline-block;
           white-space: nowrap;
           font-weight: bolder;
           transform: translate3d(0, -100px, 0);
-          overflow: hidden;
+          overflow-y: hidden;
           box-sizing: border-box;
+          min-width: 150px;
+          text-align: center;
           transition:
             transform 2s linear,
             opacity 2s ease,
@@ -461,7 +464,6 @@ var console;
           z-index: 250000;
           transform: translate3d(0, 0, 0);
           opacity: 0.8;
-          overflow: visible;
           max-height: 200px;
           margin-bottom: 16px;
           padding: 8px 16px;
@@ -469,7 +471,6 @@ var console;
           transition:
             transform 0.5s linear,
             opacity 1s ease,
-            z-index 1s ease,
             box-shadow 0.5s ease,
             background 0.5s ease;
          }
@@ -481,14 +482,14 @@ var console;
           max-height: 0;
           margin-bottom: 0px;
           padding: 0px 8px;
-          box-shadow: 0px 0px 2px #000;
+          box-shadow: 0px 0px 4px #333 inset;
           transition:
             transform 1s linear,
-            opacity 2s ease,
-            box-shadow 2s ease,
-            max-height    0.5s ease 2s,
-            padding       0.5s ease 2s,
-            margin-bottom 0.5s ease 2s,
+            opacity       0.5s ease 0.5s,
+            box-shadow    0.5s ease,
+            max-height    0.3s ease 1s,
+            padding       0.3s ease 1s,
+            margin-bottom 0.3s ease 1s,
             background 5s ease;
         }
 

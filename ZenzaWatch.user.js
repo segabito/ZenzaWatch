@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.4
+// @version        1.2.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.4';
+  var VER = '1.2.5';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -272,7 +272,7 @@ var monkey = function() {
         userIdFilter: '',
         commandFilter: '',
 
-        enableCommentPanel: false,
+        enableCommentPanel: true,
         enableCommentPanelAutoScroll: true,
 
         playlistLoop: false,
@@ -491,18 +491,21 @@ var monkey = function() {
       var __view__ = ZenzaWatch.util.hereDoc(function() {/*
         <div class="zenzaPopupMessage">
           <span>%MSG%</span>
-        </div>
+        </div><br>
       */});
 
       var __css__ = ZenzaWatch.util.hereDoc(function() {/*
         .zenzaPopupMessage {
           z-index: 200000;
           opacity: 0;
+          display: inline-block;
           white-space: nowrap;
           font-weight: bolder;
           transform: translate3d(0, -100px, 0);
-          overflow: hidden;
+          overflow-y: hidden;
           box-sizing: border-box;
+          min-width: 150px;
+          text-align: center;
           transition:
             transform 2s linear,
             opacity 2s ease,
@@ -521,7 +524,6 @@ var monkey = function() {
           z-index: 250000;
           transform: translate3d(0, 0, 0);
           opacity: 0.8;
-          overflow: visible;
           max-height: 200px;
           margin-bottom: 16px;
           padding: 8px 16px;
@@ -529,7 +531,6 @@ var monkey = function() {
           transition:
             transform 0.5s linear,
             opacity 1s ease,
-            z-index 1s ease,
             box-shadow 0.5s ease,
             background 0.5s ease;
          }
@@ -541,14 +542,14 @@ var monkey = function() {
           max-height: 0;
           margin-bottom: 0px;
           padding: 0px 8px;
-          box-shadow: 0px 0px 2px #000;
+          box-shadow: 0px 0px 4px #333 inset;
           transition:
             transform 1s linear,
-            opacity 2s ease,
-            box-shadow 2s ease,
-            max-height    0.5s ease 2s,
-            padding       0.5s ease 2s,
-            margin-bottom 0.5s ease 2s,
+            opacity       0.5s ease 0.5s,
+            box-shadow    0.5s ease,
+            max-height    0.3s ease 1s,
+            padding       0.3s ease 1s,
+            margin-bottom 0.3s ease 1s,
             background 5s ease;
         }
 
@@ -9465,7 +9466,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         this._members.push(nc);
       }
 
-      if (this._members.length < 2) { return; }
+      if (this._members.length < 1) { return; }
 
       var worker = CommentLayoutWorker.get();
       if (worker) {
@@ -10533,6 +10534,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   animation-timing-function: linear;
   {*will-change: transform, opacity;*}
   color: #fff;
+  {*-webkit-text-stroke: 0.1px rgba(0, 0, 0, 0.3);*}
 }
 .nicoChat.fixed {
 }
@@ -10557,18 +10559,21 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 .nicoChat .type0655,
 .nicoChat .zero_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   color: yellow;
   background: #fff;
   opacity: 0.3;
@@ -10576,17 +10581,20 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .debug .nicoChat .tab_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   background: #ff0;
   opacity: 0.3;
 }
 
 .nicoChat .invisible_code {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
 .nicoChat .zero_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   opacity: 0;
 }
 
@@ -10597,6 +10605,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .nicoChat .fill_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   background: currentColor;
   outline: 2px solid;
   outline-offset: -1px;
@@ -10604,10 +10613,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .nicoChat .mesh_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
 }
 
 .nicoChat .block_space {
   text-shadow: none;
+  -webkit-text-stroke: none;
   font-weight: 900;
 }
 
@@ -10631,11 +10642,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .nicoChat.fork1 {
   text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
+  -webkit-text-stroke: none;
 }
 .nicoChat.ue.fork1,
 .nicoChat.shita.fork1 {
   display: inline-block;
   text-shadow: 0 0 3px #080 !important;
+  -webkit-text-stroke: none;
 }
 
 .nicoChat.fork2 {
@@ -12284,6 +12297,10 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
     -moz-user-select: none;
   }
 
+  body.scrolling #listContainer *{
+    pointer-events: none;
+  }
+
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
@@ -12356,6 +12373,7 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
 
       $win
         .on('scroll', this._onScroll.bind(this))
+        .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500))
         .on('resize', this._onResize.bind(this));
 
       this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 30);
@@ -12388,6 +12406,7 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
 
       ZenzaWatch.util.callAsync(function() {
         if (this._$list) {
+          this._$list.html('');
           this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length});
           this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
@@ -12457,7 +12476,11 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
       this._refreshInviewElements();
     },
     _onScroll: function() {
+      this._$body.addClass('scrolling');
       this._refreshInviewElements();
+    },
+    _onScrollEnd: function() {
+      this._$body.removeClass('scrolling');
     },
     _refreshInviewElements: function() {
       if (!this._$list) { return; }
@@ -12468,20 +12491,29 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
       if (innerHeight > window.innerHeight) { return; }
       var windowBottom = scrollTop + innerHeight;
       var itemViews = this._itemViews;
-      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight));
+      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
       var endIndex   = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
       var i;
 
-
       var newItems = [], inviewItemList = this._inviewItemList;
       for (i = startIndex; i < endIndex; i++) {
-        if (inviewItemList[i]) { continue; }
+        if (inviewItemList[i] || !itemViews[i]) { continue; }
         newItems.push(itemViews[i].toString());
-        inviewItemList[i] = true;
+        inviewItemList[i] = itemViews[i].getDomId();
       }
-      this._inviewItemList = inviewItemList;
 
       if (newItems.length < 1) { return; }
+
+      // 見えないitemを除去。 見えない場所なのでrequestAnimationFrame不要
+      var $list = this._$list;
+      _.each(Object.keys(inviewItemList), function(i) {
+        if (i >= startIndex && i <= endIndex) { return; }
+        $list.find('#' + inviewItemList[i]).remove();
+        delete inviewItemList[i];
+      });
+
+      this._inviewItemList = inviewItemList;
+
 
       //window.console.log('_refreshInviewElements: ',
       //  scrollTop, windowBottom, startIndex, endIndex, newItems.length);
@@ -12652,7 +12684,7 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
       cursor: default;
     }
 
-    .commentListItem:nth-child(odd) {
+    .commentListItem.odd {
       background: #333;
     }
 
@@ -12742,7 +12774,7 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
   */});
 
   CommentListItemView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
-    <div class="commentListItem no%no% item%itemId% %updating% fork%fork%"
+    <div id="item%itemId%" class="commentListItem no%no% item%itemId% %updating% fork%fork% %odd-even%"
       data-item-id="%itemId%"
       data-no="%no%" data-vpos"%vpos%"
         style="top: %top%px;" data-top="%top%"
@@ -12761,6 +12793,8 @@ data-title="%no%: %date% ID:%userId%
       this._item   = params.item;
       this._index  = params.index;
       this._height = params.height;
+
+      this._id = CommentListItemView.counter++;
     },
     build: function() {
       var tpl = CommentListItemView.__tpl__;
@@ -12770,6 +12804,7 @@ data-title="%no%: %date% ID:%userId%
       var trimText = text.trim();
 
       tpl = tpl
+        .replace(/%domId%/g,    'item' + this._id)
         .replace(/%no%/g,       item.getNo())
         .replace(/%vpos%/g,     item.getVpos())
         .replace(/%fork%/g,     item.getFork())
@@ -12779,6 +12814,7 @@ data-title="%no%: %date% ID:%userId%
         .replace(/%date%/g,     item.getFormattedDate())
         .replace(/%text%/g,     text)
         .replace(/%trimText%/g, trimText)
+        .replace(/%odd-even%/g, (this._index % 2 === 0) ? 'even' : 'odd')
         .replace(/%top%/g,      this._index * this._height)
         ;
       var color = item.getColor();
@@ -12788,6 +12824,12 @@ data-title="%no%: %date% ID:%userId%
         tpl = tpl.replace('%shadow%', '');
       }
       return tpl;
+    },
+    getItemId: function() {
+      return this._item.getItemId();
+    },
+    getDomId: function() {
+      return 'item' + this._item.getItemId();
     },
     getTop: function() {
       return this._index * this._height;
@@ -16396,7 +16438,7 @@ data-title="%no%: %date% ID:%userId%
       dialog.on('volumeChangeEnd',   this._onVolumeChangeEnd.bind(this));
       dialog.on('beginUpdate',       this._onBeginUpdate.bind(this));
       dialog.on('endUpdate',         this._onEndUpdate.bind(this));
-      dialog.on('screenModeChange', this._onScreenModeChange.bind(this));
+      dialog.on('screenModeChange',  this._onScreenModeChange.bind(this));
 
       this._initializeDom();
     },
@@ -18979,6 +19021,10 @@ data-title="%no%: %date% ID:%userId%
       border-radius: 8px;
       opacity: 0.5;
     }
+    .mouseMoving:not(.active) .commentInputOuter {
+      box-shadow: 0 0 8px #fe9, 0 0 4px #fe9 inset;
+    }
+
     .commentInputPanel.active .commentInputOuter,
     .commentInputPanel:hover  .commentInputOuter {
       border: none;
