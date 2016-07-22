@@ -8,7 +8,7 @@ var ZenzaWatch = {
 
 //===BEGIN===
 
-var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
+var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
   var func = function(self) {
 
     // 暫定設置
@@ -163,13 +163,13 @@ var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
   return {
     _func: func,
     get: function() {
-      if (!ZenzaWatch.util.isWebWorkerAvailable()) {
+      if (!config.getValue('enableCommentLayoutWorker') || !ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
       }
       return ZenzaWatch.util.createWebWorker(func);
     }
   };
-})(NicoChat, NicoCommentViewModel);
+})(Config, NicoChat, NicoCommentViewModel);
 
 ZenzaWatch.util.createWebWorker = function(func) {
   var src = func.toString().replace(/^function.*?\{/, '').replace(/}$/, '');
@@ -183,7 +183,7 @@ ZenzaWatch.util.createWebWorker = function(func) {
 };
 
 ZenzaWatch.util.isWebWorkerAvailable = function() {
-  return !!(Config.getValue('enableCommentLayoutWorker') && window.Blob && window.Worker && window.URL);
+  return !!(window.Blob && window.Worker && window.URL);
 };
 
 

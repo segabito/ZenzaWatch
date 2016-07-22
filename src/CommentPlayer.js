@@ -2126,7 +2126,7 @@ var SlotLayoutWorker = {};
   text-shadow: none;
   -webkit-text-stroke: none;
   background: currentColor;
-  outline: 2px solid;
+  outline: 3px solid;
   outline-offset: -1px;
 }
 
