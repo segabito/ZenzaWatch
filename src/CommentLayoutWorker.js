@@ -5,20 +5,11 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
-var self = this;
-
-var postMessage = function() {};
-  NicoChat.TYPE = {
-    TOP:    'ue',
-    NAKA:   'naka',
-    BOTTOM: 'shita'
-  };
-
 
 //===BEGIN===
 
 var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
-  var func = function() {
+  var func = function(self) {
 
     // 暫定設置
     var NicoChat = {
@@ -162,13 +153,15 @@ var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
       var result = groupCollision(e.data.members);
       console.timeEnd('CommentLayoutWorker: ' + e.data.type);
 
-      postMessage(result);
-      close();
+      result.lastUpdate = e.data.lastUpdate;
+      self.postMessage(result);
+      //self.close();
     };
 
   };
 
   return {
+    _func: func,
     get: function() {
       if (!ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
@@ -196,4 +189,9 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
 
 
 //===END===
+
+module.exports = {
+  CommentLayoutWorker: CommentLayoutWorker
+};
+
 

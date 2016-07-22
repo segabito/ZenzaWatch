@@ -1272,21 +1272,22 @@ var console;
         (window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame).bind(window);
       if (!requestAnimationFrame) { return func; }
 
-      var lastCalled = 0, arg;
+      var lastCalled = 0, arg, requestId = 0;
       var isBusy = function() {
         return Date.now() - lastCalled < 1000;
       };
 
       var onFrame = function() {
         func.apply(null, arg);
-        lastCalled = 0;
+        requestId = lastCalled = 0;
       };
 
       return function() {
         if (isBusy()) { return; }
+        if (requestId) { cancelAnimationFrame(requestId); requestId = 0; }
         lastCalled = Date.now();
         arg = arguments;
-        requestAnimationFrame(onFrame);
+        requestId = requestAnimationFrame(onFrame);
       };
     };
 

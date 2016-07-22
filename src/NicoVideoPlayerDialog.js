@@ -197,9 +197,17 @@ var CommentPanel = function() {};
     body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container {
       pointer-events: none;
     }
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>.container *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>.container *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>.container *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container  *{
+      animation-play-state: paused !important;
+    }
+
     body.showNicoVideoPlayerDialog .ads {
       display: none !important;
       pointer-events: none;
+      animation-play-state: paused !important;
     }
 
     {* 大百科の奴 *}

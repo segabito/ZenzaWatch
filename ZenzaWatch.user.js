@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.5
+// @version        1.2.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.5';
+  var VER = '1.2.7';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1332,21 +1332,22 @@ var monkey = function() {
         (window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame).bind(window);
       if (!requestAnimationFrame) { return func; }
 
-      var lastCalled = 0, arg;
+      var lastCalled = 0, arg, requestId = 0;
       var isBusy = function() {
         return Date.now() - lastCalled < 1000;
       };
 
       var onFrame = function() {
         func.apply(null, arg);
-        lastCalled = 0;
+        requestId = lastCalled = 0;
       };
 
       return function() {
         if (isBusy()) { return; }
+        if (requestId) { cancelAnimationFrame(requestId); requestId = 0; }
         lastCalled = Date.now();
         arg = arguments;
-        requestAnimationFrame(onFrame);
+        requestId = requestAnimationFrame(onFrame);
       };
     };
 
@@ -8723,6 +8724,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     close: function() {
       this._model.clear();
+      if (this._view) { this._view.clear(); }
     },
     setSharedNgLevel: function(level) {
       this._model.setSharedNgLevel(level);
@@ -9270,6 +9272,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._offScreen   = offScreen;
 
       this._currentTime = 0;
+      this._lastUpdate = 0;
 
       this._topGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.TOP), offScreen);
@@ -9278,10 +9281,19 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      nicoComment.on('setXml',      this._onSetXml     .bind(this));
-      nicoComment.on('clear',       this._onClear      .bind(this));
-      nicoComment.on('change',      this._onChange     .bind(this));
-      nicoComment.on('currentTime', this._onCurrentTime.bind(this));
+      
+      var worker = this._slotLayoutWorker = SlotLayoutWorker.get();
+      if (worker) {
+        worker.addEventListener('message',
+          this._onSlotLayoutWorkerComplete.bind(this));
+        this._updateSlotLayout = _.debounce(this._updateSlotLayout.bind(this), 100);
+      }
+
+      nicoComment.on('setXml',      this._onSetXml       .bind(this));
+      nicoComment.on('clear',       this._onClear        .bind(this));
+      nicoComment.on('change',      this._onChange       .bind(this));
+      nicoComment.on('parsed',      this._onCommentParsed.bind(this));
+      nicoComment.on('currentTime', this._onCurrentTime  .bind(this));
     },
     _onSetXml: function() {
       this.emit('setXml');
@@ -9291,6 +9303,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._nakaGroup.reset();
       this._bottomGroup.reset();
 
+      this._lastUpdate = Date.now();
       this.emit('clear');
     },
     _onCurrentTime: function(sec) {
@@ -9298,7 +9311,36 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this.emit('currentTime', this._currentTime);
     },
     _onChange: function(e) {
+      this._lastUpdate = Date.now();
+      this._updateSlotLayout();
       console.log('NicoCommentViewModel.onChange: ', e);
+    },
+    _onCommentParsed: function() {
+      this._lastUpdate = Date.now();
+      this._updateSlotLayout();
+    },
+    _updateSlotLayout: function() {
+      if (!this._slotLayoutWorker) { return; }
+
+      window.console.time('SlotLayoutWorker call');
+      this._slotLayoutWorker.postMessage({
+        lastUpdate: this._lastUpdate,
+        top:    this._topGroup.getBulkSlotData(),
+        naka:   this._nakaGroup.getBulkSlotData(),
+        bottom: this._bottomGroup.getBulkSlotData()
+      });
+    },
+    _onSlotLayoutWorkerComplete: function(e) {
+      window.console.timeEnd('SlotLayoutWorker call');
+      // Workerが処理してる間にスレッドが変更された。
+      if (e.data.lastUpdate !== this._lastUpdate) {
+        window.console.warn('slotLayoutWorker changed', this._lastUpdate, e.data.lastUpdate);
+        return;
+      }
+      //window.console.log('SlotLayoutWorker result', e.data);
+      this._topGroup   .setBulkSlotData(e.data.top);
+      this._nakaGroup  .setBulkSlotData(e.data.naka);
+      this._bottomGroup.setBulkSlotData(e.data.bottom);
     },
     getCurrentTime: function() {
       return this._currentTime;
@@ -9349,7 +9391,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._type = type;
 
       this._nicoChatFilter = params.nicoChatFilter;
-      this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
+      this._nicoChatFilter.on('change', this._onFilterChange.bind(this));
 
       this.reset();
     },
@@ -9431,15 +9473,29 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._nicoChatGroup = nicoChatGroup;
       this._offScreen = offScreen;
       this._members = [];
+      this._lastUpdate = 0;
 
       // メンバーをvposでソートした物. 計算効率改善用
       this._vSortedMembers = [];
 
-      nicoChatGroup.on('addChat',      _.bind(this._onAddChat,      this));
-      nicoChatGroup.on('addChatArray', _.bind(this._onAddChatArray, this));
-      nicoChatGroup.on('reset',        _.bind(this._onReset,        this));
-      nicoChatGroup.on('change',       _.bind(this._onChange,        this));
-      NicoChatViewModel.emitter.on('updateBaseChatScale', _.bind(this._onChange, this));
+      var worker = this._layoutWorker = CommentLayoutWorker.get();
+      if (worker) {
+        worker.addEventListener('message', function(e) {
+          // Workerが処理してる間にスレッドが変更された。
+          if (e.data.lastUpdate !== this._lastUpdate) {
+            window.console.warn('group changed', this._lastUpdate, e.data.lastUpdate);
+            return;
+          }
+          this.setBulkLayoutData(e.data);
+          //ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
+        }.bind(this));
+      }
+
+      nicoChatGroup.on('addChat',      this._onAddChat.bind(this));
+      nicoChatGroup.on('addChatArray', this._onAddChatArray.bind(this));
+      nicoChatGroup.on('reset',        this._onReset.bind(this));
+      nicoChatGroup.on('change',       this._onChange.bind(this));
+      NicoChatViewModel.emitter.on('updateBaseChatScale', this._onChange.bind(this));
 
       this.addChatArray(nicoChatGroup.getMembers());
     },
@@ -9468,16 +9524,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       if (this._members.length < 1) { return; }
 
-      var worker = CommentLayoutWorker.get();
-      if (worker) {
-        worker.addEventListener('message', function(e) {
-          this.setBulkLayoutData(e.data);
-          ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
-        }.bind(this));
+      this._lastUpdate = Date.now();
 
-        worker.postMessage({
+      if (this._layoutWorker) {
+        this._layoutWorker.postMessage({
           type: this._members[0].getType(),
-          members: this.getBulkLayoutData()
+          members: this.getBulkLayoutData(),
+          lastUpdate: this._lastUpdate
         });
       } else {
         this._groupCollision();
@@ -9497,22 +9550,19 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       window.console.time(timeKey);
       var nc = new NicoChatViewModel(nicoChat, this._offScreen);
 
-      var worker = CommentLayoutWorker.get();
-      if (worker) {
-        worker.addEventListener('message', function(e) {
-          this.setBulkLayoutData(e.data);
-          ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
-        }.bind(this));
+      this._lastUpdate = Date.now();
 
+      if (this._layoutWorker) {
         // 内部処理効率化の都合上、
         // 自身を追加する前に判定を行っておくこと
         this.checkCollision(nc);
 
         this._members.push(nc);
 
-        worker.postMessage({
+        this._layoutWorker.postMessage({
           type: this._members[0].getType(),
-          members: this.getBulkLayoutData()
+          members: this.getBulkLayoutData(),
+          lastUpdate: this._lastUpdate
         });
       } else {
         // 内部処理効率化の都合上、
@@ -9534,6 +9584,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._members = [];
       this._vSortedMembers = [];
+      this._lastUpdate = Date.now();
     },
     getCurrentTime: function() {
       return this._nicoChatGroup.getCurrentTime();
@@ -9580,6 +9631,31 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var m = this._vSortedMembers;
       for (var i = 0, len = m.length; i < len; i++) {
         m[i].setBulkLayoutData(data[i]);
+      }
+    },
+    getBulkSlotData: function() {
+      this._createVSortedMembers();
+      var m = this._vSortedMembers;
+      var result = [];
+      for (var i = 0, len = m.length; i < len; i++) {
+        var o = m[i];
+        result.push({
+          id: o.getId(),
+          slot: o.getSlot(),
+          fork: o.getFork(),
+          no: o.getNo(),
+          vpos: o.getVpos(),
+          begin: o.getInviewTiming(),
+          end: o.getEndRightTiming(),
+          invisible: o.isInvisible()
+        });
+      }
+      return result;
+    },
+    setBulkSlotData: function(data) {
+      var m = this._vSortedMembers;
+      for (var i = 0, len = m.length; i < len; i++) {
+        m[i].setSlot(data[i].slot);
       }
     },
     /**
@@ -9941,6 +10017,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._scale = NicoChatViewModel.BASE_SCALE;
       this._y = 0;
+      this._slot = -1;
 
       this._setType(nicoChat.getType());
 
@@ -10250,6 +10327,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         isInvisible: this.isInvisible(),
         isFixed:     this._isFixed,
         ypos:        this.getYpos(),
+        slot:        this.getSlot(),
         height:      this.getHeight(),
         beginLeft:   this.getBeginLeftTiming(),
         beginRight:  this.getBeginRightTiming(),
@@ -10342,19 +10420,22 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     getSpeed: function() {
       return this._speed;
     },
-    // 左端が見えるようになるタイミング
+    getInviewTiming: function() {
+      return this._beginLeftTiming;
+    },
+    // 左端が見えるようになるタイミング(4:3規準)
     getBeginLeftTiming: function() {
       return this._beginLeftTiming;
     },
-    // 右端が見えるようになるタイミング
+    // 右端が見えるようになるタイミング(4:3規準)
     getBeginRightTiming: function() {
       return this._beginRightTiming;
     },
-    // 左端が見えなくなるタイミング
+    // 左端が見えなくなるタイミング(4:3規準)
     getEndLeftTiming: function() {
       return this._endLeftTiming;
     },
-    // 右端が見えなくなるタイミング
+    // 右端が見えなくなるタイミング(4:3規準)
     getEndRightTiming: function() {
       return this._endRightTiming;
     },
@@ -10366,6 +10447,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     getYpos: function() {
       return this._y;
+    },
+    getSlot: function() {
+      return this._slot;
+    },
+    setSlot: function(v) {
+      this._slot = v;
     },
     getColor: function() {
       return this._nicoChat.getColor();
@@ -10424,6 +10511,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         vpos:     this.getVpos(),
         xpos:     this.getXpos(),
         ypos:     this.getYpos(),
+        slot:     this.getSlot(),
         type:     this.getType(),
         begin:    this.getBeginLeftTiming(),
         end:      this.getEndRightTiming(),
@@ -10744,6 +10832,7 @@ spacer {
       this._aspectRatio = 9 / 16;
 
       this._inViewTable = {};
+      this._inSlotTable = {};
       this._playbackRate = params.playbackRate || 1.0;
 
       this._isStalled = undefined;
@@ -11011,6 +11100,7 @@ spacer {
       }
 
       this._inViewTable = {};
+      this._inSlotTable = {};
     },
     refresh: function() {
       this.clear();
@@ -11255,7 +11345,11 @@ spacer {
       var opacity = 1; //chat.isOverflow() ? 0.8 : 1;
       //var zid = parseInt(id.substr('4'), 10);
       //var zIndex = 10000 - (zid % 5000);
-      var zIndex = beginL * 1000 + chat.getFork() * 1000000;
+      var slot = chat.getSlot();
+      var zIndex =
+        (slot >= 0) ?
+        (slot   * 1000 + chat.getFork() * 1000000 + 1) :
+        (beginL * 1000 + chat.getFork() * 1000000);
 
       if (type === NicoChat.TYPE.NAKA) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
@@ -11281,7 +11375,7 @@ spacer {
           ' }\n',
           '',
           ' #', id, ' {\n',
-          '  z-index: ', (zIndex + 100000) , ';\n', // NAKAコメントは常にue, shitaより手前？
+          '  z-index: ', (zIndex) , ';\n', // 要検証:NAKAコメントは常にue, shitaより手前？
           '  top:', ypos, 'px;\n',
           '  left:', leftPos, 'px;\n',
           colorCss,
@@ -11691,7 +11785,7 @@ spacer {
 
 
 var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
-  var func = function() {
+  var func = function(self) {
 
     // 暫定設置
     var NicoChat = {
@@ -11835,13 +11929,15 @@ var CommentLayoutWorker = (function(NicoChat, NicoCommentViewModel) {
       var result = groupCollision(e.data.members);
       console.timeEnd('CommentLayoutWorker: ' + e.data.type);
 
-      postMessage(result);
-      close();
+      result.lastUpdate = e.data.lastUpdate;
+      self.postMessage(result);
+      //self.close();
     };
 
   };
 
   return {
+    _func: func,
     get: function() {
       if (!ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
@@ -11865,6 +11961,117 @@ ZenzaWatch.util.createWebWorker = function(func) {
 ZenzaWatch.util.isWebWorkerAvailable = function() {
   return !!(Config.getValue('enableCommentLayoutWorker') && window.Blob && window.Worker && window.URL);
 };
+
+
+
+
+
+var SlotLayoutWorker = (function() {
+  var func = function(self) {
+
+    // 暫定設置
+    var SLOT_COUNT = 40;
+
+    var SlotEntry = function() { this.initialize.apply(this, arguments); };
+    SlotEntry.prototype = {
+      initialize: function(slotCount) {
+        this._slotCount = slotCount || SLOT_COUNT;
+        this._slot = [];
+        this._itemTable = {};
+
+        this._p = 1;
+      },
+      _findIdle: function(sec) {
+        var count = this._slotCount, slot = this._slot, table = this._itemTable;
+        for (var i = 0; i < count; i++) {
+          if (!slot[i]) {
+            //console.log('empty found! idx=%s, sec=%s slot=%s', i, sec, JSON.stringify(slot));
+            slot[i] = this._p++;
+            return i;
+          }
+
+          var item = table[i];
+          if (sec < item.begin || sec > item.end) {
+            //console.log('idle found! idx=%s, sec=%s ', i, sec, JSON.stringify(slot), JSON.stringify(item));
+            slot[i] = this._p++;
+            return i;
+          }
+        }
+        return -1;
+      },
+      _findOldest: function() {
+        var idx = 0, slot = this._slot, min = slot[0];
+        for (var i = 1, len = this._slot.length; i < len; i++) {
+          if (slot[i] < min) {
+            min = slot[i];
+            idx = i;
+          }
+        }
+        return idx;
+      },
+      find: function(item, sec) {
+        var slot = this._findIdle(sec);
+        if (slot < 0) { slot = this._findOldest(); }
+        this._itemTable[slot] = item;
+        return slot;
+      }
+    };
+
+    var vposSort = function(data) {
+      data = data.concat().sort(function(a, b) {
+        var av = a.vpos, bv = b.vpos;
+        if (av !== bv) {
+          return av - bv;
+        } else {
+          return a.no < b.no ? -1 : 1;
+        }
+      });
+      return data;
+    };
+
+    var execute = function(e) {
+      var data = [];
+      data = data.concat(e.data.top);
+      data = data.concat(e.data.naka);
+      data = data.concat(e.data.bottom);
+      data = vposSort(data);
+
+      var slotEntries = [new SlotEntry(), new SlotEntry(), new SlotEntry()];
+
+      for (var i = 0, len = data.length; i < len; i++) {
+        var o = data[i];
+        var sec = o.begin;
+        var fork = o.fork % 3;
+        o.slot = slotEntries[fork].find(o, sec);
+      }
+      return data;
+    };
+
+    self.onmessage = function(e) {
+      //console.log('SlotLayout', e.data);
+      console.time('SlotLayoutWorker');
+
+      var result = execute(e);
+
+      console.timeEnd('SlotLayoutWorker');
+
+      result.lastUpdate = e.data.lastUpdate;
+      //console.log('SlotLayoutResult', result);
+      self.postMessage(e.data);
+    };
+
+  };
+
+  return {
+    _func: func,
+    get: function() {
+      if (!ZenzaWatch.util.isWebWorkerAvailable()) {
+        return null;
+      }
+      return ZenzaWatch.util.createWebWorker(func);
+    }
+  };
+})();
 
 
 
@@ -15846,9 +16053,17 @@ data-title="%no%: %date% ID:%userId%
     body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container {
       pointer-events: none;
     }
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>.container *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>.container *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>.container *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container  *{
+      animation-play-state: paused !important;
+    }
+
     body.showNicoVideoPlayerDialog .ads {
       display: none !important;
       pointer-events: none;
+      animation-play-state: paused !important;
     }
 
     {* 大百科の奴 *}

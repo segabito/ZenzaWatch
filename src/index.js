@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.5
+// @version        1.2.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -89,6 +89,8 @@ var monkey = function() {
 //@require CommentPlayer.js
 
 //@require CommentLayoutWorker.js
+
+//@require SlotLayoutWorker.js
 
 //@require NicoScripter.js
 
