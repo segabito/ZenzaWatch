@@ -82,6 +82,7 @@ var SlotLayoutWorker = (function() {
 
       for (var i = 0, len = data.length; i < len; i++) {
         var o = data[i];
+        if (o.invisible) { continue; }
         var sec = o.begin;
         var fork = o.fork % 3;
         o.slot = slotEntries[fork].find(o, sec);
@@ -119,8 +120,33 @@ var SlotLayoutWorker = (function() {
 
 //===END===
 
+var workerWrapper = (function(worker) {
+
+  var wrapper = {};
+
+  var workerInterface = {
+    postMessage: function(data) {
+      var packet = { data: data };
+      wrapper.onmessage(packet);
+    }
+  };
+
+  wrapper.postMessage = function(data) {
+    var packet = { data: data };
+    worker(workerInterface);
+    workerInterface.onmessage(packet);
+  };
+
+  wrapper.addEventListener = function(name, callback) {
+    wrapper['on' + name.toLowerCase()] = callback;
+  };
+
+  return wrapper;
+})(SlotLayoutWorker._func);
+
+
 module.exports = {
-  SlotLayoutWorker: SlotLayoutWorker
+  SlotLayoutWorker: workerWrapper
 };
 
 

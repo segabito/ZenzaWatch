@@ -1452,7 +1452,7 @@ var SlotLayoutWorker = {};
 
       this._setType(nicoChat.getType());
 
-      // ここでbeginLeftTiming, endRightTimintが確定する
+      // ここでbeginLeftTiming, endRightTimingが確定する
       this._setVpos(nicoChat.getVpos());
 
       this._setSize(nicoChat.getSize());
@@ -2126,8 +2126,9 @@ var SlotLayoutWorker = {};
   text-shadow: none;
   -webkit-text-stroke: none;
   background: currentColor;
-  outline: 3px solid;
-  outline-offset: -1px;
+  {*outline: 2px solid;
+  outline-offset: -1px;*}
+  box-shadow: 0 4px, 0 -4px;
 }
 
 .nicoChat .mesh_space {
@@ -2137,7 +2138,8 @@ var SlotLayoutWorker = {};
 
 .nicoChat .block_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: 5px;
+  text-stroke: 5px;
   font-weight: 900;
 }
 
@@ -2589,9 +2591,10 @@ spacer {
       if (css.length > 0) {
         var inSlotTable = this._inSlotTable, currentTime = this._currentTime;
         var outViewIds = [];
+        var margin = 1;
         _.each(Object.keys(inSlotTable), function(key) {
           var chat = inSlotTable[key];
-          if (currentTime + 0.5 < chat.getEndRightTiming()) { return; }
+          if (currentTime - margin < chat.getEndRightTiming()) { return; }
           delete inSlotTable[key];
           outViewIds.push(key);
         });
@@ -2611,6 +2614,7 @@ spacer {
      */
     _removeOutviewElements: function(outViewIds) {
       var doc = this._document;
+      if (!doc) { return; }
       _.each(outViewIds, function(id) {
         var elm = doc.getElementById(id);
         if (!elm) { return; }
