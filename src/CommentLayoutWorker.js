@@ -149,9 +149,26 @@ var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
     };
 
     self.onmessage = function(e) {
-      console.time('CommentLayoutWorker: ' + e.data.type);
-      var result = groupCollision(e.data.members);
-      console.timeEnd('CommentLayoutWorker: ' + e.data.type);
+      var result;
+      if (e.data.naka) {
+        result = {};
+        console.time('CommentLayoutWorker: top');
+        result.top = groupCollision(e.data.top);
+        console.timeEnd('CommentLayoutWorker: top');
+
+        console.time('CommentLayoutWorker: naka');
+        result.naka = groupCollision(e.data.naka);
+        console.timeEnd('CommentLayoutWorker: naka');
+
+        console.time('CommentLayoutWorker: bottom');
+        result.bottom = groupCollision(e.data.bottom);
+        console.timeEnd('CommentLayoutWorker: bottom');
+
+      } else {
+        console.time('CommentLayoutWorker: ' + e.data.type);
+        result = groupCollision(e.data.members);
+        console.timeEnd('CommentLayoutWorker: ' + e.data.type);
+      }
 
       result.lastUpdate = e.data.lastUpdate;
       self.postMessage(result);

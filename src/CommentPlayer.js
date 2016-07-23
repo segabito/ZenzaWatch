@@ -2337,6 +2337,7 @@ spacer {
           return;
         }
 
+        self._document = doc;
         self._layoutStyle = doc.getElementById('layoutCss');
         self._optionStyle = doc.getElementById('optionCss');
         self._style       = doc.getElementById('nicoChatAnimationDefinition');
@@ -2564,6 +2565,7 @@ spacer {
           continue;
         }
         this._inViewTable[domId] = nicoChat;
+        this._inSlotTable[domId] = nicoChat;
         newView.push(nicoChat);
       }
 
@@ -2585,28 +2587,46 @@ spacer {
 
       // DOMへの追加
       if (css.length > 0) {
-        this._updateDom(dom, css);
+        var inSlotTable = this._inSlotTable, currentTime = this._currentTime;
+        var outViewIds = [];
+        _.each(Object.keys(inSlotTable), function(key) {
+          var chat = inSlotTable[key];
+          if (currentTime + 0.5 < chat.getEndRightTiming()) { return; }
+          delete inSlotTable[key];
+          outViewIds.push(key);
+        });
+        this._updateDom(dom, css, outViewIds);
       }
     },
-    _updateDom: function(dom, css) {
+    _updateDom: function(dom, css, outViewIds) {
       var fragment = document.createDocumentFragment();
       while (dom.length > 0) { fragment.appendChild(dom.shift()); }
       this._commentLayer.appendChild(fragment);
       this._style.innerHTML += css.join('');
+      this._removeOutviewElements(outViewIds);
       this._gcInviewElements();
     },
-    /**
-     * 表示された要素を古い順に除去していく
-     * 本家は単純なFIFOではなく、画面からいなくなった要素から除去→FIFOの順番だと思うが、
-     * そこを再現するメリットもないと思うので手抜きしてFIFOしていく
+    /*
+     * アニメーションが終わっているはずの要素を除去
      */
-    _gcInviewElements: function() {
+    _removeOutviewElements: function(outViewIds) {
+      var doc = this._document;
+      _.each(outViewIds, function(id) {
+        var elm = doc.getElementById(id);
+        if (!elm) { return; }
+        elm.remove();
+      });
+    },
+    /*
+     * 古い順に要素を除去していく
+     */
+    _gcInviewElements: function(outViewIds) {
       if (!this._commentLayer || !this._style) { return; }
 
       var max = NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT;
 
-      var i, inViewElements;
       var commentLayer = this._commentLayer;
+      var i, inViewElements;
       //inViewElements = commentLayer.getElementsByClassName('nicoChat');
       inViewElements = commentLayer.querySelectorAll('.nicoChat.fork0');
       for (i = inViewElements.length - max - 1; i >= 0; i--) {
