@@ -52,7 +52,9 @@ var SlotLayoutWorker = (function() {
         return idx;
       },
       find: function(item, sec) {
+        // まずは空いてるスロットを小さい順に探す
         var slot = this._findIdle(sec);
+        // なかったら、一番古いやつから奪い取る
         if (slot < 0) { slot = this._findOldest(); }
         this._itemTable[slot] = item;
         return slot;
@@ -107,7 +109,7 @@ var SlotLayoutWorker = (function() {
 
   return {
     _func: func,
-    get: function() {
+    create: function() {
       if (!ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
       }

@@ -239,7 +239,7 @@ var PopupMessage = {};
         .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500))
         .on('resize', this._onResize.bind(this));
 
-      this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 30);
+      this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
       this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
 
       this._$begin = $('<span class="begin"/>');
@@ -339,7 +339,7 @@ var PopupMessage = {};
       this._refreshInviewElements();
     },
     _onScroll: function() {
-      this._$body.addClass('scrolling');
+      if (!this._$body.hasClass('scrolling')) { this._$body.addClass('scrolling'); }
       this._refreshInviewElements();
     },
     _onScrollEnd: function() {

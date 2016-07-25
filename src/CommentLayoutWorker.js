@@ -150,40 +150,37 @@ var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
 
     self.onmessage = function(e) {
       var result;
-      if (e.data.naka) {
-        result = {};
-        console.time('CommentLayoutWorker: top');
-        result.top = groupCollision(e.data.top);
-        console.timeEnd('CommentLayoutWorker: top');
 
-        console.time('CommentLayoutWorker: naka');
-        result.naka = groupCollision(e.data.naka);
-        console.timeEnd('CommentLayoutWorker: naka');
-
-        console.time('CommentLayoutWorker: bottom');
-        result.bottom = groupCollision(e.data.bottom);
-        console.timeEnd('CommentLayoutWorker: bottom');
-
-      } else {
-        console.time('CommentLayoutWorker: ' + e.data.type);
-        result = groupCollision(e.data.members);
-        console.timeEnd('CommentLayoutWorker: ' + e.data.type);
-      }
+      console.time('CommentLayoutWorker: ' + e.data.type);
+      result = groupCollision(e.data.members);
+      console.timeEnd('CommentLayoutWorker: ' + e.data.type);
 
       result.lastUpdate = e.data.lastUpdate;
+      result.type = e.data.type;
+      result.requestId = e.data.requestId;
       self.postMessage(result);
       //self.close();
     };
 
   };
 
+  var instance = null;
   return {
     _func: func,
-    get: function() {
+    create: function() {
       if (!config.getValue('enableCommentLayoutWorker') || !ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
       }
       return ZenzaWatch.util.createWebWorker(func);
+    },
+    getInstance: function() {
+      if (!config.getValue('enableCommentLayoutWorker') || !ZenzaWatch.util.isWebWorkerAvailable()) {
+        return null;
+      }
+      if (!instance) {
+        instance = ZenzaWatch.util.createWebWorker(func);
+      }
+      return instance;
     }
   };
 })(Config, NicoChat, NicoCommentViewModel);
@@ -205,7 +202,34 @@ ZenzaWatch.util.isWebWorkerAvailable = function() {
 
 
 
+
 //===END===
+
+/*
+
+// 前のが処理中にどんどん追加でpostMessageしたらどうなるの？の実験
+// 結果:
+// どんどん積まれて、順に処理されるっぽい。
+// 待ってる間メインスレッドがブロックされる心配はなさそう
+
+var testWorker = ZenzaWatch.util.createWebWorker(function(self) {
+  self.onmessage = function(e) {
+    console.time('work start 111' + e.data.num);
+    var c = 0;
+    for (var i = 0; i < 0xffffff; i++) {
+      c += Math.random();
+    }
+    console.timeEnd('work start 111' + e.data.num);
+    console.log('%s', e.data.num, c);
+  };
+});
+
+for (var i = 0; i < 10; i++) {
+  window.console.log('post :' + i);
+    testWorker.postMessage({num: i});
+  window.console.log('post done: ' + i);
+}
+*/
 
 module.exports = {
   CommentLayoutWorker: CommentLayoutWorker

@@ -712,10 +712,9 @@ var SlotLayoutWorker = {};
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      
-      var worker = this._slotLayoutWorker = SlotLayoutWorker.get();
-      if (worker) {
-        worker.addEventListener('message',
+      this._slotLayoutWorker = SlotLayoutWorker.create();
+      if (this._slotLayoutWorker) {
+        this._slotLayoutWorker.addEventListener('message',
           this._onSlotLayoutWorkerComplete.bind(this));
         this._updateSlotLayout = _.debounce(this._updateSlotLayout.bind(this), 100);
       }
@@ -762,16 +761,17 @@ var SlotLayoutWorker = {};
       });
     },
     _onSlotLayoutWorkerComplete: function(e) {
-      window.console.timeEnd('SlotLayoutWorker call');
       // Workerが処理してる間にスレッドが変更された。
       if (e.data.lastUpdate !== this._lastUpdate) {
-        window.console.warn('slotLayoutWorker changed', this._lastUpdate, e.data.lastUpdate);
+        window.console.warn('slotLayoutWorker changed',
+          this._lastUpdate, e.data.lastUpdate);
         return;
       }
       //window.console.log('SlotLayoutWorker result', e.data);
       this._topGroup   .setBulkSlotData(e.data.top);
       this._nakaGroup  .setBulkSlotData(e.data.naka);
       this._bottomGroup.setBulkSlotData(e.data.bottom);
+      window.console.timeEnd('SlotLayoutWorker call');
     },
     getCurrentTime: function() {
       return this._currentTime;
@@ -807,7 +807,7 @@ var SlotLayoutWorker = {};
         bottom: this._bottomGroup.getBulkLayoutData()
       };
     },
-    setBulklayoutData: function(data) {
+    setBulkLayoutData: function(data) {
       this._topGroup   .setBulkLayoutData(data.top);
       this._nakaGroup  .setBulkLayoutData(data.naka);
       this._bottomGroup.setBulkLayoutData(data.bottom);
@@ -909,17 +909,10 @@ var SlotLayoutWorker = {};
       // メンバーをvposでソートした物. 計算効率改善用
       this._vSortedMembers = [];
 
-      var worker = this._layoutWorker = CommentLayoutWorker.get();
-      if (worker) {
-        worker.addEventListener('message', function(e) {
-          // Workerが処理してる間にスレッドが変更された。
-          if (e.data.lastUpdate !== this._lastUpdate) {
-            window.console.warn('group changed', this._lastUpdate, e.data.lastUpdate);
-            return;
-          }
-          this.setBulkLayoutData(e.data);
-          //ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
-        }.bind(this));
+      this._layoutWorker = CommentLayoutWorker.getInstance();
+      if (this._layoutWorker) {
+        this._layoutWorker.addEventListener('message',
+          this._onCommentLayoutWorkerComplete.bind(this));
       }
 
       nicoChatGroup.on('addChat',      this._onAddChat.bind(this));
@@ -946,6 +939,31 @@ var SlotLayoutWorker = {};
       this.addChatArray(this._nicoChatGroup.getMembers());
       window.console.timeEnd('_onChange');
     },
+    _onCommentLayoutWorkerComplete: function(e) {
+      // 自分用のデータじゃない
+      if (e.data.requestId !== this._workerRequestId) {
+        return;
+      }
+      // Workerが処理してる間にスレッドが変更された。
+      if (e.data.lastUpdate !== this._lastUpdate) {
+        window.console.warn('group changed', this._lastUpdate, e.data.lastUpdate);
+        return;
+      }
+      this.setBulkLayoutData(e.data);
+    },
+    _execCommentLayoutWorker: function() {
+      if (this._members.length < 1) { return; }
+      var type = this._members[0].getType();
+      this._workerRequestId = type + ':' + Math.random();
+
+      console.log('request worker: ', type);
+      this._layoutWorker.postMessage({
+        type: type,
+        members: this.getBulkLayoutData(),
+        lastUpdate: this._lastUpdate,
+        requestId: this._workerRequestId
+      });
+    },
     addChatArray: function(nicoChatArray) {
       for (var i = 0, len = nicoChatArray.length; i < len; i++) {
         var nicoChat = nicoChatArray[i];
@@ -958,11 +976,7 @@ var SlotLayoutWorker = {};
       this._lastUpdate = Date.now();
 
       if (this._layoutWorker) {
-        this._layoutWorker.postMessage({
-          type: this._members[0].getType(),
-          members: this.getBulkLayoutData(),
-          lastUpdate: this._lastUpdate
-        });
+        this._execCommentLayoutWorker();
       } else {
         this._groupCollision();
       }
@@ -983,29 +997,19 @@ var SlotLayoutWorker = {};
 
       this._lastUpdate = Date.now();
 
+      // 内部処理効率化の都合上、
+      // 自身を追加する前に判定を行っておくこと
+      this.checkCollision(nc);
+      nc.setIsLayouted(true);
+
+      this._members.push(nc);
+
       if (this._layoutWorker) {
-        // 内部処理効率化の都合上、
-        // 自身を追加する前に判定を行っておくこと
-        this.checkCollision(nc);
-
-        this._members.push(nc);
-
-        this._layoutWorker.postMessage({
-          type: this._members[0].getType(),
-          members: this.getBulkLayoutData(),
-          lastUpdate: this._lastUpdate
-        });
+        this._execCommentLayoutWorker();
       } else {
-        // 内部処理効率化の都合上、
-        // 自身を追加する前に判定を行っておくこと
-        this.checkCollision(nc);
-        nc.setIsLayouted(true);
-
-        this._members.push(nc);
         this._createVSortedMembers();
-        window.console.timeEnd(timeKey);
       }
-
+      window.console.timeEnd(timeKey);
     },
     reset: function() {
       var m = this._members;
@@ -1827,7 +1831,7 @@ var SlotLayoutWorker = {};
       return this.isInViewBySecond(this.getCurrentTime());
     },
     isInViewBySecond: function(sec) {
-      if (!this._isLayouted || sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
+      if (!this._isLayouted || sec + 1 /* margin */ < this._beginLeftTiming) { return false; }
       if (sec > this._endRightTiming ) { return false; }
       //if (!this.isNicoScript() && this.isInvisible()) { return false; }
       if (this.isInvisible()) { return false; }

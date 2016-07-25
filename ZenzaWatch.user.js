@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.9
+// @version        1.2.10
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.9';
+  var VER = '1.2.10';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -542,7 +542,7 @@ var monkey = function() {
           max-height: 0;
           margin-bottom: 0px;
           padding: 0px 8px;
-          box-shadow: 0px 0px 4px #333 inset;
+          box-shadow: 0px 0px 0px #333;
           transition:
             transform 1s linear,
             opacity       0.5s ease 0.5s,
@@ -1190,6 +1190,21 @@ var monkey = function() {
       });
     };
     ZenzaWatch.util.escapeHtml = escapeHtml;
+
+    var unescapeHtml = function(text) {
+      var map = {
+        '&amp;'  : '&' ,
+        '&#39;'  : '\x27',
+        '&quot;' : '"',
+        '&lt;'   : '<',
+        '&gt;'   : '>'
+      };
+      return text.replace(/(&amp;|&#39;|&quot;|&lt;|&gt;)/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.unescapeHtml = unescapeHtml;
+
 
     // 基本的に動画タイトルはエスケープされている。
     // だが、なんかたまにいいかげんなデータがあるし、本当に信用できるか？
@@ -6484,8 +6499,8 @@ var monkey = function() {
     }
 
     .fullScreen .seekBarContainer:hover .seekBarShadow {
-      height: 12px;
-      top: -12px;
+      height: 8px;
+      top: -8px;
     }
 
     .abort   .seekBarContainer,
@@ -6510,13 +6525,20 @@ var monkey = function() {
       border-top:    1px solid #333;
       border-bottom: 1px solid #333;
       cursor: pointer;
-      transition: height 0.2s ease, margin-top 0.2s ease;
+      transition: height 0.2s ease 1s, margin-top 0.2s ease 1s;
     }
 
     .seekBar:hover {
-      height: 15px;
-      margin-top: -5px;
+      height: 18px;
+      margin-top: -8px;
+      transition: none;
     }
+
+    .fullScreen .seekBar:hover {
+      height: 12px;
+      margin-top: -2px;
+    }
+
 
     .mouseMoving .seekBar {
       background-color: rgba(0, 0, 0, 0.5);
@@ -7142,8 +7164,8 @@ var monkey = function() {
         this._commentPreview.setIsEnable(v);
       }.bind(this);
 
-      updateEnableCommentPreview(config.getValue('enableCommentPreview'));
-      config.on('update-enableCommentPreview', updateEnableCommentPreview);
+      //updateEnableCommentPreview(config.getValue('enableCommentPreview'));
+      //config.on('update-enableCommentPreview', updateEnableCommentPreview);
 
       this._$screenModeMenu       = $view.find('.screenModeMenu');
       this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
@@ -8016,7 +8038,7 @@ var monkey = function() {
         var s = (100 + (sec % 60)).toString().substr(1);
         return [m, s].join(':');
       };
-      console.time('updateCommentPreviewView');
+      window.console.time('updateCommentPreviewView');
       var _html = ['<ul>'];
       $(chatList).each(function(i, chat) {
         var text = ZenzaWatch.util.escapeHtml(chat.getText());
@@ -8050,7 +8072,7 @@ var monkey = function() {
         this._$nicoChat = this._$inner.find('.nicoChat:first-child');
       }
       this._updated = false;
-      console.timeEnd('updateCommentPreviewView');
+      window.console.timeEnd('updateCommentPreviewView');
     },
     _isEmpty: function() {
       return this._html === '';
@@ -8134,7 +8156,7 @@ var monkey = function() {
       z-index: 300;
       position: absolute;
       padding: 1px;
-      bottom: 24px;
+      bottom: 16px;
       left: 0;
       white-space: nowrap;
       font-size: 10px;
@@ -8143,10 +8165,11 @@ var monkey = function() {
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s ease;
+      box-shadow: 0 0 4px #000;
     }
 
     .fullScreen .seekBarToolTip {
-      bottom: 12px;
+      bottom: 14px;
     }
 
     .dragging                .seekBarToolTip,
@@ -8162,9 +8185,10 @@ var monkey = function() {
     .seekBarToolTip .seekBarToolTipInner {
       font-size: 0 !important;
     }
-    
+
     .seekBarToolTip .seekBarToolTipButtonContainer {
-      display: flex;
+      {*display: flex;*}
+      text-align: center;
     }
 
     .seekBarToolTip .seekBarToolTipButtonContainer>* {
@@ -8175,11 +8199,13 @@ var monkey = function() {
       display: inline-block;
       height: 16px;
       margin: 4px 0;
-      color: #fff;
-      background: #666;
+      padding: 0 8px;
+      color: #ccc;
+      {*background: #666;*}
       text-align: center;
-      font-size: 10px;
+      font-size: 12px;
       line-height: 16px;
+      text-shadow: 0 0 4px #fff, 0 0 8px #fc9;
     }
 
     .seekBarToolTip .controlButton {
@@ -8207,18 +8233,20 @@ var monkey = function() {
       <div class="seekBarToolTipInner">
         <div class="seekBarThumbnailContainer"></div>
         <div class="seekBarToolTipButtonContainer">
-          <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
+          <!--div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
             <div class="controlButtonInner">⇦</div>
-          </div>
+          </div -->
 
           <div class="currentTime"></div>
+          <!--
           <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
             <div class="menuButtonInner">💬</div>
           </div>
+          -->
 
-          <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
+          <!--div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
             <div class="controlButtonInner">⇨</div>
-          </div>
+          </div-->
         </div>
       </div>
     </div>
@@ -9281,10 +9309,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      
-      var worker = this._slotLayoutWorker = SlotLayoutWorker.get();
-      if (worker) {
-        worker.addEventListener('message',
+      this._slotLayoutWorker = SlotLayoutWorker.create();
+      if (this._slotLayoutWorker) {
+        this._slotLayoutWorker.addEventListener('message',
           this._onSlotLayoutWorkerComplete.bind(this));
         this._updateSlotLayout = _.debounce(this._updateSlotLayout.bind(this), 100);
       }
@@ -9331,16 +9358,17 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       });
     },
     _onSlotLayoutWorkerComplete: function(e) {
-      window.console.timeEnd('SlotLayoutWorker call');
       // Workerが処理してる間にスレッドが変更された。
       if (e.data.lastUpdate !== this._lastUpdate) {
-        window.console.warn('slotLayoutWorker changed', this._lastUpdate, e.data.lastUpdate);
+        window.console.warn('slotLayoutWorker changed',
+          this._lastUpdate, e.data.lastUpdate);
         return;
       }
       //window.console.log('SlotLayoutWorker result', e.data);
       this._topGroup   .setBulkSlotData(e.data.top);
       this._nakaGroup  .setBulkSlotData(e.data.naka);
       this._bottomGroup.setBulkSlotData(e.data.bottom);
+      window.console.timeEnd('SlotLayoutWorker call');
     },
     getCurrentTime: function() {
       return this._currentTime;
@@ -9376,7 +9404,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         bottom: this._bottomGroup.getBulkLayoutData()
       };
     },
-    setBulklayoutData: function(data) {
+    setBulkLayoutData: function(data) {
       this._topGroup   .setBulkLayoutData(data.top);
       this._nakaGroup  .setBulkLayoutData(data.naka);
       this._bottomGroup.setBulkLayoutData(data.bottom);
@@ -9478,17 +9506,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // メンバーをvposでソートした物. 計算効率改善用
       this._vSortedMembers = [];
 
-      var worker = this._layoutWorker = CommentLayoutWorker.get();
-      if (worker) {
-        worker.addEventListener('message', function(e) {
-          // Workerが処理してる間にスレッドが変更された。
-          if (e.data.lastUpdate !== this._lastUpdate) {
-            window.console.warn('group changed', this._lastUpdate, e.data.lastUpdate);
-            return;
-          }
-          this.setBulkLayoutData(e.data);
-          //ZenzaWatch.emitter.emit('commentLayoutChange'); // ひどい
-        }.bind(this));
+      this._layoutWorker = CommentLayoutWorker.getInstance();
+      if (this._layoutWorker) {
+        this._layoutWorker.addEventListener('message',
+          this._onCommentLayoutWorkerComplete.bind(this));
       }
 
       nicoChatGroup.on('addChat',      this._onAddChat.bind(this));
@@ -9515,6 +9536,31 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this.addChatArray(this._nicoChatGroup.getMembers());
       window.console.timeEnd('_onChange');
     },
+    _onCommentLayoutWorkerComplete: function(e) {
+      // 自分用のデータじゃない
+      if (e.data.requestId !== this._workerRequestId) {
+        return;
+      }
+      // Workerが処理してる間にスレッドが変更された。
+      if (e.data.lastUpdate !== this._lastUpdate) {
+        window.console.warn('group changed', this._lastUpdate, e.data.lastUpdate);
+        return;
+      }
+      this.setBulkLayoutData(e.data);
+    },
+    _execCommentLayoutWorker: function() {
+      if (this._members.length < 1) { return; }
+      var type = this._members[0].getType();
+      this._workerRequestId = type + ':' + Math.random();
+
+      console.log('request worker: ', type);
+      this._layoutWorker.postMessage({
+        type: type,
+        members: this.getBulkLayoutData(),
+        lastUpdate: this._lastUpdate,
+        requestId: this._workerRequestId
+      });
+    },
     addChatArray: function(nicoChatArray) {
       for (var i = 0, len = nicoChatArray.length; i < len; i++) {
         var nicoChat = nicoChatArray[i];
@@ -9527,11 +9573,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._lastUpdate = Date.now();
 
       if (this._layoutWorker) {
-        this._layoutWorker.postMessage({
-          type: this._members[0].getType(),
-          members: this.getBulkLayoutData(),
-          lastUpdate: this._lastUpdate
-        });
+        this._execCommentLayoutWorker();
       } else {
         this._groupCollision();
       }
@@ -9552,29 +9594,19 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       this._lastUpdate = Date.now();
 
+      // 内部処理効率化の都合上、
+      // 自身を追加する前に判定を行っておくこと
+      this.checkCollision(nc);
+      nc.setIsLayouted(true);
+
+      this._members.push(nc);
+
       if (this._layoutWorker) {
-        // 内部処理効率化の都合上、
-        // 自身を追加する前に判定を行っておくこと
-        this.checkCollision(nc);
-
-        this._members.push(nc);
-
-        this._layoutWorker.postMessage({
-          type: this._members[0].getType(),
-          members: this.getBulkLayoutData(),
-          lastUpdate: this._lastUpdate
-        });
+        this._execCommentLayoutWorker();
       } else {
-        // 内部処理効率化の都合上、
-        // 自身を追加する前に判定を行っておくこと
-        this.checkCollision(nc);
-        nc.setIsLayouted(true);
-
-        this._members.push(nc);
         this._createVSortedMembers();
-        window.console.timeEnd(timeKey);
       }
-
+      window.console.timeEnd(timeKey);
     },
     reset: function() {
       var m = this._members;
@@ -10396,7 +10428,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       return this.isInViewBySecond(this.getCurrentTime());
     },
     isInViewBySecond: function(sec) {
-      if (!this._isLayouted || sec + 0.5 /* margin */ < this._beginLeftTiming) { return false; }
+      if (!this._isLayouted || sec + 1 /* margin */ < this._beginLeftTiming) { return false; }
       if (sec > this._endRightTiming ) { return false; }
       //if (!this.isNicoScript() && this.isInvisible()) { return false; }
       if (this.isInvisible()) { return false; }
@@ -11950,40 +11982,37 @@ var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
 
     self.onmessage = function(e) {
       var result;
-      if (e.data.naka) {
-        result = {};
-        console.time('CommentLayoutWorker: top');
-        result.top = groupCollision(e.data.top);
-        console.timeEnd('CommentLayoutWorker: top');
 
-        console.time('CommentLayoutWorker: naka');
-        result.naka = groupCollision(e.data.naka);
-        console.timeEnd('CommentLayoutWorker: naka');
-
-        console.time('CommentLayoutWorker: bottom');
-        result.bottom = groupCollision(e.data.bottom);
-        console.timeEnd('CommentLayoutWorker: bottom');
-
-      } else {
-        console.time('CommentLayoutWorker: ' + e.data.type);
-        result = groupCollision(e.data.members);
-        console.timeEnd('CommentLayoutWorker: ' + e.data.type);
-      }
+      console.time('CommentLayoutWorker: ' + e.data.type);
+      result = groupCollision(e.data.members);
+      console.timeEnd('CommentLayoutWorker: ' + e.data.type);
 
       result.lastUpdate = e.data.lastUpdate;
+      result.type = e.data.type;
+      result.requestId = e.data.requestId;
       self.postMessage(result);
       //self.close();
     };
 
   };
 
+  var instance = null;
   return {
     _func: func,
-    get: function() {
+    create: function() {
       if (!config.getValue('enableCommentLayoutWorker') || !ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
       }
       return ZenzaWatch.util.createWebWorker(func);
+    },
+    getInstance: function() {
+      if (!config.getValue('enableCommentLayoutWorker') || !ZenzaWatch.util.isWebWorkerAvailable()) {
+        return null;
+      }
+      if (!instance) {
+        instance = ZenzaWatch.util.createWebWorker(func);
+      }
+      return instance;
     }
   };
 })(Config, NicoChat, NicoCommentViewModel);
@@ -12002,6 +12031,7 @@ ZenzaWatch.util.createWebWorker = function(func) {
 ZenzaWatch.util.isWebWorkerAvailable = function() {
   return !!(window.Blob && window.Worker && window.URL);
 };
+
 
 
 
@@ -12051,7 +12081,9 @@ var SlotLayoutWorker = (function() {
         return idx;
       },
       find: function(item, sec) {
+        // まずは空いてるスロットを小さい順に探す
         var slot = this._findIdle(sec);
+        // なかったら、一番古いやつから奪い取る
         if (slot < 0) { slot = this._findOldest(); }
         this._itemTable[slot] = item;
         return slot;
@@ -12106,7 +12138,7 @@ var SlotLayoutWorker = (function() {
 
   return {
     _func: func,
-    get: function() {
+    create: function() {
       if (!ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
       }
@@ -12625,7 +12657,7 @@ var SlotLayoutWorker = (function() {
         .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500))
         .on('resize', this._onResize.bind(this));
 
-      this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 30);
+      this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
       this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
 
       this._$begin = $('<span class="begin"/>');
@@ -12725,7 +12757,7 @@ var SlotLayoutWorker = (function() {
       this._refreshInviewElements();
     },
     _onScroll: function() {
-      this._$body.addClass('scrolling');
+      if (!this._$body.hasClass('scrolling')) { this._$body.addClass('scrolling'); }
       this._refreshInviewElements();
     },
     _onScrollEnd: function() {
@@ -21602,7 +21634,10 @@ data-title="%no%: %date% ID:%userId%
       var createLink = function(text) {
         var $link = $('<a class="tagLink" />');
         $link.attr('href', '//www.nicovideo.jp/tag/' + encodeURIComponent(text));
-        $link.html(text);
+        // タグはエスケープされた物が来るので html() でつっこんでいいはずだが、
+        // けっこういい加減なデータもあったりして信頼できないので安全を取って text() でいく
+        text = ZenzaWatch.util.unescapeHtml(text);
+        $link.text(text);
         return $link;
       };
       var createSearch = function(text) {

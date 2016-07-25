@@ -1416,7 +1416,10 @@ var RelatedVideoList = function() {};
       var createLink = function(text) {
         var $link = $('<a class="tagLink" />');
         $link.attr('href', '//www.nicovideo.jp/tag/' + encodeURIComponent(text));
-        $link.html(text);
+        // タグはエスケープされた物が来るので html() でつっこんでいいはずだが、
+        // けっこういい加減なデータもあったりして信頼できないので安全を取って text() でいく
+        text = ZenzaWatch.util.unescapeHtml(text);
+        $link.text(text);
         return $link;
       };
       var createSearch = function(text) {

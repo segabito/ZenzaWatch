@@ -482,7 +482,7 @@ var console;
           max-height: 0;
           margin-bottom: 0px;
           padding: 0px 8px;
-          box-shadow: 0px 0px 4px #333 inset;
+          box-shadow: 0px 0px 0px #333;
           transition:
             transform 1s linear,
             opacity       0.5s ease 0.5s,
@@ -1130,6 +1130,21 @@ var console;
       });
     };
     ZenzaWatch.util.escapeHtml = escapeHtml;
+
+    var unescapeHtml = function(text) {
+      var map = {
+        '&amp;'  : '&' ,
+        '&#39;'  : '\x27',
+        '&quot;' : '"',
+        '&lt;'   : '<',
+        '&gt;'   : '>'
+      };
+      return text.replace(/(&amp;|&#39;|&quot;|&lt;|&gt;)/g, function(char) {
+        return map[char];
+      });
+    };
+    ZenzaWatch.util.unescapeHtml = unescapeHtml;
+
 
     // 基本的に動画タイトルはエスケープされている。
     // だが、なんかたまにいいかげんなデータがあるし、本当に信用できるか？

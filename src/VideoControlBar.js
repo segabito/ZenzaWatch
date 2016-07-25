@@ -301,8 +301,8 @@ var StoryBoard = function() {};
     }
 
     .fullScreen .seekBarContainer:hover .seekBarShadow {
-      height: 12px;
-      top: -12px;
+      height: 8px;
+      top: -8px;
     }
 
     .abort   .seekBarContainer,
@@ -327,13 +327,20 @@ var StoryBoard = function() {};
       border-top:    1px solid #333;
       border-bottom: 1px solid #333;
       cursor: pointer;
-      transition: height 0.2s ease, margin-top 0.2s ease;
+      transition: height 0.2s ease 1s, margin-top 0.2s ease 1s;
     }
 
     .seekBar:hover {
-      height: 15px;
-      margin-top: -5px;
+      height: 18px;
+      margin-top: -8px;
+      transition: none;
     }
+
+    .fullScreen .seekBar:hover {
+      height: 12px;
+      margin-top: -2px;
+    }
+
 
     .mouseMoving .seekBar {
       background-color: rgba(0, 0, 0, 0.5);
@@ -959,8 +966,8 @@ var StoryBoard = function() {};
         this._commentPreview.setIsEnable(v);
       }.bind(this);
 
-      updateEnableCommentPreview(config.getValue('enableCommentPreview'));
-      config.on('update-enableCommentPreview', updateEnableCommentPreview);
+      //updateEnableCommentPreview(config.getValue('enableCommentPreview'));
+      //config.on('update-enableCommentPreview', updateEnableCommentPreview);
 
       this._$screenModeMenu       = $view.find('.screenModeMenu');
       this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
@@ -1833,7 +1840,7 @@ var StoryBoard = function() {};
         var s = (100 + (sec % 60)).toString().substr(1);
         return [m, s].join(':');
       };
-      console.time('updateCommentPreviewView');
+      window.console.time('updateCommentPreviewView');
       var _html = ['<ul>'];
       $(chatList).each(function(i, chat) {
         var text = ZenzaWatch.util.escapeHtml(chat.getText());
@@ -1867,7 +1874,7 @@ var StoryBoard = function() {};
         this._$nicoChat = this._$inner.find('.nicoChat:first-child');
       }
       this._updated = false;
-      console.timeEnd('updateCommentPreviewView');
+      window.console.timeEnd('updateCommentPreviewView');
     },
     _isEmpty: function() {
       return this._html === '';
@@ -1951,7 +1958,7 @@ var StoryBoard = function() {};
       z-index: 300;
       position: absolute;
       padding: 1px;
-      bottom: 24px;
+      bottom: 16px;
       left: 0;
       white-space: nowrap;
       font-size: 10px;
@@ -1960,10 +1967,11 @@ var StoryBoard = function() {};
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s ease;
+      box-shadow: 0 0 4px #000;
     }
 
     .fullScreen .seekBarToolTip {
-      bottom: 12px;
+      bottom: 14px;
     }
 
     .dragging                .seekBarToolTip,
@@ -1979,9 +1987,10 @@ var StoryBoard = function() {};
     .seekBarToolTip .seekBarToolTipInner {
       font-size: 0 !important;
     }
-    
+
     .seekBarToolTip .seekBarToolTipButtonContainer {
-      display: flex;
+      {*display: flex;*}
+      text-align: center;
     }
 
     .seekBarToolTip .seekBarToolTipButtonContainer>* {
@@ -1992,11 +2001,13 @@ var StoryBoard = function() {};
       display: inline-block;
       height: 16px;
       margin: 4px 0;
-      color: #fff;
-      background: #666;
+      padding: 0 8px;
+      color: #ccc;
+      {*background: #666;*}
       text-align: center;
-      font-size: 10px;
+      font-size: 12px;
       line-height: 16px;
+      text-shadow: 0 0 4px #fff, 0 0 8px #fc9;
     }
 
     .seekBarToolTip .controlButton {
@@ -2024,18 +2035,20 @@ var StoryBoard = function() {};
       <div class="seekBarToolTipInner">
         <div class="seekBarThumbnailContainer"></div>
         <div class="seekBarToolTipButtonContainer">
-          <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
+          <!--div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
             <div class="controlButtonInner">⇦</div>
-          </div>
+          </div -->
 
           <div class="currentTime"></div>
+          <!--
           <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
             <div class="menuButtonInner">💬</div>
           </div>
+          -->
 
-          <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
+          <!--div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
             <div class="controlButtonInner">⇨</div>
-          </div>
+          </div-->
         </div>
       </div>
     </div>
