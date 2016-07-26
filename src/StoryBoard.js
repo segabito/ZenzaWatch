@@ -637,9 +637,14 @@ var AsyncEmitter = function() {};
         sb.on('update', this._onStoryBoardUpdate.bind(this));
         sb.on('reset',  this._onStoryBoardReset .bind(this));
 
-        this._requestAnimationFrame = new ZenzaWatch.util.RequestAnimationFrame(
+        var frame = this._requestAnimationFrame = new ZenzaWatch.util.RequestAnimationFrame(
           this._onRequestAnimationFrame.bind(this), 1
         );
+
+        // TODO: グローバルのイベントフックじゃなくてちゃんと処理しましょう
+        ZenzaWatch.emitter.on('DialogPlayerClose', function() {
+          frame.disable();
+        });
 
       },
       enable: function() {

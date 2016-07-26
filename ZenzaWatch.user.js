@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.10
+// @version        1.2.11
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.10';
+  var VER = '1.2.11';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -5698,9 +5698,14 @@ var monkey = function() {
         sb.on('update', this._onStoryBoardUpdate.bind(this));
         sb.on('reset',  this._onStoryBoardReset .bind(this));
 
-        this._requestAnimationFrame = new ZenzaWatch.util.RequestAnimationFrame(
+        var frame = this._requestAnimationFrame = new ZenzaWatch.util.RequestAnimationFrame(
           this._onRequestAnimationFrame.bind(this), 1
         );
+
+        // TODO: グローバルのイベントフックじゃなくてちゃんと処理しましょう
+        ZenzaWatch.emitter.on('DialogPlayerClose', function() {
+          frame.disable();
+        });
 
       },
       enable: function() {
