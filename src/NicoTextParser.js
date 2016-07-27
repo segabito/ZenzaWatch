@@ -232,7 +232,7 @@ han_group { font-family: 'Arial'; }
 .medium .type00A0 > spacer { width: 7.668px; }
 .small  .type00A0 > spacer { width: 5px; }
 
-spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px;}
+spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px; vertical-align: middle;}
 
 .mesh_space {
   display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;

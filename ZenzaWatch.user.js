@@ -289,7 +289,7 @@ var monkey = function() {
         speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
 
 
-        enableCommentLayoutWorker: false, // コメントの配置計算を一部マルチスレッド化(テスト中)
+        enableCommentLayoutWorker: true, // コメントの配置計算を一部マルチスレッド化(テスト中)
 
 
         commentLayerOpacity: 1.0, //
@@ -3715,7 +3715,7 @@ var monkey = function() {
         query.sort_by = params.sort && sortTable[params.sort] ? sortTable[params.sort] : 'last_comment_time';
         query.order   = params.order === 'd' ? 'desc' : 'asc';
         query.size    = params.size || 100;
-        query.from    = params.page ? Math.max(parseInt(params.page, 10) - 1, 0) * query.size : 0;
+        query.from    = params.page ? Math.max(parseInt(params.page, 10) - 1, 0) * 25 : 0;
 
       var n = new Date();
       var now = n.getTime();
@@ -8431,7 +8431,7 @@ han_group { font-family: 'Arial'; }
 .medium .type00A0 > spacer { width: 7.668px; }
 .small  .type00A0 > spacer { width: 5px; }
 
-spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px;}
+spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px; vertical-align: middle;}
 
 .mesh_space {
   display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
@@ -12048,6 +12048,11 @@ var SlotLayoutWorker = (function() {
     // 暫定設置
     var SLOT_COUNT = 40;
 
+    /**
+     * スロット≒Z座標をよしなに割り当てる。
+     * デザパタ的にいうならFlyweightパターンの亜種。
+     * ゲームプログラミングではよくあるやつ。
+     */
     var SlotEntry = function() { this.initialize.apply(this, arguments); };
     SlotEntry.prototype = {
       initialize: function(slotCount) {
@@ -12095,9 +12100,9 @@ var SlotLayoutWorker = (function() {
       }
     };
 
-    var vposSort = function(data) {
+    var sortByBeginTime = function(data) {
       data = data.concat().sort(function(a, b) {
-        var av = a.vpos, bv = b.vpos;
+        var av = a.begin, bv = b.begin;
         if (av !== bv) {
           return av - bv;
         } else {
@@ -12112,7 +12117,7 @@ var SlotLayoutWorker = (function() {
       data = data.concat(e.data.top);
       data = data.concat(e.data.naka);
       data = data.concat(e.data.bottom);
-      data = vposSort(data);
+      data = sortByBeginTime(data);
 
       var slotEntries = [new SlotEntry(), new SlotEntry(), new SlotEntry()];
 
@@ -21815,10 +21820,17 @@ data-title="%no%: %date% ID:%userId%
       if (location.host === 'www.nicovideo.jp' &&
           (location.pathname.indexOf('/search/') === 0 || location.pathname.indexOf('/tag/') === 0)) {
         (function() {
-          var $target = $('.autoPlay a');
+          var $autoPlay = $('.autoPlay');
+          var $target = $autoPlay.find('a');
           var search = (location.search || '').substr(1);
           var href = $target.attr('href') + '&' + search;
           $target.attr('href', href);
+          var $shuffle = $autoPlay.clone();
+          var a = $target[0];
+          $shuffle.find('a').attr({
+            'href': '/watch/sm20353707' + a.search + '&shuffle=1'
+          }).text('シャッフル再生');
+          $autoPlay.after($shuffle);
         })();
       }
 

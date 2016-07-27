@@ -14,6 +14,11 @@ var SlotLayoutWorker = (function() {
     // 暫定設置
     var SLOT_COUNT = 40;
 
+    /**
+     * スロット≒Z座標をよしなに割り当てる。
+     * デザパタ的にいうならFlyweightパターンの亜種。
+     * ゲームプログラミングではよくあるやつ。
+     */
     var SlotEntry = function() { this.initialize.apply(this, arguments); };
     SlotEntry.prototype = {
       initialize: function(slotCount) {
@@ -61,9 +66,9 @@ var SlotLayoutWorker = (function() {
       }
     };
 
-    var vposSort = function(data) {
+    var sortByBeginTime = function(data) {
       data = data.concat().sort(function(a, b) {
-        var av = a.vpos, bv = b.vpos;
+        var av = a.begin, bv = b.begin;
         if (av !== bv) {
           return av - bv;
         } else {
@@ -78,7 +83,7 @@ var SlotLayoutWorker = (function() {
       data = data.concat(e.data.top);
       data = data.concat(e.data.naka);
       data = data.concat(e.data.bottom);
-      data = vposSort(data);
+      data = sortByBeginTime(data);
 
       var slotEntries = [new SlotEntry(), new SlotEntry(), new SlotEntry()];
 

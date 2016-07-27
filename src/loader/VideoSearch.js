@@ -61,7 +61,7 @@ var ZenzaWatch = {
         query.sort_by = params.sort && sortTable[params.sort] ? sortTable[params.sort] : 'last_comment_time';
         query.order   = params.order === 'd' ? 'desc' : 'asc';
         query.size    = params.size || 100;
-        query.from    = params.page ? Math.max(parseInt(params.page, 10) - 1, 0) * query.size : 0;
+        query.from    = params.page ? Math.max(parseInt(params.page, 10) - 1, 0) * 25 : 0;
 
       var n = new Date();
       var now = n.getTime();

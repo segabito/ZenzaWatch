@@ -102,10 +102,17 @@ var AsyncEmitter = function() {};
       if (location.host === 'www.nicovideo.jp' &&
           (location.pathname.indexOf('/search/') === 0 || location.pathname.indexOf('/tag/') === 0)) {
         (function() {
-          var $target = $('.autoPlay a');
+          var $autoPlay = $('.autoPlay');
+          var $target = $autoPlay.find('a');
           var search = (location.search || '').substr(1);
           var href = $target.attr('href') + '&' + search;
           $target.attr('href', href);
+          var $shuffle = $autoPlay.clone();
+          var a = $target[0];
+          $shuffle.find('a').attr({
+            'href': '/watch/sm20353707' + a.search + '&shuffle=1'
+          }).text('シャッフル再生');
+          $autoPlay.after($shuffle);
         })();
       }
 
