@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.11
+// @version        1.2.13
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.11';
+  var VER = '1.2.13';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1955,7 +1955,7 @@ var monkey = function() {
 
       var loadFromWatchApiData = function(watchId, options) {
         var url = '/watch/' + watchId;
-        var query = [];
+        var query = ['zenza=1'];
         if (options.economy === true) {
           query.push('eco=1');
         }
@@ -6562,6 +6562,7 @@ var monkey = function() {
       {*mix-blend-mode: lighten;*}
       z-index: 100;
       background: #663;
+      transition: left 0.2s, width 0.2s;
     }
 
     .zenzaStoryBoardOpen .bufferRange {
@@ -6582,9 +6583,9 @@ var monkey = function() {
       height: 140%;
       background: rgba(255, 255, 200, 0.8);
       border-radius: 2px;
-      transform: translate(-50%, -50%);
+      transform: translate3d(-50%, -50%, 0);
       z-index: 200;
-      transition: left 0.2s linear;
+      transition: left 0.1s linear;
                   {*box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;*}
       mix-blend-mode: lighten;
       opacity: 0.8;
@@ -6644,6 +6645,7 @@ var monkey = function() {
       width: 100%;
       height: calc(100% - 2px);
       transform-origin: 0 0 0;
+      transform: translateZ(0);
       opacity: 0.5;
       z-index: 110;
     }
@@ -8171,6 +8173,7 @@ var monkey = function() {
       pointer-events: none;
       transition: opacity 0.2s ease;
       box-shadow: 0 0 4px #000;
+      transform: translateZ(0);
     }
 
     .fullScreen .seekBarToolTip {

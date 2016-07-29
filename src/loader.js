@@ -184,7 +184,7 @@ var ajax = function() {};
 
       var loadFromWatchApiData = function(watchId, options) {
         var url = '/watch/' + watchId;
-        var query = [];
+        var query = ['zenza=1'];
         if (options.economy === true) {
           query.push('eco=1');
         }
