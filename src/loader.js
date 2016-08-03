@@ -188,7 +188,6 @@ var ajax = function() {};
         if (options.economy === true) {
           query.push('eco=1');
         }
-        var isApiMode = false;
         if (query.length > 0) {
           url += '?' + query.join('&');
         }
@@ -201,8 +200,8 @@ var ajax = function() {};
           ZenzaWatch.debug.watchApiData = data;
 
           if (!data) {
-            var $dom = $('<div>' + req + '</div>');
-            var msg = $dom.find('#PAGEBODY .font12').text();
+            //var $dom = $('<div>' + req + '</div>');
+            //var msg = $dom.find('#PAGEBODY .font12').text();
             videoInfoLoader.emitAsync('fail', watchId, {
               message: '動画情報の取得に失敗(watchApi)',
               type: 'watchapi'
@@ -213,7 +212,7 @@ var ajax = function() {};
           if (data.isFlv && !isFallback && options.economy !== true) {
             isFallback = true;
 
-            url = url + '?eco=1';
+            url = url + (query.length > 0 ? '&eco=1' : '?eco=1');
             console.log('%cエコノミーにフォールバック(flv)', 'background: cyan; color: red;', url);
             window.setTimeout(function() {
               ajax({

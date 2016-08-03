@@ -3261,7 +3261,7 @@ var CommentPanel = function() {};
       this._scale = 1.0;
       this._commentLayerOpacity = 1.0;
 
-      var update = _.bind(this._update, this);
+      var update = _.debounce(this._update.bind(this), 1000);
       config.on('update-menuScale', update);
       config.on('update-commentLayerOpacity', update);
       update();
@@ -3288,7 +3288,9 @@ var CommentPanel = function() {};
           VideoControlBar.BASE_SEEKBAR_HEIGHT
           )
         .replace(/%COMMENT_LAYER_OPACITY%/g, commentLayerOpacity)
+        //.replace(/%HEADER_OFFSET%/g, headerOffset * -1)
         ;
+      //window.console.log(tpl);
       this._style.innerHTML = tpl;
     }
   };

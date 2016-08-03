@@ -968,8 +968,8 @@ var StoryBoard = function() {};
         this._commentPreview.setIsEnable(v);
       }.bind(this);
 
-      //updateEnableCommentPreview(config.getValue('enableCommentPreview'));
-      //config.on('update-enableCommentPreview', updateEnableCommentPreview);
+      updateEnableCommentPreview(config.getValue('enableCommentPreview'));
+      config.on('update-enableCommentPreview', updateEnableCommentPreview);
 
       this._$screenModeMenu       = $view.find('.screenModeMenu');
       this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
@@ -1624,7 +1624,7 @@ var StoryBoard = function() {};
     .zenzaCommentPreview {
       display: none;
       position: absolute;
-      bottom: 10px;
+      bottom: 16px;
       opacity: 0.8;
       max-height: 20vh;
       width: 350px;
@@ -1634,6 +1634,8 @@ var StoryBoard = function() {};
       z-index: 100;
       overflow: hidden;
       border-bottom: 24px solid transparent;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.2s;
     }
 
     .zenzaCommentPreview.updating {
@@ -1753,12 +1755,12 @@ var StoryBoard = function() {};
       this._showing = false;
       this._initializeDom(this._$container);
 
-      model.on('reset',  _.bind(this._onReset, this));
-      model.on('update', _.bind(this._onUpdate, this));
-      model.on('vpos',   _.bind(this._onVpos, this));
+      model.on('reset',  this._onReset .bind(this));
+      model.on('update', _.throttle(this._onUpdate.bind(this), 100));
+      model.on('vpos',   _.throttle(this._onVpos  .bind(this), 100));
 
-      var show = _.throttle(_.bind(this.show, this), 200);
-      this.show = show;
+      this.show = _.throttle(_.bind(this.show, this), 200);
+      this._applyView = ZenzaWatch.util.createDrawCallFunc(this._applyView.bind(this));
     },
     _initializeDom: function($container) {
       ZenzaWatch.util.addStyle(CommentPreviewView.__css__);
@@ -1843,31 +1845,33 @@ var StoryBoard = function() {};
         return [m, s].join(':');
       };
       window.console.time('updateCommentPreviewView');
+      window.console.time('buildCommentPreviewView');
       var _html = ['<ul>'];
       $(chatList).each(function(i, chat) {
         var text = ZenzaWatch.util.escapeHtml(chat.getText());
         var date = (new Date(chat.getDate() * 1000)).toLocaleString();
         var vpos = chat.getVpos();
-        var title = [
-          chat.getNo(), ': 投稿日', date, '\nID:', chat.getUserId(), '\n',
-          '', text, '\n'
-        ].join('');
-        var elm = [
-          '<li class="nicoChat fork', chat.getFork(), '"', //title="', title, '" ',
-              'data-vpos="', vpos, '" ',
-              'data-nicochat-no="', chat.getNo(), '" ',
-            '>',
-              '<span class="vposTime">', vposToTime(vpos), ': </span>',
-              '<span class="text" title="', title, '" ', 'style="color: ', chat.getColor(), ';', '" >',
-                text,
-              '</span>',
-              '<span class="addFilter addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>',
-              '<span class="addFilter addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>',
-          '</li>',
-        ''].join('');
+        var no = chat.getNo();
+
+        var title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
+        var elm =
+          `<li class="nicoChat fork${chat.getFork()}"
+              title="${title}"
+              data-vpos="${vpos}"
+              data-nicochat-no="${no}">
+              <span class="vposTime">${vposToTime(vpos)}: </span>
+              <span class="text" title="${title}" style="color: ${chat.getColor()}">
+              ${text}
+              </span>
+              <span class="addFilter addUserIdFilter"
+                data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+              <span class="addFilter addWordFilter"
+                data-command="addWordFilter" title="NGワード">NGword</span>
+          </li>`;
         _html.push(elm);
       });
       _html.push('</ul>');
+      window.console.timeEnd('buildCommentPreviewView');
 
       var html = _html.join('');
       if (this._html !== html) {
@@ -1893,8 +1897,16 @@ var StoryBoard = function() {};
       var containerWidth = this._$container.innerWidth();
 
       left = Math.min(Math.max(0, left - width / 2), containerWidth - width);
-      $view.css({left: left}).scrollTop(this._scrollTop).addClass('show');
-
+      this._left = left;
+      this._applyView();
+    },
+    _applyView: function() {
+      var $view = this._$view;
+      if (!$view.hasClass('show')) { $view.addClass('show'); }
+      $view.css({
+        'transform': 'translate3d(' + this._left + 'px, 0, 0)'
+        //left: this._left
+      }).scrollTop(this._scrollTop);
     },
     hide: function() {
       this._isShowing = false;
@@ -1970,7 +1982,8 @@ var StoryBoard = function() {};
       pointer-events: none;
       transition: opacity 0.2s ease;
       box-shadow: 0 0 4px #000;
-      transform: translateZ(0);
+      transform: translate3d(0, 0, 0);
+      transform: translate 0.1s;
     }
 
     .fullScreen .seekBarToolTip {
@@ -2043,11 +2056,11 @@ var StoryBoard = function() {};
           </div -->
 
           <div class="currentTime"></div>
-          <!--
+          
           <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
             <div class="menuButtonInner">💬</div>
           </div>
-          -->
+          
 
           <!--div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
             <div class="controlButtonInner">⇨</div>
@@ -2095,7 +2108,9 @@ var StoryBoard = function() {};
         var w  = this._$view.outerWidth();
         var vw = this._$container.innerWidth();
         left = Math.max(0, Math.min(left - w / 2, vw - w));
-        this._$view.css('left', left);
+        this._$view.css({
+          'transform': 'translate3d(' + left + 'px, 0, 0)'
+        });
       }
       this._seekBarThumbnail.setCurrentTime(sec);
     }

@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.13
+// @version        1.2.15
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.13';
+  var VER = '1.2.15';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1959,7 +1959,6 @@ var monkey = function() {
         if (options.economy === true) {
           query.push('eco=1');
         }
-        var isApiMode = false;
         if (query.length > 0) {
           url += '?' + query.join('&');
         }
@@ -1972,8 +1971,8 @@ var monkey = function() {
           ZenzaWatch.debug.watchApiData = data;
 
           if (!data) {
-            var $dom = $('<div>' + req + '</div>');
-            var msg = $dom.find('#PAGEBODY .font12').text();
+            //var $dom = $('<div>' + req + '</div>');
+            //var msg = $dom.find('#PAGEBODY .font12').text();
             videoInfoLoader.emitAsync('fail', watchId, {
               message: '動画情報の取得に失敗(watchApi)',
               type: 'watchapi'
@@ -1984,7 +1983,7 @@ var monkey = function() {
           if (data.isFlv && !isFallback && options.economy !== true) {
             isFallback = true;
 
-            url = url + '?eco=1';
+            url = url + (query.length > 0 ? '&eco=1' : '?eco=1');
             console.log('%cエコノミーにフォールバック(flv)', 'background: cyan; color: red;', url);
             window.setTimeout(function() {
               ajax({
@@ -7171,8 +7170,8 @@ var monkey = function() {
         this._commentPreview.setIsEnable(v);
       }.bind(this);
 
-      //updateEnableCommentPreview(config.getValue('enableCommentPreview'));
-      //config.on('update-enableCommentPreview', updateEnableCommentPreview);
+      updateEnableCommentPreview(config.getValue('enableCommentPreview'));
+      config.on('update-enableCommentPreview', updateEnableCommentPreview);
 
       this._$screenModeMenu       = $view.find('.screenModeMenu');
       this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
@@ -7827,7 +7826,7 @@ var monkey = function() {
     .zenzaCommentPreview {
       display: none;
       position: absolute;
-      bottom: 10px;
+      bottom: 16px;
       opacity: 0.8;
       max-height: 20vh;
       width: 350px;
@@ -7837,6 +7836,8 @@ var monkey = function() {
       z-index: 100;
       overflow: hidden;
       border-bottom: 24px solid transparent;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.2s;
     }
 
     .zenzaCommentPreview.updating {
@@ -7956,12 +7957,12 @@ var monkey = function() {
       this._showing = false;
       this._initializeDom(this._$container);
 
-      model.on('reset',  _.bind(this._onReset, this));
-      model.on('update', _.bind(this._onUpdate, this));
-      model.on('vpos',   _.bind(this._onVpos, this));
+      model.on('reset',  this._onReset .bind(this));
+      model.on('update', _.throttle(this._onUpdate.bind(this), 100));
+      model.on('vpos',   _.throttle(this._onVpos  .bind(this), 100));
 
-      var show = _.throttle(_.bind(this.show, this), 200);
-      this.show = show;
+      this.show = _.throttle(_.bind(this.show, this), 200);
+      this._applyView = ZenzaWatch.util.createDrawCallFunc(this._applyView.bind(this));
     },
     _initializeDom: function($container) {
       ZenzaWatch.util.addStyle(CommentPreviewView.__css__);
@@ -8046,31 +8047,33 @@ var monkey = function() {
         return [m, s].join(':');
       };
       window.console.time('updateCommentPreviewView');
+      window.console.time('buildCommentPreviewView');
       var _html = ['<ul>'];
       $(chatList).each(function(i, chat) {
         var text = ZenzaWatch.util.escapeHtml(chat.getText());
         var date = (new Date(chat.getDate() * 1000)).toLocaleString();
         var vpos = chat.getVpos();
-        var title = [
-          chat.getNo(), ': 投稿日', date, '\nID:', chat.getUserId(), '\n',
-          '', text, '\n'
-        ].join('');
-        var elm = [
-          '<li class="nicoChat fork', chat.getFork(), '"', //title="', title, '" ',
-              'data-vpos="', vpos, '" ',
-              'data-nicochat-no="', chat.getNo(), '" ',
-            '>',
-              '<span class="vposTime">', vposToTime(vpos), ': </span>',
-              '<span class="text" title="', title, '" ', 'style="color: ', chat.getColor(), ';', '" >',
-                text,
-              '</span>',
-              '<span class="addFilter addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>',
-              '<span class="addFilter addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>',
-          '</li>',
-        ''].join('');
+        var no = chat.getNo();
+
+        var title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
+        var elm =
+          `<li class="nicoChat fork${chat.getFork()}"
+              title="${title}"
+              data-vpos="${vpos}"
+              data-nicochat-no="${no}">
+              <span class="vposTime">${vposToTime(vpos)}: </span>
+              <span class="text" title="${title}" style="color: ${chat.getColor()}">
+              ${text}
+              </span>
+              <span class="addFilter addUserIdFilter"
+                data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+              <span class="addFilter addWordFilter"
+                data-command="addWordFilter" title="NGワード">NGword</span>
+          </li>`;
         _html.push(elm);
       });
       _html.push('</ul>');
+      window.console.timeEnd('buildCommentPreviewView');
 
       var html = _html.join('');
       if (this._html !== html) {
@@ -8096,8 +8099,16 @@ var monkey = function() {
       var containerWidth = this._$container.innerWidth();
 
       left = Math.min(Math.max(0, left - width / 2), containerWidth - width);
-      $view.css({left: left}).scrollTop(this._scrollTop).addClass('show');
-
+      this._left = left;
+      this._applyView();
+    },
+    _applyView: function() {
+      var $view = this._$view;
+      if (!$view.hasClass('show')) { $view.addClass('show'); }
+      $view.css({
+        'transform': 'translate3d(' + this._left + 'px, 0, 0)'
+        //left: this._left
+      }).scrollTop(this._scrollTop);
     },
     hide: function() {
       this._isShowing = false;
@@ -8173,7 +8184,8 @@ var monkey = function() {
       pointer-events: none;
       transition: opacity 0.2s ease;
       box-shadow: 0 0 4px #000;
-      transform: translateZ(0);
+      transform: translate3d(0, 0, 0);
+      transform: translate 0.1s;
     }
 
     .fullScreen .seekBarToolTip {
@@ -8246,11 +8258,11 @@ var monkey = function() {
           </div -->
 
           <div class="currentTime"></div>
-          <!--
+          
           <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
             <div class="menuButtonInner">💬</div>
           </div>
-          -->
+          
 
           <!--div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
             <div class="controlButtonInner">⇨</div>
@@ -8298,7 +8310,9 @@ var monkey = function() {
         var w  = this._$view.outerWidth();
         var vw = this._$container.innerWidth();
         left = Math.max(0, Math.min(left - w / 2, vw - w));
-        this._$view.css('left', left);
+        this._$view.css({
+          'transform': 'translate3d(' + left + 'px, 0, 0)'
+        });
       }
       this._seekBarThumbnail.setCurrentTime(sec);
     }
@@ -12589,21 +12603,37 @@ var SlotLayoutWorker = (function() {
   body {
     -webkit-user-select: none;
     -moz-user-select: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
   body.scrolling #listContainer *{
     pointer-events: none;
   }
 
+  #listContainerOuter {
+    position: absolute;
+    top: 0;
+    left:0;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: auto;
+  }
+
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
+<div id="listContainerOuter">
 <div class="listMenu">
   <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
   <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
   <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
 </div>
 <div id="listContainer">
+</div>
 </div>
 </body>
 </html>
@@ -12648,6 +12678,7 @@ var SlotLayoutWorker = (function() {
       if (this._className) {
         $body.addClass(this._className);
       }
+      this._$container = $body.find('#listContainerOuter');
       var $list = this._$list = $(doc.getElementById('listContainer'));
       if (this._html) {
         $list.html(this._html);
@@ -12665,9 +12696,10 @@ var SlotLayoutWorker = (function() {
 
       this._$menu.on('click', this._onMenuClick.bind(this));
 
-      $win
+      this._$container
         .on('scroll', this._onScroll.bind(this))
-        .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500))
+        .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
+      $win
         .on('resize', this._onResize.bind(this));
 
       this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
@@ -12780,7 +12812,8 @@ var SlotLayoutWorker = (function() {
       if (!this._$list) { return; }
       var itemHeight = CommentListView.ITEM_HEIGHT;
       var $win = this._$window;
-      var scrollTop   = $win.scrollTop();
+      var $container = this._$container;
+      var scrollTop   = $container.scrollTop();
       var innerHeight = $win.innerHeight();
       if (innerHeight > window.innerHeight) { return; }
       var windowBottom = scrollTop + innerHeight;
@@ -12842,9 +12875,9 @@ var SlotLayoutWorker = (function() {
 
       if (typeof v === 'number') {
         this._scrollTop = v;
-        this._$window.scrollTop(v);
+        this._$container.scrollTop(v);
       } else {
-        this._scrollTop = this._$window.scrollTop();
+        this._scrollTop = this._$container.scrollTop();
         return this._scrollTop;
       }
     },
@@ -12886,21 +12919,20 @@ var SlotLayoutWorker = (function() {
       background: #000;
       margin: 0;
       padding: 0;
-      overflow-x: hidden;
-      overflow-y: scroll;
+      overflow: hidden;
       line-height: 0;
     }
 
-    body::-webkit-scrollbar {
+    #listContainerOuter::-webkit-scrollbar {
       background: #222;
     }
 
-    body::-webkit-scrollbar-thumb {
+    #listContainerOuter::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #666;
     }
 
-    body::-webkit-scrollbar-button {
+    #listContainerOuter::-webkit-scrollbar-button {
       background: #666;
       display: none;
     }
@@ -13022,7 +13054,7 @@ var SlotLayoutWorker = (function() {
       overflow-y: visible;
       z-index: 60;
       height: auto;
-      box-shadow: 2px 2px 0 #000;
+      box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
     }
 
     .active .commentListItem:hover .text {
@@ -19204,7 +19236,7 @@ data-title="%no%: %date% ID:%userId%
       this._scale = 1.0;
       this._commentLayerOpacity = 1.0;
 
-      var update = _.bind(this._update, this);
+      var update = _.debounce(this._update.bind(this), 1000);
       config.on('update-menuScale', update);
       config.on('update-commentLayerOpacity', update);
       update();
@@ -19231,7 +19263,9 @@ data-title="%no%: %date% ID:%userId%
           VideoControlBar.BASE_SEEKBAR_HEIGHT
           )
         .replace(/%COMMENT_LAYER_OPACITY%/g, commentLayerOpacity)
+        //.replace(/%HEADER_OFFSET%/g, headerOffset * -1)
         ;
+      //window.console.log(tpl);
       this._style.innerHTML = tpl;
     }
   };

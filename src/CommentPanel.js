@@ -158,21 +158,37 @@ var PopupMessage = {};
   body {
     -webkit-user-select: none;
     -moz-user-select: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
   body.scrolling #listContainer *{
     pointer-events: none;
   }
 
+  #listContainerOuter {
+    position: absolute;
+    top: 0;
+    left:0;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: auto;
+  }
+
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
+<div id="listContainerOuter">
 <div class="listMenu">
   <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
   <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
   <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
 </div>
 <div id="listContainer">
+</div>
 </div>
 </body>
 </html>
@@ -217,6 +233,7 @@ var PopupMessage = {};
       if (this._className) {
         $body.addClass(this._className);
       }
+      this._$container = $body.find('#listContainerOuter');
       var $list = this._$list = $(doc.getElementById('listContainer'));
       if (this._html) {
         $list.html(this._html);
@@ -234,9 +251,10 @@ var PopupMessage = {};
 
       this._$menu.on('click', this._onMenuClick.bind(this));
 
-      $win
+      this._$container
         .on('scroll', this._onScroll.bind(this))
-        .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500))
+        .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
+      $win
         .on('resize', this._onResize.bind(this));
 
       this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
@@ -349,7 +367,8 @@ var PopupMessage = {};
       if (!this._$list) { return; }
       var itemHeight = CommentListView.ITEM_HEIGHT;
       var $win = this._$window;
-      var scrollTop   = $win.scrollTop();
+      var $container = this._$container;
+      var scrollTop   = $container.scrollTop();
       var innerHeight = $win.innerHeight();
       if (innerHeight > window.innerHeight) { return; }
       var windowBottom = scrollTop + innerHeight;
@@ -411,9 +430,9 @@ var PopupMessage = {};
 
       if (typeof v === 'number') {
         this._scrollTop = v;
-        this._$window.scrollTop(v);
+        this._$container.scrollTop(v);
       } else {
-        this._scrollTop = this._$window.scrollTop();
+        this._scrollTop = this._$container.scrollTop();
         return this._scrollTop;
       }
     },
@@ -455,21 +474,20 @@ var PopupMessage = {};
       background: #000;
       margin: 0;
       padding: 0;
-      overflow-x: hidden;
-      overflow-y: scroll;
+      overflow: hidden;
       line-height: 0;
     }
 
-    body::-webkit-scrollbar {
+    #listContainerOuter::-webkit-scrollbar {
       background: #222;
     }
 
-    body::-webkit-scrollbar-thumb {
+    #listContainerOuter::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #666;
     }
 
-    body::-webkit-scrollbar-button {
+    #listContainerOuter::-webkit-scrollbar-button {
       background: #666;
       display: none;
     }
@@ -591,7 +609,7 @@ var PopupMessage = {};
       overflow-y: visible;
       z-index: 60;
       height: auto;
-      box-shadow: 2px 2px 0 #000;
+      box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
     }
 
     .active .commentListItem:hover .text {
