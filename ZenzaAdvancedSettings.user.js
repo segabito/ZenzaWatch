@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     0.1
+// @version     0.2
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -503,6 +503,8 @@
         initializePanel();
         panel.toggle();
       });
+
+      $('.ryokanArea').remove();
     };
 
     initialize();
