@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     0.2
+// @version     0.2.1
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -71,7 +71,7 @@
         width: 90vw;
         height: 90vh;
         color: #000;
-        background: rgba(192, 192, 192, 0.9);
+        background: rgba(192, 192, 192, 0.95);
         transition: top 0.4s ease;
         user-select: none;
         -webkit-user-select: none;
@@ -225,6 +225,17 @@
         display: none !important;
       }
 
+
+      .example code {
+        font-family: monospace;
+        display: inline-block;
+        margin: 4px;
+        padding: 4px 8px;
+        background: #333;
+        color: #fe8;
+        border-radius: 4px;
+      }
+
     */});
     SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
       <div class="zenzaAdvancedSettingPanel">
@@ -252,12 +263,12 @@
           </div>
 
           <p class="caption sub">NGワード正規表現</p>
-          <span class="example">入力例: 「([wWｗＷ]+$|^ん[？\?]$|洗った？$)」 文法エラーがある時は更新されません</span>
+          <span class="example">入力例: <code>([wWｗＷ]+$|^ん[？\?]$|洗った？$)</code> 文法エラーがある時は更新されません</span>
           <input type="text" class="textInput wordRegFilterInput"
             data-setting-name="wordRegFilter">
 
           <p class="caption sub">NGワード正規表現フラグ</p>
-          <span class="example">入力例: 「i」</span>
+          <span class="example">入力例: <code>i</code></span>
           <input type="text" class="textInput wordRegFilterFlagsInput"
             data-setting-name="wordRegFilterFlags">
 

@@ -83,7 +83,7 @@ var AsyncEmitter = function() {};
             };
             var $shuffle = $(a).clone().text('シャッフル再生');
             $shuffle.addClass('zenzaPlaylistShuffleStart').attr(
-              'href', '//www.nicovideo.jp/watch/sm20353707?' +
+              'href', '//www.nicovideo.jp/watch/1470321133?' +
               search + '&shuffle=1'
             ).css(css);
 
@@ -110,7 +110,7 @@ var AsyncEmitter = function() {};
           var $shuffle = $autoPlay.clone();
           var a = $target[0];
           $shuffle.find('a').attr({
-            'href': '/watch/sm20353707' + a.search + '&shuffle=1'
+            'href': '/watch/1470321133' + a.search + '&shuffle=1'
           }).text('シャッフル再生');
           $autoPlay.after($shuffle);
         })();

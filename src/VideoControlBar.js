@@ -1613,23 +1613,26 @@ var StoryBoard = function() {};
   });
 
   var CommentPreviewView = function() { this.initialize.apply(this, arguments); };
+  CommentPreviewView.MAX_HEIGHT = '20vh';
+  CommentPreviewView.ITEM_HEIGHT = 20;
   _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
-  CommentPreviewView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentPreviewView.__tpl__ = `
     <div class="zenzaCommentPreview">
       <div class="zenzaCommentPreviewInner">
       </div>
     </div>
-  */});
-  CommentPreviewView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  `;
+
+  CommentPreviewView.__css__ = `
     .zenzaCommentPreview {
       display: none;
       position: absolute;
       bottom: 16px;
       opacity: 0.8;
-      max-height: 20vh;
+      max-height: ${CommentPreviewView.MAX_HEIGHT};
       width: 350px;
       box-sizing: border-box;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.4);
       color: #ccc;
       z-index: 100;
       overflow: hidden;
@@ -1650,7 +1653,7 @@ var StoryBoard = function() {};
 
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaCommentPreview,
     body:not(.fullScreen).zenzaScreenMode_small .zenzaCommentPreview {
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.9);
     }
 
     .seekBarContainer.enableCommentPreview:hover .zenzaCommentPreview.show {
@@ -1674,9 +1677,11 @@ var StoryBoard = function() {};
     }
 
     .zenzaCommentPreviewInner .nicoChat {
-      position: relative;
+      position: absolute;
+      left: 0;
       display: block;
       width: 100%;
+      height: ${CommentPreviewView.ITEM_HEIGHT}px;
       padding: 2px 4px;
       cursor: pointer;
       white-space: nowrap;
@@ -1687,8 +1692,8 @@ var StoryBoard = function() {};
     .zenzaCommentPreview:hover      .nicoChat + .nicoChat {
       border-top: 1px dotted #888;
     }
-    .zenzaCommentPreviewInner:hover .nicoChat:nth-child(odd) {
-      background: #111;
+    .zenzaCommentPreviewInner:hover .nicoChat.odd {
+      background: #333;
     }
     .zenzaCommentPreviewInner .nicoChat.fork1 .vposTime{
       color: #6f6;
@@ -1746,21 +1751,25 @@ var StoryBoard = function() {};
       width: 48px;
     }
 
-  */});
+  `;
+
   _.assign(CommentPreviewView.prototype, {
     initialize: function(params) {
       var model = this._model = params.model;
       this._$container = params.$container;
 
       this._showing = false;
+      this._inviewTable = {};
+      this._$newItems = '';
+      this._chatList = [];
       this._initializeDom(this._$container);
 
-      model.on('reset',  this._onReset .bind(this));
-      model.on('update', _.throttle(this._onUpdate.bind(this), 100));
+      model.on('reset',  this._onReset.bind(this));
+      model.on('update', _.throttle(this._onUpdate.bind(this), 50));
       model.on('vpos',   _.throttle(this._onVpos  .bind(this), 100));
 
       this.show = _.throttle(_.bind(this.show, this), 200);
-      this._applyView = ZenzaWatch.util.createDrawCallFunc(this._applyView.bind(this));
+      //this._applyView = ZenzaWatch.util.createDrawCallFunc(this._applyView.bind(this));
     },
     _initializeDom: function($container) {
       ZenzaWatch.util.addStyle(CommentPreviewView.__css__);
@@ -1775,7 +1784,6 @@ var StoryBoard = function() {};
         var $nicoChat = $target.closest('.nicoChat');
         var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
         var nicoChat  = self._model.getItemByNo(no);
-        //self.hide();
 
         if (command && nicoChat && !$view.hasClass('updating')) {
           $view.addClass('updating');
@@ -1797,15 +1805,14 @@ var StoryBoard = function() {};
         if (vpos !== undefined) {
           self.emit('command', 'seek', vpos / 100);
         }
-      });
-      $view.on('mousewheel', function(e) {
-        e.stopPropagation();
-      });
+      }).on('mousewheel', function(e) { e.stopPropagation(); })
+        .on('scroll', _.throttle(this._onScroll.bind(this), 50));
+      //  .on('resize', _.throttle(this._onResize.bind(this), 50));
+
       $container.on('mouseleave', function() {
         self.hide();
       });
 
-      this._html = '';
 
       $container.append($view);
     },
@@ -1817,73 +1824,127 @@ var StoryBoard = function() {};
       }
     },
     _onVpos: function() {
-      var $view = this._$view;
       var index = Math.max(0, this._model.getCurrentIndex());
-      this._$nicoChat = this._$nicoChat || $view.find('.nicoChat:first-child');
-      this._scrollTop = ///this._$nicoChat.length > 1 ?
-        this._$nicoChat.outerHeight() * index; // : 0;
-      //window.console.log('_onVpos', this._$nicoChat, this._$nicoChat.outerHeight, index);
+      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      this._inviewIndex = index;
+      this._scrollTop = itemHeight * index;
+      this._refreshInviewElements(this._scrollTop);
+    },
+    _onResize: function() {
+      this._refreshInviewElements();
+    },
+    _onScroll: function() {
+      this._scrollTop = -1;
+      this._refreshInviewElements();
     },
     _onReset: function() {
-      this._html = '';
       this._$inner.html('');
-      this._$nicoChat = null;
+      this._inviewTable = {};
+      this._inviewIndex = 0;
       this._scrollTop = 0;
+      this._$newItems = null;
+      this._chatList = [];
     },
     _updateView: function() {
-      var chatList = this._model.getChatList();
+      var chatList = this._chatList = this._model.getChatList();
       if (chatList.length < 1) {
         this.hide();
         this._updated = false;
-        this._html = '';
         return;
       }
+
+      window.console.time('updateCommentPreviewView');
+      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
+
+      this._$inner.css({
+        height:
+        (chatList.length + 2) * itemHeight
+        //`calc(${chatList.length * itemHeight}px + ${CommentPreviewView.MAX_HEIGHT})`
+      });
+      this._updated = false;
+      window.console.timeEnd('updateCommentPreviewView');
+    },
+    _createDom: function(chat, idx) {
+      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      var text = ZenzaWatch.util.escapeHtml(chat.getText());
+      var date = (new Date(chat.getDate() * 1000)).toLocaleString();
+      var vpos = chat.getVpos();
+      var no = chat.getNo();
+      var oe = idx % 2 === 0 ? 'even' : 'odd';
+      var title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
+      var color = chat.getColor() || '#fff';
+      var shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
+
       var vposToTime = function(vpos) {
         var sec = Math.floor(vpos / 100);
         var m = Math.floor(sec / 60);
         var s = (100 + (sec % 60)).toString().substr(1);
         return [m, s].join(':');
       };
-      window.console.time('updateCommentPreviewView');
-      window.console.time('buildCommentPreviewView');
-      var _html = ['<ul>'];
-      $(chatList).each(function(i, chat) {
-        var text = ZenzaWatch.util.escapeHtml(chat.getText());
-        var date = (new Date(chat.getDate() * 1000)).toLocaleString();
-        var vpos = chat.getVpos();
-        var no = chat.getNo();
 
-        var title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
-        var elm =
-          `<li class="nicoChat fork${chat.getFork()}"
-              title="${title}"
-              data-vpos="${vpos}"
-              data-nicochat-no="${no}">
-              <span class="vposTime">${vposToTime(vpos)}: </span>
-              <span class="text" title="${title}" style="color: ${chat.getColor()}">
-              ${text}
-              </span>
-              <span class="addFilter addUserIdFilter"
-                data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
-              <span class="addFilter addWordFilter"
-                data-command="addWordFilter" title="NGワード">NGword</span>
-          </li>`;
-        _html.push(elm);
-      });
-      _html.push('</ul>');
-      window.console.timeEnd('buildCommentPreviewView');
+      return `<li class="nicoChat fork${chat.getFork()} ${oe}"
+            id="commentPreviewItem${idx}"
+            data-vpos="${vpos}"
+            data-nicochat-no="${no}"
+            style="top: ${idx * itemHeight}px;"
+            >
+            <span class="vposTime">${vposToTime(vpos)}: </span>
+            <span class="text" title="${title}" style="${shadow}">
+            ${text}
+            </span>
+            <span class="addFilter addUserIdFilter"
+              data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+            <span class="addFilter addWordFilter"
+              data-command="addWordFilter" title="NGワード">NGword</span>
+        </li>`;
+    },
+    _refreshInviewElements: function(scrollTop) {
+      if (!this._$inner) { return; }
+      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
-      var html = _html.join('');
-      if (this._html !== html) {
-        this._html = html;
-        this._$inner.html(html);
-        this._$nicoChat = this._$inner.find('.nicoChat:first-child');
+      var $view = this._$view;
+      scrollTop = _.isNumber(scrollTop) ? scrollTop : $view.scrollTop();
+
+      var viewHeight = $view.innerHeight();
+      var viewBottom = scrollTop + viewHeight;
+      var chatList = this._chatList;
+      if (!chatList || chatList.length < 1) { return; }
+      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 5);
+      var endIndex   = Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5);
+      var i;
+      //window.console.log(`index ${startIndex} 〜 ${endIndex}`);
+
+      var newItems = [], inviewTable = this._inviewTable;
+      var create = this._createDom;
+      for (i = startIndex; i < endIndex; i++) {
+        var chat = chatList[i];
+        if (inviewTable[i] || !chat) { continue; }
+        newItems.push(create(chat, i));
+        inviewTable[i] = true;
       }
-      this._updated = false;
-      window.console.timeEnd('updateCommentPreviewView');
+
+      if (newItems.length < 1) { return; }
+
+      _.each(Object.keys(inviewTable), function(i) {
+        if (i >= startIndex && i <= endIndex) { return; }
+        var item = document.getElementById('commentPreviewItem' + i);
+        if (item) { item.remove(); }
+        else { window.console.log('not found ', 'commentPreviewItem' + i);}
+        delete inviewTable[i];
+      });
+
+
+      var $newItems = $(newItems.join(''));
+      if (this._$newItems) {
+        this._$newItems.append($newItems);
+      } else {
+        this._$newItems = $newItems;
+      }
+
+      this._applyView();
     },
     _isEmpty: function() {
-      return this._html === '';
+      return this._chatList.length < 1;
     },
     show: function(left) {
       this._isShowing = true;
@@ -1903,10 +1964,19 @@ var StoryBoard = function() {};
     _applyView: function() {
       var $view = this._$view;
       if (!$view.hasClass('show')) { $view.addClass('show'); }
-      $view.css({
+      if (this._$newItems) {
+        this._$inner.append(this._$newItems);
+        this._$newItems = null;
+      }
+      if (this._scrollTop > 0) {
+        $view.scrollTop(this._scrollTop);
+        this._scrollTop = -1;
+      }
+
+      $view
+        .css({
         'transform': 'translate3d(' + this._left + 'px, 0, 0)'
-        //left: this._left
-      }).scrollTop(this._scrollTop);
+      });
     },
     hide: function() {
       this._isShowing = false;
@@ -1987,7 +2057,7 @@ var StoryBoard = function() {};
     }
 
     .fullScreen .seekBarToolTip {
-      bottom: 14px;
+      bottom: 10px;
     }
 
     .dragging                .seekBarToolTip,

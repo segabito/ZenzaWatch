@@ -276,7 +276,7 @@ var CommentPanel = function() {};
       transform: translate(-50%, -50%);
       z-index: 100001;
       box-shadow: 4px 4px 4px #000;
-      transition: top 0.4s ease-in, left 0.4s ease-in;
+      {*transition: none; top 0.4s ease-in, left 0.4s ease-in;*}
     }
     .zenzaScreenMode_3D       .zenzaVideoPlayerDialogInner,
     .zenzaScreenMode_sideView .zenzaVideoPlayerDialogInner,
@@ -296,7 +296,7 @@ var CommentPanel = function() {};
       background: #000;
       width: 672px;
       height: 385px;
-      transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;
+              {*transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;*}
       background-size: cover;
       background-repeat: no-repeat;
       background-position: center center;
@@ -379,7 +379,7 @@ var CommentPanel = function() {};
       width: 100%;
       height: 100%;
       z-index: 101;
-      transition: opacity 1s ease, height 0.4s ease;
+      transition: opacity 1s ease; {*, height 0.4s ease;*}
       pointer-events: none;
       {*transform: translateZ(0);*}
       cursor: none;

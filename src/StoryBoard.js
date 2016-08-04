@@ -235,7 +235,7 @@ var AsyncEmitter = function() {};
         <div class="zenzaSeekThumbnail-image"></div>
       </div>
     */});
-    SeekBarThumbnail.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    SeekBarThumbnail.__css__ = `
       .error .zenzaSeekThumbnail,
       .loading .zenzaSeekThumbnail {
         display: none !important;
@@ -254,7 +254,6 @@ var AsyncEmitter = function() {};
         width: 160px;
         height: 90px;
         margin: auto;
-        {*border: inset 1px;*}
         overflow: hidden;
         box-sizing: content-box;
       }
@@ -267,7 +266,7 @@ var AsyncEmitter = function() {};
         transform-origin: center top;
       }
 
-    */});
+    `;
     _.extend(SeekBarThumbnail.prototype, AsyncEmitter.prototype);
     _.assign(SeekBarThumbnail.prototype, {
       initialize: function(params) {

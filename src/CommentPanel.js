@@ -229,9 +229,10 @@ var PopupMessage = {};
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
       var $win  = this._$window = $(w);
-      var $body = this._$body = $(doc.body);
+      var body = this._body = doc.body;
+      var $body = this._$body = $(body);
       if (this._className) {
-        $body.addClass(this._className);
+        body.classList.add(this._className);
       }
       this._$container = $body.find('#listContainerOuter');
       var $list = this._$list = $(doc.getElementById('listContainer'));
@@ -346,22 +347,22 @@ var PopupMessage = {};
     _onMouseOver: function() {
       //window.console.info('Active!');
       this._isActive = true;
-      this._$body.addClass('active');
+      this.addClass('active');
     },
     _onMouseOut: function() {
       //window.console.info('Blur!');
       this._isActive = false;
-      this._$body.removeClass('active');
+      this.removeClass('active');
     },
     _onResize: function() {
       this._refreshInviewElements();
     },
     _onScroll: function() {
-      if (!this._$body.hasClass('scrolling')) { this._$body.addClass('scrolling'); }
+      if (!this.hasClass('scrolling')) { this.addClass('scrolling'); }
       this._refreshInviewElements();
     },
     _onScrollEnd: function() {
-      this._$body.removeClass('scrolling');
+      this.removeClass('scrolling');
     },
     _refreshInviewElements: function() {
       if (!this._$list) { return; }
@@ -387,10 +388,11 @@ var PopupMessage = {};
       if (newItems.length < 1) { return; }
 
       // 見えないitemを除去。 見えない場所なのでrequestAnimationFrame不要
-      var $list = this._$list;
+      var $list = this._$list, doc = this._document;
       _.each(Object.keys(inviewItemList), function(i) {
         if (i >= startIndex && i <= endIndex) { return; }
-        $list.find('#' + inviewItemList[i]).remove();
+        //$list.find('#' + inviewItemList[i]).remove();
+        doc.getElementById(inviewItemList[i]).remove();
         delete inviewItemList[i];
       });
 
@@ -422,17 +424,24 @@ var PopupMessage = {};
       this.toggleClass(className, false);
     },
     toggleClass: function(className, v) {
-      if (!this._$body) { return; }
-      this._$body.toggleClass(className, v);
+      if (!this._body) { return; }
+      this._body.classList.toggle(className, v);
+    },
+    hasClass: function(className) {
+      return this._body.classList.contains(className);
+    },
+    find: function(query) {
+      return this._document.querySelectorAll(query);
     },
     scrollTop: function(v) {
       if (!this._$window) { return 0; }
 
       if (typeof v === 'number') {
         this._scrollTop = v;
-        this._$container.scrollTop(v);
+        //this._$container.scrollTop(v);
+        this._$container[0].scrollTop = v;
       } else {
-        this._scrollTop = this._$container.scrollTop();
+        this._scrollTop = this._$container[0].scrollTop;
         return this._scrollTop;
       }
     },

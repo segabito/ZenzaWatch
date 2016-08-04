@@ -804,40 +804,52 @@ var VideoInfoLoader = {};
       ZenzaWatch.debug.video = this._video;
     },
     _reset: function() {
-      this._$video.removeClass('play pause abort error');
+      this.removeClass('play pause abort error');
       this._isPlaying = false;
       this._canPlay = false;
     },
+    addClass: function(className) {
+      this.toggleClass(className, true);
+    },
+    removeClass: function(className) {
+      this.toggleClass(className, false);
+    },
+    toggleClass: function(className, v) {
+      var video = this._video;
+      _.each(className.split(/[ ]+/), function(name) {
+        video.classList.toggle(name, v);
+      });
+    },
     _initializeEvents: function() {
       this._$video
-        .on('canplay',        _.bind(this._onCanPlay, this))
-        .on('canplaythrough', _.bind(this._onCanPlayThrough, this))
-        .on('loadstart',      _.bind(this._onLoadStart, this))
-        .on('loadeddata',     _.bind(this._onLoadedData, this))
-        .on('loadedmetadata', _.bind(this._onLoadedMetaData, this))
-        .on('ended',          _.bind(this._onEnded, this))
-        .on('emptied',        _.bind(this._onEmptied, this))
-        .on('stalled',        _.bind(this._onStalled, this))
-        .on('suspend',        _.bind(this._onSuspend, this))
-        .on('waiting',        _.bind(this._onWaiting, this))
-        .on('progress',       _.bind(this._onProgress, this))
-        .on('durationchange', _.bind(this._onDurationChange, this))
-        .on('resize',         _.bind(this._onResize, this))
-        .on('abort',          _.bind(this._onAbort, this))
-        .on('error',          _.bind(this._onError, this))
-
-        .on('pause',          _.bind(this._onPause, this))
-        .on('play',           _.bind(this._onPlay, this))
-        .on('playing',        _.bind(this._onPlaying, this))
-        .on('seeking',        _.bind(this._onSeeking, this))
-        .on('seeked',         _.bind(this._onSeeked, this))
-        .on('volumechange',   _.bind(this._onVolumeChange, this))
-
-
-        .on('click',          _.bind(this._onClick, this))
-        .on('dblclick',       _.bind(this._onDoubleClick, this))
-        .on('wheel',          _.bind(this._onMouseWheel, this))
-        .on('contextmenu',    _.bind(this._onContextMenu, this))
+        .on('canplay',        this._onCanPlay        .bind(this))
+        .on('canplaythrough', this._onCanPlayThrough .bind(this))
+        .on('loadstart',      this._onLoadStart      .bind(this))
+        .on('loadeddata',     this._onLoadedData     .bind(this))
+        .on('loadedmetadata', this._onLoadedMetaData .bind(this))
+        .on('ended',          this._onEnded          .bind(this))
+        .on('emptied',        this._onEmptied        .bind(this))
+        .on('stalled',        this._onStalled        .bind(this))
+        .on('suspend',        this._onSuspend        .bind(this))
+        .on('waiting',        this._onWaiting        .bind(this))
+        .on('progress',       this._onProgress       .bind(this))
+        .on('durationchange', this._onDurationChange .bind(this))
+        .on('resize',         this._onResize         .bind(this))
+        .on('abort',          this._onAbort          .bind(this))
+        .on('error',          this._onError          .bind(this))
+                                                            
+        .on('pause',          this._onPause          .bind(this))
+        .on('play',           this._onPlay           .bind(this))
+        .on('playing',        this._onPlaying        .bind(this))
+        .on('seeking',        this._onSeeking        .bind(this))
+        .on('seeked',         this._onSeeked         .bind(this))
+        .on('volumechange',   this._onVolumeChange   .bind(this))
+                                                            
+                                                            
+        .on('click',          this._onClick          .bind(this))
+        .on('dblclick',       this._onDoubleClick    .bind(this))
+        .on('wheel',          this._onMouseWheel     .bind(this))
+        .on('contextmenu',    this._onContextMenu    .bind(this))
         ;
     },
     _onCanPlay: function() {
@@ -847,7 +859,7 @@ var VideoInfoLoader = {};
       // リピート時にも飛んでくるっぽいので初回だけにする
       if (!this._canPlay) {
         this._canPlay = true;
-        this._$video.removeClass('loading');
+        this._video.classList.remove('loading');
         this.emit('canPlay');
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
@@ -908,25 +920,25 @@ var VideoInfoLoader = {};
     },
     _onAbort: function() {
       window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
-      this._$video.addClass('abort');
+      this.addClass('abort');
       this.emit('abort');
     },
     _onError: function() {
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
-      this._$video.addClass('error');
+      this.addClass('error');
       this._canPlay = false;
       this.emit('error');
     },
     _onPause: function() {
       console.log('%c_onPause:', 'background: cyan;', arguments);
-      this._$video.removeClass('play');
+      this.removeClass('play');
 
       this._isPlaying = false;
       this.emit('pause');
     },
     _onPlay: function() {
       console.log('%c_onPlay:', 'background: cyan;', arguments);
-      this._$video.addClass('play');
+      this.addClass('play');
       this._isPlaying = true;
 
       //this._subVideo.pause();
@@ -997,7 +1009,7 @@ var VideoInfoLoader = {};
       console.log('%csetThumbnail: %s', 'background: cyan;', url);
 
       this._thumbnail = url;
-      this._$video.attr('poster', url);
+      this._video.poster = url;
       //this.emit('setThumbnail', url);
     },
     setSrc: function(url) {
@@ -1006,11 +1018,11 @@ var VideoInfoLoader = {};
       this._reset();
 
       this._src = url;
-      this._$video.attr('src', url);
+      this._video.src = url;
       //this._$subVideo.attr('src', url);
       this._canPlay = false;
       //this.emit('setSrc', url);
-      this._$video.addClass('loading');
+      this.addClass('loading');
     },
     setVolume: function(vol) {
       vol = Math.max(Math.min(1, vol), 0);
@@ -1088,7 +1100,7 @@ var VideoInfoLoader = {};
       $node.append(this._$video);
       //$node.append(this._$subVideo);
       var videos = document.getElementsByClassName(this._id);
-      this._video    = videos[0];
+      this._video = videos[0];
 
       //this._subVideo = videos[1];
       //this._subVideo.muted = true;
