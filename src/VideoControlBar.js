@@ -296,13 +296,13 @@ var StoryBoard = function() {};
       top: -8px;
     }
     .mouseMoving .seekBarContainer:hover .seekBarShadow {
-      height: 40px;
-      top: -40px;
+      height: 48px;
+      top: -48px;
     }
 
     .fullScreen .seekBarContainer:hover .seekBarShadow {
-      height: 8px;
-      top: -8px;
+      height: 14px;
+      top: -12px;
     }
 
     .abort   .seekBarContainer,
@@ -331,14 +331,16 @@ var StoryBoard = function() {};
     }
 
     .seekBar:hover {
-      height: 18px;
-      margin-top: -8px;
+      height: 24px;
+      margin-top: -14px;
       transition: none;
     }
 
-    .fullScreen .seekBar:hover {
-      height: 12px;
-      margin-top: -2px;
+    .fullScreen .seekBar {
+      margin-top: 0px;
+      margin-bottom: -14px;
+      height: 24px;
+      transition: none;
     }
 
 
@@ -895,10 +897,10 @@ var StoryBoard = function() {};
       player.on('commentParsed',  _.bind(this._onCommentParsed, this));
       player.on('commentChange',  _.bind(this._onCommentChange, this));
 
-      this.setCurrentTime =
-        ZenzaWatch.util.createDrawCallFunc(this.setCurrentTime.bind(this));
-      this.setBufferedRange =
-        ZenzaWatch.util.createDrawCallFunc(this.setBufferedRange.bind(this));
+      //this.setCurrentTime =
+      //  ZenzaWatch.util.createDrawCallFunc(this.setCurrentTime.bind(this));
+      //this.setBufferedRange =
+      //  ZenzaWatch.util.createDrawCallFunc(this.setBufferedRange.bind(this));
 
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
@@ -1613,7 +1615,7 @@ var StoryBoard = function() {};
   });
 
   var CommentPreviewView = function() { this.initialize.apply(this, arguments); };
-  CommentPreviewView.MAX_HEIGHT = '20vh';
+  CommentPreviewView.MAX_HEIGHT = '200px';
   CommentPreviewView.ITEM_HEIGHT = 20;
   _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
   CommentPreviewView.__tpl__ = `
@@ -1636,10 +1638,26 @@ var StoryBoard = function() {};
       color: #ccc;
       z-index: 100;
       overflow: hidden;
+      /*box-shadow: 0 0 4px #666;*/
       border-bottom: 24px solid transparent;
       transform: translate3d(0, 0, 0);
       transition: transform 0.2s;
     }
+
+    .zenzaCommentPreview::-webkit-scrollbar {
+      background: #222;
+    }
+
+    .zenzaCommentPreview::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #666;
+    }
+
+    .zenzaCommentPreview::-webkit-scrollbar-button {
+      background: #666;
+      display: none;
+    }
+
 
     .zenzaCommentPreview.updating {
       transition: opacity 0.2s ease;
@@ -1687,10 +1705,10 @@ var StoryBoard = function() {};
       white-space: nowrap;
       text-overflow: ellipsis;
       overflow: hidden;
-      border-top: 1px dotted transparent;
+                {*border-top: 1px dotted transparent;*}
     }
     .zenzaCommentPreview:hover      .nicoChat + .nicoChat {
-      border-top: 1px dotted #888;
+      {*border-top: 1px dotted #888;*}
     }
     .zenzaCommentPreviewInner:hover .nicoChat.odd {
       background: #333;
@@ -1765,7 +1783,7 @@ var StoryBoard = function() {};
       this._initializeDom(this._$container);
 
       model.on('reset',  this._onReset.bind(this));
-      model.on('update', _.throttle(this._onUpdate.bind(this), 50));
+      model.on('update', _.debounce(this._onUpdate.bind(this), 10));
       model.on('vpos',   _.throttle(this._onVpos  .bind(this), 100));
 
       this.show = _.throttle(_.bind(this.show, this), 200);
@@ -1775,46 +1793,47 @@ var StoryBoard = function() {};
       ZenzaWatch.util.addStyle(CommentPreviewView.__css__);
       var $view = this._$view = $(CommentPreviewView.__tpl__);
       this._$inner = $view.find('.zenzaCommentPreviewInner');
-      var self = this;
 
-      $view.on('click', function(e) {
-        e.stopPropagation();
-        var $target = $(e.target);
-        var command = $target.attr('data-command');
-        var $nicoChat = $target.closest('.nicoChat');
-        var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
-        var nicoChat  = self._model.getItemByNo(no);
-
-        if (command && nicoChat && !$view.hasClass('updating')) {
-          $view.addClass('updating');
-          window.setTimeout(function() { $view.removeClass('updating'); }, 3000);
-          switch (command) {
-            case 'addUserIdFilter':
-              self.emit('command', command, nicoChat.getUserId());
-              break;
-            case 'addWordFilter':
-              self.emit('command', command, nicoChat.getText());
-              break;
-            case 'addCommandFilter':
-              self.emit('command', command, nicoChat.getCmd());
-              break;
-          }
-          return;
-        }
-        var vpos = $nicoChat.attr('data-vpos');
-        if (vpos !== undefined) {
-          self.emit('command', 'seek', vpos / 100);
-        }
-      }).on('mousewheel', function(e) { e.stopPropagation(); })
-        .on('scroll', _.throttle(this._onScroll.bind(this), 50));
+      $view
+        .on('click', this._onClick.bind(this))
+        .on('mousewheel', function(e) { e.stopPropagation(); })
+        .on('scroll', _.throttle(this._onScroll.bind(this), 50, {trailing: false}));
       //  .on('resize', _.throttle(this._onResize.bind(this), 50));
 
-      $container.on('mouseleave', function() {
-        self.hide();
-      });
-
-
+      $container.on('mouseleave', this.hide.bind(this));
       $container.append($view);
+    },
+    _onClick: function(e) {
+      e.stopPropagation();
+      var $view = this._$view;
+      var $target = $(e.target);
+      var command = $target.attr('data-command');
+      var $nicoChat = $target.closest('.nicoChat');
+      var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
+      var nicoChat  = this._model.getItemByNo(no);
+
+      if (command && nicoChat && !$view.hasClass('updating')) {
+        $view.addClass('updating');
+
+        window.setTimeout(function() { $view.removeClass('updating'); }, 3000);
+
+        switch (command) {
+          case 'addUserIdFilter':
+            this.emit('command', command, nicoChat.getUserId());
+            break;
+          case 'addWordFilter':
+            this.emit('command', command, nicoChat.getText());
+            break;
+          case 'addCommandFilter':
+            this.emit('command', command, nicoChat.getCmd());
+            break;
+        }
+        return;
+      }
+      var vpos = $nicoChat.attr('data-vpos');
+      if (vpos !== undefined) {
+        this.emit('command', 'seek', vpos / 100);
+      }
     },
     _onUpdate: function() {
       if (this._isShowing) {
@@ -1898,7 +1917,7 @@ var StoryBoard = function() {};
               data-command="addWordFilter" title="NGワード">NGword</span>
         </li>`;
     },
-    _refreshInviewElements: function(scrollTop) {
+    _refreshInviewElements: function(scrollTop, startIndex, endIndex) {
       if (!this._$inner) { return; }
       var itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
@@ -1909,8 +1928,10 @@ var StoryBoard = function() {};
       var viewBottom = scrollTop + viewHeight;
       var chatList = this._chatList;
       if (!chatList || chatList.length < 1) { return; }
-      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 5);
-      var endIndex   = Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5);
+      startIndex =
+        _.isNumber(startIndex) ? startIndex : Math.max(0, Math.floor(scrollTop / itemHeight) - 5);
+      endIndex   =
+        _.isNumber(endIndex) ? endIndex : Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5);
       var i;
       //window.console.log(`index ${startIndex} 〜 ${endIndex}`);
 
@@ -2041,33 +2062,38 @@ var StoryBoard = function() {};
       display: inline-block;
       z-index: 300;
       position: absolute;
-      padding: 1px;
       bottom: 16px;
       left: 0;
       white-space: nowrap;
       font-size: 10px;
-      background: #000;
+      background: rgba(0, 0, 0, 0.8);
       z-index: 150;
       opacity: 0;
-      pointer-events: none;
+      box-shadow: 0 0 4px #666;
+      border-radius: 8px;
       transition: opacity 0.2s ease;
-      box-shadow: 0 0 4px #000;
+      padding: 4px 4px 10px 4px;
       transform: translate3d(0, 0, 0);
       transform: translate 0.1s;
+      pointer-events: none;
     }
 
     .fullScreen .seekBarToolTip {
       bottom: 10px;
     }
 
-    .dragging                .seekBarToolTip,
-    .seekBarContainer:hover  .seekBarToolTip {
+    .dragging                .seekBarToolTip {
       opacity: 1;
       pointer-events: none;
     }
 
+    .seekBarContainer:hover  .seekBarToolTip {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
     .fullScreen .seekBarContainer:not(:hover) .seekBarToolTip {
-      left: -9999px !important;
+      left: -100vw !important;
     }
 
     .seekBarToolTip .seekBarToolTipInner {
@@ -2077,6 +2103,7 @@ var StoryBoard = function() {};
     .seekBarToolTip .seekBarToolTipButtonContainer {
       {*display: flex;*}
       text-align: center;
+      width: 100%;
     }
 
     .seekBarToolTip .seekBarToolTipButtonContainer>* {
@@ -2089,7 +2116,6 @@ var StoryBoard = function() {};
       margin: 4px 0;
       padding: 0 8px;
       color: #ccc;
-      {*background: #666;*}
       text-align: center;
       font-size: 12px;
       line-height: 16px;
@@ -2097,14 +2123,26 @@ var StoryBoard = function() {};
     }
 
     .seekBarToolTip .controlButton {
-      width: 24px;
-      height: 24px;
+      display: inline-block;
+      width: 40px;
+      height: 28px;
       line-height: 22px;
-      font-size: 18px;
+      font-size: 20px;
+      border-radius: 50%;
       margin: 0;
+      cursor: pointer;
     }
+    .seekBarToolTip .controlButton * {
+      cursor: pointer;
+    }
+
+    .seekBarToolTip .controlButton:hover {
+      text-shadow: 0 0 8px #fe9;
+      box-shdow: 0 0 8px #fe9;
+    }
+
     .seekBarToolTip .controlButton:active {
-      font-size: 14px;
+      font-size: 16px;
     }
 
     .seekBarToolTip .controlButton.enableCommentPreview {
@@ -2115,15 +2153,19 @@ var StoryBoard = function() {};
       opacity: 1;
       background: rgba(0,0,0,0.01);
     }
+
+    .seekBarToolTip .seekBarThumbnailContainer {
+      pointer-events: none;
+    }
   */});
   SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
     <div class="seekBarToolTip">
       <div class="seekBarToolTipInner">
         <div class="seekBarThumbnailContainer"></div>
         <div class="seekBarToolTipButtonContainer">
-          <!--div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る">
+          <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る" data-repeat="on">
             <div class="controlButtonInner">⇦</div>
-          </div -->
+          </div>
 
           <div class="currentTime"></div>
           
@@ -2132,9 +2174,9 @@ var StoryBoard = function() {};
           </div>
           
 
-          <!--div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む">
+          <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む" data-repeat="on">
             <div class="controlButtonInner">⇨</div>
-          </div-->
+          </div>
         </div>
       </div>
     </div>
@@ -2145,7 +2187,10 @@ var StoryBoard = function() {};
       this._storyBoard = params.storyBoard;
       this._initializeDom(params.$container);
 
-      this.update = ZenzaWatch.util.createDrawCallFunc(this.update.bind(this));
+      //this.update = ZenzaWatch.util.createDrawCallFunc(this.update.bind(this));
+
+      this._boundOnRepeat = this._onRepeat.bind(this);
+      this._boundOnMouseUp = this._onMouseUp.bind(this);
     },
     _initializeDom: function($container) {
       ZenzaWatch.util.addStyle(SeekBarToolTip.__css__);
@@ -2153,13 +2198,9 @@ var StoryBoard = function() {};
 
       this._$currentTime = $view.find('.currentTime');
 
-      $view.on('click', function(e) {
-        e.stopPropagation();
-        var $target = $(e.target).closest('.controlButton');
-        var command = $target.attr('data-command');
-        var param   = $target.attr('data-param');
-        this.emit('command', command, param);
-      }.bind(this));
+      $view
+        .on('mousedown',this._onMouseDown.bind(this))
+        .on('click', function(e) { e.stopPropagation(); e.preventDefault(); });
 
       this._seekBarThumbnail = this._storyBoard.getSeekBarThumbnail({
         $container: $view.find('.seekBarThumbnailContainer')
@@ -2167,6 +2208,50 @@ var StoryBoard = function() {};
 
 
       $container.append($view);
+    },
+    _onMouseDown: function(e) {
+      e.stopPropagation();
+      var $target = $(e.target).closest('.controlButton');
+      var command = $target.attr('data-command');
+      if (!command) { return; }
+
+      var param   = $target.attr('data-param');
+      var repeat  = $target.attr('data-repeat') === 'on';
+
+      this.emit('command', command, param);
+      if (repeat) {
+        this._beginRepeat(command, param);
+      }
+    },
+    _onMouseUp: function(e) {
+      e.preventDefault();
+      this._endRepeat();
+    },
+    _beginRepeat(command, param) {
+      this._repeatCommand = command;
+      this._repeatParam   = param;
+
+      $('body').on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
+      this._$view.on('mouseleave mouseup', this._boundOnMouseUp);
+
+      this._repeatTimer = window.setInterval(this._boundOnRepeat, 200);
+      this._isRepeating = true;
+    },
+    _endRepeat: function() {
+      this.isRepeating = false;
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+        this._repeatTimer = null;
+      }
+      $('body').off('mouseup.zenzaSeekbarToolTip');
+      this._$view.off('mouseleave mouseup');
+    },
+    _onRepeat: function() {
+      if (!this._isRepeating) {
+        this._endRepeat();
+        return;
+      }
+      this.emit('command', this._repeatCommand, this._repeatParam);
     },
     update: function(sec, left) {
       var m = Math.floor(sec / 60);

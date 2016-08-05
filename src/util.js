@@ -446,6 +446,7 @@ var console;
           box-sizing: border-box;
           min-width: 150px;
           text-align: center;
+          box-shadow: 4px 4px 2px #ccc;
           transition:
             transform 2s linear,
             opacity 2s ease,
@@ -482,7 +483,6 @@ var console;
           max-height: 0;
           margin-bottom: 0px;
           padding: 0px 8px;
-          box-shadow: 0px 0px 0px #333;
           transition:
             transform 1s linear,
             opacity       0.5s ease 0.5s,

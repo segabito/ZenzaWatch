@@ -149,7 +149,7 @@ var AsyncEmitter = function() {};
       ZenzaWatch.util.addStyle(__css__);
 
 
-      var isGinza = ZenzaWatch.util.isGinzaWatchUrl();
+      var isGinza = ZenzaWatch.util.isGinzaWatchUrl() && !!(document.getElementById('watchAPIDataContainer'));
       if (!ZenzaWatch.util.isLogin()) {
         return;
       }
