@@ -57,7 +57,7 @@ var ZenzaWatch = {
       var query = {filters: []};
         var sortTable = NicoSearchApiLoader.SORT;
         query.query   = word || params.searchWord;
-        query.search  = params.searchType === 'tag' ? ['tags'] : ['tags', 'title', 'description'];
+        query.search  = params.searchType === 'tag' ? ['tags_exact'] : ['tags_exact', 'title', 'description'];
         query.sort_by = params.sort && sortTable[params.sort] ? sortTable[params.sort] : 'last_comment_time';
         query.order   = params.order === 'd' ? 'desc' : 'asc';
         query.size    = params.size || 100;

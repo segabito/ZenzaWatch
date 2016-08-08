@@ -210,12 +210,18 @@ var AsyncEmitter = {};
       var applyFunc = {
         'DEFAULT': function(nicoChat, nicos) {
           var nicosColor = nicos.getColor();
-          var chatColor = nicoChat.getColor();
-          if (nicosColor && !chatColor) {
-            nicoChat.setColor(nicosColor);
-          }
-          // TODO: コメントサイズやue, shitaも対応する
-        },
+          var hasColor = nicoChat.hasColorCommand();
+          if (nicosColor && !hasColor) { nicoChat.setColor(nicosColor); }
+
+          var nicosSize = nicos.getSize();
+          var hasSize = nicoChat.hasSizeCommand();
+          if (nicosSize && !hasSize) { nicoChat.setSize(nicosSize); }
+
+          var nicosType = nicos.getType();
+          var hasType = nicoChat.hasTypeCommand();
+          if (nicosType && !hasType) { nicoChat.setType(nicosType); }
+
+         },
         'REVERSE': function(nicoChat, nicos, params) {
           if (params.target === '全') {
             nicoChat.setIsReverse(true);
@@ -246,6 +252,19 @@ var AsyncEmitter = {};
             text = text.replace(reg, ZenzaWatch.util.escapeRegs(params.dest));
           }
           nicoChat.setText(text);
+
+          var nicosColor = nicos.getColor();
+          var hasColor = nicoChat.hasColorCommand();
+          if (nicosColor && !hasColor) { nicoChat.setColor(nicosColor); }
+
+          var nicosSize = nicos.getSize();
+          var hasSize = nicoChat.hasSizeCommand();
+          if (nicosSize && !hasSize) { nicoChat.setSize(nicosSize); }
+
+          var nicosType = nicos.getType();
+          var hasType = nicoChat.hasTypeCommand();
+          if (nicosType && !hasType) { nicoChat.setType(nicosType); }
+
         },
         'PIPE': function(nicoChat, nicos, lines) {
           _.each(lines, function(line) {
@@ -273,9 +292,11 @@ var AsyncEmitter = {};
         _.each(group.getMembers ? group.getMembers : group, function(nicoChat) {
           if (nicoChat.isNicoScript()) { return; }
           var ct = nicoChat.getBeginTime();
+          //var et = ct + nicoChat.getDuration();
           //if (ct === beginTime && nicoChat.getId() < nicos.getId()) { return; }
           //else
           if (beginTime > ct || endTime < ct) { return; }
+          //if (beginTime > et || endTime < et) { return; }
 
           func(nicoChat, nicos, p.params);
         });

@@ -479,17 +479,17 @@ var console;
         .zenzaPopupMessage.show.removing {
           {*transform: translate3d(0, -100px, 0);*}
           opacity: 0;
-          box-sizing: border-box;
           max-height: 0;
-          margin-bottom: 0px;
           padding: 0px 8px;
+          margin-bottom: 0px;
+          box-shadow: 4px 4px 2px rgba(192, 192, 192, 0);
           transition:
             transform 1s linear,
             opacity       0.5s ease 0.5s,
-            box-shadow    0.5s ease,
             max-height    0.3s ease 1s,
             padding       0.3s ease 1s,
             margin-bottom 0.3s ease 1s,
+            box-shadow    0.5s ease,
             background 5s ease;
         }
 
@@ -598,6 +598,11 @@ var console;
         }
         console.log('lastSession', session);
         return session;
+      };
+
+      PlayerSession.clear = function() {
+        var key = prefix + 'PlayingStatus';
+        storage.removeItem(key);
       };
 
       PlayerSession.hasRecord = function() {

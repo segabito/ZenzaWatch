@@ -1880,7 +1880,6 @@ var CommentPanel = function() {};
       this._nicoVideoPlayer.setVideo(videoUrl);
       this._nicoVideoPlayer.setVideoInfo(this._videoInfo);
 
-
       this.loadComment(flvInfo);
 
       this.emit('loadVideoInfo', this._videoInfo);
@@ -1888,6 +1887,13 @@ var CommentPanel = function() {};
         this._videoInfoPanel.update(this._videoInfo);
       }
 
+      if (FullScreen.now() || this._playerConfig.getValue('screenMode') === 'wide') {
+        this.execCommand('notifyHtml',
+          '<img src="' + this._videoInfo.getThumbnail() + '" style="width: 96px;">' +
+          // タイトルは原則エスケープされてるけど信用してない
+          ZenzaWatch.util.escapeToZenkaku(this._videoInfo.getTitle())
+        );
+      }
     },
     loadComment: function(flvInfo) {
       this._messageApiLoader.load(
@@ -2032,6 +2038,7 @@ var CommentPanel = function() {};
           ) {
           this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
           ZenzaWatch.util.callAsync(function() {
+            if (!this.isOpen()) { return; }
             this.reload({economy: true});
           }, this, 3000);
         } else {

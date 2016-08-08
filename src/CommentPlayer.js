@@ -1245,6 +1245,7 @@ var SlotLayoutWorker = {};
       this._fork = 0;
       this._isInvisible = false;
       this._isReverse = false;
+      this._isPatissier = false;
 
       this._currentTime = 0;
       this._hasDurationSet = false;
@@ -1271,6 +1272,7 @@ var SlotLayoutWorker = {};
       this._isUpdating = chat.getAttribute('updating') === '1';
       this._score = parseInt(chat.getAttribute('score') || '0', 10);
       this._fork = parseInt(chat.getAttribute('fork') || '0', 10);
+      this._leaf = parseInt(chat.getAttribute('leaf') || '-1', 10);
       // fork * 100000000を足してるのは苦し紛れの措置. いつか直す (本当に？)
       this._no =
         parseInt(chat.getAttribute('no') || '0', 10) + this._fork * 100000000;
@@ -1287,21 +1289,26 @@ var SlotLayoutWorker = {};
 
         if (pcmd.COLOR) {
           this._color = pcmd.COLOR;
+          this._hasColorCommand = true;
         }
 
         // TODO: 両方指定されてたらどっちが優先されるのかを検証
         if (pcmd.big) {
           this._size = NicoChat.SIZE.BIG;
+          this._hasSizeCommand = true;
         } else if (pcmd.small) {
           this._size = NicoChat.SIZE.SMALL;
+          this._hasSizeCommand = true;
         }
 
         if (pcmd.ue) {
           this._type = NicoChat.TYPE.TOP;
           this._duration = NicoChatViewModel.DURATION.TOP;
+          this._hasTypeCommand = true;
         } else if (pcmd.shita) {
           this._type = NicoChat.TYPE.BOTTOM;
           this._duration = NicoChatViewModel.DURATION.BOTTOM;
+          this._hasTypeCommand = true;
         }
 
         if (pcmd.ender) {
@@ -1309,6 +1316,9 @@ var SlotLayoutWorker = {};
         }
         if (pcmd.full) {
           this._isFull = true;
+        }
+        if (pcmd.pattisier) {
+          this._isPatissier = true;
         }
 
         if (pcmd.duration) {
@@ -1375,6 +1385,10 @@ var SlotLayoutWorker = {};
     isUpdating: function() { return !!this._isUpdating; },
     isInvisible: function() { return this._isInvisible; },
     isNicoScript: function() { return this._isNicoScript; },
+    isPatissier: function() { return this._isPatissier; },
+    hasColorCommand: function() { return !!this._hasColorCommand; },
+    hasSizeCommand: function()  { return !!this._hasSizeCommand; },
+    hasTypeCommand: function()  { return !!this._hasTypeCommand; },
     getDuration: function() { return this._duration; },
     hasDurationSet: function() { return !!this._hasDurationSet; },
     setDuration: function(v) { this._duration = v; this._hasDurationSet = true; },
@@ -1385,9 +1399,12 @@ var SlotLayoutWorker = {};
     getColor: function() { return this._color; },
     setColor: function(v) { this._color = v; },
     getSize: function() { return this._size; },
+    setSize: function(v) { this._size = v; },
     getType: function() { return this._type; },
+    setType: function(v) { this._type = v; },
     getScore: function() { return this._score; },
     getNo: function() { return this._no; },
+    getLeaf: function() { return this._leaf; },
     getFork: function() { return this._fork; },
     isReverse: function() { return this._isReverse; },
     setIsReverse: function(v) { this._isReverse = !!v; }

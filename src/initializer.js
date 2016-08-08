@@ -231,6 +231,8 @@ var AsyncEmitter = function() {};
         ) {
           lastSession.eventType = 'session';
           dialog.open(lastSession.watchId, lastSession);
+        } else {
+          PlayerSession.clear();
         }
 
         WindowMessageEmitter.on('onMessage', function(data, type) {
