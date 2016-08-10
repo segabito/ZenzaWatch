@@ -1097,6 +1097,7 @@ var VideoInfoLoader = {};
       return this._video.autoPlay;
     },
     appendTo: function($node) {
+      this._$node = $node;
       $node.append(this._$video);
       //$node.append(this._$subVideo);
       var videos = document.getElementsByClassName(this._id);
@@ -1112,6 +1113,10 @@ var VideoInfoLoader = {};
 
       this._video.removeAttribute('src');
       this._video.removeAttribute('poster');
+      //if (this._$node) {
+      //  this._$video.detach();
+      //  this._$node.append(this._$video);
+      //}
 
       //this._subVideo.removeAttribute('src');
     }

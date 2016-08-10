@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.2.19
+// @version        1.3.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.2.19';
+  var VER = '1.3.0';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -5064,6 +5064,7 @@ var monkey = function() {
       return this._video.autoPlay;
     },
     appendTo: function($node) {
+      this._$node = $node;
       $node.append(this._$video);
       //$node.append(this._$subVideo);
       var videos = document.getElementsByClassName(this._id);
@@ -5079,6 +5080,10 @@ var monkey = function() {
 
       this._video.removeAttribute('src');
       this._video.removeAttribute('poster');
+      //if (this._$node) {
+      //  this._$video.detach();
+      //  this._$node.append(this._$video);
+      //}
 
       //this._subVideo.removeAttribute('src');
     }
@@ -18011,30 +18016,17 @@ data-title="%no%: %date% ID:%userId%
       if (!this._nicoVideoPlayer) {
         return;
       }
-      if (ZenzaWatch.util.isPremium() ||
+      if (!!'一般会員でもシークできるようになった'
+          /*ZenzaWatch.util.isPremium() ||
           this._isFirstSeek ||
-          this.isInSeekableBuffer(sec)) {
+          this.isInSeekableBuffer(sec)*/) {
         this._isFirstSeek = false;
         this._nicoVideoPlayer.setCurrentTime(sec);
         this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
       }
     },
-    // 政治的な理由により一般会員はバッファ内しかシークできないようにする必要があるため、
-    // 指定した秒がバッファ内かどうかを判定して返す
-    isInSeekableBuffer: function(sec) {
-      // プレミアム会員は常にどこでもシーク可能
-      var range = this.getBufferedRange();
-      for (var i = 0, len = range.length; i < len; i++) {
-        try {
-          var start = range.start(i);
-          var end   = range.end(i);
-          if (start <= sec && end >= sec) {
-            return true;
-          }
-        } catch (e) {
-        }
-      }
-      return false;
+    isInSeekableBuffer: function() {
+      return true;
     },
     getId: function() {
       return this._id;
@@ -18148,7 +18140,7 @@ data-title="%no%: %date% ID:%userId%
       if (requestId !== this._requestId) {
         return;
       }
-      PopupMessage.notify('コメント取得成功');
+      //PopupMessage.notify('コメント取得成功');
       var options = {
         replacement: this._videoInfo.getReplacementWords()
       };
@@ -20915,6 +20907,13 @@ data-title="%no%: %date% ID:%userId%
     .zenzaWatchVideoInfoPanel .videoTags li .tagLink:hover {
     }
 
+    .zenzaWatchVideoInfoPanel .videoTags li .playlistAppend {
+      display: inline-block;
+      position: relative;
+      left: auto;
+      bottom: auto;
+    }
+
 
 
     body:not(.fullScreen).zenzaScreenMode_3D    .zenzaWatchVideoInfoPanel,
@@ -21242,7 +21241,7 @@ data-title="%no%: %date% ID:%userId%
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param') || '';
         if (command) {
-          this._onCommand(command, command, param);
+          this._onCommand(command, param);
         }
       }.bind(this)).on('wheel', function(e) {
         e.stopPropagation();

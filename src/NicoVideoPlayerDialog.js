@@ -1808,30 +1808,17 @@ var CommentPanel = function() {};
       if (!this._nicoVideoPlayer) {
         return;
       }
-      if (ZenzaWatch.util.isPremium() ||
+      if (!!'一般会員でもシークできるようになった'
+          /*ZenzaWatch.util.isPremium() ||
           this._isFirstSeek ||
-          this.isInSeekableBuffer(sec)) {
+          this.isInSeekableBuffer(sec)*/) {
         this._isFirstSeek = false;
         this._nicoVideoPlayer.setCurrentTime(sec);
         this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
       }
     },
-    // 政治的な理由により一般会員はバッファ内しかシークできないようにする必要があるため、
-    // 指定した秒がバッファ内かどうかを判定して返す
-    isInSeekableBuffer: function(sec) {
-      // プレミアム会員は常にどこでもシーク可能
-      var range = this.getBufferedRange();
-      for (var i = 0, len = range.length; i < len; i++) {
-        try {
-          var start = range.start(i);
-          var end   = range.end(i);
-          if (start <= sec && end >= sec) {
-            return true;
-          }
-        } catch (e) {
-        }
-      }
-      return false;
+    isInSeekableBuffer: function() {
+      return true;
     },
     getId: function() {
       return this._id;
@@ -1945,7 +1932,7 @@ var CommentPanel = function() {};
       if (requestId !== this._requestId) {
         return;
       }
-      PopupMessage.notify('コメント取得成功');
+      //PopupMessage.notify('コメント取得成功');
       var options = {
         replacement: this._videoInfo.getReplacementWords()
       };

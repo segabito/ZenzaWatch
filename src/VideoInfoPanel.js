@@ -415,6 +415,13 @@ var RelatedVideoList = function() {};
     .zenzaWatchVideoInfoPanel .videoTags li .tagLink:hover {
     }
 
+    .zenzaWatchVideoInfoPanel .videoTags li .playlistAppend {
+      display: inline-block;
+      position: relative;
+      left: auto;
+      bottom: auto;
+    }
+
 
 
     body:not(.fullScreen).zenzaScreenMode_3D    .zenzaWatchVideoInfoPanel,
@@ -742,7 +749,7 @@ var RelatedVideoList = function() {};
         var command = $target.attr('data-command');
         var param   = $target.attr('data-param') || '';
         if (command) {
-          this._onCommand(command, command, param);
+          this._onCommand(command, param);
         }
       }.bind(this)).on('wheel', function(e) {
         e.stopPropagation();
