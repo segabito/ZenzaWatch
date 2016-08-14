@@ -7,9 +7,11 @@ var ZenzaWatch = {
 };
 var AsyncEmitter = function() {};
 var VideoInfoLoader = {};
+  var HEART_BEAT_INTERVAL_MS = 30 * 1000;
 
 //===BEGIN===
 
+var VideoSession = (function() {
   var VideoSession = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoSession.prototype, AsyncEmitter.prototype);
   _.assign(VideoSession.prototype, {
@@ -57,6 +59,7 @@ var VideoInfoLoader = {};
     }
   });
 
-
+  return VideoSession;
+})();
 
 //===END===

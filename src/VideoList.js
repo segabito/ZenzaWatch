@@ -239,10 +239,24 @@ var PopupMessage = {};
     opacity: 0.5;
     pointer-events: none;
   }
+
+  #listContainer {
+    position: absolute;
+    top: 0;
+    left:0;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: auto;
+  }
+
+
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
 <div id="listContainer">
+  <div id="listContainerInner"></div>
 </div>
 <div class="scrollToTop command" title="一番上にスクロール" data-command="scrollToTop">&#x2303;</div>
 </body>
@@ -292,7 +306,9 @@ var PopupMessage = {};
       if (this._className) {
         $body.addClass(this._className);
       }
-      var $list = this._$list = $(doc.getElementById('listContainer'));
+
+      this._$container = $body.find('#listContainer');
+      var $list = this._$list = $(doc.getElementById('listContainerInner'));
       if (this._html) {
         $list.html(this._html);
         this._setInviewObserver();
@@ -305,19 +321,6 @@ var PopupMessage = {};
       $body.on('keyup', function(e) {
         ZenzaWatch.emitter.emit('keyup', e);
       });
-
-      // 表示/非表示が変わるたびにChromeでscrollTopが0になるバグ？暫定対策
-      var lastScrollTop = 0;
-      $win.on('scroll', _.debounce(function() {
-        lastScrollTop = this.scrollTop();
-        //window.console.log('scrollTop: ', this._className, this.scrollTop());
-      }.bind(this), 100));
-      $win.on('mouseenter', _.throttle(function() {
-        //window.console.log('restore scrollTop: ', lastScrollTop);
-        this.scrollTop(lastScrollTop + 1);
-        this.scrollTop(lastScrollTop);
-      }.bind(this), 5000));
-
 
       if (this._dragdrop) {
         $body.on('mousedown', this._onBodyMouseDown.bind(this));
@@ -581,11 +584,11 @@ var PopupMessage = {};
       this._$body.toggleClass(className, v);
     },
     scrollTop: function(v) {
-      if (!this._$window) { return 0; }
+      if (!this._$container) { return 0; }
       if (typeof v === 'number') {
-        this._$window.scrollTop(v);
+        this._$container.scrollTop(v);
       } else {
-        return this._$window.scrollTop();
+        return this._$container.scrollTop();
       }
     },
     scrollToItem: function(itemId) {
@@ -614,16 +617,16 @@ var PopupMessage = {};
       counter-reset: video;
     }
 
-    body::-webkit-scrollbar {
+    #listContainer::-webkit-scrollbar {
       background: #222;
     }
 
-    body::-webkit-scrollbar-thumb {
+    #listContainer::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #666;
     }
 
-    body::-webkit-scrollbar-button {
+    #listContainer::-webkit-scrollbar-button {
       background: #666;
       display: none;
     }
@@ -633,7 +636,7 @@ var PopupMessage = {};
       position: fixed;
       width: 32px;
       height: 32px;
-      right: 8px;
+      right: 32px;
       bottom: 8px;
       font-size: 24px;
       line-height: 32px;

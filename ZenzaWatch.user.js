@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.3.0
+// @version        1.3.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.3.0';
+  var VER = '1.3.1';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -12832,11 +12832,11 @@ var SlotLayoutWorker = (function() {
     overflow: hidden;
   }
 
-  body.scrolling #listContainer *{
+  body.scrolling #listContainerInner *{
     pointer-events: none;
   }
 
-  #listContainerOuter {
+  #listContainer {
     position: absolute;
     top: 0;
     left:0;
@@ -12850,15 +12850,14 @@ var SlotLayoutWorker = (function() {
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
-<div id="listContainerOuter">
-<div class="listMenu">
-  <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
-  <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
-  <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
-</div>
-<div id="listContainer">
-</div>
-</div>
+  <div id="listContainer">
+    <div class="listMenu">
+      <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
+      <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+      <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
+    </div>
+    <div id="listContainerInner"></div>
+  </div>
 </body>
 </html>
 
@@ -12903,8 +12902,8 @@ var SlotLayoutWorker = (function() {
       if (this._className) {
         body.classList.add(this._className);
       }
-      this._$container = $body.find('#listContainerOuter');
-      var $list = this._$list = $(doc.getElementById('listContainer'));
+      this._$container = $body.find('#listContainer');
+      var $list = this._$list = $(doc.getElementById('listContainerInner'));
       if (this._html) {
         $list.html(this._html);
         this._$items = this._$body.find('.commentListItem');
@@ -13156,16 +13155,16 @@ var SlotLayoutWorker = (function() {
       line-height: 0;
     }
 
-    #listContainerOuter::-webkit-scrollbar {
+    #listContainer::-webkit-scrollbar {
       background: #222;
     }
 
-    #listContainerOuter::-webkit-scrollbar-thumb {
+    #listContainer::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #666;
     }
 
-    #listContainerOuter::-webkit-scrollbar-button {
+    #listContainer::-webkit-scrollbar-button {
       background: #666;
       display: none;
     }
@@ -14075,10 +14074,24 @@ data-title="%no%: %date% ID:%userId%
     opacity: 0.5;
     pointer-events: none;
   }
+
+  #listContainer {
+    position: absolute;
+    top: 0;
+    left:0;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: auto;
+  }
+
+
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
 <div id="listContainer">
+  <div id="listContainerInner"></div>
 </div>
 <div class="scrollToTop command" title="一番上にスクロール" data-command="scrollToTop">&#x2303;</div>
 </body>
@@ -14128,7 +14141,9 @@ data-title="%no%: %date% ID:%userId%
       if (this._className) {
         $body.addClass(this._className);
       }
-      var $list = this._$list = $(doc.getElementById('listContainer'));
+
+      this._$container = $body.find('#listContainer');
+      var $list = this._$list = $(doc.getElementById('listContainerInner'));
       if (this._html) {
         $list.html(this._html);
         this._setInviewObserver();
@@ -14141,19 +14156,6 @@ data-title="%no%: %date% ID:%userId%
       $body.on('keyup', function(e) {
         ZenzaWatch.emitter.emit('keyup', e);
       });
-
-      // 表示/非表示が変わるたびにChromeでscrollTopが0になるバグ？暫定対策
-      var lastScrollTop = 0;
-      $win.on('scroll', _.debounce(function() {
-        lastScrollTop = this.scrollTop();
-        //window.console.log('scrollTop: ', this._className, this.scrollTop());
-      }.bind(this), 100));
-      $win.on('mouseenter', _.throttle(function() {
-        //window.console.log('restore scrollTop: ', lastScrollTop);
-        this.scrollTop(lastScrollTop + 1);
-        this.scrollTop(lastScrollTop);
-      }.bind(this), 5000));
-
 
       if (this._dragdrop) {
         $body.on('mousedown', this._onBodyMouseDown.bind(this));
@@ -14417,11 +14419,11 @@ data-title="%no%: %date% ID:%userId%
       this._$body.toggleClass(className, v);
     },
     scrollTop: function(v) {
-      if (!this._$window) { return 0; }
+      if (!this._$container) { return 0; }
       if (typeof v === 'number') {
-        this._$window.scrollTop(v);
+        this._$container.scrollTop(v);
       } else {
-        return this._$window.scrollTop();
+        return this._$container.scrollTop();
       }
     },
     scrollToItem: function(itemId) {
@@ -14450,16 +14452,16 @@ data-title="%no%: %date% ID:%userId%
       counter-reset: video;
     }
 
-    body::-webkit-scrollbar {
+    #listContainer::-webkit-scrollbar {
       background: #222;
     }
 
-    body::-webkit-scrollbar-thumb {
+    #listContainer::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #666;
     }
 
-    body::-webkit-scrollbar-button {
+    #listContainer::-webkit-scrollbar-button {
       background: #666;
       display: none;
     }
@@ -14469,7 +14471,7 @@ data-title="%no%: %date% ID:%userId%
       position: fixed;
       width: 32px;
       height: 32px;
-      right: 8px;
+      right: 32px;
       bottom: 8px;
       font-size: 24px;
       line-height: 32px;
@@ -16180,6 +16182,7 @@ data-title="%no%: %date% ID:%userId%
 
 
 
+var VideoSession = (function() {
   var VideoSession = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoSession.prototype, AsyncEmitter.prototype);
   _.assign(VideoSession.prototype, {
@@ -16227,7 +16230,8 @@ data-title="%no%: %date% ID:%userId%
     }
   });
 
-
+  return VideoSession;
+})();
 
 
 

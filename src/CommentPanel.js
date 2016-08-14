@@ -163,11 +163,11 @@ var PopupMessage = {};
     overflow: hidden;
   }
 
-  body.scrolling #listContainer *{
+  body.scrolling #listContainerInner *{
     pointer-events: none;
   }
 
-  #listContainerOuter {
+  #listContainer {
     position: absolute;
     top: 0;
     left:0;
@@ -181,15 +181,14 @@ var PopupMessage = {};
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
-<div id="listContainerOuter">
-<div class="listMenu">
-  <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
-  <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
-  <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
-</div>
-<div id="listContainer">
-</div>
-</div>
+  <div id="listContainer">
+    <div class="listMenu">
+      <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
+      <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+      <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
+    </div>
+    <div id="listContainerInner"></div>
+  </div>
 </body>
 </html>
 
@@ -234,8 +233,8 @@ var PopupMessage = {};
       if (this._className) {
         body.classList.add(this._className);
       }
-      this._$container = $body.find('#listContainerOuter');
-      var $list = this._$list = $(doc.getElementById('listContainer'));
+      this._$container = $body.find('#listContainer');
+      var $list = this._$list = $(doc.getElementById('listContainerInner'));
       if (this._html) {
         $list.html(this._html);
         this._$items = this._$body.find('.commentListItem');
@@ -487,16 +486,16 @@ var PopupMessage = {};
       line-height: 0;
     }
 
-    #listContainerOuter::-webkit-scrollbar {
+    #listContainer::-webkit-scrollbar {
       background: #222;
     }
 
-    #listContainerOuter::-webkit-scrollbar-thumb {
+    #listContainer::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #666;
     }
 
-    #listContainerOuter::-webkit-scrollbar-button {
+    #listContainer::-webkit-scrollbar-button {
       background: #666;
       display: none;
     }
