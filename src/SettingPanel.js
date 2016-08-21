@@ -216,13 +216,6 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
-        <div class="forceEconomyControl control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="forceEconomy">
-            常にエコノミー回線で視聴する
-          </label>
-        </div>
-
         <div class="overrideGinzaControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="overrideGinza">
@@ -266,6 +259,7 @@ var AsyncEmitter = function() {};
             コメント初期化を一部マルチスレッド化(実験中)
           </label>
         </div>
+
 
 
         <div class="menuScaleControl control toggle">

@@ -6,6 +6,7 @@ var ZenzaWatch = {
 };
 var AsyncEmitter = function() {};
 var PopupMessage = {};
+var FrameLayer = function() {};
 
 //===BEGIN===
 
@@ -222,7 +223,7 @@ var PopupMessage = {};
   VideoListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
   */});
 
-  VideoListView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  VideoListView.__tpl__ = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -262,7 +263,7 @@ var PopupMessage = {};
 </body>
 </html>
 
-  */});
+  `.trim();
 
   _.extend(VideoListView.prototype, AsyncEmitter.prototype);
   _.assign(VideoListView.prototype, {
@@ -605,8 +606,12 @@ var PopupMessage = {};
   var VideoListItemView = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoListItemView.prototype, AsyncEmitter.prototype);
 
+  VideoListItemView.ITEM_HEIGHT = 100;
+  VideoListItemView.THUMBNAIL_WIDTH  = 96;
+  VideoListItemView.THUMBNAIL_HEIGHT = 72;
+
   // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
-  VideoListItemView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  VideoListItemView.__css__ = (`
     * {
       box-sizing: border-box;
     }
@@ -631,7 +636,6 @@ var PopupMessage = {};
       display: none;
     }
 
-
     .scrollToTop {
       position: fixed;
       width: 32px;
@@ -655,13 +659,11 @@ var PopupMessage = {};
       box-shadow: 0 0 8px #fff;
     }
 
-
-
     .videoItem {
       position: relative;
       display: inline-block;
       width: 100%;
-      height: 88px;
+      height: ${VideoListItemView.ITEM_HEIGHT}px;
       overflow: hidden;
       transition:
         transform 0.4s ease, box-shadow 0.4s ease,
@@ -684,7 +686,7 @@ var PopupMessage = {};
         font-size: 45px;
         pointer-events: none;
         z-index: 1;
-        line-height: 88px;
+        line-height: ${VideoListItemView.ITEM_HEIGHT}px;
         opacity: 0.6;
 
         transform: translate(0, -50%);
@@ -721,8 +723,8 @@ var PopupMessage = {};
 
     .videoItem + .videoItem {
       border-top: 1px dotted #888;
-      margin-top: 16px;
-      outline-offset: 8px;
+      margin-top: 4px;
+      outline-offset: -8px;
     }
 
     .separator + .videoItem {
@@ -733,9 +735,9 @@ var PopupMessage = {};
       position: absolute;
       top: 0;
       left: 0;
-      width:  96px;
-      height: 72px;
-      margin: 8px 0;
+      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
+      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
+      margin: 4px 4px 0;
       transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
     }
     .videoItem .thumbnailContainer:active {
@@ -745,8 +747,8 @@ var PopupMessage = {};
     }
 
     .videoItem .thumbnailContainer .thumbnail {
-      width:  96px;
-      height: 72px;
+      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
+      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
     }
 
     .videoItem .thumbnailContainer .playlistAppend,
@@ -828,10 +830,12 @@ var PopupMessage = {};
     .videoItem:hover .thumbnailContainer .duration {
       display: none;
     }
+
     .videoItem .videoInfo {
       posigion: absolute;
       top: 0;
       margin-left: 104px;
+      height: 100%;
     }
 
     .videoItem .postedAt {
@@ -843,6 +847,17 @@ var PopupMessage = {};
       font-size: 10px;
     }
 
+    .videoItem .counter {
+      position: absolute;
+      top: 80px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .videoItem .title {
+      height: 52px;
+      overflow: hidden;
+    }
 
     .videoItem .videoLink {
       font-size: 14px;
@@ -878,9 +893,10 @@ var PopupMessage = {};
     }
 
     .videoItem.active {
-      outline: dashed 2px #ff8;
-      outline-offset: 4px;
+      /*outline: dashed 2px #ff8;
+      outline-offset: 4px;*/
       border: none !important;
+      background: #776;
     }
 
     @keyframes dropbox {
@@ -890,9 +906,7 @@ var PopupMessage = {};
              transform: translate(0, 500px); opacity: 0.5; }
       100% { opacity: 0; }
     }
-    {*
-       99% { transform: translate(0, 500px) rotateZ(45deg) scaleY(0); opacity: 0.5; }
-    *}
+
     .videoItem.deleting {
       pointer-events: none;
       animation-name: dropbox;
@@ -923,9 +937,9 @@ var PopupMessage = {};
     }
 
 
-  */});
+  `).trim();
 
-  VideoListItemView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  VideoListItemView.__tpl__ = (`
     <div class="videoItem %className% watch%watchId% item%itemId% %active% %updating% %played%"
       data-item-id="%itemId%"
       data-watch-id="%watchId%">
@@ -941,18 +955,18 @@ var PopupMessage = {};
       <div class="videoInfo">
         <div class="postedAt">%postedAt%</div>
         <div class="title">
-          <a href="//www.nicovideo.jp/watch/%watchId%" class="command videoLink" data-command="select" data-param="%itemId%">
+          <a href="//www.nicovideo.jp/watch/%watchId%" class="command videoLink" data-command="select" data-param="%itemId%" title="%videoTitle%">
             %videoTitle%
           </a>
         </div>
-        <div class="counter">
-          <span class="count">再生: <span class="value">%viewCount%</span></span>
-          <span class="count">コメ: <span class="value">%commentCount%</span></span>
-          <span class="count">マイ: <span class="value">%mylistCount%</span></span>
-        </div>
       </div>
-    </div>
-  */});
+      <div class="counter">
+        <span class="count">再生: <span class="value">%viewCount%</span></span>
+        <span class="count">コメ: <span class="value">%commentCount%</span></span>
+        <span class="count">マイ: <span class="value">%mylistCount%</span></span>
+      </div>
+   </div>
+  `).trim();
 
   _.assign(VideoListItemView.prototype, {
     initialize: function(params) {

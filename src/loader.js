@@ -134,7 +134,7 @@ var ajax = function() {};
 
         loaderWindow.location.replace(url);
       };
-
+     //JSON.parse(decodeURIComponent(JSON.parse($('#watchAPIDataContainer').text()).flashvars.dmcInfo))
       var parseWatchApiData = function(dom) {
         var $dom = $('<div>' + dom + '</div>');
         try {
@@ -144,6 +144,9 @@ var ajax = function() {};
           var flvInfo = ZenzaWatch.util.parseQuery(
               decodeURIComponent(watchApiData.flashvars.flvInfo)
             );
+          var dmcInfo = JSON.parse(
+              decodeURIComponent(watchApiData.flashvars.dmcInfo || '{}')
+            );
           var thumbnail =
             watchApiData.flashvars.thumbImage +
               (hasLargeThumbnail ? '.L' : '');
@@ -152,8 +155,18 @@ var ajax = function() {};
           var isFlv = /\/smile\?v=/.test(videoUrl);
           var isMp4 = /\/smile\?m=/.test(videoUrl);
           var isSwf = /\/smile\?s=/.test(videoUrl);
+          var isDmc = watchApiData.flashvars.isDmc === 1;
           var csrfToken = watchApiData.flashvars.csrfToken;
-          
+          var msgInfo = {
+            server:   flvInfo.ms,
+            threadId: flvInfo.thread_id,
+            duration: flvInfo.l,
+            userId:   flvInfo.user_id,
+            isNeedKey: flvInfo.needs_key === '1',
+            optionalThreadId: flvInfo.optional_thread_id,
+            userKey:  flvInfo.userkey
+          };
+
           var playlist = JSON.parse($dom.find('#playlistDataContainer').text());
           var isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
 
@@ -163,12 +176,15 @@ var ajax = function() {};
             _format: 'watchApi',
             watchApiData: watchApiData,
             flvInfo: flvInfo,
+            dmcInfo: dmcInfo,
+            msgInfo: msgInfo,
             playlist: playlist,
             isPlayable: isPlayable,
             isMp4: isMp4,
             isFlv: isFlv,
             isSwf: isSwf,
             isEco: isEco,
+            isDmc: isDmc,
             thumbnail: thumbnail,
             csrfToken: csrfToken
           };
@@ -587,39 +603,64 @@ var ajax = function() {};
           });
         },
         _createThreadXml:
-          function(threadId, version, userId, threadKey, force184, duration, userKey) {
-          var thread = document.createElement('thread');
+          //function(threadId, version, userId, threadKey, force184, duration, userKey) {
+          function(params) { //msgInfo, version, threadKey, force184, duration, userKey) {
+          const threadId         =
+            params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
+          const duration         = params.msgInfo.duration;
+          const userId           = params.msgInfo.userId;
+          //const optionalThreadId = msgInfo.optionalThreadId;
+          const userKey          = params.msgInfo.userKey;
+          const threadKey        = params.threadKey;
+          const force184         = params.force184;
+          const version          = params.version;
+
+          const thread = document.createElement('thread');
           thread.setAttribute('thread', threadId);
           thread.setAttribute('version', version);
-          if (duration) {
-            var resCount = this.getRequestCountByDuration(duration);
-            thread.setAttribute('fork', '1');
+          if (params.useUserKey) {
+            thread.setAttribute('userkey', userKey);
+          }
+          if (params.useDuration) {
+            const resCount = this.getRequestCountByDuration(duration);
             thread.setAttribute('click_revision', '-1');
             thread.setAttribute('res_from', '-' + resCount);
+            thread.setAttribute('fork', '1');
           }
           if (typeof userId !== 'undefined') {
             thread.setAttribute('user_id', userId);
           }
-          if (typeof threadKey !== 'undefined') {
+          if (params.useThreadKey && typeof threadKey !== 'undefined') {
             thread.setAttribute('threadkey', threadKey);
           }
-          if (typeof force184 !== 'undefined') {
+          if (params.useThreadKey && typeof force184 !== 'undefined') {
             thread.setAttribute('force_184', force184);
           }
           thread.setAttribute('scores', '1');
           thread.setAttribute('nicoru', '1');
           thread.setAttribute('with_global', '1');
 
-          if (userKey) { thread.setAttribute('userkey', userKey); }
           return thread;
         },
         _createThreadLeavesXml:
-          function(threadId, version, userId, threadKey, force184, duration, userKey) {
-          var thread_leaves = document.createElement('thread_leaves');
-          var resCount = this.getRequestCountByDuration(duration);
-          var threadLeavesParam =
+          //function(threadId, version, userId, threadKey, force184, duration, userKey) {
+          function(params) {//msgInfo, version, threadKey, force184, userKey) {
+          const threadId         =
+            params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
+          const duration         = params.msgInfo.duration;
+          const userId           = params.msgInfo.userId;
+          const userKey          = params.msgInfo.userKey;
+          const threadKey        = params.threadKey;
+          const force184         = params.force184;
+
+          const thread_leaves = document.createElement('thread_leaves');
+          const resCount = this.getRequestCountByDuration(duration);
+          const threadLeavesParam =
             ['0-', (Math.floor(duration / 60) + 1), ':100,', resCount].join('');
           thread_leaves.setAttribute('thread', threadId);
+          if (params.useUserKey) {
+            thread_leaves.setAttribute('userkey', userKey);
+          }
           if (typeof userId !== 'undefined') {
             thread_leaves.setAttribute('user_id', userId);
           }
@@ -631,36 +672,80 @@ var ajax = function() {};
           }
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
-          if (userKey) { thread_leaves.setAttribute('userkey', userKey); }
 
           thread_leaves.innerHTML = threadLeavesParam;
 
           return thread_leaves;
         },
 
-        buildPacket: function(threadId, duration, userId, threadKey, force184, optionalThreadId, userKey)
+        //buildPacket: function(threadId, duration, userId, threadKey, force184, optionalThreadId, userKey)
+        buildPacket: function(msgInfo, threadKey, force184)
         {
-          var span = document.createElement('span');
-          var packet = document.createElement('packet');
+          //const duration = msgInfo.duration;
 
-//          if (typeof optionalThreadId !== 'undefined') {
-//            packet.appendChild(
-//              this._createThreadXml(optionalThreadId, VERSION, userId, threadKey, force184)
-//            );
-//            packet.appendChild(
-//              this._createThreadLeavesXml(optionalThreadId, VERSION, userId, threadKey, force184, duration)
-//            );
-//          }
+          const span   = document.createElement('span');
+          const packet = document.createElement('packet');
 
-          packet.appendChild(
-            this._createThreadXml(threadId, VERSION_OLD, userId, threadKey, force184, duration)
+          // リクエスト用のxml生成なのだが闇が深い
+          // 不要なところにdurationやuserKeyを渡すとコメントが取得できなくなったりする
+          // 不要なら無視してくれればいいのに
+          // 本当よくわからないので困る
+          if (msgInfo.optionalThreadId) {
+            packet.appendChild(
+              this._createThreadXml({
+                msgInfo: msgInfo,
+                version: VERSION,
+                useDuration: false,
+                useUserKey: true,
+                useThreadKey: false,
+                isOptional: true
+              })
+            );
+            packet.appendChild(
+              this._createThreadLeavesXml({
+                msgInfo: msgInfo,
+                version: VERSION,
+                useUserKey: true,
+                useThreadKey: false,
+                isOptional: true
+               })
+            );
+          } else {
+            // forkを取得するには必要っぽい
+            packet.appendChild(
+              this._createThreadXml({
+                msgInfo: msgInfo,
+                version: VERSION_OLD,
+                threadKey: threadKey,
+                force184: force184,
+                useDuration: true,
+                useThreadKey: false,
+                useUserKey: false
+              })
+            );
+          }
+            packet.appendChild(
+            this._createThreadXml({
+              msgInfo: msgInfo,
+              version: VERSION,
+              threadKey: threadKey,
+              force184: force184,
+              useDuration: false,
+              useThreadKey: true,
+              useUserKey: false
+            })
           );
           packet.appendChild(
-            this._createThreadXml(threadId, VERSION, userId, threadKey, force184, null, userKey)
+            this._createThreadLeavesXml({
+              msgInfo: msgInfo,
+              version: VERSION,
+              threadKey: threadKey,
+              force184: force184,
+              useThreadKey: true,
+              useUserKey: false
+             })
           );
-          packet.appendChild(
-            this._createThreadLeavesXml(threadId, VERSION, userId, threadKey, force184, duration, userKey)
-          );
+          
 
           span.appendChild(packet);
           var packetXml = span.innerHTML;
@@ -678,7 +763,6 @@ var ajax = function() {};
               type: 'POST',
               contentType: isNmsg ? 'text/xml' : 'text/plain',
               dataType: 'xml',
-    //          xhrFields: { withCredentials: true },
               crossDomain: true,
               cache: false
             }).then(function(result) {
@@ -731,61 +815,61 @@ var ajax = function() {};
             });
           });
         },
-        _load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId, userKey) {
+        _load: function(msgInfo) {
           var packet, self = this;
-          if (isNeedKey) {
-            return this.getThreadKey(threadId).then(function(info) {
+          if (msgInfo.isNeedKey) {
+            return this.getThreadKey(msgInfo.threadId).then(function(info) {
               console.log('threadkey: ', info);
-              packet = self.buildPacket(
-                threadId,
-                duration,
-                userId,
-                info.threadkey,
-                info.force_184,
-                optionalThreadId
-              );
-              console.log('post xml...', server, packet);
+              packet = self.buildPacket(msgInfo, info.threadkey, info.force_184);
+
+              console.log('post xml...', msgInfo.server, packet);
               //get(server, threadId, duration, info.threadkey, info.force_184);
-              return self._post(server, packet, threadId);
+              return self._post(msgInfo.server, packet, msgInfo.threadId);
             });
           } else {
-            packet = this.buildPacket(
-              threadId,
-              duration,
-              userId,
-              undefined, //  info.threadkey,
-              undefined, //  info.force_184,
-              optionalThreadId,
-              userKey
-            );
-            console.log('post xml...', server, packet);
-            return this._post(server, packet, threadId);
+            packet = this.buildPacket(msgInfo);
+
+            console.log('post xml...', msgInfo.server, packet);
+            return this._post(msgInfo.server, packet, msgInfo.threadId);
           }
         },
-        load: function(server, threadId, duration, userId, isNeedKey, optionalThreadId, userKey) {
+        load: function(msgInfo) {
+          const server           = msgInfo.server;
+          const threadId         = msgInfo.threadId;
+          const userId           = msgInfo.userId;
 
-          var timeKey = 'loadComment server: ' + server + ' thread: ' + threadId;
+          const timeKey = `loadComment server: ${server} thread: ${threadId}`;
           window.console.time(timeKey);
-          var self = this;
+          const self = this;
 
           var resolve, reject;
-          var onSuccess = function(result) {
+          const onSuccess = function(result) {
             window.console.timeEnd(timeKey);
             ZenzaWatch.debug.lastMessageServerResult = result;
 
-            var lastRes;
             var resultCode = null, thread, xml, ticket, lastRes = 0;
             try {
               xml = result.documentElement;
               var threads = xml.getElementsByTagName('thread');
 
               thread = threads[0];
+              //_.each(threads, function(t) {
+              //  var tk = t.getAttribute('ticket');
+              //  if (tk && tk !== '0') { ticket = tk; }
+              //  var lr = t.getAttribute('last_res');
+              //  if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
+              //});
+              
               _.each(threads, function(t) {
-                var tk = t.getAttribute('ticket');
-                if (tk && tk !== '0') { ticket = tk; }
-                var lr = t.getAttribute('last_res');
-                if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
+                var tid = t.getAttribute('thread');
+                if (parseInt(tid, 10) === parseInt(threadId, 10)) {
+                  thread = t;
+                }
               });
+              const tk = thread.getAttribute('ticket');
+              if (tk && tk !== '0') { ticket = tk; }
+              const lr = thread.getAttribute('last_res');
+              if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
 
               resultCode = thread.getAttribute('resultcode');
             } catch (e) {
@@ -803,6 +887,7 @@ var ajax = function() {};
               server:     server,
               userId:     userId,
               resultCode: thread.getAttribute('resultcode'),
+              threadId:   threadId,
               thread:     thread.getAttribute('thread'),
               serverTime: thread.getAttribute('server_time'),
               lastRes:    lastRes,
@@ -824,7 +909,7 @@ var ajax = function() {};
             });
           };
 
-          var onFailFinally = function(e) {
+          const onFailFinally = function(e) {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
             reject({
@@ -832,17 +917,13 @@ var ajax = function() {};
             });
           };
 
-          var onFail1st = function(e) {
+          const onFail1st = function(e) {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
             PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
 
             window.setTimeout(function() {
-              self._load(
-                server, threadId, duration,
-                userId, isNeedKey,
-                optionalThreadId, userKey
-              ).then(onSuccess, onFailFinally);
+              self._load(msgInfo).then(onSuccess, onFailFinally);
             }, 3000);
           };
 
@@ -850,17 +931,13 @@ var ajax = function() {};
           return new Promise(function(res, rej) {
             resolve = res;
             reject  = rej;
-            self._load(
-              server, threadId, duration,
-              userId, isNeedKey,
-              optionalThreadId, userKey
-            ).then(onSuccess, onFail1st);
+            self._load(msgInfo).then(onSuccess, onFail1st);
           });
         },
         _postChat: function(threadInfo, postKey, text, cmd, vpos) {
-          var self = this;
-          var div = document.createElement('div');
-          var chat = document.createElement('chat');
+          const self = this;
+          const div = document.createElement('div');
+          const chat = document.createElement('chat');
           chat.setAttribute('premium', ZenzaWatch.util.isPremium() ? '1' : '0');
           chat.setAttribute('postkey', postKey);
           chat.setAttribute('user_id', threadInfo.userId);
@@ -874,7 +951,7 @@ var ajax = function() {};
 
           window.console.log('post xml: ', xml);
           return self._post(threadInfo.server, xml).then(function(result) {
-            var status = null, chat_result, no = 0, blockNo = 0;
+            var status = null, chat_result, no = 0, blockNo = 0, xml;
             try {
               xml = result.documentElement;
               chat_result = xml.getElementsByTagName('chat_result')[0];
@@ -905,11 +982,10 @@ var ajax = function() {};
           });
         },
         postChat: function(threadInfo, text, cmd, vpos) {
-          var self = this;
-          return this.getPostKey(threadInfo.thread, threadInfo.blockNo)
+          return this.getPostKey(threadInfo.threadId, threadInfo.blockNo)
             .then(function(result) {
-            return self._postChat(threadInfo, result.postkey, text, cmd, vpos);
-          });
+            return this._postChat(threadInfo, result.postkey, text, cmd, vpos);
+          }.bind(this));
         }
       });
 
@@ -1928,5 +2004,52 @@ view_counter : "123929"
 
 
 <packet><thread thread="13xxxxxxxx" version="20090904" res_from="6369" userkey="xxxxxx" user_id="yyyyyy" scores="1" nicoru="1" with_global="1"/></packet>
+
+
+// ok
+<packet>
+  <thread thread="1470725541" version="20090904" userkey="1471592562.~1~rCebwEJbGzlWSixw9lI2YlZWVDsf2qco7hgdBei3R_0" user_id="1472081" scores="1" nicoru="1" with_global="1"/>
+
+  <thread_leaves thread="1470725541" userkey="1471592562.~1~rCebwEJbGzlWSixw9lI2YlZWVDsf2qco7hgdBei3R_0" user_id="1472081" scores="1" nicoru="1">0-24:100,1000</thread_leaves>
+
+  <thread thread="1470725542" version="20090904" user_id="1472081" threadkey="1471592569.6z3FmteLEiSPTye5JGKpf4ElmMk" force_184="1" scores="1" nicoru="1" with_global="1"/>
+
+  <thread_leaves thread="1470725542" user_id="1472081" threadkey="1471592569.6z3FmteLEiSPTye5JGKpf4ElmMk" force_184="1" scores="1" nicoru="1">0-24:100,1000</thread_leaves>
+</packet>
+// ng
+<packet>
+  <thread thread="1470725541" version="20090904" user_id="1472081" scores="1" nicoru="1" with_global="1" userkey="1471603499.~1~4jhpyBiMaT2OXWPSB78JV-y9pl4AdKGhQBB5wUC7V7o"></thread>
+
+  <thread_leaves thread="1470725541" user_id="1472081" scores="1" nicoru="1" userkey="1471603499.~1~4jhpyBiMaT2OXWPSB78JV-y9pl4AdKGhQBB5wUC7V7o">0-24:100,1000</thread_leaves>
+
+  <thread thread="1470725542" version="20090904" user_id="1472081" threadkey="1471603500.YgEECdx0MAyFE5DxAB2aHgtDQhA" force_184="1" scores="1" nicoru="1" with_global="1"></thread>
+
+  <thread_leaves thread="1470725542" user_id="1472081" threadkey="1471603500.YgEECdx0MAyFE5DxAB2aHgtDQhA" force_184="1" scores="1" nicoru="1">0-24:100,1000</thread_leaves>
+</packet>
+
+//
+//
+//
+//
+//
+//
+//
+// ng
+<packet>
+  <thread thread="1470725542" version="20061206" fork="1" click_revision="-1" res_from="-1000" user_id="1472081" threadkey="1471591927.lBm1v7L-NtK7sr2DWlSKq7mYGVc" force_184="1" scores="1" nicoru="1" with_global="1"></thread>
+
+  <thread thread="1470725542" version="20090904" user_id="1472081" threadkey="1471591927.lBm1v7L-NtK7sr2DWlSKq7mYGVc" force_184="1" scores="1" nicoru="1" with_global="1" userkey="1471591925.~1~6iDHBt0EwWmnFiFhUhWnvviZTE_k7HC9Y9p1wlboums"></thread>
+
+  <thread_leaves thread="1470725542" user_id="1472081" threadkey="1471591927.lBm1v7L-NtK7sr2DWlSKq7mYGVc" force_184="1" scores="1" nicoru="1">0-24:100,1000</thread_leaves>
+</packet>
+
+
+
+<packet>
+  <thread thread="1451710033" version="20061206" res_from="-1000" fork="1" click_revision="-1" scores="1"/>
+  <thread thread="1451710033" version="20090904" userkey="1471647753.~1~FdAz5yfQ5ZBtL74uDXhmdkoMQ2qCbsgFVIw-4sfGn0M" user_id="1472081" scores="1" nicoru="1" with_global="1"/>
+  <thread_leaves thread="1451710033" userkey="1471647753.~1~FdAz5yfQ5ZBtL74uDXhmdkoMQ2qCbsgFVIw-4sfGn0M" user_id="1472081" scores="1" nicoru="1">0-2:100,250</thread_leaves>
+</packet>
+
 */
 console.log(VideoInfoLoader);

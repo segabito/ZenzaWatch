@@ -6,11 +6,12 @@ var ZenzaWatch = {
 };
 var FullScreen = {};
 var AsyncEmitter = function() {};
+var CONSTANT = {};
 
 //===BEGIN===
 
   var CommentInputPanel = function() { this.initialize.apply(this, arguments); };
-  CommentInputPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentInputPanel.__css__ = (`
     .commentInputPanel {
       position: fixed;
       top:  calc(-50vh + 50% + 100vh - 60px - 70px);
@@ -19,7 +20,7 @@ var AsyncEmitter = function() {};
 
       width: 200px;
       height: 50px;
-      z-index: 140000;
+      z-index: ${CONSTANT.BASE_Z_INDEX + 40000};
       overflow: visible;
     }
     .zenzaPlayerContainer.mymemory .commentInputPanel,
@@ -31,11 +32,11 @@ var AsyncEmitter = function() {};
     .commentInputPanel.active {
       left: calc(-50vw + 50% + 50vw - 250px);
       width: 500px;
-      z-index: 200000;
+      z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
     }
     .zenzaScreenMode_wide .commentInputPanel,
     .fullScreen           .commentInputPanel {
-      position: absolute !important; {* fixedだとFirefoxのバグで消える *}
+      position: absolute !important; /* fixedだとFirefoxのバグで消える */
       top:  auto !important;
       bottom: 70px !important;
       left: calc(-50vw + 50% + 50vw - 100px) !important;
@@ -45,7 +46,7 @@ var AsyncEmitter = function() {};
       left: calc(-50vw + 50% + 50vw - 250px) !important;
     }
 
-    {* 縦長モニター *}
+    /* 縦長モニター */
     @media
       screen and
       (max-width: 991px) and (min-height: 700px)
@@ -207,9 +208,9 @@ var AsyncEmitter = function() {};
       background: red;
     }
 
-  */});
+  `).trim();
 
-  CommentInputPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentInputPanel.__tpl__ = (`
     <div class="commentInputPanel">
       <form action="javascript: void(0);">
       <div class="commentInputOuter">
@@ -247,7 +248,7 @@ var AsyncEmitter = function() {};
         入力時に一時停止
       </label>
     </div>
-  */});
+  `).trim();
 
   _.extend(CommentInputPanel.prototype, AsyncEmitter.prototype);
   _.assign(CommentInputPanel.prototype, {

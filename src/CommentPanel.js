@@ -7,6 +7,7 @@ var ZenzaWatch = {
 var AsyncEmitter = function() {};
 var FrameLayer = function() {};
 var PopupMessage = {};
+var CONSTANT = {};
 
 //===BEGIN===
 
@@ -561,7 +562,6 @@ var PopupMessage = {};
       margin: 0;
       padding: 0;
       background: #222;
-{*pointer-events: none;*}
       z-index: 50;
     }
 
@@ -662,7 +662,7 @@ var PopupMessage = {};
 
   */});
 
-  CommentListItemView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentListItemView.__tpl__ = (`
     <div id="item%itemId%" class="commentListItem no%no% item%itemId% %updating% fork%fork% %odd-even%"
       data-item-id="%itemId%"
       data-no="%no%" data-vpos"%vpos%"
@@ -675,7 +675,7 @@ data-title="%no%: %date% ID:%userId%
       </p>
       <p class="text" style="%shadow%">%trimText%</p>
     </div>
-  */});
+  `).trim();
 
   _.assign(CommentListItemView.prototype, {
     initialize: function(params) {

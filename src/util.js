@@ -6,7 +6,7 @@ var ZenzaWatch = {
 };
 var NicoVideoApi = {};
 var console;
-
+var CONSTANT = {};
 
 
 // アロー関数はiOSで未サポートなので注意
@@ -242,6 +242,9 @@ var console;
         lastWatchId: 'sm9',
         message: '',
 
+        enableVideoSession: false,
+        enableDmc: false, // 新サーバーを使うかどうか
+        dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
         KEY_CLOSE:      27,          // ESC
         KEY_RE_OPEN:    27 + 0x1000, // SHIFT + ESC
@@ -285,7 +288,8 @@ var console;
         defaultConfig.enableTogglePlayOnClick = true;
         defaultConfig.autoFullScreen          = true;
         defaultConfig.autoCloseFullScreen     = false;
-        defaultConfig.volume = 1.0;
+        defaultConfig.volume                  = 1.0;
+        defaultConfig.enableVideoSession      = true;
       }
 
       var config = {};
@@ -428,15 +432,15 @@ var console;
     });
 
     var PopupMessage = (function() {
-      var __view__ = ZenzaWatch.util.hereDoc(function() {/*
+      var __view__ = `
         <div class="zenzaPopupMessage">
           <span>%MSG%</span>
         </div><br>
-      */});
+      `;
 
-      var __css__ = ZenzaWatch.util.hereDoc(function() {/*
+      var __css__ = `
         .zenzaPopupMessage {
-          z-index: 200000;
+          z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
           opacity: 0;
           display: inline-block;
           white-space: nowrap;
@@ -462,7 +466,6 @@ var console;
         }
 
         .zenzaPopupMessage.show {
-          z-index: 250000;
           transform: translate3d(0, 0, 0);
           opacity: 0.8;
           max-height: 200px;
@@ -503,6 +506,11 @@ var console;
           color: #fff;
         }
 
+        .zenzaPopupMessage.debug {
+          background: #333;
+          color: #fff;
+        }
+
         .ginzaSlayer #nicoplayerContainer {
           background: #888;
           border: 1px inset;
@@ -515,12 +523,12 @@ var console;
           min-width: auto;
         }
 
-        {* できれば広告に干渉したくないけど仕方なく *}
+        /* できれば広告に干渉したくないけど仕方なく */
         div[data-follow-container] {
           position: static !important;
         }
 
-      */});
+      `;
 
       var initialize = function() {
         initialize = _.noop;
@@ -570,9 +578,25 @@ var console;
         show($msg);
       };
 
+      var debug = function(msg, allowHtml) {
+        if (msg === undefined) {
+          msg = '不明なエラー';
+          window.console.info('undefined message sent');
+          window.console.trace();
+        }
+        window.console.log('%c%s', 'background: #333; color: #fff; padding: 8px;', msg);
+        if (allowHtml !== true) {
+          msg = ZenzaWatch.util.escapeHtml(msg);
+        }
+        var $msg = $(__view__.replace('%MSG%', msg)).addClass('debug');
+        show($msg);
+      };
+
+
       return {
         notify: notify,
-        alert: alert
+        alert: alert,
+        debug: debug
       };
     })();
 
@@ -690,7 +714,7 @@ var console;
     };
     ZenzaWatch.util.getSubColor = getSubColor;
 
-    var __css__ = ZenzaWatch.util.hereDoc(function() {/*
+    var __css__ = `
       .xDomainLoaderFrame {
         border: 0;
         position: fixed;
@@ -706,7 +730,7 @@ var console;
         opacity: 0.8;
         position: absolute;
         background: #eee;
-        z-index: 200000;
+        z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
         cursor: pointer;
         border: outset 1px;
         font-size: 8pt;
@@ -746,11 +770,11 @@ var console;
         overflow: visible;
         border: 1px solid #ccc;
         padding: 0;
-        opacity: 0.9;
+        opacity: 0.99;
         box-shadow: 2px 2px 4px #fff;
         box-sizing: border-box;
         transition: opacity 0.3s ease;
-        z-index: 150000;
+        z-index: ${CONSTANT.BASE_Z_INDEX + 50000};
         user-select: none;
         -webkit-user-select: none;
         -moz-user-select: none;
@@ -779,7 +803,7 @@ var console;
       .zenzaPopupMenu ul li + li {
         border-top: 1px dotted #ccc;
       }
-      {* .zenzaPopupMenu ul li:last-child { border-bottom: none; } *}
+      /* .zenzaPopupMenu ul li:last-child { border-bottom: none; } */
 
       .zenzaPopupMenu li.selected {
         font-weight: bolder;
@@ -825,9 +849,9 @@ var console;
         box-sizing: border-box;
       }
 
-    */});
+    `;
     // 非ログイン状態のwatchページ用
-    var __no_login_watch_css__ = ZenzaWatch.util.hereDoc(function() {/*
+    var __no_login_watch_css__ = `
       body .logout-video-thumb-box {
         width: 672px;
         height: 386px;
@@ -883,7 +907,7 @@ var console;
         background: #000;
       }
 
-    */});
+    `;
 
 
     var WindowMessageEmitter = (function() {

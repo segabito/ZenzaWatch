@@ -445,7 +445,7 @@ var AsyncEmitter = function() {};
         if (!ZenzaWatch.util.isPremium()) { return; }
         if (!this._playerConfig.getValue('enableStoryBoard')) { return; }
 
-        var url = videoInfo.getVideoUrl();
+        var url = videoInfo.getStoryboardUrl();
         if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
           return;
         }

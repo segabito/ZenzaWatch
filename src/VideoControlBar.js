@@ -6,23 +6,24 @@ var ZenzaWatch = {
 };
 var AsyncEmitter = function() {};
 var StoryBoard = function() {};
+var CONSTANT = {};
 
 //===BEGIN===
 
 
   var VideoControlBar = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
-  VideoControlBar.BASE_HEIGHT = 40;
+  VideoControlBar.BASE_HEIGHT = CONSTANT.CONTROL_BAR_HEIGHT;
   VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
 
-  VideoControlBar.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  VideoControlBar.__css__ = (`
     .videoControlBar {
       position: fixed;
       top:  calc(-50vh + 50% + 100vh);
       left: calc(-50vw + 50%);
       transform: translate3d(0, -100%, 0);
       width: 100vw;
-      height: %BASE_HEIGHT%px;
+      height: ${VideoControlBar.BASE_HEIGHT}px;
       z-index: 150000;
       background: #000;
       transition: opacity 0.3s ease, transform 0.3s ease;
@@ -42,9 +43,9 @@ var StoryBoard = function() {};
     .fullScreen               .videoControlBar {
       top: 100%;
       left: 0;
-      width: 100%; {* 100vwだと縦スクロールバーと被る *}
+      width: 100%; /* 100vwだと縦スクロールバーと被る */
     }
-    {* 縦長モニター *}
+    /* 縦長モニター */
     @media
       screen and
       (max-width: 991px) and (min-height: 700px)
@@ -76,7 +77,7 @@ var StoryBoard = function() {};
 
     .zenzaScreenMode_wide .videoControlBar,
     .fullScreen           .videoControlBar {
-      position: absolute; {* firefoxのバグ対策 *}
+      position: absolute; /* firefoxのバグ対策 */
       opacity: 0;
       bottom: 0;
       background: none;
@@ -120,7 +121,6 @@ var StoryBoard = function() {};
     }
     .fullScreen .controlItemContainer.center {
       top: auto;
-           {*bottom: 0px;*}
     }
     .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
       background: transparent;
@@ -145,7 +145,6 @@ var StoryBoard = function() {};
     }
     .fullScreen .controlItemContainer.right {
       top: auto;
-           {*bottom: 0px;*}
     }
 
     .mouseMoving .controlItemContainer.right {
@@ -286,7 +285,7 @@ var StoryBoard = function() {};
       z-index: 300;
     }
 
-    {* 見えないマウス判定 *}
+    /* 見えないマウス判定 */
     .seekBarContainer .seekBarShadow {
       position: absolute;
       background: transparent;
@@ -358,7 +357,7 @@ var StoryBoard = function() {};
       top: 0px;
       box-shadow: 0 0 4px #888;
       border-radius: 4px;
-      {*mix-blend-mode: lighten;*}
+      /*mix-blend-mode: lighten;*/
       z-index: 100;
       background: #663;
       transition: left 0.2s, width 0.2s;
@@ -385,7 +384,6 @@ var StoryBoard = function() {};
       transform: translate3d(-50%, -50%, 0);
       z-index: 200;
       transition: left 0.1s linear;
-                  {*box-shadow: 0px 0 4px #fff, 0 0 8px #ff9;*}
       mix-blend-mode: lighten;
       opacity: 0.8;
     }
@@ -646,10 +644,6 @@ var StoryBoard = function() {};
       pointer-events: none;
     }
 
-    {*
-      TODO:ボリュームバー上でのドラッグに対応したら表示
-           現状はドラッグで調整できないので、表示しないほうがいい
-    *}
     .videoControlBar .volumeControl .volumeBarPointer {
       position: absolute;
       top: 50%;
@@ -717,7 +711,7 @@ var StoryBoard = function() {};
     .toggleStoryBoard {
       visibility: hidden;
       font-size: 13px;
-      {*width: 32px;*}
+      /*width: 32px;*/
       height: 32px;
       margin-top: -2px;
       line-height: 36px;
@@ -742,13 +736,126 @@ var StoryBoard = function() {};
 
 
 
+    .videoServerTypeMenu {
+      bottom: 0;
+      min-width: 40px;
+      height:    32px;
+      line-height: 30px;
+      font-size: 16px;
+      white-space: nowrap;
+    }
+
+    .is-dmcAvailable .videoServerTypeMenu  {
+      text-shadow:
+        0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
+    }
+    .mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
+      background: #336;
+    }
+
+
+    .videoServerTypeMenu:active {
+      font-size: 13px;
+    }
+    .videoServerTypeMenu.show {
+      background: #888;
+    }
+    .videoServerTypeMenu.show .tooltip {
+      display: none;
+    }
+
+
+    .videoServerTypeSelectMenu  {
+      bottom: 44px;
+      left: 50%;
+      transform: translate(-50%, 0);
+      width: 180px;
+      text-align: left;
+      line-height: 20px;
+      font-size: 16px !important;
+      text-shadow: none !important;
+      cursor: default;
+    }
+
+    .videoServerTypeSelectMenu ul {
+      margin: 2px 8px;
+    }
+
+    .videoServerTypeSelectMenu .triangle {
+      transform: translate(-50%, 0) rotate(-45deg);
+      bottom: -9px;
+      left: 50%;
+    }
+
+    .videoServerTypeSelectMenu li {
+      padding: 3px 4px;
+    }
+
+    .videoServerTypeSelectMenu li.selected {
+      pointer-events: none;
+      text-shadow: 0 0 4px #99f, 0 0 8px #99f !important;
+    }
+
+    .videoServerTypeSelectMenu .smileVideoQuality,
+    .videoServerTypeSelectMenu .dmcVideoQuality {
+      font-size: 80%;
+      padding-left: 28px;
+    }
+
+    .videoServerTypeSelectMenu .currentVideoQuality {
+      color: #ccf;
+      font-size: 80%;
+      text-align: center;
+    }
+
+    .videoServerTypeSelectMenu .dmcVideoQuality.selected     span:before,
+    .videoServerTypeSelectMenu .smileVideoQuality.selected   span:before {
+      left: 22px;
+      font-size: 80%;
+    }
+
+    .videoServerTypeSelectMenu .currentVideoQuality.selected   span:before {
+      display: none;
+    }
+
+    /* dmcを使用不能の時はdmc選択とdmc画質選択を薄く */
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc,
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality,
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
+      opacity: 0.4;
+      pointer-events: none;
+      text-shadow: none !important;
+    }
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
+      display: none;
+    }
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc span:before,
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality       span:before{
+      display: none !important;
+    }
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType {
+      pointer-events: none;
+    }
+
+
+    /* dmcを使用している時はsmileの画質選択を薄く */
+    .zenzaPlayerContainer.is-dmcPlaying .smileVideoQuality {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    /* dmcを選択していない状態ではdmcの画質選択を隠す */
+    .videoServerTypeSelectMenu:not(.is-dmcEnable) .currentVideoQuality,
+    .videoServerTypeSelectMenu:not(.is-dmcEnable) .dmcVideoQuality {
+      display: none;
+    }
 
 
 
-  */})
-  .replace(/%BASE_HEIGHT%/g, VideoControlBar.BASE_HEIGHT);
 
-  VideoControlBar.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  `).trim();
+
+  VideoControlBar.__tpl__ = (`
     <div class="videoControlBar">
 
       <div class="seekBarContainer">
@@ -845,9 +952,37 @@ var StoryBoard = function() {};
       </div>
 
       <div class="controlItemContainer right">
+
         <div class="scalingUI">
+
+          <div class="videoServerTypeMenu controlButton" data-command="videoServerTypeMenu">
+            <div class="controlButtonInner">画</div>
+            <div class="tooltip">動画サーバー・画質</div>
+            <div class="videoServerTypeSelectMenu zenzaPopupMenu">
+              <div class="triangle"></div>
+              <p class="caption">動画サーバー・画質</p>
+              <ul>
+
+                <li class="serverType select-dmc   exec-command" data-command="update-enableDmc" data-param="true"  data-type="bool">
+                  <span>新システムを使用</span>
+                  <p class="currentVideoQuality"></p>
+                </li>
+
+
+                <li class="dmcVideoQuality selected exec-command select-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
+                <!--<li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(high)</span></li>-->
+                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(mid)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(low)</span></li>
+
+                <li class="serverType select-smile exec-command" data-command="update-enableDmc" data-param="false" data-type="bool"><span>旧システムを使用</span></li>
+                <li class="smileVideoQuality select-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
+                <li class="smileVideoQuality select-economy exec-command" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
+             </ul>
+            </div>
+          </div>
+
           <div class="screenModeMenu controlButton" data-command="screenModeMenu">
-            <div class="tooltip">画面モード変更</div>
+            <div class="tooltip">画面サイズ・モード変更</div>
             <div class="controlButtonInner">&#9114;</div>
             <div class="screenModeSelectMenu zenzaPopupMenu">
               <div class="triangle"></div>
@@ -876,11 +1011,12 @@ var StoryBoard = function() {};
             <div class="controlButtonInner">&#x2699;</div>
             <div class="tooltip">設定</div>
           </div>
+
         </div>
       </div>
 
     </div>
-  */});
+  `).trim();
 
   _.assign(VideoControlBar.prototype, {
     initialize: function(params) {
@@ -906,6 +1042,7 @@ var StoryBoard = function() {};
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
+      this._initializeVideoServerTypeSelectMenu();
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(VideoControlBar.__css__);
@@ -978,6 +1115,9 @@ var StoryBoard = function() {};
 
       this._$playbackRateMenu       = $view.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
+
+      this._$videoServerTypeMenu       = $view.find('.videoServerTypeMenu');
+      this._$videoServerTypeSelectMenu = $view.find('.videoServerTypeSelectMenu');
 
       ZenzaWatch.emitter.on('hideHover', function() {
         this._hideMenu();
@@ -1106,6 +1246,65 @@ var StoryBoard = function() {};
       setVolumeBar(this._playerConfig.getValue('volume'));
       this._playerConfig.on('update-volume', setVolumeBar);
     },
+    _initializeVideoServerTypeSelectMenu: function() {
+      const config = this._playerConfig;
+      //const $btn   = this._$videoServerTypeMenu;
+      //const $label = $btn.find('.controlButtonInner');
+      const $menu  = this._$videoServerTypeSelectMenu;
+      const $current = $menu.find('.currentVideoQuality');
+
+      $menu.on('click', '.exec-command', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const $target  = $(e.target).closest('.exec-command');
+        const command  = $target.attr('data-command');
+        if (!command) { return; }
+        var   param    = $target.attr('data-param');
+        const type     = $target.attr('data-type');
+        if (param && type === 'bool') {
+          param = JSON.parse(param);
+        }
+        this.toggleVideoServerTypeMenu(false);
+        $menu.removeClass('show');
+        this.emit('command', command, param);
+      }.bind(this));
+
+      const updateEnableDmc = function(value) {
+        $menu.toggleClass('is-dmcEnable', value);
+        const $d = $menu.find('.serverType');
+        $d.removeClass('selected');
+        $menu.find('.select-' + (value ? 'dmc' : 'smile')).addClass('selected');
+      };
+
+      const updateForceEconomy = function(value) {
+        const $dq = $menu.find('.smileVideoQuality');
+        $dq.removeClass('selected');
+        $menu.find('.select-' + (value ? 'economy' : 'default')).addClass('selected');
+      };
+
+      const updateDmcVideoQuality = function(value) {
+        const $dq = $menu.find('.dmcVideoQuality');
+        $dq.removeClass('selected');
+        $menu.find('.select-' + value).addClass('selected');
+      };
+
+      const onVideoServerType = function(type, videoSessionInfo) {
+        if (type !== 'dmc') {
+          $current.text('----');
+          return;
+        }
+        $current.text(videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+      };
+
+      updateEnableDmc(      config.getValue('enableDmc'));
+      updateForceEconomy(   config.getValue('forceEconomy'));
+      updateDmcVideoQuality(config.getValue('dmcVideoQuality'));
+      config.on('update-enableDmc',       updateEnableDmc);
+      config.on('update-forceEconomy',    updateForceEconomy);
+      config.on('update-dmcVideoQuality', updateDmcVideoQuality);
+
+      this._player.on('videoServerType', onVideoServerType);
+    },
     _onControlButton: function(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -1113,6 +1312,10 @@ var StoryBoard = function() {};
       var $target = $(e.target).closest('.controlButton');
       var command = $target.attr('data-command');
       var param   = $target.attr('data-param');
+      var type    = $target.attr('data-type');
+      if (param && (type === 'bool' || type === 'json')) {
+        param = JSON.parse(param);
+      }
       switch (command) {
         case 'screenModeMenu':
           this.toggleScreenModeMenu();
@@ -1123,6 +1326,9 @@ var StoryBoard = function() {};
         case 'toggleStoryBoard':
           this._storyBoard.toggle();
           break;
+        case 'videoServerTypeMenu':
+          this.toggleVideoServerTypeMenu();
+          break;
         default:
           this.emit('command', command, param);
           break;
@@ -1132,7 +1338,8 @@ var StoryBoard = function() {};
       var self = this;
       $([
         'toggleScreenModeMenu',
-        'togglePlaybackRateMenu'
+        'togglePlaybackRateMenu',
+        'toggleVideoServerTypeMenu'
       ]).each(function(i, func) {
         (self[func])(false);
       });
@@ -1145,6 +1352,11 @@ var StoryBoard = function() {};
     toggleScreenModeMenu: function(v) {
       var $btn  = this._$screenModeMenu;
       var $menu = this._$screenModeSelectMenu;
+      this._toggleMenu('screenMode', $btn, $menu, v);
+    },
+    toggleVideoServerTypeMenu: function(v) {
+      var $btn  = this._$videoServerTypeMenu;
+      var $menu = this._$videoServerTypeSelectMenu;
       this._toggleMenu('screenMode', $btn, $menu, v);
     },
     _toggleMenu: function(name, $btn, $menu, v) {
