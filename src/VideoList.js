@@ -223,7 +223,7 @@ var FrameLayer = function() {};
   VideoListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
   */});
 
-  VideoListView.__tpl__ = `
+  VideoListView.__tpl__ = (`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -263,7 +263,7 @@ var FrameLayer = function() {};
 </body>
 </html>
 
-  `.trim();
+  `).trim();
 
   _.extend(VideoListView.prototype, AsyncEmitter.prototype);
   _.assign(VideoListView.prototype, {
@@ -597,7 +597,7 @@ var FrameLayer = function() {};
       if (_.isFunction(itemId.getItemId)) { itemId = itemId.getItemId(); }
       var $target = this._$body.find('.item' + itemId);
       if ($target.length < 1) { return; }
-      var top = Math.max(0, $target.offset().top - 8);
+      var top = Math.max(0, $target.offset().top - 8 + this.scrollTop());
       this.scrollTop(top);
     }
   });

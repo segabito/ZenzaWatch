@@ -211,8 +211,8 @@ var VideoInfoLoader = {};
       this._isEnded = true;
       this.emit('ended');
     },
-    _onError: function() {
-      this.emit('error');
+    _onError: function(e) {
+      this.emit('error', e);
     },
     _onAbort: function() {
       this.emit('abort');
@@ -781,11 +781,11 @@ var VideoInfoLoader = {};
       this.addClass('abort');
       this.emit('abort');
     },
-    _onError: function() {
+    _onError: function(e) {
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
       this.addClass('error');
       this._canPlay = false;
-      this.emit('error');
+      this.emit('error', e);
     },
     _onPause: function() {
       console.log('%c_onPause:', 'background: cyan;', arguments);

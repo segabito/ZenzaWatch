@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.0
+// @version        1.4.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.0';
+  var VER = '1.4.1';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -514,7 +514,7 @@ var monkey = function() {
         <div class="zenzaPopupMessage">
           <span>%MSG%</span>
         </div><br>
-      `;
+      `.trim();
 
       var __css__ = `
         .zenzaPopupMessage {
@@ -4523,8 +4523,8 @@ var monkey = function() {
       this._isEnded = true;
       this.emit('ended');
     },
-    _onError: function() {
-      this.emit('error');
+    _onError: function(e) {
+      this.emit('error', e);
     },
     _onAbort: function() {
       this.emit('abort');
@@ -5093,11 +5093,11 @@ var monkey = function() {
       this.addClass('abort');
       this.emit('abort');
     },
-    _onError: function() {
+    _onError: function(e) {
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
       this.addClass('error');
       this._canPlay = false;
-      this.emit('error');
+      this.emit('error', e);
     },
     _onPause: function() {
       console.log('%c_onPause:', 'background: cyan;', arguments);
@@ -8265,12 +8265,12 @@ var monkey = function() {
   CommentPreviewView.MAX_HEIGHT = '200px';
   CommentPreviewView.ITEM_HEIGHT = 20;
   _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
-  CommentPreviewView.__tpl__ = `
+  CommentPreviewView.__tpl__ = (`
     <div class="zenzaCommentPreview">
       <div class="zenzaCommentPreviewInner">
       </div>
     </div>
-  `;
+  `).trim();
 
   CommentPreviewView.__css__ = `
     .zenzaCommentPreview {
@@ -13327,13 +13327,13 @@ var SlotLayoutWorker = (function() {
         .on('click',     this._onClick    .bind(this))
         .on('dblclick',  this._onDblClick .bind(this))
 //        .on('mousemove', _.debounce(this._onMouseMove.bind(this), 100))
-        .on('mouseover', this._onMouseOver.bind(this))
-        .on('mouseleave', this._onMouseOut .bind(this))
         .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); });
 
       this._$menu.on('click', this._onMenuClick.bind(this));
 
       this._$container
+        .on('mouseover', this._onMouseOver.bind(this))
+        .on('mouseleave', this._onMouseOut .bind(this))
         .on('scroll', this._onScroll.bind(this))
         .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
       $win
@@ -14469,7 +14469,7 @@ data-title="%no%: %date% ID:%userId%
   VideoListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
   */});
 
-  VideoListView.__tpl__ = `
+  VideoListView.__tpl__ = (`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -14509,7 +14509,7 @@ data-title="%no%: %date% ID:%userId%
 </body>
 </html>
 
-  `.trim();
+  `).trim();
 
   _.extend(VideoListView.prototype, AsyncEmitter.prototype);
   _.assign(VideoListView.prototype, {
@@ -14843,7 +14843,7 @@ data-title="%no%: %date% ID:%userId%
       if (_.isFunction(itemId.getItemId)) { itemId = itemId.getItemId(); }
       var $target = this._$body.find('.item' + itemId);
       if ($target.length < 1) { return; }
-      var top = Math.max(0, $target.offset().top - 8);
+      var top = Math.max(0, $target.offset().top - 8 + this.scrollTop());
       this.scrollTop(top);
     }
   });
@@ -17680,7 +17680,7 @@ var VideoSession = (function() {
     }
   `;
 
-  NicoVideoPlayerDialogView.__tpl__ = `
+  NicoVideoPlayerDialogView.__tpl__ = (`
     <div class="zenzaVideoPlayerDialog">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
@@ -17692,7 +17692,7 @@ var VideoSession = (function() {
         </div>
       </div>
     </div>
-  `;
+  `).trim();
 
   _.extend(NicoVideoPlayerDialogView.prototype, AsyncEmitter.prototype);
   _.assign(NicoVideoPlayerDialogView.prototype, {
@@ -19861,7 +19861,7 @@ var VideoSession = (function() {
 
   `;
 
-  VideoHoverMenu.__tpl__ = `
+  VideoHoverMenu.__tpl__ = (`
       <div class="menuItemContainer rightTop">
         <div class="scalingUI">
           <div class="menuButton zenzaTweetButton" data-command="tweet">
@@ -19942,7 +19942,7 @@ var VideoSession = (function() {
       </div>
 
     </div>
-  `;
+  `).trim();
 
   _.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
   _.assign(VideoHoverMenu.prototype, {
@@ -22887,6 +22887,12 @@ var VideoSession = (function() {
             $video.find('.more').after($a);
           }
         });
+      }
+
+      if (location.host === 'search.nicovideo.jp') {
+        const removeClick = function() {$('a.click').removeClass('click');};
+        removeClick();
+        $('#row-results').on('DOMNodeInserted.zenzawatch', removeClick);
       }
     };
 

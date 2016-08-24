@@ -762,7 +762,7 @@ var CONSTANT = {};
     }
   `;
 
-  NicoVideoPlayerDialogView.__tpl__ = `
+  NicoVideoPlayerDialogView.__tpl__ = (`
     <div class="zenzaVideoPlayerDialog">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
@@ -774,7 +774,7 @@ var CONSTANT = {};
         </div>
       </div>
     </div>
-  `;
+  `).trim();
 
   _.extend(NicoVideoPlayerDialogView.prototype, AsyncEmitter.prototype);
   _.assign(NicoVideoPlayerDialogView.prototype, {
@@ -2943,7 +2943,7 @@ var CONSTANT = {};
 
   `;
 
-  VideoHoverMenu.__tpl__ = `
+  VideoHoverMenu.__tpl__ = (`
       <div class="menuItemContainer rightTop">
         <div class="scalingUI">
           <div class="menuButton zenzaTweetButton" data-command="tweet">
@@ -3024,7 +3024,7 @@ var CONSTANT = {};
       </div>
 
     </div>
-  `;
+  `).trim();
 
   _.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
   _.assign(VideoHoverMenu.prototype, {

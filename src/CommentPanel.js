@@ -246,13 +246,13 @@ var CONSTANT = {};
         .on('click',     this._onClick    .bind(this))
         .on('dblclick',  this._onDblClick .bind(this))
 //        .on('mousemove', _.debounce(this._onMouseMove.bind(this), 100))
-        .on('mouseover', this._onMouseOver.bind(this))
-        .on('mouseleave', this._onMouseOut .bind(this))
         .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); });
 
       this._$menu.on('click', this._onMenuClick.bind(this));
 
       this._$container
+        .on('mouseover', this._onMouseOver.bind(this))
+        .on('mouseleave', this._onMouseOut .bind(this))
         .on('scroll', this._onScroll.bind(this))
         .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
       $win

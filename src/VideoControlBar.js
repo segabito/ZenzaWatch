@@ -1830,12 +1830,12 @@ var CONSTANT = {};
   CommentPreviewView.MAX_HEIGHT = '200px';
   CommentPreviewView.ITEM_HEIGHT = 20;
   _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
-  CommentPreviewView.__tpl__ = `
+  CommentPreviewView.__tpl__ = (`
     <div class="zenzaCommentPreview">
       <div class="zenzaCommentPreviewInner">
       </div>
     </div>
-  `;
+  `).trim();
 
   CommentPreviewView.__css__ = `
     .zenzaCommentPreview {

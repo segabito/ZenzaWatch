@@ -436,7 +436,7 @@ var CONSTANT = {};
         <div class="zenzaPopupMessage">
           <span>%MSG%</span>
         </div><br>
-      `;
+      `.trim();
 
       var __css__ = `
         .zenzaPopupMessage {

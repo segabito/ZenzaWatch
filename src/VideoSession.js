@@ -389,12 +389,12 @@ sample_response = `
       <play_seek_time>0</play_seek_time>
       <play_speed>1.0</play_speed>
       <content_uri>
-        http://pa04.dmc.nico:2807/vod/ht2_nicovideo/nicovideo-%VIDEOID%_YYYYYY?ht2_nicovideo=%USERID%.omliyg_oc3d12_1a8zesd1aw3zn
+        %video url%
       </content_uri>
       <session_operation_auth>
         <session_operation_auth_by_signature>
-          <created_time>1471500446000</created_time>
-          <expire_time>1471586846000</expire_time>
+          <created_time>11111111111</created_time>
+          <expire_time>22222222222</expire_time>
           <token>{...}</token>
           <signature>
             5e2e1bcb801ffa3d835de7e42410e8361e6bd68ca6182037942dd239396b7339
@@ -417,13 +417,13 @@ sample_response = `
         <execution_history/>
       </runtime_info>
       <client_info>
-        <player_id>nicovideo-6-7i8lDrvLqJ_1471500446254</player_id>
+        <player_id>aafsakdaslfjaslfjlafj</player_id>
         <remote_ip></remote_ip>
         <tracking_info></tracking_info>
       </client_info>
-      <created_time>1471500470222</created_time>
-      <modified_time>1471500470222</modified_time>
-      <priority>0.80000000000000004441</priority>
+      <created_time>111111111</created_time>
+      <modified_time>2222222222222</modified_time>
+      <priority>0.123456</priority>
       <content_route>0</content_route>
       <version></version>
     </session>

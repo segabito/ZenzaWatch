@@ -141,6 +141,12 @@ var AsyncEmitter = function() {};
           }
         });
       }
+
+      if (location.host === 'search.nicovideo.jp') {
+        const removeClick = function() {$('a.click').removeClass('click');};
+        removeClick();
+        $('#row-results').on('DOMNodeInserted.zenzawatch', removeClick);
+      }
     };
 
     var initialize = function() {
