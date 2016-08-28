@@ -1978,7 +1978,7 @@ var CONSTANT = {};
     },
     _onVideoSessionFail: function(result) {
       window.console.error('dmc fail', result);
-      this._setErrorMessage('動画の読み込みに失敗しました(DMC)', this._watchId);
+      this._setErrorMessage('動画の読み込みに失敗しました(dmc.nico)', this._watchId);
       this._hasError = true;
       this._view.removeClass('loading').addClass('error');
       if (this.isPlaylistEnable()) {
@@ -2393,7 +2393,7 @@ var CONSTANT = {};
     .menuItemContainer {
       box-sizing: border-box;
       position: absolute;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
+      z-index: ${CONSTANT.BASE_Z_INDEX + 40000};
       overflow: visible;
 
       will-change: transform, opacity;
@@ -2805,7 +2805,7 @@ var CONSTANT = {};
     .mylistSelectMenu .mylistSelectMenuInner {
       overflow-y: auto;
       overflow-x: hidden;
-      max-height: 60vh;
+      max-height: 50vh;
     }
 
     .mylistSelectMenu .triangle {

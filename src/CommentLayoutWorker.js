@@ -115,7 +115,70 @@ var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
       return target;
     };
 
+
+    /**
+     * 最初に衝突が起こりうるindexを返す。
+     * 処理効率化のための物
+     */
+    var findCollisionStartIndex = function(target, members) {
+      var o;
+      var tl = target.beginLeft;
+      var tr = target.endRight;
+      var fork = target.fork;
+      for (var i = 0, len = members.length; i < len; i++) {
+        o = members[i];
+        var ol = o.beginLeft;
+        var or = o.endRight;
+
+        // 自分よりうしろのメンバーには影響を受けないので処理不要
+        if (o.id === target.id) { return -1; }
+
+        if (fork !== o.fork || o.invisible || o.isOverflow) { continue; }
+
+        if (tl <= or && tr >= ol) { return i; }
+      }
+
+      return -1;
+    };
+
+    var _checkCollision = function(target, members, collisionStartIndex) {
+      var o;
+      const beginLeft = target.beginLeft;
+      for (var i = collisionStartIndex, len = members.length; i < len; i++) {
+        o = members[i];
+
+        // 自分よりうしろのメンバーには影響を受けないので処理不要
+        if (o.id === target.id) { return target; }
+
+        if (beginLeft > o.endRight)  { continue; }
+
+        if (isConflict(target, o)) {
+          target = moveToNextLine(target, o);
+
+          // ずらした後は再度全チェックするのを忘れずに(再帰)
+          if (!target.isOverflow) {
+            return _checkCollision(target, members, collisionStartIndex);
+          }
+        }
+      }
+      return target;
+    };
+
     var checkCollision = function(target, members) {
+      if (target.isInvisible) { return target; }
+
+      var collisionStartIndex = findCollisionStartIndex(target, members);
+
+      if (collisionStartIndex < 0) { return target; }
+    
+      return _checkCollision(target, members, collisionStartIndex);
+    };
+
+
+    /**
+     * findCollisionStartIndexの効率化を適用する前の物
+     */
+    var checkCollision_old = function(target, members) {
       if (target.isInvisible) { return target; }
 
       var o;

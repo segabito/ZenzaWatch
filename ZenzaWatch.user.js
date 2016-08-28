@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.1
+// @version        1.4.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.1';
+  var VER = '1.4.2';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -2680,8 +2680,10 @@ var monkey = function() {
               
               _.each(threads, function(t) {
                 var tid = t.getAttribute('thread');
+                //window.console.log(t, t.outerHTML);
                 if (parseInt(tid, 10) === parseInt(threadId, 10)) {
                   thread = t;
+                  return false;
                 }
               });
               const tk = thread.getAttribute('ticket');
@@ -12585,7 +12587,70 @@ var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
       return target;
     };
 
+
+    /**
+     * 最初に衝突が起こりうるindexを返す。
+     * 処理効率化のための物
+     */
+    var findCollisionStartIndex = function(target, members) {
+      var o;
+      var tl = target.beginLeft;
+      var tr = target.endRight;
+      var fork = target.fork;
+      for (var i = 0, len = members.length; i < len; i++) {
+        o = members[i];
+        var ol = o.beginLeft;
+        var or = o.endRight;
+
+        // 自分よりうしろのメンバーには影響を受けないので処理不要
+        if (o.id === target.id) { return -1; }
+
+        if (fork !== o.fork || o.invisible || o.isOverflow) { continue; }
+
+        if (tl <= or && tr >= ol) { return i; }
+      }
+
+      return -1;
+    };
+
+    var _checkCollision = function(target, members, collisionStartIndex) {
+      var o;
+      const beginLeft = target.beginLeft;
+      for (var i = collisionStartIndex, len = members.length; i < len; i++) {
+        o = members[i];
+
+        // 自分よりうしろのメンバーには影響を受けないので処理不要
+        if (o.id === target.id) { return target; }
+
+        if (beginLeft > o.endRight)  { continue; }
+
+        if (isConflict(target, o)) {
+          target = moveToNextLine(target, o);
+
+          // ずらした後は再度全チェックするのを忘れずに(再帰)
+          if (!target.isOverflow) {
+            return _checkCollision(target, members, collisionStartIndex);
+          }
+        }
+      }
+      return target;
+    };
+
     var checkCollision = function(target, members) {
+      if (target.isInvisible) { return target; }
+
+      var collisionStartIndex = findCollisionStartIndex(target, members);
+
+      if (collisionStartIndex < 0) { return target; }
+    
+      return _checkCollision(target, members, collisionStartIndex);
+    };
+
+
+    /**
+     * findCollisionStartIndexの効率化を適用する前の物
+     */
+    var checkCollision_old = function(target, members) {
       if (target.isInvisible) { return target; }
 
       var o;
@@ -16925,7 +16990,7 @@ var VideoSession = (function() {
       // 一定時間停止が続いた and 生成から一定時間経過している場合は破棄
       if (this._pauseCount             >= SESSION_CLOSE_PAUSE_COUNT &&
           Date.now() - this._createdAt >= SESSION_CLOSE_TIME_MS) {
-        PopupMessage.debug('VideoSession closed.');
+        //PopupMessage.debug('VideoSession closed.');
         this.close();
       }
     }
@@ -18896,7 +18961,7 @@ var VideoSession = (function() {
     },
     _onVideoSessionFail: function(result) {
       window.console.error('dmc fail', result);
-      this._setErrorMessage('動画の読み込みに失敗しました(DMC)', this._watchId);
+      this._setErrorMessage('動画の読み込みに失敗しました(dmc.nico)', this._watchId);
       this._hasError = true;
       this._view.removeClass('loading').addClass('error');
       if (this.isPlaylistEnable()) {
@@ -19311,7 +19376,7 @@ var VideoSession = (function() {
     .menuItemContainer {
       box-sizing: border-box;
       position: absolute;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
+      z-index: ${CONSTANT.BASE_Z_INDEX + 40000};
       overflow: visible;
 
       will-change: transform, opacity;
@@ -19723,7 +19788,7 @@ var VideoSession = (function() {
     .mylistSelectMenu .mylistSelectMenuInner {
       overflow-y: auto;
       overflow-x: hidden;
-      max-height: 60vh;
+      max-height: 50vh;
     }
 
     .mylistSelectMenu .triangle {
@@ -20279,13 +20344,14 @@ var VideoSession = (function() {
   CommentInputPanel.__css__ = (`
     .commentInputPanel {
       position: fixed;
-      top:  calc(-50vh + 50% + 100vh - 60px - 70px);
-      left: calc(-50vw + 50% + 50vw - 100px);
+      top:  calc(-50vh + 50% + 100vh);
+      left: calc(-50vw + 50% + 50vw);
       box-sizing: border-box;
 
       width: 200px;
       height: 50px;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 40000};
+      z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
+      transform: translate(-50%, -170px);
       overflow: visible;
     }
     .zenzaPlayerContainer.mymemory .commentInputPanel,
@@ -20295,7 +20361,7 @@ var VideoSession = (function() {
     }
 
     .commentInputPanel.active {
-      left: calc(-50vw + 50% + 50vw - 250px);
+      left: calc(-50vw + 50% + 50vw);
       width: 500px;
       z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
     }
@@ -20303,12 +20369,14 @@ var VideoSession = (function() {
     .fullScreen           .commentInputPanel {
       position: absolute !important; /* fixedだとFirefoxのバグで消える */
       top:  auto !important;
-      bottom: 70px !important;
-      left: calc(-50vw + 50% + 50vw - 100px) !important;
+      bottom: 120px !important;
+      transform: translate(-50%, 0);
+      /*left: calc(-50vw + 50% + 50vw) !important;*/
+      left: 50%;
     }
     .zenzaScreenMode_wide .commentInputPanel.active,
     .fullScreen           .commentInputPanel.active {
-      left: calc(-50vw + 50% + 50vw - 250px) !important;
+      /*left: calc(-50vw + 50% + 50vw) !important;*/
     }
 
     /* 縦長モニター */
@@ -20317,7 +20385,8 @@ var VideoSession = (function() {
       (max-width: 991px) and (min-height: 700px)
     {
       .zenzaScreenMode_normal .commentInputPanel {
-        top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);
+        /*top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);*/
+        transform: translate(-50%, -230px);
       }
     }
     @media
@@ -20325,7 +20394,8 @@ var VideoSession = (function() {
       (max-width: 1215px) and (min-height: 700px)
     {
       .zenzaScreenMode_big .commentInputPanel {
-        top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);
+        /*top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);*/
+        transform: translate(-50%, -230px);
       }
     }
 

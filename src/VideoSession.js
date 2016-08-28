@@ -330,7 +330,7 @@ var VideoSession = (function() {
       // 一定時間停止が続いた and 生成から一定時間経過している場合は破棄
       if (this._pauseCount             >= SESSION_CLOSE_PAUSE_COUNT &&
           Date.now() - this._createdAt >= SESSION_CLOSE_TIME_MS) {
-        PopupMessage.debug('VideoSession closed.');
+        //PopupMessage.debug('VideoSession closed.');
         this.close();
       }
     }

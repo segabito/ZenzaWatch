@@ -862,8 +862,10 @@ var ajax = function() {};
               
               _.each(threads, function(t) {
                 var tid = t.getAttribute('thread');
+                //window.console.log(t, t.outerHTML);
                 if (parseInt(tid, 10) === parseInt(threadId, 10)) {
                   thread = t;
+                  return false;
                 }
               });
               const tk = thread.getAttribute('ticket');

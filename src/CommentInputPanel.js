@@ -14,13 +14,14 @@ var CONSTANT = {};
   CommentInputPanel.__css__ = (`
     .commentInputPanel {
       position: fixed;
-      top:  calc(-50vh + 50% + 100vh - 60px - 70px);
-      left: calc(-50vw + 50% + 50vw - 100px);
+      top:  calc(-50vh + 50% + 100vh);
+      left: calc(-50vw + 50% + 50vw);
       box-sizing: border-box;
 
       width: 200px;
       height: 50px;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 40000};
+      z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
+      transform: translate(-50%, -170px);
       overflow: visible;
     }
     .zenzaPlayerContainer.mymemory .commentInputPanel,
@@ -30,7 +31,7 @@ var CONSTANT = {};
     }
 
     .commentInputPanel.active {
-      left: calc(-50vw + 50% + 50vw - 250px);
+      left: calc(-50vw + 50% + 50vw);
       width: 500px;
       z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
     }
@@ -38,12 +39,14 @@ var CONSTANT = {};
     .fullScreen           .commentInputPanel {
       position: absolute !important; /* fixedだとFirefoxのバグで消える */
       top:  auto !important;
-      bottom: 70px !important;
-      left: calc(-50vw + 50% + 50vw - 100px) !important;
+      bottom: 120px !important;
+      transform: translate(-50%, 0);
+      /*left: calc(-50vw + 50% + 50vw) !important;*/
+      left: 50%;
     }
     .zenzaScreenMode_wide .commentInputPanel.active,
     .fullScreen           .commentInputPanel.active {
-      left: calc(-50vw + 50% + 50vw - 250px) !important;
+      /*left: calc(-50vw + 50% + 50vw) !important;*/
     }
 
     /* 縦長モニター */
@@ -52,7 +55,8 @@ var CONSTANT = {};
       (max-width: 991px) and (min-height: 700px)
     {
       .zenzaScreenMode_normal .commentInputPanel {
-        top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);
+        /*top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);*/
+        transform: translate(-50%, -230px);
       }
     }
     @media
@@ -60,7 +64,8 @@ var CONSTANT = {};
       (max-width: 1215px) and (min-height: 700px)
     {
       .zenzaScreenMode_big .commentInputPanel {
-        top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);
+        /*top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);*/
+        transform: translate(-50%, -230px);
       }
     }
 
