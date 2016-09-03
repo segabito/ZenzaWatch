@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.2
+// @version        1.4.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.2';
+  var VER = '1.4.4';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -2686,8 +2686,20 @@ var monkey = function() {
                   return false;
                 }
               });
-              const tk = thread.getAttribute('ticket');
-              if (tk && tk !== '0') { ticket = tk; }
+              // どのthreadを参照すればいいのか仕様がわからない。
+              // しかたないので総当たり
+              _.each(threads, function(t) {
+                var tid = t.getAttribute('thread');
+                //window.console.log(t, t.outerHTML);
+                if (parseInt(tid, 10) === parseInt(threadId, 10)) {
+                  thread = t;
+                  const tk = thread.getAttribute('ticket');
+                  if (tk && tk !== '0') { ticket = tk; }
+                }
+              });
+
+               //const tk = thread.getAttribute('ticket');
+              //if (tk && tk !== '0') { ticket = tk; }
               const lr = thread.getAttribute('last_res');
               if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
 
@@ -4953,7 +4965,7 @@ var monkey = function() {
 
       console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
-      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay/>')
+      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline />')
         .addClass(this._id)
         .attr(options);
       this._video = this._$video[0];
@@ -5291,6 +5303,21 @@ var monkey = function() {
       //}
 
       //this._subVideo.removeAttribute('src');
+    },
+    /**
+     * 画面キャプチャを取る。
+     * CORSの制限があるので保存できない。
+     */
+    getSnapshot: function() {
+      const video = this._video;
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0);
+      return canvas;
     }
   });
 
@@ -14653,7 +14680,8 @@ data-title="%no%: %date% ID:%userId%
       this._$dragging = $item;
       this._dragOffset = {
         x: e.pageX,
-        y: e.pageY
+        y: e.pageY,
+        st: this.scrollTop()
       };
       this._$dragTarget = null;
       this._$body.find('.dragover').removeClass('dragover');
@@ -14676,7 +14704,7 @@ data-title="%no%: %date% ID:%userId%
     _onBodyMouseMove: function(e) {
       if (!this._$dragging) { return; }
       var l = e.pageX - this._dragOffset.x;
-      var r = e.pageY - this._dragOffset.y;
+      var r = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
       var translate = ['translate(', l, 'px, ', r, 'px)'].join('');
 
       if (l * l + r * r < 100) { return; }

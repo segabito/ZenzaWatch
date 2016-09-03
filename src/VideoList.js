@@ -342,7 +342,8 @@ var FrameLayer = function() {};
       this._$dragging = $item;
       this._dragOffset = {
         x: e.pageX,
-        y: e.pageY
+        y: e.pageY,
+        st: this.scrollTop()
       };
       this._$dragTarget = null;
       this._$body.find('.dragover').removeClass('dragover');
@@ -365,7 +366,7 @@ var FrameLayer = function() {};
     _onBodyMouseMove: function(e) {
       if (!this._$dragging) { return; }
       var l = e.pageX - this._dragOffset.x;
-      var r = e.pageY - this._dragOffset.y;
+      var r = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
       var translate = ['translate(', l, 'px, ', r, 'px)'].join('');
 
       if (l * l + r * r < 100) { return; }

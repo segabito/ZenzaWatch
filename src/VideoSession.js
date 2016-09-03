@@ -397,7 +397,7 @@ sample_response = `
           <expire_time>22222222222</expire_time>
           <token>{...}</token>
           <signature>
-            5e2e1bcb801ffa3d835de7e42410e8361e6bd68ca6182037942dd239396b7339
+            zzzzzzzzzzzzzzzzzzzzzzz
           </signature>
         </session_operation_auth_by_signature>
       </session_operation_auth>
@@ -409,7 +409,7 @@ sample_response = `
         <service_user_id>%USERID%</service_user_id>
         <content_auth_info><method>query</method>
         <name>ht2_nicovideo</name>
-        <value>1472081.omliyg_oc3d12_1a8zesd1aw3zn</value>
+        <value>xxxxxxxxxxxxxxxxxxxxxxxxx</value>
         </content_auth_info>
       </content_auth>
       <runtime_info>

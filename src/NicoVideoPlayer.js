@@ -639,7 +639,7 @@ var VideoInfoLoader = {};
 
       console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
-      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay/>')
+      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline />')
         .addClass(this._id)
         .attr(options);
       this._video = this._$video[0];
@@ -977,6 +977,21 @@ var VideoInfoLoader = {};
       //}
 
       //this._subVideo.removeAttribute('src');
+    },
+    /**
+     * 画面キャプチャを取る。
+     * CORSの制限があるので保存できない。
+     */
+    getSnapshot: function() {
+      const video = this._video;
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0);
+      return canvas;
     }
   });
 

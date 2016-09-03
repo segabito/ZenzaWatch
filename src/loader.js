@@ -868,8 +868,20 @@ var ajax = function() {};
                   return false;
                 }
               });
-              const tk = thread.getAttribute('ticket');
-              if (tk && tk !== '0') { ticket = tk; }
+              // どのthreadを参照すればいいのか仕様がわからない。
+              // しかたないので総当たり
+              _.each(threads, function(t) {
+                var tid = t.getAttribute('thread');
+                //window.console.log(t, t.outerHTML);
+                if (parseInt(tid, 10) === parseInt(threadId, 10)) {
+                  thread = t;
+                  const tk = thread.getAttribute('ticket');
+                  if (tk && tk !== '0') { ticket = tk; }
+                }
+              });
+
+               //const tk = thread.getAttribute('ticket');
+              //if (tk && tk !== '0') { ticket = tk; }
               const lr = thread.getAttribute('last_res');
               if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
 
