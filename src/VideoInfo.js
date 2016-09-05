@@ -68,7 +68,62 @@ var ZenzaWatch = {
     get authTypes() {
       return this._session.authTypes;
     }
+  }
 
+  class VideoFilter {
+    constructor(ngOwner, ngTag) {
+      this.ngOwner = ngOwner;
+      this.ngTag   = ngTag;
+    }
+
+    get ngOwner() {
+      return this._ngOwner || [];
+    }
+
+    set ngOwner(owner) {
+      owner = _.isArray(owner) ? owner : owner.toString().split(/[\r\n]/);
+      var list = [];
+      _.each(owner, function(o) {
+        list.push(o.replace(/#.*$/, '').trim());
+      });
+      this._ngOwner = list;
+    }
+
+    get ngTag() {
+      return this._ngTag || [];
+    }
+
+    set ngTag(tag) {
+      tag = _.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
+      var list = [];
+      _.each(tag, function(t) {
+        list.push(t.toLowerCase().trim());
+      });
+      this._ngTag = list;
+    }
+
+    isNgVideo(videoInfo) {
+      window.console.info('isNgVideo?', videoInfo, this.ngTag, this.ngOwner);
+      var isNg = false;
+      var isChannel = videoInfo.isChannel();
+      var ngTag = this.ngTag;
+      _.each(videoInfo.getTagList(), function(tag) {
+        var text = (tag.tag || '').toLowerCase();
+        if (_.contains(ngTag, text)) {
+          isNg = true;
+        }
+        window.console.log('ngTag?', text, tag, _.contains(ngTag, text));
+      });
+      if (isNg) { return true; }
+
+      var owner = videoInfo.getOwnerInfo();
+      var ownerId = isChannel ? ('ch' + owner.id) : owner.id;
+      if (_.contains(this.ngOwner, ownerId)) {
+        isNg = true;
+      }
+
+      return isNg;
+    }
   }
 
   var VideoInfoModel = function() { this.initialize.apply(this, arguments); };

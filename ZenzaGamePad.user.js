@@ -2,8 +2,8 @@
 // @name        ZenzaGamePad
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
-// @include     http://www.nicovideo.jp/*
-// @version     1.2.4
+// @include     http://*.nicovideo.jp/*
+// @version     1.3
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -948,6 +948,7 @@
       loadMonkey();
     } else {
       window.jQuery('body').on('ZenzaWatchReady', function() {
+      //document.body.addEventListener('ZenzaWatchReady', function() {
         window.console.log('onZenzaWatchReady');
         loadMonkey();
       });

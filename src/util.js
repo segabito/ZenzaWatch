@@ -211,6 +211,9 @@ var CONSTANT = {};
         wordRegFilterFlags: 'i',
         userIdFilter: '',
         commandFilter: '',
+        
+        videoTagFilter: '',
+        videoOwnerFilter: '',
 
         enableCommentPanel: true,
         enableCommentPanelAutoScroll: true,

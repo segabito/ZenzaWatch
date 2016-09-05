@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     0.2.1
+// @version     0.2.2
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -206,6 +206,14 @@
         transform-origin: center center;
       }
 
+      .textAreaInput {
+        width: 90%;
+        height: 200px;
+        margin: 0 5%;
+        word-break: break-all;
+        overflow: scroll;
+      }
+
       .zenzaAdvancedSetting-rawData,
       .zenzaAdvancedSetting-playlistData {
         width: 90%;
@@ -237,7 +245,8 @@
       }
 
     */});
-    SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+
+    SettingPanel.__tpl__ = (`
       <div class="zenzaAdvancedSettingPanel">
         <div class="settingPanelInner">
           <div class="enableFullScreenOnDoubleClickControl control toggle">
@@ -272,6 +281,15 @@
           <input type="text" class="textInput wordRegFilterFlagsInput"
             data-setting-name="wordRegFilterFlags">
 
+          <p class="caption sub">NG tag</p>
+          <span class="example">連続再生中にこのタグのある動画があったらスキップ</span>
+          <textarea class="videoTagFilter textAreaInput"
+            data-setting-name="videoTagFilter"></textarea>
+
+          <p class="caption sub">NG owner</p>
+          <span class="example">連続再生中にこの投稿者IDがあったらスキップ。 チャンネルの場合はchをつける 数字の後に 入力例<code>2525 #コメント</code></span>
+          <textarea class="videoOwnerFilter textAreaInput"
+            data-setting-name="videoOwnerFilter"></textarea>
 
           <div class="debugControl control toggle">
             <label>
@@ -295,7 +313,7 @@
 
         </div>
       </div>
-    */});
+    `).trim();
 
     _.assign(SettingPanel.prototype, {
       initialize: function(params) {
@@ -394,6 +412,16 @@
           $s.val(val);
         });
         $select.on('change', onInputItemChange);
+
+        var $textarea = $panel.find('.textAreaInput');
+        $textarea.each(function(i, textarea) {
+          var $t = $(textarea);
+          var settingName = $t.attr('data-setting-name');
+          var val = config.getValue(settingName);
+          $t.val(val);
+        });
+        $textarea.on('change', onInputItemChange);
+
 
         $panel.find('.zenzaAdvancedSetting-close').on('mousedown', function(e) {
           e.stopPropagation();
@@ -515,7 +543,6 @@
         panel.toggle();
       });
 
-      $('.ryokanArea').remove();
     };
 
     initialize();

@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.4
+// @version        1.4.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -58,9 +58,18 @@ var monkey = function() {
         callAsync: function(func, self, delay) {
           delay = delay || 0;
           if (self) {
-            window.setTimeout(func.bind(self), delay);
+            func = func.bind(self);
+          }
+          window.setTimeout(func, delay);
+        },
+        callOnIdle: function(func, self) {
+          if (self) {
+            func = func.bind(self);
+          }
+          if (window.requestIdleCallback) {
+            window.requestIdleCallback(func);
           } else {
-            window.setTimeout(func, delay);
+            window.setTimeout(func, 0);
           }
         }
       }
