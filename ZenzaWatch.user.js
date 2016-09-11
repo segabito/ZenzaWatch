@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.6
+// @version        1.4.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.6';
+  var VER = '1.4.7';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1038,6 +1038,7 @@ var monkey = function() {
 
     var localStorageEmitter = (function() {
       var asyncEmitter = new AsyncEmitter();
+      var pingResolve = null, pingReject = null;
 
       var onStorage = function(e) {
         var key = e.key;
@@ -1050,11 +1051,12 @@ var monkey = function() {
 
         switch(key) {
           case 'message':
+            const packet = JSON.parse(newValue);
+            if (packet.type === 'pong' && pingResolve) {
+              return pingResolve(packet);
+            }
             console.log('%cmessage', 'background: cyan;', newValue);
-            asyncEmitter.emit('message', JSON.parse(newValue));
-            break;
-          case 'ping':
-            asyncEmitter.emit('ping');
+            asyncEmitter.emit('message', packet);
             break;
         }
       };
@@ -1079,9 +1081,33 @@ var monkey = function() {
         }
       });
 
-//      asyncEmitter.ping = function() {
-//        asyncEmitter.send({id: 
-//      };
+      asyncEmitter.pong = function(playerId) {
+        asyncEmitter.send({id: playerId, type: 'pong'});
+      };
+
+      asyncEmitter.ping = function() {
+        return new Promise(function(resolve, reject) {
+          pingResolve = resolve;
+          pingReject = reject;
+          asyncEmitter.send({type: 'ping'});
+          window.setTimeout(function() {
+            if (pingReject) {
+              pingReject('ping timeout');
+            }
+            pingReject = pingResolve = null;
+          }, 1500);
+        });
+      };
+
+      if (ZenzaWatch.debug) {
+        ZenzaWatch.debug.ping = function() {
+          return asyncEmitter.ping().then(function(result) {
+            window.console.info('pong!', result);
+          }, function(result) {
+            window.console.info('ping timeout', result);
+          });
+        };
+      }
 
       if (location.host === 'www.nicovideo.jp') {
         window.addEventListener('storage', onStorage);
@@ -2677,10 +2703,12 @@ var monkey = function() {
             window.console.timeEnd(timeKey);
             ZenzaWatch.debug.lastMessageServerResult = result;
 
-            var resultCode = null, thread, xml, ticket, lastRes = 0;
+            var thread, xml, ticket, lastRes = 0;
+            var resultCodes = [], resultCode = null;
             try {
               xml = result.documentElement;
               var threads = xml.getElementsByTagName('thread');
+              chats = xml.getElementsByTagName('chat');
 
               thread = threads[0];
               //_.each(threads, function(t) {
@@ -2701,6 +2729,12 @@ var monkey = function() {
               // どのthreadを参照すればいいのか仕様がわからない。
               // しかたないので総当たり
               _.each(threads, function(t) {
+
+                var rc = t.getAttribute('resultcode');
+                if (rc.length) {
+                  resultCodes.push(parseInt(rc, 10));
+                }
+
                 var tid = t.getAttribute('thread');
                 //window.console.log(t, t.outerHTML);
                 if (parseInt(tid, 10) === parseInt(threadId, 10)) {
@@ -2715,14 +2749,17 @@ var monkey = function() {
               const lr = thread.getAttribute('last_res');
               if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
 
-              resultCode = thread.getAttribute('resultcode');
+              //resultCode = thread.getAttribute('resultcode');
+              resultCode = (resultCodes.sort())[0];
             } catch (e) {
               console.error(e);
             }
 
-            if (resultCode !== '0') {
+            //if (resultCode !== '0' && (!chats || chats.length < 1)) {
+            window.console.log('resultCodes: ', resultCodes);
+            if (resultCode !== 0) {
               reject({
-                message: 'コメント取得失敗' + resultCode
+                message: `コメント取得失敗[${resultCodes.join(', ')}]`
               });
               return;
             }
@@ -2730,7 +2767,7 @@ var monkey = function() {
             var threadInfo = {
               server:     server,
               userId:     userId,
-              resultCode: thread.getAttribute('resultcode'),
+              resultCode: resultCode,
               threadId:   threadId,
               thread:     thread.getAttribute('thread'),
               serverTime: thread.getAttribute('server_time'),
@@ -2747,7 +2784,7 @@ var monkey = function() {
 
             window.console.log('threadInfo: ', threadInfo);
             resolve({
-              resultCode: parseInt(resultCode, 10),
+              resultCode: resultCode,
               threadInfo: threadInfo,
               xml: xml
             });
@@ -3907,7 +3944,7 @@ var monkey = function() {
     }
 
     isNgVideo(videoInfo) {
-      window.console.info('isNgVideo?', videoInfo, this.ngTag, this.ngOwner);
+      //window.console.info('isNgVideo?', videoInfo, this.ngTag, this.ngOwner);
       var isNg = false;
       var isChannel = videoInfo.isChannel();
       var ngTag = this.ngTag;
@@ -3916,7 +3953,7 @@ var monkey = function() {
         if (_.contains(ngTag, text)) {
           isNg = true;
         }
-        window.console.log('ngTag?', text, tag, _.contains(ngTag, text));
+        //window.console.log('ngTag?', text, tag, _.contains(ngTag, text));
       });
       if (isNg) { return true; }
 
@@ -23252,6 +23289,11 @@ var VideoSession = (function() {
         ZenzaWatch.debug.dialog = dialog;
 
         localStorageEmitter.on('message', function(packet) {
+          if (packet.type === 'ping' && dialog.getId() !== Config.getValue('lastPlayerId', true)) {
+            window.console.info('pong!');
+            localStorageEmitter.send({type: 'pong'});
+            return;
+          }
           if (packet.type !== 'openVideo') { return; }
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
           window.console.log('recieve packet: ', packet);

@@ -199,6 +199,11 @@ var AsyncEmitter = function() {};
         ZenzaWatch.debug.dialog = dialog;
 
         localStorageEmitter.on('message', function(packet) {
+          if (packet.type === 'ping' && dialog.getId() !== Config.getValue('lastPlayerId', true)) {
+            window.console.info('pong!');
+            localStorageEmitter.send({type: 'pong'});
+            return;
+          }
           if (packet.type !== 'openVideo') { return; }
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
           window.console.log('recieve packet: ', packet);

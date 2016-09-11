@@ -847,10 +847,12 @@ var ajax = function() {};
             window.console.timeEnd(timeKey);
             ZenzaWatch.debug.lastMessageServerResult = result;
 
-            var resultCode = null, thread, xml, ticket, lastRes = 0;
+            var thread, xml, ticket, lastRes = 0;
+            var resultCodes = [], resultCode = null;
             try {
               xml = result.documentElement;
               var threads = xml.getElementsByTagName('thread');
+              chats = xml.getElementsByTagName('chat');
 
               thread = threads[0];
               //_.each(threads, function(t) {
@@ -871,6 +873,12 @@ var ajax = function() {};
               // どのthreadを参照すればいいのか仕様がわからない。
               // しかたないので総当たり
               _.each(threads, function(t) {
+
+                var rc = t.getAttribute('resultcode');
+                if (rc.length) {
+                  resultCodes.push(parseInt(rc, 10));
+                }
+
                 var tid = t.getAttribute('thread');
                 //window.console.log(t, t.outerHTML);
                 if (parseInt(tid, 10) === parseInt(threadId, 10)) {
@@ -885,14 +893,17 @@ var ajax = function() {};
               const lr = thread.getAttribute('last_res');
               if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
 
-              resultCode = thread.getAttribute('resultcode');
+              //resultCode = thread.getAttribute('resultcode');
+              resultCode = (resultCodes.sort())[0];
             } catch (e) {
               console.error(e);
             }
 
-            if (resultCode !== '0') {
+            //if (resultCode !== '0' && (!chats || chats.length < 1)) {
+            window.console.log('resultCodes: ', resultCodes);
+            if (resultCode !== 0) {
               reject({
-                message: 'コメント取得失敗' + resultCode
+                message: `コメント取得失敗[${resultCodes.join(', ')}]`
               });
               return;
             }
@@ -900,7 +911,7 @@ var ajax = function() {};
             var threadInfo = {
               server:     server,
               userId:     userId,
-              resultCode: thread.getAttribute('resultcode'),
+              resultCode: resultCode,
               threadId:   threadId,
               thread:     thread.getAttribute('thread'),
               serverTime: thread.getAttribute('server_time'),
@@ -917,7 +928,7 @@ var ajax = function() {};
 
             window.console.log('threadInfo: ', threadInfo);
             resolve({
-              resultCode: parseInt(resultCode, 10),
+              resultCode: resultCode,
               threadInfo: threadInfo,
               xml: xml
             });

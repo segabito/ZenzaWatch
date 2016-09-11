@@ -951,6 +951,7 @@ var CONSTANT = {};
 
     var localStorageEmitter = (function() {
       var asyncEmitter = new AsyncEmitter();
+      var pingResolve = null, pingReject = null;
 
       var onStorage = function(e) {
         var key = e.key;
@@ -963,11 +964,12 @@ var CONSTANT = {};
 
         switch(key) {
           case 'message':
+            const packet = JSON.parse(newValue);
+            if (packet.type === 'pong' && pingResolve) {
+              return pingResolve(packet);
+            }
             console.log('%cmessage', 'background: cyan;', newValue);
-            asyncEmitter.emit('message', JSON.parse(newValue));
-            break;
-          case 'ping':
-            asyncEmitter.emit('ping');
+            asyncEmitter.emit('message', packet);
             break;
         }
       };
@@ -992,9 +994,33 @@ var CONSTANT = {};
         }
       });
 
-//      asyncEmitter.ping = function() {
-//        asyncEmitter.send({id: 
-//      };
+      asyncEmitter.pong = function(playerId) {
+        asyncEmitter.send({id: playerId, type: 'pong'});
+      };
+
+      asyncEmitter.ping = function() {
+        return new Promise(function(resolve, reject) {
+          pingResolve = resolve;
+          pingReject = reject;
+          asyncEmitter.send({type: 'ping'});
+          window.setTimeout(function() {
+            if (pingReject) {
+              pingReject('ping timeout');
+            }
+            pingReject = pingResolve = null;
+          }, 1500);
+        });
+      };
+
+      if (ZenzaWatch.debug) {
+        ZenzaWatch.debug.ping = function() {
+          return asyncEmitter.ping().then(function(result) {
+            window.console.info('pong!', result);
+          }, function(result) {
+            window.console.info('ping timeout', result);
+          });
+        };
+      }
 
       if (location.host === 'www.nicovideo.jp') {
         window.addEventListener('storage', onStorage);

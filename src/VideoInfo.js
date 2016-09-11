@@ -103,7 +103,7 @@ var ZenzaWatch = {
     }
 
     isNgVideo(videoInfo) {
-      window.console.info('isNgVideo?', videoInfo, this.ngTag, this.ngOwner);
+      //window.console.info('isNgVideo?', videoInfo, this.ngTag, this.ngOwner);
       var isNg = false;
       var isChannel = videoInfo.isChannel();
       var ngTag = this.ngTag;
@@ -112,7 +112,7 @@ var ZenzaWatch = {
         if (_.contains(ngTag, text)) {
           isNg = true;
         }
-        window.console.log('ngTag?', text, tag, _.contains(ngTag, text));
+        //window.console.log('ngTag?', text, tag, _.contains(ngTag, text));
       });
       if (isNg) { return true; }
 
