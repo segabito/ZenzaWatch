@@ -70,14 +70,14 @@ var CONSTANT = {};
         if (!this._events) { this._events = {}; }
         var args = arguments;
 
-        window.setTimeout(_.bind(function() {
+        window.setTimeout(() => {
           //try {
             this.emit.apply(this, args);
           //} catch (e) {
           //  console.log(e);
           //  throw e;
           //}
-        }, this), 0);
+        }, 0);
       };
 
       AsyncEmitter.prototype.emitPromise = function(name) {
@@ -1723,7 +1723,7 @@ var CONSTANT = {};
       var iframe = this._getIframe();
       iframe.className = params.className || '';
 
-      var onload = function() {
+      var onload = () => {
         var win, doc;
         iframe.onload = null;
         try {
@@ -1740,7 +1740,7 @@ var CONSTANT = {};
         }
 
         this.emit('load', win);
-      }.bind(this);
+      };
 
       var html = this._html = params.html;
       this._$container.append(iframe);
