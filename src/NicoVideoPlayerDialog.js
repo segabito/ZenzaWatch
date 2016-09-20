@@ -861,7 +861,7 @@ var CONSTANT = {};
   `;
 
   NicoVideoPlayerDialogView.__tpl__ = (`
-    <div class="zenzaVideoPlayerDialog">
+    <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
         <div class="zenzaPlayerContainer">
@@ -947,7 +947,13 @@ var CONSTANT = {};
 //        .on('mousedown', onMouseMove)
 //        .on('mousedown', onMouseMoveEnd);
 
-      $dialog.on('click', _.bind(this._onClick, this));
+      $dialog
+        .on('click', this._onClick.bind(this))
+        .on('dblclick', (e) => {
+          if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') { return; }
+          //window.console.log('mousedown', e, e.target);
+          this.emit('command', 'close');
+        });
 
       this._hoverMenu = new VideoHoverMenu({
         $playerContainer: $container,
@@ -998,8 +1004,8 @@ var CONSTANT = {};
 
       this._initializeResponsive();
 
-      ZenzaWatch.emitter.on('showMenu', function() { $container.addClass('menuOpen'); });
-      ZenzaWatch.emitter.on('hideMenu', function() { $container.removeClass('menuOpen'); });
+      ZenzaWatch.emitter.on('showMenu', () => { $container.addClass('menuOpen'); });
+      ZenzaWatch.emitter.on('hideMenu', () => { $container.removeClass('menuOpen'); });
       $('body').append($dialog);
     },
     _initializeVideoInfoPanel: function() {
@@ -1521,6 +1527,12 @@ var CONSTANT = {};
           this._playerConfig.setValue(command, param);
           this.reload();
           break;
+        case 'update-commentLanguage':
+          command = command.replace(/^update-/, '');
+          if (this._playerConfig.getValue(command) === param) { break; }
+          this._playerConfig.setValue(command, param);
+          this.reloadComment();
+          break;
         case 'baseFontFamily':
         case 'baseChatScale':
         case 'enableFilter':
@@ -1881,13 +1893,14 @@ var CONSTANT = {};
       });
     },
     _onCommentParsed: function() {
-
-      this.emit('commentParsed');
+      const msgInfo = this._videoInfo.getMsgInfo();
+      this.emit('commentParsed', msgInfo);
       ZenzaWatch.emitter.emit('commentParsed');
       ///this._commentPanel.setChatList(this.getChatList());
     },
     _onCommentChange: function() {
-      this.emit('commentChange');
+      const msgInfo = this._videoInfo.getMsgInfo();
+      this.emit('commentChange', msgInfo);
       ZenzaWatch.emitter.emit('commentChange');
     },
     _onCommentFilterChange: function(filter) {
@@ -2077,13 +2090,14 @@ var CONSTANT = {};
       }
     },
     loadComment: function(msgInfo) {
+      msgInfo.language = this._playerConfig.getValue('commentLanguage');
       this._messageApiLoader.load(msgInfo).then(
-        _.bind(this._onCommentLoadSuccess, this, this._requestId),
-        _.bind(this._onCommentLoadFail,    this, this._requestId)
+        this._onCommentLoadSuccess.bind(this, this._requestId),
+        this._onCommentLoadFail   .bind(this, this._requestId)
       );
     },
     reloadComment: function() {
-      this.loadComment(this._flvInfo, this._requestId);
+      this.loadComment(this._videoInfo.getMsgInfo());
     },
     _onVideoInfoLoaderFail: function(requestId, watchId, e) {
       window.console.timeEnd('VideoInfoLoader');
@@ -2308,7 +2322,8 @@ var CONSTANT = {};
       this._commentPanel = new CommentPanel({
         player: this,
         $container: $container,
-        autoScroll: this._playerConfig.getValue('enableCommentPanelAutoScroll')
+        autoScroll: this._playerConfig.getValue('enableCommentPanelAutoScroll'),
+        language: this._playerConfig.getValue('commentLanguage')
       });
       this._commentPanel.on('command', this._onCommand.bind(this));
       this._commentPanel.on('update', _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
@@ -2383,6 +2398,7 @@ var CONSTANT = {};
 
       var timeout;
       var resolve, reject;
+      const lang = this._playerConfig.getValue('commentLanguage');
       window.console.time('コメント投稿');
 
       var _onSuccess = (result) => {
@@ -2425,7 +2441,8 @@ var CONSTANT = {};
         window.console.info('retry: コメント投稿');
         timeout = window.setTimeout(_onTimeout, 30000);
 
-        return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+        return this._messageApiLoader
+          .postChat(this._threadInfo, text, cmd, vpos, lang).then(
           _onSuccess,
           _onFailFinal
         );
@@ -2470,7 +2487,7 @@ var CONSTANT = {};
       return new Promise((res, rej) => {
         resolve = res;
         reject = rej;
-        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos, lang).then(
           _onSuccess,
           _onFail1st
         );
@@ -3389,7 +3406,7 @@ var CONSTANT = {};
         'togglePlaybackRateMenu',
         'toggleNgSettingMenu'
       ]).each((i, func) => {
-        if (typeof self[func] === 'function') {
+        if (typeof this[func] === 'function') {
           (this[func])(false);
         }
       });

@@ -523,6 +523,11 @@ var ajax = function() {};
       var VERSION_OLD = '20061206';
       var VERSION     = '20090904';
 
+      const LANG_CODE = {
+        'en_US': 1,
+        'zh_TW': 2
+      };
+
       var MessageApiLoader = function() {
         this.initialize.apply(this, arguments);
       };
@@ -536,20 +541,20 @@ var ajax = function() {};
          * 本家よりちょっと盛ってる
          */
         getRequestCountByDuration: function(duration) {
-          if (duration < 60)  { return 100;}
-          if (duration < 240) { return 200;}
-          if (duration < 300) { return 400;}
+          if (duration < 60)  { return 100; }
+          if (duration < 240) { return 200; }
+          if (duration < 300) { return 400; }
           return 1000;
         },
-        getThreadKey: function(threadId) {
+        getThreadKey: function(threadId, language) {
           // memo:
           // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           var url =
-            '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
-            '&language_id=0';
+            '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
+          const langCode = this.getLangCode(language);
+          if (langCode) { url += `&language_id=${langCode}`; }
 
-          var self = this;
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: url,
               contentType: 'text/plain',
@@ -558,11 +563,11 @@ var ajax = function() {};
               xhrFields: {
                 withCredentials: true
               }
-            }).then(function(e) {
+            }).then((e) => {
               var result = ZenzaWatch.util.parseQuery(e);
-              self._threadKeys[threadId] = result;
+              this._threadKeys[threadId] = result;
               resolve(result);
-            }, function(result) {
+            }, (result) => {
               //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
                 result: result,
@@ -571,7 +576,13 @@ var ajax = function() {};
             });
           });
         },
-        getPostKey: function(threadId, blockNo) {
+        getLangCode: function(language) {
+          if (LANG_CODE[language]) {
+            return LANG_CODE[language];
+          }
+          return 0;
+        },
+        getPostKey: function(threadId, blockNo, language) {
           // memo:
           // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
@@ -581,8 +592,11 @@ var ajax = function() {};
             '&version=1&version_sub=2&yugi=' +
   //          '&language_id=0';
             '';
+          //const langCode = this.getLangCode(language);
+          //if (langCode) { url += `&language_id=${langCode}`; }
+
           console.log('getPostkey url: ', url);
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: url,
               contentType: 'text/plain',
@@ -591,9 +605,9 @@ var ajax = function() {};
               xhrFields: {
                 withCredentials: true
               }
-            }).then(function(e) {
+            }).then((e) => {
               resolve(ZenzaWatch.util.parseQuery(e));
-            }, function(result) {
+            }, (result) => {
               //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
                 result: result,
@@ -603,7 +617,6 @@ var ajax = function() {};
           });
         },
         _createThreadXml:
-          //function(threadId, version, userId, threadKey, force184, duration, userKey) {
           function(params) { //msgInfo, version, threadKey, force184, duration, userKey) {
           const threadId         =
             params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
@@ -640,6 +653,9 @@ var ajax = function() {};
           thread.setAttribute('nicoru', '1');
           thread.setAttribute('with_global', '1');
 
+          const langCode = this.getLangCode(params.msgInfo.language);
+          if (langCode) { thread.setAttribute('language', langCode); }
+
           return thread;
         },
         _createThreadLeavesXml:
@@ -672,6 +688,9 @@ var ajax = function() {};
           }
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
+
+          const langCode = this.getLangCode(params.msgInfo.language);
+          if (langCode) { thread_leaves.setAttribute('language', langCode); }
 
           thread_leaves.innerHTML = threadLeavesParam;
 
@@ -755,7 +774,7 @@ var ajax = function() {};
         _post: function(server, xml) {
           // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
           var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: server,
               data: xml,
@@ -765,10 +784,10 @@ var ajax = function() {};
               dataType: 'xml',
               crossDomain: true,
               cache: false
-            }).then(function(result) {
+            }).then((result) => {
               //console.log('post success: ', result);
               resolve(result);
-            }, function(result) {
+            }, (result) => {
               //console.log('post fail: ', result);
               reject({
                 result: result,
@@ -797,7 +816,7 @@ var ajax = function() {};
           }
 
           console.log('%cthread url:', 'background: cyan;', url);
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: url,
               timeout: 60000,
@@ -816,15 +835,15 @@ var ajax = function() {};
           });
         },
         _load: function(msgInfo) {
-          var packet, self = this;
+          var packet;
           if (msgInfo.isNeedKey) {
-            return this.getThreadKey(msgInfo.threadId).then(function(info) {
+            return this.getThreadKey(msgInfo.threadId, msgInfo.language).then((info) => {
               console.log('threadkey: ', info);
-              packet = self.buildPacket(msgInfo, info.threadkey, info.force_184);
+              packet = this.buildPacket(msgInfo, info.threadkey, info.force_184);
 
               console.log('post xml...', msgInfo.server, packet);
               //get(server, threadId, duration, info.threadkey, info.force_184);
-              return self._post(msgInfo.server, packet, msgInfo.threadId);
+              return this._post(msgInfo.server, packet, msgInfo.threadId);
             });
           } else {
             packet = this.buildPacket(msgInfo);
@@ -840,10 +859,9 @@ var ajax = function() {};
 
           const timeKey = `loadComment server: ${server} thread: ${threadId}`;
           window.console.time(timeKey);
-          const self = this;
 
           var resolve, reject;
-          const onSuccess = function(result) {
+          const onSuccess = (result) => {
             window.console.timeEnd(timeKey);
             ZenzaWatch.debug.lastMessageServerResult = result;
 
@@ -852,7 +870,7 @@ var ajax = function() {};
             try {
               xml = result.documentElement;
               var threads = xml.getElementsByTagName('thread');
-              chats = xml.getElementsByTagName('chat');
+              //chats = xml.getElementsByTagName('chat');
 
               thread = threads[0];
               //_.each(threads, function(t) {
@@ -921,9 +939,9 @@ var ajax = function() {};
               revision:   thread.getAttribute('revision')
             };
 
-            if (self._threadKeys[threadId]) {
-              threadInfo.threadKey = self._threadKeys[threadId].threadkey;
-              threadInfo.force184  = self._threadKeys[threadId].force_184;
+            if (this._threadKeys[threadId]) {
+              threadInfo.threadKey = this._threadKeys[threadId].threadkey;
+              threadInfo.force184  = this._threadKeys[threadId].force_184;
             }
 
             window.console.log('threadInfo: ', threadInfo);
@@ -934,7 +952,7 @@ var ajax = function() {};
             });
           };
 
-          const onFailFinally = function(e) {
+          const onFailFinally = (e) => {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
             reject({
@@ -942,25 +960,24 @@ var ajax = function() {};
             });
           };
 
-          const onFail1st = function(e) {
+          const onFail1st = (e) => {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
             PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
 
-            window.setTimeout(function() {
-              self._load(msgInfo).then(onSuccess, onFailFinally);
+            window.setTimeout(() => {
+              this._load(msgInfo).then(onSuccess, onFailFinally);
             }, 3000);
           };
 
 
-          return new Promise(function(res, rej) {
+          return new Promise((res, rej) => {
             resolve = res;
             reject  = rej;
-            self._load(msgInfo).then(onSuccess, onFail1st);
+            this._load(msgInfo).then(onSuccess, onFail1st);
           });
         },
         _postChat: function(threadInfo, postKey, text, cmd, vpos) {
-          const self = this;
           const div = document.createElement('div');
           const chat = document.createElement('chat');
           chat.setAttribute('premium', ZenzaWatch.util.isPremium() ? '1' : '0');
@@ -975,7 +992,7 @@ var ajax = function() {};
           var xml = div.innerHTML;
 
           window.console.log('post xml: ', xml);
-          return self._post(threadInfo.server, xml).then(function(result) {
+          return this._post(threadInfo.server, xml).then((result) => {
             var status = null, chat_result, no = 0, blockNo = 0, xml;
             try {
               xml = result.documentElement;
@@ -1006,11 +1023,11 @@ var ajax = function() {};
             });
           });
         },
-        postChat: function(threadInfo, text, cmd, vpos) {
-          return this.getPostKey(threadInfo.threadId, threadInfo.blockNo)
-            .then(function(result) {
+        postChat: function(threadInfo, text, cmd, vpos, language) {
+          return this.getPostKey(threadInfo.threadId, threadInfo.blockNo, language)
+            .then((result) => {
             return this._postChat(threadInfo, result.postkey, text, cmd, vpos);
-          }.bind(this));
+          });
         }
       });
 

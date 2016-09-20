@@ -219,6 +219,7 @@ var CONSTANT = {};
         enableCommentPanelAutoScroll: true,
 
         playlistLoop: false,
+        commentLanguage: 'ja_JP',
 
         baseFontFamily: '',
         baseChatScale: 1.0,

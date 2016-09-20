@@ -146,10 +146,9 @@ var CONSTANT = {};
   CommentListView.ITEM_HEIGHT = 40;
 
   _.extend(CommentListView.prototype, AsyncEmitter.prototype);
-  CommentListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-  */});
+  CommentListView.__css__ = '';
 
-  CommentListView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentListView.__tpl__ = (`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -184,16 +183,18 @@ var CONSTANT = {};
 <body>
   <div id="listContainer">
     <div class="listMenu">
+
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
       <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
       <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
+
     </div>
     <div id="listContainerInner"></div>
   </div>
 </body>
 </html>
 
-  */});
+  `).trim();
 
   _.extend(CommentListView.prototype, AsyncEmitter.prototype);
   _.assign(CommentListView.prototype, {
@@ -474,7 +475,7 @@ var CONSTANT = {};
   _.extend(CommentListItemView.prototype, AsyncEmitter.prototype);
 
   // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
-  CommentListItemView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentListItemView.__css__ = (`
     * {
       box-sizing: border-box;
     }
@@ -557,7 +558,7 @@ var CONSTANT = {};
       height: 40px;
       line-height: 20px;
       font-size: 20px;
-      {*overflow: hidden;*}
+      /*overflow: hidden;*/
       white-space: nowrap;
       margin: 0;
       padding: 0;
@@ -660,7 +661,7 @@ var CONSTANT = {};
     }
 
 
-  */});
+  `).trim();
 
   CommentListItemView.__tpl__ = (`
     <div id="item%itemId%" class="commentListItem no%no% item%itemId% %updating% fork%fork% %odd-even%"
@@ -835,7 +836,7 @@ data-title="%no%: %date% ID:%userId%
 
   var CommentPanelView = function() { this.initialize.apply(this, arguments); };
   _.extend(CommentPanelView.prototype, AsyncEmitter.prototype);
-  CommentPanelView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentPanelView.__css__ = (`
 
 
     .commentPanel-container {
@@ -906,9 +907,15 @@ data-title="%no%: %date% ID:%userId%
       line-height: 20px;
     }
 
-  */});
+    .commentPanel-container.lang-ja_JP .commentPanel-command[data-param=ja_JP],
+    .commentPanel-container.lang-en_US .commentPanel-command[data-param=en_US],
+    .commentPanel-container.lang-zh_TW .commentPanel-command[data-param=zh_TW] {
+      font-weight: bolder;
+      color: #ff9;
+    }
+  `).trim();
 
-  CommentPanelView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentPanelView.__tpl__ = (`
     <div class="commentPanel-container">
       <div class="commentPanel-header">
         <lavel class="commentPanel-menu-button autoScroll commentPanel-command"
@@ -927,6 +934,17 @@ data-title="%no%: %date% ID:%userId%
               </li>
 
               <hr class="separator">
+              <li class="commentPanel-command" data-command="update-commentLanguage" data-param="ja_JP">
+                日本語
+              </li>
+              <li class="commentPanel-command" data-command="update-commentLanguage" data-param="en_US">
+                English
+              </li>
+              <li class="commentPanel-command" data-command="update-commentLanguage" data-param="zh_TW">
+                中文
+              </li>
+
+              <hr class="separator">
               <li class="commentPanel-command reloadComment" data-command="reloadComment">
                 コメントのリロード
               </li>
@@ -937,7 +955,7 @@ data-title="%no%: %date% ID:%userId%
       </div>
       <div class="commentPanel-frame"></div>
     </div>
-  */});
+  `).trim();
 
   _.assign(CommentPanelView.prototype, {
     initialize: function(params) {
@@ -1028,9 +1046,14 @@ data-title="%no%: %date% ID:%userId%
     },
     _onCommentPanelStatusUpdate: function() {
       var commentPanel = this._commentPanel;
-      this._$view
+      const $view = this._$view
         .toggleClass('autoScroll', commentPanel.isAutoScroll())
         ;
+
+      const langClass = 'lang-' + commentPanel.getLanguage();
+      if (!$view.hasClass(langClass)) {
+        $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
+      }
     }
   });
 
@@ -1046,6 +1069,7 @@ data-title="%no%: %date% ID:%userId%
       this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
 
       this._model = new CommentListModel({});
+      this._language = params.language || 'ja_JP';
 
       player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange', _.debounce(this._onCommentChange.bind(this), 500));
@@ -1054,7 +1078,7 @@ data-title="%no%: %date% ID:%userId%
 
       ZenzaWatch.debug.commentPanel = this;
     },
-    _initializeView: function() {
+    _initializeView: function(msgInfo) {
       if (this._view) { return; }
       this._view = new CommentPanelView({
         $container: this._$container,
@@ -1115,13 +1139,15 @@ data-title="%no%: %date% ID:%userId%
           this.emit('command', command, param);
       }
     },
-    _onCommentParsed: function() {
-      this._initializeView();
+    _onCommentParsed: function(msgInfo) {
+      this._initializeView(msgInfo);
       this.setChatList(this._player.getChatList());
+      this.setLanguage(msgInfo.language);
       this.startTimer();
     },
-    _onCommentChange: function() {
-      this._initializeView();
+    _onCommentChange: function(msgInfo) {
+      this._initializeView(msgInfo);
+      this.setLanguage(msgInfo.language);
       this.setChatList(this._player.getChatList());
     },
     _onPlayerOpen: function() {
@@ -1137,6 +1163,15 @@ data-title="%no%: %date% ID:%userId%
     },
     isAutoScroll: function() {
       return this._autoScroll;
+    },
+    getLanguage: function() {
+      return this._language || 'ja_JP';
+    },
+    setLanguage: function(lang) {
+      if (lang !== this._language) {
+        this._language = lang;
+        this.emit('update');
+      }
     },
     toggleScroll: function(v) {
       if (!_.isBoolean(v)) {

@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.8
+// @version        1.4.10
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.8';
+  var VER = '1.4.10';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -306,6 +306,7 @@ var monkey = function() {
         enableCommentPanelAutoScroll: true,
 
         playlistLoop: false,
+        commentLanguage: 'ja_JP',
 
         baseFontFamily: '',
         baseChatScale: 1.0,
@@ -2379,6 +2380,11 @@ var monkey = function() {
       var VERSION_OLD = '20061206';
       var VERSION     = '20090904';
 
+      const LANG_CODE = {
+        'en_US': 1,
+        'zh_TW': 2
+      };
+
       var MessageApiLoader = function() {
         this.initialize.apply(this, arguments);
       };
@@ -2392,20 +2398,20 @@ var monkey = function() {
          * 本家よりちょっと盛ってる
          */
         getRequestCountByDuration: function(duration) {
-          if (duration < 60)  { return 100;}
-          if (duration < 240) { return 200;}
-          if (duration < 300) { return 400;}
+          if (duration < 60)  { return 100; }
+          if (duration < 240) { return 200; }
+          if (duration < 300) { return 400; }
           return 1000;
         },
-        getThreadKey: function(threadId) {
+        getThreadKey: function(threadId, language) {
           // memo:
           // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           var url =
-            '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId +
-            '&language_id=0';
+            '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
+          const langCode = this.getLangCode(language);
+          if (langCode) { url += `&language_id=${langCode}`; }
 
-          var self = this;
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: url,
               contentType: 'text/plain',
@@ -2414,11 +2420,11 @@ var monkey = function() {
               xhrFields: {
                 withCredentials: true
               }
-            }).then(function(e) {
+            }).then((e) => {
               var result = ZenzaWatch.util.parseQuery(e);
-              self._threadKeys[threadId] = result;
+              this._threadKeys[threadId] = result;
               resolve(result);
-            }, function(result) {
+            }, (result) => {
               //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
                 result: result,
@@ -2427,7 +2433,13 @@ var monkey = function() {
             });
           });
         },
-        getPostKey: function(threadId, blockNo) {
+        getLangCode: function(language) {
+          if (LANG_CODE[language]) {
+            return LANG_CODE[language];
+          }
+          return 0;
+        },
+        getPostKey: function(threadId, blockNo, language) {
           // memo:
           // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
           //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
@@ -2437,8 +2449,11 @@ var monkey = function() {
             '&version=1&version_sub=2&yugi=' +
   //          '&language_id=0';
             '';
+          //const langCode = this.getLangCode(language);
+          //if (langCode) { url += `&language_id=${langCode}`; }
+
           console.log('getPostkey url: ', url);
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: url,
               contentType: 'text/plain',
@@ -2447,9 +2462,9 @@ var monkey = function() {
               xhrFields: {
                 withCredentials: true
               }
-            }).then(function(e) {
+            }).then((e) => {
               resolve(ZenzaWatch.util.parseQuery(e));
-            }, function(result) {
+            }, (result) => {
               //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
                 result: result,
@@ -2459,7 +2474,6 @@ var monkey = function() {
           });
         },
         _createThreadXml:
-          //function(threadId, version, userId, threadKey, force184, duration, userKey) {
           function(params) { //msgInfo, version, threadKey, force184, duration, userKey) {
           const threadId         =
             params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
@@ -2496,6 +2510,9 @@ var monkey = function() {
           thread.setAttribute('nicoru', '1');
           thread.setAttribute('with_global', '1');
 
+          const langCode = this.getLangCode(params.msgInfo.language);
+          if (langCode) { thread.setAttribute('language', langCode); }
+
           return thread;
         },
         _createThreadLeavesXml:
@@ -2528,6 +2545,9 @@ var monkey = function() {
           }
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
+
+          const langCode = this.getLangCode(params.msgInfo.language);
+          if (langCode) { thread_leaves.setAttribute('language', langCode); }
 
           thread_leaves.innerHTML = threadLeavesParam;
 
@@ -2611,7 +2631,7 @@ var monkey = function() {
         _post: function(server, xml) {
           // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
           var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: server,
               data: xml,
@@ -2621,10 +2641,10 @@ var monkey = function() {
               dataType: 'xml',
               crossDomain: true,
               cache: false
-            }).then(function(result) {
+            }).then((result) => {
               //console.log('post success: ', result);
               resolve(result);
-            }, function(result) {
+            }, (result) => {
               //console.log('post fail: ', result);
               reject({
                 result: result,
@@ -2653,7 +2673,7 @@ var monkey = function() {
           }
 
           console.log('%cthread url:', 'background: cyan;', url);
-          return new Promise(function(resolve, reject) {
+          return new Promise((resolve, reject) => {
             ajax({
               url: url,
               timeout: 60000,
@@ -2672,15 +2692,15 @@ var monkey = function() {
           });
         },
         _load: function(msgInfo) {
-          var packet, self = this;
+          var packet;
           if (msgInfo.isNeedKey) {
-            return this.getThreadKey(msgInfo.threadId).then(function(info) {
+            return this.getThreadKey(msgInfo.threadId, msgInfo.language).then((info) => {
               console.log('threadkey: ', info);
-              packet = self.buildPacket(msgInfo, info.threadkey, info.force_184);
+              packet = this.buildPacket(msgInfo, info.threadkey, info.force_184);
 
               console.log('post xml...', msgInfo.server, packet);
               //get(server, threadId, duration, info.threadkey, info.force_184);
-              return self._post(msgInfo.server, packet, msgInfo.threadId);
+              return this._post(msgInfo.server, packet, msgInfo.threadId);
             });
           } else {
             packet = this.buildPacket(msgInfo);
@@ -2696,10 +2716,9 @@ var monkey = function() {
 
           const timeKey = `loadComment server: ${server} thread: ${threadId}`;
           window.console.time(timeKey);
-          const self = this;
 
           var resolve, reject;
-          const onSuccess = function(result) {
+          const onSuccess = (result) => {
             window.console.timeEnd(timeKey);
             ZenzaWatch.debug.lastMessageServerResult = result;
 
@@ -2708,7 +2727,7 @@ var monkey = function() {
             try {
               xml = result.documentElement;
               var threads = xml.getElementsByTagName('thread');
-              chats = xml.getElementsByTagName('chat');
+              //chats = xml.getElementsByTagName('chat');
 
               thread = threads[0];
               //_.each(threads, function(t) {
@@ -2777,9 +2796,9 @@ var monkey = function() {
               revision:   thread.getAttribute('revision')
             };
 
-            if (self._threadKeys[threadId]) {
-              threadInfo.threadKey = self._threadKeys[threadId].threadkey;
-              threadInfo.force184  = self._threadKeys[threadId].force_184;
+            if (this._threadKeys[threadId]) {
+              threadInfo.threadKey = this._threadKeys[threadId].threadkey;
+              threadInfo.force184  = this._threadKeys[threadId].force_184;
             }
 
             window.console.log('threadInfo: ', threadInfo);
@@ -2790,7 +2809,7 @@ var monkey = function() {
             });
           };
 
-          const onFailFinally = function(e) {
+          const onFailFinally = (e) => {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
             reject({
@@ -2798,25 +2817,24 @@ var monkey = function() {
             });
           };
 
-          const onFail1st = function(e) {
+          const onFail1st = (e) => {
             window.console.timeEnd(timeKey);
             window.console.error('loadComment fail: ', e);
             PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
 
-            window.setTimeout(function() {
-              self._load(msgInfo).then(onSuccess, onFailFinally);
+            window.setTimeout(() => {
+              this._load(msgInfo).then(onSuccess, onFailFinally);
             }, 3000);
           };
 
 
-          return new Promise(function(res, rej) {
+          return new Promise((res, rej) => {
             resolve = res;
             reject  = rej;
-            self._load(msgInfo).then(onSuccess, onFail1st);
+            this._load(msgInfo).then(onSuccess, onFail1st);
           });
         },
         _postChat: function(threadInfo, postKey, text, cmd, vpos) {
-          const self = this;
           const div = document.createElement('div');
           const chat = document.createElement('chat');
           chat.setAttribute('premium', ZenzaWatch.util.isPremium() ? '1' : '0');
@@ -2831,7 +2849,7 @@ var monkey = function() {
           var xml = div.innerHTML;
 
           window.console.log('post xml: ', xml);
-          return self._post(threadInfo.server, xml).then(function(result) {
+          return this._post(threadInfo.server, xml).then((result) => {
             var status = null, chat_result, no = 0, blockNo = 0, xml;
             try {
               xml = result.documentElement;
@@ -2862,11 +2880,11 @@ var monkey = function() {
             });
           });
         },
-        postChat: function(threadInfo, text, cmd, vpos) {
-          return this.getPostKey(threadInfo.threadId, threadInfo.blockNo)
-            .then(function(result) {
+        postChat: function(threadInfo, text, cmd, vpos, language) {
+          return this.getPostKey(threadInfo.threadId, threadInfo.blockNo, language)
+            .then((result) => {
             return this._postChat(threadInfo, result.postkey, text, cmd, vpos);
-          }.bind(this));
+          });
         }
       });
 
@@ -13425,10 +13443,9 @@ var SlotLayoutWorker = (function() {
   CommentListView.ITEM_HEIGHT = 40;
 
   _.extend(CommentListView.prototype, AsyncEmitter.prototype);
-  CommentListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-  */});
+  CommentListView.__css__ = '';
 
-  CommentListView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentListView.__tpl__ = (`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -13463,16 +13480,18 @@ var SlotLayoutWorker = (function() {
 <body>
   <div id="listContainer">
     <div class="listMenu">
+
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
       <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
       <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
+
     </div>
     <div id="listContainerInner"></div>
   </div>
 </body>
 </html>
 
-  */});
+  `).trim();
 
   _.extend(CommentListView.prototype, AsyncEmitter.prototype);
   _.assign(CommentListView.prototype, {
@@ -13753,7 +13772,7 @@ var SlotLayoutWorker = (function() {
   _.extend(CommentListItemView.prototype, AsyncEmitter.prototype);
 
   // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
-  CommentListItemView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentListItemView.__css__ = (`
     * {
       box-sizing: border-box;
     }
@@ -13836,7 +13855,7 @@ var SlotLayoutWorker = (function() {
       height: 40px;
       line-height: 20px;
       font-size: 20px;
-      {*overflow: hidden;*}
+      /*overflow: hidden;*/
       white-space: nowrap;
       margin: 0;
       padding: 0;
@@ -13939,7 +13958,7 @@ var SlotLayoutWorker = (function() {
     }
 
 
-  */});
+  `).trim();
 
   CommentListItemView.__tpl__ = (`
     <div id="item%itemId%" class="commentListItem no%no% item%itemId% %updating% fork%fork% %odd-even%"
@@ -14114,7 +14133,7 @@ data-title="%no%: %date% ID:%userId%
 
   var CommentPanelView = function() { this.initialize.apply(this, arguments); };
   _.extend(CommentPanelView.prototype, AsyncEmitter.prototype);
-  CommentPanelView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentPanelView.__css__ = (`
 
 
     .commentPanel-container {
@@ -14185,9 +14204,15 @@ data-title="%no%: %date% ID:%userId%
       line-height: 20px;
     }
 
-  */});
+    .commentPanel-container.lang-ja_JP .commentPanel-command[data-param=ja_JP],
+    .commentPanel-container.lang-en_US .commentPanel-command[data-param=en_US],
+    .commentPanel-container.lang-zh_TW .commentPanel-command[data-param=zh_TW] {
+      font-weight: bolder;
+      color: #ff9;
+    }
+  `).trim();
 
-  CommentPanelView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  CommentPanelView.__tpl__ = (`
     <div class="commentPanel-container">
       <div class="commentPanel-header">
         <lavel class="commentPanel-menu-button autoScroll commentPanel-command"
@@ -14206,6 +14231,17 @@ data-title="%no%: %date% ID:%userId%
               </li>
 
               <hr class="separator">
+              <li class="commentPanel-command" data-command="update-commentLanguage" data-param="ja_JP">
+                日本語
+              </li>
+              <li class="commentPanel-command" data-command="update-commentLanguage" data-param="en_US">
+                English
+              </li>
+              <li class="commentPanel-command" data-command="update-commentLanguage" data-param="zh_TW">
+                中文
+              </li>
+
+              <hr class="separator">
               <li class="commentPanel-command reloadComment" data-command="reloadComment">
                 コメントのリロード
               </li>
@@ -14216,7 +14252,7 @@ data-title="%no%: %date% ID:%userId%
       </div>
       <div class="commentPanel-frame"></div>
     </div>
-  */});
+  `).trim();
 
   _.assign(CommentPanelView.prototype, {
     initialize: function(params) {
@@ -14307,9 +14343,14 @@ data-title="%no%: %date% ID:%userId%
     },
     _onCommentPanelStatusUpdate: function() {
       var commentPanel = this._commentPanel;
-      this._$view
+      const $view = this._$view
         .toggleClass('autoScroll', commentPanel.isAutoScroll())
         ;
+
+      const langClass = 'lang-' + commentPanel.getLanguage();
+      if (!$view.hasClass(langClass)) {
+        $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
+      }
     }
   });
 
@@ -14325,6 +14366,7 @@ data-title="%no%: %date% ID:%userId%
       this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
 
       this._model = new CommentListModel({});
+      this._language = params.language || 'ja_JP';
 
       player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange', _.debounce(this._onCommentChange.bind(this), 500));
@@ -14333,7 +14375,7 @@ data-title="%no%: %date% ID:%userId%
 
       ZenzaWatch.debug.commentPanel = this;
     },
-    _initializeView: function() {
+    _initializeView: function(msgInfo) {
       if (this._view) { return; }
       this._view = new CommentPanelView({
         $container: this._$container,
@@ -14394,13 +14436,15 @@ data-title="%no%: %date% ID:%userId%
           this.emit('command', command, param);
       }
     },
-    _onCommentParsed: function() {
-      this._initializeView();
+    _onCommentParsed: function(msgInfo) {
+      this._initializeView(msgInfo);
       this.setChatList(this._player.getChatList());
+      this.setLanguage(msgInfo.language);
       this.startTimer();
     },
-    _onCommentChange: function() {
-      this._initializeView();
+    _onCommentChange: function(msgInfo) {
+      this._initializeView(msgInfo);
+      this.setLanguage(msgInfo.language);
       this.setChatList(this._player.getChatList());
     },
     _onPlayerOpen: function() {
@@ -14416,6 +14460,15 @@ data-title="%no%: %date% ID:%userId%
     },
     isAutoScroll: function() {
       return this._autoScroll;
+    },
+    getLanguage: function() {
+      return this._language || 'ja_JP';
+    },
+    setLanguage: function(lang) {
+      if (lang !== this._language) {
+        this._language = lang;
+        this.emit('update');
+      }
     },
     toggleScroll: function(v) {
       if (!_.isBoolean(v)) {
@@ -17977,7 +18030,7 @@ var VideoSession = (function() {
   `;
 
   NicoVideoPlayerDialogView.__tpl__ = (`
-    <div class="zenzaVideoPlayerDialog">
+    <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
         <div class="zenzaPlayerContainer">
@@ -18063,7 +18116,13 @@ var VideoSession = (function() {
 //        .on('mousedown', onMouseMove)
 //        .on('mousedown', onMouseMoveEnd);
 
-      $dialog.on('click', _.bind(this._onClick, this));
+      $dialog
+        .on('click', this._onClick.bind(this))
+        .on('dblclick', (e) => {
+          if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') { return; }
+          //window.console.log('mousedown', e, e.target);
+          this.emit('command', 'close');
+        });
 
       this._hoverMenu = new VideoHoverMenu({
         $playerContainer: $container,
@@ -18114,8 +18173,8 @@ var VideoSession = (function() {
 
       this._initializeResponsive();
 
-      ZenzaWatch.emitter.on('showMenu', function() { $container.addClass('menuOpen'); });
-      ZenzaWatch.emitter.on('hideMenu', function() { $container.removeClass('menuOpen'); });
+      ZenzaWatch.emitter.on('showMenu', () => { $container.addClass('menuOpen'); });
+      ZenzaWatch.emitter.on('hideMenu', () => { $container.removeClass('menuOpen'); });
       $('body').append($dialog);
     },
     _initializeVideoInfoPanel: function() {
@@ -18637,6 +18696,12 @@ var VideoSession = (function() {
           this._playerConfig.setValue(command, param);
           this.reload();
           break;
+        case 'update-commentLanguage':
+          command = command.replace(/^update-/, '');
+          if (this._playerConfig.getValue(command) === param) { break; }
+          this._playerConfig.setValue(command, param);
+          this.reloadComment();
+          break;
         case 'baseFontFamily':
         case 'baseChatScale':
         case 'enableFilter':
@@ -18997,13 +19062,14 @@ var VideoSession = (function() {
       });
     },
     _onCommentParsed: function() {
-
-      this.emit('commentParsed');
+      const msgInfo = this._videoInfo.getMsgInfo();
+      this.emit('commentParsed', msgInfo);
       ZenzaWatch.emitter.emit('commentParsed');
       ///this._commentPanel.setChatList(this.getChatList());
     },
     _onCommentChange: function() {
-      this.emit('commentChange');
+      const msgInfo = this._videoInfo.getMsgInfo();
+      this.emit('commentChange', msgInfo);
       ZenzaWatch.emitter.emit('commentChange');
     },
     _onCommentFilterChange: function(filter) {
@@ -19193,13 +19259,14 @@ var VideoSession = (function() {
       }
     },
     loadComment: function(msgInfo) {
+      msgInfo.language = this._playerConfig.getValue('commentLanguage');
       this._messageApiLoader.load(msgInfo).then(
-        _.bind(this._onCommentLoadSuccess, this, this._requestId),
-        _.bind(this._onCommentLoadFail,    this, this._requestId)
+        this._onCommentLoadSuccess.bind(this, this._requestId),
+        this._onCommentLoadFail   .bind(this, this._requestId)
       );
     },
     reloadComment: function() {
-      this.loadComment(this._flvInfo, this._requestId);
+      this.loadComment(this._videoInfo.getMsgInfo());
     },
     _onVideoInfoLoaderFail: function(requestId, watchId, e) {
       window.console.timeEnd('VideoInfoLoader');
@@ -19424,7 +19491,8 @@ var VideoSession = (function() {
       this._commentPanel = new CommentPanel({
         player: this,
         $container: $container,
-        autoScroll: this._playerConfig.getValue('enableCommentPanelAutoScroll')
+        autoScroll: this._playerConfig.getValue('enableCommentPanelAutoScroll'),
+        language: this._playerConfig.getValue('commentLanguage')
       });
       this._commentPanel.on('command', this._onCommand.bind(this));
       this._commentPanel.on('update', _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
@@ -19499,6 +19567,7 @@ var VideoSession = (function() {
 
       var timeout;
       var resolve, reject;
+      const lang = this._playerConfig.getValue('commentLanguage');
       window.console.time('コメント投稿');
 
       var _onSuccess = (result) => {
@@ -19541,7 +19610,8 @@ var VideoSession = (function() {
         window.console.info('retry: コメント投稿');
         timeout = window.setTimeout(_onTimeout, 30000);
 
-        return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+        return this._messageApiLoader
+          .postChat(this._threadInfo, text, cmd, vpos, lang).then(
           _onSuccess,
           _onFailFinal
         );
@@ -19586,7 +19656,7 @@ var VideoSession = (function() {
       return new Promise((res, rej) => {
         resolve = res;
         reject = rej;
-        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos).then(
+        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos, lang).then(
           _onSuccess,
           _onFail1st
         );
@@ -20505,7 +20575,7 @@ var VideoSession = (function() {
         'togglePlaybackRateMenu',
         'toggleNgSettingMenu'
       ]).each((i, func) => {
-        if (typeof self[func] === 'function') {
+        if (typeof this[func] === 'function') {
           (this[func])(false);
         }
       });
