@@ -1893,14 +1893,14 @@ var CONSTANT = {};
       });
     },
     _onCommentParsed: function() {
-      const msgInfo = this._videoInfo.getMsgInfo();
-      this.emit('commentParsed', msgInfo);
+      const lang = this._playerConfig.getValue('commentLanguage');
+      this.emit('commentParsed', lang);
       ZenzaWatch.emitter.emit('commentParsed');
       ///this._commentPanel.setChatList(this.getChatList());
     },
     _onCommentChange: function() {
-      const msgInfo = this._videoInfo.getMsgInfo();
-      this.emit('commentChange', msgInfo);
+      const lang = this._playerConfig.getValue('commentLanguage');
+      this.emit('commentChange', lang);
       ZenzaWatch.emitter.emit('commentChange');
     },
     _onCommentFilterChange: function(filter) {
@@ -2012,6 +2012,9 @@ var CONSTANT = {};
     },
     getId: function() {
       return this._id;
+    },
+    isLastOpenedPlayer: function() {
+      return this.getId() === this._playerConfig.getValue('lastPlayerId', true);
     },
     _updateLastPlayerId: function() {
       this._playerConfig.setValue('lastPlayerId', '');

@@ -1078,7 +1078,7 @@ data-title="%no%: %date% ID:%userId%
 
       ZenzaWatch.debug.commentPanel = this;
     },
-    _initializeView: function(msgInfo) {
+    _initializeView: function() {
       if (this._view) { return; }
       this._view = new CommentPanelView({
         $container: this._$container,
@@ -1139,15 +1139,15 @@ data-title="%no%: %date% ID:%userId%
           this.emit('command', command, param);
       }
     },
-    _onCommentParsed: function(msgInfo) {
-      this._initializeView(msgInfo);
+    _onCommentParsed: function(language) {
+      this._initializeView();
       this.setChatList(this._player.getChatList());
-      this.setLanguage(msgInfo.language);
+      this.setLanguage(language);
       this.startTimer();
     },
-    _onCommentChange: function(msgInfo) {
-      this._initializeView(msgInfo);
-      this.setLanguage(msgInfo.language);
+    _onCommentChange: function(language) {
+      this._initializeView();
+      this.setLanguage(language);
       this.setChatList(this._player.getChatList());
     },
     _onPlayerOpen: function() {

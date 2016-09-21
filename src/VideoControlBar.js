@@ -2496,7 +2496,7 @@ var CONSTANT = {};
       this._playerConfig = params.playerConfig;
       this._volume =
         parseFloat(params.volume || this._playerConfig.getValue('speakLarkVolume'), 10);
-      this._lang = params.lang || ZenzaWatch.util.getLang();
+      this._lang = params.lang || ZenzaWatch.util.getPageLanguage();
       this._enabled = false;
       this._timer = null;
       this._timeoutTimer = null;

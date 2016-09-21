@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.10
+// @version        1.4.11
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.10';
+  var VER = '1.4.11';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1054,6 +1054,7 @@ var monkey = function() {
           case 'message':
             const packet = JSON.parse(newValue);
             if (packet.type === 'pong' && pingResolve) {
+              pingReject = null;
               return pingResolve(packet);
             }
             console.log('%cmessage', 'background: cyan;', newValue);
@@ -1064,7 +1065,7 @@ var monkey = function() {
 
       asyncEmitter.send = function(packet) {
         packet.__now = Date.now();
-        window.console.log('send Packet', packet);
+        console.log('send Packet', packet);
         Config.setValue('message', packet);
       };
 
@@ -1093,19 +1094,22 @@ var monkey = function() {
           asyncEmitter.send({type: 'ping'});
           window.setTimeout(function() {
             if (pingReject) {
-              pingReject('ping timeout');
+              pingReject('timeout');
             }
             pingReject = pingResolve = null;
-          }, 1500);
+          }, 300);
         });
       };
 
       if (ZenzaWatch.debug) {
         ZenzaWatch.debug.ping = function() {
+          window.console.time('ping');
           return asyncEmitter.ping().then(function(result) {
-            window.console.info('pong!', result);
+            window.console.timeEnd('ping');
+            window.console.info('ping result: ok', result);
           }, function(result) {
-            window.console.info('ping timeout', result);
+            window.console.timeEnd('ping');
+            window.console.error('ping result: ', result);
           });
         };
       }
@@ -1232,7 +1236,7 @@ var monkey = function() {
     };
     ZenzaWatch.util.isLogin = isLogin;
 
-    var getLang = function() {
+    var getPageLanguage = function() {
       try {
         var h = document.getElementsByClassName('html')[0];
         return h.lang || 'ja-JP';
@@ -1240,8 +1244,7 @@ var monkey = function() {
         return 'ja-JP';
       }
     };
-    ZenzaWatch.util.getLang = getLang;
-
+    ZenzaWatch.util.getPageLanguage = getPageLanguage;
 
     var isSameOrigin = function() {
       return location.host === 'www.nicovideo.jp';
@@ -2381,8 +2384,8 @@ var monkey = function() {
       var VERSION     = '20090904';
 
       const LANG_CODE = {
-        'en_US': 1,
-        'zh_TW': 2
+        'en_us': 1,
+        'zh_tw': 2
       };
 
       var MessageApiLoader = function() {
@@ -2434,6 +2437,7 @@ var monkey = function() {
           });
         },
         getLangCode: function(language) {
+          language = language.replace('-', '_').toLowerCase();
           if (LANG_CODE[language]) {
             return LANG_CODE[language];
           }
@@ -14375,7 +14379,7 @@ data-title="%no%: %date% ID:%userId%
 
       ZenzaWatch.debug.commentPanel = this;
     },
-    _initializeView: function(msgInfo) {
+    _initializeView: function() {
       if (this._view) { return; }
       this._view = new CommentPanelView({
         $container: this._$container,
@@ -14436,15 +14440,15 @@ data-title="%no%: %date% ID:%userId%
           this.emit('command', command, param);
       }
     },
-    _onCommentParsed: function(msgInfo) {
-      this._initializeView(msgInfo);
+    _onCommentParsed: function(language) {
+      this._initializeView();
       this.setChatList(this._player.getChatList());
-      this.setLanguage(msgInfo.language);
+      this.setLanguage(language);
       this.startTimer();
     },
-    _onCommentChange: function(msgInfo) {
-      this._initializeView(msgInfo);
-      this.setLanguage(msgInfo.language);
+    _onCommentChange: function(language) {
+      this._initializeView();
+      this.setLanguage(language);
       this.setChatList(this._player.getChatList());
     },
     _onPlayerOpen: function() {
@@ -19062,14 +19066,14 @@ var VideoSession = (function() {
       });
     },
     _onCommentParsed: function() {
-      const msgInfo = this._videoInfo.getMsgInfo();
-      this.emit('commentParsed', msgInfo);
+      const lang = this._playerConfig.getValue('commentLanguage');
+      this.emit('commentParsed', lang);
       ZenzaWatch.emitter.emit('commentParsed');
       ///this._commentPanel.setChatList(this.getChatList());
     },
     _onCommentChange: function() {
-      const msgInfo = this._videoInfo.getMsgInfo();
-      this.emit('commentChange', msgInfo);
+      const lang = this._playerConfig.getValue('commentLanguage');
+      this.emit('commentChange', lang);
       ZenzaWatch.emitter.emit('commentChange');
     },
     _onCommentFilterChange: function(filter) {
@@ -19181,6 +19185,9 @@ var VideoSession = (function() {
     },
     getId: function() {
       return this._id;
+    },
+    isLastOpenedPlayer: function() {
+      return this.getId() === this._playerConfig.getValue('lastPlayerId', true);
     },
     _updateLastPlayerId: function() {
       this._playerConfig.setValue('lastPlayerId', '');
@@ -23361,9 +23368,9 @@ var VideoSession = (function() {
         ZenzaWatch.debug.dialog = dialog;
 
         localStorageEmitter.on('message', function(packet) {
-          if (packet.type === 'ping' && dialog.getId() !== Config.getValue('lastPlayerId', true)) {
+          if (packet.type === 'ping' && dialog.isLastOpenedPlayer()) {
             window.console.info('pong!');
-            localStorageEmitter.send({type: 'pong'});
+            localStorageEmitter.pong(dialog.getId());
             return;
           }
           if (packet.type !== 'openVideo') { return; }
@@ -23477,23 +23484,49 @@ var VideoSession = (function() {
     };
 
     var initializeExternal = function(dialog, config) {
-      var command = function(command, param) {
+      const command = (command, param) => {
         dialog.execCommand(command, param);
       };
-      var open = function(watchId, params) {
-        dialog.open(watchId, params);
+
+      const open = (watchId, params) => { dialog.open(watchId, params); };
+
+      // 最後にZenzaWatchを開いたタブに送る
+      const send = watchId => {
+        localStorageEmitter.send({
+          type: 'openVideo',
+          watchId: watchId,
+          eventType: 'click',
+          query: this._query
+        });
       };
 
-      var importPlaylist = function(data) {
+      // 最後にZenzaWatchを開いたタブに送る
+      // なかったら同じタブで開く. 一見万能だが、pingを投げる都合上ワンテンポ遅れる。
+      const sendOrOpen = (watchId, params) => {
+        if (dialog.isLastOpenedPlayer()) {
+          open(watchId, params);
+        } else {
+          localStorageEmitter.ping().then(() => {
+            send(watchId);
+          }, () => {
+            open(watchId, params);
+          });
+        }
+      };
+
+      const importPlaylist = data => {
         PlaylistSession.save(data);
       };
-      var exportPlaylist = function() {
+
+      const exportPlaylist = () => {
         return PlaylistSession.restore() || {};
       };
 
       ZenzaWatch.external = {
         execCommand: command,
         open: open,
+        send: send,
+        sendOrOpen,
         playlist: {
           import: importPlaylist,
           export: exportPlaylist

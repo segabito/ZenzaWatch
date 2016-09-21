@@ -199,9 +199,9 @@ var AsyncEmitter = function() {};
         ZenzaWatch.debug.dialog = dialog;
 
         localStorageEmitter.on('message', function(packet) {
-          if (packet.type === 'ping' && dialog.getId() !== Config.getValue('lastPlayerId', true)) {
+          if (packet.type === 'ping' && dialog.isLastOpenedPlayer()) {
             window.console.info('pong!');
-            localStorageEmitter.send({type: 'pong'});
+            localStorageEmitter.pong(dialog.getId());
             return;
           }
           if (packet.type !== 'openVideo') { return; }
@@ -315,23 +315,49 @@ var AsyncEmitter = function() {};
     };
 
     var initializeExternal = function(dialog, config) {
-      var command = function(command, param) {
+      const command = (command, param) => {
         dialog.execCommand(command, param);
       };
-      var open = function(watchId, params) {
-        dialog.open(watchId, params);
+
+      const open = (watchId, params) => { dialog.open(watchId, params); };
+
+      // 最後にZenzaWatchを開いたタブに送る
+      const send = watchId => {
+        localStorageEmitter.send({
+          type: 'openVideo',
+          watchId: watchId,
+          eventType: 'click',
+          query: this._query
+        });
       };
 
-      var importPlaylist = function(data) {
+      // 最後にZenzaWatchを開いたタブに送る
+      // なかったら同じタブで開く. 一見万能だが、pingを投げる都合上ワンテンポ遅れる。
+      const sendOrOpen = (watchId, params) => {
+        if (dialog.isLastOpenedPlayer()) {
+          open(watchId, params);
+        } else {
+          localStorageEmitter.ping().then(() => {
+            send(watchId);
+          }, () => {
+            open(watchId, params);
+          });
+        }
+      };
+
+      const importPlaylist = data => {
         PlaylistSession.save(data);
       };
-      var exportPlaylist = function() {
+
+      const exportPlaylist = () => {
         return PlaylistSession.restore() || {};
       };
 
       ZenzaWatch.external = {
         execCommand: command,
         open: open,
+        send: send,
+        sendOrOpen,
         playlist: {
           import: importPlaylist,
           export: exportPlaylist

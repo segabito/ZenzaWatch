@@ -524,8 +524,8 @@ var ajax = function() {};
       var VERSION     = '20090904';
 
       const LANG_CODE = {
-        'en_US': 1,
-        'zh_TW': 2
+        'en_us': 1,
+        'zh_tw': 2
       };
 
       var MessageApiLoader = function() {
@@ -577,6 +577,7 @@ var ajax = function() {};
           });
         },
         getLangCode: function(language) {
+          language = language.replace('-', '_').toLowerCase();
           if (LANG_CODE[language]) {
             return LANG_CODE[language];
           }

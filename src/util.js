@@ -967,6 +967,7 @@ var CONSTANT = {};
           case 'message':
             const packet = JSON.parse(newValue);
             if (packet.type === 'pong' && pingResolve) {
+              pingReject = null;
               return pingResolve(packet);
             }
             console.log('%cmessage', 'background: cyan;', newValue);
@@ -977,7 +978,7 @@ var CONSTANT = {};
 
       asyncEmitter.send = function(packet) {
         packet.__now = Date.now();
-        window.console.log('send Packet', packet);
+        console.log('send Packet', packet);
         Config.setValue('message', packet);
       };
 
@@ -1006,19 +1007,22 @@ var CONSTANT = {};
           asyncEmitter.send({type: 'ping'});
           window.setTimeout(function() {
             if (pingReject) {
-              pingReject('ping timeout');
+              pingReject('timeout');
             }
             pingReject = pingResolve = null;
-          }, 1500);
+          }, 300);
         });
       };
 
       if (ZenzaWatch.debug) {
         ZenzaWatch.debug.ping = function() {
+          window.console.time('ping');
           return asyncEmitter.ping().then(function(result) {
-            window.console.info('pong!', result);
+            window.console.timeEnd('ping');
+            window.console.info('ping result: ok', result);
           }, function(result) {
-            window.console.info('ping timeout', result);
+            window.console.timeEnd('ping');
+            window.console.error('ping result: ', result);
           });
         };
       }
@@ -1145,7 +1149,7 @@ var CONSTANT = {};
     };
     ZenzaWatch.util.isLogin = isLogin;
 
-    var getLang = function() {
+    var getPageLanguage = function() {
       try {
         var h = document.getElementsByClassName('html')[0];
         return h.lang || 'ja-JP';
@@ -1153,8 +1157,7 @@ var CONSTANT = {};
         return 'ja-JP';
       }
     };
-    ZenzaWatch.util.getLang = getLang;
-
+    ZenzaWatch.util.getPageLanguage = getPageLanguage;
 
     var isSameOrigin = function() {
       return location.host === 'www.nicovideo.jp';
