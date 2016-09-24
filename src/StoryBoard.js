@@ -805,9 +805,9 @@ var AsyncEmitter = function() {};
         e.stopPropagation();
       },
       _onTouchEnd: function(e) {
-        this._isHover = false;
-        this._isMouseMoving = false;
-        e.stopPropagation();
+        //this._isHover = false;
+        //this._isMouseMoving = false;
+        //e.stopPropagation();
       },
       _onTouchMove: function(e) {
         e.stopPropagation();

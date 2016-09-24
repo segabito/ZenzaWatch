@@ -118,6 +118,7 @@ var CONSTANT = {};
       background: #222;
       white-space: nowrap;
       overflow: visible;
+      transition: transform 0.2s ease, left 0.2s ease;
     }
     .fullScreen .controlItemContainer.center {
       top: auto;
@@ -852,6 +853,12 @@ var CONSTANT = {};
 
 
 
+    @media screen and (max-width: 864px) {
+      .controlItemContainer.center {
+        left: 0%;
+        transform: translate(0, 0);
+      }
+    }
 
   `).trim();
 

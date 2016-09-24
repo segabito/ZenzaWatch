@@ -235,6 +235,7 @@ var CONSTANT = {};
 
         enableCommentLayoutWorker: true, // コメントの配置計算を一部マルチスレッド化(テスト中)
 
+        enableSingleton: false,
 
         commentLayerOpacity: 1.0, //
         textShadow: '1px 1px 0 #000', //
@@ -991,7 +992,12 @@ var CONSTANT = {};
             break;
           case 'message':
             if (!data.message.value) { return; }
-            asyncEmitter.emit('message', JSON.parse(data.message.value));
+            const packet = JSON.parse(data.message.value);
+            if (packet.type === 'pong' && pingResolve) {
+              pingReject = null;
+              return pingResolve(packet);
+            }
+            asyncEmitter.emit('message', packet);
             break;
         }
       });
@@ -1366,6 +1372,17 @@ var CONSTANT = {};
         arg = arguments;
         requestId = requestAnimationFrame(onFrame);
       };
+    };
+
+    ZenzaWatch.util.waitForInitialize = function() {
+      return new Promise((resolve) => {
+        if (ZenzaWatch.ready) {
+          return resolve();
+        }
+        ZenzaWatch.emitter.on('ready', () => {
+          Promise.resolve();
+        });
+      });
     };
 
     var ShortcutKeyEmitter = (function(config) {

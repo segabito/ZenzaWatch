@@ -199,7 +199,7 @@ var AsyncEmitter = function() {};
         ZenzaWatch.debug.dialog = dialog;
 
         localStorageEmitter.on('message', function(packet) {
-          if (packet.type === 'ping' && dialog.isLastOpenedPlayer()) {
+          if (packet.type === 'ping' && dialog.isLastOpenedPlayer() && dialog.isOpen()) {
             window.console.info('pong!');
             localStorageEmitter.pong(dialog.getId());
             return;
@@ -208,7 +208,6 @@ var AsyncEmitter = function() {};
           if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
           window.console.log('recieve packet: ', packet);
           dialog.open(packet.watchId, {
-            economy: Config.getValue('forceEconomy'),
             autoCloseFullScreen: false,
             query: packet.query,
             eventType: packet.eventType
@@ -219,7 +218,7 @@ var AsyncEmitter = function() {};
 
         if (dialog) { hoverMenu.setPlayer(dialog); }
         initializeMobile(dialog, Config);
-        initializeExternal(dialog, Config);
+        initializeExternal(dialog, Config, hoverMenu);
 
         if (isGinza) {
           return;
@@ -322,13 +321,12 @@ var AsyncEmitter = function() {};
       const open = (watchId, params) => { dialog.open(watchId, params); };
 
       // 最後にZenzaWatchを開いたタブに送る
-      const send = watchId => {
-        localStorageEmitter.send({
+      const send = (watchId, params) => {
+        localStorageEmitter.send(Object.assign({
           type: 'openVideo',
           watchId: watchId,
-          eventType: 'click',
-          query: this._query
-        });
+          eventType: 'click'
+        }, params));
       };
 
       // 最後にZenzaWatchを開いたタブに送る
@@ -338,7 +336,7 @@ var AsyncEmitter = function() {};
           open(watchId, params);
         } else {
           localStorageEmitter.ping().then(() => {
-            send(watchId);
+            send(watchId, params);
           }, () => {
             open(watchId, params);
           });
@@ -378,7 +376,7 @@ var AsyncEmitter = function() {};
         this._$view = $view;
 
         $view.on('click', _.bind(this._onClick, this));
-        ZenzaWatch.emitter.on('hideHover', function() {
+        ZenzaWatch.emitter.on('hideHover', () => {
           $view.removeClass('show');
         });
 
@@ -397,11 +395,22 @@ var AsyncEmitter = function() {};
       },
       setPlayer: function(player) {
         this._player = player;
-        if (this._selectedWatchId) {
-          ZenzaWatch.util.callAsync(function() {
-            player.open(this._selectedWatchId, this._playerOption);
-          }, this, 1000);
+        //if (this._selectedWatchId) {
+        //  window.setTimeout(() => {
+        //    player.open(this._selectedWatchId, this._playerOption);
+        //  }, this, 1000);
+        //}
+        if (this._playerResolve) {
+          this._playerResolve(player);
         }
+      },
+      _getPlayer: function() {
+        return new Promise((resolve) => {
+          if (this._player) {
+            return resolve(this._player);
+          }
+          this._playerResolve = resolve;
+        });
       },
       _onHover: function(e) {
         this._hoverElement = e.target;
@@ -437,7 +446,7 @@ var AsyncEmitter = function() {};
         }).addClass('show');
       },
       _onClick: function(e) {
-        var watchId = this._watchId;
+        const watchId = this._watchId;
 
         if (e.shiftKey) {
           // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く
@@ -446,31 +455,44 @@ var AsyncEmitter = function() {};
           this._open(watchId);
         }
       },
-      _open: function(watchId) {
-        this._playerOption = {
+      open: function(watchId, params) {
+        this._open(watchId, params);
+      },
+      _open: function(watchId, params) {
+        this._playerOption = Object.assign({
           economy: this._playerConfig.getValue('forceEconomy'),
           query: this._query,
           eventType: 'click'
-        };
+        }, params);
 
+        this._getPlayer().then((player) => {
+          let isSingleton = this._playerConfig.getValue('enableSingleton');
+          if (isSingleton) {
+            ZenzaWatch.external.sendOrOpen(watchId, this._playerOption);
+          } else {
+            player.open(watchId, this._playerOption);
+          }
+        });
 
-        if (this._player) {
-          this._player.open(watchId, this._playerOption);
-        } else {
-          this._selectedWatchId = watchId;
-        }
+        //if (this._player) {
+        //  this._player.open(watchId, this._playerOption);
+        //} else {
+        //  this._selectedWatchId = watchId;
+        //}
       },
-      _send: function(watchId) {
-        localStorageEmitter.send({
-          type: 'openVideo',
-          watchId: watchId,
-          eventType: 'click',
-          economy: this._playerConfig.getValue('forceEconomy'),
-          query: this._query
+      send: function(watchId, params) {
+        this._send(watchId, params);
+      },
+      _send: function(watchId, params) {
+        this._getPlayer().then(() => {
+          ZenzaWatch.external.send(
+            watchId,
+            Object.assign({query: this._query }, params)
+          );
         });
       },
       _overrideGinzaLink: function() {
-        $('body').on('click', 'a[href*="watch/"]', _.bind(function(e) {
+        $('body').on('click', 'a[href*="watch/"]', (e) => {
           if (e.target !== this._hoverElement) { return; }
 
           var $target = $(e.target).closest('a');
@@ -486,8 +508,8 @@ var AsyncEmitter = function() {};
 
           e.preventDefault();
 
-          $('.zenzaWatching').removeClass('zenzaWatching');
-          $target.addClass('.zenzaWatching');
+          //$('.zenzaWatching').removeClass('zenzaWatching');
+          //$target.addClass('.zenzaWatching');
 
           if (e.shiftKey) {
             // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く
@@ -496,11 +518,11 @@ var AsyncEmitter = function() {};
             this._open(watchId);
           }
 
-          ZenzaWatch.util.callAsync(function() {
+          window.setTimeout(() => {
             ZenzaWatch.emitter.emit('hideHover');
-          }, this, 1500);
+          }, 1500);
 
-        }, this));
+        });
       }
     });
 

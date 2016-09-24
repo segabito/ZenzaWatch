@@ -181,7 +181,7 @@ var AsyncEmitter = function() {};
      }
 
   */});
-  SettingPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  SettingPanel.__tpl__ = (`
     <!-- mix-blend-mode を使ってみたかっただけのためのレイヤーx2 飽きたら消す -->
     <div class="zenzaSettingPanelShadow1"></div>
     <div class="zenzaSettingPanelShadow2"></div>
@@ -259,6 +259,14 @@ var AsyncEmitter = function() {};
             コメント初期化を一部マルチスレッド化(実験中)
           </label>
         </div>
+
+        <div class="enableSingleton control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableSingleton">
+            ZenzaWatchを起動してるタブがあればそちらで開く
+          </label>
+        </div>
+
 
 
 
@@ -394,7 +402,7 @@ var AsyncEmitter = function() {};
 
       </div>
     </div>
-  */});
+  `).trim();
   _.extend(SettingPanel.prototype, AsyncEmitter.prototype);
 
   _.assign(SettingPanel.prototype, {
