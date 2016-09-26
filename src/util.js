@@ -952,7 +952,7 @@ var CONSTANT = {};
     })();
 
     var localStorageEmitter = (function() {
-      var asyncEmitter = new AsyncEmitter();
+      const localStorageEmitter = new AsyncEmitter();
       var pingResolve = null, pingReject = null;
 
       var onStorage = function(e) {
@@ -962,7 +962,7 @@ var CONSTANT = {};
         key = key.replace('ZenzaWatch_', '');
         var oldValue = e.oldValue;
         var newValue = e.newValue;
-        asyncEmitter.emit('change', key, newValue, oldValue);
+        localStorageEmitter.emit('change', key, newValue, oldValue);
 
         switch(key) {
           case 'message':
@@ -972,12 +972,12 @@ var CONSTANT = {};
               return pingResolve(packet);
             }
             console.log('%cmessage', 'background: cyan;', newValue);
-            asyncEmitter.emit('message', packet);
+            localStorageEmitter.emit('message', packet);
             break;
         }
       };
 
-      asyncEmitter.send = function(packet) {
+      localStorageEmitter.send = function(packet) {
         packet.__now = Date.now();
         console.log('send Packet', packet);
         Config.setValue('message', packet);
@@ -997,20 +997,20 @@ var CONSTANT = {};
               pingReject = null;
               return pingResolve(packet);
             }
-            asyncEmitter.emit('message', packet);
+            localStorageEmitter.emit('message', packet);
             break;
         }
       });
 
-      asyncEmitter.pong = function(playerId) {
-        asyncEmitter.send({id: playerId, type: 'pong'});
+      localStorageEmitter.pong = function(playerId) {
+        localStorageEmitter.send({id: playerId, type: 'pong'});
       };
 
-      asyncEmitter.ping = function() {
+      localStorageEmitter.ping = function() {
         return new Promise(function(resolve, reject) {
           pingResolve = resolve;
           pingReject = reject;
-          asyncEmitter.send({type: 'ping'});
+          localStorageEmitter.send({type: 'ping'});
           window.setTimeout(function() {
             if (pingReject) {
               pingReject('timeout');
@@ -1020,13 +1020,25 @@ var CONSTANT = {};
         });
       };
 
+      localStorageEmitter.sendOpen = (watchId, params) => {
+        localStorageEmitter.send(Object.assign({
+          type: 'openVideo',
+          watchId: watchId,
+          eventType: 'click'
+        }, params));
+      };
+
+      localStorageEmitter.notifyClose = function() {
+        localStorageEmitter.send({type: 'notifyClose'});
+      };
+
       if (ZenzaWatch.debug) {
-        ZenzaWatch.debug.ping = function() {
+        ZenzaWatch.debug.ping = () => {
           window.console.time('ping');
-          return asyncEmitter.ping().then(function(result) {
+          return localStorageEmitter.ping().then((result) => {
             window.console.timeEnd('ping');
             window.console.info('ping result: ok', result);
-          }, function(result) {
+          }, (result) => {
             window.console.timeEnd('ping');
             window.console.error('ping result: ', result);
           });
@@ -1037,7 +1049,7 @@ var CONSTANT = {};
         window.addEventListener('storage', onStorage);
       }
 
-      return asyncEmitter;
+      return localStorageEmitter;
     })();
 
     /**
@@ -1075,7 +1087,7 @@ var CONSTANT = {};
 
         // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
         // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
-        ZenzaWatch.util.callAsync(function() {
+        window.setTimeout(() => {
           if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
             return;
           }
@@ -1110,7 +1122,7 @@ var CONSTANT = {};
 
         // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
         // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
-        ZenzaWatch.util.callAsync(function() {
+        window.setTimeout(() => {
           document.title = originalTitle;
           if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
             return;
@@ -1460,14 +1472,14 @@ var CONSTANT = {};
             break;
           case map.SEEK_LEFT:
           case 37: // LEFT
-            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ? -1 : -5; }
+            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ? -0.5 : -5; }
             break;
           case map.VOL_UP:
             key = 'VOL_UP';
             break;
           case map.SEEK_RIGHT:
           case 39: // RIGHT
-            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ?  1 :  5; }
+            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ?  0.5 :  5; }
             break;
           case map.VOL_DOWN:
             key = 'VOL_DOWN';

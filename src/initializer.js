@@ -198,20 +198,28 @@ var AsyncEmitter = function() {};
 
         ZenzaWatch.debug.dialog = dialog;
 
-        localStorageEmitter.on('message', function(packet) {
+        localStorageEmitter.on('message', (packet) => {
           if (packet.type === 'ping' && dialog.isLastOpenedPlayer() && dialog.isOpen()) {
             window.console.info('pong!');
             localStorageEmitter.pong(dialog.getId());
             return;
+          } else if (packet.type === 'notifyClose' && dialog.isOpen()) {
+            dialog.refreshLastPlayerId();
+            return;
           }
+
           if (packet.type !== 'openVideo') { return; }
-          if (dialog.getId() !== Config.getValue('lastPlayerId', true)) { return; }
+          if (!dialog.isLastOpenedPlayer()) { return; }
+
           window.console.log('recieve packet: ', packet);
           dialog.open(packet.watchId, {
             autoCloseFullScreen: false,
             query: packet.query,
             eventType: packet.eventType
           });
+        });
+        dialog.on('close', () => {
+          localStorageEmitter.notifyClose();
         });
 
         WatchPageState.initialize(dialog);
@@ -224,7 +232,7 @@ var AsyncEmitter = function() {};
           return;
         }
 
-        window.addEventListener('beforeunload', function() {
+        window.addEventListener('beforeunload', () => {
           PlayerSession.save(dialog.getPlayingStatus());
           dialog.close();
         });
@@ -245,7 +253,7 @@ var AsyncEmitter = function() {};
           PlayerSession.clear();
         }
 
-        WindowMessageEmitter.on('onMessage', function(data, type) {
+        WindowMessageEmitter.on('onMessage', (data, type) => {
           var watchId = data.message.watchId;
           if (watchId && data.message.command === 'open') {
             //window.console.log('onMessage!: ', data.message.watchId, type);
@@ -322,11 +330,7 @@ var AsyncEmitter = function() {};
 
       // 最後にZenzaWatchを開いたタブに送る
       const send = (watchId, params) => {
-        localStorageEmitter.send(Object.assign({
-          type: 'openVideo',
-          watchId: watchId,
-          eventType: 'click'
-        }, params));
+        localStorageEmitter.sendOpen(watchId, params);
       };
 
       // 最後にZenzaWatchを開いたタブに送る

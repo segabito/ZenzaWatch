@@ -1925,7 +1925,7 @@ var CONSTANT = {};
       // 連打対策
       if (Date.now() - this._lastOpenAt < 1500 && this._watchId === watchId) { return; }
 
-      this._updateLastPlayerId();
+      this.refreshLastPlayerId();
       this._requestId = 'play-' + Math.random();
       this._videoWatchOptions = options =new VideoWatchOptions(watchId, options, this._playerConfig);
 
@@ -2016,7 +2016,8 @@ var CONSTANT = {};
     isLastOpenedPlayer: function() {
       return this.getId() === this._playerConfig.getValue('lastPlayerId', true);
     },
-    _updateLastPlayerId: function() {
+    refreshLastPlayerId: function() {
+      if (this.isLastOpenedPlayer()) { return; }
       this._playerConfig.setValue('lastPlayerId', '');
       this._playerConfig.setValue('lastPlayerId', this.getId());
     },
