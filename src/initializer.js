@@ -199,17 +199,22 @@ var AsyncEmitter = function() {};
         ZenzaWatch.debug.dialog = dialog;
 
         localStorageEmitter.on('message', (packet) => {
-          if (packet.type === 'ping' && dialog.isLastOpenedPlayer() && dialog.isOpen()) {
+          const isLast = dialog.isLastOpenedPlayer();
+          const isOpen = dialog.isOpen();
+          const type = packet.type;
+          if (type === 'ping' && isLast && isOpen) {
             window.console.info('pong!');
             localStorageEmitter.pong(dialog.getId());
             return;
-          } else if (packet.type === 'notifyClose' && dialog.isOpen()) {
+          } else if (type === 'notifyClose' && isOpen) {
             dialog.refreshLastPlayerId();
             return;
+          } else if (type === 'sendCommand' && isLast && isOpen) {
+            dialog.execCommand(packet.command, packet.params);
           }
 
-          if (packet.type !== 'openVideo') { return; }
-          if (!dialog.isLastOpenedPlayer()) { return; }
+          if (type !== 'openVideo') { return; }
+          if (!isLast) { return; }
 
           window.console.log('recieve packet: ', packet);
           dialog.open(packet.watchId, {
@@ -218,6 +223,7 @@ var AsyncEmitter = function() {};
             eventType: packet.eventType
           });
         });
+
         dialog.on('close', () => {
           localStorageEmitter.notifyClose();
         });
@@ -355,12 +361,39 @@ var AsyncEmitter = function() {};
         return PlaylistSession.restore() || {};
       };
 
+
+      const sendCommand = (command, params) => {
+        localStorageEmitter.send(
+          ({type: 'sendCommand', command: command, params: params})
+        );
+      };
+
+      const execOrSendCommand = (command, params) => {
+        localStorageEmitter.ping().then(() => {
+          sendCommand(command, params);
+        }, () => {
+          dialog.execCommand(command, params);
+        });
+      };
+
+      const playlistAdd = (watchId) => {
+        execOrSendCommand('playlistAdd', watchId);
+      };
+
+      const playlistInsert = (watchId) => {
+        execOrSendCommand('playlistInsert', watchId);
+      };
+
       ZenzaWatch.external = {
         execCommand: command,
+        sendCommand: sendCommand,
+        execOrSendCommand: execOrSendCommand,
         open: open,
         send: send,
         sendOrOpen,
         playlist: {
+          add: playlistAdd,
+          insert: playlistInsert,
           import: importPlaylist,
           export: exportPlaylist
         }

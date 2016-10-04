@@ -263,7 +263,8 @@ var AsyncEmitter = function() {};
         <div class="enableSingleton control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableSingleton">
-            ZenzaWatchを起動してるタブがあればそちらで開く
+            ZenzaWatchを起動してるタブがあればそちらで開く<br>
+            <smal>(singletonモード)</small>
           </label>
         </div>
 

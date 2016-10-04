@@ -8,4 +8,5 @@ ZenzaWatch.user\ *.js
 .DS_Store
 *.lnk
 node_modules/
-
+.gitkeep
+session/*

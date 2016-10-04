@@ -635,13 +635,14 @@ var VideoInfoLoader = {};
         controls: !true,
         loop: !!params.loop,
         mute: !!params.mute,
+//        crossorigin: 'use-credentials',
         'playsinline': true,
         'webkit-playsinline': true
       };
 
       console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
-      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline webkit-playsinline />')
+      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline webkit-playsinline/>')
         .addClass(this._id)
         .attr(options);
       this._video = this._$video[0];

@@ -534,6 +534,8 @@ var CONSTANT = {};
       z-index: 100 !important;
     }
 
+    .zenzaScreenMode_3D   .showVideoControlBar .videoPlayer,
+    .zenzaScreenMode_3D   .showVideoControlBar .commentLayerFrame,
     .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
     .zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
     .fullScreen           .showVideoControlBar .videoPlayer,
@@ -552,21 +554,26 @@ var CONSTANT = {};
       padding-bottom: 50px;
     }
 
+    .zenzaStoryBoardOpen.zenzaScreenMode_3D .showVideoControlBar .videoPlayer,
+    .zenzaStoryBoardOpen.zenzaScreenMode_3D .showVideoControlBar .commentLayerFrame,
     .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
     .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame{
       padding-bottom: 80px;
     }
 
+    .zenzaScreenMode_3D   .showVideoControlBar .videoPlayer,
     .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
     .fullScreen           .showVideoControlBar .videoPlayer {
       z-index: 100 !important;
     }
+    .zenzaScreenMode_3D   .showVideoControlBar .commentLayerFrame,
     .zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
     .fullScreen           .showVideoControlBar .commentLayerFrame {
       z-index: 101 !important;
     }
 
 
+    .zenzaScreenMode_3D   .showComment.backComment .videoPlayer,
     .zenzaScreenMode_wide .showComment.backComment .videoPlayer,
     .fullScreen           .showComment.backComment .videoPlayer
     {
@@ -624,6 +631,7 @@ var CONSTANT = {};
 
     body.zenzaScreenMode_normal,
     body.zenzaScreenMode_big,
+    body.zenzaScreenMode_3D,
     body.zenzaScreenMode_wide {
       overflow: hidden !important;
     }
@@ -664,6 +672,7 @@ var CONSTANT = {};
       height: ${CONSTANT.BIG_PLAYER_HEIGHT}px;
     }
 
+    .zenzaScreenMode_3D   .zenzaPlayerContainer,
     .zenzaScreenMode_wide .zenzaPlayerContainer {
       left: 0;
       width: 100vw;
@@ -672,6 +681,7 @@ var CONSTANT = {};
     }
 
     .zenzaScreenMode_small .videoPlayer,
+    .zenzaScreenMode_3D    .videoPlayer,
     .zenzaScreenMode_wide  .videoPlayer {
       left: 0;
       width: 100%;
@@ -1640,15 +1650,15 @@ var CONSTANT = {};
           this.setIsBackComment(value);
           break;
         case 'showComment':
-          PopupMessage.notify('コメント表示: ' + (value ? 'ON' : 'OFF'));
+          //PopupMessage.notify('コメント表示: ' + (value ? 'ON' : 'OFF'));
           this._view.toggleClass('showComment', value);
           break;
         case 'loop':
-          PopupMessage.notify('リピート再生: ' + (value ? 'ON' : 'OFF'));
+          //PopupMessage.notify('リピート再生: ' + (value ? 'ON' : 'OFF'));
           this._view.toggleClass('loop', value);
           break;
         case 'mute':
-          PopupMessage.notify('ミュート: ' + (value ? 'ON' : 'OFF'));
+          //PopupMessage.notify('ミュート: ' + (value ? 'ON' : 'OFF'));
           this._view.toggleClass('mute', value);
           break;
         case 'sharedNgLevel':
@@ -2074,6 +2084,7 @@ var CONSTANT = {};
         );
       } else {
         nicoVideoPlayer.setVideo(videoUrl);
+        //this._videoSession.create();
         this.emit('videoServerType', 'smile', {});
       }
       nicoVideoPlayer.setVideoInfo(this._videoInfo);

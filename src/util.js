@@ -485,20 +485,21 @@ var CONSTANT = {};
          }
 
         .zenzaPopupMessage.show.removing {
-          {*transform: translate3d(0, -100px, 0);*}
+          transform: perspective(300px) rotateX(90deg);
           opacity: 0;
           max-height: 0;
           padding: 0px 8px;
           margin-bottom: 0px;
           box-shadow: 4px 4px 2px rgba(192, 192, 192, 0);
+          background: rgba(255,255,255, 0.5);
           transition:
-            transform 1s linear,
+            transform     0.3s ease,
             opacity       0.5s ease 0.5s,
             max-height    0.3s ease 1s,
             padding       0.3s ease 1s,
             margin-bottom 0.3s ease 1s,
             box-shadow    0.5s ease,
-            background 5s ease;
+            background    0.3s ease;
         }
 
         .zenzaPopupMessage.notify {
@@ -1629,8 +1630,8 @@ var CONSTANT = {};
       this._enable = false;
       this.update();
       //$(window).on('resize', _.debounce(_.bind(this._onResize, this), 1000));
-      ZenzaWatch.emitter.on('DialogPlayerOpen',  _.bind(this.enable, this));
-      ZenzaWatch.emitter.on('DialogPlayerClose', _.bind(this.disable, this));
+      ZenzaWatch.emitter.on('DialogPlayerOpen',  this.enable.bind(this));
+      ZenzaWatch.emitter.on('DialogPlayerClose', this.disable.bind(this));
     },
     _onResize: function() {
       this.update();
@@ -1641,6 +1642,7 @@ var CONSTANT = {};
           this._$meta
             .attr('content',
               'width=' + window.innerWidth * window.devicePixelRatio + ',' +
+              //'width=' + 1280 + ',' +
               'initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0');
         } else {
           this._$meta

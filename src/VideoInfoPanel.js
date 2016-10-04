@@ -169,24 +169,28 @@ const CONSTANT = {};
     }
 
 
+    .zenzaScreenMode_3D    .zenzaWatchVideoInfoPanel>*,
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel>*,
     .fullScreen            .zenzaWatchVideoInfoPanel>* {
       display: none;
       pointer-events: none;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover>*,
     .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover>*,
     .fullScreen           .zenzaWatchVideoInfoPanel:hover>* {
       display: inherit;
       pointer-events: auto;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover .tabSelectContainer,
     .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover .tabSelectContainer,
     .fullScreen           .zenzaWatchVideoInfoPanel:hover .tabSelectContainer {
       display: flex;
     }
 
 
+    .zenzaScreenMode_3D    .zenzaWatchVideoInfoPanel,
     .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel,
     .fullScreen            .zenzaWatchVideoInfoPanel {
       top: 20%;
@@ -201,6 +205,7 @@ const CONSTANT = {};
       will-change: opacity, transform, transform;
     }
 
+    .zenzaScreenMode_3D   .mouseMoving  .zenzaWatchVideoInfoPanel,
     .zenzaScreenMode_wide .mouseMoving  .zenzaWatchVideoInfoPanel,
     .fullScreen           .mouseMoving  .zenzaWatchVideoInfoPanel {
       height: 60%;
@@ -209,6 +214,7 @@ const CONSTANT = {};
       opacity: 0.5;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover,
     .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover,
     .fullScreen           .zenzaWatchVideoInfoPanel:hover {
       /*right: 0;*/
@@ -425,7 +431,6 @@ const CONSTANT = {};
 
 
 
-    body:not(.fullScreen).zenzaScreenMode_3D    .zenzaWatchVideoInfoPanel,
     body:not(.fullScreen).zenzaScreenMode_small .zenzaWatchVideoInfoPanel {
       display: none;
     }
@@ -1019,9 +1024,10 @@ const CONSTANT = {};
       color: #ccc;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel,
     .fullScreen           .zenzaWatchVideoHeaderPanel {
-      position: absolute; {* fixedだとFirefoxのバグでおかしくなる *}
+      position: absolute; /* fixedだとFirefoxのバグでおかしくなる */
       top: 0px;
       bottom: auto;
       background: rgba(0, 0, 0, 0.5);
@@ -1060,25 +1066,31 @@ const CONSTANT = {};
       display: none;
     }
 
+    .zenzaScreenMode_3D   .loading  .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .loading  .zenzaWatchVideoHeaderPanel,
     .fullScreen           .loading  .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_3D   .mouseMoving .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
     .fullScreen           .mouseMoving .zenzaWatchVideoHeaderPanel {
       opacity: 0.5;
     }
 
+    .zenzaScreenMode_3D   .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
     .fullScreen           .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel:hover,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover,
     .fullScreen           .zenzaWatchVideoHeaderPanel:hover {
       opacity: 1;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel .videoTagsContainer,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTagsContainer,
     .fullScreen           .zenzaWatchVideoHeaderPanel .videoTagsContainer {
       display: none;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
     .fullScreen           .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer {
       display: block;

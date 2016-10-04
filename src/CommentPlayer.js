@@ -1257,7 +1257,7 @@ var SlotLayoutWorker = {};
       var attr = chat.attributes;
       if (!attr) { this.reset(); return; }
 
-      this._date = chat.getAttribute('date') || '000000000';
+      this._date = chat.getAttribute('date') || Math.floor(Date.now() / 1000);
       this._cmd  = chat.getAttribute('mail') || '';
       this._isPremium = (chat.getAttribute('premium') === '1');
       this._userId = chat.getAttribute('user_id');
@@ -2264,7 +2264,7 @@ spacer {
 %CSS%
 </style>
 </head>
-<body style="background: transparent !important;">
+<body style="background-color: transparent !important;background: transparent !important;">
 <div class="commentLayerOuter">
 <div class="commentLayer" id="commentLayer">%MSG%</div>
 </div>

@@ -68,7 +68,8 @@ var ZenzaWatch = {
     get authTypes() {
       return this._session.authTypes;
     }
-  }
+
+ }
 
   class VideoFilter {
     constructor(ngOwner, ngTag) {
@@ -138,6 +139,9 @@ var ZenzaWatch = {
       this._msgInfo      = info.msgInfo;
       this._dmcInfo      = info.dmcInfo ? new DmcInfo(info.dmcInfo) : null;
       this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
+      this._playlistToken = info.playlistToken;
+      this._watchAuthKey = info.watchAuthKey;
+      this._seekToken    = info.seekToken;
 
       if (!ZenzaWatch.debug.videoInfo) { ZenzaWatch.debug.videoInfo = {}; }
       ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
@@ -174,17 +178,6 @@ var ZenzaWatch = {
     },
     isEconomy: function() {
       return this.getVideoUrl().match(/low$/) ? true : false;
-    },
-    getMessageServerInfo: function() {
-      var f = this._flvInfo;
-      return {
-        url: f.ms,
-        usl2: f.ms_sub,
-        needsKey: f.needs_key === '1',
-        threadId: f.thread_id,
-        optionalThreadId: f.optional_thread_id,
-        duration: parseInt(f.l, 10)
-      };
     },
     getTagList: function() {
       return this._videoDetail.tagList;
@@ -282,8 +275,28 @@ var ZenzaWatch = {
       return ZenzaWatch.util.parseQuery(
         this._flvInfo.ng_up || ''
       );
+    },
+    getPlaylistToken: function() {
+      return this._playlistToken;
+    },
+
+    setPlaylistToken: function(v) {
+      this._playlistToken = v;
+    },
+
+    getWatchAuthKey: function() {
+      return this._watchAuthKey;
+    },
+
+    setWatchAuthKey: function(v) {
+      this._watchAuthKey = v;
+    },
+
+    getSeekToken: function() {
+      return this._seekToken;
     }
-  });
+
+   });
 
 
 //===END===

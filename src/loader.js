@@ -157,6 +157,9 @@ var ajax = function() {};
           var isSwf = /\/smile\?s=/.test(videoUrl);
           var isDmc = watchApiData.flashvars.isDmc === 1;
           var csrfToken = watchApiData.flashvars.csrfToken;
+          var playlistToken = watchApiData.playlistToken;
+          var watchAuthKey  = watchApiData.flashvars.watchAuthKey;
+          var seekToken     = watchApiData.flashvars.seek_token;
           var msgInfo = {
             server:   flvInfo.ms,
             threadId: flvInfo.thread_id,
@@ -186,7 +189,10 @@ var ajax = function() {};
             isEco: isEco,
             isDmc: isDmc,
             thumbnail: thumbnail,
-            csrfToken: csrfToken
+            csrfToken: csrfToken,
+            playlistToken: playlistToken,
+            watchAuthKey: watchAuthKey,
+            seekToken: seekToken
           };
 
           ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', watchApiData.flashvars.csrfToken);
@@ -638,7 +644,7 @@ var ajax = function() {};
           if (params.useDuration) {
             const resCount = this.getRequestCountByDuration(duration);
             thread.setAttribute('click_revision', '-1');
-            thread.setAttribute('res_from', '-' + resCount);
+            thread.setAttribute('res_from', '-1000');
             thread.setAttribute('fork', '1');
           }
           if (typeof userId !== 'undefined') {

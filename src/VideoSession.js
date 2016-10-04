@@ -14,7 +14,7 @@ const ajax = function() {};
 
 var VideoSession = (function() {
 
-  const OLD_HEART_BEAT_INTERVAL_MS    = 15 * 60 * 1000; // 15min
+  const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 15min
   const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec
 
   const CHECK_PAUSE_INTERVAL      = 30 * 1000;
@@ -138,10 +138,10 @@ var VideoSession = (function() {
         this._createSession     = this._createSessionDmc.bind(this);
         this._deleteSession     = this._deleteSessionDmc.bind(this);
       } else {
-        this._heartBeatInterval = OLD_HEART_BEAT_INTERVAL_MS;
-        this._heartBeat         = this._heartBeatOld.bind(this);
-        this._createSession     = this._createSessionOld.bind(this);
-        this._deleteSession     = this._deleteSessionOld.bind(this);
+        this._heartBeatInterval = SMILE_HEART_BEAT_INTERVAL_MS;
+        this._heartBeat         = this._heartBeatSmile.bind(this);
+        this._createSession     = this._createSessionSmile.bind(this);
+        this._deleteSession     = this._deleteSessionSmile.bind(this);
       }
       this._heartBeatTimer = null;
 
@@ -152,7 +152,7 @@ var VideoSession = (function() {
     _createSessionDmc(videoInfo) {
       var dmcInfo = videoInfo.getDmcInfo();
       window.console.time('create DMC session');
-      return new Promise(function(resolve, reject) {
+      return new Promise((resolve, reject) => {
         var url = `${dmcInfo.apiUrl}?_format=xml`;
 
         //window.console.log('dmc post', url, (new DmcPostData(dmcInfo)).toString());
@@ -163,8 +163,7 @@ var VideoSession = (function() {
           timeout: 10000,
           dataType: 'text',
           data: (new DmcPostData(dmcInfo, this._videoQuality)).toString()
-        }).then(
-          function(result) {
+        }).then((result) => {
             //window.console.log('create api result', result, result.toString());
             var doc = (new DOMParser()).parseFromString(result, 'text/xml');
             var url =
@@ -196,20 +195,20 @@ var VideoSession = (function() {
             this.enableHeartBeat();
             window.console.timeEnd('create DMC session');
             resolve(this._videoSessionInfo);
-          }.bind(this),
-          function(err) {
+          },
+          (err) => {
             window.console.error('create api fail', err);
             reject(err);
           });
-      }.bind(this));
+      });
     }
 
-    _createSessionOld(videoInfo) {
+    _createSessionSmile(videoInfo) {
       this.enableHeartBeat();
-      return new Promise(function(resolve) {
+      return new Promise((resolve) => {
         var videoUrl = videoInfo.getVideoUrl();
         return resolve(videoUrl);
-      }.bind(this));
+      });
     }
 
     create() {
@@ -242,12 +241,22 @@ var VideoSession = (function() {
       this._heartBeat();
     }
 
-    _heartBeatOld() {
-      //視聴権のcookieを取得するだけなのでwatchページを叩くだけでいいはず？
+    _heartBeatSmile() {
+      //PopupMessage.debug('HeartBeat');
+      // sp.nicovideo.jp を参考に
+      // 10分ごとに叩いているっぽい
       var url = this._videoInfo.getWatchUrl();
-      if (this._videoInfo.isEconomy()) {
-        url += '?eco=1';
-      }
+      var query = [
+       // 'mode=sp_web_html5',
+        'mode=normal',
+        'playlist_token=' + this._videoInfo.getPlaylistToken(),
+        'continue_watching=1'
+      ];
+      if (this._videoInfo.isEconomy()) { query.push('eco=1'); }
+
+      if (query.length > 0) { url += '?' + query.join('&'); }
+      window.console.info('heartBeat url', url);
+
       ajax({
         url: url,
         timeout: 10000,
@@ -291,19 +300,23 @@ var VideoSession = (function() {
     }
 
 
-    _deleteSessionOld() {
-      // nothing
+    _deleteSessionSmile() {
+      if (this._isDeleted) { return; }
+      this._isDeleted = true;
     }
 
 
     _onHeartBeatSuccess(result) {
       //PopupMessage.debug('HeartBeat ok');
-      //window.console.log('HeartBeatSuccess');
       if (this._serverType === 'dmc') {
         var doc = (new DOMParser()).parseFromString(result, 'text/xml');
         this._lastResponse = doc.querySelector('session').outerHTML;
       } else {
+        //window.console.log('HeartBeatSuccess');
         this._lastResponse = result;
+        window.console.info('heartBeat result', result);
+        if (result.status !== 'ok') { return this._onHeartBeatFail(); }
+        //this._videoInfo.setWatchAuthKey(json.watchAuthKey);
       }
     }
 
