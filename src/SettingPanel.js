@@ -268,6 +268,13 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="enableVideoSession control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableVideoSession">
+            20分を超える動画の再生安定化テストを有効にする
+          </label>
+        </div>
+
 
 
 

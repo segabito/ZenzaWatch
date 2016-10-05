@@ -1017,7 +1017,7 @@ var CONSTANT = {};
               pingReject('timeout');
             }
             pingReject = pingResolve = null;
-          }, 300);
+          }, 500);
         });
       };
 

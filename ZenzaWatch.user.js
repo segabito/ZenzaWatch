@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.17
+// @version        1.4.18
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.17';
+  var VER = '1.4.18';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1104,7 +1104,7 @@ var monkey = function() {
               pingReject('timeout');
             }
             pingReject = pingResolve = null;
-          }, 300);
+          }, 500);
         });
       };
 
@@ -19328,7 +19328,9 @@ var VideoSession = (function() {
         );
       } else {
         nicoVideoPlayer.setVideo(videoUrl);
-        //this._videoSession.create();
+        if (this._playerConfig.getValue('enableVideoSession')) {
+          this._videoSession.create();
+        }
         this.emit('videoServerType', 'smile', {});
       }
       nicoVideoPlayer.setVideoInfo(this._videoInfo);
@@ -21478,6 +21480,13 @@ var VideoSession = (function() {
             <input type="checkbox" class="checkbox" data-setting-name="enableSingleton">
             ZenzaWatchを起動してるタブがあればそちらで開く<br>
             <smal>(singletonモード)</small>
+          </label>
+        </div>
+
+        <div class="enableVideoSession control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableVideoSession">
+            20分を超える動画の再生安定化テストを有効にする
           </label>
         </div>
 

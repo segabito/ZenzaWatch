@@ -2084,7 +2084,9 @@ var CONSTANT = {};
         );
       } else {
         nicoVideoPlayer.setVideo(videoUrl);
-        //this._videoSession.create();
+        if (this._playerConfig.getValue('enableVideoSession')) {
+          this._videoSession.create();
+        }
         this.emit('videoServerType', 'smile', {});
       }
       nicoVideoPlayer.setVideoInfo(this._videoInfo);
