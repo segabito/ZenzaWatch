@@ -1076,6 +1076,12 @@ var ajax = function() {};
             if (token) { console.log('cached token exists', token); }
           }
         },
+        setCsrfToken: function(t) {
+          token = t;
+          if (cacheStorage) {
+            cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
+          }
+        },
         getDeflistItems: function(options) {
           options = options || {};
           var url = '//www.nicovideo.jp/api/deflist/list';
@@ -1493,8 +1499,8 @@ var ajax = function() {};
                他の動画を追加していけば、そのうち押し出されて消えてしまう。
                なので、重複時にエラーを出すのではなく、「消してから追加」することによって先頭に持ってくる。
               */
-              self.removeDeflistItem(watchId).then(function() {
-                self._addDeflistItem(watchId, description, true).then(function(result) {
+              return self.removeDeflistItem(watchId).then(function() {
+                return self._addDeflistItem(watchId, description, true).then(function(result) {
                   resolve({
                     status: 'ok',
                     result: result,

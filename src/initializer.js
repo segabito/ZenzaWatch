@@ -368,7 +368,7 @@ var AsyncEmitter = function() {};
         );
       };
 
-      const execOrSendCommand = (command, params) => {
+      const sendOrExecCommand = (command, params) => {
         localStorageEmitter.ping().then(() => {
           sendCommand(command, params);
         }, () => {
@@ -377,20 +377,29 @@ var AsyncEmitter = function() {};
       };
 
       const playlistAdd = (watchId) => {
-        execOrSendCommand('playlistAdd', watchId);
+        sendOrExecCommand('playlistAdd', watchId);
       };
 
       const playlistInsert = (watchId) => {
-        execOrSendCommand('playlistInsert', watchId);
+        sendOrExecCommand('playlistInsert', watchId);
+      };
+
+      const deflistAdd = ({watchId, description, token}) => {
+        const mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+        if (token) {
+          mylistApiLoader.setCsrfToken(token);
+        }
+        return mylistApiLoader.addDeflistItem(watchId, description);
       };
 
       ZenzaWatch.external = {
         execCommand: command,
         sendCommand: sendCommand,
-        execOrSendCommand: execOrSendCommand,
+        sendOrExecCommand: sendOrExecCommand,
         open: open,
         send: send,
         sendOrOpen,
+        deflistAdd,
         playlist: {
           add: playlistAdd,
           insert: playlistInsert,

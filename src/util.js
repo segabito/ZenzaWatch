@@ -1817,5 +1817,47 @@ var CONSTANT = {};
     }
   });
 
+  const MylistPocketDetector = (function() {
+    let isReady = false;
+    let pocket = null;
+    const emitter = new AsyncEmitter();
+
+    const initialize = function() {
+      const onPocketReady = () => {
+        isReady = true;
+        pocket = window.MylistPocket;
+
+        emitter.emit('ready', pocket);
+      };
+
+      if (window.MylistPocket && window.MylistPocket.isReady) {
+        onPocketReady();
+      } else {
+        window.jQuery('body').on('MylistPocketReady', function() {
+          onPocketReady();
+        });
+      }
+    };
+
+    const detect = function() {
+      return new Promise(res => {
+        if (isReady) {
+          return res(pocket);
+        }
+        emitter.on('ready', () => {
+          res(pocket);
+        });
+      });
+    };
+
+    initialize();
+    return {
+      detect: detect
+    };
+
+  })();
+
 
 //===END===
+
+

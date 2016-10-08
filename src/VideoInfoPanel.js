@@ -6,6 +6,7 @@ const ZenzaWatch = {
 };
 const RelatedVideoList = function() {};
 const CONSTANT = {};
+const MylistPocketDetector = {};
 
 //===BEGIN===
 
@@ -301,10 +302,18 @@ const CONSTANT = {};
       display: inline-block;
     }
 
+    .zenzaWatchVideoInfoPanel:not(.is-pocketReady) .pocket-info {
+      display: none !important;
+    }
+    .pocket-info {
+      font-family: Menlo;
+    }
+
     .videoTags li .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo {
       display: inline-block;
       font-size: 16px;
@@ -320,32 +329,44 @@ const CONSTANT = {};
       cursor: pointer;
     }
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
       display: none;
     }
 
     .zenzaWatchVideoInfoPanel .videoInfoTab .owner:hover .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .pocket-info,
     .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .deflistAdd {
       display: inline-block;
     }
+
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend {
       position: absolute;
       bottom: 4px;
       left: 16px;
     }
-    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info {
       position: absolute;
       bottom: 4px;
       left: 48px;
     }
 
+    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
+      position: absolute;
+      bottom: 4px;
+      left: 80px;
+    }
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:hover {
       transform: scale(1.5);
     }
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:active,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:active,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:active,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:active,
@@ -719,6 +740,7 @@ const CONSTANT = {};
       if (params.node) {
         this.appendTo(params.node);
       }
+
     },
     _initializeDom: function() {
       if (this._isInitialized) {
@@ -761,6 +783,11 @@ const CONSTANT = {};
       }.bind(this));
       $icon.on('load', function() {
         $icon.removeClass('loading');
+      });
+
+      MylistPocketDetector.detect().then((pocket) => {
+        this._pocket = pocket;
+        $view.addClass('is-pocketReady');
       });
     },
     update: function(videoInfo) {
@@ -828,8 +855,12 @@ const CONSTANT = {};
           var $deflistAdd =
             $('<a class="deflistAdd" title="とりあえずマイリスト">&#x271A;</a>')
               .attr('data-watch-id', videoId);
+          var $pocketInfo =
+            $('<a class="pocket-info" title="動画情報">？</a>')
+              .attr('data-watch-id', videoId);
           $watchLink.append($playlistAppend);
           $watchLink.append($deflistAdd);
+          $watchLink.append($pocketInfo);
         });
         this._$description.find('.mylistLink').each(function(i, mylistLink) {
           var $mylistLink = $(mylistLink);
@@ -866,6 +897,12 @@ const CONSTANT = {};
         e.preventDefault(); e.stopPropagation();
         if (watchId) {
           this.emit('command', 'deflistAdd', watchId);
+        }
+      } else if ($target.hasClass('pocket-info')) {
+        watchId = $target.attr('data-watch-id');
+        e.preventDefault(); e.stopPropagation();
+        if (watchId) {
+          this._pocket.external.info(watchId);
         }
       } else if ($target.hasClass('playlistSetMylist')) {
         var mylistId = $target.attr('data-mylist-id');

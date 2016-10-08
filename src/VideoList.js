@@ -7,6 +7,7 @@ var ZenzaWatch = {
 var AsyncEmitter = function() {};
 var PopupMessage = {};
 var FrameLayer = function() {};
+var MylistPocket = function() {};
 
 //===BEGIN===
 
@@ -334,6 +335,11 @@ var FrameLayer = function() {};
           .on('dragleave', this._onBodyDragLeaveFile.bind(this))
           .on('drop',      this._onBodyDropFile     .bind(this));
       }
+
+      MylistPocketDetector.detect().then((pocket) => {
+        this._pocket = pocket;
+        $body.addClass('is-pocketReady');
+      });
     },
     _onBodyMouseDown: function(e) {
       var $item = $(e.target).closest('.videoItem');
@@ -550,6 +556,9 @@ var FrameLayer = function() {};
           case 'playlistAppend':
             this.emit('playlistAppend', param, itemId);
             break;
+          case 'pocket-info':
+            window.setTimeout(() => { this._pocket.external.info(param); }, 100);
+            break;
           case 'scrollToTop':
             this.scrollTop(0, 300);
             break;
@@ -721,6 +730,10 @@ var FrameLayer = function() {};
       opacity: 0.3;
     }
 
+    body:not(.is-pocketReady) .pocket-info {
+      display: none !important;
+    }
+
 
     .videoItem + .videoItem {
       border-top: 1px dotted #888;
@@ -739,22 +752,25 @@ var FrameLayer = function() {};
       width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
       height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
       margin: 4px 4px 0;
-      transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
     }
-    .videoItem .thumbnailContainer:active {
+
+    .videoItem .thumbnailContainer .thumbnail {
+      transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
+      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
+      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
+    }
+
+    .videoItem .thumbnailContainer .thumbnail:active {
       box-shadow: 0 0 8px #f99;
       transform: translate(0, 4px);
       transition: none;
     }
 
-    .videoItem .thumbnailContainer .thumbnail {
-      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
-      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
-    }
 
     .videoItem .thumbnailContainer .playlistAppend,
     .videoItem .playlistRemove,
-    .videoItem .thumbnailContainer .deflistAdd {
+    .videoItem .thumbnailContainer .deflistAdd,
+    .videoItem .thumbnailContainer .pocket-info {
       position: absolute;
       display: none;
       color: #fff;
@@ -765,6 +781,7 @@ var FrameLayer = function() {};
       font-size: 14px;
       box-sizing: border-box;
       text-align: center;
+      font-weight: bolder;
 
       color: #fff;
       cursor: pointer;
@@ -782,6 +799,10 @@ var FrameLayer = function() {};
       right: 0;
       bottom: 0;
     }
+    .videoItem .thumbnailContainer .pocket-info {
+      right: 24px;
+      bottom: 0;
+    }
     .playlist .videoItem .playlistAppend {
       display: none !important;
     }
@@ -795,23 +816,27 @@ var FrameLayer = function() {};
 
     .playlist .videoItem:not(.active):hover .playlistRemove,
     .videoItem:hover .thumbnailContainer .playlistAppend,
-    .videoItem:hover .thumbnailContainer .deflistAdd {
+    .videoItem:hover .thumbnailContainer .deflistAdd,
+    .videoItem:hover .thumbnailContainer .pocket-info {
       display: inline-block;
       border: 1px outset;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:hover,
     .videoItem:hover .thumbnailContainer .playlistAppend:hover,
-    .videoItem:hover .thumbnailContainer .deflistAdd:hover {
+    .videoItem:hover .thumbnailContainer .deflistAdd:hover,
+    .videoItem:hover .thumbnailContainer .pocket-info:hover {
       transform: scale(1.5);
       box-shadow: 2px 2px 2px #000;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:active,
     .videoItem:hover .thumbnailContainer .playlistAppend:active,
-    .videoItem:hover .thumbnailContainer .deflistAdd:active {
-      transform: scale(1.4);
+    .videoItem:hover .thumbnailContainer .deflistAdd:active,
+    .videoItem:hover .thumbnailContainer .pocket-info:active {
+      transform: scale(1.3);
       border: 1px inset;
+      transition: none;
     }
 
     .videoItem.updating .thumbnailContainer .deflistAdd {
@@ -951,6 +976,7 @@ var FrameLayer = function() {};
           <span class="duration">%duration%</span>
           <span class="command playlistAppend" data-command="playlistAppend" data-param="%watchId%" title="プレイリストに追加">▶</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
+          <span class="command pocket-info" data-command="pocket-info" data-param="%watchId%" title="動画情報">？</span>
         </a>
       </div>
       <div class="videoInfo">

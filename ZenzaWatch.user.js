@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.4.18
+// @version        1.5.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.4.18';
+  var VER = '1.5.0';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -1904,6 +1904,46 @@ var monkey = function() {
     }
   });
 
+  const MylistPocketDetector = (function() {
+    let isReady = false;
+    let pocket = null;
+    const emitter = new AsyncEmitter();
+
+    const initialize = function() {
+      const onPocketReady = () => {
+        isReady = true;
+        pocket = window.MylistPocket;
+
+        emitter.emit('ready', pocket);
+      };
+
+      if (window.MylistPocket && window.MylistPocket.isReady) {
+        onPocketReady();
+      } else {
+        window.jQuery('body').on('MylistPocketReady', function() {
+          onPocketReady();
+        });
+      }
+    };
+
+    const detect = function() {
+      return new Promise(res => {
+        if (isReady) {
+          return res(pocket);
+        }
+        emitter.on('ready', () => {
+          res(pocket);
+        });
+      });
+    };
+
+    initialize();
+    return {
+      detect: detect
+    };
+
+  })();
+
 
 
     var CacheStorage = (function() {
@@ -2967,6 +3007,12 @@ var monkey = function() {
             if (token) { console.log('cached token exists', token); }
           }
         },
+        setCsrfToken: function(t) {
+          token = t;
+          if (cacheStorage) {
+            cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
+          }
+        },
         getDeflistItems: function(options) {
           options = options || {};
           var url = '//www.nicovideo.jp/api/deflist/list';
@@ -3384,8 +3430,8 @@ var monkey = function() {
                他の動画を追加していけば、そのうち押し出されて消えてしまう。
                なので、重複時にエラーを出すのではなく、「消してから追加」することによって先頭に持ってくる。
               */
-              self.removeDeflistItem(watchId).then(function() {
-                self._addDeflistItem(watchId, description, true).then(function(result) {
+              return self.removeDeflistItem(watchId).then(function() {
+                return self._addDeflistItem(watchId, description, true).then(function(result) {
                   resolve({
                     status: 'ok',
                     result: result,
@@ -14893,6 +14939,11 @@ data-title="%no%: %date% ID:%userId%
           .on('dragleave', this._onBodyDragLeaveFile.bind(this))
           .on('drop',      this._onBodyDropFile     .bind(this));
       }
+
+      MylistPocketDetector.detect().then((pocket) => {
+        this._pocket = pocket;
+        $body.addClass('is-pocketReady');
+      });
     },
     _onBodyMouseDown: function(e) {
       var $item = $(e.target).closest('.videoItem');
@@ -15109,6 +15160,9 @@ data-title="%no%: %date% ID:%userId%
           case 'playlistAppend':
             this.emit('playlistAppend', param, itemId);
             break;
+          case 'pocket-info':
+            window.setTimeout(() => { this._pocket.external.info(param); }, 100);
+            break;
           case 'scrollToTop':
             this.scrollTop(0, 300);
             break;
@@ -15280,6 +15334,10 @@ data-title="%no%: %date% ID:%userId%
       opacity: 0.3;
     }
 
+    body:not(.is-pocketReady) .pocket-info {
+      display: none !important;
+    }
+
 
     .videoItem + .videoItem {
       border-top: 1px dotted #888;
@@ -15298,22 +15356,25 @@ data-title="%no%: %date% ID:%userId%
       width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
       height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
       margin: 4px 4px 0;
-      transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
     }
-    .videoItem .thumbnailContainer:active {
+
+    .videoItem .thumbnailContainer .thumbnail {
+      transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
+      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
+      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
+    }
+
+    .videoItem .thumbnailContainer .thumbnail:active {
       box-shadow: 0 0 8px #f99;
       transform: translate(0, 4px);
       transition: none;
     }
 
-    .videoItem .thumbnailContainer .thumbnail {
-      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
-      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
-    }
 
     .videoItem .thumbnailContainer .playlistAppend,
     .videoItem .playlistRemove,
-    .videoItem .thumbnailContainer .deflistAdd {
+    .videoItem .thumbnailContainer .deflistAdd,
+    .videoItem .thumbnailContainer .pocket-info {
       position: absolute;
       display: none;
       color: #fff;
@@ -15324,6 +15385,7 @@ data-title="%no%: %date% ID:%userId%
       font-size: 14px;
       box-sizing: border-box;
       text-align: center;
+      font-weight: bolder;
 
       color: #fff;
       cursor: pointer;
@@ -15341,6 +15403,10 @@ data-title="%no%: %date% ID:%userId%
       right: 0;
       bottom: 0;
     }
+    .videoItem .thumbnailContainer .pocket-info {
+      right: 24px;
+      bottom: 0;
+    }
     .playlist .videoItem .playlistAppend {
       display: none !important;
     }
@@ -15354,23 +15420,27 @@ data-title="%no%: %date% ID:%userId%
 
     .playlist .videoItem:not(.active):hover .playlistRemove,
     .videoItem:hover .thumbnailContainer .playlistAppend,
-    .videoItem:hover .thumbnailContainer .deflistAdd {
+    .videoItem:hover .thumbnailContainer .deflistAdd,
+    .videoItem:hover .thumbnailContainer .pocket-info {
       display: inline-block;
       border: 1px outset;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:hover,
     .videoItem:hover .thumbnailContainer .playlistAppend:hover,
-    .videoItem:hover .thumbnailContainer .deflistAdd:hover {
+    .videoItem:hover .thumbnailContainer .deflistAdd:hover,
+    .videoItem:hover .thumbnailContainer .pocket-info:hover {
       transform: scale(1.5);
       box-shadow: 2px 2px 2px #000;
     }
 
     .playlist .videoItem:not(.active):hover .playlistRemove:active,
     .videoItem:hover .thumbnailContainer .playlistAppend:active,
-    .videoItem:hover .thumbnailContainer .deflistAdd:active {
-      transform: scale(1.4);
+    .videoItem:hover .thumbnailContainer .deflistAdd:active,
+    .videoItem:hover .thumbnailContainer .pocket-info:active {
+      transform: scale(1.3);
       border: 1px inset;
+      transition: none;
     }
 
     .videoItem.updating .thumbnailContainer .deflistAdd {
@@ -15510,6 +15580,7 @@ data-title="%no%: %date% ID:%userId%
           <span class="duration">%duration%</span>
           <span class="command playlistAppend" data-command="playlistAppend" data-param="%watchId%" title="プレイリストに追加">▶</span>
           <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
+          <span class="command pocket-info" data-command="pocket-info" data-param="%watchId%" title="動画情報">？</span>
         </a>
       </div>
       <div class="videoInfo">
@@ -18587,7 +18658,7 @@ var VideoSession = (function() {
       return nicoVideoPlayer;
     },
     execCommand: function(command, param) {
-      this._onCommand(command, param);
+      return this._onCommand(command, param);
     },
     _onCommand: function(command, param) {
       var v;
@@ -18648,11 +18719,9 @@ var VideoSession = (function() {
           this._nicoVideoPlayer.toggleFullScreen();
           break;
         case 'deflistAdd':
-          this._onDeflistAdd(param);
-          break;
+          return this._onDeflistAdd(param);
         case 'deflistRemove':
-          this._onDeflistRemove(param);
-          break;
+          return this._onDeflistRemove(param);
         case 'playlistAdd':
         case 'playlistAppend':
           this._onPlaylistAppend(param);
@@ -18681,11 +18750,9 @@ var VideoSession = (function() {
           }
           break;
         case 'mylistAdd':
-          this._onMylistAdd(param.mylistId, param.mylistName);
-          break;
+          return this._onMylistAdd(param.mylistId, param.mylistName);
         case 'mylistRemove':
-          this._onMylistRemove(param.mylistId, param.mylistName);
-          break;
+          return this._onMylistRemove(param.mylistId, param.mylistName);
         case 'mylistWindow':
           ZenzaWatch.util.openMylistWindow(this._videoInfo.getWatchId());
           break;
@@ -18944,6 +19011,7 @@ var VideoSession = (function() {
     },
     _onPlaylistAppend: function(watchId) {
       this._initializePlaylist();
+      if (!this._playlist) { return; }
 
       var onAppend = _.debounce(() => {
         this._videoInfoPanel.selectTab('playlist');
@@ -18953,10 +19021,14 @@ var VideoSession = (function() {
     },
     _onPlaylistInsert: function(watchId) {
       this._initializePlaylist();
+      if (!this._playlist) { return; }
+
       this._playlist.insert(watchId);
     },
     _onPlaylistSetMylist: function(mylistId, option) {
       this._initializePlaylist();
+      if (!this._playlist) { return; }
+
       option = option || {watchId: this._watchId};
       // デフォルトで古い順にする
       option.sort = isNaN(option.sort) ? 7 : option.sort;
@@ -19568,6 +19640,7 @@ var VideoSession = (function() {
     },
     _initializePlaylist: function() {
       if (this._playlist) { return; }
+      if (!this._videoInfoPanel) { return; }
       var $container = this._videoInfoPanel.appendTab('playlist', 'プレイリスト');
       this._playlist = new Playlist({
         loader: ZenzaWatch.api.ThumbInfoLoader,
@@ -22074,10 +22147,18 @@ var VideoSession = (function() {
       display: inline-block;
     }
 
+    .zenzaWatchVideoInfoPanel:not(.is-pocketReady) .pocket-info {
+      display: none !important;
+    }
+    .pocket-info {
+      font-family: Menlo;
+    }
+
     .videoTags li .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo {
       display: inline-block;
       font-size: 16px;
@@ -22093,32 +22174,44 @@ var VideoSession = (function() {
       cursor: pointer;
     }
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
       display: none;
     }
 
     .zenzaWatchVideoInfoPanel .videoInfoTab .owner:hover .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .playlistAppend,
+    .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .pocket-info,
     .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .deflistAdd {
       display: inline-block;
     }
+
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend {
       position: absolute;
       bottom: 4px;
       left: 16px;
     }
-    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info {
       position: absolute;
       bottom: 4px;
       left: 48px;
     }
 
+    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
+      position: absolute;
+      bottom: 4px;
+      left: 80px;
+    }
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:hover,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:hover {
       transform: scale(1.5);
     }
+    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:active,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:active,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:active,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:active,
@@ -22492,6 +22585,7 @@ var VideoSession = (function() {
       if (params.node) {
         this.appendTo(params.node);
       }
+
     },
     _initializeDom: function() {
       if (this._isInitialized) {
@@ -22534,6 +22628,11 @@ var VideoSession = (function() {
       }.bind(this));
       $icon.on('load', function() {
         $icon.removeClass('loading');
+      });
+
+      MylistPocketDetector.detect().then((pocket) => {
+        this._pocket = pocket;
+        $view.addClass('is-pocketReady');
       });
     },
     update: function(videoInfo) {
@@ -22601,8 +22700,12 @@ var VideoSession = (function() {
           var $deflistAdd =
             $('<a class="deflistAdd" title="とりあえずマイリスト">&#x271A;</a>')
               .attr('data-watch-id', videoId);
+          var $pocketInfo =
+            $('<a class="pocket-info" title="動画情報">？</a>')
+              .attr('data-watch-id', videoId);
           $watchLink.append($playlistAppend);
           $watchLink.append($deflistAdd);
+          $watchLink.append($pocketInfo);
         });
         this._$description.find('.mylistLink').each(function(i, mylistLink) {
           var $mylistLink = $(mylistLink);
@@ -22639,6 +22742,12 @@ var VideoSession = (function() {
         e.preventDefault(); e.stopPropagation();
         if (watchId) {
           this.emit('command', 'deflistAdd', watchId);
+        }
+      } else if ($target.hasClass('pocket-info')) {
+        watchId = $target.attr('data-watch-id');
+        e.preventDefault(); e.stopPropagation();
+        if (watchId) {
+          this._pocket.external.info(watchId);
         }
       } else if ($target.hasClass('playlistSetMylist')) {
         var mylistId = $target.attr('data-mylist-id');
@@ -23650,7 +23759,7 @@ var VideoSession = (function() {
         );
       };
 
-      const execOrSendCommand = (command, params) => {
+      const sendOrExecCommand = (command, params) => {
         localStorageEmitter.ping().then(() => {
           sendCommand(command, params);
         }, () => {
@@ -23659,20 +23768,29 @@ var VideoSession = (function() {
       };
 
       const playlistAdd = (watchId) => {
-        execOrSendCommand('playlistAdd', watchId);
+        sendOrExecCommand('playlistAdd', watchId);
       };
 
       const playlistInsert = (watchId) => {
-        execOrSendCommand('playlistInsert', watchId);
+        sendOrExecCommand('playlistInsert', watchId);
+      };
+
+      const deflistAdd = ({watchId, description, token}) => {
+        const mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+        if (token) {
+          mylistApiLoader.setCsrfToken(token);
+        }
+        return mylistApiLoader.addDeflistItem(watchId, description);
       };
 
       ZenzaWatch.external = {
         execCommand: command,
         sendCommand: sendCommand,
-        execOrSendCommand: execOrSendCommand,
+        sendOrExecCommand: sendOrExecCommand,
         open: open,
         send: send,
         sendOrOpen,
+        deflistAdd,
         playlist: {
           add: playlistAdd,
           insert: playlistInsert,

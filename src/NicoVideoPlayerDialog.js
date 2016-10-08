@@ -1343,7 +1343,7 @@ var CONSTANT = {};
       return nicoVideoPlayer;
     },
     execCommand: function(command, param) {
-      this._onCommand(command, param);
+      return this._onCommand(command, param);
     },
     _onCommand: function(command, param) {
       var v;
@@ -1404,11 +1404,9 @@ var CONSTANT = {};
           this._nicoVideoPlayer.toggleFullScreen();
           break;
         case 'deflistAdd':
-          this._onDeflistAdd(param);
-          break;
+          return this._onDeflistAdd(param);
         case 'deflistRemove':
-          this._onDeflistRemove(param);
-          break;
+          return this._onDeflistRemove(param);
         case 'playlistAdd':
         case 'playlistAppend':
           this._onPlaylistAppend(param);
@@ -1437,11 +1435,9 @@ var CONSTANT = {};
           }
           break;
         case 'mylistAdd':
-          this._onMylistAdd(param.mylistId, param.mylistName);
-          break;
+          return this._onMylistAdd(param.mylistId, param.mylistName);
         case 'mylistRemove':
-          this._onMylistRemove(param.mylistId, param.mylistName);
-          break;
+          return this._onMylistRemove(param.mylistId, param.mylistName);
         case 'mylistWindow':
           ZenzaWatch.util.openMylistWindow(this._videoInfo.getWatchId());
           break;
@@ -1700,6 +1696,7 @@ var CONSTANT = {};
     },
     _onPlaylistAppend: function(watchId) {
       this._initializePlaylist();
+      if (!this._playlist) { return; }
 
       var onAppend = _.debounce(() => {
         this._videoInfoPanel.selectTab('playlist');
@@ -1709,10 +1706,14 @@ var CONSTANT = {};
     },
     _onPlaylistInsert: function(watchId) {
       this._initializePlaylist();
+      if (!this._playlist) { return; }
+
       this._playlist.insert(watchId);
     },
     _onPlaylistSetMylist: function(mylistId, option) {
       this._initializePlaylist();
+      if (!this._playlist) { return; }
+
       option = option || {watchId: this._watchId};
       // デフォルトで古い順にする
       option.sort = isNaN(option.sort) ? 7 : option.sort;
@@ -2324,6 +2325,7 @@ var CONSTANT = {};
     },
     _initializePlaylist: function() {
       if (this._playlist) { return; }
+      if (!this._videoInfoPanel) { return; }
       var $container = this._videoInfoPanel.appendTab('playlist', 'プレイリスト');
       this._playlist = new Playlist({
         loader: ZenzaWatch.api.ThumbInfoLoader,
