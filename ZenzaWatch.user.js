@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.5.0
+// @version        1.5.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.5.0';
+  var VER = '1.5.1';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -4923,6 +4923,38 @@ var monkey = function() {
     },
     getMymemory: function() {
       return this._commentPlayer.getMymemory();
+    },
+    getScreenShot: function() {
+      window.console.time('screenShot');
+
+      const canvas = this._videoPlayer.getScreenShot();
+      const dataUrl = canvas.toDataURL('image/png');
+      const bin = atob(dataUrl.split(',')[1]);
+      const buf = new Uint8Array(bin.length);
+      for (var i = 0, len = buf.length; i < len; i++) {
+        buf[i] = bin.charCodeAt(i);
+      }
+      const blob = new Blob([buf.buffer], {type: 'image/png'});
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+
+      const title = this._videoInfo.getTitle();
+      const watchId = this._videoInfo.getWatchId();
+      const currentTime = this._videoPlayer.getCurrentTime();
+      const min = Math.floor(currentTime / 60);
+      const sec = (currentTime % 60 + 100).toString().substr(1, 6);
+      const time = `${min}_${sec}`;
+
+      const fileName = `${title} - (${watchId}@${time}).png`;
+
+      window.console.info('download fileName: ', fileName);
+      a.setAttribute('download', fileName);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(function() { a.remove(); }, 1000);
+      window.console.timeEnd('screenShot');
     }
   });
 
@@ -5026,6 +5058,7 @@ var monkey = function() {
           -->
           <hr class="separator">
           <li class="debug"        data-command="debug">デバッグ</li>
+          <li class="screenShot forDmc" data-command="screenShot">スクリーンショットの保存</a></li>
           <li class="mymemory"     data-command="mymemory">コメントの保存</a></li>
         </ul>
       </div>
@@ -5079,6 +5112,9 @@ var monkey = function() {
           break;
         case 'mymemory':
           this._createMymemory();
+          break;
+        case 'screenShot':
+          player.getScreenShot();
           break;
       }
     },
@@ -5171,46 +5207,9 @@ var monkey = function() {
   _.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
   _.assign(VideoPlayer.prototype, {
     initialize: function(params) {
-      var volume =
-        params.hasOwnProperty('volume') ? parseFloat(params.volume) : 0.5;
-      var playbackRate = this._playbackRate =
-        params.hasOwnProperty('playbackRate') ? parseFloat(params.playbackRate) : 1.0;
-
-      var options = {
-        autoPlay: !!params.autoPlay,
-        autoBuffer: true,
-        preload: 'auto',
-        controls: !true,
-        loop: !!params.loop,
-        mute: !!params.mute,
-//        crossorigin: 'use-credentials',
-        'playsinline': true,
-        'webkit-playsinline': true
-      };
-
-      console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
+      //console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
-      this._$video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline webkit-playsinline/>')
-        .addClass(this._id)
-        .attr(options);
-      this._video = this._$video[0];
-
-      
-      //this._$subVideo =
-      //  $('<video class="subVideoPlayer nico" style="position: fixed; left: -9999px; width: 1px; height: 1px;" preload="auto" volume="0" autoplay="false" controls="false"/>')
-      //  .addClass(this._id);
-      //this._subVideo = this._$subVideo[0];
-
-      this._isPlaying = false;
-      this._canPlay = false;
-
-      this.setVolume(volume);
-      this.setMute(params.mute);
-      this.setPlaybackRate(playbackRate);
-
-      this._initializeEvents();
-
-      ZenzaWatch.debug.video = this._video;
+      this._resetVideo(params);
     },
     _reset: function() {
       this.removeClass('play pause abort error');
@@ -5228,6 +5227,55 @@ var monkey = function() {
       _.each(className.split(/[ ]+/), function(name) {
         video.classList.toggle(name, v);
       });
+    },
+    _resetVideo: function(params) {
+      params = params || {};
+      if (this._$video) {
+        params.autoPlay = this._video.autoplay;
+        params.loop     = this._video.loop;
+        params.mute     = this._video.muted;
+        params.volume   = this._video.volume;
+        params.playbackRate = this._video.playbackRate;
+        this._$video.remove();
+      }
+
+      var options = {
+        autoPlay: !!params.autoPlay,
+        autoBuffer: true,
+        preload: 'auto',
+        controls: !true,
+        loop: !!params.loop,
+        mute: !!params.mute,
+        'playsinline': true,
+        'webkit-playsinline': true
+      };
+
+      var volume =
+        params.hasOwnProperty('volume') ? parseFloat(params.volume) : 0.5;
+      var playbackRate = this._playbackRate =
+        params.hasOwnProperty('playbackRate') ? parseFloat(params.playbackRate) : 1.0;
+
+      const $video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline webkit-playsinline/>')
+        .addClass(this._id)
+        .attr(options);
+      if (this._$video) {
+        this._$video.after($video);
+        this._$video.remove();
+      }
+      this._$video = $video;
+      this._video = $video[0];
+
+      this._isPlaying = false;
+      this._canPlay = false;
+
+      this.setVolume(volume);
+      this.setMute(params.mute);
+      this.setPlaybackRate(playbackRate);
+
+      this._initializeEvents();
+
+      ZenzaWatch.debug.video = this._video;
+
     },
     _initializeEvents: function() {
       this._$video
@@ -5426,6 +5474,12 @@ var monkey = function() {
 
       this._reset();
 
+      if (url.indexOf('dmc.nico') >= 0) {
+        this._video.crossOrigin = 'use-credentials';
+      } else if (this._video.crossOrigin) {
+        this._video.crossOrigin = null;
+      }
+
       this._src = url;
       this._video.src = url;
       //this._$subVideo.attr('src', url);
@@ -5511,21 +5565,12 @@ var monkey = function() {
       //$node.append(this._$subVideo);
       var videos = document.getElementsByClassName(this._id);
       this._video = videos[0];
-
-      //this._subVideo = videos[1];
-      //this._subVideo.muted = true;
-      //this._subVideo.volume = 0;
-      //this._subVideo.autoplay = false;
     },
     close: function() {
       this._video.pause();
 
       this._video.removeAttribute('src');
       this._video.removeAttribute('poster');
-      //if (this._$node) {
-      //  this._$video.detach();
-      //  this._$node.append(this._$video);
-      //}
 
       //this._subVideo.removeAttribute('src');
     },
@@ -5533,7 +5578,7 @@ var monkey = function() {
      * 画面キャプチャを取る。
      * CORSの制限があるので保存できない。
      */
-    getSnapshot: function() {
+    getScreenShot: function() {
       const video = this._video;
       const width = video.videoWidth;
       const height = video.videoHeight;
@@ -17662,6 +17707,14 @@ var VideoSession = (function() {
       display: none;
     }
 
+    .forDmc {
+      display: none;
+    }
+
+    .is-dmcPlaying .forDmc {
+      display: inherit;
+    }
+
     .zenzaVideoPlayerDialog * {
       box-sizing: border-box;
     }
@@ -18839,6 +18892,9 @@ var VideoSession = (function() {
             if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
             this._playerConfig.setValue('playbackRate', v);
           }
+          break;
+        case 'screenShot':
+          this._nicoVideoPlayer.getScreenShot();
           break;
         case 'update-forceEconomy':
         case 'update-enableDmc':

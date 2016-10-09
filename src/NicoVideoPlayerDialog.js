@@ -347,6 +347,14 @@ var CONSTANT = {};
       display: none;
     }
 
+    .forDmc {
+      display: none;
+    }
+
+    .is-dmcPlaying .forDmc {
+      display: inherit;
+    }
+
     .zenzaVideoPlayerDialog * {
       box-sizing: border-box;
     }
@@ -1524,6 +1532,9 @@ var CONSTANT = {};
             if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
             this._playerConfig.setValue('playbackRate', v);
           }
+          break;
+        case 'screenShot':
+          this._nicoVideoPlayer.getScreenShot();
           break;
         case 'update-forceEconomy':
         case 'update-enableDmc':
