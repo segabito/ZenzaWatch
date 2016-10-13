@@ -224,6 +224,15 @@ var VideoSession = (function() {
         setInterval(this._onPauseCheckInterval.bind(this), CHECK_PAUSE_INTERVAL);
     }
 
+    changeHeartBeatInterval(interval) {
+      if (this._heartBeatTimer) {
+        clearInterval(this._heartBeatTimer);
+      }
+      this._heartBeatInterval = interval;
+      this._heartBeatTimer =
+        setInterval(this._onHeartBeatInterval.bind(this), this._heartBeatInterval);
+    }
+
     disableHeartBeat() {
       if (this._heartBeatTimer) {
         clearInterval(this._heartBeatTimer);

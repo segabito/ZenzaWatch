@@ -952,8 +952,11 @@ var CONSTANT = {};
       return asyncEmitter;
     })();
 
-    var localStorageEmitter = (function() {
-      const localStorageEmitter = new AsyncEmitter();
+    var broadcastEmitter = (function() {
+      const broadcastEmitter = new AsyncEmitter();
+      let broadcastChannel =
+        window.BroadcastChannel ? (new window.BroadcastChannel('ZenzaWatch')) : null;
+
       var pingResolve = null, pingReject = null;
 
       var onStorage = function(e) {
@@ -963,7 +966,7 @@ var CONSTANT = {};
         key = key.replace('ZenzaWatch_', '');
         var oldValue = e.oldValue;
         var newValue = e.newValue;
-        localStorageEmitter.emit('change', key, newValue, oldValue);
+        broadcastEmitter.emit('change', key, newValue, oldValue);
 
         switch(key) {
           case 'message':
@@ -973,15 +976,29 @@ var CONSTANT = {};
               return pingResolve(packet);
             }
             console.log('%cmessage', 'background: cyan;', newValue);
-            localStorageEmitter.emit('message', packet);
+            broadcastEmitter.emit('message', packet);
             break;
         }
       };
 
-      localStorageEmitter.send = function(packet) {
-        packet.__now = Date.now();
-        console.log('send Packet', packet);
-        Config.setValue('message', packet);
+      var onBroadcastMessage = function(e) {
+        const packet = e.data;
+        if (packet.type === 'pong' && pingResolve) {
+          pingReject = null;
+          return pingResolve(packet);
+        }
+        window.console.log('%cmessage', 'background: cyan;', packet);
+        broadcastEmitter.emit('message', packet);
+      };
+
+      broadcastEmitter.send = function(packet) {
+        if (broadcastChannel) {
+          broadcastChannel.postMessage(packet);
+        } else {
+          packet.__now = Date.now();
+          console.log('send Packet', packet);
+          Config.setValue('message', packet);
+        }
       };
 
       WindowMessageEmitter.on('onMessage', function(data, type) {
@@ -998,45 +1015,46 @@ var CONSTANT = {};
               pingReject = null;
               return pingResolve(packet);
             }
-            localStorageEmitter.emit('message', packet);
+            broadcastEmitter.emit('message', packet);
             break;
         }
       });
 
-      localStorageEmitter.pong = function(playerId) {
-        localStorageEmitter.send({id: playerId, type: 'pong'});
+      broadcastEmitter.pong = function(playerId) {
+        broadcastEmitter.send({id: playerId, type: 'pong'});
       };
 
-      localStorageEmitter.ping = function() {
+      broadcastEmitter.ping = function() {
+        const TIMEOUT = broadcastChannel ? 300 : 500;
         return new Promise(function(resolve, reject) {
           pingResolve = resolve;
           pingReject = reject;
-          localStorageEmitter.send({type: 'ping'});
+          broadcastEmitter.send({type: 'ping'});
           window.setTimeout(function() {
             if (pingReject) {
               pingReject('timeout');
             }
             pingReject = pingResolve = null;
-          }, 500);
+          }, TIMEOUT);
         });
       };
 
-      localStorageEmitter.sendOpen = (watchId, params) => {
-        localStorageEmitter.send(Object.assign({
+      broadcastEmitter.sendOpen = (watchId, params) => {
+        broadcastEmitter.send(Object.assign({
           type: 'openVideo',
           watchId: watchId,
           eventType: 'click'
         }, params));
       };
 
-      localStorageEmitter.notifyClose = function() {
-        localStorageEmitter.send({type: 'notifyClose'});
+      broadcastEmitter.notifyClose = function() {
+        broadcastEmitter.send({type: 'notifyClose'});
       };
 
       if (ZenzaWatch.debug) {
         ZenzaWatch.debug.ping = () => {
           window.console.time('ping');
-          return localStorageEmitter.ping().then((result) => {
+          return broadcastEmitter.ping().then((result) => {
             window.console.timeEnd('ping');
             window.console.info('ping result: ok', result);
           }, (result) => {
@@ -1047,10 +1065,14 @@ var CONSTANT = {};
       }
 
       if (location.host === 'www.nicovideo.jp') {
-        window.addEventListener('storage', onStorage);
+        if (broadcastChannel) {
+          broadcastChannel.addEventListener('message', onBroadcastMessage);
+        } else {
+          window.addEventListener('storage', onStorage);
+        }
       }
 
-      return localStorageEmitter;
+      return broadcastEmitter;
     })();
 
     /**

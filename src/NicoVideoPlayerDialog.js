@@ -1710,7 +1710,7 @@ var CONSTANT = {};
       if (!this._playlist) { return; }
 
       var onAppend = _.debounce(() => {
-        this._videoInfoPanel.selectTab('playlist');
+        //this._videoInfoPanel.selectTab('playlist');
         this._playlist.scrollToWatchId(watchId);
       }, 500);
       this._playlist.append(watchId).then(onAppend, onAppend);

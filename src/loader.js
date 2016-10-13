@@ -135,10 +135,9 @@ var ajax = function() {};
         loaderWindow.location.replace(url);
       };
      //JSON.parse(decodeURIComponent(JSON.parse($('#watchAPIDataContainer').text()).flashvars.dmcInfo))
-      var parseWatchApiData = function(dom) {
-        var $dom = $('<div>' + dom + '</div>');
+      var parseFromGinza = function(dom) {
         try {
-          var watchApiData = JSON.parse($dom.find('#watchAPIDataContainer').text());
+          var watchApiData = JSON.parse(dom.querySelector('#watchAPIDataContainer').textContent);
           var videoId = watchApiData.videoDetail.id;
           var hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
           var flvInfo = ZenzaWatch.util.parseQuery(
@@ -170,7 +169,8 @@ var ajax = function() {};
             userKey:  flvInfo.userkey
           };
 
-          var playlist = JSON.parse($dom.find('#playlistDataContainer').text());
+          var playlist =
+            JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
           var isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
 
           cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
@@ -199,8 +199,19 @@ var ajax = function() {};
           return result;
 
         } catch (e) {
-          window.console.error('error: parseWatchApiData ', e);
+          window.console.error('error: parseFromGinza ', e);
           return null;
+        }
+      };
+
+      var parseWatchApiData = function(src) {
+        const dom = document.createElement('div');
+        dom.innerHTML = src;
+        if (dom.querySelector('#watchAPIDataContainer')) {
+          return parseFromGinza(dom);
+        } else {
+          // TODO: エラー表示
+          return new Error('ログインしてない');
         }
       };
 

@@ -9,7 +9,7 @@ var __css__ = '';
 var PlayerSession = {};
 var Config = {};
 var NicoComment = {};
-var localStorageEmitter = {};
+var broadcastEmitter = {};
 var PopupMessage = {};
 var VideoInfoLoader = {};
 var WatchPageState = {};
@@ -198,13 +198,13 @@ var AsyncEmitter = function() {};
 
         ZenzaWatch.debug.dialog = dialog;
 
-        localStorageEmitter.on('message', (packet) => {
+        broadcastEmitter.on('message', (packet) => {
           const isLast = dialog.isLastOpenedPlayer();
           const isOpen = dialog.isOpen();
           const type = packet.type;
           if (type === 'ping' && isLast && isOpen) {
             window.console.info('pong!');
-            localStorageEmitter.pong(dialog.getId());
+            broadcastEmitter.pong(dialog.getId());
             return;
           } else if (type === 'notifyClose' && isOpen) {
             dialog.refreshLastPlayerId();
@@ -225,7 +225,7 @@ var AsyncEmitter = function() {};
         });
 
         dialog.on('close', () => {
-          localStorageEmitter.notifyClose();
+          broadcastEmitter.notifyClose();
         });
 
         WatchPageState.initialize(dialog);
@@ -267,7 +267,7 @@ var AsyncEmitter = function() {};
               economy: Config.getValue('forceEconomy')
             });
           } else if (watchId && data.message.command === 'send') {
-            localStorageEmitter.send({
+            broadcastEmitter.send({
               type: 'openVideo',
               watchId: watchId
             });
@@ -336,7 +336,7 @@ var AsyncEmitter = function() {};
 
       // 最後にZenzaWatchを開いたタブに送る
       const send = (watchId, params) => {
-        localStorageEmitter.sendOpen(watchId, params);
+        broadcastEmitter.sendOpen(watchId, params);
       };
 
       // 最後にZenzaWatchを開いたタブに送る
@@ -345,7 +345,7 @@ var AsyncEmitter = function() {};
         if (dialog.isLastOpenedPlayer()) {
           open(watchId, params);
         } else {
-          localStorageEmitter.ping().then(() => {
+          broadcastEmitter.ping().then(() => {
             send(watchId, params);
           }, () => {
             open(watchId, params);
@@ -363,13 +363,13 @@ var AsyncEmitter = function() {};
 
 
       const sendCommand = (command, params) => {
-        localStorageEmitter.send(
+        broadcastEmitter.send(
           ({type: 'sendCommand', command: command, params: params})
         );
       };
 
       const sendOrExecCommand = (command, params) => {
-        localStorageEmitter.ping().then(() => {
+        broadcastEmitter.ping().then(() => {
           sendCommand(command, params);
         }, () => {
           dialog.execCommand(command, params);

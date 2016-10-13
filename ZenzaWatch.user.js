@@ -1039,8 +1039,11 @@ var monkey = function() {
       return asyncEmitter;
     })();
 
-    var localStorageEmitter = (function() {
-      const localStorageEmitter = new AsyncEmitter();
+    var broadcastEmitter = (function() {
+      const broadcastEmitter = new AsyncEmitter();
+      let broadcastChannel =
+        window.BroadcastChannel ? (new window.BroadcastChannel('ZenzaWatch')) : null;
+
       var pingResolve = null, pingReject = null;
 
       var onStorage = function(e) {
@@ -1050,7 +1053,7 @@ var monkey = function() {
         key = key.replace('ZenzaWatch_', '');
         var oldValue = e.oldValue;
         var newValue = e.newValue;
-        localStorageEmitter.emit('change', key, newValue, oldValue);
+        broadcastEmitter.emit('change', key, newValue, oldValue);
 
         switch(key) {
           case 'message':
@@ -1060,15 +1063,29 @@ var monkey = function() {
               return pingResolve(packet);
             }
             console.log('%cmessage', 'background: cyan;', newValue);
-            localStorageEmitter.emit('message', packet);
+            broadcastEmitter.emit('message', packet);
             break;
         }
       };
 
-      localStorageEmitter.send = function(packet) {
-        packet.__now = Date.now();
-        console.log('send Packet', packet);
-        Config.setValue('message', packet);
+      var onBroadcastMessage = function(e) {
+        const packet = e.data;
+        if (packet.type === 'pong' && pingResolve) {
+          pingReject = null;
+          return pingResolve(packet);
+        }
+        window.console.log('%cmessage', 'background: cyan;', packet);
+        broadcastEmitter.emit('message', packet);
+      };
+
+      broadcastEmitter.send = function(packet) {
+        if (broadcastChannel) {
+          broadcastChannel.postMessage(packet);
+        } else {
+          packet.__now = Date.now();
+          console.log('send Packet', packet);
+          Config.setValue('message', packet);
+        }
       };
 
       WindowMessageEmitter.on('onMessage', function(data, type) {
@@ -1085,45 +1102,46 @@ var monkey = function() {
               pingReject = null;
               return pingResolve(packet);
             }
-            localStorageEmitter.emit('message', packet);
+            broadcastEmitter.emit('message', packet);
             break;
         }
       });
 
-      localStorageEmitter.pong = function(playerId) {
-        localStorageEmitter.send({id: playerId, type: 'pong'});
+      broadcastEmitter.pong = function(playerId) {
+        broadcastEmitter.send({id: playerId, type: 'pong'});
       };
 
-      localStorageEmitter.ping = function() {
+      broadcastEmitter.ping = function() {
+        const TIMEOUT = broadcastChannel ? 300 : 500;
         return new Promise(function(resolve, reject) {
           pingResolve = resolve;
           pingReject = reject;
-          localStorageEmitter.send({type: 'ping'});
+          broadcastEmitter.send({type: 'ping'});
           window.setTimeout(function() {
             if (pingReject) {
               pingReject('timeout');
             }
             pingReject = pingResolve = null;
-          }, 500);
+          }, TIMEOUT);
         });
       };
 
-      localStorageEmitter.sendOpen = (watchId, params) => {
-        localStorageEmitter.send(Object.assign({
+      broadcastEmitter.sendOpen = (watchId, params) => {
+        broadcastEmitter.send(Object.assign({
           type: 'openVideo',
           watchId: watchId,
           eventType: 'click'
         }, params));
       };
 
-      localStorageEmitter.notifyClose = function() {
-        localStorageEmitter.send({type: 'notifyClose'});
+      broadcastEmitter.notifyClose = function() {
+        broadcastEmitter.send({type: 'notifyClose'});
       };
 
       if (ZenzaWatch.debug) {
         ZenzaWatch.debug.ping = () => {
           window.console.time('ping');
-          return localStorageEmitter.ping().then((result) => {
+          return broadcastEmitter.ping().then((result) => {
             window.console.timeEnd('ping');
             window.console.info('ping result: ok', result);
           }, (result) => {
@@ -1134,10 +1152,14 @@ var monkey = function() {
       }
 
       if (location.host === 'www.nicovideo.jp') {
-        window.addEventListener('storage', onStorage);
+        if (broadcastChannel) {
+          broadcastChannel.addEventListener('message', onBroadcastMessage);
+        } else {
+          window.addEventListener('storage', onStorage);
+        }
       }
 
-      return localStorageEmitter;
+      return broadcastEmitter;
     })();
 
     /**
@@ -2066,10 +2088,9 @@ var monkey = function() {
         loaderWindow.location.replace(url);
       };
      //JSON.parse(decodeURIComponent(JSON.parse($('#watchAPIDataContainer').text()).flashvars.dmcInfo))
-      var parseWatchApiData = function(dom) {
-        var $dom = $('<div>' + dom + '</div>');
+      var parseFromGinza = function(dom) {
         try {
-          var watchApiData = JSON.parse($dom.find('#watchAPIDataContainer').text());
+          var watchApiData = JSON.parse(dom.querySelector('#watchAPIDataContainer').textContent);
           var videoId = watchApiData.videoDetail.id;
           var hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
           var flvInfo = ZenzaWatch.util.parseQuery(
@@ -2101,7 +2122,8 @@ var monkey = function() {
             userKey:  flvInfo.userkey
           };
 
-          var playlist = JSON.parse($dom.find('#playlistDataContainer').text());
+          var playlist =
+            JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
           var isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
 
           cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
@@ -2130,8 +2152,19 @@ var monkey = function() {
           return result;
 
         } catch (e) {
-          window.console.error('error: parseWatchApiData ', e);
+          window.console.error('error: parseFromGinza ', e);
           return null;
+        }
+      };
+
+      var parseWatchApiData = function(src) {
+        const dom = document.createElement('div');
+        dom.innerHTML = src;
+        if (dom.querySelector('#watchAPIDataContainer')) {
+          return parseFromGinza(dom);
+        } else {
+          // TODO: エラー表示
+          return new Error('ログインしてない');
         }
       };
 
@@ -17249,6 +17282,15 @@ var VideoSession = (function() {
         setInterval(this._onPauseCheckInterval.bind(this), CHECK_PAUSE_INTERVAL);
     }
 
+    changeHeartBeatInterval(interval) {
+      if (this._heartBeatTimer) {
+        clearInterval(this._heartBeatTimer);
+      }
+      this._heartBeatInterval = interval;
+      this._heartBeatTimer =
+        setInterval(this._onHeartBeatInterval.bind(this), this._heartBeatInterval);
+    }
+
     disableHeartBeat() {
       if (this._heartBeatTimer) {
         clearInterval(this._heartBeatTimer);
@@ -19070,7 +19112,7 @@ var VideoSession = (function() {
       if (!this._playlist) { return; }
 
       var onAppend = _.debounce(() => {
-        this._videoInfoPanel.selectTab('playlist');
+        //this._videoInfoPanel.selectTab('playlist');
         this._playlist.scrollToWatchId(watchId);
       }, 500);
       this._playlist.append(watchId).then(onAppend, onAppend);
@@ -23645,13 +23687,13 @@ var VideoSession = (function() {
 
         ZenzaWatch.debug.dialog = dialog;
 
-        localStorageEmitter.on('message', (packet) => {
+        broadcastEmitter.on('message', (packet) => {
           const isLast = dialog.isLastOpenedPlayer();
           const isOpen = dialog.isOpen();
           const type = packet.type;
           if (type === 'ping' && isLast && isOpen) {
             window.console.info('pong!');
-            localStorageEmitter.pong(dialog.getId());
+            broadcastEmitter.pong(dialog.getId());
             return;
           } else if (type === 'notifyClose' && isOpen) {
             dialog.refreshLastPlayerId();
@@ -23672,7 +23714,7 @@ var VideoSession = (function() {
         });
 
         dialog.on('close', () => {
-          localStorageEmitter.notifyClose();
+          broadcastEmitter.notifyClose();
         });
 
         WatchPageState.initialize(dialog);
@@ -23714,7 +23756,7 @@ var VideoSession = (function() {
               economy: Config.getValue('forceEconomy')
             });
           } else if (watchId && data.message.command === 'send') {
-            localStorageEmitter.send({
+            broadcastEmitter.send({
               type: 'openVideo',
               watchId: watchId
             });
@@ -23783,7 +23825,7 @@ var VideoSession = (function() {
 
       // 最後にZenzaWatchを開いたタブに送る
       const send = (watchId, params) => {
-        localStorageEmitter.sendOpen(watchId, params);
+        broadcastEmitter.sendOpen(watchId, params);
       };
 
       // 最後にZenzaWatchを開いたタブに送る
@@ -23792,7 +23834,7 @@ var VideoSession = (function() {
         if (dialog.isLastOpenedPlayer()) {
           open(watchId, params);
         } else {
-          localStorageEmitter.ping().then(() => {
+          broadcastEmitter.ping().then(() => {
             send(watchId, params);
           }, () => {
             open(watchId, params);
@@ -23810,13 +23852,13 @@ var VideoSession = (function() {
 
 
       const sendCommand = (command, params) => {
-        localStorageEmitter.send(
+        broadcastEmitter.send(
           ({type: 'sendCommand', command: command, params: params})
         );
       };
 
       const sendOrExecCommand = (command, params) => {
-        localStorageEmitter.ping().then(() => {
+        broadcastEmitter.ping().then(() => {
           sendCommand(command, params);
         }, () => {
           dialog.execCommand(command, params);
