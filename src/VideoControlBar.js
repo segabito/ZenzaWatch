@@ -495,6 +495,7 @@ var CONSTANT = {};
       width: 180px;
       text-align: left;
       line-height: 20px;
+      font-size: 18px !important;
     }
 
     .playbackRateSelectMenu ul {

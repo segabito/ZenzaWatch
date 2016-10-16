@@ -2144,7 +2144,8 @@ var SlotLayoutWorker = {};
 
 .nicoChat .fill_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: none !important;
+  text-stroke: none !important;
   background: currentColor;
   {*outline: 2px solid;
   outline-offset: -1px;*}

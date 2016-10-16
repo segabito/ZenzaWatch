@@ -970,7 +970,9 @@ var CONSTANT = {};
         .on('dblclick', (e) => {
           if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') { return; }
           //window.console.log('mousedown', e, e.target);
-          this.emit('command', 'close');
+          if (config.getValue('enableDblclickClose')) {
+            this.emit('command', 'close');
+          }
         });
 
       this._hoverMenu = new VideoHoverMenu({
@@ -1644,6 +1646,9 @@ var CONSTANT = {};
         case 'SCREEN_MODE':
           this.execCommand('screenMode', param);
           break;
+        case 'SCREEN_SHOT':
+          this.execCommand('screenShot');
+          break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
       if (!_.contains(['small', 'sideView'], screenMode)) {
@@ -2261,7 +2266,7 @@ var CONSTANT = {};
     _onVideoProgress: function(range, currentTime) {
       this.emit('progress', range, currentTime);
     },
-    _onVideoError: function() {
+    _onVideoError: function(e) {
       this._hasError = true;
       this.emit('error');
       var isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc();
@@ -2319,6 +2324,7 @@ var CONSTANT = {};
       if (FullScreen.now()) {
         FullScreen.cancel();
       }
+      this.pause();
       this.hide();
       this._refresh();
       this.emit('close');
@@ -2391,7 +2397,7 @@ var CONSTANT = {};
       }
     },
     isPlaying: function() {
-      if (!this._hasError && this._nicoVideoPlayer) {
+      if (this.isOpen() && !this._hasError && this._nicoVideoPlayer) {
         return this._nicoVideoPlayer.isPlaying();
       }
       return false;

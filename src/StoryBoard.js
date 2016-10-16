@@ -705,8 +705,8 @@ var AsyncEmitter = function() {};
           .toggleClass('webkit', ZenzaWatch.util.isWebkit())
           .on('click',     '.board',   this._onBoardClick.bind(this))
         //  .on('click',     '.command', this._onCommandClick.bind(this))
-          .on('mousemove, touchmove', '.board',   this._onBoardMouseMove.bind(this))
-          .on('mousemove, touchmove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
+          .on('mousemove', '.board',   this._onBoardMouseMove.bind(this))
+          .on('mousemove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
           .on('wheel',            this._onMouseWheel   .bind(this))
           .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
 
@@ -748,7 +748,9 @@ var AsyncEmitter = function() {};
         var $view = this._$view;
         $view.addClass('clicked');
         window.setTimeout(function() { $view.removeClass('clicked'); }, 1000);
-        this._$cursorTime.css({left: -999});
+        this._$cursorTime.css({
+          transform: 'translate(-999px, 0)'
+        });
 
         //window.setTimeout(function() { this._isHover = false; }.bind(this), 3000);
 
@@ -773,7 +775,9 @@ var AsyncEmitter = function() {};
         var sec = Math.floor(ms / 1000);
 
         var time = Math.floor(sec / 60) + ':' + ((sec % 60) + 100).toString().substr(1);
-        this._$cursorTime.text(time).css({left: e.pageX});
+        this._$cursorTime.text(time).css({
+          transform: `translate(${e.pageX}px, 0) translate(-50%, 0)`
+        });
 
         this._isHover = true;
         this._isMouseMoving = true;
@@ -910,7 +914,9 @@ var AsyncEmitter = function() {};
           this.__scrollLeftChanged = false;
         }
         if (this._pointerLeftChanged) {
-          this._$pointer.css('left', this._pointerLeft);
+          this._$pointer.css('transform',
+            `translate(${this._pointerLeft}px, 0) translate(-50%, 0)`
+          );
           this._pointerLeftChanged = false;
         }
       },
@@ -1120,7 +1126,7 @@ var AsyncEmitter = function() {};
         display: none;
         position: absolute;
         bottom: -30px;
-        left: -999px;
+        left: 0;
         font-size: 10pt;
         border: 1px solid #000;
         z-index: 9010;
@@ -1152,7 +1158,7 @@ var AsyncEmitter = function() {};
       .storyBoardContainer:hover .storyBoardPointer {
         opacity: 0.8;
         box-shadow: 0 0 8px #ccc;
-        transition: left 0.4s ease-out;
+        transition: transform 0.4s ease-out;
       }
 
     */});

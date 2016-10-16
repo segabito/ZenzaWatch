@@ -370,12 +370,27 @@ var ZenzaWatch = {
       switch(key) {
         case 'message':
           console.log('%cmessage', 'background: cyan;', newValue);
-          postMessage(type, { command: 'message', value: newValue });
+          postMessage(type, { command: 'message', value: newValue, token: token });
           break;
       }
     };
 
+
+    var onBroadcastMessage = function(e) {
+      const packet = e.data;
+      //window.console.log('%cmessage', 'background: cyan;', packet);
+
+      postMessage(type, { command: 'message', value: JSON.stringify(packet), token: token});
+    };
+
+    var broadcastChannel =
+      window.BroadcastChannel ? (new window.BroadcastChannel('ZenzaWatch')) : null;
+    broadcastChannel = null; //まだ実験中
+    if (broadcastChannel) {
+      broadcastChannel.addEventListener('message', onBroadcastMessage);
+    }
     window.addEventListener('storage', onStorage);
+    
 
 
     try {

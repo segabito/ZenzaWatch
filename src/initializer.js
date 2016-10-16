@@ -239,6 +239,7 @@ var AsyncEmitter = function() {};
         }
 
         window.addEventListener('beforeunload', () => {
+          if (!dialog.isOpen()) { return; }
           PlayerSession.save(dialog.getPlayingStatus());
           dialog.close();
         });

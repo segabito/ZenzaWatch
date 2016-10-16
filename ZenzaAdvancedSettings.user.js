@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     0.2.2
+// @version     0.2.3
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -270,6 +270,14 @@
               再生中にページを切り換えても続きから再開する
             </label>
           </div>
+
+          <div class="enableDblclickClose control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="enableDblclickClose">
+              背景のダブルクリックでプレイヤーを閉じる
+            </label>
+          </div>
+
 
           <p class="caption sub">NGワード正規表現</p>
           <span class="example">入力例: <code>([wWｗＷ]+$|^ん[？\?]$|洗った？$)</code> 文法エラーがある時は更新されません</span>

@@ -9,7 +9,6 @@ var console;
 var CONSTANT = {};
 
 
-// アロー関数はiOSで未サポートなので注意
 
 //===BEGIN===
 
@@ -199,6 +198,7 @@ var CONSTANT = {};
         enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
+        enableDblclickClose: true, //
         enableFullScreenOnDoubleClick: true,
         enableStoryBoard: true, // シークバーサムネイル関連
         enableStoryBoardBar: false, // シーンサーチ
@@ -284,6 +284,8 @@ var CONSTANT = {};
 
         KEY_NEXT_VIDEO: 74, // J
         KEY_PREV_VIDEO: 75, // K
+
+        KEY_SCREEN_SHOT: 83, // S
       };
 
       if (navigator &&
@@ -642,6 +644,7 @@ var CONSTANT = {};
 
       return PlayerSession;
     })(sessionStorage);
+    //ZenzaWatch.debug.PlayerSession = PlayerSession;
 
     var addStyle = function(styles, id) {
       var elm = document.createElement('style');
@@ -954,8 +957,10 @@ var CONSTANT = {};
 
     var broadcastEmitter = (function() {
       const broadcastEmitter = new AsyncEmitter();
-      let broadcastChannel =
-        window.BroadcastChannel ? (new window.BroadcastChannel('ZenzaWatch')) : null;
+      var broadcastChannel =
+        (window.BroadcastChannel && location.host === 'www.nicovideo.jp') ?
+          (new window.BroadcastChannel('ZenzaWatch')) : null;
+      broadcastChannel = null; //まだ実験中
 
       var pingResolve = null, pingReject = null;
 
@@ -987,7 +992,7 @@ var CONSTANT = {};
           pingReject = null;
           return pingResolve(packet);
         }
-        window.console.log('%cmessage', 'background: cyan;', packet);
+        console.log('%cmessage', 'background: cyan;', packet);
         broadcastEmitter.emit('message', packet);
       };
 
@@ -1025,7 +1030,7 @@ var CONSTANT = {};
       };
 
       broadcastEmitter.ping = function() {
-        const TIMEOUT = broadcastChannel ? 300 : 500;
+        const TIMEOUT = broadcastChannel ? 500 : 500;
         return new Promise(function(resolve, reject) {
           pingResolve = resolve;
           pingReject = reject;
@@ -1067,9 +1072,8 @@ var CONSTANT = {};
       if (location.host === 'www.nicovideo.jp') {
         if (broadcastChannel) {
           broadcastChannel.addEventListener('message', onBroadcastMessage);
-        } else {
-          window.addEventListener('storage', onStorage);
         }
+        window.addEventListener('storage', onStorage);
       }
 
       return broadcastEmitter;
@@ -1455,7 +1459,8 @@ var CONSTANT = {};
         SHIFT_DOWN: 0,
         SHIFT_UP: 0,
         NEXT_VIDEO: 0,
-        PREV_VIDEO: 0
+        PREV_VIDEO: 0,
+        SCREEN_SHOT: 0
       };
 
       _.each(Object.keys(map), function(key) {
@@ -1564,6 +1569,9 @@ var CONSTANT = {};
             break;
           case map.SHIFT_UP:
             key = 'SHIFT_UP';
+            break;
+          case map.SCREEN_SHOT:
+            key = 'SCREEN_SHOT';
             break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);

@@ -365,7 +365,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
           .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
           .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
             function(g) { return '<span class="fill_space">'+
-              _.repeat('◆', g.length) + '</span>';
+              _.repeat('■', g.length) + '</span>';
             } )
           .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように

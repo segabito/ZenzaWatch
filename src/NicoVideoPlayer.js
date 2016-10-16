@@ -9,6 +9,7 @@ var FullScreen = {};
 var NicoCommentPlayer = function() {};
 var AsyncEmitter = function() {};
 var VideoInfoLoader = {};
+const CONSTANT = {};
 
 //===BEGIN===
 
@@ -377,6 +378,7 @@ var VideoInfoLoader = {};
       return this._commentPlayer.getMymemory();
     },
     getScreenShot: function() {
+      if (!this._videoPlayer.isCorsReady()) { return; }
       window.console.time('screenShot');
 
       const canvas = this._videoPlayer.getScreenShot();
@@ -407,6 +409,9 @@ var VideoInfoLoader = {};
       a.click();
       window.setTimeout(function() { a.remove(); }, 1000);
       window.console.timeEnd('screenShot');
+    },
+    isCorsReady: function() {
+      return this._videoPlayer && this._videoPlayer.isCorsReady();
     }
   });
 
@@ -833,10 +838,15 @@ var VideoInfoLoader = {};
       this.emit('abort');
     },
     _onError: function(e) {
+      if (this._video.getAttribute('src') === CONSTANT.BLANK_VIDEO_URL) { return; }
+      window.console.error('error src', this._video.src);
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
       this.addClass('error');
       this._canPlay = false;
-      this.emit('error', e);
+      this.emit('error', {
+        code: e.target.error.code,
+        target: e.target
+      });
     },
     _onPause: function() {
       console.log('%c_onPause:', 'background: cyan;', arguments);
@@ -1024,6 +1034,12 @@ var VideoInfoLoader = {};
       this._video.removeAttribute('src');
       this._video.removeAttribute('poster');
 
+      // removeAttribute('src')では動画がクリアされず、
+      // 空文字を指定しても base hrefと連結されて
+      // http://www.nicovideo.jpへのアクセスが発生する. どないしろと.
+      this._video.src = CONSTANT.BLANK_VIDEO_URL;
+      //window.console.info('src', this._video.src, this._video.getAttribute('src'));
+
       //this._subVideo.removeAttribute('src');
     },
     /**
@@ -1031,6 +1047,9 @@ var VideoInfoLoader = {};
      * CORSの制限があるので保存できない。
      */
     getScreenShot: function() {
+      if (!this.isCorsReady()) {
+        return null;
+      }
       const video = this._video;
       const width = video.videoWidth;
       const height = video.videoHeight;
@@ -1040,6 +1059,9 @@ var VideoInfoLoader = {};
       const context = canvas.getContext('2d');
       context.drawImage(video, 0, 0);
       return canvas;
+    },
+    isCorsReady: function() {
+      return this._video.crossOrigin === 'use-credentials';
     }
   });
 

@@ -1,5 +1,5 @@
 //===BEGIN===
-  var CONSTANT = {
+  const CONSTANT = {
     BASE_Z_INDEX: 100000,
 
     CONTROL_BAR_HEIGHT: 40,
@@ -11,7 +11,11 @@
     BIG_PLAYER_HEIGHT: 480,
 
     RIGHT_PANEL_WIDTH: 320,
-    BOTTOM_PANEL_HEIGHT: 240
+    BOTTOM_PANEL_HEIGHT: 240,
+
+    // video.src クリア用。
+    // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
+    BLANK_VIDEO_URL : '//'
   };
 
 
