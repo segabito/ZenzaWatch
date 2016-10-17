@@ -20,13 +20,15 @@ var SlotLayoutWorker = {};
     NONE: 'NONE',
     LOW:  'LOW',
     MID:  'MID',
-    HIGH: 'HIGH'
+    HIGH: 'HIGH',
+    MAX:  'MAX'
   };
   var SHARED_NG_SCORE = {
     NONE: -99999,//Number.MIN_VALUE,
     LOW:  -10000,
     MID:   -5000,
-    HIGH:  -1000
+    HIGH:  -1000,
+    MAX:      -1
   };
 
   /**

@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.5.2
+// @version        1.5.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +38,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.5.2';
+  var VER = '1.5.3';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -283,7 +283,7 @@ var monkey = function() {
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
-        sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH
+        sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH, MAX
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
@@ -4992,7 +4992,7 @@ var monkey = function() {
       const sec = (currentTime % 60 + 100).toString().substr(1, 6);
       const time = `${min}_${sec}`;
 
-      const fileName = `${title} - (${watchId}@${time}).png`;
+      const fileName = `${title} - ${watchId}@${time}.png`;
 
       window.console.info('download fileName: ', fileName);
       a.setAttribute('download', fileName);
@@ -9619,13 +9619,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     NONE: 'NONE',
     LOW:  'LOW',
     MID:  'MID',
-    HIGH: 'HIGH'
+    HIGH: 'HIGH',
+    MAX:  'MAX'
   };
   var SHARED_NG_SCORE = {
     NONE: -99999,//Number.MIN_VALUE,
     LOW:  -10000,
     MID:   -5000,
-    HIGH:  -1000
+    HIGH:  -1000,
+    MAX:      -1
   };
 
   /**
@@ -19118,8 +19120,8 @@ var VideoSession = (function() {
           this._view.toggleClass('mute', value);
           break;
         case 'sharedNgLevel':
-          PopupMessage.notify('NG共有: ' +
-            {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
+          //PopupMessage.notify('NG共有: ' +
+          //  {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
           break;
         case 'debug':
           this._view.toggleClass('debug', value);
@@ -20640,6 +20642,7 @@ var VideoSession = (function() {
                 </ul>
                 <p class="caption sharedNgLevelSelect">NG共有設定</p>
                 <ul class="sharedNgLevelSelect">
+                  <li class="sharedNgLevel max"   data-command="sharedNgLevel" data-level="MAX"><span>最強</span></li>
                   <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
                   <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
                   <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>

@@ -399,7 +399,7 @@ const CONSTANT = {};
       const sec = (currentTime % 60 + 100).toString().substr(1, 6);
       const time = `${min}_${sec}`;
 
-      const fileName = `${title} - (${watchId}@${time}).png`;
+      const fileName = `${title} - ${watchId}@${time}.png`;
 
       window.console.info('download fileName: ', fileName);
       a.setAttribute('download', fileName);

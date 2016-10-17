@@ -1674,8 +1674,8 @@ var CONSTANT = {};
           this._view.toggleClass('mute', value);
           break;
         case 'sharedNgLevel':
-          PopupMessage.notify('NG共有: ' +
-            {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
+          //PopupMessage.notify('NG共有: ' +
+          //  {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
           break;
         case 'debug':
           this._view.toggleClass('debug', value);
@@ -3196,6 +3196,7 @@ var CONSTANT = {};
                 </ul>
                 <p class="caption sharedNgLevelSelect">NG共有設定</p>
                 <ul class="sharedNgLevelSelect">
+                  <li class="sharedNgLevel max"   data-command="sharedNgLevel" data-level="MAX"><span>最強</span></li>
                   <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
                   <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
                   <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
