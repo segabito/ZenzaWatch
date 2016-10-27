@@ -519,18 +519,6 @@ var CONSTANT = {};
           color: #fff;
         }
 
-        .ginzaSlayer #nicoplayerContainer {
-          background: #888;
-          border: 1px inset;
-        }
-        body.ginzaSlayer.content-fix.size_small.no_setting_panel.videoExplorer #playlist {
-          position: fixed;
-          right: 0;
-          left: 400px;
-          top: 0;
-          min-width: auto;
-        }
-
         /* できれば広告に干渉したくないけど仕方なく */
         div[data-follow-container] {
           position: static !important;
@@ -857,6 +845,11 @@ var CONSTANT = {};
         background: #333;
         box-sizing: border-box;
       }
+
+      body.showNicoVideoPlayerDialog #external_nicoplayer {
+        transform: translate(-9999px, 0);
+      }
+
 
     `;
     // 非ログイン状態のwatchページ用

@@ -6,7 +6,6 @@
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/#*
 // @match          http://ext.nicovideo.jp/thumb/*
-// @match          http://api.ce.nicovideo.jp/api/v1/system.unixtime*
 // @match          http://blog.nicovideo.jp/*
 // @match          http://ch.nicovideo.jp/*
 // @match          http://com.nicovideo.jp/*
@@ -26,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.5.3
+// @version        1.6.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -38,7 +37,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.5.3';
+  var VER = '1.6.0';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -611,18 +610,6 @@ var monkey = function() {
           color: #fff;
         }
 
-        .ginzaSlayer #nicoplayerContainer {
-          background: #888;
-          border: 1px inset;
-        }
-        body.ginzaSlayer.content-fix.size_small.no_setting_panel.videoExplorer #playlist {
-          position: fixed;
-          right: 0;
-          left: 400px;
-          top: 0;
-          min-width: auto;
-        }
-
         /* できれば広告に干渉したくないけど仕方なく */
         div[data-follow-container] {
           position: static !important;
@@ -949,6 +936,11 @@ var monkey = function() {
         background: #333;
         box-sizing: border-box;
       }
+
+      body.showNicoVideoPlayerDialog #external_nicoplayer {
+        transform: translate(-9999px, 0);
+      }
+
 
     `;
     // 非ログイン状態のwatchページ用
@@ -2132,7 +2124,8 @@ var monkey = function() {
             userId:   flvInfo.user_id,
             isNeedKey: flvInfo.needs_key === '1',
             optionalThreadId: flvInfo.optional_thread_id,
-            userKey:  flvInfo.userkey
+            userKey:  flvInfo.userkey,
+            hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread
           };
 
           var playlist =
@@ -2170,11 +2163,169 @@ var monkey = function() {
         }
       };
 
+      const parseFromHtml5Watch = function(dom) {
+        const watchDataContainer = dom.querySelector('#js-initial-watch-data');
+        const data = JSON.parse(watchDataContainer.getAttribute('data-api-data'));
+        const env  = JSON.parse(watchDataContainer.getAttribute('data-environment'));
+
+        const videoId = data.video.id;
+        const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
+        const flvInfo = {
+          url: data.video.source
+        };
+        const dmcInfo = data.video.dmcInfo;
+        const thumbnail = data.video.thumbnail + (hasLargeThumbnail ? '.L' : '');
+        const videoUrl  = flvInfo.url;
+        const isEco = /\d+\.\d+low$/.test(videoUrl);
+        const isFlv = /\/smile\?v=/.test(videoUrl);
+        const isMp4 = /\/smile\?m=/.test(videoUrl);
+        const isSwf = /\/smile\?s=/.test(videoUrl);
+        const isDmc = !!dmcInfo;
+        const isChannel = !!data.channel;
+        const isCommunity = !!data.community;
+        const csrfToken     = data.context.csrfToken;
+        const watchAuthKey  = data.context.watchAuthKey;
+        const playlistToken = env.playlistToken;
+        const msgInfo = {
+          server:   data.thread.serverUrl,
+          threadId: data.thread.ids.community || data.thread.ids.default,
+          //threadId: data.thread.ids.default,
+          duration: data.video.duration,
+          userId:   data.viewer.id,
+          isNeedKey: (isChannel || isCommunity), // ??? flvInfo.needs_key === '1',
+          optionalThreadId: '',
+            //data.thread.ids.community ? data.thread.ids.default : '', //data.thread.ids.nicos,
+            //data.thread.ids.nicos,
+          userKey: data.context.userkey,
+          hasOwnerThread: data.thread.hasOwnerThread
+        };
+
+        const isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+
+        cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
+
+        const playlist = {playlist: []};
+        data.playlist.items.forEach(item => {
+          playlist.playlist.push({
+              _format:       'html5playlist',
+              _data:          item,
+              id:             item.id,
+              title:          item.title,
+              length_seconds: item.lengthSeconds,
+              num_res:        item.numRes,
+              mylist_counter: item.mylistCounter,
+              view_counter:   item.viewCounter,
+              thumbnail_url:  item.thumbnailURL,
+              first_retrieve: item.firstRetrieve,
+              has_data:      true,
+              is_translated: false
+          });
+        });
+
+        const tagList = [];
+        data.tags.forEach(t => {
+          tagList.push({
+            _data: t,
+            id: t.id,
+            tag: t.name,
+            dic: t.isDictionaryExists,
+            lock: t.isLocked
+          });
+        });
+        let channelInfo = null, channelId = null;
+        if (data.channel) {
+          channelInfo = {
+            icon_url:     data.channel.iconURL || '',
+            id:           data.channel.id,
+            name:         data.channel.name,
+            is_favorited: data.channel.isFavorited ? 1 : 0
+          };
+          channelId = channelInfo.id;
+        }
+        let uploaderInfo = null;
+        if (data.owner) {
+          uploaderInfo = {
+            icon_url:        data.owner.iconURL,
+            id:              data.owner.id,
+            nickname:        data.owner.nickname,
+            is_favorited:    data.owner.isFavorited,
+            isMyVideoPublic: data.owner.isUserMyVideoPublic
+          };
+        }
+
+        const watchApiData = {
+          videoDetail: {
+            v:  data.context.watchId,
+            id: data.video.id,
+            title:                data.video.title,
+            title_original:       data.video.originalTitle,
+            description:          data.video.description,
+            description_original: data.video.originalDescription,
+            postedAt:             data.video.postedDateTime,
+            thumbnail:            data.video.thumbnailURL,
+            length:               data.video.duration,
+
+            width:  data.video.width,
+            height: data.video.height,
+
+            isChannel:   data.channel && data.channel.id,
+            isMymemory:  data.context.isMyMemory, // 大文字小文字注意
+            communityId: data.community ? data.community.id : null,
+            channelId,
+
+            commentCount: data.thread.commentCount,
+            mylistCount:  data.video.mylistCount,
+            viewCount:    data.video.viewCount,
+
+            tagList
+          },
+          viewerInfo: { id: data.viewer.id },
+          channelInfo,
+          uploaderInfo
+        };
+
+        if (data.context && data.context.ownerNGFilters) {
+          const ngtmp = [];
+          data.context.ownerNGFilters.forEach((ng) => {
+            ngtmp.push(
+              encodeURIComponent(ng.source) + '=' + encodeURIComponent(ng.destination));
+          });
+          flvInfo.ng_up = ngtmp.join('&');
+        }
+
+        const result = {
+          _format: 'html5watchApi',
+          _data: data,
+          watchApiData,
+          flvInfo,
+          dmcInfo,
+          msgInfo,
+          playlist,
+          isPlayable,
+          isMp4,
+          isFlv,
+          isSwf,
+          isEco,
+          isDmc,
+          thumbnail,
+          csrfToken,
+          watchAuthKey,
+          playlistToken
+        };
+
+
+        ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', csrfToken);
+        return result;
+      };
+
+
       var parseWatchApiData = function(src) {
         const dom = document.createElement('div');
         dom.innerHTML = src;
         if (dom.querySelector('#watchAPIDataContainer')) {
           return parseFromGinza(dom);
+        } else if (dom.querySelector('#js-initial-watch-data')) {
+          return parseFromHtml5Watch(dom);
         } else {
           // TODO: エラー表示
           return new Error('ログインしてない');
@@ -2619,11 +2770,13 @@ var monkey = function() {
             thread.setAttribute('userkey', userKey);
           }
           if (params.useDuration) {
-            const resCount = this.getRequestCountByDuration(duration);
+            //const resCount = this.getRequestCountByDuration(duration);
             thread.setAttribute('click_revision', '-1');
             thread.setAttribute('res_from', '-1000');
             thread.setAttribute('fork', '1');
           }
+          //if (params.msgInfo.hasOwnerThread && !params.isOptional) {
+          //}
           if (typeof userId !== 'undefined') {
             thread.setAttribute('user_id', userId);
           }
@@ -2746,7 +2899,7 @@ var monkey = function() {
               force184: force184,
               useThreadKey: true,
               useUserKey: false
-             })
+            })
           );
           
 
@@ -7839,14 +7992,14 @@ var monkey = function() {
       this._$playerContainer    = params.$playerContainer;
       var player = this._player = params.player;
 
-      player.on('open',           _.bind(this._onPlayerOpen, this));
-      player.on('canPlay',        _.bind(this._onPlayerCanPlay, this));
-      player.on('durationChange', _.bind(this._onPlayerDurationChange, this));
-      player.on('close',          _.bind(this._onPlayerClose, this));
-      player.on('progress',       _.bind(this._onPlayerProgress, this));
-      player.on('loadVideoInfo',  _.bind(this._onLoadVideoInfo, this));
-      player.on('commentParsed',  _.bind(this._onCommentParsed, this));
-      player.on('commentChange',  _.bind(this._onCommentChange, this));
+      player.on('open',           this._onPlayerOpen.bind(this));
+      player.on('canPlay',        this._onPlayerCanPlay.bind(this));
+      player.on('durationChange', this._onPlayerDurationChange.bind(this));
+      player.on('close',          this._onPlayerClose.bind(this));
+      player.on('progress',       this._onPlayerProgress.bind(this));
+      player.on('loadVideoInfo',  this._onLoadVideoInfo.bind(this));
+      player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
+      player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
 
       //this.setCurrentTime =
       //  ZenzaWatch.util.createDrawCallFunc(this.setCurrentTime.bind(this));
@@ -9561,7 +9714,8 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
           .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
           .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
             function(g) { return '<span class="fill_space">'+
-              _.repeat('■', g.length) + '</span>';
+              //_.repeat('■', g.length) + '</span>';
+              _.repeat('ｉ', g.length) + '</span>';
             } )
           .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように
@@ -11699,21 +11853,21 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 .nicoChat .type0655,
 .nicoChat .zero_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   color: yellow;
   background: #fff;
   opacity: 0.3;
@@ -11721,20 +11875,20 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .debug .nicoChat .tab_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   background: #ff0;
   opacity: 0.3;
 }
 
 .nicoChat .invisible_code {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
 .nicoChat .zero_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
@@ -11745,8 +11899,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .nicoChat .fill_space {
   text-shadow: none;
-  -webkit-text-stroke: none !important;
-  text-stroke: none !important;
+  -webkit-text-stroke: unset !important;
+  text-stroke: unset !important;
   background: currentColor;
   {*outline: 2px solid;
   outline-offset: -1px;*}
@@ -11755,7 +11909,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .nicoChat .mesh_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
 }
 
 .nicoChat .block_space {
@@ -15739,7 +15893,7 @@ data-title="%no%: %date% ID:%userId%
       var esc = ZenzaWatch.util.escapeHtml;
 
       var count = item.getCount();
-
+      //window.console.log('item', item, item.getThumbnail());
       tpl = tpl
         .replace(/%active%/g,     item.isActive() ? 'active' : '')
         .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
@@ -15748,7 +15902,7 @@ data-title="%no%: %date% ID:%userId%
         .replace(/%itemId%/g,     parseInt(item.getItemId(), 10))
         .replace(/%postedAt%/g,   esc(item.getPostedAt()))
         .replace(/%videoTitle%/g, title)
-        .replace(/%thumbnail%/g,  esc(item.getThumbnail()))
+        .replace(/%thumbnail%/g,  esc(item.getThumbnail() || ''))
         .replace(/%duration%/g,   this._secToTime(item.getDuration()))
         .replace(/%viewCount%/g,    this._addComma(count.view))
         .replace(/%commentCount%/g, this._addComma(count.comment))
@@ -18857,6 +19011,7 @@ var VideoSession = (function() {
           this._playerConfig.setValue('loop', !v);
           break;
         case 'fullScreen':
+        case 'toggle-fullScreen':
           this._nicoVideoPlayer.toggleFullScreen();
           break;
         case 'deflistAdd':
@@ -18997,6 +19152,15 @@ var VideoSession = (function() {
           if (this._playerConfig.getValue(command) === param) { break; }
           this._playerConfig.setValue(command, param);
           this.reloadComment();
+          break;
+        case 'toggle-comment':
+        case 'toggle-showComment':
+        case 'toggle-backComment':
+        case 'toggle-mute':
+        case 'toggle-loop':
+        case 'toggle-debug':
+          command = command.replace(/^toggle-/, '');
+          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
         case 'baseFontFamily':
         case 'baseChatScale':
@@ -20018,7 +20182,7 @@ var VideoSession = (function() {
   });
 
   var VideoHoverMenu = function() { this.initialize.apply(this, arguments); };
-  VideoHoverMenu.__css__ = `
+  VideoHoverMenu.__css__ = (`
 
     /* マイページはなぜかhtmlにoverflow-y: scroll が指定されているので打ち消す */
     html.showNicoVideoPlayerDialog.zenzaScreenMode_3D,
@@ -20064,6 +20228,21 @@ var VideoSession = (function() {
     .updatingDeflist .menuItemContainer.rightTop>*,
     .updatingMylist .menuItemContainer.rightTop>* {
       pointer-events: none;
+    }
+
+    .menuItemContainer.leftTop {
+      width: auto;
+      height: auto;
+      left: 32px;
+      top: 32px;
+      display: none;
+    }
+    .debug .menuItemContainer.leftTop {
+      display: inline-block !important;
+      opacity: 1 !important;
+      transition: none !important;
+      transform: translateZ(0);
+      max-width: 200px;
     }
 
     .menuItemContainer.leftBottom {
@@ -20580,11 +20759,29 @@ var VideoSession = (function() {
       transform: scale(0.5);
     }
 
+    .menuItemContainer .toggleDebugButton {
+      position: relative;
+      display: inline-block;
+      opacity: 1 !important;
+      padding: 8px 16px;
+      color: #000;
+      box-shadow: none;
+      line-height: 30px;
+      font-size: 21px;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid black;
+      background: rgba(192, 192, 192, 0.8);
+    }
 
-
-  `;
+  `).trim();
 
   VideoHoverMenu.__tpl__ = (`
+      <div class="menuItemContainer leftTop">
+          <div class="menuButton toggleDebugButton" data-command="toggle-debug">
+            <div class="menuButtonInner">debug mode</div>
+          </div>
+      </div>
       <div class="menuItemContainer rightTop">
         <div class="scalingUI">
           <div class="menuButton zenzaTweetButton" data-command="tweet">
@@ -20616,12 +20813,12 @@ var VideoSession = (function() {
 
       <div class="menuItemContainer leftBottom">
         <div class="scalingUI">
-          <div class="showCommentSwitch menuButton" data-command="toggleShowComment">
+          <div class="showCommentSwitch menuButton" data-command="toggle-showComment">
             <div class="tooltip">コメント表示ON/OFF(V)</div>
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="commentLayerOrderSwitch menuButton" data-command="toggleBackComment">
+          <div class="commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
             <div class="tooltip">コメントの表示順</div>
             <div class="layer comment">C</div>
             <div class="layer video">V</div>
@@ -20870,9 +21067,12 @@ var VideoSession = (function() {
         case 'close':
         case 'fullScreen':
         case 'toggleMute':
-        case 'toggleComment':
-        case 'toggleBackComment':
-        case 'toggleShowComment':
+        case 'toggle-mute':
+        case 'toggle-comment':
+        case 'toggle-backComment':
+        case 'toggle-showComment':
+        case 'toggle-loop':
+        case 'toggle-debug':
         case 'openGinza':
         case 'reload':
           this.emit('command', command);

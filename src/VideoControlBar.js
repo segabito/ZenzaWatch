@@ -1032,14 +1032,14 @@ var CONSTANT = {};
       this._$playerContainer    = params.$playerContainer;
       var player = this._player = params.player;
 
-      player.on('open',           _.bind(this._onPlayerOpen, this));
-      player.on('canPlay',        _.bind(this._onPlayerCanPlay, this));
-      player.on('durationChange', _.bind(this._onPlayerDurationChange, this));
-      player.on('close',          _.bind(this._onPlayerClose, this));
-      player.on('progress',       _.bind(this._onPlayerProgress, this));
-      player.on('loadVideoInfo',  _.bind(this._onLoadVideoInfo, this));
-      player.on('commentParsed',  _.bind(this._onCommentParsed, this));
-      player.on('commentChange',  _.bind(this._onCommentChange, this));
+      player.on('open',           this._onPlayerOpen.bind(this));
+      player.on('canPlay',        this._onPlayerCanPlay.bind(this));
+      player.on('durationChange', this._onPlayerDurationChange.bind(this));
+      player.on('close',          this._onPlayerClose.bind(this));
+      player.on('progress',       this._onPlayerProgress.bind(this));
+      player.on('loadVideoInfo',  this._onLoadVideoInfo.bind(this));
+      player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
+      player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
 
       //this.setCurrentTime =
       //  ZenzaWatch.util.createDrawCallFunc(this.setCurrentTime.bind(this));
@@ -2510,7 +2510,7 @@ var CONSTANT = {};
       this._timeoutTimer = null;
       this._kidoku = [];
 
-      this._player.on('commentParsed', _.debounce(_.bind(this._onCommentParsed, this), 100));
+      this._player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
       this._playerConfig.on('update-speakLark', _.bind(function(v) {
         if (v) { this.enable(); } else { this.disable(); }
       }, this));

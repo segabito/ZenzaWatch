@@ -166,7 +166,8 @@ var ajax = function() {};
             userId:   flvInfo.user_id,
             isNeedKey: flvInfo.needs_key === '1',
             optionalThreadId: flvInfo.optional_thread_id,
-            userKey:  flvInfo.userkey
+            userKey:  flvInfo.userkey,
+            hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread
           };
 
           var playlist =
@@ -204,11 +205,169 @@ var ajax = function() {};
         }
       };
 
+      const parseFromHtml5Watch = function(dom) {
+        const watchDataContainer = dom.querySelector('#js-initial-watch-data');
+        const data = JSON.parse(watchDataContainer.getAttribute('data-api-data'));
+        const env  = JSON.parse(watchDataContainer.getAttribute('data-environment'));
+
+        const videoId = data.video.id;
+        const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
+        const flvInfo = {
+          url: data.video.source
+        };
+        const dmcInfo = data.video.dmcInfo;
+        const thumbnail = data.video.thumbnail + (hasLargeThumbnail ? '.L' : '');
+        const videoUrl  = flvInfo.url;
+        const isEco = /\d+\.\d+low$/.test(videoUrl);
+        const isFlv = /\/smile\?v=/.test(videoUrl);
+        const isMp4 = /\/smile\?m=/.test(videoUrl);
+        const isSwf = /\/smile\?s=/.test(videoUrl);
+        const isDmc = !!dmcInfo;
+        const isChannel = !!data.channel;
+        const isCommunity = !!data.community;
+        const csrfToken     = data.context.csrfToken;
+        const watchAuthKey  = data.context.watchAuthKey;
+        const playlistToken = env.playlistToken;
+        const msgInfo = {
+          server:   data.thread.serverUrl,
+          threadId: data.thread.ids.community || data.thread.ids.default,
+          //threadId: data.thread.ids.default,
+          duration: data.video.duration,
+          userId:   data.viewer.id,
+          isNeedKey: (isChannel || isCommunity), // ??? flvInfo.needs_key === '1',
+          optionalThreadId: '',
+            //data.thread.ids.community ? data.thread.ids.default : '', //data.thread.ids.nicos,
+            //data.thread.ids.nicos,
+          userKey: data.context.userkey,
+          hasOwnerThread: data.thread.hasOwnerThread
+        };
+
+        const isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+
+        cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
+
+        const playlist = {playlist: []};
+        data.playlist.items.forEach(item => {
+          playlist.playlist.push({
+              _format:       'html5playlist',
+              _data:          item,
+              id:             item.id,
+              title:          item.title,
+              length_seconds: item.lengthSeconds,
+              num_res:        item.numRes,
+              mylist_counter: item.mylistCounter,
+              view_counter:   item.viewCounter,
+              thumbnail_url:  item.thumbnailURL,
+              first_retrieve: item.firstRetrieve,
+              has_data:      true,
+              is_translated: false
+          });
+        });
+
+        const tagList = [];
+        data.tags.forEach(t => {
+          tagList.push({
+            _data: t,
+            id: t.id,
+            tag: t.name,
+            dic: t.isDictionaryExists,
+            lock: t.isLocked
+          });
+        });
+        let channelInfo = null, channelId = null;
+        if (data.channel) {
+          channelInfo = {
+            icon_url:     data.channel.iconURL || '',
+            id:           data.channel.id,
+            name:         data.channel.name,
+            is_favorited: data.channel.isFavorited ? 1 : 0
+          };
+          channelId = channelInfo.id;
+        }
+        let uploaderInfo = null;
+        if (data.owner) {
+          uploaderInfo = {
+            icon_url:        data.owner.iconURL,
+            id:              data.owner.id,
+            nickname:        data.owner.nickname,
+            is_favorited:    data.owner.isFavorited,
+            isMyVideoPublic: data.owner.isUserMyVideoPublic
+          };
+        }
+
+        const watchApiData = {
+          videoDetail: {
+            v:  data.context.watchId,
+            id: data.video.id,
+            title:                data.video.title,
+            title_original:       data.video.originalTitle,
+            description:          data.video.description,
+            description_original: data.video.originalDescription,
+            postedAt:             data.video.postedDateTime,
+            thumbnail:            data.video.thumbnailURL,
+            length:               data.video.duration,
+
+            width:  data.video.width,
+            height: data.video.height,
+
+            isChannel:   data.channel && data.channel.id,
+            isMymemory:  data.context.isMyMemory, // 大文字小文字注意
+            communityId: data.community ? data.community.id : null,
+            channelId,
+
+            commentCount: data.thread.commentCount,
+            mylistCount:  data.video.mylistCount,
+            viewCount:    data.video.viewCount,
+
+            tagList
+          },
+          viewerInfo: { id: data.viewer.id },
+          channelInfo,
+          uploaderInfo
+        };
+
+        if (data.context && data.context.ownerNGFilters) {
+          const ngtmp = [];
+          data.context.ownerNGFilters.forEach((ng) => {
+            ngtmp.push(
+              encodeURIComponent(ng.source) + '=' + encodeURIComponent(ng.destination));
+          });
+          flvInfo.ng_up = ngtmp.join('&');
+        }
+
+        const result = {
+          _format: 'html5watchApi',
+          _data: data,
+          watchApiData,
+          flvInfo,
+          dmcInfo,
+          msgInfo,
+          playlist,
+          isPlayable,
+          isMp4,
+          isFlv,
+          isSwf,
+          isEco,
+          isDmc,
+          thumbnail,
+          csrfToken,
+          watchAuthKey,
+          playlistToken
+        };
+
+
+        ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', csrfToken);
+        return result;
+      };
+
+
       var parseWatchApiData = function(src) {
         const dom = document.createElement('div');
         dom.innerHTML = src;
         if (dom.querySelector('#watchAPIDataContainer')) {
           return parseFromGinza(dom);
+        } else if (dom.querySelector('#js-initial-watch-data')) {
+          return parseFromHtml5Watch(dom);
         } else {
           // TODO: エラー表示
           return new Error('ログインしてない');
@@ -653,11 +812,13 @@ var ajax = function() {};
             thread.setAttribute('userkey', userKey);
           }
           if (params.useDuration) {
-            const resCount = this.getRequestCountByDuration(duration);
+            //const resCount = this.getRequestCountByDuration(duration);
             thread.setAttribute('click_revision', '-1');
             thread.setAttribute('res_from', '-1000');
             thread.setAttribute('fork', '1');
           }
+          //if (params.msgInfo.hasOwnerThread && !params.isOptional) {
+          //}
           if (typeof userId !== 'undefined') {
             thread.setAttribute('user_id', userId);
           }
@@ -780,7 +941,7 @@ var ajax = function() {};
               force184: force184,
               useThreadKey: true,
               useUserKey: false
-             })
+            })
           );
           
 

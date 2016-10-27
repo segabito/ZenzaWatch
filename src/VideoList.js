@@ -1013,7 +1013,7 @@ var MylistPocket = function() {};
       var esc = ZenzaWatch.util.escapeHtml;
 
       var count = item.getCount();
-
+      //window.console.log('item', item, item.getThumbnail());
       tpl = tpl
         .replace(/%active%/g,     item.isActive() ? 'active' : '')
         .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
@@ -1022,7 +1022,7 @@ var MylistPocket = function() {};
         .replace(/%itemId%/g,     parseInt(item.getItemId(), 10))
         .replace(/%postedAt%/g,   esc(item.getPostedAt()))
         .replace(/%videoTitle%/g, title)
-        .replace(/%thumbnail%/g,  esc(item.getThumbnail()))
+        .replace(/%thumbnail%/g,  esc(item.getThumbnail() || ''))
         .replace(/%duration%/g,   this._secToTime(item.getDuration()))
         .replace(/%viewCount%/g,    this._addComma(count.view))
         .replace(/%commentCount%/g, this._addComma(count.comment))

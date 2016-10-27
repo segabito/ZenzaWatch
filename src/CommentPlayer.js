@@ -2100,21 +2100,21 @@ var SlotLayoutWorker = {};
 .nicoChat .type0655,
 .nicoChat .zero_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
 .nicoChat .han_space,
 .nicoChat .zen_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
 .debug .nicoChat .han_space,
 .debug .nicoChat .zen_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   color: yellow;
   background: #fff;
   opacity: 0.3;
@@ -2122,20 +2122,20 @@ var SlotLayoutWorker = {};
 
 .debug .nicoChat .tab_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   background: #ff0;
   opacity: 0.3;
 }
 
 .nicoChat .invisible_code {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
 .nicoChat .zero_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
   opacity: 0;
 }
 
@@ -2146,8 +2146,8 @@ var SlotLayoutWorker = {};
 
 .nicoChat .fill_space {
   text-shadow: none;
-  -webkit-text-stroke: none !important;
-  text-stroke: none !important;
+  -webkit-text-stroke: unset !important;
+  text-stroke: unset !important;
   background: currentColor;
   {*outline: 2px solid;
   outline-offset: -1px;*}
@@ -2156,7 +2156,7 @@ var SlotLayoutWorker = {};
 
 .nicoChat .mesh_space {
   text-shadow: none;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
 }
 
 .nicoChat .block_space {

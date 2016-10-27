@@ -1411,6 +1411,7 @@ var CONSTANT = {};
           this._playerConfig.setValue('loop', !v);
           break;
         case 'fullScreen':
+        case 'toggle-fullScreen':
           this._nicoVideoPlayer.toggleFullScreen();
           break;
         case 'deflistAdd':
@@ -1551,6 +1552,15 @@ var CONSTANT = {};
           if (this._playerConfig.getValue(command) === param) { break; }
           this._playerConfig.setValue(command, param);
           this.reloadComment();
+          break;
+        case 'toggle-comment':
+        case 'toggle-showComment':
+        case 'toggle-backComment':
+        case 'toggle-mute':
+        case 'toggle-loop':
+        case 'toggle-debug':
+          command = command.replace(/^toggle-/, '');
+          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
         case 'baseFontFamily':
         case 'baseChatScale':
@@ -2572,7 +2582,7 @@ var CONSTANT = {};
   });
 
   var VideoHoverMenu = function() { this.initialize.apply(this, arguments); };
-  VideoHoverMenu.__css__ = `
+  VideoHoverMenu.__css__ = (`
 
     /* マイページはなぜかhtmlにoverflow-y: scroll が指定されているので打ち消す */
     html.showNicoVideoPlayerDialog.zenzaScreenMode_3D,
@@ -2618,6 +2628,21 @@ var CONSTANT = {};
     .updatingDeflist .menuItemContainer.rightTop>*,
     .updatingMylist .menuItemContainer.rightTop>* {
       pointer-events: none;
+    }
+
+    .menuItemContainer.leftTop {
+      width: auto;
+      height: auto;
+      left: 32px;
+      top: 32px;
+      display: none;
+    }
+    .debug .menuItemContainer.leftTop {
+      display: inline-block !important;
+      opacity: 1 !important;
+      transition: none !important;
+      transform: translateZ(0);
+      max-width: 200px;
     }
 
     .menuItemContainer.leftBottom {
@@ -3134,11 +3159,29 @@ var CONSTANT = {};
       transform: scale(0.5);
     }
 
+    .menuItemContainer .toggleDebugButton {
+      position: relative;
+      display: inline-block;
+      opacity: 1 !important;
+      padding: 8px 16px;
+      color: #000;
+      box-shadow: none;
+      line-height: 30px;
+      font-size: 21px;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid black;
+      background: rgba(192, 192, 192, 0.8);
+    }
 
-
-  `;
+  `).trim();
 
   VideoHoverMenu.__tpl__ = (`
+      <div class="menuItemContainer leftTop">
+          <div class="menuButton toggleDebugButton" data-command="toggle-debug">
+            <div class="menuButtonInner">debug mode</div>
+          </div>
+      </div>
       <div class="menuItemContainer rightTop">
         <div class="scalingUI">
           <div class="menuButton zenzaTweetButton" data-command="tweet">
@@ -3170,12 +3213,12 @@ var CONSTANT = {};
 
       <div class="menuItemContainer leftBottom">
         <div class="scalingUI">
-          <div class="showCommentSwitch menuButton" data-command="toggleShowComment">
+          <div class="showCommentSwitch menuButton" data-command="toggle-showComment">
             <div class="tooltip">コメント表示ON/OFF(V)</div>
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="commentLayerOrderSwitch menuButton" data-command="toggleBackComment">
+          <div class="commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
             <div class="tooltip">コメントの表示順</div>
             <div class="layer comment">C</div>
             <div class="layer video">V</div>
@@ -3424,9 +3467,12 @@ var CONSTANT = {};
         case 'close':
         case 'fullScreen':
         case 'toggleMute':
-        case 'toggleComment':
-        case 'toggleBackComment':
-        case 'toggleShowComment':
+        case 'toggle-mute':
+        case 'toggle-comment':
+        case 'toggle-backComment':
+        case 'toggle-showComment':
+        case 'toggle-loop':
+        case 'toggle-debug':
         case 'openGinza':
         case 'reload':
           this.emit('command', command);
