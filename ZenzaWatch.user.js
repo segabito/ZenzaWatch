@@ -24,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.6.1
+// @version        1.6.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -36,7 +36,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.6.1';
+  var VER = '1.6.2';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -7590,9 +7590,10 @@ var monkey = function() {
       box-sizing: border-box;
       width: 64px;
       height: 8px;
-      border: 1px inset #888;
+      border: 1px solid #888;
       border-radius: 4px;
       cursor: pointer;
+      overflow: hidden;
     }
 
     .videoControlBar .volumeControl .volumeControlInner .slideBar {
@@ -7603,9 +7604,12 @@ var monkey = function() {
       bottom: 0;
       background: #ccc;
       pointer-events: none;
+
     }
 
     .videoControlBar .volumeControl .volumeBarPointer {
+      display: none;
+               /*
       position: absolute;
       top: 50%;
       width: 6px;
@@ -7614,6 +7618,7 @@ var monkey = function() {
       transform: translate(-50%, -50%);
       z-index: 200;
       pointer-events: none;
+      */
     }
 
     .videoControlBar .volumeControl .tooltip {
@@ -21846,6 +21851,15 @@ var VideoSession = (function() {
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="autoFullScreen">
             自動でフルスクリーンにする
+            <small>(singletonモードでは使えません)</small>
+          </label>
+        </div>
+
+        <div class="enableSingleton control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableSingleton">
+            ZenzaWatchを起動してるタブがあればそちらで開く<br>
+            <smal>(singletonモード)</small>
           </label>
         </div>
 
@@ -21880,7 +21894,7 @@ var VideoSession = (function() {
         <div class="overrideWatchLinkControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableCommentPanel">
-            右パネルにコメント一覧を表示 (重いかも)
+            右パネルにコメント一覧を表示
           </label>
         </div>
 
@@ -21889,22 +21903,6 @@ var VideoSession = (function() {
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableAutoMylistComment">
             マイリストコメントに投稿者名を入れる
-          </label>
-        </div>
-
-
-        <div class="enableCommentLayoutWorker control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableCommentLayoutWorker">
-            コメント初期化を一部マルチスレッド化(実験中)
-          </label>
-        </div>
-
-        <div class="enableSingleton control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableSingleton">
-            ZenzaWatchを起動してるタブがあればそちらで開く<br>
-            <smal>(singletonモード)</small>
           </label>
         </div>
 
@@ -24475,7 +24473,7 @@ var VideoSession = (function() {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
     var parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
@@ -24543,7 +24541,7 @@ var VideoSession = (function() {
 
     var parentHost = document.referrer.split('/')[2];
     window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
@@ -24612,7 +24610,7 @@ var VideoSession = (function() {
 
     var parentHost = document.referrer.split('/')[2];
     window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/) &&
         localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
       window.console.log('disable bridge');
       return;
@@ -24758,7 +24756,7 @@ var VideoSession = (function() {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
     var parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }

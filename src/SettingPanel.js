@@ -206,6 +206,15 @@ var AsyncEmitter = function() {};
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="autoFullScreen">
             自動でフルスクリーンにする
+            <small>(singletonモードでは使えません)</small>
+          </label>
+        </div>
+
+        <div class="enableSingleton control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableSingleton">
+            ZenzaWatchを起動してるタブがあればそちらで開く<br>
+            <smal>(singletonモード)</small>
           </label>
         </div>
 
@@ -240,7 +249,7 @@ var AsyncEmitter = function() {};
         <div class="overrideWatchLinkControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableCommentPanel">
-            右パネルにコメント一覧を表示 (重いかも)
+            右パネルにコメント一覧を表示
           </label>
         </div>
 
@@ -249,22 +258,6 @@ var AsyncEmitter = function() {};
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableAutoMylistComment">
             マイリストコメントに投稿者名を入れる
-          </label>
-        </div>
-
-
-        <div class="enableCommentLayoutWorker control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableCommentLayoutWorker">
-            コメント初期化を一部マルチスレッド化(実験中)
-          </label>
-        </div>
-
-        <div class="enableSingleton control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableSingleton">
-            ZenzaWatchを起動してるタブがあればそちらで開く<br>
-            <smal>(singletonモード)</small>
           </label>
         </div>
 

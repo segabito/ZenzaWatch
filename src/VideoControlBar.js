@@ -631,9 +631,10 @@ var CONSTANT = {};
       box-sizing: border-box;
       width: 64px;
       height: 8px;
-      border: 1px inset #888;
+      border: 1px solid #888;
       border-radius: 4px;
       cursor: pointer;
+      overflow: hidden;
     }
 
     .videoControlBar .volumeControl .volumeControlInner .slideBar {
@@ -644,9 +645,12 @@ var CONSTANT = {};
       bottom: 0;
       background: #ccc;
       pointer-events: none;
+
     }
 
     .videoControlBar .volumeControl .volumeBarPointer {
+      display: none;
+               /*
       position: absolute;
       top: 50%;
       width: 6px;
@@ -655,6 +659,7 @@ var CONSTANT = {};
       transform: translate(-50%, -50%);
       z-index: 200;
       pointer-events: none;
+      */
     }
 
     .videoControlBar .volumeControl .tooltip {

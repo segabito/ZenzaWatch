@@ -124,7 +124,7 @@ var ZenzaWatch = {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
     var parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
@@ -192,7 +192,7 @@ var ZenzaWatch = {
 
     var parentHost = document.referrer.split('/')[2];
     window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
@@ -261,7 +261,7 @@ var ZenzaWatch = {
 
     var parentHost = document.referrer.split('/')[2];
     window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/) &&
         localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
       window.console.log('disable bridge');
       return;
@@ -407,7 +407,7 @@ var ZenzaWatch = {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
     var parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
