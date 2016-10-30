@@ -400,41 +400,6 @@ var ZenzaWatch = {
     }
   };
 
-  var blogPartsApi = function() {
-    var watchId = location.href.split('/').reverse()[0];
-
-    var parentHost = document.referrer.split('/')[2];
-    window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
-        localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
-      window.console.log('disable bridge');
-      return;
-    }
-
-
-    var initialize = function() {
-      var button = document.createElement('button');
-      button.innerHTML = '<span>Zen</span>';
-      button.style.position = 'fixed';
-      button.style.left = 0;
-      button.style.top = 0;
-      button.style.zIndex = 100000;
-      button.style.lineHeight = '24px';
-      button.style.padding = '4px 4px';
-      button.style.cursor = 'pointer';
-      button.style.fontWeight = 'bolder';
-      document.body.appendChild(button);
-      button.onclick = function(e) {
-        window.console.log('click!', watchId);
-        postMessage('blogParts', {
-          command: e.shiftKey ? 'send' : 'open',
-          watchId: watchId
-        });
-      };
-    };
-    initialize();
-  };
-
 
 
   var smileApi = function() {

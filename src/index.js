@@ -5,7 +5,6 @@
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/#*
-// @match          http://ext.nicovideo.jp/thumb/*
 // @match          http://blog.nicovideo.jp/*
 // @match          http://ch.nicovideo.jp/*
 // @match          http://com.nicovideo.jp/*
@@ -25,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.6.0
+// @version        1.6.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -141,8 +140,6 @@ var monkey = function() {
     vitaApi();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
     smileApi();
-  } else if (host === 'ext.nicovideo.jp' && location.pathname.indexOf('/thumb/') === 0) {
-    blogPartsApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
     thumbInfoApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {

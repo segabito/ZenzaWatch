@@ -5,7 +5,6 @@
 // @match          http://www.nicovideo.jp/*
 // @match          http://ext.nicovideo.jp/
 // @match          http://ext.nicovideo.jp/#*
-// @match          http://ext.nicovideo.jp/thumb/*
 // @match          http://blog.nicovideo.jp/*
 // @match          http://ch.nicovideo.jp/*
 // @match          http://com.nicovideo.jp/*
@@ -25,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.6.0
+// @version        1.6.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -37,7 +36,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.6.0';
+  var VER = '1.6.1';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -18665,10 +18664,14 @@ var VideoSession = (function() {
       update();
     },
     _onMouseMove: function() {
+      if (this._isMouseMoving) { return; }
       this._$playerContainer.addClass('mouseMoving');
+      this._isMouseMoving = true;
     },
     _onMouseMoveEnd: function() {
+      if (!this._isMouseMoving) { return; }
       this._$playerContainer.removeClass('mouseMoving');
+      this._isMouseMoving = false;
     },
     _onVideoCanPlay: function() {
       this._$playerContainer.removeClass('stalled loading');
@@ -24748,41 +24751,6 @@ var VideoSession = (function() {
     }
   };
 
-  var blogPartsApi = function() {
-    var watchId = location.href.split('/').reverse()[0];
-
-    var parentHost = document.referrer.split('/')[2];
-    window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/) &&
-        localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
-      window.console.log('disable bridge');
-      return;
-    }
-
-
-    var initialize = function() {
-      var button = document.createElement('button');
-      button.innerHTML = '<span>Zen</span>';
-      button.style.position = 'fixed';
-      button.style.left = 0;
-      button.style.top = 0;
-      button.style.zIndex = 100000;
-      button.style.lineHeight = '24px';
-      button.style.padding = '4px 4px';
-      button.style.cursor = 'pointer';
-      button.style.fontWeight = 'bolder';
-      document.body.appendChild(button);
-      button.onclick = function(e) {
-        window.console.log('click!', watchId);
-        postMessage('blogParts', {
-          command: e.shiftKey ? 'send' : 'open',
-          watchId: watchId
-        });
-      };
-    };
-    initialize();
-  };
-
 
 
   var smileApi = function() {
@@ -24872,8 +24840,6 @@ var VideoSession = (function() {
     vitaApi();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
     smileApi();
-  } else if (host === 'ext.nicovideo.jp' && location.pathname.indexOf('/thumb/') === 0) {
-    blogPartsApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
     thumbInfoApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {

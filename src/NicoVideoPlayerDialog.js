@@ -1065,10 +1065,14 @@ var CONSTANT = {};
       update();
     },
     _onMouseMove: function() {
+      if (this._isMouseMoving) { return; }
       this._$playerContainer.addClass('mouseMoving');
+      this._isMouseMoving = true;
     },
     _onMouseMoveEnd: function() {
+      if (!this._isMouseMoving) { return; }
       this._$playerContainer.removeClass('mouseMoving');
+      this._isMouseMoving = false;
     },
     _onVideoCanPlay: function() {
       this._$playerContainer.removeClass('stalled loading');
