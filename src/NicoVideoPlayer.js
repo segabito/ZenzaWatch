@@ -27,12 +27,17 @@ const CONSTANT = {};
 
       this._fullScreenNode = params.fullScreenNode;
 
+      const playbackRate =
+        ZenzaWatch.util.isPremium() ?
+          conf.getValue('playbackRate') :
+          Math.min(1, conf.getValue('playbackRate'));
+
       this._videoPlayer = new VideoPlayer({
         volume:       conf.getValue('volume'),
         loop:         conf.getValue('loop'),
         mute:         conf.getValue('mute'),
         autoPlay:     conf.getValue('autoPlay'),
-        playbackRate: conf.getValue('playbackRate'),
+        playbackRate,
         debug:        conf.getValue('debug')
       });
 
@@ -46,7 +51,7 @@ const CONSTANT = {};
         commandFilter:  params.commandFilter,
         showComment:    conf.getValue('showComment'),
         debug:          conf.getValue('debug'),
-        playbackRate:   conf.getValue('playbackRate'),
+        playbackRate,
         sharedNgLevel:  conf.getValue('sharedNgLevel')
       });
 
@@ -121,10 +126,9 @@ const CONSTANT = {};
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          if (ZenzaWatch.util.isPremium()) {
-            this._videoPlayer.setPlaybackRate(value);
-            this._commentPlayer.setPlaybackRate(value);
-          }
+          if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
+          this._videoPlayer.setPlaybackRate(value);
+          this._commentPlayer.setPlaybackRate(value);
           break;
         case 'autoPlay':
           this._videoPlayer.setIsAutoPlay(value);
@@ -255,11 +259,12 @@ const CONSTANT = {};
       this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
-      if (ZenzaWatch.util.isPremium()) {
-        playbackRate = Math.max(0, Math.min(playbackRate, 10));
-        this._videoPlayer.setPlaybackRate(playbackRate);
-        this._commentPlayer.setPlaybackRate(playbackRate);
+      if (!ZenzaWatch.util.isPremium()) {
+        playbackRate = Math.min(1, playbackRate);
       }
+      playbackRate = Math.max(0, Math.min(playbackRate, 10));
+      this._videoPlayer.setPlaybackRate(playbackRate);
+      this._commentPlayer.setPlaybackRate(playbackRate);
     },
     setCurrentTime: function(t) {
       this._videoPlayer.setCurrentTime(Math.max(0, t));
@@ -500,12 +505,12 @@ const CONSTANT = {};
           <li class="seek" data-command="seek" data-param="-30">30秒戻る</li>
           <li class="seek" data-command="seek" data-param="30" >30秒進む</li>
 
-          <hr class="separator forPremium">
+          <hr class="separator">
 
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.5">0.5x</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.75">0.75x</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.0">標準速度</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.5">0.5x</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.75">0.75x</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="1.0">標準速度</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.25">1.25x</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.5">1.5x</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="2">倍速(2x)</li>
@@ -563,9 +568,8 @@ const CONSTANT = {};
           player.setCurrentTime(ct + parseInt(param, 10));
           break;
         case 'playbackRate':
-          if (ZenzaWatch.util.isPremium()) {
-            playerConfig.setValue('playbackRate', parseFloat(param, 10));
-          }
+          if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
+          playerConfig.setValue('playbackRate', parseFloat(param, 10));
           break;
         case 'mymemory':
           this._createMymemory();
@@ -1001,13 +1005,13 @@ const CONSTANT = {};
     },
     setPlaybackRate: function(v) {
       console.log('setPlaybackRate', v);
-      if (ZenzaWatch.util.isPremium()) {
-        // たまにリセットされたり反映されなかったりする？
-        this._playbackRate = v;
-        var video = this._video;
-        video.playbackRate = 1;
-        window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
-      }
+      if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+      // たまにリセットされたり反映されなかったりする？
+      this._playbackRate = v;
+      var video = this._video;
+      video.playbackRate = 1;
+      window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
+      
     },
     getPlaybackRate: function() {
       return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;

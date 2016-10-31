@@ -4772,12 +4772,17 @@ var monkey = function() {
 
       this._fullScreenNode = params.fullScreenNode;
 
+      const playbackRate =
+        ZenzaWatch.util.isPremium() ?
+          conf.getValue('playbackRate') :
+          Math.min(1, conf.getValue('playbackRate'));
+
       this._videoPlayer = new VideoPlayer({
         volume:       conf.getValue('volume'),
         loop:         conf.getValue('loop'),
         mute:         conf.getValue('mute'),
         autoPlay:     conf.getValue('autoPlay'),
-        playbackRate: conf.getValue('playbackRate'),
+        playbackRate,
         debug:        conf.getValue('debug')
       });
 
@@ -4791,7 +4796,7 @@ var monkey = function() {
         commandFilter:  params.commandFilter,
         showComment:    conf.getValue('showComment'),
         debug:          conf.getValue('debug'),
-        playbackRate:   conf.getValue('playbackRate'),
+        playbackRate,
         sharedNgLevel:  conf.getValue('sharedNgLevel')
       });
 
@@ -4866,10 +4871,9 @@ var monkey = function() {
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          if (ZenzaWatch.util.isPremium()) {
-            this._videoPlayer.setPlaybackRate(value);
-            this._commentPlayer.setPlaybackRate(value);
-          }
+          if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
+          this._videoPlayer.setPlaybackRate(value);
+          this._commentPlayer.setPlaybackRate(value);
           break;
         case 'autoPlay':
           this._videoPlayer.setIsAutoPlay(value);
@@ -5000,11 +5004,12 @@ var monkey = function() {
       this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
-      if (ZenzaWatch.util.isPremium()) {
-        playbackRate = Math.max(0, Math.min(playbackRate, 10));
-        this._videoPlayer.setPlaybackRate(playbackRate);
-        this._commentPlayer.setPlaybackRate(playbackRate);
+      if (!ZenzaWatch.util.isPremium()) {
+        playbackRate = Math.min(1, playbackRate);
       }
+      playbackRate = Math.max(0, Math.min(playbackRate, 10));
+      this._videoPlayer.setPlaybackRate(playbackRate);
+      this._commentPlayer.setPlaybackRate(playbackRate);
     },
     setCurrentTime: function(t) {
       this._videoPlayer.setCurrentTime(Math.max(0, t));
@@ -5245,12 +5250,12 @@ var monkey = function() {
           <li class="seek" data-command="seek" data-param="-30">30秒戻る</li>
           <li class="seek" data-command="seek" data-param="30" >30秒進む</li>
 
-          <hr class="separator forPremium">
+          <hr class="separator">
 
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.5">0.5x</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="0.75">0.75x</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.0">標準速度</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.5">0.5x</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="0.75">0.75x</li>
+          <li class="playbackRate" data-command="playbackRate" data-param="1.0">標準速度</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.25">1.25x</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.5">1.5x</li>
           <li class="playbackRate forPremium" data-command="playbackRate" data-param="2">倍速(2x)</li>
@@ -5308,9 +5313,8 @@ var monkey = function() {
           player.setCurrentTime(ct + parseInt(param, 10));
           break;
         case 'playbackRate':
-          if (ZenzaWatch.util.isPremium()) {
-            playerConfig.setValue('playbackRate', parseFloat(param, 10));
-          }
+          if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
+          playerConfig.setValue('playbackRate', parseFloat(param, 10));
           break;
         case 'mymemory':
           this._createMymemory();
@@ -5746,13 +5750,13 @@ var monkey = function() {
     },
     setPlaybackRate: function(v) {
       console.log('setPlaybackRate', v);
-      if (ZenzaWatch.util.isPremium()) {
-        // たまにリセットされたり反映されなかったりする？
-        this._playbackRate = v;
-        var video = this._video;
-        video.playbackRate = 1;
-        window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
-      }
+      if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+      // たまにリセットされたり反映されなかったりする？
+      this._playbackRate = v;
+      var video = this._video;
+      video.playbackRate = 1;
+      window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
+      
     },
     getPlaybackRate: function() {
       return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;
@@ -7864,22 +7868,22 @@ var monkey = function() {
             </div>
           </div>
 
-          <div class="playbackRateMenu controlButton forPremium" data-command="playbackRateMenu">
+          <div class="playbackRateMenu controlButton " data-command="playbackRateMenu">
             <div class="controlButtonInner">1x</div>
             <div class="tooltip">再生速度</div>
             <div class="playbackRateSelectMenu zenzaPopupMenu">
               <div class="triangle"></div>
               <p class="caption">再生速度</p>
               <ul>
-                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
+                <li class="playbackRate forPremium" data-rate="10" ><span>10倍</span></li>
+                <li class="playbackRate forPremium" data-rate="5"  ><span>5倍</span></li>
+                <li class="playbackRate forPremium" data-rate="4"  ><span>4倍</span></li>
+                <li class="playbackRate forPremium" data-rate="3"  ><span>3倍</span></li>
+                <li class="playbackRate forPremium" data-rate="2"  ><span>2倍</span></li>
 
-                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
-                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
+                <li class="playbackRate forPremium" data-rate="1.75"><span>1.75倍</span></li>
+                <li class="playbackRate forPremium" data-rate="1.5"><span>1.5倍</span></li>
+                <li class="playbackRate forPremium" data-rate="1.25"><span>1.25倍</span></li>
 
                 <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
                 <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
@@ -17943,12 +17947,12 @@ var VideoSession = (function() {
     .zenzaScreenMode_normal  .zenzaVideoPlayerDialog,
     .zenzaScreenMode_wide    .zenzaVideoPlayerDialog,
     .zenzaScreenMode_3D      .zenzaVideoPlayerDialog,
-    .fullScreen              .zenzaVideoPlayerDialog
+    .fullScreen              .zenzaVideoPlayerDialog {
       /*transform: translatez(0);*/
     }
 
     .regularUser  .forPremium {
-      display: none;
+      display: none !important;
     }
 
     .forDmc {
@@ -19124,23 +19128,22 @@ var VideoSession = (function() {
           this.reloadComment();
           break;
         case 'playbackRate':
-          if (ZenzaWatch.util.isPremium()) {
-            this._playerConfig.setValue(command, param);
-          }
+          if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
+          this._playerConfig.setValue(command, param);
           break;
         case 'shiftUp':
-          if (!ZenzaWatch.util.isPremium()) { break; }
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
+            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
         case 'shiftDown':
-          if (!ZenzaWatch.util.isPremium()) { break; }
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
+            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
