@@ -24,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.6.2
+// @version        1.6.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -36,7 +36,7 @@ var monkey = function() {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.6.2';
+  var VER = '1.6.4';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -21309,6 +21309,7 @@ var VideoSession = (function() {
       transition: opacity 0.3s ease, box-shadow 0.4s ease;
       text-align: center;
       line-height: 26px;
+      padding-right: 32px;
     }
 
     .commentInputPanel:hover  .commentInput {

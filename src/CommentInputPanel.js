@@ -109,6 +109,7 @@ var CONSTANT = {};
       transition: opacity 0.3s ease, box-shadow 0.4s ease;
       text-align: center;
       line-height: 26px;
+      padding-right: 32px;
     }
 
     .commentInputPanel:hover  .commentInput {
