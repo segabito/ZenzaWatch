@@ -27,6 +27,7 @@ var ZenzaWatch = {
       r: 'comment_counter',
       m: 'mylist_counter',
       l: 'length_seconds',
+      n: 'last_comment_time',
       h: '_hot',    // 人気が高い順
       '_hot':   '_hot',    // 人気が高い順(↑と同じだけど互換用に残ってる)
       '_explore': '_explore', // 新着優先

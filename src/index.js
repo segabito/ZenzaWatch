@@ -24,14 +24,14 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.6.4
+// @version        1.7.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
 
 (function() {
-
-var monkey = function() {
+const PRODUCT = 'ZenzaWatch';
+var monkey = function(PRODUCT) {
   var console = window.console;
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
@@ -165,7 +165,7 @@ var monkey = function() {
       script.id = 'ZenzaWatchLoader';
       script.setAttribute('type', 'text/javascript');
       script.setAttribute('charset', 'UTF-8');
-      script.appendChild(document.createTextNode( '(' + monkey + ')();' ));
+      script.appendChild(document.createTextNode( '(' + monkey + ')("' + PRODUCT + '");' ));
       document.body.appendChild(script);
     };
 

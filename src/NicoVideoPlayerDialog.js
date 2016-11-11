@@ -1788,6 +1788,16 @@ var CONSTANT = {};
       // 連続再生中はプレイリストに追加で読み込む
       option.append = this._playlist.isEnable();
 
+      if (option.owner) {
+        var ownerId = parseInt(this._videoInfo.getOwnerInfo().id, 10);
+        if (this._videoInfo.isChannel()) {
+          option.channelId = ownerId;
+        } else {
+          option.userId = ownerId;
+        }
+      }
+      delete option.owner;
+
       var query = this._videoWatchOptions.getQuery();
       _.assign(option, query);
 
@@ -1796,9 +1806,8 @@ var CONSTANT = {};
         this.execCommand('notify', result.message);
         this._videoInfoPanel.selectTab('playlist');
         this._playlist.insertCurrentVideo(this._videoInfo);
-        ZenzaWatch.util.callAsync(function() {
-          this._playlist.scrollToActiveItem();
-        }, this, 1000);
+        ZenzaWatch.emitter.emitAsync('searchVideo', {word, option});
+        window.setTimeout(() => { this._playlist.scrollToActiveItem(); }, 1000);
       },
       (err) => {
         this.execCommand('alert', err.message || '検索失敗または該当無し: 「' + word + '」');

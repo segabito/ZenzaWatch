@@ -195,7 +195,7 @@ var MylistPocket = function() {};
       var table = {
         watchId:  'getWatchId',
         duration: 'getDuration',
-        title:    'getTitle',
+        title:    'getSortTitle',
         comment:  'getCommentCount',
         mylist:   'getMylistCount',
         view:     'getViewCount',
@@ -1156,6 +1156,10 @@ var MylistPocket = function() {};
       this._isActive = false;
       this._isUpdating = false;
       this._isPlayed = !!rawData.played;
+
+      this._sortTitle = this.getTitle()
+        .replace(/([0-9]{1,9})/g, (m) => { return '0'.repeat(10 - m.length) + m; })
+        .replace(/([０-９]{1,9})/g, (m) => { return '０'.repeat(10 - m.length) + m; });
     },
     _getData: function(key, defValue) {
       return this._rawData.hasOwnProperty(key) ?
@@ -1169,6 +1173,9 @@ var MylistPocket = function() {};
     },
     getTitle: function() {
       return this._getData('title', '');
+    },
+    getSortTitle: function() {
+      return this._sortTitle;
     },
     getDuration: function() {
       return parseInt(this._getData('length_seconds', '0'), 10);

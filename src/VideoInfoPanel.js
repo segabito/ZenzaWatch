@@ -4,7 +4,9 @@ const ZenzaWatch = {
   util:{},
   debug: {}
 };
+const Config = {};
 const RelatedVideoList = function() {};
+const AsyncEmitter = function() {};
 const CONSTANT = {};
 const MylistPocketDetector = {};
 
@@ -115,7 +117,7 @@ const MylistPocketDetector = {};
       width: 320px;
       height: 100%;
       box-sizing: border-box;
-      z-index: 120000;
+      z-index: ${CONSTANT.BASE_Z_INDEX + 25000};
       background: #333;
       color: #ccc;
       overflow-x: hidden;
@@ -425,8 +427,6 @@ const MylistPocketDetector = {};
       margin-right: 4px;
       padding: 4px;
       line-height: 20px;
-      /*border: 1px solid #888;
-      border-radius: 4px;*/
     }
 
     .zenzaWatchVideoInfoPanel .videoTags li .nicodic {
@@ -685,6 +685,16 @@ const MylistPocketDetector = {};
       background: #666;
       display: none;
     }
+
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar {
+      background: #f0f0f0;
+    }
+
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #ccc;
+    }
+
 
   `).trim();
 
@@ -945,21 +955,20 @@ const MylistPocketDetector = {};
       }
     },
     _onOwnerVideoSearch: function(word) {
-      var videoInfo = this._videoInfo;
+      //if (!this._searchConfig) {
+      //  this._searchConfig = Config.namespace('videoSearch');
+      //}
+      //const config = this._searchConfig;
       var option = {
         searchType: 'tag',
         order: 'd',
         sort: 'f',
-        playlistSort: true
+        playlistSort: true,
+        owner: true //config.getValue('ownerOnly')
       };
-      var ownerId = parseInt(videoInfo.getOwnerInfo().id, 10);
-      if (videoInfo.isChannel()) {
-        option.channelId = ownerId;
-      } else {
-        option.userId = ownerId;
-      }
+
       //window.console.log('_onOwnerVideoSearch:', word, option);
-      this.emit('command', 'playlistSetSearchVideo', {word: word, option: option});
+      this.emit('command', 'playlistSetSearchVideo', {word, option});
     },
     appendTo: function(node) {
       var $node = $(node);
@@ -1061,6 +1070,8 @@ const MylistPocketDetector = {};
       color: #ccc;
     }
 
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen,
+    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen,
     .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel,
     .fullScreen           .zenzaWatchVideoHeaderPanel {
@@ -1087,12 +1098,6 @@ const MylistPocketDetector = {};
     }
     /* ヘッダ固定 */
     body.zenzaScreenMode_sideView.nofix:not(.fullScreen)        .zenzaWatchVideoHeaderPanel {
-      /*
-      position: -webkit-sticky;
-      position: -moz-sticky;
-      position: absolute;
-      top: 36px;
-      */
     }
     body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .videoTitleContainer {
       margin: 0;
@@ -1103,30 +1108,40 @@ const MylistPocketDetector = {};
       display: none;
     }
 
-    .zenzaScreenMode_3D   .loading  .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide .loading  .zenzaWatchVideoHeaderPanel,
-    .fullScreen           .loading  .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_3D   .mouseMoving .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide .mouseMoving .zenzaWatchVideoHeaderPanel,
-    .fullScreen           .mouseMoving .zenzaWatchVideoHeaderPanel {
+    .zenzaScreenMode_normal .loading .zenzaWatchVideoHeaderPanel.is-onscreen,
+    .zenzaScreenMode_big    .loading .zenzaWatchVideoHeaderPanel.is-onscreen,
+    .zenzaScreenMode_3D     .loading .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_wide   .loading .zenzaWatchVideoHeaderPanel,
+    .fullScreen             .loading .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_normal .mouseMoving .zenzaWatchVideoHeaderPanel.is-onscreen,
+    .zenzaScreenMode_big    .mouseMoving .zenzaWatchVideoHeaderPanel.is-onscreen,
+    .zenzaScreenMode_3D     .mouseMoving .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_wide   .mouseMoving .zenzaWatchVideoHeaderPanel,
+    .fullScreen             .mouseMoving .zenzaWatchVideoHeaderPanel {
       opacity: 0.5;
     }
 
     .zenzaScreenMode_3D   .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
     .fullScreen           .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel:hover,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover,
-    .fullScreen           .zenzaWatchVideoHeaderPanel:hover {
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen:hover,
+    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen:hover,
+    .zenzaScreenMode_3D     .zenzaWatchVideoHeaderPanel:hover,
+    .zenzaScreenMode_wide   .zenzaWatchVideoHeaderPanel:hover,
+    .fullScreen             .zenzaWatchVideoHeaderPanel:hover {
       opacity: 1;
     }
 
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer,
+    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer,
     .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel .videoTagsContainer,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTagsContainer,
     .fullScreen           .zenzaWatchVideoHeaderPanel .videoTagsContainer {
       display: none;
     }
 
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer,
+    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer,
     .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
     .fullScreen           .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer {
@@ -1313,7 +1328,7 @@ const MylistPocketDetector = {};
 
   `);
 
-  VideoHeaderPanel.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  VideoHeaderPanel.__tpl__ = (`
     <div class="zenzaWatchVideoHeaderPanel show initializing" style="display: none;">
       <h2 class="videoTitleContainer">
         <span class="videoTitle"></span>
@@ -1352,7 +1367,7 @@ const MylistPocketDetector = {};
         <ul class="videoTags">
       </div>
     </div>
-  */});
+  `).trim();
 
   _.assign(VideoHeaderPanel.prototype, {
     initialize: function(params) {
@@ -1381,23 +1396,29 @@ const MylistPocketDetector = {};
       this._$tagList      = $view.find('.videoTags');
 
       var stopPropagation = function(e) { e.stopPropagation(); };
-      //this._$tagList.on('click', stopPropagation);
       this._$ginzaLink.on('click', stopPropagation);
       this._$hashLink.on('click', stopPropagation);
       this._$uadLink.on('click', stopPropagation);
       this._$parentLink.on('click', stopPropagation);
-      this._$originalLink.on('click', _.bind(function(e) {
+      this._$originalLink.on('click', (e) => {
         stopPropagation(e);
         e.preventDefault();
         var $target = $(e.target), videoId = $target.attr('data-video-id');
         if (videoId) {
           this.emit('command', 'open', videoId);
         }
-      }, this));
+      });
 
-      this._$ginzaLink.on('mousedown', _.bind(this._onGinzaLinkMouseDown, this));
+      this._$ginzaLink.on('mousedown', this._onGinzaLinkMouseDown.bind(this));
 
-      this._$view.on('click', function(e) {
+      this._searchForm = new VideoSearchForm({
+        parentNode: $view[0]
+      });
+      this._searchForm.on('command', (command, param) => {
+        this.emit('command', command, param);
+      });
+
+      $view.on('click', (e) => {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
 
@@ -1407,9 +1428,11 @@ const MylistPocketDetector = {};
         if (command) {
           this.emit('command', command, param);
         }
-      }.bind(this)).on('wheel', function(e) {
+      }).on('wheel', (e) => {
         e.stopPropagation();
       });
+
+      window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
     },
     update: function(videoInfo) {
       this._videoInfo = videoInfo;
@@ -1453,6 +1476,8 @@ const MylistPocketDetector = {};
         .toggleClass('hasParent', this._videoInfo.hasParentVideo())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo')
         .css('display', '');
+
+      window.setTimeout(() => { this._onResize(); }, 1000);
     },
     _updateTags: function(tagList) {
       var $container = this._$tagList.parent();
@@ -1480,7 +1505,7 @@ const MylistPocketDetector = {};
       };
       var createSearch = function(text) {
         var $search =
-          $('<a class="playlistAppend" title="投稿者の動画">▶</a>')
+          $('<a class="playlistAppend" title="投稿者の動画を検索">▶</a>')
             .attr('data-command', 'owner-video-search')
             .attr('data-param', text);
         return $search;
@@ -1500,7 +1525,7 @@ const MylistPocketDetector = {};
 
       //http://ex.nicovideo.jp/game
       // なぜかここで勝手に変なタグが挿入されるため、後から除去する
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         $tagList.find('li:not(.zenza-tag), .zenza-tag a:not(.nicodic):not(.tagLink):not(.playlistAppend)').remove();
       }, 100);
     },
@@ -1509,6 +1534,15 @@ const MylistPocketDetector = {};
       var currentTime = this._dialog.getCurrentTime();
       var href = this._$ginzaLink.attr('data-ginzawatch');
       this._$ginzaLink.attr('href', href + '?from=' + Math.floor(currentTime));
+    },
+    _onResize: function() {
+      const view = this._$view[0];
+      const rect = view.getBoundingClientRect();
+      let isOnscreen = view.classList.contains('is-onscreen');
+      const height = rect.bottom - rect.top;
+      const top = isOnscreen ? (rect.top - height) : rect.top;
+      //window.console.info('resize!', rect, isOnscreen, height, top);
+      view.classList.toggle('is-onscreen', top < -12);
     },
     appendTo: function($node) {
       this._initializeDom();
@@ -1542,12 +1576,391 @@ const MylistPocketDetector = {};
 
 
 
+  class VideoSearchForm extends AsyncEmitter {
+    constructor(...args) {
+      super();
+      this._config = Config.namespace('videoSearch');
+      this._initDom(...args);
+    }
+
+    _initDom({parentNode}) {
+      let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
+      if (!tpl) {
+        ZenzaWatch.util.addStyle(VideoSearchForm.__css__);
+        tpl = document.createElement('template');
+        tpl.innerHTML = VideoSearchForm.__tpl__;
+        tpl.id = 'zenzaVideoSearchPanelTemplate';
+        document.body.appendChild(tpl);
+      }
+      const view = document.importNode(tpl.content, true);
+
+      this._view      = view.querySelector('*');
+      this._form      = view.querySelector('form');
+      this._word      = view.querySelector('.searchWordInput');
+      this._sort      = view.querySelector('.searchSortSelect');
+      this._submit    = view.querySelector('.searchSubmit');
+      this._mode      = view.querySelector('.searchMode');
+    
+      this._form.addEventListener('submit', this._onSubmit.bind(this));
+
+      const config = this._config;
+      const form = this._form;
+
+      form['ownerOnly'].checked = config.getValue('ownerOnly');
+      form['mode'].value        = config.getValue('mode');
+      form['word'].value        = config.getValue('word');
+      form['sort'].value        = config.getValue('sort');
+
+      view.addEventListener('click', this._onClick.bind(this));
+      const updateFocus = this._updateFocus.bind(this);
+      const updateFocusD =  _.debounce(updateFocus, 1000);
+      const submit = _.debounce(this.submit.bind(this), 500);
+      Array.prototype.forEach.call(view.querySelectorAll('input, select'), (item) => {
+        item.addEventListener('focus', updateFocus);
+        item.addEventListener('blur',  updateFocusD);
+        if (item.type === 'checkbox' || item.type === 'radio') {
+          item.addEventListener('change', () => {
+            this._word.focus();
+            config.setValue(item.name, item.checked);
+            submit();
+          });
+        } else {
+          item.addEventListener('change', () => {
+            config.setValue(item.name, item.value);
+            if (item.tagName === 'SELECT') { submit(); }
+          });
+        }
+      });
+
+      // やってみたけど微妙
+      ZenzaWatch.emitter.on('searchVideo', ({word}) => { form['word'].value = word; });
+
+      if (parentNode) {
+        parentNode.appendChild(view);
+      }
+
+      ZenzaWatch.debug.searchForm = this;
+    }
+
+    _onClick(e) {
+      const tagName = (e.target.tagName || '').toLowerCase();
+      const target = e.target.closest('.command');
+
+      //window.console.log('click!', tagName, e);
+      if (!_.contains(['input', 'select'], tagName)) {
+        this._word.focus();
+      }
+
+      if (!target) { return; }
+
+      const command = target.getAttribute('data-command');
+      if (!command) { return; }
+      const type  = target.getAttribute('data-type') || 'string';
+      let param   = target.getAttribute('data-param');
+      e.stopPropagation();
+      e.preventDefault();
+      switch (type) {
+        case 'json':
+        case 'bool':
+        case 'number':
+          param = JSON.parse(param);
+          break;
+      }
+
+      this.emit('command', command, param);
+    }
+
+    _onSubmit(e) {
+      this.submit();
+      e.stopPropagation();
+    }
+
+    submit() {
+      const word = (this._word.value || '').trim();
+      if (!word) { return; }
+
+      const form = this._form;
+      const searchType = form.mode.value;
+      const sortTmp = (this._sort.value || '').split(',');
+      const sort = sortTmp[0];
+      const order = sortTmp[1] || 'd';
+      const ownerOnly = this._form.ownerOnly.checked;
+      this.emit('command', 'playlistSetSearchVideo', {
+        word,
+        option: {
+          searchType,
+          sort,
+          order,
+          owner: ownerOnly,
+          playlistSort: false
+        }
+      });
+      //window.console.info('params', param);
+    }
+
+    _hasFocus() {
+      return !!document.activeElement.closest('#zenzaVideoSearchPanel');
+    }
+
+    _updateFocus() {
+      if (this._hasFocus()) {
+        this._view.classList.add('is-active');
+      } else {
+        this._view.classList.remove('is-active');
+      }
+    }
+
+  }
+
+  VideoSearchForm.__css__ = (`
+    .zenzaVideoSearchPanel {
+      pointer-events: auto;
+      position: absolute;
+      top: 32px;
+      right: 8px;
+      padding: 0 8px
+      width: 248px;
+      z-index: 1000;
+    }
+
+    .zenzaVideoSearchPanel.is-active {
+    }
+
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .zenzaVideoSearchPanel,
+    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .zenzaVideoSearchPanel,
+    .zenzaScreenMode_3D    .zenzaVideoSearchPanel,
+    .zenzaScreenMode_wide  .zenzaVideoSearchPanel,
+    .fullScreen            .zenzaVideoSearchPanel {
+      top: 64px;
+    }
+
+    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaVideoSearchPanel {
+      top: 80px;
+      right: 32px;
+    }
+    .zenzaVideoSearchPanel.is-active {
+      background: rgba(50, 50, 50, 0.8);
+    }
+
+    .zenzaVideoSearchPanel:not(.is-active) .focusOnly {
+      display: none;
+    }
+
+    .zenzaVideoSearchPanel .searchInputHead {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      padding: 4px;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .zenzaVideoSearchPanel .searchInputHead:hover,
+    .zenzaVideoSearchPanel.is-active .searchInputHead {
+      background: rgba(50, 50, 50, 0.8);
+    }
+
+    .zenzaVideoSearchPanel           .searchInputHead:hover,
+    .zenzaVideoSearchPanel.is-active .searchInputHead {
+      pointer-events: auto;
+      opacity: 1;
+      transform: translate3d(0, -100%, 0);
+    }
+      .zenzaVideoSearchPanel .searchMode {
+        position: absolute;
+        opacity: 0;
+      }
+
+      .zenzaVideoSearchPanel .searchModeLabel {
+        cursor: pointer;
+      }
+
+     .zenzaVideoSearchPanel .searchModeLabel span {
+        display: inline-block;
+        padding: 4px 8px;
+        color: #666;
+        cursor: pointer;
+        border-radius: 8px;
+        border-color: transparent;
+        border-style: solid;
+        border-width: 1px;
+        pointer-events: none;
+      }
+      .zenzaVideoSearchPanel .searchModeLabel:hover span {
+        background: #888;
+      }
+      .zenzaVideoSearchPanel .searchModeLabel input:checked + span {
+        color: #ccc;
+        border-color: currentColor;
+        cursor: default;
+      }
+
+    .zenzaVideoSearchPanel .searchWord {
+      white-space: nowrap;
+      padding: 4px;
+    }
+
+      .zenzaVideoSearchPanel .searchWordInput {
+        width: 200px;
+        margin: 0;
+        height: 24px;
+        line-height: 24px;
+        background: transparent;
+        font-size: 16px;
+        padding: 0 4px;
+        color: #ccc;
+        border: 1px solid #ccc;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .zenzaVideoSearchPanel .searchWordInput:-webkit-autofill {
+        background: transparent;
+      }
+
+      .mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput {
+        opacity: 0.5;
+      }
+
+      .mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput:hover {
+        opacity: 0.8;
+      }
+
+      .zenzaVideoSearchPanel.is-active .searchWordInput {
+        opacity: 1 !important;
+      }
+
+      .zenzaVideoSearchPanel .searchSubmit {
+        width: 34px;
+        margin: 0;
+        padding: 0;
+        font-size: 14px;
+        line-height: 24px;
+        height: 24px;
+        border: solid 1px #ccc;
+        cursor: pointer;
+        background: #888;
+        pointer-events: none;
+        opacity: 0;
+        transform: translate3d(-100%, 0, 0);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .zenzaVideoSearchPanel.is-active .searchSubmit {
+        pointer-events: auto;
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+
+      .zenzaVideoSearchPanel.is-active .searchSubmit:hover {
+        transform: scale(1.5);
+      }
+
+      .zenzaVideoSearchPanel.is-active .searchSubmit:active {
+        transform: scale(1.2);
+        border-style: inset;
+      }
+
+    .zenzaVideoSearchPanel .searchInputFoot {
+      white-space: nowrap;
+      position: absolute;
+      padding: 4px 0;
+      opacity: 0;
+      padding: 4px;
+      pointer-events: none;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      transform: translate3d(0, -100%, 0);
+    }
+
+    .zenzaVideoSearchPanel .searchInputFoot:hover,
+    .zenzaVideoSearchPanel.is-active .searchInputFoot {
+      pointer-events: auto;
+      opacity: 1;
+      background: rgba(50, 50, 50, 0.8);
+      transform: translate3d(0, 0, 0);
+    }
+
+      .zenzaVideoSearchPanel .searchSortSelect,
+      .zenzaVideoSearchPanel .searchSortSelect option{
+        background: #333;
+        color: #ccc;
+      }
+
+      .zenzaVideoSearchPanel .autoPauseLabel {
+        cursor: pointer;
+      }
+
+      .zenzaVideoSearchPanel .autoPauseLabel input {
+
+      }
+
+      .zenzaVideoSearchPanel .autoPauseLabel input + span {
+        display: inline-block;
+        pointer-events: none;
+      }
+
+      .zenzaVideoSearchPanel .autoPauseLabel input:checked + span {
+      }
 
 
 
 
 
+  `).toString();
 
+  VideoSearchForm.__tpl__ = (`
+    <div class="zenzaVideoSearchPanel" id="zenzaVideoSearchPanel">
+      <form action="javascript: void(0);">
+
+        <div class="searchInputHead">
+          <label class="searchModeLabel">
+            <input type="radio" name="mode" class="searchMode" value="keyword">
+            <span>キーワード</span>
+          </label>
+
+          <label class="searchModeLabel">
+            <input type="radio" name="mode" class="searchMode" value="tag"
+              id="zenzaVideoSearch-tag" checked="checked">
+              <span>タグ</span>
+          </label>
+        </div>
+
+        <div class="searchWord">
+          <input
+            type="text"
+            value=""
+            autocomplete="on"
+            name="word"
+            accesskey="e"
+            placeholder="簡易検索(テスト中)"
+            class="searchWordInput"
+            maxlength="75"
+            >
+          <input
+            type="submit"
+            value="▶"
+            name="post"
+            class="searchSubmit"
+            >
+        </div>
+
+        <div class="searchInputFoot focusOnly">
+          <select name="sort" class="searchSortSelect">
+            <option value="f">新しい順</option>
+            <option value="h">人気順</option>
+            <option value="n">最新コメント</option>
+            <option value="r">コメント数</option>
+            <option value="m">マイリスト数</option>
+            <option value="l">長い順</option>
+            <option value="l,a">短い順</option>
+          </select>
+          <label class="autoPauseLabel">
+            <input type="checkbox" name="ownerOnly" checked="checked">
+            <span>投稿者の動画のみ</span>
+          </label>
+        </div>
+
+      </form>
+    </div>
+  `).toString();
 
 
 //===END===

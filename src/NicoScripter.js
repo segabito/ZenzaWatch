@@ -249,7 +249,7 @@ var AsyncEmitter = {};
             text = params.dest;
           } else {
             var reg = new RegExp(ZenzaWatch.util.escapeRegs(params.src), 'g');
-            text = text.replace(reg, ZenzaWatch.util.escapeRegs(params.dest));
+            text = text.replace(reg, params.dest);
           }
           nicoChat.setText(text);
 

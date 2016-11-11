@@ -143,6 +143,12 @@ body {
 .mingLiu {font-family: PmingLiu, mingLiu, MingLiU, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
 han_group { font-family: 'Arial'; }
 
+
+.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, 'ＭＳ ゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';}
+.cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;}
+.cmd-defont {font-family: 'Meiryo', 'IPAMonaPGothic', sans-serif, monospace, 'Menlo'; }
+
+
 .nicoChat {
   position: absolute;
   padding: 1px;
@@ -289,7 +295,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
     var htmlText =
       ZenzaWatch.util.escapeHtml(text)
         // 行末の半角スペース、全角スペース、タブの除去
-        .replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
+        //.replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
         // 半角文字グループ(改行以外)
         .replace(/([\x01-\x09\x0B-\x7E\xA0]+)/g, '<han_group>$1</han_group>')
         // 全角文字の連続をグループ化 要検証: \u2003は含む？
@@ -414,6 +420,14 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 
       return htmlText;
     };
+
+  NicoTextParser.likeHTML5 = function(text) {
+    //var S = '<spacer> </spacer>';
+    var htmlText =
+      ZenzaWatch.util.escapeHtml(text);
+
+    return htmlText;
+   };
 
 ZenzaWatch.NicoTextParser = NicoTextParser;
 //===END===

@@ -659,8 +659,8 @@ var SlotLayoutWorker = {};
         setText: function(text) {
           span.innerHTML = text;
         },
-        setType: function(type, size) {
-          span.className = 'nicoChat ' + type + ' ' + size;
+        setType: function(type, size, fontCommand) {
+          span.className = 'nicoChat ' + type + ' ' + size + ' ' + fontCommand;
         },
         setFontSizePixel: function(pixel) {
           span.style.fontSize = pixel + 'px';
@@ -1247,6 +1247,7 @@ var SlotLayoutWorker = {};
       this._isInvisible = false;
       this._isReverse = false;
       this._isPatissier = false;
+      this._fontCommand = '';
 
       this._currentTime = 0;
       this._hasDurationSet = false;
@@ -1327,10 +1328,18 @@ var SlotLayoutWorker = {};
           this._duration = Math.max(0.01, parseFloat(pcmd.duration, 10));
         }
 
+        if (pcmd.mincho) {
+          this._fontCommand = 'mincho';
+        } else if (pcmd.gothic) {
+          this._fontCommand = 'gothic';
+        } else if (pcmd.defont) {
+          this._fontCommand = 'defont';
+        }
+
       }
     },
     _parseCmd: function(cmd, isFork) {
-      var tmp = cmd.split(/ +/);
+      var tmp = cmd.split(/[\x20|\u3000|\t]+/);
       var result = {};
       _.each(tmp, function(c) {
         if (NicoChat.COLORS[c]) {
@@ -1408,7 +1417,8 @@ var SlotLayoutWorker = {};
     getLeaf: function() { return this._leaf; },
     getFork: function() { return this._fork; },
     isReverse: function() { return this._isReverse; },
-    setIsReverse: function(v) { this._isReverse = !!v; }
+    setIsReverse: function(v) { this._isReverse = !!v; },
+    getFontCommand: function() { return this._fontCommand; }
   });
 
 
@@ -1551,14 +1561,19 @@ var SlotLayoutWorker = {};
     // 実験中...
     _setText: function(text) {
 
-      var htmlText = NicoTextParser.likeXP(text);
+      const fontCommand = this.getFontCommand();
+      var htmlText =
+        fontCommand ?
+          NicoTextParser.likeHTML5(text) :
+          NicoTextParser.likeXP(text);
+
       this._htmlText = htmlText;
       this._text = text;
 
       var field = this._offScreen.getTextField();
       field.setText(htmlText);
       field.setFontSizePixel(this._fontSizePixel);
-      field.setType(this._type, this._size);
+      field.setType(this._type, this._size, fontCommand);
       
       this._originalWidth  = field.getOriginalWidth();
       this._width          = this._originalWidth * this._scale;
@@ -1952,6 +1967,7 @@ var SlotLayoutWorker = {};
     isUpdating: function() { return this._nicoChat.isUpdating(); },
     isPostFail: function() { return this._nicoChat.isPostFail(); },
     isReverse: function() { return this._nicoChat.isReverse(); },
+    getFontCommand: function() { return this._nicoChat.getFontCommand(); },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -2755,6 +2771,11 @@ spacer {
         className.push('fail');
       }
 
+      const fontCommand = chat.getFontCommand();
+      if (fontCommand) {
+        className.push('cmd-' + fontCommand);
+      }
+
       span.className = className.join(' ');
       span.id = chat.getId();
       //span.ontransitionend = 'this.remove();';
@@ -3239,18 +3260,20 @@ spacer {
     _buildFilterReg: function(filterList) {
       if (filterList.length < 1) { return null; }
       var r = [];
-      _.each(filterList, function(filter) {
+      const escapeRegs = ZenzaWatch.util.escapeRegs;
+      filterList.forEach((filter) => {
         if (!filter) { return; }
-        r.push(ZenzaWatch.util.escapeRegs(filter));
+        r.push(escapeRegs(filter));
       });
       return new RegExp('(' + r.join('|') + ')', 'i');
     },
     _buildFilterPerfectMatchinghReg: function(filterList) {
       if (filterList.length < 1) { return null; }
       var r = [];
-      _.each(filterList, function(filter) {
+      const escapeRegs = ZenzaWatch.util.escapeRegs;
+      filterList.forEach((filter) => {
         if (!filter) { return; }
-        r.push(ZenzaWatch.util.escapeRegs(filter));
+        r.push(escapeRegs(filter));
       });
       return new RegExp('^(' + r.join('|') + ')$');
     },

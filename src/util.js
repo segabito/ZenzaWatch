@@ -7,7 +7,7 @@ var ZenzaWatch = {
 var NicoVideoApi = {};
 var console;
 var CONSTANT = {};
-
+const PRODUCT = 'ZenzaWatch';
 
 
 //===BEGIN===
@@ -251,6 +251,13 @@ var CONSTANT = {};
         enableDmc: false, // 新サーバーを使うかどうか
         dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
+
+        'videoSearch.ownerOnly': true,
+        'videoSearch.mode': 'tag',
+        'videoSearch.order': 'desc',
+        'videoSearch.sort': 'f',
+        'videoSearch.word': '',
+
         KEY_CLOSE:      27,          // ESC
         KEY_RE_OPEN:    27 + 0x1000, // SHIFT + ESC
         KEY_HOME:       36 + 0x1000, // SHIFT + HOME
@@ -423,6 +430,14 @@ var CONSTANT = {};
 
       emitter.getKeys = function() {
         return Object.keys(defaultConfig);
+      };
+
+      emitter.namespace = function(name) {
+        return {
+          getValue: (key) => { return emitter.getValue(name + '.'+ key); },
+          setValue: (key, value) => { emitter.setValue(name + '.'+ key, value); },
+          on: emitter.on.bind(emitter)
+        };
       };
 
       return emitter;
@@ -1311,6 +1326,18 @@ var CONSTANT = {};
         return false;
       }
     };
+
+    const addTemplate = ZenzaWatch.util.addTemplate = function(tpl, id) {
+      if (!id) {
+        id = PRODUCT + '-template-' + addTemplate._id++;
+      }
+      const template = document.createElement('template');
+      template.id = id;
+      template.innerHTML = tpl;
+      document.body.appendChild(template);
+      return {template, id};
+    };
+    addTemplate._id = 0;
 
     ZenzaWatch.util.openTweetWindow = function(videoInfo) {
       // TODO: どこかutil的な関数に追い出す
