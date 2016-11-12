@@ -116,6 +116,47 @@ var ZenzaWatch = {
     }, 30000);
   };
 
+  const loadUrlByFetch = function(data, type, token) {
+    let timeoutTimer = null, isTimeout = false;
+
+    const url     = data.url;
+    const options = data.options;
+    const sessionId = data.sessionId;
+
+    fetch(url, options).then((resp) => {
+      return resp.text();
+    }).then(text => {
+      if (isTimeout) { return; }
+      else { window.clearTimeout(timeoutTimer); }
+      try {
+        postMessage(type, {
+          sessionId: sessionId,
+          status: 'ok',
+          token: token,
+          command: data.command,
+          url: data.url,
+          body: text
+        });
+      } catch (e) {
+        console.log(
+          '%cError: parent.postMessage - ',
+          'color: red; background: yellow',
+          e, event.origin, event.data);
+      }
+    });
+
+    timeoutTimer = window.setTimeout(() => {
+      isTimeout = true;
+      postMessage(type, {
+        sessionId: sessionId,
+        status: 'timeout',
+        token: token,
+        command: 'loadUrlByFetch',
+        url: data.url
+      });
+    }, 30000);
+  };
+
 
 
 
@@ -186,75 +227,6 @@ var ZenzaWatch = {
     }
   };
 
-  var vitaApi = function() {
-    if (window.name.indexOf('vitaApiLoader') < 0 ) { return; }
-    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
-
-    var parentHost = document.referrer.split('/')[2];
-    window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
-      window.console.log('disable bridge');
-      return;
-    }
-
-
-    var type = 'vitaApi';
-    var token = location.hash ? location.hash.substr(1) : null;
-    location.hash = '';
-
-    window.addEventListener('message', function(event) {
-      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
-      var command = data.command;
-
-      if (data.token !== token) { return; }
-
-      if (!data.url) { return; }
-
-      var sessionId = data.sessionId;
-      xmlHttpRequest({
-        url: data.url,
-        onload: function(resp) {
-
-          if (isTimeout) { return; }
-          else { window.clearTimeout(timeoutTimer); }
-
-          try {
-            postMessage(type, {
-              sessionId: sessionId,
-              status: 'ok',
-              url: data.url,
-              body: resp.responseText
-            });
-          } catch (e) {
-            console.log(
-              '%cError: parent.postMessage - ',
-              'color: red; background: yellow',
-              e, event.origin, event.data);
-          }
-        }
-      });
-
-      timeoutTimer = window.setTimeout(function() {
-        isTimeout = true;
-        postMessage(type, {
-          sessionId: sessionId,
-          status: 'timeout',
-          command: 'loadUrl',
-          token: token,
-          url: data.url
-        });
-      }, 30000);
-
-    });
-
-    try {
-      postMessage(type, { token: token, status: 'initialized' });
-    } catch (e) {
-      console.log('err', e);
-    }
-  };
-
-
   var nicovideoApi = function() {
     if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
@@ -289,7 +261,7 @@ var ZenzaWatch = {
       var config = {};
       var sessionId = data.sessionId;
 
-      data.keys.forEach(function(key) {
+      data.keys.forEach((key) => {
         var storageKey = prefix + key;
         if (localStorage.hasOwnProperty(storageKey)) {
           try {
@@ -337,6 +309,9 @@ var ZenzaWatch = {
       switch (command) {
         case 'loadUrl':
           loadUrl(data, type, token);
+          break;
+        case 'fetch':
+          loadUrlByFetch(data, type, token);
           break;
         case 'dumpConfig':
           dumpConfig(data);

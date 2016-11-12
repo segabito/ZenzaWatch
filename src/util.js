@@ -1360,18 +1360,23 @@ const PRODUCT = 'ZenzaWatch';
       window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
     };
 
-    var ajax = function(params) {
+    ZenzaWatch.util.fetch = function(url, params) {
+      if (location.host !== 'www.nicovideo.jp') {
+        return NicoVideoApi.fetch(url, params);
+      }
+      return window.fetch(url, params);
+    };
 
+    var ajax = function(params) {
       if (location.host !== 'www.nicovideo.jp') {
         return NicoVideoApi.ajax(params);
       }
       // マイページのjQueryが古くてDeferredの挙動が怪しいのでネイティブのPromiseで囲う
-      return new Promise(function(resolve, reject) {
-        $.ajax(params).then(function(result) {
-          return resolve(result);
-        }, function(err) {
-          return reject(err);
-        });
+      return new Promise((resolve, reject) => {
+        $.ajax(params).then(
+          (result) => { return resolve(result); },
+          (err)    => { return reject(err); }
+        );
       });
     };
 
@@ -1389,7 +1394,7 @@ const PRODUCT = 'ZenzaWatch';
 
     var isGinzaWatchUrl = function(url) {
       url = url || location.href;
-      return /^https?:\/\/www.nicovideo.jp\/watch\//.test(url);
+      return /^https?:\/\/www\.nicovideo\.jp\/watch\//.test(url);
     };
     ZenzaWatch.util.isGinzaWatchUrl = isGinzaWatchUrl;
 

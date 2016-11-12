@@ -1113,12 +1113,11 @@ const MylistPocketDetector = {};
     .zenzaScreenMode_3D     .loading .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide   .loading .zenzaWatchVideoHeaderPanel,
     .fullScreen             .loading .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_normal .mouseMoving .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_big    .mouseMoving .zenzaWatchVideoHeaderPanel.is-onscreen,
     .zenzaScreenMode_3D     .mouseMoving .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide   .mouseMoving .zenzaWatchVideoHeaderPanel,
     .fullScreen             .mouseMoving .zenzaWatchVideoHeaderPanel {
-      opacity: 0.5;
+      opacity: 0.6;
+      transition: 0.4s opacity;
     }
 
     .zenzaScreenMode_3D   .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
@@ -1130,6 +1129,7 @@ const MylistPocketDetector = {};
     .zenzaScreenMode_wide   .zenzaWatchVideoHeaderPanel:hover,
     .fullScreen             .zenzaWatchVideoHeaderPanel:hover {
       opacity: 1;
+      transition: 0.5s opacity;
     }
 
     .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer,

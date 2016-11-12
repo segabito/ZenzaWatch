@@ -6,6 +6,7 @@ var ZenzaWatch = {
   api: {}
 };
 var Config = {};
+const util = {};
 var AsyncEmitter = function() {};
 var PopupMessage = function() {};
 var WindowMessageEmitter = function() {};
@@ -1970,6 +1971,32 @@ var ajax = function() {};
           }
         });
       },
+      _fetch: function(url, options) {
+        return this._postMessage({
+          command: 'fetch',
+          url: url,
+          options: options
+        }, true);
+      },
+      fetch: function(url, options) {
+        return this._fetch(url, options).then((text) => {
+          ZenzaWatch.debug.lastCrossDomainFetchResult = text;
+          return Promise.resolve({
+            text: () => {
+              return new Promise(res => { return res(text); });
+            },
+            json: () => {
+              return new Promise(res => { return res(JSON.parse(text)); });
+            },
+            xml: () => {
+              return new Promise(res => {
+                const parser = new DOMParser();
+                return res(parser.parseFromString(text, 'text/xml'));
+              });
+            }
+          });
+        });
+      },
       configBridge: function(config) {
         var self = this;
         var keys = config.getKeys();
@@ -1986,22 +2013,21 @@ var ajax = function() {};
         });
       },
       _postMessage: function(message, needPromise) {
-        var self = this;
-        return new Promise(function(resolve, reject) {
-          message.sessionId = self._type + '_' + Math.random();
+        return new Promise((resolve, reject) => {
+          message.sessionId = this._type + '_' + Math.random();
           message.token = TOKEN;
           if (needPromise) {
-            self._sessions[message.sessionId] = {
+            this._sessions[message.sessionId] = {
               resolve: resolve,
               reject: reject
             };
           }
 
-          return self._initializeFrame().then(function() {
+          return this._initializeFrame().then(() => {
             try {
-              self._loaderWindow.postMessage(
+              this._loaderWindow.postMessage(
                 JSON.stringify(message),
-                self._origin
+                this._origin
               );
             } catch (e) {
               console.log('%cException!', 'background: red;', e);
@@ -2011,41 +2037,39 @@ var ajax = function() {};
       },
       _onDumpConfig: function(configData) {
         //window.console.log('_onDumpConfig', configData);
-        var self = this;
-        _.each(Object.keys(configData), function(key) {
+        _.each(Object.keys(configData), (key) => {
           //window.console.log('config %s: %s', key, configData[key]);
-          self._config.setValue(key, configData[key]);
+          this._config.setValue(key, configData[key]);
         });
 
         if (!location.host.match(/^[a-z0-9]*.nicovideo.jp$/) &&
             !this._config.getValue('allowOtherDomain')) {
           window.console.log('allowOtherDomain', this._config.getValue('allowOtherDomain'));
-          self._configBridgeReject();
+          this._configBridgeReject();
           return;
         }
-        this._config.on('update', function(key, value) {
+        this._config.on('update', (key, value) => {
           if (key === 'autoCloseFullScreen') { return; }
 
-          self._postMessage({
+          this._postMessage({
             command: 'saveConfig',
             key: key,
             value: value
           });
         });
-        self._configBridgeResolve();
+        this._configBridgeResolve();
       },
       pushHistory: function(path, title) {
-        var self = this;
-        var sessionId = self._type +'_' + Math.random();
-        self._initializeFrame().then(function() {
+        const sessionId = this._type +'_' + Math.random();
+        this._initializeFrame().then(() => {
           try {
-            self._loaderWindow.postMessage(JSON.stringify({
+            this._loaderWindow.postMessage(JSON.stringify({
               sessionId: sessionId,
               command: 'pushHistory',
               path: path,
               title: title || ''
             }),
-            self._origin);
+            this._origin);
           } catch (e) {
             console.log('%cException!', 'background: red;', e);
           }
@@ -2156,13 +2180,17 @@ var ajax = function() {};
           return reject({status: 'fail', message: 'unknown file type', url: videoFileUrl});
         }
 
-        var gate = initializeByServer(server, fileId);
+        // いつの間にかCORSヘッダーがついてたのでCrossDomainGateが不要になった
+        //var gate = initializeByServer(server, fileId);
 
         return new Promise(function(resolve, reject) {
           var url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
 
-          gate.load(url).then(function(result) {
-            var info = parseXml(result, url);
+          util.fetch(url, {credentials: 'include'})
+            .then(res => { return res.text(); })
+            .then(result => {
+            const info = parseXml(result, url);
+
             if (info) {
               resolve(info);
             } else {
@@ -2173,7 +2201,7 @@ var ajax = function() {};
                 url: url
               });
             }
-          }, function(err) {
+          }, (err) => {
             reject({
               status: 'fail',
               message: 'storyBoard not exist (2)',

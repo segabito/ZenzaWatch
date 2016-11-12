@@ -296,7 +296,7 @@ var AsyncEmitter = function() {};
           </div>
 
           <p>フォント名</p>
-          <span class="info">入力例: 「'遊ゴシック', 'メイリオ', '戦国TURB'」</span>
+          <span class="info">入力例: 「'游ゴシック', 'メイリオ', '戦国TURB'」</span>
           <input type="text" class="textInput"
             data-setting-name="baseFontFamily">
 

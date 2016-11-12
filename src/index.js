@@ -24,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.7.0
+// @version        1.7.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -78,6 +78,8 @@ var monkey = function(PRODUCT) {
     } else {
       window.ZenzaWatch = {};
     }
+
+    const util = ZenzaWatch.util;
     
 //@require constant.js
 
