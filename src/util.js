@@ -238,7 +238,7 @@ const PRODUCT = 'ZenzaWatch';
         enableSingleton: false,
 
         commentLayerOpacity: 1.0, //
-        textShadow: '1px 1px 0 #000', //
+        'commentLayer.textShadowType': '', // フォントの修飾タイプ
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -257,6 +257,8 @@ const PRODUCT = 'ZenzaWatch';
         'videoSearch.order': 'desc',
         'videoSearch.sort': 'f',
         'videoSearch.word': '',
+
+
 
         KEY_CLOSE:      27,          // ESC
         KEY_RE_OPEN:    27 + 0x1000, // SHIFT + ESC
@@ -436,7 +438,19 @@ const PRODUCT = 'ZenzaWatch';
         return {
           getValue: (key) => { return emitter.getValue(name + '.'+ key); },
           setValue: (key, value) => { emitter.setValue(name + '.'+ key, value); },
-          on: emitter.on.bind(emitter)
+          on: (key, func) => {
+            if (key === 'update') {
+              emitter.on('update', (key, value) => {
+                const pre = name + '.';
+                if (key.startsWith(pre)) {
+                  func(key.replace(pre, ''), value);
+                }
+              });
+            } else {
+              key = key.replace(/^update-/, '');
+              emitter.on('update-' + name + '.' + key, func);
+            }
+          }
         };
       };
 

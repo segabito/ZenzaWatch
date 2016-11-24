@@ -2219,6 +2219,52 @@ var ajax = function() {};
     ZenzaWatch.api.StoryBoardInfoLoader = StoryBoardInfoLoader;
 
 
+    const IchibaLoader = (() => {
+
+      let callbackId = 0;
+
+      const load = (watchId) => {
+        return new Promise((resolve, reject) => {
+          const country = 'ja-jp';
+          const api = 'http://ichiba.nicovideo.jp/embed/zero/show_ichiba';
+          const sc = document.createElement('script');
+
+          let timeoutTimer = null;
+
+          const funcName = (() => {
+            const funcName = `zenza_callback_${callbackId++}`;
+
+            window[funcName] = (ichibaData) => {
+              window.console.info(ichibaData);
+              window.clearTimeout(timeoutTimer);
+              timeoutTimer = null;
+              sc.remove();
+              delete window[funcName];
+
+              resolve(ichibaData);
+            };
+
+            return funcName;
+          })();
+
+          timeoutTimer = window.setTimeout(() => {
+            sc.remove();
+            delete window[funcName];
+            if (timeoutTimer) { reject(new Error('ichiba timeout')); }
+          }, 30000);
+
+          const url = `${api}?v=${watchId}&country=${country}&ch=&is_adult=1&rev=20120220&callback=${funcName}`;
+          sc.src = url;
+          document.body.appendChild(sc);
+        });
+      };
+
+      return {
+        load
+      };
+    })();
+
+
 //===END===
     ZenzaWatch.emitter.on('loadVideoInfo', function(data, type, r) {
       var info = data.flvInfo;

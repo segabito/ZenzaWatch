@@ -503,7 +503,7 @@ var SlotLayoutWorker = {};
   // フォントサイズ計算用の非表示レイヤーを取得
   // 変なCSSの影響を受けないように、DOM的に隔離されたiframe内で計算する。
   NicoComment.offScreenLayer = (function() {
-    var __offscreen_tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    var __offscreen_tpl__ = (`
     <!DOCTYPE html>
     <html lang="ja">
     <head>
@@ -527,7 +527,7 @@ var SlotLayoutWorker = {};
 
     "></div>
     </body></html>
-      */});
+      `).trim();
 
     var emitter = new AsyncEmitter();
     var offScreenFrame;
@@ -570,6 +570,7 @@ var SlotLayoutWorker = {};
       initialize = _.noop;
       var frame = document.createElement('iframe');
       frame.className = 'offScreenLayer';
+      frame.setAttribute('sandbox', 'allow-same-origin');
       document.body.appendChild(frame);
       frame.style.position = 'fixed';
       frame.style.top = '200vw';
@@ -1503,14 +1504,29 @@ var SlotLayoutWorker = {};
         this._setupMarqueeMode();
       }
 
+      const fontCommand = this._fontCommand;
+      const overflowMargin = fontCommand ? 0 : 8;
+      if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + overflowMargin) {
+        this._isOverflow = true;
+        if (!fontCommand) {
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
-      if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + 8) {
-        this._isOverflow = true;
-        this._y = 0;
-        //this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
-        this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
+          this._y = 0;
+          this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
+        } else {
+          switch (this._type) {
+            case NicoChat.TYPE.TOP:
+              this._y = 0;
+              break;
+            case NicoChat.TYPE.BOTTOM:
+              this._y = NicoCommentViewModel.SCREEN.HEIGHT - this._height;
+              break;
+            default:
+              this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
+              break;
+          }
+        }
       }
 
       if (this._isOverflow || nicoChat.isInvisible()) {
@@ -2020,7 +2036,7 @@ var SlotLayoutWorker = {};
 
   NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
 
-  NicoCommentCss3PlayerView.__TPL__ = ZenzaWatch.util.hereDoc(function() {/*
+  NicoCommentCss3PlayerView.__TPL__ = (`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -2085,14 +2101,34 @@ var SlotLayoutWorker = {};
 .nicoChat {
   line-height: 1.235;
   opacity: 0;
-  text-shadow:
-    1px 1px 0px #000{*, -1px -1px 0px #ccc*};
+  text-shadow: 1px 1px 0px #000;
   transform-origin: 0% 0%;
   animation-timing-function: linear;
-  {*will-change: transform, opacity;*}
+  /*will-change: transform, opacity;*/
   color: #fff;
-  {*-webkit-text-stroke: 0.1px rgba(0, 0, 0, 0.3);*}
 }
+
+.shadow-type2 .nicoChat {
+  text-shadow:
+     1px  1px 0px rgba(0, 0, 0, 0.7),
+    -1px  1px 0px rgba(0, 0, 0, 0.7),
+    -1px -1px 0px rgba(0, 0, 0, 0.7),
+     1px -1px 0px rgba(0, 0, 0, 0.7);
+}
+
+.shadow-type3 .nicoChat {
+  text-shadow:
+    0 0 3px #000,
+    0 0 2px #000,
+    0 0 1px #000;
+}
+
+.shadow-stroke .nicoChat {
+  text-shadow: none;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.7);
+  text-stroke:         1px rgba(0, 0, 0, 0.7);
+}
+
 .nicoChat.fixed {
 }
 
@@ -2225,7 +2261,7 @@ var SlotLayoutWorker = {};
 }
 
 .nicoChat.updating::before {
-  content: '❀'; {* 砂時計にしたい *}
+  content: '❀';
   opacity: 0.8;
   color: #f99;
   display: inline-block;
@@ -2289,7 +2325,7 @@ spacer {
 </div>
 </body></html>
 
-  */});
+  `).trim();
 
   _.assign(NicoCommentCss3PlayerView.prototype, {
     initialize: function(params) {
@@ -2315,6 +2351,8 @@ spacer {
       console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 
       this._initializeView(params, 0);
+
+      this._config = Config.namespace('commentLayer');
 
       var _refresh = _.bind(this.refresh, this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
@@ -2346,20 +2384,20 @@ spacer {
       this._style = null;
       this._commentLayer = null;
       this._view = null;
-      var iframe = this._getIframe();
+      let iframe = this._getIframe();
+      iframe.setAttribute('sandbox', 'allow-same-origin');
 
       iframe.className = 'commentLayerFrame';
 
-      var html =
+      let html =
         NicoCommentCss3PlayerView.__TPL__
         .replace('%CSS%', '').replace('%MSG%', '')
         .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
         .replace('%OPTION_CSS%', '');
 
 
-      var self = this;
-      var onload = function() {
-        var win, doc;
+      const onload = () => {
+        let win, doc;
         iframe.onload = null;
         try {
           win = iframe.contentWindow;
@@ -2371,60 +2409,67 @@ spacer {
           this._view = null;
           ZenzaWatch.debug.commentLayer = null;
           if (retryCount < 3) {
-            self._initializeView(params, retryCount + 1);
+            this._initializeView(params, retryCount + 1);
           } else {
             PopupMessage.alert('コメントレイヤーの生成に失敗');
           }
           return;
         }
 
-        self._document = doc;
-        self._layoutStyle = doc.getElementById('layoutCss');
-        self._optionStyle = doc.getElementById('optionCss');
-        self._style       = doc.getElementById('nicoChatAnimationDefinition');
-        var commentLayer  = self._commentLayer = doc.getElementById('commentLayer');
+        this._document = doc;
+        this._layoutStyle = doc.getElementById('layoutCss');
+        this._optionStyle = doc.getElementById('optionCss');
+        this._style       = doc.getElementById('nicoChatAnimationDefinition');
+        const commentLayer  = this._commentLayer = doc.getElementById('commentLayer');
 
         // Config直接参照してるのは手抜き
         doc.body.className = Config.getValue('debug') ? 'debug' : '';
-        Config.on('update-debug', function(val) {
+        Config.on('update-debug', (val) => {
           doc.body.className = val ? 'debug' : '';
         });
         // 手抜きその2
-        self._optionStyle.innerHTML = NicoComment.offScreenLayer.getOptionCss();
-        ZenzaWatch.emitter.on('updateOptionCss', function(newCss) {
-          self._optionStyle.innerHTML = newCss;
+        this._optionStyle.innerHTML = NicoComment.offScreenLayer.getOptionCss();
+        ZenzaWatch.emitter.on('updateOptionCss', (newCss) => {
+          this._optionStyle.innerHTML = newCss;
         });
 
-        var onResize = function() {
-          var w = win.innerWidth, h = win.innerHeight;
+        const onResize = () => {
+          const w = win.innerWidth, h = win.innerHeight;
           // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
-          var aspectRatio = Math.max(self._aspectRatio, 9 / 16);
-          var targetHeight = Math.min(h, w * aspectRatio);
+          const aspectRatio = Math.max(this._aspectRatio, 9 / 16);
+          const targetHeight = Math.min(h, w * aspectRatio);
           //commentLayer.style.transform = 'scale3d(' + targetHeight / 385 + ', 1, 1)';
-          var scale = targetHeight / 385;
+          const scale = targetHeight / 385;
           commentLayer.style.transform =
             'scale3d(' + scale + ',' + scale + ', 1)';
         };
         win.addEventListener('resize', onResize);
 
-        ZenzaWatch.debug.getInViewElements = function() {
+        ZenzaWatch.debug.getInViewElements = () => {
           return doc.getElementsByClassName('nicoChat');
         };
 
-        var lastW = win.innerWidth, lastH = win.innerHeight;
-        window.setInterval(function() {
-          var w = win.innerWidth, h = win.innerHeight;
+        let lastW = win.innerWidth, lastH = win.innerHeight;
+        window.setInterval(() => {
+          const w = win.innerWidth, h = win.innerHeight;
           if (lastW !== w || lastH !== h) {
             lastW = w;
             lastH = h;
             onResize();
           }
-        }, 3000);
+        }, 1500);
 
-        if (self._isPaused) {
-          self.pause();
+        if (this._isPaused) {
+          this.pause();
         }
 
+        const updateTextShadow = (type) => {
+          const types = [ 'shadow-type2', 'shadow-type3', 'shadow-stroke' ];
+          types.forEach(t => { doc.body.classList.toggle(t, t === type); });
+        };
+        updateTextShadow(this._config.getValue('textShadowType'));
+        this._config.on('update-textShadowType', _.debounce(updateTextShadow, 100));
+        
         //ZenzaWatch.util.callAsync(self._adjust, this, 1000);
         window.console.timeEnd('initialize NicoCommentCss3PlayerView');
       };

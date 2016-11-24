@@ -342,6 +342,43 @@ var AsyncEmitter = function() {};
             </label>
           </div>
 
+          <div class="commentLayer-textShadowType control">
+            <p>コメントの影</p>
+            <label>
+              <input type="radio"
+                name="textShadowType"
+                data-setting-name="commentLayer.textShadowType"
+                value="">
+                標準 (軽い)
+            </label>
+
+            <label>
+              <input type="radio"
+                name="textShadowType"
+                data-setting-name="commentLayer.textShadowType"
+                value="shadow-type2">
+               縁取り
+            </label>
+
+            <label>
+              <input type="radio"
+                name="textShadowType"
+                data-setting-name="commentLayer.textShadowType"
+                value="shadow-type3">
+              ぼかし (重い)
+            </label>
+
+            <label>
+              <input type="radio"
+                name="textShadowType"
+                data-setting-name="commentLayer.textShadowType"
+                value="shadow-stroke">
+               縁取り2 (対応ブラウザのみ。やや重い)
+            </label>
+
+          </div>
+
+
         </div>
 
         <p class="caption">NG設定</p>
@@ -443,6 +480,16 @@ var AsyncEmitter = function() {};
       });
       $check.on('change', _.bind(this._onToggleItemChange, this));
 
+      const $radio = $panel.find('input[type=radio]');
+      $radio.each((i, check) => {
+        const $c = $(check);
+        const settingName = $c.attr('data-setting-name');
+        const val = config.getValue(settingName);
+        $c.prop('checked', val === $c.val());
+        //$c.closest('.control').toggleClass('checked', val);
+      });
+      $radio.on('change', this._onRadioItemChange.bind(this));
+
       var $text = $panel.find('input[type=text]');
       $text.each(function(i, text) {
         var $t = $(text);
@@ -526,7 +573,14 @@ var AsyncEmitter = function() {};
       this._playerConfig.setValue(settingName, val);
       $target.closest('.control').toggleClass('checked', val);
     },
-    _onInputItemChange: function(e) {
+    _onRadioItemChange: function(e) {
+      const $target = $(e.target);
+      const settingName = $target.attr('data-setting-name');
+      const checked = !!$target.prop('checked');
+      if (!checked) { return; }
+      this._playerConfig.setValue(settingName, $target.val());
+    },
+     _onInputItemChange: function(e) {
       var $target = $(e.target);
       var settingName = $target.attr('data-setting-name');
       var val = $target.val();

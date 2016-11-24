@@ -273,6 +273,8 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   font-family: Simsun, 'IPAMonaGothic', Gulim, PmingLiu;
 }
 
+.html5_tab_space { opacity: 0; }
+
   */});
 
 /**
@@ -422,9 +424,13 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
     };
 
   NicoTextParser.likeHTML5 = function(text) {
-    //var S = '<spacer> </spacer>';
     var htmlText =
-      ZenzaWatch.util.escapeHtml(text);
+      ZenzaWatch.util.escapeHtml(text)
+      .replace(/([\t]+)/g,
+        (g) => { return '<span class="html5_tab_space">'+
+          _.repeat('□', g.length) + '</span>';
+        } )
+      .replace(/[ ]/g, '&nbsp;');
 
     return htmlText;
    };

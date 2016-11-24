@@ -4,11 +4,13 @@ const ZenzaWatch = {
   util:{},
   debug: {}
 };
+const util = {};
 const Config = {};
 const RelatedVideoList = function() {};
 const AsyncEmitter = function() {};
 const CONSTANT = {};
 const MylistPocketDetector = {};
+const IchibaLoader = {};
 
 //===BEGIN===
 
@@ -725,6 +727,8 @@ const MylistPocketDetector = {};
           <div class="videoDescription">
           </div>
 
+          <div class="ichibaContainer"></div>
+
           <div class="videoTagsContainer">
             <ul class="videoTags">
           </div>
@@ -760,6 +764,7 @@ const MylistPocketDetector = {};
 
       ZenzaWatch.util.addStyle(VideoInfoPanel.__css__);
       var $view = this._$view = $(VideoInfoPanel.__tpl__);
+      const view = this._view = $view[0];
 
       this._$ownerContainer = $view.find('.videoOwnerInfoContainer');
       var $icon = this._$ownerIcon = $view.find('.ownerIcon');
@@ -772,14 +777,19 @@ const MylistPocketDetector = {};
       this._$videoTags = $view.find('.videoTags');
       this._$publicStatus = $view.find('.publicStatus');
 
+      this._ichibaContainer = view.querySelector('.ichibaContainer');
+
+      this._ichibaItemView = new IchibaItemView(
+        {parentNode: this._ichibaContainer});
+
       this._$tabSelect = $view.find('.tabSelect');
-      $view.on('click', '.tabSelect', function(e) {
+      $view.on('click', '.tabSelect', (e) => {
         var $target = $(e.target).closest('.tabSelect');
         var tabName = $target.attr('data-tab');
         this.selectTab(tabName);
-      }.bind(this));
+      });
 
-      $view.on('click', function(e) {
+      $view.on('click', (e) => {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
         var $target = $(e.target);
@@ -788,12 +798,10 @@ const MylistPocketDetector = {};
         if (command) {
           this._onCommand(command, param);
         }
-      }.bind(this)).on('wheel', function(e) {
+      }).on('wheel', (e) => {
         e.stopPropagation();
-      }.bind(this));
-      $icon.on('load', function() {
-        $icon.removeClass('loading');
       });
+      $icon.on('load', () => { $icon.removeClass('loading'); });
 
       MylistPocketDetector.detect().then((pocket) => {
         this._pocket = pocket;
@@ -820,6 +828,9 @@ const MylistPocketDetector = {};
         .toggleClass('community', this._videoInfo.isCommunityVideo())
         .toggleClass('mymemory',  this._videoInfo.isMymemory())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo');
+
+      this._ichibaItemView.clear();
+      this._ichibaItemView.videoId = videoInfo.getVideoId();
     },
     /**
      * 説明文中のurlの自動リンク等の処理
@@ -1586,7 +1597,7 @@ const MylistPocketDetector = {};
     _initDom({parentNode}) {
       let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
       if (!tpl) {
-        ZenzaWatch.util.addStyle(VideoSearchForm.__css__);
+        util.addStyle(VideoSearchForm.__css__);
         tpl = document.createElement('template');
         tpl.innerHTML = VideoSearchForm.__tpl__;
         tpl.id = 'zenzaVideoSearchPanelTemplate';
@@ -1594,12 +1605,12 @@ const MylistPocketDetector = {};
       }
       const view = document.importNode(tpl.content, true);
 
-      this._view      = view.querySelector('*');
-      this._form      = view.querySelector('form');
-      this._word      = view.querySelector('.searchWordInput');
-      this._sort      = view.querySelector('.searchSortSelect');
-      this._submit    = view.querySelector('.searchSubmit');
-      this._mode      = view.querySelector('.searchMode');
+      this._view   = view.querySelector('*');
+      this._form   = view.querySelector('form');
+      this._word   = view.querySelector('.searchWordInput');
+      this._sort   = view.querySelector('.searchSortSelect');
+      this._submit = view.querySelector('.searchSubmit');
+      this._mode   = view.querySelector('.searchMode');
     
       this._form.addEventListener('submit', this._onSubmit.bind(this));
 
@@ -1611,7 +1622,7 @@ const MylistPocketDetector = {};
       form['word'].value        = config.getValue('word');
       form['sort'].value        = config.getValue('sort');
 
-      view.addEventListener('click', this._onClick.bind(this));
+      this._view.addEventListener('click', this._onClick.bind(this));
       const updateFocus = this._updateFocus.bind(this);
       const updateFocusD =  _.debounce(updateFocus, 1000);
       const submit = _.debounce(this.submit.bind(this), 500);
@@ -1667,7 +1678,13 @@ const MylistPocketDetector = {};
           break;
       }
 
-      this.emit('command', command, param);
+      switch (command) {
+        case 'clear':
+          this._word.value = '';
+          break;
+        default:
+          this.emit('command', command, param);
+      }
     }
 
     _onSubmit(e) {
@@ -1859,6 +1876,38 @@ const MylistPocketDetector = {};
         border-style: inset;
       }
 
+      .zenzaVideoSearchPanel .searchClear {
+        width: 28px;
+        margin: 0;
+        padding: 0;
+        font-size: 16px;
+        line-height: 24px;
+        height: 24px;
+        border: none;
+        cursor: pointer;
+        color: #ccc;
+        background: transparent;
+        pointer-events: none;
+        opacity: 0;
+        transform: translate3d(100%, 0, 0);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .zenzaVideoSearchPanel.is-active .searchClear {
+        pointer-events: auto;
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+
+      .zenzaVideoSearchPanel.is-active .searchClear:hover {
+        transform: scale(1.5);
+      }
+
+      .zenzaVideoSearchPanel.is-active .searchClear:active {
+        transform: scale(1.2);
+      }
+
+
     .zenzaVideoSearchPanel .searchInputFoot {
       white-space: nowrap;
       position: absolute;
@@ -1924,6 +1973,9 @@ const MylistPocketDetector = {};
         </div>
 
         <div class="searchWord">
+          <button class="searchClear command"
+            data-command="clear"
+            title="クリア">&#x2716;</button>
           <input
             type="text"
             value=""
@@ -1962,7 +2014,310 @@ const MylistPocketDetector = {};
     </div>
   `).toString();
 
+  class BaseViewComponent extends AsyncEmitter {
+    constructor({parentNode = null, name = '', template = '', css = ''}) {
+      super();
+      this._initDom({
+        parentNode,
+        name,
+        template,
+        css
+      });
+    }
+
+    _initDom({parentNode, name, template, css}) {
+      let tplId = 'Zenza' + name + 'Template';
+      let tpl = document.getElementById(tplId);
+      if (!tpl) {
+        util.addStyle(css);
+        tpl = document.createElement('template');
+        tpl.innerHTML = template;
+        tpl.id = tplId;
+        document.body.appendChild(tpl);
+      }
+      const view = document.importNode(tpl.content, true);
+      this._view = view.querySelector('*');
+
+      this._view.addEventListener('click', this._onClick.bind(this));
+      this.appendTo(parentNode);
+    }
+
+
+    _onClick(e) {
+      const target = e.target.classList.contains('command') ?
+        e.target : e.target.closest('.command');
+
+      if (!target) { return; }
+
+      const command = target.getAttribute('data-command');
+      if (!command) { return; }
+      const type  = target.getAttribute('data-type') || 'string';
+      let param   = target.getAttribute('data-param');
+      e.stopPropagation();
+      e.preventDefault();
+      switch (type) {
+        case 'json':
+        case 'bool':
+        case 'number':
+          param = JSON.parse(param);
+          break;
+      }
+
+      this._onCommand(command, param);
+    }
+
+    appendTo(parentNode) {
+      if (!parentNode) { return; }
+      this._parentNode = parentNode;
+      parentNode.appendChild(this._view);
+    }
+
+    _onCommand(command, param) {
+      this.emit('command', command, param);
+    }
+
+    toggleClass(className, v) {
+      (className || '').split(/ +/).forEach((c) => {
+        this._view.classList.toggle(c, v);
+      });
+    }
+
+    addClass(name)    { this.toggleClass(name, true); }
+    removeClass(name) { this.toggleClass(name, false); }
+
+  }
+
+  class IchibaItemView extends BaseViewComponent {
+    constructor({parentNode}) {
+      super({
+        parentNode,
+        name:     'IchibaItemView',
+        template: IchibaItemView.__tpl__,
+        css:      IchibaItemView.__css__,
+      });
+
+      ZenzaWatch.debug.ichiba = this;
+    }
+
+    _initDom(...args) {
+      //window.console.info('IchibaItemView#_initDom');
+      super._initDom(...args);
+
+      this._listContainer = this._view.querySelector('.ichibaItemListContainer');
+    }
+
+    _onCommand(command, param) {
+      //window.console.info('IchibaItemView#_onCommand', command, param);
+      switch(command) {
+        case 'load':
+          this.load(this._videoId);
+          break;
+        default:
+          super._onCommand(command, param);
+      }
+    }
+
+    load(videoId) {
+      if (this._isLoading) { return; }
+      videoId = videoId || this._videoId;
+      this._isLoading = true;
+      this.addClass('is-loading');
+      //window.console.info('IchibaItemView#load!', videoId);
+      return IchibaLoader.load(videoId)
+        .then(this._onIchibaLoad.bind(this))
+        .catch(this._onIchibaLoadFail.bind(this));
+    }
+
+    clear() {
+      this.removeClass('is-loading');
+      this.removeClass('is-success');
+      this.removeClass('is-fail');
+      this.removeClass('is-empty');
+      this._listContainer.innerHTML = '';
+    }
+
+    _onIchibaLoad(data) {
+      //window.console.info('IchibaItemView#onIchibaLoad', data);
+      this.removeClass('is-loading');
+      const div = document.createElement('div');
+      div.innerHTML = data.main;
+
+      Array.prototype.forEach.call(
+        div.querySelectorAll('[id]'),
+        (elm) => { elm.classList.add('ichiba-' + elm.id); elm.removeAttribute('id'); }
+      );
+      Array.prototype.forEach.call(
+        div.querySelectorAll('[style]'),
+        (elm) => { elm.removeAttribute('style'); }
+      );
+      const items = div.querySelectorAll('.ichiba_mainitem');
+
+      if (!items || items.length < 1) {
+        this.addClass('is-empty');
+        this._listContainer.innerHTML = '<h2>貼られている商品はありません</h2>';
+      } else {
+        this._listContainer.innerHTML = div.innerHTML;
+      }
+      this.addClass('is-success');
+      this._isLoading = false;
+    }
+
+    _onIchibaLoadFail() {
+      this.removeClass('is-loading');
+      this.addClass('is-fail');
+      this._isLoading = false;
+    }
+
+    get videoId() {
+      return this._videoId;
+    }
+
+    set videoId(v) {
+      this._videoId = v;
+    }
+  }
+
+  IchibaItemView.__tpl__ = (`
+    <div class="ZenzaIchibaItemView">
+      <div class="loadStart">
+        <button class="loadStartButton command" data-command="load">ニコニコ市場の商品を見る</button>
+      </div>
+      <div class="ichibaLoadingView">
+        <div class="loading-inner">
+          <span class="spinner">&#8987;</span>
+        </div>
+      </div>
+      <div class="ichibaItemListContainer"></div>
+    </div>
+    `).trim();
+
+  IchibaItemView.__css__ = (`
+    .ZenzaIchibaItemView {
+      text-align: center;
+      margin: 8px 8px 32px;
+    }
+
+      .ZenzaIchibaItemView .loadStartButton {
+         font-size: 14px;
+         padding: 8px 8px;
+         cursor: pointer;
+         border-radius: 0;
+         margin: 0;
+         background: #333;
+         color: #ccc;
+         border: solid 2px #ccc;
+         outline: none;
+         line-height: 20px;
+         user-select: none;
+         -webkit-user-select: none;
+         -moz-user-select: none;
+      }
+      .ZenzaIchibaItemView .loadStartButton:hover {
+        transform: translate(-4px,-4px);
+        box-shadow: 4px 4px 4px #000;
+        background: #666;
+        transition:
+          0.2s transform ease,
+          0.2s box-shadow ease
+          ;
+      }
+
+      .ZenzaIchibaItemView .loadStartButton:active {
+        transform: none;
+        box-shadow: none;
+        transition: none;
+      }
+      .ZenzaIchibaItemView .loadStartButton:active::after {
+        opacity: 0;
+      }
+
+
+      .ZenzaIchibaItemView .ichibaLoadingView,
+      .ZenzaIchibaItemView .ichibaItemListContainer {
+        display: none;
+      }
+
+    .ZenzaIchibaItemView.is-loading {
+      cursor: wait;
+      user-select: none;
+    }
+      .ZenzaIchibaItemView.is-loading * {
+        pointer-events: none;
+      }
+      .ZenzaIchibaItemView.is-loading .ichibaLoadingView {
+        display: block;
+        font-size: 32px;
+      }
+      .ZenzaIchibaItemView.is-loading .loadStart,
+      .ZenzaIchibaItemView.is-loading .ichibaItemListContainer {
+        display: none;
+      }
+
+    .ZenzaIchibaItemView.is-success {
+      background: #444;
+      padding: 8px;
+    }
+      .ZenzaIchibaItemView.is-success .ichibaLoadingView,
+      .ZenzaIchibaItemView.is-success .loadStart {
+        display: none;
+      }
+      .ZenzaIchibaItemView.is-success .ichibaItemListContainer {
+        display: block;
+      }
+
+
+    .ZenzaIchibaItemView.is-fail {
+    }
+      .ZenzaIchibaItemView.is-fail .ichibaLoadingView,
+      .ZenzaIchibaItemView.is-fail .loadStartButton {
+        display: none;
+      }
+      .ZenzaIchibaItemView.is-fail .ichibaItemListContainer {
+        display: block;
+      }
+
+
+    .ZenzaIchibaItemView .ichibaItemListContainer {
+      text-align: center;
+    }
+      .ZenzaIchibaItemView .ichibaItemListContainer .ichiba_mainitem {
+        display: inline-table;
+        width: 220px;
+        margin: 8px;
+        padding: 8px;
+        word-break: break-all;
+        border: 1px dotted #222;
+      }
+      .ZenzaIchibaItemView .price,
+      .ZenzaIchibaItemView .buy,
+      .ZenzaIchibaItemView .click {
+        font-weight: bold;
+        /*color: #fcc;*/
+      }
+
+
+    .ZenzaIchibaItemView a {
+      display: inline-block;
+      font-weight: bold;
+      text-decoration: none;
+      color: #ff9;
+      padding: 2px;
+    }
+    .ZenzaIchibaItemView a:visited {
+      color: #ffd;
+    }
+
+
+    .ZenzaIchibaItemView .rowJustify,
+    .ZenzaIchibaItemView .noItem,
+    .ichiba-ichibaMainLogo,
+    .ichiba-ichibaMainHeader,
+    .ichiba-ichibaMainFooter {
+      display: none;
+    }
+
+    `).trim();
 
 //===END===
-//
+
 
