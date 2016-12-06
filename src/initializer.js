@@ -393,6 +393,15 @@ var AsyncEmitter = function() {};
         return mylistApiLoader.addDeflistItem(watchId, description);
       };
 
+      const deflistRemove = ({watchId, token}) => {
+        const mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+        if (token) {
+          mylistApiLoader.setCsrfToken(token);
+        }
+        return mylistApiLoader.removeDeflistItem(watchId);
+      };
+
+
       ZenzaWatch.external = {
         execCommand: command,
         sendCommand: sendCommand,
@@ -401,6 +410,7 @@ var AsyncEmitter = function() {};
         send: send,
         sendOrOpen,
         deflistAdd,
+        deflistRemove,
         playlist: {
           add: playlistAdd,
           insert: playlistInsert,

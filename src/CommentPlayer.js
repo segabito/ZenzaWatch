@@ -86,6 +86,9 @@ var SlotLayoutWorker = {};
         PopupMessage.alert('コメントの読み込み失敗');
       }
     },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
+    },
     _onCommentChange: function(e) {
       console.log('onCommentChange', e);
       if (this._view) {
@@ -224,19 +227,19 @@ var SlotLayoutWorker = {};
     initialize: function(params) {
       this._currentTime = 0;
       var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
+      this.on        = emitter.on       .bind(emitter);
+      this.emit      = emitter.emit     .bind(emitter);
+      this.emitAsync = emitter.emitAsync.bind(emitter);
 
 
       params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
-      this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
+      this._nicoChatFilter.on('change', this._onFilterChange.bind(this));
       
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._nakaGroup   = new NicoChatGroup(this, NicoChat.TYPE.NAKA  , params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
 
-      var onChange = _.debounce(_.bind(this._onChange, this), 100);
+      var onChange = _.debounce(this._onChange.bind(this), 100);
       this._topGroup   .on('change', onChange);
       this._nakaGroup  .on('change', onChange);
       this._bottomGroup.on('change', onChange);
@@ -1342,7 +1345,7 @@ var SlotLayoutWorker = {};
     _parseCmd: function(cmd, isFork) {
       var tmp = cmd.split(/[\x20|\u3000|\t]+/);
       var result = {};
-      _.each(tmp, function(c) {
+      tmp.forEach(c => {
         if (NicoChat.COLORS[c]) {
           result.COLOR = NicoChat.COLORS[c];
         } else if (NicoChat._COLOR_MATCH.test(c)) {
@@ -2033,6 +2036,7 @@ var SlotLayoutWorker = {};
    * DOM的に隔離されたiframeの領域内で描画する
    */
   var NicoCommentCss3PlayerView = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoCommentCss3PlayerView.prototype, AsyncEmitter.prototype);
 
   NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
 
@@ -2110,10 +2114,10 @@ var SlotLayoutWorker = {};
 
 .shadow-type2 .nicoChat {
   text-shadow:
-     1px  1px 0px rgba(0, 0, 0, 0.7),
-    -1px  1px 0px rgba(0, 0, 0, 0.7),
-    -1px -1px 0px rgba(0, 0, 0, 0.7),
-     1px -1px 0px rgba(0, 0, 0, 0.7);
+     1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px -1px 0px rgba(0, 0, 0, 0.5),
+     1px -1px 0px rgba(0, 0, 0, 0.5);
 }
 
 .shadow-type3 .nicoChat {
@@ -2524,6 +2528,9 @@ spacer {
         }
       }
       return iframe;
+    },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
     },
     _onResize: function(e) {
       this._adjust(e);

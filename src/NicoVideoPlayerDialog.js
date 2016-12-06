@@ -2112,7 +2112,12 @@ var CONSTANT = {};
       }
 
       var nicoVideoPlayer = this._nicoVideoPlayer;
-      if (this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc()) {
+      var autoDisableDmc =
+        this._playerConfig.getValue('autoDisableDmc') &&
+        (this._videoInfo.getWidth() > 1280 || this._videoInfo.getHeight() > 720);
+
+      if (!autoDisableDmc &&
+        this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc()) {
         this._videoSession.create().then(
           (sessionInfo) => {
             nicoVideoPlayer.setVideo(sessionInfo.url);
@@ -2292,6 +2297,8 @@ var CONSTANT = {};
       this._hasError = true;
       this.emit('error');
       var isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc();
+      const code = (e && e.target && e.target.error && e.target.error.code) || 0;
+      window.console.error('VideoError!', code, e);
 
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
@@ -2302,10 +2309,10 @@ var CONSTANT = {};
             (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy())
           ) {
           this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
-          ZenzaWatch.util.callAsync(function() {
+          setTimeout(() => {
             if (!this.isOpen()) { return; }
             this.reload({economy: true});
-          }, this, 3000);
+          }, 3000);
         } else {
           this._setErrorMessage('動画の再生に失敗しました。');
         }
@@ -3611,4 +3618,12 @@ var CONSTANT = {};
 
 //===END===
 //
-
+/*
+interface MediaError {
+  const unsigned short MEDIA_ERR_ABORTED = 1;
+  const unsigned short MEDIA_ERR_NETWORK = 2;
+  const unsigned short MEDIA_ERR_DECODE = 3;
+  const unsigned short MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
+  readonly attribute unsigned short code;
+};
+*/

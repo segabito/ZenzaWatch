@@ -15,7 +15,15 @@
 
     // video.src クリア用。
     // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
-    BLANK_VIDEO_URL : '//'
+    BLANK_VIDEO_URL : '//',
+
+    MEDIA_ERROR: {
+      MEDIA_ERR_ABORTED: 1,
+      MEDIA_ERR_NETWORK: 2,
+      MEDIA_ERR_DECODE:  3,
+      MEDIA_ERR_SRC_NOT_SUPPORTED: 4
+    }
+
   };
 
 

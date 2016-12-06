@@ -1448,7 +1448,8 @@ const IchibaLoader = {};
     update: function(videoInfo) {
       this._videoInfo = videoInfo;
 
-      this._$videoTitle.html(videoInfo.getTitle()).attr('title', videoInfo.getTitle());
+      const videoTitle = util.unescapeHtml(videoInfo.getTitle());
+      this._$videoTitle.text(videoTitle).attr('title', videoTitle);
       this._$postedAt.text(videoInfo.getPostedAt());
 
       var watchId = videoInfo.getWatchId(), videoId = videoInfo.getVideoId();
@@ -1655,7 +1656,8 @@ const IchibaLoader = {};
 
     _onClick(e) {
       const tagName = (e.target.tagName || '').toLowerCase();
-      const target = e.target.closest('.command');
+      const target = e.target.classList.contains('command') ?
+        e.target : e.target.closest('.command');
 
       //window.console.log('click!', tagName, e);
       if (!_.contains(['input', 'select'], tagName)) {
@@ -1877,6 +1879,7 @@ const IchibaLoader = {};
       }
 
       .zenzaVideoSearchPanel .searchClear {
+        display: inline-block;
         width: 28px;
         margin: 0;
         padding: 0;
@@ -1974,6 +1977,7 @@ const IchibaLoader = {};
 
         <div class="searchWord">
           <button class="searchClear command"
+            type="button"
             data-command="clear"
             title="クリア">&#x2716;</button>
           <input

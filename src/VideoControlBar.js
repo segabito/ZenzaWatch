@@ -1278,7 +1278,7 @@ var CONSTANT = {};
           param = JSON.parse(param);
         }
         this.toggleVideoServerTypeMenu(false);
-        $menu.removeClass('show');
+        //$menu.removeClass('show');
         this.emit('command', command, param);
       }.bind(this));
 
@@ -2281,25 +2281,27 @@ var CONSTANT = {};
 
   var SeekBarToolTip = function() { this.initialize.apply(this, arguments); };
   _.extend(SeekBarToolTip.prototype, AsyncEmitter.prototype);
-  SeekBarToolTip.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
       position: absolute;
       display: inline-block;
       z-index: 300;
       position: absolute;
+      box-sizing: border-box;
       bottom: 16px;
       left: 0;
+      width: 180px;
       white-space: nowrap;
       font-size: 10px;
       background: rgba(0, 0, 0, 0.8);
       z-index: 150;
       opacity: 0;
-      box-shadow: 0 0 4px #666;
+      border: 1px solid #666;
       border-radius: 8px;
       transition: opacity 0.2s ease;
       padding: 4px 4px 10px 4px;
       transform: translate3d(0, 0, 0);
-      transform: translate 0.1s;
+      transition: translate 0.1s;
       pointer-events: none;
     }
 
@@ -2326,7 +2328,6 @@ var CONSTANT = {};
     }
 
     .seekBarToolTip .seekBarToolTipButtonContainer {
-      {*display: flex;*}
       text-align: center;
       width: 100%;
     }
@@ -2381,12 +2382,20 @@ var CONSTANT = {};
 
     .seekBarToolTip .seekBarThumbnailContainer {
       pointer-events: none;
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translate(-50%, -100%);
     }
-  */});
-  SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    .seekBarContainer:not(.enableCommentPreview) .seekBarToolTip.storyboard {
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+    }
+  `).trim();
+
+  SeekBarToolTip.__tpl__ = (`
     <div class="seekBarToolTip">
+      <div class="seekBarThumbnailContainer"></div>
       <div class="seekBarToolTipInner">
-        <div class="seekBarThumbnailContainer"></div>
         <div class="seekBarToolTipButtonContainer">
           <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る" data-repeat="on">
             <div class="controlButtonInner">⇦</div>
@@ -2405,7 +2414,8 @@ var CONSTANT = {};
         </div>
       </div>
     </div>
-  */});
+  `).trim();
+
   _.assign(SeekBarToolTip .prototype, {
     initialize: function(params) {
       this._$container = params.$container;
@@ -2430,7 +2440,9 @@ var CONSTANT = {};
       this._seekBarThumbnail = this._storyBoard.getSeekBarThumbnail({
         $container: $view.find('.seekBarThumbnailContainer')
       });
-
+      this._seekBarThumbnail.on('visible', v => {
+        $view.toggleClass('storyboard', v);
+      });
 
       $container.append($view);
     },

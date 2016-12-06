@@ -24,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.7.6
+// @version        1.7.9
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -36,7 +36,7 @@ var monkey = function(PRODUCT) {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.7.6';
+  var VER = '1.7.9';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -97,7 +97,15 @@ var monkey = function(PRODUCT) {
 
     // video.src クリア用。
     // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
-    BLANK_VIDEO_URL : '//'
+    BLANK_VIDEO_URL : '//',
+
+    MEDIA_ERROR: {
+      MEDIA_ERR_ABORTED: 1,
+      MEDIA_ERR_NETWORK: 2,
+      MEDIA_ERR_DECODE:  3,
+      MEDIA_ERR_SRC_NOT_SUPPORTED: 4
+    }
+
   };
 
 
@@ -339,8 +347,9 @@ var monkey = function(PRODUCT) {
         lastWatchId: 'sm9',
         message: '',
 
-        enableVideoSession: false,
+        enableVideoSession: true,
         enableDmc: false, // 新サーバーを使うかどうか
+        autoDisableDmc: false, // smileのほうが高画質と思われる動画でdmcを無効にする
         dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
 
@@ -1607,7 +1616,7 @@ var monkey = function(PRODUCT) {
         if (e.ctrlKey || e.altKey) {
           return;
         }
-        var keyCode = e.keyCode + (e.shiftKey ? 0x1000 : 0);
+        var keyCode = e.keyCode + (e.ctrlKey ? 0x10000 : 0) + (e.shiftKey ? 0x1000 : 0);
         var key = '';
         var param = '';
         switch (keyCode) {
@@ -4559,6 +4568,14 @@ var monkey = function(PRODUCT) {
 
     getSeekToken: function() {
       return this._seekToken;
+    },
+
+    getWidth: function() {
+      return parseInt(this._videoDetail.width, 10);
+    },
+
+    getHeight: function() {
+      return parseInt(this._videoDetail.height, 10);
     }
 
    });
@@ -6159,12 +6176,13 @@ var monkey = function(PRODUCT) {
     SeekBarThumbnail.BASE_WIDTH  = 160;
     SeekBarThumbnail.BASE_HEIGHT =  90;
 
-    SeekBarThumbnail.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    SeekBarThumbnail.__tpl__ = (`
       <div class="zenzaSeekThumbnail">
         <div class="zenzaSeekThumbnail-image"></div>
       </div>
-    */});
-    SeekBarThumbnail.__css__ = `
+    `).trim();
+
+    SeekBarThumbnail.__css__ = (`
       .error .zenzaSeekThumbnail,
       .loading .zenzaSeekThumbnail {
         display: none !important;
@@ -6174,28 +6192,31 @@ var monkey = function(PRODUCT) {
         display: none;
         pointer-events: none;
       }
-      .dragging .zenzaSeekThumbnail {
-        pointer-events: auto;
-      }
 
       .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
         display: block;
-        width: 160px;
-        height: 90px;
+        width: 180px;
+        height: 100px;
         margin: auto;
         overflow: hidden;
-        box-sizing: content-box;
+        box-sizing: border-box;
+        border: 1px solid #666;
+        border-width: 1px 1px 0 1px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 8px 4px;
+        border-radius: 8px 8px 0 0;
+        z-index: 100;
       }
 
       .zenzaSeekThumbnail-image {
-        margin: 4px;
         background: none repeat scroll 0 0 #999;
         border: 0;
         margin: auto;
         transform-origin: center top;
       }
 
-    `;
+    `).trim();
+
     _.extend(SeekBarThumbnail.prototype, AsyncEmitter.prototype);
     _.assign(SeekBarThumbnail.prototype, {
       initialize: function(params) {
@@ -6241,6 +6262,8 @@ var monkey = function(PRODUCT) {
         };
         if (scale > 1.0) {
           css.transform = 'scale(' + scale + ')';
+        } else {
+          css.transform = '';
         }
 
         this._$image.css(css);
@@ -6275,10 +6298,12 @@ var monkey = function(PRODUCT) {
       show: function() {
         if (!this._$view) { return; }
         this._$view.addClass('show');
+        this.emit('visible', true);
       },
       hide: function() {
         if (!this._$view) { return; }
         this._$view.removeClass('show');
+        this.emit('visible', false);
       },
       initializeView: function() {
         this.initializeView = _.noop;
@@ -6917,7 +6942,7 @@ var monkey = function(PRODUCT) {
       ''].join('');
 
 
-    StoryBoardView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    StoryBoardView.__css__ = (`
       .storyBoardContainer {
         position: fixed;
         top: calc(100vh + 500px);
@@ -6987,20 +7012,20 @@ var monkey = function(PRODUCT) {
       .storyBoardContainer .storyBoardInner:hover {
         overflow-x: auto;
       }
-      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar,*}
+      /*.storyBoardContainer .storyBoardInner::-moz-scrollbar,*/
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
         width: 6px;
         height: 6px;
         background: rgba(0, 0, 0, 0);
       }
 
-      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-thumb,*}
+      /*.storyBoardContainer .storyBoardInner::-moz-scrollbar-thumb,*/
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar-thumb {
         border-radius: 6px;
         background: #f8f;
       }
 
-      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-button,*}
+      /*.storyBoardContainer .storyBoardInner::-moz-scrollbar-button,*/
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar-button {
         display: none;
       }
@@ -7090,7 +7115,7 @@ var monkey = function(PRODUCT) {
         transition: transform 0.4s ease-out;
       }
 
-    */});
+    `).trim();
 
 
 
@@ -8363,7 +8388,7 @@ var monkey = function(PRODUCT) {
           param = JSON.parse(param);
         }
         this.toggleVideoServerTypeMenu(false);
-        $menu.removeClass('show');
+        //$menu.removeClass('show');
         this.emit('command', command, param);
       }.bind(this));
 
@@ -9366,25 +9391,27 @@ var monkey = function(PRODUCT) {
 
   var SeekBarToolTip = function() { this.initialize.apply(this, arguments); };
   _.extend(SeekBarToolTip.prototype, AsyncEmitter.prototype);
-  SeekBarToolTip.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
       position: absolute;
       display: inline-block;
       z-index: 300;
       position: absolute;
+      box-sizing: border-box;
       bottom: 16px;
       left: 0;
+      width: 180px;
       white-space: nowrap;
       font-size: 10px;
       background: rgba(0, 0, 0, 0.8);
       z-index: 150;
       opacity: 0;
-      box-shadow: 0 0 4px #666;
+      border: 1px solid #666;
       border-radius: 8px;
       transition: opacity 0.2s ease;
       padding: 4px 4px 10px 4px;
       transform: translate3d(0, 0, 0);
-      transform: translate 0.1s;
+      transition: translate 0.1s;
       pointer-events: none;
     }
 
@@ -9411,7 +9438,6 @@ var monkey = function(PRODUCT) {
     }
 
     .seekBarToolTip .seekBarToolTipButtonContainer {
-      {*display: flex;*}
       text-align: center;
       width: 100%;
     }
@@ -9466,12 +9492,20 @@ var monkey = function(PRODUCT) {
 
     .seekBarToolTip .seekBarThumbnailContainer {
       pointer-events: none;
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translate(-50%, -100%);
     }
-  */});
-  SeekBarToolTip.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    .seekBarContainer:not(.enableCommentPreview) .seekBarToolTip.storyboard {
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+    }
+  `).trim();
+
+  SeekBarToolTip.__tpl__ = (`
     <div class="seekBarToolTip">
+      <div class="seekBarThumbnailContainer"></div>
       <div class="seekBarToolTipInner">
-        <div class="seekBarThumbnailContainer"></div>
         <div class="seekBarToolTipButtonContainer">
           <div class="controlButton backwardSeek" data-command="seekBy" data-param="-5" title="5秒戻る" data-repeat="on">
             <div class="controlButtonInner">⇦</div>
@@ -9490,7 +9524,8 @@ var monkey = function(PRODUCT) {
         </div>
       </div>
     </div>
-  */});
+  `).trim();
+
   _.assign(SeekBarToolTip .prototype, {
     initialize: function(params) {
       this._$container = params.$container;
@@ -9515,7 +9550,9 @@ var monkey = function(PRODUCT) {
       this._seekBarThumbnail = this._storyBoard.getSeekBarThumbnail({
         $container: $view.find('.seekBarThumbnailContainer')
       });
-
+      this._seekBarThumbnail.on('visible', v => {
+        $view.toggleClass('storyboard', v);
+      });
 
       $container.append($view);
     },
@@ -9989,6 +10026,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         PopupMessage.alert('コメントの読み込み失敗');
       }
     },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
+    },
     _onCommentChange: function(e) {
       console.log('onCommentChange', e);
       if (this._view) {
@@ -10127,19 +10167,19 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     initialize: function(params) {
       this._currentTime = 0;
       var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
+      this.on        = emitter.on       .bind(emitter);
+      this.emit      = emitter.emit     .bind(emitter);
+      this.emitAsync = emitter.emitAsync.bind(emitter);
 
 
       params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
-      this._nicoChatFilter.on('change', _.bind(this._onFilterChange, this));
+      this._nicoChatFilter.on('change', this._onFilterChange.bind(this));
       
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._nakaGroup   = new NicoChatGroup(this, NicoChat.TYPE.NAKA  , params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
 
-      var onChange = _.debounce(_.bind(this._onChange, this), 100);
+      var onChange = _.debounce(this._onChange.bind(this), 100);
       this._topGroup   .on('change', onChange);
       this._nakaGroup  .on('change', onChange);
       this._bottomGroup.on('change', onChange);
@@ -11245,7 +11285,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     _parseCmd: function(cmd, isFork) {
       var tmp = cmd.split(/[\x20|\u3000|\t]+/);
       var result = {};
-      _.each(tmp, function(c) {
+      tmp.forEach(c => {
         if (NicoChat.COLORS[c]) {
           result.COLOR = NicoChat.COLORS[c];
         } else if (NicoChat._COLOR_MATCH.test(c)) {
@@ -11936,6 +11976,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
    * DOM的に隔離されたiframeの領域内で描画する
    */
   var NicoCommentCss3PlayerView = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoCommentCss3PlayerView.prototype, AsyncEmitter.prototype);
 
   NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
 
@@ -12013,10 +12054,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 .shadow-type2 .nicoChat {
   text-shadow:
-     1px  1px 0px rgba(0, 0, 0, 0.7),
-    -1px  1px 0px rgba(0, 0, 0, 0.7),
-    -1px -1px 0px rgba(0, 0, 0, 0.7),
-     1px -1px 0px rgba(0, 0, 0, 0.7);
+     1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px -1px 0px rgba(0, 0, 0, 0.5),
+     1px -1px 0px rgba(0, 0, 0, 0.5);
 }
 
 .shadow-type3 .nicoChat {
@@ -12427,6 +12468,9 @@ spacer {
         }
       }
       return iframe;
+    },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
     },
     _onResize: function(e) {
       this._adjust(e);
@@ -13738,6 +13782,69 @@ var SlotLayoutWorker = (function() {
 
       return result;
     },
+    _parseNicosParams: function(str) {
+      // 雑なパース
+      var result = [], v = '', lastC = '', quot = '';
+      for (var i = 0, len = str.length; i < len; i++) {
+        var c = str.charAt(i);
+        switch (c) {
+          case ' ': case '　':
+            if (quot) {
+              v+= c;
+            } else {
+              if (v !== '') {
+                result.push(v);
+                v = quot = '';
+              }
+            }
+            break;
+          case "'": case '"':
+            if (v !== '') {
+              if (quot !== c) {
+                v += c;
+              } else {
+                if (lastC === '\\') { v += c; }
+                else {
+                  v = v.replace(/(\\r|\\n)/g, '\n').replace(/(\\t)/g, '\t');
+                  result.push(v);
+                  v = quot = '';
+                }
+              }
+            } else {
+              quot = c;
+            }
+            break;
+          case "「":
+            if (v !== '') {
+              v += c;
+            } else {
+              quot = c;
+            }
+            break;
+          case "」":
+            if (v !== '') {
+              if (quot !== "「") {
+                v += c;
+              } else {
+                if (lastC === '\\') { v += c; }
+                else {
+                  result.push(v);
+                  v = quot = '';
+                }
+              }
+            } else {
+              v += c;
+            }
+            break;
+          default:
+            v += c;
+        }
+        lastC = c;
+      }
+      if (v !== '') { result.push(v.trim()); }
+
+      return result;
+     },
     _splitLines: function(str) {
       var result = [], v = '', lastC = '', isStr = false, quot = '';
       for (var i = 0, len = str.length; i < len; i++) {
@@ -13787,7 +13894,7 @@ var SlotLayoutWorker = (function() {
       };
     },
     _parse置換: function(str) {
-      var tmp = str.split(/[ 　]+/);
+      var tmp = this._parseNicosParams(str);
       //＠置換キーワード置換後置換範囲投コメ一致条件
       return {
         src:  tmp[1],
@@ -13798,7 +13905,8 @@ var SlotLayoutWorker = (function() {
       };
     },
     _parse逆: function(str) {
-      var tmp = str.split(/[ 　]+/);
+      var tmp = this._parseNicosParams(str);
+      //var tmp = str.split(/[ 　]+/);
       //＠逆　投コメ
       var target = (tmp[1] || '').trim();
       //＠置換キーワード置換後置換範囲投コメ一致条件
@@ -13852,7 +13960,7 @@ var SlotLayoutWorker = (function() {
             text = params.dest;
           } else {
             var reg = new RegExp(ZenzaWatch.util.escapeRegs(params.src), 'g');
-            text = text.replace(reg, params.dest);
+            text = text.replace(reg, params.dest.replace(/\$/g, '\\$'));
           }
           nicoChat.setText(text);
 
@@ -13870,7 +13978,7 @@ var SlotLayoutWorker = (function() {
 
         },
         'PIPE': function(nicoChat, nicos, lines) {
-          _.each(lines, function(line) {
+          lines.forEach(function(line) {
             var type = line.type;
             var f = applyFunc[type];
             if (f) {
@@ -13880,7 +13988,7 @@ var SlotLayoutWorker = (function() {
         }
       };
 
-      _.each(this._list, (function(nicos) {
+      this._list.forEach(function(nicos) {
         var p = this._parseNicos(nicos.getText());
         if (!p) { return; }
         var func = applyFunc[p.type];
@@ -13892,7 +14000,7 @@ var SlotLayoutWorker = (function() {
         var endTime   = beginTime + nicos.getDuration();
         //window.console.log('nicos:', nicos.getText(), p.type, beginTime, endTime, nicos, p);
 
-        _.each(group.getMembers ? group.getMembers : group, function(nicoChat) {
+        (group.getMembers ? group.getMembers : group).forEach(function(nicoChat) {
           if (nicoChat.isNicoScript()) { return; }
           var ct = nicoChat.getBeginTime();
           //var et = ct + nicoChat.getDuration();
@@ -13903,7 +14011,7 @@ var SlotLayoutWorker = (function() {
 
           func(nicoChat, nicos, p.params);
         });
-      }).bind(this));
+      }.bind(this));
     }
   });
 
@@ -19937,7 +20045,12 @@ var VideoSession = (function() {
       }
 
       var nicoVideoPlayer = this._nicoVideoPlayer;
-      if (this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc()) {
+      var autoDisableDmc =
+        this._playerConfig.getValue('autoDisableDmc') &&
+        (this._videoInfo.getWidth() > 1280 || this._videoInfo.getHeight() > 720);
+
+      if (!autoDisableDmc &&
+        this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc()) {
         this._videoSession.create().then(
           (sessionInfo) => {
             nicoVideoPlayer.setVideo(sessionInfo.url);
@@ -20117,6 +20230,8 @@ var VideoSession = (function() {
       this._hasError = true;
       this.emit('error');
       var isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc();
+      const code = (e && e.target && e.target.error && e.target.error.code) || 0;
+      window.console.error('VideoError!', code, e);
 
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
@@ -20127,10 +20242,10 @@ var VideoSession = (function() {
             (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy())
           ) {
           this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
-          ZenzaWatch.util.callAsync(function() {
+          setTimeout(() => {
             if (!this.isOpen()) { return; }
             this.reload({economy: true});
-          }, this, 3000);
+          }, 3000);
         } else {
           this._setErrorMessage('動画の再生に失敗しました。');
         }
@@ -23923,7 +24038,8 @@ var VideoSession = (function() {
     update: function(videoInfo) {
       this._videoInfo = videoInfo;
 
-      this._$videoTitle.html(videoInfo.getTitle()).attr('title', videoInfo.getTitle());
+      const videoTitle = util.unescapeHtml(videoInfo.getTitle());
+      this._$videoTitle.text(videoTitle).attr('title', videoTitle);
       this._$postedAt.text(videoInfo.getPostedAt());
 
       var watchId = videoInfo.getWatchId(), videoId = videoInfo.getVideoId();
@@ -24130,7 +24246,8 @@ var VideoSession = (function() {
 
     _onClick(e) {
       const tagName = (e.target.tagName || '').toLowerCase();
-      const target = e.target.closest('.command');
+      const target = e.target.classList.contains('command') ?
+        e.target : e.target.closest('.command');
 
       //window.console.log('click!', tagName, e);
       if (!_.contains(['input', 'select'], tagName)) {
@@ -24352,6 +24469,7 @@ var VideoSession = (function() {
       }
 
       .zenzaVideoSearchPanel .searchClear {
+        display: inline-block;
         width: 28px;
         margin: 0;
         padding: 0;
@@ -24449,6 +24567,7 @@ var VideoSession = (function() {
 
         <div class="searchWord">
           <button class="searchClear command"
+            type="button"
             data-command="clear"
             title="クリア">&#x2716;</button>
           <input
@@ -25182,6 +25301,15 @@ var VideoSession = (function() {
         return mylistApiLoader.addDeflistItem(watchId, description);
       };
 
+      const deflistRemove = ({watchId, token}) => {
+        const mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+        if (token) {
+          mylistApiLoader.setCsrfToken(token);
+        }
+        return mylistApiLoader.removeDeflistItem(watchId);
+      };
+
+
       ZenzaWatch.external = {
         execCommand: command,
         sendCommand: sendCommand,
@@ -25190,6 +25318,7 @@ var VideoSession = (function() {
         send: send,
         sendOrOpen,
         deflistAdd,
+        deflistRemove,
         playlist: {
           add: playlistAdd,
           insert: playlistInsert,

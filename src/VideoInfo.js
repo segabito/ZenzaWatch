@@ -294,6 +294,14 @@ var ZenzaWatch = {
 
     getSeekToken: function() {
       return this._seekToken;
+    },
+
+    getWidth: function() {
+      return parseInt(this._videoDetail.width, 10);
+    },
+
+    getHeight: function() {
+      return parseInt(this._videoDetail.height, 10);
     }
 
    });

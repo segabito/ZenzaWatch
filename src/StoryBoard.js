@@ -230,12 +230,13 @@ var AsyncEmitter = function() {};
     SeekBarThumbnail.BASE_WIDTH  = 160;
     SeekBarThumbnail.BASE_HEIGHT =  90;
 
-    SeekBarThumbnail.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    SeekBarThumbnail.__tpl__ = (`
       <div class="zenzaSeekThumbnail">
         <div class="zenzaSeekThumbnail-image"></div>
       </div>
-    */});
-    SeekBarThumbnail.__css__ = `
+    `).trim();
+
+    SeekBarThumbnail.__css__ = (`
       .error .zenzaSeekThumbnail,
       .loading .zenzaSeekThumbnail {
         display: none !important;
@@ -245,28 +246,31 @@ var AsyncEmitter = function() {};
         display: none;
         pointer-events: none;
       }
-      .dragging .zenzaSeekThumbnail {
-        pointer-events: auto;
-      }
 
       .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
         display: block;
-        width: 160px;
-        height: 90px;
+        width: 180px;
+        height: 100px;
         margin: auto;
         overflow: hidden;
-        box-sizing: content-box;
+        box-sizing: border-box;
+        border: 1px solid #666;
+        border-width: 1px 1px 0 1px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 8px 4px;
+        border-radius: 8px 8px 0 0;
+        z-index: 100;
       }
 
       .zenzaSeekThumbnail-image {
-        margin: 4px;
         background: none repeat scroll 0 0 #999;
         border: 0;
         margin: auto;
         transform-origin: center top;
       }
 
-    `;
+    `).trim();
+
     _.extend(SeekBarThumbnail.prototype, AsyncEmitter.prototype);
     _.assign(SeekBarThumbnail.prototype, {
       initialize: function(params) {
@@ -312,6 +316,8 @@ var AsyncEmitter = function() {};
         };
         if (scale > 1.0) {
           css.transform = 'scale(' + scale + ')';
+        } else {
+          css.transform = '';
         }
 
         this._$image.css(css);
@@ -346,10 +352,12 @@ var AsyncEmitter = function() {};
       show: function() {
         if (!this._$view) { return; }
         this._$view.addClass('show');
+        this.emit('visible', true);
       },
       hide: function() {
         if (!this._$view) { return; }
         this._$view.removeClass('show');
+        this.emit('visible', false);
       },
       initializeView: function() {
         this.initializeView = _.noop;
@@ -988,7 +996,7 @@ var AsyncEmitter = function() {};
       ''].join('');
 
 
-    StoryBoardView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    StoryBoardView.__css__ = (`
       .storyBoardContainer {
         position: fixed;
         top: calc(100vh + 500px);
@@ -1058,20 +1066,20 @@ var AsyncEmitter = function() {};
       .storyBoardContainer .storyBoardInner:hover {
         overflow-x: auto;
       }
-      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar,*}
+      /*.storyBoardContainer .storyBoardInner::-moz-scrollbar,*/
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar {
         width: 6px;
         height: 6px;
         background: rgba(0, 0, 0, 0);
       }
 
-      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-thumb,*}
+      /*.storyBoardContainer .storyBoardInner::-moz-scrollbar-thumb,*/
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar-thumb {
         border-radius: 6px;
         background: #f8f;
       }
 
-      {*.storyBoardContainer .storyBoardInner::-moz-scrollbar-button,*}
+      /*.storyBoardContainer .storyBoardInner::-moz-scrollbar-button,*/
       .storyBoardContainer .storyBoardInner::-webkit-scrollbar-button {
         display: none;
       }
@@ -1161,7 +1169,7 @@ var AsyncEmitter = function() {};
         transition: transform 0.4s ease-out;
       }
 
-    */});
+    `).trim();
 
 
 //===END===

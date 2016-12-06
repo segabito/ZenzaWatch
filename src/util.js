@@ -247,8 +247,9 @@ const PRODUCT = 'ZenzaWatch';
         lastWatchId: 'sm9',
         message: '',
 
-        enableVideoSession: false,
+        enableVideoSession: true,
         enableDmc: false, // 新サーバーを使うかどうか
+        autoDisableDmc: false, // smileのほうが高画質と思われる動画でdmcを無効にする
         dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
 
@@ -1515,7 +1516,7 @@ const PRODUCT = 'ZenzaWatch';
         if (e.ctrlKey || e.altKey) {
           return;
         }
-        var keyCode = e.keyCode + (e.shiftKey ? 0x1000 : 0);
+        var keyCode = e.keyCode + (e.ctrlKey ? 0x10000 : 0) + (e.shiftKey ? 0x1000 : 0);
         var key = '';
         var param = '';
         switch (keyCode) {

@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     0.2.3
+// @version     0.2.4
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -277,6 +277,14 @@
               背景のダブルクリックでプレイヤーを閉じる
             </label>
           </div>
+
+          <div class="autoDisableDmc control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="autoDisableDmc">
+              旧システムのほうが画質が良さそうな時は旧システムにする。(旧システム側が1280x720を超える時)
+            </label>
+          </div>
+
 
 
           <p class="caption sub">NGワード正規表現</p>

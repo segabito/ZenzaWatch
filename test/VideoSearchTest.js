@@ -17,7 +17,7 @@ describe('parseParams', function() {
   console.log(JSON.stringify(p));
   assert.equal(p.query, 'fugafuga');
   assert.equal(p.search.length, 1);
-  assert.equal(p.search[0], 'tags');
+  assert.equal(p.search[0], 'tags_exact');
   assert.equal(p.order, 'desc');
   assert.equal(p.size, 100);
   assert.equal(p.sort_by, 'last_comment_time', 'デフォルトはコメントの新しい順');

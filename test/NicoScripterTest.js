@@ -18,6 +18,28 @@ describe('parseParams', function() {
 
 });
 
+describe('parseNicosParams', function() {
+  var str = '＠置換　U　「( ˘ω˘)ｽﾔｧ」 全';
+  var p = nicos.parseNicosParams(str);
+  console.log(JSON.stringify(p));
+
+  assert.equal(p[0], '＠置換');
+  assert.equal(p[1], 'U');
+  assert.equal(p[2], '( ˘ω˘)ｽﾔｧ');
+  assert.equal(p[3], '全');
+
+  str = '＠置換 U あああ "あああ\'いいい"';
+  p = nicos.parseNicosParams(str);
+  console.log(JSON.stringify(p));
+
+  assert.equal(p[0], '＠置換');
+  assert.equal(p[1], 'U');
+  assert.equal(p[2], 'あああ');
+  assert.equal(p[3], "あああ\'いいい");
+
+
+});
+
 
 // /replace(target:'owner user',src:'~',dest:"\r");/replace(target:'owner user',src:'И',dest:"██");/replace(target:'owner user',src:'Щ',dest:"▇▇");/replace(target:'owner user',src:'Ы',dest:"　　");/replace(target:'owner user',src:'Ф',dest:"  "); B="█"; S="　"; N=" \n"; F=" \n+ \n+ \n+ \n+ \n+ \n+ \n+ \n+ \n+ \n"
 // /def_kari("ss", $1.color=$2; $1.x=$3; $1.y=$4; $1.width=$5; $1.height=$6; $1.alpha=$7||0; $1.shape="rect"; $1.mover=""; $1.pos=""; ($8!=nil).alt(($8.indexOf("c")>=0).alt($1.shape="circle"); ($8.indexOf("sm")>=0).alt($1.mover="smooth");($8.indexOf("si")>=0).alt($1.mover="simple"); ($8.indexOf("hu")>=0).alt($1.pos="hidariue")))

@@ -67,7 +67,7 @@
     const watchId = location.href.split('/').reverse()[0];
 
     const parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*.nicovideo.jp$/)) {
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }

@@ -135,6 +135,69 @@ var AsyncEmitter = {};
 
       return result;
     },
+    _parseNicosParams: function(str) {
+      // 雑なパース
+      var result = [], v = '', lastC = '', quot = '';
+      for (var i = 0, len = str.length; i < len; i++) {
+        var c = str.charAt(i);
+        switch (c) {
+          case ' ': case '　':
+            if (quot) {
+              v+= c;
+            } else {
+              if (v !== '') {
+                result.push(v);
+                v = quot = '';
+              }
+            }
+            break;
+          case "'": case '"':
+            if (v !== '') {
+              if (quot !== c) {
+                v += c;
+              } else {
+                if (lastC === '\\') { v += c; }
+                else {
+                  v = v.replace(/(\\r|\\n)/g, '\n').replace(/(\\t)/g, '\t');
+                  result.push(v);
+                  v = quot = '';
+                }
+              }
+            } else {
+              quot = c;
+            }
+            break;
+          case "「":
+            if (v !== '') {
+              v += c;
+            } else {
+              quot = c;
+            }
+            break;
+          case "」":
+            if (v !== '') {
+              if (quot !== "「") {
+                v += c;
+              } else {
+                if (lastC === '\\') { v += c; }
+                else {
+                  result.push(v);
+                  v = quot = '';
+                }
+              }
+            } else {
+              v += c;
+            }
+            break;
+          default:
+            v += c;
+        }
+        lastC = c;
+      }
+      if (v !== '') { result.push(v.trim()); }
+
+      return result;
+     },
     _splitLines: function(str) {
       var result = [], v = '', lastC = '', isStr = false, quot = '';
       for (var i = 0, len = str.length; i < len; i++) {
@@ -184,7 +247,7 @@ var AsyncEmitter = {};
       };
     },
     _parse置換: function(str) {
-      var tmp = str.split(/[ 　]+/);
+      var tmp = this._parseNicosParams(str);
       //＠置換キーワード置換後置換範囲投コメ一致条件
       return {
         src:  tmp[1],
@@ -195,7 +258,8 @@ var AsyncEmitter = {};
       };
     },
     _parse逆: function(str) {
-      var tmp = str.split(/[ 　]+/);
+      var tmp = this._parseNicosParams(str);
+      //var tmp = str.split(/[ 　]+/);
       //＠逆　投コメ
       var target = (tmp[1] || '').trim();
       //＠置換キーワード置換後置換範囲投コメ一致条件
@@ -249,7 +313,7 @@ var AsyncEmitter = {};
             text = params.dest;
           } else {
             var reg = new RegExp(ZenzaWatch.util.escapeRegs(params.src), 'g');
-            text = text.replace(reg, params.dest);
+            text = text.replace(reg, params.dest.replace(/\$/g, '\\$'));
           }
           nicoChat.setText(text);
 
@@ -267,7 +331,7 @@ var AsyncEmitter = {};
 
         },
         'PIPE': function(nicoChat, nicos, lines) {
-          _.each(lines, function(line) {
+          lines.forEach(function(line) {
             var type = line.type;
             var f = applyFunc[type];
             if (f) {
@@ -277,7 +341,7 @@ var AsyncEmitter = {};
         }
       };
 
-      _.each(this._list, (function(nicos) {
+      this._list.forEach(function(nicos) {
         var p = this._parseNicos(nicos.getText());
         if (!p) { return; }
         var func = applyFunc[p.type];
@@ -289,7 +353,7 @@ var AsyncEmitter = {};
         var endTime   = beginTime + nicos.getDuration();
         //window.console.log('nicos:', nicos.getText(), p.type, beginTime, endTime, nicos, p);
 
-        _.each(group.getMembers ? group.getMembers : group, function(nicoChat) {
+        (group.getMembers ? group.getMembers : group).forEach(function(nicoChat) {
           if (nicoChat.isNicoScript()) { return; }
           var ct = nicoChat.getBeginTime();
           //var et = ct + nicoChat.getDuration();
@@ -300,7 +364,7 @@ var AsyncEmitter = {};
 
           func(nicoChat, nicos, p.params);
         });
-      }).bind(this));
+      }.bind(this));
     }
   });
 
@@ -310,7 +374,8 @@ var AsyncEmitter = {};
 module.exports = {
   hoge: function() { return true; },
   parseParams: NicoScripter.prototype._parseParams,
+  parseNicosParams: NicoScripter.prototype._parseNicosParams,
   splitLines: NicoScripter.prototype._splitLines
 };
 
-
+//＠置換　U　「( ˘ω˘)ｽﾔｧ」 全
