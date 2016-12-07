@@ -71,6 +71,7 @@ var SlotLayoutWorker = {};
       this._model.on('change'      , onCommentChange);
       this._model.on('filterChange', this._onFilterChange.bind(this));
       this._model.on('parsed'      , this._onCommentParsed.bind(this));
+      this._model.on('command'     , this._onCommand.bind(this));
       ZenzaWatch.emitter.on('commentLayoutChange', onCommentChange);
 
       ZenzaWatch.debug.nicoCommentPlayer = this;
@@ -288,9 +289,14 @@ var SlotLayoutWorker = {};
         window.console.time('ニコスクリプト適用');
         nicoScripter.apply(nicoChats);
         window.console.timeEnd('ニコスクリプト適用');
+        const nextVideo = nicoScripter.getNextVideo();
+        window.console.info('nextVideo', nextVideo);
+        if (nextVideo) {
+          this.emitAsync('command', 'nextVideo', nextVideo);
+        }
       }
 
-      _.each(nicoChats, function(nicoChat) {
+      nicoChats.forEach(nicoChat => {
         var type = nicoChat.getType();
         var group;
         switch (type) {

@@ -1149,6 +1149,7 @@ const IchibaLoader = {};
     .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTagsContainer,
     .fullScreen           .zenzaWatchVideoHeaderPanel .videoTagsContainer {
       display: none;
+      width: calc(100% - 240px);
     }
 
     .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer,
@@ -1175,6 +1176,14 @@ const IchibaLoader = {};
       cursor: pointer;
       padding: 2px 0;
     }
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer,
+    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer,
+    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel .videoTitleContainer,
+    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTitleContainer,
+    .fullScreen           .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+      width: calc(100% - 180px);
+    }
+
     .zenzaWatchVideoHeaderPanel .videoTitleContainer:hover {
       background: rgba(102, 102, 102, 0.6);
     }
@@ -1554,7 +1563,7 @@ const IchibaLoader = {};
       const height = rect.bottom - rect.top;
       const top = isOnscreen ? (rect.top - height) : rect.top;
       //window.console.info('resize!', rect, isOnscreen, height, top);
-      view.classList.toggle('is-onscreen', top < -12);
+      view.classList.toggle('is-onscreen', top < -32);
     },
     appendTo: function($node) {
       this._initializeDom();

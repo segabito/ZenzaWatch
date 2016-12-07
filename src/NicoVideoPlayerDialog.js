@@ -1353,6 +1353,7 @@ var CONSTANT = {};
 
       nicoVideoPlayer.on('volumeChange', this._onVolumeChange.bind(this));
       nicoVideoPlayer.on('volumeChange', _.debounce(this._onVolumeChangeEnd.bind(this), 1500));
+      nicoVideoPlayer.on('command', this._onCommand.bind(this));
 
       return nicoVideoPlayer;
     },
@@ -1541,6 +1542,9 @@ var CONSTANT = {};
           break;
         case 'screenShot':
           this._nicoVideoPlayer.getScreenShot();
+          break;
+        case 'nextVideo':
+          this._nextVideo = param;
           break;
         case 'update-forceEconomy':
         case 'update-enableDmc':
@@ -2181,7 +2185,7 @@ var CONSTANT = {};
       ZenzaWatch.emitter.emitAsync('loadVideoInfoFail');
 
       if (e.info && e.info.isPlayable === false && this.isPlaylistEnable()) {
-        ZenzaWatch.util.callAsync(this.playNextVideo, this, 3000);
+        window.setTimeout(() => { this.playNextVideo(); }, 3000);
       }
     },
     _onVideoSessionFail: function(result) {
@@ -2190,7 +2194,7 @@ var CONSTANT = {};
       this._hasError = true;
       this._view.removeClass('loading').addClass('error');
       if (this.isPlaylistEnable()) {
-        ZenzaWatch.util.callAsync(this.playNextVideo, this, 3000);
+        window.setTimeout(() => { this.playNextVideo(); }, 3000);
       }
     },
     _onVideoFilterMatch: function() {
@@ -2199,7 +2203,7 @@ var CONSTANT = {};
       this._hasError = true;
       this.emit('error');
       if (this.isPlaylistEnable()) {
-        ZenzaWatch.util.callAsync(this.playNextVideo, this, 3000);
+        window.setTimeout(() => { this.playNextVideo(); }, 3000);
       }
     },
     _setThumbnail: function(thumbnail) {
@@ -2284,6 +2288,12 @@ var CONSTANT = {};
       // プレイリストによって開かれた時は、自動再生設定に関係なく再生する
       if (this._videoWatchOptions.getEventType() === 'playlist' && this._isOpen) {
         this.play();
+      }
+      if (this._nextVideo) {
+        const nextVideo = this._nextVideo;
+        this._nextVideo = null;
+        this.execCommand('notify', '@ジャンプ: ' + nextVideo);
+        this.execCommand('playlistInsert', nextVideo);
       }
     },
     _onVideoPlay:    function() { this.emit('play'); },

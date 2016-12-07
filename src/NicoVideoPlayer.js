@@ -21,6 +21,7 @@ const CONSTANT = {};
    *
    */
   var NicoVideoPlayer = function() { this.initialize.apply(this, arguments); };
+  _.extend(NicoVideoPlayer.prototype, AsyncEmitter.prototype);
   _.assign(NicoVideoPlayer.prototype, {
     initialize: function(params) {
       var conf = this._playerConfig = params.playerConfig;
@@ -32,6 +33,7 @@ const CONSTANT = {};
           conf.getValue('playbackRate') :
           Math.min(1, conf.getValue('playbackRate'));
 
+      const onCommand = (command, param) => { this.emit('command', command, param); };
       this._videoPlayer = new VideoPlayer({
         volume:       conf.getValue('volume'),
         loop:         conf.getValue('loop'),
@@ -40,6 +42,7 @@ const CONSTANT = {};
         playbackRate,
         debug:        conf.getValue('debug')
       });
+      this._videoPlayer.on('command', onCommand);
 
       this._commentPlayer = new NicoCommentPlayer({
         offScreenLayer: params.offScreenLayer,
@@ -54,6 +57,7 @@ const CONSTANT = {};
         playbackRate,
         sharedNgLevel:  conf.getValue('sharedNgLevel')
       });
+      this._commentPlayer.on('command', onCommand);
 
       this._contextMenu = new VideoContextMenu({
         player: this,
@@ -67,11 +71,6 @@ const CONSTANT = {};
       this._initializeEvents();
 
       this._beginTimer();
-
-      var emitter = new AsyncEmitter();
-      this.on        = _.bind(emitter.on,        emitter);
-      this.emit      = _.bind(emitter.emit,      emitter);
-      this.emitAsync = _.bind(emitter.emitAsync, emitter);
 
       ZenzaWatch.debug.nicoVideoPlayer = this;
     },

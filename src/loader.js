@@ -2264,7 +2264,6 @@ var ajax = function() {};
       };
     })();
 
-
 //===END===
     ZenzaWatch.emitter.on('loadVideoInfo', function(data, type, r) {
       var info = data.flvInfo;
@@ -2282,6 +2281,66 @@ var ajax = function() {};
         }
       );
     });
+
+    /**
+     *
+     */
+    const UadVideoIdFinder = (() => {
+
+      let callbackId = 0;
+
+      const load = (fileId) => {
+        return new Promise((resolve, reject) => {
+          const api = 'http://api.uad.nicovideo.jp/UadsVideoService/getAdvertisingJsonp?';
+          const sc = document.createElement('script');
+
+          let timeoutTimer = null;
+          const funcName = (() => {
+            const funcName = `zenza_uad_callback_${callbackId++}`;
+
+            window[funcName] = (uadData) => {
+              window.console.info(uadData);
+              window.clearTimeout(timeoutTimer);
+              timeoutTimer = null;
+              sc.remove();
+              delete window[funcName];
+
+              let result = {};
+              uadData.forEach(v => {
+                if (v.adfllg) {
+                  result = {
+                    videoId: v.idvideo,
+                    comments: v.comments,
+                    total: v.total,
+                    level: v.level
+                  };
+                }
+              });
+              resolve(result);
+            };
+
+            return funcName;
+          })();
+
+          timeoutTimer = window.setTimeout(() => {
+            sc.remove();
+            delete window[funcName];
+            if (timeoutTimer) { reject(new Error('uad timeout')); }
+          }, 30000);
+
+          const ids = `sm${fileId},nm${fileId},so${fileId}`;
+          const url = `${api}?videoid=${ids}&callback=${funcName}`;
+          sc.src = url;
+          document.body.appendChild(sc);
+        });
+      };
+
+      return {
+        load
+      };
+    })();
+
+
 
 /*
 create_time : 1458338784

@@ -6,6 +6,7 @@ var ZenzaWatch = {
   api: {}
 };
 var AsyncEmitter = {};
+var util = {};
 
 //===BEGIN===
 
@@ -25,6 +26,12 @@ var AsyncEmitter = {};
     },
     isExist: function() {
       return this._list.length > 0;
+    },
+    getNextVideo: function() {
+      return this._nextVideo || '';
+    },
+    getEventScript: function() {
+      return this._eventScript || [];
     },
     _sort: function() {
       if (this._hasSort) { return; }
@@ -51,6 +58,10 @@ var AsyncEmitter = {};
         case '@逆': case '＠逆':
           type = 'REVERSE';
           params = this._parse逆(text);
+          break;
+        case '@ジャンプ': case '＠ジャンプ':
+          params = this._parseジャンプ(text);
+          type = params.type;
           break;
         default:
           if (text.indexOf('@置換') === 0 || text.indexOf('＠置換') === 0) {
@@ -267,6 +278,18 @@ var AsyncEmitter = {};
         target: (target === 'コメ' || target === '投コメ') ? target : '全',
       };
     },
+    _parseジャンプ: function(str) {
+      //＠ジャンプ ジャンプ先 メッセージ 再生開始位置 戻り秒数 戻りメッセージ
+      var tmp = this._parseNicosParams(str);
+      var target = tmp[1] || '';
+      var type = 'JUMP';
+      var time = 0;
+      if (/^#(\d+):(\d+)$/.test(target)) {
+        type = 'SEEK';
+        time = RegExp.$1 * 60 + RegExp.$2 * 1;
+      }
+      return {target, type, time};
+    },
     apply: function(group) {
       this._sort();
       // どうせ全動画の1%も使われていないので
@@ -285,7 +308,7 @@ var AsyncEmitter = {};
           var hasType = nicoChat.hasTypeCommand();
           if (nicosType && !hasType) { nicoChat.setType(nicosType); }
 
-         },
+        },
         'REVERSE': function(nicoChat, nicos, params) {
           if (params.target === '全') {
             nicoChat.setIsReverse(true);
@@ -312,7 +335,7 @@ var AsyncEmitter = {};
           if (params.fill === true) {
             text = params.dest;
           } else {
-            var reg = new RegExp(ZenzaWatch.util.escapeRegs(params.src), 'g');
+            var reg = new RegExp(util.escapeRegs(params.src), 'g');
             text = text.replace(reg, params.dest.replace(/\$/g, '\\$'));
           }
           nicoChat.setText(text);
@@ -331,7 +354,7 @@ var AsyncEmitter = {};
 
         },
         'PIPE': function(nicoChat, nicos, lines) {
-          lines.forEach(function(line) {
+          lines.forEach(line => {
             var type = line.type;
             var f = applyFunc[type];
             if (f) {
@@ -341,30 +364,46 @@ var AsyncEmitter = {};
         }
       };
 
-      this._list.forEach(function(nicos) {
+      this._eventScript = [];
+      this._nextVideo = null;
+      var eventFunc = {
+        'SEEK': (nicos) => {
+          this._eventScript.push(nicos);
+        },
+        'JUMP': (nicos) => {
+          window.console.log('@ジャンプ:', nicos);
+          const target = nicos.params.target;
+          if (/^([a-z]{2}|)[0-9]+$/.test(target)) {
+            this._nextVideo = target;
+          }
+        }
+      };
+      
+
+      this._list.forEach((nicos) => {
         var p = this._parseNicos(nicos.getText());
         if (!p) { return; }
+        if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
+
+        var ev = eventFunc[p.type];
+
+        if (ev) { return ev(p); }
+
         var func = applyFunc[p.type];
         if (!func) { return; }
 
-        if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
-
         var beginTime = nicos.getBeginTime();
         var endTime   = beginTime + nicos.getDuration();
-        //window.console.log('nicos:', nicos.getText(), p.type, beginTime, endTime, nicos, p);
 
-        (group.getMembers ? group.getMembers : group).forEach(function(nicoChat) {
+        (group.getMembers ? group.getMembers : group).forEach((nicoChat) => {
           if (nicoChat.isNicoScript()) { return; }
           var ct = nicoChat.getBeginTime();
-          //var et = ct + nicoChat.getDuration();
-          //if (ct === beginTime && nicoChat.getId() < nicos.getId()) { return; }
-          //else
+
           if (beginTime > ct || endTime < ct) { return; }
-          //if (beginTime > et || endTime < et) { return; }
 
           func(nicoChat, nicos, p.params);
         });
-      }.bind(this));
+      });
     }
   });
 
