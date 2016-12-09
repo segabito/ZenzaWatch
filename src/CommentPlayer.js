@@ -346,6 +346,7 @@ var SlotLayoutWorker = {};
       };
 
       _.each(Object.keys(replacement), function(key) {
+        if (!key) { return; }
         var val = replacement[key];
         window.console.log('コメント置換フィルタ: "%s" => "%s"', key, val);
 

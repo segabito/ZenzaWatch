@@ -504,6 +504,7 @@ var AsyncEmitter = function() {};
       },
       _onClick: function(e) {
         const watchId = this._watchId;
+        if (e.ctrlKey) { return; }
 
         if (e.shiftKey) {
           // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く
@@ -550,6 +551,7 @@ var AsyncEmitter = function() {};
       },
       _overrideGinzaLink: function() {
         $('body').on('click', 'a[href*="watch/"]', (e) => {
+          if (e.ctrlKey) { return; }
           if (e.target !== this._hoverElement) { return; }
 
           var $target = $(e.target).closest('a');
