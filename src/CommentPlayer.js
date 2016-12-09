@@ -224,14 +224,10 @@ var SlotLayoutWorker = {};
   var NicoComment = function() { this.initialize.apply(this, arguments); };
   NicoComment.MAX_COMMENT = 5000;
 
+  _.extend(NicoComment.prototype, AsyncEmitter.prototype);
   _.assign(NicoComment.prototype, {
     initialize: function(params) {
       this._currentTime = 0;
-      var emitter = new AsyncEmitter();
-      this.on        = emitter.on       .bind(emitter);
-      this.emit      = emitter.emit     .bind(emitter);
-      this.emitAsync = emitter.emitAsync.bind(emitter);
-
 
       params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
       this._nicoChatFilter.on('change', this._onFilterChange.bind(this));
@@ -239,6 +235,11 @@ var SlotLayoutWorker = {};
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._nakaGroup   = new NicoChatGroup(this, NicoChat.TYPE.NAKA  , params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
+
+      this._nicoScripter = new NicoScripter();
+      this._nicoScripter.on('command', (command, param) => {
+        this.emit('command', command, param);
+      });
 
       var onChange = _.debounce(this._onChange.bind(this), 100);
       this._topGroup   .on('change', onChange);
@@ -256,9 +257,10 @@ var SlotLayoutWorker = {};
       this._topGroup.reset();
       this._nakaGroup.reset();
       this._bottomGroup.reset();
-      var nicoScripter = this._nicoScripter = new NicoScripter();
+      var nicoScripter = this._nicoScripter;
       var nicoChats = [];
 
+      nicoScripter.reset();
       var chats = xml.getElementsByTagName('chat');
       var top = [], bottom = [], naka = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
@@ -285,7 +287,7 @@ var SlotLayoutWorker = {};
         this._wordReplacer = null;
       }
 
-      if (nicoScripter.isExist()) {
+      if (nicoScripter.isExist) {
         window.console.time('ニコスクリプト適用');
         nicoScripter.apply(nicoChats);
         window.console.timeEnd('ニコスクリプト適用');
@@ -392,7 +394,7 @@ var SlotLayoutWorker = {};
         nicoChat.setText(this._wordReplacer(nicoChat.getText()));
       }
 
-      if (this._nicoScripter.isExist()) {
+      if (this._nicoScripter.isExist) {
         window.console.time('ニコスクリプト適用');
         this._nicoScripter.apply([nicoChat]);
         window.console.timeEnd('ニコスクリプト適用');
@@ -447,6 +449,8 @@ var SlotLayoutWorker = {};
       this._topGroup   .setCurrentTime(sec);
       this._nakaGroup.setCurrentTime(sec);
       this._bottomGroup.setCurrentTime(sec);
+
+      this._nicoScripter.currentTime = sec;
 
       this.emit('currentTime', sec);
     },

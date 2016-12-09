@@ -24,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.7.10
+// @version        1.7.11
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -36,7 +36,7 @@ var monkey = function(PRODUCT) {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.7.10';
+  var VER = '1.7.11';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -10162,14 +10162,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   var NicoComment = function() { this.initialize.apply(this, arguments); };
   NicoComment.MAX_COMMENT = 5000;
 
+  _.extend(NicoComment.prototype, AsyncEmitter.prototype);
   _.assign(NicoComment.prototype, {
     initialize: function(params) {
       this._currentTime = 0;
-      var emitter = new AsyncEmitter();
-      this.on        = emitter.on       .bind(emitter);
-      this.emit      = emitter.emit     .bind(emitter);
-      this.emitAsync = emitter.emitAsync.bind(emitter);
-
 
       params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
       this._nicoChatFilter.on('change', this._onFilterChange.bind(this));
@@ -10177,6 +10173,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._topGroup    = new NicoChatGroup(this, NicoChat.TYPE.TOP,    params);
       this._nakaGroup   = new NicoChatGroup(this, NicoChat.TYPE.NAKA  , params);
       this._bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
+
+      this._nicoScripter = new NicoScripter();
+      this._nicoScripter.on('command', (command, param) => {
+        this.emit('command', command, param);
+      });
 
       var onChange = _.debounce(this._onChange.bind(this), 100);
       this._topGroup   .on('change', onChange);
@@ -10194,9 +10195,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._topGroup.reset();
       this._nakaGroup.reset();
       this._bottomGroup.reset();
-      var nicoScripter = this._nicoScripter = new NicoScripter();
+      var nicoScripter = this._nicoScripter;
       var nicoChats = [];
 
+      nicoScripter.reset();
       var chats = xml.getElementsByTagName('chat');
       var top = [], bottom = [], naka = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
@@ -10223,7 +10225,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         this._wordReplacer = null;
       }
 
-      if (nicoScripter.isExist()) {
+      if (nicoScripter.isExist) {
         window.console.time('ニコスクリプト適用');
         nicoScripter.apply(nicoChats);
         window.console.timeEnd('ニコスクリプト適用');
@@ -10330,7 +10332,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         nicoChat.setText(this._wordReplacer(nicoChat.getText()));
       }
 
-      if (this._nicoScripter.isExist()) {
+      if (this._nicoScripter.isExist) {
         window.console.time('ニコスクリプト適用');
         this._nicoScripter.apply([nicoChat]);
         window.console.timeEnd('ニコスクリプト適用');
@@ -10385,6 +10387,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._topGroup   .setCurrentTime(sec);
       this._nakaGroup.setCurrentTime(sec);
       this._bottomGroup.setCurrentTime(sec);
+
+      this._nicoScripter.currentTime = sec;
 
       this.emit('currentTime', sec);
     },
@@ -13663,6 +13667,13 @@ var SlotLayoutWorker = (function() {
 
   class NicoScriptParser {
 
+    static get parseId() {
+      if (!NicoScriptParser._count) {
+        NicoScriptParser._count = 1;
+      }
+      return NicoScriptParser._count++;
+    }
+
     static parseNiwango(lines) {
       // 構文はいったん無視して、対応できる命令だけ拾っていく。
       // ニワン語のフル実装は夢
@@ -13671,12 +13682,16 @@ var SlotLayoutWorker = (function() {
       for (let i = 0, len = lines.length; i < len; i++) {
         let text = lines[i];
         //window.console.info('parseNiwango', text);
+        const id = NicoScriptParser.parseId;
         if (text.match(/^\/?replace\((.*?)\)/)) {
           type = 'REPLACE';
           params = NicoScriptParser.parseReplace(RegExp.$1);
-          result.push({type, params});
+          result.push({id, type, params});
         } else if (text.match(/^\/?commentColor\s*=\s*0x([0-9a-f]{6})/i)) {
-          result.push({type: 'COLOR', params: {color: '#' + RegExp.$1}});
+          result.push({id, type: 'COLOR', params: {color: '#' + RegExp.$1}});
+        } else if (text.match(/^\/?seek\((.*?)\)/i)) {
+          params = NicoScriptParser.parseSeek(RegExp.$1);
+          result.push({id, type: 'SEEK', params});
         }
       }
       return result;
@@ -13832,10 +13847,9 @@ var SlotLayoutWorker = (function() {
             params = NicoScriptParser.parseNiwango(lines);
           }
       }
-      return {
-        type: type,
-        params: params
-      };
+
+      const id = NicoScriptParser.parseId;
+      return {id, type, params};
     }
 
     static splitLines(str) {
@@ -13890,6 +13904,17 @@ var SlotLayoutWorker = (function() {
     }
 
 
+    static parseSeek(str) {
+      let result = NicoScriptParser.parseParams(str);
+      //window.console.info('parseSeek', result);
+      if (!result) { return null; }
+      return {
+        time: result.vpos
+      };
+    }
+
+
+
     static parse置換(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
       //＠置換キーワード置換後置換範囲投コメ一致条件
@@ -13902,6 +13927,7 @@ var SlotLayoutWorker = (function() {
       };
     }
 
+
     static parse逆(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
       //var tmp = str.split(/[ 　]+/);
@@ -13913,6 +13939,7 @@ var SlotLayoutWorker = (function() {
       };
     }
 
+
     static parseジャンプ(str) {
       //＠ジャンプ ジャンプ先 メッセージ 再生開始位置 戻り秒数 戻りメッセージ
       let tmp = NicoScriptParser.parseNicosParams(str);
@@ -13923,11 +13950,12 @@ var SlotLayoutWorker = (function() {
         type = 'SEEK';
         time = RegExp.$1 * 60 + RegExp.$2 * 1;
       } else if (/^(#|＃)(.+)/.test(target)) {
-        type = 'SEEK_LABEL';
+        type = 'SEEK_MARKER';
         time = RegExp.$2;
       }
       return {target, type, time};
     }
+
 
     static parseジャンプマーカー(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
@@ -13940,12 +13968,19 @@ var SlotLayoutWorker = (function() {
 
   class NicoScripter extends AsyncEmitter {
     constructor() {
+      super();
       this.reset();
     }
 
     reset() {
       this._hasSort = false;
       this._list = [];
+      this._eventScript = [];
+      this._nextVideo = null;
+      this._marker = {};
+      this._inviewEvents = {};
+      this._currentTime = 0;
+      this._eventId = 0;
     }
 
     add(nicoChat) {
@@ -13953,7 +13988,7 @@ var SlotLayoutWorker = (function() {
       this._list.push(nicoChat);
     }
 
-    isExist() {
+    get isExist() {
       return this._list.length > 0;
     }
 
@@ -13963,6 +13998,17 @@ var SlotLayoutWorker = (function() {
 
     getEventScript() {
       return this._eventScript || [];
+    }
+
+    get currentTime() {
+      return this._currentTime;
+    }
+
+    set currentTime(v) {
+      this._currentTime = v;
+      if (this._eventScript.length > 0) {
+        this._updateInviewEvents();
+      }
     }
 
     _sort() {
@@ -13979,10 +14025,63 @@ var SlotLayoutWorker = (function() {
       this._hasSort = true;
     }
 
+    _updateInviewEvents() {
+      const ct = this._currentTime;
+      this._eventScript.forEach(({p, nicos}) => {
+        const beginTime = nicos.getVpos() / 100;
+        const endTime   = beginTime + nicos.getDuration();
+        if (beginTime > ct || endTime < ct) {
+          this._inviewEvents[p.id] = false;
+          return;
+        }
+        if (this._inviewEvents[p.id]) { return; }
+        this._inviewEvents[p.id] = true;
+        //window.console.log('nicosEvent', p, nicos);
+        switch (p.type) {
+          case 'SEEK':
+            this.emit('command', 'nicosSeek', p.params.time);
+            break;
+          case 'SEEK_MARKER':
+            let time = this._marker[p.params.time] || 0;
+            this.emit('command', 'nicosSeek', time);
+            break;
+        }
+      });
+    }
+
     apply(group) {
       this._sort();
+      const assigned = {};
+
       // どうせ全動画の1%も使われていないので
       // 最適化もへったくれもない
+      const eventFunc = {
+        'JUMP': (p, nicos) => {
+          console.log('@ジャンプ: ', p, nicos);
+          const target = p.params.target;
+          if (/^([a-z]{2}|)[0-9]+$/.test(target)) {
+            this._nextVideo = target;
+          }
+        },
+        'SEEK': (p, nicos) => {
+          if (assigned[p.id]) { return; }
+          assigned[p.id] = true;
+          console.log('SEEK: ', p, nicos);
+          this._eventScript.push({p, nicos});
+        },
+        'SEEK_MARKER': (p, nicos) => {
+          if (assigned[p.id]) { return; }
+          assigned[p.id] = true;
+
+          console.log('SEEK_MARKER: ', p, nicos);
+          this._eventScript.push({p, nicos});
+        },
+        'MARKER': (p, nicos) => {
+          console.log('@ジャンプマーカー: ', p, nicos);
+          this._marker[p.params.name] = nicos.getVpos() / 100;
+        }
+      };
+
       const applyFunc = {
         'DEFAULT': function(nicoChat, nicos) {
           let nicosColor = nicos.getColor();
@@ -14050,6 +14149,9 @@ var SlotLayoutWorker = (function() {
         'PIPE': function(nicoChat, nicos, lines) {
           lines.forEach(line => {
             let type = line.type;
+            let ev = eventFunc[type];
+            if (ev) { return ev(line, nicos); }
+
             let f = applyFunc[type];
             if (f) {
               f(nicoChat, nicos, line.params);
@@ -14058,34 +14160,7 @@ var SlotLayoutWorker = (function() {
         }
       };
 
-      this._eventScript = [];
-      this._nextVideo = null;
-      this._label = {};
-      const eventFunc = {
-        'JUMP': (p, nicos) => {
-          window.console.log('@ジャンプ: ', p, nicos);
-          const target = p.params.target;
-          if (/^([a-z]{2}|)[0-9]+$/.test(target)) {
-            this._nextVideo = target;
-          }
-        },
-        'SEEK': (p, nicos) => {
-          window.console.log('SEEK: ', p, nicos);
-          this._eventScript.push({p, nicos});
-        },
-        'SEEK_LABEL': (p, nicos) => {
-          window.console.log('SEEK_LABEL: ', p, nicos);
-          const target = p.params.target;
-          if (/^([a-z]{2}|)[0-9]+$/.test(target)) {
-            this._nextVideo = target;
-          }
-        },
-        'MARKER': (p, nicos) => {
-          window.console.log('@ジャンプマーカー: ', p, nicos);
-          this._label[p.params.name] = nicos.getVpos() / 100;
-        }
-      };
-      
+
 
       this._list.forEach((nicos) => {
         let p = NicoScriptParser.parseNicos(nicos.getText());
@@ -19578,6 +19653,9 @@ var VideoSession = (function() {
         case 'nextVideo':
           this._nextVideo = param;
           break;
+        case 'nicosSeek':
+          this._onNicosSeek(param);
+          break;
         case 'update-forceEconomy':
         case 'update-enableDmc':
         case 'update-dmcVideoQuality':
@@ -19995,6 +20073,16 @@ var VideoSession = (function() {
       config.setValue('userIdFilter',  filter.getUserIdFilterList());
       config.setValue('commandFilter', filter.getCommandFilterList());
       this.emit('commentFilterChange', filter);
+    },
+    _onNicosSeek: function(time) {
+      const ct = this.getCurrentTime();
+      window.console.info('nicosSeek!', time);
+      if (this.isPlaylistEnable()) {
+        // 連続再生中は後方へのシークのみ有効にする
+        if (ct < time) { this.execCommand('seek', time); }
+      } else {
+        this.execCommand('seek', time);
+      }
     },
     show: function() {
       this._view.show();

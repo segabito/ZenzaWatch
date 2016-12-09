@@ -1546,6 +1546,9 @@ var CONSTANT = {};
         case 'nextVideo':
           this._nextVideo = param;
           break;
+        case 'nicosSeek':
+          this._onNicosSeek(param);
+          break;
         case 'update-forceEconomy':
         case 'update-enableDmc':
         case 'update-dmcVideoQuality':
@@ -1963,6 +1966,16 @@ var CONSTANT = {};
       config.setValue('userIdFilter',  filter.getUserIdFilterList());
       config.setValue('commandFilter', filter.getCommandFilterList());
       this.emit('commentFilterChange', filter);
+    },
+    _onNicosSeek: function(time) {
+      const ct = this.getCurrentTime();
+      window.console.info('nicosSeek!', time);
+      if (this.isPlaylistEnable()) {
+        // 連続再生中は後方へのシークのみ有効にする
+        if (ct < time) { this.execCommand('seek', time); }
+      } else {
+        this.execCommand('seek', time);
+      }
     },
     show: function() {
       this._view.show();

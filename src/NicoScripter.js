@@ -13,6 +13,13 @@ var util = {};
 
   class NicoScriptParser {
 
+    static get parseId() {
+      if (!NicoScriptParser._count) {
+        NicoScriptParser._count = 1;
+      }
+      return NicoScriptParser._count++;
+    }
+
     static parseNiwango(lines) {
       // 構文はいったん無視して、対応できる命令だけ拾っていく。
       // ニワン語のフル実装は夢
@@ -21,12 +28,16 @@ var util = {};
       for (let i = 0, len = lines.length; i < len; i++) {
         let text = lines[i];
         //window.console.info('parseNiwango', text);
+        const id = NicoScriptParser.parseId;
         if (text.match(/^\/?replace\((.*?)\)/)) {
           type = 'REPLACE';
           params = NicoScriptParser.parseReplace(RegExp.$1);
-          result.push({type, params});
+          result.push({id, type, params});
         } else if (text.match(/^\/?commentColor\s*=\s*0x([0-9a-f]{6})/i)) {
-          result.push({type: 'COLOR', params: {color: '#' + RegExp.$1}});
+          result.push({id, type: 'COLOR', params: {color: '#' + RegExp.$1}});
+        } else if (text.match(/^\/?seek\((.*?)\)/i)) {
+          params = NicoScriptParser.parseSeek(RegExp.$1);
+          result.push({id, type: 'SEEK', params});
         }
       }
       return result;
@@ -182,10 +193,9 @@ var util = {};
             params = NicoScriptParser.parseNiwango(lines);
           }
       }
-      return {
-        type: type,
-        params: params
-      };
+
+      const id = NicoScriptParser.parseId;
+      return {id, type, params};
     }
 
     static splitLines(str) {
@@ -240,6 +250,17 @@ var util = {};
     }
 
 
+    static parseSeek(str) {
+      let result = NicoScriptParser.parseParams(str);
+      //window.console.info('parseSeek', result);
+      if (!result) { return null; }
+      return {
+        time: result.vpos
+      };
+    }
+
+
+
     static parse置換(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
       //＠置換キーワード置換後置換範囲投コメ一致条件
@@ -252,6 +273,7 @@ var util = {};
       };
     }
 
+
     static parse逆(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
       //var tmp = str.split(/[ 　]+/);
@@ -263,6 +285,7 @@ var util = {};
       };
     }
 
+
     static parseジャンプ(str) {
       //＠ジャンプ ジャンプ先 メッセージ 再生開始位置 戻り秒数 戻りメッセージ
       let tmp = NicoScriptParser.parseNicosParams(str);
@@ -273,11 +296,12 @@ var util = {};
         type = 'SEEK';
         time = RegExp.$1 * 60 + RegExp.$2 * 1;
       } else if (/^(#|＃)(.+)/.test(target)) {
-        type = 'SEEK_LABEL';
+        type = 'SEEK_MARKER';
         time = RegExp.$2;
       }
       return {target, type, time};
     }
+
 
     static parseジャンプマーカー(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
@@ -290,12 +314,19 @@ var util = {};
 
   class NicoScripter extends AsyncEmitter {
     constructor() {
+      super();
       this.reset();
     }
 
     reset() {
       this._hasSort = false;
       this._list = [];
+      this._eventScript = [];
+      this._nextVideo = null;
+      this._marker = {};
+      this._inviewEvents = {};
+      this._currentTime = 0;
+      this._eventId = 0;
     }
 
     add(nicoChat) {
@@ -303,7 +334,7 @@ var util = {};
       this._list.push(nicoChat);
     }
 
-    isExist() {
+    get isExist() {
       return this._list.length > 0;
     }
 
@@ -313,6 +344,17 @@ var util = {};
 
     getEventScript() {
       return this._eventScript || [];
+    }
+
+    get currentTime() {
+      return this._currentTime;
+    }
+
+    set currentTime(v) {
+      this._currentTime = v;
+      if (this._eventScript.length > 0) {
+        this._updateInviewEvents();
+      }
     }
 
     _sort() {
@@ -329,10 +371,63 @@ var util = {};
       this._hasSort = true;
     }
 
+    _updateInviewEvents() {
+      const ct = this._currentTime;
+      this._eventScript.forEach(({p, nicos}) => {
+        const beginTime = nicos.getVpos() / 100;
+        const endTime   = beginTime + nicos.getDuration();
+        if (beginTime > ct || endTime < ct) {
+          this._inviewEvents[p.id] = false;
+          return;
+        }
+        if (this._inviewEvents[p.id]) { return; }
+        this._inviewEvents[p.id] = true;
+        //window.console.log('nicosEvent', p, nicos);
+        switch (p.type) {
+          case 'SEEK':
+            this.emit('command', 'nicosSeek', p.params.time);
+            break;
+          case 'SEEK_MARKER':
+            let time = this._marker[p.params.time] || 0;
+            this.emit('command', 'nicosSeek', time);
+            break;
+        }
+      });
+    }
+
     apply(group) {
       this._sort();
+      const assigned = {};
+
       // どうせ全動画の1%も使われていないので
       // 最適化もへったくれもない
+      const eventFunc = {
+        'JUMP': (p, nicos) => {
+          console.log('@ジャンプ: ', p, nicos);
+          const target = p.params.target;
+          if (/^([a-z]{2}|)[0-9]+$/.test(target)) {
+            this._nextVideo = target;
+          }
+        },
+        'SEEK': (p, nicos) => {
+          if (assigned[p.id]) { return; }
+          assigned[p.id] = true;
+          console.log('SEEK: ', p, nicos);
+          this._eventScript.push({p, nicos});
+        },
+        'SEEK_MARKER': (p, nicos) => {
+          if (assigned[p.id]) { return; }
+          assigned[p.id] = true;
+
+          console.log('SEEK_MARKER: ', p, nicos);
+          this._eventScript.push({p, nicos});
+        },
+        'MARKER': (p, nicos) => {
+          console.log('@ジャンプマーカー: ', p, nicos);
+          this._marker[p.params.name] = nicos.getVpos() / 100;
+        }
+      };
+
       const applyFunc = {
         'DEFAULT': function(nicoChat, nicos) {
           let nicosColor = nicos.getColor();
@@ -400,6 +495,9 @@ var util = {};
         'PIPE': function(nicoChat, nicos, lines) {
           lines.forEach(line => {
             let type = line.type;
+            let ev = eventFunc[type];
+            if (ev) { return ev(line, nicos); }
+
             let f = applyFunc[type];
             if (f) {
               f(nicoChat, nicos, line.params);
@@ -408,34 +506,7 @@ var util = {};
         }
       };
 
-      this._eventScript = [];
-      this._nextVideo = null;
-      this._label = {};
-      const eventFunc = {
-        'JUMP': (p, nicos) => {
-          window.console.log('@ジャンプ: ', p, nicos);
-          const target = p.params.target;
-          if (/^([a-z]{2}|)[0-9]+$/.test(target)) {
-            this._nextVideo = target;
-          }
-        },
-        'SEEK': (p, nicos) => {
-          window.console.log('SEEK: ', p, nicos);
-          this._eventScript.push({p, nicos});
-        },
-        'SEEK_LABEL': (p, nicos) => {
-          window.console.log('SEEK_LABEL: ', p, nicos);
-          const target = p.params.target;
-          if (/^([a-z]{2}|)[0-9]+$/.test(target)) {
-            this._nextVideo = target;
-          }
-        },
-        'MARKER': (p, nicos) => {
-          window.console.log('@ジャンプマーカー: ', p, nicos);
-          this._label[p.params.name] = nicos.getVpos() / 100;
-        }
-      };
-      
+
 
       this._list.forEach((nicos) => {
         let p = NicoScriptParser.parseNicos(nicos.getText());
