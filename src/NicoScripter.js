@@ -382,14 +382,15 @@ var util = {};
         }
         if (this._inviewEvents[p.id]) { return; }
         this._inviewEvents[p.id] = true;
-        //window.console.log('nicosEvent', p, nicos);
+        let diff = nicos.getVpos() / 100 - ct;
+        diff = Math.min(1, Math.abs(diff)) * (diff / Math.abs(diff));
         switch (p.type) {
           case 'SEEK':
-            this.emit('command', 'nicosSeek', p.params.time);
+            this.emit('command', 'nicosSeek', p.params.time + diff);
             break;
           case 'SEEK_MARKER':
             let time = this._marker[p.params.time] || 0;
-            this.emit('command', 'nicosSeek', time);
+            this.emit('command', 'nicosSeek', time + diff);
             break;
         }
       });

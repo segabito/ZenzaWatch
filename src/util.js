@@ -461,7 +461,7 @@ const PRODUCT = 'ZenzaWatch';
     ZenzaWatch.config = Config;
 
     var dummyConsole = {
-      log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop
+      log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop, info: _.noop
     };
     console = Config.getValue('debug') ? window.console : dummyConsole;
     Config.on('update-debug', function(v) {
@@ -1462,6 +1462,12 @@ const PRODUCT = 'ZenzaWatch';
           Promise.resolve();
         });
       });
+    };
+
+    ZenzaWatch.util.secToTime = function(sec) {
+      var m = Math.floor(sec / 60);
+      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+      return [m, s].join(':');
     };
 
     var ShortcutKeyEmitter = (function(config) {

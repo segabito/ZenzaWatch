@@ -4,6 +4,7 @@ var ZenzaWatch = {
   util:{},
   debug: {}
 };
+var PlaybackPosition = {};
 var FullScreen = {};
 var VideoInfoLoader = {};
 var PopupMessage = {};
@@ -962,14 +963,11 @@ var CONSTANT = {};
           onMouseMove(e);
           onMouseMoveEnd(e);
         });
-//        .on('mousedown', onMouseMove)
-//        .on('mousedown', onMouseMoveEnd);
 
       $dialog
         .on('click', this._onClick.bind(this))
         .on('dblclick', (e) => {
           if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') { return; }
-          //window.console.log('mousedown', e, e.target);
           if (config.getValue('enableDblclickClose')) {
             this.emit('command', 'close');
           }
@@ -1283,6 +1281,8 @@ var CONSTANT = {};
         this._playerConfig.getValue('videoTagFilter')
       );
 
+      this._savePlaybackPosition =
+        _.throttle(this._savePlaybackPosition.bind(this), 1000, {trailing: false});
       this._dynamicCss = new DynamicCss({playerConfig: this._playerConfig});
     },
     _initializeDom: function() {
@@ -2007,6 +2007,7 @@ var CONSTANT = {};
       if (!nicoVideoPlayer) {
         nicoVideoPlayer = this._initializeNicoVideoPlayer();
       } else {
+        this._savePlaybackPosition(this._watchId, this.getCurrentTime());
         nicoVideoPlayer.close();
         this._videoInfoPanel.clear();
         this.emit('beforeVideoOpen');
@@ -2311,7 +2312,10 @@ var CONSTANT = {};
     },
     _onVideoPlay:    function() { this.emit('play'); },
     _onVideoPlaying: function() { this.emit('playing'); },
-    _onVideoPause:   function() { this.emit('pause'); },
+    _onVideoPause:   function() {
+      this._savePlaybackPosition(this._watchId, this.getCurrentTime());
+      this.emit('pause');
+    },
     _onVideoStalled: function() { this.emit('stalled'); },
     _onVideoProgress: function(range, currentTime) {
       this.emit('progress', range, currentTime);
@@ -2350,6 +2354,7 @@ var CONSTANT = {};
     _onVideoEnded: function() {
       // ループ再生中は飛んでこない
       this.emitAsync('ended');
+      this._savePlaybackPosition(this._watchId, 0);
       if (this.isPlaylistEnable() && this._playlist.hasNext()) {
         this.playNextVideo({eventType: 'playlist'});
         return;
@@ -2372,7 +2377,25 @@ var CONSTANT = {};
     _onVolumeChangeEnd: function(vol, mute) {
       this.emit('volumeChangeEnd', vol, mute);
     },
+    _savePlaybackPosition: function(watchId, ct) {
+      const vi = this._videoInfo;
+      //const ct = this.getCurrentTime();
+      const dr = this.getDuration();
+      console.info(
+        '%csave PlaybackPosition:', 'background: cyan', ct, dr, vi.csrfToken);
+      if (vi.getWatchId() !== watchId) { return; }
+      if (Math.abs(ct - dr) < 3) { return; }
+      if (dr < 120) { return; } // 短い動画は記録しない
+      PlaybackPosition.record(
+        watchId,
+        ct,
+        vi.csrfToken
+      );
+    },
     close: function() {
+      if (this.isPlaying()) {
+        this._savePlaybackPosition(this._watchId, this.getCurrentTime());
+      }
       if (FullScreen.now()) {
         FullScreen.cancel();
       }
@@ -2459,7 +2482,7 @@ var CONSTANT = {};
         this._nicoVideoPlayer.togglePlay();
       }
     },
-     setVolume: function(v) {
+    setVolume: function(v) {
       if (this._nicoVideoPlayer) {
         this._nicoVideoPlayer.setVolume(v);
       }

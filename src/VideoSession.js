@@ -12,7 +12,7 @@ const ajax = function() {};
 
 //===BEGIN===
 
-var VideoSession = (function() {
+const VideoSession = (function() {
 
   const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 15min
   const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec

@@ -697,7 +697,43 @@ const IchibaLoader = {};
       background: #ccc;
     }
 
+    .zenzaWatchVideoInfoPanel .resumePlay {
+      display: none;
+      font-size: 14px;
+      padding: 8px 8px;
+      cursor: pointer;
+      border-radius: 0;
+      margin: 0 8px;
+      box-shadow: 4px 4px 0 #222;
+      background: #666;
+      color: #ccc;
+      border: none;
+      outline: none;
+      line-height: 20px;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+    }
+    .zenzaWatchVideoInfoPanel .resumePlay.is-resumePlayable {
+      display: block;
+    }
+    .zenzaWatchVideoInfoPanel .resumePlay:hover {
+      background: #666;
+      transition:
+        0.2s transform ease,
+        0.2s box-shadow ease
+        ;
+    }
 
+    .zenzaWatchVideoInfoPanel .resumePlay:active {
+      transform: translate(4px, 4px);
+      box-shadow: none;
+      transition: none;
+    }
+
+    .zenzaWatchVideoInfoPanel .resumePlay:::after {
+      opacity: 0;
+    }
   `).trim();
 
   VideoInfoPanel.__tpl__ = (`
@@ -724,6 +760,9 @@ const IchibaLoader = {};
           </div>
           <div class="publicStatus"></div>
 
+          <button class="resumePlay" data-command="seek" data-param="0" type="button">
+            前回の続きから再生 (<span class="resumePlayPoint">00:00</span>)
+          </button>
           <div class="videoDescription">
           </div>
 
@@ -782,6 +821,13 @@ const IchibaLoader = {};
       this._ichibaItemView = new IchibaItemView(
         {parentNode: this._ichibaContainer});
 
+      this._resumePlayButton = view.querySelector('.resumePlay');
+      this._resumePlayPoint  = view.querySelector('.resumePlayPoint');
+      this._resumePlayButton.addEventListener('click', () => {
+        this._onCommand(
+          'command', 'seek', this._resumePlayButton.getAttribute('data-param'));
+      });
+
       this._$tabSelect = $view.find('.tabSelect');
       $view.on('click', '.tabSelect', (e) => {
         var $target = $(e.target).closest('.tabSelect');
@@ -831,6 +877,11 @@ const IchibaLoader = {};
 
       this._ichibaItemView.clear();
       this._ichibaItemView.videoId = videoInfo.getVideoId();
+
+      const pt = videoInfo.initialPlaybackTime;
+      this._resumePlayPoint.textContent = util.secToTime(pt);
+      this._resumePlayButton.classList.toggle('is-resumePlayable', pt > 0);
+      this._resumePlayButton.setAttribute('data-param', pt);
     },
     /**
      * 説明文中のurlの自動リンク等の処理
@@ -2113,14 +2164,12 @@ const IchibaLoader = {};
     }
 
     _initDom(...args) {
-      //window.console.info('IchibaItemView#_initDom');
       super._initDom(...args);
 
       this._listContainer = this._view.querySelector('.ichibaItemListContainer');
     }
 
     _onCommand(command, param) {
-      //window.console.info('IchibaItemView#_onCommand', command, param);
       switch(command) {
         case 'load':
           this.load(this._videoId);

@@ -127,9 +127,8 @@ var ZenzaWatch = {
     }
   }
 
-  var VideoInfoModel = function() { this.initialize.apply(this, arguments); };
-  _.assign(VideoInfoModel.prototype, {
-    initialize: function(info) {
+  class VideoInfoModel {
+    constructor(info) {
       this._rawData = info;
       this._watchApiData = info.watchApiData;
       this._videoDetail  = info.watchApiData.videoDetail;
@@ -142,103 +141,105 @@ var ZenzaWatch = {
       this._playlistToken = info.playlistToken;
       this._watchAuthKey = info.watchAuthKey;
       this._seekToken    = info.seekToken;
+      this._resumeInfo   = info.resumeInfo || {};
 
       if (!ZenzaWatch.debug.videoInfo) { ZenzaWatch.debug.videoInfo = {}; }
       ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
-    },
-    getTitle: function() {
+    }
+
+    getTitle() {
       return this._videoDetail.title_original || this._videoDetail.title;
-    },
-    getDescription: function() {
+    }
+    getDescription() {
       return this._videoDetail.description || '';
-    },
+    }
     /**
      * マイリスト等がリンクになっていない物
      */
-    getDescriptionOriginal: function() {
+    getDescriptionOriginal() {
       return this._videoDetail.description_original;
-    },
-    getPostedAt: function() {
+    }
+    getPostedAt() {
       return this._videoDetail.postedAt;
-    },
-    getThumbnail: function() {
+    }
+    getThumbnail() {
       return this._videoDetail.thumbnail;
-    },
+    }
     /**
      * 大きいサムネがあればそっちを返す
      */
-    getBetterThumbnail: function() {
+    getBetterThumbnail() {
       return this._rawData.thumbnail;
-    },
-    getVideoUrl: function() {
+    }
+    getVideoUrl() {
       return this._flvInfo.url;
-    },
-    getStoryboardUrl: function() {
+    }
+    getStoryboardUrl() {
       return this._flvInfo.url;
-    },
-    isEconomy: function() {
+    }
+    isEconomy() {
       return this.getVideoUrl().match(/low$/) ? true : false;
-    },
-    getTagList: function() {
+    }
+    getTagList() {
       return this._videoDetail.tagList;
-    },
-    getVideoId: function() { // sm12345
+    }
+    getVideoId() { // sm12345
       return this._videoDetail.id;
-    },
-    getWatchId: function() { // sm12345だったりスレッドIDだったり
+    }
+    getWatchId() { // sm12345だったりスレッドIDだったり
       return this._videoDetail.v;
-    },
-    getWatchUrl: function() {
+    }
+    getWatchUrl() {
       return '//www.nicovideo.jp/watch/' + this.getWatchId();
-    },
-    getThreadId: function() { // watchIdと同一とは限らない
+    }
+    getThreadId() { // watchIdと同一とは限らない
       return this._videoDetail.thread_id;
-    },
-    getVideoSize: function() {
+    }
+    getVideoSize() {
       return {
         width:  this._videoDetail.width,
         height: this._videoDetail.height
       };
-    },
-    getDuration: function() {
+    }
+    getDuration() {
       return this._videoDetail.length;
-    },
-    getCount: function() {
-      var vd = this._videoDetail;
+    }
+    getCount() {
+      const vd = this._videoDetail;
       return {
         comment: vd.commentCount,
         mylist: vd.mylistCount,
         view: vd.viewCount
       };
-    },
-    isChannel: function() {
+    }
+    isChannel() {
       return !!this._videoDetail.channelId;
-    },
-    isMymemory: function() {
+    }
+    isMymemory() {
       return !!this._videoDetail.isMymemory;
-    },
-    isCommunityVideo: function() {
+    }
+    isCommunityVideo() {
       return !!(!this.isChannel() && this._videoDetail.communityId);
-    },
-    hasParentVideo: function() {
+    }
+    hasParentVideo() {
       return !!(this._videoDetail.commons_tree_exists);
-    },
-    isDmc: function() {
+    }
+    isDmc() {
       return this._rawData.isDmc;
-    },
-    getDmcInfo: function() {
+    }
+    getDmcInfo() {
       return this._dmcInfo;
-    },
-    getMsgInfo: function() {
+    }
+    getMsgInfo() {
       return this._msgInfo;
-    },
+    }
 
 
     /**
      * 投稿者の情報
      * チャンネル動画かどうかで分岐
     */
-    getOwnerInfo: function() {
+    getOwnerInfo() {
       var ownerInfo;
       if (this.isChannel()) {
         var c = this._watchApiData.channelInfo || {};
@@ -266,49 +267,57 @@ var ZenzaWatch = {
       }
 
       return ownerInfo;
-    },
-    getRelatedVideoItems: function() {
+    }
+    getRelatedVideoItems() {
       return this._relatedVideo.playlist || [];
-    },
-    getReplacementWords: function() {
+    }
+    getReplacementWords() {
       if (!this._flvInfo.ng_up) { return null; }
       return ZenzaWatch.util.parseQuery(
         this._flvInfo.ng_up || ''
       );
-    },
-    getPlaylistToken: function() {
+    }
+    getPlaylistToken() {
       return this._playlistToken;
-    },
+    }
 
-    setPlaylistToken: function(v) {
+    setPlaylistToken(v) {
       this._playlistToken = v;
-    },
+    }
 
-    getWatchAuthKey: function() {
+    getWatchAuthKey() {
       return this._watchAuthKey;
-    },
+    }
 
-    setWatchAuthKey: function(v) {
+    setWatchAuthKey(v) {
       this._watchAuthKey = v;
-    },
+    }
 
-    getSeekToken: function() {
+    getSeekToken() {
       return this._seekToken;
-    },
+    }
 
-    getWidth: function() {
+    getWidth() {
       return parseInt(this._videoDetail.width, 10);
-    },
+    }
 
-    getHeight: function() {
+    getHeight() {
       return parseInt(this._videoDetail.height, 10);
     }
 
-   });
+    get initialPlaybackTime() {
+      if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) { return 0; }
+      return parseFloat(this._resumeInfo.initialPlaybackPosition, 10);
+    }
+
+    get csrfToken() {
+      return this._rawData.csrfToken || '';
+    }
+  }
 
 
 //===END===
-// iOS constはイケるがletはアカンらしい
+// iOS9 constはイケるがletはアカンらしい
 //const hoge = 123;
 //let fuga = 456;
 

@@ -106,7 +106,6 @@ var ajax = function() {};
       };
 
       // 外部プレイヤーと同じ方法で起動するやつ。 ログイン不要で動画が再生できる。
-      // CrossDomainGateを使って書き直す。 そのうち
       var initializeCrossDomainGate = function() {
         initializeCrossDomainGate = _.noop;
 
@@ -179,22 +178,22 @@ var ajax = function() {};
 
           var result = {
             _format: 'watchApi',
-            watchApiData: watchApiData,
-            flvInfo: flvInfo,
-            dmcInfo: dmcInfo,
-            msgInfo: msgInfo,
-            playlist: playlist,
-            isPlayable: isPlayable,
-            isMp4: isMp4,
-            isFlv: isFlv,
-            isSwf: isSwf,
-            isEco: isEco,
-            isDmc: isDmc,
-            thumbnail: thumbnail,
-            csrfToken: csrfToken,
-            playlistToken: playlistToken,
-            watchAuthKey: watchAuthKey,
-            seekToken: seekToken
+            watchApiData,
+            flvInfo,
+            dmcInfo,
+            msgInfo,
+            playlist,
+            isPlayable,
+            isMp4,
+            isFlv,
+            isSwf,
+            isEco,
+            isDmc,
+            thumbnail,
+            csrfToken,
+            playlistToken,
+            watchAuthKey,
+            seekToken
           };
 
           ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', watchApiData.flashvars.csrfToken);
@@ -353,7 +352,11 @@ var ajax = function() {};
           thumbnail,
           csrfToken,
           watchAuthKey,
-          playlistToken
+          playlistToken,
+          resumeInfo: {
+            initialPlaybackType:     data.context.initialPlaybackType || '',
+            initialPlaybackPosition: data.context.initialPlaybackPosition || 0
+          }
         };
 
 
@@ -606,94 +609,6 @@ var ajax = function() {};
     })();
     ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
 // ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
-
-    var VitaApiLoader = (function() {
-      var BASE_URL = location.protocol + '//api.ce.nicovideo.jp/api/v1/system.unixtime'; // このへんのAPIまでSSL化されることはあるか...？
-      var MESSAGE_ORIGIN = location.protocol + '//api.ce.nicovideo.jp/';
-      var gate = null;
-      var cacheStorage;
-      var STORAGE_PREFIX = 'vitaApi_';
-
-      var initialize = function() {
-        initialize = _.noop;
-        cacheStorage = new CacheStorage(sessionStorage);
-        gate = new CrossDomainGate({
-          baseUrl: BASE_URL,
-          origin: MESSAGE_ORIGIN,
-          type: 'vitaApi',
-          messager: WindowMessageEmitter
-        });
-      };
-
-      var saveCache = function(videoInfoList) {
-        _.each(videoInfoList, function(videoInfo) {
-          var videoId = videoInfo.video.id;
-          cacheStorage.setItem(STORAGE_PREFIX + videoId, videoInfo);
-        });
-      };
-      var loadCache = function(watchIds) {
-        var result = {};
-        _.each(watchIds, function(watchId) {
-          var videoInfo = cacheStorage.getItem(STORAGE_PREFIX + watchId);
-          if (!videoInfo) { return; }
-          videoInfo._format = 'vitaApi';
-          result[watchId] = videoInfo;
-        });
-        return result;
-      };
-
-      var load = function(watchIds) {
-        initialize();
-        watchIds = _.isArray(watchIds) ? watchIds : [watchIds];
-
-        var cacheList = {};
-        var noChacheWatchIds = _.filter(watchIds, function(watchId) {
-          var cache = cacheStorage.getItem(STORAGE_PREFIX + watchId);
-          if (cache) {
-            cacheList[watchId] = cache;
-            return false;
-          }
-          return true;
-        });
-
-        return new Promise(function(resolve, reject) {
-          if (watchIds.length < 1) {
-            ZenzaWatch.util.callAsync(function() {
-              resolve(cacheList);
-            });
-            return;
-          }
-
-          var url = '/nicoapi/v1/video.array?v=' +
-            noChacheWatchIds.join(',') + '&__format=json';
-
-          gate.ajax({
-            url: url,
-            dataType: 'json'
-          }).then(function(json) {
-            ZenzaWatch.debug.lastVitaApiResult = json;
-            var status = json.nicovideo_video_response['@status'];
-            if (status === 'ok') {
-              var videoInfoList = json.nicovideo_video_response.video_info || [];
-              videoInfoList = _.isArray(videoInfoList) ? videoInfoList : [videoInfoList];
-              saveCache(videoInfoList);
-              resolve(loadCache(watchIds));
-            } else {
-              reject({
-                status: status,
-                message: '取得失敗',
-                resp: json
-              });
-            }
-          });
-        });
-      };
-
-      return {
-        load: load
-      };
-    })();
-    ZenzaWatch.api.VitaApiLoader = VitaApiLoader;
 
 
     var MessageApiLoader = (function() {
@@ -2261,6 +2176,27 @@ var ajax = function() {};
 
       return {
         load
+      };
+    })();
+
+
+    const PlaybackPosition = (function() {
+      const record = (watchId, playbackPosition, csrfToken) => {
+        const url = 'http://flapi.nicovideo.jp/api/record_current_playback_position';
+        const body =
+          `watch_id=${watchId}&playback_position=${playbackPosition}&csrf_token=${csrfToken}`;
+        return util.fetch(url, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body
+        });
+      };
+
+      return {
+        record
       };
     })();
 

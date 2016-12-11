@@ -249,9 +249,6 @@ var ZenzaWatch = {
       // ブラウザの既読リンクの色をつけるためにreplaceStateする
       // という目的だったのだが、iframeの中では効かないようだ。残念。
       window.history.replaceState(null, null, path);
-      window.setTimeout(function() {
-        window.history.replaceState(null, null, originalUrl);
-      }, 3000);
     };
 
     var PREFIX = 'ZenzaWatch_';
