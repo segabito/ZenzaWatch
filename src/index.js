@@ -14,6 +14,7 @@
 // @match          http://info.nicovideo.jp/*
 // @match          http://search.nicovideo.jp/*
 // @match          http://uad.nicovideo.jp/*
+// @match          http://api.search.nicovideo.jp/*
 // @match          http://*.nicovideo.jp/smile*
 // @exclude        http://ads*.nicovideo.jp/*
 // @exclude        http://www.upload.nicovideo.jp/*
@@ -24,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.9.1
+// @version        1.9.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 

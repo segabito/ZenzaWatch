@@ -8,6 +8,8 @@ var AsyncEmitter = function() {};
 var PopupMessage = {};
 var FrameLayer = function() {};
 var MylistPocket = function() {};
+class NicoSearchApiV2Loader {}
+
 
 //===BEGIN===
 
@@ -2087,7 +2089,8 @@ var MylistPocket = function() {};
       this._initializeView();
 
       if (!this._searchApiLoader) {
-        this._nicoSearchApiLoader = ZenzaWatch.init.nicoSearchApiLoader;
+        //this._nicoSearchApiLoader = ZenzaWatch.init.nicoSearchApiLoader;
+        this._nicoSearchApiLoader = NicoSearchApiV2Loader;
       }
 
       window.console.time('loadSearchVideos' + word);
