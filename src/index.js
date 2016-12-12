@@ -24,7 +24,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.9.0
+// @version        1.9.1
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -137,11 +137,10 @@ var monkey = function(PRODUCT) {
   if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
       window.name === 'nicovideoApiLoader') {
     nicovideoApi();
-  } else if (href === prot + '//api.ce.nicovideo.jp/api/v1/system.unixtime' &&
-      window.name === 'vitaApiLoader') {
-    vitaApi();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
     smileApi();
+  } else if (host === 'api.search.nicovideo.jp' && window.name.startsWith('searchApiLoader')) {
+    searchApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
     thumbInfoApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {

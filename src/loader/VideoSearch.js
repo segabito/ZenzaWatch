@@ -1,10 +1,17 @@
-var _ = require('lodash');
-var ajax = function() {};
+const _ = require('lodash');
+const ajax = function() {};
 
-var ZenzaWatch = {
+const ZenzaWatch = {
   init: {
   }
 };
+
+const location = {
+  protocol: 'http:'
+};
+
+class CrossDomainGate {}
+const WindowMessageEmitter = {};
 
 //===BEGIN===
 
@@ -141,7 +148,7 @@ var ZenzaWatch = {
         var dt = new Date(time);
         return dt.toLocaleString().replace(/\//g, '-');
       };
-      var range = {field: 'start_time',     type: 'range', include_lower: true, };
+      var range = {field: 'start_time',     type: 'range', include_lower: true};
       range.from = format(from);
       if (to) range.to = format(to);
       return range;
@@ -317,13 +324,275 @@ var ZenzaWatch = {
     }
   };
   ZenzaWatch.init.nicoSearchApiLoader = new NicoSearchApiLoader();
-
-
-
 //===END===
 
+  const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
+    (function() {
+      // 参考: http://search.nicovideo.jp/docs/api/search.html
+      // http://ch.nicovideo.jp/nico-lab/blomaga/ar930955
+      const BASE_URL ='http://api.search.nicovideo.jp/api/v2/';
+      const API_BASE_URL  = 'http://api.search.nicovideo.jp/api/v2/video/contents/search';
+      const MESSAGE_ORIGIN = location.protocol + '//api.search.nicovideo.jp/';
+      const SORT = {
+          f: 'startTime',
+          v: 'viewCounter',
+          r: 'commentCounter',
+          m: 'mylistCounter',
+          l: 'lengthSeconds',
+          n: 'lastCommentTime',
+          // v1からの推測で見つけたけどドキュメントにはのってないやつ
+          h: '_hotMylistCounter',           // 人気が高い順
+          '_hot':   '_hotMylistCounter',    // 人気が高い順(↑と同じだけど互換用に残ってる)
+          '_popular': '_popular',            // 並び順指定なしらしい
+        };
+
+        let gate;
+
+        // 外部プレイヤーと同じ方法で起動するやつ。 ログイン不要で動画が再生できる。
+        let initializeCrossDomainGate = function() {
+          initializeCrossDomainGate = function() {};
+          gate = new CrossDomainGate({
+            baseUrl: BASE_URL,
+            origin: MESSAGE_ORIGIN,
+            type: 'searchApi',
+            messager: WindowMessageEmitter
+          });
+        };
+
+       class NicoSearchApiV2Query {
+
+        constructor(word, params = {}) {
+          if (word.searchWord) {
+            this._initialize(word.searchWord, word);
+          } else {
+            this._initialize(word, params);
+          }
+        }
+
+        get q()       { return this._q; }
+        get targets() { return this._targets; }
+        get sort()    { return this._sort; }
+        get order()   { return this._order; }
+        get limit()   { return this._limit; }
+        get offset()  { return this._offset; }
+        //get filters() { return this._filters; }
+        get fields()  { return this._fields; }
+        get context() { return this._context; }
+
+        get hotField() { return this._hotField; }
+        get hotFrom() { return this._hotFrom; }
+        get hotTo() { return this._hotTo; }
+
+        _initialize(word, params) {
+          const sortTable = SORT;
+          this._filters = [];
+          this._q       = word || params.searchWord || 'ZenzaWatch';
+          this._targets =
+            params.searchType === 'tag' ?
+              ['tagsExact'] : ['tagsExact', 'title', 'description'];
+          this._sort  =
+            (params.order === 'd' ? '-' : '+') +
+            (params.sort && sortTable[params.sort] ?
+              sortTable[params.sort] : 'lastCommentTime');
+          this._order   = params.order === 'd' ? 'desc' : 'asc';
+          this._limit   = 100;
+          this._offset  = Math.min(
+            params.page ? Math.max(parseInt(params.page, 10) - 1, 0) * 25 : 0,
+            1600
+          );
+          this._fields = [
+              'contentId', 'title', 'description', 'tags', 'categoryTags',
+              'viewCounter', 'commentCounter', 'mylistCounter', 'lengthSeconds',
+              'startTime', 'thumbnailUrl',
+              // 公式ドキュメントからは消えてるけど指定できた
+              'lengthSeconds', 'lastResBody'
+            ];
+          this._context = 'ZenzaWatch';
+
+          const n = new Date(), now = Date.now();
+          if (/^._hot/.test(this.sort)) {
+            // 人気が高い順ソート
+            (() => {
+              const format = this._formatDate;
+              this._hotField = 'mylistCounter';
+              this._hotFrom = format(new Date(now - 1 * 24 * 60 * 60 * 1000));
+              this._hotTo   = format(n);
+
+              this._sort = '-_hotMylistCounter';
+            })();
+          }
+
+          if (params.userId && (params.userId + '').match(/^\d+$/)) {
+            this._filters.push({type: 'equal', field: 'userId',    value: params.userId});
+          }
+          if (params.channelId && (params.channelId + '').match(/^\d+$/)) {
+            this._filters.push({type: 'equal', field: 'channelId', value: params.channelId});
+          }
+          if (params.commentCount && (params.commentCount + '').match(/^[0-9]+$/)) {
+            this._filters.push({
+              type: 'range',
+              field: 'commentCounter',
+              from: params.commentCount
+            });
+          }
+        }
+
+        get filters() {
+          if (this._filters.length < 1) { return ''; }
+          const result = [];
+          this._filters.forEach((filter) => {
+            if (filter.type === 'equal') {
+              result.push(
+                `filters[${filter.field}][0]=${filter.value}`
+              );
+            } else if (filter.type === 'range') {
+              if (filter.from) {
+               result.push(`filters[${filter.field}][gte]=${filter.from}`);
+              }
+              if (filter.to) {
+               result.push(`filters[${filter.field}][lte]=${filter.to}`);
+              }
+            }
+          });
+          return result.join('&');
+        }
+
+        _formatDate(time) {
+          const dt = new Date(time);
+          return dt.toISOString().replace(/\.\d*Z/, '') + '%2b00:00'; // '%2b00:00'
+        }
+
+        _buildStartTimeRangeFilter(from, to) {
+          const format = this._formatDate;
+          const range = {field: 'startTime', type: 'range'};
+          range.from = format(from);
+          if (to) { range.to = format(to); }
+          return range;
+        }
+
+        _buildLengthSecondsRangeFilter(from, to) {
+          const range = {field: 'lengthSeconds', type: 'range'};
+          if (to) { // xxx ～ xxx
+            range.from = Math.min(from, to);
+            range.to   = Math.max(from, to);
+          } else { // xxx以上
+            range.from = from;
+          }
+          return range;
+        }
+
+        toString() {
+          const result = [];
+          result.push('q=' + encodeURIComponent(this._q));
+          result.push('targets=' + this.targets.join(','));
+          result.push('fields='  + this.fields.join(','));
+
+          result.push('_sort='    + this.sort);
+          result.push('_limit='   + this.limit);
+          result.push('_offset='  + this.offset);
+          result.push('_context=' + this.context);
+
+          if (this.sort === '-_hot') {
+            result.push('hotField=' + this.hotField);
+            result.push('hotFrom='  + this.hotFrom);
+            result.push('hotTo='    + this.hotTo);
+          }
+
+          const filters = this.filters;
+          if (filters) {
+            result.push(this.filters);
+          }
+
+          return result.join('&');
+        }
+
+      }
+
+
+      class NicoSearchApiV2Loader {
+        static search(word, params) {
+          initializeCrossDomainGate();
+          const query = new NicoSearchApiV2Query(word, params);
+          const url = API_BASE_URL + '?' + query.toString();
+
+          return gate.fetch(url).then((result) => {
+            return result.text();
+          }).then((result) => {
+            result = NicoSearchApiV2Loader.parseResult(result);
+            if (result && result.status === 'ok') {
+              return Promise.resolve(result);
+            } else {
+              return Promise.reject();
+            }
+          });
+
+        }
+
+        static _jsonParse(result) {
+          try {
+            return JSON.parse(result);
+          } catch(e) {
+            window.console.error('JSON parse error', e);
+            return null;
+          }
+        }
+
+        static parseResult(jsonText) {
+          const data = NicoSearchApiV2Loader._jsonParse(jsonText);
+          if (!data) { return null; }
+          const result = {
+            status: data.meta.status === 200 ? 'ok' : 'fail',
+            count: data.meta.totalCount,
+            list: []
+          };
+          const midThumbnailThreshold = 23608629; // .Mのついた最小ID?
+          data.data.forEach(item => {
+            let description = item.description ? item.description.replace(/<.*?>/g, '') : '';
+            if (item.thumbnailUrl.indexOf('.M') >= 0) {
+              item.thumbnail_url = item.thumbnail_url.replace(/\.M$/, '');
+              item.is_middle_thumbnail = true;
+            } else
+            if (item.thumbnailUrl.indexOf('.M') < 0 &&
+                item.contentId.indexOf('sm') === 0) {
+              let _id = parseInt(item.contentId.substring(2), 10);
+              if (_id >= midThumbnailThreshold) {
+                item.is_middle_thumbnail = true;
+              }
+            }
+
+            result.list.push({
+              id:                item.contentId,
+              type:              0, // 0 = VIDEO,
+              length:            item.lengthSeconds ?
+                                 Math.floor(item.lengthSeconds / 60) + ':' +
+                                 (item.lengthSeconds % 60 + 100).toString().substring(1) : '',
+              mylist_counter:    item.mylistCounter,
+              view_counter:      item.viewCounter,
+              num_res:           item.commentCounter,
+              first_retrieve:    item.startTime,
+              create_time:       item.startTime,
+              thumbnail_url:     item.thumbnailUrl,
+              title:             item.title,
+              description_short: description.substring(0, 150),
+              description_full:  description,
+              length_seconds:    item.lengthSeconds,
+              //last_res_body:     item.lastResBody,
+              is_middle_thumbnail: item.is_middle_thumbnail
+            });
+          });
+          return result;
+        }
+      }
+
+      return {NicoSearchApiV2Query, NicoSearchApiV2Loader};
+    })();
+
+
+
 module.exports = {
-  NicoSearchApiLoader: NicoSearchApiLoader
+  NicoSearchApiLoader,
+  NicoSearchApiV2Query,
+  NicoSearchApiV2Loader
 };
 
 /*

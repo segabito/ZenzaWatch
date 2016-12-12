@@ -3229,7 +3229,7 @@ spacer {
 
       if (Config.getValue('debug')) {
         return function(nicoChat) {
-          if (nicoChat.getFork() > 0) { return; }
+          if (nicoChat.getFork() > 0) { return true; }
           var score = nicoChat.getScore();
           if (score <= threthold) {
             window.console.log('%cNG共有適用: %s <= %s %s %s秒 %s', 'background: yellow;',
@@ -3292,7 +3292,7 @@ spacer {
       }
 
       return function(nicoChat) {
-        if (nicoChat.getFork() > 0) { return; }
+        if (nicoChat.getFork() > 0) { return true; }
 
         if (nicoChat.getScore() <= threthold) { return false; }
 

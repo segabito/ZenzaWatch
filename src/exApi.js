@@ -171,7 +171,7 @@ var ZenzaWatch = {
     }
 
     var type = 'thumbInfo';
-    var token = location.hash ? location.hash.substr(1) : null;
+    var token = location.hash ? location.hash.substring(1) : null;
     location.hash = '';
 
     window.addEventListener('message', function(event) {
@@ -241,7 +241,7 @@ var ZenzaWatch = {
 
 
     var type = 'nicovideoApi';
-    var token = location.hash ? location.hash.substr(1) : null;
+    var token = location.hash ? location.hash.substring(1) : null;
     location.hash = '';
 
     var originalUrl = location.href;
@@ -341,7 +341,7 @@ var ZenzaWatch = {
 
       switch(key) {
         case 'message':
-          console.log('%cmessage', 'background: cyan;', newValue);
+          //console.log('%cmessage', 'background: cyan;', newValue);
           postMessage(type, { command: 'message', value: newValue, token: token });
           break;
       }
@@ -385,7 +385,7 @@ var ZenzaWatch = {
     }
 
     var type = window.name.replace(/Loader$/, '');
-    var token = location.hash ? location.hash.substr(1) : null;
+    var token = location.hash ? location.hash.substring(1) : null;
 
 
     window.addEventListener('message', function(event) {
@@ -444,6 +444,36 @@ var ZenzaWatch = {
       console.log('err', e);
     }
 
+  };
+
+  const searchApi = function() {
+    if (window.name.indexOf('search') < 0 ) { return; }
+    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
+
+    const parentHost = document.referrer.split('/')[2];
+    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+      window.console.log('disable bridge');
+      return;
+    }
+
+    const type = window.name.replace(/Loader$/, '');
+    const token = location.hash ? location.hash.substring(1) : null;
+
+    window.addEventListener('message', function(event) {
+      const data = JSON.parse(event.data);
+
+      if (data.token !== token) { return; }
+
+      if (!data.url) { return; }
+
+      loadUrlByFetch(data, type, token);
+    });
+
+    try {
+      postMessage(type, { status: 'initialized' });
+    } catch (e) {
+      console.log('err', e);
+    }
   };
 
 

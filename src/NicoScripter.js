@@ -377,7 +377,7 @@ var util = {};
         const beginTime = nicos.getVpos() / 100;
         const endTime   = beginTime + nicos.getDuration();
         if (beginTime > ct || endTime < ct) {
-          this._inviewEvents[p.id] = false;
+          delete this._inviewEvents[p.id];
           return;
         }
         if (this._inviewEvents[p.id]) { return; }

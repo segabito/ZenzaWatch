@@ -1,3 +1,5 @@
+'use strict';
+
 var assert = require('assert');
 var videoSearch = require('../src/loader/VideoSearch.js');
 
@@ -35,4 +37,30 @@ describe('parseParams', function() {
 });
 
 
+describe('parseParamsV2', function() {
+  const api = 'http://api.search.nicovideo.jp/api/v2/video/contents/search'
+  let params = {
+    searchWord: 'hogehoge',
+    searchType: 'tag',
+    order: 'd',
+  };
+  let query;
+  query = new videoSearch.NicoSearchApiV2Query(params);
 
+  console.log('\nquery v2', api + '?' + query.toString());
+  assert.equal(query.q, 'hogehoge');
+  assert.equal(query.targets.length, 1);
+  assert.equal(query.targets[0], 'tagsExact');
+  assert.equal(query.sort, '-lastCommentTime');
+
+  params = {
+    searchWord: 'fugafuga',
+    searchType: 'tag',
+    sort: '_hot'
+  };
+
+  query = new videoSearch.NicoSearchApiV2Query(params);
+  console.log('\nquery v2', api + '?' + query.toString());
+
+
+});
