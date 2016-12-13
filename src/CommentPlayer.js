@@ -2132,11 +2132,15 @@ var SlotLayoutWorker = {};
 }
 
 .shadow-type3 .nicoChat {
-  text-shadow:
+  /*text-shadow:
     0 0 3px #000,
     0 0 2px #000,
-    0 0 1px #000;
-}
+    0 0 1px #000;*/
+  text-shadow:
+     1px  1px 1px rgba(  0,   0,   0, 0.8),
+     0px  0px 2px rgba(  0,   0,   0, 0.8),
+    -1px -1px 1px rgba(128, 128, 128, 0.8);
+}}
 
 .shadow-stroke .nicoChat {
   text-shadow: none;

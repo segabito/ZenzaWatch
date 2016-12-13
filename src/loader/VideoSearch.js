@@ -261,6 +261,7 @@ const WindowMessageEmitter = {};
                 item.is_middle_thumbnail = true;
               }
             }
+            const dt = (new Date(item.startTime)).toLocaleString();
 
             result.list.push({
               id:                item.contentId,
@@ -271,8 +272,8 @@ const WindowMessageEmitter = {};
               mylist_counter:    item.mylistCounter,
               view_counter:      item.viewCounter,
               num_res:           item.commentCounter,
-              first_retrieve:    item.startTime,
-              create_time:       item.startTime,
+              first_retrieve:    dt,
+              create_time:       dt,
               thumbnail_url:     item.thumbnailUrl,
               title:             item.title,
               description_short: description.substring(0, 150),

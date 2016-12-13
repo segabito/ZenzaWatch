@@ -1450,6 +1450,11 @@ var CONSTANT = {};
             this._playlist.shuffle();
           }
           break;
+        case 'playlistToggle':
+          if (this._playlist) {
+            this._playlist.toggleEnable();
+          }
+          break;
         case 'mylistAdd':
           return this._onMylistAdd(param.mylistId, param.mylistName);
         case 'mylistRemove':
@@ -1606,6 +1611,9 @@ var CONSTANT = {};
         case 'SPACE':
         case 'TOGGLE_PLAY':
           this.togglePlay();
+          break;
+        case 'TOGGLE_PLAYLIST':
+          this.execCommand('playlistToggle');
           break;
         case 'ESC':
           // ESCキーは連打にならないようブロック期間を設ける

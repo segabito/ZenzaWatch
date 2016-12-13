@@ -381,6 +381,7 @@ var monkey = function(PRODUCT) {
         KEY_DEFLIST_REMOVE: 84 + 0x1000, // SHIFT + T
 
         KEY_TOGGLE_PLAY: 32, // SPACE
+        KEY_TOGGLE_PLAYLIST: 80, // P
 
         KEY_SCREEN_MODE_1: 49 + 0x1000, // SHIFT + 1
         KEY_SCREEN_MODE_2: 50 + 0x1000, // SHIFT + 2
@@ -1596,6 +1597,7 @@ var monkey = function(PRODUCT) {
         DEFLIST_ADD: 0,
         DEFLIST_REMOVE: 0,
         TOGGLE_PLAY: 0,
+        TOGGLE_PLAYLIST: 0,
         SCREEN_MODE_1: 0,
         SCREEN_MODE_2: 0,
         SCREEN_MODE_3: 0,
@@ -1679,6 +1681,9 @@ var monkey = function(PRODUCT) {
             break;
           case map.TOGGLE_PLAY:
             key = 'TOGGLE_PLAY';
+            break;
+          case map.TOGGLE_PLAYLIST:
+            key = 'TOGGLE_PLAYLIST';
             break;
           case map.SHIFT_RESET:
             key = 'PLAYBACK_RATE';
@@ -4778,6 +4783,7 @@ var monkey = function(PRODUCT) {
                 item.is_middle_thumbnail = true;
               }
             }
+            const dt = (new Date(item.startTime)).toLocaleString();
 
             result.list.push({
               id:                item.contentId,
@@ -4788,8 +4794,8 @@ var monkey = function(PRODUCT) {
               mylist_counter:    item.mylistCounter,
               view_counter:      item.viewCounter,
               num_res:           item.commentCounter,
-              first_retrieve:    item.startTime,
-              create_time:       item.startTime,
+              first_retrieve:    dt,
+              create_time:       dt,
               thumbnail_url:     item.thumbnailUrl,
               title:             item.title,
               description_short: description.substring(0, 150),
@@ -11982,11 +11988,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 }
 
 .shadow-type3 .nicoChat {
-  text-shadow:
+  /*text-shadow:
     0 0 3px #000,
     0 0 2px #000,
-    0 0 1px #000;
-}
+    0 0 1px #000;*/
+  text-shadow:
+     1px  1px 1px rgba(  0,   0,   0, 0.8),
+     0px  0px 2px rgba(  0,   0,   0, 0.8),
+    -1px -1px 1px rgba(128, 128, 128, 0.8);
+}}
 
 .shadow-stroke .nicoChat {
   text-shadow: none;
@@ -19473,6 +19483,11 @@ const VideoSession = (function() {
             this._playlist.shuffle();
           }
           break;
+        case 'playlistToggle':
+          if (this._playlist) {
+            this._playlist.toggleEnable();
+          }
+          break;
         case 'mylistAdd':
           return this._onMylistAdd(param.mylistId, param.mylistName);
         case 'mylistRemove':
@@ -19629,6 +19644,9 @@ const VideoSession = (function() {
         case 'SPACE':
         case 'TOGGLE_PLAY':
           this.togglePlay();
+          break;
+        case 'TOGGLE_PLAYLIST':
+          this.execCommand('playlistToggle');
           break;
         case 'ESC':
           // ESCキーは連打にならないようブロック期間を設ける

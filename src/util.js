@@ -280,6 +280,7 @@ const PRODUCT = 'ZenzaWatch';
         KEY_DEFLIST_REMOVE: 84 + 0x1000, // SHIFT + T
 
         KEY_TOGGLE_PLAY: 32, // SPACE
+        KEY_TOGGLE_PLAYLIST: 80, // P
 
         KEY_SCREEN_MODE_1: 49 + 0x1000, // SHIFT + 1
         KEY_SCREEN_MODE_2: 50 + 0x1000, // SHIFT + 2
@@ -1495,6 +1496,7 @@ const PRODUCT = 'ZenzaWatch';
         DEFLIST_ADD: 0,
         DEFLIST_REMOVE: 0,
         TOGGLE_PLAY: 0,
+        TOGGLE_PLAYLIST: 0,
         SCREEN_MODE_1: 0,
         SCREEN_MODE_2: 0,
         SCREEN_MODE_3: 0,
@@ -1578,6 +1580,9 @@ const PRODUCT = 'ZenzaWatch';
             break;
           case map.TOGGLE_PLAY:
             key = 'TOGGLE_PLAY';
+            break;
+          case map.TOGGLE_PLAYLIST:
+            key = 'TOGGLE_PLAYLIST';
             break;
           case map.SHIFT_RESET:
             key = 'PLAYBACK_RATE';
