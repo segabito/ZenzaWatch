@@ -2141,6 +2141,7 @@ var CONSTANT = {};
       var autoDisableDmc =
         this._playerConfig.getValue('autoDisableDmc') &&
         (this._videoInfo.getWidth() > 1280 || this._videoInfo.getHeight() > 720);
+      this._videoInfo.isDmcDisable = autoDisableDmc;
 
       if (!autoDisableDmc &&
         this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc()) {
@@ -2314,6 +2315,9 @@ var CONSTANT = {};
       if (this._nextVideo) {
         const nextVideo = this._nextVideo;
         this._nextVideo = null;
+        if (!this._playlist) { return; }
+        const nv = this._playlist.findByWatchId(nextVideo);
+        if (nv && nv.isPlayed()) { return; } // 既にリストにあって再生済みなら追加しない(無限ループ対策)
         this.execCommand('notify', '@ジャンプ: ' + nextVideo);
         this.execCommand('playlistInsert', nextVideo);
       }

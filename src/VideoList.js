@@ -2393,6 +2393,9 @@ class NicoSearchApiV2Loader {}
       if (item) {
         this._view.scrollToItem(item);
       }
+    },
+    findByWatchId: function(watchId) {
+      return this._model.findByWatchId(watchId);
     }
   });
 

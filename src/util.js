@@ -248,8 +248,8 @@ const PRODUCT = 'ZenzaWatch';
         message: '',
 
         enableVideoSession: true,
-        enableDmc: false, // 新サーバーを使うかどうか
-        autoDisableDmc: false, // smileのほうが高画質と思われる動画でdmcを無効にする
+        enableDmc: true, // 新サーバーを使うかどうか
+        autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
         dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
 
@@ -1383,6 +1383,10 @@ const PRODUCT = 'ZenzaWatch';
       return window.fetch(url, params);
     };
 
+    if (!location.host.match(/\.nicovideo\.jp$/)) {
+      ZenzaWatch.util.fetch = function() {};
+    }
+
     var ajax = function(params) {
       if (location.host !== 'www.nicovideo.jp') {
         return NicoVideoApi.ajax(params);
@@ -1414,8 +1418,22 @@ const PRODUCT = 'ZenzaWatch';
     };
     ZenzaWatch.util.isGinzaWatchUrl = isGinzaWatchUrl;
 
+    ZenzaWatch.util.getPlayerVer = function() {
+      if (!!document.getElementById('js-initial-watch-data')) {
+        return 'html5';
+      }
+      if (!!document.getElementById('watchAPIDataContainer')) {
+        return 'flash';
+      }
+      return 'unknown';
+    };
+
     var isZenzaPlayableVideo = function() {
       try {
+        // HTML5版プレイヤーなら再生できるはず
+        if (util.getPlayerVer() === 'html5') {
+          return true;
+        }
         var watchApiData = JSON.parse($('#watchAPIDataContainer').text());
         var flvInfo = ZenzaWatch.util.parseQuery(
             decodeURIComponent(watchApiData.flashvars.flvInfo)
@@ -1469,6 +1487,54 @@ const PRODUCT = 'ZenzaWatch';
       var m = Math.floor(sec / 60);
       var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
       return [m, s].join(':');
+    };
+
+    ZenzaWatch.util.toWellFormedHtml = function(html) {
+      const doc = document.implementation.createHTMLDocument('');
+      doc.write(html);
+      doc.documentElement.setAttribute('xmlns', doc.documentElement.namespaceURI);
+      html = (new XMLSerializer()).serializeToString(doc);
+      return html;
+    };
+
+    // 参考
+    // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
+    ZenzaWatch.util.htmlToSvg = function(html, width = 640, height = 360) {
+      //      "<div xmlns='http://www.w3.org/1999/xhtml' style='font-size:40px'>" +
+      //      "</div>"
+      html = util.toWellFormedHtml(html);
+      const data =
+        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
+          <foreignObject width='100%' height='100%'>${html}</foreignObject>
+        </svg>`).trim();
+      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
+
+    };
+
+
+    ZenzaWatch.util.htmlToCanvas = function(html, width = 640, height = 360) {
+      const svg = util.htmlToSvg(html);
+      const url = window.URL.createObjectURL(svg);
+      if (!url) {
+        return Promise.reject(new Error('convert svg fail'));
+      }
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width  = width;
+      canvas.height = height;
+
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          context.drawImage(img, 0, 0);
+          resolve(canvas);
+        };
+        img.onerror = (e) => {
+          reject(e);
+        };
+
+        img.src = url;
+      });
     };
 
     var ShortcutKeyEmitter = (function(config) {

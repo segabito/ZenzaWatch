@@ -12,7 +12,7 @@ var getWatchId = function() {};
 //===BEGIN===
   var initializeGinzaSlayer =
   (function() {
-    var initialize = function(dialog) {
+    var initializeFlash = function(dialog) {
       $('.notify_update_flash_player').remove();
       $('body').addClass('ginzaSlayer');
 
@@ -24,7 +24,14 @@ var getWatchId = function() {};
 
     };
 
-    return initialize;
+    const initializeHtml5 = function(dialog) {
+      document.body.classList.add('ginzaSlayer');
+      const watchId = getWatchId();
+      dialog.open(watchId, {});
+    };
+
+
+    return !!(document.getElementById('watchAPIDataContainer')) ? initializeFlash : initializeHtml5;
   })();
 
 //===END===

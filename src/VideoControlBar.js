@@ -1303,7 +1303,11 @@ var CONSTANT = {};
 
       const onVideoServerType = function(type, videoSessionInfo) {
         if (type !== 'dmc') {
-          $current.text('----');
+          if (config.getValue('autoDisableDmc')) {
+            $current.text('----');
+          } else {
+            $current.text('----');
+          }
           return;
         }
         $current.text(videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));

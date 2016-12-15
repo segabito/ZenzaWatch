@@ -5,6 +5,7 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
+const util = {};
 var __css__ = '';
 var PlayerSession = {};
 var Config = {};
@@ -38,10 +39,7 @@ var AsyncEmitter = function() {};
       if (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) {
         return true;
       }
-      // ギンザスレイヤー＝サン 放置してる
-      //if (Config.getValue('enableGinzaSlayer')) {
-      //  return true;
-      //}
+
       return false;
     };
 
@@ -155,20 +153,18 @@ var AsyncEmitter = function() {};
       ZenzaWatch.util.addStyle(__css__);
 
 
-      var isGinza = ZenzaWatch.util.isGinzaWatchUrl() && !!(document.getElementById('watchAPIDataContainer'));
-      if (!ZenzaWatch.util.isLogin()) {
+      var isGinza = util.isGinzaWatchUrl() &&
+        (!!document.getElementById('watchAPIDataContainer') ||
+         !!document.getElementById('js-initial-watch-data'));
+      if (!util.isLogin()) {
         return;
       }
-
-      //if (!ZenzaWatch.util.isPremium() && !Config.getValue('forceEnable')) {
-      //  return;
-      //}
 
       replaceRedirectLinks();
 
       var hoverMenu = new HoverMenu({playerConfig: Config});
       ZenzaWatch.debug.hoverMenu = hoverMenu;
-      
+
       window.console.time('createOffscreenLayer');
       NicoComment.offScreenLayer.get(Config).then(function(offScreenLayer) {
         window.console.timeEnd('createOffscreenLayer');
@@ -186,11 +182,6 @@ var AsyncEmitter = function() {};
             }
             if (window.name === 'watchGinza') { window.name = ''; }
 
-          } else {
-          // 非ログイン画面用プレイヤーをセットアップ
-            initializeNoLoginWatchPagePlayer(Config, offScreenLayer);
-            //var dialog = initializeDialogPlayer(Config, offScreenLayer);
-            //dialog.open(getWatchId())
           }
         } else {
           dialog = initializeDialogPlayer(Config, offScreenLayer);
@@ -283,45 +274,8 @@ var AsyncEmitter = function() {};
     };
 
 
-
-    // 非ログイン状態のwatchページ用のプレイヤー生成
-    var initializeNoLoginWatchPagePlayer = function(conf, offScreenLayer) {
-      ZenzaWatch.util.addStyle(__no_login_watch_css__);
-      var nicoVideoPlayer = new NicoVideoPlayer({
-        offScreenLayer: offScreenLayer,
-        node: '.logout-video-thumb-box',
-        volume:       conf.getValue('volume'),
-        loop:         conf.getValue('loop'),
-        playerConfig: conf
-      });
-
-      VideoInfoLoader.on('load', function(videoInfo, type) {
-        window.console.timeEnd('VideoInfoLoader');
-        console.log('VideoInfoLoader.load!', videoInfo, type);
-
-        nicoVideoPlayer.setThumbnail(videoInfo.thumbImage);
-        nicoVideoPlayer.setVideo(videoInfo.url);
-
-        window.console.time('loadComment');
-        var messageApiLoader = new MessageApiLoader();
-        messageApiLoader.load(videoInfo.ms, videoInfo.thread_id, videoInfo.l).then(
-          function(result) {
-            window.console.timeEnd('loadComment');
-            nicoVideoPlayer.setComment(result.xml);
-          },
-          function() {
-            PopupMessage.alert('コメントの取得失敗 ' + videoInfo.ms);
-          }
-        );
-      });
-
-      window.console.time('VideoInfoLoader');
-      VideoInfoLoader.load(getWatchId());
-    };
-
     var initializeDialogPlayer = function(conf, offScreenLayer) {
-      var dialog = initializeDialog(conf, offScreenLayer);
-      return dialog;
+      return initializeDialog(conf, offScreenLayer);
     };
 
     var initializeMobile = function(dialog, config) {
@@ -421,7 +375,6 @@ var AsyncEmitter = function() {};
     };
 
     var HoverMenu = function() { this.initialize.apply(this, arguments);};
-    //_.extend(HoverMenu.prototype, AsyncEmitter.prototype);
     _.assign(HoverMenu.prototype, {
       initialize: function(param) {
         this._playerConfig = param.playerConfig;

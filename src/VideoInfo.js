@@ -141,6 +141,8 @@ var ZenzaWatch = {
       this._seekToken    = info.seekToken;
       this._resumeInfo   = info.resumeInfo || {};
 
+      this._isDmcDisable = false;
+
       if (!ZenzaWatch.debug.videoInfo) { ZenzaWatch.debug.videoInfo = {}; }
       ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
     }
@@ -223,13 +225,21 @@ var ZenzaWatch = {
       return !!(this._videoDetail.commons_tree_exists);
     }
     isDmc() {
-      return this._rawData.isDmc;
+      return this._rawData.isDmc && !this._isDmcDisable;
     }
     getDmcInfo() {
       return this._dmcInfo;
     }
     getMsgInfo() {
       return this._msgInfo;
+    }
+
+    get isDmcDisable() {
+      return this._isDmcDisable;
+    }
+
+    set isDmcDisable(v) {
+      this._isDmcDisable = v;
     }
 
 

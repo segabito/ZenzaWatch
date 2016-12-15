@@ -261,6 +261,13 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="autoDisableDmc control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="autoDisableDmc">
+            旧システムのほうが画質が良さそうな時は旧システムを使う
+          </label>
+        </div>
+
         <div class="enableVideoSession control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableVideoSession">
