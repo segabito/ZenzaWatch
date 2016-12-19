@@ -700,7 +700,7 @@ const IchibaLoader = {};
     .zenzaWatchVideoInfoPanel .resumePlay {
       display: none;
       font-size: 14px;
-      padding: 8px 8px;
+      padding: 8px 4px;
       cursor: pointer;
       border-radius: 0;
       margin: 0 8px;
@@ -734,6 +734,20 @@ const IchibaLoader = {};
     .zenzaWatchVideoInfoPanel .resumePlay:::after {
       opacity: 0;
     }
+
+    .zenzaWatchVideoInfoPanel .resumeThumbnailContainer {
+      display: inline-block;
+      vertical-align: middle;
+      width: 128px;
+      min-height: 72px;
+      background: #333;
+      pointer-events: none;
+    }
+
+    .zenzaWatchVideoInfoPanel .resumeThumbnail {
+      width: 128px;
+    }
+
   `).trim();
 
   VideoInfoPanel.__tpl__ = (`
@@ -761,7 +775,8 @@ const IchibaLoader = {};
           <div class="publicStatus"></div>
 
           <button class="resumePlay" data-command="seek" data-param="0" type="button">
-            前回の続きから再生 (<span class="resumePlayPoint">00:00</span>)
+            続きから再生 (<span class="resumePlayPoint">00:00</span>)
+            <div class="resumeThumbnailContainer"></div>
           </button>
           <div class="videoDescription">
           </div>
@@ -878,10 +893,28 @@ const IchibaLoader = {};
       this._ichibaItemView.clear();
       this._ichibaItemView.videoId = videoInfo.getVideoId();
 
+      this._updateResumePoint(videoInfo);
+
+    },
+    _updateResumePoint(videoInfo) {
       const pt = videoInfo.initialPlaybackTime;
       this._resumePlayPoint.textContent = util.secToTime(pt);
       this._resumePlayButton.classList.toggle('is-resumePlayable', pt > 0);
       this._resumePlayButton.setAttribute('data-param', pt);
+
+      const thumbnailContainer = this._resumeThumbnailContainer =
+        this._resumeThumbnailContainer ||
+        this._resumePlayButton.querySelector('.resumeThumbnailContainer');
+      thumbnailContainer.innerHTML = '';
+
+      if (pt > 0) {
+        videoInfo.getCurrentVideo().then(url => {
+          return util.videoCapture(url, pt);
+        }).then(canvas => {
+          canvas.className = 'resumeThumbnail';
+          thumbnailContainer.appendChild(canvas);
+        });
+      }
     },
     /**
      * 説明文中のurlの自動リンク等の処理
@@ -2257,6 +2290,7 @@ const IchibaLoader = {};
     .ZenzaIchibaItemView {
       text-align: center;
       margin: 8px 8px 32px;
+      color: #ccc;
     }
 
       .ZenzaIchibaItemView .loadStartButton {

@@ -1,12 +1,12 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
+const $ = require('jquery');
+const _ = require('lodash');
+const ZenzaWatch = {
   util:{},
   debug: {}
 };
-var NicoVideoApi = {};
-var console;
-var CONSTANT = {};
+const NicoVideoApi = {};
+const CONSTANT = {};
+const util = {};
 const PRODUCT = 'ZenzaWatch';
 
 
@@ -1502,13 +1502,16 @@ const PRODUCT = 'ZenzaWatch';
     ZenzaWatch.util.htmlToSvg = function(html, width = 640, height = 360) {
       //      "<div xmlns='http://www.w3.org/1999/xhtml' style='font-size:40px'>" +
       //      "</div>"
-      html = util.toWellFormedHtml(html);
+      //html = util.toWellFormedHtml(html);
       const data =
         (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
-          <foreignObject width='100%' height='100%'>${html}</foreignObject>
+          <foreignObject width='100%' height='100%'>
+            ${html}
+          </foreignObject>
         </svg>`).trim();
+      window.console.log('data', data);
       const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
-
+      return svg;
     };
 
 
@@ -1520,20 +1523,77 @@ const PRODUCT = 'ZenzaWatch';
       }
       const img = new Image();
       const canvas = document.createElement('canvas');
+      canvas.style.position = 'fixed';
+      canvas.style.bottom = 0;
+      canvas.style.left = 0;
+      canvas.style.border = '1px solid blue';
+      document.body.appendChild(canvas);
       const context = canvas.getContext('2d');
       canvas.width  = width;
       canvas.height = height;
 
+      context.fillStyle = 'rgb(192, 192, 192)'; context.fillRect(0, 0, width, height);
+
       return new Promise((resolve, reject) => {
         img.onload = () => {
-          context.drawImage(img, 0, 0);
+          context.drawImage(img, 0, 0, width, height);
           resolve(canvas);
+          window.URL.revokeObjectURL(url);
         };
         img.onerror = (e) => {
+          window.console.error('img.onerror', e);
           reject(e);
+          window.URL.revokeObjectURL(url);
         };
 
         img.src = url;
+      });
+    };
+
+    ZenzaWatch.util.videoCapture = function(src, sec) {
+      return new Promise((resolve, reject) => {
+        let resolved = false;
+        const v = document.createElement('video');
+        const css = {
+          width: '64px',
+          height: '36px',
+          position: 'fixd',
+          left: '-100px',
+          top: '-100px'
+        };
+        Object.keys(css).forEach(key => {
+          v.style[key] = css[key];
+        });
+
+        v.addEventListener('loadedmetadata', () => {
+          v.currentTime = sec;
+        });
+        v.addEventListener('error', (err) => {
+          v.remove();
+          return reject(err);
+        });
+
+        const onSeeked = () => {
+          if (resolved) { return; }
+          const c = document.createElement('canvas');
+          c.width  = v.videoWidth;
+          c.height = v.videoHeight;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(v, 0, 0);
+          v.remove();;
+
+          resolved = true;
+          return resolve(c);
+        };
+
+        v.addEventListener('seeked', onSeeked);
+
+        document.body.appendChild(v);
+        v.volume = 0;
+        v.autoplay = false;
+        v.controls = false;
+        v.src = src;
+        v.currentTime = sec;
       });
     };
 
@@ -1587,10 +1647,11 @@ const PRODUCT = 'ZenzaWatch';
             e.target.tagName === 'TEXTAREA') {
           return;
         }
-        if (e.ctrlKey || e.altKey) {
-          return;
-        }
-        var keyCode = e.keyCode + (e.ctrlKey ? 0x10000 : 0) + (e.shiftKey ? 0x1000 : 0);
+
+        var keyCode = e.keyCode +
+          (e.altKey   ? 0x100000 : 0) +
+          (e.ctrlKey  ? 0x10000  : 0) +
+          (e.shiftKey ? 0x1000   : 0);
         var key = '';
         var param = '';
         switch (keyCode) {
@@ -1705,9 +1766,7 @@ const PRODUCT = 'ZenzaWatch';
             e.target.tagName === 'TEXTAREA') {
           return;
         }
-        if (e.ctrlKey || e.altKey) {
-          return;
-        }
+
         var key = '';
         var param = '';
         switch (e.keyCode) {
@@ -2008,3 +2067,15 @@ const PRODUCT = 'ZenzaWatch';
 //===END===
 
 
+ZenzaWatch.util.htmlToCanvas(
+  ZenzaWatch.debug.commentLayer.contentWindow.document.querySelector('html').outerHTML)
+  .then((canvas) => {
+    document.body.appendChild(canvas);
+  });
+
+ZenzaWatch.util.toWellFormedHtml(ZenzaWatch.debug.commentLayer.contentWindow.document.querySelector('html').outerHTML);
+
+ZenzaWatch.util.htmlToCanvas(ZenzaWatch.debug.commentLayer.contentWindow.document.querySelector('html').outerHTML.replace('<html ', '<html xmlns="http://www.w3.org/1999/xhtml" ').replace(/<meta.*?>/g, ''))
+  .then((canvas) => {
+    document.body.appendChild(canvas);
+  }, (err) => { console.error('!', err); });

@@ -142,6 +142,7 @@ var ZenzaWatch = {
       this._resumeInfo   = info.resumeInfo || {};
 
       this._isDmcDisable = false;
+      this._currentVideoPromise = [];
 
       if (!ZenzaWatch.debug.videoInfo) { ZenzaWatch.debug.videoInfo = {}; }
       ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
@@ -177,6 +178,23 @@ var ZenzaWatch = {
     getStoryboardUrl() {
       return this._flvInfo.url;
     }
+
+    getCurrentVideo() {
+      if (this._currentVideo) {
+        return Promise.resolve(this._currentVideo);
+      }
+      return new Promise((resolve, reject) => {
+        this._currentVideoPromise.push({resolve, reject});
+      });
+    }
+
+    setCurrentVideo(v) {
+      this._currentVideo = v;
+      this._currentVideoPromise.forEach(p => {
+        p.resolve(this._currentVideo);
+      });
+    }
+
     isEconomy() {
       return this.getVideoUrl().match(/low$/) ? true : false;
     }
@@ -241,7 +259,6 @@ var ZenzaWatch = {
     set isDmcDisable(v) {
       this._isDmcDisable = v;
     }
-
 
     /**
      * 投稿者の情報

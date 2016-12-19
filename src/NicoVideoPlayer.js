@@ -249,13 +249,14 @@ const CONSTANT = {};
       this._videoPlayer.setThumbnail(url);
     },
     play: function() {
-      this._videoPlayer.play();
+      return this._videoPlayer.play();
     },
     pause: function() {
       this._videoPlayer.pause();
+      return Promise.resolve();
     },
     togglePlay: function() {
-      this._videoPlayer.togglePlay();
+      return this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
       if (!ZenzaWatch.util.isPremium()) {
@@ -411,7 +412,10 @@ const CONSTANT = {};
       a.setAttribute('href', url);
       document.body.appendChild(a);
       a.click();
-      window.setTimeout(function() { a.remove(); }, 1000);
+      window.setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 2000);
       window.console.timeEnd('screenShot');
     },
     isCorsReady: function() {
@@ -919,10 +923,11 @@ const CONSTANT = {};
       return !!this._canPlay;
     },
     play: function() {
-      this._video.play();
+      return this._video.play();
     },
     pause: function() {
       this._video.pause();
+      return Promise.resolve();
     },
     isPlaying: function() {
       return !!this._isPlaying;
@@ -985,9 +990,9 @@ const CONSTANT = {};
     },
     togglePlay: function() {
       if (this._isPlaying) {
-        this.pause();
+        return this.pause();
       } else {
-        this.play();
+        return this.play();
       }
     },
     getVpos: function() {

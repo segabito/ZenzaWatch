@@ -130,6 +130,7 @@ const VideoSession = (function() {
       this._lastResponse = '';
       this._videoQuality = params.videoQuality || 'auto';
       this._videoSessionInfo = {};
+      this._isDeleted = false;
 
       var serverType = this._serverType = params.serverType || 'dmc';
       if (serverType === 'dmc') {
@@ -362,6 +363,14 @@ const VideoSession = (function() {
       this._isClosed = true;
       this.disableHeartBeat();
       this._deleteSession();
+    }
+
+    get isDeleted() {
+      return !!this._isDeleted;
+    }
+
+    get isDmc() {
+      return this._serverType === 'dmc';
     }
   }
 

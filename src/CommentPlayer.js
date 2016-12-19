@@ -2081,7 +2081,23 @@ var SlotLayoutWorker = {};
  100% { display: none; }
 }
 
-
+@keyframes dokaben {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotateX(90deg) translate(-50%, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+  }
+}
+.shadow-dokaben .commentLayer {
+  perspective: 300px;
+}
 
 .commentLayerOuter {
   position: fixed;
@@ -2148,7 +2164,38 @@ var SlotLayoutWorker = {};
   text-stroke:         1px rgba(0, 0, 0, 0.7);
 }
 
-.nicoChat.fixed {
+/*「RGBは大体　文字200、80、0　縁150,50,0　くらい」らしい*/
+.shadow-dokaben .nicoChat.ue,
+.shadow-dokaben .nicoChat.shita {
+  color: rgb(200, 80, 0);
+  font-family: 'dokaben_ver2_1' !important;
+  font-weight: bolder;
+  animation-name: dokaben !important;
+  transform-origin: center bottom;
+  animation-timing-function: steps(12);
+  text-shadow:
+    1px  1px 0px rgba(150, 50, 0, 1),
+   -1px  1px 0px rgba(150, 50, 0, 1),
+   -1px -1px 0px rgba(150, 50, 0, 1),
+    1px -1px 0px rgba(150, 50, 0, 1) !important;
+}
+.shadow-dokaben .nicoChat.ue *,
+.shadow-dokaben .nicoChat.shita  *{
+  font-family: 'dokaben_ver2_1' !important;
+}
+.shadow-dokaben .nicoChat {
+  font-family: 'dokaben_ver2_1';
+  text-shadow:
+     1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px -1px 0px rgba(0, 0, 0, 0.5),
+     1px -1px 0px rgba(0, 0, 0, 0.5);
+}
+
+
+.nicoChat.ue,
+.nicoChat.shita {
+  animation-name: fixed;
 }
 
 .nicoChat.black {
@@ -2220,8 +2267,8 @@ var SlotLayoutWorker = {};
   -webkit-text-stroke: unset !important;
   text-stroke: unset !important;
   background: currentColor;
-  {*outline: 2px solid;
-  outline-offset: -1px;*}
+  /*outline: 2px solid;
+  outline-offset: -1px;*/
   box-shadow: 0 4px, 0 -4px;
 }
 
@@ -2477,13 +2524,14 @@ spacer {
             onResize();
           }
         }, 1500);
+        window.setTimeout(onResize, 100);
 
         if (this._isPaused) {
           this.pause();
         }
 
         const updateTextShadow = (type) => {
-          const types = [ 'shadow-type2', 'shadow-type3', 'shadow-stroke' ];
+          const types = [ 'shadow-type2', 'shadow-type3', 'shadow-stroke', 'shadow-dokaben' ];
           types.forEach(t => { doc.body.classList.toggle(t, t === type); });
         };
         updateTextShadow(this._config.getValue('textShadowType'));
@@ -2972,8 +3020,6 @@ spacer {
 //          '  width:', width, 'px;\n',
 //          '  height:', height, 'px;\n',
           scaleCss,
-//          '  animation-name: fixed', id, ';\n',
-          '  animation-name: fixed;\n',
           '  animation-duration: ', duration / 0.95, 's;\n',
           '  animation-delay: ', delay, 's;\n',
           ' }\n',

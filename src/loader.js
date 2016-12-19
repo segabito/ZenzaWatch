@@ -90,76 +90,35 @@ var ajax = function() {};
     ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
 
 
-    var VideoInfoLoader = (function() {
-      var BASE_URL = location.protocol + '//ext.nicovideo.jp/thumb_watch';
-      var loaderFrame, loaderWindow;
-      var videoInfoLoader = new AsyncEmitter();
-      var cacheStorage = new CacheStorage(sessionStorage);
+    const VideoInfoLoader = (function() {
+      const cacheStorage = new CacheStorage(sessionStorage);
 
-      var onMessage = function(data, type) {
-        if (type !== 'videoInfoLoader') { return; }
-        console.log('VideoInfoLoader.onMessage', data, type);
-        var info = data.message;
-
-        //console.log('%cvideoInfoLoader.onThumbWatchInfoLoad', 'background: lightgreen;', info);
-        videoInfoLoader.emitAsync('load', info, 'THUMB_WATCH');
-      };
-
-      // 外部プレイヤーと同じ方法で起動するやつ。 ログイン不要で動画が再生できる。
-      var initializeCrossDomainGate = function() {
-        initializeCrossDomainGate = _.noop;
-
-        console.log('%c initialize videoInfoLoader', 'background: lightgreen;');
-
-        loaderFrame = document.createElement('iframe');
-        loaderFrame.name  = 'videoInfoLoaderLoader';
-        loaderFrame.className = 'xDomainLoaderFrame thumb';
-        document.body.appendChild(loaderFrame);
-
-        loaderWindow = loaderFrame.contentWindow;
-
-        WindowMessageEmitter.addKnownSource(loaderWindow);
-        WindowMessageEmitter.on('onMessage', onMessage);
-      };
-
-      var loadFromThumbWatch = function(watchId) {
-        initializeCrossDomainGate();
-        //http://ext.nicovideo.jp/thumb_watch/sm9?cb=onPlayerLoaded&eb=onPlayerError
-        var url = [
-          BASE_URL, '/',
-          watchId,
-          '?cb=onPlayerLoaded&eb=onPlayerError'].join('');
-
-        console.log('getVideoInfo: ', url);
-
-        loaderWindow.location.replace(url);
-      };
      //JSON.parse(decodeURIComponent(JSON.parse($('#watchAPIDataContainer').text()).flashvars.dmcInfo))
-      var parseFromGinza = function(dom) {
+      const parseFromGinza = function(dom) {
         try {
-          var watchApiData = JSON.parse(dom.querySelector('#watchAPIDataContainer').textContent);
-          var videoId = watchApiData.videoDetail.id;
-          var hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
-          var flvInfo = ZenzaWatch.util.parseQuery(
+          let watchApiData = JSON.parse(dom.querySelector('#watchAPIDataContainer').textContent);
+          let videoId = watchApiData.videoDetail.id;
+          let hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
+          let flvInfo = ZenzaWatch.util.parseQuery(
               decodeURIComponent(watchApiData.flashvars.flvInfo)
             );
-          var dmcInfo = JSON.parse(
+          let dmcInfo = JSON.parse(
               decodeURIComponent(watchApiData.flashvars.dmcInfo || '{}')
             );
-          var thumbnail =
+          let thumbnail =
             watchApiData.flashvars.thumbImage +
               (hasLargeThumbnail ? '.L' : '');
-          var videoUrl = flvInfo.url;
-          var isEco = /\d+\.\d+low$/.test(videoUrl);
-          var isFlv = /\/smile\?v=/.test(videoUrl);
-          var isMp4 = /\/smile\?m=/.test(videoUrl);
-          var isSwf = /\/smile\?s=/.test(videoUrl);
-          var isDmc = watchApiData.flashvars.isDmc === 1;
-          var csrfToken = watchApiData.flashvars.csrfToken;
-          var playlistToken = watchApiData.playlistToken;
-          var watchAuthKey  = watchApiData.flashvars.watchAuthKey;
-          var seekToken     = watchApiData.flashvars.seek_token;
-          var msgInfo = {
+          let videoUrl = flvInfo.url;
+          let isEco = /\d+\.\d+low$/.test(videoUrl);
+          let isFlv = /\/smile\?v=/.test(videoUrl);
+          let isMp4 = /\/smile\?m=/.test(videoUrl);
+          let isSwf = /\/smile\?s=/.test(videoUrl);
+          let isDmc = watchApiData.flashvars.isDmc === 1;
+          let csrfToken = watchApiData.flashvars.csrfToken;
+          let playlistToken = watchApiData.playlistToken;
+          let watchAuthKey  = watchApiData.flashvars.watchAuthKey;
+          let seekToken     = watchApiData.flashvars.seek_token;
+          let msgInfo = {
             server:   flvInfo.ms,
             threadId: flvInfo.thread_id,
             duration: flvInfo.l,
@@ -170,13 +129,13 @@ var ajax = function() {};
             hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread
           };
 
-          var playlist =
+          let playlist =
             JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
-          var isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+          let isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
 
           cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
-          var result = {
+          let result = {
             _format: 'watchApi',
             watchApiData,
             flvInfo,
@@ -196,7 +155,7 @@ var ajax = function() {};
             seekToken
           };
 
-          ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', watchApiData.flashvars.csrfToken);
+          ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', csrfToken);
           return result;
 
         } catch (e) {
@@ -365,7 +324,7 @@ var ajax = function() {};
       };
 
 
-      var parseWatchApiData = function(src) {
+      const parseWatchApiData = function(src) {
         const dom = document.createElement('div');
         dom.innerHTML = src;
         if (dom.querySelector('#watchAPIDataContainer')) {
@@ -373,14 +332,50 @@ var ajax = function() {};
         } else if (dom.querySelector('#js-initial-watch-data')) {
           return parseFromHtml5Watch(dom);
         } else {
-          // TODO: エラー表示
-          return new Error('ログインしてない');
+          return null;
         }
       };
 
-      var loadFromWatchApiData = function(watchId, options) {
-        var url = '/watch/' + watchId;
-        var query = [];
+      const onLoadPromise = (watchId, options, isRetry, resp) => {
+        const data = parseWatchApiData(resp);
+        ZenzaWatch.debug.watchApiData = data;
+        if (!data) {
+          return Promise.reject({
+            reason: 'network',
+            message: '通信エラー。動画情報の取得に失敗しました。(watch api)'
+          });
+        }
+
+        if (data.isFlv && !data.isEco) {
+          return Promise.reject({
+            reason: 'flv',
+            info: data,
+            message: 'この動画はZenzaWatchで再生できません(flv)'
+          });
+        }
+
+        if (!data.isPlayable) {
+          return Promise.reject({
+            reason: 'not supported',
+            info: data,
+            message: 'この動画はZenzaWatchで再生できません'
+          });
+        }
+
+        ZenzaWatch.emitter.emitAsync('loadVideoInfo', data, 'WATCH_API', watchId);
+        return Promise.resolve(data);
+      };
+
+      const createSleep = function(sleepTime) {
+        return new Promise(resolve => {
+          window.setTimeout(() => { return resolve(); }, sleepTime);
+        });
+      };
+
+      const loadPromise = function(watchId, options, isRetry = false) {
+        let url = '/watch/' + watchId;
+        console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
+        const query = [];
         if (options.economy === true) {
           query.push('eco=1');
         }
@@ -388,100 +383,61 @@ var ajax = function() {};
           url += '?' + query.join('&');
         }
 
-        console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
+        return util.fetch(url, {credentials: 'include'})
+          .then(res => { return res.text(); })
+          .catch(() => {
+            return Promise.reject({reason: 'network', message: '通信エラー(network)'});
+          })
+          .then(onLoadPromise.bind(this, watchId, options, isRetry))
+          .catch(err => {
+            if (isRetry) {
+              return Promise.reject(watchId, {
+                watchId,
+                message: err.message || '動画情報の取得に失敗したか、未対応の形式です',
+                type: 'watchapi'
+              });
+            }
 
-        var isFallback = false;
-        var onLoad = function(req) {
-          var data = parseWatchApiData(req);
-          ZenzaWatch.debug.watchApiData = data;
-
-          if (!data) {
-            //var $dom = $('<div>' + req + '</div>');
-            //var msg = $dom.find('#PAGEBODY .font12').text();
-            videoInfoLoader.emitAsync('fail', watchId, {
-              message: '動画情報の取得に失敗(watchApi)',
-              type: 'watchapi'
-            });
-            return;
-          }
-
-          if (data.isFlv && !isFallback && options.economy !== true) {
-            isFallback = true;
-
-            url = url + (query.length > 0 ? '&eco=1' : '?eco=1');
-            console.log('%cエコノミーにフォールバック(flv)', 'background: cyan; color: red;', url);
-            window.setTimeout(function() {
-              ajax({
-                url: url,
-                xhrFields: { withCredentials: true },
-                //beforeSend: function(xhr) {
-                //  xhr.setRequestHeader('Referer', 'http://www.nicovideo.jp');
-                //},
-                headers: {
-//                  'Referer': 'http://www.nicovideo.jp/',
-                  'X-Alt-Referer': location.protocol + '//www.nicovideo.jp/'
-                }
-              }).then(
-                onLoad,
-                function() {
-                  videoInfoLoader.emitAsync('fail', watchId, {
-                    message: '動画情報の取得に失敗(watchApi)',
-                    type: 'watchapi'
-                  });
-                }
-              );
-            }, 1000);
-          } else if (!data.isPlayable) {
-            videoInfoLoader.emitAsync('fail', watchId, {
-              message: 'この動画はZenzaWatchで再生できません',
-              info: data
-            });
-          } else if (data.isMp4) {
-            videoInfoLoader.emitAsync('load', data, 'WATCH_API', watchId);
-            ZenzaWatch.emitter.emitAsync('loadVideoInfo', data, 'WATCH_API', watchId); // 外部連携用
-          } else {
-            videoInfoLoader.emitAsync('fail', watchId, {
-              message: 'この動画はZenzaWatchで再生できません',
-              info: data
-            });
-          }
-        };
-
-        ajax({
-          url: url,
-          xhrFields: { withCredentials: true },
-          // referrerによってplaylistの中身が変わるので無難な物にする
-          //beforeSend: function(xhr) {
-          //  xhr.setRequestHeader('Referer', 'http://www.nicovideo.jp');
-          //},
-          headers: {
-//            'Referer': 'http://www.nicovideo.jp/',
-            'X-Alt-Referer': location.protocol + '//www.nicovideo.jp/'
-          }
-        }).then(
-          onLoad,
-          function() {
-            videoInfoLoader.emitAsync('fail', watchId, {
-              message: '動画情報の取得に失敗(watchApi)',
-              type: 'watchapi'
-            });
-          }
-        );
+            if (err.reason === 'network') {
+              return createSleep(5000).then(() => {
+                window.console.warn('network error & retry');
+                return loadPromise(watchId, options, true);
+              });
+            } else if (err.reason === 'flv' && !options.economy) {
+              options.economy = true;
+              window.console.log(
+                '%cエコノミーにフォールバック(flv)',
+                'background: cyan; color: red;');
+              return createSleep(500).then(() => {
+                return loadPromise(watchId, options, true);
+              });
+            } else {
+              window.console.info('watch api fail', err);
+              return Promise.reject({
+                watchId,
+                message: err.message || '動画情報の取得に失敗',
+                info: err.info
+              });
+            }
+          });
       };
 
-      var load = function(watchId, options) {
-        if (isLogin()) {
-          loadFromWatchApiData(watchId, options);
-        } else {
-          loadFromThumbWatch(watchId, options);
+      return {
+        load: function(watchId, options) {
+          const timeKey = `watchAPI:${watchId}`;
+          window.console.time(timeKey);
+          return loadPromise(watchId, options).then(
+            (result) => {
+              window.console.timeEnd(timeKey);
+              return result;
+            },
+            (err) => {
+              window.console.timeEnd(timeKey);
+              return Promise.reject(err);
+            }
+          );
         }
       };
-
-      _.assign(videoInfoLoader, {
-        load: load
-      });
-
-      return videoInfoLoader;
     })();
 
 
@@ -2348,4 +2304,3 @@ view_counter : "123929"
 </packet>
 
 */
-console.log(VideoInfoLoader);

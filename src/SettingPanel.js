@@ -383,6 +383,14 @@ var AsyncEmitter = function() {};
                縁取り2 (対応ブラウザのみ。やや重い)
             </label>
 
+            <label>
+              <input type="radio"
+                name="textShadowType"
+                data-setting-name="commentLayer.textShadowType"
+                value="shadow-dokaben">
+                ドカベン (飽きたら消します)
+            </label>
+
           </div>
 
 
