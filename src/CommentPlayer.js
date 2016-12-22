@@ -11,6 +11,7 @@ var PopupMessage = {};
 var NicoTextParser = {};
 var CommentLayoutWorker = {};
 var SlotLayoutWorker = {};
+var VideoCaptureUtil = {};
 
 //===BEGIN===
 
@@ -215,6 +216,9 @@ var SlotLayoutWorker = {};
     },
     toString: function() {
       return this._viewModel.toString();
+    },
+    getCurrentScreenHtml: function() {
+      return this._view.getCurrentScreenHtml();
     }
   });
 
@@ -2061,6 +2065,15 @@ var SlotLayoutWorker = {};
 <style type="text/css" id="optionCss">%OPTION_CSS%</style>
 <style type="text/css">
 
+body.in-capture .commentLayerOuter {
+  overflow: hidden;
+  width: 682px;
+  height: 384px;
+  padding: 0 69px;
+}
+body.in-capture .commentLayer {
+  transform: none !important;
+}
 
 .saved body {
   pointer-events: auto;
@@ -2078,25 +2091,27 @@ var SlotLayoutWorker = {};
 
 @keyframes showhide {
    0% { display: block;}
+  99% { display: block;}
  100% { display: none; }
 }
 
 @keyframes dokaben {
   0% {
     opacity: 1;
-    transform: scale(1) rotateX(90deg) translate(-50%, 0);
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg);
   }
   50% {
     opacity: 1;
-    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg);
   }
   100% {
-    opacity: 1;
-    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+    opacity: 0;
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg);
   }
-}
-.shadow-dokaben .commentLayer {
-  perspective: 300px;
 }
 
 .commentLayerOuter {
@@ -2148,15 +2163,11 @@ var SlotLayoutWorker = {};
 }
 
 .shadow-type3 .nicoChat {
-  /*text-shadow:
-    0 0 3px #000,
-    0 0 2px #000,
-    0 0 1px #000;*/
   text-shadow:
      1px  1px 1px rgba(  0,   0,   0, 0.8),
      0px  0px 2px rgba(  0,   0,   0, 0.8),
     -1px -1px 1px rgba(128, 128, 128, 0.8);
-}}
+}
 
 .shadow-stroke .nicoChat {
   text-shadow: none;
@@ -2171,16 +2182,18 @@ var SlotLayoutWorker = {};
   font-family: 'dokaben_ver2_1' !important;
   font-weight: bolder;
   animation-name: dokaben !important;
-  transform-origin: center bottom;
-  animation-timing-function: steps(12);
   text-shadow:
     1px  1px 0px rgba(150, 50, 0, 1),
    -1px  1px 0px rgba(150, 50, 0, 1),
    -1px -1px 0px rgba(150, 50, 0, 1),
     1px -1px 0px rgba(150, 50, 0, 1) !important;
+  transform-origin: center bottom;
+  animation-timing-function: steps(10);
+  perspective-origin: center bottom;
 }
+
 .shadow-dokaben .nicoChat.ue *,
-.shadow-dokaben .nicoChat.shita  *{
+.shadow-dokaben .nicoChat.shita * {
   font-family: 'dokaben_ver2_1' !important;
 }
 .shadow-dokaben .nicoChat {
@@ -2420,7 +2433,7 @@ spacer {
 
       this._config = Config.namespace('commentLayer');
 
-      var _refresh = _.bind(this.refresh, this);
+      var _refresh = this.refresh.bind(this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
       // ここに書いてるのは手抜き
       if (ZenzaWatch.util.isFirefox()) {
@@ -2429,13 +2442,11 @@ spacer {
         );
       }
 
-      // 様子見
-      //this._updateDom = ZenzaWatch.util.createDrawCallFunc(this._updateDom.bind(this));
 
       // ウィンドウが非表示の時にブラウザが描画をサボっているので、
       // 表示になったタイミングで粛正する
       //$(window).on('focus', _refresh);
-      $(document).on('visibilitychange', function() {
+      $(document).on('visibilitychange', () => {
         if (!document.hidden) {
           _refresh();
         }
@@ -2482,6 +2493,7 @@ spacer {
           return;
         }
 
+        this._window = win;
         this._document = doc;
         this._layoutStyle = doc.getElementById('layoutCss');
         this._optionStyle = doc.getElementById('optionCss');
@@ -2509,7 +2521,7 @@ spacer {
           commentLayer.style.transform =
             'scale3d(' + scale + ',' + scale + ', 1)';
         };
-        win.addEventListener('resize', onResize);
+        //win.addEventListener('resize', onResize);
 
         ZenzaWatch.debug.getInViewElements = () => {
           return doc.getElementsByClassName('nicoChat');
@@ -2536,8 +2548,41 @@ spacer {
         };
         updateTextShadow(this._config.getValue('textShadowType'));
         this._config.on('update-textShadowType', _.debounce(updateTextShadow, 100));
-        
-        //ZenzaWatch.util.callAsync(self._adjust, this, 1000);
+
+        ZenzaWatch.debug.nicoVideoCapture = function() {
+          const html = this.getCurrentScreenHtml();
+          const video = document.querySelector('video.nico');
+
+          return VideoCaptureUtil.nicoVideoToCanvas({video, html})
+            .then(({canvas, img}) => {
+              canvas.style.border = '2px solid blue';
+              canvas.className = 'debugCapture';
+              canvas.addEventListener('click', () => {
+                VideoCaptureUtil.saveToFile(canvas, 'sample.png');
+              });
+              document.body.appendChild(canvas);
+              window.console.log('ok', canvas);
+              return Promise.resolve({canvas, img});
+            }, (err) => {
+              sessionStorage.lastCaptureErrorSrc = html;
+              window.console.error('!', err);
+              return Promise.reject(err);
+            });
+        }.bind(this);
+
+        ZenzaWatch.debug.svgTest = function() {
+          const html = this.getCurrentScreenHtml();
+          const blob = new Blob([html], { 'type': 'text/plain' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.setAttribute('download', 'test.svg');
+          a.setAttribute('target', '_blank');
+          a.setAttribute('href', url);
+          document.body.appendChild(a);
+          a.click();
+          window.setTimeout(function() { a.remove(); }, 1000);
+        }.bind(this);
+
         window.console.timeEnd('initialize NicoCommentCss3PlayerView');
       };
 
@@ -2893,7 +2938,6 @@ spacer {
 
       span.className = className.join(' ');
       span.id = chat.getId();
-      //span.ontransitionend = 'this.remove();';
       if (!chat.isInvisible()) { span.innerHTML = chat.getHtmlText(); }
       span.setAttribute('data-meta', chat.toString());
       return span;
@@ -2937,30 +2981,24 @@ spacer {
       return result.join('');
     },
     _buildChatCss: function(chat, type, currentTime) {
-      var result;
-      var scaleCss;
-      var id = chat.getId();
-      var playbackRate = this._playbackRate;
-      var duration = chat.getDuration() / playbackRate;
-      var scale = chat.getScale();
-      var beginL = chat.getBeginLeftTiming();
-      var screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
-      var screenWidthFull = NicoCommentViewModel.SCREEN.WIDTH_FULL;
-      var width = chat.getWidth();
-//      var height = chat.getHeight();
-      var ypos = chat.getYpos();
-      var color = chat.getColor();
-      var colorCss = color ? ('color: ' + color + ';\n') : '';
-      var fontSizePx = chat.getFontSizePixel();
-      //var lineHeight = chat.getLineHeight();
-      var speed = chat.getSpeed();
-      var delay = (beginL - currentTime) / playbackRate;
-      // 本家は「古いコメントほど薄くなる」という仕様だが、特に再現するメリットもなさそうなので
-      var opacity = 1; //chat.isOverflow() ? 0.8 : 1;
-      //var zid = parseInt(id.substr('4'), 10);
-      //var zIndex = 10000 - (zid % 5000);
-      var slot = chat.getSlot();
-      var zIndex =
+      let result;
+      let scaleCss;
+      let id = chat.getId();
+      let playbackRate = this._playbackRate;
+      let duration = chat.getDuration() / playbackRate;
+      let scale = chat.getScale();
+      let beginL = chat.getBeginLeftTiming();
+      let screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
+      let screenWidthFull = NicoCommentViewModel.SCREEN.WIDTH_FULL;
+      let width = chat.getWidth();
+      let ypos = chat.getYpos();
+      let color = chat.getColor();
+      let colorCss = color ? ('color: ' + color + ';\n') : '';
+      let fontSizePx = chat.getFontSizePixel();
+      let speed = chat.getSpeed();
+      let delay = (beginL - currentTime) / playbackRate;
+      let slot = chat.getSlot();
+      let zIndex =
         (slot >= 0) ?
         (slot   * 1000 + chat.getFork() * 1000000 + 1) :
         (beginL * 1000 + chat.getFork() * 1000000);
@@ -2970,104 +3008,80 @@ spacer {
         // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
         // TODO: 環境によって重くなるようだったらオプションにする
         scaleCss =
-          (scale === 1.0) ?
-            'scale3d(1, 1, 1)' :
-            (' scale3d(' + scale + ', ' + scale + ', 1)');
-        var outerScreenWidth = screenWidthFull * 1.1;
-        var screenDiff = outerScreenWidth - screenWidth;
-        var leftPos = screenWidth + screenDiff / 2;
-        var durationDiff = screenDiff / speed / playbackRate;
+          (scale === 1.0) ? 'scale3d(1, 1, 1)' : `scale3d(${scale}, ${scale}, 1)`;
+        const outerScreenWidth = screenWidthFull * 1.1;
+        const screenDiff = outerScreenWidth - screenWidth;
+        const leftPos = screenWidth + screenDiff / 2;
+        const durationDiff = screenDiff / speed / playbackRate;
         duration += durationDiff;
         delay -= (durationDiff * 0.5);
         // 逆再生
-        var reverse = chat.isReverse() ? '  animation-direction: reverse;\n' : '';
+        const reverse = chat.isReverse() ? 'animation-direction: reverse;' : '';
 
-        result = ['',
-          ' @keyframes idou', id, ' {\n',
-          '    0%  {opacity: ', opacity, '; transform: translate3d(0, 0, 0) ', scaleCss, ';}\n',
-          '  100%  {opacity: ', opacity, '; transform: translate3d(', - (outerScreenWidth + width), 'px, 0, 0) ', scaleCss, ';}\n',
-          ' }\n',
-          '',
-          ' #', id, ' {\n',
-          '  z-index: ', (zIndex) , ';\n', // 要検証:NAKAコメントは常にue, shitaより手前？
-          '  top:', ypos, 'px;\n',
-          '  left:', leftPos, 'px;\n',
-          colorCss,
-          '  font-size:', fontSizePx, 'px;\n',
+        result = `
+@keyframes idou${id} {
+  0% { transform: translate3d(0, 0, 0) ${scaleCss} }
+  100% { transform: translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss} }
+}
+  
+#${id} {
+   z-index: ${zIndex};
+   top: ${ypos}px;
+   left: ${leftPos}px;
+   ${colorCss}
+   opacity: 1;
+   font-size: ${fontSizePx}px;
+   animation-name: idou${id};
+   animation-duration: ${duration}s;
+   animation-delay: ${delay}s;
+   ${reverse}
+}
+        `.trim();
 //          '  line-height:',  lineHeight, 'px;\n',
-          '  animation-name: idou', id, ';\n',
-          '  animation-duration: ', duration, 's;\n',
-          '  animation-delay: ', delay, 's;\n',
-          reverse,
-          ' }\n',
-          '\n\n'];
       } else {
         scaleCss =
           scale === 1.0 ?
-            ' transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
-            (' transform: scale3d(' + scale + ', ' + scale + ', 1) translate3d(-50%, 0, 0);');
-            //' transform:  scale(1);' : (' transform: scale(' + scale + ');');
+            'transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
+            `transform: scale3d(${scale}, ${scale}, 1) translate3d(-50%, 0, 0);`;
 
-        result = ['',
-          ' #', id, ' {\n',
-          '  z-index: ', zIndex, ';\n',
-          '  top:', ypos, 'px;\n',
-          //'  left: calc(50% - ', (width / 2) , 'px);\n',
-          '  left: 50%;\n',
-          colorCss,
-          '  font-size:', fontSizePx,  'px;\n',
-//          '  line-height:', lineHeight,  'px;\n',
-//          '  width:', width, 'px;\n',
-//          '  height:', height, 'px;\n',
-          scaleCss,
-          '  animation-duration: ', duration / 0.95, 's;\n',
-          '  animation-delay: ', delay, 's;\n',
-          ' }\n',
-          '\n\n'];
+        result = `
+#${id} {
+   z-index: ${zIndex};
+   top: ${ypos}px;
+   left: 50%;
+   ${colorCss}
+   font-size: ${fontSizePx}px;
+   ${scaleCss}
+   animation-duration: ${duration / 0.95}s;
+   animation-delay: ${delay}s;
+}
+          `.trim();
+/*
+@keyframes dokaben${id} {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg) scale(${scale}) ;
+  }
+  50% {
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg)  scale(${scale}) ;
+  }
+  90% {
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg)  scale(${scale}) ;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg) scale(${scale}) ;
+  }
+}
+
+.shadow-dokaben #${id} {
+  animation-name: dokaben${id} !important;
+}*/
+            /*line-height: ${//lineHeight}px;*/
+            /*width:', ${//width}, 'px;*/
+            /*height:', ${//height}, 'px;*/
       }
-
-      return result.join('') + '\n';
-    },
-    _buildNicoScriptCss: function(chat, type, currentTime) {
-      var id = chat.getId();
-      var text = chat.getText().trim();
-      var playbackRate = this._playbackRate;
-      var duration = chat.getDuration() / playbackRate;
-      var beginL = chat.getBeginLeftTiming();
-      var delay = (beginL - currentTime) / playbackRate;
-      var result = ['',
-        ' #', id, ' {\n',
-          '  animation-name: showhide;\n',
-          '  animation-duration: ', duration, 's;\n',
-          '  animation-delay: ', delay, 's;\n',
-        '}\n'];
-      //window.console.log('nicoScript text:', text);
-
-      switch (text) {
-        case '@デフォルト':
-        case '＠デフォルト':
-          result.push(' #', id, ' ~ .nicoChat {\n');
-            var c = chat.getColor();
-            if (c) { result.push('  color: ', c + ';');}
-          break;
-        case '@逆':
-        case '＠逆':
-          result.push(' #', id, ' ~ .nicoChat {\n');
-          result.push(' animation-direction: reverse; ');
-          break;
-        case '@コメント禁止':
-        case '＠コメント禁止':
-          result.push(' #', id, ' ~ .nicoChat {\n');
-          result.push(' display: none; ');
-          break;
-
-        default:
-          return '';
-      }
-
-      result.push('}\n');
-          window.console.log(result.join(''));
-      return result.join('');
+      return '\n'+ result + '\n';
     },
     show: function() {
       if (!this._isShow) {
@@ -3086,9 +3100,6 @@ spacer {
       //$view.css({width: 1}).offset();
       this._$node = $node;
       $node.append(this._view);
-
-      // リサイズイベントを発動させる。 バッドノウハウ的
-      //ZenzaWatch.util.callAsync(this._adjust, this, 1000);
     },
     /**
      * toStringで、コメントを静的なCSS3アニメーションHTMLとして出力する。
@@ -3098,7 +3109,26 @@ spacer {
     toString: function() {
       return this.buildHtml(0)
         .replace('<html', '<html class="saved"');
+    },
+
+    getCurrentScreenHtml: function() {
+      const win = this._window;
+      if (!win) { return null; }
+      this.refresh();
+      let body = win.document.body;
+      body.classList.add('in-capture');
+      let html = win.document.querySelector('html').outerHTML;
+      body.classList.remove('in-capture');
+      html = html
+        .replace('<html ', '<html xmlns="http://www.w3.org/1999/xhtml" ')
+        .replace(/<meta.*?>/g, '')
+        .replace(/data-meta=".*?"/g, '')
+        .replace(/<span/g, '<text')
+        .replace(/<\/span/g, '</text')
+        .replace(/<br>/g, '<br/>');
+      return html;
     }
+
   });
 
 

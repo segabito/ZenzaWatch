@@ -378,63 +378,75 @@ var ZenzaWatch = {
     if (window.name.indexOf('storyboard') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    var parentHost = document.referrer.split('/')[2];
+    const parentHost = document.referrer.split('/')[2];
     if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
 
-    var type = window.name.replace(/Loader$/, '');
-    var token = location.hash ? location.hash.substring(1) : null;
+    const type = window.name.replace(/Loader$/, '');
+    const token = location.hash ? location.hash.substring(1) : null;
 
+    const videoCapture = function(src, sec) {
+      return new Promise((resolve, reject) => {
+        //console.log('videoCapture', src, sec);
+        let resolved = false;
+        const v = document.createElement('video');
+
+        v.addEventListener('loadedmetadata', () => {
+          v.currentTime = sec;
+        });
+        v.addEventListener('error', (err) => {
+          v.remove();
+          return reject(err);
+        });
+
+        const onSeeked = () => {
+          if (resolved) { return; }
+          const c = document.createElement('canvas');
+          c.width  = v.videoWidth;
+          c.height = v.videoHeight;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(v, 0, 0);
+          v.remove();
+
+          resolved = true;
+          return resolve(c);
+        };
+
+        v.addEventListener('seeked', onSeeked);
+
+        document.body.appendChild(v);
+        v.volume = 0;
+        v.autoplay = false;
+        v.controls = false;
+        v.src = src;
+        v.currentTime = sec;
+      });
+    };
 
     window.addEventListener('message', function(event) {
-      //window.console.log('StoryBoardLoaderWindow.onMessage', event.data, type);
-      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
-      //var command = data.command;
+      const data = JSON.parse(event.data);
 
       if (data.token !== token) { return; }
 
-
-      if (!data.url) { return; }
-      var sessionId = data.sessionId;
-      //window.console.log('StoryBoardLoaderWindow.load', data.url, type);
-
-      xmlHttpRequest({
-        url: data.url,
-        onload: function(resp) {
-          //window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp, type);
-
-          if (isTimeout) { return; }
-          else { window.clearTimeout(timeoutTimer); }
-
-          try {
+      const command = data.command;
+      const sessionId = data.sessionId;
+      switch (command) {
+        case 'videoCapture':
+          videoCapture(data.src, data.sec).then(canvas => {
+            const dataUrl = canvas.toDataURL('image/png');
+            //console.info('video capture success', dataUrl.length);
             postMessage(type, {
-              sessionId: sessionId,
+              sessionId,
               status: 'ok',
-              token: token,
-              url: data.url,
-              body: resp.responseText
+              token,
+              command,
+              body: dataUrl
             });
-          } catch (e) {
-            console.log(
-              '%cError: parent.postMessage - ',
-              'color: red; background: yellow',
-              e, event.origin, event.data);
-          }
-        }
-      });
-
-      timeoutTimer = window.setTimeout(function() {
-        isTimeout = true;
-        postMessage(type, {
-          sessionId: sessionId,
-          status: 'timeout',
-          command: 'loadUrl',
-          url: data.url
-        });
-      }, 30000);
-
+          });
+          break;
+      }
     });
 
     try {

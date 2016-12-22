@@ -1842,6 +1842,13 @@ var ajax = function() {};
           }
         });
       },
+      videoCapture: function(src, sec) {
+        return this._postMessage({
+          command: 'videoCapture',
+          src,
+          sec
+        }, true);
+      },
       _fetch: function(url, options) {
         return this._postMessage({
           command: 'fetch',
@@ -1958,28 +1965,7 @@ var ajax = function() {};
     }
 
 
-
     var StoryBoardInfoLoader = (function() {
-      var crossDomainGates = {};
-
-      var initializeByServer = function(server, fileId) {
-        if (crossDomainGates[server]) {
-          return crossDomainGates[server];
-        }
-
-        var baseUrl = '//' + server + '/smile?i=' + fileId;
-        //window.console.log('create CrossDomainGate: ', server, baseUrl);
-
-        crossDomainGates[server] = new CrossDomainGate({
-          baseUrl: baseUrl,
-          origin: location.protocol + '//' + server + '/',
-          type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
-          messager: WindowMessageEmitter
-        });
-
-        return crossDomainGates[server];
-      };
-
       var reject = function(err) {
         return new Promise(function(res, rej) {
           window.setTimeout(function() { rej(err); }, 0);

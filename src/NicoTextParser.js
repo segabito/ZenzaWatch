@@ -128,7 +128,7 @@ STRONG MINCHO
 
 
 // 画面レイアウトに影響ありそうなCSSをこっちにまとめる
-  NicoTextParser.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  NicoTextParser.__css__ = (`
 body {
   marign: 0;
   padding: 0;
@@ -193,9 +193,9 @@ han_group { font-family: 'Arial'; }
   .arial.type2001 {
     font-family: Arial;
   }
-  {* フォント変化のあったグループの下にいるということは、
+  /* フォント変化のあったグループの下にいるということは、
      半角文字に挟まれていないはずである。
-   *}
+   */
     .gothic > .type2001 {
       font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';
     }
@@ -209,12 +209,12 @@ han_group { font-family: 'Arial'; }
       font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;
     }
 
-{*
+/*
 .tab_space { opacity: 0; }
 .big    .tab_space > spacer { width:  86.55875px;  }
 .medium .tab_space > spacer { width:  53.4px;  }
 .small  .tab_space > spacer { width:  32.0625px;  }
-*}
+*/
 
 .tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0 !important; }
 .big    .tab_space { letter-spacing: 1.6241em; }
@@ -249,7 +249,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 .medium .mesh_space { width: 25px; }
 .small  .mesh_space { width: 16px; }
 
-{*
+/*
 .fill_space {
   display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
            vertical-align: bottom; font-weight: normal;
@@ -258,13 +258,13 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 .big    .fill_space { width: 40px; height: 40px; }
 .medium .fill_space { width: 25px; height: 25px; }
 .small  .fill_space { width: 16px; height: 16px; }
-*}
+*/
 
 .backslash {
   font-family: Arial;
 }
 
-{* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 *}
+/* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 */
 .mincho .invisible_code {
   font-family: gulim;
 }
@@ -275,7 +275,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 
 .html5_tab_space { opacity: 0; }
 
-  */});
+  `).trim();
 
 /**
  *  たぶんこんな感じ

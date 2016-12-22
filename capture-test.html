@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>HTML -> svg -> canvasにして保存するテスト</title>
+</head>
+<body>
+<script>
+const svg = (`<svg xmlns='http://www.w3.org/2000/svg' width='682' height='384'>
+<foreignObject width='100%' height='100%'><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><title>CommentLayer</title>
+<style type="text/css" id="layoutCss">body {
+  marign: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.default {}
+.gothic  {font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo'; }
+.mincho  {font-family: Simsun,            Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
+.gulim   {font-family: Gulim,             Osaka-mono, "Osaka−等幅",              'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
+.mingLiu {font-family: PmingLiu, mingLiu, MingLiU, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
+han_group { font-family: 'Arial'; }
+
+
+.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, 'ＭＳ ゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';}
+.cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;}
+.cmd-defont {font-family: 'Meiryo', 'IPAMonaPGothic', sans-serif, monospace, 'Menlo'; }
+
+
+.nicoChat {
+  position: absolute;
+  padding: 1px;
+
+  letter-spacing: 1px;
+  margin: 2px 1px 1px 1px;
+  white-space: nowrap;
+  font-weight: bolder;
+  font-kerning: none;
+
+}
+
+  .nicoChat.big {
+    line-height: 47.5px;
+  }
+    .nicoChat.big.noScale {
+      line-height: 45px;
+    }
+
+  .nicoChat.medium {
+    line-height: 30px;
+  }
+    .nicoChat.medium.noScale {
+      line-height: 29px;
+    }
+
+  .nicoChat.small {
+    line-height: 20px;
+  }
+    .nicoChat.small.noScale {
+      line-height: 18px;
+    }
+
+  .nicoChat .zero_space {
+  }
+    .nicoChat .zen_space.type115A {
+    }
+
+  .type2001 {
+  }
+
+  .arial.type2001 {
+    font-family: Arial;
+  }
+  /* フォント変化のあったグループの下にいるということは、
+     半角文字に挟まれていないはずである。
+   */
+    .gothic > .type2001 {
+      font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';
+    }
+    .mincho > .type2001 {
+      font-family: Simsun,            Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace
+    }
+    .gulim > .type2001 {
+      font-family: Gulim,             Osaka-mono,              'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;
+    }
+    .mingLiu > .type2001 {
+      font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;
+    }
+
+/*
+.tab_space { opacity: 0; }
+.big    .tab_space > spacer { width:  86.55875px;  }
+.medium .tab_space > spacer { width:  53.4px;  }
+.small  .tab_space > spacer { width:  32.0625px;  }
+*/
+
+.tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0 !important; }
+.big    .tab_space { letter-spacing: 1.6241em; }
+.medium .tab_space { letter-spacing: 1.6252em; }
+.small  .tab_space { letter-spacing: 1.5375em; }
+
+
+.big    .type0020 > spacer { width: 11.8359375px; }
+.medium .type0020 > spacer { width: 7.668px; }
+.small  .type0020 > spacer { width: 5px; }
+
+.big    .type3000 > spacer { width: 40px; }
+.medium .type3000 > spacer { width: 25px; }
+.small  .type3000 > spacer { width: 16px; }
+
+.big    .gothic > .type3000 > spacer { width: 26.8984375px; }
+.medium .gothic > .type3000 > spacer { width: 16.9375px; }
+.small  .gothic > .type3000 > spacer { width: 10.9609375px; }
+
+.big    .type00A0 > spacer { width: 11.8359375px; }
+.medium .type00A0 > spacer { width: 7.668px; }
+.small  .type00A0 > spacer { width: 5px; }
+
+spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height: 8px; vertical-align: middle;}
+
+.mesh_space {
+  display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
+  vertical-align: middle; font-weight: normal;
+  white-space: nowrap;
+}
+.big    .mesh_space { width: 40px; }
+.medium .mesh_space { width: 25px; }
+.small  .mesh_space { width: 16px; }
+
+/*
+.fill_space {
+  display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
+           vertical-align: bottom; font-weight: normal;
+  white-space: nowrap;
+}
+.big    .fill_space { width: 40px; height: 40px; }
+.medium .fill_space { width: 25px; height: 25px; }
+.small  .fill_space { width: 16px; height: 16px; }
+*/
+
+.backslash {
+  font-family: Arial;
+}
+
+/* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 */
+.mincho .invisible_code {
+  font-family: gulim;
+}
+
+.block_space {
+  font-family: Simsun, 'IPAMonaGothic', Gulim, PmingLiu;
+}
+
+.html5_tab_space { opacity: 0; }</style>
+<style type="text/css" id="optionCss"></style>
+<style type="text/css">
+
+body.in-capture .commentLayerOuter {
+  overflow: hidden;
+  width: 682px;
+  height: 384px;
+  padding: 0 69px;
+}
+body.in-capture .commentLayer {
+  transform: none !important;
+}
+
+.saved body {
+  pointer-events: auto;
+}
+
+.debug .mincho  { background: rgba(128, 0, 0, 0.3); }
+.debug .gulim   { background: rgba(0, 128, 0, 0.3); }
+.debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
+
+@keyframes fixed {
+   0% {opacity: 1;}
+  95% {opacity: 1;}
+ 100% {opacity: 0.5;}
+}
+
+@keyframes showhide {
+   0% { display: block;}
+ 100% { display: none; }
+}
+
+@keyframes dokaben {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotateX(90deg) translate(-50%, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+  }
+   100% {
+    opacity: 1;
+    transform: scale(1) rotateX(90deg)  translate(-50%, 0);
+  }
+}
+.shadow-dokaben .commentLayer {
+  perspective: 200px;
+  perspective-origin: bottom;
+}
+
+.commentLayerOuter {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 672px;
+  padding: 0 64px;
+  height: 385px;
+  right: 0;
+  bottom: 0;
+  transform: translate3d(-50%, -50%, 0);
+  box-sizing: border-box;
+}
+
+.saved .commentLayerOuter {
+  background: #333;
+}
+
+.commentLayer {
+  position: relative;
+  width: 544px;
+  height: 385px;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.debug .commentLayer {
+  border: 1px dotted #800;
+}
+
+.nicoChat {
+  line-height: 1.235;
+  opacity: 0;
+  text-shadow: 1px 1px 0px #000;
+  transform-origin: 0% 0%;
+  animation-timing-function: linear;
+  /*will-change: transform, opacity;*/
+  color: #fff;
+}
+
+.shadow-type2 .nicoChat {
+  text-shadow:
+     1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px -1px 0px rgba(0, 0, 0, 0.5),
+     1px -1px 0px rgba(0, 0, 0, 0.5);
+}
+
+.shadow-type3 .nicoChat {
+  /*text-shadow:
+    0 0 3px #000,
+    0 0 2px #000,
+    0 0 1px #000;*/
+  text-shadow:
+     1px  1px 1px rgba(  0,   0,   0, 0.8),
+     0px  0px 2px rgba(  0,   0,   0, 0.8),
+    -1px -1px 1px rgba(128, 128, 128, 0.8);
+}}
+
+.shadow-stroke .nicoChat {
+  text-shadow: none;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.7);
+  text-stroke:         1px rgba(0, 0, 0, 0.7);
+}
+
+/*「RGBは大体　文字200、80、0　縁150,50,0　くらい」らしい*/
+.shadow-dokaben .nicoChat.ue,
+.shadow-dokaben .nicoChat.shita {
+  color: rgb(200, 80, 0);
+  font-family: 'dokaben_ver2_1' !important;
+  font-weight: bolder;
+  animation-name: dokaben !important;
+  transform-origin: center bottom;
+  animation-timing-function: steps(10);
+  text-shadow:
+    1px  1px 0px rgba(150, 50, 0, 1),
+   -1px  1px 0px rgba(150, 50, 0, 1),
+   -1px -1px 0px rgba(150, 50, 0, 1),
+    1px -1px 0px rgba(150, 50, 0, 1) !important;
+}
+.shadow-dokaben .nicoChat.ue *,
+.shadow-dokaben .nicoChat.shita  *{
+  font-family: 'dokaben_ver2_1' !important;
+}
+.shadow-dokaben .nicoChat {
+  font-family: 'dokaben_ver2_1';
+  text-shadow:
+     1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px  1px 0px rgba(0, 0, 0, 0.5),
+    -1px -1px 0px rgba(0, 0, 0, 0.5),
+     1px -1px 0px rgba(0, 0, 0, 0.5);
+}
+
+
+.nicoChat.ue,
+.nicoChat.shita {
+  animation-name: fixed;
+}
+
+.nicoChat.black {
+  text-shadow: -1px -1px 0 #888, 1px  1px 0 #888;
+}
+
+.nicoChat.overflow {
+}
+
+.nicoChat.ue,
+.nicoChat.shita {
+  display: inline-block;
+  text-shadow: 0 0 3px #000;
+}
+.nicoChat.ue.black,
+.nicoChat.shita.black {
+  text-shadow: 0 0 3px #fff;
+}
+
+.nicoChat .type0655,
+.nicoChat .zero_space {
+  text-shadow: none;
+  -webkit-text-stroke: unset;
+  opacity: 0;
+}
+
+.nicoChat .han_space,
+.nicoChat .zen_space {
+  text-shadow: none;
+  -webkit-text-stroke: unset;
+  opacity: 0;
+}
+
+.debug .nicoChat .han_space,
+.debug .nicoChat .zen_space {
+  text-shadow: none;
+  -webkit-text-stroke: unset;
+  color: yellow;
+  background: #fff;
+  opacity: 0.3;
+}
+
+.debug .nicoChat .tab_space {
+  text-shadow: none;
+  -webkit-text-stroke: unset;
+  background: #ff0;
+  opacity: 0.3;
+}
+
+.nicoChat .invisible_code {
+  text-shadow: none;
+  -webkit-text-stroke: unset;
+  opacity: 0;
+}
+
+.nicoChat .zero_space {
+  text-shadow: none;
+  -webkit-text-stroke: unset;
+  opacity: 0;
+}
+
+.debug .nicoChat .zero_space {
+  display: inline;
+  position: absolute;
+}
+
+.nicoChat .fill_space {
+  text-shadow: none;
+  -webkit-text-stroke: unset !important;
+  text-stroke: unset !important;
+  background: currentColor;
+  /*outline: 2px solid;
+  outline-offset: -1px;*/
+  box-shadow: 0 4px, 0 -4px;
+}
+
+.nicoChat .mesh_space {
+  text-shadow: none;
+  -webkit-text-stroke: unset;
+}
+
+.nicoChat .block_space {
+  text-shadow: none;
+  -webkit-text-stroke: 5px;
+  text-stroke: 5px;
+  font-weight: 900;
+}
+
+.debug .nicoChat.ue {
+  text-decoration: overline;
+}
+
+.debug .nicoChat.shita {
+  text-decoration: underline;
+}
+
+
+
+.nicoChat.mine {
+  border: 1px solid yellow;
+}
+
+.nicoChat.updating {
+  border: 1px dotted;
+}
+
+.nicoChat.fork1 {
+  text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
+  -webkit-text-stroke: none;
+}
+.nicoChat.ue.fork1,
+.nicoChat.shita.fork1 {
+  display: inline-block;
+  text-shadow: 0 0 3px #080 !important;
+  -webkit-text-stroke: none;
+}
+
+.nicoChat.fork2 {
+  outline: dotted 1px #000088;
+}
+
+.nicoChat.blink {
+  border: 1px solid #f00;
+}
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(3600deg); }
+}
+
+.nicoChat.updating::before {
+  content: '❀';
+  opacity: 0.8;
+  color: #f99;
+  display: inline-block;
+  text-align: center;
+  animation-name: spin;
+  animation-iteration-count: infinite;
+  animation-duration: 10s;
+}
+
+.nicoChat.updating::after {
+  content: ' 通信中...';
+  color: #ff9;
+  font-size: 50%;
+  opacity: 0.8;
+  color: #ccc;
+}
+
+.nicoChat.updating::after {
+  animation-direction: alternate;
+}
+
+.nicoChat.fail {
+  border: 1px dotted red;
+  text-decoration: line-through;
+}
+
+.nicoChat.fail:after {
+  content: ' 投稿失敗...';
+  text-decoration: none;
+  color: #ff9;
+  font-size: 80%;
+  opacity: 0.8;
+  color: #ccc;
+}
+
+.debug .nicoChat {
+  border: 1px outset;
+}
+
+spacer {
+  visibility: hidden;
+}
+.debug spacer {
+  visibility: visible;
+  outline: 3px dotted orange;
+}
+
+.stalled .nicoChat,
+.paused  .nicoChat {
+  animation-play-state: paused !important;
+}
+
+</style>
+<style id="nicoChatAnimationDefinition"> @keyframes idouchat1000210 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-862.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000210 {
+  z-index: 1;
+  top:0px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000210;
+  animation-duration: 5.170614692653674s;
+  animation-delay: -3.2153073463268322s;
+ }
+
+
+
+ @keyframes idouchat1000404 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000404 {
+  z-index: 1001;
+  top:35px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000404;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -2.5106905055487014s;
+ }
+
+
+
+ @keyframes idouchat1000515 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000515 {
+  z-index: 2001;
+  top:70px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000515;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -2.4606905055487043s;
+ }
+
+
+
+ @keyframes idouchat1000516 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1544.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000516 {
+  z-index: 3001;
+  top:105px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000516;
+  animation-duration: 4.578799110452187s;
+  animation-delay: -2.5093995552260924s;
+ }
+
+
+
+ @keyframes idouchat1000517 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-913.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000517 {
+  z-index: 4001;
+  top:140px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000517;
+  animation-duration: 5.087465181058496s;
+  animation-delay: -2.763732590529247s;
+ }
+
+
+
+ @keyframes idouchat1000518 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1200.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000518 {
+  z-index: 5001;
+  top:175px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000518;
+  animation-duration: 4.776915422885573s;
+  animation-delay: -2.608457711442785s;
+ }
+
+
+
+ @keyframes idouchat1000139 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1512.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000139 {
+  z-index: 6001;
+  top:210px;
+  left:641.6px;
+color: #00FF00;
+  font-size:39px;
+  animation-name: idouchat1000139;
+  animation-duration: 4.5928625664388765s;
+  animation-delay: -2.486431283219436s;
+ }
+
+
+
+ @keyframes idouchat1000148 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000148 {
+  z-index: 7001;
+  top:261px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000148;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -2.080690505548709s;
+ }
+
+
+
+ @keyframes idouchat1000241 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1114.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000241 {
+  z-index: 8001;
+  top:296px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000241;
+  animation-duration: 4.8496191512513604s;
+  animation-delay: -2.2448095756256734s;
+ }
+
+
+
+ #chat1000181 {
+  z-index: 23001;
+  top:335px;
+  left: 50%;
+color: #00FFFF;
+  font-size:39px;
+ transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);  animation-duration: 3.1578947368421053s;
+  animation-delay: -0.7199999999999989s;
+ }
+
+
+
+ #chat1000182 {
+  z-index: 24001;
+  top:284px;
+  left: 50%;
+color: #00FFFF;
+  font-size:39px;
+ transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);  animation-duration: 3.1578947368421053s;
+  animation-delay: -0.7199999999999989s;
+ }
+
+
+
+ @keyframes idouchat1000514 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1028.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000514 {
+  z-index: 9001;
+  top:331px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000514;
+  animation-duration: 4.93733493397359s;
+  animation-delay: -2.1586674669867927s;
+ }
+
+
+
+ @keyframes idouchat1000222 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1214.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000222 {
+  z-index: 10001;
+  top:59px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000222;
+  animation-duration: 4.766241413150148s;
+  animation-delay: -2.0231207065750745s;
+ }
+
+
+
+ @keyframes idouchat1000479 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1229.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000479 {
+  z-index: 11001;
+  top:256px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000479;
+  animation-duration: 4.755125725338491s;
+  animation-delay: -2.017562862669246s;
+ }
+
+
+
+ @keyframes idouchat1000159 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000159 {
+  z-index: 12001;
+  top:319px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000159;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -1.7906905055487026s;
+ }
+
+
+
+ @keyframes idouchat1000282 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-840.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000282 {
+  z-index: 13001;
+  top:0px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000282;
+  animation-duration: 5.210542635658915s;
+  animation-delay: -2.005271317829463s;
+ }
+
+
+
+ @keyframes idouchat1000221 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1803.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000221 {
+  z-index: 14001;
+  top:324px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000221;
+  animation-duration: 4.485572139303483s;
+  animation-delay: -1.612786069651746s;
+ }
+
+
+
+ @keyframes idouchat1000249 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000249 {
+  z-index: 15001;
+  top:82px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000249;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -1.5506905055487077s;
+ }
+
+
+
+ @keyframes idouchat1000198 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-971.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000198 {
+  z-index: 16001;
+  top:184px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000198;
+  animation-duration: 5.006185567010309s;
+  animation-delay: -1.7030927835051575s;
+ }
+
+
+
+ @keyframes idouchat1000199 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000199 {
+  z-index: 17001;
+  top:212px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000199;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -1.4406905055487083s;
+ }
+
+
+
+ @keyframes idouchat1000200 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1171.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000200 {
+  z-index: 18001;
+  top:303px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000200;
+  animation-duration: 4.8s;
+  animation-delay: -1.600000000000003s;
+ }
+
+
+
+ @keyframes idouchat1000319 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1171.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000319 {
+  z-index: 19001;
+  top:294px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000319;
+  animation-duration: 4.8s;
+  animation-delay: -1.4100000000000052s;
+ }
+
+
+
+ @keyframes idouchat1000277 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1331.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000277 {
+  z-index: 20001;
+  top:2px;
+  left:641.6px;
+  font-size:39px;
+  animation-name: idouchat1000277;
+  animation-duration: 4.687323943661972s;
+  animation-delay: -1.3136619718309848s;
+ }
+
+
+
+ @keyframes idouchat1000336 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000336 {
+  z-index: 21001;
+  top:44px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000336;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -1.2106905055487043s;
+ }
+
+
+
+ @keyframes idouchat1000498 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000498 {
+  z-index: 22001;
+  top:101px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000498;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -1.0006905055487105s;
+ }
+
+
+
+ @keyframes idouchat1000463 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1057.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000463 {
+  z-index: 25001;
+  top:140px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000463;
+  animation-duration: 4.9058004640371236s;
+  animation-delay: -1.1729002320185604s;
+ }
+
+
+
+ #chat1000183 {
+  z-index: 35001;
+  top:233px;
+  left: 50%;
+color: #FF0000;
+  font-size:39px;
+ transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);  animation-duration: 3.1578947368421053s;
+  animation-delay: 0.3199999999999932s;
+ }
+
+
+
+ @keyframes idouchat1000244 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-884.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000244 {
+  z-index: 26001;
+  top:63px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000244;
+  animation-duration: 5.133236574746009s;
+  animation-delay: -1.1366182873729977s;
+ }
+
+
+
+ @keyframes idouchat1000299 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-913.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000299 {
+  z-index: 27001;
+  top:284px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000299;
+  animation-duration: 5.087465181058496s;
+  animation-delay: -1.0537325905292532s;
+ }
+
+
+
+ @keyframes idouchat1000189 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000189 {
+  z-index: 28001;
+  top:50px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000189;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -0.650690505548702s;
+ }
+
+
+
+ @keyframes idouchat1000418 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000418 {
+  z-index: 29001;
+  top:244px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000418;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -0.650690505548702s;
+ }
+
+
+
+ @keyframes idouchat1000490 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1171.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000490 {
+  z-index: 30001;
+  top:190px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000490;
+  animation-duration: 4.8s;
+  animation-delay: -0.7900000000000007s;
+ }
+
+
+
+ @keyframes idouchat1000428 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-755.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000428 {
+  z-index: 31001;
+  top:0px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000428;
+  animation-duration: 5.394285714285715s;
+  animation-delay: -0.9271428571428613s;
+ }
+
+
+
+ @keyframes idouchat1000185 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-942.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000185 {
+  z-index: 32001;
+  top:175px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000185;
+  animation-duration: 5.0452476572958505s;
+  animation-delay: -0.6526238286479206s;
+ }
+
+
+
+ @keyframes idouchat1000395 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1817.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000395 {
+  z-index: 33001;
+  top:249px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000395;
+  animation-duration: 4.481381011097411s;
+  animation-delay: -0.2606905055487014s;
+ }
+
+
+
+ @keyframes idouchat1000429 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-755.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000429 {
+  z-index: 34001;
+  top:0px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000429;
+  animation-duration: 5.394285714285715s;
+  animation-delay: -0.48714285714286354s;
+ }
+
+
+
+ @keyframes idouchat1000172 {
+    0%  {opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1);}
+  100%  {opacity: 1; transform: translate3d(-1567.2px, 0, 0) scale3d(1, 1, 1);}
+ }
+ #chat1000172 {
+  z-index: 36001;
+  top:35px;
+  left:641.6px;
+  font-size:24px;
+  animation-name: idouchat1000172;
+  animation-duration: 4.569096209912536s;
+  animation-delay: 0.19545189504373567s;
+ }
+
+
+
+</style>
+</head>
+<body style="background-color: transparent !important;background: transparent !important;" class="shadow-type3 in-capture">
+<div class="commentLayerOuter">
+<div class="commentLayer stalled" id="commentLayer" style="transform: scale3d(0.584416, 0.584416, 1);">
+<span class="nicoChat naka medium noScale fork0" id="chat1000210" ><han_group></han_group><group class="gothic">ω∂</group><han_group>)</han_group><group class="gothic">ゝ☆</group></span><span class="nicoChat naka medium noScale fork0" id="chat1000404" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000515" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000516" ><han_group>39393939393939393939393939393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000517" ><han_group>393939393939</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000518" ><han_group>39393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka big noScale fork0" id="chat1000139" ><han_group>3939393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000148" ><han_group>393939393939393939393939393939393939393939393393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000241" ><han_group>39393939393939393939393939</han_group></span>
+<span class="nicoChat shita big noScale fork0" id="chat1000181" ><han_group>3939393939393939</han_group></span>
+<span class="nicoChat shita big noScale fork0" id="chat1000182" ><han_group>3939393939</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000514" ><han_group>39393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000222" ><han_group>393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000479" ><han_group>3939393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000159" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000282" ><group class="gothic">目かわい</group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000221" ><han_group>39393939393939393939393939393939393939393939393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000249" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000198" ><han_group>3939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000199" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000200" ><han_group>393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000319" ><han_group>393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka big noScale overflow fork0" id="chat1000277" ><han_group>39393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000336" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000498" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000463" ><han_group>3939393939393939393939</han_group></span>
+<span class="nicoChat shita big noScale fork0" id="chat1000183" ><han_group>3939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000244" ><han_group>3939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000299" ><han_group>393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000189" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000418" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000490" ><han_group>393939393939393939393939393939</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000428" ><han_group>3</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000185" ><han_group>39393939393939</han_group></span>
+<span class="nicoChat naka medium noScale overflow fork0" id="chat1000395" ><han_group>393939393939393939393939393939393939393939393939393939393939393939393939393</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000429" ><han_group>9</han_group></span>
+<span class="nicoChat naka medium noScale fork0" id="chat1000172" ><han_group>3939393939393939393939393|39393939393939393939393939393939</han_group></span></div>
+</div>
+</body></html></foreignObject></svg>`).trim();
+</script>
+
+<script>
+function save(width = 682, height = 384) {
+  const blob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
+  const url = window.URL.createObjectURL(blob);
+
+  const img = new Image();
+  img.width  = width;
+  img.height = height;
+  const canvas = document.createElement('canvas');
+
+  const context = canvas.getContext('2d');
+  canvas.width  = width;
+  canvas.height = height;
+
+  img.onload = () => {
+    context.drawImage(img, 0, 0);
+		console.log(111);
+		context.getImageData(0, 0, width, height);
+		console.log(222);
+
+		saveToFile(canvas, 'sample.png');
+    window.URL.revokeObjectURL(url);
+  };
+  img.onerror = (e) => {
+    window.console.error('img.onerror', e, data);
+    window.URL.revokeObjectURL(url);
+  };
+
+	document.body.appendChild(img);
+  img.src = url;
+}
+
+function saveToFile(canvas, fileName) {
+
+  const dataUrl = canvas.toDataURL('image/png'); // Chromeはここで怒られる
+  const bin = atob(dataUrl.split(',')[1]);
+  const buf = new Uint8Array(bin.length);
+  for (var i = 0, len = buf.length; i < len; i++) {
+    buf[i] = bin.charCodeAt(i);
+  }
+  const blob = new Blob([buf.buffer], {type: 'image/png'});
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  a.setAttribute('download', fileName);
+  a.setAttribute('target', '_blank');
+  a.setAttribute('href', url);
+  document.body.appendChild(a);
+  a.click();
+  window.setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 2000);
+}
+
+</script>
+<h2>svg -> canvas -> toDataURL() で保存するテスト</h2>
+<hr>
+<p>
+Firefox: 動く。 Edge: ファイルは真っ白だがダウンロードはできる。<br>
+Chrome: なぜか <i>Tainted canvases may not be exported.</i> で弾かれる。<br>
+IE・Safari: 動かない。<br>
+<br>
+Firefoxが正しいはず・・・。
+</p>
+<button onclick="save();" style="padding: 8px;">TEST!</button>
+
+</body>
+</html>
+

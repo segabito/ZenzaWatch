@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.9.7
+// @version        1.9.8
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // ==/UserScript==
 
@@ -37,7 +37,7 @@ var monkey = function(PRODUCT) {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.9.7';
+  var VER = '1.9.8';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -398,6 +398,7 @@ var monkey = function(PRODUCT) {
         KEY_PREV_VIDEO: 75, // K
 
         KEY_SCREEN_SHOT: 83, // S
+        KEY_SCREEN_SHOT_WITH_COMMENT: 83 + 0x1000, // SHIFT + S
       };
 
       if (navigator &&
@@ -1590,67 +1591,6 @@ var monkey = function(PRODUCT) {
       return [m, s].join(':');
     };
 
-    ZenzaWatch.util.toWellFormedHtml = function(html) {
-      const doc = document.implementation.createHTMLDocument('');
-      doc.write(html);
-      doc.documentElement.setAttribute('xmlns', doc.documentElement.namespaceURI);
-      html = (new XMLSerializer()).serializeToString(doc);
-      return html;
-    };
-
-    // 参考
-    // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
-    ZenzaWatch.util.htmlToSvg = function(html, width = 640, height = 360) {
-      //      "<div xmlns='http://www.w3.org/1999/xhtml' style='font-size:40px'>" +
-      //      "</div>"
-      //html = util.toWellFormedHtml(html);
-      const data =
-        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
-          <foreignObject width='100%' height='100%'>
-            ${html}
-          </foreignObject>
-        </svg>`).trim();
-      window.console.log('data', data);
-      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
-      return svg;
-    };
-
-
-    ZenzaWatch.util.htmlToCanvas = function(html, width = 640, height = 360) {
-      const svg = util.htmlToSvg(html);
-      const url = window.URL.createObjectURL(svg);
-      if (!url) {
-        return Promise.reject(new Error('convert svg fail'));
-      }
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      canvas.style.position = 'fixed';
-      canvas.style.bottom = 0;
-      canvas.style.left = 0;
-      canvas.style.border = '1px solid blue';
-      document.body.appendChild(canvas);
-      const context = canvas.getContext('2d');
-      canvas.width  = width;
-      canvas.height = height;
-
-      context.fillStyle = 'rgb(192, 192, 192)'; context.fillRect(0, 0, width, height);
-
-      return new Promise((resolve, reject) => {
-        img.onload = () => {
-          context.drawImage(img, 0, 0, width, height);
-          resolve(canvas);
-          window.URL.revokeObjectURL(url);
-        };
-        img.onerror = (e) => {
-          window.console.error('img.onerror', e);
-          reject(e);
-          window.URL.revokeObjectURL(url);
-        };
-
-        img.src = url;
-      });
-    };
-
     ZenzaWatch.util.videoCapture = function(src, sec) {
       return new Promise((resolve, reject) => {
         let resolved = false;
@@ -1681,7 +1621,7 @@ var monkey = function(PRODUCT) {
           c.height = v.videoHeight;
           const ctx = c.getContext('2d');
           ctx.drawImage(v, 0, 0);
-          v.remove();;
+          v.remove();
 
           resolved = true;
           return resolve(c);
@@ -1735,7 +1675,8 @@ var monkey = function(PRODUCT) {
         SHIFT_UP: 0,
         NEXT_VIDEO: 0,
         PREV_VIDEO: 0,
-        SCREEN_SHOT: 0
+        SCREEN_SHOT: 0,
+        SCREEN_SHOT_WITH_COMMENT: 0
       };
 
       _.each(Object.keys(map), function(key) {
@@ -1851,6 +1792,9 @@ var monkey = function(PRODUCT) {
             break;
           case map.SCREEN_SHOT:
             key = 'SCREEN_SHOT';
+            break;
+          case map.SCREEN_SHOT_WITH_COMMENT:
+            key = 'SCREEN_SHOT_WITH_COMMENT';
             break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
@@ -2162,6 +2106,223 @@ var monkey = function(PRODUCT) {
       detect: detect
     };
 
+  })();
+
+
+  const VideoCaptureUtil = (function() {
+    const crossDomainGates = {};
+
+    const initializeByServer = function(server, fileId) {
+      if (crossDomainGates[server]) {
+        return crossDomainGates[server];
+      }
+
+      const baseUrl = '//' + server + '/smile?i=' + fileId;
+
+      crossDomainGates[server] = new CrossDomainGate({
+        baseUrl: baseUrl,
+        origin: location.protocol + '//' + server + '/',
+        type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
+        messager: WindowMessageEmitter
+      });
+
+      return crossDomainGates[server];
+    };
+
+    const _toCanvas = function(v, width, height) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = width;
+      canvas.height = height;
+      context.drawImage(v, 0, 0, width, height);
+      return canvas;
+    };
+
+    const isCORSReadySrc = function(src) {
+      if (src.indexOf('dmc.nico') >= 0) {
+        return true;
+      }
+      return false;
+    };
+
+    const videoToCanvas = function(video) {
+      const src = video.src;
+      const sec = video.currentTime;
+      const a = document.createElement('a');
+      a.href = src;
+      const server = a.host;
+      const search = a.search;
+
+      if (isCORSReadySrc(src)) {
+        return Promise.resolve({canvas: _toCanvas(video, video.videoWidth, video.videoHeight)});
+      }
+
+      return new Promise((resolve, reject) => {
+        if (!/\?(.)=(\d+)\.(\d+)/.test(search)) {
+          return reject({status: 'fail', message: 'invalid url', url: src});
+        }
+        const fileId = RegExp.$2;
+
+        const gate = initializeByServer(server, fileId);
+
+        gate.videoCapture(src, sec).then(dataUrl => {
+          //window.console.info('video capture success ', dataUrl.length);
+
+          const bin = atob(dataUrl.split(',')[1]);
+          const buf = new Uint8Array(bin.length);
+          for (let i = 0, len = buf.length; i < len; i++) {
+            buf[i] = bin.charCodeAt(i);
+          }
+          const blob = new Blob([buf.buffer], {type: 'image/png'});
+          const url = window.URL.createObjectURL(blob);
+          console.info('createObjectUrl', url.length);
+
+          const img = new Image();
+
+          img.onload = () => {
+            resolve({canvas: _toCanvas(img, video.videoWidth, video.videoHeight)});
+            window.setTimeout(() => { window.URL.revokeObjectURL(url); }, 10000);
+          };
+
+          img.onerror = (err) => {
+            reject(err);
+            window.setTimeout(() => { window.URL.revokeObjectURL(url); }, 10000);
+          };
+
+          img.src = url;
+          //img.style.border = '2px dotted orange'; document.body.appendChild(img);
+        });
+      });
+    };
+
+    // 参考
+    // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
+    const htmlToSvg = function(html, width = 682, height = 384) {
+      const data =
+        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
+          <foreignObject width='100%' height='100%'>${html}</foreignObject>
+        </svg>`).trim();
+      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
+      return {svg, data};
+    };
+
+    const htmlToCanvas = function(html, width = 640, height = 360) {
+
+      const imageW = height * 16 / 9;
+      const imageH = imageW * 9 / 16;
+      const {svg, data} = htmlToSvg(html);
+
+      const url = window.URL.createObjectURL(svg);
+      if (!url) {
+        return Promise.reject(new Error('convert svg fail'));
+      }
+      const img = new Image();
+      img.width  = 682;
+      img.height = 384;
+      const canvas = document.createElement('canvas');
+
+      const context = canvas.getContext('2d');
+      canvas.width  = width;
+      canvas.height = height;
+
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          context.drawImage(
+            img,
+            (width  - imageW) / 2,
+            (height - imageH) / 2,
+            imageW,
+            imageH);
+          resolve({canvas, img});
+          //window.console.info('img size', img.width, img.height);
+          window.URL.revokeObjectURL(url);
+        };
+        img.onerror = (e) => {
+          window.console.error('img.onerror', e, data);
+          reject(e);
+          window.URL.revokeObjectURL(url);
+        };
+
+        img.src = url;
+      });
+    };
+
+    const nicoVideoToCanvas = function({video, html, minHeight = 720}) {
+      let scale = 1;
+      let width  =
+        Math.max(video.videoWidth, video.videoHeight * 16 / 9);
+      let height = video.videoHeight;
+      // 動画の解像度が低いときは、可能な範囲で整数倍に拡大する
+      if (height < minHeight) {
+        scale  = Math.floor(minHeight / height);
+        width  *= scale;
+        height *= scale;
+      }
+
+      const canvas = document.createElement('canvas');
+      const ct = canvas.getContext('2d');
+
+      canvas.width = width;
+      canvas.height = height;
+
+      return videoToCanvas(video).then(({canvas, img}) => {
+
+        //canvas.style.border = '2px solid red'; document.body.appendChild(canvas);
+        ct.fillStyle = 'rgb(0, 0, 0)';
+        ct.fillRect(0, 0, width, height);
+
+        ct.drawImage(
+          canvas,
+          (width  - video.videoWidth  * scale) / 2,
+          (height - video.videoHeight * scale) / 2,
+          video.videoWidth  * scale,
+          video.videoHeight * scale
+        );
+
+        return htmlToCanvas(html, width, height);
+      }).then(({canvas, img}) => {
+
+        //canvas.style.border = '2px solid green'; document.body.appendChild(canvas);
+
+        ct.drawImage(canvas, 0, 0, width, height);
+
+        return Promise.resolve({canvas, img});
+      }).then(() => {
+        return Promise.resolve({canvas});
+      });
+    };
+
+
+    const saveToFile = function(canvas, fileName = 'sample.png') {
+      const dataUrl = canvas.toDataURL('image/png');
+      const bin = atob(dataUrl.split(',')[1]);
+      const buf = new Uint8Array(bin.length);
+      for (var i = 0, len = buf.length; i < len; i++) {
+        buf[i] = bin.charCodeAt(i);
+      }
+      const blob = new Blob([buf.buffer], {type: 'image/png'});
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+
+      window.console.info('download fileName: ', fileName);
+      a.setAttribute('download', fileName);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 2000);
+      window.console.timeEnd('screenShot');
+    };
+
+    return {
+      videoToCanvas,
+      htmlToCanvas,
+      nicoVideoToCanvas,
+      saveToFile
+    };
   })();
 
 
@@ -3992,6 +4153,13 @@ var monkey = function(PRODUCT) {
           }
         });
       },
+      videoCapture: function(src, sec) {
+        return this._postMessage({
+          command: 'videoCapture',
+          src,
+          sec
+        }, true);
+      },
       _fetch: function(url, options) {
         return this._postMessage({
           command: 'fetch',
@@ -4108,28 +4276,7 @@ var monkey = function(PRODUCT) {
     }
 
 
-
     var StoryBoardInfoLoader = (function() {
-      var crossDomainGates = {};
-
-      var initializeByServer = function(server, fileId) {
-        if (crossDomainGates[server]) {
-          return crossDomainGates[server];
-        }
-
-        var baseUrl = '//' + server + '/smile?i=' + fileId;
-        //window.console.log('create CrossDomainGate: ', server, baseUrl);
-
-        crossDomainGates[server] = new CrossDomainGate({
-          baseUrl: baseUrl,
-          origin: location.protocol + '//' + server + '/',
-          type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
-          messager: WindowMessageEmitter
-        });
-
-        return crossDomainGates[server];
-      };
-
       var reject = function(err) {
         return new Promise(function(res, rej) {
           window.setTimeout(function() { rej(err); }, 0);
@@ -5292,20 +5439,33 @@ var monkey = function(PRODUCT) {
       return this._commentPlayer.getMymemory();
     },
     getScreenShot: function() {
-      if (!this._videoPlayer.isCorsReady()) { return; }
       window.console.time('screenShot');
 
-      const canvas = this._videoPlayer.getScreenShot();
-      const dataUrl = canvas.toDataURL('image/png');
-      const bin = atob(dataUrl.split(',')[1]);
-      const buf = new Uint8Array(bin.length);
-      for (var i = 0, len = buf.length; i < len; i++) {
-        buf[i] = bin.charCodeAt(i);
-      }
-      const blob = new Blob([buf.buffer], {type: 'image/png'});
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const fileName = this._getSaveFileName();
+      const video = this._videoPlayer.getVideoElement();
 
+      return VideoCaptureUtil.videoToCanvas(video).then(({canvas}) => {
+        VideoCaptureUtil.saveToFile(canvas, fileName);
+        window.console.timeEnd('screenShot');
+      });
+    },
+    getScreenShotWithComment: function() {
+      window.console.time('screenShotWithComment');
+
+      const fileName = this._getSaveFileName({suffix: 'C'});
+      const video = this._videoPlayer.getVideoElement();
+      const html = this._commentPlayer.getCurrentScreenHtml();
+
+      //return VideoCaptureUtil.htmlToCanvas({html, video}).then(({canvas}) => {
+      //  VideoCaptureUtil.saveToFile(canvas, fileName);
+      //  window.console.timeEnd('screenShotWithComment');
+      //});
+      return VideoCaptureUtil.nicoVideoToCanvas({video, html}).then(({canvas}) => {
+        VideoCaptureUtil.saveToFile(canvas, fileName);
+        window.console.timeEnd('screenShotWithComment');
+      });
+    },
+    _getSaveFileName: function({suffix = ''} = {}) {
       const title = this._videoInfo.getTitle();
       const watchId = this._videoInfo.getWatchId();
       const currentTime = this._videoPlayer.getCurrentTime();
@@ -5313,19 +5473,7 @@ var monkey = function(PRODUCT) {
       const sec = (currentTime % 60 + 100).toString().substr(1, 6);
       const time = `${min}_${sec}`;
 
-      const fileName = `${title} - ${watchId}@${time}.png`;
-
-      window.console.info('download fileName: ', fileName);
-      a.setAttribute('download', fileName);
-      a.setAttribute('target', '_blank');
-      a.setAttribute('href', url);
-      document.body.appendChild(a);
-      a.click();
-      window.setTimeout(() => {
-        a.remove();
-        URL.revokeObjectURL(url);
-      }, 2000);
-      window.console.timeEnd('screenShot');
+      return `${title} - ${watchId}@${time}${suffix}.png`;
     },
     isCorsReady: function() {
       return this._videoPlayer && this._videoPlayer.isCorsReady();
@@ -5979,6 +6127,9 @@ var monkey = function(PRODUCT) {
     },
     isCorsReady: function() {
       return this._video.crossOrigin === 'use-credentials';
+    },
+    getVideoElement: function() {
+      return this._video;
     }
   });
 
@@ -6242,6 +6393,8 @@ var monkey = function(PRODUCT) {
         border: 0;
         margin: auto;
         transform-origin: center top;
+        transition: background-position 0.1s steps(1, start) 0;
+        /*animation-timing-function: steps(1, start);*/
       }
 
     `).trim();
@@ -6259,8 +6412,8 @@ var monkey = function(PRODUCT) {
         this._model.on('update', this._onModelUpdate.bind(this));
 
 
-        this._updateImageCss =
-          ZenzaWatch.util.createDrawCallFunc(this._updateImageCss.bind(this));
+        //this._updateImageCss =
+        //  ZenzaWatch.util.createDrawCallFunc(this._updateImageCss.bind(this));
 
         ZenzaWatch.debug.seekBarThumbnail = this;
       },
@@ -9677,7 +9830,7 @@ var monkey = function(PRODUCT) {
 
 
 // 画面レイアウトに影響ありそうなCSSをこっちにまとめる
-  NicoTextParser.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  NicoTextParser.__css__ = (`
 body {
   marign: 0;
   padding: 0;
@@ -9742,9 +9895,9 @@ han_group { font-family: 'Arial'; }
   .arial.type2001 {
     font-family: Arial;
   }
-  {* フォント変化のあったグループの下にいるということは、
+  /* フォント変化のあったグループの下にいるということは、
      半角文字に挟まれていないはずである。
-   *}
+   */
     .gothic > .type2001 {
       font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';
     }
@@ -9758,12 +9911,12 @@ han_group { font-family: 'Arial'; }
       font-family: PmingLiu, mingLiu, Osaka-mono, 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;
     }
 
-{*
+/*
 .tab_space { opacity: 0; }
 .big    .tab_space > spacer { width:  86.55875px;  }
 .medium .tab_space > spacer { width:  53.4px;  }
 .small  .tab_space > spacer { width:  32.0625px;  }
-*}
+*/
 
 .tab_space { font-family: 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace; opacity: 0 !important; }
 .big    .tab_space { letter-spacing: 1.6241em; }
@@ -9798,7 +9951,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 .medium .mesh_space { width: 25px; }
 .small  .mesh_space { width: 16px; }
 
-{*
+/*
 .fill_space {
   display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
            vertical-align: bottom; font-weight: normal;
@@ -9807,13 +9960,13 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 .big    .fill_space { width: 40px; height: 40px; }
 .medium .fill_space { width: 25px; height: 25px; }
 .small  .fill_space { width: 16px; height: 16px; }
-*}
+*/
 
 .backslash {
   font-family: Arial;
 }
 
-{* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 *}
+/* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 */
 .mincho .invisible_code {
   font-family: gulim;
 }
@@ -9824,7 +9977,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 
 .html5_tab_space { opacity: 0; }
 
-  */});
+  `).trim();
 
 /**
  *  たぶんこんな感じ
@@ -10188,6 +10341,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     },
     toString: function() {
       return this._viewModel.toString();
+    },
+    getCurrentScreenHtml: function() {
+      return this._view.getCurrentScreenHtml();
     }
   });
 
@@ -12034,6 +12190,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 <style type="text/css" id="optionCss">%OPTION_CSS%</style>
 <style type="text/css">
 
+body.in-capture .commentLayerOuter {
+  overflow: hidden;
+  width: 682px;
+  height: 384px;
+  padding: 0 69px;
+}
+body.in-capture .commentLayer {
+  transform: none !important;
+}
 
 .saved body {
   pointer-events: auto;
@@ -12051,25 +12216,27 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
 @keyframes showhide {
    0% { display: block;}
+  99% { display: block;}
  100% { display: none; }
 }
 
 @keyframes dokaben {
   0% {
     opacity: 1;
-    transform: scale(1) rotateX(90deg) translate(-50%, 0);
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg);
   }
   50% {
     opacity: 1;
-    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg);
   }
   100% {
-    opacity: 1;
-    transform: scale(1) rotateX(0deg)  translate(-50%, 0);
+    opacity: 0;
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg);
   }
-}
-.shadow-dokaben .commentLayer {
-  perspective: 300px;
 }
 
 .commentLayerOuter {
@@ -12121,15 +12288,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 }
 
 .shadow-type3 .nicoChat {
-  /*text-shadow:
-    0 0 3px #000,
-    0 0 2px #000,
-    0 0 1px #000;*/
   text-shadow:
      1px  1px 1px rgba(  0,   0,   0, 0.8),
      0px  0px 2px rgba(  0,   0,   0, 0.8),
     -1px -1px 1px rgba(128, 128, 128, 0.8);
-}}
+}
 
 .shadow-stroke .nicoChat {
   text-shadow: none;
@@ -12144,16 +12307,18 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
   font-family: 'dokaben_ver2_1' !important;
   font-weight: bolder;
   animation-name: dokaben !important;
-  transform-origin: center bottom;
-  animation-timing-function: steps(12);
   text-shadow:
     1px  1px 0px rgba(150, 50, 0, 1),
    -1px  1px 0px rgba(150, 50, 0, 1),
    -1px -1px 0px rgba(150, 50, 0, 1),
     1px -1px 0px rgba(150, 50, 0, 1) !important;
+  transform-origin: center bottom;
+  animation-timing-function: steps(10);
+  perspective-origin: center bottom;
 }
+
 .shadow-dokaben .nicoChat.ue *,
-.shadow-dokaben .nicoChat.shita  *{
+.shadow-dokaben .nicoChat.shita * {
   font-family: 'dokaben_ver2_1' !important;
 }
 .shadow-dokaben .nicoChat {
@@ -12393,7 +12558,7 @@ spacer {
 
       this._config = Config.namespace('commentLayer');
 
-      var _refresh = _.bind(this.refresh, this);
+      var _refresh = this.refresh.bind(this);
       // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
       // ここに書いてるのは手抜き
       if (ZenzaWatch.util.isFirefox()) {
@@ -12402,13 +12567,11 @@ spacer {
         );
       }
 
-      // 様子見
-      //this._updateDom = ZenzaWatch.util.createDrawCallFunc(this._updateDom.bind(this));
 
       // ウィンドウが非表示の時にブラウザが描画をサボっているので、
       // 表示になったタイミングで粛正する
       //$(window).on('focus', _refresh);
-      $(document).on('visibilitychange', function() {
+      $(document).on('visibilitychange', () => {
         if (!document.hidden) {
           _refresh();
         }
@@ -12455,6 +12618,7 @@ spacer {
           return;
         }
 
+        this._window = win;
         this._document = doc;
         this._layoutStyle = doc.getElementById('layoutCss');
         this._optionStyle = doc.getElementById('optionCss');
@@ -12482,7 +12646,7 @@ spacer {
           commentLayer.style.transform =
             'scale3d(' + scale + ',' + scale + ', 1)';
         };
-        win.addEventListener('resize', onResize);
+        //win.addEventListener('resize', onResize);
 
         ZenzaWatch.debug.getInViewElements = () => {
           return doc.getElementsByClassName('nicoChat');
@@ -12509,8 +12673,41 @@ spacer {
         };
         updateTextShadow(this._config.getValue('textShadowType'));
         this._config.on('update-textShadowType', _.debounce(updateTextShadow, 100));
-        
-        //ZenzaWatch.util.callAsync(self._adjust, this, 1000);
+
+        ZenzaWatch.debug.nicoVideoCapture = function() {
+          const html = this.getCurrentScreenHtml();
+          const video = document.querySelector('video.nico');
+
+          return VideoCaptureUtil.nicoVideoToCanvas({video, html})
+            .then(({canvas, img}) => {
+              canvas.style.border = '2px solid blue';
+              canvas.className = 'debugCapture';
+              canvas.addEventListener('click', () => {
+                VideoCaptureUtil.saveToFile(canvas, 'sample.png');
+              });
+              document.body.appendChild(canvas);
+              window.console.log('ok', canvas);
+              return Promise.resolve({canvas, img});
+            }, (err) => {
+              sessionStorage.lastCaptureErrorSrc = html;
+              window.console.error('!', err);
+              return Promise.reject(err);
+            });
+        }.bind(this);
+
+        ZenzaWatch.debug.svgTest = function() {
+          const html = this.getCurrentScreenHtml();
+          const blob = new Blob([html], { 'type': 'text/plain' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.setAttribute('download', 'test.svg');
+          a.setAttribute('target', '_blank');
+          a.setAttribute('href', url);
+          document.body.appendChild(a);
+          a.click();
+          window.setTimeout(function() { a.remove(); }, 1000);
+        }.bind(this);
+
         window.console.timeEnd('initialize NicoCommentCss3PlayerView');
       };
 
@@ -12866,7 +13063,6 @@ spacer {
 
       span.className = className.join(' ');
       span.id = chat.getId();
-      //span.ontransitionend = 'this.remove();';
       if (!chat.isInvisible()) { span.innerHTML = chat.getHtmlText(); }
       span.setAttribute('data-meta', chat.toString());
       return span;
@@ -12910,30 +13106,24 @@ spacer {
       return result.join('');
     },
     _buildChatCss: function(chat, type, currentTime) {
-      var result;
-      var scaleCss;
-      var id = chat.getId();
-      var playbackRate = this._playbackRate;
-      var duration = chat.getDuration() / playbackRate;
-      var scale = chat.getScale();
-      var beginL = chat.getBeginLeftTiming();
-      var screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
-      var screenWidthFull = NicoCommentViewModel.SCREEN.WIDTH_FULL;
-      var width = chat.getWidth();
-//      var height = chat.getHeight();
-      var ypos = chat.getYpos();
-      var color = chat.getColor();
-      var colorCss = color ? ('color: ' + color + ';\n') : '';
-      var fontSizePx = chat.getFontSizePixel();
-      //var lineHeight = chat.getLineHeight();
-      var speed = chat.getSpeed();
-      var delay = (beginL - currentTime) / playbackRate;
-      // 本家は「古いコメントほど薄くなる」という仕様だが、特に再現するメリットもなさそうなので
-      var opacity = 1; //chat.isOverflow() ? 0.8 : 1;
-      //var zid = parseInt(id.substr('4'), 10);
-      //var zIndex = 10000 - (zid % 5000);
-      var slot = chat.getSlot();
-      var zIndex =
+      let result;
+      let scaleCss;
+      let id = chat.getId();
+      let playbackRate = this._playbackRate;
+      let duration = chat.getDuration() / playbackRate;
+      let scale = chat.getScale();
+      let beginL = chat.getBeginLeftTiming();
+      let screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
+      let screenWidthFull = NicoCommentViewModel.SCREEN.WIDTH_FULL;
+      let width = chat.getWidth();
+      let ypos = chat.getYpos();
+      let color = chat.getColor();
+      let colorCss = color ? ('color: ' + color + ';\n') : '';
+      let fontSizePx = chat.getFontSizePixel();
+      let speed = chat.getSpeed();
+      let delay = (beginL - currentTime) / playbackRate;
+      let slot = chat.getSlot();
+      let zIndex =
         (slot >= 0) ?
         (slot   * 1000 + chat.getFork() * 1000000 + 1) :
         (beginL * 1000 + chat.getFork() * 1000000);
@@ -12943,104 +13133,80 @@ spacer {
         // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
         // TODO: 環境によって重くなるようだったらオプションにする
         scaleCss =
-          (scale === 1.0) ?
-            'scale3d(1, 1, 1)' :
-            (' scale3d(' + scale + ', ' + scale + ', 1)');
-        var outerScreenWidth = screenWidthFull * 1.1;
-        var screenDiff = outerScreenWidth - screenWidth;
-        var leftPos = screenWidth + screenDiff / 2;
-        var durationDiff = screenDiff / speed / playbackRate;
+          (scale === 1.0) ? 'scale3d(1, 1, 1)' : `scale3d(${scale}, ${scale}, 1)`;
+        const outerScreenWidth = screenWidthFull * 1.1;
+        const screenDiff = outerScreenWidth - screenWidth;
+        const leftPos = screenWidth + screenDiff / 2;
+        const durationDiff = screenDiff / speed / playbackRate;
         duration += durationDiff;
         delay -= (durationDiff * 0.5);
         // 逆再生
-        var reverse = chat.isReverse() ? '  animation-direction: reverse;\n' : '';
+        const reverse = chat.isReverse() ? 'animation-direction: reverse;' : '';
 
-        result = ['',
-          ' @keyframes idou', id, ' {\n',
-          '    0%  {opacity: ', opacity, '; transform: translate3d(0, 0, 0) ', scaleCss, ';}\n',
-          '  100%  {opacity: ', opacity, '; transform: translate3d(', - (outerScreenWidth + width), 'px, 0, 0) ', scaleCss, ';}\n',
-          ' }\n',
-          '',
-          ' #', id, ' {\n',
-          '  z-index: ', (zIndex) , ';\n', // 要検証:NAKAコメントは常にue, shitaより手前？
-          '  top:', ypos, 'px;\n',
-          '  left:', leftPos, 'px;\n',
-          colorCss,
-          '  font-size:', fontSizePx, 'px;\n',
+        result = `
+@keyframes idou${id} {
+  0% { transform: translate3d(0, 0, 0) ${scaleCss} }
+  100% { transform: translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss} }
+}
+  
+#${id} {
+   z-index: ${zIndex};
+   top: ${ypos}px;
+   left: ${leftPos}px;
+   ${colorCss}
+   opacity: 1;
+   font-size: ${fontSizePx}px;
+   animation-name: idou${id};
+   animation-duration: ${duration}s;
+   animation-delay: ${delay}s;
+   ${reverse}
+}
+        `.trim();
 //          '  line-height:',  lineHeight, 'px;\n',
-          '  animation-name: idou', id, ';\n',
-          '  animation-duration: ', duration, 's;\n',
-          '  animation-delay: ', delay, 's;\n',
-          reverse,
-          ' }\n',
-          '\n\n'];
       } else {
         scaleCss =
           scale === 1.0 ?
-            ' transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
-            (' transform: scale3d(' + scale + ', ' + scale + ', 1) translate3d(-50%, 0, 0);');
-            //' transform:  scale(1);' : (' transform: scale(' + scale + ');');
+            'transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
+            `transform: scale3d(${scale}, ${scale}, 1) translate3d(-50%, 0, 0);`;
 
-        result = ['',
-          ' #', id, ' {\n',
-          '  z-index: ', zIndex, ';\n',
-          '  top:', ypos, 'px;\n',
-          //'  left: calc(50% - ', (width / 2) , 'px);\n',
-          '  left: 50%;\n',
-          colorCss,
-          '  font-size:', fontSizePx,  'px;\n',
-//          '  line-height:', lineHeight,  'px;\n',
-//          '  width:', width, 'px;\n',
-//          '  height:', height, 'px;\n',
-          scaleCss,
-          '  animation-duration: ', duration / 0.95, 's;\n',
-          '  animation-delay: ', delay, 's;\n',
-          ' }\n',
-          '\n\n'];
+        result = `
+#${id} {
+   z-index: ${zIndex};
+   top: ${ypos}px;
+   left: 50%;
+   ${colorCss}
+   font-size: ${fontSizePx}px;
+   ${scaleCss}
+   animation-duration: ${duration / 0.95}s;
+   animation-delay: ${delay}s;
+}
+          `.trim();
+/*
+@keyframes dokaben${id} {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg) scale(${scale}) ;
+  }
+  50% {
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg)  scale(${scale}) ;
+  }
+  90% {
+    transform: translate(-50%, 0) perspective(200px) rotateX(0deg)  scale(${scale}) ;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) perspective(200px) rotateX(90deg) scale(${scale}) ;
+  }
+}
+
+.shadow-dokaben #${id} {
+  animation-name: dokaben${id} !important;
+}*/
+            /*line-height: ${//lineHeight}px;*/
+            /*width:', ${//width}, 'px;*/
+            /*height:', ${//height}, 'px;*/
       }
-
-      return result.join('') + '\n';
-    },
-    _buildNicoScriptCss: function(chat, type, currentTime) {
-      var id = chat.getId();
-      var text = chat.getText().trim();
-      var playbackRate = this._playbackRate;
-      var duration = chat.getDuration() / playbackRate;
-      var beginL = chat.getBeginLeftTiming();
-      var delay = (beginL - currentTime) / playbackRate;
-      var result = ['',
-        ' #', id, ' {\n',
-          '  animation-name: showhide;\n',
-          '  animation-duration: ', duration, 's;\n',
-          '  animation-delay: ', delay, 's;\n',
-        '}\n'];
-      //window.console.log('nicoScript text:', text);
-
-      switch (text) {
-        case '@デフォルト':
-        case '＠デフォルト':
-          result.push(' #', id, ' ~ .nicoChat {\n');
-            var c = chat.getColor();
-            if (c) { result.push('  color: ', c + ';');}
-          break;
-        case '@逆':
-        case '＠逆':
-          result.push(' #', id, ' ~ .nicoChat {\n');
-          result.push(' animation-direction: reverse; ');
-          break;
-        case '@コメント禁止':
-        case '＠コメント禁止':
-          result.push(' #', id, ' ~ .nicoChat {\n');
-          result.push(' display: none; ');
-          break;
-
-        default:
-          return '';
-      }
-
-      result.push('}\n');
-          window.console.log(result.join(''));
-      return result.join('');
+      return '\n'+ result + '\n';
     },
     show: function() {
       if (!this._isShow) {
@@ -13059,9 +13225,6 @@ spacer {
       //$view.css({width: 1}).offset();
       this._$node = $node;
       $node.append(this._view);
-
-      // リサイズイベントを発動させる。 バッドノウハウ的
-      //ZenzaWatch.util.callAsync(this._adjust, this, 1000);
     },
     /**
      * toStringで、コメントを静的なCSS3アニメーションHTMLとして出力する。
@@ -13071,7 +13234,26 @@ spacer {
     toString: function() {
       return this.buildHtml(0)
         .replace('<html', '<html class="saved"');
+    },
+
+    getCurrentScreenHtml: function() {
+      const win = this._window;
+      if (!win) { return null; }
+      this.refresh();
+      let body = win.document.body;
+      body.classList.add('in-capture');
+      let html = win.document.querySelector('html').outerHTML;
+      body.classList.remove('in-capture');
+      html = html
+        .replace('<html ', '<html xmlns="http://www.w3.org/1999/xhtml" ')
+        .replace(/<meta.*?>/g, '')
+        .replace(/data-meta=".*?"/g, '')
+        .replace(/<span/g, '<text')
+        .replace(/<\/span/g, '</text')
+        .replace(/<br>/g, '<br/>');
+      return html;
     }
+
   });
 
 
@@ -19756,6 +19938,9 @@ const VideoSession = (function() {
         case 'screenShot':
           this._nicoVideoPlayer.getScreenShot();
           break;
+        case 'screenShotWithComment':
+          this._nicoVideoPlayer.getScreenShotWithComment();
+          break;
         case 'nextVideo':
           this._nextVideo = param;
           break;
@@ -19884,6 +20069,9 @@ const VideoSession = (function() {
           break;
         case 'SCREEN_SHOT':
           this.execCommand('screenShot');
+          break;
+        case 'SCREEN_SHOT_WITH_COMMENT':
+          this.execCommand('screenShotWithComment');
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
@@ -26297,63 +26485,75 @@ const VideoSession = (function() {
     if (window.name.indexOf('storyboard') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    var parentHost = document.referrer.split('/')[2];
+    const parentHost = document.referrer.split('/')[2];
     if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
       window.console.log('disable bridge');
       return;
     }
 
-    var type = window.name.replace(/Loader$/, '');
-    var token = location.hash ? location.hash.substring(1) : null;
+    const type = window.name.replace(/Loader$/, '');
+    const token = location.hash ? location.hash.substring(1) : null;
 
+    const videoCapture = function(src, sec) {
+      return new Promise((resolve, reject) => {
+        //console.log('videoCapture', src, sec);
+        let resolved = false;
+        const v = document.createElement('video');
+
+        v.addEventListener('loadedmetadata', () => {
+          v.currentTime = sec;
+        });
+        v.addEventListener('error', (err) => {
+          v.remove();
+          return reject(err);
+        });
+
+        const onSeeked = () => {
+          if (resolved) { return; }
+          const c = document.createElement('canvas');
+          c.width  = v.videoWidth;
+          c.height = v.videoHeight;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(v, 0, 0);
+          v.remove();
+
+          resolved = true;
+          return resolve(c);
+        };
+
+        v.addEventListener('seeked', onSeeked);
+
+        document.body.appendChild(v);
+        v.volume = 0;
+        v.autoplay = false;
+        v.controls = false;
+        v.src = src;
+        v.currentTime = sec;
+      });
+    };
 
     window.addEventListener('message', function(event) {
-      //window.console.log('StoryBoardLoaderWindow.onMessage', event.data, type);
-      var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
-      //var command = data.command;
+      const data = JSON.parse(event.data);
 
       if (data.token !== token) { return; }
 
-
-      if (!data.url) { return; }
-      var sessionId = data.sessionId;
-      //window.console.log('StoryBoardLoaderWindow.load', data.url, type);
-
-      xmlHttpRequest({
-        url: data.url,
-        onload: function(resp) {
-          //window.console.log('StoryBoardLoaderWindow.onXmlHttpRequst', resp, type);
-
-          if (isTimeout) { return; }
-          else { window.clearTimeout(timeoutTimer); }
-
-          try {
+      const command = data.command;
+      const sessionId = data.sessionId;
+      switch (command) {
+        case 'videoCapture':
+          videoCapture(data.src, data.sec).then(canvas => {
+            const dataUrl = canvas.toDataURL('image/png');
+            //console.info('video capture success', dataUrl.length);
             postMessage(type, {
-              sessionId: sessionId,
+              sessionId,
               status: 'ok',
-              token: token,
-              url: data.url,
-              body: resp.responseText
+              token,
+              command,
+              body: dataUrl
             });
-          } catch (e) {
-            console.log(
-              '%cError: parent.postMessage - ',
-              'color: red; background: yellow',
-              e, event.origin, event.data);
-          }
-        }
-      });
-
-      timeoutTimer = window.setTimeout(function() {
-        isTimeout = true;
-        postMessage(type, {
-          sessionId: sessionId,
-          status: 'timeout',
-          command: 'loadUrl',
-          url: data.url
-        });
-      }, 30000);
-
+          });
+          break;
+      }
     });
 
     try {

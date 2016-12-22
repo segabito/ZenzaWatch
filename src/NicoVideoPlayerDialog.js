@@ -1548,6 +1548,9 @@ var CONSTANT = {};
         case 'screenShot':
           this._nicoVideoPlayer.getScreenShot();
           break;
+        case 'screenShotWithComment':
+          this._nicoVideoPlayer.getScreenShotWithComment();
+          break;
         case 'nextVideo':
           this._nextVideo = param;
           break;
@@ -1676,6 +1679,9 @@ var CONSTANT = {};
           break;
         case 'SCREEN_SHOT':
           this.execCommand('screenShot');
+          break;
+        case 'SCREEN_SHOT_WITH_COMMENT':
+          this.execCommand('screenShotWithComment');
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');

@@ -8,7 +8,7 @@ const NicoVideoApi = {};
 const CONSTANT = {};
 const util = {};
 const PRODUCT = 'ZenzaWatch';
-
+class CrossDomainGate {}
 
 //===BEGIN===
 
@@ -297,6 +297,7 @@ const PRODUCT = 'ZenzaWatch';
         KEY_PREV_VIDEO: 75, // K
 
         KEY_SCREEN_SHOT: 83, // S
+        KEY_SCREEN_SHOT_WITH_COMMENT: 83 + 0x1000, // SHIFT + S
       };
 
       if (navigator &&
@@ -1489,67 +1490,6 @@ const PRODUCT = 'ZenzaWatch';
       return [m, s].join(':');
     };
 
-    ZenzaWatch.util.toWellFormedHtml = function(html) {
-      const doc = document.implementation.createHTMLDocument('');
-      doc.write(html);
-      doc.documentElement.setAttribute('xmlns', doc.documentElement.namespaceURI);
-      html = (new XMLSerializer()).serializeToString(doc);
-      return html;
-    };
-
-    // 参考
-    // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
-    ZenzaWatch.util.htmlToSvg = function(html, width = 640, height = 360) {
-      //      "<div xmlns='http://www.w3.org/1999/xhtml' style='font-size:40px'>" +
-      //      "</div>"
-      //html = util.toWellFormedHtml(html);
-      const data =
-        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
-          <foreignObject width='100%' height='100%'>
-            ${html}
-          </foreignObject>
-        </svg>`).trim();
-      window.console.log('data', data);
-      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
-      return svg;
-    };
-
-
-    ZenzaWatch.util.htmlToCanvas = function(html, width = 640, height = 360) {
-      const svg = util.htmlToSvg(html);
-      const url = window.URL.createObjectURL(svg);
-      if (!url) {
-        return Promise.reject(new Error('convert svg fail'));
-      }
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      canvas.style.position = 'fixed';
-      canvas.style.bottom = 0;
-      canvas.style.left = 0;
-      canvas.style.border = '1px solid blue';
-      document.body.appendChild(canvas);
-      const context = canvas.getContext('2d');
-      canvas.width  = width;
-      canvas.height = height;
-
-      context.fillStyle = 'rgb(192, 192, 192)'; context.fillRect(0, 0, width, height);
-
-      return new Promise((resolve, reject) => {
-        img.onload = () => {
-          context.drawImage(img, 0, 0, width, height);
-          resolve(canvas);
-          window.URL.revokeObjectURL(url);
-        };
-        img.onerror = (e) => {
-          window.console.error('img.onerror', e);
-          reject(e);
-          window.URL.revokeObjectURL(url);
-        };
-
-        img.src = url;
-      });
-    };
-
     ZenzaWatch.util.videoCapture = function(src, sec) {
       return new Promise((resolve, reject) => {
         let resolved = false;
@@ -1580,7 +1520,7 @@ const PRODUCT = 'ZenzaWatch';
           c.height = v.videoHeight;
           const ctx = c.getContext('2d');
           ctx.drawImage(v, 0, 0);
-          v.remove();;
+          v.remove();
 
           resolved = true;
           return resolve(c);
@@ -1634,7 +1574,8 @@ const PRODUCT = 'ZenzaWatch';
         SHIFT_UP: 0,
         NEXT_VIDEO: 0,
         PREV_VIDEO: 0,
-        SCREEN_SHOT: 0
+        SCREEN_SHOT: 0,
+        SCREEN_SHOT_WITH_COMMENT: 0
       };
 
       _.each(Object.keys(map), function(key) {
@@ -1750,6 +1691,9 @@ const PRODUCT = 'ZenzaWatch';
             break;
           case map.SCREEN_SHOT:
             key = 'SCREEN_SHOT';
+            break;
+          case map.SCREEN_SHOT_WITH_COMMENT:
+            key = 'SCREEN_SHOT_WITH_COMMENT';
             break;
           default:
             //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
@@ -2064,7 +2008,308 @@ const PRODUCT = 'ZenzaWatch';
   })();
 
 
+  const VideoCaptureUtil = (function() {
+    const crossDomainGates = {};
+
+    const initializeByServer = function(server, fileId) {
+      if (crossDomainGates[server]) {
+        return crossDomainGates[server];
+      }
+
+      const baseUrl = '//' + server + '/smile?i=' + fileId;
+
+      crossDomainGates[server] = new CrossDomainGate({
+        baseUrl: baseUrl,
+        origin: location.protocol + '//' + server + '/',
+        type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
+        messager: WindowMessageEmitter
+      });
+
+      return crossDomainGates[server];
+    };
+
+    const _toCanvas = function(v, width, height) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = width;
+      canvas.height = height;
+      context.drawImage(v, 0, 0, width, height);
+      return canvas;
+    };
+
+    const isCORSReadySrc = function(src) {
+      if (src.indexOf('dmc.nico') >= 0) {
+        return true;
+      }
+      return false;
+    };
+
+    const videoToCanvas = function(video) {
+      const src = video.src;
+      const sec = video.currentTime;
+      const a = document.createElement('a');
+      a.href = src;
+      const server = a.host;
+      const search = a.search;
+
+      if (isCORSReadySrc(src)) {
+        return Promise.resolve({canvas: _toCanvas(video, video.videoWidth, video.videoHeight)});
+      }
+
+      return new Promise((resolve, reject) => {
+        if (!/\?(.)=(\d+)\.(\d+)/.test(search)) {
+          return reject({status: 'fail', message: 'invalid url', url: src});
+        }
+        const fileId = RegExp.$2;
+
+        const gate = initializeByServer(server, fileId);
+
+        gate.videoCapture(src, sec).then(dataUrl => {
+          //window.console.info('video capture success ', dataUrl.length);
+
+          const bin = atob(dataUrl.split(',')[1]);
+          const buf = new Uint8Array(bin.length);
+          for (let i = 0, len = buf.length; i < len; i++) {
+            buf[i] = bin.charCodeAt(i);
+          }
+          const blob = new Blob([buf.buffer], {type: 'image/png'});
+          const url = window.URL.createObjectURL(blob);
+          console.info('createObjectUrl', url.length);
+
+          const img = new Image();
+
+          img.onload = () => {
+            resolve({canvas: _toCanvas(img, video.videoWidth, video.videoHeight)});
+            window.setTimeout(() => { window.URL.revokeObjectURL(url); }, 10000);
+          };
+
+          img.onerror = (err) => {
+            reject(err);
+            window.setTimeout(() => { window.URL.revokeObjectURL(url); }, 10000);
+          };
+
+          img.src = url;
+          //img.style.border = '2px dotted orange'; document.body.appendChild(img);
+        });
+      });
+    };
+
+    // 参考
+    // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
+    const htmlToSvg = function(html, width = 682, height = 384) {
+      const data =
+        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
+          <foreignObject width='100%' height='100%'>${html}</foreignObject>
+        </svg>`).trim();
+      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
+      return {svg, data};
+    };
+
+    const htmlToCanvas = function(html, width = 640, height = 360) {
+
+      const imageW = height * 16 / 9;
+      const imageH = imageW * 9 / 16;
+      const {svg, data} = htmlToSvg(html);
+
+      const url = window.URL.createObjectURL(svg);
+      if (!url) {
+        return Promise.reject(new Error('convert svg fail'));
+      }
+      const img = new Image();
+      img.width  = 682;
+      img.height = 384;
+      const canvas = document.createElement('canvas');
+
+      const context = canvas.getContext('2d');
+      canvas.width  = width;
+      canvas.height = height;
+
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          context.drawImage(
+            img,
+            (width  - imageW) / 2,
+            (height - imageH) / 2,
+            imageW,
+            imageH);
+          resolve({canvas, img});
+          //window.console.info('img size', img.width, img.height);
+          window.URL.revokeObjectURL(url);
+        };
+        img.onerror = (e) => {
+          window.console.error('img.onerror', e, data);
+          reject(e);
+          window.URL.revokeObjectURL(url);
+        };
+
+        img.src = url;
+      });
+    };
+
+    const nicoVideoToCanvas = function({video, html, minHeight = 720}) {
+      let scale = 1;
+      let width  =
+        Math.max(video.videoWidth, video.videoHeight * 16 / 9);
+      let height = video.videoHeight;
+      // 動画の解像度が低いときは、可能な範囲で整数倍に拡大する
+      if (height < minHeight) {
+        scale  = Math.floor(minHeight / height);
+        width  *= scale;
+        height *= scale;
+      }
+
+      const canvas = document.createElement('canvas');
+      const ct = canvas.getContext('2d');
+
+      canvas.width = width;
+      canvas.height = height;
+
+      return videoToCanvas(video).then(({canvas, img}) => {
+
+        //canvas.style.border = '2px solid red'; document.body.appendChild(canvas);
+        ct.fillStyle = 'rgb(0, 0, 0)';
+        ct.fillRect(0, 0, width, height);
+
+        ct.drawImage(
+          canvas,
+          (width  - video.videoWidth  * scale) / 2,
+          (height - video.videoHeight * scale) / 2,
+          video.videoWidth  * scale,
+          video.videoHeight * scale
+        );
+
+        return htmlToCanvas(html, width, height);
+      }).then(({canvas, img}) => {
+
+        //canvas.style.border = '2px solid green'; document.body.appendChild(canvas);
+
+        ct.drawImage(canvas, 0, 0, width, height);
+
+        return Promise.resolve({canvas, img});
+      }).then(() => {
+        return Promise.resolve({canvas});
+      });
+    };
+
+
+    const saveToFile = function(canvas, fileName = 'sample.png') {
+      const dataUrl = canvas.toDataURL('image/png');
+      const bin = atob(dataUrl.split(',')[1]);
+      const buf = new Uint8Array(bin.length);
+      for (var i = 0, len = buf.length; i < len; i++) {
+        buf[i] = bin.charCodeAt(i);
+      }
+      const blob = new Blob([buf.buffer], {type: 'image/png'});
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+
+      window.console.info('download fileName: ', fileName);
+      a.setAttribute('download', fileName);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 2000);
+      window.console.timeEnd('screenShot');
+    };
+
+    return {
+      videoToCanvas,
+      htmlToCanvas,
+      nicoVideoToCanvas,
+      saveToFile
+    };
+  })();
+
+
 //===END===
+    // 参考
+    // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
+    ZenzaWatch.util.htmlToSvg = function(html, width = 682, height = 384) {
+      const data =
+        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
+          <foreignObject width='100%' height='100%'>${html}</foreignObject>
+        </svg>`).trim();
+      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
+      return {svg, data};
+    };
+
+    ZenzaWatch.util.htmlToCanvas = function(html, width = 640, height = 360) {
+
+      const imageW = height * 16 / 9;
+      const imageH = imageW * 9 / 16;
+      const {svg, data} = util.htmlToSvg(html);
+
+      const url = window.URL.createObjectURL(svg);
+      if (!url) {
+        return Promise.reject(new Error('convert svg fail'));
+      }
+      const img = new Image();
+      img.width  = 682;
+      img.height = 384;
+      const canvas = document.createElement('canvas');
+
+      const context = canvas.getContext('2d');
+      canvas.width  = width;
+      canvas.height = height;
+
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          context.drawImage(
+            img,
+            (width  - imageW) / 2,
+            (height - imageH) / 2,
+            imageW,
+            imageH);
+          resolve({canvas, img});
+          window.console.info('img size', img.width, img.height);
+          window.URL.revokeObjectURL(url);
+        };
+        img.onerror = (e) => {
+          window.console.error('img.onerror', e, data);
+          reject(e);
+          window.URL.revokeObjectURL(url);
+        };
+
+        img.src = url;
+      });
+    };
+
+    ZenzaWatch.util.nicoVideoCapture = function({video, html, minHeight = 720}) {
+      let scale = 1;
+      let width  =
+        Math.max(video.videoWidth, video.videoHeight * 16 / 9);
+      let height = video.videoHeight;
+      // 動画の解像度が低いときは、可能な範囲で整数倍に拡大する
+      if (minHeight < 720) {
+        scale  = Math.floor(720 / height);
+        width  *= scale;
+        height *= scale;
+      }
+      const vc = document.createElement('canvas');
+      const ct = vc.getContext('2d');
+      vc.width = width;
+      vc.height = height;
+
+      ct.fillStyle = 'rgb(0, 0, 0)';
+      ct.fillRect(0, 0, width, height);
+      ct.drawImage(
+        video,
+        (width  - video.videoWidth  * scale) / 2,
+        (height - video.videoHeight * scale) / 2,
+        video.videoWidth  * scale,
+        video.videoHeight * scale
+      );
+
+      return util.htmlToCanvas(html, width, height).then(({canvas, img}) => {
+        ct.drawImage(canvas, 0, 0, width, height);
+        return Promise.resolve({canvas: vc, img, commentCanvas: canvas});
+      });
+    };
+
 
 
 ZenzaWatch.util.htmlToCanvas(

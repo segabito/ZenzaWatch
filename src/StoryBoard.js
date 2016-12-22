@@ -267,6 +267,8 @@ var AsyncEmitter = function() {};
         border: 0;
         margin: auto;
         transform-origin: center top;
+        transition: background-position 0.1s steps(1, start) 0;
+        /*animation-timing-function: steps(1, start);*/
       }
 
     `).trim();
@@ -284,8 +286,8 @@ var AsyncEmitter = function() {};
         this._model.on('update', this._onModelUpdate.bind(this));
 
 
-        this._updateImageCss =
-          ZenzaWatch.util.createDrawCallFunc(this._updateImageCss.bind(this));
+        //this._updateImageCss =
+        //  ZenzaWatch.util.createDrawCallFunc(this._updateImageCss.bind(this));
 
         ZenzaWatch.debug.seekBarThumbnail = this;
       },

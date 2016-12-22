@@ -10,6 +10,7 @@ var NicoCommentPlayer = function() {};
 var AsyncEmitter = function() {};
 var VideoInfoLoader = {};
 const CONSTANT = {};
+class VideoCaptureUtil {}
 
 //===BEGIN===
 
@@ -383,20 +384,33 @@ const CONSTANT = {};
       return this._commentPlayer.getMymemory();
     },
     getScreenShot: function() {
-      if (!this._videoPlayer.isCorsReady()) { return; }
       window.console.time('screenShot');
 
-      const canvas = this._videoPlayer.getScreenShot();
-      const dataUrl = canvas.toDataURL('image/png');
-      const bin = atob(dataUrl.split(',')[1]);
-      const buf = new Uint8Array(bin.length);
-      for (var i = 0, len = buf.length; i < len; i++) {
-        buf[i] = bin.charCodeAt(i);
-      }
-      const blob = new Blob([buf.buffer], {type: 'image/png'});
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const fileName = this._getSaveFileName();
+      const video = this._videoPlayer.getVideoElement();
 
+      return VideoCaptureUtil.videoToCanvas(video).then(({canvas}) => {
+        VideoCaptureUtil.saveToFile(canvas, fileName);
+        window.console.timeEnd('screenShot');
+      });
+    },
+    getScreenShotWithComment: function() {
+      window.console.time('screenShotWithComment');
+
+      const fileName = this._getSaveFileName({suffix: 'C'});
+      const video = this._videoPlayer.getVideoElement();
+      const html = this._commentPlayer.getCurrentScreenHtml();
+
+      //return VideoCaptureUtil.htmlToCanvas({html, video}).then(({canvas}) => {
+      //  VideoCaptureUtil.saveToFile(canvas, fileName);
+      //  window.console.timeEnd('screenShotWithComment');
+      //});
+      return VideoCaptureUtil.nicoVideoToCanvas({video, html}).then(({canvas}) => {
+        VideoCaptureUtil.saveToFile(canvas, fileName);
+        window.console.timeEnd('screenShotWithComment');
+      });
+    },
+    _getSaveFileName: function({suffix = ''} = {}) {
       const title = this._videoInfo.getTitle();
       const watchId = this._videoInfo.getWatchId();
       const currentTime = this._videoPlayer.getCurrentTime();
@@ -404,19 +418,7 @@ const CONSTANT = {};
       const sec = (currentTime % 60 + 100).toString().substr(1, 6);
       const time = `${min}_${sec}`;
 
-      const fileName = `${title} - ${watchId}@${time}.png`;
-
-      window.console.info('download fileName: ', fileName);
-      a.setAttribute('download', fileName);
-      a.setAttribute('target', '_blank');
-      a.setAttribute('href', url);
-      document.body.appendChild(a);
-      a.click();
-      window.setTimeout(() => {
-        a.remove();
-        URL.revokeObjectURL(url);
-      }, 2000);
-      window.console.timeEnd('screenShot');
+      return `${title} - ${watchId}@${time}${suffix}.png`;
     },
     isCorsReady: function() {
       return this._videoPlayer && this._videoPlayer.isCorsReady();
@@ -1070,6 +1072,9 @@ const CONSTANT = {};
     },
     isCorsReady: function() {
       return this._video.crossOrigin === 'use-credentials';
+    },
+    getVideoElement: function() {
+      return this._video;
     }
   });
 
