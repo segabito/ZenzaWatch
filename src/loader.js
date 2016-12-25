@@ -373,7 +373,7 @@ var ajax = function() {};
       };
 
       const loadPromise = function(watchId, options, isRetry = false) {
-        let url = '/watch/' + watchId;
+        let url = `//www.nicovideo.jp/watch/${watchId}`;
         console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
         const query = [];
         if (options.economy === true) {
@@ -2142,6 +2142,56 @@ var ajax = function() {};
       };
     })();
 
+    // typoじゃなくて変なブロッカーと干渉しないために名前を変えている
+    const UaaLoader = (() => {
+
+      let callbackId = 0;
+
+      const load = (videoId) => {
+        return new Promise((resolve, reject) => {
+
+          const api = '//api.uad.nicovideo.jp/UadsVideoService/getSponsorsJsonp';
+          const sc = document.createElement('script');
+
+          let timeoutTimer = null;
+
+          const funcName = (() => {
+            const funcName = `zenza_uaa_callback_${callbackId++}`;
+
+            window[funcName] = (uadData) => {
+              window.clearTimeout(timeoutTimer);
+              timeoutTimer = null;
+              sc.remove();
+              delete window[funcName];
+
+              if (uadData.meta.status !== 200) {
+                reject(new Error(`uaa fail(${uadData.meta.status})`));
+              } else {
+                resolve(uadData.data);
+              }
+            };
+
+            return funcName;
+          })();
+
+          timeoutTimer = window.setTimeout(() => {
+            sc.remove();
+            delete window[funcName];
+            if (timeoutTimer) { reject(new Error('uaa timeout')); }
+          }, 30000);
+
+          const url = `${api}?videoid=${videoId}&limit=8&callback=${funcName}`;
+          sc.src = url;
+          document.body.appendChild(sc);
+        });
+      };
+
+      return {
+        load
+      };
+    })();
+
+
 //===END===
     ZenzaWatch.emitter.on('loadVideoInfo', function(data, type, r) {
       var info = data.flvInfo;
@@ -2219,6 +2269,8 @@ var ajax = function() {};
     })();
 
 
+
+//http://api.uad.nicovideo.jp/UadsVideoService/getSponsorsJsonp?videoid=sm30282637&limit=4&callback=jsonp_1482599934783_13225
 
 /*
 create_time : 1458338784

@@ -2944,7 +2944,7 @@ spacer {
     },
     _buildChatHtml: function(chat , type /*, currentTime */) {
       var size = chat.getSize();
-      var className = ['nicoChat',type, size];
+      var className = ['nicoChat', type, size];
       var scale = chat.getScale();
       if (chat.getColor() === '#000000') {
         className.push('black');
@@ -2973,12 +2973,9 @@ spacer {
 
       var htmlText = '';
       if (!chat.isInvisible()) { htmlText = chat.getHtmlText(); }
-      var result = [
-        '<span id="', chat.getId(), '" class="', className.join(' '), '">',
-          htmlText,
-        '</span>'
-      ];
-      return result.join('');
+      var result =
+        `<span id="${chat.getId()}" class="${className.join(' ')}">${htmlText}</span>`;
+      return result;
     },
     _buildChatCss: function(chat, type, currentTime) {
       let result;
@@ -2993,7 +2990,7 @@ spacer {
       let width = chat.getWidth();
       let ypos = chat.getYpos();
       let color = chat.getColor();
-      let colorCss = color ? ('color: ' + color + ';\n') : '';
+      let colorCss = color ? `color: ${color};` : '';
       let fontSizePx = chat.getFontSizePixel();
       let speed = chat.getSpeed();
       let delay = (beginL - currentTime) / playbackRate;
@@ -3023,7 +3020,7 @@ spacer {
   0% { transform: translate3d(0, 0, 0) ${scaleCss} }
   100% { transform: translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss} }
 }
-  
+
 #${id} {
    z-index: ${zIndex};
    top: ${ypos}px;
@@ -3036,7 +3033,7 @@ spacer {
    animation-delay: ${delay}s;
    ${reverse}
 }
-        `.trim();
+`;
 //          '  line-height:',  lineHeight, 'px;\n',
       } else {
         scaleCss =
@@ -3055,33 +3052,34 @@ spacer {
    animation-duration: ${duration / 0.95}s;
    animation-delay: ${delay}s;
 }
-          `.trim();
-/*
+
 @keyframes dokaben${id} {
   0% {
     opacity: 1;
-    transform: translate(-50%, 0) perspective(200px) rotateX(90deg) scale(${scale}) ;
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(90deg) scale3d(${scale}, ${scale}, 1);
   }
   50% {
-    transform: translate(-50%, 0) perspective(200px) rotateX(0deg)  scale(${scale}) ;
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(0deg)  scale3d(${scale}, ${scale}, 1);
   }
   90% {
-    transform: translate(-50%, 0) perspective(200px) rotateX(0deg)  scale(${scale}) ;
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(0deg)  scale3d(${scale}, ${scale}, 1);
   }
   100% {
     opacity: 1;
-    transform: translate(-50%, 0) perspective(200px) rotateX(90deg) scale(${scale}) ;
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(90deg) scale3d(${scale}, ${scale}, 1);
   }
 }
 
 .shadow-dokaben #${id} {
   animation-name: dokaben${id} !important;
-}*/
+}
+`;
+
             /*line-height: ${//lineHeight}px;*/
             /*width:', ${//width}, 'px;*/
             /*height:', ${//height}, 'px;*/
       }
-      return '\n'+ result + '\n';
+      return '\n'+ result.trim() + '\n';
     },
     show: function() {
       if (!this._isShow) {

@@ -11,6 +11,8 @@ const AsyncEmitter = function() {};
 const CONSTANT = {};
 const MylistPocketDetector = {};
 const IchibaLoader = {};
+const UaaLoader = {};
+const PRODUCT = 'ZenzaWatch';
 
 //===BEGIN===
 
@@ -781,6 +783,8 @@ const IchibaLoader = {};
           <div class="videoDescription">
           </div>
 
+          <div class="uaaContainer"></div>
+
           <div class="ichibaContainer"></div>
 
           <div class="videoTagsContainer">
@@ -831,8 +835,14 @@ const IchibaLoader = {};
       this._$videoTags = $view.find('.videoTags');
       this._$publicStatus = $view.find('.publicStatus');
 
-      this._ichibaContainer = view.querySelector('.ichibaContainer');
+      this._uaaContainer = view.querySelector('.uaaContainer');
+      this._uaaView = new UaaView(
+        {parentNode: this._uaaContainer});
+      this._uaaView.on('command', (command, param) => {
+        this._onCommand(command, param);
+      });
 
+      this._ichibaContainer = view.querySelector('.ichibaContainer');
       this._ichibaItemView = new IchibaItemView(
         {parentNode: this._ichibaContainer});
 
@@ -892,6 +902,9 @@ const IchibaLoader = {};
 
       this._ichibaItemView.clear();
       this._ichibaItemView.videoId = videoInfo.getVideoId();
+
+      this._uaaView.clear();
+      this._uaaView.update(videoInfo);
 
       this._updateResumePoint(videoInfo);
 
@@ -2112,33 +2125,90 @@ const IchibaLoader = {};
   `).toString();
 
   class BaseViewComponent extends AsyncEmitter {
-    constructor({parentNode = null, name = '', template = '', css = ''}) {
+    constructor({parentNode = null, name = '', template = '', shadow = '', css = ''}) {
       super();
+
+      this._params = {parentNode, name, template, shadow, css};
+      this._bind = {};
+      this._state = {};
+      this._props = {};
+      this._elm = {};
+
       this._initDom({
         parentNode,
         name,
         template,
+        shadow,
         css
       });
     }
 
-    _initDom({parentNode, name, template, css}) {
-      let tplId = 'Zenza' + name + 'Template';
+    _initDom({parentNode, name, template, css = '', shadow = ''}) {
+      let tplId = `${PRODUCT}${name}Template`;
       let tpl = document.getElementById(tplId);
       if (!tpl) {
-        util.addStyle(css);
+        util.addStyle(css, `${name}Style`);
         tpl = document.createElement('template');
         tpl.innerHTML = template;
         tpl.id = tplId;
         document.body.appendChild(tpl);
       }
-      const view = document.importNode(tpl.content, true);
-      this._view = view.querySelector('*');
+      const onClick = this._bind.onClick = this._onClick.bind(this);
 
-      this._view.addEventListener('click', this._onClick.bind(this));
+      const view = document.importNode(tpl.content, true);
+      this._view = view.querySelector('*') || document.createDocumentFragment();
+      if (this._view) {
+        this._view.addEventListener('click', onClick);
+      }
       this.appendTo(parentNode);
+
+      if (shadow) {
+        this._attachShadow({host: this._view, name, shadow});
+        this._shadow.addEventListener('click', onClick);
+      }
     }
 
+    _attachShadow ({host, shadow, name, mode = 'open'}) {
+      let tplId = `${PRODUCT}${name}Shadow`;
+      let tpl = document.getElementById(tplId);
+      if (!tpl) {
+        tpl = document.createElement('template');
+        tpl.innerHTML = shadow;
+        tpl.id = tplId;
+        document.body.appendChild(tpl);
+      }
+
+      if (!host.attachShadow && !host.createShadowRoot) {
+        this._shadow = document.createDocumentFragment();
+        return;
+      }
+
+      const root = host.attachShadow ?
+        host.attachShadow({mode}) : host.createShadowRoot();
+      const node = document.importNode(tpl.content, true);
+      root.appendChild(node);
+      this._shadowRoot = root;
+      this._shadow = root.querySelector('.root');
+    }
+
+    setState(key, val) {
+      if (typeof key === 'string') {
+        this._setState(key, val);
+      }
+      Object.keys(key).forEach(k => {
+        this._setState(k, key[k]);
+      });
+    }
+
+    _setState(key, val) {
+      if (this._state[key] !== val) {
+        this._state[key] = val;
+        if (/^is(.*)$/.test(key))  {
+          this.toggleClass(`is-${RegExp.$1}`, !!val);
+        }
+        this.emit('update', {key, val});
+      }
+    }
 
     _onClick(e) {
       const target = e.target.classList.contains('command') ?
@@ -2176,12 +2246,14 @@ const IchibaLoader = {};
     toggleClass(className, v) {
       (className || '').split(/ +/).forEach((c) => {
         this._view.classList.toggle(c, v);
+        if (this._shadow) {
+          this._shadow.classList.toggle(c, v);
+        }
       });
     }
 
     addClass(name)    { this.toggleClass(name, true); }
     removeClass(name) { this.toggleClass(name, false); }
-
   }
 
   class IchibaItemView extends BaseViewComponent {
@@ -2304,6 +2376,7 @@ const IchibaLoader = {};
          border: solid 2px #ccc;
          outline: none;
          line-height: 20px;
+         min-width: 200px;
          user-select: none;
          -webkit-user-select: none;
          -moz-user-select: none;
@@ -2414,6 +2487,327 @@ const IchibaLoader = {};
 
     `).trim();
 
-//===END===
 
+  // typoじゃなくてブロック回避のため名前を変えてる
+  class UaaView extends BaseViewComponent {
+    constructor({parentNode}) {
+      super({
+        parentNode,
+        name: 'UaaView',
+        template: UaaView.__tpl__,
+        shadow: UaaView._shadow_,
+        css: UaaView.__css__
+      });
+
+      this._state = {
+        isUpdating: false,
+        isExist: false
+      };
+
+      this._config = Config.namespace('uaa');
+
+      this._bind.load   = this.load.bind(this);
+      this._bind.update = this.update.bind(this);
+    }
+
+    _initDom(...args) {
+      super._initDom(...args);
+      ZenzaWatch.debug.uaa = this;
+
+      if (!this._shadow) { return; } // ShadowDOM使えなかったらバイバイ
+      const shadow = this._shadow || this._view;
+      this._elm.body = shadow.querySelector('.UaaDetailBody');
+    }
+
+    update(videoInfo) {
+      if (!this._shadow || !this._config.getValue('enable')) { return; }
+
+      if (this._state.isUpdating) { return; }
+      this.setState({isUpdating: true});
+      this._props.videoInfo = videoInfo;
+      this._props.videoId   = videoInfo.getVideoId();
+
+      window.setTimeout(() => { this.load(videoInfo); }, 3000);
+    }
+
+    load(videoInfo) {
+      const videoId = videoInfo.getVideoId();
+
+      return UaaLoader.load(videoId)
+        .then(this._onLoad.bind(this, videoId))
+        .catch(this._onFail.bind(this, videoId));
+    }
+
+    clear() {
+      this.setState({isUpdating: false, isExist: false});
+      this._elm.body.innerHTML = '';
+      //this._shadow.open = false;
+    }
+
+    _onLoad(videoId, data) {
+      if (this._props.videoId !== videoId) { return; }
+      this.setState({isUpdating: false});
+      this._state.isUpdating = false;
+      if (data.length < 1) { return; }
+
+      const df = document.createDocumentFragment();
+      data.forEach(u => {
+        df.append(this._createItem(u));
+      });
+      this._elm.body.innerHTML = '';
+      this._elm.body.appendChild(df);
+
+      this.setState({isExist: true});
+    }
+
+    _createItem(data) {
+      const df = document.createElement('div');
+      df.className = 'item';
+      if (data.bgkeyframe) {
+        const sec = (parseInt(data.bgkeyframe, 10) / 1000);
+        const cv = document.createElement('canvas');
+        const ct = cv.getContext('2d');
+        cv.className = 'screenshot command';
+        cv.setAttribute('data-command', 'seek');
+        cv.setAttribute('data-type', 'number');
+        cv.setAttribute('data-param', sec);
+        df.setAttribute('data-time', util.secToTime(sec));
+        cv.width = 128;
+        cv.height = 72;
+
+        ct.fillStyle = 'rgb(32, 32, 32)';
+        ct.fillRect(0, 0, cv.width, cv.height);
+        df.appendChild(cv);
+        df.classList.add('has-screenshot');
+
+        this._props.videoInfo.getCurrentVideo().then(url=> {
+          return util.videoCapture(url, sec);
+        }).then(screenshot => {
+          cv.width = screenshot.width;
+          cv.height = screenshot.height;
+          ct.drawImage(screenshot, 0, 0);
+        });
+      }
+      //if (data.bgcolor && (/^0x([a-f0-9]{6})$/i).test(data.bgcolor)) {
+      //  df.style.backgroundColor = `#${RegExp.$1}`;
+      //}
+      const contact = document.createElement('span');
+      contact.textContent = data.contact;
+      contact.className = 'contact';
+      df.appendChild(contact);
+      return df;
+    }
+
+    _onFail(videoId) {
+      if (this._props.videoId !== videoId) { return; }
+      this.setState({isUpdating: false});
+    }
+
+    _onCommand(command, param) {
+      switch(command) {
+        case 'speak':
+          this.speak();
+          break;
+        default:
+          super._onCommand(command, param);
+      }
+    }
+
+    speak() {
+      const members = [];
+      Array.from(this._shadow.querySelectorAll('.item')).forEach(item => {
+        members.push(`${item.textContent}様`);
+      });
+      util.speak(`この動画は、${members.join('、')}が応援しています。`, {
+        volume: 0.5,
+        pitch: 1.5,
+        rate: 1.5
+      });
+    }
+  }
+
+  UaaView._shadow_ = (`
+    <style>
+      * {
+        box-sizing: border-box;
+        user-select: none;
+      }
+
+      .UaaDetails {
+        opacity: 0;
+        pointer-events: none;
+        max-height: 0;
+        margin: 0 8px 32px;
+        color: #ccc;
+        overflow: hidden;
+      }
+        .UaaDetails.is-Exist {
+          display: block;
+          pointer-events: auto;
+          max-height: 1000px;
+          opacity: 1;
+          transition: opacity 0.4s linear 0.4s, max-height 2s ease-in;
+        }
+        .UaaDetails.is-Exist[open] {
+        }
+
+      .UaaDetails .uaaSummary {
+        width: 200px;
+        margin: 4px auto 8px;
+        backgtround: #333;
+        color: #ccc;
+        border: solid 2px #ccc;
+        outline: none;
+        letter-spacing: 12px;
+        font-size: 24px;
+        padding: 8px;
+        text-shadow: 1px 1px 1px #000;
+        text-align: center;
+        cursor: pointer;
+      }
+        .UaaDetails .uaaSummary:hover {
+          transform: translate(-4px,-4px);
+          box-shadow: 4px 4px 4px #000;
+          background: #666;
+          transition:
+            0.2s transform ease,
+            0.2s box-shadow ease
+            ;
+        }
+        .UaaDetails .uaaSummary:active {
+          transform: none;
+          box-shadow: none;
+          transition: none;
+        }
+
+
+      .UaaDetails .uaaDetailBody {
+        width: 200px;
+        margin: auto;
+        display: flex;
+      }
+
+      .UaaDetails .item {
+        flex: 1;
+        position: relative;
+        width: 192px;
+        min-height: 32px;
+        line-height: 32px;
+        margin: 8px auto 8px;
+      }
+
+        .UaaDetails .item:not(.has-screenshot) {
+          border: 1px dotted #222;
+          background: rgb(96, 96, 96);
+        }
+
+        .UaaDetails .item:not(.has-screenshot):hover {
+        }
+
+        .UaaDetails .item.has-screenshot {
+
+        }
+        .UaaDetails .item.has-screenshot::after {
+          content: attr(data-time);
+          position: absolute;
+          right: 0;
+          bottom: 0;
+          pading: 2px 4px;
+          background: #000;
+          color: #ccc;
+          font-size: 12px;
+          line-height: 14px;
+        }
+        .UaaDetails .item.has-screenshot:hover::after {
+          opacity: 0;
+        }
+
+      .UaaDetails .contact {
+        display: inline-block;
+        width: 100%;
+        color: #fff;
+        font-weight: bolder;
+        font-size: 16px;
+        text-shadow:
+          1px 1px 1px #000;
+        text-stroke: 1px #000;
+        text-align: center;
+        -webkit-text-stroke: 1px #000;
+        user-select: none;
+      }
+
+      .UaaDetails .item.has-screenshot .contact {
+        position: absolute;
+        text-align: center;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+        .UaaDetails .item.has-screenshot:hover .contact {
+          display: none;
+        }
+
+      .UaaDetails .screenshot {
+        display: block;
+        width: 192px;
+        margin: auto;
+        vertical-align: middle;
+        cursor: pointer;
+        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+      }
+        .UaaDetails .screenshot:hover {
+          transform: translate(-4px, -4px);
+          box-shadow: 4px 4px 0 #000;
+        }
+        .UaaDetails .screenshot:active {
+          transition: none;
+          transform: translate(0, 0);
+          box-shadow: none;
+        }
+
+      .UaaDetails .speak {
+        display: block;
+        width: 48px;
+        margin: auto;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 24px;
+        border: none;
+        background: #666;
+        outline: none;
+        color: #ccc;
+        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+      }
+        .UaaDetails .speak:hover {
+          transform: translate(-4px, -4px);
+          box-shadow: 4px 4px 0 #000;
+        }
+        .UaaDetails .speak:active {
+          transition: none;
+          transform: translate(0, 0);
+          box-shadow: none;
+        }
+
+
+    </style>
+    <details class="root UaaDetails">
+      <summary class="uaaSummary">提供</summary>
+      <div class="UaaDetailBody"></div>
+      <button class="speak command" data-command="speak">&#x1F50A;</button>
+    </details>
+  `).trim();
+
+  UaaView.__tpl__ = (`<div class="uaaView"></div>`).trim();
+
+  UaaView.__css__ = (`
+    uaaView {
+      display: none;
+    }
+    uaaView.is-Exist {
+     display: block;
+    }
+  `).trim();
+
+//===END===
 

@@ -253,6 +253,13 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="UaaEnableControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="uaa.enable">
+            ニコニ広告の情報を取得する(対応ブラウザのみ)
+          </label>
+        </div>
+
 
         <div class="enableAutoMylistCommentControl control toggle">
           <label>

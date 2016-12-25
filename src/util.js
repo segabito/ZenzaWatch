@@ -259,6 +259,7 @@ class CrossDomainGate {}
         'videoSearch.sort': 'f',
         'videoSearch.word': '',
 
+        'uaa.enable': true,
 
 
         KEY_CLOSE:      27,          // ESC
@@ -267,6 +268,8 @@ class CrossDomainGate {}
 
         KEY_SEEK_LEFT:  37 + 0x1000, // SHIFT + LEFT
         KEY_SEEK_RIGHT: 39 + 0x1000, // SHIFT + RIGHT
+        KEY_SEEK_LEFT2:  99999999, // カスタマイズ用
+        KEY_SEEK_RIGHT2: 99999999, //
 
         KEY_VOL_UP:     38 + 0x1000, // SHIFT + UP
         KEY_VOL_DOWN:   40 + 0x1000, // SHIFT + DOWN
@@ -1537,9 +1540,48 @@ class CrossDomainGate {}
       });
     };
 
+    util.speak = (() => {
+      let speaking = false;
+      let msg = null;
+      let initialized = false;
+
+      let initialize = () => {
+        if (initialized) { return; }
+        initialized = true;
+
+        msg = new window.SpeechSynthesisUtterance();
+
+        msg.onend   = () => {
+          speaking = false;
+        };
+        msg.onerror = () => {
+          speaking = false;
+        };
+
+      };
+
+      return function(text, option = {}) {
+        if (!window.speechSynthesis) { return; }
+        initialize();
+
+        if (option.volume) { msg.volume = option.volume; }
+        if (option.rate)   { msg.rate   = option.rate; }
+        if (option.lang)   { msg.lang   = option.lang; }
+        if (option.pitch)  { msg.pitch  = option.pitch; }
+        if (option.rate)   { msg.rate   = option.rate; }
+
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.cancel();
+        }
+        msg.text = text;
+        window.speechSynthesis.speak(msg);
+      };
+    })();
+
+
     var ShortcutKeyEmitter = (function(config) {
-      var emitter = new AsyncEmitter();
-      var isVerySlow = false;
+      let emitter = new AsyncEmitter();
+      let isVerySlow = false;
 
       // コンソールでキーバインド変更
       //
@@ -1547,12 +1589,14 @@ class CrossDomainGate {}
       // ZenzaWatch.config.setValue('KEY_INPUT_COMMENT', 13);
       // SHIFTをつけたいときは 13 + 0x1000
       
-      var map = {
+      let map = {
         CLOSE: 0,
         RE_OPEN: 0,
         HOME: 0,
         SEEK_LEFT: 0,
         SEEK_RIGHT: 0,
+        SEEK_LEFT2: 0,
+        SEEK_RIGHT2: 0,
         VOL_UP: 0,
         VOL_DOWN: 0,
         INPUT_COMMENT: 0,
@@ -1578,23 +1622,25 @@ class CrossDomainGate {}
         SCREEN_SHOT_WITH_COMMENT: 0
       };
 
-      _.each(Object.keys(map), function(key) {
+      Object.keys(map).forEach(key => {
         map[key] = parseInt(config.getValue('KEY_' + key), 10);
       });
 
-      var onKeyDown = function(e) {
+      //window.console.log('keymap', map);
+
+      let onKeyDown = function(e) {
         if (e.target.tagName === 'SELECT' ||
             e.target.tagName === 'INPUT' ||
             e.target.tagName === 'TEXTAREA') {
           return;
         }
 
-        var keyCode = e.keyCode +
+        let keyCode = e.keyCode +
           (e.altKey   ? 0x100000 : 0) +
           (e.ctrlKey  ? 0x10000  : 0) +
           (e.shiftKey ? 0x1000   : 0);
-        var key = '';
-        var param = '';
+        let key = '';
+        let param = '';
         switch (keyCode) {
           case 178: case 179:
             key = 'TOGGLE_PLAY';
@@ -1614,17 +1660,25 @@ class CrossDomainGate {}
           case map.HOME:
             key = 'SEEK_TO'; param = 0;
             break;
+          case map.SEEK_LEFT2:
+            key = 'SEEK_BY'; param = isVerySlow ? -0.5 : -5;
+            break;
           case map.SEEK_LEFT:
           case 37: // LEFT
             if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ? -0.5 : -5; }
             break;
+
           case map.VOL_UP:
             key = 'VOL_UP';
+            break;
+          case map.SEEK_RIGHT2:
+            key = 'SEEK_BY'; param = isVerySlow ?  0.5 :  5;
             break;
           case map.SEEK_RIGHT:
           case 39: // RIGHT
             if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ?  0.5 :  5; }
             break;
+
           case map.VOL_DOWN:
             key = 'VOL_DOWN';
             break;
@@ -1696,7 +1750,7 @@ class CrossDomainGate {}
             key = 'SCREEN_SHOT_WITH_COMMENT';
             break;
           default:
-            //console.log('%conKeyDown: %s', 'background: yellow;', e.keyCode);
+            //window.console.log('%conKeyDown: %s', 'background: yellow;', keyCode);
             break;
         }
         if (key) {
@@ -1711,8 +1765,8 @@ class CrossDomainGate {}
           return;
         }
 
-        var key = '';
-        var param = '';
+        let key = '';
+        let param = '';
         switch (e.keyCode) {
           case map.SHIFT_RESET:
             key = 'PLAYBACK_RATE';
@@ -2146,7 +2200,7 @@ class CrossDomainGate {}
       });
     };
 
-    const nicoVideoToCanvas = function({video, html, minHeight = 720}) {
+    const nicoVideoToCanvas = function({video, html, minHeight = 1080}) {
       let scale = 1;
       let width  =
         Math.max(video.videoWidth, video.videoHeight * 16 / 9);

@@ -206,6 +206,7 @@ var CONSTANT = {};
         isLoop:    config.getValue('loop'),
         isOpen:    false,
         isPlaying: false,
+        isPausing: false,
         isStalled: false,
         isChanging: false,
         isUpdatingDeflist: false,
@@ -263,6 +264,7 @@ var CONSTANT = {};
     get isLoop()    { return this._state.isLoop; }
     get isOpen()    { return this._state.isOpen; }
     get isPlaying() { return this._state.isPlaying; }
+    get isPausing() { return !this._state.isPlaying && this._state.isPausing; }
     get isChanging() { return this._state.isChanging; }
     get isUpdatingDeflist() { return this._state.isUpdatingDeflist; }
     get isUpdatingMylist()  { return this._state.isUpdatingMylist; }
@@ -277,6 +279,7 @@ var CONSTANT = {};
     set isLoop(v)    { this._setState('isLoop', !!v); }
     set isOpen(v)    { this._setState('isOpen', !!v); }
     set isPlaying(v) { this._setState('isPlaying', !!v); }
+    set isPausing(v) { this._setState('isPausing', !!v); }
     set isChanging(v) { this._setState('isChanging', !!v); }
     set isUpdatingDeflist(v) { this._setState('isUpdatingDeflist', !!v); }
     set isUpdatingMylist(v)  { this._setState('isUpdatingMylist', !!v); }
@@ -1026,15 +1029,17 @@ var CONSTANT = {};
       $('body').append($dialog);
     },
     _initializeVideoInfoPanel: function() {
+      if (this._videoInfoPanel) { return this._videoInfoPanel; }
       this._videoInfoPanel = new VideoInfoPanel({
         dialog: this,
-//        player: nicoVideoPlayer,
+        //player: nicoVideoPlayer,
         node: this._$playerContainer
       });
       this._videoInfoPanel.on('command', this._onCommand.bind(this));
       if (this._playerConfig.getValue('enableCommentPanel')) {
         this._initializeCommentPanel();
       }
+      return this._videoInfoPanel;
     },
     _initializeResponsive: function() {
       $(window).on('resize', _.debounce(this._updateResponsive.bind(this),  500));
@@ -1323,17 +1328,15 @@ var CONSTANT = {};
 
       this._messageApiLoader = new MessageApiLoader();
 
-      window.setTimeout(() => {
-        this._videoInfoPanel = new VideoInfoPanel({
-          dialog: this,
-          player: nicoVideoPlayer,
-          node: this._$playerContainer
-        });
-        this._videoInfoPanel.on('command', this._onCommand.bind(this));
-        if (this._playerConfig.getValue('enableCommentPanel')) {
-          this._initializeCommentPanel();
-        }
-      }, 0);
+      this._videoInfoPanel = new VideoInfoPanel({
+        dialog: this,
+        player: nicoVideoPlayer,
+        node: this._$playerContainer
+      });
+      this._videoInfoPanel.on('command', this._onCommand.bind(this));
+      if (this._playerConfig.getValue('enableCommentPanel')) {
+        this._initializeCommentPanel();
+      }
 
       nicoVideoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
       nicoVideoPlayer.on('ended',          this._onVideoEnded.bind(this));

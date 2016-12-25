@@ -101,7 +101,7 @@ function build() {
 
 function watch(srcDir) {
   var fs = require('fs');
-  fs.watch(srcDir, function(event, filename) {
+  fs.watch(srcDir, {recursive: true}, function(event, filename) {
     console.log('\n\n\n', event, filename);
     try {
       build();
