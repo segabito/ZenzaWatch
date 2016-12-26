@@ -2191,6 +2191,13 @@ body.in-capture .commentLayer {
   animation-timing-function: steps(10);
   perspective-origin: center bottom;
 }
+/* redコメントを推奨カラーに */
+/*
+.shadow-dokaben .nicoChat.ue[data-meta*="#FF0000"],
+.shadow-dokaben .nicoChat.shita[data-meta*="#FF0000"] {
+  color: rgb(200, 80, 0) !important;
+}
+*/
 
 .shadow-dokaben .nicoChat.ue *,
 .shadow-dokaben .nicoChat.shita * {

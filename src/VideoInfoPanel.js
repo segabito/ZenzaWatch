@@ -2527,7 +2527,7 @@ const PRODUCT = 'ZenzaWatch';
       this._props.videoInfo = videoInfo;
       this._props.videoId   = videoInfo.getVideoId();
 
-      window.setTimeout(() => { this.load(videoInfo); }, 3000);
+      window.setTimeout(() => { this.load(videoInfo); }, 5000);
     }
 
     load(videoInfo) {
@@ -2551,23 +2551,28 @@ const PRODUCT = 'ZenzaWatch';
       if (data.length < 1) { return; }
 
       const df = document.createDocumentFragment();
-      data.forEach(u => {
-        df.append(this._createItem(u));
+      data.forEach((u, idx) => {
+        df.append(this._createItem(u, idx));
       });
+
       this._elm.body.innerHTML = '';
       this._elm.body.appendChild(df);
 
       this.setState({isExist: true});
     }
 
-    _createItem(data) {
+    _createItem(data, idx) {
       const df = document.createElement('div');
-      df.className = 'item';
-      if (data.bgkeyframe) {
+      const contact = document.createElement('span');
+      contact.textContent = data.contact;
+      contact.className = 'contact';
+
+      df.className = idx < 8 ? 'item' : 'item other';
+      if (data.bgkeyframe && idx < 8) {
         const sec = (parseInt(data.bgkeyframe, 10) / 1000);
         const cv = document.createElement('canvas');
         const ct = cv.getContext('2d');
-        cv.className = 'screenshot command';
+        cv.className = 'screenshot command clickable';
         cv.setAttribute('data-command', 'seek');
         cv.setAttribute('data-type', 'number');
         cv.setAttribute('data-param', sec);
@@ -2587,13 +2592,18 @@ const PRODUCT = 'ZenzaWatch';
           cv.height = screenshot.height;
           ct.drawImage(screenshot, 0, 0);
         });
+      } else if (data.bgkeyframe) {
+        const sec = (parseInt(data.bgkeyframe, 10) / 1000);
+        df.classList.add('clickable');
+        df.classList.add('command');
+        df.setAttribute('data-command', 'seek');
+        df.setAttribute('data-type', 'number');
+        df.setAttribute('data-param', sec);
+        contact.setAttribute('title', `(${util.secToTime(sec)})`);
       }
       //if (data.bgcolor && (/^0x([a-f0-9]{6})$/i).test(data.bgcolor)) {
       //  df.style.backgroundColor = `#${RegExp.$1}`;
       //}
-      const contact = document.createElement('span');
-      contact.textContent = data.contact;
-      contact.className = 'contact';
       df.appendChild(contact);
       return df;
     }
@@ -2618,10 +2628,10 @@ const PRODUCT = 'ZenzaWatch';
       Array.from(this._shadow.querySelectorAll('.item')).forEach(item => {
         members.push(`${item.textContent}様`);
       });
-      util.speak(`この動画は、${members.join('、')}が応援しています。`, {
+      util.speak(`この動画は、${members.join(members.length >= 8 ? '' : '、')}が応援しています。`, {
         volume: 0.5,
-        pitch: 1.5,
-        rate: 1.5
+        pitch: members.length >= 8 ? 1.5 : 1.5,
+        rate: members.length >= 8 ? 2 : 1.5
       });
     }
   }
@@ -2633,20 +2643,37 @@ const PRODUCT = 'ZenzaWatch';
         user-select: none;
       }
 
+      .clickable {
+        cursor: pointer;
+        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+      }
+        .clickable:hover {
+          transform: translate(-4px, -4px);
+          box-shadow: 4px 4px 0 #000;
+        }
+        .clickable:active {
+          transition: none;
+          transform: translate(0, 0);
+          box-shadow: none;
+        }
+
       .UaaDetails {
         opacity: 0;
         pointer-events: none;
         max-height: 0;
-        margin: 0 8px 32px;
+        margin: 0 auto 0px;
         color: #ccc;
         overflow: hidden;
+        width: 208px;
+        word-break: break-all;
       }
         .UaaDetails.is-Exist {
           display: block;
           pointer-events: auto;
           max-height: 1000px;
+          margin: 0 auto 32px;
           opacity: 1;
-          transition: opacity 0.4s linear 0.4s, max-height 2s ease-in;
+          transition: opacity 0.4s linear 0.4s, max-height 2s ease-in, margin 0.4s ease-in;
         }
         .UaaDetails.is-Exist[open] {
         }
@@ -2666,20 +2693,8 @@ const PRODUCT = 'ZenzaWatch';
         cursor: pointer;
       }
         .UaaDetails .uaaSummary:hover {
-          transform: translate(-4px,-4px);
-          box-shadow: 4px 4px 4px #000;
           background: #666;
-          transition:
-            0.2s transform ease,
-            0.2s box-shadow ease
-            ;
         }
-        .UaaDetails .uaaSummary:active {
-          transform: none;
-          box-shadow: none;
-          transition: none;
-        }
-
 
       .UaaDetails .uaaDetailBody {
         width: 200px;
@@ -2736,17 +2751,49 @@ const PRODUCT = 'ZenzaWatch';
         user-select: none;
       }
 
-      .UaaDetails .item.has-screenshot .contact {
-        position: absolute;
-        text-align: center;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-      }
-        .UaaDetails .item.has-screenshot:hover .contact {
+        .UaaDetails .item.has-screenshot .contact {
+          position: absolute;
+          text-align: center;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+        }
+       .UaaDetails .item.has-screenshot:hover .contact {
           display: none;
         }
+
+        .UaaDetails .item.other {
+          display: inline;
+          border: none;
+          width: inherit;
+          margin: 0 4px 0 0;
+          line-height: normal;
+          min-height: inherit;
+        }
+          .UaaDetails .item.other .contact {
+            display: inline;
+            padding: 2px 4px;
+            width: auto;
+            font-size: 12px;
+            -webkit-text-stroke: 0;
+            color: #ccc;
+          }
+        .UaaDetails .item.other.clickable {
+          display: inline-block;
+          margin: 0 4px;
+        }
+        .UaaDetails .item.other.clickable .contact {
+          display: inline-block;
+          color: #ffc;
+        }
+        .UaaDetails .item.other.clickable .contact::after {
+          content: attr(title);
+          color: #ccc;
+          font-weight: normal;
+          margin: 0 4px;
+        }
+
 
       .UaaDetails .screenshot {
         display: block;
@@ -2754,47 +2801,26 @@ const PRODUCT = 'ZenzaWatch';
         margin: auto;
         vertical-align: middle;
         cursor: pointer;
-        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
       }
-        .UaaDetails .screenshot:hover {
-          transform: translate(-4px, -4px);
-          box-shadow: 4px 4px 0 #000;
-        }
-        .UaaDetails .screenshot:active {
-          transition: none;
-          transform: translate(0, 0);
-          box-shadow: none;
-        }
 
       .UaaDetails .speak {
         display: block;
-        width: 48px;
+        width: 64px;
         margin: auto;
         cursor: pointer;
         font-size: 16px;
-        line-height: 24px;
+        line-height: 28px;
         border: none;
         background: #666;
         outline: none;
         color: #ccc;
-        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
       }
-        .UaaDetails .speak:hover {
-          transform: translate(-4px, -4px);
-          box-shadow: 4px 4px 0 #000;
-        }
-        .UaaDetails .speak:active {
-          transition: none;
-          transform: translate(0, 0);
-          box-shadow: none;
-        }
-
 
     </style>
     <details class="root UaaDetails">
-      <summary class="uaaSummary">提供</summary>
+      <summary class="uaaSummary clickable">提供</summary>
       <div class="UaaDetailBody"></div>
-      <button class="speak command" data-command="speak">&#x1F50A;</button>
+      <button class="speak command clickable" data-command="speak">&#x1F50A;</button>
     </details>
   `).trim();
 

@@ -266,6 +266,8 @@ var ajax = function() {};
             thumbnail:            data.video.thumbnailURL,
             length:               data.video.duration,
 
+            commons_tree_exists:  !!data.video.isCommonsTreeExists,
+
             width:  data.video.width,
             height: data.video.height,
 
@@ -2147,7 +2149,7 @@ var ajax = function() {};
 
       let callbackId = 0;
 
-      const load = (videoId) => {
+      const load = (videoId, {limit = 50} = {}) => {
         return new Promise((resolve, reject) => {
 
           const api = '//api.uad.nicovideo.jp/UadsVideoService/getSponsorsJsonp';
@@ -2180,7 +2182,7 @@ var ajax = function() {};
             if (timeoutTimer) { reject(new Error('uaa timeout')); }
           }, 30000);
 
-          const url = `${api}?videoid=${videoId}&limit=8&callback=${funcName}`;
+          const url = `${api}?videoid=${videoId}&limit=${limit}&callback=${funcName}`;
           sc.src = url;
           document.body.appendChild(sc);
         });
