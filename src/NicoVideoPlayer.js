@@ -925,7 +925,12 @@ class VideoCaptureUtil {}
       return !!this._canPlay;
     },
     play: function() {
-      return this._video.play();
+      const p = this._video.play();
+      // video.play()がPromiseを返すかどうかはブラウザによって異なるっぽい。。。
+      if (p instanceof (Promise)) {
+        return p;
+      }
+      return Promise.resolve();
     },
     pause: function() {
       this._video.pause();
