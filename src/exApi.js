@@ -8,9 +8,9 @@ var ZenzaWatch = {
 
 //===BEGIN===
 
-  var xmlHttpRequest = function(options) {
+  var xmlHttp = function(options) {
     try {
-      //window.console.log('xmlHttpRequest bridge: ', options.url, options);
+      //window.console.log('xmlHttp bridge: ', options.url, options);
       var req = new XMLHttpRequest();
       var method = options.method || options.type || 'GET';
       var xhrFields = options.xhrFields || {};
@@ -38,7 +38,7 @@ var ZenzaWatch = {
     }
   };
 
-  var postMessage = function(type, message, token) {
+  var parentPostMessage = function(type, message, token) {
     var origin = document.referrer;
     try {
       parent.postMessage(JSON.stringify({
@@ -75,7 +75,7 @@ var ZenzaWatch = {
 
     var options = data.options || {};
     var sessionId = data.sessionId;
-    xmlHttpRequest({
+    xmlHttp({
       url:     data.url,
       method:  options.method || options.type || 'GET',
       data:    options.data,
@@ -87,7 +87,7 @@ var ZenzaWatch = {
         else { window.clearTimeout(timeoutTimer); }
 
         try {
-          postMessage(type, {
+          parentPostMessage(type, {
             sessionId: sessionId,
             status: 'ok',
             token: token,
@@ -106,7 +106,7 @@ var ZenzaWatch = {
 
     timeoutTimer = window.setTimeout(function() {
       isTimeout = true;
-      postMessage(type, {
+      parentPostMessage(type, {
         sessionId: sessionId,
         status: 'timeout',
         token: token,
@@ -129,7 +129,7 @@ var ZenzaWatch = {
       if (isTimeout) { return; }
       else { window.clearTimeout(timeoutTimer); }
       try {
-        postMessage(type, {
+        parentPostMessage(type, {
           sessionId: sessionId,
           status: 'ok',
           token: token,
@@ -147,7 +147,7 @@ var ZenzaWatch = {
 
     timeoutTimer = window.setTimeout(() => {
       isTimeout = true;
-      postMessage(type, {
+      parentPostMessage(type, {
         sessionId: sessionId,
         status: 'timeout',
         token: token,
@@ -184,7 +184,7 @@ var ZenzaWatch = {
 
       if (!data.url) { return; }
       var sessionId = data.sessionId;
-      xmlHttpRequest({
+      xmlHttp({
         url: data.url,
         onload: function(resp) {
 
@@ -192,7 +192,7 @@ var ZenzaWatch = {
           else { window.clearTimeout(timeoutTimer); }
 
           try {
-            postMessage(type, {
+            parentPostMessage(type, {
               sessionId: sessionId,
               status: 'ok',
               token: token,
@@ -210,7 +210,7 @@ var ZenzaWatch = {
 
       timeoutTimer = window.setTimeout(function() {
         isTimeout = true;
-        postMessage(type, {
+        parentPostMessage(type, {
           sessionId: sessionId,
           status: 'timeout',
           command: 'loadUrl',
@@ -221,7 +221,7 @@ var ZenzaWatch = {
     });
 
     try {
-      postMessage(type, { status: 'initialized' });
+      parentPostMessage(type, { status: 'initialized' });
     } catch (e) {
       console.log('err', e);
     }
@@ -271,7 +271,7 @@ var ZenzaWatch = {
       });
 
       try {
-        postMessage(type, {
+        parentPostMessage(type, {
           sessionId: sessionId,
           status: 'ok',
           token: token,
@@ -332,7 +332,7 @@ var ZenzaWatch = {
       //asyncEmitter.emit('change', key, newValue, oldValue);
       if (oldValue === newValue) { return; }
 
-      postMessage(type, {
+      parentPostMessage(type, {
         command: 'configSync',
         token: token,
         key:   key,
@@ -342,7 +342,7 @@ var ZenzaWatch = {
       switch(key) {
         case 'message':
           //console.log('%cmessage', 'background: cyan;', newValue);
-          postMessage(type, { command: 'message', value: newValue, token: token });
+          parentPostMessage(type, { command: 'message', value: newValue, token: token });
           break;
       }
     };
@@ -352,7 +352,7 @@ var ZenzaWatch = {
       const packet = e.data;
       //window.console.log('%cmessage', 'background: cyan;', packet);
 
-      postMessage(type, { command: 'message', value: JSON.stringify(packet), token: token});
+      parentPostMessage(type, { command: 'message', value: JSON.stringify(packet), token: token});
     };
 
     var broadcastChannel =
@@ -366,7 +366,7 @@ var ZenzaWatch = {
 
 
     try {
-      postMessage(type, { status: 'initialized' });
+      parentPostMessage(type, { status: 'initialized' });
     } catch (e) {
       console.log('err', e);
     }
@@ -437,7 +437,7 @@ var ZenzaWatch = {
           videoCapture(data.src, data.sec).then(canvas => {
             const dataUrl = canvas.toDataURL('image/png');
             //console.info('video capture success', dataUrl.length);
-            postMessage(type, {
+            parentPostMessage(type, {
               sessionId,
               status: 'ok',
               token,
@@ -451,7 +451,7 @@ var ZenzaWatch = {
 
     try {
       //window.console.log('%cpost initialized:', 'font-weight: bolder;', type);
-      postMessage(type, { status: 'initialized' });
+      parentPostMessage(type, { status: 'initialized' });
     } catch (e) {
       console.log('err', e);
     }
@@ -482,7 +482,7 @@ var ZenzaWatch = {
     });
 
     try {
-      postMessage(type, { status: 'initialized' });
+      parentPostMessage(type, { status: 'initialized' });
     } catch (e) {
       console.log('err', e);
     }
