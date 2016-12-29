@@ -1543,19 +1543,26 @@ class CrossDomainGate {}
     util.speak = (() => {
       let speaking = false;
       let msg = null;
-      let initialized = false;
+      //let initialized = false;
+      let resolve = null, reject = null;
 
       let initialize = () => {
-        if (initialized) { return; }
-        initialized = true;
+        // Chromeは使い回しできるけどFirefoxはできないっぽい?
+        //if (initialized) { return; }
+        //initialized = true;
 
         msg = new window.SpeechSynthesisUtterance();
 
         msg.onend   = () => {
           speaking = false;
+          if (resolve) { resolve(msg.text); }
+          resolve = reject = null;
         };
+
         msg.onerror = () => {
           speaking = false;
+          if (reject) { reject(msg.text); }
+          resolve = reject = null;
         };
 
       };
