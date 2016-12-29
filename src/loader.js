@@ -333,6 +333,12 @@ var ajax = function() {};
           return parseFromGinza(dom);
         } else if (dom.querySelector('#js-initial-watch-data')) {
           return parseFromHtml5Watch(dom);
+        } else if (dom.querySelector('#PAGEBODY .mb16p4 .font12')) {
+          return {
+            reject: true,
+            reason: 'forbidden',
+            message: dom.querySelector('#PAGEBODY .mb16p4 .font12').textContent,
+          };
         } else {
           return null;
         }
@@ -346,6 +352,10 @@ var ajax = function() {};
             reason: 'network',
             message: '通信エラー。動画情報の取得に失敗しました。(watch api)'
           });
+        }
+
+        if (data.reject) {
+          return Promise.reject(data);
         }
 
         if (data.isFlv && !data.isEco) {
@@ -393,14 +403,16 @@ var ajax = function() {};
           .then(onLoadPromise.bind(this, watchId, options, isRetry))
           .catch(err => {
             if (isRetry) {
-              return Promise.reject(watchId, {
+              return Promise.reject({
                 watchId,
                 message: err.message || '動画情報の取得に失敗したか、未対応の形式です',
                 type: 'watchapi'
               });
             }
 
-            if (err.reason === 'network') {
+            if (err.reason === 'forbidden') {
+              return Promise.reject(err);
+            } else if (err.reason === 'network') {
               return createSleep(5000).then(() => {
                 window.console.warn('network error & retry');
                 return loadPromise(watchId, options, true);
@@ -434,6 +446,7 @@ var ajax = function() {};
               return result;
             },
             (err) => {
+              err.watchId = watchId;
               window.console.timeEnd(timeKey);
               return Promise.reject(err);
             }
@@ -2094,7 +2107,7 @@ var ajax = function() {};
             const funcName = `zenza_callback_${callbackId++}`;
 
             window[funcName] = (ichibaData) => {
-              window.console.info(ichibaData);
+              //window.console.info(ichibaData);
               window.clearTimeout(timeoutTimer);
               timeoutTimer = null;
               sc.remove();
