@@ -253,9 +253,13 @@ var CONSTANT = {};
 
       this._$container
         .on('mouseover', this._onMouseOver.bind(this))
-        .on('mouseleave', this._onMouseOut .bind(this))
-        .on('scroll', this._onScroll.bind(this))
-        .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
+        .on('mouseleave', this._onMouseOut .bind(this));
+      //  .on('scroll', this._onScroll.bind(this))
+      //  .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
+      this._$container[0].addEventListener('scroll',
+        this._onScroll.bind(this), {passive: true});
+      this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
+
       $win
         .on('resize', this._onResize.bind(this));
 
@@ -361,6 +365,7 @@ var CONSTANT = {};
     _onScroll: function() {
       if (!this.hasClass('scrolling')) { this.addClass('scrolling'); }
       this._refreshInviewElements();
+      this._debouncedOnScrollEnd();
     },
     _onScrollEnd: function() {
       this.removeClass('scrolling');

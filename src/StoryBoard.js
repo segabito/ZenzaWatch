@@ -738,7 +738,7 @@ var AsyncEmitter = function() {};
           .on('touchmove',   _.debounce(this._onTouchMoveEnd.bind(this), 2000));
 
         this._$container.append($view);
-        $('body').on('touchend', function() { this._isHover = false; }.bind(this));
+        document.body.addEventListener('touchend', () => { this._isHover = false; }, {passive: true});
 
       },
       _onBoardClick: function(e) {
@@ -1151,7 +1151,7 @@ var AsyncEmitter = function() {};
         z-index: 100;
         pointer-events: none;
         transform: translate(-50%, 0);
-                   {*border: 1px solid #006;*}
+                   /*border: 1px solid #006;*/
         box-shadow: 0 0 4px #333;
         background: #ff9;
         opacity: 0.5;
