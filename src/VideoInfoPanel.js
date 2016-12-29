@@ -787,10 +787,10 @@ const PRODUCT = 'ZenzaWatch';
           </div>
           <div class="publicStatus"></div>
 
-          <button class="resumePlay" data-command="seek" data-param="0" type="button">
+          <div class="resumePlay" data-command="seek" data-param="0" type="button">
             続きから再生 (<span class="resumePlayPoint">00:00</span>)
             <div class="resumeThumbnailContainer"></div>
-          </button>
+          </div>
           <div class="videoDescription">
           </div>
 
@@ -2368,7 +2368,7 @@ const PRODUCT = 'ZenzaWatch';
   IchibaItemView.__tpl__ = (`
     <div class="ZenzaIchibaItemView">
       <div class="loadStart">
-        <button class="loadStartButton command" data-command="load">ニコニコ市場</button>
+        <div class="loadStartButton command" data-command="load">ニコニコ市場</div>
       </div>
       <div class="ichibaLoadingView">
         <div class="loading-inner">
