@@ -4,6 +4,7 @@ var ZenzaWatch = {
   util:{},
   debug: {}
 };
+const util = {};
 var PlaybackPosition = {};
 var FullScreen = {};
 var VideoInfoLoader = {};
@@ -357,7 +358,7 @@ var CONSTANT = {};
       /*transform: translatez(0);*/
     }
 
-    .regularUser  .forPremium {
+    .is-regularUser  .forPremium {
       display: none !important;
     }
 
@@ -373,7 +374,7 @@ var CONSTANT = {};
       box-sizing: border-box;
     }
 
-    .zenzaVideoPlayerDialog.show {
+    .zenzaVideoPlayerDialog.is-open {
       display: block;
     }
 
@@ -422,17 +423,17 @@ var CONSTANT = {};
       background-repeat: no-repeat;
       background-position: center center;
     }
-    .zenzaPlayerContainer.loading {
+    .zenzaPlayerContainer.is-loading {
       cursor: wait;
     }
-    .zenzaPlayerContainer:not(.loading):not(.error) {
+    .zenzaPlayerContainer:not(.is-loading):not(.is-error) {
       background-image: none !important;
       background: #000 !important;
     }
-    .zenzaPlayerContainer.loading .videoPlayer,
-    .zenzaPlayerContainer.loading .commentLayerFrame,
-    .zenzaPlayerContainer.error .videoPlayer,
-    .zenzaPlayerContainer.error .commentLayerFrame {
+    .zenzaPlayerContainer.is-loading .videoPlayer,
+    .zenzaPlayerContainer.is-loading .commentLayerFrame,
+    .zenzaPlayerContainer.is-error .videoPlayer,
+    .zenzaPlayerContainer.is-error .commentLayerFrame {
       display: none;
     }
 
@@ -469,7 +470,7 @@ var CONSTANT = {};
       -moz-user-select: none;
     }
 
-    .zenzaPlayerContainer .videoPlayer.loading {
+    .zenzaPlayerContainer .videoPlayer.is-loading {
       cursor: wait;
     }
     .mouseMoving .videoPlayer {
@@ -516,9 +517,9 @@ var CONSTANT = {};
       transition: none !important;
     }
 
-    .zenzaScreenMode_small  .zenzaPlayerContainer.backComment .commentLayerFrame,
-    .zenzaScreenMode_normal .zenzaPlayerContainer.backComment .commentLayerFrame,
-    .zenzaScreenMode_big    .zenzaPlayerContainer.backComment .commentLayerFrame {
+    .zenzaScreenMode_small  .zenzaPlayerContainer.is-backComment .commentLayerFrame,
+    .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame,
+    .zenzaScreenMode_big    .zenzaPlayerContainer.is-backComment .commentLayerFrame {
       top:  calc(-50vh + 50%);
       left: calc(-50vw + 50%);
       width:  100vw;
@@ -527,7 +528,7 @@ var CONSTANT = {};
       bottom: auto;
       z-index: 1;
     }
-    .zenzaScreenMode_small  .zenzaPlayerContainer.backComment .commentLayerFrame {
+    .zenzaScreenMode_small  .zenzaPlayerContainer.is-backComment .commentLayerFrame {
       top:  0;
       left: 0;
       width:  100vw;
@@ -595,9 +596,9 @@ var CONSTANT = {};
     }
 
 
-    .zenzaScreenMode_3D   .showComment.backComment .videoPlayer,
-    .zenzaScreenMode_wide .showComment.backComment .videoPlayer,
-    .fullScreen           .showComment.backComment .videoPlayer
+    .zenzaScreenMode_3D   .is-showComment.is-backComment .videoPlayer,
+    .zenzaScreenMode_wide .is-showComment.is-backComment .videoPlayer,
+    .fullScreen           .is-showComment.is-backComment .videoPlayer
     {
       top:  25% !important;
       left: 25% !important;
@@ -617,11 +618,11 @@ var CONSTANT = {};
       height: 100vh !important;
     }
 
-    .showComment.backComment .videoPlayer {
+    .is-showComment.is-backComment .videoPlayer {
       opacity: 0.90;
     }
 
-    .showComment.backComment .videoPlayer:hover {
+    .is-showComment.is-backComment .videoPlayer:hover {
       opacity: 1;
     }
 
@@ -709,7 +710,7 @@ var CONSTANT = {};
       width: 100%;
     }
 
-    .zenzaScreenMode_wide  .backComment .videoPlayer {
+    .zenzaScreenMode_wide  .is-backComment .videoPlayer {
       left: 25%;
       top:  25%;
       width:  50%;
@@ -823,7 +824,7 @@ var CONSTANT = {};
       display: none;
       pointer-events: none;
     }
-    .zenzaPlayerContainer.loading .loadingMessageContainer {
+    .zenzaPlayerContainer.is-loading .loadingMessageContainer {
       display: inline-block;
       position: absolute;
       z-index: ${CONSTANT.BASE_Z_INDEX + 10000};
@@ -843,8 +844,8 @@ var CONSTANT = {};
       100% { transform: rotate(-1800deg); }
     }
 
-    .zenzaPlayerContainer.loading .loadingMessageContainer::before,
-    .zenzaPlayerContainer.loading .loadingMessageContainer::after {
+    .zenzaPlayerContainer.is-loading .loadingMessageContainer::before,
+    .zenzaPlayerContainer.is-loading .loadingMessageContainer::after {
       display: inline-block;
       text-align: center;
       content: '${'\\00272A'}';
@@ -855,7 +856,7 @@ var CONSTANT = {};
       animation-duration: 5s;
       animation-timing-function: linear;
     }
-    .zenzaPlayerContainer.loading .loadingMessageContainer::after {
+    .zenzaPlayerContainer.is-loading .loadingMessageContainer::after {
       animation-direction: reverse;
     }
 
@@ -865,7 +866,7 @@ var CONSTANT = {};
       pointer-events: none;
     }
 
-    .zenzaPlayerContainer.error .errorMessageContainer {
+    .zenzaPlayerContainer.is-error .errorMessageContainer {
       display: inline-block;
       position: absolute;
       z-index: ${CONSTANT.BASE_Z_INDEX + 10000};
@@ -2720,13 +2721,13 @@ var CONSTANT = {};
       transform-origin: right top;
     }
 
-    .updatingDeflist .menuItemContainer.rightTop,
-    .updatingMylist  .menuItemContainer.rightTop {
+    .is-updatingDeflist .menuItemContainer.rightTop,
+    .is-updatingMylist  .menuItemContainer.rightTop {
       cursor: wait;
       opacity: 1 !important;
     }
-    .updatingDeflist .menuItemContainer.rightTop>*,
-    .updatingMylist .menuItemContainer.rightTop>* {
+    .is-updatingDeflist .menuItemContainer.rightTop>*,
+    .is-updatingMylist .menuItemContainer.rightTop>* {
       pointer-events: none;
     }
 
@@ -2737,7 +2738,7 @@ var CONSTANT = {};
       top: 32px;
       display: none;
     }
-    .debug .menuItemContainer.leftTop {
+    .is-debug .menuItemContainer.leftTop {
       display: inline-block !important;
       opacity: 1 !important;
       transition: none !important;
@@ -2785,11 +2786,11 @@ var CONSTANT = {};
       white-space: nowrap;
 
     }
-    .error .menuItemContainer.onErrorMenu {
+    .is-error .menuItemContainer.onErrorMenu {
       display: block !important;
       opacity: 1 !important;
     }
-    .error .menuItemContainer.onErrorMenu .menuButton {
+    .is-error .menuItemContainer.onErrorMenu .menuButton {
       opacity: 0.8 !important;
     }
 
@@ -2901,9 +2902,7 @@ var CONSTANT = {};
       margin-left: 4px;
       margin-top:  4px;
     }
-    .showComment .showCommentSwitch:hover {
-    }
-    .showComment .showCommentSwitch {
+    .is-showComment .showCommentSwitch {
       background:#888;
       color: #fff;
       text-shadow: 0 0 6px orange;
@@ -2930,8 +2929,8 @@ var CONSTANT = {};
       margin-top:  4px;
     }
 
-    .zenzaPlayerContainer:not(.mute) .muteSwitch .mute-on,
-                              .mute  .muteSwitch .mute-off {
+    .zenzaPlayerContainer:not(.is-mute) .muteSwitch .mute-on,
+                              .is-mute  .muteSwitch .mute-off {
       display: none;
     }
 
@@ -2941,7 +2940,7 @@ var CONSTANT = {};
       width:  32px;
       height: 32px;
     }
-    .showComment .commentLayerOrderSwitch {
+    .is-showComment .commentLayerOrderSwitch {
       display: block;
     }
 
@@ -2971,16 +2970,16 @@ var CONSTANT = {};
       background: #333;
     }
 
-                 .commentLayerOrderSwitch .comment,
-    .backComment .commentLayerOrderSwitch .video {
+                    .commentLayerOrderSwitch .comment,
+    .is-backComment .commentLayerOrderSwitch .video {
       margin-left: 0px;
       margin-top:  0px;
       z-index: 2;
       opacity: 0.8;
     }
 
-    .backComment .commentLayerOrderSwitch .comment,
-                 .commentLayerOrderSwitch .video {
+    .is-backComment .commentLayerOrderSwitch .comment,
+                    .commentLayerOrderSwitch .video {
       margin-left: 8px;
       margin-top: 8px;
       z-index: 1;
@@ -2996,7 +2995,7 @@ var CONSTANT = {};
       line-height: 30px;
       font-size: 18px;
     }
-    .showComment .ngSettingMenu {
+    .is-showComment .ngSettingMenu {
       display: block;
     }
     .ngSettingMenu:hover {
@@ -3082,7 +3081,7 @@ var CONSTANT = {};
       100% { transform: rotateY(1800deg); }
     }
 
-    .updatingDeflist .mylistButton.deflistAdd {
+    .is-updatingDeflist .mylistButton.deflistAdd {
       pointer-events: none;
       opacity: 1 !important;
       border: 1px inset !important;
@@ -3095,12 +3094,12 @@ var CONSTANT = {};
       animation-duration: 6s;
       animation-timing-function: linear;
     }
-    .updatingDeflist .mylistButton.deflistAdd .tooltip {
+    .is-updatingDeflist .mylistButton.deflistAdd .tooltip {
       display: none;
     }
 
     .mylistButton.mylistAddMenu.show,
-    .updatingMylist  .mylistButton.mylistAddMenu {
+    .is-updatingMylist  .mylistButton.mylistAddMenu {
       pointer-events: none;
       opacity: 1 !important;
       border: 1px inset #000 !important;
@@ -3109,7 +3108,7 @@ var CONSTANT = {};
     .mylistButton.mylistAddMenu.show{
       background: #888 !important;
     }
-    .updatingMylist  .mylistButton.mylistAddMenu {
+    .is-updatingMylist  .mylistButton.mylistAddMenu {
       background: #888 !important;
       animation-name: spinX;
       animation-iteration-count: infinite;
@@ -3472,7 +3471,6 @@ var CONSTANT = {};
       this._$zenzaTweetButton = this._$playerContainer.find('.zenzaTweetButton');
     },
     _initializeNgSettingMenu: function() {
-      //var self = this;
       var config = this._playerConfig;
       var $menu = this._$ngSettingSelectMenu;
 
@@ -3582,7 +3580,6 @@ var CONSTANT = {};
     _onPlayerConfigUpdate: function(key, value) {
     },
     _hideMenu: function() {
-      //var self = this;
       $([
         'toggleMylistMenu',
         'toggleScreenModeMenu',

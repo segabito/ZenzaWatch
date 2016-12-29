@@ -24,9 +24,9 @@ var CONSTANT = {};
       transform: translate(-50%, -170px);
       overflow: visible;
     }
-    .zenzaPlayerContainer.mymemory .commentInputPanel,
-    .zenzaPlayerContainer.loading  .commentInputPanel,
-    .zenzaPlayerContainer.error    .commentInputPanel {
+    .zenzaPlayerContainer.is-mymemory .commentInputPanel,
+    .zenzaPlayerContainer.is-loading  .commentInputPanel,
+    .zenzaPlayerContainer.is-error    .commentInputPanel {
       display: none;
     }
 

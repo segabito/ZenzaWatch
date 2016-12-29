@@ -678,7 +678,7 @@ class VideoCaptureUtil {}
       this._resetVideo(params);
     },
     _reset: function() {
-      this.removeClass('play pause abort error');
+      this.removeClass('is-play is-pause is-abort is-error');
       this._isPlaying = false;
       this._canPlay = false;
     },
@@ -782,7 +782,7 @@ class VideoCaptureUtil {}
       // リピート時にも飛んでくるっぽいので初回だけにする
       if (!this._canPlay) {
         this._canPlay = true;
-        this._video.classList.remove('loading');
+        this._video.classList.remove('is-loading');
         this.emit('canPlay');
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
@@ -843,14 +843,14 @@ class VideoCaptureUtil {}
     },
     _onAbort: function() {
       window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
-      this.addClass('abort');
+      this.addClass('is-abort');
       this.emit('abort');
     },
     _onError: function(e) {
       if (this._video.getAttribute('src') === CONSTANT.BLANK_VIDEO_URL) { return; }
       window.console.error('error src', this._video.src);
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
-      this.addClass('error');
+      this.addClass('is-error');
       this._canPlay = false;
       this.emit('error', {
         code: e.target.error.code,
@@ -859,14 +859,14 @@ class VideoCaptureUtil {}
     },
     _onPause: function() {
       console.log('%c_onPause:', 'background: cyan;', arguments);
-      this.removeClass('play');
+      this.removeClass('is-play');
 
       this._isPlaying = false;
       this.emit('pause');
     },
     _onPlay: function() {
       console.log('%c_onPlay:', 'background: cyan;', arguments);
-      this.addClass('play');
+      this.addClass('is-play');
       this._isPlaying = true;
 
       //this._subVideo.pause();
@@ -962,7 +962,7 @@ class VideoCaptureUtil {}
       //this._$subVideo.attr('src', url);
       this._canPlay = false;
       //this.emit('setSrc', url);
-      this.addClass('loading');
+      this.addClass('is-loading');
     },
     setVolume: function(vol) {
       vol = Math.max(Math.min(1, vol), 0);

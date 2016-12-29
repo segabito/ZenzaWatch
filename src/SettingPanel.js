@@ -66,10 +66,10 @@ var AsyncEmitter = function() {};
       height: 292px;
     }
 
-    {* mix-blend-mode使ってみたかっただけ。 飽きたら消す。 *}
+    /* mix-blend-mode使ってみたかっただけ。 飽きたら消す。 */
     .zenzaSettingPanelShadow1.show {
       background: #88c;
-      {*mix-blend-mode: difference;*}
+      /*mix-blend-mode: difference;*/
       display: none;
     }
     .zenzaSettingPanelShadow2.show {
@@ -180,9 +180,9 @@ var AsyncEmitter = function() {};
       border-radius: 8px;
      }
 
-  */});
+  `).trim();
+
   SettingPanel.__tpl__ = (`
-    <!-- mix-blend-mode を使ってみたかっただけのためのレイヤーx2 飽きたら消す -->
     <div class="zenzaSettingPanelShadow1"></div>
     <div class="zenzaSettingPanelShadow2"></div>
     <div class="zenzaSettingPanel">

@@ -148,7 +148,7 @@ const PRODUCT = 'ZenzaWatch';
       body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
         display: inherit;
       }
-      .zenzaScreenMode_normal .zenzaPlayerContainer.backComment .commentLayerFrame {
+      .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame {
         top:  calc(-50vh + 50%);
         left: calc(-50vw + 50% + 160px);
         width:  100vw;
@@ -164,7 +164,7 @@ const PRODUCT = 'ZenzaWatch';
         display: inherit;
       }
 
-      .zenzaScreenMode_big .zenzaPlayerContainer.backComment .commentLayerFrame {
+      .zenzaScreenMode_big .zenzaPlayerContainer.is-backComment .commentLayerFrame {
         top:  calc(-50vh + 50%);
         left: calc(-50vw + 50% + 160px);
         width:  100vw;
@@ -527,9 +527,9 @@ const PRODUCT = 'ZenzaWatch';
       background: #ddf;
     }
 
-    body:not(.fullScreen).zenzaScreenMode_3D     .backComment .zenzaWatchVideoInfoPanel,
-    body:not(.fullScreen).zenzaScreenMode_normal .backComment .zenzaWatchVideoInfoPanel,
-    body:not(.fullScreen).zenzaScreenMode_big    .backComment .zenzaWatchVideoInfoPanel {
+    body:not(.fullScreen).zenzaScreenMode_3D     .is-backComment .zenzaWatchVideoInfoPanel,
+    body:not(.fullScreen).zenzaScreenMode_normal .is-backComment .zenzaWatchVideoInfoPanel,
+    body:not(.fullScreen).zenzaScreenMode_big    .is-backComment .zenzaWatchVideoInfoPanel {
       opacity: 0.7;
     }
 
@@ -565,7 +565,7 @@ const PRODUCT = 'ZenzaWatch';
         margin-left: 150px;
       }
 
-      .zenzaScreenMode_normal .zenzaPlayerContainer.backComment .commentLayerFrame {
+      .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame {
         top:  calc(-50vh + 50% + 120px);
         left: calc(-50vw + 50%);
         width:  100vw;
@@ -607,7 +607,7 @@ const PRODUCT = 'ZenzaWatch';
       body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoDescription {
         margin-left: 150px;
       }
-      .zenzaScreenMode_big .zenzaPlayerContainer.backComment .commentLayerFrame {
+      .zenzaScreenMode_big .zenzaPlayerContainer.is-backComment .commentLayerFrame {
         top:  calc(-50vh + 50% + 120px);
         left: calc(-50vw + 50%);
         width:  100vw;
@@ -881,7 +881,7 @@ const PRODUCT = 'ZenzaWatch';
       }).on('wheel', (e) => {
         e.stopPropagation();
       });
-      $icon.on('load', () => { $icon.removeClass('loading'); });
+      $icon.on('load', () => { $icon.removeClass('is-loading'); });
 
       MylistPocketDetector.detect().then((pocket) => {
         this._pocket = pocket;
@@ -905,8 +905,8 @@ const PRODUCT = 'ZenzaWatch';
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
-        .toggleClass('community', this._videoInfo.isCommunityVideo())
-        .toggleClass('mymemory',  this._videoInfo.isMymemory())
+        .toggleClass('is-community', this._videoInfo.isCommunityVideo())
+        .toggleClass('is-mymemory',  this._videoInfo.isMymemory())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo');
 
       this._ichibaItemView.clear();
@@ -1099,7 +1099,7 @@ const PRODUCT = 'ZenzaWatch';
     clear: function() {
       this._videoTitlePanel.clear();
       this._$view.addClass('initializing');
-      this._$ownerIcon.addClass('loading');
+      this._$ownerIcon.addClass('is-loading');
       this._$description.empty();
     },
     selectTab: function(tabName) {
@@ -1222,11 +1222,11 @@ const PRODUCT = 'ZenzaWatch';
       display: none;
     }
 
-    .zenzaScreenMode_normal .loading .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_big    .loading .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_3D     .loading .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide   .loading .zenzaWatchVideoHeaderPanel,
-    .fullScreen             .loading .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_normal .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen,
+    .zenzaScreenMode_big    .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen,
+    .zenzaScreenMode_3D     .is-loading .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_wide   .is-loading .zenzaWatchVideoHeaderPanel,
+    .fullScreen             .is-loading .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_3D     .mouseMoving .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide   .mouseMoving .zenzaWatchVideoHeaderPanel,
     .fullScreen             .mouseMoving .zenzaWatchVideoHeaderPanel {
@@ -1303,11 +1303,11 @@ const PRODUCT = 'ZenzaWatch';
       padding: 2px 4px;
       pointer-events: none;
     }
-    .zenzaWatchVideoHeaderPanel.mymemory:not(:hover) .videoTitle::before {
+    .zenzaWatchVideoHeaderPanel.is-mymemory:not(:hover) .videoTitle::before {
       content: 'マイメモリー';
       display: inline-block;
     }
-    .zenzaWatchVideoHeaderPanel.community:not(:hover) .videoTitle::before {
+    .zenzaWatchVideoHeaderPanel.is-community:not(:hover) .videoTitle::before {
       content: 'コミュニティ動画';
       display: inline-block;
     }
@@ -1345,9 +1345,9 @@ const PRODUCT = 'ZenzaWatch';
     .zenzaWatchVideoHeaderPanel .videoTitleContainer .originalLinkBox {
       display: none;
     }
-    .zenzaWatchVideoHeaderPanel.hasParent  .videoTitleContainer .parentLinkBox,
-    .zenzaWatchVideoHeaderPanel.mymemory   .videoTitleContainer .originalLinkBox,
-    .zenzaWatchVideoHeaderPanel.community  .videoTitleContainer .originalLinkBox {
+    .zenzaWatchVideoHeaderPanel.has-Parent  .videoTitleContainer .parentLinkBox,
+    .zenzaWatchVideoHeaderPanel.is-mymemory   .videoTitleContainer .originalLinkBox,
+    .zenzaWatchVideoHeaderPanel.is-community  .videoTitleContainer .originalLinkBox {
       display: inline-block;
     }
 
@@ -1422,9 +1422,9 @@ const PRODUCT = 'ZenzaWatch';
     }
 
 
-    body:not(.fullScreen).zenzaScreenMode_3D     .backComment .zenzaWatchVideoHeaderPanel,
-    body:not(.fullScreen).zenzaScreenMode_normal .backComment .zenzaWatchVideoHeaderPanel,
-    body:not(.fullScreen).zenzaScreenMode_big    .backComment .zenzaWatchVideoHeaderPanel {
+    body:not(.fullScreen).zenzaScreenMode_3D     .is-backComment .zenzaWatchVideoHeaderPanel,
+    body:not(.fullScreen).zenzaScreenMode_normal .is-backComment .zenzaWatchVideoHeaderPanel,
+    body:not(.fullScreen).zenzaScreenMode_big    .is-backComment .zenzaWatchVideoHeaderPanel {
       opacity: 0.7;
     }
 
@@ -1595,9 +1595,9 @@ const PRODUCT = 'ZenzaWatch';
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
-        .toggleClass('community', this._videoInfo.isCommunityVideo())
-        .toggleClass('mymemory',  this._videoInfo.isMymemory())
-        .toggleClass('hasParent', this._videoInfo.hasParentVideo())
+        .toggleClass('is-community', this._videoInfo.isCommunityVideo())
+        .toggleClass('is-mymemory',  this._videoInfo.isMymemory())
+        .toggleClass('has-Parent', this._videoInfo.hasParentVideo())
         .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo')
         .css('display', '');
 

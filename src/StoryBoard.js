@@ -237,8 +237,8 @@ var AsyncEmitter = function() {};
     `).trim();
 
     SeekBarThumbnail.__css__ = (`
-      .error .zenzaSeekThumbnail,
-      .loading .zenzaSeekThumbnail {
+      .is-error .zenzaSeekThumbnail,
+      .is-loading .zenzaSeekThumbnail {
         display: none !important;
       }
 

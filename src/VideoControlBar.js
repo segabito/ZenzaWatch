@@ -175,9 +175,9 @@ var CONSTANT = {};
       cursor: pointer;
       opacity: 1;
     }
-    .abort   .playControl,
-    .error   .playControl,
-    .loading .playControl {
+    .is-abort   .playControl,
+    .is-error   .playControl,
+    .is-loading .playControl {
       opacity: 0.4 !important;
       pointer-events: none;
     }
@@ -260,7 +260,7 @@ var CONSTANT = {};
     }
 
     .togglePlay .pause,
-    .playing .togglePlay .play {
+    .is-playing .togglePlay .play {
       display: none;
     }
 
@@ -268,7 +268,7 @@ var CONSTANT = {};
       letter-spacing: -10px;
     }
 
-    .playing .togglePlay .pause {
+    .is-playing .togglePlay .pause {
       display: block;
     }
 
@@ -305,17 +305,17 @@ var CONSTANT = {};
       top: -12px;
     }
 
-    .abort   .seekBarContainer,
-    .loading .seekBarContainer,
-    .error   .seekBarContainer {
+    .is-abort   .seekBarContainer,
+    .is-loading .seekBarContainer,
+    .is-error   .seekBarContainer {
       pointer-events: none;
       webkit-filter: grayscale();
       moz-filter: grayscale();
       filter: grayscale();
     }
-    .abort   .seekBarContainer *,
-    .loading .seekBarContainer *,
-    .error   .seekBarContainer * {
+    .is-abort   .seekBarContainer *,
+    .is-loading .seekBarContainer *,
+    .is-error   .seekBarContainer * {
       display: none;
     }
 
@@ -389,7 +389,7 @@ var CONSTANT = {};
       opacity: 0.8;
     }
 
-    .loading  .seekBar .seekBarPointer,
+    .is-loading  .seekBar .seekBarPointer,
     .dragging .seekBar .seekBarPointer {
       transition: none;
     }
@@ -412,7 +412,7 @@ var CONSTANT = {};
       text-align: center;
     }
 
-    .videoControlBar.loading .videoTime {
+    .videoControlBar.is-loading .videoTime {
       display: none;
     }
 
@@ -463,7 +463,7 @@ var CONSTANT = {};
       font-size: 15px;
     }
 
-    .loop .loopSwitch {
+    .is-loop .loopSwitch {
       text-shadow: 0px 0px 2px #9cf;
       color: #9cf;
     }
@@ -607,15 +607,15 @@ var CONSTANT = {};
       font-size: 20px;
       margin-right: 0;
     }
-    .mute .videoControlBar .muteSwitch {
+    .is-mute .videoControlBar .muteSwitch {
       color: #888;
     }
     .videoControlBar .muteSwitch:active {
       font-size: 15px;
     }
 
-    .zenzaPlayerContainer:not(.mute) .muteSwitch .mute-on,
-                              .mute  .muteSwitch .mute-off {
+    .zenzaPlayerContainer:not(.is-mute) .muteSwitch .mute-on,
+                              .is-mute  .muteSwitch .mute-off {
       display: none;
     }
 
@@ -683,10 +683,10 @@ var CONSTANT = {};
       display: block;
     }
 
-    .mute .videoControlBar .volumeControlInner {
+    .is-mute .videoControlBar .volumeControlInner {
       pointer-events: none;
     }
-    .mute .videoControlBar .volumeControlInner >* {
+    .is-mute .videoControlBar .volumeControlInner >* {
       display: none;
     }
 
@@ -694,8 +694,8 @@ var CONSTANT = {};
     .nextVideo.playControl {
       display: none;
     }
-    .playlistEnable .prevVideo.playControl,
-    .playlistEnable .nextVideo.playControl {
+    .is-playlistEnable .prevVideo.playControl,
+    .is-playlistEnable .nextVideo.playControl {
       display: inline-block;
     }
 

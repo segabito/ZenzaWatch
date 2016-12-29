@@ -2395,7 +2395,7 @@ spacer {
   outline: 3px dotted orange;
 }
 
-.stalled .nicoChat,
+.is-stalled .nicoChat,
 .paused  .nicoChat {
   animation-play-state: paused !important;
 }
@@ -2714,8 +2714,8 @@ spacer {
     },
     _setStall: function(v) {
       if (this._commentLayer) {
-        if (v) { this._addClass('stalled'); }
-        else   { this._removeClass('stalled'); }
+        if (v) { this._addClass('is-stalled'); }
+        else   { this._removeClass('is-stalled'); }
       }
       this._isStalled = v;
     },
