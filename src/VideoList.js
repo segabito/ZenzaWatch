@@ -45,7 +45,7 @@ class NicoSearchApiV2Loader {}
       Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
 
       if (this._isUniq) {
-        _.each(itemList, function(i) { this.removeSameWatchId(i); }.bind(this));
+        _.each(itemList, (i) => { this.removeSameWatchId(i); });
       }
 
       this._items.splice(this._maxItems);
@@ -60,7 +60,7 @@ class NicoSearchApiV2Loader {}
       this._items = this._items.concat(itemList);
 
       if (this._isUniq) {
-        _.each(itemList, function(i) { this.removeSameWatchId(i); }.bind(this));
+        _.each(itemList, (i) => { this.removeSameWatchId(i); });
       }
 
       while (this._items.length > this._maxItems) { this._items.shift(); }
@@ -117,38 +117,38 @@ class NicoSearchApiV2Loader {}
       if (!item) { return null; }
       if (!item.hasBind) {
         item.hasBind = true;
-        item.on('update', _.bind(this._onItemUpdate, this, item));
+        item.on('update', this._onItemUpdate.bind(this, item));
       }
       return item;
     },
     findByItemId: function(itemId) {
       itemId = parseInt(itemId, 10);
-      return _.find(this._items, function(item) {
+      return _.find(this._items, (item) => {
         if (item.getItemId() === itemId) {
           if (!item.hasBind) {
             item.hasBind = true;
-            item.on('update', _.bind(this._onItemUpdate, this, item));
+            item.on('update', this._onItemUpdate.bind(this, item));
           }
           return true;
         }
-      }.bind(this));
+      });
     },
     findByWatchId: function(watchId) {
       watchId = watchId + '';
-      return _.find(this._items, function(item) {
+      return _.find(this._items, (item) => {
         if (item.getWatchId() === watchId) {
           if (!item.hasBind) {
             item.hasBind = true;
-            item.on('update', _.bind(this._onItemUpdate, this, item));
+            item.on('update', this._onItemUpdate.bind(this, item));
           }
           return true;
         }
-      }.bind(this));
+      });
     },
     findActiveItem: function() {
-      return _.find(this._items, function(item) {
+      return _.find(this._items, (item) => {
         return item.isActive();
-      }.bind(this));
+      });
     },
     removeItem: function(item) {
       var beforeLen = this._items.length;
@@ -223,8 +223,7 @@ class NicoSearchApiV2Loader {}
  */
   var VideoListView = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoListView.prototype, AsyncEmitter.prototype);
-  VideoListView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
-  */});
+  VideoListView.__css__ = '';
 
   VideoListView.__tpl__ = (`
 <!DOCTYPE html>
@@ -285,8 +284,8 @@ class NicoSearchApiV2Loader {}
 
       this._model = params.model;
       if (this._model) {
-        this._model.on('update',     _.debounce(_.bind(this._onModelUpdate, this), 100));
-        this._model.on('itemUpdate', _.bind(this._onModelItemUpdate, this));
+        this._model.on('update',     _.debounce(this._onModelUpdate.bind(this), 100));
+        this._model.on('itemUpdate', this._onModelItemUpdate.bind(this));
       }
       
       this._isLazyLoadImage = window.IntersectionObserver ? true : false;
@@ -359,10 +358,10 @@ class NicoSearchApiV2Loader {}
     },
     _bindDragStartEvents: function() {
       this._$body
-        .on('mousemove.drag',  _.bind(this._onBodyMouseMove, this))
-        .on('mouseup.drag',    _.bind(this._onBodyMouseUp, this))
-        .on('blur.drag',       _.bind(this._onBodyBlur, this))
-        .on('mouseleave.drag', _.bind(this._onBodyMouseLeave, this));
+        .on('mousemove.drag',  this._onBodyMouseMove .bind(this))
+        .on('mouseup.drag',    this._onBodyMouseUp   .bind(this))
+        .on('blur.drag',       this._onBodyBlur      .bind(this))
+        .on('mouseleave.drag', this._onBodyMouseLeave.bind(this));
     },
     _unbindDragStartEvents: function() {
       this._$body
@@ -442,10 +441,10 @@ class NicoSearchApiV2Loader {}
       if (!/\.playlist\.json$/.test(file.name)) { return; }
 
       var fileReader = new FileReader();
-      fileReader.onload = function(ev) {
+      fileReader.onload = (ev) => {
         window.console.log('file data: ', ev.target.result);
         this.emit('filedrop', ev.target.result, file.name);
-      }.bind(this);
+      };
 
       fileReader.readAsText(file);
     },
@@ -457,7 +456,7 @@ class NicoSearchApiV2Loader {}
 
       if (replaceAll) { this._htmlCache = {}; }
 
-      _.each(itemList, _.bind(function (item) {
+      itemList.forEach((item) => {
         var id = item.getItemId();
         if (this._htmlCache[id]) {
           //window.console.log('from cache');
@@ -470,19 +469,19 @@ class NicoSearchApiV2Loader {}
           })).toString();
           itemViews.push(tpl);
         }
-      }, this));
+      });
 
       this._html = itemViews.join('');
 
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         if (this._$list) { this._$list.html(this._html); }
         this._setInviewObserver();
-      }, this, 0);
+      }, 0);
 
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         this.removeClass('updating');
         this.emit('update');
-      }, this, 100);
+      }, 100);
       window.console.timeEnd('update playlistView');
     },
     _setInviewObserver: function() {
@@ -567,10 +566,6 @@ class NicoSearchApiV2Loader {}
           case 'playlistRemove':
             $item.remove();
             this.emit('command', command, param, itemId);
-            //$item.addClass('deleting');
-            //window.setTimeout(function() {
-            //  this.emit('command', command, param, itemId);
-            //}.bind(this), 300);
             break;
           default:
             this.emit('command', command, param, itemId);
@@ -1305,10 +1300,10 @@ class NicoSearchApiV2Loader {}
       if (this._isUpdatingPlaylist) { return; }
       var item = this._model.findByItemId(itemId);
 
-      var unlock = _.bind(function() {
+      const unlock = () => {
         item.setIsUpdating(false);
         this._isUpdatingPlaylist = false;
-      }, this);
+      };
 
       item.setIsUpdating(true);
       this._isUpdatingPlaylist = true;
@@ -1322,26 +1317,26 @@ class NicoSearchApiV2Loader {}
       }
       var item = this._model.findByItemId(itemId);
 
-      var unlock = _.bind(function() {
+      const unlock = () => {
         item.setIsUpdating(false);
         this._isUpdatingDeflist = false;
-      }, this);
+      };
 
       item.setIsUpdating(true);
       this._isUpdatingDeflist = true;
 
       var timer = window.setTimeout(unlock, 10000);
 
-      var onSuccess = _.bind(this._onDeflistAddSuccess, this, timer, unlock);
-      var onFail    = _.bind(this._onDeflistAddFail,    this, timer, unlock);
-      return this._thumbInfoLoader.load(watchId).then(function(info) {
+      var onSuccess = this._onDeflistAddSuccess.bind(this, timer, unlock);
+      var onFail    = this._onDeflistAddFail   .bind(this, timer, unlock);
+      return this._thumbInfoLoader.load(watchId).then((info) => {
         var description = '投稿者: ' + info.owner.name;
         return this._mylistApiLoader.addDeflistItem(watchId, description)
           .then(onSuccess, onFail);
-      }.bind(this), function() {
+      }, () => {
         return this._mylistApiLoader.addDeflistItem(watchId)
           .then(onSuccess, onFail);
-      }.bind(this));
+      });
     },
     _onDeflistAddSuccess: function(timer, unlock, result) {
       window.clearTimeout(timer);
@@ -1387,14 +1382,14 @@ class NicoSearchApiV2Loader {}
 
   var PlaylistView = function() { this.initialize.apply(this, arguments); };
   _.extend(PlaylistView.prototype, AsyncEmitter.prototype);
-  PlaylistView.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  PlaylistView.__css__ = (`
 
-    .playlistEnable .tabSelect.playlist::after {
+    .is-playlistEnable .tabSelect.playlist::after {
       content: '▶';
       color: #fff;
       text-shadow: 0 0 8px orange;
     }
-    body:not(.fullScreen).zenzaScreenMode_sideView .playlistEnable .tabSelect.playlist::after  {
+    body:not(.fullScreen).zenzaScreenMode_sideView .is-playlistEnable .tabSelect.playlist::after  {
       text-shadow: 0 0 8px #336;
     }
 
@@ -1535,8 +1530,8 @@ class NicoSearchApiV2Loader {}
       cursor: pointer;
     }
 
-  */});
-  PlaylistView.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  `).trim();
+  PlaylistView.__tpl__ = (`
     <div class="playlist-container">
       <div class="playlist-header">
         <lavel class="playlist-menu-button toggleEnable playlist-command"
@@ -1596,7 +1591,7 @@ class NicoSearchApiV2Loader {}
         </div>
       </div>
     </div>
-  */});
+  `).trim();
 
   _.assign(PlaylistView.prototype, {
     initialize: function(params) {
@@ -1626,19 +1621,16 @@ class NicoSearchApiV2Loader {}
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
-      listView.on('command', _.bind(this._onCommand, this));
-      listView.on('deflistAdd', _.bind(this._onDeflistAdd, this));
-      listView.on('moveItem',
-        _.bind(function(src, dest) { this.emit('moveItem', src, dest); }, this));
-      listView.on('filedrop', function(data) {
-        this.emit('command', 'importFile', data);
-      }.bind(this));
+      listView.on('command',    this._onCommand.bind(this));
+      listView.on('deflistAdd', this._onDeflistAdd.bind(this));
+      listView.on('moveItem', (src, dest) => { this.emit('moveItem', src, dest); });
+      listView.on('filedrop', (data) => { this.emit('command', 'importFile', data); });
       listView.on('dblclick', this._onListDblclick.bind(this));
 
       this._playlist.on('update',
-        _.debounce(_.bind(this._onPlaylistStatusUpdate, this), 100));
+        _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
 
-      this._$view.on('click', '.playlist-command', _.bind(this._onPlaylistCommandClick, this));
+      this._$view.on('click', '.playlist-command', this._onPlaylistCommandClick.bind(this));
       ZenzaWatch.emitter.on('hideHover', function() {
         $menu.removeClass('show');
         $fileDrop.removeClass('show');
@@ -1657,9 +1649,9 @@ class NicoSearchApiV2Loader {}
         'removeClass',
         'scrollTop',
         'scrollToItem',
-      ], _.bind(function(func) {
-        this[func] = _.bind(listView[func], listView);
-      }, this));
+      ], (func) => {
+        this[func] = listView[func].bind(listView);
+      });
     },
     toggleClass: function(className, v) {
       this._view.toggleClass(className, v);
@@ -1695,7 +1687,7 @@ class NicoSearchApiV2Loader {}
         case 'sortBy':
           var $view = this._$view;
           $view.addClass('shuffle');
-          window.setTimeout(function() { this._$view.removeClass('shuffle'); }.bind(this), 1000);
+          window.setTimeout(() => { this._$view.removeClass('shuffle'); }, 1000);
           this.emit('command', command, param);
           break;
         default:
@@ -1732,10 +1724,10 @@ class NicoSearchApiV2Loader {}
       if (!/\.playlist\.json$/.test(file.name)) { return; }
 
       var fileReader = new FileReader();
-      fileReader.onload = function(ev) {
+      fileReader.onload = (ev) => {
         window.console.log('file data: ', ev.target.result);
         this.emit('command', 'importFile', ev.target.result);
-      }.bind(this);
+      };
 
       fileReader.readAsText(file);
     },
@@ -1746,10 +1738,10 @@ class NicoSearchApiV2Loader {}
       if (!/\.playlist\.json$/.test(file.name)) { return; }
 
       var fileReader = new FileReader();
-      fileReader.onload = function(ev) {
+      fileReader.onload = (ev) => {
         window.console.log('file data: ', ev.target.result);
         this.emit('command', 'importFile', ev.target.result);
-      }.bind(this);
+      };
 
       fileReader.readAsText(file);
 
@@ -1803,10 +1795,10 @@ class NicoSearchApiV2Loader {}
       this._model = new PlaylistModel({});
 
       ZenzaWatch.debug.playlist = this;
-      this.on('update', _.debounce(_.bind(function() {
+      this.on('update', _.debounce(() => {
         var data = this.serialize();
         PlaylistSession.save(data);
-      }, this), 3000));
+      }, 3000));
     },
     serialize: function() {
       return {
@@ -1838,9 +1830,9 @@ class NicoSearchApiV2Loader {}
         builder: VideoListItemView,
         itemCss: VideoListItemView.__css__
       });
-      this._view.on('command',    _.bind(this._onCommand, this));
-      this._view.on('deflistAdd', _.bind(this._onDeflistAdd, this));
-      this._view.on('moveItem',   _.bind(this._onMoveItem, this));
+      this._view.on('command',    this._onCommand.bind(this));
+      this._view.on('deflistAdd', this._onDeflistAdd.bind(this));
+      this._view.on('moveItem',   this._onMoveItem.bind(this));
     },
     _onCommand: function(command, param, itemId) {
       var item;
@@ -1982,11 +1974,11 @@ class NicoSearchApiV2Loader {}
       window.console.time('loadMylist: ' + mylistId);
 
       return this._mylistApiLoader
-        .getMylistItems(mylistId, options).then(function(items) {
+        .getMylistItems(mylistId, options).then((items) => {
           window.console.timeEnd('loadMylist: ' + mylistId);
           var videoListItems = [];
           //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
-          _.each(items, function(item) {
+          items.forEach((item) => {
             // マイリストはitem_typeがint
             // とりまいはitem_typeがstringっていうね
             if (item.id === null) { return; } // ごく稀にある？idが抹消されたレコード
@@ -2028,7 +2020,7 @@ class NicoSearchApiV2Loader {}
                 'マイリストの内容をプレイリストに追加しました' :
                 'マイリストの内容をプレイリストに読み込みしました'
           });
-        }.bind(this));
+        });
     },
     loadUploadedVideo: function(userId, options) {
       this._initializeView();
@@ -2040,12 +2032,12 @@ class NicoSearchApiV2Loader {}
       window.console.time('loadUploadedVideos' + userId);
 
       return this._uploadedVideoApiLoader
-        .getUploadedVideos(userId, options).then(function(items) {
+        .getUploadedVideos(userId, options).then((items) => {
           window.console.timeEnd('loadUploadedVideos' + userId);
           var videoListItems = [];
 
           //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
-          _.each(items, function(item) {
+          items.forEach((item) => {
             if (item.item_data) {
               if (parseInt(item.item_type, 10) !== 0) { return; } // not video
               if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
@@ -2083,7 +2075,7 @@ class NicoSearchApiV2Loader {}
                 '投稿動画一覧をプレイリストに追加しました' :
                 '投稿動画一覧をプレイリストに読み込みしました'
           });
-        }.bind(this));
+        });
     },
     loadSearchVideo: function(word, options) {
       this._initializeView();
@@ -2097,13 +2089,13 @@ class NicoSearchApiV2Loader {}
       options = options || {};
 
       return this._nicoSearchApiLoader
-        .search(word, options).then(function(result) {
+        .search(word, options).then((result) => {
           window.console.timeEnd('loadSearchVideos' + word);
           var items = result.list || [];
           var videoListItems = [];
 
           //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
-          _.each(items, function(item) {
+          items.forEach((item) => {
             if (item.item_data) {
               if (parseInt(item.item_type, 10) !== 0) { return; } // not video
               if (parseInt(item.item_data.deleted, 10) !== 0) { return; } // 削除動画を除外
@@ -2125,7 +2117,7 @@ class NicoSearchApiV2Loader {}
             // 検索対象のソート順とは別
             videoListItems = _.sortBy(
               videoListItems,
-              function(item) { return item.create_time;}
+              (item) => { return item.create_time;}
             );
             videoListItems.reverse();
           }
@@ -2149,7 +2141,7 @@ class NicoSearchApiV2Loader {}
                 '検索結果をプレイリストに追加しました' :
                 '検索結果をプレイリストに読み込みしました'
           });
-        }.bind(this));
+        });
     },
     insert: function(watchId) {
       this._initializeView();
@@ -2157,7 +2149,7 @@ class NicoSearchApiV2Loader {}
 
       var model = this._model;
       var index = this._index;
-      return this._thumbInfoLoader.load(watchId).then(function (info) {
+      return this._thumbInfoLoader.load(watchId).then((info) => {
          // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         info.id = watchId;
         var item = VideoListItem.createByThumbInfo(info);
@@ -2172,8 +2164,8 @@ class NicoSearchApiV2Loader {}
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );
-      }.bind(this),
-      function(result) {
+      },
+      (result) => {
         var item = VideoListItem.createBlankInfo(watchId);
         model.insertItem(item, index + 1);
         this._refreshIndex(true);
@@ -2182,7 +2174,7 @@ class NicoSearchApiV2Loader {}
 
         window.console.error(result);
         this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
-      }.bind(this));
+      });
     },
     insertCurrentVideo: function(videoInfo) {
       this._initializeView();
@@ -2227,7 +2219,7 @@ class NicoSearchApiV2Loader {}
       if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }
 
       var model = this._model;
-      return this._thumbInfoLoader.load(watchId).then(function(info) {
+      return this._thumbInfoLoader.load(watchId).then((info) => {
          // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         info.id = watchId;
         var item = VideoListItem.createByThumbInfo(info);
@@ -2240,8 +2232,8 @@ class NicoSearchApiV2Loader {}
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );
-      }.bind(this),
-      function(result) {
+      },
+      (result) => {
         var item = VideoListItem.createBlankInfo(watchId);
         model.appendItem(item);
         this._refreshIndex(true);
@@ -2249,7 +2241,7 @@ class NicoSearchApiV2Loader {}
 
         window.console.error(result);
         this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
-      }.bind(this));
+      });
     },
     getIndex: function() {
       return this._activeItem ? this._index : -1;
