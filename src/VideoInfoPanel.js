@@ -907,7 +907,6 @@ const PRODUCT = 'ZenzaWatch';
       this._uaaView.update(videoInfo);
 
       this._updateResumePoint(videoInfo);
-
     },
     _updateResumePoint(videoInfo) {
       const pt = videoInfo.initialPlaybackTime;
