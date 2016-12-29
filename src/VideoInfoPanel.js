@@ -233,7 +233,9 @@ const PRODUCT = 'ZenzaWatch';
       transition: opacity 0.4s ease, transform 0.4s ease 1s;
     }
 
-    .zenzaWatchVideoInfoPanel .owner {
+    .zenzaWatchVideoInfoPanel .ownerPageLink {
+      display: inline-block;
+      width: 104px;
     }
 
     .zenzaWatchVideoInfoPanel .ownerIcon {
@@ -263,6 +265,7 @@ const PRODUCT = 'ZenzaWatch';
     .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>*{
       display: table-cell;
       vertical-align: middle;
+      text-align: left;
     }
 
     .zenzaWatchVideoInfoPanel .favorite .ownerName:after {
@@ -276,11 +279,10 @@ const PRODUCT = 'ZenzaWatch';
       margin: 4px 0px;
       word-break: break-all;
       line-height: 1.5;
-      margin: 4px 8px;
+      /*margin: 4px 8px;
       border: 1px solid #666;
-      border-radius: 4px;
+      border-radius: 4px;*/
     }
-    /* body.zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription { }*/
 
     .zenzaWatchVideoInfoPanel .videoDescription a {
       display: inline-block;
@@ -2394,21 +2396,21 @@ const PRODUCT = 'ZenzaWatch';
          font-size: 24px;
          padding: 8px 8px;
          margin: 0 auto;
-         background: #888;
-         color: #ccc;
-         /*border: solid 2px #ccc;*/
-         border: none;
+         background: inherit;
+         color: inherit;
+         border: 1px solid #ccc;
+         /*border: none;*/
          outline: none;
          line-height: 20px;
-         text-shadow: 1px 1px 1px #000;
-         border-radius: 26px;
+         text-shadow: 1px 1px 2px #000;
+         border-radius: 8px;
          cursor: pointer;
          user-select: none;
          -webkit-user-select: none;
          -moz-user-select: none;
       }
       .ZenzaIchibaItemView .loadStartButton:hover {
-        transform: translate(0,-4px);
+        transform: translate(0, -4px);
         box-shadow: 0 4px 4px #000;
         background: #666;
         transition:
@@ -2736,7 +2738,7 @@ const PRODUCT = 'ZenzaWatch';
       }
         .UaaDetails .clickable:hover {
           transform: translate(0, -4px);
-          box-shadow: 0 4px 0 #000;
+          box-shadow: 0 4px 4px #000;
         }
         .UaaDetails .clickable:active {
           transition: none;
@@ -2772,18 +2774,18 @@ const PRODUCT = 'ZenzaWatch';
       .UaaDetails .uaaSummary {
         width: 200px;
         height: 32px;
-        /*padding: 8px;*/
         margin: 4px auto 8px;
-        color: #ccc;
-        background: #888;
+        color: inherit;
+        /*background: #888;*/
         outline: none;
+        border: 1px solid #ccc;
         letter-spacing: 12px;
         line-height: 32px;
         font-size: 24px;
-        text-shadow: 1px 1px 1px #000;
+        text-shadow: 1px 1px 2px #000;
         text-align: center;
         cursor: pointer;
-        border-radius: 26px;
+        border-radius: 8px;
       }
         .UaaDetails .uaaSummary:hover {
           background: #666;

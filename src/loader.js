@@ -385,7 +385,7 @@ var ajax = function() {};
       };
 
       const loadPromise = function(watchId, options, isRetry = false) {
-        let url = `${location.protocol}://www.nicovideo.jp/watch/${watchId}`;
+        let url = `${location.protocol}//www.nicovideo.jp/watch/${watchId}`;
         console.log('%cloadFromWatchApiData...', 'background: lightgreen;', watchId, url);
         const query = [];
         if (options.economy === true) {

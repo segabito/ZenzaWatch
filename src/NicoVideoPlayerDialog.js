@@ -286,7 +286,7 @@ var CONSTANT = {};
     }
 
     setPlaying() {
-      this.setState({isPlaying: true, isPausing: false});
+      this.setState({isPlaying: true, isPausing: false, isLoading: false});
     }
 
     setPausing() {
@@ -2309,6 +2309,7 @@ var CONSTANT = {};
       }
 
 
+      this._playerState.setVideoCanPlay();
       this.emitAsync('canPlay', this._watchId, this._videoInfo);
 
       // プレイリストによって開かれた時は、自動再生設定に関係なく再生する
@@ -2325,7 +2326,6 @@ var CONSTANT = {};
         this.execCommand('playlistInsert', nextVideo);
       }
 
-      this._playerState.setVideoCanPlay();
     },
     _onVideoPlay:    function() {
       this._playerState.setPlaying();
