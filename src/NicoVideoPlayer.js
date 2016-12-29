@@ -696,13 +696,13 @@ class VideoCaptureUtil {}
     },
     _resetVideo: function(params) {
       params = params || {};
-      if (this._$video) {
+      if (this._video) {
         params.autoPlay = this._video.autoplay;
         params.loop     = this._video.loop;
         params.mute     = this._video.muted;
         params.volume   = this._video.volume;
         params.playbackRate = this._video.playbackRate;
-        this._$video.remove();
+        this._video.remove();
       }
 
       var options = {
@@ -724,10 +724,6 @@ class VideoCaptureUtil {}
       const $video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline webkit-playsinline/>')
         .addClass(this._id)
         .attr(options);
-      if (this._$video) {
-        this._$video.after($video);
-        this._$video.remove();
-      }
       this._$video = $video;
       this._video = $video[0];
 

@@ -1502,7 +1502,7 @@ class NicoSearchApiV2Loader {}
     }
 
     .playlist-file-drop.show {
-      {*display: block;*}
+      /*display: block;*/
       opacity: 0.98 !important;
     }
 

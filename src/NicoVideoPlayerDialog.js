@@ -928,26 +928,22 @@ var CONSTANT = {};
       dialog.on('aspectRatioFix',    this._onVideoAspectRatioFix.bind(this));
       dialog.on('volumeChange',      this._onVolumeChange.bind(this));
       dialog.on('volumeChangeEnd',   this._onVolumeChangeEnd.bind(this));
-      dialog.on('beginUpdate',       this._onBeginUpdate.bind(this));
-      dialog.on('endUpdate',         this._onEndUpdate.bind(this));
-      dialog.on('screenModeChange',  this._onScreenModeChange.bind(this));
       dialog.on('beforeVideoOpen',   this._onBeforeVideoOpen.bind(this));
       dialog.on('loadVideoInfo',     this._onVideoInfoLoad.bind(this));
       dialog.on('loadVideoInfoFail', this._onVideoInfoFail.bind(this));
       dialog.on('videoServerType',   this._onVideoServerType.bind(this));
 
       this._initializeDom();
+      this._playerState.on('state', this._onPlayerStateChange.bind(this));
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialogView.__css__);
-      var $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
-      var onCommand = (command, param) => {
-        this.emit('command', command, param);
-      };
-      var config = this._playerConfig;
-      var dialog = this._dialog;
+      const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
+      const onCommand = this._onCommand.bind(this);
+      const config = this._playerConfig;
+      const dialog = this._dialog;
 
-      var $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
+      const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
       $container.on('click', (e) => {
         ZenzaWatch.emitter.emitAsync('hideHover');
         if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
@@ -2637,6 +2633,7 @@ var CONSTANT = {};
       });
     },
     getDuration: function() {
+      if (!this._videoInfo) { return 0; }
       // 動画がプレイ可能≒メタデータパース済みの時はそちらの方が信頼できる
       if (this._nicoVideoPlayer.canPlay()) {
         return this._nicoVideoPlayer.getDuration();

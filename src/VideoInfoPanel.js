@@ -74,9 +74,9 @@ const PRODUCT = 'ZenzaWatch';
       letter-spacing: 0.1em;
       color: #ccc;
       background: #333;
-      {*border-width: 1px 1px 0 1px;
+      /*border-width: 1px 1px 0 1px;
       border-color: #888;
-      border-style: outset;*}
+      border-style: outset;*/
     }
 
     .zenzaWatchVideoInfoPanel .tabSelect.blink:not(.activeTab) {

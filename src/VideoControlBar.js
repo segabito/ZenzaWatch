@@ -1932,10 +1932,10 @@ var CONSTANT = {};
       white-space: nowrap;
       text-overflow: ellipsis;
       overflow: hidden;
-                {*border-top: 1px dotted transparent;*}
+                /*border-top: 1px dotted transparent;*/
     }
     .zenzaCommentPreview:hover      .nicoChat + .nicoChat {
-      {*border-top: 1px dotted #888;*}
+      /*border-top: 1px dotted #888;*/
     }
     .zenzaCommentPreviewInner:hover .nicoChat.odd {
       background: #333;

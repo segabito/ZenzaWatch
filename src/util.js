@@ -1581,12 +1581,154 @@ class CrossDomainGate {}
 
         if (window.speechSynthesis.speaking) {
           window.speechSynthesis.cancel();
+          if (reject) {
+            reject(new Error('cancel'));
+          }
+          resolve = reject = null;
         }
+
         msg.text = text;
-        window.speechSynthesis.speak(msg);
+
+        return new Promise((res, rej) => {
+          resolve = res;
+          reject = rej;
+          window.speechSynthesis.speak(msg);
+        });
       };
     })();
 
+    // いずれjQueryを捨てるためのミニマム代用
+    util.$ = (() => {
+      const u = { $zen: function() {} };
+
+      const createDom = util.createDom = function(template) {
+        let  tpl = document.createElement('template');
+        tpl.innerHTML = template;
+        return document.importNode(tpl.content, true).querySelector('*');
+      };
+
+      const bind = function (elm) {
+        Object.keys(u).forEach(fn => {
+          elm[fn] = (k, v) => { return u[fn](elm, k, v); };
+        });
+        return elm;
+      };
+
+      const $ = function(q) {
+        if (typeof q === 'string') {
+          if (q.startsWith('<')) {
+            return bind([createDom(q)]);
+          } else {
+            return u.find(q);
+          }
+        }
+      };
+
+      const toCamel = p => {
+        return p.replace(/-./g, s => { return s.charAt(1).toUpperCase(); });
+      };
+
+      u.find = function(query, elm) {
+        elm = elm || document;
+        let result = {};
+        if (typeof query === 'string') {
+          result = Array.from(elm.querySelectorAll(query));
+        } else {
+          if (query instanceof(HTMLElement)) { return bind([query]); }
+          if (query.$zen) { return query; }
+          result = query instanceof(NodeList) ? Array.from(query) : query;
+        }
+        return bind(result);
+      };
+
+      u.toggleClass = function(elm, className, v) {
+        let list = u.find(elm);
+        list.forEach(elm => {
+          className.trim().split(/[ ]+/).forEach(c => {
+            elm.classList.toggle(c, v);
+          });
+        });
+        return list;
+      };
+
+      u.addClass = function(elm, className) {
+        return u.toggleClass(elm, className, true);
+      };
+
+      u.removeClass = function(elm, className) {
+        return u.toggleClass(elm, className, false);
+      };
+
+      u.hasClass = function(elm, className) {
+        return u.find(elm).some(e => { return e.classList.contains(className); });
+      };
+
+      const _css = function(elm, key, val) {
+        const camelKey = toCamel(key);
+        if (/(width|height|top|left)$/i.test(camelKey) && isNaN(val)) {
+          val += 'px';
+        }
+        u.find(elm).forEach(e => {
+          e.style[camelKey] = val;
+        });
+        return elm;
+      };
+
+      u.css = function(elm, key, val) {
+        if (typeof key === 'string') {
+          return _css(elm, key, val);
+        }
+        Object.keys(key).forEach(k => {
+          _css(elm, k, key[k]);
+        });
+        return elm;
+      };
+
+      u.on = function(elm, eventName, callback) {
+        u.find(elm).forEach((e) => {
+          e.addEventListener(eventName, callback);
+        });
+        return elm;
+      };
+
+      u.off = function(elm, eventName, callback) {
+        u.find(elm).forEach((e) => {
+          e.removeEventListener(eventName, callback);
+        });
+        return elm;
+      };
+
+      const _setAttribute = (elm, key, val) => {
+        u.find(elm).forEach(e => { e.setAttribute(key, val); });
+        return elm;
+      };
+
+      const setAttribute = (elm, key, val) => {
+        if (typeof key === 'string') {
+          return _setAttribute(elm, key, val);
+        }
+        Object.keys(key).forEach(k => { _setAttribute(elm, k, key[k]); });
+        return elm;
+      };
+
+      u.attr = function(elm, key, value) {
+        if (arguments.length >= 3 || _.isObject(key)) {
+          u.find(elm).forEach((e) => { setAttribute(e, key, value); });
+          return elm;
+        } else {
+          let result = null;
+          u.find(elm).forEach(e => {
+            if (e.hasAttribute(key)) {
+              result = e.getAttribute(key);
+              return true;
+            }
+          });
+          return result;
+        }
+      };
+
+      return $;
+    })();
 
     var ShortcutKeyEmitter = (function(config) {
       let emitter = new AsyncEmitter();
