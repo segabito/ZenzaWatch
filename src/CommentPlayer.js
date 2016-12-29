@@ -2556,7 +2556,7 @@ spacer {
         updateTextShadow(this._config.getValue('textShadowType'));
         this._config.on('update-textShadowType', _.debounce(updateTextShadow, 100));
 
-        ZenzaWatch.debug.nicoVideoCapture = function() {
+        ZenzaWatch.debug.nicoVideoCapture = () => {
           const html = this.getCurrentScreenHtml();
           const video = document.querySelector('video.nico');
 
@@ -2575,11 +2575,11 @@ spacer {
               window.console.error('!', err);
               return Promise.reject(err);
             });
-        }.bind(this);
+        };
 
-        ZenzaWatch.debug.svgTest = function() {
-          const html = this.getCurrentScreenHtml();
-          const blob = new Blob([html], { 'type': 'text/plain' });
+        ZenzaWatch.debug.svgTest = () => {
+          const svg = this.getCurrentScreenSvg();
+          const blob = new Blob([svg], { 'type': 'text/plain' });
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.setAttribute('download', 'test.svg');
@@ -2587,8 +2587,8 @@ spacer {
           a.setAttribute('href', url);
           document.body.appendChild(a);
           a.click();
-          window.setTimeout(function() { a.remove(); }, 1000);
-        }.bind(this);
+          window.setTimeout(() => { a.remove(); }, 1000);
+        };
 
         window.console.timeEnd('initialize NicoCommentCss3PlayerView');
       };
@@ -3128,10 +3128,82 @@ spacer {
         .replace('<html ', '<html xmlns="http://www.w3.org/1999/xhtml" ')
         .replace(/<meta.*?>/g, '')
         .replace(/data-meta=".*?"/g, '')
-        .replace(/<span/g, '<text')
-        .replace(/<\/span/g, '</text')
+//        .replace(/<(\/?)(span|group)/g, '<$1text')
+//        .replace(/<(\/?)(div|body)/g, '<$1g')
         .replace(/<br>/g, '<br/>');
       return html;
+    },
+
+    getCurrentScreenSvg: function() {
+      const win = this._window;
+      if (!win) { return null; }
+
+      this.refresh();
+      let body = win.document.body;
+      body.classList.add('in-capture');
+      let style = win.document.querySelector('style').innerHTML;
+        /*<?xml version="1.0" standalone="no"?>
+        <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+          "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">*/
+/*(`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="${w}"
+  height="${h}"
+  viewbox="0 0 ${w} ${h}"
+  version="1.1">
+`);*/
+
+      const w = 682, h = 382;
+      const head =
+(`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  version="1.1">
+`);
+      const defs = (`
+<defs>
+  <style type="text/css" id="layoutCss"><![CDATA[
+    ${style}
+
+    .nicoChat {
+      animation-play-state: paused !important;
+    }
+  ]]>
+  </style>
+</defs>
+`).trim();
+
+      const textList = [];
+      Array.from(win.document.querySelectorAll('.nicoChat')).forEach(chat => {
+        let j = JSON.parse(chat.getAttribute('data-meta'));
+        chat.removeAttribute('data-meta');
+        chat.setAttribute('y', j.ypos);
+        let c = chat.outerHTML;
+        c = c.replace(/<span/g, '<text');
+        c = c.replace(/<\/span>$/g, '</text>');
+        c = c.replace(/<(\/?)(span|group|han_group|zen_group|spacer)/g, '<$1tspan');
+        c = c.replace(/<br>/g, '<br/>');
+        textList.push(c);
+      });
+
+      const view =
+(`
+<g fill="#00ff00">
+  ${textList.join('\n\t')}
+</g>
+
+`);
+
+      const foot =
+(`
+<g style="background-color: #333; overflow: hidden; width: ${w}; height: ${h}; padding: 0 69px;" class="shadow-dokaben in-capture paused">
+  <g class="commentLayerOuter" width="682" height="384">
+    <g class="commentLayer is-stalled" id="commentLayer" width="544" height="384">
+    </g>
+  </g>
+</g>
+</svg> `).trim();
+
+      return `${head}${defs}${view}${foot}`;
     }
 
   });
