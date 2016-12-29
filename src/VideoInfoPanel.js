@@ -234,8 +234,6 @@ const PRODUCT = 'ZenzaWatch';
     }
 
     .zenzaWatchVideoInfoPanel .owner {
-      white-space: nowrap;
-      display: inline-block;
     }
 
     .zenzaWatchVideoInfoPanel .ownerIcon {
@@ -247,17 +245,24 @@ const PRODUCT = 'ZenzaWatch';
       transition: opacity 1s ease;
       vertical-align: middle;
     }
-    .zenzaWatchVideoInfoPanel .ownerIcon.loading {
+    .zenzaWatchVideoInfoPanel .ownerIcon.is-loading {
       opacity: 0;
     }
 
     .zenzaWatchVideoInfoPanel .ownerName {
-      display: inline-block;
       font-size: 18px;
+      word-break: break-all;
     }
 
     .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
       padding: 8px;
+      display: table;
+      width: calc(100% - 16px);
+    }
+
+    .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>*{
+      display: table-cell;
+      vertical-align: middle;
     }
 
     .zenzaWatchVideoInfoPanel .favorite .ownerName:after {
@@ -267,14 +272,15 @@ const PRODUCT = 'ZenzaWatch';
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription {
-      padding: 8px 8px 64px;
+      padding: 8px 8px 32px;
       margin: 4px 0px;
       word-break: break-all;
       line-height: 1.5;
+      margin: 4px 8px;
+      border: 1px solid #666;
+      border-radius: 4px;
     }
-
-    .zenzaWatchVideoInfoPanel .videoDescription:first-letter {
-    }
+    /* body.zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription { }*/
 
     .zenzaWatchVideoInfoPanel .videoDescription a {
       display: inline-block;
@@ -325,7 +331,7 @@ const PRODUCT = 'ZenzaWatch';
       font-size: 16px;
       line-height: 20px;
       width: 24px;
-      height: 22px;
+      height: 24px;
       background: #666;
       color: #ccc !important;
       background: #666;
@@ -333,6 +339,8 @@ const PRODUCT = 'ZenzaWatch';
       border: 1px outset;
       transition: transform 0.2s ease;
       cursor: pointer;
+      text-align: center;
+      user-select: none;
     }
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
@@ -701,15 +709,16 @@ const PRODUCT = 'ZenzaWatch';
 
     .zenzaWatchVideoInfoPanel .resumePlay {
       display: none;
+      width: calc(100% - 16px);
       font-size: 14px;
       padding: 8px 4px;
       cursor: pointer;
-      border-radius: 0;
-      margin: 0 8px;
-      box-shadow: 4px 4px 0 #222;
-      background: #666;
-      color: #ccc;
-      border: none;
+      border-radius: 4px;
+      border: 1px solid #666;
+      margin: 0 8px 8px;
+      /*box-shadow: 4px 4px 0 rgba(32, 32, 32, 0.5);*/
+      background: transparent;
+      color: inherit;
       outline: none;
       line-height: 20px;
       user-select: none;
@@ -720,7 +729,7 @@ const PRODUCT = 'ZenzaWatch';
       display: block;
     }
     .zenzaWatchVideoInfoPanel .resumePlay:hover {
-      background: #666;
+      background: rgba(80, 80, 80, 0.5);
       transition:
         0.2s transform ease,
         0.2s box-shadow ease
@@ -728,7 +737,7 @@ const PRODUCT = 'ZenzaWatch';
     }
 
     .zenzaWatchVideoInfoPanel .resumePlay:active {
-      transform: translate(4px, 4px);
+      transform: translate(0, 4px);
       box-shadow: none;
       transition: none;
     }
@@ -2277,7 +2286,10 @@ const PRODUCT = 'ZenzaWatch';
     _initDom(...args) {
       super._initDom(...args);
 
-      this._listContainer = this._view.querySelector('.ichibaItemListContainer');
+      this._listContainer =
+        this._view.querySelector('.ichibaItemListContainer .ichibaItemListInner');
+      this._listContainerDetails =
+        this._view.querySelector('.ichibaItemListContainer .ichibaItemListDetails');
     }
 
     _onCommand(command, param) {
@@ -2295,7 +2307,6 @@ const PRODUCT = 'ZenzaWatch';
       videoId = videoId || this._videoId;
       this._isLoading = true;
       this.addClass('is-loading');
-      //window.console.info('IchibaItemView#load!', videoId);
       return IchibaLoader.load(videoId)
         .then(this._onIchibaLoad.bind(this))
         .catch(this._onIchibaLoadFail.bind(this));
@@ -2310,7 +2321,6 @@ const PRODUCT = 'ZenzaWatch';
     }
 
     _onIchibaLoad(data) {
-      //window.console.info('IchibaItemView#onIchibaLoad', data);
       this.removeClass('is-loading');
       const div = document.createElement('div');
       div.innerHTML = data.main;
@@ -2332,6 +2342,9 @@ const PRODUCT = 'ZenzaWatch';
         this._listContainer.innerHTML = div.innerHTML;
       }
       this.addClass('is-success');
+
+      this._listContainerDetails.setAttribute('open', 'open');
+
       this._isLoading = false;
     }
 
@@ -2353,14 +2366,19 @@ const PRODUCT = 'ZenzaWatch';
   IchibaItemView.__tpl__ = (`
     <div class="ZenzaIchibaItemView">
       <div class="loadStart">
-        <button class="loadStartButton command" data-command="load">ニコニコ市場の商品を見る</button>
+        <button class="loadStartButton command" data-command="load">ニコニコ市場</button>
       </div>
       <div class="ichibaLoadingView">
         <div class="loading-inner">
           <span class="spinner">&#8987;</span>
         </div>
       </div>
-      <div class="ichibaItemListContainer"></div>
+      <div class="ichibaItemListContainer">
+        <details class="ichibaItemListDetails">
+          <summary class="ichibaItemSummary loadStartButton">ニコニコ市場</summary>
+          <div class="ichibaItemListInner"></div>
+        </details>
+      </div>
     </div>
     `).trim();
 
@@ -2372,24 +2390,26 @@ const PRODUCT = 'ZenzaWatch';
     }
 
       .ZenzaIchibaItemView .loadStartButton {
-         font-size: 14px;
+         width: 200px;
+         font-size: 24px;
          padding: 8px 8px;
-         cursor: pointer;
-         border-radius: 0;
-         margin: 0;
-         background: #333;
+         margin: 0 auto;
+         background: #888;
          color: #ccc;
-         border: solid 2px #ccc;
+         /*border: solid 2px #ccc;*/
+         border: none;
          outline: none;
          line-height: 20px;
-         min-width: 200px;
+         text-shadow: 1px 1px 1px #000;
+         border-radius: 26px;
+         cursor: pointer;
          user-select: none;
          -webkit-user-select: none;
          -moz-user-select: none;
       }
       .ZenzaIchibaItemView .loadStartButton:hover {
-        transform: translate(-4px,-4px);
-        box-shadow: 4px 4px 4px #000;
+        transform: translate(0,-4px);
+        box-shadow: 0 4px 4px #000;
         background: #666;
         transition:
           0.2s transform ease,
@@ -2429,8 +2449,7 @@ const PRODUCT = 'ZenzaWatch';
       }
 
     .ZenzaIchibaItemView.is-success {
-      background: #444;
-      padding: 8px;
+      background: none;
     }
       .ZenzaIchibaItemView.is-success .ichibaLoadingView,
       .ZenzaIchibaItemView.is-success .loadStart {
@@ -2438,6 +2457,11 @@ const PRODUCT = 'ZenzaWatch';
       }
       .ZenzaIchibaItemView.is-success .ichibaItemListContainer {
         display: block;
+      }
+      .ZenzaIchibaItemView.is-success details[open] {
+        border: 1px solid #666;
+        border-radius: 4px;
+        padding: 8px;
       }
 
 
@@ -2455,13 +2479,16 @@ const PRODUCT = 'ZenzaWatch';
     .ZenzaIchibaItemView .ichibaItemListContainer {
       text-align: center;
     }
+      .ZenzaIchibaItemView .ichibaItemListContainer .ichiba-ichiba_mainpiaitem,
       .ZenzaIchibaItemView .ichibaItemListContainer .ichiba_mainitem {
         display: inline-table;
         width: 220px;
         margin: 8px;
         padding: 8px;
         word-break: break-all;
-        border: 1px dotted #222;
+        text-shadow: 1px 1px 0 #000;
+        background: #666;
+        border-radius: 4px;
       }
       .ZenzaIchibaItemView .price,
       .ZenzaIchibaItemView .buy,
