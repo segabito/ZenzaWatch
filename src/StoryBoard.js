@@ -439,12 +439,8 @@ var AsyncEmitter = function() {};
             $container: this._$container,
             enable: this._playerConfig.getValue('enableStoryBoardBar')
           });
-          this._view.on('select', function(ms) {
-            this.emit('command', 'seek', ms / 1000);
-          }.bind(this));
-          this._view.on('command', function(command, param) {
-            this.emit('command', command, param);
-          });
+          this._view.on('select', (ms) => { this.emit('command', 'seek', ms / 1000); });
+          this._view.on('command', (command, param) => { this.emit('command', command, param); });
         }
       },
       reset: function() {
@@ -722,19 +718,17 @@ var AsyncEmitter = function() {};
 
 
         var hoverOutTimer;
-        var onHoverOutTimer = function() {
-          this._isHover = false;
-        }.bind(this);
+        var onHoverOutTimer = () => { this._isHover = false; };
 
-        var onHoverIn  = function() {
+        var onHoverIn  = () => {
           if (hoverOutTimer) { window.clearTimeout(hoverOutTimer); }
           this._isHover = true;
-        }.bind(this);
+        };
 
-        var onHoverOut = function() {
+        var onHoverOut = () => {
           if (hoverOutTimer) { window.clearTimeout(hoverOutTimer); }
           hoverOutTimer = window.setTimeout(onHoverOutTimer, 1000);
-        }.bind(this);
+        };
 
         $inner
           .hover(onHoverIn, onHoverOut)
@@ -761,8 +755,6 @@ var AsyncEmitter = function() {};
         this._$cursorTime.css({
           transform: 'translate(-999px, 0)'
         });
-
-        //window.setTimeout(function() { this._isHover = false; }.bind(this), 3000);
 
         this.emit('select', ms);
       },

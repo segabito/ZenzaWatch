@@ -427,7 +427,7 @@ class VideoCaptureUtil {}
 
 
   var VideoContextMenu = function() { this.initialize.apply(this, arguments); };
-  VideoContextMenu.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  VideoContextMenu.__css__ = (`
     .zenzaPlayerContextMenu {
       position: fixed;
       background: #fff;
@@ -485,13 +485,13 @@ class VideoCaptureUtil {}
     }
     .zenzaPlayerContextMenu.show {
       opacity: 0.8;
-      {*mix-blend-mode: luminosity;*}
+      /*mix-blend-mode: luminosity;*/
     }
     .zenzaPlayerContextMenu .listInner {
     }
-  */});
+  `).trim();
 
-  VideoContextMenu.__tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+  VideoContextMenu.__tpl__ = (`
     <div class="zenzaPlayerContextMenu">
       <div class="listInner">
         <ul>
@@ -530,7 +530,7 @@ class VideoCaptureUtil {}
         </ul>
       </div>
     </div>
-  */});
+  `).trim();
 
 
   _.assign(VideoContextMenu.prototype, {

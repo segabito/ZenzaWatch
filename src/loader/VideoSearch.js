@@ -467,13 +467,13 @@ const WindowMessageEmitter = {};
         data.hot_to    = params.hot_to;
       }
 
-      return new Promise(function(resolve, reject) {
+      return new Promise((resolve, reject) => {
         ajax({
           url: url,
           type: 'POST',
           data: JSON.stringify(data),
           timeout: 30000
-        }).then(function(result) {
+        }).then(result => {
           console.log('search result: ', result);
           if (result.status !== 200) {
             return reject({status: 'fail', code: result.status, description: 'network fail'});
@@ -485,8 +485,8 @@ const WindowMessageEmitter = {};
           }
 
           return resolve(this.convertResultFormat(data, params));
-        }.bind(this),
-        function(result) {
+        },
+        (result) => {
           // 検索APIはContent-Type: application/jsonなのに
           // invalidなjsonが返るせいでrejectルートに進む きもい
           
@@ -502,8 +502,8 @@ const WindowMessageEmitter = {};
           }
 
           return resolve(this.convertResultFormat(data, params));
-        }.bind(this));
-      }.bind(this));
+        });
+      });
     },
     /**
      * 検索APIが返すjsonもどきをパースする

@@ -1062,9 +1062,7 @@ var CONSTANT = {};
       var $view = this._$view = $(VideoControlBar.__tpl__);
       var $container = this._$playerContainer;
       var config = this._playerConfig;
-      var onCommand = function(command, param) {
-        this.emit('command', command, param);
-      }.bind(this);
+      var onCommand = (command, param) => { this.emit('command', command, param); };
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
@@ -1090,9 +1088,9 @@ var CONSTANT = {};
       this._heatMap = new HeatMap({
         $container: this._$seekBarContainer.find('.seekBar')
       });
-      var updateHeatMapVisibility = function(v) {
+      var updateHeatMapVisibility = (v) => {
         this._$seekBarContainer.toggleClass('noHeatMap', !v);
-      }.bind(this);
+      };
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
       this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
 
@@ -1115,10 +1113,10 @@ var CONSTANT = {};
         $container: this._$seekBarContainer
       });
       this._commentPreview.on('command', onCommand);
-      var updateEnableCommentPreview = function(v) {
+      var updateEnableCommentPreview = (v) => {
         this._$seekBarContainer.toggleClass('enableCommentPreview', v);
         this._commentPreview.setIsEnable(v);
-      }.bind(this);
+      };
 
       updateEnableCommentPreview(config.getValue('enableCommentPreview'));
       config.on('update-enableCommentPreview', updateEnableCommentPreview);
@@ -1132,10 +1130,10 @@ var CONSTANT = {};
       this._$videoServerTypeMenu       = $view.find('.videoServerTypeMenu');
       this._$videoServerTypeSelectMenu = $view.find('.videoServerTypeSelectMenu');
 
-      ZenzaWatch.emitter.on('hideHover', function() {
+      ZenzaWatch.emitter.on('hideHover', () => {
         this._hideMenu();
         this._commentPreview.hide();
-      }.bind(this));
+      });
 
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
@@ -1266,7 +1264,7 @@ var CONSTANT = {};
       const $menu  = this._$videoServerTypeSelectMenu;
       const $current = $menu.find('.currentVideoQuality');
 
-      $menu.on('click', '.exec-command', function(e) {
+      $menu.on('click', '.exec-command', (e) => {
         e.preventDefault();
         e.stopPropagation();
         const $target  = $(e.target).closest('.exec-command');
@@ -1280,7 +1278,7 @@ var CONSTANT = {};
         this.toggleVideoServerTypeMenu(false);
         //$menu.removeClass('show');
         this.emit('command', command, param);
-      }.bind(this));
+      });
 
       const updateEnableDmc = function(value) {
         $menu.toggleClass('is-dmcEnable', value);

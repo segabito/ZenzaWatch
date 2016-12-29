@@ -1045,31 +1045,27 @@ var CONSTANT = {};
         node: this._$playerContainer
       });
       this._videoInfoPanel.on('command', this._onCommand.bind(this));
-      if (this._playerConfig.getValue('enableCommentPanel')) {
-        this._initializeCommentPanel();
-      }
       return this._videoInfoPanel;
     },
+    _onCommand: function(command, param) {
+      this.emit('command', command, param);
+    },
     _initializeResponsive: function() {
-      $(window).on('resize', _.debounce(this._updateResponsive.bind(this),  500));
+      window.addEventListener('resize', _.debounce(this._updateResponsive.bind(this),  500));
     },
     _updateResponsive: function() {
-      var $w = $(window);
       var $container = this._$playerContainer;
       var $bar    = $container.find('.videoControlBar');
       var $header = $container.find('.zenzaWatchVideoHeaderPanel');
 
       // 画面の縦幅にシークバー分の余裕がある時は常時表示
-      var update = () => {
-        var w = $w.innerWidth(), h = $w.innerHeight();
-        var videoControlBarHeight = $bar.outerHeight();
-        var vMargin = h - w * this._aspectRatio;
-        //var hMargin = w - h / self._aspectRatio;
+      const update = () => {
+        const w = window.innerWidth, h = window.innerHeight;
+        const videoControlBarHeight = $bar.outerHeight();
+        const vMargin = h - w * this._aspectRatio;
 
-        $container
-          .toggleClass('showVideoControlBar',
-            vMargin >= videoControlBarHeight)
-          .toggleClass('showVideoHeaderPanel',
+        this.toggleClass('showVideoControlBar', vMargin >= videoControlBarHeight);
+        this.toggleClass('showVideoHeaderPanel',
             vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
       };
 
@@ -2662,16 +2658,15 @@ var CONSTANT = {};
         return {};
       }
 
-
-      var session = {
+      const session = {
         playing: true,
         watchId: this._watchId,
         url: location.href,
         currentTime: this._nicoVideoPlayer.getCurrentTime()
       };
 
-      var options = this._videoWatchOptions.createOptionsForSession();
-      _.each(Object.keys(options), function(key) {
+      const options = this._videoWatchOptions.createOptionsForSession();
+      Object.keys(options).forEach(key => {
         session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
       });
 
@@ -3409,17 +3404,15 @@ var CONSTANT = {};
 
     },
     _initializeMylistSelectMenu: function() {
-      var self = this;
-      self._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-      self._mylistApiLoader.getMylistList().then(function(mylistList) {
-        self._mylistList = mylistList;
-        self._initializeMylistSelectMenuDom();
+      this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+      this._mylistApiLoader.getMylistList().then(mylistList => {
+        this._mylistList = mylistList;
+        this._initializeMylistSelectMenuDom();
       });
     },
     _initializeMylistSelectMenuDom: function() {
-      var self = this;
       var $menu = this._$mylistSelectMenu, $ul = $('<ul/>');
-      $(this._mylistList).each(function(i, mylist) {
+      $(this._mylistList).each((i, mylist) => {
         var $li = $('<li/>').addClass('folder' + mylist.icon_id);
         var $icon = $('<span class="mylistIcon"/>').attr({
             'data-mylist-id': mylist.id,
@@ -3442,11 +3435,11 @@ var CONSTANT = {};
       });
 
       $menu.find('.mylistSelectMenuInner').append($ul);
-      $menu.on('click', '.mylistIcon, .mylistLink', function(e) {
+      $menu.on('click', '.mylistIcon, .mylistLink', e => {
         e.preventDefault();
         e.stopPropagation();
       });
-      $menu.on('mousedown', '.mylistIcon, .mylistLink', function(e) {
+      $menu.on('mousedown', '.mylistIcon, .mylistLink', e => {
         e.preventDefault();
         e.stopPropagation();
         var $target  = $(e.target).closest('.mylistIcon, .mylistLink');
@@ -3454,15 +3447,13 @@ var CONSTANT = {};
         var mylistId   = $target.attr('data-mylist-id');
         var mylistName = $target.attr('data-mylist-name');
 
-        ZenzaWatch.util.callAsync(function() {
-          self.toggleMylistMenu(false);
-        }, this);
+        window.setTimeout(() => { this.toggleMylistMenu(false); }, 0);
 
         if (command === 'open') {
           location.href = '//www.nicovideo.jp/my/mylist/#/' + mylistId;
         } else {
           var cmd = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
-          self.emit('command', cmd, {mylistId: mylistId, mylistName: mylistName});
+          this.emit('command', cmd, {mylistId: mylistId, mylistName: mylistName});
         }
       });
 

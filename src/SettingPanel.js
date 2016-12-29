@@ -9,7 +9,7 @@ var AsyncEmitter = function() {};
 //===BEGIN===
 
   var SettingPanel = function() { this.initialize.apply(this, arguments); };
-  SettingPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+  SettingPanel.__css__ = (`
     .zenzaSettingPanelShadow1,
     .zenzaSettingPanelShadow2,
     .zenzaSettingPanel {

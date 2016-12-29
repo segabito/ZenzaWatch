@@ -966,8 +966,8 @@ const PRODUCT = 'ZenzaWatch';
         .find('a[href*="/mylist/"]').addClass('mylistLink')
         ;
 
-      window.setTimeout(function() {
-        this._$description.find('.watch').each(function(i, watchLink) {
+      window.setTimeout(() => {
+        this._$description.find('.watch').each((i, watchLink) => {
           var $watchLink = $(watchLink);
           var videoId = $watchLink.text();
           var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(videoId);
@@ -988,7 +988,7 @@ const PRODUCT = 'ZenzaWatch';
           $watchLink.append($deflistAdd);
           $watchLink.append($pocketInfo);
         });
-        this._$description.find('.mylistLink').each(function(i, mylistLink) {
+        this._$description.find('.mylistLink').each((i, mylistLink) => {
           var $mylistLink = $(mylistLink);
           var mylistId = $mylistLink.text().split('/')[1];
           var $playlistAppend =
@@ -997,7 +997,7 @@ const PRODUCT = 'ZenzaWatch';
             ;
           $mylistLink.append($playlistAppend);
         });
-      }.bind(this), 0);
+      }, 0);
     },
     _onDescriptionClick: function(e) {
       if (e.button !== 0 || e.metaKey || e.shiftKey || e.altKey || e.ctrlKey) return true;

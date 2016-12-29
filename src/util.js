@@ -716,20 +716,22 @@ class CrossDomainGate {}
 
     ZenzaWatch.util.hasLargeThumbnail = hasLargeThumbnail;
 
-    var videoIdReg = /^[a-z]{2}\d+$/;
     /**
      * 動画IDからサムネのURLを逆算する。
      * 実際はどのサーバーでもサムネ自体はあるっぽい。
      */
-    var getThumbnailUrlByVideoId = function(videoId) {
-      if (!videoIdReg.test(videoId)) {
-        return null;
-      }
-      var fileId = parseInt(videoId.substr(2), 10);
-      var num = (fileId % 4) + 1;
-      var large = hasLargeThumbnail(videoId) ? '.L' : '';
-      return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
-    };
+    var getThumbnailUrlByVideoId = (() => {
+      const videoIdReg = /^[a-z]{2}\d+$/;
+      return function(videoId) {
+        if (!videoIdReg.test(videoId)) {
+          return null;
+        }
+        const fileId = parseInt(videoId.substr(2), 10);
+        const num = (fileId % 4) + 1;
+        const large = hasLargeThumbnail(videoId) ? '.L' : '';
+        return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
+      };
+    })();
     ZenzaWatch.util.getThumbnailUrlByVideoId = getThumbnailUrlByVideoId;
 
 

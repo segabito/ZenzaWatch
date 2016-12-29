@@ -72,21 +72,21 @@ var CONSTANT = {};
       if (!item) { return null; }
       if (!item.hasBind) {
         item.hasBind = true;
-        item.on('update', _.bind(this._onItemUpdate, this, item));
+        item.on('update', this._onItemUpdate.bind(this, item));
       }
       return item;
     },
     findByItemId: function(itemId) {
       itemId = parseInt(itemId, 10);
-      return _.find(this._items, function(item) {
+      return _.find(this._items, (item) => {
         if (item.getItemId() === itemId) {
           if (!item.hasBind) {
             item.hasBind = true;
-            item.on('update', _.bind(this._onItemUpdate, this, item));
+            item.on('update', this._onItemUpdate.bind(this, item));
           }
           return true;
         }
-      }.bind(this));
+      });
     },
     removeItem: function(item) {
       var beforeLen = this._items.length;
@@ -816,7 +816,7 @@ data-title="%no%: %date% ID:%userId%
         builder: CommentListItemView,
         itemCss: CommentListItemView.__css__
       });
-      this._view.on('command', _.bind(this._onCommand, this));
+      this._view.on('command', this._onCommand.bind(this));
     },
     update: function(listData, watchId) {
       if (!this._view) { this._initializeView(); }
@@ -979,7 +979,7 @@ data-title="%no%: %date% ID:%userId%
         builder: CommentListItemView,
         itemCss: CommentListItemView.__css__
       });
-      listView.on('command', _.bind(this._onCommand, this));
+      listView.on('command', this._onCommand.bind(this));
 
       this._commentPanel.on('update',
         _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
@@ -1087,7 +1087,7 @@ data-title="%no%: %date% ID:%userId%
         builder: CommentListItemView,
         itemCss: CommentListItemView.__css__
       });
-      this._view.on('command', _.bind(this._onCommand, this));
+      this._view.on('command', this._onCommand.bind(this));
     },
     startTimer: function() {
       this.stopTimer();
