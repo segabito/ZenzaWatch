@@ -465,8 +465,8 @@ class CrossDomainGate {}
 
     ZenzaWatch.config = Config;
 
-    var dummyConsole = {
-      log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop, info: _.noop
+    const dummyConsole = {
+      log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop, info: _.noop, warn: _.noop
     };
     console = Config.getValue('debug') ? window.console : dummyConsole;
     Config.on('update-debug', function(v) {
