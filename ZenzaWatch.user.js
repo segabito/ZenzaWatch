@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.3
+// @version        1.10.5
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -38,7 +38,7 @@ var monkey = function(PRODUCT) {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.10.3';
+  var VER = '1.10.5';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -20806,7 +20806,8 @@ const VideoSession = (function() {
           /*ZenzaWatch.util.isPremium() ||
           this.isInSeekableBuffer(sec)*/) {
         this._nicoVideoPlayer.setCurrentTime(sec);
-        this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
+        this._lastCurrentTime = sec;
+        //this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
       }
     },
     isInSeekableBuffer: function() {
@@ -20857,6 +20858,7 @@ const VideoSession = (function() {
         return this._onVideoFilterMatch();
       }
 
+      const nicoVideoPlayer = this._nicoVideoPlayer;
       const loadSmilevideo = () => {
         if (this._playerConfig.getValue('enableVideoSession')) {
           this._videoSession.create();
@@ -20867,7 +20869,6 @@ const VideoSession = (function() {
         this.emit('videoServerType', 'smile', {});
       };
 
-      const nicoVideoPlayer = this._nicoVideoPlayer;
       if (!autoDisableDmc &&
         this._playerConfig.getValue('enableDmc') && videoInfo.isDmc()) {
         this._videoSession.create().then(
@@ -21060,12 +21061,12 @@ const VideoSession = (function() {
       this.emit('playing');
     },
     _onVideoPause:   function() {
-      this._playerState.setPausing();
       this._savePlaybackPosition(this._watchId, this.getCurrentTime());
       this.emit('pause');
     },
     _onVideoStalled: function() {
       this._playerState.isStalled = true;
+      this._savePlaybackPosition(this._watchId, this.getCurrentTime());
       this.emit('stalled');
     },
     _onVideoProgress: function(range, currentTime) {
@@ -21079,10 +21080,12 @@ const VideoSession = (function() {
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
-      if (this._playerState.isPausing) {
-        this._setErrorMessage('停止中に動画のセッションが切れました。');
-        return;
-      }
+      //if (this._playerState.isPausing) {
+        //this.reload();
+        //this._setErrorMessage('停止中に動画のセッションが切れました。');
+        //return;
+      //}
+
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
       if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
@@ -21221,6 +21224,7 @@ const VideoSession = (function() {
     pause: function() {
       if (!this._playerState.isError && this._nicoVideoPlayer) {
         this._nicoVideoPlayer.pause();
+        this._playerState.setPausing();
       }
     },
     isPlaying: function() {
@@ -21231,6 +21235,11 @@ const VideoSession = (function() {
     },
     togglePlay: function() {
       if (!this._playerState.isError && this._nicoVideoPlayer) {
+        if (this.isPlaying()) {
+          this.pause();
+          return;
+        }
+
         this._nicoVideoPlayer.togglePlay().catch((e) => {
           this._onVideoPlayStartFail(e);
         });
@@ -26531,7 +26540,7 @@ const VideoSession = (function() {
           var $shuffle = $autoPlay.clone();
           var a = $target[0];
           $shuffle.find('a').attr({
-            'href': '/watch/1470321133' + a.search + '&shuffle=1'
+            'href': '/watch/1483135673' + a.search + '&shuffle=1'
           }).text('シャッフル再生');
           $autoPlay.after($shuffle);
         })();

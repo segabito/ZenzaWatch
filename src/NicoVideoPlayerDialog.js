@@ -2081,7 +2081,8 @@ var CONSTANT = {};
           /*ZenzaWatch.util.isPremium() ||
           this.isInSeekableBuffer(sec)*/) {
         this._nicoVideoPlayer.setCurrentTime(sec);
-        this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
+        this._lastCurrentTime = sec;
+        //this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
       }
     },
     isInSeekableBuffer: function() {
@@ -2132,6 +2133,7 @@ var CONSTANT = {};
         return this._onVideoFilterMatch();
       }
 
+      const nicoVideoPlayer = this._nicoVideoPlayer;
       const loadSmilevideo = () => {
         if (this._playerConfig.getValue('enableVideoSession')) {
           this._videoSession.create();
@@ -2142,7 +2144,6 @@ var CONSTANT = {};
         this.emit('videoServerType', 'smile', {});
       };
 
-      const nicoVideoPlayer = this._nicoVideoPlayer;
       if (!autoDisableDmc &&
         this._playerConfig.getValue('enableDmc') && videoInfo.isDmc()) {
         this._videoSession.create().then(
@@ -2335,12 +2336,12 @@ var CONSTANT = {};
       this.emit('playing');
     },
     _onVideoPause:   function() {
-      this._playerState.setPausing();
       this._savePlaybackPosition(this._watchId, this.getCurrentTime());
       this.emit('pause');
     },
     _onVideoStalled: function() {
       this._playerState.isStalled = true;
+      this._savePlaybackPosition(this._watchId, this.getCurrentTime());
       this.emit('stalled');
     },
     _onVideoProgress: function(range, currentTime) {
@@ -2354,10 +2355,12 @@ var CONSTANT = {};
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
-      if (this._playerState.isPausing) {
-        this._setErrorMessage('停止中に動画のセッションが切れました。');
-        return;
-      }
+      //if (this._playerState.isPausing) {
+        //this.reload();
+        //this._setErrorMessage('停止中に動画のセッションが切れました。');
+        //return;
+      //}
+
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
       if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
@@ -2496,6 +2499,7 @@ var CONSTANT = {};
     pause: function() {
       if (!this._playerState.isError && this._nicoVideoPlayer) {
         this._nicoVideoPlayer.pause();
+        this._playerState.setPausing();
       }
     },
     isPlaying: function() {
@@ -2506,6 +2510,11 @@ var CONSTANT = {};
     },
     togglePlay: function() {
       if (!this._playerState.isError && this._nicoVideoPlayer) {
+        if (this.isPlaying()) {
+          this.pause();
+          return;
+        }
+
         this._nicoVideoPlayer.togglePlay().catch((e) => {
           this._onVideoPlayStartFail(e);
         });

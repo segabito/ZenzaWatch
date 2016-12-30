@@ -108,7 +108,7 @@ var AsyncEmitter = function() {};
           var $shuffle = $autoPlay.clone();
           var a = $target[0];
           $shuffle.find('a').attr({
-            'href': '/watch/1470321133' + a.search + '&shuffle=1'
+            'href': '/watch/1483135673' + a.search + '&shuffle=1'
           }).text('シャッフル再生');
           $autoPlay.after($shuffle);
         })();
