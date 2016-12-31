@@ -207,6 +207,7 @@ var ajax = function() {};
 
         const playlist = {playlist: []};
         data.playlist.items.forEach(item => {
+          if (!item.hasData) { return; }
           playlist.playlist.push({
               _format:       'html5playlist',
               _data:          item,
@@ -218,7 +219,7 @@ var ajax = function() {};
               view_counter:   item.viewCounter,
               thumbnail_url:  item.thumbnailURL,
               first_retrieve: item.firstRetrieve,
-              has_data:      true,
+              has_data:       true,
               is_translated: false
           });
         });

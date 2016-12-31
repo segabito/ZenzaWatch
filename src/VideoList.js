@@ -1358,8 +1358,9 @@ class NicoSearchApiV2Loader {}
       if (!this._view) { this._initializeView(); }
       this._watchId = watchId;
       var items = [];
-      _.each(listData, function(itemData) {
+      listData.forEach(itemData => {
         if (!itemData.has_data) { return; }
+        if (!itemData.id) { return; }
         items.push(new VideoListItem(itemData));
       });
       if (items.length < 1) { return; }

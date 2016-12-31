@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.5
+// @version        1.10.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -38,7 +38,7 @@ var monkey = function(PRODUCT) {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.10.5';
+  var VER = '1.10.6';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -2724,6 +2724,7 @@ var monkey = function(PRODUCT) {
 
         const playlist = {playlist: []};
         data.playlist.items.forEach(item => {
+          if (!item.hasData) { return; }
           playlist.playlist.push({
               _format:       'html5playlist',
               _data:          item,
@@ -2735,7 +2736,7 @@ var monkey = function(PRODUCT) {
               view_counter:   item.viewCounter,
               thumbnail_url:  item.thumbnailURL,
               first_retrieve: item.firstRetrieve,
-              has_data:      true,
+              has_data:       true,
               is_translated: false
           });
         });
@@ -17351,8 +17352,9 @@ data-title="%no%: %date% ID:%userId%
       if (!this._view) { this._initializeView(); }
       this._watchId = watchId;
       var items = [];
-      _.each(listData, function(itemData) {
+      listData.forEach(itemData => {
         if (!itemData.has_data) { return; }
+        if (!itemData.id) { return; }
         items.push(new VideoListItem(itemData));
       });
       if (items.length < 1) { return; }
