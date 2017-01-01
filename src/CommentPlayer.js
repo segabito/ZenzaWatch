@@ -3024,8 +3024,8 @@ spacer {
 
         result = `
 @keyframes idou${id} {
-  0% { transform: translate3d(0, 0, 0) ${scaleCss} }
-  100% { transform: translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss} }
+  0%   { opacity: 1; transform: translate3d(0, 0, 0) ${scaleCss}; }
+  100% { opacity: 1; transform: translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss}; }
 }
 
 #${id} {
@@ -3033,7 +3033,6 @@ spacer {
    top: ${ypos}px;
    left: ${leftPos}px;
    ${colorCss}
-   opacity: 1;
    font-size: ${fontSizePx}px;
    animation-name: idou${id};
    animation-duration: ${duration}s;

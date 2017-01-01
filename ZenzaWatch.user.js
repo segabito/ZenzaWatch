@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.6
+// @version        1.10.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -38,7 +38,7 @@ var monkey = function(PRODUCT) {
   console.log('exec ZenzaWatch..');
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
-  var VER = '1.10.6';
+  var VER = '1.10.7';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -13412,8 +13412,8 @@ spacer {
 
         result = `
 @keyframes idou${id} {
-  0% { transform: translate3d(0, 0, 0) ${scaleCss} }
-  100% { transform: translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss} }
+  0%   { opacity: 1; transform: translate3d(0, 0, 0) ${scaleCss}; }
+  100% { opacity: 1; transform: translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss}; }
 }
 
 #${id} {
@@ -13421,7 +13421,6 @@ spacer {
    top: ${ypos}px;
    left: ${leftPos}px;
    ${colorCss}
-   opacity: 1;
    font-size: ${fontSizePx}px;
    animation-name: idou${id};
    animation-duration: ${duration}s;
