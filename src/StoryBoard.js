@@ -733,9 +733,9 @@ var AsyncEmitter = function() {};
         $inner
           .hover(onHoverIn, onHoverOut)
           .on('touchstart',  this._onTouchStart.bind(this))
-          .on('touchend',    this._onTouchEnd  .bind(this))
-          .on('touchmove',   this._onTouchMove .bind(this))
-          .on('touchmove',   _.debounce(this._onTouchMoveEnd.bind(this), 2000));
+        //  .on('touchend',    this._onTouchEnd  .bind(this))
+          .on('touchmove',   this._onTouchMove .bind(this));
+        this._bouncedOnToucheMobeEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
 
         this._$container.append($view);
         document.body.addEventListener('touchend', () => { this._isHover = false; }, {passive: true});
@@ -819,9 +819,9 @@ var AsyncEmitter = function() {};
         e.stopPropagation();
         this._isHover = true;
         this._isMouseMoving = true;
+        this._bouncedOnToucheMobeEnd();
       },
-      _onTouchMoveEnd: function(e) {
-        e.stopPropagation();
+      _onTouchMoveEnd: function() {
         this._isMouseMoving = false;
       },
       _onTouchCancel: function(e) {

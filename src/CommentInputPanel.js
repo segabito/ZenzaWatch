@@ -83,13 +83,13 @@ var CONSTANT = {};
       pointer-events: auto;
     }
 
-    .mouseMoving .commentInputOuter {
+    .is-mouseMoving .commentInputOuter {
       border: 1px solid #888;
       box-sizing: border-box;
       border-radius: 8px;
       opacity: 0.5;
     }
-    .mouseMoving:not(.active) .commentInputOuter {
+    .is-mouseMoving:not(.active) .commentInputOuter {
       box-shadow: 0 0 8px #fe9, 0 0 4px #fe9 inset;
     }
 

@@ -103,7 +103,7 @@ const PRODUCT = 'ZenzaWatch';
       pointer-events: none;
     }
 
-    .mouseMoving .zenzaWatchVideoInfoPanel>*,
+    .is-mouseMoving .zenzaWatchVideoInfoPanel>*,
                  .zenzaWatchVideoInfoPanel:hover>* {
       pointer-events: auto;
     }
@@ -212,9 +212,9 @@ const PRODUCT = 'ZenzaWatch';
       will-change: opacity, transform, transform;
     }
 
-    .zenzaScreenMode_3D   .mouseMoving  .zenzaWatchVideoInfoPanel,
-    .zenzaScreenMode_wide .mouseMoving  .zenzaWatchVideoInfoPanel,
-    .fullScreen           .mouseMoving  .zenzaWatchVideoInfoPanel {
+    .zenzaScreenMode_3D   .is-mouseMoving  .zenzaWatchVideoInfoPanel,
+    .zenzaScreenMode_wide .is-mouseMoving  .zenzaWatchVideoInfoPanel,
+    .fullScreen           .is-mouseMoving  .zenzaWatchVideoInfoPanel {
       height: 60%;
       background: none;
       border: 1px solid #888;
@@ -1167,7 +1167,7 @@ const PRODUCT = 'ZenzaWatch';
       pointer-events: none;
     }
 
-    .mouseMoving .zenzaWatchVideoHeaderPanel>*,
+    .is-mouseMoving .zenzaWatchVideoHeaderPanel>*,
                  .zenzaWatchVideoHeaderPanel:hover>* {
       pointer-events: auto;
     }
@@ -1229,9 +1229,9 @@ const PRODUCT = 'ZenzaWatch';
     .zenzaScreenMode_3D     .is-loading .zenzaWatchVideoHeaderPanel,
     .zenzaScreenMode_wide   .is-loading .zenzaWatchVideoHeaderPanel,
     .fullScreen             .is-loading .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_3D     .mouseMoving .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide   .mouseMoving .zenzaWatchVideoHeaderPanel,
-    .fullScreen             .mouseMoving .zenzaWatchVideoHeaderPanel {
+    .zenzaScreenMode_3D     .is-mouseMoving .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_wide   .is-mouseMoving .zenzaWatchVideoHeaderPanel,
+    .fullScreen             .is-mouseMoving .zenzaWatchVideoHeaderPanel {
       opacity: 0.6;
       transition: 0.4s opacity;
     }
@@ -1946,11 +1946,11 @@ const PRODUCT = 'ZenzaWatch';
         background: transparent;
       }
 
-      .mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput {
+      .is-mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput {
         opacity: 0.5;
       }
 
-      .mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput:hover {
+      .is-mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput:hover {
         opacity: 0.8;
       }
 

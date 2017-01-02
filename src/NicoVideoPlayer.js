@@ -11,6 +11,7 @@ var AsyncEmitter = function() {};
 var VideoInfoLoader = {};
 const CONSTANT = {};
 class VideoCaptureUtil {}
+const Config = {};
 
 //===BEGIN===
 
@@ -417,8 +418,9 @@ class VideoCaptureUtil {}
       const min = Math.floor(currentTime / 60);
       const sec = (currentTime % 60 + 100).toString().substr(1, 6);
       const time = `${min}_${sec}`;
+      const prefix = Config.getValue('screenshot.prefix') || '';
 
-      return `${title} - ${watchId}@${time}${suffix}.png`;
+      return `${prefix}${title} - ${watchId}@${time}${suffix}.png`;
     },
     isCorsReady: function() {
       return this._videoPlayer && this._videoPlayer.isCorsReady();

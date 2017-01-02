@@ -473,7 +473,7 @@ var CONSTANT = {};
     .zenzaPlayerContainer .videoPlayer.is-loading {
       cursor: wait;
     }
-    .mouseMoving .videoPlayer {
+    .is-mouseMoving .videoPlayer {
       cursor: auto;
     }
 
@@ -538,7 +538,7 @@ var CONSTANT = {};
       z-index: 1;
     }
 
-    .mouseMoving .commentLayerFrame {
+    .is-mouseMoving .commentLayerFrame {
       /* height: calc(100% - 50px); */
       cursor: auto;
     }
@@ -1069,12 +1069,12 @@ var CONSTANT = {};
     },
     _onMouseMove: function() {
       if (this._isMouseMoving) { return; }
-      this.addClass('mouseMoving');
+      this.addClass('is-mouseMoving');
       this._isMouseMoving = true;
     },
     _onMouseMoveEnd: function() {
       if (!this._isMouseMoving) { return; }
-      this.removeClass('mouseMoving');
+      this.removeClass('is-mouseMoving');
       this._isMouseMoving = false;
     },
     _onVideoCanPlay: function(watchId, videoInfo) {
@@ -2846,12 +2846,12 @@ var CONSTANT = {};
       pointer-events: auto;
     }
 
-    .mouseMoving .menuButton {
+    .is-mouseMoving .menuButton {
       opacity: 0.8;
       background: rgba(0xcc, 0xcc, 0xcc, 0.5);
       border: 1px solid #888;
     }
-    .mouseMoving .menuButton .menuButtonInner {
+    .is-mouseMoving .menuButton .menuButtonInner {
       opacity: 0.8;
       word-break: normal;
     }
@@ -3049,7 +3049,7 @@ var CONSTANT = {};
       font-size: 21px;
       white-space: nowrap;
     }
-    .mouseMoving .mylistButton {
+    .is-mouseMoving .mylistButton {
       text-shadow: 1px 1px 2px #888;
     }
 
@@ -3208,7 +3208,7 @@ var CONSTANT = {};
       font-size: 24px;
       white-space: nowrap;
     }
-    .mouseMoving .zenzaTweetButton {
+    .is-mouseMoving .zenzaTweetButton {
       text-shadow: 1px 1px 2px #88c;
     }
     .zenzaTweetButton:hover {
@@ -3246,7 +3246,7 @@ var CONSTANT = {};
       transform-origin: center center;
     }
 
-    .mouseMoving .closeButton,
+    .is-mouseMoving .closeButton,
     .closeButton:hover {
       opacity: 1;
       background: #000;

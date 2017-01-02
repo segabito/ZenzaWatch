@@ -261,6 +261,7 @@ class CrossDomainGate {}
 
         'uaa.enable': true,
 
+        'screenshot.prefix': '',
 
         KEY_CLOSE:      27,          // ESC
         KEY_RE_OPEN:    27 + 0x1000, // SHIFT + ESC

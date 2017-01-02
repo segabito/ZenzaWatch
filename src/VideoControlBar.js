@@ -85,8 +85,8 @@ var CONSTANT = {};
 
     .zenzaScreenMode_wide .volumeChanging .videoControlBar,
     .fullScreen           .volumeChanging .videoControlBar,
-    .zenzaScreenMode_wide .mouseMoving    .videoControlBar,
-    .fullScreen           .mouseMoving    .videoControlBar {
+    .zenzaScreenMode_wide .is-mouseMoving    .videoControlBar,
+    .fullScreen           .is-mouseMoving    .videoControlBar {
       opacity: 0.7;
       background: rgba(0, 0, 0, 0.5);
     }
@@ -148,9 +148,9 @@ var CONSTANT = {};
       top: auto;
     }
 
-    .mouseMoving .controlItemContainer.right {
+    .is-mouseMoving .controlItemContainer.right {
     }
-    .mouseMoving .controlItemContainer.right .controlButton{
+    .is-mouseMoving .controlItemContainer.right .controlButton{
       background: #333;
     }
     .controlItemContainer.right .scalingUI {
@@ -201,7 +201,7 @@ var CONSTANT = {};
       z-index: 100;
       opacity: 0.8;
     }
-    .mouseMoving .controlButton:hover .tooltip {
+    .is-mouseMoving .controlButton:hover .tooltip {
       display: block;
       opacity: 1;
     }
@@ -295,7 +295,7 @@ var CONSTANT = {};
       height: 8px;
       top: -8px;
     }
-    .mouseMoving .seekBarContainer:hover .seekBarShadow {
+    .is-mouseMoving .seekBarContainer:hover .seekBarShadow {
       height: 48px;
       top: -48px;
     }
@@ -344,7 +344,7 @@ var CONSTANT = {};
     }
 
 
-    .mouseMoving .seekBar {
+    .is-mouseMoving .seekBar {
       background-color: rgba(0, 0, 0, 0.5);
     }
 
@@ -756,7 +756,7 @@ var CONSTANT = {};
       text-shadow:
         0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
     }
-    .mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
+    .is-mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
       background: #336;
     }
 
@@ -2300,10 +2300,9 @@ var CONSTANT = {};
       opacity: 0;
       border: 1px solid #666;
       border-radius: 8px;
-      transition: opacity 0.2s ease;
       padding: 4px 4px 10px 4px;
       transform: translate3d(0, 0, 0);
-      transition: translate 0.1s;
+      transition: transform 0.1s steps(1, start) 0, opacity 0.2s ease 0.5s;
       pointer-events: none;
     }
 
