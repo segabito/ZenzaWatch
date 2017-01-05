@@ -225,7 +225,7 @@ var CONSTANT = {};
       if (this._state[key] === val) { return; }
       this._state[key] = val;
       this.emit('state', key, val);
-      this.emit(`state-${key}`, val);
+      this.emit(`update-${key}`, val);
     }
   }
 
@@ -259,6 +259,9 @@ var CONSTANT = {};
         isStalled: false,
         isUpdatingDeflist: false,
         isUpdatingMylist: false,
+
+        isEnableFilter: config.getValue('enableFilter'),
+        sharedNgLevel: config.getValue('sharedNgLevel'),
 
         screenMode: config.getValue('screenMode')
       };
@@ -981,7 +984,8 @@ var CONSTANT = {};
 
       this._hoverMenu = new VideoHoverMenu({
         $playerContainer: $container,
-        playerConfig: config
+        playerConfig: config,
+        playerState: this._playerState
       });
       this._hoverMenu.on('command', onCommand);
 
@@ -1224,7 +1228,7 @@ var CONSTANT = {};
       return this._$playerContainer;
     },
     css: function(key, val) {
-      util.$(this._$playerContainer[0], key, val);
+      util.$(this._$playerContainer[0]).css(key, val);
     },
     addClass: function(name) {
       return this.toggleClass(name, true);
@@ -1507,9 +1511,6 @@ var CONSTANT = {};
           this._nicoVideoPlayer.setCommandFilterList(param);
           PopupMessage.notify('NGコマンド更新');
           break;
-        case 'setIsCommentFilterEnable':
-          this._nicoVideoPlayer.setIsCommentFilterEnable(param);
-          break;
         case 'tweet':
           ZenzaWatch.util.openTweetWindow(this._videoInfo);
           break;
@@ -1583,14 +1584,17 @@ var CONSTANT = {};
         case 'toggle-mute':
         case 'toggle-loop':
         case 'toggle-debug':
+        case 'toggle-enableFilter':
           command = command.replace(/^toggle-/, '');
           this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
         case 'baseFontFamily':
         case 'baseChatScale':
-        case 'enableFilter':
-        case 'screenMode':
-        case 'sharedNgLevel':
+        case 'enableFilter':  case 'update-enableFilter':
+        case 'screenMode':    case 'update-screenMode':
+        case 'sharedNgLevel': case 'update-sharedNgLevel':
+          command = command.replace(/^update-/, '');
+          if (this._playerConfig.getValue(command) === param) { break; }
           this._playerConfig.setValue(command, param);
           break;
       }
@@ -1711,6 +1715,7 @@ var CONSTANT = {};
           this._playerState.isMute = !!value;
           break;
         case 'sharedNgLevel':
+          this._playerState.sharedNgLevel = value;
           //PopupMessage.notify('NG共有: ' +
           //  {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
           break;
@@ -1720,6 +1725,7 @@ var CONSTANT = {};
           break;
         case 'enableFilter':
           PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
+          this._playerState.isEnableFilter = value;
           this._nicoVideoPlayer.setIsCommentFilterEnable(value);
           break;
         case 'wordFilter':
@@ -2708,29 +2714,33 @@ var CONSTANT = {};
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+      .menuItemContainer:hover .menuButton {
+        pointer-events: auto;
+      }
 
-    .menuItemContainer.rightTop {
-      width: 160px;
-      height: 40px;
-      right: 0px;
-      top: 0;
-      perspective: 150px;
-      perspective-origin: center;
-    }
+      .menuItemContainer.rightTop {
+        width: 160px;
+        height: 40px;
+        right: 0px;
+        top: 0;
+        perspective: 150px;
+        perspective-origin: center;
+      }
 
-    .menuItemContainer.rightTop .scalingUI {
-      transform-origin: right top;
-    }
+      .menuItemContainer.rightTop .scalingUI {
+        transform-origin: right top;
+      }
 
-    .is-updatingDeflist .menuItemContainer.rightTop,
-    .is-updatingMylist  .menuItemContainer.rightTop {
-      cursor: wait;
-      opacity: 1 !important;
-    }
-    .is-updatingDeflist .menuItemContainer.rightTop>*,
-    .is-updatingMylist .menuItemContainer.rightTop>* {
-      pointer-events: none;
-    }
+
+      .is-updatingDeflist .menuItemContainer.rightTop,
+      .is-updatingMylist  .menuItemContainer.rightTop {
+        cursor: wait;
+        opacity: 1 !important;
+      }
+      .is-updatingDeflist .menuItemContainer.rightTop>*,
+      .is-updatingMylist  .menuItemContainer.rightTop>* {
+        pointer-events: none;
+      }
 
     .menuItemContainer.leftTop {
       width: auto;
@@ -2739,13 +2749,14 @@ var CONSTANT = {};
       top: 32px;
       display: none;
     }
-    .is-debug .menuItemContainer.leftTop {
-      display: inline-block !important;
-      opacity: 1 !important;
-      transition: none !important;
-      transform: translateZ(0);
-      max-width: 200px;
-    }
+
+      .is-debug .menuItemContainer.leftTop {
+        display: inline-block !important;
+        opacity: 1 !important;
+        transition: none !important;
+        transform: translateZ(0);
+        max-width: 200px;
+      }
 
     .menuItemContainer.leftBottom {
       width: 120px;
@@ -2754,17 +2765,17 @@ var CONSTANT = {};
       bottom: 8px;
       transform-origin: left bottom;
     }
-    .zenzaScreenMode_wide .menuItemContainer.leftBottom,
-    .fullScreen           .menuItemContainer.leftBottom {
-      bottom: 64px;
-    }
-    .menuItemContainer.leftBottom .scalingUI {
-      transform-origin: left bottom;
-    }
-    .zenzaScreenMode_wide .menuItemContainer.leftBottom .scalingUI,
-    .fullScreen           .menuItemContainer.leftBottom .scalingUI {
-      height: 64px;
-    }
+      .zenzaScreenMode_wide .menuItemContainer.leftBottom,
+      .fullScreen           .menuItemContainer.leftBottom {
+        bottom: 64px;
+      }
+      .menuItemContainer.leftBottom .scalingUI {
+        transform-origin: left bottom;
+      }
+      .zenzaScreenMode_wide .menuItemContainer.leftBottom .scalingUI,
+      .fullScreen           .menuItemContainer.leftBottom .scalingUI {
+        height: 64px;
+      }
 
     .menuItemContainer.rightBottom {
       width: 120px;
@@ -2773,10 +2784,11 @@ var CONSTANT = {};
       bottom: 8px;
     }
 
-    .zenzaScreenMode_wide .menuItemContainer.rightBottom,
-    .fullScreen           .menuItemContainer.rightBottom {
-      bottom: 64px;
-    }
+      .zenzaScreenMode_wide .menuItemContainer.rightBottom,
+      .fullScreen           .menuItemContainer.rightBottom {
+        bottom: 64px;
+      }
+
 
     .menuItemContainer.onErrorMenu {
       position: absolute;
@@ -2785,105 +2797,115 @@ var CONSTANT = {};
       transform: translate(-50%, 0);
       display: none;
       white-space: nowrap;
+    }
+      .is-error .menuItemContainer.onErrorMenu {
+        display: block !important;
+        opacity: 1 !important;
+      }
+      .is-error .menuItemContainer.onErrorMenu .menuButton {
+        opacity: 0.8 !important;
+      }
+      .menuItemContainer.onErrorMenu .menuButton {
+        position: relative;
+        display: inline-block;
+        margin: 0 16px;
+        padding: 8px;
+        background: #888;
+        color: #000;
+        cursor: pointer;
+        box-shadow: 4px 4px 0 #333;
+        border: 2px outset;
+        width: 100px;
+        font-size: 14px;
+        line-height: 16px;
+      }
+      .menuItemContainer.onErrorMenu .menuButton:active {
+        background: #ccc;
+        transform: translate(4px, 4px);
+        border: 2px inset;
+        box-shadow: none;
+      }
 
-    }
-    .is-error .menuItemContainer.onErrorMenu {
-      display: block !important;
-      opacity: 1 !important;
-    }
-    .is-error .menuItemContainer.onErrorMenu .menuButton {
-      opacity: 0.8 !important;
-    }
+
 
     .menuButton {
       position: absolute;
       opacity: 0;
-      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease, transform 0.2s ease, background 0.4s ease;
+      transition:
+        opacity 0.4s ease,
+        transform 0.2s linear,
+        box-shadow 0.2s ease,
+        background 0.4s ease;
       box-sizing: border-box;
       text-align: center;
-      /*pointer-events: none;*/
 
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+      .menuButton:hover {
+        box-shadow: 0 0 4px #000;
+        cursor: pointer;
+        opacity: 1;
+      }
+      .menuButton:active {
+        transform: translate(4px, 4px);
+        box-shadow: 0 0 0 #000;
+      }
 
-    .menuButton .tooltip {
-      display: none;
-      pointer-events: none;
-      position: absolute;
-      left: 16px;
-      top: -24px;
-      font-size: 12px;
-      line-height: 16px;
-      padding: 2px 4px;
-      border: 1px solid !000;
-      background: #ffc;
-      color: black;
-      box-shadow: 2px 2px 2px #fff;
-      text-shadow: none;
-      white-space: nowrap;
-      z-index: 100;
-      opacity: 0.8;
-    }
+      .menuButton .tooltip {
+        display: none;
+        pointer-events: none;
+        position: absolute;
+        left: 16px;
+        top: -24px;
+        font-size: 12px;
+        line-height: 16px;
+        padding: 2px 4px;
+        border: 1px solid !000;
+        background: #ffc;
+        color: black;
+        box-shadow: 2px 2px 2px #fff;
+        text-shadow: none;
+        white-space: nowrap;
+        z-index: 100;
+        opacity: 0.8;
+      }
 
-    .menuButton:hover .tooltip {
-      display: block;
-    }
+      .menuButton:hover .tooltip {
+        display: block;
+      }
 
-    .rightTop .menuButton .tooltip {
-      top: auto;
-      bottom: -24px;
-      right: 16px;
-      left: auto;
-    }
-    .rightBottom .menuButton .tooltip {
-      right: 16px;
-      left: auto;
-    }
+      .menuButton .selectMenu {
+        transition: transform 0.2s linear;
+        transform: translate( 4px,  4px);
+      }
+      .menuButton:active .selectMenu {
+        transform: translate(-4px, -4px);
+      }
 
-    .menuItemContainer:hover .menuButton {
-      pointer-events: auto;
-    }
 
-    .is-mouseMoving .menuButton {
-      opacity: 0.8;
-      background: rgba(0xcc, 0xcc, 0xcc, 0.5);
-      border: 1px solid #888;
-    }
-    .is-mouseMoving .menuButton .menuButtonInner {
-      opacity: 0.8;
-      word-break: normal;
-    }
+      .rightTop .menuButton .tooltip {
+        top: auto;
+        bottom: -24px;
+        right: 16px;
+        left: auto;
+      }
+      .rightBottom .menuButton .tooltip {
+        right: 16px;
+        left: auto;
+      }
 
-    .menuButton:hover {
-      cursor: pointer;
-      opacity: 1;
-    }
+      .is-mouseMoving .menuButton {
+        opacity: 0.8;
+        background: rgba(0xcc, 0xcc, 0xcc, 0.5);
+        border: 1px solid #888;
+      }
+      .is-mouseMoving .menuButton .menuButtonInner {
+        opacity: 0.8;
+        word-break: normal;
+      }
 
-    .menuItemContainer.onErrorMenu .menuButton {
-      position: relative;
-      display: inline-block;
-      margin: 0 16px;
-      padding: 8px;
-      background: #888;
-      color: #000;
-      cursor: pointer;
-      box-shadow: 4px 4px 0 #333;
-      border: 2px outset;
-      width: 100px;
-      font-size: 14px;
-      line-height: 16px;
-    }
-    .menuItemContainer.onErrorMenu .menuButton:active {
-      background: #ccc;
-      box-shadow: 4px 4px 0 #333, 0 0 8px #ccc;
-    }
-    .menuItemContainer.onErrorMenu .menuButton:active {
-      transform: translate(4px, 4px);
-      border: 2px inset;
-      box-shadow: none;
-    }
 
     .showCommentSwitch {
       left: 0;
@@ -2895,45 +2917,12 @@ var CONSTANT = {};
       font-size: 24px;
       text-decoration: line-through;
     }
-    .showCommentSwitch:hover {
-      box-shadow: 4px 4px 0 #000;
-    }
-    .showCommentSwitch:active {
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
-    .is-showComment .showCommentSwitch {
-      background:#888;
-      color: #fff;
-      text-shadow: 0 0 6px orange;
-      text-decoration: none;
-    }
-
-    .menuItemContainer .muteSwitch {
-      left: 0;
-      bottom: 40px;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #fff;
-      line-height: 30px;
-      font-size: 18px;
-      background:#888;
-    }
-    menuItemContainer .muteSwitch:hover {
-      box-shadow: 4px 4px 0 #000;
-    }
-    menuItemContainer .muteSwitch:active {
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
-
-    .zenzaPlayerContainer:not(.is-mute) .muteSwitch .mute-on,
-                              .is-mute  .muteSwitch .mute-off {
-      display: none;
-    }
+      .is-showComment .showCommentSwitch {
+        background:#888;
+        color: #fff;
+        text-shadow: 0 0 6px orange;
+        text-decoration: none;
+      }
 
     .commentLayerOrderSwitch {
       display: none;
@@ -2941,50 +2930,47 @@ var CONSTANT = {};
       width:  32px;
       height: 32px;
     }
-    .is-showComment .commentLayerOrderSwitch {
-      display: block;
-    }
+      .is-showComment .commentLayerOrderSwitch {
+        display: block;
+      }
 
-    .commentLayerOrderSwitch:hover {
-    }
+      .commentLayerOrderSwitch .layer {
+        display: none;
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        line-height: 24px;
+        font-size: 16px;
+        border: 1px solid #888;
+        color:  #ccc;
+        text-shadow: 1px 1px 0 #888, -1px -1px 0 #000;
+        transition: margin-left 0.2s ease, margin-top 0.2s ease;
+      }
+      .commentLayerOrderSwitch:hover .layer {
+        display: block;
+      }
 
-    .commentLayerOrderSwitch .layer {
-      display: none;
-      position: absolute;
-      width: 24px;
-      height: 24px;
-      line-height: 24px;
-      font-size: 16px;
-      border: 1px solid #888;
-      color:  #ccc;
-      text-shadow: 1px 1px 0 #888, -1px -1px 0 #000;
-      transition: margin-left 0.2s ease, margin-top 0.2s ease;
-    }
-    .commentLayerOrderSwitch:hover .layer {
-      display: block;
-    }
+      .commentLayerOrderSwitch .comment {
+        background: #666;
+      }
+      .commentLayerOrderSwitch .video {
+        background: #333;
+      }
 
-    .commentLayerOrderSwitch .comment {
-      background: #666;
-    }
-    .commentLayerOrderSwitch .video {
-      background: #333;
-    }
+                      .commentLayerOrderSwitch .comment,
+      .is-backComment .commentLayerOrderSwitch .video {
+        margin-left: 0px;
+        margin-top:  0px;
+        z-index: 2;
+        opacity: 0.8;
+      }
 
-                    .commentLayerOrderSwitch .comment,
-    .is-backComment .commentLayerOrderSwitch .video {
-      margin-left: 0px;
-      margin-top:  0px;
-      z-index: 2;
-      opacity: 0.8;
-    }
-
-    .is-backComment .commentLayerOrderSwitch .comment,
-                    .commentLayerOrderSwitch .video {
-      margin-left: 8px;
-      margin-top: 8px;
-      z-index: 1;
-    }
+      .is-backComment .commentLayerOrderSwitch .comment,
+                      .commentLayerOrderSwitch .video {
+        margin-left: 8px;
+        margin-top: 8px;
+        z-index: 1;
+      }
 
     .ngSettingMenu {
       display: none;
@@ -2996,47 +2982,47 @@ var CONSTANT = {};
       line-height: 30px;
       font-size: 18px;
     }
-    .is-showComment .ngSettingMenu {
-      display: block;
-    }
-    .ngSettingMenu:hover {
-      background: #888;
-      /*font-size: 120%;*/
-      box-shadow: 4px 4px 0 #000;
-      text-shadow: 0px 0px 2px #ccf;
-    }
-    .ngSettingMenu.show,
-    .ngSettingMenu:active {
-      opacity: 1;
-      background: #888;
-      border: 1px solid #ccc;
-      box-shadow: none;
-      margin-left: 4px;
-      margin-top:  4px;
-    }
+      .is-showComment .ngSettingMenu {
+        display: block;
+      }
+      .ngSettingMenu:hover {
+        background: #888;
+        /*font-size: 120%;*/
+        box-shadow: 4px 4px 0 #000;
+        text-shadow: 0px 0px 2px #ccf;
+      }
+      .ngSettingMenu.show,
+      .ngSettingMenu:active {
+        opacity: 1;
+        background: #888;
+        border: 1px solid #ccc;
+        box-shadow: none;
+        margin-left: 4px;
+        margin-top:  4px;
+      }
 
     .ngSettingSelectMenu {
       white-space: nowrap;
       bottom: 0px;
-      left: 32px; /*128px;*/
+      left: 32px;
     }
-    .ngSettingSelectMenu .triangle {
-      transform: rotate(45deg);
-      left: -8px;
-      bottom: 3px;
-    }
-    .zenzaScreenMode_wide .ngSettingSelectMenu,
-    .fullScreen           .ngSettingSelectMenu {
-      bottom: 0px;
-    }
+      .ngSettingSelectMenu .triangle {
+        transform: rotate(45deg);
+        left: -8px;
+        bottom: 3px;
+      }
+      .zenzaScreenMode_wide .ngSettingSelectMenu,
+      .fullScreen           .ngSettingSelectMenu {
+        bottom: 0px;
+      }
 
-    .ngSettingSelectMenu .sharedNgLevelSelect {
-      display: none;
-    }
+      .ngSettingSelectMenu .sharedNgLevelSelect {
+        display: none;
+      }
 
-    .ngSettingSelectMenu.enableFilter .sharedNgLevelSelect {
-      display: block;
-    }
+      .ngSettingSelectMenu.is-enableFilter .sharedNgLevelSelect {
+        display: block;
+      }
 
 
     .menuItemContainer .mylistButton {
@@ -3063,14 +3049,8 @@ var CONSTANT = {};
     }
 
     .menuItemContainer .mylistButton:hover {
-      box-shadow: 2px 4px 2px #000;
       background: #888;
       text-shadow: 0px 0px 2px #66f;
-    }
-    .menuItemContainer .mylistButton:active {
-      box-shadow: none;
-      margin-left: 2px;
-      margin-top:  4px;
     }
 
     @keyframes spinX {
@@ -3087,8 +3067,8 @@ var CONSTANT = {};
       opacity: 1 !important;
       border: 1px inset !important;
       box-shadow: none !important;
-      margin-left: 2px !important;
-      margin-top:  4px !important;
+      /*margin-left: 2px !important;
+      margin-top:  4px !important;*/
       background: #888 !important;
       animation-name: spinX;
       animation-iteration-count: infinite;
@@ -3122,81 +3102,78 @@ var CONSTANT = {};
       right: 40px;
       padding: 8px 0;
     }
-    .mylistSelectMenu .mylistSelectMenuInner {
-      overflow-y: auto;
-      overflow-x: hidden;
-      max-height: 50vh;
-    }
+      .mylistSelectMenu .mylistSelectMenuInner {
+        overflow-y: auto;
+        overflow-x: hidden;
+        max-height: 50vh;
+      }
 
-    .mylistSelectMenu .triangle {
-      transform: rotate(135deg);
-      top: -8.5px;
-      right: 55px;
-    }
+      .mylistSelectMenu .triangle {
+        transform: rotate(135deg);
+        top: -8.5px;
+        right: 55px;
+      }
 
-    .mylistSelectMenu ul li {
-      line-height: 120%;
-      overflow-y: visible;
-      border-bottom: none;
-    }
+      .mylistSelectMenu ul li {
+        line-height: 120%;
+        overflow-y: visible;
+        border-bottom: none;
+      }
 
-    .mylistSelectMenu .listInner {
-    }
-
-    .mylistSelectMenu .mylistIcon {
-      display: inline-block;
-      width: 18px;
-      height: 14px;
-      margin: -4px 4px 0 0;
-      vertical-align: middle;
-      margin-right: 15px;
-      background: url("//uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
-      transform: scale(1.5); -webkit-transform: scale(1.5);
-      transform-origin: 0 0 0; -webkit-transform-origin: 0 0 0;
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-      -webkit-transition: -webkit-transform 0.1s ease, box-shadow 0.1s ease;
-      cursor: pointer;
-    }
-    .mylistSelectMenu .mylistIcon:hover {
-      background-color: #ff9;
-      transform: scale(2); -webkit-transform: scale(2);
-    }
-    .mylistSelectMenu .mylistIcon:hover::after {
-      background: #fff;
-      z-index: 100;
-      opacity: 1;
-    }
-    .mylistSelectMenu .deflist .mylistIcon { background-position: 0 -253px;}
-    .mylistSelectMenu .folder1 .mylistIcon { background-position: 0 -23px;}
-    .mylistSelectMenu .folder2 .mylistIcon { background-position: 0 -46px;}
-    .mylistSelectMenu .folder3 .mylistIcon { background-position: 0 -69px;}
-    .mylistSelectMenu .folder4 .mylistIcon { background-position: 0 -92px;}
-    .mylistSelectMenu .folder5 .mylistIcon { background-position: 0 -115px;}
-    .mylistSelectMenu .folder6 .mylistIcon { background-position: 0 -138px;}
-    .mylistSelectMenu .folder7 .mylistIcon { background-position: 0 -161px;}
-    .mylistSelectMenu .folder8 .mylistIcon { background-position: 0 -184px;}
-    .mylistSelectMenu .folder9 .mylistIcon { background-position: 0 -207px;}
+      .mylistSelectMenu .mylistIcon {
+        display: inline-block;
+        width: 18px;
+        height: 14px;
+        margin: -4px 4px 0 0;
+        vertical-align: middle;
+        margin-right: 15px;
+        background: url("//uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
+        transform: scale(1.5); -webkit-transform: scale(1.5);
+        transform-origin: 0 0 0; -webkit-transform-origin: 0 0 0;
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+        -webkit-transition: -webkit-transform 0.1s ease, box-shadow 0.1s ease;
+        cursor: pointer;
+      }
+      .mylistSelectMenu .mylistIcon:hover {
+        background-color: #ff9;
+        transform: scale(2); -webkit-transform: scale(2);
+      }
+      .mylistSelectMenu .mylistIcon:hover::after {
+        background: #fff;
+        z-index: 100;
+        opacity: 1;
+      }
+      .mylistSelectMenu .deflist .mylistIcon { background-position: 0 -253px;}
+      .mylistSelectMenu .folder1 .mylistIcon { background-position: 0 -23px;}
+      .mylistSelectMenu .folder2 .mylistIcon { background-position: 0 -46px;}
+      .mylistSelectMenu .folder3 .mylistIcon { background-position: 0 -69px;}
+      .mylistSelectMenu .folder4 .mylistIcon { background-position: 0 -92px;}
+      .mylistSelectMenu .folder5 .mylistIcon { background-position: 0 -115px;}
+      .mylistSelectMenu .folder6 .mylistIcon { background-position: 0 -138px;}
+      .mylistSelectMenu .folder7 .mylistIcon { background-position: 0 -161px;}
+      .mylistSelectMenu .folder8 .mylistIcon { background-position: 0 -184px;}
+      .mylistSelectMenu .folder9 .mylistIcon { background-position: 0 -207px;}
 
 
-    .mylistSelectMenu .name {
-      display: inline-block;
-      width: calc(100% - 20px);
-      vertical-align: middle;
-      font-size: 110%;
-      color: #fff;
-      text-decoration: none !important;
-    }
-    .mylistSelectMenu .name:hover {
-      color: #fff;
-    }
-    .mylistSelectMenu .name::after {
-      content: ' に登録';
-      font-size: 75%;
-      color: #333;
-    }
-    .mylistSelectMenu li:hover .name::after {
-      color: #fff;
-    }
+      .mylistSelectMenu .name {
+        display: inline-block;
+        width: calc(100% - 20px);
+        vertical-align: middle;
+        font-size: 110%;
+        color: #fff;
+        text-decoration: none !important;
+      }
+      .mylistSelectMenu .name:hover {
+        color: #fff;
+      }
+      .mylistSelectMenu .name::after {
+        content: ' に登録';
+        font-size: 75%;
+        color: #333;
+      }
+      .mylistSelectMenu li:hover .name::after {
+        color: #fff;
+      }
 
     .menuItemContainer .zenzaTweetButton {
       width:  32px;
@@ -3208,17 +3185,18 @@ var CONSTANT = {};
       font-size: 24px;
       white-space: nowrap;
     }
-    .is-mouseMoving .zenzaTweetButton {
-      text-shadow: 1px 1px 2px #88c;
-    }
-    .zenzaTweetButton:hover {
-      text-shadow: 1px 1px 2px #88c;
-      background: #1da1f2;
-      color: #fff;
-    }
-    .zenzaTweetButton:active {
-      transform: scale(0.8);
-    }
+      .is-mouseMoving .zenzaTweetButton {
+        text-shadow: 1px 1px 2px #88c;
+      }
+      .zenzaTweetButton:hover {
+        text-shadow: 1px 1px 2px #88c;
+        background: #1da1f2;
+        color: #fff;
+      }
+      .zenzaTweetButton:active {
+        transform: scale(0.8);
+      }
+
 
     .closeButton {
       position: absolute;
@@ -3274,37 +3252,41 @@ var CONSTANT = {};
       background: rgba(192, 192, 192, 0.8);
     }
 
+    .is-filterEnable {
+    }
   `).trim();
 
   VideoHoverMenu.__tpl__ = (`
+    <div class="hoverMenuContainer">
       <div class="menuItemContainer leftTop">
-          <div class="menuButton toggleDebugButton" data-command="toggle-debug">
+          <div class="command menuButton toggleDebugButton" data-command="toggle-debug">
             <div class="menuButtonInner">debug mode</div>
           </div>
       </div>
+
       <div class="menuItemContainer rightTop">
         <div class="scalingUI">
-          <div class="menuButton zenzaTweetButton" data-command="tweet">
+          <div class="command menuButton zenzaTweetButton" data-command="tweet">
             <div class="tooltip">ツイート</div>
             <div class="menuButtonInner">t</div>
           </div>
-          <div class="menuButton mylistButton mylistAddMenu" data-command="mylistMenu">
+          <div class="command menuButton mylistButton mylistAddMenu" data-command="mylistMenu">
             <div class="tooltip">マイリスト登録</div>
             <div class="menuButtonInner">My</div>
           </div>
 
-          <div class="mylistSelectMenu zenzaPopupMenu">
+          <div class="mylistSelectMenu selectMenu zenzaPopupMenu">
             <div class="triangle"></div>
             <div class="mylistSelectMenuInner">
             </div>
           </div>
 
-          <div class="menuButton mylistButton deflistAdd" data-command="deflistAdd">
+          <div class="command menuButton mylistButton deflistAdd" data-command="deflistAdd">
             <div class="tooltip">とりあえずマイリスト(T)</div>
             <div class="menuButtonInner">&#x271A;</div>
           </div>
 
-          <div class="menuButton closeButton" data-command="close">
+          <div class="command menuButton closeButton" data-command="close">
             <div class="menuButtonInner">×</div>
           </div>
 
@@ -3313,37 +3295,49 @@ var CONSTANT = {};
 
       <div class="menuItemContainer leftBottom">
         <div class="scalingUI">
-          <div class="showCommentSwitch menuButton" data-command="toggle-showComment">
+          <div class="command showCommentSwitch menuButton" data-command="toggle-showComment">
             <div class="tooltip">コメント表示ON/OFF(V)</div>
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
+          <div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
             <div class="tooltip">コメントの表示順</div>
             <div class="layer comment">C</div>
             <div class="layer video">V</div>
           </div>
 
-          <div class="ngSettingMenu menuButton" data-command="ngSettingMenu">
+          <div class="command ngSettingMenu menuButton" data-command="ngSettingMenu">
             <div class="tooltip">NG設定</div>
             <div class="menuButtonInner">NG</div>
 
-              <div class="ngSettingSelectMenu zenzaPopupMenu">
+              <div class="ngSettingSelectMenu selectMenu zenzaPopupMenu">
                 <div class="triangle"></div>
                 <p class="caption">NG設定</p>
                 <ul>
-                  <li class="setIsCommentFilterEnable filter-on"
-                    data-command="setIsCommentFilterEnable" data-param="true"><span>ON</span></li>
-                  <li class="setIsCommentFilterEnable filter-off"
-                    data-command="setIsCommentFilterEnable" data-param="false"><span>OFF</span></li>
+                  <li class="command update-enableFilter"
+                    data-command="update-enableFilter"
+                    data-param="true"  data-type="bool"><span>ON</span></li>
+                  <li class="command update-enableFilter"
+                    data-command="update-enableFilter"
+                    data-param="false" data-type="bool"><span>OFF</span></li>
                 </ul>
                 <p class="caption sharedNgLevelSelect">NG共有設定</p>
                 <ul class="sharedNgLevelSelect">
-                  <li class="sharedNgLevel max"   data-command="sharedNgLevel" data-level="MAX"><span>最強</span></li>
-                  <li class="sharedNgLevel high"  data-command="sharedNgLevel" data-level="HIGH"><span>強</span></li>
-                  <li class="sharedNgLevel mid"   data-command="sharedNgLevel" data-level="MID"><span>中</span></li>
-                  <li class="sharedNgLevel low"   data-command="sharedNgLevel" data-level="LOW"><span>弱</span></li>
-                  <li class="sharedNgLevel none"  data-command="sharedNgLevel" data-level="NONE"><span>なし</span></li>
+                  <li class="command sharedNgLevel max"
+                    data-command="update-sharedNgLevel"
+                    data-param="MAX"><span>最強</span></li>
+                  <li class="command sharedNgLevel high"
+                    data-command="update-sharedNgLevel"
+                    data-param="HIGH"><span>強</span></li>
+                  <li class="command sharedNgLevel mid"
+                    data-command="update-sharedNgLevel"
+                    data-param="MID"><span>中</span></li>
+                  <li class="command sharedNgLevel low"
+                    data-command="update-sharedNgLevel"
+                    data-param="LOW"><span>弱</span></li>
+                  <li class="command sharedNgLevel none"
+                    data-command="update-sharedNgLevel"
+                    data-param="NONE"><span>なし</span></li>
                 </ul>
               </div>
 
@@ -3352,11 +3346,11 @@ var CONSTANT = {};
       </div>
 
       <div class="menuItemContainer onErrorMenu">
-        <div class="menuButton openGinzaMenu" data-command="openGinza">
+        <div class="command menuButton openGinzaMenu" data-command="openGinza">
           <div class="menuButtonInner">GINZAで視聴</div>
         </div>
 
-        <div class="menuButton reloadMenu" data-command="reload">
+        <div class="command menuButton reloadMenu" data-command="reload">
           <div class="menuButtonInner">リロード</div>
         </div>
 
@@ -3370,44 +3364,34 @@ var CONSTANT = {};
     initialize: function(params) {
       this._$playerContainer = params.$playerContainer;
       this._playerConfig     = params.playerConfig;
-      this._videoInfo        = params.videoInfo;
+      this._playerState      = params.playerState;
+
+      this._bound = {};
+      this._bound.onBodyClick = this._onBodyClick.bind(this);
+      this._bound.emitClose =
+        _.debounce(() => { this.emit.bind(this, 'command', 'close'); }, 300);
 
       this._initializeDom();
       this._initializeNgSettingMenu();
-      this._initializeSnsMenu();
 
-      ZenzaWatch.util.callAsync(this._initializeMylistSelectMenu, this);
+      window.setTimeout(this._initializeMylistSelectMenu.bind(this), 0);
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(VideoHoverMenu.__css__);
-      this._$playerContainer.append(VideoHoverMenu.__tpl__);
+      util.addStyle(VideoHoverMenu.__css__);
 
-      var $container = this._$playerContainer;
-      $container.find('.menuButton')
-        .on('contextmenu', function(e) { e.preventDefault(); e.stopPropagation(); })
-        .on('click',     this._onMenuButtonClick.bind(this))
-        .on('mousedown', this._onMenuButtonMouseDown.bind(this));
+      let $container = this._$playerContainer;
+      let container = this._container = $container[0];
+      container.appendChild(util.createDom(VideoHoverMenu.__tpl__));
 
-      this._$deflistAdd       = $container.find('.deflistAdd');
-      this._$mylistAddMenu    = $container.find('.mylistAddMenu');
-      this._$mylistSelectMenu = $container.find('.mylistSelectMenu');
-      this._$closeButton      = $container.find('.closeButton');
-      this._$closeButton.on('mousedown',
-        _.debounce(this.emit.bind(this, 'command', 'close'), 300));
-
-      this._$ngSettingMenu       = $container.find('.ngSettingMenu');
-      this._$ngSettingSelectMenu = $container.find('.ngSettingSelectMenu');
-
-      this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
-
-      this._$mylistSelectMenu.on('wheel', function(e) {
-        e.stopPropagation();
-      });
+      let menuContainer = util.$(container.querySelectorAll('.menuItemContainer'));
+      menuContainer.on('contextmenu',
+        e => { e.preventDefault(); e.stopPropagation(); });
+      menuContainer.on('click',     this._onClick.bind(this));
+      menuContainer.on('mousedown', this._onMouseDown.bind(this));
 
       ZenzaWatch.emitter.on('hideHover', () => {
         this._hideMenu();
       });
-
     },
     _initializeMylistSelectMenu: function() {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
@@ -3416,213 +3400,177 @@ var CONSTANT = {};
         this._initializeMylistSelectMenuDom();
       });
     },
-    _initializeMylistSelectMenuDom: function() {
-      var $menu = this._$mylistSelectMenu, $ul = $('<ul/>');
-      $(this._mylistList).each((i, mylist) => {
-        var $li = $('<li/>').addClass('folder' + mylist.icon_id);
-        var $icon = $('<span class="mylistIcon"/>').attr({
-            'data-mylist-id': mylist.id,
-            'data-mylist-name': mylist.name,
-            'data-command': 'open',
-            title: mylist.name + 'を開く'
-          });
-        var $link = $('<a class="mylistLink name"/>')
-          .html(mylist.name)
-          .attr({
-            href: '//www.nicovideo.jp/my/mylist/#/' + mylist.id,
-            'data-mylist-id': mylist.id,
-            'data-mylist-name': mylist.name,
-            'data-command': 'add'
-          });
+    _initializeMylistSelectMenuDom: function(mylistList) {
+      mylistList = mylistList || this._mylistList;
+      let menu = this._container.querySelector('.mylistSelectMenu');
+      menu.addEventListener('wheel', e => { e.stopPropagation(); }, {passive: true});
 
-        $li.append($icon);
-        $li.append($link);
-        $ul.append($li);
+      let ul = document.createElement('ul');
+      mylistList.forEach(mylist => {
+        let li = document.createElement('li');
+        li.className = `folder${mylist.icon_id}`;
+
+        let icon = document.createElement('span');
+        icon.className = 'mylistIcon command';
+        util.$(icon).attr({
+          'data-mylist-id':   mylist.id,
+          'data-mylist-name': mylist.name,
+          'data-command': 'mylistOpen',
+          title: mylist.name + 'を開く'
+        });
+
+        let link = document.createElement('a');
+        link.className = 'mylistLink name command';
+        link.textContent = mylist.name;
+        util.$(link).attr({
+          href: `//www.nicovideo.jp/my/mylist/#/${mylist.id}`,
+          'data-mylist-id': mylist.id,
+          'data-mylist-name': mylist.name,
+          'data-command': 'mylistAdd'
+        });
+
+        li.appendChild(icon);
+        li.appendChild(link);
+        ul.appendChild(li);
       });
 
-      $menu.find('.mylistSelectMenuInner').append($ul);
-      $menu.on('click', '.mylistIcon, .mylistLink', e => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-      $menu.on('mousedown', '.mylistIcon, .mylistLink', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target).closest('.mylistIcon, .mylistLink');
-        var command    = $target.attr('data-command');
-        var mylistId   = $target.attr('data-mylist-id');
-        var mylistName = $target.attr('data-mylist-name');
-
-        window.setTimeout(() => { this.toggleMylistMenu(false); }, 0);
-
-        if (command === 'open') {
-          location.href = '//www.nicovideo.jp/my/mylist/#/' + mylistId;
-        } else {
-          var cmd = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
-          this.emit('command', cmd, {mylistId: mylistId, mylistName: mylistName});
-        }
-      });
-
-    },
-    _initializeSnsMenu: function() {
-      this._$zenzaTweetButton = this._$playerContainer.find('.zenzaTweetButton');
+      this._container.querySelector('.mylistSelectMenuInner').appendChild(ul);
     },
     _initializeNgSettingMenu: function() {
-      var config = this._playerConfig;
-      var $menu = this._$ngSettingSelectMenu;
+      let state = this._playerState;
+      let menu = this._container.querySelector('.ngSettingSelectMenu');
 
-      $menu.on('click', 'li', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target).closest('.sharedNgLevel, .setIsCommentFilterEnable');
-        var command  = $target.attr('data-command');
-        if (command === 'sharedNgLevel') {
-          var level = $target.attr('data-level');
-          this.emit('command', command, level);
-        } else {
-          var param = JSON.parse($target.attr('data-param'));
-          this.emit('command', command, param);
-        }
-      });
-
-      var updateEnableFilter = (v) => {
-        //window.console.log('updateEnableFilter', v, typeof v);
-        $menu.find('.setIsCommentFilterEnable.selected').removeClass('selected');
-        if (v) {
-          $menu.find('.setIsCommentFilterEnable.filter-on') .addClass('selected');
-        } else {
-          $menu.find('.setIsCommentFilterEnable.filter-off').addClass('selected');
-        }
-        $menu.toggleClass('enableFilter', v);
+      let enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
+      const updateEnableFilter = (v) => {
+        enableFilterItems.forEach(item => {
+          const p = JSON.parse(item.getAttribute('data-param'));
+          item.classList.toggle('selected', v === p);
+        });
+        menu.classList.toggle('is-enableFilter', v);
       };
-      updateEnableFilter(config.getValue('enableFilter'));
-      config.on('update-enableFilter', updateEnableFilter);
+      updateEnableFilter(state.isEnableFilter);
+      state.on('update-isEnableFilter', updateEnableFilter);
 
-      var updateNgLevel = (level) => {
-        $menu.find('.sharedNgLevel.selected').removeClass('selected');
-        $menu.find('.sharedNgLevel').each(function(i, item) {
-          var $item = $(item);
-          if (level === $item.attr('data-level')) {
-            $item.addClass('selected');
-          }
+      let sharedNgItems = Array.from(menu.querySelectorAll('.sharedNgLevel'));
+      const updateNgLevel = (level) => {
+        sharedNgItems.forEach(item => {
+          item.classList.toggle('selected', level === item.getAttribute('data-param'));
         });
       };
-
-      updateNgLevel(config.getValue('sharedNgLevel'));
-      config.on('update-sharedNgLevel', updateNgLevel);
+      updateNgLevel(state.sharedNgLevel);
+      state.on('update-sharedNgLevel', updateNgLevel);
     },
-    _onMenuButtonMouseDown: function(e) {
-      var $target = $(e.target).closest('.menuButton');
-      var command = $target.attr('data-command');
+    _onMouseDown: function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const target =
+        e.target.classList.contains('command') ?  e.target : e.target.closest('.command');
+      if (!target) { return; }
+      let command = target.getAttribute('data-command');
       switch (command) {
         case 'deflistAdd':
           if (e.shiftKey) {
-            this.emit('command', 'mylistWindow');
+            command = 'mylistWindow';
           } else {
-            this.emit('command', e.which > 1 ? 'deflistRemove' : 'deflistAdd');
+            command = e.which > 1 ? 'deflistRemove' : 'deflistAdd';
           }
+          this.emit('command', command);
+          break;
+        case 'mylistAdd': {
+          command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
+          let mylistId   = target.getAttribute('data-mylist-id');
+          let mylistName = target.getAttribute('data-mylist-name');
+          this.emit('command', command, {mylistId: mylistId, mylistName: mylistName});
+          break;
+        }
+        case 'mylistOpen': {
+          let mylistId   = target.getAttribute('data-mylist-id');
+          location.href = `//www.nicovideo.jp/my/mylist/#/${mylistId}`;
+          break;
+        }
+        case 'close':
+          this._bound.emitClose();
           break;
         default:
           return;
       }
-      e.preventDefault();
-      e.stopPropagation();
     },
-    _onMenuButtonClick: function(e) {
+    _onClick: function(e) {
       e.preventDefault();
       e.stopPropagation();
-      var $target = $(e.target).closest('.menuButton');
-      var command = $target.attr('data-command');
+      const target =
+        e.target.classList.contains('command') ?  e.target : e.target.closest('.command');
+      if (!target) { return; }
+      const command = target.getAttribute('data-command');
+
+      const type  = target.getAttribute('data-type') || 'string';
+      let param   = target.getAttribute('data-param');
+      switch (type) {
+        case 'json':
+        case 'bool':
+        case 'number':
+          param = JSON.parse(param);
+          break;
+      }
+
       switch (command) {
+        case 'deflistAdd': case 'mylistAdd': case 'mylistOpen': case 'close':
+          break;
         case 'mylistMenu':
           if (e.shiftKey) {
             this.emit('command', 'mylistWindow');
           } else {
             this.toggleMylistMenu();
-            e.stopPropagation();
           }
           break;
-        case 'screenModeMenu':
-          this.toggleScreenModeMenu();
-          e.stopPropagation();
-          break;
-        case 'playbackRateMenu':
-          this.togglePlaybackRateMenu();
-          e.stopPropagation();
-          break;
         case 'ngSettingMenu':
+          //setTimeout(()  => {this.toggleNgSettingMenu();}, 0);
           this.toggleNgSettingMenu();
-          e.stopPropagation();
           break;
-        case 'settingPanel':
-          this.emit('command', 'settingPanel');
-          e.stopPropagation();
+        case 'deflistAdd':
           break;
-        case 'tweet':
-        case 'close':
-        case 'fullScreen':
-        case 'toggleMute':
-        case 'toggle-mute':
-        case 'toggle-comment':
-        case 'toggle-backComment':
-        case 'toggle-showComment':
-        case 'toggle-loop':
-        case 'toggle-debug':
-        case 'openGinza':
-        case 'reload':
-          this.emit('command', command);
+        default:
+          this.emit('command', command, param);
           break;
        }
     },
-    _onPlayerConfigUpdate: function(key, value) {
-    },
     _hideMenu: function() {
-      $([
-        'toggleMylistMenu',
-        'toggleScreenModeMenu',
-        'togglePlaybackRateMenu',
-        'toggleNgSettingMenu'
-      ]).each((i, func) => {
-        if (typeof this[func] === 'function') {
-          (this[func])(false);
-        }
-      });
+      this.toggleMylistMenu(false);
+      this.toggleNgSettingMenu(false);
     },
     toggleMylistMenu: function(v) {
-      var $btn  = this._$mylistAddMenu;
-      var $menu = this._$mylistSelectMenu;
-      this._toggleMenu('mylist', $btn, $menu, v);
+      this._toggleMenu('mylistAddMenu mylistSelectMenu', v);
     },
     toggleNgSettingMenu: function(v) {
-      var $btn  = this._$ngSettingMenu;
-      var $menu = this._$ngSettingSelectMenu;
-      this._toggleMenu('ngSetting', $btn, $menu, v);
+      this._toggleMenu('ngSettingMenu ngSettingSelectMenu', v);
     },
-    _toggleMenu: function(name, $btn, $menu, v) {
-      var $body = $('body');
-      var eventName = 'click.ZenzaWatch_' + name + 'Menu';
+    _toggleMenu: function(name, v) {
+      const body = this._body || util.$('body');
+      this._body = body;
+      
+      body.off('click', this._bound.onBodyClick);
 
-      $body.off(eventName);
-      $btn .toggleClass('show', v);
-      $menu.toggleClass('show', v);
+      util.$('.selectMenu, .menuButton').forEach(item => {
+        if (util.$(item).hasClass(name)) {
+          util.$(item).toggleClass('show', v);
+          v = util.$(item).hasClass('show');
+        } else {
+          item.classList.remove('show');
+        }
+      });
 
-      var onBodyClick = function() {
-        $btn.removeClass('show');
-        $menu.removeClass('show');
-        $body.off(eventName);
-        ZenzaWatch.emitter.emitAsync('hideMenu');
-      };
-      if ($menu.hasClass('show')) {
-        this._hideMenu();
-        $btn .addClass('show');
-        $menu.addClass('show');
-        $body.on(eventName, onBodyClick);
+      if (v) {
+        body.on('click', this._bound.onBodyClick);
         ZenzaWatch.emitter.emitAsync('showMenu');
-        return true;
       }
-      return false;
+      return !!v;
+    },
+    _onBodyClick: function() {
+      window.console.log('onBodyClick');
+      this._hideMenu();
+      ZenzaWatch.emitter.emitAsync('hideMenu');
     }
-   });
+  });
 
 
   var DynamicCss = function() { this.initialize.apply(this, arguments); };
@@ -3631,6 +3579,11 @@ var CONSTANT = {};
       transform: scale(%SCALE%);
     }
     .videoControlBar {
+      }
+      if ($menu.hasClass('show')) {
+        this._hideMenu();
+        $btn .addClass('show');
+        $menu.addClass('show');
       height: %CONTROL_BAR_HEIGHT%px !important;
     }
 

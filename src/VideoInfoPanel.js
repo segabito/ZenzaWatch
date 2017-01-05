@@ -2134,7 +2134,7 @@ const PRODUCT = 'ZenzaWatch';
       super();
 
       this._params = {parentNode, name, template, shadow, css};
-      this._bind = {};
+      this._bound = {};
       this._state = {};
       this._props = {};
       this._elm = {};
@@ -2158,7 +2158,7 @@ const PRODUCT = 'ZenzaWatch';
         tpl.id = tplId;
         document.body.appendChild(tpl);
       }
-      const onClick = this._bind.onClick = this._onClick.bind(this);
+      const onClick = this._bound.onClick = this._onClick.bind(this);
 
       const view = document.importNode(tpl.content, true);
       this._view = view.querySelector('*') || document.createDocumentFragment();
@@ -2542,8 +2542,8 @@ const PRODUCT = 'ZenzaWatch';
 
       this._config = Config.namespace('uaa');
 
-      this._bind.load   = this.load.bind(this);
-      this._bind.update = this.update.bind(this);
+      this._bound.load   = this.load.bind(this);
+      this._bound.update = this.update.bind(this);
     }
 
     _initDom(...args) {
