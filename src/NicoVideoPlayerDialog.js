@@ -46,7 +46,8 @@ var CONSTANT = {};
           'on',
           'off'
         ], (func) => {
-          this[func] = _.bind(config[func], config);
+          //this[func] = _.bind(config[func], config);
+          this[func] = config[func].bind(config);
         });
       }
     },
@@ -224,7 +225,7 @@ var CONSTANT = {};
       }
       if (this._state[key] === val) { return; }
       this._state[key] = val;
-      this.emit('state', key, val);
+      this.emit('change', key, val);
       this.emit(`update-${key}`, val);
     }
   }
@@ -236,6 +237,7 @@ var CONSTANT = {};
       this._name = 'Player';
       this._state = {
         isAbort:   false,
+        isAutoPlay: config.getValue('autoPlay'),
         isBackComment:    config.getValue('backComment'),
         isChanging: false,
         isChannel: false,
@@ -263,7 +265,8 @@ var CONSTANT = {};
         isEnableFilter: config.getValue('enableFilter'),
         sharedNgLevel: config.getValue('sharedNgLevel'),
 
-        screenMode: config.getValue('screenMode')
+        screenMode: config.getValue('screenMode'),
+        playbackRate: config.getValue('playbackRate')
       };
 
       this._defineProperty();
@@ -689,9 +692,6 @@ var CONSTANT = {};
       left: 2.38%;
       width: 95.23%;
     }
-    .zenzaScreenMode_big .zenzaPlayerContainer .videoPlayer {
-      /* width: 95.31%; left: 2.34%; */
-    }
 
     .zenzaScreenMode_big .zenzaPlayerContainer {
       width: ${CONSTANT.BIG_PLAYER_WIDTH}px;
@@ -937,7 +937,7 @@ var CONSTANT = {};
       dialog.on('videoServerType',   this._onVideoServerType.bind(this));
 
       this._initializeDom();
-      this._playerState.on('state', this._onPlayerStateChange.bind(this));
+      this._playerState.on('change', this._onPlayerStateChange.bind(this));
     },
     _initializeDom: function() {
       ZenzaWatch.util.addStyle(NicoVideoPlayerDialogView.__css__);
@@ -947,6 +947,8 @@ var CONSTANT = {};
       const dialog = this._dialog;
 
       const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
+      const container = $container[0];
+
       $container.on('click', (e) => {
         ZenzaWatch.emitter.emitAsync('hideHover');
         if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
@@ -983,8 +985,7 @@ var CONSTANT = {};
         });
 
       this._hoverMenu = new VideoHoverMenu({
-        $playerContainer: $container,
-        playerConfig: config,
+        playerContainer: container,
         playerState: this._playerState
       });
       this._hoverMenu.on('command', onCommand);
@@ -1041,7 +1042,6 @@ var CONSTANT = {};
       if (this._videoInfoPanel) { return this._videoInfoPanel; }
       this._videoInfoPanel = new VideoInfoPanel({
         dialog: this,
-        //player: nicoVideoPlayer,
         node: this._$playerContainer
       });
       this._videoInfoPanel.on('command', this._onCommand.bind(this));
@@ -1282,14 +1282,13 @@ var CONSTANT = {};
 
       this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
 
-      //this._playerConfig.on('update-screenMode', _.bind(this._updateScreenMode, this));
       this._initializeDom();
 
       this._keyEmitter.on('keyDown', this._onKeyDown.bind(this));
       this._keyEmitter.on('keyUp',   this._onKeyUp  .bind(this));
 
       this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
-      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
+      this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
 
       this._escBlockExpiredAt = -1;
 
@@ -1332,6 +1331,7 @@ var CONSTANT = {};
         offScreenLayer: this._offScreenLayer,
         node:           this._$playerContainer,
         playerConfig:  config,
+        playerState:   this._playerState,
         volume:        config.getValue('volume'),
         loop:          config.getValue('loop'),
         enableFilter:  config.getValue('enableFilter'),
@@ -1564,6 +1564,9 @@ var CONSTANT = {};
         case 'nicosSeek':
           this._onNicosSeek(param);
           break;
+        case 'saveMymemory':
+          util.saveMymemory(this, this._videoInfo);
+          break;
         case 'update-forceEconomy':
         case 'update-enableDmc':
         case 'update-dmcVideoQuality':
@@ -1702,6 +1705,9 @@ var CONSTANT = {};
     },
     _onPlayerConfigUpdate: function(key, value) {
       switch (key) {
+        case 'autoPlay':
+          this._playerState.isAutoPlay = !!value;
+          break;
         case 'backComment':
           this._playerState.isBackComment = !!value;
           break;
@@ -1742,6 +1748,9 @@ var CONSTANT = {};
           break;
         case 'screenMode':
           this._playerState.screenMode = value;
+          break;
+        case 'playbackRate':
+          this._playerState.playbackRate = value;
           break;
       }
     },
@@ -3362,14 +3371,13 @@ var CONSTANT = {};
   _.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
   _.assign(VideoHoverMenu.prototype, {
     initialize: function(params) {
-      this._$playerContainer = params.$playerContainer;
-      this._playerConfig     = params.playerConfig;
+      this._container        = params.playerContainer;
       this._playerState      = params.playerState;
 
       this._bound = {};
       this._bound.onBodyClick = this._onBodyClick.bind(this);
       this._bound.emitClose =
-        _.debounce(() => { this.emit.bind(this, 'command', 'close'); }, 300);
+        _.debounce(() => { this.emit('command', 'close'); }, 300);
 
       this._initializeDom();
       this._initializeNgSettingMenu();
@@ -3379,8 +3387,7 @@ var CONSTANT = {};
     _initializeDom: function() {
       util.addStyle(VideoHoverMenu.__css__);
 
-      let $container = this._$playerContainer;
-      let container = this._container = $container[0];
+      let container = this._container;
       container.appendChild(util.createDom(VideoHoverMenu.__tpl__));
 
       let menuContainer = util.$(container.querySelectorAll('.menuItemContainer'));
@@ -3389,9 +3396,7 @@ var CONSTANT = {};
       menuContainer.on('click',     this._onClick.bind(this));
       menuContainer.on('mousedown', this._onMouseDown.bind(this));
 
-      ZenzaWatch.emitter.on('hideHover', () => {
-        this._hideMenu();
-      });
+      ZenzaWatch.emitter.on('hideHover', this._hideMenu.bind(this));
     },
     _initializeMylistSelectMenu: function() {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
@@ -3515,6 +3520,7 @@ var CONSTANT = {};
 
       switch (command) {
         case 'deflistAdd': case 'mylistAdd': case 'mylistOpen': case 'close':
+          this._hideMenu();
           break;
         case 'mylistMenu':
           if (e.shiftKey) {
@@ -3524,12 +3530,10 @@ var CONSTANT = {};
           }
           break;
         case 'ngSettingMenu':
-          //setTimeout(()  => {this.toggleNgSettingMenu();}, 0);
           this.toggleNgSettingMenu();
           break;
-        case 'deflistAdd':
-          break;
         default:
+          this._hideMenu();
           this.emit('command', command, param);
           break;
        }

@@ -8,10 +8,11 @@ var ZenzaWatch = {
 var FullScreen = {};
 var NicoCommentPlayer = function() {};
 var AsyncEmitter = function() {};
-var VideoInfoLoader = {};
 const CONSTANT = {};
 class VideoCaptureUtil {}
 const Config = {};
+const util = {};
+class BaseViewComponent {}
 
 //===BEGIN===
 
@@ -29,6 +30,7 @@ const Config = {};
       var conf = this._playerConfig = params.playerConfig;
 
       this._fullScreenNode = params.fullScreenNode;
+      this._playerState = params.playerState;
 
       const playbackRate =
         ZenzaWatch.util.isPremium() ?
@@ -61,10 +63,11 @@ const Config = {};
       });
       this._commentPlayer.on('command', onCommand);
 
-      this._contextMenu = new VideoContextMenu({
-        player: this,
-        playerConfig: conf
+      this._contextMenu = new ContextMenu({
+        parentNode: params.node.length ? params.node[0] : params.node,
+        playerState: this._playerState
       });
+      this._contextMenu.on('command', onCommand);
 
       if (params.node) {
         this.appendTo(params.node);
@@ -79,8 +82,7 @@ const Config = {};
     _beginTimer: function() {
       this._stopTimer();
       this._videoWatchTimer =
-        window.setInterval(
-          _.bind(this._onTimer, this), 100);
+        window.setInterval(this._onTimer.bind(this), 100);
     },
     _stopTimer: function() {
       if (!this._videoWatchTimer) { return; }
@@ -103,27 +105,28 @@ const Config = {};
 
       // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
       this._videoPlayer.on('mouseWheel',
-        _.throttle(_.bind(this._onMouseWheel, this), 50));
+        _.throttle(this._onMouseWheel.bind(this), 50));
 
-      this._videoPlayer.on('abort', _.bind(this._onAbort, this));
-      this._videoPlayer.on('error', _.bind(this._onError, this));
+      this._videoPlayer.on('abort', this._onAbort.bind(this));
+      this._videoPlayer.on('error', this._onError.bind(this));
 
-      this._videoPlayer.on('click', _.bind(this._onClick, this));
-      this._videoPlayer.on('contextMenu', _.bind(this._onContextMenu, this));
+      this._videoPlayer.on('click', this._onClick.bind(this));
+      this._videoPlayer.on('contextMenu', this._onContextMenu.bind(this));
 
-      this._commentPlayer.on('parsed', _.bind(this._onCommentParsed, this));
-      this._commentPlayer.on('change', _.bind(this._onCommentChange, this));
-      this._commentPlayer.on('filterChange', _.bind(this._onCommentFilterChange, this));
-      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
+      this._commentPlayer.on('parsed', this._onCommentParsed.bind(this));
+      this._commentPlayer.on('change', this._onCommentChange.bind(this));
+      this._commentPlayer.on('filterChange', this._onCommentFilterChange.bind(this));
+      //this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
+      this._playerState.on('change', this._onPlayerStateChange.bind(this));
     },
     _onVolumeChange: function(vol, mute) {
       this._playerConfig.setValue('volume', vol);
       this._playerConfig.setValue('mute', mute);
       this.emit('volumeChange', vol, mute);
     },
-    _onPlayerConfigUpdate: function(key, value) {
+    _onPlayerStateChange: function(key, value) {
       switch (key) {
-        case 'loop':
+        case 'isLoop':
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
@@ -131,30 +134,21 @@ const Config = {};
           this._videoPlayer.setPlaybackRate(value);
           this._commentPlayer.setPlaybackRate(value);
           break;
-        case 'autoPlay':
+        case 'isAutoPlay':
           this._videoPlayer.setIsAutoPlay(value);
           break;
-        case 'showComment':
+        case 'isCommentVisible':
           if (value) {
             this._commentPlayer.show();
           } else {
             this._commentPlayer.hide();
           }
           break;
-        case 'mute':
+        case 'isMute':
           this._videoPlayer.setMute(value);
           break;
         case 'sharedNgLevel':
           this.setSharedNgLevel(value);
-          break;
-        case 'wordFilter':
-          this.setWordFilterList(value);
-          break;
-        case 'userIdFilter':
-          this.setUserIdFilterList(value);
-          break;
-        case 'commandFilter':
-          this.setCommandFilterList(value);
           break;
       }
     },
@@ -232,7 +226,13 @@ const Config = {};
       }
     },
     _onContextMenu: function(e) {
-      this._contextMenu.show(e.offsetX, e.offsetY);
+      // コンテキストメニューが出ていないときだけ出す
+      // すでに出ているときはブラウザネイティブのメニュー
+      if (!this._contextMenu.isOpen) {
+        e.stopPropagation();
+        e.preventDefault();
+        this._contextMenu.show(e.offsetX, e.offsetY);
+      }
     },
     _onCommentParsed: function() {
       this.emit('commentParsed');
@@ -295,9 +295,8 @@ const Config = {};
     appendTo: function(node) {
       var $node = typeof node === 'string' ? $(node) : node;
       this._$parentNode = node;
-      this._videoPlayer.appendTo($node);
+      this._videoPlayer.appendTo($node[0]);
       this._commentPlayer.appendTo($node);
-      this._contextMenu.appendTo($node);
     },
     close: function() {
       this._videoPlayer.close();
@@ -428,8 +427,81 @@ const Config = {};
   });
 
 
-  var VideoContextMenu = function() { this.initialize.apply(this, arguments); };
-  VideoContextMenu.__css__ = (`
+  class ContextMenu extends BaseViewComponent {
+    constructor({parentNode, playerState}) {
+      super({
+        parentNode,
+        name: 'VideoContextMenu',
+        template: ContextMenu.__tpl__,
+        css: ContextMenu.__css__
+      });
+      this._playerState = playerState;
+      this._state = {
+        isOpen: false
+      };
+
+      this._bound.onBodyClick = this.hide.bind(this);
+    }
+
+    _initDom(...args) {
+      super._initDom(...args);
+      ZenzaWatch.debug.contextMenu = this;
+      const onMouseDown = this._bound.onMouseDown = this._onMouseDown.bind(this);
+      this._view.addEventListener('mousedown', onMouseDown);
+    }
+
+    _onClick(e) {
+      if (e.type !== 'mousedown') { return; }
+      super._onClick(e);
+    }
+
+    _onMouseDown(e) {
+      this.hide();
+      this._onClick(e);
+    }
+
+    show(x, y) {
+      document.body.addEventListener('click', this._bound.onBodyClick);
+      const view = this._view;
+
+      this._onBeforeShow(x, y);
+
+      view.style.left =
+        Math.max(0, Math.min(x, window.innerWidth  - view.offsetWidth)) + 'px';
+      view.style.top =
+        Math.max(0, Math.min(y, window.innerHeight - view.offsetHeight)) + 'px';
+      this.setState({isOpen: true});
+      ZenzaWatch.emitter.emitAsync('showMenu');
+    }
+
+    hide() {
+      document.body.removeEventListener('click', this._bound.onBodyClick);
+      util.$(this._view).css({left: '', top: ''});
+      this.setState({isOpen: false});
+      ZenzaWatch.emitter.emitAsync('hideMenu');
+    }
+
+    get isOpen() {
+      return this._state.isOpen;
+    }
+
+    _onBeforeShow() {
+      // チェックボックスなどを反映させるならココ
+      const pr = parseFloat(this._playerState.playbackRate, 10);
+      const view = util.$(this._view);
+      view.find('.selected').removeClass('selected');
+      view.find('.playbackRate').forEach(elm => {
+        const p = parseFloat(elm.getAttribute('data-param'), 10);
+        if (Math.abs(p - pr) < 0.01) {
+          elm.classList.add('selected');
+        }
+      });
+      view.find('.debug')
+        .toggleClass('selected', this._playerState.isDebug);
+    }
+  }
+
+  ContextMenu.__css__ = (`
     .zenzaPlayerContextMenu {
       position: fixed;
       background: #fff;
@@ -448,7 +520,7 @@ const Config = {};
       position: absolute;
     }
 
-    .zenzaPlayerContextMenu:not(.show) {
+    .zenzaPlayerContextMenu:not(.is-Open) {
       left: -9999px;
       top: -9999px;
       opacity: 0;
@@ -487,187 +559,65 @@ const Config = {};
     }
     .zenzaPlayerContextMenu.show {
       opacity: 0.8;
-      /*mix-blend-mode: luminosity;*/
     }
     .zenzaPlayerContextMenu .listInner {
     }
   `).trim();
 
-  VideoContextMenu.__tpl__ = (`
+  ContextMenu.__tpl__ = (`
     <div class="zenzaPlayerContextMenu">
       <div class="listInner">
         <ul>
-          <li data-command="togglePlay">停止/再開</li>
-          <li data-command="restart">先頭に戻る</li>
-          <!--
-          <li class="loop"        data-command="loop">リピート再生</li>
-          <li class="showComment" data-command="showComment">コメントを表示</li>
-          <li class="autoPlay"    data-command="autoPlay">自動再生</li>
-          -->
+          <li class="command" data-command="togglePlay">停止/再開</li>
+          <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
+          <hr class="separator">
+
+          <li class="command seek"
+            data-command="seekBy" data-param="-10" data-type="number">10秒戻る</li>
+          <li class="command seek"
+            data-command="seekBy" data-param="10"  data-type="number">10秒進む</li>
+          <li class="command seek"
+            data-command="seekBy" data-param="-30" data-type="number">30秒戻る</li>
+          <li class="command seek"
+            data-command="seekBy" data-param="30"  data-type="number">30秒進む</li>
 
           <hr class="separator">
 
-          <li class="seek" data-command="seek" data-param="-10">10秒戻る</li>
-          <li class="seek" data-command="seek" data-param="10" >10秒進む</li>
-          <li class="seek" data-command="seek" data-param="-30">30秒戻る</li>
-          <li class="seek" data-command="seek" data-param="30" >30秒進む</li>
+          <li class="command playbackRate"
+            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(0.1x)</li>
+          <li class="command playbackRate"
+            data-command="playbackRate" data-param="0.5"  data-type="number">0.5x</li>
+          <li class="command playbackRate"
+            data-command="playbackRate" data-param="0.75" data-type="number">0.75x</li>
+          <li class="command playbackRate"
+            data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
+          <li class="command playbackRate forPremium"
+            data-command="playbackRate" data-param="1.25" data-type="number">1.25x</li>
+          <li class="command playbackRate forPremium"
+            data-command="playbackRate" data-param="1.5"  data-type="number">1.5x</li>
+          <li class="command playbackRate forPremium"
+            data-command="playbackRate" data-param="2"    data-type="number">倍速(2x)</li>
 
           <hr class="separator">
 
-          <li class="playbackRate" data-command="playbackRate" data-param="0.1">コマ送り(0.1x)</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="0.5">0.5x</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="0.75">0.75x</li>
-          <li class="playbackRate" data-command="playbackRate" data-param="1.0">標準速度</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.25">1.25x</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="1.5">1.5x</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="2">倍速(2x)</li>
-          <!--
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="4">4倍速(4x)</li>
-          <li class="playbackRate forPremium" data-command="playbackRate" data-param="10.0">最高速(10x)</li>
-          -->
-          <hr class="separator">
-          <li class="debug"        data-command="debug">デバッグ</li>
-          <li class="screenShot forDmc" data-command="screenShot">スクリーンショットの保存</a></li>
-          <li class="mymemory"     data-command="mymemory">コメントの保存</a></li>
+          <li class="command debug"
+            data-command="toggle-debug">デバッグ</li>
+          <li class="command screenShot"
+            data-command="screenShot">スクリーンショットの保存</a></li>
+          <li class="command mymemory"
+            data-command="saveMymemory">コメントの保存</a></li>
         </ul>
       </div>
     </div>
   `).trim();
 
 
-  _.assign(VideoContextMenu.prototype, {
-    initialize: function(params) {
-      this._playerConfig = params.playerConfig;
-      this._player = params.player;
-      this._initializeDom(params);
 
-      //this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
-    },
-    _initializeDom: function(params) {
-      ZenzaWatch.util.addStyle(VideoContextMenu.__css__);
-      var $view = this._$view = $(VideoContextMenu.__tpl__);
-      $view.on('click', _.bind(this._onMouseDown, this));
-    },
-    _onMouseDown: function(e) {
-      var target = e.target, $target = $(target).closest('li');
-      var command = $target.attr('data-command');
-      var param = $target.attr('data-param');
-      this.hide();
-      e.preventDefault();
-      e.stopPropagation();
-      var player = this._player;
-      var playerConfig = this._playerConfig;
-      switch (command) {
-        case 'togglePlay':
-          player.togglePlay();
-          break;
-        case 'showComment':
-        case 'loop':
-        case 'autoPlay':
-        case 'debug':
-          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
-          break;
-        case 'restart':
-          player.setCurrentTime(0);
-          break;
-        case 'seek':
-          var ct = player.getCurrentTime();
-          player.setCurrentTime(ct + parseInt(param, 10));
-          break;
-        case 'playbackRate':
-          if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
-          playerConfig.setValue('playbackRate', parseFloat(param, 10));
-          break;
-        case 'mymemory':
-          this._createMymemory();
-          break;
-        case 'screenShot':
-          player.getScreenShot();
-          break;
-      }
-    },
-    _onBodyClick: function() {
-      this.hide();
-    },
-    _onBeforeShow: function() {
-      // チェックボックスなどを反映させるならココ
-      var pr = this._playerConfig.getValue('playbackRate');
-      this._$view.find('.selected').removeClass('selected');
-      this._$view.find('.playbackRate').each(function(i, elm) {
-        var $elm = $(elm);
-        var p = parseFloat($elm.attr('data-param'), 10);
-        if (p == pr) {
-          $elm.addClass('selected');
-        }
-      });
-      this._$view.find('.showComment')
-        .toggleClass('selected', this._playerConfig.getValue('showComment'));
-      this._$view.find('.loop')
-        .toggleClass('selected', this._playerConfig.getValue('loop'));
-      this._$view.find('.autoPlay')
-        .toggleClass('selected', this._playerConfig.getValue('autoPlay'));
-      this._$view.find('.debug')
-        .toggleClass('selected', this._playerConfig.getValue('debug'));
-    },
-    appendTo: function($node) {
-      this._$node = $node;
-      $node.append(this._$view);
-    },
-    show: function(x, y) {
-      $('body').on('click.ZenzaMenuOnBodyClick', _.bind(this._onBodyClick, this));
-      var $view = this._$view, $window = $(window);
-
-      this._onBeforeShow(x, y);
-
-      $view.css({
-        left: Math.max(0, Math.min(x, $window.innerWidth()  - $view.outerWidth())),
-        top:  Math.max(0, Math.min(y, $window.innerHeight() - $view.outerHeight())),
-      });
-      this._$view.addClass('show');
-      ZenzaWatch.emitter.emitAsync('showMenu');
-    },
-    hide: function() {
-      $('body').off('click.ZenzaMenuOnBodyClick', this._onBodyClick);
-      this._$view.css({top: '', left: ''}).removeClass('show');
-      ZenzaWatch.emitter.emitAsync('hideMenu');
-    },
-    _createMymemory: function() {
-      var html = this._player.getMymemory();
-      var videoInfo = this._player.getVideoInfo();
-      var title =
-        videoInfo.getWatchId() + ' - ' +
-        videoInfo.getTitle(); // エスケープされてる
-      var info = [
-        '<div>',
-          '<h2>', videoInfo.getTitle(), '</h2>',
-          '<a href="//www.nicovideo.jp/watch/', videoInfo.getWatchId(), '?from=', Math.floor(this._player.getCurrentTime()),'">元動画</a><br>',
-          '作成環境: ', navigator.userAgent, '<br>',
-          '作成日: ', (new Date).toLocaleString(), '<br>',
-          '<button ',
-          '  onclick="document.body.className = document.body.className !== \'debug\' ? \'debug\' : \'\';return false;">デバッグON/OFF </button>',
-        '</div>'
-      ].join('');
-      html = html
-        .replace(/<title>(.*?)<\/title>/, '<title>' + title + '</title>')
-        .replace(/(<body.*?>)/, '$1' + info);
-
-      var blob = new Blob([html], { 'type': 'text/html' });
-      var url = window.URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.setAttribute('download', title + '.html');
-      a.setAttribute('target', '_blank');
-      a.setAttribute('href', url);
-      document.body.appendChild(a);
-      a.click();
-      window.setTimeout(function() { a.remove(); }, 1000);
-    }
-  });
 
 
   /**
    *  Video要素をラップした物
    *  操作パネル等を自前で用意したいが、まだ手が回らない。
-   *  中途半端にjQuery使っててきもい
    *
    *  いずれは同じインターフェースのflash版も作って、swf/flv等の再生もサポートしたい。
    */
@@ -707,27 +657,28 @@ const Config = {};
         this._video.remove();
       }
 
-      var options = {
-        autoPlay: !!params.autoPlay,
-        autoBuffer: true,
+      const options = {
+        autoplay: !!params.autoPlay,
+        autobuffer: true,
         preload: 'auto',
-        controls: !true,
-        loop: !!params.loop,
+//        loop: !!params.loop,
         mute: !!params.mute,
         'playsinline': true,
         'webkit-playsinline': true
       };
 
-      var volume =
+      const volume =
         params.hasOwnProperty('volume') ? parseFloat(params.volume) : 0.5;
-      var playbackRate = this._playbackRate =
+      const playbackRate = this._playbackRate =
         params.hasOwnProperty('playbackRate') ? parseFloat(params.playbackRate) : 1.0;
 
-      const $video = $('<video class="videoPlayer nico" preload="auto" autoplay playsinline webkit-playsinline/>')
-        .addClass(this._id)
+      const video = document.createElement('video');
+      util.$(video)
+        .addClass(`videoPlayer nico ${this._id}`)
         .attr(options);
-      this._$video = $video;
-      this._video = $video[0];
+      this._video = video;
+      this._video.controls = false;
+      this._video.loop = !!params.loop;
 
       this._isPlaying = false;
       this._canPlay = false;
@@ -742,7 +693,7 @@ const Config = {};
 
     },
     _initializeEvents: function() {
-      this._$video
+      util.$(this._video)
         .on('canplay',        this._onCanPlay        .bind(this))
         .on('canplaythrough', this._onCanPlayThrough .bind(this))
         .on('loadstart',      this._onLoadStart      .bind(this))
@@ -784,12 +735,6 @@ const Config = {};
         this.emit('canPlay');
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
-
-        //var subVideo = this._subVideo;
-        //subVideo.play();
-        //window.setTimeout(function() {
-        //  subVideo.pause();
-        //}, 500);
       }
     },
     _onCanPlayThrough: function() {
@@ -904,10 +849,10 @@ const Config = {};
       this.emit('dblclick');
     },
     _onMouseWheel: function(e) {
-      //console.log('%c_onMouseWheel:', 'background: cyan;', e);
+      console.log('%c_onMouseWheel:', 'background: cyan;', e);
       e.preventDefault();
       e.stopPropagation();
-      var delta = - parseInt(e.originalEvent.deltaY, 10);
+      const delta = - parseInt(e.deltaY, 10);
       //window.console.log('wheel', e, delta);
       if (delta !== 0) {
         this.emit('mouseWheel', e, delta);
@@ -915,8 +860,8 @@ const Config = {};
     },
     _onContextMenu: function(e) {
       //console.log('%c_onContextMenu:', 'background: cyan;', e);
-      e.preventDefault();
-      e.stopPropagation();
+      //e.preventDefault();
+      //e.stopPropagation();
       this.emit('contextMenu', e);
     },
     canPlay: function() {
@@ -1034,12 +979,10 @@ const Config = {};
     getIsAutoPlay: function() {
       return this._video.autoPlay;
     },
-    appendTo: function($node) {
-      this._$node = $node;
-      $node.append(this._$video);
-      //$node.append(this._$subVideo);
-      var videos = document.getElementsByClassName(this._id);
-      this._video = videos[0];
+    appendTo: function(node) {
+      node.appendChild(this._video);
+      //var videos = document.getElementsByClassName(this._id);
+      //this._video = videos[0];
     },
     close: function() {
       this._video.pause();
@@ -1080,4 +1023,8 @@ const Config = {};
       return this._video;
     }
   });
+
+
+
+//===END===
 

@@ -1543,6 +1543,38 @@ class CrossDomainGate {}
       });
     };
 
+    util.saveMymemory = function(player, videoInfo) {
+      let html = player.getMymemory();
+      const title =
+        videoInfo.getWatchId() + ' - ' +
+        videoInfo.getTitle(); // エスケープされてる
+      const info = (`
+        <div>
+          <h2>${videoInfo.getTitle()}</h2>
+          <a href="//www.nicovideo.jp/watch/${videoInfo.getWatchId()}?from=${Math.floor(player.getCurrentTime())}">元動画</a><br>
+          作成環境: ${navigator.userAgent}<br>
+          作成日: ${(new Date()).toLocaleString()}<br>
+          <button
+            onclick="document.body.classList.toggle('debug');return false;">
+            デバッグON/OFF
+          </button>
+        </div>
+      `).trim();
+      html = html
+        .replace(/<title>(.*?)<\/title>/, '<title>' + title + '</title>')
+        .replace(/(<body.*?>)/, '$1' + info);
+
+      const blob = new Blob([html], {'type': 'text/html'});
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('download', title + '.html');
+      a.setAttribute('target', '_blank');
+      a.setAttribute('href', url);
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(() => { a.remove(); }, 1000);
+    };
+
     util.speak = (() => {
       let speaking = false;
       let msg = null;
@@ -1618,7 +1650,7 @@ class CrossDomainGate {}
           if (elements instanceof(NodeList)) {
             elements = Array.from(elements);
           }
-          this._elements = elements;
+          this._elements = _.uniq(elements);
 
           this._eventListener = {};
         }
@@ -1636,15 +1668,14 @@ class CrossDomainGate {}
         }
 
         find(query) {
-          let result = [];
-
+          const result = [];
           this.forEach(elm => {
             Array.from(elm.querySelectorAll(query)).forEach(e => {
               result.push(e);
             });
           });
 
-          return new $wrapper(result);
+          return new $wrapper(_.uniq(result));
         }
 
         toggleClass(className, v) {
@@ -1722,7 +1753,11 @@ class CrossDomainGate {}
         }
 
         _setAttribute(key, val) {
-          this.forEach(e => { e.setAttribute(key, val); });
+          if (val === null || val === '' || val === undefined) {
+            this.forEach(e => { e.removeAttribute(key); });
+          } else {
+            this.forEach(e => { e.setAttribute(key, val); });
+          }
           return this;
         }
 
@@ -2483,6 +2518,149 @@ class CrossDomainGate {}
     };
   })();
 
+  class BaseViewComponent extends AsyncEmitter {
+    constructor({parentNode = null, name = '', template = '', shadow = '', css = ''}) {
+      super();
+
+      this._params = {parentNode, name, template, shadow, css};
+      this._bound = {};
+      this._state = {};
+      this._props = {};
+      this._elm = {};
+
+      this._initDom({
+        parentNode,
+        name,
+        template,
+        shadow,
+        css
+      });
+    }
+
+    _initDom({parentNode, name, template, css = '', shadow = ''}) {
+      let tplId = `${PRODUCT}${name}Template`;
+      let tpl = document.getElementById(tplId);
+      if (!tpl) {
+        if (css) { util.addStyle(css, `${name}Style`); }
+        tpl = document.createElement('template');
+        tpl.innerHTML = template;
+        tpl.id = tplId;
+        document.body.appendChild(tpl);
+      }
+      const onClick = this._bound.onClick = this._onClick.bind(this);
+
+      const view = document.importNode(tpl.content, true);
+      this._view = view.querySelector('*') || document.createDocumentFragment();
+      if (this._view) {
+        this._view.addEventListener('click', onClick);
+      }
+      this.appendTo(parentNode);
+
+      if (shadow) {
+        this._attachShadow({host: this._view, name, shadow});
+        if (!this._isDummyShadow) {
+          this._shadow.addEventListener('click', onClick);
+        }
+      }
+    }
+
+    _attachShadow ({host, shadow, name, mode = 'open'}) {
+      let tplId = `${PRODUCT}${name}Shadow`;
+      let tpl = document.getElementById(tplId);
+      if (!tpl) {
+        tpl = document.createElement('template');
+        tpl.innerHTML = shadow;
+        tpl.id = tplId;
+        document.body.appendChild(tpl);
+      }
+
+      if (!host.attachShadow && !host.createShadowRoot) {
+        return this._fallbackNoneShadowDom({host, tpl, name});
+      }
+
+      const root = host.attachShadow ?
+        host.attachShadow({mode}) : host.createShadowRoot();
+      const node = document.importNode(tpl.content, true);
+      root.appendChild(node);
+      this._shadowRoot = root;
+      this._shadow = root.querySelector('.root');
+      this._isDummyShadow = false;
+    }
+
+    _fallbackNoneShadowDom({host, tpl, name}) {
+      const node = document.importNode(tpl.content, true);
+      const style = node.querySelector('style');
+      style.remove();
+      util.addStyle(style.innerHTML, `${name}Shadow`);
+      host.appendChild(node);
+      this._shadow = this._shadowRoot = host.querySelector('.root');
+      this._isDummyShadow = true;
+    }
+
+    setState(key, val) {
+      if (typeof key === 'string') {
+        this._setState(key, val);
+      }
+      Object.keys(key).forEach(k => {
+        this._setState(k, key[k]);
+      });
+    }
+
+    _setState(key, val) {
+      if (this._state[key] !== val) {
+        this._state[key] = val;
+        if (/^is(.*)$/.test(key))  {
+          this.toggleClass(`is-${RegExp.$1}`, !!val);
+        }
+        this.emit('update', {key, val});
+      }
+    }
+
+    _onClick(e) {
+      const target = e.target.classList.contains('command') ?
+        e.target : e.target.closest('.command');
+
+      if (!target) { return; }
+
+      const command = target.getAttribute('data-command');
+      if (!command) { return; }
+      const type  = target.getAttribute('data-type') || 'string';
+      let param   = target.getAttribute('data-param');
+      e.stopPropagation();
+      e.preventDefault();
+      switch (type) {
+        case 'json':
+        case 'bool':
+        case 'number':
+          param = JSON.parse(param);
+          break;
+      }
+
+      this._onCommand(command, param);
+    }
+
+    appendTo(parentNode) {
+      if (!parentNode) { return; }
+      this._parentNode = parentNode;
+      parentNode.appendChild(this._view);
+    }
+
+    _onCommand(command, param) {
+      this.emit('command', command, param);
+    }
+
+    toggleClass(className, v) {
+      (className || '').split(/ +/).forEach((c) => {
+        this._view.classList.toggle(c, v);
+        if (this._shadow) {
+          this._shadow.classList.toggle(c, this._view.classList.contains(c));
+        }
+      });
+    }
+
+    addClass(name)    { this.toggleClass(name, true); }
+    removeClass(name) { this.toggleClass(name, false); }
+  }
 
 //===END===
     // 参考
