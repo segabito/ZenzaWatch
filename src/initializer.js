@@ -22,6 +22,7 @@ var MessageApiLoader = function() {};
 var NicoVideoPlayer = function() {};
 var NicoVideoPlayerDialog = function() {};
 var AsyncEmitter = function() {};
+const START_PAGE_QUERY = 'hoge=fuga';
 
 //===BEGIN===
     // GINZAを置き換えるべきか？の判定
@@ -150,8 +151,9 @@ var AsyncEmitter = function() {};
     var initialize = function() {
       window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
       initialize = _.noop;
-      ZenzaWatch.util.addStyle(__css__);
+      util.addStyle(__css__);
 
+      const query = util.parseQuery(START_PAGE_QUERY);
 
       var isGinza = util.isGinzaWatchUrl() &&
         (!!document.getElementById('watchAPIDataContainer') ||
@@ -175,10 +177,10 @@ var AsyncEmitter = function() {};
 
         // watchページか？
         if (isGinza) {
-          if (ZenzaWatch.util.isLogin()) {
+          if (util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
             if (isOverrideGinza()) {
-              initializeGinzaSlayer(dialog, Config);
+              initializeGinzaSlayer(dialog, query);
             }
             if (window.name === 'watchGinza') { window.name = ''; }
 
@@ -270,6 +272,9 @@ var AsyncEmitter = function() {};
 
       window.ZenzaWatch.ready = true;
       ZenzaWatch.emitter.emitAsync('ready');
+      util.dispatchCustomEvent(
+        document.body, 'ZenzaWatchInitialize', window.ZenzaWatch);
+      // こっちは過去の互換用
       $('body').trigger('ZenzaWatchReady', window.ZenzaWatch);
     };
 

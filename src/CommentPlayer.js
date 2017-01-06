@@ -3225,7 +3225,7 @@ spacer {
       this.setUserIdFilterList (params.userIdFilter  || '');
       this.setCommandFilterList(params.commandFilter || '');
 
-      this._enable = typeof params.enable === 'boolean' ? params.enable : true;
+      this._enable = typeof params.enableFilter === 'boolean' ? params.enableFilter : true;
 
       this._wordReg     = null;
       this._wordRegReg  = null;

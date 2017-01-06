@@ -33,9 +33,11 @@
 
 (function() {
 const PRODUCT = 'ZenzaWatch';
-var monkey = function(PRODUCT) {
+// 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
+const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
+const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var console = window.console;
-  console.log('exec ZenzaWatch..');
+  console.log(`exec ${PRODUCT}..`);
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   //@version
@@ -168,7 +170,8 @@ var monkey = function(PRODUCT) {
       script.id = 'ZenzaWatchLoader';
       script.setAttribute('type', 'text/javascript');
       script.setAttribute('charset', 'UTF-8');
-      script.appendChild(document.createTextNode( '(' + monkey + ')("' + PRODUCT + '");' ));
+      script.appendChild(
+        document.createTextNode(`(${monkey})('${PRODUCT}', '${START_PAGE_QUERY}');` ));
       document.body.appendChild(script);
     };
 

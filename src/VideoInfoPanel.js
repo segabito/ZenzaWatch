@@ -726,6 +726,9 @@ const PRODUCT = 'ZenzaWatch';
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+      -webkit-appearance: inherit;
+      -moz-appearance: inherit;
+      -ms-appearance: inherit;
     }
     .zenzaWatchVideoInfoPanel .resumePlay.is-resumePlayable {
       display: block;

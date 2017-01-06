@@ -299,6 +299,10 @@ var CONSTANT = {};
       this.setState({isPlaying: false, isPausing: true});
     }
 
+    setVideoEnded() {
+      this.setState({isPlaying: false, isPausing: false});
+    }
+
     setVideoErrorOccurred() {
       this.setState({isError: true, isPlaying: false, isLoading: false});
     }
@@ -1209,9 +1213,11 @@ var CONSTANT = {};
     },
     setThumbnail: function(thumbnail) {
       if (thumbnail) {
-        this.css('background-image', 'url(' + thumbnail + ')');
+        this.css('background-image', `url(${thumbnail})`);
       } else {
-        this.css('background-image', '');
+        // base hrefのせいで変なurlを参照してしまうので適当な黒画像にする
+        const blank = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2NgYGD4DwABBAEAcCBlCwAAAABJRU5ErkJggg==';
+        this.css('background-image', `url(${blank})`);
       }
     },
     focusToCommentInput: function() {
@@ -1730,7 +1736,7 @@ var CONSTANT = {};
           PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
           break;
         case 'enableFilter':
-          PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
+          //PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
           this._playerState.isEnableFilter = value;
           this._nicoVideoPlayer.setIsCommentFilterEnable(value);
           break;
@@ -2403,6 +2409,7 @@ var CONSTANT = {};
     _onVideoEnded: function() {
       // ループ再生中は飛んでこない
       this.emitAsync('ended');
+      this._playerState.setVideoEnded();
       this._savePlaybackPosition(this._watchId, 0);
       if (this.isPlaylistEnable() && this._playlist.hasNext()) {
         this.playNextVideo({eventType: 'playlist'});
@@ -3485,6 +3492,7 @@ var CONSTANT = {};
           command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
           let mylistId   = target.getAttribute('data-mylist-id');
           let mylistName = target.getAttribute('data-mylist-name');
+          this._hideMenu();
           this.emit('command', command, {mylistId: mylistId, mylistName: mylistName});
           break;
         }
@@ -3539,8 +3547,10 @@ var CONSTANT = {};
        }
     },
     _hideMenu: function() {
-      this.toggleMylistMenu(false);
-      this.toggleNgSettingMenu(false);
+      window.setTimeout(() => {
+        this.toggleMylistMenu(false);
+        this.toggleNgSettingMenu(false);
+      }, 0)
     },
     toggleMylistMenu: function(v) {
       this._toggleMenu('mylistAddMenu mylistSelectMenu', v);

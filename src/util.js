@@ -1636,10 +1636,18 @@ class CrossDomainGate {}
       return document.importNode(tpl.content, true).querySelector('*');
     };
 
+    util.dispatchCustomEvent = function(elm, name, detail) {
+      const ev = new CustomEvent(name, {
+        detail
+      });
+      elm.dispatchEvent(ev);
+    };
+
     // いずれjQueryを捨てるためのミニマム代用
-    // 再発明を目的とするものではないし、積極的に使うものでもない
+    // 車輪の再発明をするわけではないし、積極的に使うものでもない
     util.$ = (() => {
 
+      const eventListener = {};
       const toCamel = p => {
         return p.replace(/-./g, s => { return s.charAt(1).toUpperCase(); });
       };
@@ -1651,8 +1659,6 @@ class CrossDomainGate {}
             elements = Array.from(elements);
           }
           this._elements = _.uniq(elements);
-
-          this._eventListener = {};
         }
 
         forEach(callback) {
@@ -1676,6 +1682,24 @@ class CrossDomainGate {}
           });
 
           return new $wrapper(_.uniq(result));
+        }
+
+        closest(query) {
+          if (this.hasClass(query)) {
+            return this;
+          }
+          let result;
+          this.some(elm => {
+            const e = elm.closest(query);
+            if (e) {
+              result = e;
+              return true;
+            }
+          });
+          if (result) {
+            return new $wrapper(result);
+          }
+          return null;
         }
 
         toggleClass(className, v) {
@@ -1726,10 +1750,11 @@ class CrossDomainGate {}
 
         on(eventName, callback, options) {
           if (typeof callback !== 'function') { return; }
-          const listener = this._eventListener[eventName] || [];
+          const listener = eventListener[eventName] || [];
           listener.push(callback);
-          this._eventListener[eventName] = listener;
+          eventListener[eventName] = listener;
 
+          eventName = eventName.split('.')[0];
           this.forEach(e => {
             e.addEventListener(eventName, callback, options);
           });
@@ -1739,12 +1764,15 @@ class CrossDomainGate {}
         off(eventName, callback, options) {
           if (typeof callback !== 'function') {
             this.forEach((e) => {
-              const listener = this._eventListener[eventName] || [];
+              const listener = eventListener[eventName] || [];
+
+              eventName = eventName.split('.')[0];
               listener.forEach(ls => {
                 e.removeEventListener(eventName, ls);
               });
             });
           } else {
+            eventName = eventName.split('.')[0];
             this.forEach((e) => {
               e.removeEventListener(eventName, callback, options);
             });
@@ -1815,6 +1843,8 @@ class CrossDomainGate {}
           }
         }
       };
+
+      ZenzaWatch.debug.eventListener = eventListener;
 
       return $;
     })();
