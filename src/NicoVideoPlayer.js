@@ -658,10 +658,8 @@ class BaseViewComponent {}
       }
 
       const options = {
-        autoplay: !!params.autoPlay,
         autobuffer: true,
         preload: 'auto',
-//        loop: !!params.loop,
         mute: !!params.mute,
         'playsinline': true,
         'webkit-playsinline': true
@@ -678,7 +676,8 @@ class BaseViewComponent {}
         .attr(options);
       this._video = video;
       this._video.controls = false;
-      this._video.loop = !!params.loop;
+      this._video.autoplay = !!params.autoPlay;
+      this._video.loop     = !!params.loop;
 
       this._isPlaying = false;
       this._canPlay = false;
@@ -786,6 +785,7 @@ class BaseViewComponent {}
     },
     _onAbort: function() {
       window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
+      this._isPlaying = false;
       this.addClass('is-abort');
       this.emit('abort');
     },
@@ -871,16 +871,20 @@ class BaseViewComponent {}
       const p = this._video.play();
       // video.play()がPromiseを返すかどうかはブラウザによって異なるっぽい。。。
       if (p instanceof (Promise)) {
-        return p;
+        return p.then(() => {
+          this._isPlaying = true;
+        });
       }
+      this._isPlaying = true;
       return Promise.resolve();
     },
     pause: function() {
       this._video.pause();
+      this._isPlaying = false;
       return Promise.resolve();
     },
     isPlaying: function() {
-      return !!this._isPlaying;
+      return !!this._isPlaying && !!this._canPlay;
     },
     setThumbnail: function(url) {
       console.log('%csetThumbnail: %s', 'background: cyan;', url);
@@ -903,6 +907,7 @@ class BaseViewComponent {}
       this._src = url;
       this._video.src = url;
       //this._$subVideo.attr('src', url);
+      this._isPlaying = false;
       this._canPlay = false;
       //this.emit('setSrc', url);
       this.addClass('is-loading');
@@ -939,7 +944,7 @@ class BaseViewComponent {}
       return this._video.duration;
     },
     togglePlay: function() {
-      if (this._isPlaying) {
+      if (this.isPlaying()) {
         return this.pause();
       } else {
         return this.play();
@@ -981,8 +986,6 @@ class BaseViewComponent {}
     },
     appendTo: function(node) {
       node.appendChild(this._video);
-      //var videos = document.getElementsByClassName(this._id);
-      //this._video = videos[0];
     },
     close: function() {
       this._video.pause();

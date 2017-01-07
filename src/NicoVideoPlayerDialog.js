@@ -288,7 +288,7 @@ var CONSTANT = {};
     }
 
     setVideoCanPlay() {
-      this.setState({isStalled: false, isLoading: false});
+      this.setState({isStalled: false, isLoading: false, isPausing: false});
     }
 
     setPlaying() {
@@ -2525,10 +2525,7 @@ var CONSTANT = {};
       }
     },
     isPlaying: function() {
-      if (this.isOpen() && !this._playerState.isError && this._nicoVideoPlayer) {
-        return this._nicoVideoPlayer.isPlaying();
-      }
-      return false;
+      return this._playerState.isPlaying;
     },
     togglePlay: function() {
       if (!this._playerState.isError && this._nicoVideoPlayer) {
@@ -3083,8 +3080,6 @@ var CONSTANT = {};
       opacity: 1 !important;
       border: 1px inset !important;
       box-shadow: none !important;
-      /*margin-left: 2px !important;
-      margin-top:  4px !important;*/
       background: #888 !important;
       animation-name: spinX;
       animation-iteration-count: infinite;
@@ -3209,9 +3204,9 @@ var CONSTANT = {};
         background: #1da1f2;
         color: #fff;
       }
-      .zenzaTweetButton:active {
+      /*.zenzaTweetButton:active {
         transform: scale(0.8);
-      }
+      }*/
 
 
     .closeButton {
@@ -3550,7 +3545,7 @@ var CONSTANT = {};
       window.setTimeout(() => {
         this.toggleMylistMenu(false);
         this.toggleNgSettingMenu(false);
-      }, 0)
+      }, 0);
     },
     toggleMylistMenu: function(v) {
       this._toggleMenu('mylistAddMenu mylistSelectMenu', v);
@@ -3580,7 +3575,6 @@ var CONSTANT = {};
       return !!v;
     },
     _onBodyClick: function() {
-      window.console.log('onBodyClick');
       this._hideMenu();
       ZenzaWatch.emitter.emitAsync('hideMenu');
     }
@@ -3593,11 +3587,6 @@ var CONSTANT = {};
       transform: scale(%SCALE%);
     }
     .videoControlBar {
-      }
-      if ($menu.hasClass('show')) {
-        this._hideMenu();
-        $btn .addClass('show');
-        $menu.addClass('show');
       height: %CONTROL_BAR_HEIGHT%px !important;
     }
 
@@ -3627,7 +3616,7 @@ var CONSTANT = {};
           this._commentLayerOpacity === commentLayerOpacity) { return; }
 
       if (!this._style) {
-        this._style = ZenzaWatch.util.addStyle('');
+        this._style = util.addStyle('');
       }
 
       this._scale = scale;
