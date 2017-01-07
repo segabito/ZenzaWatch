@@ -40,6 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   console.log(`exec ${PRODUCT}..`);
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
+  START_PAGE_QUERY = unescape(START_PAGE_QUERY);
   //@version
 
   console.log('jQuery version: ', $.fn.jquery);
@@ -171,7 +172,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       script.setAttribute('type', 'text/javascript');
       script.setAttribute('charset', 'UTF-8');
       script.appendChild(
-        document.createTextNode(`(${monkey})('${PRODUCT}', '${START_PAGE_QUERY}');` ));
+        document.createTextNode(`(${monkey})('${PRODUCT}', '${escape(START_PAGE_QUERY)}');` ));
       document.body.appendChild(script);
     };
 
