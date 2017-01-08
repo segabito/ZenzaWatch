@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.8
+// @version        1.10.9
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.8';
+  var VER = '1.10.9';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -24193,24 +24193,6 @@ const VideoSession = (function() {
         height: ${CONSTANT.BOTTOM_PANEL_HEIGHT}px;
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
-        position: fixed;
-        box-sizing: border-box;
-        width: 150px;
-        float: left;
-        text-align: center;
-      }
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .owner {
-        white-space: inherit;
-        display: inline-block;
-      }
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .ownerIcon {
-        margin-right: none;
-      }
-
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoDescription {
-        margin-left: 150px;
-      }
 
       .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame {
         top:  calc(-50vh + 50% + 120px);
@@ -24220,6 +24202,10 @@ const VideoSession = (function() {
         right: auto;
         bottom: auto;
         z-index: 1;
+      }
+
+      body:not(.fullScreen).zenzaScreenMode_normal .ZenzaIchibaItemView {
+        margin: 8px 8px 96px;
       }
     }
 
@@ -24236,24 +24222,6 @@ const VideoSession = (function() {
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
 
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
-        position: fixed;
-        box-sizing: border-box;
-        width: 150px;
-        float: left;
-        text-align: center;
-      }
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .owner {
-        white-space: inherit;
-        display: inline-block;
-      }
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .ownerIcon {
-        margin-right: none;
-      }
-
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoDescription {
-        margin-left: 150px;
-      }
       .zenzaScreenMode_big .zenzaPlayerContainer.is-backComment .commentLayerFrame {
         top:  calc(-50vh + 50% + 120px);
         left: calc(-50vw + 50%);
@@ -24262,6 +24230,10 @@ const VideoSession = (function() {
         right: auto;
         bottom: auto;
         z-index: 1;
+      }
+
+      body:not(.fullScreen).zenzaScreenMode_big .ZenzaIchibaItemView {
+        margin: 8px 8px 96px;
       }
     }
 
@@ -24363,12 +24335,12 @@ const VideoSession = (function() {
       border-radius: 4px;
       border: 1px solid #666;
       margin: 0 8px 8px;
-      /*box-shadow: 4px 4px 0 rgba(32, 32, 32, 0.5);*/
       background: transparent;
       color: inherit;
       outline: none;
       line-height: 20px;
       user-select: none;
+      text-align: center;
       -webkit-user-select: none;
       -moz-user-select: none;
       -webkit-appearance: inherit;
@@ -26279,14 +26251,13 @@ const VideoSession = (function() {
 
       .UaaDetails .uaaSummary {
         width: 200px;
-        height: 32px;
+        height: 38px;
         margin: 4px auto 8px;
         color: inherit;
-        /*background: #888;*/
         outline: none;
         border: 1px solid #ccc;
         letter-spacing: 12px;
-        line-height: 32px;
+        line-height: 38px;
         font-size: 24px;
         text-shadow: 1px 1px 2px #000;
         text-align: center;
