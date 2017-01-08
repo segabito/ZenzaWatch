@@ -175,7 +175,7 @@ var ajax = function() {};
           url: data.video.source
         };
         const dmcInfo = data.video.dmcInfo;
-        const thumbnail = data.video.thumbnail + (hasLargeThumbnail ? '.L' : '');
+        const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
         const videoUrl  = flvInfo.url;
         const isEco = /\d+\.\d+low$/.test(videoUrl);
         const isFlv = /\/smile\?v=/.test(videoUrl);

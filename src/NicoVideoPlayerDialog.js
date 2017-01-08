@@ -1046,7 +1046,8 @@ var CONSTANT = {};
       if (this._videoInfoPanel) { return this._videoInfoPanel; }
       this._videoInfoPanel = new VideoInfoPanel({
         dialog: this,
-        node: this._$playerContainer
+        node: this._$playerContainer,
+        currentTimeGetter: this._currentTimeGetter
       });
       this._videoInfoPanel.on('command', this._onCommand.bind(this));
       return this._videoInfoPanel;

@@ -790,6 +790,7 @@ const PRODUCT = 'ZenzaWatch';
     initialize: function(params) {
       this._videoTitlePanel = new VideoHeaderPanel(params);
       this._dialog = params.dialog;
+      this._currentTimeGetter = params.currentTimeGetter;
 
       this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
 
@@ -1471,7 +1472,7 @@ const PRODUCT = 'ZenzaWatch';
 
   _.assign(VideoHeaderPanel.prototype, {
     initialize: function(params) {
-      this._dialog = params.dialog;
+      this._currentTimeGetter = params.currentTimeGetter;
     },
     _initializeDom: function() {
       if (this._isInitialized) {
@@ -1631,8 +1632,8 @@ const PRODUCT = 'ZenzaWatch';
       }, 100);
     },
     _onGinzaLinkMouseDown: function() {
-      this._dialog.pause();
-      var currentTime = this._dialog.getCurrentTime();
+      this.emit('command', 'pause');
+      var currentTime = this._currentTimeGetter();
       var href = this._$ginzaLink.attr('data-ginzawatch');
       this._$ginzaLink.attr('href', href + '?from=' + Math.floor(currentTime));
     },

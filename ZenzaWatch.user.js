@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.9
+// @version        1.10.10
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.9';
+  var VER = '1.10.10';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -2957,7 +2957,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           url: data.video.source
         };
         const dmcInfo = data.video.dmcInfo;
-        const thumbnail = data.video.thumbnail + (hasLargeThumbnail ? '.L' : '');
+        const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
         const videoUrl  = flvInfo.url;
         const isEco = /\d+\.\d+low$/.test(videoUrl);
         const isFlv = /\/smile\?v=/.test(videoUrl);
@@ -19983,7 +19983,8 @@ const VideoSession = (function() {
       if (this._videoInfoPanel) { return this._videoInfoPanel; }
       this._videoInfoPanel = new VideoInfoPanel({
         dialog: this,
-        node: this._$playerContainer
+        node: this._$playerContainer,
+        currentTimeGetter: this._currentTimeGetter
       });
       this._videoInfoPanel.on('command', this._onCommand.bind(this));
       return this._videoInfoPanel;
@@ -24435,6 +24436,7 @@ const VideoSession = (function() {
     initialize: function(params) {
       this._videoTitlePanel = new VideoHeaderPanel(params);
       this._dialog = params.dialog;
+      this._currentTimeGetter = params.currentTimeGetter;
 
       this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
 
@@ -25116,7 +25118,7 @@ const VideoSession = (function() {
 
   _.assign(VideoHeaderPanel.prototype, {
     initialize: function(params) {
-      this._dialog = params.dialog;
+      this._currentTimeGetter = params.currentTimeGetter;
     },
     _initializeDom: function() {
       if (this._isInitialized) {
@@ -25276,8 +25278,8 @@ const VideoSession = (function() {
       }, 100);
     },
     _onGinzaLinkMouseDown: function() {
-      this._dialog.pause();
-      var currentTime = this._dialog.getCurrentTime();
+      this.emit('command', 'pause');
+      var currentTime = this._currentTimeGetter();
       var href = this._$ginzaLink.attr('data-ginzawatch');
       this._$ginzaLink.attr('href', href + '?from=' + Math.floor(currentTime));
     },
