@@ -2127,9 +2127,12 @@ var CONSTANT = {};
         return;
       }
       const videoInfo = this._videoInfo = new VideoInfoModel(videoInfoData);
+
       const autoDisableDmc =
         this._playerConfig.getValue('autoDisableDmc') &&
-        (videoInfo.getWidth() > 1280 || videoInfo.getHeight() > 720);
+        util.isBetterThanDmcMayBe(
+          videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
+
       videoInfo.isDmcDisable = autoDisableDmc;
       this._playerState.isDmcAvailable = videoInfo.isDmc();
       this._playerState.setState({

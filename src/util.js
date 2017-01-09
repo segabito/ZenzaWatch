@@ -1,12 +1,37 @@
-const $ = require('jquery');
+//const $ = require('jquery');
 const _ = require('lodash');
 const ZenzaWatch = {
+  lib: {},
   util:{},
   debug: {}
 };
 const NicoVideoApi = {};
 const CONSTANT = {};
-const util = {};
+const util = ZenzaWatch.util;
+const location = {
+  host: 'www.nicovideo.jp'
+};
+const navigator = {
+  userAgent: 'Mozilla'
+};
+const localStorage = {
+  getItem: function() {}
+};
+const jQuery = function() {
+  return {
+    on: function() {}
+  };
+};
+const sessionStorage = localStorage;
+const window = {
+  ZenzaWatch,
+  location,
+  navigator,
+  jQuery,
+  localStorage,
+  sessionStorage,
+  addEventListener: function() {}
+};
 const PRODUCT = 'ZenzaWatch';
 class CrossDomainGate {}
 
@@ -688,34 +713,54 @@ class CrossDomainGate {}
 
     ZenzaWatch.util.addStyle = addStyle;
 
-    var parseQuery = function(query) {
-      var result = {};
-      _.each(query.split('&'), function(item) {
-        var sp = item.split('=');
-        var key = decodeURIComponent(sp[0]);
-        var val = decodeURIComponent(sp.slice(1).join('='));
+    util.parseQuery = function(query) {
+      const result = {};
+      query.split('&').forEach(item => {
+        const sp = item.split('=');
+        const key = decodeURIComponent(sp[0]);
+        const val = decodeURIComponent(sp.slice(1).join('='));
         result[key] = val;
       });
       return result;
     };
 
-    ZenzaWatch.util.parseQuery = parseQuery;
-
-
-    var hasLargeThumbnail = function(videoId) { // return true;
+    util.hasLargeThumbnail = function(videoId) { // return true;
       // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
       // ※この数字以降でもごく稀に例外はある。
-      var threthold = 16371888;
-      var cid = videoId.substr(0, 2);
+      const threthold = 16371888;
+      const cid = videoId.substr(0, 2);
       if (cid !== 'sm') { return false; }
 
-      var fid = videoId.substr(2) * 1;
+      const fid = videoId.substr(2) * 1;
       if (fid < threthold) { return false; }
 
       return true;
     };
 
-    ZenzaWatch.util.hasLargeThumbnail = hasLargeThumbnail;
+    // DMCよりも画質が良さそうか？を返す。
+    // ビットレートは取得できないので動画長と解像度で返すしかない
+    util.isBetterThanDmcMayBe = (width, height, duration) => {
+      if (width > 1280 || height > 720) {
+        return true;
+      } else if (duration <  16 * 60) {
+        // プリセットに存在しない解像度なら再エンコードされていない可能性が高い？
+        if (![1280, 960, 854, 640, 480].includes(width) ||
+            ![ 720, 540, 480, 360].includes(height)) {
+          return true;
+        }
+      } else if (duration >= 16 * 60 && duration <= 30 * 60 + 59) {
+        if (![960, 854, 640, 480].includes(width) ||
+            ![540, 480, 360].includes(height)) {
+          return true;
+        }
+      } else if (duration >= 31 * 60) {
+        if (![640, 480].includes(width) ||
+            ![360]     .includes(height)) {
+          return true;
+        }
+      }
+      return false;
+    };
 
     /**
      * 動画IDからサムネのURLを逆算する。
@@ -729,7 +774,7 @@ class CrossDomainGate {}
         }
         const fileId = parseInt(videoId.substr(2), 10);
         const num = (fileId % 4) + 1;
-        const large = hasLargeThumbnail(videoId) ? '.L' : '';
+        const large = util.hasLargeThumbnail(videoId) ? '.L' : '';
         return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
       };
     })();
@@ -1363,7 +1408,6 @@ class CrossDomainGate {}
     addTemplate._id = 0;
 
     ZenzaWatch.util.openTweetWindow = function(videoInfo) {
-      // TODO: どこかutil的な関数に追い出す
       var watchId = videoInfo.getWatchId();
       var nicomsUrl = 'http://nico.ms/' + watchId;
       var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
@@ -2307,7 +2351,7 @@ class CrossDomainGate {}
       if (window.MylistPocket && window.MylistPocket.isReady) {
         onPocketReady();
       } else {
-        window.jQuery('body').on('MylistPocketReady', function() {
+        document.body.addEventListener('MylistPocketInitialized', () => {
           onPocketReady();
         });
       }
@@ -2693,101 +2737,7 @@ class CrossDomainGate {}
   }
 
 //===END===
-    // 参考
-    // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
-    ZenzaWatch.util.htmlToSvg = function(html, width = 682, height = 384) {
-      const data =
-        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
-          <foreignObject width='100%' height='100%'>${html}</foreignObject>
-        </svg>`).trim();
-      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
-      return {svg, data};
-    };
-
-    ZenzaWatch.util.htmlToCanvas = function(html, width = 640, height = 360) {
-
-      const imageW = height * 16 / 9;
-      const imageH = imageW * 9 / 16;
-      const {svg, data} = util.htmlToSvg(html);
-
-      const url = window.URL.createObjectURL(svg);
-      if (!url) {
-        return Promise.reject(new Error('convert svg fail'));
-      }
-      const img = new Image();
-      img.width  = 682;
-      img.height = 384;
-      const canvas = document.createElement('canvas');
-
-      const context = canvas.getContext('2d');
-      canvas.width  = width;
-      canvas.height = height;
-
-      return new Promise((resolve, reject) => {
-        img.onload = () => {
-          context.drawImage(
-            img,
-            (width  - imageW) / 2,
-            (height - imageH) / 2,
-            imageW,
-            imageH);
-          resolve({canvas, img});
-          window.console.info('img size', img.width, img.height);
-          window.URL.revokeObjectURL(url);
-        };
-        img.onerror = (e) => {
-          window.console.error('img.onerror', e, data);
-          reject(e);
-          window.URL.revokeObjectURL(url);
-        };
-
-        img.src = url;
-      });
-    };
-
-    ZenzaWatch.util.nicoVideoCapture = function({video, html, minHeight = 720}) {
-      let scale = 1;
-      let width  =
-        Math.max(video.videoWidth, video.videoHeight * 16 / 9);
-      let height = video.videoHeight;
-      // 動画の解像度が低いときは、可能な範囲で整数倍に拡大する
-      if (minHeight < 720) {
-        scale  = Math.floor(720 / height);
-        width  *= scale;
-        height *= scale;
-      }
-      const vc = document.createElement('canvas');
-      const ct = vc.getContext('2d');
-      vc.width = width;
-      vc.height = height;
-
-      ct.fillStyle = 'rgb(0, 0, 0)';
-      ct.fillRect(0, 0, width, height);
-      ct.drawImage(
-        video,
-        (width  - video.videoWidth  * scale) / 2,
-        (height - video.videoHeight * scale) / 2,
-        video.videoWidth  * scale,
-        video.videoHeight * scale
-      );
-
-      return util.htmlToCanvas(html, width, height).then(({canvas, img}) => {
-        ct.drawImage(canvas, 0, 0, width, height);
-        return Promise.resolve({canvas: vc, img, commentCanvas: canvas});
-      });
-    };
+//
+module.exports = ZenzaWatch.util;
 
 
-
-ZenzaWatch.util.htmlToCanvas(
-  ZenzaWatch.debug.commentLayer.contentWindow.document.querySelector('html').outerHTML)
-  .then((canvas) => {
-    document.body.appendChild(canvas);
-  });
-
-ZenzaWatch.util.toWellFormedHtml(ZenzaWatch.debug.commentLayer.contentWindow.document.querySelector('html').outerHTML);
-
-ZenzaWatch.util.htmlToCanvas(ZenzaWatch.debug.commentLayer.contentWindow.document.querySelector('html').outerHTML.replace('<html ', '<html xmlns="http://www.w3.org/1999/xhtml" ').replace(/<meta.*?>/g, ''))
-  .then((canvas) => {
-    document.body.appendChild(canvas);
-  }, (err) => { console.error('!', err); });

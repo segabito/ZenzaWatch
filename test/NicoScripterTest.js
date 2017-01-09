@@ -7,36 +7,38 @@ describe('hoge', function() {
 });
 
 describe('parseParams', function() {
-  ///replace(target:'owner',src:'~',dest:"\r")
-  var str = 'target:\'owner\',src:\'~\',dest:"\\r", dest2: \'シングルクォート中では\\rエスケープされない\'';
-  var p = nicos.parseParams(str);
+  it('ニワン語シングルクォート、ダブルクォート対応', function() {
+    ///replace(target:'owner',src:'~',dest:"\r")
+    var str = 'target:\'owner\',src:\'~\',dest:"\\r", dest2: \'シングルクォート中では\\rエスケープされない\'';
+    var p = nicos.parseParams(str);
 
-  assert.equal(p.target, 'owner');
-  assert.equal(p.src,    '~');
-  assert.equal(p.dest,   '\n', '改行は全て\\nに');
-  assert.equal(p.dest2,  'シングルクォート中では\\rエスケープされない');
-
+    assert.equal(p.target, 'owner');
+    assert.equal(p.src,    '~');
+    assert.equal(p.dest,   '\n', '改行は全て\\nに');
+    assert.equal(p.dest2,  'シングルクォート中では\\rエスケープされない');
+  });
 });
 
 describe('parseNicosParams', function() {
-  var str = '＠置換　U　「( ˘ω˘)ｽﾔｧ」 全';
-  var p = nicos.parseNicosParams(str);
-  console.log(JSON.stringify(p));
+  it('ニコスクリプトは「」でもクォートできるらしい', function() {
+    var str = '＠置換　U　「( ˘ω˘)ｽﾔｧ」 全';
+    var p = nicos.parseNicosParams(str);
+    //console.log(JSON.stringify(p));
 
-  assert.equal(p[0], '＠置換');
-  assert.equal(p[1], 'U');
-  assert.equal(p[2], '( ˘ω˘)ｽﾔｧ');
-  assert.equal(p[3], '全');
+    assert.equal(p[0], '＠置換');
+    assert.equal(p[1], 'U');
+    assert.equal(p[2], '( ˘ω˘)ｽﾔｧ');
+    assert.equal(p[3], '全');
 
-  str = '＠置換 U あああ "あああ\'いいい"';
-  p = nicos.parseNicosParams(str);
-  console.log(JSON.stringify(p));
+    str = '＠置換 U あああ "あああ\'いいい"';
+    p = nicos.parseNicosParams(str);
+    //console.log(JSON.stringify(p));
 
-  assert.equal(p[0], '＠置換');
-  assert.equal(p[1], 'U');
-  assert.equal(p[2], 'あああ');
-  assert.equal(p[3], "あああ\'いいい");
-
+    assert.equal(p[0], '＠置換');
+    assert.equal(p[1], 'U');
+    assert.equal(p[2], 'あああ');
+    assert.equal(p[3], "あああ\'いいい");
+  });
 
 });
 
@@ -47,7 +49,7 @@ describe('parseNicosParams', function() {
 describe('splitLines', function() {
   var str = '/replace(target:\'owner user\',src:\'~\',dest:"\\r");     /replace(target:\'owner user\',src:\'И;;;;\',dest:"██")   ;/replace(target:\'owner user\',src:\'Щ\',dest:"▇▇");/replace(target:\'owner user\',src:\'Ы\',dest:"　　");/replace(target:\'owner user\',src:\'Ф\',dest:"  "); B="█"; S="　"; N=" \n"; F=" \n+ \n+ \n+ \n+ \n+ \n+ \n+ \n+ \n+ \n"';
   var p = nicos.splitLines(str);
-  console.log(JSON.stringify(p));
+  //console.log(JSON.stringify(p));
 
   assert.equal(p.length, 9);
   assert.equal(p[1], '/replace(target:\'owner user\',src:\'И;;;;\',dest:"██")', '前後のスペースは除去');
