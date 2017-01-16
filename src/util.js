@@ -1949,9 +1949,10 @@ class CrossDomainGate {}
         }
 
         let keyCode = e.keyCode +
-          (e.altKey   ? 0x100000 : 0) +
-          (e.ctrlKey  ? 0x10000  : 0) +
-          (e.shiftKey ? 0x1000   : 0);
+          (e.metaKey  ? 0x1000000 : 0) +
+          (e.altKey   ? 0x100000  : 0) +
+          (e.ctrlKey  ? 0x10000   : 0) +
+          (e.shiftKey ? 0x1000    : 0);
         let key = '';
         let param = '';
         switch (keyCode) {
@@ -2079,8 +2080,13 @@ class CrossDomainGate {}
         }
 
         let key = '';
-        let param = '';
-        switch (e.keyCode) {
+        let keyCode = e.keyCode +
+          (e.metaKey  ? 0x1000000 : 0) +
+          (e.altKey   ? 0x100000  : 0) +
+          (e.ctrlKey  ? 0x10000   : 0) +
+          (e.shiftKey ? 0x1000    : 0);
+         let param = '';
+        switch (keyCode) {
           case map.SHIFT_RESET:
             key = 'PLAYBACK_RATE';
             isVerySlow = false;
