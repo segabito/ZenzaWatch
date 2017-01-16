@@ -357,7 +357,6 @@ var ZenzaWatch = {
 
     var broadcastChannel =
       window.BroadcastChannel ? (new window.BroadcastChannel('ZenzaWatch')) : null;
-    broadcastChannel = null; //まだ実験中
     if (broadcastChannel) {
       broadcastChannel.addEventListener('message', onBroadcastMessage);
     }

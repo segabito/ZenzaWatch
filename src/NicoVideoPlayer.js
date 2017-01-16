@@ -765,7 +765,7 @@ class BaseViewComponent {}
       this.emit('stalled');
     },
     _onSuspend: function() {
-      ///console.log('%c_onSuspend:', 'background: cyan;', arguments);
+      console.log('%c_onSuspend:', 'background: cyan;', arguments);
       this.emit('suspend');
     },
     _onWaiting: function() {
@@ -773,6 +773,7 @@ class BaseViewComponent {}
       this.emit('waiting');
     },
     _onProgress: function() {
+      //console.log('%c_onProgress:', 'background: cyan;', arguments);
       this.emit('progress', this._video.buffered, this._video.currentTime);
     },
     _onDurationChange: function() {

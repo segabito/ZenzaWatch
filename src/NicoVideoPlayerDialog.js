@@ -1477,7 +1477,7 @@ var CONSTANT = {};
         case 'mylistRemove':
           return this._onMylistRemove(param.mylistId, param.mylistName);
         case 'mylistWindow':
-          ZenzaWatch.util.openMylistWindow(this._videoInfo.getWatchId());
+          util.openMylistWindow(this._videoInfo.getWatchId());
           break;
         case 'settingPanel':
           this._view.toggleSettingPanel();

@@ -1036,7 +1036,6 @@ class CrossDomainGate {}
       var broadcastChannel =
         (window.BroadcastChannel && location.host === 'www.nicovideo.jp') ?
           (new window.BroadcastChannel('ZenzaWatch')) : null;
-      broadcastChannel = null; //まだ実験中
 
       var pingResolve = null, pingReject = null;
 
@@ -2351,7 +2350,8 @@ class CrossDomainGate {}
       if (window.MylistPocket && window.MylistPocket.isReady) {
         onPocketReady();
       } else {
-        document.body.addEventListener('MylistPocketInitialized', () => {
+        window.jQuery('body').on('MylistPocketReady', () => {
+        //document.body.addEventListener('MylistPocketInitialized', () => {
           onPocketReady();
         });
       }
