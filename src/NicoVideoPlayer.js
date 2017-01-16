@@ -584,19 +584,19 @@ class BaseViewComponent {}
           <hr class="separator">
 
           <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(0.1x)</li>
+            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(x0.1)</li>
           <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.5"  data-type="number">0.5x</li>
+            data-command="playbackRate" data-param="0.5"  data-type="number">x0.5</li>
           <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.75" data-type="number">0.75x</li>
+            data-command="playbackRate" data-param="0.75" data-type="number">x0.75</li>
           <li class="command playbackRate"
             data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
           <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="1.25" data-type="number">1.25x</li>
+            data-command="playbackRate" data-param="1.25" data-type="number">x1.25</li>
           <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="1.5"  data-type="number">1.5x</li>
+            data-command="playbackRate" data-param="1.5"  data-type="number">x1.5</li>
           <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="2"    data-type="number">倍速(2x)</li>
+            data-command="playbackRate" data-param="2"    data-type="number">倍速(x2)</li>
 
           <hr class="separator">
 
