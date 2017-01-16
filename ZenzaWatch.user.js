@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.10
+// @version        1.10.12
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.10';
+  var VER = '1.10.12';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -793,34 +793,54 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
     ZenzaWatch.util.addStyle = addStyle;
 
-    var parseQuery = function(query) {
-      var result = {};
-      _.each(query.split('&'), function(item) {
-        var sp = item.split('=');
-        var key = decodeURIComponent(sp[0]);
-        var val = decodeURIComponent(sp.slice(1).join('='));
+    util.parseQuery = function(query) {
+      const result = {};
+      query.split('&').forEach(item => {
+        const sp = item.split('=');
+        const key = decodeURIComponent(sp[0]);
+        const val = decodeURIComponent(sp.slice(1).join('='));
         result[key] = val;
       });
       return result;
     };
 
-    ZenzaWatch.util.parseQuery = parseQuery;
-
-
-    var hasLargeThumbnail = function(videoId) { // return true;
+    util.hasLargeThumbnail = function(videoId) { // return true;
       // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
       // ※この数字以降でもごく稀に例外はある。
-      var threthold = 16371888;
-      var cid = videoId.substr(0, 2);
+      const threthold = 16371888;
+      const cid = videoId.substr(0, 2);
       if (cid !== 'sm') { return false; }
 
-      var fid = videoId.substr(2) * 1;
+      const fid = videoId.substr(2) * 1;
       if (fid < threthold) { return false; }
 
       return true;
     };
 
-    ZenzaWatch.util.hasLargeThumbnail = hasLargeThumbnail;
+    // DMCよりも画質が良さそうか？を返す。
+    // ビットレートは取得できないので動画長と解像度で返すしかない
+    util.isBetterThanDmcMayBe = (width, height, duration) => {
+      if (width > 1280 || height > 720) {
+        return true;
+      } else if (duration <  16 * 60) {
+        // プリセットに存在しない解像度なら再エンコードされていない可能性が高い？
+        if (![1280, 960, 854, 640, 480].includes(width) ||
+            ![ 720, 540, 480, 360].includes(height)) {
+          return true;
+        }
+      } else if (duration >= 16 * 60 && duration <= 30 * 60 + 59) {
+        if (![960, 854, 640, 480].includes(width) ||
+            ![540, 480, 360].includes(height)) {
+          return true;
+        }
+      } else if (duration >= 31 * 60) {
+        if (![640, 480].includes(width) ||
+            ![360]     .includes(height)) {
+          return true;
+        }
+      }
+      return false;
+    };
 
     /**
      * 動画IDからサムネのURLを逆算する。
@@ -834,7 +854,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         }
         const fileId = parseInt(videoId.substr(2), 10);
         const num = (fileId % 4) + 1;
-        const large = hasLargeThumbnail(videoId) ? '.L' : '';
+        const large = util.hasLargeThumbnail(videoId) ? '.L' : '';
         return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
       };
     })();
@@ -1096,7 +1116,6 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       var broadcastChannel =
         (window.BroadcastChannel && location.host === 'www.nicovideo.jp') ?
           (new window.BroadcastChannel('ZenzaWatch')) : null;
-      broadcastChannel = null; //まだ実験中
 
       var pingResolve = null, pingReject = null;
 
@@ -1468,7 +1487,6 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     addTemplate._id = 0;
 
     ZenzaWatch.util.openTweetWindow = function(videoInfo) {
-      // TODO: どこかutil的な関数に追い出す
       var watchId = videoInfo.getWatchId();
       var nicomsUrl = 'http://nico.ms/' + watchId;
       var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
@@ -2011,9 +2029,10 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         }
 
         let keyCode = e.keyCode +
-          (e.altKey   ? 0x100000 : 0) +
-          (e.ctrlKey  ? 0x10000  : 0) +
-          (e.shiftKey ? 0x1000   : 0);
+          (e.metaKey  ? 0x1000000 : 0) +
+          (e.altKey   ? 0x100000  : 0) +
+          (e.ctrlKey  ? 0x10000   : 0) +
+          (e.shiftKey ? 0x1000    : 0);
         let key = '';
         let param = '';
         switch (keyCode) {
@@ -2141,8 +2160,13 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         }
 
         let key = '';
-        let param = '';
-        switch (e.keyCode) {
+        let keyCode = e.keyCode +
+          (e.metaKey  ? 0x1000000 : 0) +
+          (e.altKey   ? 0x100000  : 0) +
+          (e.ctrlKey  ? 0x10000   : 0) +
+          (e.shiftKey ? 0x1000    : 0);
+         let param = '';
+        switch (keyCode) {
           case map.SHIFT_RESET:
             key = 'PLAYBACK_RATE';
             isVerySlow = false;
@@ -2412,7 +2436,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       if (window.MylistPocket && window.MylistPocket.isReady) {
         onPocketReady();
       } else {
-        window.jQuery('body').on('MylistPocketReady', function() {
+        window.jQuery('body').on('MylistPocketReady', () => {
+        //document.body.addEventListener('MylistPocketInitialized', () => {
           onPocketReady();
         });
       }
@@ -6174,19 +6199,19 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           <hr class="separator">
 
           <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(0.1x)</li>
+            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(x0.1)</li>
           <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.5"  data-type="number">0.5x</li>
+            data-command="playbackRate" data-param="0.5"  data-type="number">x0.5</li>
           <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.75" data-type="number">0.75x</li>
+            data-command="playbackRate" data-param="0.75" data-type="number">x0.75</li>
           <li class="command playbackRate"
             data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
           <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="1.25" data-type="number">1.25x</li>
+            data-command="playbackRate" data-param="1.25" data-type="number">x1.25</li>
           <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="1.5"  data-type="number">1.5x</li>
+            data-command="playbackRate" data-param="1.5"  data-type="number">x1.5</li>
           <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="2"    data-type="number">倍速(2x)</li>
+            data-command="playbackRate" data-param="2"    data-type="number">倍速(x2)</li>
 
           <hr class="separator">
 
@@ -6355,7 +6380,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this.emit('stalled');
     },
     _onSuspend: function() {
-      ///console.log('%c_onSuspend:', 'background: cyan;', arguments);
+      console.log('%c_onSuspend:', 'background: cyan;', arguments);
       this.emit('suspend');
     },
     _onWaiting: function() {
@@ -6363,6 +6388,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this.emit('waiting');
     },
     _onProgress: function() {
+      //console.log('%c_onProgress:', 'background: cyan;', arguments);
       this.emit('progress', this._video.buffered, this._video.currentTime);
     },
     _onDurationChange: function() {
@@ -8675,7 +8701,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           </div>
 
           <div class="playbackRateMenu controlButton " data-command="playbackRateMenu">
-            <div class="controlButtonInner">1x</div>
+            <div class="controlButtonInner">x1</div>
             <div class="tooltip">再生速度</div>
             <div class="playbackRateSelectMenu zenzaPopupMenu">
               <div class="triangle"></div>
@@ -8691,7 +8717,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
                 <li class="playbackRate forPremium" data-rate="1.5"><span>1.5倍</span></li>
                 <li class="playbackRate forPremium" data-rate="1.25"><span>1.25倍</span></li>
 
-                <li class="playbackRate" data-rate="1.0"><span>標準速度(1.0x)</span></li>
+                <li class="playbackRate" data-rate="1.0"><span>標準速度(x1)</span></li>
                 <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
                 <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
                 <li class="playbackRate" data-rate="0.25"><span>0.25倍</span></li>
@@ -20414,7 +20440,7 @@ const VideoSession = (function() {
         case 'mylistRemove':
           return this._onMylistRemove(param.mylistId, param.mylistName);
         case 'mylistWindow':
-          ZenzaWatch.util.openMylistWindow(this._videoInfo.getWatchId());
+          util.openMylistWindow(this._videoInfo.getWatchId());
           break;
         case 'settingPanel':
           this._view.toggleSettingPanel();
@@ -21064,9 +21090,13 @@ const VideoSession = (function() {
         return;
       }
       const videoInfo = this._videoInfo = new VideoInfoModel(videoInfoData);
+
       const autoDisableDmc =
         this._playerConfig.getValue('autoDisableDmc') &&
-        (videoInfo.getWidth() > 1280 || videoInfo.getHeight() > 720);
+        !videoInfo.isEconomy() &&
+        util.isBetterThanDmcMayBe(
+          videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
+
       videoInfo.isDmcDisable = autoDisableDmc;
       this._playerState.isDmcAvailable = videoInfo.isDmc();
       this._playerState.setState({
@@ -27374,7 +27404,6 @@ const VideoSession = (function() {
 
     var broadcastChannel =
       window.BroadcastChannel ? (new window.BroadcastChannel('ZenzaWatch')) : null;
-    broadcastChannel = null; //まだ実験中
     if (broadcastChannel) {
       broadcastChannel.addEventListener('message', onBroadcastMessage);
     }
