@@ -2130,6 +2130,7 @@ var CONSTANT = {};
 
       const autoDisableDmc =
         this._playerConfig.getValue('autoDisableDmc') &&
+        !videoInfo.isEconomy() &&
         util.isBetterThanDmcMayBe(
           videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
 
