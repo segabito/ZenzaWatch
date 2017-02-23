@@ -171,9 +171,21 @@ var ajax = function() {};
 
         const videoId = data.video.id;
         const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
-        const flvInfo = {
-          url: data.video.smileInfo.url
-        };
+        /**
+         * data.video.sourceがなくなったので同等のものに置き換え
+         * .urlが続くのは不格好だったのでdata.video.smileInfoをflvInfoへ代入
+         * 元のsmileInfoの中身は以下
+         * "smileInfo": {
+         *     "url": "http://smile-*.nicovideo.jp/smile?m=*.*",
+         *     "isSlowLine": false,
+         *     "currentQualityId": "auto",
+         *     "qualityIds": [
+         *         "auto",
+         *         "low"
+         *     ]
+         * }
+         */
+        const flvInfo = data.video.smileInfo;
         const dmcInfo = data.video.dmcInfo;
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
         const videoUrl  = flvInfo.url;
