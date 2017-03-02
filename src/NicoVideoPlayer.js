@@ -32,10 +32,7 @@ class BaseViewComponent {}
       this._fullScreenNode = params.fullScreenNode;
       this._playerState = params.playerState;
 
-      const playbackRate =
-        ZenzaWatch.util.isPremium() ?
-          conf.getValue('playbackRate') :
-          Math.min(1, conf.getValue('playbackRate'));
+      const playbackRate = conf.getValue('playbackRate');
 
       const onCommand = (command, param) => { this.emit('command', command, param); };
       this._videoPlayer = new VideoPlayer({
@@ -130,7 +127,7 @@ class BaseViewComponent {}
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
+          //if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
           this._videoPlayer.setPlaybackRate(value);
           this._commentPlayer.setPlaybackRate(value);
           break;
@@ -261,9 +258,7 @@ class BaseViewComponent {}
       return this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
-      if (!ZenzaWatch.util.isPremium()) {
-        playbackRate = Math.min(1, playbackRate);
-      }
+      //if (!ZenzaWatch.util.isPremium()) { playbackRate = Math.min(1, playbackRate); }
       playbackRate = Math.max(0, Math.min(playbackRate, 10));
       this._videoPlayer.setPlaybackRate(playbackRate);
       this._commentPlayer.setPlaybackRate(playbackRate);
@@ -592,11 +587,11 @@ class BaseViewComponent {}
             data-command="playbackRate" data-param="0.75" data-type="number">x0.75</li>
           <li class="command playbackRate"
             data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
-          <li class="command playbackRate forPremium"
+          <li class="command playbackRate"
             data-command="playbackRate" data-param="1.25" data-type="number">x1.25</li>
-          <li class="command playbackRate forPremium"
+          <li class="command playbackRate"
             data-command="playbackRate" data-param="1.5"  data-type="number">x1.5</li>
-          <li class="command playbackRate forPremium"
+          <li class="command playbackRate"
             data-command="playbackRate" data-param="2"    data-type="number">倍速(x2)</li>
 
           <hr class="separator">
@@ -966,7 +961,7 @@ class BaseViewComponent {}
     },
     setPlaybackRate: function(v) {
       console.log('setPlaybackRate', v);
-      if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+      //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
       // たまにリセットされたり反映されなかったりする？
       this._playbackRate = v;
       var video = this._video;

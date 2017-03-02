@@ -1540,14 +1540,14 @@ var CONSTANT = {};
           this.reloadComment();
           break;
         case 'playbackRate':
-          if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
+          //if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
           this._playerConfig.setValue(command, param);
           break;
         case 'shiftUp':
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
-            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -1555,7 +1555,7 @@ var CONSTANT = {};
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
-            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;

@@ -912,15 +912,15 @@ var CONSTANT = {};
               <div class="triangle"></div>
               <p class="caption">再生速度</p>
               <ul>
-                <li class="playbackRate forPremium" data-rate="10" ><span>10倍</span></li>
-                <li class="playbackRate forPremium" data-rate="5"  ><span>5倍</span></li>
-                <li class="playbackRate forPremium" data-rate="4"  ><span>4倍</span></li>
-                <li class="playbackRate forPremium" data-rate="3"  ><span>3倍</span></li>
-                <li class="playbackRate forPremium" data-rate="2"  ><span>2倍</span></li>
+                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
+                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
+                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
+                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
+                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
 
-                <li class="playbackRate forPremium" data-rate="1.75"><span>1.75倍</span></li>
-                <li class="playbackRate forPremium" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate forPremium" data-rate="1.25"><span>1.25倍</span></li>
+                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
+                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
+                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
 
                 <li class="playbackRate" data-rate="1.0"><span>標準速度(x1)</span></li>
                 <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
