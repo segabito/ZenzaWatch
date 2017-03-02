@@ -744,16 +744,22 @@ class CrossDomainGate {}
         return true;
       } else if (duration <  16 * 60) {
         // プリセットに存在しない解像度なら再エンコードされていない可能性が高い？
-        if (![1280, 960, 854, 640, 480].includes(width) ||
+        if (//![1280, 960, 854, 640, 480].includes(width) ||
             ![ 720, 540, 480, 360].includes(height)) {
           return true;
         }
       } else if (duration >= 16 * 60 && duration <= 30 * 60 + 59) {
-        if (![960, 854, 640, 480].includes(width) ||
+        if (height > 540) {
+          return true;
+        }
+        if (//![960, 854, 640, 480].includes(width) ||
             ![540, 480, 360].includes(height)) {
           return true;
         }
       } else if (duration >= 31 * 60) {
+        if (height > 360) {
+          return true;
+        }
         if (![640, 480].includes(width) ||
             ![360]     .includes(height)) {
           return true;

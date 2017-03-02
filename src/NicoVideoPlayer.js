@@ -528,6 +528,7 @@ class BaseViewComponent {}
 
     .zenzaPlayerContextMenu ul {
       padding: 0;
+      margin: 0;
     }
 
     .zenzaPlayerContextMenu ul li {

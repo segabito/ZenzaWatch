@@ -2,30 +2,30 @@
 // @name           ZenzaWatch
 // @namespace      https://github.com/segabito/
 // @description    ニコニコ動画用の速くて軽いHTML5プレイヤー。 Flash不要
-// @match          http://www.nicovideo.jp/*
-// @match          http://ext.nicovideo.jp/
-// @match          http://ext.nicovideo.jp/#*
-// @match          http://blog.nicovideo.jp/*
-// @match          http://ch.nicovideo.jp/*
-// @match          http://com.nicovideo.jp/*
-// @match          http://commons.nicovideo.jp/*
-// @match          http://dic.nicovideo.jp/*
-// @match          http://ex.nicovideo.jp/*
-// @match          http://info.nicovideo.jp/*
-// @match          http://search.nicovideo.jp/*
-// @match          http://uad.nicovideo.jp/*
-// @match          http://api.search.nicovideo.jp/*
-// @match          http://*.nicovideo.jp/smile*
-// @exclude        http://ads*.nicovideo.jp/*
-// @exclude        http://www.upload.nicovideo.jp/*
-// @exclude        http://www.nicovideo.jp/watch/*?edit=*
-// @exclude        http://ch.nicovideo.jp/tool/*
-// @exclude        http://flapi.nicovideo.jp/*
-// @exclude        http://dic.nicovideo.jp/p/*
+// @match          *://www.nicovideo.jp/*
+// @match          *://ext.nicovideo.jp/
+// @match          *://ext.nicovideo.jp/#*
+// @match          *://blog.nicovideo.jp/*
+// @match          *://ch.nicovideo.jp/*
+// @match          *://com.nicovideo.jp/*
+// @match          *://commons.nicovideo.jp/*
+// @match          *://dic.nicovideo.jp/*
+// @match          *://ex.nicovideo.jp/*
+// @match          *://info.nicovideo.jp/*
+// @match          *://search.nicovideo.jp/*
+// @match          *://uad.nicovideo.jp/*
+// @match          *://api.search.nicovideo.jp/*
+// @match          *://*.nicovideo.jp/smile*
+// @exclude        *://ads.nicovideo.jp/*
+// @exclude        *://www.upload.nicovideo.jp/*
+// @exclude        *://www.nicovideo.jp/watch/*?edit=*
+// @exclude        *://ch.nicovideo.jp/tool/*
+// @exclude        *://flapi.nicovideo.jp/*
+// @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.12
+// @version        1.10.18
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==

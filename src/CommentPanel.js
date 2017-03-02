@@ -8,6 +8,7 @@ var AsyncEmitter = function() {};
 var FrameLayer = function() {};
 var PopupMessage = {};
 var CONSTANT = {};
+class BaseViewComponent {}
 
 //===BEGIN===
 
@@ -1213,5 +1214,36 @@ data-title="%no%: %date% ID:%userId%
     }
   });
 
-//===END===
+  class TimeMachineView extends BaseViewComponent {
+    constructor({parentNode}) {
+      super({
+        parentNode,
+        name: 'TimeMachineView',
+        template: TimeMachineView.__tpl__,
+        shadow: TimeMachineView._shadow_,
+        css: TimeMachineView.__css__
+      });
 
+      this._state = {
+      };
+
+      this._config = Config.namespace('uaa');
+
+    }
+
+  }
+
+  TimeMachineView._shadow_ = (`
+    <style>
+    </style>
+    <div class="root TimeMachine">
+    </div>
+  `).trim();
+
+  TimeMachineView.__tpl__ = (`<div class="TimeMachineView"></div>`).trim();
+
+  TimeMachineView.__css__ = (``).trim();
+
+
+//===END===
+//<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">

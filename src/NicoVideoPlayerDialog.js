@@ -2135,7 +2135,6 @@ var CONSTANT = {};
           videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
 
       videoInfo.isDmcDisable = autoDisableDmc;
-      this._playerState.isDmcAvailable = videoInfo.isDmc();
       this._playerState.setState({
         isDmcAvailable: videoInfo.isDmc(),
         isCommunity: videoInfo.isCommunityVideo(),
@@ -2381,11 +2380,11 @@ var CONSTANT = {};
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
-      //if (this._playerState.isPausing) {
+      if (this._playerState.isPausing) {
         //this.reload();
-        //this._setErrorMessage('停止中に動画のセッションが切れました。');
-        //return;
-      //}
+        this._setErrorMessage(`停止中に動画のセッションが切れました。(code:${code})`);
+        return;
+      }
 
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す

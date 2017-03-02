@@ -18,7 +18,7 @@ const VideoSession = (function() {
   const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec
 
   const CHECK_PAUSE_INTERVAL      = 30 * 1000;
-  const SESSION_CLOSE_PAUSE_COUNT = 3;
+  const SESSION_CLOSE_PAUSE_COUNT = 10;
   const SESSION_CLOSE_FAIL_COUNT  = 3;
   const SESSION_CLOSE_TIME_MS     = 12 * 60 * 1000; // 12min
 

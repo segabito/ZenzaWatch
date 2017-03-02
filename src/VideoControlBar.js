@@ -1168,7 +1168,7 @@ var CONSTANT = {};
       });
 
       var updatePlaybackRate = function(rate) {
-        $label.text(rate + 'x');
+        $label.text('x' + rate);
         $menu.find('.selected').removeClass('selected');
         var fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $menu.find('.playbackRate').each(function(i, item) {
