@@ -172,7 +172,7 @@ var ajax = function() {};
         const videoId = data.video.id;
         const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
         const flvInfo = {
-          url: data.video.source
+          url: data.video.smileInfo.url
         };
         const dmcInfo = data.video.dmcInfo;
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
