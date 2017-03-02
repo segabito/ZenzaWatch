@@ -2282,7 +2282,7 @@ body.in-capture .commentLayer {
   position: absolute;
 }
 
-.nicoChat .fill_space {
+.nicoChat .fill_space, .nicoChat .html5_fill_space {
   text-shadow: none;
   -webkit-text-stroke: unset !important;
   text-stroke: unset !important;
@@ -2297,7 +2297,7 @@ body.in-capture .commentLayer {
   -webkit-text-stroke: unset;
 }
 
-.nicoChat .block_space {
+.nicoChat .block_space, .nicoChat .html5_block_space {
   text-shadow: none;
   -webkit-text-stroke: 5px;
   text-stroke: 5px;

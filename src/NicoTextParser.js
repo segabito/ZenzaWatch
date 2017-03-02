@@ -426,11 +426,19 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   NicoTextParser.likeHTML5 = function(text) {
     var htmlText =
       ZenzaWatch.util.escapeHtml(text)
+      .replace(/[ ]/g, '&nbsp;')
       .replace(/([\t]+)/g,
         (g) => { return '<span class="html5_tab_space">'+
+          _.repeat('□', g.length * 2) + '</span>';
+        } )
+      .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
+      .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
+        (g) => { return '<span class="html5_fill_space">'+
           _.repeat('□', g.length) + '</span>';
         } )
-      .replace(/[ ]/g, '&nbsp;');
+      .replace(/[\r\n]+$/g, '')
+      .replace(/[\n]/g, '<br>')
+    ;
 
     return htmlText;
    };
