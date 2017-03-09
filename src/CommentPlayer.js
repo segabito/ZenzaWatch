@@ -1213,7 +1213,7 @@ var VideoCaptureUtil = {};
     BOTTOM: 'shita'
   };
 
-  NicoChat._CMD_DURATION = /(@|＠)([\d]+)/;
+  NicoChat._CMD_DURATION = /(@|＠)([0-9\.]+)/;
   NicoChat._CMD_REPLACE = /(ue|shita|sita|big|small|ender|full|[ ])/g;
   NicoChat._COLOR_MATCH = /(#[0-9a-f]+)/i;
   NicoChat._COLOR_NAME_MATCH = /([a-z]+)/i;

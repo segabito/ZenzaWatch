@@ -2,30 +2,30 @@
 // @name           ZenzaWatch
 // @namespace      https://github.com/segabito/
 // @description    ニコニコ動画用の速くて軽いHTML5プレイヤー。 Flash不要
-// @match          http://www.nicovideo.jp/*
-// @match          http://ext.nicovideo.jp/
-// @match          http://ext.nicovideo.jp/#*
-// @match          http://blog.nicovideo.jp/*
-// @match          http://ch.nicovideo.jp/*
-// @match          http://com.nicovideo.jp/*
-// @match          http://commons.nicovideo.jp/*
-// @match          http://dic.nicovideo.jp/*
-// @match          http://ex.nicovideo.jp/*
-// @match          http://info.nicovideo.jp/*
-// @match          http://search.nicovideo.jp/*
-// @match          http://uad.nicovideo.jp/*
-// @match          http://api.search.nicovideo.jp/*
-// @match          http://*.nicovideo.jp/smile*
-// @exclude        http://ads*.nicovideo.jp/*
-// @exclude        http://www.upload.nicovideo.jp/*
-// @exclude        http://www.nicovideo.jp/watch/*?edit=*
-// @exclude        http://ch.nicovideo.jp/tool/*
-// @exclude        http://flapi.nicovideo.jp/*
-// @exclude        http://dic.nicovideo.jp/p/*
+// @match          *://www.nicovideo.jp/*
+// @match          *://ext.nicovideo.jp/
+// @match          *://ext.nicovideo.jp/#*
+// @match          *://blog.nicovideo.jp/*
+// @match          *://ch.nicovideo.jp/*
+// @match          *://com.nicovideo.jp/*
+// @match          *://commons.nicovideo.jp/*
+// @match          *://dic.nicovideo.jp/*
+// @match          *://ex.nicovideo.jp/*
+// @match          *://info.nicovideo.jp/*
+// @match          *://search.nicovideo.jp/*
+// @match          *://uad.nicovideo.jp/*
+// @match          *://api.search.nicovideo.jp/*
+// @match          *://*.nicovideo.jp/smile*
+// @exclude        *://ads.nicovideo.jp/*
+// @exclude        *://www.upload.nicovideo.jp/*
+// @exclude        *://www.nicovideo.jp/watch/*?edit=*
+// @exclude        *://ch.nicovideo.jp/tool/*
+// @exclude        *://flapi.nicovideo.jp/*
+// @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.12
+// @version        1.10.19
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.12';
+  var VER = '1.10.19';
 
   console.log('jQuery version: ', $.fn.jquery);
 
@@ -824,16 +824,22 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         return true;
       } else if (duration <  16 * 60) {
         // プリセットに存在しない解像度なら再エンコードされていない可能性が高い？
-        if (![1280, 960, 854, 640, 480].includes(width) ||
+        if (//![1280, 960, 854, 640, 480].includes(width) ||
             ![ 720, 540, 480, 360].includes(height)) {
           return true;
         }
       } else if (duration >= 16 * 60 && duration <= 30 * 60 + 59) {
-        if (![960, 854, 640, 480].includes(width) ||
+        if (height > 540) {
+          return true;
+        }
+        if (//![960, 854, 640, 480].includes(width) ||
             ![540, 480, 360].includes(height)) {
           return true;
         }
       } else if (duration >= 31 * 60) {
+        if (height > 360) {
+          return true;
+        }
         if (![640, 480].includes(width) ||
             ![360]     .includes(height)) {
           return true;
@@ -2979,7 +2985,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         const videoId = data.video.id;
         const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
         const flvInfo = {
-          url: data.video.source
+          url: data.video.smileInfo.url
         };
         const dmcInfo = data.video.dmcInfo;
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
@@ -5647,10 +5653,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this._fullScreenNode = params.fullScreenNode;
       this._playerState = params.playerState;
 
-      const playbackRate =
-        ZenzaWatch.util.isPremium() ?
-          conf.getValue('playbackRate') :
-          Math.min(1, conf.getValue('playbackRate'));
+      const playbackRate = conf.getValue('playbackRate');
 
       const onCommand = (command, param) => { this.emit('command', command, param); };
       this._videoPlayer = new VideoPlayer({
@@ -5745,7 +5748,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
+          //if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
           this._videoPlayer.setPlaybackRate(value);
           this._commentPlayer.setPlaybackRate(value);
           break;
@@ -5876,9 +5879,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       return this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
-      if (!ZenzaWatch.util.isPremium()) {
-        playbackRate = Math.min(1, playbackRate);
-      }
+      //if (!ZenzaWatch.util.isPremium()) { playbackRate = Math.min(1, playbackRate); }
       playbackRate = Math.max(0, Math.min(playbackRate, 10));
       this._videoPlayer.setPlaybackRate(playbackRate);
       this._commentPlayer.setPlaybackRate(playbackRate);
@@ -6143,6 +6144,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
     .zenzaPlayerContextMenu ul {
       padding: 0;
+      margin: 0;
     }
 
     .zenzaPlayerContextMenu ul li {
@@ -6206,11 +6208,11 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             data-command="playbackRate" data-param="0.75" data-type="number">x0.75</li>
           <li class="command playbackRate"
             data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
-          <li class="command playbackRate forPremium"
+          <li class="command playbackRate"
             data-command="playbackRate" data-param="1.25" data-type="number">x1.25</li>
-          <li class="command playbackRate forPremium"
+          <li class="command playbackRate"
             data-command="playbackRate" data-param="1.5"  data-type="number">x1.5</li>
-          <li class="command playbackRate forPremium"
+          <li class="command playbackRate"
             data-command="playbackRate" data-param="2"    data-type="number">倍速(x2)</li>
 
           <hr class="separator">
@@ -6580,7 +6582,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     },
     setPlaybackRate: function(v) {
       console.log('setPlaybackRate', v);
-      if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+      //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
       // たまにリセットされたり反映されなかったりする？
       this._playbackRate = v;
       var video = this._video;
@@ -8707,15 +8709,15 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
               <div class="triangle"></div>
               <p class="caption">再生速度</p>
               <ul>
-                <li class="playbackRate forPremium" data-rate="10" ><span>10倍</span></li>
-                <li class="playbackRate forPremium" data-rate="5"  ><span>5倍</span></li>
-                <li class="playbackRate forPremium" data-rate="4"  ><span>4倍</span></li>
-                <li class="playbackRate forPremium" data-rate="3"  ><span>3倍</span></li>
-                <li class="playbackRate forPremium" data-rate="2"  ><span>2倍</span></li>
+                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
+                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
+                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
+                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
+                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
 
-                <li class="playbackRate forPremium" data-rate="1.75"><span>1.75倍</span></li>
-                <li class="playbackRate forPremium" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate forPremium" data-rate="1.25"><span>1.25倍</span></li>
+                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
+                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
+                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
 
                 <li class="playbackRate" data-rate="1.0"><span>標準速度(x1)</span></li>
                 <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
@@ -8963,7 +8965,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       });
 
       var updatePlaybackRate = function(rate) {
-        $label.text(rate + 'x');
+        $label.text('x' + rate);
         $menu.find('.selected').removeClass('selected');
         var fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $menu.find('.playbackRate').each(function(i, item) {
@@ -10475,7 +10477,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   font-family: Simsun, 'IPAMonaGothic', Gulim, PmingLiu;
 }
 
-.html5_tab_space { opacity: 0; }
+.html5_tab_space, .html5_space { opacity: 0; }
 
   `).trim();
 
@@ -10628,11 +10630,21 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   NicoTextParser.likeHTML5 = function(text) {
     var htmlText =
       ZenzaWatch.util.escapeHtml(text)
+      .replace(/([ ]+)/g, (g) => { return '<span class="html5_space">' +
+          '0'.repeat(g.length) + '</span>';
+      })
       .replace(/([\t]+)/g,
         (g) => { return '<span class="html5_tab_space">'+
-          _.repeat('□', g.length) + '</span>';
+          '□'.repeat(g.length * 2) + '</span>';
+        })
+      .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
+      .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
+        (g) => { return '<span class="html5_fill_space">'+
+          '□'.repeat(g.length) + '</span>';
         } )
-      .replace(/[ ]/g, '&nbsp;');
+      .replace(/[\r\n]+$/g, '')
+      .replace(/[\n]/g, '<br>')
+    ;
 
     return htmlText;
    };
@@ -11838,7 +11850,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     BOTTOM: 'shita'
   };
 
-  NicoChat._CMD_DURATION = /(@|＠)([\d]+)/;
+  NicoChat._CMD_DURATION = /(@|＠)([0-9\.]+)/;
   NicoChat._CMD_REPLACE = /(ue|shita|sita|big|small|ender|full|[ ])/g;
   NicoChat._COLOR_MATCH = /(#[0-9a-f]+)/i;
   NicoChat._COLOR_NAME_MATCH = /([a-z]+)/i;
@@ -12907,7 +12919,7 @@ body.in-capture .commentLayer {
   position: absolute;
 }
 
-.nicoChat .fill_space {
+.nicoChat .fill_space, .nicoChat .html5_fill_space {
   text-shadow: none;
   -webkit-text-stroke: unset !important;
   text-stroke: unset !important;
@@ -12922,7 +12934,7 @@ body.in-capture .commentLayer {
   -webkit-text-stroke: unset;
 }
 
-.nicoChat .block_space {
+.nicoChat .block_space, .nicoChat .html5_block_space {
   text-shadow: none;
   -webkit-text-stroke: 5px;
   text-stroke: 5px;
@@ -14763,12 +14775,21 @@ var SlotLayoutWorker = (function() {
 
     static parse置換(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
-      //＠置換キーワード置換後置換範囲投コメ一致条件
+      //＠置換 キーワード 置換後 置換範囲 投コメ 一致条件
+      //＠置換 "И"       "██" 単       投コメ
+
+      // 投稿者コメントを含めるかどうか
+      let target = 'user';
+      if (tmp[4] === '含む') {
+        target = 'owner user';
+      } else if (tmp[4] === '投コメ') {
+        target = 'owner';
+      }
       return {
         src:  tmp[1],
         dest: tmp[2] || '',
         fill:    tmp[3] === '全'       ? true : false,          //全体を置き換えるかどうか
-        target:  tmp[4] === '含む'     ? 'owner user' : 'user', // 投稿者コメントを含めるかどうか
+        target, //(tmp[4] === '含む' || tmp[4] === '投コメ')     ? 'owner user' : 'user',
         partial: tmp[5] === '完全一致' ? false : true           // 完全一致のみを見るかどうか
       };
     }
@@ -14793,6 +14814,9 @@ var SlotLayoutWorker = (function() {
       let type = 'JUMP';
       let time = 0;
       if (/^#(\d+):(\d+)$/.test(target)) {
+        type = 'SEEK';
+        time = RegExp.$1 * 60 + RegExp.$2 * 1;
+      } else if (/^#(\d+):(\d+\.\d+)$/.test(target)) {
         type = 'SEEK';
         time = RegExp.$1 * 60 + RegExp.$2 * 1;
       } else if (/^(#|＃)(.+)/.test(target)) {
@@ -14961,6 +14985,7 @@ var SlotLayoutWorker = (function() {
         'REPLACE': function(nicoChat, nicos, params) {
           if (!params) { return; }
           if (nicoChat.getFork() > 0 && (params.target || '').indexOf('owner') < 0) { return; }
+          if (nicoChat.getFork() < 1 && params.target === 'owner') { return; }
 
           let isMatch = false;
           let text = nicoChat.getText();
@@ -16240,6 +16265,37 @@ data-title="%no%: %date% ID:%userId%
       this._model.setCurrentTime(sec);
     }
   });
+
+  class TimeMachineView extends BaseViewComponent {
+    constructor({parentNode}) {
+      super({
+        parentNode,
+        name: 'TimeMachineView',
+        template: TimeMachineView.__tpl__,
+        shadow: TimeMachineView._shadow_,
+        css: TimeMachineView.__css__
+      });
+
+      this._state = {
+      };
+
+      this._config = Config.namespace('uaa');
+
+    }
+
+  }
+
+  TimeMachineView._shadow_ = (`
+    <style>
+    </style>
+    <div class="root TimeMachine">
+    </div>
+  `).trim();
+
+  TimeMachineView.__tpl__ = (`<div class="TimeMachineView"></div>`).trim();
+
+  TimeMachineView.__css__ = (``).trim();
+
 
 
 
@@ -18630,7 +18686,7 @@ const VideoSession = (function() {
   const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec
 
   const CHECK_PAUSE_INTERVAL      = 30 * 1000;
-  const SESSION_CLOSE_PAUSE_COUNT = 3;
+  const SESSION_CLOSE_PAUSE_COUNT = 10;
   const SESSION_CLOSE_FAIL_COUNT  = 3;
   const SESSION_CLOSE_TIME_MS     = 12 * 60 * 1000; // 12min
 
@@ -20503,14 +20559,14 @@ const VideoSession = (function() {
           this.reloadComment();
           break;
         case 'playbackRate':
-          if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
+          //if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
           this._playerConfig.setValue(command, param);
           break;
         case 'shiftUp':
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
-            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -20518,7 +20574,7 @@ const VideoSession = (function() {
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
-            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -21098,7 +21154,6 @@ const VideoSession = (function() {
           videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
 
       videoInfo.isDmcDisable = autoDisableDmc;
-      this._playerState.isDmcAvailable = videoInfo.isDmc();
       this._playerState.setState({
         isDmcAvailable: videoInfo.isDmc(),
         isCommunity: videoInfo.isCommunityVideo(),
@@ -21344,11 +21399,11 @@ const VideoSession = (function() {
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
-      //if (this._playerState.isPausing) {
+      if (this._playerState.isPausing) {
         //this.reload();
-        //this._setErrorMessage('停止中に動画のセッションが切れました。');
-        //return;
-      //}
+        this._setErrorMessage(`停止中に動画のセッションが切れました。(code:${code})`);
+        return;
+      }
 
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
@@ -22708,15 +22763,16 @@ const VideoSession = (function() {
 
     .commentInput {
       width: 100%;
-      height: 30px;
+      height: 30px !important;
       font-size: 24px;
       background: transparent;
       border: none;
       opacity: 0;
       transition: opacity 0.3s ease, box-shadow 0.4s ease;
       text-align: center;
-      line-height: 26px;
-      padding-right: 32px;
+      line-height: 26px !important;
+      padding-right: 32px !important;
+      margin-bottom: 0 !important;
     }
 
     .commentInputPanel:hover  .commentInput {
@@ -22753,7 +22809,7 @@ const VideoSession = (function() {
     .commandInput {
       position: absolute;
       width: 100px;
-      height: 30px;
+      height: 30px !important;
       font-size: 24px;
       top: 0;
       left: 0;
@@ -22762,8 +22818,9 @@ const VideoSession = (function() {
       opacity: 0;
       transition: left 0.2s ease, opacity 0.2s ease;
       text-align: center;
-      line-height: 26px;
-      padding: 0;
+      line-height: 26px !important;
+      padding: 0 !important;
+      margin-bottom: 0 !important;
     }
     .commentInputPanel.active .commandInput {
       left: -108px;
@@ -22777,8 +22834,8 @@ const VideoSession = (function() {
 
     .commentSubmit {
       position: absolute;
-      width: 100px;
-      height: 30px;
+      width: 100px !important;
+      height: 30px !important;
       font-size: 24px;
       top: 0;
       right: 0;
@@ -24623,7 +24680,7 @@ const VideoSession = (function() {
       window.setTimeout(() => {
         this._$description.find('.watch').each((i, watchLink) => {
           var $watchLink = $(watchLink);
-          var videoId = $watchLink.text();
+          var videoId = $watchLink.text().replace('watch/', '');
           var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(videoId);
           if (thumbnail) {
             var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
@@ -26501,9 +26558,9 @@ const VideoSession = (function() {
         return false;
       }
       // FlashPlayerが入ってない場合はtrue
-      if (!ZenzaWatch.util.hasFlashPlayer()) {
-        return true;
-      }
+      //if (!ZenzaWatch.util.hasFlashPlayer()) {
+      //  return true;
+      //}
       // GINZAの代わりに起動する設定、かつZenzaで再生可能な動画はtrue
       // nmmやrtmpeの動画だとfalseになる
       if (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) {

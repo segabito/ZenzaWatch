@@ -947,7 +947,7 @@ const PRODUCT = 'ZenzaWatch';
       window.setTimeout(() => {
         this._$description.find('.watch').each((i, watchLink) => {
           var $watchLink = $(watchLink);
-          var videoId = $watchLink.text();
+          var videoId = $watchLink.text().replace('watch/', '');
           var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(videoId);
           if (thumbnail) {
             var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);

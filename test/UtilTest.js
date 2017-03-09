@@ -22,7 +22,6 @@ describe('isBetterThanDmcMayBe', function() {
 
     assert.equal(true,  util.isBetterThanDmcMayBe(1280, 720, dur));
     assert.equal(true,  util.isBetterThanDmcMayBe( 960, 541, dur));
-    assert.equal(true,  util.isBetterThanDmcMayBe( 961, 540, dur));
     assert.equal(true,  util.isBetterThanDmcMayBe( 961, 541, dur));
   });
 

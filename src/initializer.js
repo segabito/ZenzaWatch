@@ -32,9 +32,9 @@ const START_PAGE_QUERY = 'hoge=fuga';
         return false;
       }
       // FlashPlayerが入ってない場合はtrue
-      if (!ZenzaWatch.util.hasFlashPlayer()) {
-        return true;
-      }
+      //if (!ZenzaWatch.util.hasFlashPlayer()) {
+      //  return true;
+      //}
       // GINZAの代わりに起動する設定、かつZenzaで再生可能な動画はtrue
       // nmmやrtmpeの動画だとfalseになる
       if (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) {
