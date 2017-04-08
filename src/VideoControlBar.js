@@ -1058,7 +1058,7 @@ var CONSTANT = {};
       this._initializeVideoServerTypeSelectMenu();
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(VideoControlBar.__css__);
+      util.addStyle(VideoControlBar.__css__);
       var $view = this._$view = $(VideoControlBar.__tpl__);
       var $container = this._$playerContainer;
       var config = this._playerConfig;
@@ -1069,7 +1069,7 @@ var CONSTANT = {};
       this._$seekBarPointer = $view.find('.seekBarPointer');
       this._$bufferRange    = $view.find('.bufferRange');
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
-      $view.on('click', function(e) {
+      $view.on('click', (e) => {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover');
       });

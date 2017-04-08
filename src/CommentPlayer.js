@@ -261,6 +261,8 @@ var VideoCaptureUtil = {};
       this._topGroup.reset();
       this._nakaGroup.reset();
       this._bottomGroup.reset();
+      const duration = this._duration =
+        parseInt(options.duration || 0x7FFFFF);
       var nicoScripter = this._nicoScripter;
       var nicoChats = [];
 
@@ -269,9 +271,9 @@ var VideoCaptureUtil = {};
       var top = [], bottom = [], naka = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
         var chat = chats[i];
-        if (!chat.firstChild) continue;
+        if (!chat.firstChild) { continue; }
 
-        var nicoChat = new NicoChat(chat);
+        var nicoChat = new NicoChat(chat, duration);
         if (nicoChat.isDeleted()) { continue; }
 
         if (nicoChat.isNicoScript()) {
@@ -279,7 +281,6 @@ var VideoCaptureUtil = {};
         }
 
         nicoChats.push(nicoChat);
-
       }
 
       if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
@@ -1267,11 +1268,12 @@ var VideoCaptureUtil = {};
       this._isReverse = false;
       this._isPatissier = false;
       this._fontCommand = '';
+      this._commentVer  = '';
 
       this._currentTime = 0;
       this._hasDurationSet = false;
     },
-    initialize: function(chat) {
+    initialize: function(chat, duration) {
       this._id = 'chat' + NicoChat.id++;
       this._currentTime = 0;
 
@@ -1349,13 +1351,24 @@ var VideoCaptureUtil = {};
 
         if (pcmd.mincho) {
           this._fontCommand = 'mincho';
+          this._commentVer = 'html5';
         } else if (pcmd.gothic) {
           this._fontCommand = 'gothic';
+          this._commentVer = 'html5';
         } else if (pcmd.defont) {
           this._fontCommand = 'defont';
+          this._commentVer = 'html5';
         }
 
       }
+
+      // durationを超える位置にあるコメントを詰める vposはセンチ秒なので気をつけ
+      const maxv =
+        this._isNicoScript ?
+        Math.min(this._vpos, duration * 100) :
+        Math.min(this._vpos, (1 + duration - this._duration) * 100);
+      const minv = Math.max(maxv, 0);
+      this._vpos = minv;
     },
     _parseCmd: function(cmd, isFork) {
       var tmp = cmd.split(/[\x20|\u3000|\t]+/);

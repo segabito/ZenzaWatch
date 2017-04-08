@@ -471,8 +471,6 @@ var CONSTANT = {};
       height: 100%;
       border: 0;
       z-index: 100;
-      cursor: none;
-              /*transform: translateZ(0);*/
       background: #000;
       will-change: transform, opacity;
       user-select: none;
@@ -480,9 +478,16 @@ var CONSTANT = {};
       -moz-user-select: none;
     }
 
+    .zenzaScreenMode_3D   .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_wide .videoPlayer,
+    .fullScreen .videoPlayer {
+      cursor: none;
+    }
+
     .zenzaPlayerContainer .videoPlayer.is-loading {
       cursor: wait;
     }
+
     .is-mouseMoving .videoPlayer {
       cursor: auto;
     }
@@ -1077,7 +1082,7 @@ var CONSTANT = {};
       update();
     },
     _onMouseMove: function() {
-      if (this._isMouseMoving) { return; }
+      if (this._isMouseMoving || !document.hasFocus()) { return; }
       this.addClass('is-mouseMoving');
       this._isMouseMoving = true;
     },
@@ -2271,7 +2276,8 @@ var CONSTANT = {};
       }
       //PopupMessage.notify('コメント取得成功');
       var options = {
-        replacement: this._videoInfo.getReplacementWords()
+        replacement: this._videoInfo.getReplacementWords(),
+        duration: this._videoInfo.getDuration()
       };
       this._nicoVideoPlayer.closeCommentPlayer();
       this._nicoVideoPlayer.setComment(result.xml, options);

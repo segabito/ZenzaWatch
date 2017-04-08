@@ -37,12 +37,12 @@ const PRODUCT = 'ZenzaWatch';
 const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
 const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var console = window.console;
-  console.log(`exec ${PRODUCT}..`);
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
   //@version
 
+  console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
 
     var ZenzaWatch = {

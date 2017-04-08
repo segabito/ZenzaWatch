@@ -398,11 +398,11 @@ var util = {};
         diff = Math.min(1, Math.abs(diff)) * (diff / Math.abs(diff));
         switch (p.type) {
           case 'SEEK':
-            this.emit('command', 'nicosSeek', p.params.time + diff);
+            this.emit('command', 'nicosSeek', Math.max(0, p.params.time + diff));
             break;
           case 'SEEK_MARKER':
             let time = this._marker[p.params.time] || 0;
-            this.emit('command', 'nicosSeek', time + diff);
+            this.emit('command', 'nicosSeek', Math.max(0, time + diff));
             break;
         }
       });

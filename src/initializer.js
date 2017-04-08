@@ -141,6 +141,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
         });
       }
 
+
       if (location.host === 'search.nicovideo.jp') {
         const removeClick = function() {$('a.click').removeClass('click');};
         removeClick();
@@ -320,7 +321,6 @@ const START_PAGE_QUERY = 'hoge=fuga';
       const exportPlaylist = () => {
         return PlaylistSession.restore() || {};
       };
-
 
       const sendCommand = (command, params) => {
         broadcastEmitter.send(
