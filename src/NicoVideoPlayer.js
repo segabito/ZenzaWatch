@@ -685,6 +685,7 @@ class BaseViewComponent {}
       this._initializeEvents();
 
       ZenzaWatch.debug.video = this._video;
+      ZenzaWatch.external.getVideoElement = () => { return this._video; };
 
     },
     _initializeEvents: function() {

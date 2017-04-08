@@ -1616,6 +1616,7 @@ var CONSTANT = {};
       }
       var map = this._getHeatMap();
       this.emitAsync('update', map);
+      ZenzaWatch.emitter.emit('updateHeatMap', {map, duration: this._duration});
 
       // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
       // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
