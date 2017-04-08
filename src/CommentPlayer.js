@@ -1281,8 +1281,13 @@ var VideoCaptureUtil = {};
       var attr = chat.attributes;
       if (!attr) { this.reset(); return; }
 
-      this._date = chat.getAttribute('date') || Math.floor(Date.now() / 1000);
-      this._cmd  = chat.getAttribute('mail') || '';
+      this._date = parseInt(chat.getAttribute('date'), 10) || Math.floor(Date.now() / 1000);
+      //if (this._date >= 1483196400) { // 2017/01/01
+      //  this._commentVer = 'html5';
+      //} else {
+      //  this._commentVer = 'flash';
+      //}
+      this._cmd = chat.getAttribute('mail') || '';
       this._isPremium = (chat.getAttribute('premium') === '1');
       this._userId = chat.getAttribute('user_id');
       this._vpos = parseInt(chat.getAttribute('vpos'));
@@ -1450,7 +1455,8 @@ var VideoCaptureUtil = {};
     getFork: function() { return this._fork; },
     isReverse: function() { return this._isReverse; },
     setIsReverse: function(v) { this._isReverse = !!v; },
-    getFontCommand: function() { return this._fontCommand; }
+    getFontCommand: function() { return this._fontCommand; },
+    getCommentVer: function() { return this._commentVer; }
   });
 
 
@@ -1535,11 +1541,11 @@ var VideoCaptureUtil = {};
         this._setupMarqueeMode();
       }
 
-      const fontCommand = this._fontCommand;
-      const overflowMargin = fontCommand ? 0 : 8;
+      const commentVer = this.getCommentVer();
+      const overflowMargin = commentVer === 'html5' ? 0 : 8;
       if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + overflowMargin) {
         this._isOverflow = true;
-        if (!fontCommand) {
+        if (commentVer !== 'html5') {
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
@@ -1551,10 +1557,10 @@ var VideoCaptureUtil = {};
               this._y = 0;
               break;
             case NicoChat.TYPE.BOTTOM:
-              this._y = NicoCommentViewModel.SCREEN.HEIGHT - this._height;
+              this._y = NicoCommentViewModel.SCREEN.HEIGHT - this._height * this._scale;
               break;
             default:
-              this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
+              this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height * this._scale) / 2;
               break;
           }
         }
@@ -1609,8 +1615,9 @@ var VideoCaptureUtil = {};
     _setText: function(text) {
 
       const fontCommand = this.getFontCommand();
+      const commentVer  = this.getCommentVer();
       var htmlText =
-        fontCommand ?
+        commentVer === 'html5' ?
           NicoTextParser.likeHTML5(text) :
           NicoTextParser.likeXP(text);
 
@@ -2015,6 +2022,7 @@ var VideoCaptureUtil = {};
     isPostFail: function() { return this._nicoChat.isPostFail(); },
     isReverse: function() { return this._nicoChat.isReverse(); },
     getFontCommand: function() { return this._nicoChat.getFontCommand(); },
+    getCommentVer: function() { return this._nicoChat.getCommentVer(); },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -2046,7 +2054,7 @@ var VideoCaptureUtil = {};
         deleted:  this._nicoChat.isDeleted(),
         cmd:      this._nicoChat.getCmd(),
         fork:     this._nicoChat.getFork(),
-//        nicos:    this._nicoChat.isNicoScript(),
+        ver:      this._nicoChat.getCommentVer(),
         text:     this.getText()
       });
       return chat;
@@ -2957,6 +2965,8 @@ spacer {
         className.push('cmd-' + fontCommand);
       }
 
+      //className.push('ver-' + chat.getCommentVer());
+
       span.className = className.join(' ');
       span.id = chat.getId();
       if (!chat.isInvisible()) { span.innerHTML = chat.getHtmlText(); }
@@ -2991,6 +3001,7 @@ spacer {
       var fork = chat.getFork();
       className.push('fork' + fork);
 
+      //className.push('ver-' + chat.getCommentVer());
 
       var htmlText = '';
       if (!chat.isInvisible()) { htmlText = chat.getHtmlText(); }
@@ -3020,6 +3031,7 @@ spacer {
         (slot >= 0) ?
         (slot   * 1000 + chat.getFork() * 1000000 + 1) :
         (beginL * 1000 + chat.getFork() * 1000000);
+      //let commentVer = chat.getCommentVer();
 
       if (type === NicoChat.TYPE.NAKA) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
@@ -3054,7 +3066,18 @@ spacer {
    ${reverse}
 }
 `;
-//          '  line-height:',  lineHeight, 'px;\n',
+
+//        if (commentVer === 'html5' && chat.isOverflow()) {
+//          result += `
+//@keyframes idou${id}n {
+//  0%   { opacity: 1; transform: translate3d(0, -50%, 0) ${scaleCss}; }
+//  100% { opacity: 1; transform: translate3d(-${outerScreenWidth + width}px, -50%, 0) ${scaleCss}; }
+//}
+//
+//#${id} { top: 50%; animation-name: idou${id}n; }
+//`;
+//        }
+
       } else {
         scaleCss =
           scale === 1.0 ?
