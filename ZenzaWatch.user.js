@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.19
+// @version        1.10.21
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -37,12 +37,12 @@ const PRODUCT = 'ZenzaWatch';
 const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
 const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var console = window.console;
-  console.log(`exec ${PRODUCT}..`);
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.19';
+  var VER = '1.10.21';
 
+  console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
 
     var ZenzaWatch = {
@@ -300,7 +300,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
-        enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
+        enableAutoMylistComment: !true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
         enableDblclickClose: true, //
@@ -6308,6 +6308,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this._initializeEvents();
 
       ZenzaWatch.debug.video = this._video;
+      ZenzaWatch.external.getVideoElement = () => { return this._video; };
 
     },
     _initializeEvents: function() {
@@ -8857,7 +8858,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this._initializeVideoServerTypeSelectMenu();
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(VideoControlBar.__css__);
+      util.addStyle(VideoControlBar.__css__);
       var $view = this._$view = $(VideoControlBar.__tpl__);
       var $container = this._$playerContainer;
       var config = this._playerConfig;
@@ -8868,7 +8869,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this._$seekBarPointer = $view.find('.seekBarPointer');
       this._$bufferRange    = $view.find('.bufferRange');
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
-      $view.on('click', function(e) {
+      $view.on('click', (e) => {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover');
       });
@@ -9415,6 +9416,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       }
       var map = this._getHeatMap();
       this.emitAsync('update', map);
+      ZenzaWatch.emitter.emit('updateHeatMap', {map, duration: this._duration});
 
       // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
       // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
@@ -10900,6 +10902,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._topGroup.reset();
       this._nakaGroup.reset();
       this._bottomGroup.reset();
+      const duration = this._duration =
+        parseInt(options.duration || 0x7FFFFF);
       var nicoScripter = this._nicoScripter;
       var nicoChats = [];
 
@@ -10908,9 +10912,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var top = [], bottom = [], naka = [];
       for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
         var chat = chats[i];
-        if (!chat.firstChild) continue;
+        if (!chat.firstChild) { continue; }
 
-        var nicoChat = new NicoChat(chat);
+        var nicoChat = new NicoChat(chat, duration);
         if (nicoChat.isDeleted()) { continue; }
 
         if (nicoChat.isNicoScript()) {
@@ -11905,11 +11909,12 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._isReverse = false;
       this._isPatissier = false;
       this._fontCommand = '';
+      this._commentVer  = '';
 
       this._currentTime = 0;
       this._hasDurationSet = false;
     },
-    initialize: function(chat) {
+    initialize: function(chat, duration) {
       this._id = 'chat' + NicoChat.id++;
       this._currentTime = 0;
 
@@ -11917,8 +11922,13 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       var attr = chat.attributes;
       if (!attr) { this.reset(); return; }
 
-      this._date = chat.getAttribute('date') || Math.floor(Date.now() / 1000);
-      this._cmd  = chat.getAttribute('mail') || '';
+      this._date = parseInt(chat.getAttribute('date'), 10) || Math.floor(Date.now() / 1000);
+      //if (this._date >= 1483196400) { // 2017/01/01
+      //  this._commentVer = 'html5';
+      //} else {
+      //  this._commentVer = 'flash';
+      //}
+      this._cmd = chat.getAttribute('mail') || '';
       this._isPremium = (chat.getAttribute('premium') === '1');
       this._userId = chat.getAttribute('user_id');
       this._vpos = parseInt(chat.getAttribute('vpos'));
@@ -11987,13 +11997,24 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
         if (pcmd.mincho) {
           this._fontCommand = 'mincho';
+          this._commentVer = 'html5';
         } else if (pcmd.gothic) {
           this._fontCommand = 'gothic';
+          this._commentVer = 'html5';
         } else if (pcmd.defont) {
           this._fontCommand = 'defont';
+          this._commentVer = 'html5';
         }
 
       }
+
+      // durationを超える位置にあるコメントを詰める vposはセンチ秒なので気をつけ
+      const maxv =
+        this._isNicoScript ?
+        Math.min(this._vpos, duration * 100) :
+        Math.min(this._vpos, (1 + duration - this._duration) * 100);
+      const minv = Math.max(maxv, 0);
+      this._vpos = minv;
     },
     _parseCmd: function(cmd, isFork) {
       var tmp = cmd.split(/[\x20|\u3000|\t]+/);
@@ -12075,7 +12096,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     getFork: function() { return this._fork; },
     isReverse: function() { return this._isReverse; },
     setIsReverse: function(v) { this._isReverse = !!v; },
-    getFontCommand: function() { return this._fontCommand; }
+    getFontCommand: function() { return this._fontCommand; },
+    getCommentVer: function() { return this._commentVer; }
   });
 
 
@@ -12160,11 +12182,11 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         this._setupMarqueeMode();
       }
 
-      const fontCommand = this._fontCommand;
-      const overflowMargin = fontCommand ? 0 : 8;
+      const commentVer = this.getCommentVer();
+      const overflowMargin = commentVer === 'html5' ? 0 : 8;
       if (this._height > NicoCommentViewModel.SCREEN.HEIGHT + overflowMargin) {
         this._isOverflow = true;
-        if (!fontCommand) {
+        if (commentVer !== 'html5') {
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
@@ -12176,10 +12198,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
               this._y = 0;
               break;
             case NicoChat.TYPE.BOTTOM:
-              this._y = NicoCommentViewModel.SCREEN.HEIGHT - this._height;
+              this._y = NicoCommentViewModel.SCREEN.HEIGHT - this._height * this._scale;
               break;
             default:
-              this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height) / 2;
+              this._y = (NicoCommentViewModel.SCREEN.HEIGHT - this._height * this._scale) / 2;
               break;
           }
         }
@@ -12234,8 +12256,9 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     _setText: function(text) {
 
       const fontCommand = this.getFontCommand();
+      const commentVer  = this.getCommentVer();
       var htmlText =
-        fontCommand ?
+        commentVer === 'html5' ?
           NicoTextParser.likeHTML5(text) :
           NicoTextParser.likeXP(text);
 
@@ -12640,6 +12663,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     isPostFail: function() { return this._nicoChat.isPostFail(); },
     isReverse: function() { return this._nicoChat.isReverse(); },
     getFontCommand: function() { return this._nicoChat.getFontCommand(); },
+    getCommentVer: function() { return this._nicoChat.getCommentVer(); },
     toString: function() { // debug用
       // コンソールから
       // ZenzaWatch.debug.getInViewElements()
@@ -12671,7 +12695,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         deleted:  this._nicoChat.isDeleted(),
         cmd:      this._nicoChat.getCmd(),
         fork:     this._nicoChat.getFork(),
-//        nicos:    this._nicoChat.isNicoScript(),
+        ver:      this._nicoChat.getCommentVer(),
         text:     this.getText()
       });
       return chat;
@@ -13582,6 +13606,8 @@ spacer {
         className.push('cmd-' + fontCommand);
       }
 
+      //className.push('ver-' + chat.getCommentVer());
+
       span.className = className.join(' ');
       span.id = chat.getId();
       if (!chat.isInvisible()) { span.innerHTML = chat.getHtmlText(); }
@@ -13616,6 +13642,7 @@ spacer {
       var fork = chat.getFork();
       className.push('fork' + fork);
 
+      //className.push('ver-' + chat.getCommentVer());
 
       var htmlText = '';
       if (!chat.isInvisible()) { htmlText = chat.getHtmlText(); }
@@ -13645,6 +13672,7 @@ spacer {
         (slot >= 0) ?
         (slot   * 1000 + chat.getFork() * 1000000 + 1) :
         (beginL * 1000 + chat.getFork() * 1000000);
+      //let commentVer = chat.getCommentVer();
 
       if (type === NicoChat.TYPE.NAKA) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
@@ -13679,7 +13707,18 @@ spacer {
    ${reverse}
 }
 `;
-//          '  line-height:',  lineHeight, 'px;\n',
+
+//        if (commentVer === 'html5' && chat.isOverflow()) {
+//          result += `
+//@keyframes idou${id}n {
+//  0%   { opacity: 1; transform: translate3d(0, -50%, 0) ${scaleCss}; }
+//  100% { opacity: 1; transform: translate3d(-${outerScreenWidth + width}px, -50%, 0) ${scaleCss}; }
+//}
+//
+//#${id} { top: 50%; animation-name: idou${id}n; }
+//`;
+//        }
+
       } else {
         scaleCss =
           scale === 1.0 ?
@@ -14912,11 +14951,11 @@ var SlotLayoutWorker = (function() {
         diff = Math.min(1, Math.abs(diff)) * (diff / Math.abs(diff));
         switch (p.type) {
           case 'SEEK':
-            this.emit('command', 'nicosSeek', p.params.time + diff);
+            this.emit('command', 'nicosSeek', Math.max(0, p.params.time + diff));
             break;
           case 'SEEK_MARKER':
             let time = this._marker[p.params.time] || 0;
-            this.emit('command', 'nicosSeek', time + diff);
+            this.emit('command', 'nicosSeek', Math.max(0, time + diff));
             break;
         }
       });
@@ -21298,7 +21337,8 @@ const VideoSession = (function() {
       }
       //PopupMessage.notify('コメント取得成功');
       var options = {
-        replacement: this._videoInfo.getReplacementWords()
+        replacement: this._videoInfo.getReplacementWords(),
+        duration: this._videoInfo.getDuration()
       };
       this._nicoVideoPlayer.closeCommentPlayer();
       this._nicoVideoPlayer.setComment(result.xml, options);
