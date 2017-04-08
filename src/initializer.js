@@ -132,7 +132,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
           var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
           if (thumbnail.match(/smile\?i=([0-9]+)/)) {
             var watchId = 'so' + RegExp.$1;
-            var $a = $('<a class="more zen" target="_blank">watch</a>')
+            var $a = $('<a class="more zen" rel="noopener" target="_blank">watch</a>')
               .css('right', '128px')
               .attr('href', '//www.nicovideo.jp/watch/' + watchId);
 

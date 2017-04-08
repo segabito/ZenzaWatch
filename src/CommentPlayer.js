@@ -2584,6 +2584,7 @@ spacer {
           const a = document.createElement('a');
           a.setAttribute('download', 'test.svg');
           a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener');
           a.setAttribute('href', url);
           document.body.appendChild(a);
           a.click();

@@ -1699,6 +1699,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       a.setAttribute('download', title + '.html');
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
+      a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
       a.click();
       window.setTimeout(() => { a.remove(); }, 1000);
@@ -2667,6 +2668,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       a.setAttribute('download', fileName);
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
+      a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
       a.click();
       window.setTimeout(() => {
@@ -10916,7 +10918,6 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
         }
 
         nicoChats.push(nicoChat);
-
       }
 
       if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
@@ -13221,6 +13222,7 @@ spacer {
           const a = document.createElement('a');
           a.setAttribute('download', 'test.svg');
           a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener');
           a.setAttribute('href', url);
           document.body.appendChild(a);
           a.click();
@@ -18185,6 +18187,7 @@ data-title="%no%: %date% ID:%userId%
       var a = document.createElement('a');
       a.setAttribute('download', title + '.playlist.json');
       a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
       a.setAttribute('href', url);
       document.body.appendChild(a);
       a.click();
@@ -19490,8 +19493,6 @@ const VideoSession = (function() {
       height: 100%;
       border: 0;
       z-index: 100;
-      cursor: none;
-              /*transform: translateZ(0);*/
       background: #000;
       will-change: transform, opacity;
       user-select: none;
@@ -19499,9 +19500,16 @@ const VideoSession = (function() {
       -moz-user-select: none;
     }
 
+    .zenzaScreenMode_3D   .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_wide .videoPlayer,
+    .fullScreen .videoPlayer {
+      cursor: none;
+    }
+
     .zenzaPlayerContainer .videoPlayer.is-loading {
       cursor: wait;
     }
+
     .is-mouseMoving .videoPlayer {
       cursor: auto;
     }
@@ -20096,7 +20104,7 @@ const VideoSession = (function() {
       update();
     },
     _onMouseMove: function() {
-      if (this._isMouseMoving) { return; }
+      if (this._isMouseMoving || !document.hasFocus()) { return; }
       this.addClass('is-mouseMoving');
       this._isMouseMoving = true;
     },
@@ -24483,7 +24491,7 @@ const VideoSession = (function() {
       <div class="tabs videoInfoTab activeTab">
         <div class="zenzaWatchVideoInfoPanelInner">
           <div class="videoOwnerInfoContainer">
-            <a class="ownerPageLink" target="_blank">
+            <a class="ownerPageLink" rel="noopener" target="_blank">
               <img class="ownerIcon loading"/>
             </a>
             <span class="owner">
@@ -24664,7 +24672,7 @@ const VideoSession = (function() {
         }
 
         html = html.replace(/\((https?:\/\/[\x21-\x3b\x3d-\x7e]+)\)/gi, '( $1 )');
-        html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" target="_blank" class="otherSite">$1</a>');
+        html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" rel="noopener" target="_blank" class="otherSite">$1</a>');
         for (var i = 0, len = links.length; i < len; i++) {
           html = html.replace(' <!----> ', links[i]);
         }
@@ -25168,19 +25176,19 @@ const VideoSession = (function() {
         <span class="videoTitle"></span>
         <div class="hoverLinkContainer">
           <div class="hoverLink ginza">
-            <a class="ginzaLink noHoverMenu" target="watchGinza">GINZAで視聴</a>
+            <a class="ginzaLink noHoverMenu" rel="noopener" target="watchGinza">GINZAで視聴</a>
           </div>
           <div class="hoverLink uad">
-            <a class="uadLink   noHoverMenu" target="_blank">ニコニ広告</a>
+            <a class="uadLink   noHoverMenu" rel="noopener" target="_blank">ニコニ広告</a>
           </div>
           <div class="hoverLink hash">
-            <a class="hashLink  noHoverMenu" target="_blank" title="twitter検索"></a>
+            <a class="hashLink  noHoverMenu" rel="noopener" target="_blank" title="twitter検索"></a>
           </div>
           <div class="hoverLink hash originalLinkBox">
-            <a class="originalLink  noHoverMenu">元動画を開く</a>
+            <a class="originalLink  noHoverMenu" rel="noopeener">元動画を開く</a>
           </div>
           <div class="hoverLink hash parentLinkBox">
-            <a class="parentLink  noHoverMenu" target="_blank">親作品</a>
+            <a class="parentLink  noHoverMenu" rel="noopener" target="_blank">親作品</a>
           </div>
         </div>
       </h2>
@@ -26658,7 +26666,7 @@ const VideoSession = (function() {
           var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
           if (thumbnail.match(/smile\?i=([0-9]+)/)) {
             var watchId = 'so' + RegExp.$1;
-            var $a = $('<a class="more zen" target="_blank">watch</a>')
+            var $a = $('<a class="more zen" rel="noopener" target="_blank">watch</a>')
               .css('right', '128px')
               .attr('href', '//www.nicovideo.jp/watch/' + watchId);
 
@@ -26666,6 +26674,7 @@ const VideoSession = (function() {
           }
         });
       }
+
 
       if (location.host === 'search.nicovideo.jp') {
         const removeClick = function() {$('a.click').removeClass('click');};
@@ -26846,7 +26855,6 @@ const VideoSession = (function() {
       const exportPlaylist = () => {
         return PlaylistSession.restore() || {};
       };
-
 
       const sendCommand = (command, params) => {
         broadcastEmitter.send(

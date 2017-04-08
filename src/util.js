@@ -1619,6 +1619,7 @@ class CrossDomainGate {}
       a.setAttribute('download', title + '.html');
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
+      a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
       a.click();
       window.setTimeout(() => { a.remove(); }, 1000);
@@ -2587,6 +2588,7 @@ class CrossDomainGate {}
       a.setAttribute('download', fileName);
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
+      a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
       a.click();
       window.setTimeout(() => {
