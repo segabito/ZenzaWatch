@@ -220,7 +220,7 @@ class CrossDomainGate {}
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
-        enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
+        enableAutoMylistComment: !true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
         enableDblclickClose: true, //
