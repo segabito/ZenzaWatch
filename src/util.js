@@ -277,7 +277,7 @@ class CrossDomainGate {}
         autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
         dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
-
+        enableNicosJumpVideo: true, // @ジャンプを有効にするかどうか
         'videoSearch.ownerOnly': true,
         'videoSearch.mode': 'tag',
         'videoSearch.order': 'desc',

@@ -596,6 +596,7 @@ class BaseViewComponent {}
     .zenzaPlayerContextMenu ul                 li.selected:before {
       content: '✔';
       left: -10px;
+      color: #000 !important;
       position: absolute;
     }
     .zenzaPlayerContextMenu ul li:hover {

@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.27
+// @version        1.10.28
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -40,7 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.27';
+  var VER = '1.10.28';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -358,7 +358,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
         dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
-
+        enableNicosJumpVideo: true, // @ジャンプを有効にするかどうか
         'videoSearch.ownerOnly': true,
         'videoSearch.mode': 'tag',
         'videoSearch.order': 'desc',
@@ -6229,6 +6229,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     .zenzaPlayerContextMenu ul                 li.selected:before {
       content: '✔';
       left: -10px;
+      color: #000 !important;
       position: absolute;
     }
     .zenzaPlayerContextMenu ul li:hover {
@@ -20294,7 +20295,7 @@ const VideoSession = (function() {
       update();
     },
     _onMouseMove: function() {
-      if (this._isMouseMoving || !document.hasFocus()) { return; }
+      if (this._isMouseMoving) { return; }
       this.addClass('is-mouseMoving');
       this._isMouseMoving = true;
     },
@@ -20812,6 +20813,7 @@ const VideoSession = (function() {
         case 'toggle-loop':
         case 'toggle-debug':
         case 'toggle-enableFilter':
+        case 'toggle-enableNicosJumpVideo':
           command = command.replace(/^toggle-/, '');
           this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
@@ -21564,6 +21566,7 @@ const VideoSession = (function() {
         const nextVideo = this._nextVideo;
         this._nextVideo = null;
         if (!this._playlist) { return; }
+        if (!this._playerConfig.getValue('enableNicosJumpVideo')) { return; }
         const nv = this._playlist.findByWatchId(nextVideo);
         if (nv && nv.isPlayed()) { return; } // 既にリストにあって再生済みなら追加しない(無限ループ対策)
         this.execCommand('notify', '@ジャンプ: ' + nextVideo);
@@ -23567,6 +23570,14 @@ const VideoSession = (function() {
           </label>
         </div>
 
+        <div class="enableNicosJumpVideo control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableNicosJumpVideo"
+            data-command="toggle-enableNicosJumpVideo">
+            ＠ジャンプで指定された動画をプレイリストに入れる
+          </label>
+        </div>
+
 
 
 
@@ -23873,9 +23884,9 @@ const VideoSession = (function() {
       }
     },
     _onToggleItemChange: function(e) {
-      var $target = $(e.target);
-      var settingName = $target.attr('data-setting-name');
-      var val = !!$target.prop('checked');
+      let $target = $(e.target);
+      let settingName = $target.attr('data-setting-name');
+      let val = !!$target.prop('checked');
 
       this._playerConfig.setValue(settingName, val);
       $target.closest('.control').toggleClass('checked', val);

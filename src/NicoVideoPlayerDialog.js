@@ -1082,7 +1082,7 @@ var CONSTANT = {};
       update();
     },
     _onMouseMove: function() {
-      if (this._isMouseMoving || !document.hasFocus()) { return; }
+      if (this._isMouseMoving) { return; }
       this.addClass('is-mouseMoving');
       this._isMouseMoving = true;
     },
@@ -1600,6 +1600,7 @@ var CONSTANT = {};
         case 'toggle-loop':
         case 'toggle-debug':
         case 'toggle-enableFilter':
+        case 'toggle-enableNicosJumpVideo':
           command = command.replace(/^toggle-/, '');
           this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
@@ -2352,6 +2353,7 @@ var CONSTANT = {};
         const nextVideo = this._nextVideo;
         this._nextVideo = null;
         if (!this._playlist) { return; }
+        if (!this._playerConfig.getValue('enableNicosJumpVideo')) { return; }
         const nv = this._playlist.findByWatchId(nextVideo);
         if (nv && nv.isPlayed()) { return; } // 既にリストにあって再生済みなら追加しない(無限ループ対策)
         this.execCommand('notify', '@ジャンプ: ' + nextVideo);

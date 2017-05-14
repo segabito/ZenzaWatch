@@ -255,6 +255,14 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="enableNicosJumpVideo control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="enableNicosJumpVideo"
+            data-command="toggle-enableNicosJumpVideo">
+            ＠ジャンプで指定された動画をプレイリストに入れる
+          </label>
+        </div>
+
 
 
 
@@ -561,9 +569,9 @@ var AsyncEmitter = function() {};
       }
     },
     _onToggleItemChange: function(e) {
-      var $target = $(e.target);
-      var settingName = $target.attr('data-setting-name');
-      var val = !!$target.prop('checked');
+      let $target = $(e.target);
+      let settingName = $target.attr('data-setting-name');
+      let val = !!$target.prop('checked');
 
       this._playerConfig.setValue(settingName, val);
       $target.closest('.control').toggleClass('checked', val);
