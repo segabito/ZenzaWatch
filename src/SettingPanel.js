@@ -10,8 +10,6 @@ var AsyncEmitter = function() {};
 
   var SettingPanel = function() { this.initialize.apply(this, arguments); };
   SettingPanel.__css__ = (`
-    .zenzaSettingPanelShadow1,
-    .zenzaSettingPanelShadow2,
     .zenzaSettingPanel {
       position: absolute;
       left: 50%;
@@ -20,7 +18,7 @@ var AsyncEmitter = function() {};
       transform: translate(-50%, -50%);
       z-index: 170000;
       width: 500px;
-      height: 300px;
+      height: 400px;
       color: #fff;
       transition: top 0.4s ease;
       user-select: none;
@@ -28,31 +26,17 @@ var AsyncEmitter = function() {};
       -moz-user-select: none;
       overflow-y: hidden;
     }
-    .zenzaSettingPanelShadow1.show,
-    .zenzaSettingPanelShadow2.show,
     .zenzaSettingPanel.show {
       opacity: 1;
       top: 50%;
       overflow-y: scroll;
       overflow-x: hidden;
+      background: rgba(0, 0, 0, 0.8);
     }
 
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow2.show,
     .zenzaScreenMode_sideView .zenzaSettingPanel.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow1.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow2.show,
     .zenzaScreenMode_small    .zenzaSettingPanel.show {
       position: fixed;
-    }
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow1.show  {
-      display: none;
-    }
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow2.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow2.show {
-      background: #006;
-      opacity: 0.8;
     }
 
     .zenzaSettingPanel.show {
@@ -60,22 +44,7 @@ var AsyncEmitter = function() {};
       box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.5);
       pointer-events: auto;
     }
-    .zenzaSettingPanelShadow1,
-    .zenzaSettingPanelShadow2 {
-      width:  492px;
-      height: 292px;
-    }
 
-    /* mix-blend-mode使ってみたかっただけ。 飽きたら消す。 */
-    .zenzaSettingPanelShadow1.show {
-      background: #88c;
-      /*mix-blend-mode: difference;*/
-      display: none;
-    }
-    .zenzaSettingPanelShadow2.show {
-      background: #000;
-      opacity: 0.8;
-    }
 
     .zenzaSettingPanel .settingPanelInner {
       box-sizing: border-box;
@@ -183,8 +152,6 @@ var AsyncEmitter = function() {};
   `).trim();
 
   SettingPanel.__tpl__ = (`
-    <div class="zenzaSettingPanelShadow1"></div>
-    <div class="zenzaSettingPanelShadow2"></div>
     <div class="zenzaSettingPanel">
       <div class="settingPanelInner">
         <p class="caption">プレイヤーの設定</p>
@@ -228,7 +195,7 @@ var AsyncEmitter = function() {};
         <div class="overrideGinzaControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="overrideGinza">
-            動画視聴ページでもGINZAのかわりに起動する
+            動画視聴ページでも公式プレイヤーの代わりに起動する
           </label>
         </div>
 
@@ -260,6 +227,12 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="backCommentControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="backComment">
+            コメントを動画の後ろに流す
+          </label>
+        </div>
 
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
@@ -395,7 +368,7 @@ var AsyncEmitter = function() {};
                 name="textShadowType"
                 data-setting-name="commentLayer.textShadowType"
                 value="shadow-dokaben">
-                ドカベン (飽きたら消します)
+                ドカベン <s>(飽きたら消します)</s>
             </label>
 
           </div>
@@ -602,7 +575,7 @@ var AsyncEmitter = function() {};
       if (!checked) { return; }
       this._playerConfig.setValue(settingName, $target.val());
     },
-     _onInputItemChange: function(e) {
+    _onInputItemChange: function(e) {
       var $target = $(e.target);
       var settingName = $target.attr('data-setting-name');
       var val = $target.val();

@@ -949,7 +949,7 @@ var CONSTANT = {};
       this._playerState.on('change', this._onPlayerStateChange.bind(this));
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(NicoVideoPlayerDialogView.__css__);
+      util.addStyle(NicoVideoPlayerDialogView.__css__);
       const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
       const onCommand = this._onCommand.bind(this);
       const config = this._playerConfig;
@@ -973,7 +973,7 @@ var CONSTANT = {};
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       let lastX = 0, lastY = 0;
       let onMouseMove    = this._onMouseMove.bind(this);
-      let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 1500);
+      let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 400);
       $container.on('mousemove', (e) => {
         if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
           return;
@@ -3321,11 +3321,11 @@ var CONSTANT = {};
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
+          <!--div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
             <div class="tooltip">コメントの表示順</div>
             <div class="layer comment">C</div>
             <div class="layer video">V</div>
-          </div>
+          </div-->
 
           <div class="command ngSettingMenu menuButton" data-command="ngSettingMenu">
             <div class="tooltip">NG設定</div>

@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.21
+// @version        1.10.27
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -54,6 +54,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         $: $,
         _: _
       },
+      external: {},
       util: {
         hereDoc: function(func) { // えせヒアドキュメント
           return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/').trim();

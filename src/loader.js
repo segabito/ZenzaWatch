@@ -1735,7 +1735,7 @@ var ajax = function() {};
         switch (this._initializeStatus) {
           case 'done':
             return new Promise(function(resolve) {
-              ZenzaWatch.util.callAsync(function() {
+              util.callAsync(function() {
                 resolve();
               });
             });
@@ -1803,6 +1803,7 @@ var ajax = function() {};
           this._initializeStatus = 'done';
           this._sessions.initial.resolve();
           this.emitAsync('initialize', {status: 'ok'});
+          this._postMessage({command: 'ok'});
           return;
         }
 

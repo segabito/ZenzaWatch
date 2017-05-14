@@ -384,7 +384,7 @@ var CONSTANT = {};
       border-radius: 2px;
       transform: translate3d(-50%, -50%, 0);
       z-index: 200;
-      transition: left 0.1s linear;
+      /*transition: left 0.1s linear;*/
       mix-blend-mode: lighten;
       opacity: 0.8;
     }
@@ -1616,8 +1616,7 @@ var CONSTANT = {};
       }
       var map = this._getHeatMap();
       this.emitAsync('update', map);
-      ZenzaWatch.emitter.emit('updateHeatMap', {map, duration: this._duration});
-
+      ZenzaWatch.emitter.emit('heatMapUpdate', {map, duration: this._duration});
       // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
       // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
       // Firefoxはもうちょっとかかるかも

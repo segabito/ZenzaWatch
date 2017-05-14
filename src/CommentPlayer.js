@@ -1194,7 +1194,7 @@ var VideoCaptureUtil = {};
 
     dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
-    _.each(Object.keys(options), function(v) {
+    _.each(Object.keys(options), (v) => {
       dom.setAttribute(v, options[v]);
     });
     //console.log('NicoChat.create', dom);
@@ -1273,7 +1273,7 @@ var VideoCaptureUtil = {};
       this._currentTime = 0;
       this._hasDurationSet = false;
     },
-    initialize: function(chat, duration) {
+    initialize: function(chat, videoDuration = 0x7FFFFF) {
       this._id = 'chat' + NicoChat.id++;
       this._currentTime = 0;
 
@@ -1370,8 +1370,8 @@ var VideoCaptureUtil = {};
       // durationを超える位置にあるコメントを詰める vposはセンチ秒なので気をつけ
       const maxv =
         this._isNicoScript ?
-        Math.min(this._vpos, duration * 100) :
-        Math.min(this._vpos, (1 + duration - this._duration) * 100);
+        Math.min(this._vpos, videoDuration * 100) :
+        Math.min(this._vpos, (1 + videoDuration - this._duration) * 100);
       const minv = Math.max(maxv, 0);
       this._vpos = minv;
     },

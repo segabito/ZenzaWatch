@@ -361,7 +361,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
       };
 
 
-      ZenzaWatch.external = {
+      Object.assign(ZenzaWatch.external, {
         execCommand: command,
         sendCommand: sendCommand,
         sendOrExecCommand: sendOrExecCommand,
@@ -376,7 +376,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
           import: importPlaylist,
           export: exportPlaylist
         }
-      };
+      });
     };
 
     var HoverMenu = function() { this.initialize.apply(this, arguments);};
