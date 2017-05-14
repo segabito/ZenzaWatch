@@ -1472,7 +1472,7 @@ var CONSTANT = {};
             this._playlist.shuffle();
           }
           break;
-        case 'playlistToggle':
+        case 'togglePlaylist': case 'playlistToggle': //TODO: こういうのをどっちかに統一
           if (this._playlist) {
             this._playlist.toggleEnable();
           }

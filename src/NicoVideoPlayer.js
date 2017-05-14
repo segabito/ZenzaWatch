@@ -590,7 +590,10 @@ class BaseViewComponent {}
     }
     .zenzaPlayerContextMenu ul li.selected {
     }
-    .zenzaPlayerContextMenu ul li.selected:before {
+    .is-loop           .zenzaPlayerContextMenu li.toggleLoop:before,
+    .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
+    .is-showComment    .zenzaPlayerContextMenu li.toggleShowComment:before,
+    .zenzaPlayerContextMenu ul                 li.selected:before {
       content: '✔';
       left: -10px;
       position: absolute;
@@ -727,24 +730,11 @@ class BaseViewComponent {}
         <ul>
           <li class="command" data-command="togglePlay">停止/再開</li>
           <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
-      <!--
           <hr class="separator">
+          <li class="command toggleLoop"        data-command="toggleLoop">リピート</li>
+          <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
+          <li class="command toggleShowComment" data-command="toggleShowComment">コメントを表示</li>
 
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(x0.1)</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.5"  data-type="number">x0.5</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.75" data-type="number">x0.75</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="1.25" data-type="number">x1.25</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="1.5"  data-type="number">x1.5</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="2"    data-type="number">倍速(x2)</li>
-      -->
           <hr class="separator">
           <li class="command"
             data-command="reload">動画のリロード</li>
