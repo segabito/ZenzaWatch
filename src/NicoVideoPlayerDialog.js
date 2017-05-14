@@ -471,8 +471,6 @@ var CONSTANT = {};
       height: 100%;
       border: 0;
       z-index: 100;
-      cursor: none;
-              /*transform: translateZ(0);*/
       background: #000;
       will-change: transform, opacity;
       user-select: none;
@@ -480,9 +478,16 @@ var CONSTANT = {};
       -moz-user-select: none;
     }
 
+    .zenzaScreenMode_3D   .zenzaVideoPlayerDialog,
+    .zenzaScreenMode_wide .videoPlayer,
+    .fullScreen .videoPlayer {
+      cursor: none;
+    }
+
     .zenzaPlayerContainer .videoPlayer.is-loading {
       cursor: wait;
     }
+
     .is-mouseMoving .videoPlayer {
       cursor: auto;
     }
@@ -944,7 +949,7 @@ var CONSTANT = {};
       this._playerState.on('change', this._onPlayerStateChange.bind(this));
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(NicoVideoPlayerDialogView.__css__);
+      util.addStyle(NicoVideoPlayerDialogView.__css__);
       const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
       const onCommand = this._onCommand.bind(this);
       const config = this._playerConfig;
@@ -968,7 +973,7 @@ var CONSTANT = {};
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       let lastX = 0, lastY = 0;
       let onMouseMove    = this._onMouseMove.bind(this);
-      let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 1500);
+      let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 400);
       $container.on('mousemove', (e) => {
         if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
           return;
@@ -1467,7 +1472,7 @@ var CONSTANT = {};
             this._playlist.shuffle();
           }
           break;
-        case 'playlistToggle':
+        case 'togglePlaylist': case 'playlistToggle': //TODO: こういうのをどっちかに統一
           if (this._playlist) {
             this._playlist.toggleEnable();
           }
@@ -1540,14 +1545,14 @@ var CONSTANT = {};
           this.reloadComment();
           break;
         case 'playbackRate':
-          if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
+          //if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
           this._playerConfig.setValue(command, param);
           break;
         case 'shiftUp':
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
-            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -1555,7 +1560,7 @@ var CONSTANT = {};
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
-            if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -1595,6 +1600,7 @@ var CONSTANT = {};
         case 'toggle-loop':
         case 'toggle-debug':
         case 'toggle-enableFilter':
+        case 'toggle-enableNicosJumpVideo':
           command = command.replace(/^toggle-/, '');
           this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
           break;
@@ -2135,7 +2141,6 @@ var CONSTANT = {};
           videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
 
       videoInfo.isDmcDisable = autoDisableDmc;
-      this._playerState.isDmcAvailable = videoInfo.isDmc();
       this._playerState.setState({
         isDmcAvailable: videoInfo.isDmc(),
         isCommunity: videoInfo.isCommunityVideo(),
@@ -2272,7 +2277,8 @@ var CONSTANT = {};
       }
       //PopupMessage.notify('コメント取得成功');
       var options = {
-        replacement: this._videoInfo.getReplacementWords()
+        replacement: this._videoInfo.getReplacementWords(),
+        duration: this._videoInfo.getDuration()
       };
       this._nicoVideoPlayer.closeCommentPlayer();
       this._nicoVideoPlayer.setComment(result.xml, options);
@@ -2347,6 +2353,7 @@ var CONSTANT = {};
         const nextVideo = this._nextVideo;
         this._nextVideo = null;
         if (!this._playlist) { return; }
+        if (!this._playerConfig.getValue('enableNicosJumpVideo')) { return; }
         const nv = this._playlist.findByWatchId(nextVideo);
         if (nv && nv.isPlayed()) { return; } // 既にリストにあって再生済みなら追加しない(無限ループ対策)
         this.execCommand('notify', '@ジャンプ: ' + nextVideo);
@@ -2381,11 +2388,11 @@ var CONSTANT = {};
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
-      //if (this._playerState.isPausing) {
+      if (this._playerState.isPausing) {
         //this.reload();
-        //this._setErrorMessage('停止中に動画のセッションが切れました。');
-        //return;
-      //}
+        this._setErrorMessage(`停止中に動画のセッションが切れました。(code:${code})`);
+        return;
+      }
 
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
@@ -3316,11 +3323,11 @@ var CONSTANT = {};
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
+          <!--div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
             <div class="tooltip">コメントの表示順</div>
             <div class="layer comment">C</div>
             <div class="layer video">V</div>
-          </div>
+          </div-->
 
           <div class="command ngSettingMenu menuButton" data-command="ngSettingMenu">
             <div class="tooltip">NG設定</div>

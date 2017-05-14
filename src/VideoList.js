@@ -1899,6 +1899,7 @@ class NicoSearchApiV2Loader {}
       var a = document.createElement('a');
       a.setAttribute('download', title + '.playlist.json');
       a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
       a.setAttribute('href', url);
       document.body.appendChild(a);
       a.click();

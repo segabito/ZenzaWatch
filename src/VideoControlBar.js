@@ -384,7 +384,7 @@ var CONSTANT = {};
       border-radius: 2px;
       transform: translate3d(-50%, -50%, 0);
       z-index: 200;
-      transition: left 0.1s linear;
+      /*transition: left 0.1s linear;*/
       mix-blend-mode: lighten;
       opacity: 0.8;
     }
@@ -912,15 +912,15 @@ var CONSTANT = {};
               <div class="triangle"></div>
               <p class="caption">再生速度</p>
               <ul>
-                <li class="playbackRate forPremium" data-rate="10" ><span>10倍</span></li>
-                <li class="playbackRate forPremium" data-rate="5"  ><span>5倍</span></li>
-                <li class="playbackRate forPremium" data-rate="4"  ><span>4倍</span></li>
-                <li class="playbackRate forPremium" data-rate="3"  ><span>3倍</span></li>
-                <li class="playbackRate forPremium" data-rate="2"  ><span>2倍</span></li>
+                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
+                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
+                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
+                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
+                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
 
-                <li class="playbackRate forPremium" data-rate="1.75"><span>1.75倍</span></li>
-                <li class="playbackRate forPremium" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate forPremium" data-rate="1.25"><span>1.25倍</span></li>
+                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
+                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
+                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
 
                 <li class="playbackRate" data-rate="1.0"><span>標準速度(x1)</span></li>
                 <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
@@ -1058,7 +1058,7 @@ var CONSTANT = {};
       this._initializeVideoServerTypeSelectMenu();
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(VideoControlBar.__css__);
+      util.addStyle(VideoControlBar.__css__);
       var $view = this._$view = $(VideoControlBar.__tpl__);
       var $container = this._$playerContainer;
       var config = this._playerConfig;
@@ -1069,7 +1069,7 @@ var CONSTANT = {};
       this._$seekBarPointer = $view.find('.seekBarPointer');
       this._$bufferRange    = $view.find('.bufferRange');
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
-      $view.on('click', function(e) {
+      $view.on('click', (e) => {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover');
       });
@@ -1168,7 +1168,7 @@ var CONSTANT = {};
       });
 
       var updatePlaybackRate = function(rate) {
-        $label.text(rate + 'x');
+        $label.text('x' + rate);
         $menu.find('.selected').removeClass('selected');
         var fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $menu.find('.playbackRate').each(function(i, item) {
@@ -1616,7 +1616,7 @@ var CONSTANT = {};
       }
       var map = this._getHeatMap();
       this.emitAsync('update', map);
-
+      ZenzaWatch.emitter.emit('heatMapUpdate', {map, duration: this._duration});
       // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
       // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
       // Firefoxはもうちょっとかかるかも

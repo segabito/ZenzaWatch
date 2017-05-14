@@ -157,7 +157,7 @@ var ZenzaWatch = {
     }, 30000);
   };
 
-
+  const hostReg = /^[a-z0-9]*\.nicovideo\.jp$/;
 
 
   var thumbInfoApi = function() {
@@ -165,7 +165,7 @@ var ZenzaWatch = {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
     var parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    if (!hostReg.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -176,6 +176,7 @@ var ZenzaWatch = {
 
     window.addEventListener('message', function(event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
+      if (!hostReg.test(event.origin.split('/')[2])) { return; }
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       //var command = data.command;
 
@@ -231,15 +232,17 @@ var ZenzaWatch = {
     if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    var parentHost = document.referrer.split('/')[2];
+    let parentHost = document.referrer.split('/')[2];
     window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/) &&
+    if (!hostReg.test(parentHost) &&
         localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
       window.console.log('disable bridge');
       return;
     }
+    window.console.log('enable bridge');
 
 
+    let isOk = false;
     var type = 'nicovideoApi';
     var token = location.hash ? location.hash.substring(1) : null;
     location.hash = '';
@@ -295,7 +298,8 @@ var ZenzaWatch = {
     };
 
     window.addEventListener('message', function(event) {
-      //window.console.log('nicovideoApiLoaderWindow.onMessage', event.origin, event.data);
+      //window.console.log('nicovideoApiLoaderWindow.onMessage origin="%s"', event.origin, event.data);
+      if (!hostReg.test(event.origin.split('/')[2])) { return; }
       var data = JSON.parse(event.data), command = data.command;
 
       if (data.token !== token) {
@@ -304,6 +308,10 @@ var ZenzaWatch = {
       }
 
       switch (command) {
+        case 'ok':
+          window.console.info('initialize ok!');
+          isOk = true;
+          break;
         case 'loadUrl':
           loadUrl(data, type, token);
           break;
@@ -331,6 +339,7 @@ var ZenzaWatch = {
       var newValue = e.newValue;
       //asyncEmitter.emit('change', key, newValue, oldValue);
       if (oldValue === newValue) { return; }
+      if (!isOk) { return; }
 
       parentPostMessage(type, {
         command: 'configSync',
@@ -351,6 +360,7 @@ var ZenzaWatch = {
     var onBroadcastMessage = function(e) {
       const packet = e.data;
       //window.console.log('%cmessage', 'background: cyan;', packet);
+      if (!isOk) { return; }
 
       parentPostMessage(type, { command: 'message', value: JSON.stringify(packet), token: token});
     };
@@ -378,7 +388,7 @@ var ZenzaWatch = {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
     const parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    if (!hostReg.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -426,6 +436,7 @@ var ZenzaWatch = {
 
     window.addEventListener('message', function(event) {
       const data = JSON.parse(event.data);
+      if (!hostReg.test(event.origin.split('/')[2])) { return; }
 
       if (data.token !== token) { return; }
 
@@ -462,7 +473,7 @@ var ZenzaWatch = {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
     const parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    if (!hostReg.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }

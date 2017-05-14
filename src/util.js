@@ -220,7 +220,7 @@ class CrossDomainGate {}
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
-        enableAutoMylistComment: true, // マイリストコメントに投稿者を入れる
+        enableAutoMylistComment: !true, // マイリストコメントに投稿者を入れる
         menuScale: 1.0,
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
         enableDblclickClose: true, //
@@ -277,7 +277,7 @@ class CrossDomainGate {}
         autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
         dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
 
-
+        enableNicosJumpVideo: true, // @ジャンプを有効にするかどうか
         'videoSearch.ownerOnly': true,
         'videoSearch.mode': 'tag',
         'videoSearch.order': 'desc',
@@ -744,20 +744,27 @@ class CrossDomainGate {}
         return true;
       } else if (duration <  16 * 60) {
         // プリセットに存在しない解像度なら再エンコードされていない可能性が高い？
-        if (![1280, 960, 854, 640, 480].includes(width) ||
+        if (//![1280, 960, 854, 640, 480].includes(width) ||
             ![ 720, 540, 480, 360].includes(height)) {
           return true;
         }
       } else if (duration >= 16 * 60 && duration <= 30 * 60 + 59) {
-        if (![960, 854, 640, 480].includes(width) ||
-            ![540, 480, 360].includes(height)) {
+        if (height > 540) {
+          return true;
+        }
+        if (//![960, 854, 640, 480].includes(width) ||
+            ![540, 480, 360, 384, 486].includes(height)) {
           return true;
         }
       } else if (duration >= 31 * 60) {
-        if (![640, 480].includes(width) ||
-            ![360]     .includes(height)) {
-          return true;
-        }
+        return false; // このくらいの長さになってくると解像度だけでは判断できないので保留
+        //if (height > 360) {
+        //  return true;
+        //}
+        //if (![640, 480].includes(width) ||
+        //    ![360]     .includes(height)) {
+        //  return true;
+        //}
       }
       return false;
     };
@@ -1613,6 +1620,7 @@ class CrossDomainGate {}
       a.setAttribute('download', title + '.html');
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
+      a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
       a.click();
       window.setTimeout(() => { a.remove(); }, 1000);
@@ -1684,6 +1692,11 @@ class CrossDomainGate {}
         detail
       });
       elm.dispatchEvent(ev);
+    };
+
+
+    util.getNicoHistory = function() {
+      return unescape(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
     };
 
     // いずれjQueryを捨てるためのミニマム代用
@@ -2581,6 +2594,7 @@ class CrossDomainGate {}
       a.setAttribute('download', fileName);
       a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
+      a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
       a.click();
       window.setTimeout(() => {

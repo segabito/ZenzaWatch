@@ -750,7 +750,7 @@ const PRODUCT = 'ZenzaWatch';
       <div class="tabs videoInfoTab activeTab">
         <div class="zenzaWatchVideoInfoPanelInner">
           <div class="videoOwnerInfoContainer">
-            <a class="ownerPageLink" target="_blank">
+            <a class="ownerPageLink" rel="noopener" target="_blank">
               <img class="ownerIcon loading"/>
             </a>
             <span class="owner">
@@ -931,7 +931,7 @@ const PRODUCT = 'ZenzaWatch';
         }
 
         html = html.replace(/\((https?:\/\/[\x21-\x3b\x3d-\x7e]+)\)/gi, '( $1 )');
-        html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" target="_blank" class="otherSite">$1</a>');
+        html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" rel="noopener" target="_blank" class="otherSite">$1</a>');
         for (var i = 0, len = links.length; i < len; i++) {
           html = html.replace(' <!----> ', links[i]);
         }
@@ -947,7 +947,7 @@ const PRODUCT = 'ZenzaWatch';
       window.setTimeout(() => {
         this._$description.find('.watch').each((i, watchLink) => {
           var $watchLink = $(watchLink);
-          var videoId = $watchLink.text();
+          var videoId = $watchLink.text().replace('watch/', '');
           var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(videoId);
           if (thumbnail) {
             var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
@@ -1435,19 +1435,19 @@ const PRODUCT = 'ZenzaWatch';
         <span class="videoTitle"></span>
         <div class="hoverLinkContainer">
           <div class="hoverLink ginza">
-            <a class="ginzaLink noHoverMenu" target="watchGinza">GINZAで視聴</a>
+            <a class="ginzaLink noHoverMenu" rel="noopener" target="watchGinza">GINZAで視聴</a>
           </div>
           <div class="hoverLink uad">
-            <a class="uadLink   noHoverMenu" target="_blank">ニコニ広告</a>
+            <a class="uadLink   noHoverMenu" rel="noopener" target="_blank">ニコニ広告</a>
           </div>
           <div class="hoverLink hash">
-            <a class="hashLink  noHoverMenu" target="_blank" title="twitter検索"></a>
+            <a class="hashLink  noHoverMenu" rel="noopener" target="_blank" title="twitter検索"></a>
           </div>
           <div class="hoverLink hash originalLinkBox">
-            <a class="originalLink  noHoverMenu">元動画を開く</a>
+            <a class="originalLink  noHoverMenu" rel="noopeener">元動画を開く</a>
           </div>
           <div class="hoverLink hash parentLinkBox">
-            <a class="parentLink  noHoverMenu" target="_blank">親作品</a>
+            <a class="parentLink  noHoverMenu" rel="noopener" target="_blank">親作品</a>
           </div>
         </div>
       </h2>

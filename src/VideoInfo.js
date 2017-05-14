@@ -13,8 +13,7 @@ var ZenzaWatch = {
     }
 
     get apiUrl() {
-      // //api.dmc.nico:2805/api/sessions + ?_format=xml&suppress_response_codes=true
-      return this._session.api_urls[0];
+      return this._session.urls[0].url;
     }
 
     get audios() {
@@ -69,6 +68,9 @@ var ZenzaWatch = {
       return this._session.authTypes;
     }
 
+    get videoFormatList() {
+      return (this.videos || []).concat();
+    }
  }
 
   class VideoFilter {

@@ -263,12 +263,21 @@ var util = {};
 
     static parse置換(str) {
       let tmp = NicoScriptParser.parseNicosParams(str);
-      //＠置換キーワード置換後置換範囲投コメ一致条件
+      //＠置換 キーワード 置換後 置換範囲 投コメ 一致条件
+      //＠置換 "И"       "██" 単       投コメ
+
+      // 投稿者コメントを含めるかどうか
+      let target = 'user';
+      if (tmp[4] === '含む') {
+        target = 'owner user';
+      } else if (tmp[4] === '投コメ') {
+        target = 'owner';
+      }
       return {
         src:  tmp[1],
         dest: tmp[2] || '',
         fill:    tmp[3] === '全'       ? true : false,          //全体を置き換えるかどうか
-        target:  tmp[4] === '含む'     ? 'owner user' : 'user', // 投稿者コメントを含めるかどうか
+        target, //(tmp[4] === '含む' || tmp[4] === '投コメ')     ? 'owner user' : 'user',
         partial: tmp[5] === '完全一致' ? false : true           // 完全一致のみを見るかどうか
       };
     }
@@ -293,6 +302,9 @@ var util = {};
       let type = 'JUMP';
       let time = 0;
       if (/^#(\d+):(\d+)$/.test(target)) {
+        type = 'SEEK';
+        time = RegExp.$1 * 60 + RegExp.$2 * 1;
+      } else if (/^#(\d+):(\d+\.\d+)$/.test(target)) {
         type = 'SEEK';
         time = RegExp.$1 * 60 + RegExp.$2 * 1;
       } else if (/^(#|＃)(.+)/.test(target)) {
@@ -386,11 +398,11 @@ var util = {};
         diff = Math.min(1, Math.abs(diff)) * (diff / Math.abs(diff));
         switch (p.type) {
           case 'SEEK':
-            this.emit('command', 'nicosSeek', p.params.time + diff);
+            this.emit('command', 'nicosSeek', Math.max(0, p.params.time + diff));
             break;
           case 'SEEK_MARKER':
             let time = this._marker[p.params.time] || 0;
-            this.emit('command', 'nicosSeek', time + diff);
+            this.emit('command', 'nicosSeek', Math.max(0, time + diff));
             break;
         }
       });
@@ -461,6 +473,7 @@ var util = {};
         'REPLACE': function(nicoChat, nicos, params) {
           if (!params) { return; }
           if (nicoChat.getFork() > 0 && (params.target || '').indexOf('owner') < 0) { return; }
+          if (nicoChat.getFork() < 1 && params.target === 'owner') { return; }
 
           let isMatch = false;
           let text = nicoChat.getText();

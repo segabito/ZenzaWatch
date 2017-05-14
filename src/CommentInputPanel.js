@@ -101,15 +101,16 @@ var CONSTANT = {};
 
     .commentInput {
       width: 100%;
-      height: 30px;
+      height: 30px !important;
       font-size: 24px;
       background: transparent;
       border: none;
       opacity: 0;
       transition: opacity 0.3s ease, box-shadow 0.4s ease;
       text-align: center;
-      line-height: 26px;
-      padding-right: 32px;
+      line-height: 26px !important;
+      padding-right: 32px !important;
+      margin-bottom: 0 !important;
     }
 
     .commentInputPanel:hover  .commentInput {
@@ -146,7 +147,7 @@ var CONSTANT = {};
     .commandInput {
       position: absolute;
       width: 100px;
-      height: 30px;
+      height: 30px !important;
       font-size: 24px;
       top: 0;
       left: 0;
@@ -155,8 +156,9 @@ var CONSTANT = {};
       opacity: 0;
       transition: left 0.2s ease, opacity 0.2s ease;
       text-align: center;
-      line-height: 26px;
-      padding: 0;
+      line-height: 26px !important;
+      padding: 0 !important;
+      margin-bottom: 0 !important;
     }
     .commentInputPanel.active .commandInput {
       left: -108px;
@@ -170,8 +172,8 @@ var CONSTANT = {};
 
     .commentSubmit {
       position: absolute;
-      width: 100px;
-      height: 30px;
+      width: 100px !important;
+      height: 30px !important;
       font-size: 24px;
       top: 0;
       right: 0;

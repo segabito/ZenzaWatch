@@ -32,10 +32,7 @@ class BaseViewComponent {}
       this._fullScreenNode = params.fullScreenNode;
       this._playerState = params.playerState;
 
-      const playbackRate =
-        ZenzaWatch.util.isPremium() ?
-          conf.getValue('playbackRate') :
-          Math.min(1, conf.getValue('playbackRate'));
+      const playbackRate = conf.getValue('playbackRate');
 
       const onCommand = (command, param) => { this.emit('command', command, param); };
       this._videoPlayer = new VideoPlayer({
@@ -130,7 +127,7 @@ class BaseViewComponent {}
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
+          //if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
           this._videoPlayer.setPlaybackRate(value);
           this._commentPlayer.setPlaybackRate(value);
           break;
@@ -261,9 +258,7 @@ class BaseViewComponent {}
       return this._videoPlayer.togglePlay();
     },
     setPlaybackRate: function(playbackRate) {
-      if (!ZenzaWatch.util.isPremium()) {
-        playbackRate = Math.min(1, playbackRate);
-      }
+      //if (!ZenzaWatch.util.isPremium()) { playbackRate = Math.min(1, playbackRate); }
       playbackRate = Math.max(0, Math.min(playbackRate, 10));
       this._videoPlayer.setPlaybackRate(playbackRate);
       this._commentPlayer.setPlaybackRate(playbackRate);
@@ -447,17 +442,62 @@ class BaseViewComponent {}
       super._initDom(...args);
       ZenzaWatch.debug.contextMenu = this;
       const onMouseDown = this._bound.onMouseDown = this._onMouseDown.bind(this);
+      this._bound.onBodyMouseUp   = this._onBodyMouseUp.bind(this);
+      this._bound.onRepeat = this._onRepeat.bind(this);
       this._view.addEventListener('mousedown', onMouseDown);
-    }
+      this._view.addEventListener('contextMenu', (e) => {
+        e.preventDefault(); e.stopPropagation();
+      });
+     }
 
     _onClick(e) {
-      if (e.type !== 'mousedown') { return; }
+      if (e.type !== 'mousedown') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       super._onClick(e);
     }
 
     _onMouseDown(e) {
-      this.hide();
-      this._onClick(e);
+      if (e.target && e.target.getAttribute('data-repeat') === 'on') {
+        e.stopPropagation();
+        this._onClick(e);
+        this._beginRepeat(e);
+      } else {
+        this.hide();
+        this._onClick(e);
+      }
+    }
+
+    _onBodyMouseUp() {
+      this._endRepeat();
+    }
+
+    _beginRepeat(e) {
+      this._repeatEvent = e;
+      document.body.addEventListener('mouseup', this._bound.onBodyMouseUp);
+
+      this._repeatTimer = window.setInterval(this._bound.onRepeat, 200);
+      this._isRepeating = true;
+    }
+
+    _endRepeat() {
+      this._repeatEvent = null;
+      this.isRepeating = false;
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+        this._repeatTimer = null;
+      }
+      document.body.removeEventListener('mouseup', this._bound.onBodyMouseUp);
+    }
+
+    _onRepeat() {
+      if (!this._isRepeating) {
+        this._endRepeat();
+        return;
+      }
+      this._onClick(this._repeatEvent);
     }
 
     show(x, y) {
@@ -469,7 +509,7 @@ class BaseViewComponent {}
       view.style.left =
         Math.max(0, Math.min(x, window.innerWidth  - view.offsetWidth)) + 'px';
       view.style.top =
-        Math.max(0, Math.min(y, window.innerHeight - view.offsetHeight)) + 'px';
+        Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)) + 'px';
       this.setState({isOpen: true});
       ZenzaWatch.emitter.emitAsync('showMenu');
     }
@@ -477,6 +517,7 @@ class BaseViewComponent {}
     hide() {
       document.body.removeEventListener('click', this._bound.onBodyClick);
       util.$(this._view).css({left: '', top: ''});
+      this._endRepeat();
       this.setState({isOpen: false});
       ZenzaWatch.emitter.emitAsync('hideMenu');
     }
@@ -504,17 +545,22 @@ class BaseViewComponent {}
   ContextMenu.__css__ = (`
     .zenzaPlayerContextMenu {
       position: fixed;
-      background: #fff;
+      background: rgba(255, 255, 255, 0.8);
       overflow: visible;
       padding: 8px;
       border: 1px outset #333;
-      opacity: 0.8;
       box-shadow: 2px 2px 4px #000;
       transition: opacity 0.3s ease;
       z-index: 150000;
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+    }
+    .zenzaPlayerContextMenu.is-Open {
+      opacity: 0.5;
+    }
+    .zenzaPlayerContextMenu.is-Open:hover {
+      opacity: 1;
     }
     .fullScreen .zenzaPlayerContextMenu {
       position: absolute;
@@ -528,24 +574,29 @@ class BaseViewComponent {}
 
     .zenzaPlayerContextMenu ul {
       padding: 0;
+      margin: 0;
     }
 
     .zenzaPlayerContextMenu ul li {
       position: relative;
       line-height: 120%;
-      margin: 2px 8px;
+      margin: 2px 6px;
       overflow-y: visible;
       white-space: nowrap;
       cursor: pointer;
-      padding: 2px 8px;
+      padding: 2px 10px;
       list-style-type: none;
       float: inherit;
     }
     .zenzaPlayerContextMenu ul li.selected {
     }
-    .zenzaPlayerContextMenu ul li.selected:before {
+    .is-loop           .zenzaPlayerContextMenu li.toggleLoop:before,
+    .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
+    .is-showComment    .zenzaPlayerContextMenu li.toggleShowComment:before,
+    .zenzaPlayerContextMenu ul                 li.selected:before {
       content: '✔';
       left: -10px;
+      color: #000 !important;
       position: absolute;
     }
     .zenzaPlayerContextMenu ul li:hover {
@@ -562,44 +613,132 @@ class BaseViewComponent {}
     }
     .zenzaPlayerContextMenu .listInner {
     }
+
+    .zenzaPlayerContextMenu .controlButtonContainer {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      width: 110%;
+      transform: translate(-50%, 0);
+      white-space: nowrap;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex {
+      display: flex;
+    }
+
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton {
+      flex: 1;
+      height: 48px;
+      font-size: 24px;
+      line-height: 46px;
+      border: 1px solid;
+      border-radius: 4px;
+      color: #333;
+      background: rgba(192, 192, 192, 0.95);
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow: 0 0 0;
+      opacity: 1;
+      margin: auto;
+    }
+
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
+      flex: 2;
+      font-size: 14px;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate010,
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate100,
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate200 {
+      flex: 3;
+      font-size: 24px;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek5s {
+      flex: 2;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek15s {
+      flex: 3;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:hover {
+      transform: translate(0px, -4px);
+      box-shadow: 0px 4px 2px #666;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:active {
+      transform: none;
+      box-shadow: 0 0 0;
+      border: 1px inset;
+    }
   `).trim();
 
   ContextMenu.__tpl__ = (`
     <div class="zenzaPlayerContextMenu">
+      <div class="controlButtonContainer">
+        <div class="controlButtonContainerFlex">
+          <div class="controlButton command rate010 playbackRate" data-command="playbackRate"
+            data-param="0.1" data-type="number" data-repeat="on">
+            &#128034;<div class="tooltip">コマ送り(0.1倍)</div>
+          </div>
+          <div class="controlButton command rate050 playbackRate" data-command="playbackRate"
+            data-param="0.5" data-type="number" data-repeat="on">
+            <div class="tooltip">0.5倍速</div>
+          </div>
+          <div class="controlButton command rate075 playbackRate" data-command="playbackRate"
+            data-param="0.75" data-type="number" data-repeat="on">
+            <div class="tooltip">0.75倍速</div>
+          </div>
+
+          <div class="controlButton command rate100 playbackRate" data-command="playbackRate"
+            data-param="1.0" data-type="number" data-repeat="on">
+            &#9655;<div class="tooltip">標準速</div>
+          </div>
+
+          <div class="controlButton command rate125 playbackRate" data-command="playbackRate"
+            data-param="1.25" data-type="number" data-repeat="on">
+            <div class="tooltip">1.25倍速</div>
+          </div>
+          <div class="controlButton command rate150 playbackRate" data-command="playbackRate"
+            data-param="2.0" data-type="number" data-repeat="on">
+            <div class="tooltip">1.5倍速</div>
+          </div>
+          <div class="controlButton command rate200 playbackRate" data-command="playbackRate"
+            data-param="2.0" data-type="number" data-repeat="on">
+            &#128007;<div class="tooltip">2倍速</div>
+          </div>
+        </div>
+        <div class="controlButtonContainerFlex">
+          <div class="controlButton command seek5s"
+            data-command="seekBy" data-param="-5" data-type="number" data-repeat="on"
+            >⇦
+              <div class="tooltip">5秒戻る</div>
+          </div>
+          <div class="controlButton command seek15s"
+            data-command="seekBy" data-param="-15" data-type="number" data-repeat="on"
+            >⇦
+              <div class="tooltip">15秒戻る</div>
+          </div>
+          <div class="controlButton command seek15s"
+            data-command="seekBy" data-param="15" data-type="number" data-repeat="on"
+            >⇨
+              <div class="tooltip">15秒進む</div>
+          </div>
+          <div class="controlButton command seek5s"
+            data-command="seekBy" data-param="5" data-type="number" data-repeat="on"
+            >⇨
+              <div class="tooltip">5秒進む</div>
+          </div>
+        </div>
+      </div>
       <div class="listInner">
         <ul>
           <li class="command" data-command="togglePlay">停止/再開</li>
           <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
           <hr class="separator">
-
-          <li class="command seek"
-            data-command="seekBy" data-param="-10" data-type="number">10秒戻る</li>
-          <li class="command seek"
-            data-command="seekBy" data-param="10"  data-type="number">10秒進む</li>
-          <li class="command seek"
-            data-command="seekBy" data-param="-30" data-type="number">30秒戻る</li>
-          <li class="command seek"
-            data-command="seekBy" data-param="30"  data-type="number">30秒進む</li>
+          <li class="command toggleLoop"        data-command="toggleLoop">リピート</li>
+          <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
+          <li class="command toggleShowComment" data-command="toggleShowComment">コメントを表示</li>
 
           <hr class="separator">
-
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(x0.1)</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.5"  data-type="number">x0.5</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.75" data-type="number">x0.75</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
-          <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="1.25" data-type="number">x1.25</li>
-          <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="1.5"  data-type="number">x1.5</li>
-          <li class="command playbackRate forPremium"
-            data-command="playbackRate" data-param="2"    data-type="number">倍速(x2)</li>
-
-          <hr class="separator">
-
+          <li class="command"
+            data-command="reload">動画のリロード</li>
           <li class="command debug"
             data-command="toggle-debug">デバッグ</li>
           <li class="command screenShot"
@@ -689,6 +828,7 @@ class BaseViewComponent {}
       this._initializeEvents();
 
       ZenzaWatch.debug.video = this._video;
+      Object.assign(ZenzaWatch.external, {getVideoElement: () => { return this._video; }});
 
     },
     _initializeEvents: function() {
@@ -965,7 +1105,7 @@ class BaseViewComponent {}
     },
     setPlaybackRate: function(v) {
       console.log('setPlaybackRate', v);
-      if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
+      //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
       // たまにリセットされたり反映されなかったりする？
       this._playbackRate = v;
       var video = this._video;

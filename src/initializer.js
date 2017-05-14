@@ -32,9 +32,9 @@ const START_PAGE_QUERY = 'hoge=fuga';
         return false;
       }
       // FlashPlayerが入ってない場合はtrue
-      if (!ZenzaWatch.util.hasFlashPlayer()) {
-        return true;
-      }
+      //if (!ZenzaWatch.util.hasFlashPlayer()) {
+      //  return true;
+      //}
       // GINZAの代わりに起動する設定、かつZenzaで再生可能な動画はtrue
       // nmmやrtmpeの動画だとfalseになる
       if (Config.getValue('overrideGinza') && ZenzaWatch.util.isZenzaPlayableVideo()) {
@@ -132,7 +132,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
           var thumbnail = $img.attr('src') ||$img.attr('data-original') || '';
           if (thumbnail.match(/smile\?i=([0-9]+)/)) {
             var watchId = 'so' + RegExp.$1;
-            var $a = $('<a class="more zen" target="_blank">watch</a>')
+            var $a = $('<a class="more zen" rel="noopener" target="_blank">watch</a>')
               .css('right', '128px')
               .attr('href', '//www.nicovideo.jp/watch/' + watchId);
 
@@ -140,6 +140,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
           }
         });
       }
+
 
       if (location.host === 'search.nicovideo.jp') {
         const removeClick = function() {$('a.click').removeClass('click');};
@@ -321,7 +322,6 @@ const START_PAGE_QUERY = 'hoge=fuga';
         return PlaylistSession.restore() || {};
       };
 
-
       const sendCommand = (command, params) => {
         broadcastEmitter.send(
           ({type: 'sendCommand', command: command, params: params})
@@ -361,7 +361,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
       };
 
 
-      ZenzaWatch.external = {
+      Object.assign(ZenzaWatch.external, {
         execCommand: command,
         sendCommand: sendCommand,
         sendOrExecCommand: sendOrExecCommand,
@@ -376,7 +376,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
           import: importPlaylist,
           export: exportPlaylist
         }
-      };
+      });
     };
 
     var HoverMenu = function() { this.initialize.apply(this, arguments);};

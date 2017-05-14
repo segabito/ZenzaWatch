@@ -171,20 +171,6 @@ var ajax = function() {};
 
         const videoId = data.video.id;
         const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
-        /**
-         * data.video.sourceがなくなったので同等のものに置き換え
-         * .urlが続くのは不格好だったのでdata.video.smileInfoをflvInfoへ代入
-         * 元のsmileInfoの中身は以下
-         * "smileInfo": {
-         *     "url": "http://smile-*.nicovideo.jp/smile?m=*.*",
-         *     "isSlowLine": false,
-         *     "currentQualityId": "auto",
-         *     "qualityIds": [
-         *         "auto",
-         *         "low"
-         *     ]
-         * }
-         */
         const flvInfo = data.video.smileInfo;
         const dmcInfo = data.video.dmcInfo;
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
@@ -1747,7 +1733,7 @@ var ajax = function() {};
         switch (this._initializeStatus) {
           case 'done':
             return new Promise(function(resolve) {
-              ZenzaWatch.util.callAsync(function() {
+              util.callAsync(function() {
                 resolve();
               });
             });
@@ -1815,6 +1801,7 @@ var ajax = function() {};
           this._initializeStatus = 'done';
           this._sessions.initial.resolve();
           this.emitAsync('initialize', {status: 'ok'});
+          this._postMessage({command: 'ok'});
           return;
         }
 
