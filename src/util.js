@@ -753,17 +753,18 @@ class CrossDomainGate {}
           return true;
         }
         if (//![960, 854, 640, 480].includes(width) ||
-            ![540, 480, 360].includes(height)) {
+            ![540, 480, 360, 384, 486].includes(height)) {
           return true;
         }
       } else if (duration >= 31 * 60) {
-        if (height > 360) {
-          return true;
-        }
-        if (![640, 480].includes(width) ||
-            ![360]     .includes(height)) {
-          return true;
-        }
+        return false; // このくらいの長さになってくると解像度だけでは判断できないので保留
+        //if (height > 360) {
+        //  return true;
+        //}
+        //if (![640, 480].includes(width) ||
+        //    ![360]     .includes(height)) {
+        //  return true;
+        //}
       }
       return false;
     };
@@ -1691,6 +1692,11 @@ class CrossDomainGate {}
         detail
       });
       elm.dispatchEvent(ev);
+    };
+
+
+    util.getNicoHistory = function() {
+      return unescape(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
     };
 
     // いずれjQueryを捨てるためのミニマム代用
