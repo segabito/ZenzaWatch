@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.21
+// @version        1.10.27
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -40,7 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.21';
+  var VER = '1.10.27';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -54,6 +54,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         $: $,
         _: _
       },
+      external: {},
       util: {
         hereDoc: function(func) { // えせヒアドキュメント
           return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/').trim();
@@ -833,17 +834,18 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           return true;
         }
         if (//![960, 854, 640, 480].includes(width) ||
-            ![540, 480, 360].includes(height)) {
+            ![540, 480, 360, 384, 486].includes(height)) {
           return true;
         }
       } else if (duration >= 31 * 60) {
-        if (height > 360) {
-          return true;
-        }
-        if (![640, 480].includes(width) ||
-            ![360]     .includes(height)) {
-          return true;
-        }
+        return false; // このくらいの長さになってくると解像度だけでは判断できないので保留
+        //if (height > 360) {
+        //  return true;
+        //}
+        //if (![640, 480].includes(width) ||
+        //    ![360]     .includes(height)) {
+        //  return true;
+        //}
       }
       return false;
     };
@@ -1771,6 +1773,11 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         detail
       });
       elm.dispatchEvent(ev);
+    };
+
+
+    util.getNicoHistory = function() {
+      return unescape(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
     };
 
     // いずれjQueryを捨てるためのミニマム代用
@@ -4550,7 +4557,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         switch (this._initializeStatus) {
           case 'done':
             return new Promise(function(resolve) {
-              ZenzaWatch.util.callAsync(function() {
+              util.callAsync(function() {
                 resolve();
               });
             });
@@ -4618,6 +4625,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           this._initializeStatus = 'done';
           this._sessions.initial.resolve();
           this.emitAsync('initialize', {status: 'ok'});
+          this._postMessage({command: 'ok'});
           return;
         }
 
@@ -5032,8 +5040,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     }
 
     get apiUrl() {
-      // //api.dmc.nico:2805/api/sessions + ?_format=xml&suppress_response_codes=true
-      return this._session.api_urls[0];
+      return this._session.urls[0].url;
     }
 
     get audios() {
@@ -5088,6 +5095,9 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       return this._session.authTypes;
     }
 
+    get videoFormatList() {
+      return (this.videos || []).concat();
+    }
  }
 
   class VideoFilter {
@@ -6065,17 +6075,62 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       super._initDom(...args);
       ZenzaWatch.debug.contextMenu = this;
       const onMouseDown = this._bound.onMouseDown = this._onMouseDown.bind(this);
+      this._bound.onBodyMouseUp   = this._onBodyMouseUp.bind(this);
+      this._bound.onRepeat = this._onRepeat.bind(this);
       this._view.addEventListener('mousedown', onMouseDown);
-    }
+      this._view.addEventListener('contextMenu', (e) => {
+        e.preventDefault(); e.stopPropagation();
+      });
+     }
 
     _onClick(e) {
-      if (e.type !== 'mousedown') { return; }
+      if (e.type !== 'mousedown') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       super._onClick(e);
     }
 
     _onMouseDown(e) {
-      this.hide();
-      this._onClick(e);
+      if (e.target && e.target.getAttribute('data-repeat') === 'on') {
+        e.stopPropagation();
+        this._onClick(e);
+        this._beginRepeat(e);
+      } else {
+        this.hide();
+        this._onClick(e);
+      }
+    }
+
+    _onBodyMouseUp() {
+      this._endRepeat();
+    }
+
+    _beginRepeat(e) {
+      this._repeatEvent = e;
+      document.body.addEventListener('mouseup', this._bound.onBodyMouseUp);
+
+      this._repeatTimer = window.setInterval(this._bound.onRepeat, 200);
+      this._isRepeating = true;
+    }
+
+    _endRepeat() {
+      this._repeatEvent = null;
+      this.isRepeating = false;
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+        this._repeatTimer = null;
+      }
+      document.body.removeEventListener('mouseup', this._bound.onBodyMouseUp);
+    }
+
+    _onRepeat() {
+      if (!this._isRepeating) {
+        this._endRepeat();
+        return;
+      }
+      this._onClick(this._repeatEvent);
     }
 
     show(x, y) {
@@ -6087,7 +6142,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       view.style.left =
         Math.max(0, Math.min(x, window.innerWidth  - view.offsetWidth)) + 'px';
       view.style.top =
-        Math.max(0, Math.min(y, window.innerHeight - view.offsetHeight)) + 'px';
+        Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)) + 'px';
       this.setState({isOpen: true});
       ZenzaWatch.emitter.emitAsync('showMenu');
     }
@@ -6095,6 +6150,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     hide() {
       document.body.removeEventListener('click', this._bound.onBodyClick);
       util.$(this._view).css({left: '', top: ''});
+      this._endRepeat();
       this.setState({isOpen: false});
       ZenzaWatch.emitter.emitAsync('hideMenu');
     }
@@ -6122,17 +6178,22 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   ContextMenu.__css__ = (`
     .zenzaPlayerContextMenu {
       position: fixed;
-      background: #fff;
+      background: rgba(255, 255, 255, 0.8);
       overflow: visible;
       padding: 8px;
       border: 1px outset #333;
-      opacity: 0.8;
       box-shadow: 2px 2px 4px #000;
       transition: opacity 0.3s ease;
       z-index: 150000;
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+    }
+    .zenzaPlayerContextMenu.is-Open {
+      opacity: 0.5;
+    }
+    .zenzaPlayerContextMenu.is-Open:hover {
+      opacity: 1;
     }
     .fullScreen .zenzaPlayerContextMenu {
       position: absolute;
@@ -6152,17 +6213,20 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     .zenzaPlayerContextMenu ul li {
       position: relative;
       line-height: 120%;
-      margin: 2px 8px;
+      margin: 2px 6px;
       overflow-y: visible;
       white-space: nowrap;
       cursor: pointer;
-      padding: 2px 8px;
+      padding: 2px 10px;
       list-style-type: none;
       float: inherit;
     }
     .zenzaPlayerContextMenu ul li.selected {
     }
-    .zenzaPlayerContextMenu ul li.selected:before {
+    .is-loop           .zenzaPlayerContextMenu li.toggleLoop:before,
+    .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
+    .is-showComment    .zenzaPlayerContextMenu li.toggleShowComment:before,
+    .zenzaPlayerContextMenu ul                 li.selected:before {
       content: '✔';
       left: -10px;
       position: absolute;
@@ -6181,44 +6245,132 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     }
     .zenzaPlayerContextMenu .listInner {
     }
+
+    .zenzaPlayerContextMenu .controlButtonContainer {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      width: 110%;
+      transform: translate(-50%, 0);
+      white-space: nowrap;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex {
+      display: flex;
+    }
+
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton {
+      flex: 1;
+      height: 48px;
+      font-size: 24px;
+      line-height: 46px;
+      border: 1px solid;
+      border-radius: 4px;
+      color: #333;
+      background: rgba(192, 192, 192, 0.95);
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow: 0 0 0;
+      opacity: 1;
+      margin: auto;
+    }
+
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
+      flex: 2;
+      font-size: 14px;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate010,
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate100,
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate200 {
+      flex: 3;
+      font-size: 24px;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek5s {
+      flex: 2;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek15s {
+      flex: 3;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:hover {
+      transform: translate(0px, -4px);
+      box-shadow: 0px 4px 2px #666;
+    }
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:active {
+      transform: none;
+      box-shadow: 0 0 0;
+      border: 1px inset;
+    }
   `).trim();
 
   ContextMenu.__tpl__ = (`
     <div class="zenzaPlayerContextMenu">
+      <div class="controlButtonContainer">
+        <div class="controlButtonContainerFlex">
+          <div class="controlButton command rate010 playbackRate" data-command="playbackRate"
+            data-param="0.1" data-type="number" data-repeat="on">
+            &#128034;<div class="tooltip">コマ送り(0.1倍)</div>
+          </div>
+          <div class="controlButton command rate050 playbackRate" data-command="playbackRate"
+            data-param="0.5" data-type="number" data-repeat="on">
+            <div class="tooltip">0.5倍速</div>
+          </div>
+          <div class="controlButton command rate075 playbackRate" data-command="playbackRate"
+            data-param="0.75" data-type="number" data-repeat="on">
+            <div class="tooltip">0.75倍速</div>
+          </div>
+
+          <div class="controlButton command rate100 playbackRate" data-command="playbackRate"
+            data-param="1.0" data-type="number" data-repeat="on">
+            &#9655;<div class="tooltip">標準速</div>
+          </div>
+
+          <div class="controlButton command rate125 playbackRate" data-command="playbackRate"
+            data-param="1.25" data-type="number" data-repeat="on">
+            <div class="tooltip">1.25倍速</div>
+          </div>
+          <div class="controlButton command rate150 playbackRate" data-command="playbackRate"
+            data-param="2.0" data-type="number" data-repeat="on">
+            <div class="tooltip">1.5倍速</div>
+          </div>
+          <div class="controlButton command rate200 playbackRate" data-command="playbackRate"
+            data-param="2.0" data-type="number" data-repeat="on">
+            &#128007;<div class="tooltip">2倍速</div>
+          </div>
+        </div>
+        <div class="controlButtonContainerFlex">
+          <div class="controlButton command seek5s"
+            data-command="seekBy" data-param="-5" data-type="number" data-repeat="on"
+            >⇦
+              <div class="tooltip">5秒戻る</div>
+          </div>
+          <div class="controlButton command seek15s"
+            data-command="seekBy" data-param="-15" data-type="number" data-repeat="on"
+            >⇦
+              <div class="tooltip">15秒戻る</div>
+          </div>
+          <div class="controlButton command seek15s"
+            data-command="seekBy" data-param="15" data-type="number" data-repeat="on"
+            >⇨
+              <div class="tooltip">15秒進む</div>
+          </div>
+          <div class="controlButton command seek5s"
+            data-command="seekBy" data-param="5" data-type="number" data-repeat="on"
+            >⇨
+              <div class="tooltip">5秒進む</div>
+          </div>
+        </div>
+      </div>
       <div class="listInner">
         <ul>
           <li class="command" data-command="togglePlay">停止/再開</li>
           <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
           <hr class="separator">
-
-          <li class="command seek"
-            data-command="seekBy" data-param="-10" data-type="number">10秒戻る</li>
-          <li class="command seek"
-            data-command="seekBy" data-param="10"  data-type="number">10秒進む</li>
-          <li class="command seek"
-            data-command="seekBy" data-param="-30" data-type="number">30秒戻る</li>
-          <li class="command seek"
-            data-command="seekBy" data-param="30"  data-type="number">30秒進む</li>
+          <li class="command toggleLoop"        data-command="toggleLoop">リピート</li>
+          <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
+          <li class="command toggleShowComment" data-command="toggleShowComment">コメントを表示</li>
 
           <hr class="separator">
-
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.1"  data-type="number">コマ送り(x0.1)</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.5"  data-type="number">x0.5</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="0.75" data-type="number">x0.75</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="1.0"  data-type="number">標準速度</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="1.25" data-type="number">x1.25</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="1.5"  data-type="number">x1.5</li>
-          <li class="command playbackRate"
-            data-command="playbackRate" data-param="2"    data-type="number">倍速(x2)</li>
-
-          <hr class="separator">
-
+          <li class="command"
+            data-command="reload">動画のリロード</li>
           <li class="command debug"
             data-command="toggle-debug">デバッグ</li>
           <li class="command screenShot"
@@ -6308,7 +6460,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this._initializeEvents();
 
       ZenzaWatch.debug.video = this._video;
-      ZenzaWatch.external.getVideoElement = () => { return this._video; };
+      Object.assign(ZenzaWatch.external, {getVideoElement: () => { return this._video; }});
 
     },
     _initializeEvents: function() {
@@ -8184,7 +8336,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       border-radius: 2px;
       transform: translate3d(-50%, -50%, 0);
       z-index: 200;
-      transition: left 0.1s linear;
+      /*transition: left 0.1s linear;*/
       mix-blend-mode: lighten;
       opacity: 0.8;
     }
@@ -9416,8 +9568,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       }
       var map = this._getHeatMap();
       this.emitAsync('update', map);
-      ZenzaWatch.emitter.emit('updateHeatMap', {map, duration: this._duration});
-
+      ZenzaWatch.emitter.emit('heatMapUpdate', {map, duration: this._duration});
       // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
       // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
       // Firefoxはもうちょっとかかるかも
@@ -11835,7 +11986,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
     dom.setAttribute('mail', cmd || '');
     dom.setAttribute('vpos', vpos);
-    _.each(Object.keys(options), function(v) {
+    _.each(Object.keys(options), (v) => {
       dom.setAttribute(v, options[v]);
     });
     //console.log('NicoChat.create', dom);
@@ -11914,7 +12065,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._currentTime = 0;
       this._hasDurationSet = false;
     },
-    initialize: function(chat, duration) {
+    initialize: function(chat, videoDuration = 0x7FFFFF) {
       this._id = 'chat' + NicoChat.id++;
       this._currentTime = 0;
 
@@ -12011,8 +12162,8 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // durationを超える位置にあるコメントを詰める vposはセンチ秒なので気をつけ
       const maxv =
         this._isNicoScript ?
-        Math.min(this._vpos, duration * 100) :
-        Math.min(this._vpos, (1 + duration - this._duration) * 100);
+        Math.min(this._vpos, videoDuration * 100) :
+        Math.min(this._vpos, (1 + videoDuration - this._duration) * 100);
       const minv = Math.max(maxv, 0);
       this._vpos = minv;
     },
@@ -20010,7 +20161,7 @@ const VideoSession = (function() {
       this._playerState.on('change', this._onPlayerStateChange.bind(this));
     },
     _initializeDom: function() {
-      ZenzaWatch.util.addStyle(NicoVideoPlayerDialogView.__css__);
+      util.addStyle(NicoVideoPlayerDialogView.__css__);
       const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
       const onCommand = this._onCommand.bind(this);
       const config = this._playerConfig;
@@ -20034,7 +20185,7 @@ const VideoSession = (function() {
       // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
       let lastX = 0, lastY = 0;
       let onMouseMove    = this._onMouseMove.bind(this);
-      let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 1500);
+      let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 400);
       $container.on('mousemove', (e) => {
         if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
           return;
@@ -20533,7 +20684,7 @@ const VideoSession = (function() {
             this._playlist.shuffle();
           }
           break;
-        case 'playlistToggle':
+        case 'togglePlaylist': case 'playlistToggle': //TODO: こういうのをどっちかに統一
           if (this._playlist) {
             this._playlist.toggleEnable();
           }
@@ -22382,11 +22533,11 @@ const VideoSession = (function() {
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
+          <!--div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
             <div class="tooltip">コメントの表示順</div>
             <div class="layer comment">C</div>
             <div class="layer video">V</div>
-          </div>
+          </div-->
 
           <div class="command ngSettingMenu menuButton" data-command="ngSettingMenu">
             <div class="tooltip">NG設定</div>
@@ -23171,8 +23322,6 @@ const VideoSession = (function() {
 
   var SettingPanel = function() { this.initialize.apply(this, arguments); };
   SettingPanel.__css__ = (`
-    .zenzaSettingPanelShadow1,
-    .zenzaSettingPanelShadow2,
     .zenzaSettingPanel {
       position: absolute;
       left: 50%;
@@ -23181,7 +23330,7 @@ const VideoSession = (function() {
       transform: translate(-50%, -50%);
       z-index: 170000;
       width: 500px;
-      height: 300px;
+      height: 400px;
       color: #fff;
       transition: top 0.4s ease;
       user-select: none;
@@ -23189,31 +23338,17 @@ const VideoSession = (function() {
       -moz-user-select: none;
       overflow-y: hidden;
     }
-    .zenzaSettingPanelShadow1.show,
-    .zenzaSettingPanelShadow2.show,
     .zenzaSettingPanel.show {
       opacity: 1;
       top: 50%;
       overflow-y: scroll;
       overflow-x: hidden;
+      background: rgba(0, 0, 0, 0.8);
     }
 
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow2.show,
     .zenzaScreenMode_sideView .zenzaSettingPanel.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow1.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow2.show,
     .zenzaScreenMode_small    .zenzaSettingPanel.show {
       position: fixed;
-    }
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow1.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow1.show  {
-      display: none;
-    }
-    .zenzaScreenMode_sideView .zenzaSettingPanelShadow2.show,
-    .zenzaScreenMode_small    .zenzaSettingPanelShadow2.show {
-      background: #006;
-      opacity: 0.8;
     }
 
     .zenzaSettingPanel.show {
@@ -23221,22 +23356,7 @@ const VideoSession = (function() {
       box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.5);
       pointer-events: auto;
     }
-    .zenzaSettingPanelShadow1,
-    .zenzaSettingPanelShadow2 {
-      width:  492px;
-      height: 292px;
-    }
 
-    /* mix-blend-mode使ってみたかっただけ。 飽きたら消す。 */
-    .zenzaSettingPanelShadow1.show {
-      background: #88c;
-      /*mix-blend-mode: difference;*/
-      display: none;
-    }
-    .zenzaSettingPanelShadow2.show {
-      background: #000;
-      opacity: 0.8;
-    }
 
     .zenzaSettingPanel .settingPanelInner {
       box-sizing: border-box;
@@ -23344,8 +23464,6 @@ const VideoSession = (function() {
   `).trim();
 
   SettingPanel.__tpl__ = (`
-    <div class="zenzaSettingPanelShadow1"></div>
-    <div class="zenzaSettingPanelShadow2"></div>
     <div class="zenzaSettingPanel">
       <div class="settingPanelInner">
         <p class="caption">プレイヤーの設定</p>
@@ -23389,7 +23507,7 @@ const VideoSession = (function() {
         <div class="overrideGinzaControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="overrideGinza">
-            動画視聴ページでもGINZAのかわりに起動する
+            動画視聴ページでも公式プレイヤーの代わりに起動する
           </label>
         </div>
 
@@ -23421,6 +23539,12 @@ const VideoSession = (function() {
           </label>
         </div>
 
+        <div class="backCommentControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="backComment">
+            コメントを動画の後ろに流す
+          </label>
+        </div>
 
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
@@ -23556,7 +23680,7 @@ const VideoSession = (function() {
                 name="textShadowType"
                 data-setting-name="commentLayer.textShadowType"
                 value="shadow-dokaben">
-                ドカベン (飽きたら消します)
+                ドカベン <s>(飽きたら消します)</s>
             </label>
 
           </div>
@@ -23763,7 +23887,7 @@ const VideoSession = (function() {
       if (!checked) { return; }
       this._playerConfig.setValue(settingName, $target.val());
     },
-     _onInputItemChange: function(e) {
+    _onInputItemChange: function(e) {
       var $target = $(e.target);
       var settingName = $target.attr('data-setting-name');
       var val = $target.val();
@@ -26935,7 +27059,7 @@ const VideoSession = (function() {
       };
 
 
-      ZenzaWatch.external = {
+      Object.assign(ZenzaWatch.external, {
         execCommand: command,
         sendCommand: sendCommand,
         sendOrExecCommand: sendOrExecCommand,
@@ -26950,7 +27074,7 @@ const VideoSession = (function() {
           import: importPlaylist,
           export: exportPlaylist
         }
-      };
+      });
     };
 
     var HoverMenu = function() { this.initialize.apply(this, arguments);};
@@ -27309,7 +27433,7 @@ const VideoSession = (function() {
     }, 30000);
   };
 
-
+  const hostReg = /^[a-z0-9]*\.nicovideo\.jp$/;
 
 
   var thumbInfoApi = function() {
@@ -27317,7 +27441,7 @@ const VideoSession = (function() {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
     var parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    if (!hostReg.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -27328,6 +27452,7 @@ const VideoSession = (function() {
 
     window.addEventListener('message', function(event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
+      if (!hostReg.test(event.origin.split('/')[2])) { return; }
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       //var command = data.command;
 
@@ -27383,15 +27508,17 @@ const VideoSession = (function() {
     if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    var parentHost = document.referrer.split('/')[2];
+    let parentHost = document.referrer.split('/')[2];
     window.console.log('parentHost', parentHost);
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/) &&
+    if (!hostReg.test(parentHost) &&
         localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
       window.console.log('disable bridge');
       return;
     }
+    window.console.log('enable bridge');
 
 
+    let isOk = false;
     var type = 'nicovideoApi';
     var token = location.hash ? location.hash.substring(1) : null;
     location.hash = '';
@@ -27447,7 +27574,8 @@ const VideoSession = (function() {
     };
 
     window.addEventListener('message', function(event) {
-      //window.console.log('nicovideoApiLoaderWindow.onMessage', event.origin, event.data);
+      //window.console.log('nicovideoApiLoaderWindow.onMessage origin="%s"', event.origin, event.data);
+      if (!hostReg.test(event.origin.split('/')[2])) { return; }
       var data = JSON.parse(event.data), command = data.command;
 
       if (data.token !== token) {
@@ -27456,6 +27584,10 @@ const VideoSession = (function() {
       }
 
       switch (command) {
+        case 'ok':
+          window.console.info('initialize ok!');
+          isOk = true;
+          break;
         case 'loadUrl':
           loadUrl(data, type, token);
           break;
@@ -27483,6 +27615,7 @@ const VideoSession = (function() {
       var newValue = e.newValue;
       //asyncEmitter.emit('change', key, newValue, oldValue);
       if (oldValue === newValue) { return; }
+      if (!isOk) { return; }
 
       parentPostMessage(type, {
         command: 'configSync',
@@ -27503,6 +27636,7 @@ const VideoSession = (function() {
     var onBroadcastMessage = function(e) {
       const packet = e.data;
       //window.console.log('%cmessage', 'background: cyan;', packet);
+      if (!isOk) { return; }
 
       parentPostMessage(type, { command: 'message', value: JSON.stringify(packet), token: token});
     };
@@ -27530,7 +27664,7 @@ const VideoSession = (function() {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
     const parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    if (!hostReg.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -27578,6 +27712,7 @@ const VideoSession = (function() {
 
     window.addEventListener('message', function(event) {
       const data = JSON.parse(event.data);
+      if (!hostReg.test(event.origin.split('/')[2])) { return; }
 
       if (data.token !== token) { return; }
 
@@ -27614,7 +27749,7 @@ const VideoSession = (function() {
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
     const parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    if (!hostReg.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
