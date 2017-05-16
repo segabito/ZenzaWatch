@@ -345,7 +345,7 @@ class CrossDomainGate {}
 
       _.each(Object.keys(defaultConfig), function(key) {
         var storageKey = prefix + key;
-        if (localStorage.hasOwnProperty(storageKey)) {
+        if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
             config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
@@ -363,7 +363,7 @@ class CrossDomainGate {}
        */
       emitter.refreshValue = function(key) {
         var storageKey = prefix + key;
-        if (localStorage.hasOwnProperty(storageKey)) {
+        if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
             config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
@@ -427,7 +427,7 @@ class CrossDomainGate {}
         _.each(Object.keys(defaultConfig), function(key) {
           if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
           var storageKey = prefix + key;
-          if (localStorage.hasOwnProperty(storageKey) &&
+          if ((localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) &&
               defaultConfig[key] !== emitter.getValue(key)) {
             result[key] = emitter.getValue(key);
           }
@@ -453,7 +453,7 @@ class CrossDomainGate {}
           if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
           var storageKey = prefix + key;
           try {
-            if (localStorage.hasOwnProperty(storageKey)) {
+            if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
               localStorage.removeItem(storageKey);
             }
             config[key] = defaultConfig[key];

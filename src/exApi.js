@@ -263,7 +263,7 @@ var ZenzaWatch = {
 
       data.keys.forEach((key) => {
         var storageKey = prefix + key;
-        if (localStorage.hasOwnProperty(storageKey)) {
+        if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
             config[key] = JSON.parse(localStorage.getItem(storageKey));
             //window.console.log('dump config: %s = %s', key, config[key]);

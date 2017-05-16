@@ -40,7 +40,7 @@ var ajax = function() {};
         },
         getItem: function(key) {
           key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
+          if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
             return null;
           }
           var item = null, data = null;
@@ -67,7 +67,7 @@ var ajax = function() {};
         },
         removeItem: function(key) {
           key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
+          if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
             return null;
           }
 
