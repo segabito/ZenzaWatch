@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.10.28
+// @version        1.11.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -40,7 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.10.28';
+  var VER = '1.11.0';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -426,7 +426,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
       _.each(Object.keys(defaultConfig), function(key) {
         var storageKey = prefix + key;
-        if (localStorage.hasOwnProperty(storageKey)) {
+        if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
             config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
@@ -444,7 +444,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
        */
       emitter.refreshValue = function(key) {
         var storageKey = prefix + key;
-        if (localStorage.hasOwnProperty(storageKey)) {
+        if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
             config[key] = JSON.parse(localStorage.getItem(storageKey));
           } catch (e) {
@@ -508,7 +508,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         _.each(Object.keys(defaultConfig), function(key) {
           if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
           var storageKey = prefix + key;
-          if (localStorage.hasOwnProperty(storageKey) &&
+          if ((localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) &&
               defaultConfig[key] !== emitter.getValue(key)) {
             result[key] = emitter.getValue(key);
           }
@@ -534,7 +534,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
           var storageKey = prefix + key;
           try {
-            if (localStorage.hasOwnProperty(storageKey)) {
+            if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
               localStorage.removeItem(storageKey);
             }
             config[key] = defaultConfig[key];
@@ -2862,7 +2862,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         },
         getItem: function(key) {
           key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
+          if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
             return null;
           }
           var item = null, data = null;
@@ -2889,7 +2889,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         },
         removeItem: function(key) {
           key = PREFIX + key;
-          if (!this._storage.hasOwnProperty(key)) {
+          if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
             return null;
           }
 
@@ -2948,7 +2948,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             isNeedKey: flvInfo.needs_key === '1',
             optionalThreadId: flvInfo.optional_thread_id,
             userKey:  flvInfo.userkey,
-            hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread
+            hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread,
+            when: null
           };
 
           let playlist =
@@ -2993,9 +2994,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
         const videoId = data.video.id;
         const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
-        const flvInfo = {
-          url: data.video.smileInfo.url
-        };
+        const flvInfo = data.video.smileInfo;
         const dmcInfo = data.video.dmcInfo;
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
         const videoUrl  = flvInfo.url;
@@ -3020,7 +3019,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             //data.thread.ids.community ? data.thread.ids.default : '', //data.thread.ids.nicos,
             //data.thread.ids.nicos,
           userKey: data.context.userkey,
-          hasOwnerThread: data.thread.hasOwnerThread
+          hasOwnerThread: data.thread.hasOwnerThread,
+          when: null
         };
 
         const isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
@@ -3421,6 +3421,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       _.assign(MessageApiLoader.prototype, {
         initialize: function() {
           this._threadKeys = {};
+          this._waybackKeys = {};
         },
         /**
          * 動画の長さに応じて取得するコメント数を変える
@@ -3450,14 +3451,39 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
                 withCredentials: true
               }
             }).then((e) => {
-              var result = ZenzaWatch.util.parseQuery(e);
+              var result = util.parseQuery(e);
               this._threadKeys[threadId] = result;
               resolve(result);
             }, (result) => {
-              //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
                 result: result,
                 message: 'ThreadKeyの取得失敗 ' + threadId
+              });
+            });
+          });
+        },
+        getWaybackKey: function(threadId, language) {
+          let url =
+            '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
+          const langCode = this.getLangCode(language);
+          if (langCode) { url += `&language_id=${langCode}`; }
+          return new Promise((resolve, reject) => {
+            ajax({
+              url: url,
+              contentType: 'text/plain',
+              crossDomain: true,
+              cache: false,
+              xhrFields: {
+                withCredentials: true
+              }
+            }).then((e) => {
+              let result = util.parseQuery(e);
+              this._waybackKeys[threadId] = result;
+              resolve(result);
+            }, (result) => {
+              reject({
+                result: result,
+                message: 'WaybackKeyの取得失敗 ' + threadId
               });
             });
           });
@@ -3509,11 +3535,12 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
           const duration         = params.msgInfo.duration;
           const userId           = params.msgInfo.userId;
-          //const optionalThreadId = msgInfo.optionalThreadId;
           const userKey          = params.msgInfo.userKey;
           const threadKey        = params.threadKey;
           const force184         = params.force184;
           const version          = params.version;
+          const when             = params.msgInfo.when;
+          const waybackKey       = params.waybackKey;
 
           const thread = document.createElement('thread');
           thread.setAttribute('thread', threadId);
@@ -3538,6 +3565,12 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           if (params.useThreadKey && typeof force184 !== 'undefined') {
             thread.setAttribute('force_184', force184);
           }
+          if (waybackKey) {
+            thread.setAttribute('waybackkey', waybackKey);
+          }
+          if (when) {
+            thread.setAttribute('when', when);
+          }
           thread.setAttribute('scores', '1');
           thread.setAttribute('nicoru', '1');
           thread.setAttribute('with_global', '1');
@@ -3557,6 +3590,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           const userKey          = params.msgInfo.userKey;
           const threadKey        = params.threadKey;
           const force184         = params.force184;
+          const when             = params.msgInfo.when;
+          const waybackKey       = params.waybackKey;
 
           const thread_leaves = document.createElement('thread_leaves');
           const resCount = this.getRequestCountByDuration(duration);
@@ -3575,6 +3610,12 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           if (typeof force184 !== 'undefined') {
             thread_leaves.setAttribute('force_184', force184);
           }
+          if (waybackKey) {
+            thread_leaves.setAttribute('waybackkey', waybackKey);
+          }
+          if (when) {
+            thread_leaves.setAttribute('when', when);
+          }
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
 
@@ -3586,10 +3627,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           return thread_leaves;
         },
 
-        //buildPacket: function(threadId, duration, userId, threadKey, force184, optionalThreadId, userKey)
-        buildPacket: function(msgInfo, threadKey, force184)
+        buildPacket: function(msgInfo, threadKey, force184, waybackKey)
         {
-          //const duration = msgInfo.duration;
 
           const span   = document.createElement('span');
           const packet = document.createElement('packet');
@@ -3606,7 +3645,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
                 useDuration: false,
                 useUserKey: true,
                 useThreadKey: false,
-                isOptional: true
+                isOptional: true,
+                waybackKey
               })
             );
             packet.appendChild(
@@ -3615,7 +3655,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
                 version: VERSION,
                 useUserKey: true,
                 useThreadKey: false,
-                isOptional: true
+                isOptional: true,
+                waybackKey
                })
             );
           } else {
@@ -3628,7 +3669,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
                 force184: force184,
                 useDuration: true,
                 useThreadKey: false,
-                useUserKey: false
+                useUserKey: false,
+                waybackKey
               })
             );
           }
@@ -3640,7 +3682,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
               force184: force184,
               useDuration: false,
               useThreadKey: true,
-              useUserKey: false
+              useUserKey: false,
+              waybackKey
             })
           );
           packet.appendChild(
@@ -3650,8 +3693,9 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
               threadKey: threadKey,
               force184: force184,
               useThreadKey: true,
-              useUserKey: false
-            })
+              useUserKey: false,
+              waybackKey
+             })
           );
           
 
@@ -3724,22 +3768,32 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           });
         },
         _load: function(msgInfo) {
-          var packet;
-          if (msgInfo.isNeedKey) {
-            return this.getThreadKey(msgInfo.threadId, msgInfo.language).then((info) => {
-              console.log('threadkey: ', info);
-              packet = this.buildPacket(msgInfo, info.threadkey, info.force_184);
+          let packet, threadKey, waybackKey, force184;
 
-              console.log('post xml...', msgInfo.server, packet);
-              //get(server, threadId, duration, info.threadkey, info.force_184);
-              return this._post(msgInfo.server, packet, msgInfo.threadId);
+          const loadThreadKey = () => {
+            if (!msgInfo.isNeedKey) { return Promise.resolve(); }
+            return this.getThreadKey(msgInfo.threadId, msgInfo.language).then(info => {
+              console.log('threadKey: ', info);
+              threadKey = info.threadkey;
+              force184  = info.force_184;
             });
-          } else {
-            packet = this.buildPacket(msgInfo);
+          };
+          const loadWaybackKey = () => {
+            if (!msgInfo.when) { return Promise.resolve(); }
+            return this.getWaybackKey(msgInfo.threadId, msgInfo.language).then(info => {
+              window.console.log('waybackKey: ', info);
+              waybackKey = info.waybackkey;
+            });
+          };
+
+          return loadThreadKey().then(loadWaybackKey).then(() => {
+            //console.log('build', msgInfo, threadKey, force184, waybackKey);
+            packet = this.buildPacket(msgInfo, threadKey, force184, waybackKey);
 
             console.log('post xml...', msgInfo.server, packet);
             return this._post(msgInfo.server, packet, msgInfo.threadId);
-          }
+          });
+
         },
         load: function(msgInfo) {
           const server           = msgInfo.server;
@@ -3759,19 +3813,11 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             try {
               xml = result.documentElement;
               var threads = xml.getElementsByTagName('thread');
-              //chats = xml.getElementsByTagName('chat');
 
               thread = threads[0];
-              //_.each(threads, function(t) {
-              //  var tk = t.getAttribute('ticket');
-              //  if (tk && tk !== '0') { ticket = tk; }
-              //  var lr = t.getAttribute('last_res');
-              //  if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
-              //});
               
               _.each(threads, function(t) {
                 var tid = t.getAttribute('thread');
-                //window.console.log(t, t.outerHTML);
                 if (parseInt(tid, 10) === parseInt(threadId, 10)) {
                   thread = t;
                   return false;
@@ -3825,7 +3871,9 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
               lastRes:    lastRes,
               blockNo:    Math.floor((lastRes * 1 + 1) / 100),
               ticket:     ticket,
-              revision:   thread.getAttribute('revision')
+              revision:   thread.getAttribute('revision'),
+              when:       msgInfo.when,
+              isWaybackMode: !!msgInfo.when
             };
 
             if (this._threadKeys[threadId]) {
@@ -15415,7 +15463,7 @@ var SlotLayoutWorker = (function() {
 
   #listContainer {
     position: absolute;
-    top: 0;
+    top: -1px;
     left:0;
     margin: 0;
     padding: 0;
@@ -15430,6 +15478,7 @@ var SlotLayoutWorker = (function() {
   <div id="listContainer">
     <div class="listMenu">
 
+      <span class="menuButton reloadComment"    data-command="reloadComment" title="過去ログ">&#8986;</span>
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
       <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
       <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
@@ -15512,6 +15561,7 @@ var SlotLayoutWorker = (function() {
       this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
       this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
 
+      this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
       this._$begin = $('<span class="begin"/>');
       this._$end   = $('<span class="end"/>');
       ZenzaWatch.debug.$commentList = $list;
@@ -15529,7 +15579,7 @@ var SlotLayoutWorker = (function() {
         this._scrollTop = 0;
       }
 
-      _.each(itemList, function (item, i) {
+      itemList.forEach((item, i) => {
         itemViews.push(new Builder({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
       });
 
@@ -15537,20 +15587,20 @@ var SlotLayoutWorker = (function() {
       this._inviewItemList = {};
       this._$newItems = null;
 
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         if (this._$list) {
           this._$list.html('');
-          this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length});
+          this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length + 100});
           this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
           this._refreshInviewElements();
         }
-      }, this, 0);
+      }, 0);
 
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         this.removeClass('updating');
         this.emit('update');
-      }, this, 100);
+      }, 100);
 
 
       window.console.timeEnd('update commentlistView');
@@ -15559,7 +15609,7 @@ var SlotLayoutWorker = (function() {
       e.stopPropagation();
       ZenzaWatch.emitter.emitAsync('hideHover');
       var $item = $(e.target).closest('.commentListItem');
-      if ($item.length > 0) { return this._onItemClick($item); }
+      if ($item.length > 0) { return this._debouncedOnItemClick($item); }
     },
     _onItemClick: function($item) {
       //var offset = $item.offset();
@@ -15581,6 +15631,7 @@ var SlotLayoutWorker = (function() {
       if (command === 'addUserIdFilter' || command === 'addWordFilter') {
         this._$list.find('.item' + itemId).hide();
       }
+
 
       this.emit('command', command, null, itemId);
     },
@@ -15640,7 +15691,7 @@ var SlotLayoutWorker = (function() {
       if (newItems.length < 1) { return; }
 
       // 見えないitemを除去。 見えない場所なのでrequestAnimationFrame不要
-      var $list = this._$list, doc = this._document;
+      var doc = this._document;
       _.each(Object.keys(inviewItemList), function(i) {
         if (i >= startIndex && i <= endIndex) { return; }
         //$list.find('#' + inviewItemList[i]).remove();
@@ -15650,9 +15701,6 @@ var SlotLayoutWorker = (function() {
 
       this._inviewItemList = inviewItemList;
 
-
-      //window.console.log('_refreshInviewElements: ',
-      //  scrollTop, windowBottom, startIndex, endIndex, newItems.length);
 
       var $newItems = $(newItems.join(''));
       if (this._$newItems) {
@@ -15788,17 +15836,24 @@ var SlotLayoutWorker = (function() {
       transform: translate(4px, 4px);
     }
 
-    .listMenu .addUserIdFilter {
-      right: 8px;
+    .listMenu .reloadComment {
+      right: 176px;
+      width: auto;
+      padding: 0 4px;
+    }
+
+    .listMenu .clipBoard {
+      right: 120px;
       width: 48px;
     }
+
     .listMenu .addWordFilter {
       right: 64px;
       width: 48px;
     }
 
-    .listMenu .clipBoard {
-      right: 120px;
+    .listMenu .addUserIdFilter {
+      right: 8px;
       width: 48px;
     }
 
@@ -16034,6 +16089,9 @@ data-title="%no%: %date% ID:%userId%
     getDate: function() {
       return this._date;
     },
+    getTime: function() {
+      return this._date * 1000;
+    },
     getFormattedDate: function() {
       return this._formattedDate;
     },
@@ -16088,7 +16146,9 @@ data-title="%no%: %date% ID:%userId%
   var CommentPanelView = function() { this.initialize.apply(this, arguments); };
   _.extend(CommentPanelView.prototype, AsyncEmitter.prototype);
   CommentPanelView.__css__ = (`
-
+    :root {
+      --zenza-comment-panel-header-height: 64px;
+    }
 
     .commentPanel-container {
       height: 100%;
@@ -16096,7 +16156,7 @@ data-title="%no%: %date% ID:%userId%
     }
 
     .commentPanel-header {
-      height: 32px;
+      height: var(--zenza-comment-panel-header-height);
       border-bottom: 1px solid #000;
       background: #333;
       color: #ccc;
@@ -16129,7 +16189,7 @@ data-title="%no%: %date% ID:%userId%
     }
 
     .commentPanel-frame {
-      height: calc(100% - 32px);
+      height: calc(100% - var(--zenza-comment-panel-header-height));
       transition: opacity 0.3s;
     }
 
@@ -16203,6 +16263,7 @@ data-title="%no%: %date% ID:%userId%
             </div>
           </div>
         </div>
+      <div class="timeMachineContainer"></div>
       </div>
       <div class="commentPanel-frame"></div>
     </div>
@@ -16232,6 +16293,12 @@ data-title="%no%: %date% ID:%userId%
       });
       listView.on('command', this._onCommand.bind(this));
 
+      this._timeMachineView = new TimeMachineView({
+        parentNode: document.querySelector('.timeMachineContainer')});
+      this._timeMachineView.on('command', this._onCommand.bind(this));
+
+      this._commentPanel.on('threadInfo',
+        _.debounce(this._onThreadInfo.bind(this), 100));
       this._commentPanel.on('update',
         _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
       this._onCommentPanelStatusUpdate();
@@ -16239,9 +16306,9 @@ data-title="%no%: %date% ID:%userId%
       this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
 
       this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
-      ZenzaWatch.emitter.on('hideHover', function() {
-        $menu.removeClass('show');
-      });
+
+
+      ZenzaWatch.emitter.on('hideHover', () => { $menu.removeClass('show'); });
 
     },
     toggleClass: function(className, v) {
@@ -16295,12 +16362,18 @@ data-title="%no%: %date% ID:%userId%
       }
       ZenzaWatch.emitter.emitAsync('hideHover');
     },
+    _onThreadInfo(threadInfo) {
+      this._timeMachineView.update(threadInfo);
+    },
     _onCommentPanelStatusUpdate: function() {
-      var commentPanel = this._commentPanel;
+      let commentPanel = this._commentPanel;
       const $view = this._$view
-        .toggleClass('autoScroll', commentPanel.isAutoScroll())
-        ;
+        .toggleClass('autoScroll', commentPanel.isAutoScroll());
 
+      //let threadInfo = commentPanel.getThreadInfo();
+      //if (threadInfo) {
+      //  this._timeMachineView.update(threadInfo);
+      //}
       const langClass = 'lang-' + commentPanel.getLanguage();
       if (!$view.hasClass(langClass)) {
         $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
@@ -16324,6 +16397,7 @@ data-title="%no%: %date% ID:%userId%
 
       player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange', _.debounce(this._onCommentChange.bind(this), 500));
+      player.on('commentReady',  _.debounce(this._onCommentReady.bind(this), 500));
       player.on('open',  this._onPlayerOpen.bind(this));
       player.on('close', this._onPlayerClose.bind(this));
 
@@ -16386,20 +16460,36 @@ data-title="%no%: %date% ID:%userId%
           this._model.removeItem(item);
           this.emit('command', command, item.getText());
           break;
+        case 'reloadComment':
+          if (item) {
+            param = {};
+            let dt = new Date(item.getTime());
+            let offsetMs = dt.getTimezoneOffset() * 60 * 1000;
+            this.emit('command', 'notify', item.getFormattedDate() + '頃のログ');
+            //window.console.log('when!', offsetMs, dt.getTime(), item);
+            param.when = Math.floor((dt.getTime() - offsetMs) / 1000);
+          }
+          this.emit('command', command, param);
+          
+          break;
         default:
           this.emit('command', command, param);
       }
     },
     _onCommentParsed: function(language) {
+      this.setLanguage(language);
       this._initializeView();
       this.setChatList(this._player.getChatList());
-      this.setLanguage(language);
       this.startTimer();
     },
     _onCommentChange: function(language) {
-      this._initializeView();
       this.setLanguage(language);
+      this._initializeView();
       this.setChatList(this._player.getChatList());
+    },
+    _onCommentReady: function(result, threadInfo) {
+      this._threadInfo = threadInfo;
+      this.emit('threadInfo', threadInfo);
     },
     _onPlayerOpen: function() {
       this._model.clear();
@@ -16417,6 +16507,9 @@ data-title="%no%: %date% ID:%userId%
     },
     getLanguage: function() {
       return this._language || 'ja_JP';
+    },
+    getThreadInfo: function() {
+      return this._threadInfo;
     },
     setLanguage: function(lang) {
       if (lang !== this._language) {
@@ -16464,30 +16557,243 @@ data-title="%no%: %date% ID:%userId%
       super({
         parentNode,
         name: 'TimeMachineView',
-        template: TimeMachineView.__tpl__,
+        template: '<div class="TimeMachineView"></div>',
         shadow: TimeMachineView._shadow_,
-        css: TimeMachineView.__css__
+        css: ''
       });
 
+
+      this._bound._onTimer = this._onTimer.bind(this);
+
       this._state = {
+        isWaybackMode: false,
+        isSelecting: false,
       };
 
-      this._config = Config.namespace('uaa');
+      this._currentTimestamp = Date.now();
 
+      ZenzaWatch.debug.timeMachineView = this;
+
+      window.setInterval(this._bound._onTimer, 3 * 1000);
     }
 
+    _initDom(...args) {
+      super._initDom(...args);
+
+      const v = this._shadow || this._view;
+      Object.assign(this._elm, {
+        time:   v.querySelector('.dateTime'),
+        back:   v.querySelector('.backToTheFuture'),
+        input:  v.querySelector('.dateTimeInput'),
+        submit: v.querySelector('.dateTimeSubmit'),
+        cancel: v.querySelector('.dateTimeCancel')
+      });
+
+      this._updateTimestamp();
+      this._elm.time.addEventListener('click', this._toggle.bind(this));
+      this._elm.back.addEventListener('mousedown', this._onBack.bind(this));
+      this._elm.submit.addEventListener('click', this._onSubmit.bind(this));
+      this._elm.cancel.addEventListener('click', this._onCancel.bind(this));
+    }
+
+    update(threadInfo) {
+      //window.console.info('TimeMachineView update', threadInfo);
+      this._videoPostTime = threadInfo.threadId * 1000;
+      const isWaybackMode = threadInfo.isWaybackMode;
+      this.setState({isWaybackMode, isSelecting: false});
+
+      if (isWaybackMode) {
+        const dt = new Date();
+        const offsetMs = dt.getTimezoneOffset() * 60 * 1000;
+        this._currentTimestamp = threadInfo.when * 1000 + offsetMs;
+      } else {
+        this._currentTimestamp = Date.now();
+      }
+      this._updateTimestamp();
+    }
+
+    _updateTimestamp() {
+      this._elm.time.textContent = this._currentTime = this._toDate(this._currentTimestamp);
+    }
+
+    openSelect() {
+      const input = this._elm.input;
+      const now = this._toTDate(Date.now());
+      input.setAttribute('max', now);
+      input.setAttribute('value', this._toTDate(this._currentTimestamp));
+      input.setAttribute('min', this._toTDate(this._videoPostTime));
+      this.setState({isSelecting: true});
+      window.setTimeout(() => { input.focus(); }, 0);
+    }
+
+    closeSelect() {
+      this.setState({isSelecting: false});
+    }
+
+    _toggle() {
+      if (this._state.isSelecting) {
+        this.closeSelect();
+      } else {
+        this.openSelect();
+      }
+    }
+
+    _onTimer() {
+      if (this._state.isWaybackMode) { return; }
+      let now = Date.now();
+      let str = this._toDate(now);
+
+      if (this._currentTime === str) { return; }
+      this._currentTimestamp = now;
+      this._updateTimestamp();
+    }
+
+    _padTime(time) {
+      let pad = (v) => { return (v * 1 + 100).toString().substr(1); };
+      let dt   = new Date(time);
+      return {
+        yyyy: dt.getFullYear(),
+        mm:   pad(dt.getMonth() + 1),
+        dd:   pad(dt.getDate()),
+        h:    pad(dt.getHours()),
+        m:    pad(dt.getMinutes()),
+        s:    pad(dt.getSeconds())
+      };
+    }
+
+    _toDate(time) {
+      let {yyyy, mm, dd, h, m} =  this._padTime(time);
+      return `${yyyy}/${mm}/${dd} ${h}:${m}`;
+    }
+
+    _toTDate(time) {
+      let {yyyy, mm, dd, h, m, s} =  this._padTime(time);
+      return `${yyyy}-${mm}-${dd}T${h}:${m}:${s}`;
+    }
+
+    _onSubmit() {
+      const val = this._elm.input.value;
+      if (!val || !/^\d\d\d\d-\d\d-\d\dT\d\d:\d\d(|:\d\d)$/.test(val)) { return; }
+      const dt = new Date(val);
+      const when =
+        Math.floor(Math.max(dt.getTime(), this._videoPostTime) / 1000);
+      //window.console.info('reloadComment', val, dt, when, dt.getTime(), this._videoPostTime);
+      this.emit('command', 'reloadComment', {when});
+      this.closeSelect();
+    }
+
+    _onCancel() {
+      this.closeSelect();
+    }
+
+    _onBack() {
+      this.setState({isWaybackMode: false});
+      this.closeSelect();
+      this.emit('command', 'reloadComment', {when: 0});
+    }
   }
 
   TimeMachineView._shadow_ = (`
     <style>
+      .dateTime {
+        display: inline-block;
+        margin: auto 4px 4px;
+        padding: 0 4px;
+        border: 1px solid;
+        background: #888;
+        color: #000;
+        font-size: 20px;
+        line-height: 24px;
+        font-family: monospace;
+        cursor: pointer;
+      }
+
+      .is-WaybackMode .dateTime {
+        color: red;
+      }
+
+      .backToTheFuture {
+        display: none;
+        line-height: 24px;
+        font-size: 16px;
+        margin: auto 4px;
+        cursor: pointer;
+        transition: transform 0.1s;
+        user-select: none;
+      }
+      .backToTheFuture:hover {
+        text-shadow: 0 0 8px #ffc;
+        transform: translate(0, -2px);
+      }
+      .backToTheFuture:active {
+        text-shadow: none;
+        transform: translate(-1000px, 0px);
+      }
+
+      .is-WaybackMode .backToTheFuture {
+        display: inline-block;
+      }
+
+      .inputContainer {
+        display: none;
+        position: absolute;
+        top: 32px;
+        left: 4px;
+        background: #333;
+        box-shadow: 0 0 4px #fff;
+      }
+      .is-Selecting .inputContainer {
+        display: block;
+      }
+        .dateTimeInput {
+          display: block;
+          font-size: 16px;
+        }
+        .submitContainer {
+          text-align: right;
+        }
+          .dateTimeSubmit, .dateTimeCancel {
+            display: inline-block;
+            min-width: 50px;
+            cursor: pointer;
+            padding: 4px 8px;
+            margin: 4px;
+            border: 1px solid #888;
+            text-align: center;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            user-select: none;
+          }
+          .dateTimeSubmit:hover, .dateTimeCancel:hover {
+            background: #666;
+            transform: translate(0, -2px);
+            box-shadow: 0 4px 2px #000;
+          }
+          .dateTimeSubmit:active, .dateTimeCancel:active {
+            background: #333;
+            transform: translate(0, 0);
+            box-shadow: 0 0 2px #000 inset;
+          }
+
+          .dateTimeSubmit {
+          }
+          .dateTimeCancel {
+          }
+
     </style>
     <div class="root TimeMachine">
+      <div class="dateTime" title="TimeMachine">0000/00/00 00:00</div>
+      <div class="backToTheFuture" title="Back To The Future">&#11152; Back</div>
+      <div class="inputContainer">
+        <input type="datetime-local" class="dateTimeInput">
+        <div class="submitContainer">
+        <div class="dateTimeSubmit">G&nbsp;&nbsp;O</div>
+        <div class="dateTimeCancel">Cancel</div>
+        </div>
+      </div>
     </div>
   `).trim();
 
   TimeMachineView.__tpl__ = (`<div class="TimeMachineView"></div>`).trim();
-
-  TimeMachineView.__css__ = (``).trim();
 
 
 
@@ -19458,6 +19764,7 @@ const VideoSession = (function() {
         isCommentReady: false,
         isCommentPosting: false,
         isCommunity: false,
+        isWaybackMode: false,
         isDebug:   config.getValue('debug'),
         isDmcAvailable: false,
         isDmcPlaying:   false,
@@ -20144,6 +20451,7 @@ const VideoSession = (function() {
       this._aspectRatio = 9 / 16;
 
       dialog.on('canPlay',           this._onVideoCanPlay.bind(this));
+      dialog.on('videoCount',        this._onVideoCount.bind(this));
       dialog.on('error',             this._onVideoError.bind(this));
       dialog.on('play',              this._onVideoPlay.bind(this));
       dialog.on('playing',           this._onVideoPlaying.bind(this));
@@ -20307,6 +20615,9 @@ const VideoSession = (function() {
     _onVideoCanPlay: function(watchId, videoInfo) {
       this.emit('canPlay', watchId, videoInfo);
     },
+    _onVideoCount: function({comment, view, mylist} = {}) {
+      this.emit('videoCount', {comment, view, mylist});
+    },
     _onVideoError: function(e) {
       this.emit('error', e);
     },
@@ -20366,7 +20677,8 @@ const VideoSession = (function() {
         isUpdatingMylist:  'is-updatingMylist',
         isPlaylistEnable:  'is-playlistEnable',
         isCommentPosting:  'is-commentPosting',
-        isRegularUser: 'is-regularUser'
+        isRegularUser: 'is-regularUser',
+        isWaybackMode: 'is-waybackMode'
       };
     },
     _onPlayerStateChange: function(key, value) {
@@ -20755,7 +21067,7 @@ const VideoSession = (function() {
           window.open('//www.nicovideo.jp/watch/' + this._watchId, 'watchGinza');
           break;
         case 'reloadComment':
-          this.reloadComment();
+          this.reloadComment(param);
           break;
         case 'playbackRate':
           //if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
@@ -20804,7 +21116,7 @@ const VideoSession = (function() {
           command = command.replace(/^update-/, '');
           if (this._playerConfig.getValue(command) === param) { break; }
           this._playerConfig.setValue(command, param);
-          this.reloadComment();
+          this.reloadComment(param);
           break;
         case 'toggle-comment':
         case 'toggle-showComment':
@@ -21204,12 +21516,13 @@ const VideoSession = (function() {
     },
     _onCommentParsed: function() {
       const lang = this._playerConfig.getValue('commentLanguage');
-      this.emit('commentParsed', lang);
+      window.console.log('onCommentParsed', lang, this._threadInfo);
+      this.emit('commentParsed', lang, this._threadInfo);
       ZenzaWatch.emitter.emit('commentParsed');
     },
     _onCommentChange: function() {
       const lang = this._playerConfig.getValue('commentLanguage');
-      this.emit('commentChange', lang);
+      this.emit('commentChange', lang, this._threadInfo);
       ZenzaWatch.emitter.emit('commentChange');
     },
     _onCommentFilterChange: function(filter) {
@@ -21424,8 +21737,12 @@ const VideoSession = (function() {
         this._onCommentLoadFail   .bind(this, this._requestId)
       );
     },
-    reloadComment: function() {
-      this.loadComment(this._videoInfo.getMsgInfo());
+    reloadComment: function(param = {}) {
+      const msgInfo = this._videoInfo.getMsgInfo();
+      if (typeof param.when === 'number') {
+        msgInfo.when = param.when;
+      }
+      this.loadComment(msgInfo);
     },
     _onVideoInfoLoaderFail: function(requestId, e) {
       const watchId = e.watchId;
@@ -21488,17 +21805,18 @@ const VideoSession = (function() {
       if (requestId !== this._requestId) {
         return;
       }
-      //PopupMessage.notify('コメント取得成功');
-      var options = {
+      let options = {
         replacement: this._videoInfo.getReplacementWords(),
         duration: this._videoInfo.getDuration()
       };
       this._nicoVideoPlayer.closeCommentPlayer();
-      this._nicoVideoPlayer.setComment(result.xml, options);
       this._threadInfo = result.threadInfo;
+      this._nicoVideoPlayer.setComment(result.xml, options);
 
       this._playerState.isCommentReady = true;
-      this.emit('commentReady', result);
+      this._playerState.isWaybackMode = result.threadInfo.isWaybackMode;
+      this.emit('commentReady', result, this._threadInfo);
+      this.emit('videoCount', {comment: parseInt(result.threadInfo.lastRes, 10)});
     },
     _onCommentLoadFail: function(requestId, e) {
       if (requestId !== this._requestId) {
@@ -22888,6 +23206,7 @@ const VideoSession = (function() {
       transform: translate(-50%, -170px);
       overflow: visible;
     }
+    .zenzaPlayerContainer.is-waybackMode .commentInputPanel,
     .zenzaPlayerContainer.is-mymemory .commentInputPanel,
     .zenzaPlayerContainer.is-loading  .commentInputPanel,
     .zenzaPlayerContainer.is-error    .commentInputPanel {
@@ -24709,6 +25028,7 @@ const VideoSession = (function() {
       this._currentTimeGetter = params.currentTimeGetter;
 
       this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
+      this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
 
       this._videoTitlePanel.on('command', this._onCommand.bind(this));
 
@@ -24948,6 +25268,10 @@ const VideoSession = (function() {
       }
       var relatedVideo = videoInfo.getRelatedVideoItems();
       this._relatedVideoList.update(relatedVideo, watchId);
+    },
+    _onVideoCountUpdate: function({comment, view, mylist}) {
+      if (!this._videoTitlePanel) { return; }
+      this._videoTitlePanel.updateVideoCount({comment, view, mylist});
     },
     _onCommand: function(command, param) {
       switch (command) {
@@ -25496,6 +25820,13 @@ const VideoSession = (function() {
         .css('display', '');
 
       window.setTimeout(() => { this._onResize(); }, 1000);
+    },
+    updateVideoCount: function({comment, view, mylist}) {
+      if (!this._$commentCount) { return; }
+      let addComma = m => { return m.toLocaleString ? m.toLocaleString() : m; };
+      if (typeof comment === 'number') { this._$commentCount.text(addComma(comment)); }
+      if (typeof view    === 'number') { this._$viewCount   .text(addComma(view)); }
+      if (typeof mylist  === 'number') { this._$mylistCount .text(addComma(mylist)); }
     },
     _updateTags: function(tagList) {
       var $container = this._$tagList.parent();
@@ -27550,7 +27881,7 @@ const VideoSession = (function() {
 
       data.keys.forEach((key) => {
         var storageKey = prefix + key;
-        if (localStorage.hasOwnProperty(storageKey)) {
+        if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
             config[key] = JSON.parse(localStorage.getItem(storageKey));
             //window.console.log('dump config: %s = %s', key, config[key]);

@@ -185,6 +185,7 @@ class BaseViewComponent {}
   <div id="listContainer">
     <div class="listMenu">
 
+      <span class="menuButton reloadComment"    data-command="reloadComment" title="過去ログ">&#8986;</span>
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
       <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
       <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
@@ -267,6 +268,7 @@ class BaseViewComponent {}
       this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
       this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
 
+      this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
       this._$begin = $('<span class="begin"/>');
       this._$end   = $('<span class="end"/>');
       ZenzaWatch.debug.$commentList = $list;
@@ -314,7 +316,7 @@ class BaseViewComponent {}
       e.stopPropagation();
       ZenzaWatch.emitter.emitAsync('hideHover');
       var $item = $(e.target).closest('.commentListItem');
-      if ($item.length > 0) { return this._onItemClick($item); }
+      if ($item.length > 0) { return this._debouncedOnItemClick($item); }
     },
     _onItemClick: function($item) {
       //var offset = $item.offset();
@@ -336,6 +338,7 @@ class BaseViewComponent {}
       if (command === 'addUserIdFilter' || command === 'addWordFilter') {
         this._$list.find('.item' + itemId).hide();
       }
+
 
       this.emit('command', command, null, itemId);
     },
@@ -540,17 +543,24 @@ class BaseViewComponent {}
       transform: translate(4px, 4px);
     }
 
-    .listMenu .addUserIdFilter {
-      right: 8px;
+    .listMenu .reloadComment {
+      right: 176px;
+      width: auto;
+      padding: 0 4px;
+    }
+
+    .listMenu .clipBoard {
+      right: 120px;
       width: 48px;
     }
+
     .listMenu .addWordFilter {
       right: 64px;
       width: 48px;
     }
 
-    .listMenu .clipBoard {
-      right: 120px;
+    .listMenu .addUserIdFilter {
+      right: 8px;
       width: 48px;
     }
 
@@ -785,6 +795,9 @@ data-title="%no%: %date% ID:%userId%
     },
     getDate: function() {
       return this._date;
+    },
+    getTime: function() {
+      return this._date * 1000;
     },
     getFormattedDate: function() {
       return this._formattedDate;
@@ -1153,6 +1166,18 @@ data-title="%no%: %date% ID:%userId%
         case 'addWordFilter':
           this._model.removeItem(item);
           this.emit('command', command, item.getText());
+          break;
+        case 'reloadComment':
+          if (item) {
+            param = {};
+            let dt = new Date(item.getTime());
+            let offsetMs = dt.getTimezoneOffset() * 60 * 1000;
+            this.emit('command', 'notify', item.getFormattedDate() + '頃のログ');
+            //window.console.log('when!', offsetMs, dt.getTime(), item);
+            param.when = Math.floor((dt.getTime() - offsetMs) / 1000);
+          }
+          this.emit('command', command, param);
+          
           break;
         default:
           this.emit('command', command, param);
