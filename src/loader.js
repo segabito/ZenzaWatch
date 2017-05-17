@@ -126,7 +126,8 @@ var ajax = function() {};
             isNeedKey: flvInfo.needs_key === '1',
             optionalThreadId: flvInfo.optional_thread_id,
             userKey:  flvInfo.userkey,
-            hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread
+            hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread,
+            when: null
           };
 
           let playlist =
@@ -196,7 +197,8 @@ var ajax = function() {};
             //data.thread.ids.community ? data.thread.ids.default : '', //data.thread.ids.nicos,
             //data.thread.ids.nicos,
           userKey: data.context.userkey,
-          hasOwnerThread: data.thread.hasOwnerThread
+          hasOwnerThread: data.thread.hasOwnerThread,
+          when: null
         };
 
         const isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
@@ -597,6 +599,7 @@ var ajax = function() {};
       _.assign(MessageApiLoader.prototype, {
         initialize: function() {
           this._threadKeys = {};
+          this._waybackKeys = {};
         },
         /**
          * 動画の長さに応じて取得するコメント数を変える
@@ -626,14 +629,39 @@ var ajax = function() {};
                 withCredentials: true
               }
             }).then((e) => {
-              var result = ZenzaWatch.util.parseQuery(e);
+              var result = util.parseQuery(e);
               this._threadKeys[threadId] = result;
               resolve(result);
             }, (result) => {
-              //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
               reject({
                 result: result,
                 message: 'ThreadKeyの取得失敗 ' + threadId
+              });
+            });
+          });
+        },
+        getWaybackKey: function(threadId, language) {
+          let url =
+            '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
+          const langCode = this.getLangCode(language);
+          if (langCode) { url += `&language_id=${langCode}`; }
+          return new Promise((resolve, reject) => {
+            ajax({
+              url: url,
+              contentType: 'text/plain',
+              crossDomain: true,
+              cache: false,
+              xhrFields: {
+                withCredentials: true
+              }
+            }).then((e) => {
+              let result = util.parseQuery(e);
+              this._waybackKeys[threadId] = result;
+              resolve(result);
+            }, (result) => {
+              reject({
+                result: result,
+                message: 'WaybackKeyの取得失敗 ' + threadId
               });
             });
           });
@@ -685,11 +713,12 @@ var ajax = function() {};
             params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
           const duration         = params.msgInfo.duration;
           const userId           = params.msgInfo.userId;
-          //const optionalThreadId = msgInfo.optionalThreadId;
           const userKey          = params.msgInfo.userKey;
           const threadKey        = params.threadKey;
           const force184         = params.force184;
           const version          = params.version;
+          const when             = params.msgInfo.when;
+          const waybackKey       = params.waybackKey;
 
           const thread = document.createElement('thread');
           thread.setAttribute('thread', threadId);
@@ -714,6 +743,12 @@ var ajax = function() {};
           if (params.useThreadKey && typeof force184 !== 'undefined') {
             thread.setAttribute('force_184', force184);
           }
+          if (waybackKey) {
+            thread.setAttribute('waybackkey', waybackKey);
+          }
+          if (when) {
+            thread.setAttribute('when', when);
+          }
           thread.setAttribute('scores', '1');
           thread.setAttribute('nicoru', '1');
           thread.setAttribute('with_global', '1');
@@ -733,6 +768,8 @@ var ajax = function() {};
           const userKey          = params.msgInfo.userKey;
           const threadKey        = params.threadKey;
           const force184         = params.force184;
+          const when             = params.msgInfo.when;
+          const waybackKey       = params.waybackKey;
 
           const thread_leaves = document.createElement('thread_leaves');
           const resCount = this.getRequestCountByDuration(duration);
@@ -751,6 +788,12 @@ var ajax = function() {};
           if (typeof force184 !== 'undefined') {
             thread_leaves.setAttribute('force_184', force184);
           }
+          if (waybackKey) {
+            thread_leaves.setAttribute('waybackkey', waybackKey);
+          }
+          if (when) {
+            thread_leaves.setAttribute('when', when);
+          }
           thread_leaves.setAttribute('scores', '1');
           thread_leaves.setAttribute('nicoru', '1');
 
@@ -762,10 +805,8 @@ var ajax = function() {};
           return thread_leaves;
         },
 
-        //buildPacket: function(threadId, duration, userId, threadKey, force184, optionalThreadId, userKey)
-        buildPacket: function(msgInfo, threadKey, force184)
+        buildPacket: function(msgInfo, threadKey, force184, waybackKey)
         {
-          //const duration = msgInfo.duration;
 
           const span   = document.createElement('span');
           const packet = document.createElement('packet');
@@ -782,7 +823,8 @@ var ajax = function() {};
                 useDuration: false,
                 useUserKey: true,
                 useThreadKey: false,
-                isOptional: true
+                isOptional: true,
+                waybackKey
               })
             );
             packet.appendChild(
@@ -791,7 +833,8 @@ var ajax = function() {};
                 version: VERSION,
                 useUserKey: true,
                 useThreadKey: false,
-                isOptional: true
+                isOptional: true,
+                waybackKey
                })
             );
           } else {
@@ -804,7 +847,8 @@ var ajax = function() {};
                 force184: force184,
                 useDuration: true,
                 useThreadKey: false,
-                useUserKey: false
+                useUserKey: false,
+                waybackKey
               })
             );
           }
@@ -816,7 +860,8 @@ var ajax = function() {};
               force184: force184,
               useDuration: false,
               useThreadKey: true,
-              useUserKey: false
+              useUserKey: false,
+              waybackKey
             })
           );
           packet.appendChild(
@@ -826,8 +871,9 @@ var ajax = function() {};
               threadKey: threadKey,
               force184: force184,
               useThreadKey: true,
-              useUserKey: false
-            })
+              useUserKey: false,
+              waybackKey
+             })
           );
           
 
@@ -900,22 +946,32 @@ var ajax = function() {};
           });
         },
         _load: function(msgInfo) {
-          var packet;
-          if (msgInfo.isNeedKey) {
-            return this.getThreadKey(msgInfo.threadId, msgInfo.language).then((info) => {
-              console.log('threadkey: ', info);
-              packet = this.buildPacket(msgInfo, info.threadkey, info.force_184);
+          let packet, threadKey, waybackKey, force184;
 
-              console.log('post xml...', msgInfo.server, packet);
-              //get(server, threadId, duration, info.threadkey, info.force_184);
-              return this._post(msgInfo.server, packet, msgInfo.threadId);
+          const loadThreadKey = () => {
+            if (!msgInfo.isNeedKey) { return Promise.resolve(); }
+            return this.getThreadKey(msgInfo.threadId, msgInfo.language).then(info => {
+              console.log('threadKey: ', info);
+              threadKey = info.threadkey;
+              force184  = info.force_184;
             });
-          } else {
-            packet = this.buildPacket(msgInfo);
+          };
+          const loadWaybackKey = () => {
+            if (!msgInfo.when) { return Promise.resolve(); }
+            return this.getWaybackKey(msgInfo.threadId, msgInfo.language).then(info => {
+              window.console.log('waybackKey: ', info);
+              waybackKey = info.waybackkey;
+            });
+          };
+
+          return loadThreadKey().then(loadWaybackKey).then(() => {
+            //console.log('build', msgInfo, threadKey, force184, waybackKey);
+            packet = this.buildPacket(msgInfo, threadKey, force184, waybackKey);
 
             console.log('post xml...', msgInfo.server, packet);
             return this._post(msgInfo.server, packet, msgInfo.threadId);
-          }
+          });
+
         },
         load: function(msgInfo) {
           const server           = msgInfo.server;
@@ -935,19 +991,11 @@ var ajax = function() {};
             try {
               xml = result.documentElement;
               var threads = xml.getElementsByTagName('thread');
-              //chats = xml.getElementsByTagName('chat');
 
               thread = threads[0];
-              //_.each(threads, function(t) {
-              //  var tk = t.getAttribute('ticket');
-              //  if (tk && tk !== '0') { ticket = tk; }
-              //  var lr = t.getAttribute('last_res');
-              //  if (!isNaN(lr)) { lastRes = Math.max(lastRes, lr); }
-              //});
               
               _.each(threads, function(t) {
                 var tid = t.getAttribute('thread');
-                //window.console.log(t, t.outerHTML);
                 if (parseInt(tid, 10) === parseInt(threadId, 10)) {
                   thread = t;
                   return false;
@@ -1001,7 +1049,9 @@ var ajax = function() {};
               lastRes:    lastRes,
               blockNo:    Math.floor((lastRes * 1 + 1) / 100),
               ticket:     ticket,
-              revision:   thread.getAttribute('revision')
+              revision:   thread.getAttribute('revision'),
+              when:       msgInfo.when,
+              isWaybackMode: !!msgInfo.when
             };
 
             if (this._threadKeys[threadId]) {
@@ -2355,5 +2405,11 @@ view_counter : "123929"
   <thread thread="1451710033" version="20090904" userkey="1471647753.~1~FdAz5yfQ5ZBtL74uDXhmdkoMQ2qCbsgFVIw-4sfGn0M" user_id="1472081" scores="1" nicoru="1" with_global="1"/>
   <thread_leaves thread="1451710033" userkey="1471647753.~1~FdAz5yfQ5ZBtL74uDXhmdkoMQ2qCbsgFVIw-4sfGn0M" user_id="1472081" scores="1" nicoru="1">0-2:100,250</thread_leaves>
 </packet>
+
+
+
+http://flapi.nicovideo.jp/api/getwaybackkey?thread=${threadId}&language_id=${langId}
+<packet><thread thread="1173108780" version="20090904" waybackkey="1494930258.CCLkvC6-3gV4xT4Uo1gs5MBs5Xg" when="1493634240" user_id="25408" click_revision="2129" scores="1" nicoru="1"/><thread_leaves thread="1173108780" waybackkey="1494930258.CCLkvC6-3gV4xT4Uo1gs5MBs5Xg" when="1493634240" user_id="25408" res_before="14149" scores="1" nicoru="1">0-6:100,500</thread_leaves></packet>
+
 
 */

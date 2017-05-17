@@ -793,6 +793,7 @@ const PRODUCT = 'ZenzaWatch';
       this._currentTimeGetter = params.currentTimeGetter;
 
       this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
+      this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
 
       this._videoTitlePanel.on('command', this._onCommand.bind(this));
 
@@ -1032,6 +1033,10 @@ const PRODUCT = 'ZenzaWatch';
       }
       var relatedVideo = videoInfo.getRelatedVideoItems();
       this._relatedVideoList.update(relatedVideo, watchId);
+    },
+    _onVideoCountUpdate: function({comment, view, mylist}) {
+      if (!this._videoTitlePanel) { return; }
+      this._videoTitlePanel.updateVideoCount({comment, view, mylist});
     },
     _onCommand: function(command, param) {
       switch (command) {
@@ -1580,6 +1585,13 @@ const PRODUCT = 'ZenzaWatch';
         .css('display', '');
 
       window.setTimeout(() => { this._onResize(); }, 1000);
+    },
+    updateVideoCount: function({comment, view, mylist}) {
+      if (!this._$commentCount) { return; }
+      let addComma = m => { return m.toLocaleString ? m.toLocaleString() : m; };
+      if (typeof comment === 'number') { this._$commentCount.text(addComma(comment)); }
+      if (typeof view    === 'number') { this._$viewCount   .text(addComma(view)); }
+      if (typeof mylist  === 'number') { this._$mylistCount .text(addComma(mylist)); }
     },
     _updateTags: function(tagList) {
       var $container = this._$tagList.parent();

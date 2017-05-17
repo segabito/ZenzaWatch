@@ -245,6 +245,7 @@ var CONSTANT = {};
         isCommentReady: false,
         isCommentPosting: false,
         isCommunity: false,
+        isWaybackMode: false,
         isDebug:   config.getValue('debug'),
         isDmcAvailable: false,
         isDmcPlaying:   false,
@@ -931,6 +932,7 @@ var CONSTANT = {};
       this._aspectRatio = 9 / 16;
 
       dialog.on('canPlay',           this._onVideoCanPlay.bind(this));
+      dialog.on('videoCount',        this._onVideoCount.bind(this));
       dialog.on('error',             this._onVideoError.bind(this));
       dialog.on('play',              this._onVideoPlay.bind(this));
       dialog.on('playing',           this._onVideoPlaying.bind(this));
@@ -1094,6 +1096,9 @@ var CONSTANT = {};
     _onVideoCanPlay: function(watchId, videoInfo) {
       this.emit('canPlay', watchId, videoInfo);
     },
+    _onVideoCount: function({comment, view, mylist} = {}) {
+      this.emit('videoCount', {comment, view, mylist});
+    },
     _onVideoError: function(e) {
       this.emit('error', e);
     },
@@ -1153,7 +1158,8 @@ var CONSTANT = {};
         isUpdatingMylist:  'is-updatingMylist',
         isPlaylistEnable:  'is-playlistEnable',
         isCommentPosting:  'is-commentPosting',
-        isRegularUser: 'is-regularUser'
+        isRegularUser: 'is-regularUser',
+        isWaybackMode: 'is-waybackMode'
       };
     },
     _onPlayerStateChange: function(key, value) {
@@ -1542,7 +1548,7 @@ var CONSTANT = {};
           window.open('//www.nicovideo.jp/watch/' + this._watchId, 'watchGinza');
           break;
         case 'reloadComment':
-          this.reloadComment();
+          this.reloadComment(param);
           break;
         case 'playbackRate':
           //if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
@@ -1591,7 +1597,7 @@ var CONSTANT = {};
           command = command.replace(/^update-/, '');
           if (this._playerConfig.getValue(command) === param) { break; }
           this._playerConfig.setValue(command, param);
-          this.reloadComment();
+          this.reloadComment(param);
           break;
         case 'toggle-comment':
         case 'toggle-showComment':
@@ -1991,12 +1997,13 @@ var CONSTANT = {};
     },
     _onCommentParsed: function() {
       const lang = this._playerConfig.getValue('commentLanguage');
-      this.emit('commentParsed', lang);
+      window.console.log('onCommentParsed', lang, this._threadInfo);
+      this.emit('commentParsed', lang, this._threadInfo);
       ZenzaWatch.emitter.emit('commentParsed');
     },
     _onCommentChange: function() {
       const lang = this._playerConfig.getValue('commentLanguage');
-      this.emit('commentChange', lang);
+      this.emit('commentChange', lang, this._threadInfo);
       ZenzaWatch.emitter.emit('commentChange');
     },
     _onCommentFilterChange: function(filter) {
@@ -2211,8 +2218,12 @@ var CONSTANT = {};
         this._onCommentLoadFail   .bind(this, this._requestId)
       );
     },
-    reloadComment: function() {
-      this.loadComment(this._videoInfo.getMsgInfo());
+    reloadComment: function(param = {}) {
+      const msgInfo = this._videoInfo.getMsgInfo();
+      if (typeof param.when === 'number') {
+        msgInfo.when = param.when;
+      }
+      this.loadComment(msgInfo);
     },
     _onVideoInfoLoaderFail: function(requestId, e) {
       const watchId = e.watchId;
@@ -2275,17 +2286,18 @@ var CONSTANT = {};
       if (requestId !== this._requestId) {
         return;
       }
-      //PopupMessage.notify('コメント取得成功');
-      var options = {
+      let options = {
         replacement: this._videoInfo.getReplacementWords(),
         duration: this._videoInfo.getDuration()
       };
       this._nicoVideoPlayer.closeCommentPlayer();
-      this._nicoVideoPlayer.setComment(result.xml, options);
       this._threadInfo = result.threadInfo;
+      this._nicoVideoPlayer.setComment(result.xml, options);
 
       this._playerState.isCommentReady = true;
-      this.emit('commentReady', result);
+      this._playerState.isWaybackMode = result.threadInfo.isWaybackMode;
+      this.emit('commentReady', result, this._threadInfo);
+      this.emit('videoCount', {comment: parseInt(result.threadInfo.lastRes, 10)});
     },
     _onCommentLoadFail: function(requestId, e) {
       if (requestId !== this._requestId) {

@@ -170,7 +170,7 @@ class BaseViewComponent {}
 
   #listContainer {
     position: absolute;
-    top: 0;
+    top: -1px;
     left:0;
     margin: 0;
     padding: 0;
@@ -284,7 +284,7 @@ class BaseViewComponent {}
         this._scrollTop = 0;
       }
 
-      _.each(itemList, function (item, i) {
+      itemList.forEach((item, i) => {
         itemViews.push(new Builder({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
       });
 
@@ -292,20 +292,20 @@ class BaseViewComponent {}
       this._inviewItemList = {};
       this._$newItems = null;
 
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         if (this._$list) {
           this._$list.html('');
-          this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length});
+          this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length + 100});
           this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
           this._refreshInviewElements();
         }
-      }, this, 0);
+      }, 0);
 
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         this.removeClass('updating');
         this.emit('update');
-      }, this, 100);
+      }, 100);
 
 
       window.console.timeEnd('update commentlistView');
@@ -395,7 +395,7 @@ class BaseViewComponent {}
       if (newItems.length < 1) { return; }
 
       // 見えないitemを除去。 見えない場所なのでrequestAnimationFrame不要
-      var $list = this._$list, doc = this._document;
+      var doc = this._document;
       _.each(Object.keys(inviewItemList), function(i) {
         if (i >= startIndex && i <= endIndex) { return; }
         //$list.find('#' + inviewItemList[i]).remove();
@@ -405,9 +405,6 @@ class BaseViewComponent {}
 
       this._inviewItemList = inviewItemList;
 
-
-      //window.console.log('_refreshInviewElements: ',
-      //  scrollTop, windowBottom, startIndex, endIndex, newItems.length);
 
       var $newItems = $(newItems.join(''));
       if (this._$newItems) {
@@ -843,7 +840,9 @@ data-title="%no%: %date% ID:%userId%
   var CommentPanelView = function() { this.initialize.apply(this, arguments); };
   _.extend(CommentPanelView.prototype, AsyncEmitter.prototype);
   CommentPanelView.__css__ = (`
-
+    :root {
+      --zenza-comment-panel-header-height: 64px;
+    }
 
     .commentPanel-container {
       height: 100%;
@@ -851,7 +850,7 @@ data-title="%no%: %date% ID:%userId%
     }
 
     .commentPanel-header {
-      height: 32px;
+      height: var(--zenza-comment-panel-header-height);
       border-bottom: 1px solid #000;
       background: #333;
       color: #ccc;
@@ -884,7 +883,7 @@ data-title="%no%: %date% ID:%userId%
     }
 
     .commentPanel-frame {
-      height: calc(100% - 32px);
+      height: calc(100% - var(--zenza-comment-panel-header-height));
       transition: opacity 0.3s;
     }
 
@@ -958,6 +957,7 @@ data-title="%no%: %date% ID:%userId%
             </div>
           </div>
         </div>
+      <div class="timeMachineContainer"></div>
       </div>
       <div class="commentPanel-frame"></div>
     </div>
@@ -987,6 +987,12 @@ data-title="%no%: %date% ID:%userId%
       });
       listView.on('command', this._onCommand.bind(this));
 
+      this._timeMachineView = new TimeMachineView({
+        parentNode: document.querySelector('.timeMachineContainer')});
+      this._timeMachineView.on('command', this._onCommand.bind(this));
+
+      this._commentPanel.on('threadInfo',
+        _.debounce(this._onThreadInfo.bind(this), 100));
       this._commentPanel.on('update',
         _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
       this._onCommentPanelStatusUpdate();
@@ -994,9 +1000,9 @@ data-title="%no%: %date% ID:%userId%
       this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
 
       this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
-      ZenzaWatch.emitter.on('hideHover', function() {
-        $menu.removeClass('show');
-      });
+
+
+      ZenzaWatch.emitter.on('hideHover', () => { $menu.removeClass('show'); });
 
     },
     toggleClass: function(className, v) {
@@ -1050,12 +1056,18 @@ data-title="%no%: %date% ID:%userId%
       }
       ZenzaWatch.emitter.emitAsync('hideHover');
     },
+    _onThreadInfo(threadInfo) {
+      this._timeMachineView.update(threadInfo);
+    },
     _onCommentPanelStatusUpdate: function() {
-      var commentPanel = this._commentPanel;
+      let commentPanel = this._commentPanel;
       const $view = this._$view
-        .toggleClass('autoScroll', commentPanel.isAutoScroll())
-        ;
+        .toggleClass('autoScroll', commentPanel.isAutoScroll());
 
+      //let threadInfo = commentPanel.getThreadInfo();
+      //if (threadInfo) {
+      //  this._timeMachineView.update(threadInfo);
+      //}
       const langClass = 'lang-' + commentPanel.getLanguage();
       if (!$view.hasClass(langClass)) {
         $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
@@ -1079,6 +1091,7 @@ data-title="%no%: %date% ID:%userId%
 
       player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange', _.debounce(this._onCommentChange.bind(this), 500));
+      player.on('commentReady',  _.debounce(this._onCommentReady.bind(this), 500));
       player.on('open',  this._onPlayerOpen.bind(this));
       player.on('close', this._onPlayerClose.bind(this));
 
@@ -1146,15 +1159,19 @@ data-title="%no%: %date% ID:%userId%
       }
     },
     _onCommentParsed: function(language) {
+      this.setLanguage(language);
       this._initializeView();
       this.setChatList(this._player.getChatList());
-      this.setLanguage(language);
       this.startTimer();
     },
     _onCommentChange: function(language) {
-      this._initializeView();
       this.setLanguage(language);
+      this._initializeView();
       this.setChatList(this._player.getChatList());
+    },
+    _onCommentReady: function(result, threadInfo) {
+      this._threadInfo = threadInfo;
+      this.emit('threadInfo', threadInfo);
     },
     _onPlayerOpen: function() {
       this._model.clear();
@@ -1172,6 +1189,9 @@ data-title="%no%: %date% ID:%userId%
     },
     getLanguage: function() {
       return this._language || 'ja_JP';
+    },
+    getThreadInfo: function() {
+      return this._threadInfo;
     },
     setLanguage: function(lang) {
       if (lang !== this._language) {
@@ -1219,30 +1239,243 @@ data-title="%no%: %date% ID:%userId%
       super({
         parentNode,
         name: 'TimeMachineView',
-        template: TimeMachineView.__tpl__,
+        template: '<div class="TimeMachineView"></div>',
         shadow: TimeMachineView._shadow_,
-        css: TimeMachineView.__css__
+        css: ''
       });
 
+
+      this._bound._onTimer = this._onTimer.bind(this);
+
       this._state = {
+        isWaybackMode: false,
+        isSelecting: false,
       };
 
-      this._config = Config.namespace('uaa');
+      this._currentTimestamp = Date.now();
 
+      ZenzaWatch.debug.timeMachineView = this;
+
+      window.setInterval(this._bound._onTimer, 3 * 1000);
     }
 
+    _initDom(...args) {
+      super._initDom(...args);
+
+      const v = this._shadow || this._view;
+      Object.assign(this._elm, {
+        time:   v.querySelector('.dateTime'),
+        back:   v.querySelector('.backToTheFuture'),
+        input:  v.querySelector('.dateTimeInput'),
+        submit: v.querySelector('.dateTimeSubmit'),
+        cancel: v.querySelector('.dateTimeCancel')
+      });
+
+      this._updateTimestamp();
+      this._elm.time.addEventListener('click', this._toggle.bind(this));
+      this._elm.back.addEventListener('mousedown', this._onBack.bind(this));
+      this._elm.submit.addEventListener('click', this._onSubmit.bind(this));
+      this._elm.cancel.addEventListener('click', this._onCancel.bind(this));
+    }
+
+    update(threadInfo) {
+      //window.console.info('TimeMachineView update', threadInfo);
+      this._videoPostTime = threadInfo.threadId * 1000;
+      const isWaybackMode = threadInfo.isWaybackMode;
+      this.setState({isWaybackMode, isSelecting: false});
+
+      if (isWaybackMode) {
+        const dt = new Date();
+        const offsetMs = dt.getTimezoneOffset() * 60 * 1000;
+        this._currentTimestamp = threadInfo.when * 1000 + offsetMs;
+      } else {
+        this._currentTimestamp = Date.now();
+      }
+      this._updateTimestamp();
+    }
+
+    _updateTimestamp() {
+      this._elm.time.textContent = this._currentTime = this._toDate(this._currentTimestamp);
+    }
+
+    openSelect() {
+      const input = this._elm.input;
+      const now = this._toTDate(Date.now());
+      input.setAttribute('max', now);
+      input.setAttribute('value', this._toTDate(this._currentTimestamp));
+      input.setAttribute('min', this._toTDate(this._videoPostTime));
+      this.setState({isSelecting: true});
+      window.setTimeout(() => { input.focus(); }, 0);
+    }
+
+    closeSelect() {
+      this.setState({isSelecting: false});
+    }
+
+    _toggle() {
+      if (this._state.isSelecting) {
+        this.closeSelect();
+      } else {
+        this.openSelect();
+      }
+    }
+
+    _onTimer() {
+      if (this._state.isWaybackMode) { return; }
+      let now = Date.now();
+      let str = this._toDate(now);
+
+      if (this._currentTime === str) { return; }
+      this._currentTimestamp = now;
+      this._updateTimestamp();
+    }
+
+    _padTime(time) {
+      let pad = (v) => { return (v * 1 + 100).toString().substr(1); };
+      let dt   = new Date(time);
+      return {
+        yyyy: dt.getFullYear(),
+        mm:   pad(dt.getMonth() + 1),
+        dd:   pad(dt.getDate()),
+        h:    pad(dt.getHours()),
+        m:    pad(dt.getMinutes()),
+        s:    pad(dt.getSeconds())
+      };
+    }
+
+    _toDate(time) {
+      let {yyyy, mm, dd, h, m} =  this._padTime(time);
+      return `${yyyy}/${mm}/${dd} ${h}:${m}`;
+    }
+
+    _toTDate(time) {
+      let {yyyy, mm, dd, h, m, s} =  this._padTime(time);
+      return `${yyyy}-${mm}-${dd}T${h}:${m}:${s}`;
+    }
+
+    _onSubmit() {
+      const val = this._elm.input.value;
+      if (!val || !/^\d\d\d\d-\d\d-\d\dT\d\d:\d\d(|:\d\d)$/.test(val)) { return; }
+      const dt = new Date(val);
+      const when =
+        Math.floor(Math.max(dt.getTime(), this._videoPostTime) / 1000);
+      //window.console.info('reloadComment', val, dt, when, dt.getTime(), this._videoPostTime);
+      this.emit('command', 'reloadComment', {when});
+      this.closeSelect();
+    }
+
+    _onCancel() {
+      this.closeSelect();
+    }
+
+    _onBack() {
+      this.setState({isWaybackMode: false});
+      this.closeSelect();
+      this.emit('command', 'reloadComment', {when: 0});
+    }
   }
 
   TimeMachineView._shadow_ = (`
     <style>
+      .dateTime {
+        display: inline-block;
+        margin: auto 4px 4px;
+        padding: 0 4px;
+        border: 1px solid;
+        background: #888;
+        color: #000;
+        font-size: 20px;
+        line-height: 24px;
+        font-family: monospace;
+        cursor: pointer;
+      }
+
+      .is-WaybackMode .dateTime {
+        color: red;
+      }
+
+      .backToTheFuture {
+        display: none;
+        line-height: 24px;
+        font-size: 16px;
+        margin: auto 4px;
+        cursor: pointer;
+        transition: transform 0.1s;
+        user-select: none;
+      }
+      .backToTheFuture:hover {
+        text-shadow: 0 0 8px #ffc;
+        transform: translate(0, -2px);
+      }
+      .backToTheFuture:active {
+        text-shadow: none;
+        transform: translate(-1000px, 0px);
+      }
+
+      .is-WaybackMode .backToTheFuture {
+        display: inline-block;
+      }
+
+      .inputContainer {
+        display: none;
+        position: absolute;
+        top: 32px;
+        left: 4px;
+        background: #333;
+        box-shadow: 0 0 4px #fff;
+      }
+      .is-Selecting .inputContainer {
+        display: block;
+      }
+        .dateTimeInput {
+          display: block;
+          font-size: 16px;
+        }
+        .submitContainer {
+          text-align: right;
+        }
+          .dateTimeSubmit, .dateTimeCancel {
+            display: inline-block;
+            min-width: 50px;
+            cursor: pointer;
+            padding: 4px 8px;
+            margin: 4px;
+            border: 1px solid #888;
+            text-align: center;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            user-select: none;
+          }
+          .dateTimeSubmit:hover, .dateTimeCancel:hover {
+            background: #666;
+            transform: translate(0, -2px);
+            box-shadow: 0 4px 2px #000;
+          }
+          .dateTimeSubmit:active, .dateTimeCancel:active {
+            background: #333;
+            transform: translate(0, 0);
+            box-shadow: 0 0 2px #000 inset;
+          }
+
+          .dateTimeSubmit {
+          }
+          .dateTimeCancel {
+          }
+
     </style>
     <div class="root TimeMachine">
+      <div class="dateTime" title="TimeMachine">0000/00/00 00:00</div>
+      <div class="backToTheFuture" title="Back To The Future">&#11152; Back</div>
+      <div class="inputContainer">
+        <input type="datetime-local" class="dateTimeInput">
+        <div class="submitContainer">
+        <div class="dateTimeSubmit">G&nbsp;&nbsp;O</div>
+        <div class="dateTimeCancel">Cancel</div>
+        </div>
+      </div>
     </div>
   `).trim();
 
   TimeMachineView.__tpl__ = (`<div class="TimeMachineView"></div>`).trim();
-
-  TimeMachineView.__css__ = (``).trim();
 
 
 //===END===
