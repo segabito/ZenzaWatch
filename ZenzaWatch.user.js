@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.11.0
+// @version        1.11.2
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -40,7 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.11.0';
+  var VER = '1.11.2';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -6141,6 +6141,10 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     }
 
     _onMouseDown(e) {
+      if (e.target && e.target.getAttribute('data-is-no-close') === 'true') {
+        e.stopPropagation();
+        this._onClick(e);
+      } else
       if (e.target && e.target.getAttribute('data-repeat') === 'on') {
         e.stopPropagation();
         this._onClick(e);
@@ -6232,6 +6236,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       border: 1px outset #333;
       box-shadow: 2px 2px 4px #000;
       transition: opacity 0.3s ease;
+      min-width: 200px;
       z-index: 150000;
       user-select: none;
       -webkit-user-select: none;
@@ -6261,11 +6266,11 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     .zenzaPlayerContextMenu ul li {
       position: relative;
       line-height: 120%;
-      margin: 2px 6px;
+      margin: 2px;
       overflow-y: visible;
       white-space: nowrap;
       cursor: pointer;
-      padding: 2px 10px;
+      padding: 2px 14px;
       list-style-type: none;
       float: inherit;
     }
@@ -6323,6 +6328,11 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       margin: auto;
     }
 
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.screenShot {
+      flex: 1;
+      font-size: 24px;
+    }
+
     .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
       flex: 2;
       font-size: 14px;
@@ -6354,6 +6364,13 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     <div class="zenzaPlayerContextMenu">
       <div class="controlButtonContainer">
         <div class="controlButtonContainerFlex">
+          <div class="controlButton command screenShot" data-command="screenShot"
+            data-param="0.1" data-type="number" data-is-no-close="true">
+            &#128247;<div class="tooltip">スクリーンショット</div>
+          </div>
+          <div style="flex:4;"></div>
+        </div>
+        <div class="controlButtonContainerFlex">
           <div class="controlButton command rate010 playbackRate" data-command="playbackRate"
             data-param="0.1" data-type="number" data-repeat="on">
             &#128034;<div class="tooltip">コマ送り(0.1倍)</div>
@@ -6377,7 +6394,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             <div class="tooltip">1.25倍速</div>
           </div>
           <div class="controlButton command rate150 playbackRate" data-command="playbackRate"
-            data-param="2.0" data-type="number" data-repeat="on">
+            data-param="1.5" data-type="number" data-repeat="on">
             <div class="tooltip">1.5倍速</div>
           </div>
           <div class="controlButton command rate200 playbackRate" data-command="playbackRate"
@@ -6422,8 +6439,6 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             data-command="reload">動画のリロード</li>
           <li class="command debug"
             data-command="toggle-debug">デバッグ</li>
-          <li class="command screenShot"
-            data-command="screenShot">スクリーンショットの保存</a></li>
           <li class="command mymemory"
             data-command="saveMymemory">コメントの保存</a></li>
         </ul>
@@ -15475,15 +15490,27 @@ var SlotLayoutWorker = (function() {
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body>
+  <div class="itemDetailContainer">
+    <div class="resNo"></div>
+    <div class="vpos"></div>
+    <div class="time command" data-command="reloadComment"></div>
+    <div class="userId"></div>
+    <div class="cmd"></div>
+    <div class="text"></div>
+    <div class="command close" data-command="hideItemDetail">O K</div>
+  </div>
   <div id="listContainer">
     <div class="listMenu">
+      <span class="menuButton itemDetailRequest" data-command="itemDetailRequest">?</span>
 
-      <span class="menuButton reloadComment"    data-command="reloadComment" title="過去ログ">&#8986;</span>
+      <span class="menuButton itemDetailRequest"
+        data-command="itemDetailRequest" title="詳細">？</span>
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
       <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
       <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
 
     </div>
+
     <div id="listContainerInner"></div>
   </div>
 </body>
@@ -15538,6 +15565,8 @@ var SlotLayoutWorker = (function() {
       }
       this._$menu = $body.find('.listMenu');
 
+      this._$itemDetail = $body.find('.itemDetailContainer');
+
       $body
         .on('click',     this._onClick    .bind(this))
         .on('dblclick',  this._onDblClick .bind(this))
@@ -15545,6 +15574,7 @@ var SlotLayoutWorker = (function() {
         .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); });
 
       this._$menu.on('click', this._onMenuClick.bind(this));
+      this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
 
       this._$container
         .on('mouseover', this._onMouseOver.bind(this))
@@ -15594,6 +15624,7 @@ var SlotLayoutWorker = (function() {
           this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
           this._refreshInviewElements();
+          this.hideItemDetail();
         }
       }, 0);
 
@@ -15632,8 +15663,18 @@ var SlotLayoutWorker = (function() {
         this._$list.find('.item' + itemId).hide();
       }
 
-
       this.emit('command', command, null, itemId);
+    },
+    _onItemDetailClick: function(e) {
+      let $target = $(e.target).closest('.command');
+      if ($target.length < 1) { return; }
+      let itemId = this._$itemDetail.attr('data-item-id');
+      if (!itemId) { return; }
+      let command = $target.attr('data-command');
+      let param   = $target.attr('data-param');
+      if (command === 'hideItemDetail') { return this.hideItemDetail(); }
+      if (command === 'reloadComment') { this.hideItemDetail(); }
+      this.emit('command', command, param, itemId);
     },
     _onDblClick: function(e) {
       e.stopPropagation();
@@ -15766,6 +15807,22 @@ var SlotLayoutWorker = (function() {
         var top = view.getTop();
         this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
       }
+    },
+    showItemDetail: function(item) {
+      let $d = this._$itemDetail;
+      $d.attr('data-item-id', item.getItemId());
+      //window.console.log('showItemDetail', item);
+      $d.find('.resNo')  .text(item.getNo()).end()
+        .find('.vpos')   .text(item.getTimePos()).end()
+        .find('.time')   .text(item.getFormattedDate()).end()
+        .find('.userId') .text(item.getUserId()).end()
+        .find('.cmd')    .text(item.getCmd()).end()
+        .find('.text')   .text(item.getText()).end()
+        .addClass('show');
+      ZenzaWatch.debug.$itemDetail = $d;
+    },
+    hideItemDetail: function() {
+      this._$itemDetail.removeClass('show');
     }
   });
 
@@ -15836,7 +15893,7 @@ var SlotLayoutWorker = (function() {
       transform: translate(4px, 4px);
     }
 
-    .listMenu .reloadComment {
+    .listMenu .itemDetailRequest {
       right: 176px;
       width: auto;
       padding: 0 4px;
@@ -15857,6 +15914,110 @@ var SlotLayoutWorker = (function() {
       width: 48px;
     }
 
+    .itemDetailContainer {
+      position: fixed;
+      display: block;
+      top: 50%;
+      left: 50%;
+      line-height: normal;
+      min-width: 280px;
+      max-height: 100%;
+      overflow-h: auto;
+      font-size: 14px;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+      border: 2px solid #fc9;
+      background-color: rgba(255, 255, 232, 0.9);
+      box-shadow: 4px 4px 0 rgba(99, 99, 66, 0.8);
+      transition: 0.2s opacity;
+    }
+
+    .itemDetailContainer.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .itemDetailContainer>* {
+    }
+    .itemDetailContainer * {
+      word-break: break-all;
+    }
+    .itemDetailContainer .reloadComment {
+      display: inline-block;
+      padding: 0 4px;
+      cursor: pointer;
+      transform: scale(1.4);
+      transition: transform 0.1s;
+    }
+    .itemDetailContainer .reloadComment:hover {
+      transform: scale(1.8);
+    }
+    .itemDetailContainer .reloadComment:active {
+      transform: scale(1.2);
+      transition: none;
+    }
+    .itemDetailContainer .resNo,
+    .itemDetailContainer .vpos,
+    .itemDetailContainer .time,
+    .itemDetailContainer .userId,
+    .itemDetailContainer .cmd {
+      font-size: 12px;
+    }
+    .itemDetailContainer .time {
+      cursor: pointer;
+      color: #339;
+    }
+    .itemDetailContainer .time:hover {
+      text-decoration: underline;
+    }
+    .itemDetailContainer .time:hover:after {
+      position: absolute;
+      content: '${'\\00231A'} 過去ログ';
+      right: 16px;
+      text-decoration: none;
+      transform: scale(1.4);
+    }
+    .itemDetailContainer .resNo:before,
+    .itemDetailContainer .vpos:before,
+    .itemDetailContainer .time:before,
+    .itemDetailContainer .userId:before,
+    .itemDetailContainer .cmd:before {
+      display: inline-block;
+      min-width: 50px;
+    }
+    .itemDetailContainer .resNo:before {
+      content: 'no';
+    }
+    .itemDetailContainer .vpos:before {
+      content: 'pos';
+    }
+    .itemDetailContainer .time:before {
+      content: 'date';
+    }
+    .itemDetailContainer .userId:before {
+      content: 'user';
+    }
+    .itemDetailContainer .cmd:before {
+      content: 'cmd';
+    }
+    .itemDetailContainer .time:before {
+      content: 'text';
+    }
+    .itemDetailContainer .text {
+      border: 1px inset #ccc;
+      padding: 8px;
+      margin: 4px 8px;
+    }
+    .itemDetailContainer .close {
+      border: 2px solid #666;
+      width: 50%;
+      cursor: pointer;
+      text-align: center;
+      margin: auto;
+      user-select: none;
+    }
+
     .commentListItem {
       position: absolute;
       display: inline-block;
@@ -15864,7 +16025,6 @@ var SlotLayoutWorker = (function() {
       height: 40px;
       line-height: 20px;
       font-size: 20px;
-      /*overflow: hidden;*/
       white-space: nowrap;
       margin: 0;
       padding: 0;
@@ -16073,6 +16233,9 @@ data-title="%no%: %date% ID:%userId%
     },
     getTimePos: function() {
       return this._timePos;
+    },
+    getCmd: function() {
+      return this._nicoChat.getCmd();
     },
     getText: function() {
       return this._text;
@@ -16301,6 +16464,8 @@ data-title="%no%: %date% ID:%userId%
         _.debounce(this._onThreadInfo.bind(this), 100));
       this._commentPanel.on('update',
         _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
+      this._commentPanel.on('itemDetailResp',
+        _.debounce((item) => { listView.showItemDetail(item); }, 100));
       this._onCommentPanelStatusUpdate();
 
       this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
@@ -16464,13 +16629,17 @@ data-title="%no%: %date% ID:%userId%
           if (item) {
             param = {};
             let dt = new Date(item.getTime());
-            let offsetMs = dt.getTimezoneOffset() * 60 * 1000;
             this.emit('command', 'notify', item.getFormattedDate() + '頃のログ');
-            //window.console.log('when!', offsetMs, dt.getTime(), item);
-            param.when = Math.floor((dt.getTime() - offsetMs) / 1000);
+            //window.console.log('when!', dt.getTime(), item);
+            param.when = Math.floor(dt.getTime() / 1000);
           }
           this.emit('command', command, param);
           
+          break;
+        case 'itemDetailRequest':
+          if (item) {
+            this.emit('itemDetailResp', item);
+          }
           break;
         default:
           this.emit('command', command, param);
@@ -16591,7 +16760,7 @@ data-title="%no%: %date% ID:%userId%
 
       this._updateTimestamp();
       this._elm.time.addEventListener('click', this._toggle.bind(this));
-      this._elm.back.addEventListener('mousedown', this._onBack.bind(this));
+      this._elm.back.addEventListener('mousedown', _.debounce(this._onBack.bind(this), 300));
       this._elm.submit.addEventListener('click', this._onSubmit.bind(this));
       this._elm.cancel.addEventListener('click', this._onCancel.bind(this));
     }
@@ -16603,9 +16772,7 @@ data-title="%no%: %date% ID:%userId%
       this.setState({isWaybackMode, isSelecting: false});
 
       if (isWaybackMode) {
-        const dt = new Date();
-        const offsetMs = dt.getTimezoneOffset() * 60 * 1000;
-        this._currentTimestamp = threadInfo.when * 1000 + offsetMs;
+        this._currentTimestamp = threadInfo.when * 1000;
       } else {
         this._currentTimestamp = Date.now();
       }
@@ -16677,7 +16844,6 @@ data-title="%no%: %date% ID:%userId%
       const dt = new Date(val);
       const when =
         Math.floor(Math.max(dt.getTime(), this._videoPostTime) / 1000);
-      //window.console.info('reloadComment', val, dt, when, dt.getTime(), this._videoPostTime);
       this.emit('command', 'reloadComment', {when});
       this.closeSelect();
     }
@@ -21516,7 +21682,6 @@ const VideoSession = (function() {
     },
     _onCommentParsed: function() {
       const lang = this._playerConfig.getValue('commentLanguage');
-      window.console.log('onCommentParsed', lang, this._threadInfo);
       this.emit('commentParsed', lang, this._threadInfo);
       ZenzaWatch.emitter.emit('commentParsed');
     },

@@ -1997,7 +1997,6 @@ var CONSTANT = {};
     },
     _onCommentParsed: function() {
       const lang = this._playerConfig.getValue('commentLanguage');
-      window.console.log('onCommentParsed', lang, this._threadInfo);
       this.emit('commentParsed', lang, this._threadInfo);
       ZenzaWatch.emitter.emit('commentParsed');
     },

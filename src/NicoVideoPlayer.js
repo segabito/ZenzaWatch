@@ -460,6 +460,10 @@ class BaseViewComponent {}
     }
 
     _onMouseDown(e) {
+      if (e.target && e.target.getAttribute('data-is-no-close') === 'true') {
+        e.stopPropagation();
+        this._onClick(e);
+      } else
       if (e.target && e.target.getAttribute('data-repeat') === 'on') {
         e.stopPropagation();
         this._onClick(e);
@@ -551,6 +555,7 @@ class BaseViewComponent {}
       border: 1px outset #333;
       box-shadow: 2px 2px 4px #000;
       transition: opacity 0.3s ease;
+      min-width: 200px;
       z-index: 150000;
       user-select: none;
       -webkit-user-select: none;
@@ -580,11 +585,11 @@ class BaseViewComponent {}
     .zenzaPlayerContextMenu ul li {
       position: relative;
       line-height: 120%;
-      margin: 2px 6px;
+      margin: 2px;
       overflow-y: visible;
       white-space: nowrap;
       cursor: pointer;
-      padding: 2px 10px;
+      padding: 2px 14px;
       list-style-type: none;
       float: inherit;
     }
@@ -642,6 +647,11 @@ class BaseViewComponent {}
       margin: auto;
     }
 
+    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.screenShot {
+      flex: 1;
+      font-size: 24px;
+    }
+
     .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
       flex: 2;
       font-size: 14px;
@@ -673,6 +683,13 @@ class BaseViewComponent {}
     <div class="zenzaPlayerContextMenu">
       <div class="controlButtonContainer">
         <div class="controlButtonContainerFlex">
+          <div class="controlButton command screenShot" data-command="screenShot"
+            data-param="0.1" data-type="number" data-is-no-close="true">
+            &#128247;<div class="tooltip">スクリーンショット</div>
+          </div>
+          <div style="flex:4;"></div>
+        </div>
+        <div class="controlButtonContainerFlex">
           <div class="controlButton command rate010 playbackRate" data-command="playbackRate"
             data-param="0.1" data-type="number" data-repeat="on">
             &#128034;<div class="tooltip">コマ送り(0.1倍)</div>
@@ -696,7 +713,7 @@ class BaseViewComponent {}
             <div class="tooltip">1.25倍速</div>
           </div>
           <div class="controlButton command rate150 playbackRate" data-command="playbackRate"
-            data-param="2.0" data-type="number" data-repeat="on">
+            data-param="1.5" data-type="number" data-repeat="on">
             <div class="tooltip">1.5倍速</div>
           </div>
           <div class="controlButton command rate200 playbackRate" data-command="playbackRate"
@@ -741,8 +758,6 @@ class BaseViewComponent {}
             data-command="reload">動画のリロード</li>
           <li class="command debug"
             data-command="toggle-debug">デバッグ</li>
-          <li class="command screenShot"
-            data-command="screenShot">スクリーンショットの保存</a></li>
           <li class="command mymemory"
             data-command="saveMymemory">コメントの保存</a></li>
         </ul>
