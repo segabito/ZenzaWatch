@@ -13,6 +13,7 @@ const MylistPocketDetector = {};
 const IchibaLoader = {};
 const UaaLoader = {};
 const PRODUCT = 'ZenzaWatch';
+const TagEditApi = function() {};
 
 //===BEGIN===
 
@@ -323,7 +324,6 @@ const PRODUCT = 'ZenzaWatch';
       font-family: Menlo;
     }
 
-    .videoTags li .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd,
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist,
@@ -432,39 +432,6 @@ const PRODUCT = 'ZenzaWatch';
       font-weight: bolder;
     }
 
-    .zenzaWatchVideoInfoPanel .videoTags {
-      padding: 0;
-    }
-    .zenzaWatchVideoInfoPanel .videoTags li {
-      list-style-type: none;
-      display: inline-block;
-      margin-right: 4px;
-      padding: 4px;
-      line-height: 20px;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoTags li .nicodic {
-      display: inline-block;
-      margin-right: 4px;
-      line-height: 20px;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoTags li .tagLink {
-      text-decoration: none;
-      color: #000;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoTags li .tagLink:hover {
-    }
-
-    .zenzaWatchVideoInfoPanel .videoTags li .playlistAppend {
-      display: inline-block;
-      position: relative;
-      left: auto;
-      bottom: auto;
-    }
-
-
 
     body:not(.fullScreen).zenzaScreenMode_small .zenzaWatchVideoInfoPanel {
       display: none;
@@ -519,7 +486,7 @@ const PRODUCT = 'ZenzaWatch';
       width: 364px;
       margin: 0 auto;
       padding: 8px;
-      background: #ddd;
+      background: #888;
     }
 
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch {
@@ -773,9 +740,7 @@ const PRODUCT = 'ZenzaWatch';
 
           <div class="ichibaContainer"></div>
 
-          <div class="videoTagsContainer">
-            <ul class="videoTags">
-          </div>
+          <div class="videoTagsContainer sideTab"></div>
         </div>
       </div>
 
@@ -808,9 +773,10 @@ const PRODUCT = 'ZenzaWatch';
       }
       this._isInitialized = true;
 
-      ZenzaWatch.util.addStyle(VideoInfoPanel.__css__);
+      util.addStyle(VideoInfoPanel.__css__);
       var $view = this._$view = $(VideoInfoPanel.__tpl__);
       const view = this._view = $view[0];
+      let onCommand = this._onCommand.bind(this);
 
       this._$ownerContainer = $view.find('.videoOwnerInfoContainer');
       var $icon = this._$ownerIcon = $view.find('.ownerIcon');
@@ -820,15 +786,17 @@ const PRODUCT = 'ZenzaWatch';
       this._$description = $view.find('.videoDescription');
       this._$description.on('click', this._onDescriptionClick.bind(this));
 
-      this._$videoTags = $view.find('.videoTags');
+      this._tagListView = new TagListView({
+        parentNode: view.querySelector('.videoTagsContainer')
+      });
+      this._tagListView.on('command', onCommand);
+
       this._$publicStatus = $view.find('.publicStatus');
 
       this._uaaContainer = view.querySelector('.uaaContainer');
       this._uaaView = new UaaView(
         {parentNode: this._uaaContainer});
-      this._uaaView.on('command', (command, param) => {
-        this._onCommand(command, param);
-      });
+      this._uaaView.on('command', onCommand);
 
       this._ichibaContainer = view.querySelector('.ichibaContainer');
       this._ichibaItemView = new IchibaItemView(
@@ -878,7 +846,12 @@ const PRODUCT = 'ZenzaWatch';
       this._$ownerContainer.toggleClass('favorite', owner.favorite);
 
       this._$publicStatus.html(this._videoTitlePanel.getPublicStatusDom());
-      this._$videoTags.html(this._videoTitlePanel.getVideoTagsDom());
+      this._tagListView.update({
+        tagList: videoInfo.getTagList(),
+        watchId: videoInfo.getWatchId(),
+        token: videoInfo.csrfToken,
+        watchAuthKey: videoInfo.getWatchAuthKey()
+      });
 
       this._updateVideoDescription(videoInfo.getDescription(), videoInfo.isChannel());
 
@@ -1053,16 +1026,12 @@ const PRODUCT = 'ZenzaWatch';
       }
     },
     _onOwnerVideoSearch: function(word) {
-      //if (!this._searchConfig) {
-      //  this._searchConfig = Config.namespace('videoSearch');
-      //}
-      //const config = this._searchConfig;
-      var option = {
+      let option = {
         searchType: 'tag',
         order: 'd',
         sort: 'f',
         playlistSort: true,
-        owner: true //config.getValue('ownerOnly')
+        owner: true
       };
 
       this.emit('command', 'playlistSetSearchVideo', {word, option});
@@ -1134,7 +1103,7 @@ const PRODUCT = 'ZenzaWatch';
       width: 100%;
       z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       box-sizing: border-box;
-      padding: 8px;
+      padding: 8px 8px 0;
       bottom: calc(100% + 8px);
       left: 0;
       background: #333;
@@ -1356,54 +1325,8 @@ const PRODUCT = 'ZenzaWatch';
     }
 
     .zenzaWatchVideoHeaderPanel .videoTagsContainer {
-      padding: 8px 0 0;
+      /*padding: 8px 0 0;*/
     }
-
-    .zenzaWatchVideoHeaderPanel .videoTags {
-      padding: 0;
-      margin: 0;
-    }
-
-    .zenzaWatchVideoHeaderPanel .videoTags li {
-      list-style-type: none;
-      display: inline-block;
-               /*margin-right: 8px;*/
-               /*padding: 0 4px;*/
-      line-height: 20px;
-      /*border: 1px solid #888;
-      border-radius: 4px;*/
-    }
-
-    .zenzaWatchVideoHeaderPanel .videoTags li .nicodic {
-      display: inline-block;
-      margin-right: 4px;
-      line-height: 20px;
-    }
-    .zenzaWatchVideoHeaderPanel .videoTags li .tagLink {
-      color: #fff;
-      text-decoration: none;
-    }
-    .zenzaWatchVideoHeaderPanel .videoTags li .tagLink:hover {
-      color: #ccf;
-    }
-
-    .videoTags li .playlistAppend {
-      visibility: hidden;
-    }
-
-    .videoTags li:hover .playlistAppend {
-      visibility: visible;
-      transition: transform 0.2s ease;
-    }
-
-    .videoTags li:hover .playlistAppend:hover {
-      transform: scale(1.5);
-    }
-
-    .videoTags li:hover .playlistAppend:active {
-      transform: scale(1.4);
-    }
-
 
     body:not(.fullScreen).zenzaScreenMode_3D     .is-backComment .zenzaWatchVideoHeaderPanel,
     body:not(.fullScreen).zenzaScreenMode_normal .is-backComment .zenzaWatchVideoHeaderPanel,
@@ -1432,6 +1355,12 @@ const PRODUCT = 'ZenzaWatch';
       }
     }
 
+
+    /* Firefox用 ShadowDOM対応したら消してよし */
+    .videoTagsContainer a {
+      color: #ccc !important;
+      text-decoration: none !important;
+    }
   `);
 
   VideoHeaderPanel.__tpl__ = (`
@@ -1469,8 +1398,7 @@ const PRODUCT = 'ZenzaWatch';
           <span class="column">マイリスト: <span class="count mylistCount"></span></span>
         </span>
       </p>
-      <div class="videoTagsContainer">
-        <ul class="videoTags">
+      <div class="videoTagsContainer videoHeader">
       </div>
     </div>
   `).trim();
@@ -1484,8 +1412,9 @@ const PRODUCT = 'ZenzaWatch';
         return;
       }
       this._isInitialized = true;
-      ZenzaWatch.util.addStyle(VideoHeaderPanel.__css__);
-      var $view = this._$view = $(VideoHeaderPanel.__tpl__);
+      util.addStyle(VideoHeaderPanel.__css__);
+      let $view = this._$view = $(VideoHeaderPanel.__tpl__);
+      let onCommand = this._onCommand.bind(this);
 
       this._$videoTitle   = $view.find('.videoTitle');
       this._$ginzaLink    = $view.find('.ginzaLink');
@@ -1498,8 +1427,6 @@ const PRODUCT = 'ZenzaWatch';
       this._$viewCount    = $view.find('.viewCount');
       this._$commentCount = $view.find('.commentCount');
       this._$mylistCount  = $view.find('.mylistCount');
-
-      this._$tagList      = $view.find('.videoTags');
 
       var stopPropagation = function(e) { e.stopPropagation(); };
       this._$ginzaLink.on('click', stopPropagation);
@@ -1520,9 +1447,7 @@ const PRODUCT = 'ZenzaWatch';
       this._searchForm = new VideoSearchForm({
         parentNode: $view[0]
       });
-      this._searchForm.on('command', (command, param) => {
-        this.emit('command', command, param);
-      });
+      this._searchForm.on('command', onCommand);
 
       $view.on('click', (e) => {
         e.stopPropagation();
@@ -1537,6 +1462,11 @@ const PRODUCT = 'ZenzaWatch';
       }).on('wheel', (e) => {
         e.stopPropagation();
       });
+
+      this._tagListView = new TagListView({
+        parentNode: $view.find('.videoTagsContainer')[0]
+      });
+      this._tagListView.on('command', onCommand);
 
       window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
     },
@@ -1574,7 +1504,12 @@ const PRODUCT = 'ZenzaWatch';
       this._$commentCount .text(addComma(count.comment));
       this._$mylistCount  .text(addComma(count.mylist));
 
-      this._updateTags(videoInfo.getTagList());
+      this._tagListView.update({
+        tagList: videoInfo.getTagList(),
+        watchId,
+        token: videoInfo.csrfToken,
+        watchAuthKey: videoInfo.getWatchAuthKey()
+      });
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
@@ -1592,56 +1527,6 @@ const PRODUCT = 'ZenzaWatch';
       if (typeof comment === 'number') { this._$commentCount.text(addComma(comment)); }
       if (typeof view    === 'number') { this._$viewCount   .text(addComma(view)); }
       if (typeof mylist  === 'number') { this._$mylistCount .text(addComma(mylist)); }
-    },
-    _updateTags: function(tagList) {
-      var $container = this._$tagList.parent();
-      var $tagList = this._$tagList.empty().detach();
-      var createDicIcon = function(text, hasDic) {
-        var $dic = $('<a target="_blank" class="nicodic"/>');
-        $dic.attr('href', '//dic.nicovideo.jp/a/' + encodeURIComponent(text));
-        var $icon = $('<img class="icon"/>');
-        $icon.attr('src',
-          hasDic ?
-            '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
-            '//live.nicovideo.jp/img/2012/watch/tag_icon003.png'
-        );
-        $dic.append($icon);
-        return $dic;
-      };
-      var createLink = function(text) {
-        var $link = $('<a class="tagLink" />');
-        $link.attr('href', '//www.nicovideo.jp/tag/' + encodeURIComponent(text));
-        // タグはエスケープされた物が来るので html() でつっこんでいいはずだが、
-        // けっこういい加減なデータもあったりして信頼できないので安全を取って text() でいく
-        text = ZenzaWatch.util.unescapeHtml(text);
-        $link.text(text);
-        return $link;
-      };
-      var createSearch = function(text) {
-        var $search =
-          $('<a class="playlistAppend" title="投稿者の動画を検索">▶</a>')
-            .attr('data-command', 'owner-video-search')
-            .attr('data-param', text);
-        return $search;
-      };
-      $(tagList).each(function(i, tag) {
-        var text = tag.tag;
-        var $dic = createDicIcon(text, tag.dic);
-        var $link = createLink(text);
-        var $search = createSearch(text);
-        var $tag = $('<li class="zenza-tag" />');
-        $tag.append($dic);
-        $tag.append($link);
-        $tag.append($search);
-        $tagList.append($tag);
-      });
-      $container.append($tagList);
-
-      //http://ex.nicovideo.jp/game
-      // なぜかここで勝手に変なタグが挿入されるため、後から除去する
-      window.setTimeout(() => {
-        $tagList.find('li:not(.zenza-tag), .zenza-tag a:not(.nicodic):not(.tagLink):not(.playlistAppend)').remove();
-      }, 100);
     },
     _onGinzaLinkMouseDown: function() {
       this.emit('command', 'pause');
@@ -1676,13 +1561,20 @@ const PRODUCT = 'ZenzaWatch';
       this._$viewCount.text('---');
       this._$commentCount.text('---');
       this._$mylistCount.text('---');
-      this._$tagList.empty();
+      //this._$tagList.empty();
     },
     getPublicStatusDom: function() {
       return this._$view.find('.publicStatus').html();
     },
     getVideoTagsDom: function() {
       return this._$tagList.html();
+    },
+    _onCommand: function(command, param) {
+      switch (command, param) {
+        default:
+          this.emit('command', command, param);
+          break;
+      }
     }
   });
 

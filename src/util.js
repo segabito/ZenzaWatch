@@ -1696,7 +1696,7 @@ class CrossDomainGate {}
 
 
     util.getNicoHistory = function() {
-      return unescape(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
+      return window.unescape(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
     };
 
     // いずれjQueryを捨てるためのミニマム代用

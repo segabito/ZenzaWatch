@@ -693,7 +693,7 @@ class BaseViewComponent {}
     .itemDetailContainer .cmd:before {
       content: 'cmd';
     }
-    .itemDetailContainer .time:before {
+    .itemDetailContainer .text:before {
       content: 'text';
     }
     .itemDetailContainer .text {
@@ -1108,11 +1108,6 @@ data-title="%no%: %date% ID:%userId%
               </li>
               <li class="commentPanel-command" data-command="update-commentLanguage" data-param="zh_TW">
                 中文
-              </li>
-
-              <hr class="separator">
-              <li class="commentPanel-command reloadComment" data-command="reloadComment">
-                コメントのリロード
               </li>
             </ul>
             </div>
@@ -1569,6 +1564,38 @@ data-title="%no%: %date% ID:%userId%
       .is-WaybackMode .dateTime {
         color: red;
       }
+      .reloadButton {
+        display: inline-block;
+        line-height: 24px;
+        font-size: 16px;
+        margin: auto 4px;
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.1s;
+      }
+      .is-WaybackMode .reloadButton {
+        display: none;
+      }
+        .reloadButton .icon {
+          display: inline-block;
+          transform: rotate(90deg) scale(1.3);
+          transition: transform 1s, color 0.2s, text-shadow 0.2s;
+          text-shadow: none;
+        }
+        .reloadButton:hover {
+          text-decoration: underline;
+        }
+        .reloadButton:active {
+          color: #888;
+          cursor: wait;
+        }
+        .reloadButton:active .icon {
+          text-decoration: none;
+          transform: rotate(-270deg) scale(2);
+          transition: none;
+          color: #ff0;
+          text-shadow: 0 0 4px #ff8;
+        }
 
       .backToTheFuture {
         display: none;
@@ -1585,7 +1612,7 @@ data-title="%no%: %date% ID:%userId%
       }
       .backToTheFuture:active {
         text-shadow: none;
-        transform: translate(-1000px, 0px);
+        transform: translate(0px, -1000px);
       }
 
       .is-WaybackMode .backToTheFuture {
@@ -1640,6 +1667,7 @@ data-title="%no%: %date% ID:%userId%
     </style>
     <div class="root TimeMachine">
       <div class="dateTime" title="TimeMachine">0000/00/00 00:00</div>
+      <div class="reloadButton command" data-command="reloadComment" data-param="0" title="コメントのリロード"><span class="icon">&#8635;</span>リロード</div>
       <div class="backToTheFuture" title="Back To The Future">&#11152; Back</div>
       <div class="inputContainer">
         <input type="datetime-local" class="dateTimeInput">
@@ -1655,4 +1683,3 @@ data-title="%no%: %date% ID:%userId%
 
 
 //===END===
-//<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">

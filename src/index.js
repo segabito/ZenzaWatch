@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.11.2
+// @version        1.11.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -97,6 +97,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 //@require loader/VideoSearch.js
 
+//@require loader/TagEditApi.js
+
 //@require NicoVideoPlayer.js
 
 //@require StoryBoard.js
@@ -124,6 +126,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 //@require CommentInputPanel.js
 
 //@require SettingPanel.js
+
+//@require TagListView.js
 
 //@require VideoInfoPanel.js
 
@@ -168,7 +172,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 
     var loadGm = function() {
-      var script = document.createElement('script');
+      let script = document.createElement('script');
       script.id = 'ZenzaWatchLoader';
       script.setAttribute('type', 'text/javascript');
       script.setAttribute('charset', 'UTF-8');

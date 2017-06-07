@@ -930,11 +930,7 @@ var VideoCaptureUtil = {};
       // メンバーをvposでソートした物. 計算効率改善用
       this._vSortedMembers = [];
 
-      this._layoutWorker = CommentLayoutWorker.getInstance();
-      if (this._layoutWorker) {
-        this._layoutWorker.addEventListener('message',
-          this._onCommentLayoutWorkerComplete.bind(this));
-      }
+      this._initWorker();
 
       nicoChatGroup.on('addChat',      this._onAddChat.bind(this));
       nicoChatGroup.on('addChatArray', this._onAddChatArray.bind(this));
@@ -943,6 +939,19 @@ var VideoCaptureUtil = {};
       NicoChatViewModel.emitter.on('updateBaseChatScale', this._onChange.bind(this));
 
       this.addChatArray(nicoChatGroup.getMembers());
+    },
+    _initWorker: function() {
+      if (this._layoutWorker) {
+        this._layoutWorker.removeEventListener('message', this._boundOnCommentLayoutWorkerComplete);
+      }
+      this._layoutWorker = CommentLayoutWorker.getInstance();
+
+      this._boundOnCommentLayoutWorkerComplete =
+        this._boundOnCommentLayoutWorkerComplete || this._onCommentLayoutWorkerComplete.bind(this);
+
+      if (this._layoutWorker) {
+        this._layoutWorker.addEventListener('message', this._boundOnCommentLayoutWorkerComplete);
+      }
     },
     _onAddChatArray: function(nicoChatArray) {
       this.addChatArray(nicoChatArray);
@@ -961,6 +970,7 @@ var VideoCaptureUtil = {};
       window.console.timeEnd('_onChange');
     },
     _onCommentLayoutWorkerComplete: function(e) {
+      //window.console.info('_onCommentLayoutWorkerComplete', e.data.type, e.data.result);
       // 自分用のデータじゃない
       if (e.data.requestId !== this._workerRequestId) {
         return;
@@ -970,7 +980,7 @@ var VideoCaptureUtil = {};
         window.console.warn('group changed', this._lastUpdate, e.data.lastUpdate);
         return;
       }
-      this.setBulkLayoutData(e.data);
+      this.setBulkLayoutData(e.data.result);
     },
     _execCommentLayoutWorker: function() {
       if (this._members.length < 1) { return; }

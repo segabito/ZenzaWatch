@@ -5,7 +5,7 @@ var ZenzaWatch = {
   debug: {},
   api: {}
 };
-
+var util = {};
 //===BEGIN===
 
 var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
@@ -212,16 +212,16 @@ var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
     };
 
     self.onmessage = function(e) {
-      var result;
-
+      const data = {};
+      //console.log('CommentLayoutWorker.onmessage', e.data.type, e.data.members);
       console.time('CommentLayoutWorker: ' + e.data.type);
-      result = groupCollision(e.data.members);
+      data.result = groupCollision(e.data.members);
       console.timeEnd('CommentLayoutWorker: ' + e.data.type);
 
-      result.lastUpdate = e.data.lastUpdate;
-      result.type = e.data.type;
-      result.requestId = e.data.requestId;
-      self.postMessage(result);
+      data.lastUpdate = e.data.lastUpdate;
+      data.type = e.data.type;
+      data.requestId = e.data.requestId;
+      self.postMessage(data);
       //self.close();
     };
 
@@ -231,17 +231,17 @@ var CommentLayoutWorker = (function(config, NicoChat, NicoCommentViewModel) {
   return {
     _func: func,
     create: function() {
-      if (!config.getValue('enableCommentLayoutWorker') || !ZenzaWatch.util.isWebWorkerAvailable()) {
+      if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
         return null;
       }
-      return ZenzaWatch.util.createWebWorker(func);
+      return util.createWebWorker(func);
     },
     getInstance: function() {
-      if (!config.getValue('enableCommentLayoutWorker') || !ZenzaWatch.util.isWebWorkerAvailable()) {
+      if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
         return null;
       }
       if (!instance) {
-        instance = ZenzaWatch.util.createWebWorker(func);
+        instance = util.createWebWorker(func);
       }
       return instance;
     }

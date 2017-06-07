@@ -456,6 +456,7 @@ class BaseViewComponent {}
         e.stopPropagation();
         return;
       }
+      e.stopPropagation();
       super._onClick(e);
     }
 
@@ -469,8 +470,9 @@ class BaseViewComponent {}
         this._onClick(e);
         this._beginRepeat(e);
       } else {
-        this.hide();
+        e.stopPropagation();
         this._onClick(e);
+        setTimeout(() => { this.hide(); }, 100);
       }
     }
 
