@@ -1616,7 +1616,7 @@ var VideoCaptureUtil = {};
 
       const fontCommand = this.getFontCommand();
       const commentVer  = this.getCommentVer();
-      var htmlText =
+      let htmlText =
         commentVer === 'html5' ?
           NicoTextParser.likeHTML5(text) :
           NicoTextParser.likeXP(text);
@@ -1624,7 +1624,7 @@ var VideoCaptureUtil = {};
       this._htmlText = htmlText;
       this._text = text;
 
-      var field = this._offScreen.getTextField();
+      let field = this._offScreen.getTextField();
       field.setText(htmlText);
       field.setFontSizePixel(this._fontSizePixel);
       field.setType(this._type, this._size, fontCommand);
@@ -1633,16 +1633,23 @@ var VideoCaptureUtil = {};
       this._width          = this._originalWidth * this._scale;
       this._height         = this._originalHeight = this._calculateHeight();
 
-      if (!this._isFixed) {
-        var speed =
-          this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
-        this._endLeftTiming    = this._endRightTiming  - this._width / speed;
-        this._beginRightTiming = this._beginLeftTiming + this._width / speed;
-      } else {
+      // Chrome59で起こる謎の現象。一度ローカル変数に落とすと直る
+      // w を使わずにspwを計算するとNaNになる。謎
+      let w = this._width;
+      let speed;
+      if (!this._isFixed) { // 流れるコメント (naka)
+        speed =
+          this._speed = (w + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        let spw = w / speed;
+        this._endLeftTiming    = this._endRightTiming  - spw;
+        this._beginRightTiming = this._beginLeftTiming + spw;
+      } else { // ue shita などの固定コメント
         this._speed = 0;
         this._endLeftTiming    = this._endRightTiming;
         this._beginRightTiming = this._beginLeftTiming;
       }
+
+      //if (isNaN(this._beginRightTiming)) { debugger; } // Chrome59の謎解明用
     },
     /**
      * 高さ計算。 リサイズ後が怪しいというか多分間違ってる。
@@ -3544,3 +3551,14 @@ spacer {
 
 //===END===
 
+      //window.console.log(
+      //  'w:%s h:%s sp:%s du:%s', this._width, this._height, this._speed, this._duration,
+      //  'calc1:', (this._width + NicoCommentViewModel.SCREEN.WIDTH),
+      //  'calc2:', (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration,
+      //  'endR: ', this._endRightTiming,
+      //  '(width / speed): ', (this._width / speed),
+      //  'endL: ', this._endRightTiming  - this._width / speed,
+      //  'beginL:', this._beginLeftTiming,
+      //  'beginR:', this._beginRightTiming,
+      //  'beginR2:', this._beginLeftTiming + this._width / speed,
+      //  text.substr(0, 30));
