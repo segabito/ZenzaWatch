@@ -231,7 +231,10 @@ var ajax = function() {};
             id: t.id,
             tag: t.name,
             dic: t.isDictionaryExists,
-            lock: t.isLocked
+            lock:       t.isLocked, // 形式が統一されてない悲しみを吸収
+            owner_lock: t.isLocked ? 1 : 0,
+            lck:        t.isLocked ? '1' : '0',
+            cat: t.isCategory
           });
         });
         let channelInfo = null, channelId = null;

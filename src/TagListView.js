@@ -16,7 +16,7 @@ const TagEditApi = function() {};
         name: 'TagListView',
         template: '<div class="TagListView"></div>',
         shadow: TagListView.__shadow__,
-        css: ''
+        css: TagListView.__css__
       });
 
       this._state = {
@@ -33,12 +33,54 @@ const TagEditApi = function() {};
 
       const v = this._shadow || this._view;
       Object.assign(this._elm, {
-        videoTags: v.querySelector('.videoTags')
+        videoTags: v.querySelector('.videoTags'),
+        tagInput: v.querySelector('.tagInputText'),
+        form: v.querySelector('form')
+      });
+      this._elm.tagInput.addEventListener('keydown', this._onTagInputKeyDown.bind(this));
+      this._elm.form.addEventListener('submit', this._onTagInputSubmit.bind(this));
+      v.addEventListener('keydown', e => {
+        if (this._state.isInputing) {
+          e.stopPropagation();
+        }
       });
     }
 
     _onCommand(command, param) {
       switch (command) {
+        case 'refresh':
+          this._refreshTag();
+          break;
+        case 'toggleEdit':
+          if (this._state.isEditing) {
+            this._endEdit();
+          } else {
+            this._beginEdit();
+          }
+          break;
+        case 'toggleInput':
+          if (this._state.isInputing) {
+            this._endInput();
+          } else {
+            this._beginInput();
+          }
+          break;
+        case 'beginInput':
+          this._beginInput();
+          break;
+        case 'endInput':
+          this._endInput();
+          break;
+        case 'addTag':
+          this._addTag(param);
+          break;
+        case 'removeTag':
+          let elm = this._elm.videoTags.querySelector(`.tagItem[data-tag-id="${param}"]`);
+          if (!elm) { return; }
+          elm.classList.add('is-Removing');
+          let data = JSON.parse(elm.getAttribute('data-tag'));
+          this._removeTag(param, data.tag);
+          break;
         default:
           this.emit('command', command, param);
           break;
@@ -46,16 +88,26 @@ const TagEditApi = function() {};
     }
 
     update({tagList = [], watchId = null, token = null, watchAuthKey = null}) {
-      if (watchId) { this._watchId = null; }
+      if (watchId) { this._watchId = watchId; }
       if (token) { this._token = token; }
-      if (watchAuthKey) { this._watchAuthKey = null; }
+      if (watchAuthKey) { this._watchAuthKey = watchAuthKey; }
 
       this.setState({
         isInputing: false,
         isUpdating: false,
-        isEditing: false
+        isEditing: false,
+        isEmpty: false
       });
       this._update(tagList);
+
+      this._boundOnBodyClick = this._onBodyClick.bind(this);
+    }
+
+    _onClick(e) {
+      if (this._state.isInputing || this._state.isEditing) {
+        e.stopPropagation();
+      }
+      super._onClick(e);
     }
 
     _update(tagList = []) {
@@ -63,14 +115,26 @@ const TagEditApi = function() {};
       tagList.forEach(tag => {
         tags.push(this._createTag(tag));
       });
+      tags.push(this._createToggleInput());
+      this.setState({isEmpty: tagList.length < 1});
       this._elm.videoTags.innerHTML = tags.join('');
+    }
+
+    _createToggleInput() {
+      return (`
+        <div
+          class="button command toggleInput"
+          data-command="toggleInput"
+          data-tooltip="タグ追加">
+          <span class="icon">&#8853;</span>
+        </div>`).trim();
     }
 
     _onApiResult(watchId, result) {
       if (watchId !== this._watchId) {
         return; // 通信してる間に動画変わったぽい
       }
-      const err = result.error_message;
+      const err = result.error_msg;
       if (err) {
         this.emit('command', 'alert', err);
       }
@@ -81,48 +145,73 @@ const TagEditApi = function() {};
     _addTag(tag) {
       this.setState({isUpdating: true});
 
-      const wait3s = new Promise(resolve => { setTimeout(() => { resolve(); }, 3000); });
+      const wait3s = this._makeWait(3000);
       const watchId = this._watchId;
       const csrfToken = this._token;
       const watchAuthKey = this._watchAuthKey;
+      const addTag = () => {
+        return this._tagEditApi.add({
+          watchId,
+          tag,
+          csrfToken,
+          watchAuthKey
+        });
+      };
 
-      return Promise.all(
-        wait3s,
-        () => {
-          return this._tagEditApi.add({
-            watchId,
-            tag,
-            csrfToken,
-            watchAuthKey
-          });
-        }
-      ).then((result) => {
-        this._onApiResult(watchId, result);
+      return Promise.all([addTag(), wait3s]).then((results) => {
+        let result = results[0];
+        if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
+        if (result && result.tags) { this._update(result.tags); }
+        this.setState({ isInputing: false, isUpdating: false, isEditing: false });
+
+        if (result.error_msg) { this.emit('command', 'alert', result.error_msg); }
       });
     }
 
     _removeTag(tagId, tag = '') {
       this.setState({isUpdating: true});
 
-      const wait3s = new Promise(resolve => { setTimeout(() => { resolve(); }, 3000); });
+      const wait3s = this._makeWait(3000);
       const watchId = this._watchId;
       const csrfToken = this._token;
       const watchAuthKey = this._watchAuthKey;
+      const removeTag = () => {
+        return this._tagEditApi.remove({
+          watchId,
+          tag,
+          id: tagId,
+          csrfToken,
+          watchAuthKey
+        });
+      };
 
-      return Promise.all(
-        wait3s,
-        () => {
-          return this._tagEditApi.remove({
-            watchId,
-            tag,
-            id: tagId,
-            csrfToken,
-            watchAuthKey
-          });
-        }
-      ).then((result) => {
-        this._onApiResult(watchId, result);
+      return Promise.all([removeTag(), wait3s]).then((results) => {
+        let result = results[0];
+        if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
+        if (result && result.tags) { this._update(result.tags); }
+        this.setState({ isUpdating: false });
+
+        if (result.error_msg) { this.emit('command', 'alert', result.error_msg); }
       });
+    }
+
+    _refreshTag() {
+      this.setState({isUpdating: true});
+      const watchId = this._watchId;
+      const wait1s = this._makeWait(1000);
+      const load = () => { return this._tagEditApi.load(this._watchId); };
+
+      return Promise.all([load(), wait1s]).then((results) => {
+        let result = results[0];
+        window.console.info('result', result);
+        if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
+        this._update(result.tags);
+        this.setState({isUpdating: false, isInputing: false, isEditing: false});
+      });
+    }
+
+    _makeWait(ms) {
+      return new Promise(resolve => { setTimeout(() => { resolve(ms); }, ms); });
     }
 
     _createDicIcon(text, hasDic) {
@@ -132,6 +221,10 @@ const TagEditApi = function() {};
         '//live.nicovideo.jp/img/2012/watch/tag_icon003.png';
       let icon = `<img class="dicIcon" src="${src}">`;
       return `<a target="_blank" class="nicodic" href="${href}">${icon}</a>`;
+    }
+
+    _createDeleteButton(id) {
+      return `<span target="_blank" class="deleteButton command" title="削除" data-command="removeTag" data-param="${id}">ー</span>`;
     }
 
     _createLink(text) {
@@ -152,30 +245,174 @@ const TagEditApi = function() {};
     _createTag(tag) {
       let text = tag.tag;
       let dic  = this._createDicIcon(text, !!tag.dic);
+      let del  = this._createDeleteButton(tag.id);
       let link = this._createLink(text);
       let search = this._createSearch(text);
       let data = util.escapeHtml(JSON.stringify(tag));
-      let className = tag.locked ? 'tagItem is-Locked' : 'tagItem';
-      return `<li class="${className}" data-tag="${data}" data-tag-id="${tag.id}">${dic}${link}${search}</li>`;
+      // APIごとに形式が統一されてなくてひどい
+      let className = (tag.lock || tag.owner_lock === 1 || tag.lck === '1') ? 'tagItem is-Locked' : 'tagItem';
+      className = (tag.cat) ? `${className} is-Category` : className;
+      return `<li class="${className}" data-tag="${data}" data-tag-id="${tag.id}">${dic}${del}${link}${search}</li>`;
     }
+
+    _onTagInputKeyDown(e) {
+      if (this._state.isUpdating) {
+        e.preventDefault(); e.stopPropagation();
+      }
+      switch (e.keyCode) {
+        case 27: // ESC
+          e.preventDefault();
+          e.stopPropagation();
+          this._endInput();
+          break;
+      }
+    }
+
+    _onTagInputSubmit(e) {
+      if (this._state.isUpdating) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      let val = (this._elm.tagInput.value || '').trim();
+      if (!val) {
+        this._endInput();
+        return;
+      }
+      this._onCommand('addTag', val);
+      this._elm.tagInput.value = '';
+    }
+
+    _onBodyClick() {
+      this._endInput();
+      this._endEdit();
+    }
+
+    _beginEdit() {
+      this.setState({isEditing: true});
+      document.body.addEventListener('click', this._boundOnBodyClick);
+    }
+
+    _endEdit() {
+      document.body.removeEventListener('click', this._boundOnBodyClick);
+      this.setState({isEditing: false});
+    }
+
+    _beginInput() {
+      this.setState({isInputing: true});
+      document.body.addEventListener('click', this._boundOnBodyClick);
+      this._elm.tagInput.value = '';
+      window.setTimeout(() => {
+        this._elm.tagInput.focus();
+      }, 100);
+    }
+    _endInput() {
+      this._elm.tagInput.blur();
+      document.body.removeEventListener('click', this._boundOnBodyClick);
+      this.setState({isInputing: false});
+    }
+
 
   }
 
   TagListView.__shadow__ = (`
     <style>
-      .button {
-        display: inline-block;
-        min-width: 50px;
+      :host-context(.videoTagsContainer.sideTab) .tagLink {
+        color: #000 !important;
+        text-decoration: none;
+      }
+
+      .TagListView {
+        position: relative;
         user-select: none;
-        transition: 0.2s transform, 0.2s box-shadow;
       }
-      .button:hover {
-        transform: translate(0, -4px);
-        box-shadow: 0 -2px 2px #333;
+
+      .TagListView.is-Updating {
+        cursor: wait;
       }
-      .button:active {
-        transform: translate(0, 0);
-        box-shadow: 0 0 2px #333 inset;
+      :host-context(.videoTagsContainer.sideTab) .TagListView.is-Updating {
+        overflow: hidden;
+      }
+
+      .TagListView.is-Updating:after {
+        content: '${'\\0023F3'}';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        text-align: center;
+        transform: translate(-50%, -50%);
+        z-index: 10001;
+        color: #fe9;
+        font-size: 24px;
+        letter-spacing: 3px;
+        text-shadow: 0 0 4px #000;
+        pointer-events: none;
+      }
+
+      .TagListView.is-Updating:before {
+        content: ' ';
+        background: rgba(0, 0, 0, 0.6);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        padding: 8px;
+        z-index: 10000;
+        box-shadow: 0 0 8px #000;
+        border-radius: 8px;
+        pointer-events: none;
+      }
+
+      .TagListView.is-Updating * {
+        pointer-events: none;
+      }
+
+      *[data-tooltip] {
+        position: relative;
+      }
+
+      .TagListView .button {
+        display: inline-block;
+        min-width: 40px;
+        cursor: pointer;
+        user-select: none;
+        transition: 0.2s transform, 0.2s box-shadow, 0.2s background;
+        text-align: center;
+      }
+
+      .TagListView .button:hover {
+        background: #666;
+        /*box-shadow: 0 2px 2px #333;
+        transform: translate(0, -2px);*/
+      }
+
+      .TagListView .button:active {
+        transition: none;
+        /*transform: translate(0, 0);*/
+        box-shadow: 0 0 2px #000 inset;
+      }
+      .TagListView .button .icon {
+        display: inline-block;
+      }
+
+      .TagListView *[data-tooltip]:hover:after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 50%;
+        bottom: 100%;
+        transform: translate(-50%, 0) scale(0.9);
+        pointer-events: none;
+        background: rgba(192, 192, 192, 0.9);
+        box-shadow: 0 0 4px #000;
+        color: black;
+        font-size: 12px;
+        margin: 0;
+        padding: 2px 4px;
+        white-space: nowrap;
+        z-index: 10000;
+        letter-spacing: 2px;
       }
 
       .videoTags {
@@ -183,35 +420,83 @@ const TagEditApi = function() {};
         padding: 0;
       }
 
-      .tagItem {
+      .TagListView .tagItem {
         position: relative;
         list-style-type: none;
         display: inline-block;
-        margin-right: 4px;
-        padding: 4px 4px 0;
+        margin-right: 2px;
+        /*padding: 0 4px 0;*/
         line-height: 20px;
+        max-width: 50vw;
+      }
+
+      .TagListView .tagItem:first-child {
+        margin-left: 100px;
       }
 
       .tagLink {
         color: #fff;
         text-decoration: none;
         user-select: none;
+        display: inline-block;
+        border: 1px solid rgba(0, 0, 0, 0);
       }
 
-      .nicodic {
+      .TagListView .nicodic {
         display: inline-block;
         margin-right: 4px;
         line-height: 20px;
+        cursor: pointer;
       }
 
-      .playlistAppend {
+      .TagListView.is-Editing .nicodic,
+      .TagListView:not(.is-Editing) .deleteButton {
+        display: none !important;
+      }
+
+      .TagListView .deleteButton {
+        display: inline-block;
+        margin: 0px;
+        line-height: 20px;
+        width: 20px;
+        height: 20px;
+        font-size: 16px;
+        background: #f66;
+        color: #fff;
+        cursor: pointer;
+        border-radius: 100%;
+        transition: 0.2s transform, 0.4s background;
+        text-shadow: none;
+        transform: scale(1.3);
+        line-height: 20px;
+        text-align: center;
+        opacity: 0.8;
+      }
+      .TagListView.is-Editing .deleteButton:hover {
+        transform: rotate(0) scale(1.3);
+        background: #f00;
+        opacity: 1;
+      }
+      .TagListView.is-Editing .deleteButton:active {
+        transform: rotate(360deg) scale(1.3);
+        transition: none;
+        background: #888;
+      }
+      .TagListView.is-Editing .is-Locked .deleteButton {
+        visibility: hidden;
+      }
+      .TagListView .is-Removing .deleteButton {
+        background: #666;
+      }
+
+      .tagItem .playlistAppend {
         display: inline-block;
         position: relative;
         left: auto;
         bottom: auto;
       }
 
-      .playlistAppend {
+      .TagListView .tagItem .playlistAppend {
         display: inline-block;
         font-size: 16px;
         line-height: 20px;
@@ -228,6 +513,7 @@ const TagEditApi = function() {};
         text-align: center;
         user-select: none;
         visibility: hidden;
+        margin-right: -2px;
       }
 
       .tagItem:hover .playlistAppend {
@@ -243,6 +529,22 @@ const TagEditApi = function() {};
         transform: scale(1.4);
       }
 
+      .tagItem.is-Removing {
+        transform-origin: right !important;
+        /*transform: translate(0, 150vh) rotate(-120deg) !important;*/
+        transform: translate(0, 150vh) !important;
+        opacity: 0 !important;
+        max-width: 0px !important;
+        transition:
+          transform 2s ease 0.2s,
+          opacity 1.5s linear 0.2s,
+          max-width 0.5s ease 1.5s
+        !important;
+        pointer-events: none;
+        overflow: hidden !important;
+        white-space: nowrap;
+      }
+
       .is-Editing .playlistAppend {
         visibility: hidden !important;
       }
@@ -254,26 +556,75 @@ const TagEditApi = function() {};
         display: none;
       }
 
+      .tagItem:not(.is-Locked) {
+        transition: transform 0.2s, text-shadow 0.2s;
+      }
+
       .is-Editing .tagItem.is-Locked {
+        position: relative;
+        cursor: not-allowed;
+      }
+      .is-Editing .tagItem.is-Locked .tagLink {
+        outline: 1px dashed #888;
+        outline-offset: 2px;
+      }
+      .is-Editing .tagItem.is-Locked *{
         pointer-events: none;
-        border: 1px solid #888;
-        border-radius: 4px;
+      }
+      .is-Editing .tagItem.is-Locked:hover:after {
+        content: '${'\\01F6AB'} ロック中';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #ff9;
+        white-space: nowrap;
+        background: rgba(0, 0, 0, 0.6);
+      }
+      .is-Editing .tagItem:nth-child(10).is-Locked:hover:after {
+        content: '${'\\01F6AB'} ロック厨';
       }
 
       .is-Editing .tagItem:not(.is-Locked) {
-        transform: translate(0, -12px);
-        text-shadow: 0 12px 4px rgba(0, 0, 0, 0.5);
-        transition: transform 0.2s, text-shadow 0.2s;
+        transform: translate(0, -4px);
+        text-shadow: 0 4px 4px rgba(0, 0, 0, 0.8);
+      }
+
+      .is-Editing .tagItem.is-Category * {
+        color: #ff9;
+      }
+      .is-Editing .tagItem.is-Category.is-Locked:hover:after {
+        content: '${'\\01F6AB'} カテゴリタグ';
       }
 
 
       .tagInputContainer {
         display: none;
-        padding: 0 8px;
+        padding: 4px 8px;
         background: #666;
+        z-index: 5000;
+        box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.8);
+        font-size: 16px;
+      }
+      :host-context(.videoTagsContainer.videoHeader) .tagInputContainer {
+      }
+      :host-context(.videoTagsContainer.sideTab)     .tagInputContainer {
+        position: absolute;
+        background: #999;
+      }
+
+      .tagInputContainer .tagInputText {
+        width: 200px;
+        font-size: 20px;
+      }
+      .tagInputContainer .submit {
+        font-size: 20px;
       }
       .is-Inputing .tagInputContainer {
         display: inline-block;
+      }
+      .is-Updating .tagInputContainer {
+        pointer-events: none;
       }
         .tagInput {
           border: 1px solid;
@@ -289,18 +640,106 @@ const TagEditApi = function() {};
           text-align: center;
         }
 
+      .TagListView .tagEditContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        z-index: 1000;
+        display: inline-block;
+      }
 
+      .TagListView.is-Empty .tagEditContainer {
+        position: relative;
+      }
+
+      .TagListView:hover .tagEditContainer {
+        display: inline-block;
+      }
+
+      .TagListView.is-Updating .tagEditContainer * {
+        pointer-events: none;
+      }
+
+      .TagListView .tagEditContainer .button,
+      .TagListView .videoTags .button {
+        border-radius: 16px;
+        font-size: 24px;
+        line-height: 24px;
+        margin: 0;
+      }
+      .TagListView .tagEditContainer .button.toggleInput:hover {
+      }
+      .TagListView .button.toggleEdit:hover {
+        background: #c66;
+      }
+      .TagListView .button.tagRefresh .icon {
+        transform: rotate(30deg);
+        transition: transform 0.2s ease;
+      }
+      .TagListView .button.tagRefresh:active .icon {
+        transform: rotate(-330deg);
+        transition: none;
+      }
+
+      .TagListView.is-Inputing .button.toggleInput {
+        display: none;
+      }
+
+      .TagListView  .button.toggleInput:hover {
+        background: #66c;
+      }
+
+      .tagEditContainer form {
+        display: inline;
+      }
     </style>
     <div class="root TagListView">
-      <div class="videoTags"></div>
-      <div>
-      <div class="tagInputContainer">
-        <input type="text" class="tagInput">
-        <div class="submit button">O K</div>
-        <div class="cancel button">キャンセル</div>
+      <div class="tagEditContainer">
+        <div
+          class="button command toggleEdit"
+          data-command="toggleEdit"
+          data-tooltip="タグ編集">
+          <span class="icon">&#9999;</span>
+        </div>
+
+        <div class="button command tagRefresh"
+          data-command="refresh"
+          data-tooltip="リロード">
+          <span class="icon">&#8635;</span>
+        </div>
       </div>
+
+      <div class="videoTags"></div>
+      <div class="tagInputContainer">
+        <form action="javascript: void">
+          <input type="text" name="tagText" class="tagInputText">
+          <button class="submit button">O K</button>
+        </form>
+      </div>
+
     </div>
   `).trim();
+
+  TagListView.__css__ = (`
+
+    /* Firefox用 ShaowDOMサポートしたら不要 */
+    .videoTagsContainer.sideTab .is-Updating {
+      overflow: hidden;
+    }
+    .videoTagsContainer.sideTab a {
+      color: #000 !important;
+      text-decoration: none !important;
+    }
+    .videoTagsContainer.videoHeader a {
+      color: #fff !important;
+      text-decoration: none !important;
+    }
+    .videoTagsContainer.sideTab .tagInputContainer {
+      position: absolute;
+    }
+
+  `).trim();
+
 
 //===END===
 

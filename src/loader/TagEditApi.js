@@ -70,7 +70,7 @@ class TagEditApi {
 
   _buildQuery(params) {
     const t = [];
-    Object.keys(this._params).forEach(key => {
+    Object.keys(params).forEach(key => {
       t.push(`${key}=${encodeURIComponent(params[key])}`);
     });
     return t.join('&');

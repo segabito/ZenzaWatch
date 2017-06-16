@@ -486,7 +486,7 @@ const TagEditApi = function() {};
       width: 364px;
       margin: 0 auto;
       padding: 8px;
-      background: #888;
+      background: #ccc;
     }
 
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch {
@@ -1356,11 +1356,7 @@ const TagEditApi = function() {};
     }
 
 
-    /* Firefox用 ShadowDOM対応したら消してよし */
-    .videoTagsContainer a {
-      color: #ccc !important;
-      text-decoration: none !important;
-    }
+
   `);
 
   VideoHeaderPanel.__tpl__ = (`
