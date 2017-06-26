@@ -291,9 +291,20 @@ var ajax = function() {};
           uploaderInfo
         };
 
-        if (data.context && data.context.ownerNGFilters) {
+        let ngFilters = null;
+        if (data.video && data.video.dmcInfo && data.video.dmcInfo.thread && data.video.dmcInfo.thread) {
+          if (data.video.dmcInfo.thread.channel_ng_words && data.video.dmcInfo.thread.channel_ng_words.length) {
+            ngFilters = data.video.dmcInfo.thread.channel_ng_words.length;
+          } else if (data.video.dmcInfo.thread.owner_ng_words && data.video.dmcInfo.thread.owner_ng_words.length) {
+            ngFilters = data.video.dmcInfo.thread.owner_ng_words.length;
+          }
+        }
+        if (data.context && data.context.ownerNGList && data.context.ownerNGList.length) {
+          ngFilters = data.context.ownerNGList;
+        }
+        if (ngFilters) {
           const ngtmp = [];
-          data.context.ownerNGFilters.forEach((ng) => {
+          ngFilters.forEach((ng) => {
             ngtmp.push(
               encodeURIComponent(ng.source) + '=' + encodeURIComponent(ng.destination));
           });
