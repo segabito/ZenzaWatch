@@ -356,11 +356,12 @@ var CONSTANT = {};
       position: absolute;
       height: 110%;
       top: 0px;
-      box-shadow: 0 0 4px #888;
+      box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
       border-radius: 4px;
       /*mix-blend-mode: lighten;*/
       z-index: 100;
       background: #663;
+      transform: translateZ(0);
       transition: left 0.2s, width 0.2s;
     }
 
@@ -380,13 +381,12 @@ var CONSTANT = {};
       top: 50%;
       width: 12px;
       height: 140%;
-      background: rgba(255, 255, 200, 0.8);
+      background: rgba(255, 255, 255, 0.6);
       border-radius: 2px;
       transform: translate3d(-50%, -50%, 0);
       z-index: 200;
-      /*transition: left 0.1s linear;*/
-      mix-blend-mode: lighten;
-      opacity: 0.8;
+      /*mix-blend-mode: lighten;*/
+      box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
     }
 
     .is-loading  .seekBar .seekBarPointer,

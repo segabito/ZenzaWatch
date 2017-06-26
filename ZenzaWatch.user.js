@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.12.0
+// @version        1.12.3
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -40,7 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.12.0';
+  var VER = '1.12.3';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -3113,9 +3113,20 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           uploaderInfo
         };
 
-        if (data.context && data.context.ownerNGFilters) {
+        let ngFilters = null;
+        if (data.video && data.video.dmcInfo && data.video.dmcInfo.thread && data.video.dmcInfo.thread) {
+          if (data.video.dmcInfo.thread.channel_ng_words && data.video.dmcInfo.thread.channel_ng_words.length) {
+            ngFilters = data.video.dmcInfo.thread.channel_ng_words.length;
+          } else if (data.video.dmcInfo.thread.owner_ng_words && data.video.dmcInfo.thread.owner_ng_words.length) {
+            ngFilters = data.video.dmcInfo.thread.owner_ng_words.length;
+          }
+        }
+        if (data.context && data.context.ownerNGList && data.context.ownerNGList.length) {
+          ngFilters = data.context.ownerNGList;
+        }
+        if (ngFilters) {
           const ngtmp = [];
-          data.context.ownerNGFilters.forEach((ng) => {
+          ngFilters.forEach((ng) => {
             ngtmp.push(
               encodeURIComponent(ng.source) + '=' + encodeURIComponent(ng.destination));
           });
@@ -8447,11 +8458,12 @@ class TagEditApi {
       position: absolute;
       height: 110%;
       top: 0px;
-      box-shadow: 0 0 4px #888;
+      box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
       border-radius: 4px;
       /*mix-blend-mode: lighten;*/
       z-index: 100;
       background: #663;
+      transform: translateZ(0);
       transition: left 0.2s, width 0.2s;
     }
 
@@ -8471,13 +8483,12 @@ class TagEditApi {
       top: 50%;
       width: 12px;
       height: 140%;
-      background: rgba(255, 255, 200, 0.8);
+      background: rgba(255, 255, 255, 0.6);
       border-radius: 2px;
       transform: translate3d(-50%, -50%, 0);
       z-index: 200;
-      /*transition: left 0.1s linear;*/
-      mix-blend-mode: lighten;
-      opacity: 0.8;
+      /*mix-blend-mode: lighten;*/
+      box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
     }
 
     .is-loading  .seekBar .seekBarPointer,
@@ -10642,10 +10653,11 @@ body {
 han_group { font-family: 'Arial'; }
 
 
-.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, 'ＭＳ ゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';}
-.cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;}
-.cmd-defont {font-family: 'Meiryo', 'IPAMonaPGothic', sans-serif, monospace, 'Menlo'; }
-
+/* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
+.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
+.cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", monospace;}
+.cmd-defont {font-family: "ＭＳ Ｐゴシック", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+.cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; }
 
 .nicoChat {
   position: absolute;
@@ -10656,7 +10668,11 @@ han_group { font-family: 'Arial'; }
   white-space: nowrap;
   font-weight: bolder;
   font-kerning: none;
+}
 
+.nicoChat.cmd-gothic, .nicoChat.cmd-mincho, .nicoChat.cmd-defont {
+  padding: 0;
+  margin: 1px;
 }
 
   .nicoChat.big {
@@ -10771,7 +10787,14 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   font-family: Simsun, 'IPAMonaGothic', Gulim, PmingLiu;
 }
 
-.html5_tab_space, .html5_space { opacity: 0; }
+.html5_tab_space, .html5_space, .html5_zen_space { opacity: 0; }
+
+/*
+.nicoChat.small .html5_zen_space > spacer { width: 25.6px; }
+                .html5_zen_space > spacer { width: 25.6px; margin: 0; }
+.nicoChat.big   .html5_zen_space > spacer { width: 25.6px; }
+*/
+.html5_zero_width { display: none; }
 
   `).trim();
 
@@ -10924,18 +10947,25 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   NicoTextParser.likeHTML5 = function(text) {
     var htmlText =
       ZenzaWatch.util.escapeHtml(text)
-      .replace(/([ ]+)/g, (g) => { return '<span class="html5_space">' +
-          '0'.repeat(g.length) + '</span>';
+      .replace(/([\x20\xA0]+)/g, (g) => { return '<span class="html5_space">' +
+          '_'.repeat(g.length) + '</span>';
       })
+      .replace(/([\u3000\u2001\u2003\u2004]+)/g,
+        (g) => {
+          return '<span class="html5_zen_space">全</span>'.repeat(g.length);
+        })
+      .replace(/[\u200B-\u200F]+/g, (g) => {
+          return '<span class="html5_zero_width"></span>'.repeat(g.length);
+        })
       .replace(/([\t]+)/g,
         (g) => { return '<span class="html5_tab_space">'+
           '□'.repeat(g.length * 2) + '</span>';
         })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
-      .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
+      .replace(/([\u2588]+)/g,
         (g) => { return '<span class="html5_fill_space">'+
           '□'.repeat(g.length) + '</span>';
-        } )
+        })
       .replace(/[\r\n]+$/g, '')
       .replace(/[\n]/g, '<br>')
     ;
@@ -12490,7 +12520,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
-          this._y = 0;
+          this._y = NicoCommentViewModel.SCREEN.HEIGHT / 2;
           this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
         } else {
           switch (this._type) {
@@ -13250,6 +13280,10 @@ body.in-capture .commentLayer {
   display: inline;
   position: absolute;
 }
+.debug .html5_zen_space {
+  color: #888;
+  opacity: 0.5;
+}
 
 .nicoChat .fill_space, .nicoChat .html5_fill_space {
   text-shadow: none;
@@ -13258,7 +13292,7 @@ body.in-capture .commentLayer {
   background: currentColor;
   /*outline: 2px solid;
   outline-offset: -1px;*/
-  box-shadow: 0 4px, 0 -4px;
+  /*box-shadow: 0 4px, 0 -4px;*/
 }
 
 .nicoChat .mesh_space {
@@ -13268,9 +13302,9 @@ body.in-capture .commentLayer {
 
 .nicoChat .block_space, .nicoChat .html5_block_space {
   text-shadow: none;
-  -webkit-text-stroke: 5px;
+  /*-webkit-text-stroke: 5px;
   text-stroke: 5px;
-  font-weight: 900;
+  font-weight: 900;*/
 }
 
 .debug .nicoChat.ue {
@@ -13967,7 +14001,9 @@ spacer {
       let beginL = chat.getBeginLeftTiming();
       let screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
       let screenWidthFull = NicoCommentViewModel.SCREEN.WIDTH_FULL;
+      let screenHeight    = NicoCommentViewModel.SCREEN.HEIGHT;
       let width = chat.getWidth();
+      let height = chat.getHeight();
       let ypos = chat.getYpos();
       let color = chat.getColor();
       let colorCss = color ? `color: ${color};` : '';
@@ -13979,7 +14015,7 @@ spacer {
         (slot >= 0) ?
         (slot   * 1000 + chat.getFork() * 1000000 + 1) :
         (beginL * 1000 + chat.getFork() * 1000000);
-      //let commentVer = chat.getCommentVer();
+      let commentVer = chat.getCommentVer();
 
       if (type === NicoChat.TYPE.NAKA) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
@@ -14015,27 +14051,44 @@ spacer {
 }
 `;
 
-//        if (commentVer === 'html5' && chat.isOverflow()) {
-//          result += `
-//@keyframes idou${id}n {
-//  0%   { opacity: 1; transform: translate3d(0, -50%, 0) ${scaleCss}; }
-//  100% { opacity: 1; transform: translate3d(-${outerScreenWidth + width}px, -50%, 0) ${scaleCss}; }
-//}
-//
-//#${id} { top: 50%; animation-name: idou${id}n; }
-//`;
-//        }
+        if (commentVer === 'html5' && height >= screenHeight) {
+          result += `
+@keyframes idou${id}n {
+  0%   {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0) ${scaleCss} translate(0, -50%);
+  }
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss} translate(0, -50%);
+  }
+}
+
+#${id} { top: 50%; animation-name: idou${id}n; }
+`;
+        }
 
       } else {
+        let top;
+        let transY;
+        if (commentVer === 'html5' && height >= screenHeight) {
+          top    = `${type === NicoChat.TYPE.BOTTOM ?  100 : 0}%`;
+          transY = `${type === NicoChat.TYPE.BOTTOM ? -100 : 0}%`;
+        } else {
+          top = ypos + 'px';
+          transY = '0';
+        }
         scaleCss =
           scale === 1.0 ?
-            'transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
-            `transform: scale3d(${scale}, ${scale}, 1) translate3d(-50%, 0, 0);`;
+            `transform: scale3d(1, 1, 1) translate3d(-50%, ${transY}, 0);` :
+            `transform: scale3d(${scale}, ${scale}, 1) translate3d(-50%, ${transY}, 0);`;
 
         result = `
 #${id} {
    z-index: ${zIndex};
-   top: ${ypos}px;
+   top: ${top};
    left: 50%;
    ${colorCss}
    font-size: ${fontSizePx}px;
@@ -16962,7 +17015,9 @@ data-title="%no%: %date% ID:%userId%
       }
 
       .is-WaybackMode .dateTime {
-        color: red;
+        background: #000;
+        color: #888;
+        box-shadow: 0 0 4px #ccc, 0 0 4px #ccc inset;
       }
       .reloadButton {
         display: inline-block;
@@ -24561,6 +24616,7 @@ const VideoSession = (function() {
       const v = this._shadow || this._view;
       Object.assign(this._elm, {
         videoTags: v.querySelector('.videoTags'),
+        videoTagsInner: v.querySelector('.videoTagsInner'),
         tagInput: v.querySelector('.tagInputText'),
         form: v.querySelector('form')
       });
@@ -24569,6 +24625,12 @@ const VideoSession = (function() {
       v.addEventListener('keydown', e => {
         if (this._state.isInputing) {
           e.stopPropagation();
+        }
+      });
+
+      ZenzaWatch.emitter.on('hideHover', () => {
+        if (this._state.isEditing) {
+          this._endEdit();
         }
       });
     }
@@ -24644,7 +24706,7 @@ const VideoSession = (function() {
       });
       tags.push(this._createToggleInput());
       this.setState({isEmpty: tagList.length < 1});
-      this._elm.videoTags.innerHTML = tags.join('');
+      this._elm.videoTagsInner.innerHTML = tags.join('');
     }
 
     _createToggleInput() {
@@ -24730,7 +24792,6 @@ const VideoSession = (function() {
 
       return Promise.all([load(), wait1s]).then((results) => {
         let result = results[0];
-        window.console.info('result', result);
         if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
         this._update(result.tags);
         this.setState({isUpdating: false, isInputing: false, isEditing: false});
@@ -24743,6 +24804,7 @@ const VideoSession = (function() {
 
     _createDicIcon(text, hasDic) {
       let href= `//dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
+      // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
       let src = hasDic ?
         '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
         '//live.nicovideo.jp/img/2012/watch/tag_icon003.png';
@@ -24857,6 +24919,7 @@ const VideoSession = (function() {
       .TagListView.is-Updating {
         cursor: wait;
       }
+
       :host-context(.videoTagsContainer.sideTab) .TagListView.is-Updating {
         overflow: hidden;
       }
@@ -24999,19 +25062,23 @@ const VideoSession = (function() {
         text-align: center;
         opacity: 0.8;
       }
+
       .TagListView.is-Editing .deleteButton:hover {
         transform: rotate(0) scale(1.3);
         background: #f00;
         opacity: 1;
       }
+
       .TagListView.is-Editing .deleteButton:active {
         transform: rotate(360deg) scale(1.3);
         transition: none;
         background: #888;
       }
+
       .TagListView.is-Editing .is-Locked .deleteButton {
         visibility: hidden;
       }
+
       .TagListView .is-Removing .deleteButton {
         background: #666;
       }
@@ -25091,13 +25158,16 @@ const VideoSession = (function() {
         position: relative;
         cursor: not-allowed;
       }
+
       .is-Editing .tagItem.is-Locked .tagLink {
         outline: 1px dashed #888;
         outline-offset: 2px;
       }
+
       .is-Editing .tagItem.is-Locked *{
         pointer-events: none;
       }
+
       .is-Editing .tagItem.is-Locked:hover:after {
         content: '${'\\01F6AB'} ロック中';
         position: absolute;
@@ -25108,8 +25178,9 @@ const VideoSession = (function() {
         white-space: nowrap;
         background: rgba(0, 0, 0, 0.6);
       }
-      .is-Editing .tagItem:nth-child(10).is-Locked:hover:after {
-        content: '${'\\01F6AB'} ロック厨';
+
+      .is-Editing .tagItem:nth-child(11).is-Locked:hover:after {
+        content: '${'\\01F6AB'} ロックマン';
       }
 
       .is-Editing .tagItem:not(.is-Locked) {
@@ -25133,8 +25204,7 @@ const VideoSession = (function() {
         box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.8);
         font-size: 16px;
       }
-      :host-context(.videoTagsContainer.videoHeader) .tagInputContainer {
-      }
+
       :host-context(.videoTagsContainer.sideTab)     .tagInputContainer {
         position: absolute;
         background: #999;
@@ -25144,21 +25214,27 @@ const VideoSession = (function() {
         width: 200px;
         font-size: 20px;
       }
+
       .tagInputContainer .submit {
         font-size: 20px;
       }
+
       .is-Inputing .tagInputContainer {
         display: inline-block;
       }
+
       .is-Updating .tagInputContainer {
         pointer-events: none;
       }
+
         .tagInput {
           border: 1px solid;
         }
+
         .tagInput:active {
           box-shadow: 0 0 4px #fe9;
         }
+
         .submit, .cancel {
           background: #666;
           color: #ccc;
@@ -25194,15 +25270,17 @@ const VideoSession = (function() {
         line-height: 24px;
         margin: 0;
       }
-      .TagListView .tagEditContainer .button.toggleInput:hover {
-      }
+
+      .TagListView.is-Editing .button.toggleEdit,
       .TagListView .button.toggleEdit:hover {
         background: #c66;
       }
+
       .TagListView .button.tagRefresh .icon {
         transform: rotate(30deg);
         transition: transform 0.2s ease;
       }
+
       .TagListView .button.tagRefresh:active .icon {
         transform: rotate(-330deg);
         transition: none;
@@ -25236,14 +25314,15 @@ const VideoSession = (function() {
         </div>
       </div>
 
-      <div class="videoTags"></div>
-      <div class="tagInputContainer">
-        <form action="javascript: void">
-          <input type="text" name="tagText" class="tagInputText">
-          <button class="submit button">O K</button>
-        </form>
+      <div class="videoTags">
+        <span class="videoTagsInner"></span>
+        <div class="tagInputContainer">
+          <form action="javascript: void">
+            <input type="text" name="tagText" class="tagInputText">
+            <button class="submit button">O K</button>
+          </form>
+        </div>
       </div>
-
     </div>
   `).trim();
 
@@ -26354,7 +26433,7 @@ const VideoSession = (function() {
     .zenzaWatchVideoHeaderPanel {
       position: fixed;
       width: 100%;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
+      z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
       box-sizing: border-box;
       padding: 8px 8px 0;
       bottom: calc(100% + 8px);
@@ -26364,6 +26443,10 @@ const VideoSession = (function() {
       text-align: left;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
+    }
+    body.zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
+    body.fullScreen .zenzaWatchVideoHeaderPanel {
+      z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
     }
 
     .zenzaWatchVideoHeaderPanel>* {

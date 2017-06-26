@@ -1562,7 +1562,9 @@ data-title="%no%: %date% ID:%userId%
       }
 
       .is-WaybackMode .dateTime {
-        color: red;
+        background: #000;
+        color: #888;
+        box-shadow: 0 0 4px #ccc, 0 0 4px #ccc inset;
       }
       .reloadButton {
         display: inline-block;

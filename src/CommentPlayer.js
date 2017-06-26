@@ -1559,7 +1559,7 @@ var VideoCaptureUtil = {};
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
-          this._y = 0;
+          this._y = NicoCommentViewModel.SCREEN.HEIGHT / 2;
           this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
         } else {
           switch (this._type) {
@@ -2319,6 +2319,10 @@ body.in-capture .commentLayer {
   display: inline;
   position: absolute;
 }
+.debug .html5_zen_space {
+  color: #888;
+  opacity: 0.5;
+}
 
 .nicoChat .fill_space, .nicoChat .html5_fill_space {
   text-shadow: none;
@@ -2327,7 +2331,7 @@ body.in-capture .commentLayer {
   background: currentColor;
   /*outline: 2px solid;
   outline-offset: -1px;*/
-  box-shadow: 0 4px, 0 -4px;
+  /*box-shadow: 0 4px, 0 -4px;*/
 }
 
 .nicoChat .mesh_space {
@@ -2337,9 +2341,9 @@ body.in-capture .commentLayer {
 
 .nicoChat .block_space, .nicoChat .html5_block_space {
   text-shadow: none;
-  -webkit-text-stroke: 5px;
+  /*-webkit-text-stroke: 5px;
   text-stroke: 5px;
-  font-weight: 900;
+  font-weight: 900;*/
 }
 
 .debug .nicoChat.ue {
@@ -3036,7 +3040,9 @@ spacer {
       let beginL = chat.getBeginLeftTiming();
       let screenWidth     = NicoCommentViewModel.SCREEN.WIDTH;
       let screenWidthFull = NicoCommentViewModel.SCREEN.WIDTH_FULL;
+      let screenHeight    = NicoCommentViewModel.SCREEN.HEIGHT;
       let width = chat.getWidth();
+      let height = chat.getHeight();
       let ypos = chat.getYpos();
       let color = chat.getColor();
       let colorCss = color ? `color: ${color};` : '';
@@ -3048,7 +3054,7 @@ spacer {
         (slot >= 0) ?
         (slot   * 1000 + chat.getFork() * 1000000 + 1) :
         (beginL * 1000 + chat.getFork() * 1000000);
-      //let commentVer = chat.getCommentVer();
+      let commentVer = chat.getCommentVer();
 
       if (type === NicoChat.TYPE.NAKA) {
         // 4:3ベースに計算されたタイミングを16:9に補正する
@@ -3084,27 +3090,44 @@ spacer {
 }
 `;
 
-//        if (commentVer === 'html5' && chat.isOverflow()) {
-//          result += `
-//@keyframes idou${id}n {
-//  0%   { opacity: 1; transform: translate3d(0, -50%, 0) ${scaleCss}; }
-//  100% { opacity: 1; transform: translate3d(-${outerScreenWidth + width}px, -50%, 0) ${scaleCss}; }
-//}
-//
-//#${id} { top: 50%; animation-name: idou${id}n; }
-//`;
-//        }
+        if (commentVer === 'html5' && height >= screenHeight) {
+          result += `
+@keyframes idou${id}n {
+  0%   {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0) ${scaleCss} translate(0, -50%);
+  }
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(-${outerScreenWidth + width}px, 0, 0) ${scaleCss} translate(0, -50%);
+  }
+}
+
+#${id} { top: 50%; animation-name: idou${id}n; }
+`;
+        }
 
       } else {
+        let top;
+        let transY;
+        if (commentVer === 'html5' && height >= screenHeight) {
+          top    = `${type === NicoChat.TYPE.BOTTOM ?  100 : 0}%`;
+          transY = `${type === NicoChat.TYPE.BOTTOM ? -100 : 0}%`;
+        } else {
+          top = ypos + 'px';
+          transY = '0';
+        }
         scaleCss =
           scale === 1.0 ?
-            'transform: scale3d(1, 1, 1) translate3d(-50%, 0, 0);' :
-            `transform: scale3d(${scale}, ${scale}, 1) translate3d(-50%, 0, 0);`;
+            `transform: scale3d(1, 1, 1) translate3d(-50%, ${transY}, 0);` :
+            `transform: scale3d(${scale}, ${scale}, 1) translate3d(-50%, ${transY}, 0);`;
 
         result = `
 #${id} {
    z-index: ${zIndex};
-   top: ${ypos}px;
+   top: ${top};
    left: 50%;
    ${colorCss}
    font-size: ${fontSizePx}px;

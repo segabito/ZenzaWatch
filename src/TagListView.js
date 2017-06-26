@@ -34,6 +34,7 @@ const TagEditApi = function() {};
       const v = this._shadow || this._view;
       Object.assign(this._elm, {
         videoTags: v.querySelector('.videoTags'),
+        videoTagsInner: v.querySelector('.videoTagsInner'),
         tagInput: v.querySelector('.tagInputText'),
         form: v.querySelector('form')
       });
@@ -42,6 +43,12 @@ const TagEditApi = function() {};
       v.addEventListener('keydown', e => {
         if (this._state.isInputing) {
           e.stopPropagation();
+        }
+      });
+
+      ZenzaWatch.emitter.on('hideHover', () => {
+        if (this._state.isEditing) {
+          this._endEdit();
         }
       });
     }
@@ -117,7 +124,7 @@ const TagEditApi = function() {};
       });
       tags.push(this._createToggleInput());
       this.setState({isEmpty: tagList.length < 1});
-      this._elm.videoTags.innerHTML = tags.join('');
+      this._elm.videoTagsInner.innerHTML = tags.join('');
     }
 
     _createToggleInput() {
@@ -203,7 +210,6 @@ const TagEditApi = function() {};
 
       return Promise.all([load(), wait1s]).then((results) => {
         let result = results[0];
-        window.console.info('result', result);
         if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
         this._update(result.tags);
         this.setState({isUpdating: false, isInputing: false, isEditing: false});
@@ -216,6 +222,7 @@ const TagEditApi = function() {};
 
     _createDicIcon(text, hasDic) {
       let href= `//dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
+      // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
       let src = hasDic ?
         '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
         '//live.nicovideo.jp/img/2012/watch/tag_icon003.png';
@@ -330,6 +337,7 @@ const TagEditApi = function() {};
       .TagListView.is-Updating {
         cursor: wait;
       }
+
       :host-context(.videoTagsContainer.sideTab) .TagListView.is-Updating {
         overflow: hidden;
       }
@@ -472,19 +480,23 @@ const TagEditApi = function() {};
         text-align: center;
         opacity: 0.8;
       }
+
       .TagListView.is-Editing .deleteButton:hover {
         transform: rotate(0) scale(1.3);
         background: #f00;
         opacity: 1;
       }
+
       .TagListView.is-Editing .deleteButton:active {
         transform: rotate(360deg) scale(1.3);
         transition: none;
         background: #888;
       }
+
       .TagListView.is-Editing .is-Locked .deleteButton {
         visibility: hidden;
       }
+
       .TagListView .is-Removing .deleteButton {
         background: #666;
       }
@@ -564,13 +576,16 @@ const TagEditApi = function() {};
         position: relative;
         cursor: not-allowed;
       }
+
       .is-Editing .tagItem.is-Locked .tagLink {
         outline: 1px dashed #888;
         outline-offset: 2px;
       }
+
       .is-Editing .tagItem.is-Locked *{
         pointer-events: none;
       }
+
       .is-Editing .tagItem.is-Locked:hover:after {
         content: '${'\\01F6AB'} ロック中';
         position: absolute;
@@ -581,8 +596,9 @@ const TagEditApi = function() {};
         white-space: nowrap;
         background: rgba(0, 0, 0, 0.6);
       }
-      .is-Editing .tagItem:nth-child(10).is-Locked:hover:after {
-        content: '${'\\01F6AB'} ロック厨';
+
+      .is-Editing .tagItem:nth-child(11).is-Locked:hover:after {
+        content: '${'\\01F6AB'} ロックマン';
       }
 
       .is-Editing .tagItem:not(.is-Locked) {
@@ -606,8 +622,7 @@ const TagEditApi = function() {};
         box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.8);
         font-size: 16px;
       }
-      :host-context(.videoTagsContainer.videoHeader) .tagInputContainer {
-      }
+
       :host-context(.videoTagsContainer.sideTab)     .tagInputContainer {
         position: absolute;
         background: #999;
@@ -617,21 +632,27 @@ const TagEditApi = function() {};
         width: 200px;
         font-size: 20px;
       }
+
       .tagInputContainer .submit {
         font-size: 20px;
       }
+
       .is-Inputing .tagInputContainer {
         display: inline-block;
       }
+
       .is-Updating .tagInputContainer {
         pointer-events: none;
       }
+
         .tagInput {
           border: 1px solid;
         }
+
         .tagInput:active {
           box-shadow: 0 0 4px #fe9;
         }
+
         .submit, .cancel {
           background: #666;
           color: #ccc;
@@ -667,15 +688,17 @@ const TagEditApi = function() {};
         line-height: 24px;
         margin: 0;
       }
-      .TagListView .tagEditContainer .button.toggleInput:hover {
-      }
+
+      .TagListView.is-Editing .button.toggleEdit,
       .TagListView .button.toggleEdit:hover {
         background: #c66;
       }
+
       .TagListView .button.tagRefresh .icon {
         transform: rotate(30deg);
         transition: transform 0.2s ease;
       }
+
       .TagListView .button.tagRefresh:active .icon {
         transform: rotate(-330deg);
         transition: none;
@@ -709,14 +732,15 @@ const TagEditApi = function() {};
         </div>
       </div>
 
-      <div class="videoTags"></div>
-      <div class="tagInputContainer">
-        <form action="javascript: void">
-          <input type="text" name="tagText" class="tagInputText">
-          <button class="submit button">O K</button>
-        </form>
+      <div class="videoTags">
+        <span class="videoTagsInner"></span>
+        <div class="tagInputContainer">
+          <form action="javascript: void">
+            <input type="text" name="tagText" class="tagInputText">
+            <button class="submit button">O K</button>
+          </form>
+        </div>
       </div>
-
     </div>
   `).trim();
 

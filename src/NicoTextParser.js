@@ -144,10 +144,11 @@ body {
 han_group { font-family: 'Arial'; }
 
 
-.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, 'ＭＳ ゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';}
-.cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace;}
-.cmd-defont {font-family: 'Meiryo', 'IPAMonaPGothic', sans-serif, monospace, 'Menlo'; }
-
+/* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
+.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
+.cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", monospace;}
+.cmd-defont {font-family: "ＭＳ Ｐゴシック", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+.cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; }
 
 .nicoChat {
   position: absolute;
@@ -158,7 +159,11 @@ han_group { font-family: 'Arial'; }
   white-space: nowrap;
   font-weight: bolder;
   font-kerning: none;
+}
 
+.nicoChat.cmd-gothic, .nicoChat.cmd-mincho, .nicoChat.cmd-defont {
+  padding: 0;
+  margin: 1px;
 }
 
   .nicoChat.big {
@@ -273,7 +278,14 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   font-family: Simsun, 'IPAMonaGothic', Gulim, PmingLiu;
 }
 
-.html5_tab_space, .html5_space { opacity: 0; }
+.html5_tab_space, .html5_space, .html5_zen_space { opacity: 0; }
+
+/*
+.nicoChat.small .html5_zen_space > spacer { width: 25.6px; }
+                .html5_zen_space > spacer { width: 25.6px; margin: 0; }
+.nicoChat.big   .html5_zen_space > spacer { width: 25.6px; }
+*/
+.html5_zero_width { display: none; }
 
   `).trim();
 
@@ -426,18 +438,25 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   NicoTextParser.likeHTML5 = function(text) {
     var htmlText =
       ZenzaWatch.util.escapeHtml(text)
-      .replace(/([ ]+)/g, (g) => { return '<span class="html5_space">' +
-          '0'.repeat(g.length) + '</span>';
+      .replace(/([\x20\xA0]+)/g, (g) => { return '<span class="html5_space">' +
+          '_'.repeat(g.length) + '</span>';
       })
+      .replace(/([\u3000\u2001\u2003\u2004]+)/g,
+        (g) => {
+          return '<span class="html5_zen_space">全</span>'.repeat(g.length);
+        })
+      .replace(/[\u200B-\u200F]+/g, (g) => {
+          return '<span class="html5_zero_width"></span>'.repeat(g.length);
+        })
       .replace(/([\t]+)/g,
         (g) => { return '<span class="html5_tab_space">'+
           '□'.repeat(g.length * 2) + '</span>';
         })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
-      .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
+      .replace(/([\u2588]+)/g,
         (g) => { return '<span class="html5_fill_space">'+
           '□'.repeat(g.length) + '</span>';
-        } )
+        })
       .replace(/[\r\n]+$/g, '')
       .replace(/[\n]/g, '<br>')
     ;

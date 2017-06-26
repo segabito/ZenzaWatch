@@ -1101,7 +1101,7 @@ const TagEditApi = function() {};
     .zenzaWatchVideoHeaderPanel {
       position: fixed;
       width: 100%;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
+      z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
       box-sizing: border-box;
       padding: 8px 8px 0;
       bottom: calc(100% + 8px);
@@ -1111,6 +1111,10 @@ const TagEditApi = function() {};
       text-align: left;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
+    }
+    body.zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
+    body.fullScreen .zenzaWatchVideoHeaderPanel {
+      z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
     }
 
     .zenzaWatchVideoHeaderPanel>* {
