@@ -264,6 +264,7 @@ class CrossDomainGate {}
 
         commentLayerOpacity: 1.0, //
         'commentLayer.textShadowType': '', // フォントの修飾タイプ
+        'commentLayer.enableSlotLayoutEmulation': false,
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中

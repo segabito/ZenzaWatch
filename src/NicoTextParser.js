@@ -147,7 +147,7 @@ han_group { font-family: 'Arial'; }
 /* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
 .cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
 .cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", monospace;}
-.cmd-defont {font-family: "ＭＳ Ｐゴシック", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+.cmd-defont {font-family: "ＭＳ Ｐゴシック", "MS PGothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
 .cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; }
 
 .nicoChat {

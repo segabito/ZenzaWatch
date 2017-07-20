@@ -733,7 +733,10 @@ var VideoCaptureUtil = {};
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      this._slotLayoutWorker = SlotLayoutWorker.create();
+      let config = Config.namespace('commentLayer');
+      if (config.getValue('enableSlotLayoutEmulation')) {
+        this._slotLayoutWorker = SlotLayoutWorker.create();
+      }
       if (this._slotLayoutWorker) {
         this._slotLayoutWorker.addEventListener('message',
           this._onSlotLayoutWorkerComplete.bind(this));
@@ -1386,7 +1389,7 @@ var VideoCaptureUtil = {};
       this._vpos = minv;
     },
     _parseCmd: function(cmd, isFork) {
-      var tmp = cmd.split(/[\x20|\u3000|\t]+/);
+      var tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t]+/);
       var result = {};
       tmp.forEach(c => {
         if (NicoChat.COLORS[c]) {
@@ -1495,10 +1498,15 @@ var VideoCaptureUtil = {};
     MEDIUM: 24 + 0,
     SMALL:  15 + 0
   };
+  NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5 = {
+    BIG:    39 + 2,
+    MEDIUM: 24 + 1.6,
+    SMALL:  15 + 1
+  };
 
   NicoChatViewModel.LINE_HEIGHT = {
     BIG:    45,
-    MEDIUM: 29, // TODO: MEDIUMに変える
+    MEDIUM: 29,
     SMALL:  18
   };
 
@@ -1535,7 +1543,7 @@ var VideoCaptureUtil = {};
       // ここでbeginLeftTiming, endRightTimingが確定する
       this._setVpos(nicoChat.getVpos());
 
-      this._setSize(nicoChat.getSize());
+      this._setSize(nicoChat.getSize(), nicoChat.getCommentVer());
 
 
       this._isLayouted = false;
@@ -1559,7 +1567,7 @@ var VideoCaptureUtil = {};
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
-          this._y = NicoCommentViewModel.SCREEN.HEIGHT / 2;
+          this._y = 0;
           this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
         } else {
           switch (this._type) {
@@ -1607,17 +1615,23 @@ var VideoCaptureUtil = {};
       }
       this._endRightTiming = this._beginLeftTiming + this._duration;
     },
-    _setSize: function(size) {
+    _setSize: function(size, ver) {
       this._size = size;
       switch (size) {
         case NicoChat.SIZE.BIG:
-          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.BIG;
+          this._fontSizePixel = ver !== 'html5' ?
+            NicoChatViewModel.FONT_SIZE_PIXEL.BIG :
+            NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5.BIG;
           break;
         case NicoChat.SIZE.SMALL:
-          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.SMALL;
+          this._fontSizePixel = ver !== 'html5' ?
+            NicoChatViewModel.FONT_SIZE_PIXEL.SMALL :
+            NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5.SMALL;
           break;
         default:
-          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.MEDIUM;
+          this._fontSizePixel = ver !== 'html5' ?
+            NicoChatViewModel.FONT_SIZE_PIXEL.MEDIUM :
+            NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5.MEDIUM;
           break;
       }
     },
@@ -2242,7 +2256,6 @@ body.in-capture .commentLayer {
   font-family: 'dokaben_ver2_1' !important;
 }
 .shadow-dokaben .nicoChat {
-  font-family: 'dokaben_ver2_1';
   text-shadow:
      1px  1px 0px rgba(0, 0, 0, 0.5),
     -1px  1px 0px rgba(0, 0, 0, 0.5),
@@ -3021,6 +3034,11 @@ spacer {
       }
       var fork = chat.getFork();
       className.push('fork' + fork);
+
+      const fontCommand = chat.getFontCommand();
+      if (fontCommand) {
+        className.push('cmd-' + fontCommand);
+      }
 
       //className.push('ver-' + chat.getCommentVer());
 
