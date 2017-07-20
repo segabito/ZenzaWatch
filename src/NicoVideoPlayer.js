@@ -1010,8 +1010,6 @@ class BaseViewComponent {}
     },
     _onDoubleClick: function(e) {
       console.log('%c_onDoubleClick:', 'background: cyan;', arguments);
-      // Firefoxはここに関係なくプレイヤー自体がフルスクリーンになってしまう。
-      // 手前に透明なレイヤーを被せるしかない？
       e.preventDefault();
       e.stopPropagation();
       this.emit('dblclick');

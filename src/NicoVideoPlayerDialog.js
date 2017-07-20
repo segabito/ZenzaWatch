@@ -262,6 +262,7 @@ var CONSTANT = {};
         isStalled: false,
         isUpdatingDeflist: false,
         isUpdatingMylist: false,
+        isNotPlayed: true,
 
         isEnableFilter: config.getValue('enableFilter'),
         sharedNgLevel: config.getValue('sharedNgLevel'),
@@ -289,11 +290,11 @@ var CONSTANT = {};
     }
 
     setVideoCanPlay() {
-      this.setState({isStalled: false, isLoading: false, isPausing: false});
+      this.setState({isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true});
     }
 
     setPlaying() {
-      this.setState({isPlaying: true, isPausing: false, isLoading: false});
+      this.setState({isPlaying: true, isPausing: false, isLoading: false, isNotPlayed: false});
     }
 
     setPausing() {
@@ -904,6 +905,8 @@ var CONSTANT = {};
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+
+
   `;
 
   NicoVideoPlayerDialogView.__tpl__ = (`
@@ -1159,7 +1162,8 @@ var CONSTANT = {};
         isPlaylistEnable:  'is-playlistEnable',
         isCommentPosting:  'is-commentPosting',
         isRegularUser: 'is-regularUser',
-        isWaybackMode: 'is-waybackMode'
+        isWaybackMode: 'is-waybackMode',
+        isNotPlayed: 'is-notPlayed'
       };
     },
     _onPlayerStateChange: function(key, value) {
@@ -3288,6 +3292,53 @@ var CONSTANT = {};
 
     .is-filterEnable {
     }
+
+
+    .togglePlayMenu {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1.5);
+      width: 80px;
+      height: 45px;
+      font-size: 35px;
+      line-height: 45px;
+      border-radius: 8px;
+      text-align: center;
+      color: #ccc;
+      z-index: ${CONSTANT.BASE_Z_INDEX + 10};
+      background: rgba(0, 0, 0, 0.8);
+      transition: transform 0.2s ease, box-shadow 0.2s, text-shadow 0.2s, font-size 0.2s;
+      box-shadow: 0 0 2px rgba(255, 255, 192, 0.8);
+      cursor: pointer;
+    }
+
+    .togglePlayMenu:hover {
+      transform: translate(-50%, -50%) scale(1.6);
+      text-shadow: 0 0 4px #888;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    }
+
+    .togglePlayMenu:active {
+      transform: translate(-50%, -50%) scale(2.0, 1.2);
+      font-size: 30px;
+      box-shadow: 0 0 4px inset rgba(0, 0, 0, 0.8);
+      text-shadow: none;
+      transition: transform 0.1s ease;
+    }
+
+    .is-notPlayed .togglePlayMenu {
+      display: block;
+    }
+
+    .is-playing .togglePlayMenu,
+    .is-error   .togglePlayMenu,
+    .is-loading .togglePlayMenu {
+      display: none;
+    }
+
+
   `).trim();
 
   VideoHoverMenu.__tpl__ = (`
@@ -3388,6 +3439,10 @@ var CONSTANT = {};
           <div class="menuButtonInner">リロード</div>
         </div>
 
+      </div>
+
+      <div class="command togglePlayMenu menuItemContainer center" data-command="togglePlay">
+        ▶
       </div>
 
     </div>
@@ -3658,7 +3713,6 @@ var CONSTANT = {};
       this._style.innerHTML = tpl;
     }
   };
-
 
 
 
