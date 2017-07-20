@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.12.3
+// @version        1.12.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -40,7 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.12.3';
+  var VER = '1.12.6';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -345,6 +345,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
         commentLayerOpacity: 1.0, //
         'commentLayer.textShadowType': '', // フォントの修飾タイプ
+        'commentLayer.enableSlotLayoutEmulation': false,
 
         overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
         enableGinzaSlayer: false, // まだ実験中
@@ -368,6 +369,12 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         'uaa.enable': true,
 
         'screenshot.prefix': '',
+
+        'touch.enable': true,
+        'touch.tap2command': '',
+        'touch.tap3command': 'toggle-mute',
+        'touch.tap4command': 'toggle-showComment',
+        'touch.tap5command': 'screenShot',
 
         KEY_CLOSE:      27,          // ESC
         KEY_RE_OPEN:    27 + 0x1000, // SHIFT + ESC
@@ -5713,13 +5720,13 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 class TagEditApi {
 
-  load(watchId) {
-    const url = `/tag_edit/${watchId}/?res_type=json&cmd=tags&_=${Date.now()}`;
+  load(videoId) {
+    const url = `/tag_edit/${videoId}/?res_type=json&cmd=tags&_=${Date.now()}`;
     return this._fetch(url, { credentials: 'include' });
   }
 
-  add({watchId, tag, csrfToken, watchAuthKey, ownerLock = 0}) {
-    const url = `/tag_edit/${watchId}/`;
+  add({videoId, tag, csrfToken, watchAuthKey, ownerLock = 0}) {
+    const url = `/tag_edit/${videoId}/`;
 
     const body = this._buildQuery({
       cmd: 'add',
@@ -5741,8 +5748,8 @@ class TagEditApi {
     return this._fetch(url, options);
   }
 
-  remove({watchId, tag = '', id, csrfToken, watchAuthKey, ownerLock = 0}) {
-    const url = `/tag_edit/${watchId}/`;
+  remove({videoId, tag = '', id, csrfToken, watchAuthKey, ownerLock = 0}) {
+    const url = `/tag_edit/${videoId}/`;
 
     const body = this._buildQuery({
       cmd: 'remove',
@@ -6006,6 +6013,16 @@ class TagEditApi {
       this.emit('commentFilterChange', nicoChatFilter);
     },
     setVideo: function(url) {
+      let e = { src: url, url: null, promise: null };
+      // デバッグ用
+      ZenzaWatch.emitter.emit('beforeSetVideo', e);
+      if (e.url) { url = e.url; }
+      if (e.promise) {
+        return e.promise.then(url => {
+          this._videoPlayer.setSrc(url);
+          this._isEnded = false;
+        });
+      }
       this._videoPlayer.setSrc(url);
       this._isEnded = false;
     },
@@ -6540,15 +6557,44 @@ class TagEditApi {
    *  Video要素をラップした物
    *  操作パネル等を自前で用意したいが、まだ手が回らない。
    *
-   *  いずれは同じインターフェースのflash版も作って、swf/flv等の再生もサポートしたい。
    */
   var VideoPlayer = function() { this.initialize.apply(this, arguments); };
+  VideoPlayer.__css__ = `
+    .videoPlayer video {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+    }
+
+    /* iOSだとvideo上でマウスイベントが発生しないのでカバーを掛ける */
+    .touchWrapper {
+      display: block;
+      position: absolute;
+      opacity: 0;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+    }
+
+    .is-loading .touchWrapper,
+    .is-error .touchWrapper {
+      display: none !important;
+    }
+
+  `.trim();
+
   _.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
   _.assign(VideoPlayer.prototype, {
     initialize: function(params) {
       //console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
       this._resetVideo(params);
+
+      util.addStyle(VideoPlayer.__css__);
     },
     _reset: function() {
       this.removeClass('is-play is-pause is-abort is-error');
@@ -6592,9 +6638,15 @@ class TagEditApi {
         params.hasOwnProperty('playbackRate') ? parseFloat(params.playbackRate) : 1.0;
 
       const video = document.createElement('video');
+      const body = document.createElement('div');
+      util.$(body)
+        .addClass(`videoPlayer nico ${this._id}`);
       util.$(video)
-        .addClass(`videoPlayer nico ${this._id}`)
+        .addClass(`videoPlayer-video`)
         .attr(options);
+      this._body = body;
+      body.appendChild(video);
+
       this._video = video;
       this._video.controls = false;
       this._video.autoplay = !!params.autoPlay;
@@ -6606,6 +6658,17 @@ class TagEditApi {
       this.setVolume(volume);
       this.setMute(params.mute);
       this.setPlaybackRate(playbackRate);
+
+      this._touchWrapper = new TouchWrapper({
+        parentElement: body
+      });
+      this._touchWrapper.on('command', (command, param) => {
+        if (command === 'contextMenu') {
+          this._emit('contextMenu', param);
+          return;
+        }
+        this.emit('command', command, param);
+      });
 
       this._initializeEvents();
 
@@ -6630,20 +6693,24 @@ class TagEditApi {
         .on('resize',         this._onResize         .bind(this))
         .on('abort',          this._onAbort          .bind(this))
         .on('error',          this._onError          .bind(this))
-                                                            
+
         .on('pause',          this._onPause          .bind(this))
         .on('play',           this._onPlay           .bind(this))
         .on('playing',        this._onPlaying        .bind(this))
         .on('seeking',        this._onSeeking        .bind(this))
         .on('seeked',         this._onSeeked         .bind(this))
         .on('volumechange',   this._onVolumeChange   .bind(this))
-                                                            
-                                                            
-        .on('click',          this._onClick          .bind(this))
-        .on('dblclick',       this._onDoubleClick    .bind(this))
-        .on('wheel',          this._onMouseWheel     .bind(this))
         .on('contextmenu',    this._onContextMenu    .bind(this))
+        .on('click',          this._onClick          .bind(this))
         ;
+
+      const touch = util.$(this._touchWrapper.body);
+      touch
+        .on('click',       this._onClick      .bind(this))
+        .on('dblclick',    this._onDoubleClick.bind(this))
+        .on('contextmenu', this._onContextMenu    .bind(this))
+        .on('wheel',       this._onMouseWheel .bind(this))
+      ;
     },
     _onCanPlay: function() {
       console.log('%c_onCanPlay:', 'background: cyan; color: blue;', arguments);
@@ -6765,8 +6832,6 @@ class TagEditApi {
     },
     _onDoubleClick: function(e) {
       console.log('%c_onDoubleClick:', 'background: cyan;', arguments);
-      // Firefoxはここに関係なくプレイヤー自体がフルスクリーンになってしまう。
-      // 手前に透明なレイヤーを被せるしかない？
       e.preventDefault();
       e.stopPropagation();
       this.emit('dblclick');
@@ -6908,7 +6973,7 @@ class TagEditApi {
       return this._video.autoPlay;
     },
     appendTo: function(node) {
-      node.appendChild(this._video);
+      node.appendChild(this._body);
     },
     close: function() {
       this._video.pause();
@@ -6950,7 +7015,237 @@ class TagEditApi {
     }
   });
 
+  class TouchWrapper extends AsyncEmitter {
+    constructor({parentElement}) {
+      super();
+      this._parentElement = parentElement;
 
+      this._config = ZenzaWatch.config.namespace('touch');
+      this._isTouching = false;
+      this._maxCount = 0;
+      this._currentTouches = [];
+
+      this._debouncedOnSwipe2Y = _.debounce(this._onSwipe2Y.bind(this), 400);
+      this._debouncedOnSwipe3X = _.debounce(this._onSwipe3X.bind(this), 400);
+      this.initializeDom();
+    }
+
+    initializeDom() {
+      let body = this._body = document.createElement('div');
+      body.className = 'touchWrapper';
+
+      //body.addEventListener('mousedown', this._onMousedown.bind(this));
+      //body.addEventListener('mouseup',   this._onMouseup  .bind(this));
+      body.addEventListener('contextMenu', (e) => {
+        this._execCommand('contextMenu', e);
+      });
+      body.addEventListener('click', this._onClick.bind(this));
+
+      body.addEventListener('touchstart',  this._onTouchStart .bind(this));
+      body.addEventListener('touchmove',   this._onTouchMove  .bind(this));
+      body.addEventListener('touchend',    this._onTouchEnd   .bind(this));
+      body.addEventListener('touchcancel', this._onTouchCancel.bind(this));
+
+      this._onTouchMoveThrottled =
+        _.throttle(this._onTouchMoveThrottled.bind(this), 200);
+
+      if (this._parentElement) {
+        this._parentElement.appendChild(body);
+      }
+      ZenzaWatch.debug.touchWrapper = this;
+    }
+
+    get body() {
+      return this._body;
+    }
+
+    _onMousedown(e) {
+      //window.console.log('onmousedown', e, e.button);
+      //if (e.button !== 0) {
+      //  this._body.style.display = 'none';
+      //  window.setTimeout(() => { this._body.style.display = 'block'; }, 400);
+      //}
+    }
+
+    _onClick(e) {
+      //const count = Math.max(this._lastTap, this._maxCount);
+      window.console.info('click', this._maxCount, this._lastTap, count);
+
+      this._lastTap = 0;
+    }
+
+    _onTouchStart(e) {
+      let identifiers =
+        this._currentTouches.map(touch => { return touch.identifier; });
+      if (e.changedTouches.length > 1) {
+        e.preventDefault();
+      }
+
+      Array.from(e.changedTouches).forEach(touch => {
+        if (identifiers.includes(touch.identifier)) { return; }
+        this._currentTouches.push(touch);
+      });
+
+      this._maxCount = Math.max(this._maxCount, this.touchCount);
+      this._startCenter = this._getCenter(e);
+      this._lastCenter = this._getCenter(e);
+      this._startAt = Date.now();
+      this._isMoved = false;
+    }
+
+    _onTouchMove(e) {
+      if (e.targetTouches.length > 1) {
+        e.preventDefault();
+      }
+      this._onTouchMoveThrottled(e);
+    }
+
+    _onTouchMoveThrottled(e) {
+      if (!e.targetTouches) { return; }
+      if (e.targetTouches.length > 1) {
+        e.preventDefault();
+      }
+      let startPoint   = this._startCenter;
+      let lastPoint    = this._lastCenter;
+      let currentPoint = this._getCenter(e);
+
+      if (!startPoint || !currentPoint) { return; }
+      let width  = this._body.offsetWidth;
+      let height = this._body.offsetHeight;
+      let diff = {
+        count: this.touchCount,
+        startX: startPoint.x,
+        startY: startPoint.y,
+        currentX: currentPoint.x,
+        currentY: currentPoint.y,
+        moveX: currentPoint.x - lastPoint.x,
+        moveY: currentPoint.y - lastPoint.y,
+        x: currentPoint.x - startPoint.x,
+        y: currentPoint.y - startPoint.y,
+      };
+
+      diff.perX = diff.x / width * 100;
+      diff.perY = diff.y / height * 100;
+      diff.perStartX = diff.startX / width * 100;
+      diff.perStartY = diff.startY / height * 100;
+      diff.movePerX = diff.moveX / width * 100;
+      diff.movePerY = diff.moveY / height * 100;
+
+
+      if (Math.abs(diff.perX) > 2 || Math.abs(diff.perY) > 1) {
+        this._isMoved = true;
+      }
+
+      if (diff.count === 2) {
+        if (Math.abs(diff.movePerX) >= 0.5) {
+          this._execCommand('seekRelativePercent', diff);
+        }
+        if (Math.abs(diff.perY) >= 30) {
+          this._debouncedOnSwipe2Y(diff);
+        }
+      }
+
+      if (diff.count === 3) {
+        if (Math.abs(diff.perX) >= 30) {
+          this._debouncedOnSwipe3X(diff);
+        }
+      }
+
+      this._lastCenter = currentPoint;
+      return diff;
+    }
+
+    _onSwipe2Y(diff) {
+      this._execCommand(diff.perY < 0 ? 'shiftUp' : 'shiftDown');
+      this._startCenter = this._lastCenter;
+      this._startAt = Date.now();
+    }
+
+    _onSwipe3X(diff) {
+      this._execCommand(diff.perX < 0 ? 'playNextVideo' : 'playPreviousVideo');
+      this._startCenter = this._lastCenter;
+      this._startAt = Date.now();
+    }
+
+    _execCommand(command, param) {
+      if (!this._config.getValue('enable')) { return; }
+      if (!command) { return; }
+      this.emit('command', command, param);
+    }
+
+    _onTouchEnd(e) {
+      if (!e.changedTouches) { return; }
+      let identifiers =
+        Array.from(e.changedTouches).map(touch => { return touch.identifier; });
+      let currentTouches = [];
+
+      currentTouches = this._currentTouches.filter(touch => {
+        return !identifiers.includes(touch.identifier);
+      });
+
+      this._currentTouches = currentTouches;
+
+      //touchstartは複数タッチでも一回にまとまって飛んでくるが、
+      //touchendは指の数だけ飛んでくるっぽい？
+      //window.console.log('onTouchEnd', this._isMoved, e.changedTouches.length, this._maxCount, this.touchCount);
+      if (!this._isMoved && this.touchCount === 0) {
+        const config = this._config;
+        this._lastTap = this._maxCount;
+        window.console.info('touchEnd', this._maxCount, this._isMoved);
+        switch (this._maxCount) {
+          case 2:
+            this._execCommand(config.getValue('tap2command'));
+            //window.setTimeout(() => {
+            //  this._execCommand(config.getValue('tap2command'));
+            //}, 0);
+            break;
+          case 3:
+            this._execCommand(config.getValue('tap3command'));
+            break;
+          case 4:
+            this._execCommand(config.getValue('tap4command'));
+            break;
+          case 5:
+            this._execCommand(config.getValue('tap5command'));
+            break;
+        }
+        this._maxCount = 0;
+        this._isMoved = false;
+      }
+
+    }
+
+    _onTouchCancel(e) {
+      if (!e.changedTouches) { return; }
+      let identifiers =
+        Array.from(e.changedTouches).map(touch => { return touch.identifier; });
+      let currentTouches = [];
+
+      window.console.log('onTouchCancel', this._isMoved, e.changedTouches.length);
+      currentTouches = this._currentTouches.filter(touch => {
+        return !identifiers.includes(touch.identifier);
+      });
+
+      this._currentTouches = currentTouches;
+    }
+
+    get touchCount() {
+      return this._currentTouches.length;
+    }
+
+    _getCenter(e) {
+      let x = 0, y = 0;
+      Array.from(e.touches).forEach(t => {
+        x += t.pageX;
+        y += t.pageY;
+      });
+      return {x: x / e.touches.length, y: y / e.touches.length};
+    }
+  }
+
+
+
+//===END==
 
 
 
@@ -6961,7 +7256,7 @@ class TagEditApi {
  　＼　< 　　　└───/|────────
 　　　＼.＼＿＿＿＿__／/
 　　　　 ＼　　　　　／
-　　　　　 ∪∪￣∪∪
+　　　　　 ∪∪‾∪∪
 */
 
 
@@ -7586,7 +7881,7 @@ class TagEditApi {
         sb.on('update', this._onStoryBoardUpdate.bind(this));
         sb.on('reset',  this._onStoryBoardReset .bind(this));
 
-        var frame = this._requestAnimationFrame = new ZenzaWatch.util.RequestAnimationFrame(
+        var frame = this._requestAnimationFrame = new util.RequestAnimationFrame(
           this._onRequestAnimationFrame.bind(this), 1
         );
 
@@ -7679,7 +7974,7 @@ class TagEditApi {
           .on('touchstart',  this._onTouchStart.bind(this))
         //  .on('touchend',    this._onTouchEnd  .bind(this))
           .on('touchmove',   this._onTouchMove .bind(this));
-        this._bouncedOnToucheMobeEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
+        this._bouncedOnToucheMoveEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
 
         this._$container.append($view);
         document.body.addEventListener('touchend', () => { this._isHover = false; }, {passive: true});
@@ -7763,9 +8058,11 @@ class TagEditApi {
         e.stopPropagation();
         this._isHover = true;
         this._isMouseMoving = true;
-        this._bouncedOnToucheMobeEnd();
+        this._isTouchMoving = true;
+        this._bouncedOnToucheMoveEnd();
       },
       _onTouchMoveEnd: function() {
+        this._isTouchMoving = false;
         this._isMouseMoving = false;
       },
       _onTouchCancel: function(e) {
@@ -7855,7 +8152,7 @@ class TagEditApi {
         if (!this._model.isAvailable()) { return; }
         if (!this._$view) { return; }
 
-        if (this._scrollLeftChanged) {
+        if (this._scrollLeftChanged && !this._isHover) {
           this._$inner.scrollLeft(this._scrollLeft);
           this.__scrollLeftChanged = false;
         }
@@ -10624,7 +10921,7 @@ class TagEditApi {
     // wikiの記述だと\u2588はstrongではないっぽいけど、そうじゃないと辻褄が合わないCAがいくつかある。
     // wikiが間違いなのか、まだ知らない法則があるのか・・・？
     //
-//    GOTHIC: /[ｧ-ﾝﾞ･ﾟ]/,
+//    GOTHIC: /[ァ-ン゛・゜]/,
     GOTHIC: /[\uFF67-\uFF9D\uFF9E\uFF65\uFF9F]/,
     MINCHO: /([\u02C9\u2105\u2109\u2196-\u2199\u220F\u2215\u2248\u2264\u2265\u2299\u2474-\u2482\u250D\u250E\u2511\u2512\u2515\u2516\u2519\u251A\u251E\u251F\u2521\u2522\u2526\u2527\u2529\u252A\u252D\u252E\u2531\u2532\u2535\u2536\u2539\u253A\u253D\u253E\u2540\u2541\u2543-\u254A\u2550-\u256C\u2584\u2588\u258C\u2593\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B])/,
     GULIM: /([\u0126\u0127\u0132\u0133\u0138\u013F\u0140\u0149-\u014B\u0166\u0167\u02D0\u02DA\u2074\u207F\u2081-\u2084\u2113\u2153\u2154\u215C-\u215E\u2194-\u2195\u223C\u249C-\u24B5\u24D0-\u24E9\u2592\u25A3-\u25A9\u25B6\u25B7\u25C0\u25C1\u25C8\u25D0\u25D1\u260E\u260F\u261C\u261E\u2660\u2661\u2663-\u2665\u2667-\u2669\u266C\u3131-\u318E\u3200-\u321C\u3260-\u327B\u3380-\u3384\u3388-\u338D\u3390-\u339B\u339F\u33A0\u33A2-\u33CA\u33CF\u33D0\u33D3\u33D6\u33D8\u33DB-\u33DD\uF900-\uF928\uF92A-\uF994\uF996-\uFA0B\uFFE6])/,
@@ -10656,7 +10953,7 @@ han_group { font-family: 'Arial'; }
 /* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
 .cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
 .cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", monospace;}
-.cmd-defont {font-family: "ＭＳ Ｐゴシック", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+.cmd-defont {font-family: "ＭＳ Ｐゴシック", "MS PGothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
 .cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; }
 
 .nicoChat {
@@ -11694,7 +11991,10 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._bottomGroup =
         new NicoChatGroupViewModel(nicoComment.getGroup(NicoChat.TYPE.BOTTOM), offScreen);
 
-      this._slotLayoutWorker = SlotLayoutWorker.create();
+      let config = Config.namespace('commentLayer');
+      if (config.getValue('enableSlotLayoutEmulation')) {
+        this._slotLayoutWorker = SlotLayoutWorker.create();
+      }
       if (this._slotLayoutWorker) {
         this._slotLayoutWorker.addEventListener('message',
           this._onSlotLayoutWorkerComplete.bind(this));
@@ -12347,7 +12647,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._vpos = minv;
     },
     _parseCmd: function(cmd, isFork) {
-      var tmp = cmd.split(/[\x20|\u3000|\t]+/);
+      var tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t]+/);
       var result = {};
       tmp.forEach(c => {
         if (NicoChat.COLORS[c]) {
@@ -12456,10 +12756,15 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     MEDIUM: 24 + 0,
     SMALL:  15 + 0
   };
+  NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5 = {
+    BIG:    39 + 2,
+    MEDIUM: 24 + 1.6,
+    SMALL:  15 + 1
+  };
 
   NicoChatViewModel.LINE_HEIGHT = {
     BIG:    45,
-    MEDIUM: 29, // TODO: MEDIUMに変える
+    MEDIUM: 29,
     SMALL:  18
   };
 
@@ -12496,7 +12801,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // ここでbeginLeftTiming, endRightTimingが確定する
       this._setVpos(nicoChat.getVpos());
 
-      this._setSize(nicoChat.getSize());
+      this._setSize(nicoChat.getSize(), nicoChat.getCommentVer());
 
 
       this._isLayouted = false;
@@ -12520,7 +12825,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       // この時点で画面の縦幅を超えるようなコメントは縦幅に縮小しつつoverflow扱いにしてしまう
       // こんなことをしなくてもおそらく本家ではぴったり合うのだろうし苦し紛れだが、
       // 画面からはみ出すよりはマシだろうという判断
-          this._y = NicoCommentViewModel.SCREEN.HEIGHT / 2;
+          this._y = 0;
           this._setScale(this._scale * NicoCommentViewModel.SCREEN.HEIGHT / this._height);
         } else {
           switch (this._type) {
@@ -12568,17 +12873,23 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       }
       this._endRightTiming = this._beginLeftTiming + this._duration;
     },
-    _setSize: function(size) {
+    _setSize: function(size, ver) {
       this._size = size;
       switch (size) {
         case NicoChat.SIZE.BIG:
-          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.BIG;
+          this._fontSizePixel = ver !== 'html5' ?
+            NicoChatViewModel.FONT_SIZE_PIXEL.BIG :
+            NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5.BIG;
           break;
         case NicoChat.SIZE.SMALL:
-          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.SMALL;
+          this._fontSizePixel = ver !== 'html5' ?
+            NicoChatViewModel.FONT_SIZE_PIXEL.SMALL :
+            NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5.SMALL;
           break;
         default:
-          this._fontSizePixel = NicoChatViewModel.FONT_SIZE_PIXEL.MEDIUM;
+          this._fontSizePixel = ver !== 'html5' ?
+            NicoChatViewModel.FONT_SIZE_PIXEL.MEDIUM :
+            NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5.MEDIUM;
           break;
       }
     },
@@ -13203,7 +13514,6 @@ body.in-capture .commentLayer {
   font-family: 'dokaben_ver2_1' !important;
 }
 .shadow-dokaben .nicoChat {
-  font-family: 'dokaben_ver2_1';
   text-shadow:
      1px  1px 0px rgba(0, 0, 0, 0.5),
     -1px  1px 0px rgba(0, 0, 0, 0.5),
@@ -13982,6 +14292,11 @@ spacer {
       }
       var fork = chat.getFork();
       className.push('fork' + fork);
+
+      const fontCommand = chat.getFontCommand();
+      if (fontCommand) {
+        className.push('cmd-' + fontCommand);
+      }
 
       //className.push('ver-' + chat.getCommentVer());
 
@@ -20122,6 +20437,7 @@ const VideoSession = (function() {
         isStalled: false,
         isUpdatingDeflist: false,
         isUpdatingMylist: false,
+        isNotPlayed: true,
 
         isEnableFilter: config.getValue('enableFilter'),
         sharedNgLevel: config.getValue('sharedNgLevel'),
@@ -20149,11 +20465,11 @@ const VideoSession = (function() {
     }
 
     setVideoCanPlay() {
-      this.setState({isStalled: false, isLoading: false, isPausing: false});
+      this.setState({isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true});
     }
 
     setPlaying() {
-      this.setState({isPlaying: true, isPausing: false, isLoading: false});
+      this.setState({isPlaying: true, isPausing: false, isLoading: false, isNotPlayed: false});
     }
 
     setPausing() {
@@ -20764,6 +21080,8 @@ const VideoSession = (function() {
       -webkit-user-select: none;
       -moz-user-select: none;
     }
+
+
   `;
 
   NicoVideoPlayerDialogView.__tpl__ = (`
@@ -20905,6 +21223,11 @@ const VideoSession = (function() {
       this._initializeVideoInfoPanel();
       this._initializeResponsive();
 
+      //$dialog.toggleClass('is-iOS', /(iPad|iPhone|CriOS)/.test(navigator.userAgent));
+      // //タッチパネルがある場合は null ない場合は undefined になる
+      //$dialog.toggleClass('is-touchDeviceExist', window.ontouchstart !== undefined);
+
+
       ZenzaWatch.emitter.on('showMenu', () => { $container.addClass('menuOpen'); });
       ZenzaWatch.emitter.on('hideMenu', () => { $container.removeClass('menuOpen'); });
       document.body.appendChild($dialog[0]);
@@ -21019,7 +21342,8 @@ const VideoSession = (function() {
         isPlaylistEnable:  'is-playlistEnable',
         isCommentPosting:  'is-commentPosting',
         isRegularUser: 'is-regularUser',
-        isWaybackMode: 'is-waybackMode'
+        isWaybackMode: 'is-waybackMode',
+        isNotPlayed: 'is-notPlayed'
       };
     },
     _onPlayerStateChange: function(key, value) {
@@ -21359,6 +21683,15 @@ const VideoSession = (function() {
           break;
         case 'seekBy':
           this.setCurrentTime(this.getCurrentTime() + param * 1);
+          break;
+        case 'seekRelativePercent':
+          let dur = this._videoInfo.getDuration();
+          //let st = param.perStartX;
+          let mv = Math.abs(param.movePerX) > 10 ?
+            (param.movePerX / 2) : (param.movePerX / 16);
+          let pos = this.getCurrentTime() + (mv * dur / 100);
+          //let pos = (st + mv) * dur / 100);
+          this.setCurrentTime(Math.min(Math.max(0, pos), dur));
           break;
         case 'addWordFilter':
           this._nicoVideoPlayer.addWordFilter(param);
@@ -23148,6 +23481,53 @@ const VideoSession = (function() {
 
     .is-filterEnable {
     }
+
+
+    .togglePlayMenu {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1.5);
+      width: 80px;
+      height: 45px;
+      font-size: 35px;
+      line-height: 45px;
+      border-radius: 8px;
+      text-align: center;
+      color: #ccc;
+      z-index: ${CONSTANT.BASE_Z_INDEX + 10};
+      background: rgba(0, 0, 0, 0.8);
+      transition: transform 0.2s ease, box-shadow 0.2s, text-shadow 0.2s, font-size 0.2s;
+      box-shadow: 0 0 2px rgba(255, 255, 192, 0.8);
+      cursor: pointer;
+    }
+
+    .togglePlayMenu:hover {
+      transform: translate(-50%, -50%) scale(1.6);
+      text-shadow: 0 0 4px #888;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    }
+
+    .togglePlayMenu:active {
+      transform: translate(-50%, -50%) scale(2.0, 1.2);
+      font-size: 30px;
+      box-shadow: 0 0 4px inset rgba(0, 0, 0, 0.8);
+      text-shadow: none;
+      transition: transform 0.1s ease;
+    }
+
+    .is-notPlayed .togglePlayMenu {
+      display: block;
+    }
+
+    .is-playing .togglePlayMenu,
+    .is-error   .togglePlayMenu,
+    .is-loading .togglePlayMenu {
+      display: none;
+    }
+
+
   `).trim();
 
   VideoHoverMenu.__tpl__ = (`
@@ -23248,6 +23628,10 @@ const VideoSession = (function() {
           <div class="menuButtonInner">リロード</div>
         </div>
 
+      </div>
+
+      <div class="command togglePlayMenu menuItemContainer center" data-command="togglePlay">
+        ▶
       </div>
 
     </div>
@@ -23531,7 +23915,6 @@ const VideoSession = (function() {
 
 
 
-
   var CommentInputPanel = function() { this.initialize.apply(this, arguments); };
   CommentInputPanel.__css__ = (`
     .commentInputPanel {
@@ -23546,6 +23929,7 @@ const VideoSession = (function() {
       transform: translate(-50%, -170px);
       overflow: visible;
     }
+    .zenzaPlayerContainer.is-notPlayed .commentInputPanel,
     .zenzaPlayerContainer.is-waybackMode .commentInputPanel,
     .zenzaPlayerContainer.is-mymemory .commentInputPanel,
     .zenzaPlayerContainer.is-loading  .commentInputPanel,
@@ -24237,6 +24621,15 @@ const VideoSession = (function() {
           </label>
         </div>
 
+        <div class="touchEnable control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="touch.enable"
+            data-command="toggle-touchEnable">
+            タッチパネルのジェスチャを有効にする
+            <smal>(2本指左右シーク・上下で速度変更/3本指で動画切替)</small>
+          </label>
+        </div>
+
 
 
 
@@ -24676,8 +25069,9 @@ const VideoSession = (function() {
       }
     }
 
-    update({tagList = [], watchId = null, token = null, watchAuthKey = null}) {
+    update({tagList = [], watchId = null, videoId = null, token = null, watchAuthKey = null}) {
       if (watchId) { this._watchId = watchId; }
+      if (videoId) { this._videoId = videoId; }
       if (token) { this._token = token; }
       if (watchAuthKey) { this._watchAuthKey = watchAuthKey; }
 
@@ -24736,11 +25130,12 @@ const VideoSession = (function() {
 
       const wait3s = this._makeWait(3000);
       const watchId = this._watchId;
+      const videoId = this._videoId;
       const csrfToken = this._token;
       const watchAuthKey = this._watchAuthKey;
       const addTag = () => {
         return this._tagEditApi.add({
-          watchId,
+          videoId,
           tag,
           csrfToken,
           watchAuthKey
@@ -24762,11 +25157,12 @@ const VideoSession = (function() {
 
       const wait3s = this._makeWait(3000);
       const watchId = this._watchId;
+      const videoId = this._videoId;
       const csrfToken = this._token;
       const watchAuthKey = this._watchAuthKey;
       const removeTag = () => {
         return this._tagEditApi.remove({
-          watchId,
+          videoId,
           tag,
           id: tagId,
           csrfToken,
@@ -24788,7 +25184,7 @@ const VideoSession = (function() {
       this.setState({isUpdating: true});
       const watchId = this._watchId;
       const wait1s = this._makeWait(1000);
-      const load = () => { return this._tagEditApi.load(this._watchId); };
+      const load = () => { return this._tagEditApi.load(this._videoId); };
 
       return Promise.all([load(), wait1s]).then((results) => {
         let result = results[0];
@@ -25554,6 +25950,9 @@ const VideoSession = (function() {
       opacity: 0.5;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel.is-slideOpen,
+    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel.is-slideOpen,
+    .fullScreen           .zenzaWatchVideoInfoPanel.is-slideOpen,
     .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover,
     .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover,
     .fullScreen           .zenzaWatchVideoInfoPanel:hover {
@@ -26162,6 +26561,12 @@ const VideoSession = (function() {
       });
       $icon.on('load', () => { $icon.removeClass('is-loading'); });
 
+      $view.on('touchenter', () => {
+        $view.addClass('is-slideOpen');
+      });
+      ZenzaWatch.emitter.on('hideHover', () => {
+        $view.removeClass('is-slideOpen');
+      });
       MylistPocketDetector.detect().then((pocket) => {
         this._pocket = pocket;
         $view.addClass('is-pocketReady');
@@ -26181,6 +26586,7 @@ const VideoSession = (function() {
       this._tagListView.update({
         tagList: videoInfo.getTagList(),
         watchId: videoInfo.getWatchId(),
+        videoId: videoInfo.getVideoId(),
         token: videoInfo.csrfToken,
         watchAuthKey: videoInfo.getWatchAuthKey()
       });
@@ -26254,7 +26660,7 @@ const VideoSession = (function() {
         this._$description.find('.watch').each((i, watchLink) => {
           var $watchLink = $(watchLink);
           var videoId = $watchLink.text().replace('watch/', '');
-          var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(videoId);
+          var thumbnail = util.getThumbnailUrlByVideoId(videoId);
           if (thumbnail) {
             var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
             $watchLink.addClass('popupThumbnail').append($img);
@@ -26839,6 +27245,7 @@ const VideoSession = (function() {
       this._tagListView.update({
         tagList: videoInfo.getTagList(),
         watchId,
+        videoId: videoInfo.getVideoId(),
         token: videoInfo.csrfToken,
         watchAuthKey: videoInfo.getWatchAuthKey()
       });
