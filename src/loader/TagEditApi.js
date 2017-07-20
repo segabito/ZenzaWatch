@@ -17,13 +17,13 @@ const WindowMessageEmitter = {};
 
 class TagEditApi {
 
-  load(watchId) {
-    const url = `/tag_edit/${watchId}/?res_type=json&cmd=tags&_=${Date.now()}`;
+  load(videoId) {
+    const url = `/tag_edit/${videoId}/?res_type=json&cmd=tags&_=${Date.now()}`;
     return this._fetch(url, { credentials: 'include' });
   }
 
-  add({watchId, tag, csrfToken, watchAuthKey, ownerLock = 0}) {
-    const url = `/tag_edit/${watchId}/`;
+  add({videoId, tag, csrfToken, watchAuthKey, ownerLock = 0}) {
+    const url = `/tag_edit/${videoId}/`;
 
     const body = this._buildQuery({
       cmd: 'add',
@@ -45,8 +45,8 @@ class TagEditApi {
     return this._fetch(url, options);
   }
 
-  remove({watchId, tag = '', id, csrfToken, watchAuthKey, ownerLock = 0}) {
-    const url = `/tag_edit/${watchId}/`;
+  remove({videoId, tag = '', id, csrfToken, watchAuthKey, ownerLock = 0}) {
+    const url = `/tag_edit/${videoId}/`;
 
     const body = this._buildQuery({
       cmd: 'remove',

@@ -849,6 +849,7 @@ const TagEditApi = function() {};
       this._tagListView.update({
         tagList: videoInfo.getTagList(),
         watchId: videoInfo.getWatchId(),
+        videoId: videoInfo.getVideoId(),
         token: videoInfo.csrfToken,
         watchAuthKey: videoInfo.getWatchAuthKey()
       });
@@ -922,7 +923,7 @@ const TagEditApi = function() {};
         this._$description.find('.watch').each((i, watchLink) => {
           var $watchLink = $(watchLink);
           var videoId = $watchLink.text().replace('watch/', '');
-          var thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(videoId);
+          var thumbnail = util.getThumbnailUrlByVideoId(videoId);
           if (thumbnail) {
             var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
             $watchLink.addClass('popupThumbnail').append($img);
@@ -1507,6 +1508,7 @@ const TagEditApi = function() {};
       this._tagListView.update({
         tagList: videoInfo.getTagList(),
         watchId,
+        videoId: videoInfo.getVideoId(),
         token: videoInfo.csrfToken,
         watchAuthKey: videoInfo.getWatchAuthKey()
       });

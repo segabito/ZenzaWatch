@@ -94,8 +94,9 @@ const TagEditApi = function() {};
       }
     }
 
-    update({tagList = [], watchId = null, token = null, watchAuthKey = null}) {
+    update({tagList = [], watchId = null, videoId = null, token = null, watchAuthKey = null}) {
       if (watchId) { this._watchId = watchId; }
+      if (videoId) { this._videoId = videoId; }
       if (token) { this._token = token; }
       if (watchAuthKey) { this._watchAuthKey = watchAuthKey; }
 
@@ -154,11 +155,12 @@ const TagEditApi = function() {};
 
       const wait3s = this._makeWait(3000);
       const watchId = this._watchId;
+      const videoId = this._videoId;
       const csrfToken = this._token;
       const watchAuthKey = this._watchAuthKey;
       const addTag = () => {
         return this._tagEditApi.add({
-          watchId,
+          videoId,
           tag,
           csrfToken,
           watchAuthKey
@@ -180,11 +182,12 @@ const TagEditApi = function() {};
 
       const wait3s = this._makeWait(3000);
       const watchId = this._watchId;
+      const videoId = this._videoId;
       const csrfToken = this._token;
       const watchAuthKey = this._watchAuthKey;
       const removeTag = () => {
         return this._tagEditApi.remove({
-          watchId,
+          videoId,
           tag,
           id: tagId,
           csrfToken,
@@ -206,7 +209,7 @@ const TagEditApi = function() {};
       this.setState({isUpdating: true});
       const watchId = this._watchId;
       const wait1s = this._makeWait(1000);
-      const load = () => { return this._tagEditApi.load(this._watchId); };
+      const load = () => { return this._tagEditApi.load(this._videoId); };
 
       return Promise.all([load(), wait1s]).then((results) => {
         let result = results[0];

@@ -241,6 +241,16 @@ class BaseViewComponent {}
       this.emit('commentFilterChange', nicoChatFilter);
     },
     setVideo: function(url) {
+      let e = { src: url, url: null, promise: null };
+      // デバッグ用
+      ZenzaWatch.emitter.emit('beforeSetVideo', e);
+      if (e.url) { url = e.url; }
+      if (e.promise) {
+        return e.promise.then(url => {
+          this._videoPlayer.setSrc(url);
+          this._isEnded = false;
+        });
+      }
       this._videoPlayer.setSrc(url);
       this._isEnded = false;
     },
