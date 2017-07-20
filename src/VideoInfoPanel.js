@@ -222,6 +222,9 @@ const TagEditApi = function() {};
       opacity: 0.5;
     }
 
+    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel.is-slideOpen,
+    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel.is-slideOpen,
+    .fullScreen           .zenzaWatchVideoInfoPanel.is-slideOpen,
     .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover,
     .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover,
     .fullScreen           .zenzaWatchVideoInfoPanel:hover {
@@ -830,6 +833,12 @@ const TagEditApi = function() {};
       });
       $icon.on('load', () => { $icon.removeClass('is-loading'); });
 
+      $view.on('touchenter', () => {
+        $view.addClass('is-slideOpen');
+      });
+      ZenzaWatch.emitter.on('hideHover', () => {
+        $view.removeClass('is-slideOpen');
+      });
       MylistPocketDetector.detect().then((pocket) => {
         this._pocket = pocket;
         $view.addClass('is-pocketReady');

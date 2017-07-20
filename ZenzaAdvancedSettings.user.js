@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name        ZenzaWatch Advanced Settings
+// @name        ZenzaWatch 上級者向け設定
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     0.2.4
+// @version     0.2.6
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -26,11 +26,11 @@
       log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop
     };
     console = debugMode ? window.console : dummyConsole;
-    var __tpl__ = ZenzaWatch.util.hereDoc(function() {/*
+    var __tpl__ = (`
       <span class="openZenzaAdvancedSettingPanel"><span></span>ZenzaWatch上級者設定</span>
-    */});
+    `).trim();
 
-    var __css__ = ZenzaWatch.util.hereDoc(function() {/*
+    var __css__ = (`
       .userDetail .openZenzaAdvancedSettingPanel {
         display: inline-block;
         position: absolute;
@@ -55,12 +55,12 @@
         background: url(http://uni.res.nimg.jp/img/zero_my/icons.png) no-repeat;
         background-position: -8px -141px;
       }
-    */});
+    `).trim();
 
 
 
     var SettingPanel = function() { this.initialize.apply(this, arguments); };
-    SettingPanel.__css__ = ZenzaWatch.util.hereDoc(function() {/*
+    SettingPanel.__css__ = (`
       .zenzaAdvancedSettingPanel {
         position: fixed;
         left: 50%;
@@ -244,7 +244,20 @@
         border-radius: 4px;
       }
 
-    */});
+    `).trim();
+
+    const commands = (`
+      <option value="">なし</option>
+      <option value="togglePlay">再生/停止</option>
+      <option value="fullScreen">フルスクリーン ON/OFF</option>
+      <option value="toggle-mute">ミュート ON/OFF</option>
+      <option value="toggle-showComment">コメント表示 ON/OFF</option>
+      <option value="toggle-backComment">コメントの背面表示 ON/OFF</option>
+      <option value="toggle-loop">ループ ON/OFF</option>
+      <option value="toggle-enableFilter">NG設定 ON/OFF</option>
+      <option value="screenShot">スクリーンショット</option>
+      <option value="deflistAdd">とりあえずマイリスト</option>
+    `).trim();
 
     SettingPanel.__tpl__ = (`
       <div class="zenzaAdvancedSettingPanel">
@@ -285,6 +298,48 @@
             </label>
           </div>
 
+          <div class="enableSlotLayoutEmulation control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="commentLayer.enableSlotLayoutEmulation">
+              Flash版のコメントスロット処理をエミュレーションする
+            </label>
+          </div>
+
+          <div class="touch-tap2command control toggle">
+            <label>
+              2本指タッチ
+              <select data-setting-name="touch.tap2command">
+                ${commands}
+              </select>
+            </label>
+          </div>
+
+          <div class="touch-tap3command control toggle">
+            <label>
+              3本指タッチ
+              <select data-setting-name="touch.tap3command">
+                ${commands}
+              </select>
+            </label>
+          </div>
+
+          <div class="touch-tap3command control toggle">
+            <label>
+              4本指タッチ
+              <select data-setting-name="touch.tap4command">
+                ${commands}
+              </select>
+            </label>
+          </div>
+
+          <div class="touch-tap5command control toggle">
+            <label>
+              5本指タッチ
+              <select data-setting-name="touch.tap5command">
+                ${commands}
+              </select>
+            </label>
+          </div>
 
 
           <p class="caption sub">NGワード正規表現</p>

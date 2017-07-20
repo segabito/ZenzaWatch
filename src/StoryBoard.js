@@ -642,7 +642,7 @@ var AsyncEmitter = function() {};
         sb.on('update', this._onStoryBoardUpdate.bind(this));
         sb.on('reset',  this._onStoryBoardReset .bind(this));
 
-        var frame = this._requestAnimationFrame = new ZenzaWatch.util.RequestAnimationFrame(
+        var frame = this._requestAnimationFrame = new util.RequestAnimationFrame(
           this._onRequestAnimationFrame.bind(this), 1
         );
 
@@ -735,7 +735,7 @@ var AsyncEmitter = function() {};
           .on('touchstart',  this._onTouchStart.bind(this))
         //  .on('touchend',    this._onTouchEnd  .bind(this))
           .on('touchmove',   this._onTouchMove .bind(this));
-        this._bouncedOnToucheMobeEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
+        this._bouncedOnToucheMoveEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
 
         this._$container.append($view);
         document.body.addEventListener('touchend', () => { this._isHover = false; }, {passive: true});
@@ -819,9 +819,11 @@ var AsyncEmitter = function() {};
         e.stopPropagation();
         this._isHover = true;
         this._isMouseMoving = true;
-        this._bouncedOnToucheMobeEnd();
+        this._isTouchMoving = true;
+        this._bouncedOnToucheMoveEnd();
       },
       _onTouchMoveEnd: function() {
+        this._isTouchMoving = false;
         this._isMouseMoving = false;
       },
       _onTouchCancel: function(e) {
@@ -911,7 +913,7 @@ var AsyncEmitter = function() {};
         if (!this._model.isAvailable()) { return; }
         if (!this._$view) { return; }
 
-        if (this._scrollLeftChanged) {
+        if (this._scrollLeftChanged && !this._isHover) {
           this._$inner.scrollLeft(this._scrollLeft);
           this.__scrollLeftChanged = false;
         }

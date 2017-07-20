@@ -785,15 +785,44 @@ class BaseViewComponent {}
    *  Video要素をラップした物
    *  操作パネル等を自前で用意したいが、まだ手が回らない。
    *
-   *  いずれは同じインターフェースのflash版も作って、swf/flv等の再生もサポートしたい。
    */
   var VideoPlayer = function() { this.initialize.apply(this, arguments); };
+  VideoPlayer.__css__ = `
+    .videoPlayer video {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+    }
+
+    /* iOSだとvideo上でマウスイベントが発生しないのでカバーを掛ける */
+    .touchWrapper {
+      display: block;
+      position: absolute;
+      opacity: 0;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+    }
+
+    .is-loading .touchWrapper,
+    .is-error .touchWrapper {
+      display: none !important;
+    }
+
+  `.trim();
+
   _.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
   _.assign(VideoPlayer.prototype, {
     initialize: function(params) {
       //console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
       this._resetVideo(params);
+
+      util.addStyle(VideoPlayer.__css__);
     },
     _reset: function() {
       this.removeClass('is-play is-pause is-abort is-error');
@@ -837,9 +866,15 @@ class BaseViewComponent {}
         params.hasOwnProperty('playbackRate') ? parseFloat(params.playbackRate) : 1.0;
 
       const video = document.createElement('video');
+      const body = document.createElement('div');
+      util.$(body)
+        .addClass(`videoPlayer nico ${this._id}`);
       util.$(video)
-        .addClass(`videoPlayer nico ${this._id}`)
+        .addClass(`videoPlayer-video`)
         .attr(options);
+      this._body = body;
+      body.appendChild(video);
+
       this._video = video;
       this._video.controls = false;
       this._video.autoplay = !!params.autoPlay;
@@ -851,6 +886,17 @@ class BaseViewComponent {}
       this.setVolume(volume);
       this.setMute(params.mute);
       this.setPlaybackRate(playbackRate);
+
+      this._touchWrapper = new TouchWrapper({
+        parentElement: body
+      });
+      this._touchWrapper.on('command', (command, param) => {
+        if (command === 'contextMenu') {
+          this._emit('contextMenu', param);
+          return;
+        }
+        this.emit('command', command, param);
+      });
 
       this._initializeEvents();
 
@@ -875,20 +921,24 @@ class BaseViewComponent {}
         .on('resize',         this._onResize         .bind(this))
         .on('abort',          this._onAbort          .bind(this))
         .on('error',          this._onError          .bind(this))
-                                                            
+
         .on('pause',          this._onPause          .bind(this))
         .on('play',           this._onPlay           .bind(this))
         .on('playing',        this._onPlaying        .bind(this))
         .on('seeking',        this._onSeeking        .bind(this))
         .on('seeked',         this._onSeeked         .bind(this))
         .on('volumechange',   this._onVolumeChange   .bind(this))
-                                                            
-                                                            
-        .on('click',          this._onClick          .bind(this))
-        .on('dblclick',       this._onDoubleClick    .bind(this))
-        .on('wheel',          this._onMouseWheel     .bind(this))
         .on('contextmenu',    this._onContextMenu    .bind(this))
+        .on('click',          this._onClick          .bind(this))
         ;
+
+      const touch = util.$(this._touchWrapper.body);
+      touch
+        .on('click',       this._onClick      .bind(this))
+        .on('dblclick',    this._onDoubleClick.bind(this))
+        .on('contextmenu', this._onContextMenu    .bind(this))
+        .on('wheel',       this._onMouseWheel .bind(this))
+      ;
     },
     _onCanPlay: function() {
       console.log('%c_onCanPlay:', 'background: cyan; color: blue;', arguments);
@@ -1151,7 +1201,7 @@ class BaseViewComponent {}
       return this._video.autoPlay;
     },
     appendTo: function(node) {
-      node.appendChild(this._video);
+      node.appendChild(this._body);
     },
     close: function() {
       this._video.pause();
@@ -1193,7 +1243,234 @@ class BaseViewComponent {}
     }
   });
 
+  class TouchWrapper extends AsyncEmitter {
+    constructor({parentElement}) {
+      super();
+      this._parentElement = parentElement;
+
+      this._config = ZenzaWatch.config.namespace('touch');
+      this._isTouching = false;
+      this._maxCount = 0;
+      this._currentTouches = [];
+
+      this._debouncedOnSwipe2Y = _.debounce(this._onSwipe2Y.bind(this), 400);
+      this._debouncedOnSwipe3X = _.debounce(this._onSwipe3X.bind(this), 400);
+      this.initializeDom();
+    }
+
+    initializeDom() {
+      let body = this._body = document.createElement('div');
+      body.className = 'touchWrapper';
+
+      //body.addEventListener('mousedown', this._onMousedown.bind(this));
+      //body.addEventListener('mouseup',   this._onMouseup  .bind(this));
+      body.addEventListener('contextMenu', (e) => {
+        this._execCommand('contextMenu', e);
+      });
+      body.addEventListener('click', this._onClick.bind(this));
+
+      body.addEventListener('touchstart',  this._onTouchStart .bind(this));
+      body.addEventListener('touchmove',   this._onTouchMove  .bind(this));
+      body.addEventListener('touchend',    this._onTouchEnd   .bind(this));
+      body.addEventListener('touchcancel', this._onTouchCancel.bind(this));
+
+      this._onTouchMoveThrottled =
+        _.throttle(this._onTouchMoveThrottled.bind(this), 200);
+
+      if (this._parentElement) {
+        this._parentElement.appendChild(body);
+      }
+      ZenzaWatch.debug.touchWrapper = this;
+    }
+
+    get body() {
+      return this._body;
+    }
+
+    _onMousedown(e) {
+      //window.console.log('onmousedown', e, e.button);
+      //if (e.button !== 0) {
+      //  this._body.style.display = 'none';
+      //  window.setTimeout(() => { this._body.style.display = 'block'; }, 400);
+      //}
+    }
+
+    _onClick(e) {
+      //const count = Math.max(this._lastTap, this._maxCount);
+      window.console.info('click', this._maxCount, this._lastTap, count);
+
+      this._lastTap = 0;
+    }
+
+    _onTouchStart(e) {
+      let identifiers =
+        this._currentTouches.map(touch => { return touch.identifier; });
+      if (e.changedTouches.length > 1) {
+        e.preventDefault();
+      }
+
+      Array.from(e.changedTouches).forEach(touch => {
+        if (identifiers.includes(touch.identifier)) { return; }
+        this._currentTouches.push(touch);
+      });
+
+      this._maxCount = Math.max(this._maxCount, this.touchCount);
+      this._startCenter = this._getCenter(e);
+      this._lastCenter = this._getCenter(e);
+      this._startAt = Date.now();
+      this._isMoved = false;
+    }
+
+    _onTouchMove(e) {
+      if (e.targetTouches.length > 1) {
+        e.preventDefault();
+      }
+      this._onTouchMoveThrottled(e);
+    }
+
+    _onTouchMoveThrottled(e) {
+      if (!e.targetTouches) { return; }
+      if (e.targetTouches.length > 1) {
+        e.preventDefault();
+      }
+      let startPoint   = this._startCenter;
+      let lastPoint    = this._lastCenter;
+      let currentPoint = this._getCenter(e);
+
+      if (!startPoint || !currentPoint) { return; }
+      let width  = this._body.offsetWidth;
+      let height = this._body.offsetHeight;
+      let diff = {
+        count: this.touchCount,
+        startX: startPoint.x,
+        startY: startPoint.y,
+        currentX: currentPoint.x,
+        currentY: currentPoint.y,
+        moveX: currentPoint.x - lastPoint.x,
+        moveY: currentPoint.y - lastPoint.y,
+        x: currentPoint.x - startPoint.x,
+        y: currentPoint.y - startPoint.y,
+      };
+
+      diff.perX = diff.x / width * 100;
+      diff.perY = diff.y / height * 100;
+      diff.perStartX = diff.startX / width * 100;
+      diff.perStartY = diff.startY / height * 100;
+      diff.movePerX = diff.moveX / width * 100;
+      diff.movePerY = diff.moveY / height * 100;
 
 
-//===END===
+      if (Math.abs(diff.perX) > 2 || Math.abs(diff.perY) > 1) {
+        this._isMoved = true;
+      }
 
+      if (diff.count === 2) {
+        if (Math.abs(diff.movePerX) >= 0.5) {
+          this._execCommand('seekRelativePercent', diff);
+        }
+        if (Math.abs(diff.perY) >= 30) {
+          this._debouncedOnSwipe2Y(diff);
+        }
+      }
+
+      if (diff.count === 3) {
+        if (Math.abs(diff.perX) >= 30) {
+          this._debouncedOnSwipe3X(diff);
+        }
+      }
+
+      this._lastCenter = currentPoint;
+      return diff;
+    }
+
+    _onSwipe2Y(diff) {
+      this._execCommand(diff.perY < 0 ? 'shiftUp' : 'shiftDown');
+      this._startCenter = this._lastCenter;
+      this._startAt = Date.now();
+    }
+
+    _onSwipe3X(diff) {
+      this._execCommand(diff.perX < 0 ? 'playNextVideo' : 'playPreviousVideo');
+      this._startCenter = this._lastCenter;
+      this._startAt = Date.now();
+    }
+
+    _execCommand(command, param) {
+      if (!this._config.getValue('enable')) { return; }
+      if (!command) { return; }
+      this.emit('command', command, param);
+    }
+
+    _onTouchEnd(e) {
+      if (!e.changedTouches) { return; }
+      let identifiers =
+        Array.from(e.changedTouches).map(touch => { return touch.identifier; });
+      let currentTouches = [];
+
+      currentTouches = this._currentTouches.filter(touch => {
+        return !identifiers.includes(touch.identifier);
+      });
+
+      this._currentTouches = currentTouches;
+
+      //touchstartは複数タッチでも一回にまとまって飛んでくるが、
+      //touchendは指の数だけ飛んでくるっぽい？
+      //window.console.log('onTouchEnd', this._isMoved, e.changedTouches.length, this._maxCount, this.touchCount);
+      if (!this._isMoved && this.touchCount === 0) {
+        const config = this._config;
+        this._lastTap = this._maxCount;
+        window.console.info('touchEnd', this._maxCount, this._isMoved);
+        switch (this._maxCount) {
+          case 2:
+            this._execCommand(config.getValue('tap2command'));
+            //window.setTimeout(() => {
+            //  this._execCommand(config.getValue('tap2command'));
+            //}, 0);
+            break;
+          case 3:
+            this._execCommand(config.getValue('tap3command'));
+            break;
+          case 4:
+            this._execCommand(config.getValue('tap4command'));
+            break;
+          case 5:
+            this._execCommand(config.getValue('tap5command'));
+            break;
+        }
+        this._maxCount = 0;
+        this._isMoved = false;
+      }
+
+    }
+
+    _onTouchCancel(e) {
+      if (!e.changedTouches) { return; }
+      let identifiers =
+        Array.from(e.changedTouches).map(touch => { return touch.identifier; });
+      let currentTouches = [];
+
+      window.console.log('onTouchCancel', this._isMoved, e.changedTouches.length);
+      currentTouches = this._currentTouches.filter(touch => {
+        return !identifiers.includes(touch.identifier);
+      });
+
+      this._currentTouches = currentTouches;
+    }
+
+    get touchCount() {
+      return this._currentTouches.length;
+    }
+
+    _getCenter(e) {
+      let x = 0, y = 0;
+      Array.from(e.touches).forEach(t => {
+        x += t.pageX;
+        y += t.pageY;
+      });
+      return {x: x / e.touches.length, y: y / e.touches.length};
+    }
+  }
+
+
+
+//===END==

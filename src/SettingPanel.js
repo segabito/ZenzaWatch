@@ -263,6 +263,15 @@ var AsyncEmitter = function() {};
           </label>
         </div>
 
+        <div class="touchEnable control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="touch.enable"
+            data-command="toggle-touchEnable">
+            タッチパネルのジェスチャを有効にする
+            <smal>(2本指左右シーク・上下で速度変更/3本指で動画切替)</small>
+          </label>
+        </div>
+
 
 
 

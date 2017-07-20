@@ -1048,6 +1048,11 @@ var CONSTANT = {};
       this._initializeVideoInfoPanel();
       this._initializeResponsive();
 
+      //$dialog.toggleClass('is-iOS', /(iPad|iPhone|CriOS)/.test(navigator.userAgent));
+      // //タッチパネルがある場合は null ない場合は undefined になる
+      //$dialog.toggleClass('is-touchDeviceExist', window.ontouchstart !== undefined);
+
+
       ZenzaWatch.emitter.on('showMenu', () => { $container.addClass('menuOpen'); });
       ZenzaWatch.emitter.on('hideMenu', () => { $container.removeClass('menuOpen'); });
       document.body.appendChild($dialog[0]);
@@ -1503,6 +1508,15 @@ var CONSTANT = {};
           break;
         case 'seekBy':
           this.setCurrentTime(this.getCurrentTime() + param * 1);
+          break;
+        case 'seekRelativePercent':
+          let dur = this._videoInfo.getDuration();
+          //let st = param.perStartX;
+          let mv = Math.abs(param.movePerX) > 10 ?
+            (param.movePerX / 2) : (param.movePerX / 16);
+          let pos = this.getCurrentTime() + (mv * dur / 100);
+          //let pos = (st + mv) * dur / 100);
+          this.setCurrentTime(Math.min(Math.max(0, pos), dur));
           break;
         case 'addWordFilter':
           this._nicoVideoPlayer.addWordFilter(param);

@@ -289,6 +289,12 @@ class CrossDomainGate {}
 
         'screenshot.prefix': '',
 
+        'touch.enable': true,
+        'touch.tap2command': '',
+        'touch.tap3command': 'toggle-mute',
+        'touch.tap4command': 'toggle-showComment',
+        'touch.tap5command': 'screenShot',
+
         KEY_CLOSE:      27,          // ESC
         KEY_RE_OPEN:    27 + 0x1000, // SHIFT + ESC
         KEY_HOME:       36 + 0x1000, // SHIFT + HOME
