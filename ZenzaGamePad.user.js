@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://*.nicovideo.jp/*
-// @version     1.3
+// @version     1.3.2
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -113,7 +113,7 @@
           execCommand('playbackRate', 3);
           break;
         case 8: // しいたけの左 ビューボタン (Back)
-          execCommand('close');
+          execCommand('screenShot');
           break;
         case 9: // しいたけの右 メニューボタン (Start)
           execCommand('deflistAdd');
@@ -226,7 +226,7 @@
           execCommand('playNextVideo');
           break;
         case 10: // SELECT
-          execCommand('close');
+          execCommand('screenShot');
           break;
         case 11: // START
           execCommand('deflistAdd');
@@ -706,7 +706,7 @@
         var gamepads = navigator.getGamepads();
         if (gamepads.length > 0) {
           var pad = _.find(gamepads, (pad) => {
-            return  pad !== undefined &&
+            return  pad &&
                     pad.id &&
                     // windowsにDualShock4を繋ぐとあらわれる謎のデバイス
                     !pad.id.match(/Vendor: 00ff/i);
@@ -947,9 +947,9 @@
       window.console.log('ZenzaWatch is Ready');
       loadMonkey();
     } else {
-      window.jQuery('body').on('ZenzaWatchReady', function() {
+      document.body.addEventListener('ZenzaWatchInitialize', () => {
       //document.body.addEventListener('ZenzaWatchReady', function() {
-        window.console.log('onZenzaWatchReady');
+        window.console.log('onZenzaWatchInitialize');
         loadMonkey();
       });
     }
