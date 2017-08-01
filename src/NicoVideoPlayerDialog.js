@@ -141,7 +141,7 @@ var CONSTANT = {};
       var eventType = this.getEventType();
       var query = this.getQuery();
       if (eventType === 'click' &&
-          _.contains(['mylist_playlist', 'tag', 'search'], query.playlist_type) &&
+          _.contains(['mylist', 'tag', 'search'], query.playlist_type) &&
           (query.group_id || query.order)) {
         return true;
       }
