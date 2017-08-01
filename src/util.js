@@ -225,8 +225,8 @@ class CrossDomainGate {}
         enableTogglePlayOnClick: false, // 画面クリック時に再生/一時停止するかどうか
         enableDblclickClose: true, //
         enableFullScreenOnDoubleClick: true,
-        enableStoryBoard: true, // シークバーサムネイル関連
-        enableStoryBoardBar: false, // シーンサーチ
+        enableStoryboard: true, // シークバーサムネイル関連
+        enableStoryboardBar: false, // シーンサーチ
 
         forceEconomy: false,
         // NG設定
@@ -289,7 +289,9 @@ class CrossDomainGate {}
 
         'screenshot.prefix': '',
 
-        'touch.enable': true,
+        //タッチパネルがある場合は null ない場合は undefined になるらしい
+        //うちのデスクトップは無いのに null だが…
+        'touch.enable': window.ontouchstart !== undefined,
         'touch.tap2command': '',
         'touch.tap3command': 'toggle-mute',
         'touch.tap4command': 'toggle-showComment',

@@ -71,6 +71,14 @@ var ZenzaWatch = {
     get videoFormatList() {
       return (this.videos || []).concat();
     }
+
+    get hasStoryboard() {
+      return !!this._rawData.storyboard_session_api;
+    }
+
+    get storyboardInfo() {
+      return this._rawData.storyboard_session_api;
+    }
  }
 
   class VideoFilter {
@@ -177,8 +185,13 @@ var ZenzaWatch = {
     getVideoUrl() {
       return this._flvInfo.url;
     }
+
     getStoryboardUrl() {
-      return this._flvInfo.url;
+      let url = this._flvInfo.url;
+      if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
+        return null;
+      }
+      return url;
     }
 
     getCurrentVideo() {
@@ -232,6 +245,7 @@ var ZenzaWatch = {
         view: vd.viewCount
       };
     }
+    // TODO: このへんgetterにする
     isChannel() {
       return !!this._videoDetail.channelId;
     }
@@ -245,7 +259,7 @@ var ZenzaWatch = {
       return !!(this._videoDetail.commons_tree_exists);
     }
     isDmc() {
-      return this._rawData.isDmc && !this._isDmcDisable;
+      return this.isDmcOnly || (this._rawData.isDmc && !this._isDmcDisable);
     }
     getDmcInfo() {
       return this._dmcInfo;
@@ -255,11 +269,23 @@ var ZenzaWatch = {
     }
 
     get isDmcDisable() {
-      return this._isDmcDisable;
+      return this.isDmcOnly && this._isDmcDisable;
     }
 
     set isDmcDisable(v) {
       this._isDmcDisable = v;
+    }
+
+    get isDmcOnly() {
+      return !!this._rawData.isDmcOnly;
+    }
+
+    get hasDmcStoryboard() {
+      return this._dmcInfo && this._dmcInfo.hasStoryboard;
+    }
+
+    get dmcStoryboardInfo() {
+      return !!this._dmcInfo ? this._dmcInfo.storyboardInfo : null;
     }
 
     /**
@@ -340,6 +366,7 @@ var ZenzaWatch = {
     get csrfToken() {
       return this._rawData.csrfToken || '';
     }
+
   }
 
 
@@ -347,41 +374,6 @@ var ZenzaWatch = {
 // iOS9 constはイケるがletはアカンらしい
 //const hoge = 123;
 //let fuga = 456;
-
-
-
-const memo = {
-  "time":1471496101,
-  "time_ms":1471496101976,
-  "video":{"video_id":"sm29469479","length_seconds":74,"deleted":0},
-  "thread":{"server_url":"http:\/\/nmsg.nicovideo.jp\/api\/","sub_server_url":"http:\/\/nmsg.nicovideo.jp\/api\/","thread_id":1471491375,"nicos_thread_id":null,"optional_thread_id":null,"thread_key_required":false,"channel_ng_words":[],"owner_ng_words":[],"maintenances_ng":false,"postkey_available":true,"ng_revision":290},
-  "user":{"user_id":1472081,"is_premium":true,"nickname":"\u305b\u304c\u3073\u3068"},
-  "hiroba":{"fms_token":null,"server_url":"hiroba.nicovideo.jp","server_port":2564,"thread_id":400,"thread_key":"1471496161.O4zPf3jl3US4WfiL8hLaqBMuPvg"},
-  "error":null,
-
-  "session_api":{
-    "api_urls":
-      ["http:\/\/api.dmc.nico:2805\/api\/sessions"],
-    "recipe_id":"nicovideo-sm29469479",
-    "player_id":"nicovideo-6-bdASBw29LO_1471496101893",
-    "videos":
-      ["archive_h264_2000kbps_720p","archive_h264_1000kbps_540p","archive_h264_600kbps_360p","archive_h264_300kbps_360p"],
-    "audios":
-      ["archive_aac_64kbps"],
-    "movies":[],
-    "protocols":["http"],
-    "auth_types":{"http":"ht2"},
-    "service_user_id":"1472081",
-    "token":
-      "{\"service_id\":\"nicovideo\",\"player_id\":\"nicovideo-6-bdASBw29LO_1471496101893\",\"recipe_id\":\"nicovideo-sm29469479\",\"service_user_id\":\"1472081\",\"protocols\":[{\"name\":\"http\",\"auth_type\":\"ht2\"}],\"videos\":[\"archive_h264_1000kbps_540p\",\"archive_h264_2000kbps_720p\",\"archive_h264_300kbps_360p\",\"archive_h264_600kbps_360p\"],\"audios\":[\"archive_aac_64kbps\"],\"movies\":[],\"created_time\":1471496101000,\"expire_time\":1471582501000,\"content_ids\":[\"out1\"],\"heartbeat_lifetime\":60000,\"content_key_timeout\":600000,\"priority\":0.8,\"transfer_presets\":[]}",
-    "signature":"4889d38f4dbf0b324809109c8eb064aac2b07acb32697fc7ab7b4f54f2a69744",
-    "content_id":"out1",
-    "heartbeat_lifetime":60000,
-    "content_key_timeout":600000,
-    "priority":0.8
-  }
-};
-
 
 
 

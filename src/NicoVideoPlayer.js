@@ -1264,9 +1264,9 @@ class BaseViewComponent {}
 
       //body.addEventListener('mousedown', this._onMousedown.bind(this));
       //body.addEventListener('mouseup',   this._onMouseup  .bind(this));
-      body.addEventListener('contextMenu', (e) => {
-        this._execCommand('contextMenu', e);
-      });
+      //body.addEventListener('contextMenu', (e) => {
+      //  this._execCommand('contextMenu', e);
+      //});
       body.addEventListener('click', this._onClick.bind(this));
 
       body.addEventListener('touchstart',  this._onTouchStart .bind(this));
@@ -1297,7 +1297,7 @@ class BaseViewComponent {}
 
     _onClick(e) {
       //const count = Math.max(this._lastTap, this._maxCount);
-      window.console.info('click', this._maxCount, this._lastTap, count);
+      //window.console.info('click', this._maxCount, this._lastTap, count);
 
       this._lastTap = 0;
     }
@@ -1368,13 +1368,13 @@ class BaseViewComponent {}
         if (Math.abs(diff.movePerX) >= 0.5) {
           this._execCommand('seekRelativePercent', diff);
         }
-        if (Math.abs(diff.perY) >= 30) {
+        if (Math.abs(diff.perY) >= 20) {
           this._debouncedOnSwipe2Y(diff);
         }
       }
 
       if (diff.count === 3) {
-        if (Math.abs(diff.perX) >= 30) {
+        if (Math.abs(diff.perX) >= 20) {
           this._debouncedOnSwipe3X(diff);
         }
       }

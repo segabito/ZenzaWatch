@@ -5,7 +5,7 @@ var ZenzaWatch = {
   debug: {}
 };
 var AsyncEmitter = function() {};
-var StoryBoard = function() {};
+var Storyboard = function() {};
 var CONSTANT = {};
 
 //===BEGIN===
@@ -123,7 +123,7 @@ var CONSTANT = {};
     .fullScreen .controlItemContainer.center {
       top: auto;
     }
-    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center {
+    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center {
       background: transparent;
     }
 
@@ -134,10 +134,10 @@ var CONSTANT = {};
       transform-origin: top center;
     }
 
-    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI {
+    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
       background: rgba(32, 32, 32, 0.5);
     }
-    .fullScreen.zenzaStoryBoardOpen .controlItemContainer.center .scalingUI:hover {
+    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
       background: rgba(32, 32, 32, 0.8);
     }
 
@@ -365,7 +365,7 @@ var CONSTANT = {};
       transition: left 0.2s, width 0.2s;
     }
 
-    .zenzaStoryBoardOpen .bufferRange {
+    .zenzaStoryboardOpen .bufferRange {
       background: #ff9;
       mix-blend-mode: lighten;
       opacity: 0.5;
@@ -715,7 +715,7 @@ var CONSTANT = {};
       font-size: 18px;
     }
 
-    .toggleStoryBoard {
+    .toggleStoryboard {
       visibility: hidden;
       font-size: 13px;
       /*width: 32px;*/
@@ -724,20 +724,20 @@ var CONSTANT = {};
       line-height: 36px;
       pointer-events: none;
     }
-    .storyBoardAvailable .toggleStoryBoard {
+    .storyboardAvailable .toggleStoryboard {
       visibility: visible;
       pointer-events: auto;
     }
-    .zenzaStoryBoardOpen .storyBoardAvailable .toggleStoryBoard {
+    .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
       text-shadow: 0px 0px 2px #9cf;
       color: #9cf;
     }
 
-    .toggleStoryBoard .controlButtonInner {
+    .toggleStoryboard .controlButtonInner {
       transform: scaleX(-1);
     }
 
-    .toggleStoryBoard:active {
+    .toggleStoryboard:active {
       font-size: 10px;
     }
 
@@ -881,7 +881,7 @@ var CONSTANT = {};
 
       <div class="controlItemContainer center">
         <div class="scalingUI">
-          <div class="toggleStoryBoard controlButton playControl forPremium" data-command="toggleStoryBoard">
+          <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
             <div class="controlButtonInner">＜●＞</div>
             <div class="tooltip">シーンサーチ</div>
           </div>
@@ -1094,17 +1094,17 @@ var CONSTANT = {};
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
       this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
 
-      this._storyBoard = new StoryBoard({
+      this._storyboard = new Storyboard({
         playerConfig: config,
         player: this._player,
         $container: $view
       });
 
-      this._storyBoard.on('command', onCommand);
+      this._storyboard.on('command', onCommand);
 
       this._seekBarToolTip = new SeekBarToolTip({
         $container: this._$seekBarContainer,
-        storyBoard: this._storyBoard
+        storyboard: this._storyboard
       });
       this._seekBarToolTip.on('command', onCommand);
 
@@ -1338,8 +1338,8 @@ var CONSTANT = {};
         case 'playbackRateMenu':
           this.togglePlaybackRateMenu();
           break;
-        case 'toggleStoryBoard':
-          this._storyBoard.toggle();
+        case 'toggleStoryboard':
+          this._storyboard.toggle();
           break;
         case 'videoServerTypeMenu':
           this.toggleVideoServerTypeMenu();
@@ -1411,13 +1411,13 @@ var CONSTANT = {};
       this.setDuration(0);
       this.setCurrentTime(0);
       this._heatMap.reset();
-      this._storyBoard.reset();
+      this._storyboard.reset();
       this.resetBufferedRange();
     },
     _onPlayerCanPlay: function(watchId, videoInfo) {
       var duration = this._player.getDuration();
       this.setDuration(duration);
-      this._storyBoard.onVideoCanPlay(watchId, videoInfo);
+      this._storyboard.onVideoCanPlay(watchId, videoInfo);
 
       this._heatMap.setDuration(duration);
     },
@@ -1492,7 +1492,7 @@ var CONSTANT = {};
 
       this.emit('command', 'seek', sec);
       this._seekBarToolTip.update(sec, left);
-      this._storyBoard.setCurrentTime(sec, true);
+      this._storyboard.setCurrentTime(sec, true);
     },
     _onBodyMouseUp: function() {
       this._endMouseDrag();
@@ -1520,7 +1520,7 @@ var CONSTANT = {};
       if (this._timerCount % 30 === 0) {
         this.setCurrentTime(currentTime);
       }
-      this._storyBoard.setCurrentTime(currentTime);
+      this._storyboard.setCurrentTime(currentTime);
     },
     _onLoadVideoInfo: function(videoInfo) {
       this.setDuration(videoInfo.getDuration());
@@ -2420,7 +2420,7 @@ var CONSTANT = {};
   _.assign(SeekBarToolTip .prototype, {
     initialize: function(params) {
       this._$container = params.$container;
-      this._storyBoard = params.storyBoard;
+      this._storyboard = params.storyboard;
       this._initializeDom(params.$container);
 
       //this.update = ZenzaWatch.util.createDrawCallFunc(this.update.bind(this));
@@ -2438,7 +2438,7 @@ var CONSTANT = {};
         .on('mousedown',this._onMouseDown.bind(this))
         .on('click', function(e) { e.stopPropagation(); e.preventDefault(); });
 
-      this._seekBarThumbnail = this._storyBoard.getSeekBarThumbnail({
+      this._seekBarThumbnail = this._storyboard.getSeekBarThumbnail({
         $container: $view.find('.seekBarThumbnailContainer')
       });
       this._seekBarThumbnail.on('visible', v => {

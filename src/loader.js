@@ -132,7 +132,8 @@ var ajax = function() {};
 
           let playlist =
             JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
-          let isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+          const isPlayableSmile = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+          const isPlayable = isDmc || (isMp4 && !isSwf && (videoUrl.indexOf('http') === 0));
 
           cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
@@ -143,6 +144,7 @@ var ajax = function() {};
             dmcInfo,
             msgInfo,
             playlist,
+            isDmcOnly: isPlayable && !isPlayableSmile,
             isPlayable,
             isMp4,
             isFlv,
@@ -171,7 +173,7 @@ var ajax = function() {};
         const env  = JSON.parse(watchDataContainer.getAttribute('data-environment'));
 
         const videoId = data.video.id;
-        const hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
+        const hasLargeThumbnail = util.hasLargeThumbnail(videoId);
         const flvInfo = data.video.smileInfo;
         const dmcInfo = data.video.dmcInfo;
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
@@ -201,7 +203,8 @@ var ajax = function() {};
           when: null
         };
 
-        const isPlayable = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+        const isPlayableSmile = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
+        const isPlayable = isDmc || (isMp4 && !isSwf && (videoUrl.indexOf('http') === 0));
 
         cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
@@ -319,6 +322,7 @@ var ajax = function() {};
           dmcInfo,
           msgInfo,
           playlist,
+          isDmcOnly: isPlayable && !isPlayableSmile,
           isPlayable,
           isMp4,
           isFlv,
@@ -1045,7 +1049,7 @@ var ajax = function() {};
             }
 
             //if (resultCode !== '0' && (!chats || chats.length < 1)) {
-            window.console.log('resultCodes: ', resultCodes);
+            console.log('resultCodes: ', resultCodes);
             if (resultCode !== 0) {
               reject({
                 message: `コメント取得失敗[${resultCodes.join(', ')}]`
@@ -1073,7 +1077,7 @@ var ajax = function() {};
               threadInfo.force184  = this._threadKeys[threadId].force_184;
             }
 
-            window.console.log('threadInfo: ', threadInfo);
+            console.log('threadInfo: ', threadInfo);
             resolve({
               resultCode: resultCode,
               threadInfo: threadInfo,
@@ -2044,117 +2048,6 @@ var ajax = function() {};
     }
 
 
-    var StoryBoardInfoLoader = (function() {
-      var reject = function(err) {
-        return new Promise(function(res, rej) {
-          window.setTimeout(function() { rej(err); }, 0);
-        });
-      };
-
-      var parseStoryBoard = function($storyBoard, url) {
-        var storyBoardId = $storyBoard.attr('id') || '1';
-        return {
-          id:       storyBoardId,
-          url:      url.replace('sb=1', 'sb=' + storyBoardId),
-          thumbnail:{
-            width:    $storyBoard.find('thumbnail_width').text(),
-            height:   $storyBoard.find('thumbnail_height').text(),
-            number:   $storyBoard.find('thumbnail_number').text(),
-            interval: $storyBoard.find('thumbnail_interval').text()
-          },
-          board: {
-            rows:   $storyBoard.find('board_rows').text(),
-            cols:   $storyBoard.find('board_cols').text(),
-            number: $storyBoard.find('board_number').text()
-          }
-        };
-      };
-
-      var parseXml = function(xml, url) {
-        var $xml = $(xml), $storyBoard = $xml.find('storyboard');
-
-        if ($storyBoard.length < 1) {
-          return null;
-        }
-
-        var info = {
-          status:   'ok',
-          message:  '成功',
-          url:      url,
-          movieId:  $xml.find('movie').attr('id'),
-          duration: $xml.find('duration').text(),
-          storyBoard: []
-        };
-
-        for (var i = 0, len = $storyBoard.length; i < len; i++) {
-          var sbInfo = parseStoryBoard($($storyBoard[i]), url);
-          info.storyBoard.push(sbInfo);
-        }
-        info.storyBoard.sort(function(a, b) {
-          var idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
-          return (idA < idB) ? 1 : -1;
-        });
-        return info;
-      };
-
-
-      var load = function(videoFileUrl) {
-        var a = document.createElement('a');
-        a.href = videoFileUrl;
-        var server = a.host;
-        var search = a.search;
-
-        if (!/\?(.)=(\d+)\.(\d+)/.test(search)) {
-          return reject({status: 'fail', message: 'invalid url', url: videoFileUrl});
-        }
-
-        var fileType = RegExp.$1;
-        var fileId   = RegExp.$2;
-        var key      = RegExp.$3;
-
-        if (fileType !== 'm') {
-          return reject({status: 'fail', message: 'unknown file type', url: videoFileUrl});
-        }
-
-        // いつの間にかCORSヘッダーがついてたのでCrossDomainGateが不要になった
-        //var gate = initializeByServer(server, fileId);
-
-        return new Promise(function(resolve, reject) {
-          var url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
-
-          util.fetch(url, {credentials: 'include'})
-            .then(res => { return res.text(); })
-            .then(result => {
-            const info = parseXml(result, url);
-
-            if (info) {
-              resolve(info);
-            } else {
-              reject({
-                status: 'fail',
-                message: 'storyBoard not exist (1)',
-                result: result,
-                url: url
-              });
-            }
-          }, (err) => {
-            reject({
-              status: 'fail',
-              message: 'storyBoard not exist (2)',
-              result: err,
-              url: url
-            });
-          });
-        });
-      };
-
-      return {
-        load: load
-      };
-    })();
-    ZenzaWatch.api.StoryBoardInfoLoader = StoryBoardInfoLoader;
-
-
     const IchibaLoader = (() => {
 
       let callbackId = 0;
@@ -2272,23 +2165,6 @@ var ajax = function() {};
 
 
 //===END===
-    ZenzaWatch.emitter.on('loadVideoInfo', function(data, type, r) {
-      var info = data.flvInfo;
-      var url = info.url;
-      if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
-        return;
-      }
-
-      ZenzaWatch.api.StoryBoardInfoLoader.load(url).then(
-        function(result) {
-          window.console.info(result);
-        },
-        function(err) {
-          window.console.info(err);
-        }
-      );
-    });
-
     /**
      *
      */

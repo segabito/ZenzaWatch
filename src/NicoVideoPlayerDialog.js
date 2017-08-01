@@ -480,17 +480,17 @@ var CONSTANT = {};
       -moz-user-select: none;
     }
 
-    .zenzaScreenMode_3D   .zenzaVideoPlayerDialog,
-    .zenzaScreenMode_wide .videoPlayer,
-    .fullScreen .videoPlayer {
+    .zenzaScreenMode_3D   .zenzaVideoPlayerDialog .videoPlayer>*,
+    .zenzaScreenMode_wide .videoPlayer>*,
+    .fullScreen .videoPlayer>* {
       cursor: none;
     }
 
-    .zenzaPlayerContainer .videoPlayer.is-loading {
+    .zenzaPlayerContainer .videoPlayer.is-loading>* {
       cursor: wait;
     }
 
-    .is-mouseMoving .videoPlayer {
+    .is-mouseMoving .videoPlayer>* {
       cursor: auto;
     }
 
@@ -589,15 +589,15 @@ var CONSTANT = {};
       border: 0 !important;
     }
 
-    .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .videoPlayer,
-    .zenzaStoryBoardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
+    .zenzaStoryboardOpen.fullScreen           .showVideoControlBar .videoPlayer,
+    .zenzaStoryboardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
       padding-bottom: 50px;
     }
 
-    .zenzaStoryBoardOpen.zenzaScreenMode_3D .showVideoControlBar .videoPlayer,
-    .zenzaStoryBoardOpen.zenzaScreenMode_3D .showVideoControlBar .commentLayerFrame,
-    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
-    .zenzaStoryBoardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame{
+    .zenzaStoryboardOpen.zenzaScreenMode_3D .showVideoControlBar .videoPlayer,
+    .zenzaStoryboardOpen.zenzaScreenMode_3D .showVideoControlBar .commentLayerFrame,
+    .zenzaStoryboardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
+    .zenzaStoryboardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame{
       padding-bottom: 80px;
     }
 
@@ -1513,7 +1513,7 @@ var CONSTANT = {};
           let dur = this._videoInfo.getDuration();
           //let st = param.perStartX;
           let mv = Math.abs(param.movePerX) > 10 ?
-            (param.movePerX / 2) : (param.movePerX / 16);
+            (param.movePerX / 2) : (param.movePerX / 8);
           let pos = this.getCurrentTime() + (mv * dur / 100);
           //let pos = (st + mv) * dur / 100);
           this.setCurrentTime(Math.min(Math.max(0, pos), dur));
@@ -2159,6 +2159,7 @@ var CONSTANT = {};
       const videoInfo = this._videoInfo = new VideoInfoModel(videoInfoData);
 
       const autoDisableDmc =
+        !videoInfo.isDmcOnly &&
         this._playerConfig.getValue('autoDisableDmc') &&
         !videoInfo.isEconomy() &&
         util.isBetterThanDmcMayBe(
@@ -2347,7 +2348,7 @@ var CONSTANT = {};
         option.shuffle = parseInt(query.shuffle, 10) === 1;
         console.log('playlist option:', option);
 
-        if (query.playlist_type === 'mylist_playlist') {
+        if (query.playlist_type === 'mylist') {
           this._playlist.loadFromMylist(option.group_id, option);
         } else {
           var word = query.tag || query.keyword;

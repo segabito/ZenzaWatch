@@ -99,6 +99,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 //@require loader/TagEditApi.js
 
+//@require loader/Storyboard.js
+
 //@require NicoVideoPlayer.js
 
 //@require StoryBoard.js

@@ -208,7 +208,7 @@ var AsyncEmitter = function() {};
 
         <div class="overrideWatchLinkControl control toggle forPremium">
           <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableStoryBoard">
+            <input type="checkbox" class="checkbox" data-setting-name="enableStoryboard">
             シークバーにサムネイルを表示 (重いかも)
           </label>
         </div>
@@ -568,7 +568,7 @@ var AsyncEmitter = function() {};
         case 'enableHeatMap':
         case 'showComment':
         case 'autoFullScreen':
-        case 'enableStoryBoard':
+        case 'enableStoryboard':
         case 'enableCommentPanel':
         case 'debug':
           this._$panel
