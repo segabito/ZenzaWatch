@@ -69,7 +69,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
             if ($('.zenzaPlaylistShuffleStart').length > 0) {
               return;
             }
-            var $a = $('a[href*="playlist_type=mylist"]:first');
+            var $a = $('a[href*="playlist_type=mylist"]:first,a[href*="playlist_type=deflist"]:first');
             if ($a.length < 1) { return false; }
             var a = $a[0];
             var search = (a.search || '').substr(1);
