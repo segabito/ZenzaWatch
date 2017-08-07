@@ -1562,7 +1562,7 @@ class CrossDomainGate {}
         const css = {
           width: '64px',
           height: '36px',
-          position: 'fixd',
+          position: 'fixed',
           left: '-100px',
           top: '-100px'
         };
