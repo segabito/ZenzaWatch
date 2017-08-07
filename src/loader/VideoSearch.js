@@ -17,38 +17,56 @@ const WindowMessageEmitter = {};
 
   const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
     (function() {
-      // 参考: http://search.nicovideo.jp/docs/api/search.html
+      // 参考: http://site.nicovideo.jp/search-api-docs/search.html
       // http://ch.nicovideo.jp/nico-lab/blomaga/ar930955
-      const BASE_URL ='http://api.search.nicovideo.jp/api/v2/';
-      const API_BASE_URL  = 'http://api.search.nicovideo.jp/api/v2/video/contents/search';
-      const MESSAGE_ORIGIN = location.protocol + '//api.search.nicovideo.jp/';
+      const BASE_URL       = `${location.protocol}//api.search.nicovideo.jp/api/v2/`;
+      const API_BASE_URL   = `${BASE_URL}/video/contents/search`;
+      const MESSAGE_ORIGIN = `${location.protocol}//api.search.nicovideo.jp/`;
       const SORT = {
-          f: 'startTime',
-          v: 'viewCounter',
-          r: 'commentCounter',
-          m: 'mylistCounter',
-          l: 'lengthSeconds',
-          n: 'lastCommentTime',
-          // v1からの推測で見つけたけどドキュメントにはのってないやつ
-          h: '_hotMylistCounter',           // 人気が高い順
-          '_hot':   '_hotMylistCounter',    // 人気が高い順(↑と同じだけど互換用に残ってる)
-          '_popular': '_popular',            // 並び順指定なしらしい
-        };
+        f: 'startTime',
+        v: 'viewCounter',
+        r: 'commentCounter',
+        m: 'mylistCounter',
+        l: 'lengthSeconds',
+        n: 'lastCommentTime',
+        // v1からの推測で見つけたけどドキュメントにはのってないやつ
+        h: '_hotMylistCounter',           // 人気が高い順
+        '_hot':   '_hotMylistCounter',    // 人気が高い順(↑と同じだけど互換用に残ってる)
+        '_popular': '_popular',            // 並び順指定なしらしい
+      };
 
-        let gate;
+      // 公式検索の日時指定パラメータ -1h -24h -1w -1m
+      const F_RANGE = {
+        U_1H:   4,
+        U_24H:  1,
+        U_1W:   2,
+        U_30D: 3
+      };
 
-        // なぜかv2はCORSがついてないのでCrossDomainGateの力を借りる
-        let initializeCrossDomainGate = function() {
-          initializeCrossDomainGate = function() {};
-          gate = new CrossDomainGate({
-            baseUrl: BASE_URL,
-            origin: MESSAGE_ORIGIN,
-            type: 'searchApi',
-            messager: WindowMessageEmitter
-          });
-        };
+      // 公式検索の動画長指定パラメータ -5min 20min-
+      const L_RANGE = {
+        U_5MIN: 1,
+        O_20MIN: 2
+      };
 
-       class NicoSearchApiV2Query {
+
+      let gate;
+
+      // なぜかv2はCORSがついてないのでCrossDomainGateの力を借りる
+      let initializeCrossDomainGate = function() {
+        initializeCrossDomainGate = function() {};
+        gate = new CrossDomainGate({
+          baseUrl: BASE_URL,
+          origin: MESSAGE_ORIGIN,
+          type: 'searchApi',
+          messager: WindowMessageEmitter
+        });
+      };
+
+      /**
+       * 公式検索ページのqueryパラメータをv2用に変換するやつ＋α
+       */
+      class NicoSearchApiV2Query {
 
         constructor(word, params = {}) {
           if (word.searchWord) {
@@ -72,6 +90,7 @@ const WindowMessageEmitter = {};
         get hotTo() { return this._hotTo; }
 
         _initialize(word, params) {
+          if (params._now) { this.now = params._now; }
           const sortTable = SORT;
           this._filters = [];
           this._q       = word || params.searchWord || 'ZenzaWatch';
@@ -89,60 +108,88 @@ const WindowMessageEmitter = {};
             1600
           );
           this._fields = [
-              'contentId', 'title', 'description', 'tags', 'categoryTags',
-              'viewCounter', 'commentCounter', 'mylistCounter', 'lengthSeconds',
-              'startTime', 'thumbnailUrl',
-              // 公式ドキュメントからは消えてるけど指定できた
-              'lengthSeconds', 'lastResBody'
-            ];
+            'contentId', 'title', 'description', 'tags', 'categoryTags',
+            'viewCounter', 'commentCounter', 'mylistCounter', 'lengthSeconds',
+            'startTime', 'thumbnailUrl',
+            // 公式ドキュメントからは消えてるけど指定できた
+            'lengthSeconds', 'lastResBody'
+          ];
           this._context = 'ZenzaWatch';
 
-          const n = new Date(), now = Date.now();
+          const n = new Date(), now = this.now;
           if (/^._hot/.test(this.sort)) {
             // 人気が高い順ソート
             (() => {
-              const format = this._formatDate;
               this._hotField = 'mylistCounter';
-              this._hotFrom = format(new Date(now - 1 * 24 * 60 * 60 * 1000));
-              this._hotTo   = format(n);
+              this._hotFrom = new Date(now - 1 * 24 * 60 * 60 * 1000);
+              this._hotTo   = n;
 
               this._sort = '-_hotMylistCounter';
             })();
           }
 
+          if (params.f_range &&
+              [F_RANGE.U_1H, F_RANGE.U_24H, F_RANGE.U_1W, F_RANGE.U_30D]
+              .includes(params.f_range * 1)) {
+            this._filters.push(this._buildFRangeFilter(params.f_range * 1));
+          }
+          if (params.l_range &&
+              [L_RANGE.U_5MIN, L_RANGE.O_20MIN].includes(params.l_range * 1)) {
+            this._filters.push(this._buildLRangeFilter(params.l_range * 1));
+          }
           if (params.userId && (params.userId + '').match(/^\d+$/)) {
-            this._filters.push({type: 'equal', field: 'userId',    value: params.userId});
+            this._filters.push({type: 'equal', field: 'userId',    value: params.userId * 1});
           }
           if (params.channelId && (params.channelId + '').match(/^\d+$/)) {
-            this._filters.push({type: 'equal', field: 'channelId', value: params.channelId});
+            this._filters.push({type: 'equal', field: 'channelId', value: params.channelId * 1});
           }
           if (params.commentCount && (params.commentCount + '').match(/^[0-9]+$/)) {
             this._filters.push({
               type: 'range',
               field: 'commentCounter',
-              from: params.commentCount
+              from: params.commentCount * 1
             });
+          }
+          if (params.utimeFrom || params.utimeTo) {
+            this._filters.push(this._buildStartTimeRangeFilter({
+              from: params.utimeFrom ? params.utimeFrom * 1 : 0,
+              to:   params.utimeTo   ? params.utimeTo   * 1 : now
+            }));
+          }
+          if (params.dateFrom || params.dateTo) {
+            this._filters.push(this._buildStartTimeRangeFilter({
+              from: params.dateFrom ? (new Date(params.dateFrom)).getTime() : 0,
+              to:   params.dateTo   ? (new Date(params.dateTo  )).getTime() : now
+            }));
           }
         }
 
-        get filters() {
+        get stringfiedFilters() {
           if (this._filters.length < 1) { return ''; }
           const result = [];
+          const TIMEFIELDS = ['startTime'];
           this._filters.forEach((filter) => {
+            let isTimeField = TIMEFIELDS.includes(filter.field);
+            if (!filter) { return; }
+
             if (filter.type === 'equal') {
-              result.push(
-                `filters[${filter.field}][0]=${filter.value}`
-              );
+              result.push(`filters[${filter.field}][0]=${filter.value}`);
             } else if (filter.type === 'range') {
+              let from = isTimeField ?  this._formatDate(filter.from) : filter.from;
               if (filter.from) {
-               result.push(`filters[${filter.field}][gte]=${filter.from}`);
+                result.push(`filters[${filter.field}][gte]=${from}`);
               }
               if (filter.to) {
-               result.push(`filters[${filter.field}][lte]=${filter.to}`);
+                let to = isTimeField ?  this._formatDate(filter.to) : filter.to;
+                result.push(`filters[${filter.field}][lte]=${to}`);
               }
             }
           });
           return result.join('&');
+        }
+
+        get filters() {
+          return this._filters;
         }
 
         _formatDate(time) {
@@ -150,23 +197,66 @@ const WindowMessageEmitter = {};
           return dt.toISOString().replace(/\.\d*Z/, '') + '%2b00:00'; // '%2b00:00'
         }
 
-        _buildStartTimeRangeFilter(from, to) {
-          const format = this._formatDate;
+        _buildStartTimeRangeFilter({from = 0, to}) {
           const range = {field: 'startTime', type: 'range'};
-          range.from = format(from);
-          if (to) { range.to = format(to); }
+          if (from !== undefined && to !== undefined) {
+            [from, to] = [from, to].sort(); // from < to になるように
+          }
+          if (from !== undefined) { range.from = from; }
+          if (to   !== undefined) { range.to = to; }
           return range;
         }
 
-        _buildLengthSecondsRangeFilter(from, to) {
+        _buildLengthSecondsRangeFilter({from, to}) {
           const range = {field: 'lengthSeconds', type: 'range'};
-          if (to) { // xxx ～ xxx
-            range.from = Math.min(from, to);
-            range.to   = Math.max(from, to);
-          } else { // xxx以上
-            range.from = from;
+          if (from !== undefined && to !== undefined) {
+            [from, to] = [from, to].sort(); // from < to になるように
           }
+          if (from !== undefined) { range.from = from; }
+          if (to   !== undefined) { range.to = to; }
           return range;
+        }
+
+        _buildFRangeFilter(range) {
+          const now = this.now;
+          switch (range * 1) {
+            case F_RANGE.U_1H:
+              return this._buildStartTimeRangeFilter({
+                from: now - 1000 * 60 * 60,
+                to: now
+              });
+            case F_RANGE.U_24H:
+              return this._buildStartTimeRangeFilter({
+                from: now - 1000 * 60 * 60 * 24,
+                to: now
+              });
+            case F_RANGE.U_1W:
+              return this._buildStartTimeRangeFilter({
+                from: now - 1000 * 60 * 60 * 24 * 7,
+                to: now
+              });
+            case F_RANGE.U_30D:
+              return this._buildStartTimeRangeFilter({
+                from: now - 1000 * 60 * 60 * 24 * 30,
+                to: now
+              });
+             default:
+              return null;
+          }
+        }
+
+        _buildLRangeFilter(range) {
+          switch(range) {
+            case L_RANGE.U_5MIN:
+              return this._buildLengthSecondsRangeFilter({
+                from: 0,
+                to: 60 * 5
+              });
+            case L_RANGE.O_20MIN:
+              return this._buildLengthSecondsRangeFilter({
+                from: 60 * 20
+              });
+           }
         }
 
         toString() {
@@ -186,15 +276,27 @@ const WindowMessageEmitter = {};
             result.push('hotTo='    + this.hotTo);
           }
 
-          const filters = this.filters;
+          const filters = this.stringfiedFilters;
           if (filters) {
-            result.push(this.filters);
+            result.push(filters);
           }
 
           return result.join('&');
         }
 
+        set now(v) {
+          this._now = v;
+        }
+
+        get now() {
+          return this._now || Date.now();
+        }
+
       }
+
+      NicoSearchApiV2Query.SORT    = SORT;
+      NicoSearchApiV2Query.F_RANGE = F_RANGE;
+      NicoSearchApiV2Query.L_RANGE = L_RANGE;
 
 
       class NicoSearchApiV2Loader {
@@ -223,7 +325,69 @@ const WindowMessageEmitter = {};
               });
             }
           });
+        }
 
+        /**
+         * 100件以上検索する用
+         */
+        static searchMore(word, params, maxLimit = 300) {
+
+          const ONCE_LIMIT = 100; // 一回で取れる件数
+          const PER_PAGE = 25; // 検索ページで1ページあたりに表示される件数
+          const MAX_PAGE = 64; // 25 * 64 = 1600
+
+          // 短い間隔で叩くと弾かれるらしい？のでスリープを入れる
+          const createSleep = function(ms) {
+            return () => {
+              return new Promise(res => {
+                console.log('search sleep: %sms', ms);
+                window.setTimeout(() => { return res(); }, ms);
+              });
+            };
+          };
+
+          const createSearchNext = function(word, params, page) {
+            return () => {
+              console.log('searchNext: "%s"', word, page, params);
+              return NicoSearchApiV2Loader.search(word, Object.assign(params, {page}));
+            };
+          };
+
+          return NicoSearchApiV2Loader.search(word, params).then(result => {
+
+            const currentPage = params.page ? parseInt(params.page, 10) : 1;
+            const currentOffset = (currentPage - 1) * PER_PAGE;
+
+            if (result.count <= ONCE_LIMIT) {
+              return result;
+            }
+
+            const searchCount = Math.min(
+              Math.ceil((result.count - currentOffset) / PER_PAGE),
+              Math.ceil((maxLimit - ONCE_LIMIT) / ONCE_LIMIT)
+            ) - 1;
+
+            const promises = [];
+
+            for (let i = 1; i <= searchCount; i++) {
+              promises.push(createSleep(Math.min(300 * i, 2000)));
+
+              let nextPage = currentPage + i * (ONCE_LIMIT / PER_PAGE);
+              promises.push(createSearchNext(word, params, nextPage));
+              if (nextPage >= MAX_PAGE) { break; }
+            }
+
+            // TODO: 途中で失敗したらそこまででもいいので返す？
+            return promises.reduce((prev, current) => {
+              return prev.then(current).then(res => {
+                if (res && res.list && res.list.length) {
+                  result.list = result.list.concat(res.list);
+                }
+                return result;
+              });
+            }, Promise.resolve());
+
+          });
         }
 
         static _jsonParse(result) {
@@ -292,326 +456,10 @@ const WindowMessageEmitter = {};
 
 //===END===
 
-  // api.search.nicovideo.jpを使うためのラッパー関係
-  // ここだけフォーマットが独自の文化なので変換してやる
-  // invalidなjsonなのにcontent-typeがjsonだったり色々癖が強いが、自由度も高い
-  //
-  // 参考:
-  // http://looooooooop.blog35.fc2.com/blog-entry-1146.html
-  // http://toxy.hatenablog.jp/entry/2013/07/25/200645
-  // http://ch.nicovideo.jp/pita/blomaga/ar297860
-  // http://search.nicovideo.jp/docs/api/ma9.html
-  var NicoSearchApiLoader = function() { this.initialize.apply(this, arguments); };
-  NicoSearchApiLoader.API_BASE_URL  = 'http://api.search.nicovideo.jp/api/';
-  NicoSearchApiLoader.PAGE_BASE_URL = 'http://search.nicovideo.jp/video/';
-  NicoSearchApiLoader.SORT = {
-      f: 'start_time',
-      v: 'view_counter',
-      r: 'comment_counter',
-      m: 'mylist_counter',
-      l: 'length_seconds',
-      n: 'last_comment_time',
-      h: '_hot',    // 人気が高い順
-      '_hot':   '_hot',    // 人気が高い順(↑と同じだけど互換用に残ってる)
-      '_explore': '_explore', // 新着優先
-      '_popular': '_popular', // 並び順指定なし
-      '_id': 'id'
-    };
-
-  NicoSearchApiLoader.prototype = {
-    _u: '',      // 24h, 1w, 1m, ft  期間指定
-    _ftfrom: '', // YYYY-MM-DD
-    _ftto: '',   // YYYY-MM-DD
-    _l: '',      // short long
-    _m: false,   // true=音楽ダウンロード
-    _sort: '',   // last_comment_time, last_comment_time_asc,
-                // view_counter,      view_counter_asc,
-                // comment_counter,   comment_counter_asc,
-                // mylist_counter,    mylist_counter_asc,
-                // upload_time,       upload_time_asc,
-                // length_seconds,    length_seconds_asc
-    _size: 100, // 一ページの件数  maxは100
-    _issuer: 'zenza-watch',
-    _base_url: NicoSearchApiLoader.API_BASE_URL,
-    initialize: function() {},
-    search: function(word, params) {
-      return this._search(this.parseParams(word, params));
-    },
-    parseParams: function(word, params) {
-      var query = {filters: []};
-        var sortTable = NicoSearchApiLoader.SORT;
-        query.query   = word || params.searchWord;
-        query.search  = params.searchType === 'tag' ? ['tags_exact'] : ['tags_exact', 'title', 'description'];
-        query.sort_by = params.sort && sortTable[params.sort] ? sortTable[params.sort] : 'last_comment_time';
-        query.order   = params.order === 'd' ? 'desc' : 'asc';
-        query.size    = params.size || 100;
-        query.from    = params.page ? Math.max(parseInt(params.page, 10) - 1, 0) * 25 : 0;
-
-      var n = new Date();
-      var now = n.getTime();
-      switch (params.u) {
-        case '1h':
-          query.filters.push(this._buildStartTimeRangeFilter(new Date(now -   1 *  1 * 60  * 60 * 1000)));
-          break;
-        case '24h': case '1d':
-          query.filters.push(this._buildStartTimeRangeFilter(new Date(now -   1 * 24 * 60  * 60 * 1000)));
-          break;
-        case '1w':  case '7d':
-          query.filters.push(this._buildStartTimeRangeFilter(new Date(now -   7 * 24 * 60  * 60 * 1000)));
-          break;
-        case '1m':
-          query.filters.push(this._buildStartTimeRangeFilter(new Date(now -  30 * 24 * 60  * 60 * 1000)));
-          break;
-        case '3m':
-          query.filters.push(this._buildStartTimeRangeFilter(new Date(now -  90 * 24 * 60  * 60 * 1000)));
-          break;
-        case '6m':
-          query.filters.push(this._buildStartTimeRangeFilter(new Date(now - 180 * 24 * 60  * 60 * 1000)));
-          break;
-        default:
-          break;
-      }
-
-      if (query.sort_by === '_hot') {
-        // 人気が高い順ソート
-        (function() {
-          var format = function(time) {
-            var dt = new Date(time);
-            return dt.toLocaleString().replace(/\//g, '-'); //DateFormat.strftime('%Y-%m-%d %H:%M:%S', date);
-          };
-          query.hot_field = 'mylist_counter';
-          query.hot_from = format(new Date(now - 1 * 24 * 60 * 60 * 1000));
-          query.hot_to   = format(n);
-
-          query.order = 'desc';
-        })();
-      }
-
-      if (query.sort_by === 'id') {
-        query.sort_by = 'start_time';
-        query.order = 'asc';
-      }
-
-      if (params.userId && (params.userId + '').match(/^\d+$/)) {
-        query.filters.push({type: 'equal', field: 'user_id',    value: params.userId});
-      }
-      if (params.channelId && (params.channelId + '').match(/^\d+$/)) {
-        query.filters.push({type: 'equal', field: 'channel_id', value: params.channelId});
-      }
-      if (params.commentCount && (params.commentCount + '').match(/^[0-9]+$/)) {
-        query.filters.push({
-          type: 'range',
-          field: 'comment_counter',
-          include_lower: true,
-          from: params.commentCount
-        });
-      }
-
-      if (params.l === 'short') { // 5分以内
-        query.filters.push(this._buildLengthSecondsRangeFilter(0, 60 * 5));
-      } else
-      if (params.l === 'long' ) { // 20分以上
-        query.filters.push(this._buildLengthSecondsRangeFilter(60 * 20));
-      }
-
-      return query;
-    },
-    toString: function() {
-      return JSON.stringify(this.build(this._params));
-    },
-    _buildStartTimeRangeFilter: function(from, to) {
-      var format = function(time) {
-        var dt = new Date(time);
-        return dt.toLocaleString().replace(/\//g, '-');
-      };
-      var range = {field: 'start_time',     type: 'range', include_lower: true};
-      range.from = format(from);
-      if (to) range.to = format(to);
-      return range;
-    },
-    _buildLengthSecondsRangeFilter: function(from, to) {
-      var range = {field: 'length_seconds', type: 'range'};
-      if (to) { // xxx ～ xxx
-        range.from = Math.min(from, to);
-        range.to   = Math.max(from, to);
-        range.include_lower = range.include_upper = true;
-      } else { // xxx以上
-        range.from = from;
-        range.include_lower = true;
-      }
-      return range;
-    },
-    _search: function(params) {
-      var url = this._base_url;
-      var data = {};
-      data.query   = params.query   || 'ZenzaWatch';
-      data.service = params.service || ['video']; // video video_tag
-      data.search  = params.search  || ['title', 'tags', 'description'];
-      data.join    = params.join    || [
-          'cmsid', 'title', 'description', 'thumbnail_url', 'start_time',
-          'view_counter', 'comment_counter', 'mylist_counter', 'length_seconds', 'last_res_body'
-        //  'user_id', 'channel_id', 'main_community_id', 'ss_adlut'
-        ];
-      data.filters = params.filters || [{}];
-      data.sort_by = params.sort_by || 'start_time';
-      data.order   = params.order   || 'desc';
-      data.timeout = params.timeout || 10000;
-      data.issuer  = params.issuer  || 'zenza-watch';
-      data.reason  = params.reason  || 'zenza-watch'; // 'watchItLater';
-      data.size    = params.size    || 100;
-      data.from    = params.from    || 0;
-
-      if (params.sort_by === '_hot') { // 人気順ソートのパラメータ
-        data.hot_field = params.hot_field;
-        data.hot_from  = params.hot_from;
-        data.hot_to    = params.hot_to;
-      }
-
-      return new Promise((resolve, reject) => {
-        ajax({
-          url: url,
-          type: 'POST',
-          data: JSON.stringify(data),
-          timeout: 30000
-        }).then(result => {
-          console.log('search result: ', result);
-          if (result.status !== 200) {
-            return reject({status: 'fail', code: result.status, description: 'network fail'});
-          }
-          var data = this.parseJsonModoki(result.responseText);
-
-          if (!data) {
-            return reject({status: 'fail', description: 'json parse fail'});
-          }
-
-          return resolve(this.convertResultFormat(data, params));
-        },
-        (result) => {
-          // 検索APIはContent-Type: application/jsonなのに
-          // invalidなjsonが返るせいでrejectルートに進む きもい
-          
-          if (result.status !== 200) {
-            window.console.log('%c ajax error: ' + status, 'background: red', arguments);
-            return reject({status: 'fail', code: result.status, description: 'network fail'});
-          }
-
-          var data = this.parseJsonModoki(result.responseText);
-
-          if (!data) {
-            return reject({status: 'fail', description: 'json parse fail'});
-          }
-
-          return resolve(this.convertResultFormat(data, params));
-        });
-      });
-    },
-    /**
-     * 検索APIが返すjsonもどきをパースする
-     */
-    parseJsonModoki: function(str) {
-      var data;
-      try {
-        var lines = str.split('\n'), head = JSON.parse(lines[0]);
-        if (head.values[0].total > 0) {
-          data = [head];
-          for (var i = 1, len = lines.length; i < len - 1; i++) {
-            data.push(JSON.parse(lines[i]));
-          }
-        } else {
-          data = [head, JSON.parse(lines[1]), {type: 'hits', values: []}, JSON.parse(lines[2])];
-        }
-      } catch(e) {
-        window.console.log('Exception: ', e, str);
-        return null;
-      }
-      return data;
-    },
-    /**
-     * 検索APIが返す謎resultを他のAPI形式に変換する
-     */
-    convertResultFormat: function(result, params) {
-      var searchResult;
-        searchResult = {
-          status: 'ok',
-          count: result[0].values[0].total,
-          list: []
-        };
-        var pushItems = function(items) {
-          var len = items.length;
-          for (var i = 0; i < len; i++) {
-            var item = items[i], description = item.description ? item.description.replace(/<.*?>/g, '') : '';
-
-            item.id = item.cmsid;
-            if (item.thumbnail_url.indexOf('.M') >= 0) {
-              item.thumbnail_url = item.thumbnail_url.replace(/\.M$/, '');
-              item.is_middle_thumbnail = true;
-            } else
-            if (item.thumbnail_url.indexOf('.M') < 0 &&
-                item.id.indexOf('sm') === 0) {
-              var threshold = 23608629, // .Mのついた最小ID?
-                  _id = _.parseInt(item.id.substr(2));
-              if (_id >= threshold) {
-                item.is_middle_thumbnail = true;
-              }
-            }
-
-            searchResult.list.push({
-              id:                item.cmsid,
-              type:              0, // 0 = VIDEO,
-              length:            item.length_seconds ?
-                                   Math.floor(item.length_seconds / 60) + ':' + (item.length_seconds % 60 + 100).toString().substr(1) : '',
-              mylist_counter:    item.mylist_counter,
-              view_counter:      item.view_counter,
-              num_res:           item.comment_counter,
-              first_retrieve:    item.start_time,
-              create_time:       item.start_time,
-              thumbnail_url:     item.thumbnail_url,
-              title:             item.title,
-              description_short: description.substr(0, 150),
-              description_full:  description,
-              length_seconds:    item.length_seconds,
-              last_res_body:     item.last_res_body,
-              is_middle_thumbnail: item.is_middle_thumbnail
-  //            channel_id:        item.channel_id,
-  //            main_community_id: item.main_community_id
-            });
-          }
-          if (params.sort === '_id') {
-            searchResult.list = searchResult.list.sort(function(a, b){return a.id > b.id ? 1 : -1;});
-          }
-          // 投稿日時順ソートの時、投稿日時が同一だったら動画IDでソートする(公式銀魂のための対応)
-          if (params.sort === 'f') {
-            var aid = params.order === 'a' ? 1 : -1;
-            searchResult.list = searchResult.list.sort(function(a, b){
-              if (a.first_retrieve !== b.first_retrieve) {
-                return a.first_retrieve > b.first_retrieve ? aid : -aid;
-              }
-              return a.id > b.id ? aid : -aid;
-            });
-          }
-        };
-        for (var i = 1; i < result.length; i++) {
-          if (result[i].type === 'hits' && result[i].endofstream) { break; }
-          if (result[i].type === 'hits' && result[i].values) {
-            pushItems(result[i].values);
-          }
-        }
-      return searchResult;
-    }
-  };
-  ZenzaWatch.init.nicoSearchApiLoader = new NicoSearchApiLoader();
-
 
 
 module.exports = {
-  NicoSearchApiLoader,
   NicoSearchApiV2Query,
   NicoSearchApiV2Loader
 };
 
-/*
-http://www.nicovideo.jp/watch/sm29156077?playlist_type=tag&tag=VOCALOID&sort=f&order=d&page=1&continuous=1
-http://www.nicovideo.jp/watch/sm29152556?playlist_type=tag&tag=VOCALOID&sort=f&order=d&page=1&continuous=1
-
-http://www.nicovideo.jp/watch/so29183254?playlist_type=search&keyword=%E7%A5%9E%E5%9B%9E&sort=f&order=d&page=1&continuous=1
-*/
