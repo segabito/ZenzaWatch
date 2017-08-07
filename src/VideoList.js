@@ -2079,7 +2079,7 @@ class NicoSearchApiV2Loader {}
           });
         });
     },
-    loadSearchVideo: function(word, options) {
+    loadSearchVideo: function(word, options, limit = 300) {
       this._initializeView();
 
       if (!this._searchApiLoader) {
@@ -2091,7 +2091,7 @@ class NicoSearchApiV2Loader {}
       options = options || {};
 
       return this._nicoSearchApiLoader
-        .search(word, options).then((result) => {
+        .searchMore(word, options, limit).then((result) => {
           window.console.timeEnd('loadSearchVideos' + word);
           var items = result.list || [];
           var videoListItems = [];

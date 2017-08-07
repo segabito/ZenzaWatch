@@ -389,18 +389,21 @@ const START_PAGE_QUERY = 'hoge=fuga';
         '</div>'].join(''));
         this._$view = $view;
 
-        $view.on('click', _.bind(this._onClick, this));
+        $view.on('click', this._onClick.bind(this));
         ZenzaWatch.emitter.on('hideHover', () => {
           $view.removeClass('show');
         });
 
         var $body = $('body')
-          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onHover, this))
-          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"]', _.debounce(_.bind(this._onHoverEnd, this), 500))
-          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"]', _.bind(this._onMouseout, this))
-          .on('click', function() { $view.removeClass('show'); });
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
+            this._onHover.bind(this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
+            _.debounce(this._onHoverEnd.bind(this), 500))
+          .on('mouseout',  'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
+            this._onMouseout.bind(this))
+          .on('click', () => { $view.removeClass('show'); });
 
-        if (!ZenzaWatch.util.isGinzaWatchUrl() &&
+        if (!util.isGinzaWatchUrl() &&
             this._playerConfig.getValue('overrideWatchLink')) {
           this._overrideGinzaLink();
         } else {

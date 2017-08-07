@@ -141,6 +141,7 @@ var CONSTANT = {};
       var eventType = this.getEventType();
       var query = this.getQuery();
       if (eventType === 'click' &&
+          query.continuous === '1' &&
           ['mylist', 'deflist', 'tag', 'search'].includes(query.playlist_type) &&
           (query.group_id || query.order)) {
         return true;
@@ -2352,11 +2353,11 @@ var CONSTANT = {};
           this._playlist.loadFromMylist(option.group_id, option);
         } else if (query.playlist_type === 'deflist') {
           this._playlist.loadFromMylist('deflist', option);
-        } else {
+        } else if (query.playlist_type === 'tag' || query.playlist_type === 'search'){
           var word = query.tag || query.keyword;
           option.searchType = query.tag ? 'tag' : '';
           _.assign(option, query);
-          this._playlist.loadSearchVideo(word, option);
+          this._playlist.loadSearchVideo(word, option, this._playerConfig.getValue('search.limit'));
         }
         this._playlist.toggleEnable(true);
       } else if (PlaylistSession.isExist() && !this._playlist) {

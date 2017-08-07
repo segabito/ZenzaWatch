@@ -1018,13 +1018,13 @@ const TagEditApi = function() {};
       this._relatedVideoList.update(relatedVideo, watchId);
     },
     _onVideoCountUpdate: function({comment, view, mylist}) {
-      if (!this._videoTitlePanel) { return; }
-      this._videoTitlePanel.updateVideoCount({comment, view, mylist});
+      if (!this._videoHeaderPanel) { return; }
+      this._videoHeaderPanel.updateVideoCount({comment, view, mylist});
     },
     _onCommand: function(command, param) {
       switch (command) {
-        case 'owner-video-search':
-          this._onOwnerVideoSearch(param);
+        case 'tag-search':
+          this._onTagSearch(param);
           break;
         case 'playlistSetUploadedVideo':
           var owner = this._videoInfo.getOwnerInfo();
@@ -1648,8 +1648,9 @@ const TagEditApi = function() {};
         }
       });
 
-      // やってみたけど微妙
-      ZenzaWatch.emitter.on('searchVideo', ({word}) => { form['word'].value = word; });
+      ZenzaWatch.emitter.on('searchVideo',
+        ({word}) => { form['word'].value = word; }
+      );
 
       if (parentNode) {
         parentNode.appendChild(view);
@@ -1698,23 +1699,17 @@ const TagEditApi = function() {};
     }
 
     submit() {
-      const word = (this._word.value || '').trim();
+      const word = this.word;
       if (!word) { return; }
 
-      const form = this._form;
-      const searchType = form.mode.value;
-      const sortTmp = (this._sort.value || '').split(',');
-      const sort = sortTmp[0];
-      const order = sortTmp[1] || 'd';
-      const ownerOnly = this._form.ownerOnly.checked;
       this.emit('command', 'playlistSetSearchVideo', {
         word,
         option: {
-          searchType,
-          sort,
-          order,
-          owner: ownerOnly,
-          playlistSort: false
+          searchType: this.searchType,
+          sort: this.sort,
+          order: this.order,
+          owner: this.isOwnerOnly,
+          playlistSort: this.isPlaylistSort
         }
       });
     }
@@ -1731,6 +1726,33 @@ const TagEditApi = function() {};
       }
     }
 
+    get word() {
+      return (this._word.value || '').trim();
+    }
+
+    get searchType() {
+      return this._form.mode.value;
+    }
+
+    get sort() {
+      const sortTmp = (this._sort.value || '').split(',');
+      const playlistSort = sortTmp[0] === 'playlist';
+      return playlistSort ? 'f' : sortTmp[0];
+    }
+
+    get order() {
+      const sortTmp = (this._sort.value || '').split(',');
+      return sortTmp[1] || 'd';
+    }
+
+    get isPlaylistSort() {
+      const sortTmp = (this._sort.value || '').split(',');
+      return sortTmp[0] === 'playlist';
+    }
+
+    get isOwnerOnly() {
+      return this._form['ownerOnly'].checked;
+    }
   }
 
   VideoSearchForm.__css__ = (`
@@ -2002,6 +2024,7 @@ const TagEditApi = function() {};
 
         <div class="searchInputFoot focusOnly">
           <select name="sort" class="searchSortSelect">
+            <option value="playlist">自動(連続再生用)</option>
             <option value="f">新しい順</option>
             <option value="h">人気順</option>
             <option value="n">最新コメント</option>

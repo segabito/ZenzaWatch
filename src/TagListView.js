@@ -246,8 +246,8 @@ const TagEditApi = function() {};
     }
 
     _createSearch(text) {
-      let title = '投稿者の動画を検索';
-      let command = 'owner-video-search';
+      let title = 'タグ検索';
+      let command = 'tag-search';
       let param = util.escapeHtml(text);
       return (`<a class="playlistAppend command" title="${title}" data-command="${command}" data-param="${param}">▶</a>`);
     }

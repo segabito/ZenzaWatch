@@ -282,12 +282,14 @@ class CrossDomainGate {}
         'videoSearch.ownerOnly': true,
         'videoSearch.mode': 'tag',
         'videoSearch.order': 'desc',
-        'videoSearch.sort': 'f',
+        'videoSearch.sort': 'playlist',
         'videoSearch.word': '',
 
         'uaa.enable': true,
 
         'screenshot.prefix': '',
+
+        'search.limit': 300, // 検索する最大件数(最大1600) 100件ごとにAPIを叩くので多くするほど遅くなる
 
         //タッチパネルがある場合は null ない場合は undefined になるらしい
         //うちのデスクトップは無いのに null だが…
