@@ -349,6 +349,7 @@ class CrossDomainGate {}
         defaultConfig.autoCloseFullScreen     = false;
         defaultConfig.volume                  = 1.0;
         defaultConfig.enableVideoSession      = true;
+        defaultConfig['uaa.enable'] = false;
       }
 
       var config = {};
