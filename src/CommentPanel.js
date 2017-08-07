@@ -263,7 +263,8 @@ class BaseViewComponent {}
         .on('click',     this._onClick    .bind(this))
         .on('dblclick',  this._onDblClick .bind(this))
 //        .on('mousemove', _.debounce(this._onMouseMove.bind(this), 100))
-        .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); });
+        .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); })
+        .on('keyup', function(e)   { ZenzaWatch.emitter.emit('keyup', e); });
 
       this._$menu.on('click', this._onMenuClick.bind(this));
       this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
