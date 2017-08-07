@@ -756,14 +756,14 @@ const TagEditApi = function() {};
 
   _.assign(VideoInfoPanel.prototype, {
     initialize: function(params) {
-      this._videoTitlePanel = new VideoHeaderPanel(params);
+      this._videoHeaderPanel = new VideoHeaderPanel(params);
       this._dialog = params.dialog;
       this._currentTimeGetter = params.currentTimeGetter;
 
       this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
       this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
 
-      this._videoTitlePanel.on('command', this._onCommand.bind(this));
+      this._videoHeaderPanel.on('command', this._onCommand.bind(this));
 
       if (params.node) {
         this.appendTo(params.node);
@@ -846,7 +846,7 @@ const TagEditApi = function() {};
     },
     update: function(videoInfo) {
       this._videoInfo = videoInfo;
-      this._videoTitlePanel.update(videoInfo);
+      this._videoHeaderPanel.update(videoInfo);
 
       var owner = videoInfo.getOwnerInfo();
       this._$ownerIcon.attr('src', owner.icon);
@@ -854,7 +854,7 @@ const TagEditApi = function() {};
       this._$ownerName.text(owner.name);
       this._$ownerContainer.toggleClass('favorite', owner.favorite);
 
-      this._$publicStatus.html(this._videoTitlePanel.getPublicStatusDom());
+      this._$publicStatus.html(this._videoHeaderPanel.getPublicStatusDom());
       this._tagListView.update({
         tagList: videoInfo.getTagList(),
         watchId: videoInfo.getWatchId(),
@@ -1035,14 +1035,20 @@ const TagEditApi = function() {};
         break;
       }
     },
-    _onOwnerVideoSearch: function(word) {
+    _onTagSearch: function(word) {
+      const config = Config.namespace('videoSearch');
+
       let option = {
         searchType: 'tag',
-        order: 'd',
-        sort: 'f',
-        playlistSort: true,
-        owner: true
+        order: config.getValue('order'),
+        sort:  config.getValue('sort'),
+        owner: config.getValue('ownerOnly')
       };
+
+      if (option.sort === 'playlist') {
+        option.sort = 'f';
+        option.playlistSort = true;
+      }
 
       this.emit('command', 'playlistSetSearchVideo', {word, option});
     },
@@ -1050,16 +1056,16 @@ const TagEditApi = function() {};
       var $node = $(node);
       this._initializeDom();
       $node.append(this._$view);
-      this._videoTitlePanel.appendTo($node);
+      this._videoHeaderPanel.appendTo($node);
     },
     hide: function() {
-      this._videoTitlePanel.hide();
+      this._videoHeaderPanel.hide();
     },
     close: function() {
-      this._videoTitlePanel.close();
+      this._videoHeaderPanel.close();
     },
     clear: function() {
-      this._videoTitlePanel.clear();
+      this._videoHeaderPanel.clear();
       this._$view.addClass('initializing');
       this._$ownerIcon.addClass('is-loading');
       this._$description.empty();

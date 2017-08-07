@@ -99,7 +99,7 @@ var ajax = function() {};
           let watchApiData = JSON.parse(dom.querySelector('#watchAPIDataContainer').textContent);
           let videoId = watchApiData.videoDetail.id;
           let hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
-          let flvInfo = ZenzaWatch.util.parseQuery(
+          let flvInfo = util.parseQuery(
               decodeURIComponent(watchApiData.flashvars.flvInfo)
             );
           let dmcInfo = JSON.parse(
@@ -108,7 +108,7 @@ var ajax = function() {};
           let thumbnail =
             watchApiData.flashvars.thumbImage +
               (hasLargeThumbnail ? '.L' : '');
-          let videoUrl = flvInfo.url;
+          let videoUrl = flvInfo.url ? flvInfo.url : '';
           let isEco = /\d+\.\d+low$/.test(videoUrl);
           let isFlv = /\/smile\?v=/.test(videoUrl);
           let isMp4 = /\/smile\?m=/.test(videoUrl);
@@ -174,10 +174,10 @@ var ajax = function() {};
 
         const videoId = data.video.id;
         const hasLargeThumbnail = util.hasLargeThumbnail(videoId);
-        const flvInfo = data.video.smileInfo;
+        const flvInfo = data.video.smileInfo || {};
         const dmcInfo = data.video.dmcInfo;
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
-        const videoUrl  = flvInfo.url;
+        const videoUrl  = flvInfo.url ? flvInfo.url : '';
         const isEco = /\d+\.\d+low$/.test(videoUrl);
         const isFlv = /\/smile\?v=/.test(videoUrl);
         const isMp4 = /\/smile\?m=/.test(videoUrl);
