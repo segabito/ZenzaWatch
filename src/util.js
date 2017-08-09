@@ -725,7 +725,7 @@ class CrossDomainGate {}
 
     ZenzaWatch.util.addStyle = addStyle;
 
-    util.parseQuery = function(query) {
+    util.parseQuery = function(query = '') {
       const result = {};
       query.split('&').forEach(item => {
         const sp = item.split('=');

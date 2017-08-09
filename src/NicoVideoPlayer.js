@@ -786,70 +786,51 @@ class BaseViewComponent {}
    *  操作パネル等を自前で用意したいが、まだ手が回らない。
    *
    */
-  var VideoPlayer = function() { this.initialize.apply(this, arguments); };
-  VideoPlayer.__css__ = `
-    .videoPlayer video {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 5;
+  //_.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
+  class VideoPlayer extends AsyncEmitter {
+    constructor(params) {
+      super();
+      this._initialize(params);
     }
 
-    /* iOSだとvideo上でマウスイベントが発生しないのでカバーを掛ける */
-    .touchWrapper {
-      display: block;
-      position: absolute;
-      opacity: 0;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-    }
-
-    .is-loading .touchWrapper,
-    .is-error .touchWrapper {
-      display: none !important;
-    }
-
-  `.trim();
-
-  _.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
-  _.assign(VideoPlayer.prototype, {
-    initialize: function(params) {
+    _initialize (params) {
       //console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
       this._id = 'video' + Math.floor(Math.random() * 100000);
       this._resetVideo(params);
 
       util.addStyle(VideoPlayer.__css__);
-    },
-    _reset: function() {
+    }
+
+    _reset () {
       this.removeClass('is-play is-pause is-abort is-error');
       this._isPlaying = false;
       this._canPlay = false;
-    },
-    addClass: function(className) {
+    }
+
+    addClass (className) {
       this.toggleClass(className, true);
-    },
-    removeClass: function(className) {
+    }
+
+    removeClass (className) {
       this.toggleClass(className, false);
-    },
-    toggleClass: function(className, v) {
-      var video = this._video;
-      _.each(className.split(/[ ]+/), function(name) {
-        video.classList.toggle(name, v);
+    }
+
+    toggleClass (className, v) {
+      var body = this._body;
+      className.split(/[ ]+/).forEach(name => {
+        body.classList.toggle(name, v);
       });
-    },
-    _resetVideo: function(params) {
+    }
+
+    _resetVideo (params) {
       params = params || {};
-      if (this._video) {
-        params.autoPlay = this._video.autoplay;
-        params.loop     = this._video.loop;
-        params.mute     = this._video.muted;
-        params.volume   = this._video.volume;
-        params.playbackRate = this._video.playbackRate;
-        this._video.remove();
+      if (this._videoElement) {
+        params.autoPlay = this._videoElement.autoplay;
+        params.loop     = this._videoElement.loop;
+        params.mute     = this._videoElement.muted;
+        params.volume   = this._videoElement.volume;
+        params.playbackRate = this._videoElement.playbackRate;
+        this._videoElement.remove();
       }
 
       const options = {
@@ -876,9 +857,10 @@ class BaseViewComponent {}
       body.appendChild(video);
 
       this._video = video;
-      this._video.controls = false;
-      this._video.autoplay = !!params.autoPlay;
-      this._video.loop     = !!params.loop;
+      video.controls = false;
+      video.autoplay = !!params.autoPlay;
+      video.loop     = !!params.loop;
+      this._videoElement = video;
 
       this._isPlaying = false;
       this._canPlay = false;
@@ -900,11 +882,11 @@ class BaseViewComponent {}
 
       this._initializeEvents();
 
-      ZenzaWatch.debug.video = this._video;
-      Object.assign(ZenzaWatch.external, {getVideoElement: () => { return this._video; }});
+      ZenzaWatch.debug.video = this._videoElement;
+      Object.assign(ZenzaWatch.external, {getVideoElement: () => { return this._videoElement; }});
+    }
 
-    },
-    _initializeEvents: function() {
+    _initializeEvents () {
       util.$(this._video)
         .on('canplay',        this._onCanPlay        .bind(this))
         .on('canplaythrough', this._onCanPlayThrough .bind(this))
@@ -939,75 +921,90 @@ class BaseViewComponent {}
         .on('contextmenu', this._onContextMenu    .bind(this))
         .on('wheel',       this._onMouseWheel .bind(this))
       ;
-    },
-    _onCanPlay: function() {
+    }
+
+    _onCanPlay () {
       console.log('%c_onCanPlay:', 'background: cyan; color: blue;', arguments);
 
       this.setPlaybackRate(this.getPlaybackRate());
       // リピート時にも飛んでくるっぽいので初回だけにする
       if (!this._canPlay) {
         this._canPlay = true;
-        this._video.classList.remove('is-loading');
+        this.removeClass('is-loading');
         this.emit('canPlay');
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
       }
-    },
-    _onCanPlayThrough: function() {
+    }
+
+    _onCanPlayThrough () {
       console.log('%c_onCanPlayThrough:', 'background: cyan;', arguments);
       this.emit('canPlayThrough');
-    },
-    _onLoadStart: function() {
+    }
+
+    _onLoadStart () {
       console.log('%c_onLoadStart:', 'background: cyan;', arguments);
       this.emit('loadStart');
-    },
-    _onLoadedData: function() {
+    }
+
+    _onLoadedData () {
       console.log('%c_onLoadedData:', 'background: cyan;', arguments);
       this.emit('loadedData');
-    },
-    _onLoadedMetaData: function() {
+    }
+
+    _onLoadedMetaData () {
       console.log('%c_onLoadedMetaData:', 'background: cyan;', arguments);
       this.emit('loadedMetaData');
-    },
-    _onEnded: function() {
+    }
+
+    _onEnded () {
       console.log('%c_onEnded:', 'background: cyan;', arguments);
       this.emit('ended');
-    },
-    _onEmptied: function() {
+    }
+
+    _onEmptied () {
       console.log('%c_onEmptied:', 'background: cyan;', arguments);
       this.emit('emptied');
-    },
-    _onStalled: function() {
+    }
+
+    _onStalled () {
       console.log('%c_onStalled:', 'background: cyan;', arguments);
       this.emit('stalled');
-    },
-    _onSuspend: function() {
+    }
+
+    _onSuspend () {
       console.log('%c_onSuspend:', 'background: cyan;', arguments);
       this.emit('suspend');
-    },
-    _onWaiting: function() {
+    }
+
+    _onWaiting () {
       console.log('%c_onWaiting:', 'background: cyan;', arguments);
       this.emit('waiting');
-    },
-    _onProgress: function() {
+    }
+
+    _onProgress () {
       //console.log('%c_onProgress:', 'background: cyan;', arguments);
       this.emit('progress', this._video.buffered, this._video.currentTime);
-    },
-    _onDurationChange: function() {
+    }
+
+    _onDurationChange () {
       console.log('%c_onDurationChange:', 'background: cyan;', arguments);
       this.emit('durationChange', this._video.duration);
-    },
-    _onResize: function() {
+    }
+
+    _onResize () {
       console.log('%c_onResize:', 'background: cyan;', arguments);
       this.emit('resize');
-    },
-    _onAbort: function() {
+    }
+
+    _onAbort () {
       window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
       this._isPlaying = false;
       this.addClass('is-abort');
       this.emit('abort');
-    },
-    _onError: function(e) {
+    }
+
+    _onError (e) {
       if (this._video.getAttribute('src') === CONSTANT.BLANK_VIDEO_URL) { return; }
       window.console.error('error src', this._video.src);
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
@@ -1017,73 +1014,80 @@ class BaseViewComponent {}
         code: e.target.error.code,
         target: e.target
       });
-    },
-    _onPause: function() {
+    }
+
+    _onPause () {
       console.log('%c_onPause:', 'background: cyan;', arguments);
-      this.removeClass('is-play');
+      //this.removeClass('is-play');
 
       this._isPlaying = false;
       this.emit('pause');
-    },
-    _onPlay: function() {
+    }
+
+    _onPlay () {
       console.log('%c_onPlay:', 'background: cyan;', arguments);
       this.addClass('is-play');
       this._isPlaying = true;
 
-      //this._subVideo.pause();
       this.emit('play');
-    },
+    }
+
     // ↓↑の違いがよくわかってない
-    _onPlaying: function() {
+    _onPlaying () {
       console.log('%c_onPlaying:', 'background: cyan;', arguments);
       this._isPlaying = true;
       this.emit('playing');
-    },
-    _onSeeking: function() {
+    }
+
+    _onSeeking () {
       console.log('%c_onSeeking:', 'background: cyan;', arguments);
       this.emit('seeking', this._video.currentTime);
-    },
-    _onSeeked: function() {
+    }
+
+    _onSeeked () {
       console.log('%c_onSeeked:', 'background: cyan;', arguments);
 
       // なぜかシークのたびにリセットされるので再設定 (Chromeだけ？)
       this.setPlaybackRate(this.getPlaybackRate());
 
       this.emit('seeked', this._video.currentTime);
-    },
-    _onVolumeChange: function() {
+    }
+
+    _onVolumeChange () {
       console.log('%c_onVolumeChange:', 'background: cyan;', arguments);
       this.emit('volumeChange', this.getVolume(), this.isMuted());
-    },
-    _onClick: function(e) {
+    }
+
+    _onClick (e) {
       this.emit('click', e);
-    },
-    _onDoubleClick: function(e) {
+    }
+
+    _onDoubleClick (e) {
       console.log('%c_onDoubleClick:', 'background: cyan;', arguments);
       e.preventDefault();
       e.stopPropagation();
       this.emit('dblclick');
-    },
-    _onMouseWheel: function(e) {
+    }
+
+    _onMouseWheel (e) {
       console.log('%c_onMouseWheel:', 'background: cyan;', e);
       e.preventDefault();
       e.stopPropagation();
       const delta = - parseInt(e.deltaY, 10);
-      //window.console.log('wheel', e, delta);
       if (delta !== 0) {
         this.emit('mouseWheel', e, delta);
       }
-    },
-    _onContextMenu: function(e) {
-      //console.log('%c_onContextMenu:', 'background: cyan;', e);
-      //e.preventDefault();
-      //e.stopPropagation();
+    }
+
+    _onContextMenu (e) {
       this.emit('contextMenu', e);
-    },
-    canPlay: function() {
+    }
+
+    canPlay () {
       return !!this._canPlay;
-    },
-    play: function() {
+    }
+
+    play () {
       const p = this._video.play();
       // video.play()がPromiseを返すかどうかはブラウザによって異なるっぽい。。。
       if (p instanceof (Promise)) {
@@ -1093,23 +1097,27 @@ class BaseViewComponent {}
       }
       this._isPlaying = true;
       return Promise.resolve();
-    },
-    pause: function() {
+    }
+
+    pause () {
       this._video.pause();
       this._isPlaying = false;
       return Promise.resolve();
-    },
-    isPlaying: function() {
+    }
+
+    isPlaying () {
       return !!this._isPlaying && !!this._canPlay;
-    },
-    setThumbnail: function(url) {
+    }
+
+    setThumbnail (url) {
       console.log('%csetThumbnail: %s', 'background: cyan;', url);
 
       this._thumbnail = url;
       this._video.poster = url;
       //this.emit('setThumbnail', url);
-    },
-    setSrc: function(url) {
+    }
+
+    setSrc (url) {
       console.log('%csetSc: %s', 'background: cyan;', url);
 
       this._reset();
@@ -1120,65 +1128,76 @@ class BaseViewComponent {}
         this._video.crossOrigin = null;
       }
 
+      this._currentVideo = this._videoElement;
       this._src = url;
       this._video.src = url;
-      //this._$subVideo.attr('src', url);
       this._isPlaying = false;
       this._canPlay = false;
-      //this.emit('setSrc', url);
       this.addClass('is-loading');
-    },
-    setVolume: function(vol) {
+    }
+
+    setVolume (vol) {
       vol = Math.max(Math.min(1, vol), 0);
-      //console.log('setVolume', vol);
       this._video.volume = vol;
-    },
-    getVolume: function() {
+    }
+
+    getVolume () {
       return parseFloat(this._video.volume);
-    },
-    setMute: function(v) {
+    }
+
+    setMute (v) {
       v = !!v;
       if (this._video.muted !== v) {
         this._video.muted = v;
       }
-    },
-    isMuted: function() {
+    }
+
+    isMuted () {
       return this._video.muted;
-    },
-    getCurrentTime: function() {
+    }
+
+    getCurrentTime () {
       if (!this._canPlay) { return 0; }
       return this._video.currentTime;
-    },
-    setCurrentTime: function(sec) {
+    }
+
+    setCurrentTime (sec) {
       var cur = this._video.currentTime;
       if (cur !== sec) {
         this._video.currentTime = sec;
         this.emit('seek', this._video.currentTime);
       }
-    },
-    getDuration: function() {
+    }
+
+    getDuration () {
       return this._video.duration;
-    },
-    togglePlay: function() {
+    }
+
+    togglePlay () {
       if (this.isPlaying()) {
         return this.pause();
       } else {
         return this.play();
       }
-    },
-    getVpos: function() {
+    }
+
+    getVpos () {
       return this._video.currentTime * 100;
-    },
-    setVpos: function(vpos) {
+    }
+
+    setVpos (vpos) {
       this._video.currentTime = vpos / 100;
-    },
-    getIsLoop: function() {
+    }
+
+    getIsLoop () {
       return !!this._video.loop;
-    },
-    setIsLoop: function(v) {
+    }
+
+    setIsLoop (v) {
       this._video.loop = !!v;
-    },
-    setPlaybackRate: function(v) {
+    }
+
+    setPlaybackRate (v) {
       console.log('setPlaybackRate', v);
       //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
       // たまにリセットされたり反映されなかったりする？
@@ -1186,24 +1205,29 @@ class BaseViewComponent {}
       var video = this._video;
       video.playbackRate = 1;
       window.setTimeout(function() { video.playbackRate = parseFloat(v); }, 100);
-      
-    },
-    getPlaybackRate: function() {
-      return this._playbackRate; //parseFloat(this._video.playbackRate) || 1.0;
-    },
-    getBufferedRange: function() {
+    }
+
+    getPlaybackRate () {
+      return this._playbackRate;
+    }
+
+    getBufferedRange () {
       return this._video.buffered;
-    },
-    setIsAutoPlay: function(v) {
+    }
+
+    setIsAutoPlay (v) {
       this._video.autoplay = v;
-    },
-    getIsAutoPlay: function() {
+    }
+
+    getIsAutoPlay () {
       return this._video.autoPlay;
-    },
-    appendTo: function(node) {
+    }
+
+    appendTo (node) {
       node.appendChild(this._body);
-    },
-    close: function() {
+    }
+
+    close () {
       this._video.pause();
 
       this._video.removeAttribute('src');
@@ -1215,13 +1239,12 @@ class BaseViewComponent {}
       this._video.src = CONSTANT.BLANK_VIDEO_URL;
       //window.console.info('src', this._video.src, this._video.getAttribute('src'));
 
-      //this._subVideo.removeAttribute('src');
-    },
+    }
     /**
      * 画面キャプチャを取る。
      * CORSの制限があるので保存できない。
      */
-    getScreenShot: function() {
+    getScreenShot () {
       if (!this.isCorsReady()) {
         return null;
       }
@@ -1234,14 +1257,54 @@ class BaseViewComponent {}
       const context = canvas.getContext('2d');
       context.drawImage(video, 0, 0);
       return canvas;
-    },
-    isCorsReady: function() {
-      return this._video.crossOrigin === 'use-credentials';
-    },
-    getVideoElement: function() {
-      return this._video;
     }
-  });
+
+    isCorsReady () {
+      return this._video.crossOrigin === 'use-credentials';
+    }
+
+    getVideoElement () {
+      return this._videoElement;
+    }
+
+    get _video() {
+      return this._currentVideo;
+    }
+
+    set _video(v) {
+      this._currentVideo = v;
+    }
+  }
+
+  VideoPlayer.__css__ = `
+    .videoPlayer iframe,
+    .videoPlayer video {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+    }
+
+    /* iOSだとvideo上でマウスイベントが発生しないのでカバーを掛ける */
+    .touchWrapper {
+      display: block;
+      position: absolute;
+      opacity: 0;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+    }
+
+    .is-loading .touchWrapper,
+    .is-error .touchWrapper {
+      display: none !important;
+    }
+
+  `.trim();
+
 
   class TouchWrapper extends AsyncEmitter {
     constructor({parentElement}) {

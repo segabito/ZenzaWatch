@@ -363,9 +363,9 @@ const WindowMessageEmitter = {};
             }
 
             const searchCount = Math.min(
-              Math.ceil((result.count - currentOffset) / PER_PAGE),
+              Math.ceil((result.count - currentOffset) / PER_PAGE) - 1,
               Math.ceil((maxLimit - ONCE_LIMIT) / ONCE_LIMIT)
-            ) - 1;
+            );
 
             const promises = [];
 
