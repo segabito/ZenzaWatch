@@ -481,13 +481,13 @@ var CONSTANT = {};
       -moz-user-select: none;
     }
 
-    .zenzaScreenMode_3D   .zenzaVideoPlayerDialog .videoPlayer>*,
-    .zenzaScreenMode_wide .videoPlayer>*,
-    .fullScreen .videoPlayer>* {
+    .zenzaScreenMode_3D   .zenzaPlayerContainer:not(.is-mouseMoving) .videoPlayer>*,
+    .zenzaScreenMode_wide .zenzaPlayerContainer:not(.is-mouseMoving) .videoPlayer>*,
+    .fullScreen           .zenzaPlayerContainer:not(.is-mouseMoving) .videoPlayer>* {
       cursor: none;
     }
 
-    .zenzaPlayerContainer .videoPlayer.is-loading>* {
+    .zenzaPlayerContainer.is-loading .videoPlayer>* {
       cursor: wait;
     }
 
@@ -2863,6 +2863,9 @@ var CONSTANT = {};
       .is-error .menuItemContainer.onErrorMenu .menuButton {
         opacity: 0.8 !important;
       }
+      .is-playlistEnable .menuItemContainer.onErrorMenu .playNextVideo {
+        display: block;
+      }
       .menuItemContainer.onErrorMenu .menuButton {
         position: relative;
         display: inline-block;
@@ -3457,6 +3460,9 @@ var CONSTANT = {};
           <div class="menuButtonInner">リロード</div>
         </div>
 
+        <div class="command menuButton playNextVideo" data-command="playNextVideo">
+          <div class="menuButtonInner">次の動画</div>
+        </div>
       </div>
 
       <div class="command togglePlayMenu menuItemContainer center" data-command="togglePlay">
