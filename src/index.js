@@ -101,6 +101,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 //@require loader/Storyboard.js
 
+//@require YouTubeWrapper.js
+  
 //@require NicoVideoPlayer.js
 
 //@require StoryBoard.js

@@ -291,11 +291,12 @@ var CONSTANT = {};
     }
 
     setVideoCanPlay() {
-      this.setState({isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true});
+      this.setState({
+        isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true, isError: false});
     }
 
     setPlaying() {
-      this.setState({isPlaying: true, isPausing: false, isLoading: false, isNotPlayed: false});
+      this.setState({isPlaying: true, isPausing: false, isLoading: false, isNotPlayed: false, isError: false});
     }
 
     setPausing() {
@@ -1604,6 +1605,9 @@ var CONSTANT = {};
         case 'saveMymemory':
           util.saveMymemory(this, this._videoInfo);
           break;
+        case 'setVideo':
+          this.setVideo(param);
+          break;
         case 'update-forceEconomy':
         case 'update-enableDmc':
         case 'update-dmcVideoQuality':
@@ -2190,14 +2194,13 @@ var CONSTANT = {};
         return this._onVideoFilterMatch();
       }
 
-      const nicoVideoPlayer = this._nicoVideoPlayer;
       const loadSmilevideo = () => {
         if (this._playerConfig.getValue('enableVideoSession')) {
           this._videoSession.create();
         }
         videoInfo.setCurrentVideo(videoInfo.getVideoUrl());
         this._playerState.isDmcPlaying = false;
-        nicoVideoPlayer.setVideo(videoInfo.getVideoUrl());
+        this.setVideo(videoInfo.getVideoUrl());
         this.emit('videoServerType', 'smile', {});
       };
 
@@ -2205,7 +2208,7 @@ var CONSTANT = {};
         this._playerConfig.getValue('enableDmc') && videoInfo.isDmc()) {
         this._videoSession.create().then(
           (sessionInfo) => {
-            nicoVideoPlayer.setVideo(sessionInfo.url);
+            this.setVideo(sessionInfo.url);
             this._videoSessionInfo = sessionInfo;
             videoInfo.setCurrentVideo(sessionInfo.url);
             this._playerState.isDmcPlaying = true;
@@ -2216,7 +2219,7 @@ var CONSTANT = {};
       } else {
         loadSmilevideo();
       }
-      nicoVideoPlayer.setVideoInfo(videoInfo);
+      this._nicoVideoPlayer.setVideoInfo(videoInfo);
 
       this.loadComment(videoInfo.getMsgInfo());
 
@@ -2229,6 +2232,9 @@ var CONSTANT = {};
           ZenzaWatch.util.escapeToZenkaku(videoInfo.getTitle())
         );
       }
+    },
+    setVideo: function(url) {
+      this._nicoVideoPlayer.setVideo(url);
     },
     loadComment: function(msgInfo) {
       msgInfo.language = this._playerConfig.getValue('commentLanguage');
@@ -2707,12 +2713,7 @@ var CONSTANT = {};
     },
     getDuration: function() {
       if (!this._videoInfo) { return 0; }
-      // 動画がプレイ可能≒メタデータパース済みの時はそちらの方が信頼できる
-      if (this._nicoVideoPlayer.canPlay()) {
-        return this._nicoVideoPlayer.getDuration();
-      } else {
-        return this._videoInfo.getDuration();
-      }
+      return this._videoInfo.getDuration();
     },
     getBufferedRange: function() {
       return this._nicoVideoPlayer.getBufferedRange();

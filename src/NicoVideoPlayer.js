@@ -13,6 +13,7 @@ class VideoCaptureUtil {}
 const Config = {};
 const util = {};
 class BaseViewComponent {}
+class YouTubeWrapper {}
 
 //===BEGIN===
 
@@ -127,7 +128,6 @@ class BaseViewComponent {}
           this._videoPlayer.setIsLoop(value);
           break;
         case 'playbackRate':
-          //if (!ZenzaWatch.util.isPremium()) { value = Math.min(1, value); }
           this._videoPlayer.setPlaybackRate(value);
           this._commentPlayer.setPlaybackRate(value);
           break;
@@ -783,7 +783,6 @@ class BaseViewComponent {}
 
   /**
    *  Video要素をラップした物
-   *  操作パネル等を自前で用意したいが、まだ手が回らない。
    *
    */
   //_.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
@@ -825,7 +824,7 @@ class BaseViewComponent {}
     _resetVideo (params) {
       params = params || {};
       if (this._videoElement) {
-        params.autoPlay = this._videoElement.autoplay;
+        params.autoplay = this._videoElement.autoplay;
         params.loop     = this._videoElement.loop;
         params.mute     = this._videoElement.muted;
         params.volume   = this._videoElement.volume;
@@ -853,6 +852,7 @@ class BaseViewComponent {}
       util.$(video)
         .addClass(`videoPlayer-video`)
         .attr(options);
+      body.id = 'ZenzaWatchVideoPlayerContainer';
       this._body = body;
       body.appendChild(video);
 
@@ -998,6 +998,7 @@ class BaseViewComponent {}
     }
 
     _onAbort () {
+      if (this._isYouTube) { return; } // TODO: YouTube側のエラーハンドリング
       window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
       this._isPlaying = false;
       this.addClass('is-abort');
@@ -1005,7 +1006,8 @@ class BaseViewComponent {}
     }
 
     _onError (e) {
-      if (this._video.getAttribute('src') === CONSTANT.BLANK_VIDEO_URL) { return; }
+      if (this._isYouTube) { return; } // TODO: YouTube側のエラーハンドリング
+      if (this._videoElement.getAttribute('src') === CONSTANT.BLANK_VIDEO_URL) { return; }
       window.console.error('error src', this._video.src);
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
       this.addClass('is-error');
@@ -1122,18 +1124,83 @@ class BaseViewComponent {}
 
       this._reset();
 
+      this._src = url;
+      this._isPlaying = false;
+      this._canPlay = false;
+      this.addClass('is-loading');
+
+       if (/(youtube\.com|youtu\.be)/.test(url)) {
+        this._initYouTube().then(() => {
+          return this._videoYouTube.setSrc(url);
+        }).then(() => {
+          this._changePlayer('YouTube');
+        });
+        return;
+      }
+
+      this._changePlayer('normal');
       if (url.indexOf('dmc.nico') >= 0) {
         this._video.crossOrigin = 'use-credentials';
       } else if (this._video.crossOrigin) {
         this._video.crossOrigin = null;
       }
 
-      this._currentVideo = this._videoElement;
-      this._src = url;
       this._video.src = url;
-      this._isPlaying = false;
-      this._canPlay = false;
-      this.addClass('is-loading');
+      
+   }
+
+    get _isYouTube() {
+      return this._videoYouTube && this._currentVideo === this._videoYouTube;
+    }
+
+    _initYouTube() {
+      if (this._videoYouTube) {
+        return Promise.resolve(this._videoYouTube);
+      }
+      const yt = this._videoYouTube = new YouTubeWrapper({
+        parentNode: this._body.appendChild(document.createElement('div')),
+        volume: this._volume,
+        autoplay: this._videoElement.autoplay
+      });
+      yt.on('canplay',        this._onCanPlay.bind(this));
+      yt.on('loadedmetadata', this._onLoadedMetaData.bind(this));
+      yt.on('ended',          this._onEnded  .bind(this));
+      yt.on('stalled',        this._onStalled.bind(this));
+      yt.on('pause',          this._onPause  .bind(this));
+      yt.on('play',           this._onPlay   .bind(this));
+      yt.on('volumechange',   this._onVolumeChange.bind(this));
+
+      ZenzaWatch.debug.youtube = yt;
+      return Promise.resolve(this._videoYouTube);
+    }
+
+    _changePlayer(type) {
+      switch(type.toLowerCase()) {
+        case 'youtube':
+          if (this._currentVideo !== this._videoYouTube) {
+            const yt = this._videoYouTube;
+            this.addClass('is-youtube');
+            this._currentVideo = yt;
+            if (this._videoElement) {
+              this._videoElement.src = CONSTANT.BLANK_VIDEO_URL;
+              yt.autoplay     = this._videoElement.autoplay;
+              yt.loop         = this._videoElement.loop;
+              yt.muted        = this._videoElement.muted;
+              yt.volume       = this._videoElement.volume;
+              yt.playbackRate = this._videoElement.playbackRate;
+            }
+            this.emit('changePlayerType', 'youtube');
+          }
+          break;
+        default:
+          if (this._currentVideo === this._videoYouTube) {
+            this.removeClass('is-youtube');
+            this._currentVideo = this._videoElement;
+            this._videoYouTube.src = '';
+            this.emit('changePlayerType', 'normal');
+          }
+          break;
+      }
     }
 
     setVolume (vol) {
@@ -1236,9 +1303,11 @@ class BaseViewComponent {}
       // removeAttribute('src')では動画がクリアされず、
       // 空文字を指定しても base hrefと連結されて
       // http://www.nicovideo.jpへのアクセスが発生する. どないしろと.
-      this._video.src = CONSTANT.BLANK_VIDEO_URL;
+      this._videoElement.src = CONSTANT.BLANK_VIDEO_URL;
       //window.console.info('src', this._video.src, this._video.getAttribute('src'));
-
+      if (this._videoYouTube) {
+        this._videoYouTube.src = '';
+      }
     }
     /**
      * 画面キャプチャを取る。
@@ -1297,11 +1366,27 @@ class BaseViewComponent {}
       height: 100%;
       z-index: 10;
     }
+    .is-youtube .touchWrapper {
+      display: none;
+    }
 
     .is-loading .touchWrapper,
     .is-error .touchWrapper {
       display: none !important;
     }
+
+    .videoPlayer.is-youtube video {
+      display: none;
+    }
+
+    .videoPlayer iframe {
+      display: none;
+    }
+
+    .videoPlayer.is-youtube iframe {
+      display: block;
+    }
+
 
   `.trim();
 

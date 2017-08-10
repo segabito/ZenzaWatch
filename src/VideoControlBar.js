@@ -1046,16 +1046,13 @@ var CONSTANT = {};
       player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
 
-      //this.setCurrentTime =
-      //  ZenzaWatch.util.createDrawCallFunc(this.setCurrentTime.bind(this));
-      //this.setBufferedRange =
-      //  ZenzaWatch.util.createDrawCallFunc(this.setBufferedRange.bind(this));
-
       this._initializeDom();
       this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
       this._initializeVideoServerTypeSelectMenu();
+
+      ZenzaWatch.debug.videoControlBar = this;
     },
     _initializeDom: function() {
       util.addStyle(VideoControlBar.__css__);
@@ -1627,6 +1624,7 @@ var CONSTANT = {};
       var chatList =
         this._chat.top.concat(this._chat.naka, this._chat.bottom);
       var duration = this._duration;
+      if (!duration) { return; }
       var map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
       var i = map.length;
       while(i > 0) map[--i] = 0;
