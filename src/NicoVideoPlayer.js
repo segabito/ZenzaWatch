@@ -88,18 +88,19 @@ class YouTubeWrapper {}
       this._videoWatchTimer = null;
     },
     _initializeEvents: function() {
-      this._videoPlayer.on('volumeChange', _.bind(this._onVolumeChange, this));
-      this._videoPlayer.on('dblclick', _.bind(this._onDblClick, this));
-      this._videoPlayer.on('aspectRatioFix', _.bind(this._onAspectRatioFix, this));
-      this._videoPlayer.on('play',    _.bind(this._onPlay, this));
-      this._videoPlayer.on('playing', _.bind(this._onPlaying, this));
-      this._videoPlayer.on('stalled', _.bind(this._onStalled, this));
-      this._videoPlayer.on('progress', _.bind(this._onProgress, this));
-      this._videoPlayer.on('pause',   _.bind(this._onPause, this));
-      this._videoPlayer.on('ended', _.bind(this._onEnded, this));
-      this._videoPlayer.on('loadedMetaData', _.bind(this._onLoadedMetaData, this));
-      this._videoPlayer.on('canPlay', _.bind(this._onVideoCanPlay, this));
-      this._videoPlayer.on('durationChange', _.bind(this._onDurationChange, this));
+      this._videoPlayer.on('volumeChange', this._onVolumeChange.bind(this));
+      this._videoPlayer.on('dblclick', this._onDblClick.bind(this));
+      this._videoPlayer.on('aspectRatioFix', this._onAspectRatioFix.bind(this));
+      this._videoPlayer.on('play',    this._onPlay.bind(this));
+      this._videoPlayer.on('playing', this._onPlaying.bind(this));
+      this._videoPlayer.on('stalled', this._onStalled.bind(this));
+      this._videoPlayer.on('progress', this._onProgress.bind(this));
+      this._videoPlayer.on('pause',   this._onPause.bind(this));
+      this._videoPlayer.on('ended', this._onEnded.bind(this));
+      this._videoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
+      this._videoPlayer.on('canPlay', this._onVideoCanPlay.bind(this));
+      this._videoPlayer.on('durationChange', this._onDurationChange.bind(this));
+      this._videoPlayer.on('playerTypeChange', this._onPlayerTypeChange.bind(this));
 
       // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
       this._videoPlayer.on('mouseWheel',
@@ -184,6 +185,9 @@ class YouTubeWrapper {}
     },
     _onDurationChange: function(duration) {
       this.emit('durationChange', duration);
+    },
+    _onPlayerTypeChange: function(type) {
+      this.emit('videoPlayerTypeChange', type);
     },
     _onPlay: function() {
       this._isPlaying = true;
@@ -1131,7 +1135,9 @@ class YouTubeWrapper {}
 
        if (/(youtube\.com|youtu\.be)/.test(url)) {
         this._initYouTube().then(() => {
-          return this._videoYouTube.setSrc(url);
+          // 通常使用ではvideo -> YouTubeへの遷移しか存在しないので
+          // 逆方向の想定は色々端折っている
+          return this._videoYouTube.setSrc(url, this._videoElement.currentTime);
         }).then(() => {
           this._changePlayer('YouTube');
         });
@@ -1180,24 +1186,26 @@ class YouTubeWrapper {}
           if (this._currentVideo !== this._videoYouTube) {
             const yt = this._videoYouTube;
             this.addClass('is-youtube');
+            yt.autoplay     = this._currentVideo.autoplay;
+            yt.loop         = this._currentVideo.loop;
+            yt.muted        = this._currentVideo.muted;
+            yt.volume       = this._currentVideo.volume;
+            yt.playbackRate = this._currentVideo.playbackRate;
             this._currentVideo = yt;
-            if (this._videoElement) {
-              this._videoElement.src = CONSTANT.BLANK_VIDEO_URL;
-              yt.autoplay     = this._videoElement.autoplay;
-              yt.loop         = this._videoElement.loop;
-              yt.muted        = this._videoElement.muted;
-              yt.volume       = this._videoElement.volume;
-              yt.playbackRate = this._videoElement.playbackRate;
-            }
-            this.emit('changePlayerType', 'youtube');
+            this._videoElement.src = CONSTANT.BLANK_VIDEO_URL;
+            this.emit('playerTypeChange', 'youtube');
           }
           break;
         default:
           if (this._currentVideo === this._videoYouTube) {
             this.removeClass('is-youtube');
+            this._videoElement.loop   = this._currentVideo.loop;
+            this._videoElement.muted  = this._currentVideo.muted;
+            this._videoElement.volume = this._currentVideo.volume;
+            this._videoElement.playbackRate = this._currentVideo.playbackRate;
             this._currentVideo = this._videoElement;
             this._videoYouTube.src = '';
-            this.emit('changePlayerType', 'normal');
+            this.emit('playerTypeChange', 'normal');
           }
           break;
       }

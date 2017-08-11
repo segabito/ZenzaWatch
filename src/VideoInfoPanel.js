@@ -711,8 +711,10 @@ const TagEditApi = function() {};
       padding: 4px 8px;
       cursor: pointer;
       background: #666;
+      color: #ccc;
       border-radius: 4px;
       box-shadow: 0 0 4px #ccc;
+      border: 1px outset;
     }
     .zenzaTubeButton:hover {
       box-shadow: 0 0 8px #fff, 0 0 4px #ccc;
@@ -730,6 +732,7 @@ const TagEditApi = function() {};
       }
     .zenzaTubeButton:active {
       box-shadow:  0 0 2px #ccc, 0 0 4px #000 inset;
+      border: 1px inset;
     }
 
   `).trim();
@@ -988,7 +991,7 @@ const TagEditApi = function() {};
         this._$description.find('a[href*="youtube.com/watch"], a[href*="youtu.be"]').each((i, link) => {
           const btn = document.createElement('div');
           btn.className = 'zenzaTubeButton';
-          btn.innerHTML = 'Zen<span>Tube</span>';
+          btn.innerHTML = '▷Zen<span>Tube</span>';
           btn.title = 'ZenzaWatchで開く(実験中)';
           btn.setAttribute('data-command', 'setVideo');
           btn.setAttribute('data-param', link.href);

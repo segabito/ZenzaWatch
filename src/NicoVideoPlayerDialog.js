@@ -264,6 +264,7 @@ var CONSTANT = {};
         isUpdatingDeflist: false,
         isUpdatingMylist: false,
         isNotPlayed: true,
+        isYouTube: false,
 
         isEnableFilter: config.getValue('enableFilter'),
         sharedNgLevel: config.getValue('sharedNgLevel'),
@@ -1170,7 +1171,8 @@ var CONSTANT = {};
         isCommentPosting:  'is-commentPosting',
         isRegularUser: 'is-regularUser',
         isWaybackMode: 'is-waybackMode',
-        isNotPlayed: 'is-notPlayed'
+        isNotPlayed: 'is-notPlayed',
+        isYouTube: 'is-youTube',
       };
     },
     _onPlayerStateChange: function(key, value) {
@@ -1386,6 +1388,7 @@ var CONSTANT = {};
       nicoVideoPlayer.on('commentParsed',  this._onCommentParsed.bind(this));
       nicoVideoPlayer.on('commentChange',  this._onCommentChange.bind(this));
       nicoVideoPlayer.on('commentFilterChange', this._onCommentFilterChange.bind(this));
+      nicoVideoPlayer.on('videoPlayerTypeChange', this._onVideoPlayerTypeChange.bind(this));
 
       nicoVideoPlayer.on('error', this._onVideoError.bind(this));
       nicoVideoPlayer.on('abort', this._onVideoAbort.bind(this));
@@ -2036,6 +2039,15 @@ var CONSTANT = {};
       config.setValue('commandFilter', filter.getCommandFilterList());
       this.emit('commentFilterChange', filter);
     },
+    _onVideoPlayerTypeChange: function(type = '') {
+      switch(type.toLowerCase()) {
+        case 'youtube':
+          this._playerState.setState({isYouTube: true});
+          break;
+        default:
+          this._playerState.setState({isYouTube: false});
+      }
+    },
     _onNicosSeek: function(time) {
       const ct = this.getCurrentTime();
       window.console.info('nicosSeek!', time);
@@ -2169,8 +2181,8 @@ var CONSTANT = {};
         !videoInfo.isEconomy() &&
         util.isBetterThanDmcMayBe(
           videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
-
       videoInfo.isDmcDisable = autoDisableDmc;
+
       this._playerState.setState({
         isDmcAvailable: videoInfo.isDmc(),
         isCommunity: videoInfo.isCommunityVideo(),
@@ -2338,6 +2350,7 @@ var CONSTANT = {};
       }
     },
     _onVideoCanPlay: function() {
+      if (this._playerState.isYouTube) { return; }
       window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
       this._playerConfig.setValue('lastWatchId', this._watchId);
 
