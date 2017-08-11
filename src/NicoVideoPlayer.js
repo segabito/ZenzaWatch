@@ -693,6 +693,10 @@ class YouTubeWrapper {}
       box-shadow: 0 0 0;
       border: 1px inset;
     }
+
+    .is-youTube .screenShot {
+      display: none !important;
+    }
   `).trim();
 
   ContextMenu.__tpl__ = (`
@@ -886,8 +890,8 @@ class YouTubeWrapper {}
 
       this._initializeEvents();
 
-      ZenzaWatch.debug.video = this._videoElement;
-      Object.assign(ZenzaWatch.external, {getVideoElement: () => { return this._videoElement; }});
+      ZenzaWatch.debug.video = this._video;
+      Object.assign(ZenzaWatch.external, {getVideoElement: () => { return this._video; }});
     }
 
     _initializeEvents () {
@@ -1375,7 +1379,7 @@ class YouTubeWrapper {}
       z-index: 10;
     }
     .is-youtube .touchWrapper {
-      display: none;
+      height: calc(100% - 150px);
     }
 
     .is-loading .touchWrapper,
@@ -1393,6 +1397,7 @@ class YouTubeWrapper {}
 
     .videoPlayer.is-youtube iframe {
       display: block;
+      border: 1px dotted;
     }
 
 

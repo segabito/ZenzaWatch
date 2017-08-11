@@ -713,8 +713,8 @@ const TagEditApi = function() {};
       background: #666;
       color: #ccc;
       border-radius: 4px;
-      box-shadow: 0 0 4px #ccc;
       border: 1px outset;
+      margin: 0 8px;
     }
     .zenzaTubeButton:hover {
       box-shadow: 0 0 8px #fff, 0 0 4px #ccc;

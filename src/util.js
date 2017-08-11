@@ -1503,13 +1503,18 @@ class CrossDomainGate {}
         if (util.getPlayerVer() === 'html5') {
           return true;
         }
-        var watchApiData = JSON.parse($('#watchAPIDataContainer').text());
-        var flvInfo = ZenzaWatch.util.parseQuery(
+        const watchApiData = JSON.parse($('#watchAPIDataContainer').text());
+        const flvInfo = util.parseQuery(
             decodeURIComponent(watchApiData.flashvars.flvInfo)
           );
-        var videoUrl = flvInfo.url;
-        var isSwf = /\/smile\?s=/.test(videoUrl);
-        var isRtmp = /^rtmpe?:/.test(videoUrl);
+        const dmcInfo = JSON.parse(
+            decodeURIComponent(watchApiData.flashvars.dmcInfo || '{}')
+          );
+        const videoUrl  = flvInfo.url ? flvInfo.url : '';
+        const isDmc = dmcInfo && dmcInfo.time;
+        if (isDmc) { return true; }
+        const isSwf = /\/smile\?s=/.test(videoUrl);
+        const isRtmp = (videoUrl.indexOf('rtmp') === 0);
         return (isSwf || isRtmp) ? false : true;
        } catch (e) {
         return false;

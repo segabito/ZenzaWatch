@@ -2877,12 +2877,10 @@ var CONSTANT = {};
       .is-error .menuItemContainer.onErrorMenu .menuButton {
         opacity: 0.8 !important;
       }
-      .is-playlistEnable .menuItemContainer.onErrorMenu .playNextVideo {
-        display: block;
-      }
+
       .menuItemContainer.onErrorMenu .menuButton {
         position: relative;
-        display: inline-block;
+        display: inline-block !important;
         margin: 0 16px;
         padding: 8px;
         background: #888;
@@ -2900,7 +2898,12 @@ var CONSTANT = {};
         border: 2px inset;
         box-shadow: none;
       }
-
+      .menuItemContainer.onErrorMenu .playNextVideo {
+        display: none !important;
+      }
+      .is-playlistEnable .menuItemContainer.onErrorMenu .playNextVideo {
+        display: inline-block !important;
+      }
 
 
     .menuButton {
