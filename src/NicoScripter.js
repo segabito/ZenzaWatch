@@ -27,7 +27,6 @@ var util = {};
       let result = [];
       for (let i = 0, len = lines.length; i < len; i++) {
         let text = lines[i];
-        //window.console.info('parseNiwango', text);
         const id = NicoScriptParser.parseId;
         if (text.match(/^\/?replace\((.*?)\)/)) {
           type = 'REPLACE';
@@ -252,7 +251,6 @@ var util = {};
 
     static parseSeek(str) {
       let result = NicoScriptParser.parseParams(str);
-      //window.console.info('parseSeek', result);
       if (!result) { return null; }
       return {
         time: result.vpos
@@ -398,7 +396,7 @@ var util = {};
         diff = Math.min(1, Math.abs(diff)) * (diff / Math.abs(diff));
         switch (p.type) {
           case 'SEEK':
-            this.emit('command', 'nicosSeek', Math.max(0, p.params.time + diff));
+            this.emit('command', 'nicosSeek', Math.max(0, p.params.time * 1 + diff));
             break;
           case 'SEEK_MARKER':
             let time = this._marker[p.params.time] || 0;
@@ -425,7 +423,6 @@ var util = {};
         'SEEK': (p, nicos) => {
           if (assigned[p.id]) { return; }
           assigned[p.id] = true;
-          console.log('SEEK: ', p, nicos);
           this._eventScript.push({p, nicos});
         },
         'SEEK_MARKER': (p, nicos) => {
@@ -458,7 +455,6 @@ var util = {};
         },
         'COLOR': function(nicoChat, nicos, params) {
           let hasColor = nicoChat.hasColorCommand();
-          //window.console.log('COLOR', hasColor, params.color);
           if (!hasColor) { nicoChat.setColor(params.color); }
         },
         'REVERSE': function(nicoChat, nicos, params) {
@@ -509,9 +505,6 @@ var util = {};
         'PIPE': function(nicoChat, nicos, lines) {
           lines.forEach(line => {
             let type = line.type;
-            let ev = eventFunc[type];
-            if (ev) { return ev(line, nicos); }
-
             let f = applyFunc[type];
             if (f) {
               f(nicoChat, nicos, line.params);
@@ -526,10 +519,19 @@ var util = {};
         let p = NicoScriptParser.parseNicos(nicos.getText());
         if (!p) { return; }
         if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
-
+        
         let ev = eventFunc[p.type];
+        if (ev) {
+          return ev(p, nicos);
+        }
+        else if (p.type === 'PIPE') {
+          p.params.forEach(line => {
+            let type = line.type;
+            let ev = eventFunc[type];
+            if (ev) { return ev(line, nicos); }
+          });
+        }
 
-        if (ev) { return ev(p, nicos); }
 
         let func = applyFunc[p.type];
         if (!func) { return; }
