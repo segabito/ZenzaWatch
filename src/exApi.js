@@ -68,6 +68,12 @@ var ZenzaWatch = {
     return result;
   };
 
+  const parseUrl = (url) => {
+    const a = document.createElement('a');
+    a.href = url;
+    return a;
+  };
+
   var loadUrl = function(data, type, token) {
     var timeoutTimer = null, isTimeout = false;
 
@@ -157,15 +163,15 @@ var ZenzaWatch = {
     }, 30000);
   };
 
-  const hostReg = /^[a-z0-9]*\.nicovideo\.jp$/;
+  const HOST_REG = /^[a-z0-9]*\.nicovideo\.jp$/;
 
 
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    var parentHost = document.referrer.split('/')[2];
-    if (!hostReg.test(parentHost)) {
+    let parentHost = parseUrl(document.referrer).hostname;
+    if (!HOST_REG.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -176,7 +182,7 @@ var ZenzaWatch = {
 
     window.addEventListener('message', function(event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
-      if (!hostReg.test(event.origin.split('/')[2])) { return; }
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       //var command = data.command;
 
@@ -232,9 +238,9 @@ var ZenzaWatch = {
     if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    let parentHost = document.referrer.split('/')[2];
+    let parentHost = parseUrl(document.referrer).hostname;
     window.console.log('parentHost', parentHost);
-    if (!hostReg.test(parentHost) &&
+    if (!HOST_REG.test(parentHost) &&
         localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
       window.console.log('disable bridge');
       return;
@@ -299,7 +305,7 @@ var ZenzaWatch = {
 
     window.addEventListener('message', function(event) {
       //window.console.log('nicovideoApiLoaderWindow.onMessage origin="%s"', event.origin, event.data);
-      if (!hostReg.test(event.origin.split('/')[2])) { return; }
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
       var data = JSON.parse(event.data), command = data.command;
 
       if (data.token !== token) {
@@ -387,8 +393,8 @@ var ZenzaWatch = {
     if (window.name.indexOf('storyboard') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    const parentHost = document.referrer.split('/')[2];
-    if (!hostReg.test(parentHost)) {
+    let parentHost = parseUrl(document.referrer).hostname;
+    if (!HOST_REG.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -436,7 +442,7 @@ var ZenzaWatch = {
 
     window.addEventListener('message', function(event) {
       const data = JSON.parse(event.data);
-      if (!hostReg.test(event.origin.split('/')[2])) { return; }
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
 
       if (data.token !== token) { return; }
 
@@ -472,8 +478,8 @@ var ZenzaWatch = {
     if (window.name.indexOf('search') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    const parentHost = document.referrer.split('/')[2];
-    if (!hostReg.test(parentHost)) {
+    let parentHost = parseUrl(document.referrer).hostname;
+    if (!HOST_REG.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -482,6 +488,7 @@ var ZenzaWatch = {
     const token = location.hash ? location.hash.substring(1) : null;
 
     window.addEventListener('message', function(event) {
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
       const data = JSON.parse(event.data);
 
       if (data.token !== token) { return; }

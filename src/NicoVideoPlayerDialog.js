@@ -1594,9 +1594,11 @@ var CONSTANT = {};
           }
           break;
         case 'screenShot':
+          if (this._playerState.isYouTube) { return; }
           this._nicoVideoPlayer.getScreenShot();
           break;
         case 'screenShotWithComment':
+          if (this._playerState.isYouTube) { return; }
           this._nicoVideoPlayer.getScreenShotWithComment();
           break;
         case 'nextVideo':
@@ -1625,7 +1627,7 @@ var CONSTANT = {};
           this._playerConfig.setValue(command, param);
           this.reloadComment(param);
           break;
-        case 'toggle-comment':
+        case 'toggle-comment': // その日の気分で実装するからこうなるんやで
         case 'toggle-showComment':
         case 'toggle-backComment':
         case 'toggle-mute':
@@ -2343,6 +2345,9 @@ var CONSTANT = {};
       PopupMessage.alert(e.message);
     },
     _onLoadedMetaData: function() {
+      // YouTubeは動画指定時にパラメータで開始位置を渡すので不要
+      if (this._playerState.isYouTube) { return; }
+
       // パラメータで開始秒数が指定されていたらそこにシーク
       var currentTime = this._videoWatchOptions.getCurrentTime();
       if (currentTime > 0) {
