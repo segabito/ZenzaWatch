@@ -162,6 +162,14 @@ const WindowMessageEmitter = {};
               to:   params.dateTo   ? (new Date(params.dateTo  )).getTime() : now
             }));
           }
+          // 公式検索ページの日付指定
+          const dateReg = /^\d{4}-\d{2}-\d{2}$/;
+          if (dateReg.test(params.start) && dateReg.test(params.end)) {
+            this._filters.push(this._buildStartTimeRangeFilter({
+              from: (new Date(params.start)).getTime(),
+              to:   (new Date(params.end  )).getTime()
+            }));
+          }
         }
 
         get stringfiedFilters() {

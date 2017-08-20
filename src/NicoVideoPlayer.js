@@ -1378,7 +1378,9 @@ class YouTubeWrapper {}
       height: 100%;
       z-index: 10;
     }
+    /* YouTubeのプレイヤーを触れる用にするための隙間 */
     .is-youtube .touchWrapper {
+      width:  calc(100% - 100px);
       height: calc(100% - 150px);
     }
 

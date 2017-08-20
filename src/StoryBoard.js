@@ -1095,6 +1095,7 @@ var DmcStoryboardSession = {
         white-space: nowrap;
         background: #222;
         margin: 0;
+        scroll-behavior: smooth;
       }
 
 

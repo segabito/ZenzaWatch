@@ -12,7 +12,6 @@ var util = {};
 //===BEGIN===
 
   class NicoScriptParser {
-
     static get parseId() {
       if (!NicoScriptParser._count) {
         NicoScriptParser._count = 1;

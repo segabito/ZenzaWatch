@@ -254,6 +254,10 @@ class NicoSearchApiV2Loader {}
     overflow: auto;
   }
 
+  #listContainerInner {
+    scroll-behavior: smooth;
+  }
+
 
 </style>
 <style id="listItemStyle">%CSS%</style>
