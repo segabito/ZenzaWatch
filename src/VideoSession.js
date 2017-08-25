@@ -14,7 +14,7 @@ const ajax = function() {};
 
 const VideoSession = (function() {
 
-  const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 15min
+  const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 10min
   const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec
 
   const CHECK_PAUSE_INTERVAL      = 30 * 1000;

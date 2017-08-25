@@ -773,6 +773,11 @@ var CONSTANT = {};
     .is-mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
       background: #336;
     }
+    .is-youTube .videoServerTypeMenu {
+      text-shadow:
+        0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
+      pointer-events: none;
+    }
 
 
     .videoServerTypeMenu:active {

@@ -283,9 +283,7 @@ const TagEditApi = function() {};
       margin: 4px 0px;
       word-break: break-all;
       line-height: 1.5;
-      /*margin: 4px 8px;
-      border: 1px solid #666;
-      border-radius: 4px;*/
+      min-height: 50%;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription a {
@@ -649,6 +647,10 @@ const TagEditApi = function() {};
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #ccc;
+    }
+
+    .zenzaWatchVideoInfoPanel .videoInfoTab {
+      height: 100%;
     }
 
     .zenzaWatchVideoInfoPanel .resumePlay {

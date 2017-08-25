@@ -142,4 +142,20 @@ describe('Video Search API v2', () => {
     assert.equal(filters[0].from, 60 * 20);
   });
 
+  describe('公式検索ページの 日付指定対応', () => {
+    let params = Object.assign({}, baseParams);
+    let query, filters;
+
+    let start = '2007-03-06';
+    let end   = '2017-03-06';
+    query = create(Object.assign(params, {start, end}));
+    filters = query.filters;
+    console.log(filters);
+    assert.equal(filters[0].field, 'startTime');
+    assert.equal(filters[0].type,  'range');
+    assert.equal(filters[0].from, (new Date(start)).getTime());
+    assert.equal(filters[0].to,   (new Date(end)).getTime());
+  });
+
+
 });
