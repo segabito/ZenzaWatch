@@ -354,15 +354,17 @@ var CONSTANT = {};
 
     .bufferRange {
       position: absolute;
+      width: 100%;
       height: 110%;
+      left: 0px;
       top: 0px;
       box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
       border-radius: 4px;
-      /*mix-blend-mode: lighten;*/
       z-index: 100;
       background: #663;
-      transform: translateZ(0);
-      transition: left 0.2s, width 0.2s;
+      transform-origin: left;
+      transform: translate3d(0, 0, 0) scaleX(0);
+      transition: transform 0.2s;
     }
 
     .zenzaStoryboardOpen .bufferRange {
@@ -1551,7 +1553,7 @@ var CONSTANT = {};
     },
     setBufferedRange: function(range, currentTime) {
       var $range = this._$bufferRange;
-      if (!range || !range.length) {
+      if (!range || !range.length || !this._duration) {
         return;
       }
       for (var i = 0, len = range.length; i < len; i++) {
@@ -1562,10 +1564,9 @@ var CONSTANT = {};
           if (start <= currentTime && end >= currentTime) {
             if (this._bufferStart !== start ||
                 this._bufferEnd   !== end) {
-              $range.css({
-                left: (this._timeToPer(start) - 1) + '%',
-                width: (this._timeToPer(width) + 2)+ '%'
-              });
+              const perLeft = (this._timeToPer(start) - 1);
+              const scaleX = (this._timeToPer(width) + 2) / 100;
+              $range.css('transform', `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`);
               this._bufferStart = start;
               this._bufferEnd   = end;
             }
@@ -1578,7 +1579,7 @@ var CONSTANT = {};
     resetBufferedRange: function() {
       this._buffferStart = 0;
       this._buffferEnd = 0;
-      this._$bufferRange.css({left: 0, width: 0});
+      this._$bufferRange.css({transform: 'scaleX(0)'});
     }
   });
 
