@@ -380,18 +380,30 @@ var CONSTANT = {};
 
     .seekBar .seekBarPointer {
       position: absolute;
-      top: 50%;
-      width: 12px;
-      height: 140%;
-      background: rgba(255, 255, 255, 0.6);
-      border-radius: 2px;
-      transform: translate3d(-50%, -50%, 0);
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
       z-index: 200;
-      /*mix-blend-mode: lighten;*/
-      box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
+      pointer-events: none;
+      transform: translate3d(0, 0, 0);
+      transform-origin: left middle;
+      transition: transform 1s linear; /* 動きを滑らかにする用 */
     }
 
+      .seekBar .seekBarPointerCore {
+        position: absolute;
+        top: 50%;
+        width: 12px;
+        height: 140%;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 2px;
+        transform: translate3d(-50%, -50%, 0);
+        box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
+      }
+
     .is-loading  .seekBar .seekBarPointer,
+    .seekBarPointer.no-transition,
     .dragging .seekBar .seekBarPointer {
       transition: none;
     }
@@ -876,7 +888,9 @@ var CONSTANT = {};
       <div class="seekBarContainer">
         <div class="seekBarShadow"></div>
         <div class="seekBar">
-          <div class="seekBarPointer"></div>
+          <div class="seekBarPointer">
+            <div class="seekBarPointerCore"></div>
+          </div>
           <div class="bufferRange"></div>
         </div>
       </div>
@@ -1526,6 +1540,7 @@ var CONSTANT = {};
     },
     setCurrentTime: function(sec) {
       if (this._currentTime !== sec) {
+        const diff = Math.abs(this._currentTime - sec);
         this._currentTime = sec;
 
         var m = Math.floor(sec / 60);
@@ -1535,7 +1550,14 @@ var CONSTANT = {};
           this._currentTimeText = currentTimeText;
           this._$currentTime.text(currentTimeText);
         }
-        this._$seekBarPointer.css('left', Math.min(100, this._timeToPer(sec)) + '%');
+        const per = Math.min(100, this._timeToPer(sec));
+        if (diff > 3) {
+          this._$seekBarPointer.addClass('no-transition');
+          window.setTimeout(() => {
+            this._$seekBarPointer.removeClass('no-transition');
+          }, 100);
+        }
+        this._$seekBarPointer.css('transform', `translate3d(${per}%, 0, 0)`);
       }
     },
     setDuration: function(sec) {
