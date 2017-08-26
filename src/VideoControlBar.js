@@ -388,7 +388,7 @@ var CONSTANT = {};
       pointer-events: none;
       transform: translate3d(0, 0, 0);
       transform-origin: left middle;
-      transition: transform 1s linear; /* 動きを滑らかにする用 */
+      transition: none;
     }
 
       .seekBar .seekBarPointerCore {
@@ -403,7 +403,6 @@ var CONSTANT = {};
       }
 
     .is-loading  .seekBar .seekBarPointer,
-    .seekBarPointer.no-transition,
     .dragging .seekBar .seekBarPointer {
       transition: none;
     }
@@ -1535,7 +1534,7 @@ var CONSTANT = {};
       this._timerCount++;
       var player = this._player;
       var currentTime = player.getCurrentTime();
-      if (this._timerCount % 30 === 0) {
+      if (this._timerCount % 15 === 0) {
         this.setCurrentTime(currentTime);
       }
       this._storyboard.setCurrentTime(currentTime);
@@ -1545,7 +1544,6 @@ var CONSTANT = {};
     },
     setCurrentTime: function(sec) {
       if (this._currentTime !== sec) {
-        const diff = Math.abs(this._currentTime - sec);
         this._currentTime = sec;
 
         var m = Math.floor(sec / 60);
@@ -1556,12 +1554,6 @@ var CONSTANT = {};
           this._$currentTime.text(currentTimeText);
         }
         const per = Math.min(100, this._timeToPer(sec));
-        if (diff > 3) {
-          this._$seekBarPointer.addClass('no-transition');
-          window.setTimeout(() => {
-            this._$seekBarPointer.removeClass('no-transition');
-          }, 100);
-        }
         this._$seekBarPointer.css('transform', `translate3d(${per}%, 0, 0)`);
       }
     },

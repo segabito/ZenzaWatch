@@ -750,7 +750,6 @@ var DmcStoryboardSession = {
         $view
           .toggleClass('webkit', ZenzaWatch.util.isWebkit())
           .on('click',     '.board',   this._onBoardClick.bind(this))
-        //  .on('click',     '.command', this._onCommandClick.bind(this))
           .on('mousemove', '.board',   this._onBoardMouseMove.bind(this))
           .on('mousemove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
           .on('wheel',            this._onMouseWheel   .bind(this))
@@ -888,7 +887,6 @@ var DmcStoryboardSession = {
         if (!$inner) { return 0; }
       
         if (left === undefined) {
-          //return this._scrollLeft = $inner.scrollLeft();
           return $inner.scrollLeft();
         } else if (left === 0 || Math.abs(this._scrollLeft - left) >= 1) {
           if (left === 0 || forceUpdate) {
@@ -897,7 +895,6 @@ var DmcStoryboardSession = {
           } else {
             var sl = $inner.scrollLeft();
             this._scrollLeft = (left + sl) / 2;
-            //$inner.scrollLeft(this._scrollLeft);
             this._scrollLeftChanged = true;
           }
         }
@@ -955,7 +952,7 @@ var DmcStoryboardSession = {
 
         if (this._scrollLeftChanged && !this._isHover) {
           this._$inner.scrollLeft(this._scrollLeft);
-          this.__scrollLeftChanged = false;
+          this._scrollLeftChanged = false;
         }
         if (this._pointerLeftChanged) {
           this._$pointer.css('transform',
@@ -1194,7 +1191,6 @@ var DmcStoryboardSession = {
         z-index: 100;
         pointer-events: none;
         transform: translate(-50%, 0);
-                   /*border: 1px solid #006;*/
         box-shadow: 0 0 4px #333;
         background: #ff9;
         opacity: 0.5;
