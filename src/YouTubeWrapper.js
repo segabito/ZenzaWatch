@@ -26,12 +26,19 @@ const {YouTubeWrapper} = (() => {
       this._volume = volume;
       this._playbackRate = playbackRate;
       this._loop = loop;
+
+      this._isSeeking = false;
+      this._seekTime = 0;
+
+      this._onSeekEnd = _.debounce(this._onSeekEnd.bind(this), 500);
     }
 
     setSrc(url, startSeconds = 0) {
       this._src = url;
       this._videoId = this._parseVideoId(url);
       this._canPlay = false;
+      this._isSeeking = false;
+      this._seekTime = 0;
       const player = this._player;
       const isFirst = !!player ? false : true;
       if (isFirst && !url) {
@@ -193,12 +200,19 @@ const {YouTubeWrapper} = (() => {
       this._player.pauseVideo();
     }
 
+    _onSeekEnd() {
+      this._isSeeking = false;
+      this._player.seekTo(this._seekTime);
+    }
+
     set currentTime(v) {
-      this._player.seekTo(v);
+      this._isSeeking = true;
+      this._seekTime = Math.max(0, Math.min(v, this.duration));
+      this._onSeekEnd();
     }
 
     get currentTime() {
-      return this._player.getCurrentTime();
+      return this._isSeeking ? this._seekTime : this._player.getCurrentTime();
     }
 
     get duration() {
