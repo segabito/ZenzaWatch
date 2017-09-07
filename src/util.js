@@ -952,6 +952,10 @@ class CrossDomainGate {}
         transform: translate(-9999px, 0);
       }
 
+      #ZenzaWatchVideoPlayerContainer .atsumori-root {
+        position: absolute;
+        z-index: 10;
+      }
 
     `;
     // 非ログイン状態のwatchページ用
