@@ -2063,8 +2063,6 @@ class CrossDomainGate {}
             key = 'SCREEN_MODE'; param = 'small';
             break;
           case map.SCREEN_MODE_2:
-          case 222 + 0x1000: // Shift + 2 ???
-            // なぜかMacChrome+JISキーではShift+2で222が飛んでくる。不明。
             key = 'SCREEN_MODE'; param = 'sideView';
             break;
           case map.SCREEN_MODE_3:
