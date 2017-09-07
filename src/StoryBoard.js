@@ -1092,7 +1092,6 @@ var DmcStoryboardSession = {
         white-space: nowrap;
         background: #222;
         margin: 0;
-        scroll-behavior: smooth;
       }
 
 
@@ -1197,7 +1196,6 @@ var DmcStoryboardSession = {
       }
 
       .storyboardContainer:hover .storyboardPointer {
-        opacity: 0.8;
         box-shadow: 0 0 8px #ccc;
         transition: transform 0.4s ease-out;
       }

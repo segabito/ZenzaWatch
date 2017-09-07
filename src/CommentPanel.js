@@ -694,9 +694,6 @@ class BaseViewComponent {}
     .itemDetailContainer .cmd:before {
       content: 'cmd';
     }
-    .itemDetailContainer .text:before {
-      content: 'text';
-    }
     .itemDetailContainer .text {
       border: 1px inset #ccc;
       padding: 8px;

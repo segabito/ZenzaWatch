@@ -649,7 +649,8 @@ const TagEditApi = function() {};
       background: #ccc;
     }
 
-    .zenzaWatchVideoInfoPanel .videoInfoTab {
+
+    .zenzaWatchVideoInfoPanel .zenzaWatchVideoInfoPanelInner {
       height: 100%;
     }
 

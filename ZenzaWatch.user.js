@@ -25,7 +25,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.14.0
+// @version        1.14.6
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -40,7 +40,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.14.0';
+  var VER = '1.14.6';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -1033,6 +1033,10 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         transform: translate(-9999px, 0);
       }
 
+      #ZenzaWatchVideoPlayerContainer .atsumori-root {
+        position: absolute;
+        z-index: 10;
+      }
 
     `;
     // 非ログイン状態のwatchページ用
@@ -2140,8 +2144,6 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
             key = 'SCREEN_MODE'; param = 'small';
             break;
           case map.SCREEN_MODE_2:
-          case 222 + 0x1000: // Shift + 2 ???
-            // なぜかMacChrome+JISキーではShift+2で222が飛んでくる。不明。
             key = 'SCREEN_MODE'; param = 'sideView';
             break;
           case map.SCREEN_MODE_3:
@@ -5518,6 +5520,14 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
               to:   params.dateTo   ? (new Date(params.dateTo  )).getTime() : now
             }));
           }
+          // 公式検索ページの日付指定
+          const dateReg = /^\d{4}-\d{2}-\d{2}$/;
+          if (dateReg.test(params.start) && dateReg.test(params.end)) {
+            this._filters.push(this._buildStartTimeRangeFilter({
+              from: (new Date(params.start)).getTime(),
+              to:   (new Date(params.end  )).getTime()
+            }));
+          }
         }
 
         get stringfiedFilters() {
@@ -6167,12 +6177,19 @@ const {YouTubeWrapper} = (() => {
       this._volume = volume;
       this._playbackRate = playbackRate;
       this._loop = loop;
+
+      this._isSeeking = false;
+      this._seekTime = 0;
+
+      this._onSeekEnd = _.debounce(this._onSeekEnd.bind(this), 500);
     }
 
     setSrc(url, startSeconds = 0) {
       this._src = url;
       this._videoId = this._parseVideoId(url);
       this._canPlay = false;
+      this._isSeeking = false;
+      this._seekTime = 0;
       const player = this._player;
       const isFirst = !!player ? false : true;
       if (isFirst && !url) {
@@ -6334,12 +6351,19 @@ const {YouTubeWrapper} = (() => {
       this._player.pauseVideo();
     }
 
+    _onSeekEnd() {
+      this._isSeeking = false;
+      this._player.seekTo(this._seekTime);
+    }
+
     set currentTime(v) {
-      this._player.seekTo(v);
+      this._isSeeking = true;
+      this._seekTime = Math.max(0, Math.min(v, this.duration));
+      this._onSeekEnd();
     }
 
     get currentTime() {
-      return this._player.getCurrentTime();
+      return this._isSeeking ? this._seekTime : this._player.getCurrentTime();
     }
 
     get duration() {
@@ -7777,7 +7801,9 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       height: 100%;
       z-index: 10;
     }
+    /* YouTubeのプレイヤーを触れる用にするための隙間 */
     .is-youtube .touchWrapper {
+      width:  calc(100% - 100px);
       height: calc(100% - 150px);
     }
 
@@ -8032,8 +8058,6 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
   }
 
 
-
-//===END==
 
 
 
@@ -8763,7 +8787,6 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
         $view
           .toggleClass('webkit', ZenzaWatch.util.isWebkit())
           .on('click',     '.board',   this._onBoardClick.bind(this))
-        //  .on('click',     '.command', this._onCommandClick.bind(this))
           .on('mousemove', '.board',   this._onBoardMouseMove.bind(this))
           .on('mousemove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
           .on('wheel',            this._onMouseWheel   .bind(this))
@@ -8901,7 +8924,6 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
         if (!$inner) { return 0; }
       
         if (left === undefined) {
-          //return this._scrollLeft = $inner.scrollLeft();
           return $inner.scrollLeft();
         } else if (left === 0 || Math.abs(this._scrollLeft - left) >= 1) {
           if (left === 0 || forceUpdate) {
@@ -8910,7 +8932,6 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
           } else {
             var sl = $inner.scrollLeft();
             this._scrollLeft = (left + sl) / 2;
-            //$inner.scrollLeft(this._scrollLeft);
             this._scrollLeftChanged = true;
           }
         }
@@ -8968,7 +8989,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
 
         if (this._scrollLeftChanged && !this._isHover) {
           this._$inner.scrollLeft(this._scrollLeft);
-          this.__scrollLeftChanged = false;
+          this._scrollLeftChanged = false;
         }
         if (this._pointerLeftChanged) {
           this._$pointer.css('transform',
@@ -9206,14 +9227,12 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
         z-index: 100;
         pointer-events: none;
         transform: translate(-50%, 0);
-                   /*border: 1px solid #006;*/
         box-shadow: 0 0 4px #333;
         background: #ff9;
         opacity: 0.5;
       }
 
       .storyboardContainer:hover .storyboardPointer {
-        opacity: 0.8;
         box-shadow: 0 0 8px #ccc;
         transition: transform 0.4s ease-out;
       }
@@ -9567,15 +9586,17 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
 
     .bufferRange {
       position: absolute;
+      width: 100%;
       height: 110%;
+      left: 0px;
       top: 0px;
       box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
       border-radius: 4px;
-      /*mix-blend-mode: lighten;*/
       z-index: 100;
       background: #663;
-      transform: translateZ(0);
-      transition: left 0.2s, width 0.2s;
+      transform-origin: left;
+      transform: translate3d(0, 0, 0) scaleX(0);
+      transition: transform 0.2s;
     }
 
     .zenzaStoryboardOpen .bufferRange {
@@ -9591,16 +9612,27 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
 
     .seekBar .seekBarPointer {
       position: absolute;
-      top: 50%;
-      width: 12px;
-      height: 140%;
-      background: rgba(255, 255, 255, 0.6);
-      border-radius: 2px;
-      transform: translate3d(-50%, -50%, 0);
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
       z-index: 200;
-      /*mix-blend-mode: lighten;*/
-      box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
+      pointer-events: none;
+      transform: translate3d(0, 0, 0);
+      transform-origin: left middle;
+      transition: none;
     }
+
+      .seekBar .seekBarPointerCore {
+        position: absolute;
+        top: 50%;
+        width: 12px;
+        height: 140%;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 2px;
+        transform: translate3d(-50%, -50%, 0);
+        box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
+      }
 
     .is-loading  .seekBar .seekBarPointer,
     .dragging .seekBar .seekBarPointer {
@@ -9972,6 +10004,11 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
     .is-mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
       background: #336;
     }
+    .is-youTube .videoServerTypeMenu {
+      text-shadow:
+        0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
+      pointer-events: none;
+    }
 
 
     .videoServerTypeMenu:active {
@@ -10087,7 +10124,9 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       <div class="seekBarContainer">
         <div class="seekBarShadow"></div>
         <div class="seekBar">
-          <div class="seekBarPointer"></div>
+          <div class="seekBarPointer">
+            <div class="seekBarPointerCore"></div>
+          </div>
           <div class="bufferRange"></div>
         </div>
       </div>
@@ -10727,7 +10766,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       this._timerCount++;
       var player = this._player;
       var currentTime = player.getCurrentTime();
-      if (this._timerCount % 30 === 0) {
+      if (this._timerCount % 15 === 0) {
         this.setCurrentTime(currentTime);
       }
       this._storyboard.setCurrentTime(currentTime);
@@ -10746,7 +10785,8 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
           this._currentTimeText = currentTimeText;
           this._$currentTime.text(currentTimeText);
         }
-        this._$seekBarPointer.css('left', Math.min(100, this._timeToPer(sec)) + '%');
+        const per = Math.min(100, this._timeToPer(sec));
+        this._$seekBarPointer.css('transform', `translate3d(${per}%, 0, 0)`);
       }
     },
     setDuration: function(sec) {
@@ -10764,7 +10804,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
     },
     setBufferedRange: function(range, currentTime) {
       var $range = this._$bufferRange;
-      if (!range || !range.length) {
+      if (!range || !range.length || !this._duration) {
         return;
       }
       for (var i = 0, len = range.length; i < len; i++) {
@@ -10775,10 +10815,9 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
           if (start <= currentTime && end >= currentTime) {
             if (this._bufferStart !== start ||
                 this._bufferEnd   !== end) {
-              $range.css({
-                left: (this._timeToPer(start) - 1) + '%',
-                width: (this._timeToPer(width) + 2)+ '%'
-              });
+              const perLeft = (this._timeToPer(start) - 1);
+              const scaleX = (this._timeToPer(width) + 2) / 100;
+              $range.css('transform', `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`);
               this._bufferStart = start;
               this._bufferEnd   = end;
             }
@@ -10791,7 +10830,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
     resetBufferedRange: function() {
       this._buffferStart = 0;
       this._buffferEnd = 0;
-      this._$bufferRange.css({left: 0, width: 0});
+      this._$bufferRange.css({transform: 'scaleX(0)'});
     }
   });
 
@@ -16052,7 +16091,6 @@ var SlotLayoutWorker = (function() {
 
 
   class NicoScriptParser {
-
     static get parseId() {
       if (!NicoScriptParser._count) {
         NicoScriptParser._count = 1;
@@ -16067,7 +16105,6 @@ var SlotLayoutWorker = (function() {
       let result = [];
       for (let i = 0, len = lines.length; i < len; i++) {
         let text = lines[i];
-        //window.console.info('parseNiwango', text);
         const id = NicoScriptParser.parseId;
         if (text.match(/^\/?replace\((.*?)\)/)) {
           type = 'REPLACE';
@@ -16292,7 +16329,6 @@ var SlotLayoutWorker = (function() {
 
     static parseSeek(str) {
       let result = NicoScriptParser.parseParams(str);
-      //window.console.info('parseSeek', result);
       if (!result) { return null; }
       return {
         time: result.vpos
@@ -16438,7 +16474,7 @@ var SlotLayoutWorker = (function() {
         diff = Math.min(1, Math.abs(diff)) * (diff / Math.abs(diff));
         switch (p.type) {
           case 'SEEK':
-            this.emit('command', 'nicosSeek', Math.max(0, p.params.time + diff));
+            this.emit('command', 'nicosSeek', Math.max(0, p.params.time * 1 + diff));
             break;
           case 'SEEK_MARKER':
             let time = this._marker[p.params.time] || 0;
@@ -16465,7 +16501,6 @@ var SlotLayoutWorker = (function() {
         'SEEK': (p, nicos) => {
           if (assigned[p.id]) { return; }
           assigned[p.id] = true;
-          console.log('SEEK: ', p, nicos);
           this._eventScript.push({p, nicos});
         },
         'SEEK_MARKER': (p, nicos) => {
@@ -16498,7 +16533,6 @@ var SlotLayoutWorker = (function() {
         },
         'COLOR': function(nicoChat, nicos, params) {
           let hasColor = nicoChat.hasColorCommand();
-          //window.console.log('COLOR', hasColor, params.color);
           if (!hasColor) { nicoChat.setColor(params.color); }
         },
         'REVERSE': function(nicoChat, nicos, params) {
@@ -16549,9 +16583,6 @@ var SlotLayoutWorker = (function() {
         'PIPE': function(nicoChat, nicos, lines) {
           lines.forEach(line => {
             let type = line.type;
-            let ev = eventFunc[type];
-            if (ev) { return ev(line, nicos); }
-
             let f = applyFunc[type];
             if (f) {
               f(nicoChat, nicos, line.params);
@@ -16566,10 +16597,19 @@ var SlotLayoutWorker = (function() {
         let p = NicoScriptParser.parseNicos(nicos.getText());
         if (!p) { return; }
         if (!nicos.hasDurationSet()) { nicos.setDuration(99999); }
-
+        
         let ev = eventFunc[p.type];
+        if (ev) {
+          return ev(p, nicos);
+        }
+        else if (p.type === 'PIPE') {
+          p.params.forEach(line => {
+            let type = line.type;
+            let ev = eventFunc[type];
+            if (ev) { return ev(line, nicos); }
+          });
+        }
 
-        if (ev) { return ev(p, nicos); }
 
         let func = applyFunc[p.type];
         if (!func) { return; }
@@ -17273,9 +17313,6 @@ var SlotLayoutWorker = (function() {
     }
     .itemDetailContainer .cmd:before {
       content: 'cmd';
-    }
-    .itemDetailContainer .text:before {
-      content: 'text';
     }
     .itemDetailContainer .text {
       border: 1px inset #ccc;
@@ -18506,6 +18543,10 @@ data-title="%no%: %date% ID:%userId%
     width: 100vw;
     height: 100vh;
     overflow: auto;
+  }
+
+  #listContainerInner {
+    scroll-behavior: smooth;
   }
 
 
@@ -20651,7 +20692,7 @@ data-title="%no%: %date% ID:%userId%
 
 const VideoSession = (function() {
 
-  const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 15min
+  const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 10min
   const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec
 
   const CHECK_PAUSE_INTERVAL      = 30 * 1000;
@@ -22582,9 +22623,11 @@ const VideoSession = (function() {
           }
           break;
         case 'screenShot':
+          if (this._playerState.isYouTube) { return; }
           this._nicoVideoPlayer.getScreenShot();
           break;
         case 'screenShotWithComment':
+          if (this._playerState.isYouTube) { return; }
           this._nicoVideoPlayer.getScreenShotWithComment();
           break;
         case 'nextVideo':
@@ -22613,7 +22656,7 @@ const VideoSession = (function() {
           this._playerConfig.setValue(command, param);
           this.reloadComment(param);
           break;
-        case 'toggle-comment':
+        case 'toggle-comment': // その日の気分で実装するからこうなるんやで
         case 'toggle-showComment':
         case 'toggle-backComment':
         case 'toggle-mute':
@@ -23331,6 +23374,9 @@ const VideoSession = (function() {
       PopupMessage.alert(e.message);
     },
     _onLoadedMetaData: function() {
+      // YouTubeは動画指定時にパラメータで開始位置を渡すので不要
+      if (this._playerState.isYouTube) { return; }
+
       // パラメータで開始秒数が指定されていたらそこにシーク
       var currentTime = this._videoWatchOptions.getCurrentTime();
       if (currentTime > 0) {
@@ -26851,9 +26897,7 @@ const VideoSession = (function() {
       margin: 4px 0px;
       word-break: break-all;
       line-height: 1.5;
-      /*margin: 4px 8px;
-      border: 1px solid #666;
-      border-radius: 4px;*/
+      min-height: 50%;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription a {
@@ -27217,6 +27261,11 @@ const VideoSession = (function() {
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #ccc;
+    }
+
+
+    .zenzaWatchVideoInfoPanel .zenzaWatchVideoInfoPanelInner {
+      height: 100%;
     }
 
     .zenzaWatchVideoInfoPanel .resumePlay {
@@ -29987,6 +30036,12 @@ const VideoSession = (function() {
     return result;
   };
 
+  const parseUrl = (url) => {
+    const a = document.createElement('a');
+    a.href = url;
+    return a;
+  };
+
   var loadUrl = function(data, type, token) {
     var timeoutTimer = null, isTimeout = false;
 
@@ -30076,15 +30131,15 @@ const VideoSession = (function() {
     }, 30000);
   };
 
-  const hostReg = /^[a-z0-9]*\.nicovideo\.jp$/;
+  const HOST_REG = /^[a-z0-9]*\.nicovideo\.jp$/;
 
 
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    var parentHost = document.referrer.split('/')[2];
-    if (!hostReg.test(parentHost)) {
+    let parentHost = parseUrl(document.referrer).hostname;
+    if (!HOST_REG.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -30095,7 +30150,7 @@ const VideoSession = (function() {
 
     window.addEventListener('message', function(event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
-      if (!hostReg.test(event.origin.split('/')[2])) { return; }
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
       var data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
       //var command = data.command;
 
@@ -30151,9 +30206,9 @@ const VideoSession = (function() {
     if (window.name.indexOf('nicovideoApiLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    let parentHost = document.referrer.split('/')[2];
+    let parentHost = parseUrl(document.referrer).hostname;
     window.console.log('parentHost', parentHost);
-    if (!hostReg.test(parentHost) &&
+    if (!HOST_REG.test(parentHost) &&
         localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
       window.console.log('disable bridge');
       return;
@@ -30218,7 +30273,7 @@ const VideoSession = (function() {
 
     window.addEventListener('message', function(event) {
       //window.console.log('nicovideoApiLoaderWindow.onMessage origin="%s"', event.origin, event.data);
-      if (!hostReg.test(event.origin.split('/')[2])) { return; }
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
       var data = JSON.parse(event.data), command = data.command;
 
       if (data.token !== token) {
@@ -30306,8 +30361,8 @@ const VideoSession = (function() {
     if (window.name.indexOf('storyboard') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    const parentHost = document.referrer.split('/')[2];
-    if (!hostReg.test(parentHost)) {
+    let parentHost = parseUrl(document.referrer).hostname;
+    if (!HOST_REG.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -30355,7 +30410,7 @@ const VideoSession = (function() {
 
     window.addEventListener('message', function(event) {
       const data = JSON.parse(event.data);
-      if (!hostReg.test(event.origin.split('/')[2])) { return; }
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
 
       if (data.token !== token) { return; }
 
@@ -30391,8 +30446,8 @@ const VideoSession = (function() {
     if (window.name.indexOf('search') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    const parentHost = document.referrer.split('/')[2];
-    if (!hostReg.test(parentHost)) {
+    let parentHost = parseUrl(document.referrer).hostname;
+    if (!HOST_REG.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -30401,6 +30456,7 @@ const VideoSession = (function() {
     const token = location.hash ? location.hash.substring(1) : null;
 
     window.addEventListener('message', function(event) {
+      if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
       const data = JSON.parse(event.data);
 
       if (data.token !== token) { return; }
