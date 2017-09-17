@@ -800,7 +800,6 @@ var CONSTANT = {};
       }
     }
 
-
     /* 1280x720 */
     @media screen and
       (min-width: 1664px) and (min-height: 900px)
@@ -821,6 +820,16 @@ var CONSTANT = {};
       }
     }
 
+    /* 2560x1440 */
+    @media screen and
+      (min-width: 2976px) and (min-height: 1660px)
+    {
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(2560px * 1.05);
+        height: 1440px;
+      }
+    }
+
     @media screen and (min-width: 1432px)
     {
       body.zenzaScreenMode_sideView {
@@ -834,7 +843,6 @@ var CONSTANT = {};
         width: calc(100vw - 1024px);
         height: calc((100vw - 1024px) * 9 / 16);
       }
-
     }
 
     .loadingMessageContainer {
@@ -1403,6 +1411,7 @@ var CONSTANT = {};
       return this._onCommand(command, param);
     },
     _onCommand: function(command, param) {
+      // なんかdispatcher的なのに分離したい
       var v;
       console.log('command: %s param: %s', command, param, typeof param);
       switch(command) {
@@ -1612,6 +1621,9 @@ var CONSTANT = {};
           break;
         case 'setVideo':
           this.setVideo(param);
+          break;
+        case 'copyVideoWatchUrl':
+          util.copyToClipBoard(this._videoInfo.getWatchUrl());
           break;
         case 'update-forceEconomy':
         case 'update-enableDmc':

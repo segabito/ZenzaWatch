@@ -776,6 +776,8 @@ class YouTubeWrapper {}
           <hr class="separator">
           <li class="command"
             data-command="reload">動画のリロード</li>
+          <li class="command"
+            data-command="copyVideoWatchUrl">動画URLをコピー</li>
           <li class="command debug"
             data-command="toggle-debug">デバッグ</li>
           <li class="command mymemory"

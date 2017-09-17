@@ -223,7 +223,7 @@ var ZenzaWatch = {
       return this._videoDetail.v;
     }
     getWatchUrl() {
-      return '//www.nicovideo.jp/watch/' + this.getWatchId();
+      return location.protocol + '//www.nicovideo.jp/watch/' + this.getWatchId();
     }
     getThreadId() { // watchIdと同一とは限らない
       return this._videoDetail.thread_id;
