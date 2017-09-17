@@ -706,7 +706,8 @@ const TagEditApi = function() {};
     }
 
     .zenzaWatchVideoInfoPanel .resumeThumbnail {
-      width: 128px;
+      max-width: 128px;
+      max-height: 96px;
     }
 
     .zenzaTubeButton {
@@ -996,6 +997,7 @@ const TagEditApi = function() {};
           btn.className = 'zenzaTubeButton';
           btn.innerHTML = '▷Zen<span>Tube</span>';
           btn.title = 'ZenzaWatchで開く(実験中)';
+          btn.setAttribute('accesskey', 'z');
           btn.setAttribute('data-command', 'setVideo');
           btn.setAttribute('data-param', link.href);
           link.parentNode.insertBefore(btn, link);

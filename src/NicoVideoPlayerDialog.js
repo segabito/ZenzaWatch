@@ -2291,9 +2291,10 @@ var CONSTANT = {};
       } else {
         this.emit('loadVideoInfoFail');
       }
-      ZenzaWatch.emitter.emitAsync('loadVideoInfoFail');
+      ZenzaWatch.emitter.emitAsync('loadVideoInfoFail', e);
 
-      if (e.info && e.info.isPlayable === false && this.isPlaylistEnable()) {
+      if (!this.isPlaylistEnable()) { return; }
+      if (e.reason === 'forbidden' || e.info.isPlayable === false) {
         window.setTimeout(() => { this.playNextVideo(); }, 3000);
       }
     },
