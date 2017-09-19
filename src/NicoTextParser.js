@@ -138,17 +138,18 @@ body {
 
 .default {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo'; }
-.mincho  {font-family: Simsun,            Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
+.mincho  {font-family: Simsun,            Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', 'Hiragino Mincho ProN', monospace; }
 .gulim   {font-family: Gulim,             Osaka-mono, "Osaka−等幅",              'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
 .mingLiu {font-family: PmingLiu, mingLiu, MingLiU, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
 han_group { font-family: 'Arial'; }
 
 
 /* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
-.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", YuGothic, "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
-.cmd-mincho {font-family: "游明朝体", "Yu Mincho", YuMincho, Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", monospace;}
-.cmd-defont {font-family: "ＭＳ Ｐゴシック", "MS PGothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-.cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; }
+.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
+.cmd-mincho {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
+.cmd-defont {font-family: "ＭＳ Ｐゴシック", "MS PGothic", 'Yu Gothic', 'YuGothic', "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+
+.cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; /*font-feature-settings: "tnum";*/ }
 
 .nicoChat {
   position: absolute;
@@ -441,7 +442,10 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
       .replace(/([\x20\xA0]+)/g, (g) => { return '<span class="html5_space">' +
           '_'.repeat(g.length) + '</span>';
       })
-      .replace(/([\u3000\u2001\u2003\u2004]+)/g,
+      .replace(/([\x2000\x2002]+)/g, (g) => { return '<span class="html5_space half">' +
+          '_'.repeat(g.length) + '</span>';
+      })
+      .replace(/([\u3000\u2001\u2003]+)/g,
         (g) => {
           return '<span class="html5_zen_space">全</span>'.repeat(g.length);
         })

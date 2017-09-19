@@ -1487,9 +1487,9 @@ var VideoCaptureUtil = {};
 
   // ここの値はレイアウト計算上の仮想領域の物であり、実際の表示はviewに依存
   NicoChatViewModel.DURATION = {
-    TOP:    3,
+    TOP:    2.9,
     NAKA:   4,
-    BOTTOM: 3
+    BOTTOM: 2.9
   };
 
   NicoChatViewModel.FONT = '\'ＭＳ Ｐゴシック\''; // &#xe7cd;

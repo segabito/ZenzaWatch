@@ -326,7 +326,15 @@ const VideoSession = (function() {
         this._lastResponse = result;
         window.console.info('heartBeat result', result);
         if (result.status !== 'ok') { return this._onHeartBeatFail(); }
-        //this._videoInfo.setWatchAuthKey(json.watchAuthKey);
+        // TODO: エコノミータイムを跨いだ時に動画url変わるかも？の検証と対応
+        //if (result && result.flashvars && result.flashvars.flvInfo) {
+        //  const flvInfo = util.parseQuery(decodeURIComponent(result.flashvars.flvInfo));
+        //  window.console.info('video url',
+        //    this._videoInfo.getVideoUrl(),
+        //    flvInfo.url
+        //  );
+        //}
+        this._videoInfo.setWatchAuthKey(json.watchAuthKey);
       }
     }
 
