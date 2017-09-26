@@ -1170,8 +1170,8 @@ var ajax = function() {};
 
     var MylistApiLoader = (function() {
       // マイリスト/とりあえずマイリストの取得APIには
-      // www.nicovideo.jp配下とriapi.nicovideo.jp配下の２種類がある
-      // 他人のマイリストを取得するにはriapi、マイリストの編集にはwwwのapiが必要
+      // www.nicovideo.jp配下とflapi.nicovideo.jp配下の２種類がある
+      // 他人のマイリストを取得するにはflapi、マイリストの編集にはwwwのapiが必要
       // データのフォーマットが微妙に異なるのでめんどくさい
       //
       // おかげでソート処理が悲しいことに
@@ -1211,7 +1211,7 @@ var ajax = function() {};
         getDeflistItems: function(options) {
           options = options || {};
           var url = '//www.nicovideo.jp/api/deflist/list';
-          //var url = 'http://riapi.nicovideo.jp/api/watch/deflistvideo';
+          //var url = 'http://flapi.nicovideo.jp/api/watch/deflistvideo';
           var cacheKey = 'deflistItems';
           var sortItem = this.sortItem;
           options = options || {};
@@ -1258,8 +1258,8 @@ var ajax = function() {};
         getMylistItems: function(groupId, options) {
           options = options || {};
           if (groupId === 'deflist') { return this.getDeflistItems(options); }
-          // riapiじゃないと自分のマイリストしか取れないことが発覚
-          var url = '//riapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
+          // flapiじゃないと自分のマイリストしか取れないことが発覚
+          var url = '//flapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
           var cacheKey = 'mylistItems: ' + groupId;
           var sortItem = this.sortItem;
 
@@ -1269,7 +1269,7 @@ var ajax = function() {};
             if (cacheData) {
               console.log('cache exists: ', cacheKey, cacheData);
               ZenzaWatch.util.callAsync(function() {
-                if (options.sort) { cacheData = sortItem(cacheData, options.sort, 'riapi'); }
+                if (options.sort) { cacheData = sortItem(cacheData, options.sort, 'flapi'); }
                 resolve(cacheData);
               }, this);
               return;
@@ -1291,7 +1291,7 @@ var ajax = function() {};
 
               var data = result.list || result.mylistitem;
               cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-              if (options.sort) { data = sortItem(data, options.sort, 'riapi'); }
+              if (options.sort) { data = sortItem(data, options.sort, 'flapi'); }
               return resolve(data);
             }, function(err) {
               this.reject({
@@ -1302,10 +1302,10 @@ var ajax = function() {};
           });
         },
         sortItem: function(items, sortId, format) {
-          // wwwの時とriapiの時で微妙にフォーマットが違うのでめんどくさい
-          // 自分以外のマイリストが開けるのはriapiだけの模様
+          // wwwの時とflapiの時で微妙にフォーマットが違うのでめんどくさい
+          // 自分以外のマイリストが開けるのはflapiだけの模様
           // 編集時にはitem_idが必要なのだが、それはwwwのほうにしか入ってない
-          // riapiに統一したい
+          // flapiに統一したい
           sortId = parseInt(sortId, 10);
 
           var sortKey = ([
@@ -1360,14 +1360,14 @@ var ajax = function() {};
               case 'mylist_counter':
               case 'view_counter':
               case 'length_seconds':
-                if (format === 'riapi') {
+                if (format === 'flapi') {
                   return function(item) { return item[sortKey] * 1; };
                 } else {
                   return function(item) { return item.item_data[sortKey] * 1; };
                 }
                 break;
               default:
-                if (format === 'riapi') {
+                if (format === 'flapi') {
                   return function(item) { return item[sortKey]; };
                 } else {
                   return function(item) { return item.item_data[sortKey]; };
@@ -1736,7 +1736,7 @@ var ajax = function() {};
           }
         },
         getUploadedVideos: function(userId, options) {
-          var url = '//riapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+          var url = '//flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
           var cacheKey = 'uploadedvideo: ' + userId;
 
           return new Promise(function(resolve, reject) {
