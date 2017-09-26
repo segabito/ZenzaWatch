@@ -2931,7 +2931,7 @@ var CONSTANT = {};
       position: absolute;
       opacity: 0;
       transition:
-        opacity 0.4s ease,
+        opacity 0.4s ease 0.5s,
         transform 0.2s linear,
         box-shadow 0.2s ease,
         background 0.4s ease;
@@ -2999,6 +2999,11 @@ var CONSTANT = {};
         opacity: 0.8;
         background: rgba(0xcc, 0xcc, 0xcc, 0.5);
         border: 1px solid #888;
+        transition:
+          opacity 0.4s ease,
+          transform 0.2s linear,
+          box-shadow 0.2s ease,
+          background 0.4s ease;
       }
       .is-mouseMoving .menuButton .menuButtonInner {
         opacity: 0.8;

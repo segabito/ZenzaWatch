@@ -442,7 +442,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
       .replace(/([\x20\xA0]+)/g, (g) => { return '<span class="html5_space">' +
           '_'.repeat(g.length) + '</span>';
       })
-      .replace(/([\x2000\x2002]+)/g, (g) => { return '<span class="html5_space half">' +
+      .replace(/([\u2000\u2002]+)/g, (g) => { return '<span class="html5_space half">' +
           '_'.repeat(g.length) + '</span>';
       })
       .replace(/([\u3000\u2001\u2003]+)/g,

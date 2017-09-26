@@ -693,6 +693,12 @@ var VideoCaptureUtil = {};
         },
         getWidth: function() {
           return span.offsetWidth * scale;
+        },
+        getOriginalHeight: function() {
+          return span.offsetHeight;
+        },
+        getHeight: function() {
+          return span.offsetHeight * scale;
         }
       };
 
@@ -1502,9 +1508,9 @@ var VideoCaptureUtil = {};
     SMALL:  15 + 0
   };
   NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5 = {
-    BIG:    39 + 2,
-    MEDIUM: 24 + 1.6,
-    SMALL:  15 + 1
+    BIG:    40.1,
+    MEDIUM: 27.8,
+    SMALL:  18.8
   };
 
   NicoChatViewModel.LINE_HEIGHT = {
@@ -1658,7 +1664,8 @@ var VideoCaptureUtil = {};
       
       this._originalWidth  = field.getOriginalWidth();
       this._width          = this._originalWidth * this._scale;
-      this._height         = this._originalHeight = this._calculateHeight();
+      this._originalHeight = field.getOriginalHeight();
+      this._height         = this._calculateHeight();
 
       // Chrome59で起こる謎の現象。一度ローカル変数に落とすと直る
       // w を使わずにspwを計算するとNaNになる。謎
@@ -1721,22 +1728,27 @@ var VideoCaptureUtil = {};
             break;
         }
       } else if (this._scale !== 1.0) {
-        /**
-         *  上の実測に合うようなCSSを書ければ色々解決する。今後の課題
-         */
-        //  45 -> 24   39 + 6
-        //  29 -> 15   24 + 5
-        //  18 -> 10   15 + 3
-        lineHeight = Math.floor((lineHeight + Math.ceil(lineHeight / 15)) * this._scale);
-        margin     = Math.round(margin * this._scale);
-        //margin = 5;
-        //switch (size) {
-        //  case NicoChat.SIZE.BIG:   lineHeight = 48; break;
-        //  default:                  lineHeight = 30; break;
-        //  case NicoChat.SIZE.SMALL: lineHeight = 20; break;
-        //}
-        //this._lineHeight = lineHeight;
-        //return Math.ceil((lineHeight * lc + margin) * this._scale) - 1;
+        if (this.getCommentVer() === 'html5') {
+          return this._originalHeight * this._scale;
+          //margin     = margin * this._scale;
+        } else {
+          /**
+           *  上の実測に合うようなCSSを書ければ色々解決する。今後の課題
+           */
+          //  45 -> 24   39 + 6
+          //  29 -> 15   24 + 5
+          //  18 -> 10   15 + 3
+          lineHeight = Math.floor((lineHeight + Math.ceil(lineHeight / 15)) * this._scale);
+          margin     = Math.round(margin * this._scale);
+          //margin = 5;
+          //switch (size) {
+          //  case NicoChat.SIZE.BIG:   lineHeight = 48; break;
+          //  default:                  lineHeight = 30; break;
+          //  case NicoChat.SIZE.SMALL: lineHeight = 20; break;
+          //}
+          //this._lineHeight = lineHeight;
+          //return Math.ceil((lineHeight * lc + margin) * this._scale) - 1;
+        }
       }
 
       this._lineHeight = lineHeight;
