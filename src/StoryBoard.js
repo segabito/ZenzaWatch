@@ -1047,6 +1047,7 @@ var DmcStoryboardSession = {
         pointer-events: none;
         transform: translateZ(0);
         display: none;
+        contain: layout paint;
       }
 
       .storyboardContainer.success {

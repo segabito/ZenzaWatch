@@ -822,6 +822,7 @@ class CrossDomainGate {}
         width: 1px;
         height: 1px;
         border: 0;
+        contain: paint;
       }
 
       .zenzaWatchHoverMenu {
@@ -976,7 +977,7 @@ class CrossDomainGate {}
         border: 0;
         transition: opacity 1s ease, top 0.4s ease;
         pointer-events: none;
-
+        contain: paint;
         transform: translateZ(0);
       }
 

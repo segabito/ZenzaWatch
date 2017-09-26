@@ -363,6 +363,7 @@ var CONSTANT = {};
       /*transition:
         width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
         right 0.4s ease-in, bottom 0.4s ease-in;*/
+      contain: layout;
     }
 
     .zenzaScreenMode_big     .zenzaVideoPlayerDialog,
@@ -481,6 +482,7 @@ var CONSTANT = {};
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+      contain: paint;
     }
 
     .zenzaScreenMode_3D   .zenzaPlayerContainer:not(.is-mouseMoving) .videoPlayer>*,
@@ -529,6 +531,7 @@ var CONSTANT = {};
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+      contain: paint;
     }
     .zenzaScreenMode_3D       .zenzaPlayerContainer .commentLayerFrame,
     .zenzaScreenMode_sideView .zenzaPlayerContainer .commentLayerFrame,

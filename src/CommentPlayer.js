@@ -671,7 +671,10 @@ var VideoCaptureUtil = {};
 
       var span = document.createElement('span');
       span.className  = 'nicoChat';
-
+      Object.assign(span.style, {
+        'display': 'inline-block',
+        'content': 'layout'
+      });
       var scale = NicoChatViewModel.BASE_SCALE;
       NicoChatViewModel.emitter.on('updateBaseChatScale', function(v) { scale = v; });
 
@@ -2190,10 +2193,11 @@ body.in-capture .commentLayer {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  content: layout;
 }
 
 .debug .commentLayer {
-  border: 1px dotted #800;
+  outline: 1px dotted #800;
 }
 
 .nicoChat {
@@ -2202,7 +2206,7 @@ body.in-capture .commentLayer {
   text-shadow: 1px 1px 0px #000;
   transform-origin: 0% 0%;
   animation-timing-function: linear;
-  /*will-change: transform, opacity;*/
+  will-change: transform, opacity;
   color: #fff;
 }
 

@@ -31,6 +31,7 @@ var CONSTANT = {};
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
+      content: layout;
     }
     .changeScreenMode .videoControlBar {
       opacity: 0;
