@@ -1625,7 +1625,7 @@ var CONSTANT = {};
         case 'setVideo':
           this.setVideo(param);
           break;
-        case 'copyVideoWatchUrl':
+        case 'copy-video-watch-url':
           util.copyToClipBoard(this._videoInfo.getWatchUrl());
           break;
         case 'update-forceEconomy':
@@ -2812,7 +2812,7 @@ var CONSTANT = {};
       }
 
       .menuItemContainer.rightTop {
-        width: 160px;
+        width: 200px;
         height: 40px;
         right: 0px;
         top: 0;
@@ -3201,7 +3201,7 @@ var CONSTANT = {};
 
     .mylistSelectMenu {
       top: 36px;
-      right: 40px;
+      right: 72px;
       padding: 8px 0;
     }
       .mylistSelectMenu .mylistSelectMenuInner {
@@ -3308,7 +3308,7 @@ var CONSTANT = {};
       box-sizing: border-box;
       text-align: center;
       line-height: 30px;
-      font-size: 24px;
+      font-size: 20px;
       top: 0;
       right: 0;
       z-index: ${CONSTANT.BASE_Z_INDEX + 60000};
@@ -3329,10 +3329,10 @@ var CONSTANT = {};
     .is-mouseMoving .closeButton,
     .closeButton:hover {
       opacity: 1;
-      background: #000;
+      background: rgba(0, 0, 0, 0.8);
     }
     .closeButton:hover {
-      background: #333;
+      background: rgba(33, 33, 33, 0.9);
       box-shadow: 4px 4px 4px #000;
     }
     .closeButton:active {
@@ -3436,7 +3436,7 @@ var CONSTANT = {};
           </div>
 
           <div class="command menuButton closeButton" data-command="close">
-            <div class="menuButtonInner">×</div>
+            <div class="menuButtonInner">&#x2716;</div>
           </div>
 
         </div>

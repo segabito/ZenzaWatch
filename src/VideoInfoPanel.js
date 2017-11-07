@@ -75,9 +75,6 @@ const TagEditApi = function() {};
       letter-spacing: 0.1em;
       color: #ccc;
       background: #333;
-      /*border-width: 1px 1px 0 1px;
-      border-color: #888;
-      border-style: outset;*/
     }
 
     .zenzaWatchVideoInfoPanel .tabSelect.blink:not(.activeTab) {
@@ -279,11 +276,10 @@ const TagEditApi = function() {};
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription {
-      padding: 8px 8px 32px;
+      padding: 8px 8px 8px;
       margin: 4px 0px;
       word-break: break-all;
       line-height: 1.5;
-      min-height: 50%;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription a {
@@ -471,10 +467,7 @@ const TagEditApi = function() {};
 
     }
 
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
-      background: #ddd;
-      box-shadow: 2px 2px 2px #999;
-    }
+
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a {
       color: #006699;
     }
@@ -651,8 +644,13 @@ const TagEditApi = function() {};
 
 
     .zenzaWatchVideoInfoPanel .zenzaWatchVideoInfoPanelInner {
+      display: flex;
+      flex-direction: column;
       height: 100%;
     }
+      .zenzaWatchVideoInfoPanelContent {
+        flex: 1;
+      }
 
     .zenzaWatchVideoInfoPanel .resumePlay {
       display: none;
@@ -679,7 +677,8 @@ const TagEditApi = function() {};
       display: block;
     }
     .zenzaWatchVideoInfoPanel .resumePlay:hover {
-      background: rgba(80, 80, 80, 0.5);
+      transform: translate(0, -4px);
+      box-shadow: 0 4px 2px #000;
       transition:
         0.2s transform ease,
         0.2s box-shadow ease
@@ -752,31 +751,34 @@ const TagEditApi = function() {};
 
       <div class="tabs videoInfoTab activeTab">
         <div class="zenzaWatchVideoInfoPanelInner">
-          <div class="videoOwnerInfoContainer">
-            <a class="ownerPageLink" rel="noopener" target="_blank">
-              <img class="ownerIcon loading"/>
-            </a>
-            <span class="owner">
-              <span class="ownerName"></span>
-              <a class="playlistSetUploadedVideo userVideo"
-                data-command="playlistSetUploadedVideo"
-                title="投稿動画一覧をプレイリストで開く">▶</a>
-            </span>
+          <div class="zenzaWatchVideoInfoPanelContent">
+            <div class="videoOwnerInfoContainer">
+              <a class="ownerPageLink" rel="noopener" target="_blank">
+                <img class="ownerIcon loading"/>
+              </a>
+              <span class="owner">
+                <span class="ownerName"></span>
+                <a class="playlistSetUploadedVideo userVideo"
+                  data-command="playlistSetUploadedVideo"
+                  title="投稿動画一覧をプレイリストで開く">▶</a>
+              </span>
+            </div>
+            <div class="publicStatus"></div>
+
+            <div class="resumePlay" data-command="seek" data-param="0" type="button">
+              続きから再生 (<span class="resumePlayPoint">00:00</span>)
+              <div class="resumeThumbnailContainer"></div>
+            </div>
+            <div class="videoDescription"></div>
+            <div class="relatedInfoMenuContainer"></div>
           </div>
-          <div class="publicStatus"></div>
+          <div class="zenzaWatchVideoInfoPanelFoot">
+            <div class="uaaContainer"></div>
 
-          <div class="resumePlay" data-command="seek" data-param="0" type="button">
-            続きから再生 (<span class="resumePlayPoint">00:00</span>)
-            <div class="resumeThumbnailContainer"></div>
+            <div class="ichibaContainer"></div>
+
+            <div class="videoTagsContainer sideTab"></div>
           </div>
-          <div class="videoDescription">
-          </div>
-
-          <div class="uaaContainer"></div>
-
-          <div class="ichibaContainer"></div>
-
-          <div class="videoTagsContainer sideTab"></div>
         </div>
       </div>
 
@@ -828,6 +830,11 @@ const TagEditApi = function() {};
       this._tagListView.on('command', onCommand);
 
       this._$publicStatus = $view.find('.publicStatus');
+
+      this._relatedInfoMenu = new RelatedInfoMenu({
+        parentNode: view.querySelector('.relatedInfoMenuContainer')
+      });
+      this._relatedInfoMenu.on('command', onCommand);
 
       this._uaaContainer = view.querySelector('.uaaContainer');
       this._uaaView = new UaaView(
@@ -910,6 +917,8 @@ const TagEditApi = function() {};
       this._uaaView.clear();
       this._uaaView.update(videoInfo);
 
+      this._relatedInfoMenu.update(videoInfo);
+
       this._updateResumePoint(videoInfo);
     },
     _updateResumePoint(videoInfo) {
@@ -965,6 +974,7 @@ const TagEditApi = function() {};
         this._$description.find('.watch').each((i, watchLink) => {
           var $watchLink = $(watchLink);
           var videoId = $watchLink.text().replace('watch/', '');
+          if (!/^(sm|so|nm)/.test(videoId)) { return; }
           var thumbnail = util.getThumbnailUrlByVideoId(videoId);
           if (thumbnail) {
             var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
@@ -1302,11 +1312,6 @@ const TagEditApi = function() {};
       width: calc(100% - 180px);
     }
 
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer:hover {
-      background: rgba(102, 102, 102, 0.6);
-    }
-    .zenzaWatchVideoHeaderPanel .videoTitle:hover {
-    }
     .zenzaWatchVideoHeaderPanel .videoTitle::before {
       display: none;
       position: absolute;
@@ -1325,51 +1330,6 @@ const TagEditApi = function() {};
     .zenzaWatchVideoHeaderPanel.is-community:not(:hover) .videoTitle::before {
       content: 'コミュニティ動画';
       display: inline-block;
-    }
-
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer       .hoverLinkContainer {
-      display: none;
-      position: absolute;
-    }
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer:hover .hoverLinkContainer {
-      display: block;
-      width: 100%;
-    }
-
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer .hoverLink {
-      display: inline-block;
-      box-sizing: border-box;
-      min-width: 120px;
-      font-size: 12px;
-      text-align: center;
-      background: #666;
-      border: 1px solid #ccc;
-      padding: 4px 8px;
-      margin: 0 8px 8px;
-      box-shadow: 4px 4px 4px #888;
-    }
-
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer .hoverLink a {
-      display: inline-block;
-      white-space: nowrap;
-      color: #fff;
-      width: 100%;
-    }
-
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer .parentLinkBox,
-    .zenzaWatchVideoHeaderPanel .videoTitleContainer .originalLinkBox {
-      display: none;
-    }
-    .zenzaWatchVideoHeaderPanel.has-Parent  .videoTitleContainer .parentLinkBox,
-    .zenzaWatchVideoHeaderPanel.is-mymemory   .videoTitleContainer .originalLinkBox,
-    .zenzaWatchVideoHeaderPanel.is-community  .videoTitleContainer .originalLinkBox {
-      display: inline-block;
-    }
-
-    .videoTitleLink {
-      text-decoration: none;
-    }
-    .videoTitleLink:hover {
     }
 
     .zenzaWatchVideoHeaderPanel .postedAtOuter {
@@ -1426,23 +1386,6 @@ const TagEditApi = function() {};
     <div class="zenzaWatchVideoHeaderPanel show initializing" style="display: none;">
       <h2 class="videoTitleContainer">
         <span class="videoTitle"></span>
-        <div class="hoverLinkContainer">
-          <div class="hoverLink ginza">
-            <a class="ginzaLink noHoverMenu" rel="noopener" target="watchGinza">GINZAで視聴</a>
-          </div>
-          <div class="hoverLink uad">
-            <a class="uadLink   noHoverMenu" rel="noopener" target="_blank">ニコニ広告</a>
-          </div>
-          <div class="hoverLink hash">
-            <a class="hashLink  noHoverMenu" rel="noopener" target="_blank" title="twitter検索"></a>
-          </div>
-          <div class="hoverLink hash originalLinkBox">
-            <a class="originalLink  noHoverMenu" rel="noopeener">元動画を開く</a>
-          </div>
-          <div class="hoverLink hash parentLinkBox">
-            <a class="parentLink  noHoverMenu" rel="noopener" target="_blank">親作品</a>
-          </div>
-        </div>
       </h2>
       <p class="publicStatus">
         <span class="postedAtOuter">
@@ -1476,32 +1419,11 @@ const TagEditApi = function() {};
       let onCommand = this._onCommand.bind(this);
 
       this._$videoTitle   = $view.find('.videoTitle');
-      this._$ginzaLink    = $view.find('.ginzaLink');
-      this._$uadLink      = $view.find('.uadLink');
-      this._$hashLink     = $view.find('.hashLink');
-      this._$originalLink = $view.find('.originalLink');
-      this._$parentLink   = $view.find('.parentLink');
       this._$postedAt     = $view.find('.postedAt');
 
       this._$viewCount    = $view.find('.viewCount');
       this._$commentCount = $view.find('.commentCount');
       this._$mylistCount  = $view.find('.mylistCount');
-
-      var stopPropagation = function(e) { e.stopPropagation(); };
-      this._$ginzaLink.on('click', stopPropagation);
-      this._$hashLink.on('click', stopPropagation);
-      this._$uadLink.on('click', stopPropagation);
-      this._$parentLink.on('click', stopPropagation);
-      this._$originalLink.on('click', (e) => {
-        stopPropagation(e);
-        e.preventDefault();
-        var $target = $(e.target), videoId = $target.attr('data-video-id');
-        if (videoId) {
-          this.emit('command', 'open', videoId);
-        }
-      });
-
-      this._$ginzaLink.on('mousedown', this._onGinzaLinkMouseDown.bind(this));
 
       this._searchForm = new VideoSearchForm({
         parentNode: $view[0]
@@ -1536,25 +1458,7 @@ const TagEditApi = function() {};
       this._$videoTitle.text(videoTitle).attr('title', videoTitle);
       this._$postedAt.text(videoInfo.getPostedAt());
 
-      var watchId = videoInfo.getWatchId(), videoId = videoInfo.getVideoId();
-      var link = '//nico.ms/' + watchId;
-      this._$ginzaLink.attr('href', link);
-      this._$ginzaLink.attr('data-ginzawatch', link);
-
-      var uadLink = '//uad.nicovideo.jp/ads/?vid='  + watchId;
-      this._$uadLink.attr('href', uadLink);
-
-      var hashLink = 'https://twitter.com/hashtag/' + videoId + '?src=hash';
-      this._$hashLink
-        .text('#' + videoInfo.getVideoId())
-        .attr('href', hashLink);
-
-      this._$originalLink
-        .attr('href', 'http://nico.ms/' + videoId)
-        .attr('data-video-id',       videoId);
-
-      this._$parentLink.attr('href', '//commons.nicovideo.jp/tree/' + videoId);
-
+      var watchId = videoInfo.watchId;
       var count = videoInfo.getCount();
       var addComma = function(m) {
         return m.toLocaleString ? m.toLocaleString() : m;
@@ -1588,12 +1492,6 @@ const TagEditApi = function() {};
       if (typeof view    === 'number') { this._$viewCount   .text(addComma(view)); }
       if (typeof mylist  === 'number') { this._$mylistCount .text(addComma(mylist)); }
     },
-    _onGinzaLinkMouseDown: function() {
-      this.emit('command', 'pause');
-      var currentTime = this._currentTimeGetter();
-      var href = this._$ginzaLink.attr('data-ginzawatch');
-      this._$ginzaLink.attr('href', href + '?from=' + Math.floor(currentTime));
-    },
     _onResize: function() {
       const view = this._$view[0];
       const rect = view.getBoundingClientRect();
@@ -1621,7 +1519,6 @@ const TagEditApi = function() {};
       this._$viewCount.text('---');
       this._$commentCount.text('---');
       this._$mylistCount.text('---');
-      //this._$tagList.empty();
     },
     getPublicStatusDom: function() {
       return this._$view.find('.publicStatus').html();
@@ -2213,17 +2110,17 @@ const TagEditApi = function() {};
     }
 
       .ZenzaIchibaItemView .loadStartButton {
-         width: 200px;
+         /*width: 200px;*/
          font-size: 24px;
          padding: 8px 8px;
-         margin: 0 auto;
+         margin: 8px;
          background: inherit;
          color: inherit;
          border: 1px solid #ccc;
          /*border: none;*/
          outline: none;
          line-height: 20px;
-         text-shadow: 1px 1px 2px #000;
+         /*text-shadow: 1px 1px #000;*/
          border-radius: 8px;
          cursor: pointer;
          user-select: none;
@@ -2233,7 +2130,6 @@ const TagEditApi = function() {};
       .ZenzaIchibaItemView .loadStartButton:hover {
         transform: translate(0, -4px);
         box-shadow: 0 4px 4px #000;
-        background: #666;
         transition:
           0.2s transform ease,
           0.2s box-shadow ease
@@ -2284,7 +2180,7 @@ const TagEditApi = function() {};
       .ZenzaIchibaItemView.is-success details[open] {
         border: 1px solid #666;
         border-radius: 4px;
-        padding: 8px;
+        padding: 0px;
       }
 
 
@@ -2340,6 +2236,16 @@ const TagEditApi = function() {};
     .ichiba-ichibaMainFooter {
       display: none;
     }
+
+
+    body.zenzaScreenMode_sideView .ZenzaIchibaItemView .loadStartButton {
+      color: #000;
+    }
+
+    body.fullScreen.zenzaScreenMode_sideView  .ZenzaIchibaItemView .loadStartButton {
+      color: inherit;
+    }
+
 
     `).trim();
 
@@ -2400,7 +2306,6 @@ const TagEditApi = function() {};
       this.setState({isUpdating: false, isExist: false, isSpeaking: false});
       if (!this._elm.body) { return; }
       this._elm.body.innerHTML = '';
-      //this._shadow.open = false;
     }
 
     _onLoad(videoId, data) {
@@ -2590,45 +2495,40 @@ const TagEditApi = function() {};
         .UaaDetails.is-Exist[open] {
           border: 1px solid #666;
           border-radius: 4px;
+          overflow: auto;
         }
 
       .UaaDetails .uaaSummary {
-        width: 200px;
+        /*width: 200px;*/
         height: 38px;
-        margin: 4px auto 8px;
+        margin: 4px 4px 8px;
         color: inherit;
         outline: none;
         border: 1px solid #ccc;
         letter-spacing: 12px;
         line-height: 38px;
         font-size: 24px;
-        text-shadow: 1px 1px 2px #000;
+        /*text-shadow: 1px 1px #000;*/
         text-align: center;
         cursor: pointer;
         border-radius: 8px;
       }
+      /*
         .UaaDetails .uaaSummary:hover {
           background: #666;
         }
-
+      */
       .UaaDetails .uaaDetailBody {
-        width: 200px;
+        /*width: 200px;*/
         margin: auto;
       }
 
       .UaaDetails .item {
         display: inline;
         width: inherit;
-        /*min-height: 32px;
-        line-height: 32px;
-        margin: 8px auto 8px;*/
         margin: 0 4px 0 0;
       }
 
-        .UaaDetails .item:not(.has-screenshot) {
-          /*border: 1px dotted #222;*/
-          background: rgb(96, 96, 96);
-        }
 
         .UaaDetails .item:not(.has-screenshot):hover {
         }
@@ -2656,13 +2556,9 @@ const TagEditApi = function() {};
       .UaaDetails .contact {
         display: inline-block;
         color: #fff;
-        font-weight: bolder;
+        font-weight: bold;
         font-size: 16px;
-        text-shadow:
-          1px 1px 1px #000;
-        text-stroke: 1px #000;
         text-align: center;
-        -webkit-text-stroke: 1px #000;
         user-select: none;
         word-break: break-all;
       }
@@ -2674,6 +2570,10 @@ const TagEditApi = function() {};
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
+          color: #fff;
+          text-shadow: 1px 1px 1px #000;
+          text-stroke: #000 1px;
+          -webkit-text-stroke: #000 1px;
           pointer-events: none;
           font-size: 16px;
         }
@@ -2682,19 +2582,18 @@ const TagEditApi = function() {};
         }
 
         .UaaDetails .item.other {
-          display: inline;
+          display: inline-block;
           border: none;
           width: inherit;
           margin: 0;
           padding: 2px 4px;
           line-height: normal;
           min-height: inherit;
+          text-align: left;
         }
-          .UaaDetails .item + .item.other{
-            margin-left: 4px;
-          }
+          
           .UaaDetails .item.is-speaking {
-            outline: 2px dotted #ff9;
+            text-decoration: underline;
           }
           .UaaDetails .item.has-screenshot.is-speaking {
             outline: none;
@@ -2707,8 +2606,8 @@ const TagEditApi = function() {};
             padding: 2px 4px;
             width: auto;
             font-size: 12px;
-            -webkit-text-stroke: 0;
-            color: #ccc;
+            text-stroke: 0;
+            color: inherit; /*#ccc;*/
             outline-offset: -2px;
           }
         .UaaDetails .item.other.clickable {
@@ -2747,11 +2646,25 @@ const TagEditApi = function() {};
         cursor: pointer;
         font-size: 16px;
         line-height: 28px;
-        border: none;
-        background: #666;
+        border: 1px solid #666;
+        background: transparent;
         outline: none;
         color: #ccc;
         border-radius: 16px;
+      }
+
+      body.zenzaScreenMode_sideView .UaaDetails {
+        color: #000;
+      }
+      :host-context(body.zenzaScreenMode_sideView) .UaaDetails {
+        color: #000;
+      }
+
+      body.fullScreen.zenzaScreenMode_sideView .UaaDetails {
+        color: inherit;
+      }
+      :host-context(body.fullScreen.zenzaScreenMode_sideView) .UaaDetails {
+        color: inherit;
       }
 
     </style>
@@ -2772,6 +2685,184 @@ const TagEditApi = function() {};
      display: block;
     }
   `).trim();
+
+
+  class RelatedInfoMenu extends BaseViewComponent {
+    constructor({parentNode}) {
+      super({
+        parentNode,
+        name: 'RelatedInfoMenu',
+        template: '<div class="RelatedInfoMenu"></div>',
+        shadow: RelatedInfoMenu._shadow_,
+        css: RelatedInfoMenu.__css__
+      });
+
+      this._state = {
+      };
+
+      this._bound.update = this.update.bind(this);
+    }
+
+    _initDom(...args) {
+      super._initDom(...args);
+
+      const shadow = this._shadow || this._view;
+      this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
+    }
+
+    update(videoInfo) {
+      const shadow = this._shadow || this._view;
+
+      this._currentWatchId = videoInfo.watchId;
+      this._currentVideoId = videoInfo.videoId;
+      this.setState({
+        'isParentVideoExist': videoInfo.hasParentVideo(),
+        'isCommunity': videoInfo.isCommunityVideo(),
+        'isMymemory': videoInfo.isMymemory()
+      });
+    }
+
+    _onCommand(command, param) {
+      let url;
+      switch(command) {
+        case 'watch-ginza':
+          url = `//www.nicovideo.jp/watch/${this._currentWatchId}`;
+          window.open(url, 'watchGinza');
+          super._onCommand('pause');
+          break;
+        case 'open-uad':
+          url = `//uad.nicovideo.jp/ads/?vid=${this._currentWatchId}`;
+          window.open(url, '', 'width=428, height=600, toolbar=no, scrollbars=1');
+          break;
+        case 'open-twitter-hash':
+          url = `https://twitter.com/hashtag/${this._currentVideoId}`;
+          window.open(url);
+          break;
+        case 'open-parent-video':
+          url = `//commons.nicovideo.jp/tree/${this._currentVideoId}`;
+          window.open(url);
+          break;
+        case 'copy-video-watch-url':
+          super._onCommand(command, param);
+          super._onCommand('notify', 'コピーしました');
+          break;
+        case 'open-original-video':
+          super._onCommand('openNow', this._currentVideoId);
+          break;
+        default:
+          super._onCommand(command, param);
+      }
+    }
+
+
+  }
+
+  RelatedInfoMenu._css_ = (``).trim();
+
+  RelatedInfoMenu._shadow_ = (`
+    <style>
+      .RelatedInfoMenu,
+      .RelatedInfoMenu * {
+        box-sizing: border-box;
+        user-select: none;
+      }
+
+      .RelatedInfoMenu {
+        display: inline-block;
+        padding: 8px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      .RelatedInfoMenu summary {
+        display: inline-block;
+        background: #666;
+        color: #ccc;
+        padding: 4px 8px;
+        border-radius: 4px;
+        outline: none;
+      }
+
+      .RelatedInfoMenu ul {
+        list-style-type: none;
+        padding-left: 32px;
+      }
+
+      .RelatedInfoMenu li {
+        padding: 4px;
+      }
+
+      .RelatedInfoMenu li span {
+        display: inline-block;
+      }
+
+      .RelatedInfoMenu li span:hover {
+        text-decoration: underline;
+      }
+
+      .RelatedInfoMenu li span:hover::before {
+        content: '▷';
+        position: absolute;
+        transform: translate(-100%, 0);
+      }
+
+
+      .RelatedInfoMenu[open] {
+      }
+        .RelatedInfoMenu .originalLinkMenu,
+        .RelatedInfoMenu .parentVideoMenu {
+          display: none;
+        }
+
+        .RelatedInfoMenu.is-CommunityVideo   .originalLinkMenu,
+        .RelatedInfoMenu.is-Mymemory         .originalLinkMenu,
+        .RelatedInfoMenu.is-ParentVideoExist .parentVideoMenu {
+          display: block;
+        }
+
+
+      body.fullScreen.zenzaScreenMode_sideView .RelatedInfoMenu summary{
+        background: #888;
+      }
+
+      :host-context(body.fullScreen.zenzaScreenMode_sideView) .RelatedInfoMenu summary {
+        background: #888;
+      }
+
+    </style>
+    <details class="root RelatedInfoMenu">
+      <summary class="RelatedInfoMenuSummary clickable">関連情報</summary>
+      <div class="RelatedInfoMenuBody">
+        <ul>
+          <li class="ginzaMenu">
+            <span class="ginzaLink command"
+              rel="noopener" data-command="watch-ginza">GINZAで視聴</span>
+          </li>
+          <li class="uadMenu">
+            <span class="uadLink command"
+              rel="noopener" data-command="open-uad">ニコニ広告で宣伝</span>
+          </li>
+          <li class="twitterHashMenu">
+            <span class="twitterHashLink command"
+              rel="noopener" data-command="open-twitter-hash">twitterの反応を見る</span>
+          </li>
+          <li class="originalLinkMenu">
+            <span class="originalLinkBox command"
+              rel="noopener" data-command="open-original-video">元動画を開く</span>
+          </li>
+          <li class="parentVideoMenu">
+            <span class="parentVideoLink command"
+              rel="noopener" data-command="open-parent-video">親作品・コンテンツツリー</span>
+          </li>
+          <li class="copyVideoWatchUrlMenu">
+            <span class="copyVideoWatchUrlLink command"
+              rel="noopener" data-command="copy-video-watch-url">動画URLをコピー</span>
+          </li>
+        </ul>
+      </div>
+    </details>
+  `).trim();
+
 
 //===END===
 

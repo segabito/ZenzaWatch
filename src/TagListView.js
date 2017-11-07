@@ -458,6 +458,7 @@ const TagEditApi = function() {};
         margin-right: 4px;
         line-height: 20px;
         cursor: pointer;
+        vertical-align: middle;
       }
 
       .TagListView.is-Editing .nicodic,
@@ -514,13 +515,12 @@ const TagEditApi = function() {};
       .TagListView .tagItem .playlistAppend {
         display: inline-block;
         font-size: 16px;
-        line-height: 20px;
+        line-height: 24px;
         width: 24px;
         height: 24px;
         bottom: 4px;
         background: #666;
         color: #ccc;
-        background: #666;
         text-decoration: none;
         border: 1px outset;
         transition: transform 0.2s ease;
@@ -590,7 +590,7 @@ const TagEditApi = function() {};
       }
 
       .is-Editing .tagItem.is-Locked:hover:after {
-        content: '${'\\01F6AB'} ロック中';
+        content: '${'\\01F6AB'} ロックタグ';
         position: absolute;
         top: 50%;
         left: 50%;
@@ -670,6 +670,7 @@ const TagEditApi = function() {};
         top: 0;
         z-index: 1000;
         display: inline-block;
+        transform: translate(0, 6px);
       }
 
       .TagListView.is-Empty .tagEditContainer {
@@ -707,6 +708,10 @@ const TagEditApi = function() {};
         transition: none;
       }
 
+      .TagListView .toggleInput {
+        transform: translate(0, 6px);
+      }
+
       .TagListView.is-Inputing .button.toggleInput {
         display: none;
       }
@@ -718,6 +723,7 @@ const TagEditApi = function() {};
       .tagEditContainer form {
         display: inline;
       }
+
     </style>
     <div class="root TagListView">
       <div class="tagEditContainer">

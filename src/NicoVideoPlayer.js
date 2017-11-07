@@ -227,8 +227,6 @@ class YouTubeWrapper {}
       }
     },
     _onContextMenu: function(e) {
-      // コンテキストメニューが出ていないときだけ出す
-      // すでに出ているときはブラウザネイティブのメニュー
       if (!this._contextMenu.isOpen) {
         e.stopPropagation();
         e.preventDefault();
@@ -459,12 +457,17 @@ class YouTubeWrapper {}
       this._bound.onBodyMouseUp   = this._onBodyMouseUp.bind(this);
       this._bound.onRepeat = this._onRepeat.bind(this);
       this._view.addEventListener('mousedown', onMouseDown);
-      this._view.addEventListener('contextMenu', (e) => {
+      this._view.addEventListener('contextmenu', (e) => {
+        setTimeout(() => { this.hide(); }, 100);
         e.preventDefault(); e.stopPropagation();
       });
      }
 
     _onClick(e) {
+      if (e && e.button !== 0) {
+        return;
+      }
+
       if (e.type !== 'mousedown') {
         e.preventDefault();
         e.stopPropagation();
@@ -480,6 +483,7 @@ class YouTubeWrapper {}
         this._onClick(e);
       } else
       if (e.target && e.target.getAttribute('data-repeat') === 'on') {
+
         e.stopPropagation();
         this._onClick(e);
         this._beginRepeat(e);
@@ -517,7 +521,9 @@ class YouTubeWrapper {}
         this._endRepeat();
         return;
       }
-      this._onClick(this._repeatEvent);
+      if (this._repeatEvent) {
+        this._onClick(this._repeatEvent);
+      }
     }
 
     show(x, y) {
@@ -777,7 +783,7 @@ class YouTubeWrapper {}
           <li class="command"
             data-command="reload">動画のリロード</li>
           <li class="command"
-            data-command="copyVideoWatchUrl">動画URLをコピー</li>
+            data-command="copy-video-watch-url">動画URLをコピー</li>
           <li class="command debug"
             data-command="toggle-debug">デバッグ</li>
           <li class="command mymemory"
