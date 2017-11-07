@@ -1389,6 +1389,10 @@ var VideoCaptureUtil = {};
 
       }
 
+      //if (this._type !== NicoChat.TYPE.NAKA) {
+      //  this._duration = Math.max(0.1, this._duration - 0.1);
+      //}
+
       // durationを超える位置にあるコメントを詰める vposはセンチ秒なので気をつけ
       const maxv =
         this._isNicoScript ?
@@ -1496,9 +1500,9 @@ var VideoCaptureUtil = {};
 
   // ここの値はレイアウト計算上の仮想領域の物であり、実際の表示はviewに依存
   NicoChatViewModel.DURATION = {
-    TOP:    2.9,
+    TOP:    3 - 0.1,
     NAKA:   4,
-    BOTTOM: 2.9
+    BOTTOM: 3 - 0.1
   };
 
   NicoChatViewModel.FONT = '\'ＭＳ Ｐゴシック\''; // &#xe7cd;
@@ -1729,8 +1733,8 @@ var VideoCaptureUtil = {};
         }
       } else if (this._scale !== 1.0) {
         if (this.getCommentVer() === 'html5') {
-          return this._originalHeight * this._scale;
-          //margin     = margin * this._scale;
+          margin = 0;
+          return this._originalHeight * this._scale + margin;
         } else {
           /**
            *  上の実測に合うようなCSSを書ければ色々解決する。今後の課題
@@ -2870,7 +2874,7 @@ spacer {
         var inSlotTable = this._inSlotTable, currentTime = this._currentTime;
         var outViewIds = [];
         var margin = 1;
-        _.each(Object.keys(inSlotTable), function(key) {
+        Object.keys(inSlotTable).forEach(key => {
           var chat = inSlotTable[key];
           if (currentTime - margin < chat.getEndRightTiming()) { return; }
           delete inSlotTable[key];
@@ -2893,7 +2897,7 @@ spacer {
     _removeOutviewElements: function(outViewIds) {
       var doc = this._document;
       if (!doc) { return; }
-      _.each(outViewIds, function(id) {
+      outViewIds.forEach(id => {
         var elm = doc.getElementById(id);
         if (!elm) { return; }
         elm.remove();
@@ -2910,11 +2914,11 @@ spacer {
       var commentLayer = this._commentLayer;
       var i, inViewElements;
       //inViewElements = commentLayer.getElementsByClassName('nicoChat');
-      inViewElements = commentLayer.querySelectorAll('.nicoChat.fork0');
+      inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
       for (i = inViewElements.length - max - 1; i >= 0; i--) {
         inViewElements[i].remove();
       }
-      inViewElements = commentLayer.querySelectorAll('.nicoChat.fork1');
+      inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
       for (i = inViewElements.length - max - 1; i >= 0; i--) {
         inViewElements[i].remove();
       }

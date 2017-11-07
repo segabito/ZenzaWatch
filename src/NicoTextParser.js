@@ -147,7 +147,9 @@ han_group { font-family: 'Arial'; }
 /* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
 .cmd-gothic {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
 .cmd-mincho {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
-.cmd-defont {font-family: "ＭＳ Ｐゴシック", "MS PGothic", 'Yu Gothic', 'YuGothic', "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+/*.cmd-defont {font-family: "ＭＳ Ｐゴシック", "MS PGothic", 'Yu Gothic', 'YuGothic', "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }*/
+.cmd-defont {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+/*.cmd-defont {font-family: monospace, "ＭＳ ゴシック", "MS Gothic", 'Yu Gothic', 'YuGothic', "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, Menlo; }*/
 
 .cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; /*font-feature-settings: "tnum";*/ }
 
@@ -457,9 +459,10 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
           '□'.repeat(g.length * 2) + '</span>';
         })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
+//      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
       .replace(/([\u2588]+)/g,
-        (g) => { return '<span class="html5_fill_space">'+
-          '□'.repeat(g.length) + '</span>';
+        (g) => { return '<span class="html5_fill_space u2588">'+
+          String.fromCharCode(0x2588).repeat(g.length) + '</span>';
         })
       .replace(/[\r\n]+$/g, '')
       .replace(/[\n]/g, '<br>')
