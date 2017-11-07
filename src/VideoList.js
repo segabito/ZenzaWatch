@@ -943,26 +943,19 @@ class NicoSearchApiV2Loader {}
       animation-fill-mode: forwards;
     }
 
-    @media screen and (min-width: 640px)
+    @media screen and (min-width: 600px)
     {
+      #listContainerInner {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      }
+
       .videoItem {
-        width: calc(100% / 2 - 16px);
         margin: 0 8px;
         border-top: none !important;
         border-bottom: 1px dotted #888;
       }
     }
-    @media screen and (min-width: 900px) {
-      .videoItem {
-        width: calc(100% / 3 - 16px);
-      }
-    }
-    @media screen and (min-width: 1200px) {
-      .videoItem {
-        width: calc(100% / 4 - 16px);
-      }
-    }
-
 
   `).trim();
 
