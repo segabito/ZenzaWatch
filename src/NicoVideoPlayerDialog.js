@@ -1903,12 +1903,12 @@ var CONSTANT = {};
       delete option.owner;
 
       var query = this._videoWatchOptions.getQuery();
-      _.assign(option, query);
+      Object.assign(option, query);
 
       //window.console.log('_onPlaylistSetSearchVideo:', word, option);
+      this._view.selectTab('playlist');
       this._playlist.loadSearchVideo(word, option).then((result) => {
         this.execCommand('notify', result.message);
-        this._view.selectTab('playlist');
         this._playlist.insertCurrentVideo(this._videoInfo);
         ZenzaWatch.emitter.emitAsync('searchVideo', {word, option});
         window.setTimeout(() => { this._playlist.scrollToActiveItem(); }, 1000);
@@ -2935,12 +2935,13 @@ var CONSTANT = {};
       position: absolute;
       opacity: 0;
       transition:
-        opacity 0.4s ease 0.5s,
+        opacity 0.4s ease,
         transform 0.2s linear,
         box-shadow 0.2s ease,
         background 0.4s ease;
       box-sizing: border-box;
       text-align: center;
+      text-shadow: none;
 
       user-select: none;
       -webkit-user-select: none;
@@ -2991,7 +2992,7 @@ var CONSTANT = {};
       .rightTop .menuButton .tooltip {
         top: auto;
         bottom: -24px;
-        right: 16px;
+        right: -16px;
         left: auto;
       }
       .rightBottom .menuButton .tooltip {
@@ -3001,10 +3002,9 @@ var CONSTANT = {};
 
       .is-mouseMoving .menuButton {
         opacity: 0.8;
-        background: rgba(0xcc, 0xcc, 0xcc, 0.5);
+        background: rgba(80, 80, 80, 0.5);
         border: 1px solid #888;
         transition:
-          opacity 0.4s ease,
           transform 0.2s linear,
           box-shadow 0.2s ease,
           background 0.4s ease;
@@ -3012,7 +3012,11 @@ var CONSTANT = {};
       .is-mouseMoving .menuButton .menuButtonInner {
         opacity: 0.8;
         word-break: normal;
-      }
+        transition:
+          transform 0.2s linear,
+          box-shadow 0.2s ease,
+          background 0.4s ease;
+       }
 
 
     .showCommentSwitch {
@@ -3020,10 +3024,11 @@ var CONSTANT = {};
       width:  32px;
       height: 32px;
       color: #000;
-      border: 1px solid #fff;
+      border: 1px solid #666;
       line-height: 30px;
       font-size: 24px;
       text-decoration: line-through;
+      border-radius: 4px;
     }
       .is-showComment .showCommentSwitch {
         background:#888;
@@ -3032,63 +3037,16 @@ var CONSTANT = {};
         text-decoration: none;
       }
 
-    .commentLayerOrderSwitch {
-      display: none;
-      left: 40px;
-      width:  32px;
-      height: 32px;
-    }
-      .is-showComment .commentLayerOrderSwitch {
-        display: block;
-      }
-
-      .commentLayerOrderSwitch .layer {
-        display: none;
-        position: absolute;
-        width: 24px;
-        height: 24px;
-        line-height: 24px;
-        font-size: 16px;
-        border: 1px solid #888;
-        color:  #ccc;
-        text-shadow: 1px 1px 0 #888, -1px -1px 0 #000;
-        transition: margin-left 0.2s ease, margin-top 0.2s ease;
-      }
-      .commentLayerOrderSwitch:hover .layer {
-        display: block;
-      }
-
-      .commentLayerOrderSwitch .comment {
-        background: #666;
-      }
-      .commentLayerOrderSwitch .video {
-        background: #333;
-      }
-
-                      .commentLayerOrderSwitch .comment,
-      .is-backComment .commentLayerOrderSwitch .video {
-        margin-left: 0px;
-        margin-top:  0px;
-        z-index: 2;
-        opacity: 0.8;
-      }
-
-      .is-backComment .commentLayerOrderSwitch .comment,
-                      .commentLayerOrderSwitch .video {
-        margin-left: 8px;
-        margin-top: 8px;
-        z-index: 1;
-      }
-
     .ngSettingMenu {
       display: none;
       left: 80px;
       width:  32px;
       height: 32px;
       color: #000;
-      border: 1px solid #ccc;
+      border: 1px solid #666;
       line-height: 30px;
       font-size: 18px;
+      border-radius: 4px;
     }
       .is-showComment .ngSettingMenu {
         display: block;
@@ -3137,14 +3095,14 @@ var CONSTANT = {};
       width:  32px;
       height: 32px;
       color: #000;
-      border: 1px solid #000;
+      border: 1px solid #666;
       border-radius: 4px;
       line-height: 30px;
       font-size: 21px;
       white-space: nowrap;
     }
     .is-mouseMoving .mylistButton {
-      text-shadow: 1px 1px 2px #888;
+      /*text-shadow: 1px 1px 2px #888;*/
     }
 
     .mylistButton.mylistAddMenu {
@@ -3158,6 +3116,7 @@ var CONSTANT = {};
 
     .menuItemContainer .mylistButton:hover {
       background: #888;
+      color: #000;
       text-shadow: 0px 0px 2px #66f;
     }
 
@@ -3176,6 +3135,7 @@ var CONSTANT = {};
       border: 1px inset !important;
       box-shadow: none !important;
       background: #888 !important;
+      color: #000 !important;
       animation-name: spinX;
       animation-iteration-count: infinite;
       animation-duration: 6s;
@@ -3190,6 +3150,7 @@ var CONSTANT = {};
       pointer-events: none;
       opacity: 1 !important;
       border: 1px inset #000 !important;
+      color: #000 !important;
       box-shadow: none !important;
     }
     .mylistButton.mylistAddMenu.show{
@@ -3197,6 +3158,7 @@ var CONSTANT = {};
     }
     .is-updatingMylist  .mylistButton.mylistAddMenu {
       background: #888 !important;
+      color: #000 !important;
       animation-name: spinX;
       animation-iteration-count: infinite;
       animation-duration: 6s;
@@ -3285,14 +3247,14 @@ var CONSTANT = {};
       width:  32px;
       height: 32px;
       color: #000;
-      border: 1px solid #000;
+      border: 1px solid #666;
       border-radius: 4px;
       line-height: 30px;
       font-size: 24px;
       white-space: nowrap;
     }
       .is-mouseMoving .zenzaTweetButton {
-        text-shadow: 1px 1px 2px #88c;
+        /*text-shadow: 1px 1px 2px #88c;*/
       }
       .zenzaTweetButton:hover {
         text-shadow: 1px 1px 2px #88c;
@@ -3452,12 +3414,6 @@ var CONSTANT = {};
             <div class="tooltip">コメント表示ON/OFF(V)</div>
             <div class="menuButtonInner">💬</div>
           </div>
-
-          <!--div class="command commentLayerOrderSwitch menuButton" data-command="toggle-backComment">
-            <div class="tooltip">コメントの表示順</div>
-            <div class="layer comment">C</div>
-            <div class="layer video">V</div>
-          </div-->
 
           <div class="command ngSettingMenu menuButton" data-command="ngSettingMenu">
             <div class="tooltip">NG設定</div>

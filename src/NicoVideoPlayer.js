@@ -873,6 +873,7 @@ class YouTubeWrapper {}
       body.appendChild(video);
 
       this._video = video;
+      video.controlslist = 'nodownload';
       video.controls = false;
       video.autoplay = !!params.autoPlay;
       video.loop     = !!params.loop;

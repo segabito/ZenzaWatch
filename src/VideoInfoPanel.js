@@ -464,7 +464,6 @@ const TagEditApi = function() {};
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .publicStatus {
       display: block;
       text-align: center;
-
     }
 
 
@@ -1313,7 +1312,6 @@ const TagEditApi = function() {};
       white-space: nowrap;
       overflow: hidden;
       display: block;
-      cursor: pointer;
       padding: 2px 0;
     }
     .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer,
@@ -2520,18 +2518,12 @@ const TagEditApi = function() {};
         letter-spacing: 12px;
         line-height: 38px;
         font-size: 24px;
-        /*text-shadow: 1px 1px #000;*/
         text-align: center;
         cursor: pointer;
         border-radius: 8px;
       }
-      /*
-        .UaaDetails .uaaSummary:hover {
-          background: #666;
-        }
-      */
+
       .UaaDetails .uaaDetailBody {
-        /*width: 200px;*/
         margin: auto;
       }
 
