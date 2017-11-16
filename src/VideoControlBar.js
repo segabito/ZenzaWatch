@@ -368,6 +368,13 @@ var CONSTANT = {};
       transition: transform 0.2s;
     }
 
+    .is-youTube .bufferRange {
+      width: 100% !important;
+      height: 110% !important;
+      box-shadow: 0 0 6px #f96 inset, 0 0 4px #ff9;
+      transform: translate3d(0, 0, 0) scaleX(1) !important;
+    }
+
     .zenzaStoryboardOpen .bufferRange {
       background: #ff9;
       mix-blend-mode: lighten;

@@ -793,6 +793,7 @@ const TagEditApi = function() {};
     initialize: function(params) {
       this._videoHeaderPanel = new VideoHeaderPanel(params);
       this._dialog = params.dialog;
+      this._config = Config;
       this._currentTimeGetter = params.currentTimeGetter;
 
       this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
@@ -969,6 +970,7 @@ const TagEditApi = function() {};
         .find('a').addClass('noHoverMenu').end()
         .find('a[href*="/mylist/"]').addClass('mylistLink')
         ;
+      this._zenTubeUrl = null;
 
       window.setTimeout(() => {
         this._$description.find('.watch').each((i, watchLink) => {
@@ -1004,6 +1006,9 @@ const TagEditApi = function() {};
         });
         this._$description.find('a[href*="youtube.com/watch"], a[href*="youtu.be"]').each((i, link) => {
           const btn = document.createElement('div');
+          if (!this._zenTubeUrl) {
+            this._zenTubeUrl = link.href;
+          }
           btn.className = 'zenzaTubeButton';
           btn.innerHTML = '▷Zen<span>Tube</span>';
           btn.title = 'ZenzaWatchで開く(実験中)';
@@ -1056,10 +1061,9 @@ const TagEditApi = function() {};
         var data = $target.attr('data-seekTime').split(":");
         var sec = data[0] * 60 + parseInt(data[1], 10);
         this.emit('command', 'seek', sec);
-        //dialog.setCurrentTime(sec);
       }
     },
-    _onVideoCanPlay: function(watchId, videoInfo) {
+    _onVideoCanPlay: function(watchId, videoInfo, options) {
       // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
       if (!this._relatedVideoList) {
         this._relatedVideoList = new RelatedVideoList({
@@ -1067,12 +1071,20 @@ const TagEditApi = function() {};
         });
         this._relatedVideoList.on('command', this._onCommand.bind(this));
       }
+
+      if (this._config.getValue('autoZenTube') && this._zenTubeUrl && !options.isReload()) {
+        window.setTimeout(() => {
+          window.console.info('%cAuto ZenTube', this._zenTubeUrl);
+          this.emit('command', 'setVideo', this._zenTubeUrl);
+        }, 100);
+      }
       var relatedVideo = videoInfo.getRelatedVideoItems();
       this._relatedVideoList.update(relatedVideo, watchId);
     },
-    _onVideoCountUpdate: function({comment, view, mylist}) {
+    _onVideoCountUpdate: function(...args) {
       if (!this._videoHeaderPanel) { return; }
-      this._videoHeaderPanel.updateVideoCount({comment, view, mylist});
+      this._videoMetaInfo.updateVideoCount(...args);
+      this._videoHeaderPanel.updateVideoCount(...args);
     },
     _onCommand: function(command, param) {
       switch (command) {

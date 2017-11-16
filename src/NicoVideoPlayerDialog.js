@@ -161,6 +161,9 @@ var CONSTANT = {};
     isAutoCloseFullScreen: function() {
       return !!this._options.autoCloseFullScreen;
     },
+    isReload: function() {
+      return this._options.isReload === true;
+    },
     getCurrentTime: function() {
       return _.isNumber(this._options.currentTime) ?
         parseFloat(this._options.currentTime, 10) : 0;
@@ -179,6 +182,7 @@ var CONSTANT = {};
       delete this._options.economy;
       _.defaults(options, this._options);
       options.openNow = true;
+      options.isReload = true;
       options.query = {};
       return options;
     },
@@ -1115,8 +1119,8 @@ var CONSTANT = {};
       this.removeClass('is-mouseMoving');
       this._isMouseMoving = false;
     },
-    _onVideoCanPlay: function(watchId, videoInfo) {
-      this.emit('canPlay', watchId, videoInfo);
+    _onVideoCanPlay: function(watchId, videoInfo, options) {
+      this.emit('canPlay', watchId, videoInfo, options);
     },
     _onVideoCount: function({comment, view, mylist} = {}) {
       this.emit('videoCount', {comment, view, mylist});
@@ -2416,7 +2420,7 @@ var CONSTANT = {};
 
 
       this._playerState.setVideoCanPlay();
-      this.emitAsync('canPlay', this._watchId, this._videoInfo);
+      this.emitAsync('canPlay', this._watchId, this._videoInfo, this._videoWatchOptions);
 
       // プレイリストによって開かれた時は、自動再生設定に関係なく再生する
       if (this._videoWatchOptions.getEventType() === 'playlist' && this.isOpen()) {
