@@ -1359,6 +1359,13 @@ const TagEditApi = function() {};
     }
 
 
+    .zenzaWatchVideoHeaderPanel .relatedInfoMenuContainer {
+      display: inline-block;
+      position: absolute;
+      top: 0;
+      margin: 0 16px;
+      z-index: 1000;
+    }
 
   `);
 
@@ -1448,6 +1455,8 @@ const TagEditApi = function() {};
         token: videoInfo.csrfToken,
         watchAuthKey: videoInfo.getWatchAuthKey()
       });
+
+      this._relatedInfoMenu.update(videoInfo);
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
@@ -2648,7 +2657,7 @@ const TagEditApi = function() {};
 
 
   class RelatedInfoMenu extends BaseViewComponent {
-    constructor({parentNode}) {
+    constructor({parentNode, isHeader}) {
       super({
         parentNode,
         name: 'RelatedInfoMenu',
@@ -2661,6 +2670,9 @@ const TagEditApi = function() {};
       };
 
       this._bound.update = this.update.bind(this);
+      this._bound._onBodyClick = _.debounce(this._onBodyClick.bind(this), 0);
+      this.setState({isHeader});
+
     }
 
     _initDom(...args) {
@@ -2668,10 +2680,23 @@ const TagEditApi = function() {};
 
       const shadow = this._shadow || this._view;
       this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
+      this._elm.summary = shadow.querySelector('summary');
+      this._elm.summary.addEventListener('click', _.debounce(() => {
+        if (shadow.open) {
+          document.body.addEventListener('mouseup', this._bound._onBodyClick);
+        }
+      }, 100));
+    }
+
+    _onBodyClick() {
+      const shadow = this._shadow || this._view;
+      shadow.open = false;
+      document.body.removeEventListener('mouseup', this._bound._onBodyClick);
     }
 
     update(videoInfo) {
       const shadow = this._shadow || this._view;
+      shadow.open = false;
 
       this._currentWatchId = videoInfo.watchId;
       this._currentVideoId = videoInfo.videoId;
@@ -2684,6 +2709,9 @@ const TagEditApi = function() {};
 
     _onCommand(command, param) {
       let url;
+      const shadow = this._shadow || this._view;
+      shadow.open = false;
+
       switch(command) {
         case 'watch-ginza':
           url = `//www.nicovideo.jp/watch/${this._currentWatchId}`;
@@ -2736,11 +2764,15 @@ const TagEditApi = function() {};
 
       .RelatedInfoMenu summary {
         display: inline-block;
-        background: #666;
-        color: #ccc;
+        background: transparent;
+        color: #333;
         padding: 4px 8px;
         border-radius: 4px;
         outline: none;
+        border: 1px solid #ccc;
+      }
+
+      .RelatedInfoMenuBody {
       }
 
       .RelatedInfoMenu ul {
@@ -2789,9 +2821,30 @@ const TagEditApi = function() {};
         background: #888;
       }
 
+      /* :host-contextで分けたいけどFirefox対応のため */
+      .RelatedInfoMenu.is-Header {
+        font-size: 13px;
+        padding: 0 8px;
+      }
+      .RelatedInfoMenu.is-Header summary {
+        background: #666;
+        color: #ccc;
+        padding: 0 8px;
+        border: none;
+      }
+      .RelatedInfoMenu.is-Header[open] {
+        background: rgba(80, 80, 80, 0.9);
+      }
+      .RelatedInfoMenu.is-Header ul {
+        font-size: 16px;
+        line-height: 20px;
+      }
+
+
+
     </style>
     <details class="root RelatedInfoMenu">
-      <summary class="RelatedInfoMenuSummary clickable">関連情報</summary>
+      <summary class="RelatedInfoMenuSummary clickable">関連メニュー</summary>
       <div class="RelatedInfoMenuBody">
         <ul>
           <li class="ginzaMenu">
