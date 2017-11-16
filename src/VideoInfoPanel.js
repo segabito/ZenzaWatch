@@ -1095,7 +1095,7 @@ const TagEditApi = function() {};
       let option = {
         searchType: 'tag',
         order: config.getValue('order'),
-        sort:  config.getValue('sort'),
+        sort:  config.getValue('sort') || 'playlist',
         owner: config.getValue('ownerOnly')
       };
 
@@ -1394,17 +1394,12 @@ const TagEditApi = function() {};
       this._isInitialized = true;
       util.addStyle(VideoHeaderPanel.__css__);
       let $view = this._$view = $(VideoHeaderPanel.__tpl__);
+      let view = $view[0];
       let onCommand = this._onCommand.bind(this);
 
-      this._$videoTitle   = $view.find('.videoTitle');
-      this._$postedAt     = $view.find('.postedAt');
-
-      this._$viewCount    = $view.find('.viewCount');
-      this._$commentCount = $view.find('.commentCount');
-      this._$mylistCount  = $view.find('.mylistCount');
-
+      this._$videoTitle = $view.find('.videoTitle');
       this._searchForm = new VideoSearchForm({
-        parentNode: $view[0]
+        parentNode: view
       });
       this._searchForm.on('command', onCommand);
 
@@ -1536,7 +1531,7 @@ const TagEditApi = function() {};
       this._word   = view.querySelector('.searchWordInput');
       this._sort   = view.querySelector('.searchSortSelect');
       this._submit = view.querySelector('.searchSubmit');
-      this._mode   = view.querySelector('.searchMode');
+      this._mode   = view.querySelector('.searchMode') || 'tag';
     
       this._form.addEventListener('submit', this._onSubmit.bind(this));
 
@@ -1544,7 +1539,14 @@ const TagEditApi = function() {};
       const form = this._form;
 
       form['ownerOnly'].checked = config.getValue('ownerOnly');
-      form['mode'].value        = config.getValue('mode');
+      let confMode = config.getValue('mode');
+      if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
+        form['mode'].value = confMode;
+      } else if (typeof confMode === 'boolean') {
+        form['mode'].value = confMode ? 'tag' : 'keyword';
+      } else {
+        form['mode'].value = 'tag';
+      }
       form['word'].value        = config.getValue('word');
       form['sort'].value        = config.getValue('sort');
 
@@ -1555,10 +1557,16 @@ const TagEditApi = function() {};
       Array.prototype.forEach.call(view.querySelectorAll('input, select'), (item) => {
         item.addEventListener('focus', updateFocus);
         item.addEventListener('blur',  updateFocusD);
-        if (item.type === 'checkbox' || item.type === 'radio') {
+        if (item.type === 'checkbox') {
           item.addEventListener('change', () => {
             this._word.focus();
             config.setValue(item.name, item.checked);
+            submit();
+          });
+        } else if (item.type === 'radio') {
+          item.addEventListener('change', () => {
+            this._word.focus();
+            config.setValue(item.name, this._form[item.name].value);
             submit();
           });
         } else {
