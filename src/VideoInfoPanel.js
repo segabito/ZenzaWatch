@@ -127,13 +127,6 @@ const TagEditApi = function() {};
       transition: opacity 0.4s ease;
     }
 
-    .zenzaWatchVideoInfoPanel.userVideo .channelVideo,
-    .zenzaWatchVideoInfoPanel.channelVideo .userVideo
-    {
-      display: none !important;
-    }
-
-
     body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel,
     body:not(.fullScreen).zenzaScreenMode_big    .zenzaWatchVideoInfoPanel
     {
@@ -408,27 +401,17 @@ const TagEditApi = function() {};
 
     .zenzaWatchVideoInfoPanel .publicStatus {
       display: none;
+      position: relative;
       margin: 8px 0;
       padding: 8px;
       line-height: 150%;
       text-align; center;
       color: #333;
     }
-    .zenzaWatchVideoInfoPanel .publicStatus .column {
+
+    .zenzaWatchVideoInfoPanel .videoMetaInfoContainer {
       display: inline-block;
-      white-space: nowrap;
     }
-    .zenzaWatchVideoInfoPanel .publicStatus .count {
-      font-weight: bold;
-    }
-
-    .zenzaWatchVideoInfoPanel .publicStatus .postedAtOuter {
-      display: block;
-    }
-    .zenzaWatchVideoInfoPanel .publicStatus .postedAt {
-      font-weight: bolder;
-    }
-
 
     body:not(.fullScreen).zenzaScreenMode_small .zenzaWatchVideoInfoPanel {
       display: none;
@@ -737,6 +720,10 @@ const TagEditApi = function() {};
       border: 1px inset;
     }
 
+    .zenzaWatchVideoInfoPanel .relatedInfoMenuContainer {
+      text-align: left;
+    }
+
   `).trim();
 
   VideoInfoPanel.__tpl__ = (`
@@ -762,14 +749,15 @@ const TagEditApi = function() {};
                   title="投稿動画一覧をプレイリストで開く">▶</a>
               </span>
             </div>
-            <div class="publicStatus"></div>
-
+            <div class="publicStatus">
+              <div class="videoMetaInfoContainer"></div>
+              <div class="relatedInfoMenuContainer"></div>
+            </div>
             <div class="resumePlay" data-command="seek" data-param="0" type="button">
               続きから再生 (<span class="resumePlayPoint">00:00</span>)
               <div class="resumeThumbnailContainer"></div>
             </div>
             <div class="videoDescription"></div>
-            <div class="relatedInfoMenuContainer"></div>
           </div>
           <div class="zenzaWatchVideoInfoPanelFoot">
             <div class="uaaContainer"></div>
@@ -829,12 +817,14 @@ const TagEditApi = function() {};
       });
       this._tagListView.on('command', onCommand);
 
-      this._$publicStatus = $view.find('.publicStatus');
-
       this._relatedInfoMenu = new RelatedInfoMenu({
         parentNode: view.querySelector('.relatedInfoMenuContainer')
       });
       this._relatedInfoMenu.on('command', onCommand);
+
+      this._videoMetaInfo = new VideoMetaInfo({
+        parentNode: view.querySelector('.videoMetaInfoContainer')
+      });
 
       this._uaaContainer = view.querySelector('.uaaContainer');
       this._uaaView = new UaaView(
@@ -894,7 +884,7 @@ const TagEditApi = function() {};
       this._$ownerName.text(owner.name);
       this._$ownerContainer.toggleClass('favorite', owner.favorite);
 
-      this._$publicStatus.html(this._videoHeaderPanel.getPublicStatusDom());
+      this._videoMetaInfo.update(videoInfo);
       this._tagListView.update({
         tagList: videoInfo.getTagList(),
         watchId: videoInfo.getWatchId(),
@@ -1217,6 +1207,7 @@ const TagEditApi = function() {};
       margin: 8px;
     }
     .zenzaWatchVideoHeaderPanel .publicStatus {
+      position: relative;
       color: #ccc;
     }
 
@@ -1299,12 +1290,6 @@ const TagEditApi = function() {};
       display: block;
     }
 
-    .zenzaWatchVideoHeaderPanel.userVideo .channelVideo,
-    .zenzaWatchVideoHeaderPanel.channelVideo .userVideo
-    {
-      display: none !important;
-    }
-
     .zenzaWatchVideoHeaderPanel .videoTitle {
       font-size: 24px;
       color: #fff;
@@ -1342,23 +1327,8 @@ const TagEditApi = function() {};
       display: inline-block;
     }
 
-    .zenzaWatchVideoHeaderPanel .postedAtOuter {
-      margin-right: 24px;
-    }
-    .zenzaWatchVideoHeaderPanel .postedAt {
-      font-weight: bold
-    }
-
-    .zenzaWatchVideoHeaderPanel .countOuter .column {
+    .videoMetaInfoContainer {
       display: inline-block;
-      white-space: nowrap;
-    }
-    .zenzaWatchVideoHeaderPanel .count {
-      font-weight: bolder;
-    }
-
-    .zenzaWatchVideoHeaderPanel .videoTagsContainer {
-      /*padding: 8px 0 0;*/
     }
 
     body:not(.fullScreen).zenzaScreenMode_3D     .is-backComment .zenzaWatchVideoHeaderPanel,
@@ -1398,17 +1368,8 @@ const TagEditApi = function() {};
         <span class="videoTitle"></span>
       </h2>
       <p class="publicStatus">
-        <span class="postedAtOuter">
-          <span class="userVideo">投稿日:</span>
-          <span class="channelVideo">配信日:</span>
-          <span class="postedAt"></span>
-        </span>
-
-        <span class="countOuter">
-          <span class="column">再生:       <span class="count viewCount"></span></span>
-          <span class="column">コメント:   <span class="count commentCount"></span></span>
-          <span class="column">マイリスト: <span class="count mylistCount"></span></span>
-        </span>
+        <span class="videoMetaInfoContainer"></span>
+        <span class="relatedInfoMenuContainer"></span>
       </p>
       <div class="videoTagsContainer videoHeader">
       </div>
@@ -1455,9 +1416,19 @@ const TagEditApi = function() {};
       });
 
       this._tagListView = new TagListView({
-        parentNode: $view.find('.videoTagsContainer')[0]
+        parentNode: view.querySelector('.videoTagsContainer')
       });
       this._tagListView.on('command', onCommand);
+
+      this._relatedInfoMenu = new RelatedInfoMenu({
+        parentNode: view.querySelector('.relatedInfoMenuContainer'),
+        isHeader: true
+      });
+      this._relatedInfoMenu.on('command', onCommand);
+
+      this._videoMetaInfo = new VideoMetaInfo({
+        parentNode: view.querySelector('.videoMetaInfoContainer'),
+      });
 
       window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
     },
@@ -1466,16 +1437,9 @@ const TagEditApi = function() {};
 
       const videoTitle = util.unescapeHtml(videoInfo.getTitle());
       this._$videoTitle.text(videoTitle).attr('title', videoTitle);
-      this._$postedAt.text(videoInfo.getPostedAt());
 
       var watchId = videoInfo.watchId;
-      var count = videoInfo.getCount();
-      var addComma = function(m) {
-        return m.toLocaleString ? m.toLocaleString() : m;
-      };
-      this._$viewCount    .text(addComma(count.view));
-      this._$commentCount .text(addComma(count.comment));
-      this._$mylistCount  .text(addComma(count.mylist));
+      this._videoMetaInfo.update(videoInfo);
 
       this._tagListView.update({
         tagList: videoInfo.getTagList(),
@@ -1495,12 +1459,8 @@ const TagEditApi = function() {};
 
       window.setTimeout(() => { this._onResize(); }, 1000);
     },
-    updateVideoCount: function({comment, view, mylist}) {
-      if (!this._$commentCount) { return; }
-      let addComma = m => { return m.toLocaleString ? m.toLocaleString() : m; };
-      if (typeof comment === 'number') { this._$commentCount.text(addComma(comment)); }
-      if (typeof view    === 'number') { this._$viewCount   .text(addComma(view)); }
-      if (typeof mylist  === 'number') { this._$mylistCount .text(addComma(mylist)); }
+    updateVideoCount: function(...args) {
+      this._videoMetaInfo.updateVideoCount(...args);
     },
     _onResize: function() {
       const view = this._$view[0];
@@ -1525,10 +1485,6 @@ const TagEditApi = function() {};
       this._$view.addClass('initializing');
 
       this._$videoTitle.text('------');
-      this._$postedAt.text('------');
-      this._$viewCount.text('---');
-      this._$commentCount.text('---');
-      this._$mylistCount.text('---');
     },
     getPublicStatusDom: function() {
       return this._$view.find('.publicStatus').html();
@@ -2867,6 +2823,105 @@ const TagEditApi = function() {};
     </details>
   `).trim();
 
+  class VideoMetaInfo extends BaseViewComponent {
+    constructor({parentNode}) {
+      super({
+        parentNode,
+        name: 'VideoMetaInfo',
+        template: '<div class="VideoMetaInfo"></div>',
+        shadow: VideoMetaInfo._shadow_,
+        css: VideoMetaInfo.__css__
+      });
+
+      this._state = {};
+
+      this._bound.update = this.update.bind(this);
+    }
+
+    _initDom(...args) {
+      super._initDom(...args);
+
+      const shadow = this._shadow || this._view;
+      this._elm = Object.assign({}, this._elm, {
+        postedAt:     shadow.querySelector('.postedAt'),
+        body:         shadow.querySelector('.videoMetaInfo'),
+        viewCount:    shadow.querySelector('.viewCount'),
+        commentCount: shadow.querySelector('.commentCount'),
+        mylistCount:  shadow.querySelector('.mylistCount')
+      });
+    }
+
+    update(videoInfo) {
+      this._elm.postedAt.textContent = videoInfo.getPostedAt();
+      const count = videoInfo.getCount();
+      this.updateVideoCount(count);
+    }
+
+    updateVideoCount({comment, view, mylist}) {
+      let addComma = m => { return m.toLocaleString ? m.toLocaleString() : m; };
+      if (typeof comment === 'number') {
+        this._elm.commentCount.textContent = addComma(comment);
+      }
+      if (typeof view    === 'number') {
+        this._elm.viewCount   .textContent = addComma(view);
+      }
+      if (typeof mylist  === 'number') {
+        this._elm.mylistCount .textContent = addComma(mylist);
+      }
+    }
+  }
+  VideoMetaInfo._css_ = (``).trim();
+
+  VideoMetaInfo._shadow_ = (`
+    <style>
+      .VideoMetaInfo .postedAtOuter {
+        display: inline-block;
+        margin-right: 24px;
+      }
+      .VideoMetaInfo .postedAt {
+        font-weight: bold
+      }
+
+      .VideoMetaInfo .countOuter {
+        white-space: nowrap;
+      }
+
+      .VideoMetaInfo .countOuter .column {
+        display: inline-block;
+        white-space: nowrap;
+      }
+
+      .VideoMetaInfo .count {
+        font-weight: bolder;
+      }
+
+      .userVideo .channelVideo,
+      .channelVideo .userVideo
+      {
+        display: none !important;
+      }
+
+      :host-context(.userVideo) .channelVideo,
+      :host-context(.channelVideo) .userVideo
+      {
+        display: none !important;
+      }
+
+    </style>
+    <div class="VideoMetaInfo root">
+      <span class="postedAtOuter">
+        <span class="userVideo">投稿日:</span>
+        <span class="channelVideo">配信日:</span>
+        <span class="postedAt"></span>
+      </span>
+
+      <span class="countOuter">
+        <span class="column">再生:       <span class="count viewCount"></span></span>
+        <span class="column">コメント:   <span class="count commentCount"></span></span>
+        <span class="column">マイリスト: <span class="count mylistCount"></span></span>
+      </span>
+    </div>
+  `);
 
 //===END===
 
