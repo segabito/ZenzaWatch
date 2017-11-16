@@ -476,18 +476,18 @@ var ZenzaWatch = {
 
   const searchApi = function() {
     if (window.name.indexOf('search') < 0 ) { return; }
-    window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
+    console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
     let parentHost = parseUrl(document.referrer).hostname;
     if (!HOST_REG.test(parentHost)) {
-      window.console.log('disable bridge');
+      console.log('disable bridge');
       return;
     }
 
     const type = window.name.replace(/Loader$/, '');
     const token = location.hash ? location.hash.substring(1) : null;
 
-    window.addEventListener('message', function(event) {
+    window.addEventListener('message', (event) => {
       if (!HOST_REG.test(parseUrl(event.origin).hostname)) { return; }
       const data = JSON.parse(event.data);
 

@@ -1850,7 +1850,7 @@ var ajax = function() {};
         this._loaderFrame = loaderFrame;
         this._loaderWindow = loaderFrame.contentWindow;
         this._messager.addKnownSource(this._loaderWindow);
-        this._loaderWindow.location.href = this._baseUrl + '#' + TOKEN;
+        this._loaderWindow.location.replace(this._baseUrl + '#' + TOKEN);
       },
       _onMessage: function(data, type) {
         if (type !== this._type) {

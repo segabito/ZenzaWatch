@@ -141,25 +141,60 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 };
 
+  let loadLodash = function() {
+    if (window._) {
+      return Promise.resolve();
+    }
+    console.info('load lodash from cdn...');
+
+    return new Promise((resolve, reject) => {
+      let script = document.createElement('script');
+      script.id = 'lodashLoader';
+      script.setAttribute('type', 'text/javascript');
+      script.setAttribute('charset', 'UTF-8');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js';
+      document.body.appendChild(script);
+      let count = 0;
+
+      let tm = setInterval(() => {
+        count++;
+
+        if (window._)  {
+          clearInterval(tm);
+          resolve();
+          return;
+        }
+
+        if (count >= 100) {
+          clearInterval(tm);
+          console.error('load lodash timeout');
+          reject();
+        }
+
+      }, 300);
+    });
+  };
+
+
 //@require exApi.js
 
   if (window.ZenzaWatch) { return; }
-
-  var host = window.location.host || '';
-  var href = (location.href || '').replace(/#.*$/, '');
-  var prot = location.protocol;
+  let document = window.document;
+  let host = window.location.host || '';
+  let href = (location.href || '').replace(/#.*$/, '');
+  let prot = location.protocol;
   if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
       window.name === 'nicovideoApiLoader') {
-    nicovideoApi();
+    loadLodash().then(nicovideoApi);
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
-    smileApi();
+    loadLodash().then(smileApi);
   } else if (host === 'api.search.nicovideo.jp' && window.name.startsWith('searchApiLoader')) {
-    searchApi();
+    loadLodash().then(searchApi);
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
-    thumbInfoApi();
+    loadLodash().then(thumbInfoApi);
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
-    exApi();
-  } else if (window === top) {
+    loadLodash().then(exApi);
+  } else if (window === window.top) {
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
     // 先にiframeだけ作っておく
     // 効果はいまいち・・・
@@ -193,15 +228,15 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       var ver = [];
       var t = window.jQuery.fn.jquery.split('.');
       while(t.length < 3) { t.push(0); }
-      _.each(t, function(v) { ver.push((v * 1 + 100000).toString().substr(1)); });
+      t.forEach((v) => { ver.push((v * 1 + 100000).toString().substr(1)); });
       return ver.join('') * 1;
     };
 
     var loadJq = function() {
-      window.console.log('JQVer: ', getJQVer());
-      window.console.info('load jQuery from cdn...');
+      console.log('JQVer: ', getJQVer());
+      console.info('load jQuery from cdn...');
 
-      return new Promise(function (resolve, reject) {
+      return new Promise((resolve, reject) => {
         var $j = window.jQuery || null;
         var $$ = window.$ || null;
         var script = document.createElement('script');
@@ -212,20 +247,21 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         document.body.appendChild(script);
         var count = 0;
 
-        var tm = window.setInterval(function() {
+        var tm = setInterval(() => {
           count++;
 
           if (getJQVer() >= MIN_JQ)  {
-            window.clearInterval(tm);
+            clearInterval(tm);
             window.ZenzaJQuery = window.jQuery;
             if ($j) { window.jQuery = $j; }
             if ($$) { window.$      = $$; }
             resolve();
+            return;
           }
 
           if (count >= 100) {
-            window.clearInterval(tm);
-            window.console.error('load jQuery timeout');
+            clearInterval(tm);
+            console.error('load jQuery timeout');
             reject();
           }
 
@@ -233,10 +269,12 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       });
     };
 
-    if (getJQVer() >= MIN_JQ) {
-      loadGm();
-    } else {
-      loadJq().then(loadGm);
-    }
+    loadLodash().then(() => {
+      if (getJQVer() >= MIN_JQ) {
+        loadGm();
+      } else {
+        loadJq().then(loadGm);
+      }
+    });
   }
-})();
+})(window);
