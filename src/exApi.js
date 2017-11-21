@@ -165,7 +165,6 @@ var ZenzaWatch = {
 
   const HOST_REG = /^[a-z0-9]*\.nicovideo\.jp$/;
 
-
   var thumbInfoApi = function() {
     if (window.name.indexOf('thumbInfoLoader') < 0 ) { return; }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);

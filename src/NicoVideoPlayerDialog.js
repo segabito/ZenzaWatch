@@ -1591,14 +1591,12 @@ var CONSTANT = {};
           this.reloadComment(param);
           break;
         case 'playbackRate':
-          //if (!ZenzaWatch.util.isPremium()) { param = Math.min(1, param); }
           this._playerConfig.setValue(command, param);
           break;
         case 'shiftUp':
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
-            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
@@ -1606,12 +1604,18 @@ var CONSTANT = {};
           {
             v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
             if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
-            //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
             this._playerConfig.setValue('playbackRate', v);
           }
           break;
         case 'screenShot':
-          if (this._playerState.isYouTube) { return; }
+          if (this._playerState.isYouTube) {
+            util.capTube({
+              title: this._videoInfo.getTitle(),
+              videoId: this._videoInfo.getVideoId(),
+              author: this._videoInfo.getOwnerInfo().name
+            });
+            return;
+          }
           this._nicoVideoPlayer.getScreenShot();
           break;
         case 'screenShotWithComment':

@@ -1617,6 +1617,17 @@ class CrossDomainGate {}
       });
     };
 
+    util.capTube = function({title, videoId, author}) {
+      const iframe = document.querySelector(
+        '#ZenzaWatchVideoPlayerContainer iframe[title^=YouTube]');
+      if (!iframe) { return; }
+      const command = 'capture';
+      iframe.contentWindow.postMessage(
+        JSON.stringify({command, title, videoId, author}),
+        'https://www.youtube.com'
+      );
+    };
+
     util.saveMymemory = function(player, videoInfo) {
       let html = player.getMymemory();
       const title =
