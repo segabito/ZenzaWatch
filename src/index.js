@@ -25,13 +25,13 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.14.12
+// @version        1.14.16
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
 
 
-(function() {
+(function(window) {
 const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
 const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
@@ -277,4 +277,4 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       }
     });
   }
-})(window);
+})(window.unsafeWindow || window);

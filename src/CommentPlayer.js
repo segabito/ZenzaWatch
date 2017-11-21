@@ -2603,21 +2603,33 @@ spacer {
           commentLayer.style.transform =
             'scale3d(' + scale + ',' + scale + ', 1)';
         };
-        //win.addEventListener('resize', onResize);
 
         ZenzaWatch.debug.getInViewElements = () => {
           return doc.getElementsByClassName('nicoChat');
         };
 
-        let lastW = win.innerWidth, lastH = win.innerHeight;
-        window.setInterval(() => {
-          const w = win.innerWidth, h = win.innerHeight;
-          if (lastW !== w || lastH !== h) {
-            lastW = w;
-            lastH = h;
-            onResize();
-          }
-        }, 1500);
+        if (window.ResizeObserver) {
+          const _onResize = _.throttle(onResize, 100);
+          const ro = new window.ResizeObserver(entries => {
+            for (let entry of entries) {
+              if (entry.target === iframe) {
+                _onResize();
+                return;
+              }
+            }
+          });
+          ro.observe(iframe);
+        } else {
+          let lastW = win.innerWidth, lastH = win.innerHeight;
+          window.setInterval(() => {
+            const w = win.innerWidth, h = win.innerHeight;
+            if (lastW !== w || lastH !== h) {
+              lastW = w;
+              lastH = h;
+              onResize();
+            }
+          }, 1500);
+        }
         window.setTimeout(onResize, 100);
 
         if (this._isPaused) {
