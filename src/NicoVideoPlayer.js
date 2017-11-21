@@ -1147,10 +1147,11 @@ class YouTubeWrapper {}
       this.addClass('is-loading');
 
        if (/(youtube\.com|youtu\.be)/.test(url)) {
+        const currentTime = this._currentVideo.currentTime;
         this._initYouTube().then(() => {
-          // 通常使用ではvideo -> YouTubeへの遷移しか存在しないので
+          // 通常使用では(video|YouTube) -> YouTubeへの遷移しか存在しないので
           // 逆方向の想定は色々端折っている
-          return this._videoYouTube.setSrc(url, this._videoElement.currentTime);
+          return this._videoYouTube.setSrc(url, currentTime);
         }).then(() => {
           this._changePlayer('YouTube');
         });

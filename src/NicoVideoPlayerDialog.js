@@ -173,6 +173,7 @@ var CONSTANT = {};
       delete this._options.economy;
       _.defaults(options, this._options);
       options.openNow = true;
+      options.isReload = false;
       options.currentTime = 0;
       options.query = {};
       return options;
