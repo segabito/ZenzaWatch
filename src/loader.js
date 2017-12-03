@@ -175,19 +175,25 @@ var ajax = function() {};
         const videoId = data.video.id;
         const hasLargeThumbnail = util.hasLargeThumbnail(videoId);
         const flvInfo = data.video.smileInfo || {};
-        const dmcInfo = data.video.dmcInfo;
+        const dmcInfo = data.video.dmcInfo || {};
         const thumbnail = data.video.thumbnailURL + (hasLargeThumbnail ? '.L' : '');
         const videoUrl  = flvInfo.url ? flvInfo.url : '';
         const isEco = /\d+\.\d+low$/.test(videoUrl);
         const isFlv = /\/smile\?v=/.test(videoUrl);
         const isMp4 = /\/smile\?m=/.test(videoUrl);
         const isSwf = /\/smile\?s=/.test(videoUrl);
-        const isDmc = !!dmcInfo;
+        const isDmc = !!dmcInfo && !!dmcInfo.session_api;
         const isChannel = !!data.channel;
         const isCommunity = !!data.community;
         const csrfToken     = data.context.csrfToken;
         const watchAuthKey  = data.context.watchAuthKey;
         const playlistToken = env.playlistToken;
+        const context = data.context;
+        const linkedChannelVideo =
+          (context.linkedChannelVideos || []).find(ch => {
+          return !!ch.isChannelMember;
+        });
+        const isNeedPayment = context.isNeedPayment;
         const msgInfo = {
           server:   data.thread.serverUrl,
           threadId: data.thread.ids.community || data.thread.ids.default,
@@ -333,12 +339,14 @@ var ajax = function() {};
           csrfToken,
           watchAuthKey,
           playlistToken,
+
+          isNeedPayment,
+          linkedChannelVideo,
           resumeInfo: {
             initialPlaybackType:     data.context.initialPlaybackType || '',
             initialPlaybackPosition: data.context.initialPlaybackPosition || 0
           }
         };
-
 
         ZenzaWatch.emitter.emitAsync('csrfTokenUpdate', csrfToken);
         return result;
@@ -363,6 +371,45 @@ var ajax = function() {};
         }
       };
 
+
+      const loadLinkedChannelVideoInfo = (originalData) => {
+        const linkedChannelVideo = originalData.linkedChannelVideo;
+        const originalVideoId = originalData.watchApiData.videoDetail.id;
+        const videoId = linkedChannelVideo.linkedVideoId;
+
+        originalData.linkedChannelData = null;
+        if (originalVideoId === videoId) {
+          return Promise.reject();
+        }
+
+        const url = `//www.nicovideo.jp/watch/${videoId}`;
+        window.console.info('%cloadLinkedChannelVideoInfo', 'background: cyan', linkedChannelVideo);
+        return new Promise(r => {
+            setTimeout(() => { r(); }, 1000);
+          }).then(() => {
+            return util.fetch(url, {credentials: 'include'});
+          })
+          .then(res => { return res.text(); })
+          .then(html => {
+            const dom = document.createElement('div');
+            dom.innerHTML = html;
+            const data = parseFromHtml5Watch(dom);
+            //window.console.info('linkedChannelData', data);
+            originalData.dmcInfo = data.dmcInfo;
+            originalData.isDmcOnly = data.isDmcOnly;
+            originalData.isPlayable = data.isPlayable;
+            originalData.isMp4 = data.isMp4;
+            originalData.isFlv = data.isFlv;
+            originalData.isSwf = data.isSwf;
+            originalData.isEco = data.isEco;
+            originalData.isDmc = data.isDmc;
+            return originalData;
+          })
+          .catch(() => {
+            return Promise.reject({reason: 'network', message: '通信エラー(loadLinkedChannelVideoInfo)'});
+          });
+      };
+
       const onLoadPromise = (watchId, options, isRetry, resp) => {
         const data = parseWatchApiData(resp);
         ZenzaWatch.debug.watchApiData = data;
@@ -383,6 +430,14 @@ var ajax = function() {};
             info: data,
             message: 'この動画はZenzaWatchで再生できません(flv)'
           });
+        }
+
+        if (
+          !data.isPlayable &&
+          data.isNeedPayment &&
+          data.linkedChannelVideo &&
+          Config.getValue('loadLinkedChannelVideo')) {
+          return loadLinkedChannelVideoInfo(data);
         }
 
         if (!data.isPlayable) {

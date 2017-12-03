@@ -262,6 +262,10 @@ class CrossDomainGate {}
 
         enableSingleton: false,
 
+        // 無料期間の過ぎた動画と同じのがdアニメにあったら、
+        // コメントはそのままに映像だけ持ってくる (当然ながらdアニメ加入は必要)
+        loadLinkedChannelVideo: false,
+
         commentLayerOpacity: 1.0, //
         'commentLayer.textShadowType': '', // フォントの修飾タイプ
         'commentLayer.enableSlotLayoutEmulation': false,
