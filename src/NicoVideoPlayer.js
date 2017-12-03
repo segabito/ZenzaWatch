@@ -1016,7 +1016,7 @@ class YouTubeWrapper {}
 
     _onAbort () {
       if (this._isYouTube) { return; } // TODO: YouTube側のエラーハンドリング
-      window.console.warn('%c_onAbort:', 'background: cyan; color: red;', arguments);
+      window.console.warn('%c_onAbort:', 'background: cyan; color: red;');
       this._isPlaying = false;
       this.addClass('is-abort');
       this.emit('abort');

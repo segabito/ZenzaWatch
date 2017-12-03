@@ -1809,7 +1809,7 @@ class NicoSearchApiV2Loader {}
     unserialize: function(data) {
       if (!data) { return; }
       this._initializeView();
-      window.console.log('unserialize: ', data);
+      console.log('unserialize: ', data);
       this._model.unserialize(data.items);
       this._isEnable = data.enable;
       this._isLoop   = data.loop;

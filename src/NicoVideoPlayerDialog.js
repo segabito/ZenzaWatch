@@ -2864,7 +2864,7 @@ var CONSTANT = {};
       width: 120px;
       height: 32px;
       left: 8px;
-      bottom: 8px;
+      bottom: 48px;
       transform-origin: left bottom;
     }
       .zenzaScreenMode_wide .menuItemContainer.leftBottom,

@@ -2528,7 +2528,7 @@ spacer {
       // ウィンドウが非表示の時にブラウザが描画をサボっているので、
       // 表示になったタイミングで粛正する
       //$(window).on('focus', _refresh);
-      $(document).on('visibilitychange', () => {
+      document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
           _refresh();
         }
@@ -2593,6 +2593,10 @@ spacer {
           this._optionStyle.innerHTML = newCss;
         });
 
+        ZenzaWatch.debug.getInViewElements = () => {
+          return doc.getElementsByClassName('nicoChat');
+        };
+
         const onResize = () => {
           const w = win.innerWidth, h = win.innerHeight;
           // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
@@ -2604,33 +2608,23 @@ spacer {
             'scale3d(' + scale + ',' + scale + ', 1)';
         };
 
-        ZenzaWatch.debug.getInViewElements = () => {
-          return doc.getElementsByClassName('nicoChat');
+        const chkSizeInit = () => {
+          const h = win.innerHeight;
+          if (!h) {
+            window.setTimeout(chkSizeInit, 500);
+          } else {
+            util.watchResize(iframe.parentElement, _.throttle(onResize, 100));
+            this._onResize = onResize;
+            onResize();
+          }
         };
-
-        if (window.ResizeObserver) {
-          const _onResize = _.throttle(onResize, 100);
-          const ro = new window.ResizeObserver(entries => {
-            for (let entry of entries) {
-              if (entry.target === iframe) {
-                _onResize();
-                return;
-              }
-            }
-          });
-          ro.observe(iframe);
-        } else {
-          let lastW = win.innerWidth, lastH = win.innerHeight;
-          window.setInterval(() => {
-            const w = win.innerWidth, h = win.innerHeight;
-            if (lastW !== w || lastH !== h) {
-              lastW = w;
-              lastH = h;
-              onResize();
-            }
-          }, 1500);
-        }
-        window.setTimeout(onResize, 100);
+        ZenzaWatch.emitter.on('fullScreenStatusChange', _.debounce(onResize, 2000));
+        document.addEventListener('visibilitychange', _.debounce(() => {
+          if (!document.hidden) {
+            onResize();
+          }
+        }, 500));
+        window.setTimeout(chkSizeInit, 100);
 
         if (this._isPaused) {
           this.pause();
@@ -2735,13 +2729,13 @@ spacer {
     _onCommand: function(command, param) {
       this.emit('command', command, param);
     },
-    _onResize: function(e) {
-      this._adjust(e);
-    },
     // リサイズイベントを発動させる
     _adjust: function() {
       if (!this._view) {
         return;
+      }
+      if (typeof this._onResize === 'function') {
+        return this._onResize();
       }
       var $view = $(this._view);
       $view.css({ width: $view.outerWidth() + 1, height: $view.outerHeight() + 1 }).offset();
@@ -2762,7 +2756,6 @@ spacer {
     },
     _onSetXml: function() {
       this.clear();
-      this._adjust();
     },
     _onCurrentTime: function(sec) {
       var REFRESH_THRESHOLD = 1;

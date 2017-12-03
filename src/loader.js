@@ -113,7 +113,7 @@ var ajax = function() {};
           let isFlv = /\/smile\?v=/.test(videoUrl);
           let isMp4 = /\/smile\?m=/.test(videoUrl);
           let isSwf = /\/smile\?s=/.test(videoUrl);
-          let isDmc = watchApiData.flashvars.isDmc === 1;
+          let isDmc = watchApiData.flashvars.isDmc === 1 && dmcInfo.session_api;
           let csrfToken = watchApiData.flashvars.csrfToken;
           let playlistToken = watchApiData.playlistToken;
           let watchAuthKey  = watchApiData.flashvars.watchAuthKey;

@@ -372,6 +372,7 @@ var CONSTANT = {};
       width: 100% !important;
       height: 110% !important;
       box-shadow: 0 0 6px #f96 inset, 0 0 4px #ff9;
+      transition: transform 0.8s ease 0.4s;
       transform: translate3d(0, 0, 0) scaleX(1) !important;
     }
 

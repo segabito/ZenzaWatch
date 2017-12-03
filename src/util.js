@@ -164,9 +164,9 @@ class CrossDomainGate {}
         var handle = function() {
           var isFullScreen = self.now();
           if (isFullScreen) {
-            $('body').addClass('fullScreen');
+            document.body.classList.add('fullScreen');
           } else {
-            $('body').removeClass('fullScreen');
+            document.body.classList.remove('fullScreen');
           }
           ZenzaWatch.emitter.emit('fullScreenStatusChange', isFullScreen);
         };
@@ -1729,10 +1729,88 @@ class CrossDomainGate {}
       elm.dispatchEvent(ev);
     };
 
-
     util.getNicoHistory = function() {
       return window.unescape(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
     };
+
+    util.watchResize = function(target, callback) {
+      if (window.ResizeObserver) {
+        const ro = new window.ResizeObserver(entries => {
+          for (let entry of entries) {
+            if (entry.target === target) {
+              callback();
+              return;
+            }
+          }
+        });
+        ro.observe(target);
+        return;
+      }
+      // polyfillを参考に
+      const watcher = document.createElement('div');
+      Object.assign(watcher.style, {
+        position: 'absolute',
+        left: 0, top: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: -1,
+        overflow: 'hidden',
+        visibility: 'hidden'
+      });
+
+      const exp = document.createElement('div');
+      exp.style.cssText = watcher.style.cssText;
+      const expch = document.createElement('div');
+      Object.assign(expch.style, {
+        position: 'absolute', left: 0, top: 0, transition: '0s',
+      });
+      exp.appendChild(expch);
+      watcher.appendChild(exp);
+
+      const shr = document.createElement('div');
+      shr.style.cssText = watcher.style.cssText;
+      const shrch = document.createElement('div');
+      Object.assign(shrch.style, {
+        position: 'absolute', left: 0, top: 0, transition: '0s',
+        width: '200%', height: '200%'
+      });
+      shr.appendChild(shrch);
+      watcher.appendChild(shr);
+
+      target.appendChild(watcher);
+
+      let lastW = target.offsetWidth, lastH = target.offsetHeight;
+      let newW = lastW, newH = lastH, raf = 0;
+      const reset = () => {
+        expch.style.width = '100000px';
+        expch.style.height = '100000px';
+
+        exp.scrollLeft = 100000;
+        exp.scrollTop = 100000;
+
+        shr.scrollLeft = 100000;
+        shr.scrollTop = 100000;
+      };
+      const onResize = () => {
+        raf = 0;
+        lastW = newW; lastH = newH;
+        callback();
+      };
+      const onScroll = () => {
+        newW = target.offsetWidth; newH = target.offsetHeight;
+        if ((lastW !== newW || lastH !== newH) && !raf) {
+          raf = requestAnimationFrame(onResize);
+        }
+        reset();
+      };
+
+      reset();
+
+      exp.addEventListener('scroll', onScroll, {passive: true});
+      shr.addEventListener('scroll', onScroll, {passive: true});
+    };
+
+
 
     // いずれjQueryを捨てるためのミニマム代用
     // 車輪の再発明をするわけではないし、積極的に使うものでもない
