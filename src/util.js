@@ -85,22 +85,17 @@ class CrossDomainGate {}
             e[i].apply(null, arg); //Array.prototype.slice.call(arguments, 1));
           //} catch (ex) {
           //  console.log('%c' + name, 'background:red; color: white;', i, e[i], ex);
-          //  throw ex;
+          //  debugger;
+          ////  throw ex;
           //}
         }
       };
 
-      AsyncEmitter.prototype.emitAsync = function() {
+      AsyncEmitter.prototype.emitAsync = function(...args) {
         if (!this._events) { this._events = {}; }
-        var args = arguments;
 
         window.setTimeout(() => {
-          //try {
-            this.emit.apply(this, args);
-          //} catch (e) {
-          //  console.log(e);
-          //  throw e;
-          //}
+          this.emit(...args);
         }, 0);
       };
 

@@ -1,13 +1,14 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
+const $ = require('jquery');
+const _ = require('lodash');
+const ZenzaWatch = {
   util:{},
   debug: {}
 };
-var AsyncEmitter = function() {};
-var PopupMessage = {};
-var FrameLayer = function() {};
-var MylistPocket = function() {};
+const util = {};
+const AsyncEmitter = function() {};
+const PopupMessage = {};
+const FrameLayer = function() {};
+const MylistPocket = function() {};
 class NicoSearchApiV2Loader {}
 
 
@@ -1003,8 +1004,8 @@ class NicoSearchApiV2Loader {}
       // ・・・のだが、データのいいかげんさから見て、
       // 本当に全部やってあるの？って信用できない。(古い動画は特にいいかげん)
       // なので念のためescapeしておく。過剰エスケープになっても気にしない
-      var title = ZenzaWatch.util.escapeToZenkaku(item.getTitle());
-      var esc = ZenzaWatch.util.escapeHtml;
+      var title = util.escapeToZenkaku(item.getTitle());
+      var esc = util.escapeHtml;
 
       var count = item.getCount();
       //window.console.log('item', item, item.getThumbnail());
@@ -1945,9 +1946,7 @@ class NicoSearchApiV2Loader {}
         item.setIsActive(true);
         item.setIsPlayed(true);
         this._activeItem = item;
-        ZenzaWatch.util.callAsync(function() {
-          this._view.scrollToItem(item);
-        }, this, 1000);
+        setTimeout(() => { this._view.scrollToItem(item); }, 1000);
       }
       this.setIndex(this._model.indexOf(item));
     },
@@ -1960,9 +1959,7 @@ class NicoSearchApiV2Loader {}
         item.setIsPlayed(true);
         this._refreshIndex(false);
       }
-      ZenzaWatch.util.callAsync(function() {
-        this._view.scrollToItem(videoListItems[0]);
-      }, this, 1000);
+      setTimeout(() => { this._view.scrollToItem(videoListItems[0]); }, 1000);
     },
     loadFromMylist: function(mylistId, options) {
       this._initializeView();
@@ -2144,7 +2141,9 @@ class NicoSearchApiV2Loader {}
     },
     insert: function(watchId) {
       this._initializeView();
-      if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }
+      if (this._activeItem && this._activeItem.getWatchId() === watchId) {
+        return Promise.resolve();
+      }
 
       var model = this._model;
       var index = this._index;
@@ -2215,7 +2214,9 @@ class NicoSearchApiV2Loader {}
     },
     append: function(watchId) {
       this._initializeView();
-      if (this._activeItem && this._activeItem.getWatchId() === watchId) { return; }
+      if (this._activeItem && this._activeItem.getWatchId() === watchId) { 
+        return Promise.resolve();
+      }
 
       var model = this._model;
       return this._thumbInfoLoader.load(watchId).then((info) => {
@@ -2265,9 +2266,9 @@ class NicoSearchApiV2Loader {}
     _refreshIndex: function(scrollToActive) {
       this.setIndex(this._model.indexOf(this._activeItem), true);
       if (scrollToActive) {
-        ZenzaWatch.util.callAsync(function() {
+        setTimeout(() => {
           this.scrollToActiveItem();
-        }, this, 1000);
+        }, 1000);
       }
     },
     _setIndexByItemId: function(itemId) {

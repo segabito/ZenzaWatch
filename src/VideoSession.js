@@ -64,7 +64,7 @@ const VideoSession = (function() {
   <content_id>${dmcInfo.contentId}</content_id>
   <content_type>movie</content_type>
   <protocol>
-    <name>${dmcInfo.protocols.join(',')}</name>
+    <name>http</name>
     <parameters>
       <http_parameters>
         <method>GET</method>
