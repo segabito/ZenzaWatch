@@ -22,6 +22,8 @@ class NicoSearchApiV2Loader {}
       this._isUniq = params.uniq;
       this._items = [];
       this._maxItems = params.maxItems || 100;
+
+      this._boundOnItemUpdate = this._onItemUpdate.bind(this);
     },
     setItem: function(itemList) {
       itemList = _.isArray(itemList) ? itemList: [itemList];
@@ -68,6 +70,11 @@ class NicoSearchApiV2Loader {}
       this.emit('update', this._items);
 
       return this._items.length - 1;
+    },
+    updateItem: function(index, videoInfo) {
+      var target = this._getItemByIndex(index);
+      if (!target) { return; }
+      target.updateByVideoInfo(videoInfo);
     },
     removeItemByIndex: function(index) {
       var target = this._getItemByIndex(index);
@@ -118,7 +125,7 @@ class NicoSearchApiV2Loader {}
       if (!item) { return null; }
       if (!item.hasBind) {
         item.hasBind = true;
-        item.on('update', this._onItemUpdate.bind(this, item));
+        item.on('update', this._boundOnItemUpdate);
       }
       return item;
     },
@@ -128,7 +135,7 @@ class NicoSearchApiV2Loader {}
         if (item.getItemId() === itemId) {
           if (!item.hasBind) {
             item.hasBind = true;
-            item.on('update', this._onItemUpdate.bind(this, item));
+            item.on('update', this._boundOnItemUpdate);
           }
           return true;
         }
@@ -140,7 +147,7 @@ class NicoSearchApiV2Loader {}
         if (item.getWatchId() === watchId) {
           if (!item.hasBind) {
             item.hasBind = true;
-            item.on('update', this._onItemUpdate.bind(this, item));
+            item.on('update', this._boundOnItemUpdate);
           }
           return true;
         }
@@ -163,15 +170,21 @@ class NicoSearchApiV2Loader {}
      * パラメータで指定されたitemと同じwatchIdのitemを削除
      */
     removeSameWatchId: function(item) {
-      var watchId = item.getWatchId();
-      var beforeLen = this._items.length;
-      _.remove(this._items, function(i) {
+      const watchId = item.getWatchId();
+      const beforeLen = this._items.length;
+      _.remove(this._items, i => {
         return item !== i && i.getWatchId() === watchId;
       });
       var afterLen = this._items.length;
       if (beforeLen !== afterLen) {
-        this.emit('update');
+        this.emit('update', this._items);
       }
+    },
+    uniq: function(item) {
+      this._items.forEach((i) => {
+        if (i === item) { return; }
+        this.removeSameWatchId(i);
+      });
     },
     _onItemUpdate: function(item, key, value) {
       this.emit('itemUpdate', item, key, value);
@@ -1204,7 +1217,7 @@ class NicoSearchApiV2Loader {}
       v = !!v;
       if (this._isActive !== v) {
         this._isActive = v;
-        this.emit('update', 'active', v);
+        this.emit('update', this, 'active', v);
       }
     },
     isUpdating: function() {
@@ -1214,7 +1227,7 @@ class NicoSearchApiV2Loader {}
       v = !!v;
       if (this._isUpdating !== v) {
         this._isUpdating = v;
-        this.emit('update', 'updating', v);
+        this.emit('update', this, 'updating', v);
       }
     },
     isPlayed: function() {
@@ -1224,7 +1237,7 @@ class NicoSearchApiV2Loader {}
       v = !!v;
       if (this._isPlayed !== v) {
         this._isPlayed = v;
-        this.emit('update', 'played', v);
+        this.emit('update', this, 'played', v);
       }
     },
     isBlankData: function() {
@@ -1243,6 +1256,22 @@ class NicoSearchApiV2Loader {}
         thumbnail_url:  this._rawData.thumbnail_url,
         first_retrieve: this._rawData.first_retrieve,
       };
+    },
+    updateByVideoInfo: function(videoInfo) {
+      const before = JSON.stringify(this.serialize());
+      const rawData = this._rawData;
+      const count = videoInfo.getCount();
+      rawData.first_retrieve = util.dateToString(videoInfo.getPostedAt());
+
+      rawData.num_res        = count.comment;
+      rawData.mylist_counter = count.mylist;
+      rawData.view_counter   = count.view;
+
+      rawData.thumbnail_url = videoInfo.getThumbnail();
+
+      if (JSON.stringify(this.serialize()) !== before) {
+        this.emit('update', this);
+      }
     }
   });
 
@@ -1376,6 +1405,8 @@ class NicoSearchApiV2Loader {}
       this._maxItems = 10000;
       this._items = [];
       this._isUniq = true;
+
+      this._boundOnItemUpdate = this._onItemUpdate.bind(this);
     },
   });
 
@@ -2181,6 +2212,7 @@ class NicoSearchApiV2Loader {}
       if (this._activeItem &&
           !this._activeItem.isBlankData() &&
           this._activeItem.getWatchId() === videoInfo.getWatchId()) {
+        this._activeItem.updateByVideoInfo(videoInfo);
         this._activeItem.setIsPlayed(true);
         this.scrollToActiveItem();
         //window.console.log('insertCurrentVideo.getWatchId() === videoInfo.getWatchId()');
@@ -2190,6 +2222,7 @@ class NicoSearchApiV2Loader {}
       var currentItem = this._model.findByWatchId(videoInfo.getWatchId());
       //window.console.log('currentItem: ', currentItem);
       if (currentItem && !currentItem.isBlankData()) {
+        currentItem.updateByVideoInfo(videoInfo);
         currentItem.setIsPlayed(true);
         this.setIndex(this._model.indexOf(currentItem));
         this.scrollToActiveItem();
@@ -2204,7 +2237,6 @@ class NicoSearchApiV2Loader {}
       //window.console.log('findByItemId', item.getItemId(), this._model.findByItemId(item.getItemId()));
       this._activeItem = this._model.findByItemId(item.getItemId());
       this._refreshIndex(true);
-
     },
     removeItemByWatchId: function(watchId) {
       var item = this._model.findByWatchId(watchId);

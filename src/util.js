@@ -44,6 +44,7 @@ class CrossDomainGate {}
 
       AsyncEmitter.prototype.on = function(name, callback) {
         if (!this._events) { this._events = {}; }
+        //if (typeof callback !== 'function') { debugger; }
         name = name.toLowerCase();
         if (!this._events[name]) {
           this._events[name] = [];
