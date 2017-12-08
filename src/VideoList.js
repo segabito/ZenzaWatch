@@ -1053,6 +1053,7 @@ class NicoSearchApiV2Loader {}
       return [m, s].join(':');
     },
     _addComma: function(m) {
+      if (isNaN(m)) { return '---'; }
       return m.toLocaleString ? m.toLocaleString() : ZenzaWatch.util.escapeHtml(m);
     }
   });
