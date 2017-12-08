@@ -217,7 +217,7 @@ var ZenzaWatch = {
       return this._videoDetail.tagList;
     }
     getVideoId() { // sm12345
-      return this._videoDetail.id;
+      return this.videoId;
     }
 
     get videoId() {
@@ -225,10 +225,13 @@ var ZenzaWatch = {
     }
 
     getWatchId() { // sm12345だったりスレッドIDだったり
-      return this._videoDetail.v;
+      return this.watchId;
     }
 
     get watchId() {
+      if (this.videoId.substring(0, 2) === 'so') {
+        return this.videoId;
+      }
       return this._videoDetail.v;
     }
 
