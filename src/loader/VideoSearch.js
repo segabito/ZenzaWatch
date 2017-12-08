@@ -433,7 +433,7 @@ const WindowMessageEmitter = {};
                 item.is_middle_thumbnail = true;
               }
             }
-            const dt = (new Date(item.startTime)).toLocaleString();
+            const dt = util.dateToString(new Date(item.startTime));
 
             result.list.push({
               id:                item.contentId,

@@ -1082,7 +1082,7 @@ class NicoSearchApiV2Loader {}
   VideoListItem.createBlankInfo = function(id) {
     var postedAt = '0000/00/00 00:00:00';
     if (!isNaN(id)) {
-      postedAt = (new Date(id * 1000)).toLocaleString();
+      postedAt = util.dateToString(new Date(id * 1000));
     }
     return new VideoListItem({
       _format:        'blank',
@@ -1109,7 +1109,7 @@ class NicoSearchApiV2Loader {}
         mylist_counter: item_data.mylist_counter,
         view_counter:   item_data.view_counter,
         thumbnail_url:  item_data.thumbnail_url,
-        first_retrieve: (new Date(item_data.first_retrieve * 1000)).toLocaleString(),
+        first_retrieve: util.dateToString(new Date(item_data.first_retrieve * 1000)),
 
         videoId:        item_data.video_id,
         lastResBody:    item_data.last_res_body,
@@ -1165,6 +1165,7 @@ class NicoSearchApiV2Loader {}
       this._isActive = false;
       this._isUpdating = false;
       this._isPlayed = !!rawData.played;
+      rawData.first_retrieve = util.dateToString(rawData.first_retrieve);
 
       this._sortTitle = this.getTitle()
         .replace(/([0-9]{1,9})/g, (m) => { return '0'.repeat(10 - m.length) + m; })
@@ -1204,12 +1205,11 @@ class NicoSearchApiV2Loader {}
     },
     getBetterThumbnail: function() {
       var watchId = this.getWatchId();
-      var hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(watchId);
+      var hasLargeThumbnail = util.hasLargeThumbnail(watchId);
       return this._rawData.thumbnail + (hasLargeThumbnail ? '.L' : '');
     },
     getPostedAt: function() {
-      var fr = this._rawData.first_retrieve;
-      return fr.replace(/-/g, '/');
+      return this._rawData.first_retrieve;
     },
     isActive: function() {
       return this._isActive;
@@ -1919,7 +1919,8 @@ class NicoSearchApiV2Loader {}
     },
     _onExportFileCommand: function() {
       var dt = new Date();
-      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', dt.toLocaleString() + 'のプレイリスト');
+      var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます', 
+        util.dateToString(dt) + 'のプレイリスト');
       if (!title) { return; }
 
       var data = JSON.stringify(this.serialize());
@@ -2145,9 +2146,9 @@ class NicoSearchApiV2Loader {}
             // 検索対象のソート順とは別
             videoListItems = _.sortBy(
               videoListItems,
-              (item) => { return item.create_time;}
+              (item) => { return item.getPostedAt(); }
             );
-            videoListItems.reverse();
+            //videoListItems.reverse();
           }
 
           if (options.shuffle) {

@@ -1397,6 +1397,40 @@ class CrossDomainGate {}
     };
     ZenzaWatch.util.escapeRegs = escapeRegs;
 
+    util.dateToString = (date) => {
+      if (typeof date === 'string') {
+        const origDate = date;
+        date = date.replace(/\//g, '-');
+        // 時差とか考慮してない
+        const m = /^(\d+-\d+-\d+) (\d+):(\d+):(\d+)/.exec(date);
+        if (m) {
+          date = new Date(m[1]);
+          date.setHours(m[2]);
+          date.setMinutes(m[3]);
+          date.setSeconds(m[4]);
+        } else {
+          const t = Date.parse(date);
+          if (isNaN(t)) {
+            return origDate;
+          }
+          date = new Date(t);
+        }
+      } else if (typeof date === 'number') {
+        date = new Date(date);
+      }
+
+      let [yy, mm, dd, h, m, s] =
+        ([
+          date.getFullYear(),
+          date.getMonth() + 1,
+          date.getDate(),
+          date.getHours(),
+          date.getMinutes(),
+          date.getSeconds()
+        ]).map(n => { return n < 10 ? `0${n}` : n; });
+      return `${yy}/${mm}/${dd} ${h}:${m}:${s}`;
+    };
+
     var copyToClipBoard = ZenzaWatch.util.copyToClipBoard = function(text) {
       var clip = document.createElement('input');
       clip.type           = 'text';

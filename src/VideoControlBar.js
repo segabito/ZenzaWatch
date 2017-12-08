@@ -1556,6 +1556,7 @@ var CONSTANT = {};
         this._currentTime = sec;
 
         var m = Math.floor(sec / 60);
+        m = m < 10 ? ('0' + m) : m;
         var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
         var currentTimeText = [m, s].join(':');
         if (this._currentTimeText !== currentTimeText) {
@@ -1574,6 +1575,7 @@ var CONSTANT = {};
           this._$duration.text('--:--');
         }
         var m = Math.floor(sec / 60);
+        m = m < 10 ? ('0' + m) : m;
         var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
         this._$duration.text([m, s].join(':'));
         this.emit('durationChange');

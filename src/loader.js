@@ -562,7 +562,7 @@ var ajax = function() {};
           return parseInt(tmp[0], 10) * 60 + parseInt(tmp[1], 10);
         })();
         var watchId = val('watch_url').split('/').reverse()[0];
-        var postedAt = (new Date(val('first_retrieve'))).toLocaleString();
+        var postedAt = util.dateToString(new Date(val('first_retrieve')));
         var tags = (function() {
           var result = [], t = xml.getElementsByTagName('tag');
           _.each(t, function(tag) {

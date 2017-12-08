@@ -53,4 +53,25 @@ describe('isBetterThanDmcMayBe', function() {
 });
 
 
+describe('dateToString', function() {
+  it ('一桁の列も0埋めされてYYYY/MM/DD hh:mm:ssのフォーマットになる', function() {
+    let match = /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/;
+    let d;
+    for (let i = 0; i < 100; i++) {
+      d = new Date(Date.now() * Math.random());
+      //console.log(d, util.dateToString(d));
+      assert.equal(
+        true,
+        match.test(util.dateToString(d))
+      );
+    }
+  });
+  it ('パースできない文字列を渡したらそのまま返す', function() {
+    let d = 'aaaa/bb/cc dd:ee:ff';
+    assert.equal(
+      d,
+      util.dateToString(d)
+    );
+  });
+});
 
