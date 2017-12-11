@@ -773,6 +773,9 @@ var CONSTANT = {};
       font-size: 16px;
       white-space: nowrap;
     }
+    .is-youTube .videoServerTypeMenu {
+      pointer-events:none;
+    }
 
     .is-dmcAvailable .videoServerTypeMenu  {
       text-shadow:
@@ -1012,9 +1015,10 @@ var CONSTANT = {};
 
 
                 <li class="dmcVideoQuality selected exec-command select-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
-                <!--<li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(high)</span></li>-->
-                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(mid)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(low)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
 
                 <li class="serverType select-smile exec-command" data-command="update-enableDmc" data-param="false" data-type="bool"><span>旧システムを使用</span></li>
                 <li class="smileVideoQuality select-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>

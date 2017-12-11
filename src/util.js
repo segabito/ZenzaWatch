@@ -276,7 +276,7 @@ class CrossDomainGate {}
         enableVideoSession: true,
         enableDmc: true, // 新サーバーを使うかどうか
         autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
-        dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
+        dmcVideoQuality: 'auto',   // 優先する画質 auto, veryhigh, high, mid, low
 
         enableNicosJumpVideo: true, // @ジャンプを有効にするかどうか
         'videoSearch.ownerOnly': true,
@@ -753,7 +753,9 @@ class CrossDomainGate {}
 
     // DMCよりも画質が良さそうか？を返す。
     // ビットレートは取得できないので動画長と解像度で返すしかない
-    util.isBetterThanDmcMayBe = (width, height, duration) => {
+    util.isBetterThanDmcMayBe = (width, height, duration /*, dmcVideos*/) => {
+      // dmcInfoのvideosをパースして判別するのがいいのでは？と思っていたけど
+      // 1080pの仕様がうまい具合にはまったので、何もしないことにした
       if (width > 1280 || height > 720) {
         return true;
       } else if (duration <  16 * 60) {
@@ -772,13 +774,6 @@ class CrossDomainGate {}
         }
       } else if (duration >= 31 * 60) {
         return false; // このくらいの長さになってくると解像度だけでは判断できないので保留
-        //if (height > 360) {
-        //  return true;
-        //}
-        //if (![640, 480].includes(width) ||
-        //    ![360]     .includes(height)) {
-        //  return true;
-        //}
       }
       return false;
     };

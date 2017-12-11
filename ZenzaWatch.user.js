@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.14.21
+// @version        1.14.22
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.14.21';
+  var VER = '1.14.22';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -358,7 +358,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         enableVideoSession: true,
         enableDmc: true, // 新サーバーを使うかどうか
         autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
-        dmcVideoQuality: 'auto',   // 優先する画質 high, mid, low
+        dmcVideoQuality: 'auto',   // 優先する画質 auto, veryhigh, high, mid, low
 
         enableNicosJumpVideo: true, // @ジャンプを有効にするかどうか
         'videoSearch.ownerOnly': true,
@@ -835,7 +835,9 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
     // DMCよりも画質が良さそうか？を返す。
     // ビットレートは取得できないので動画長と解像度で返すしかない
-    util.isBetterThanDmcMayBe = (width, height, duration) => {
+    util.isBetterThanDmcMayBe = (width, height, duration /*, dmcVideos*/) => {
+      // dmcInfoのvideosをパースして判別するのがいいのでは？と思っていたけど
+      // 1080pの仕様がうまい具合にはまったので、何もしないことにした
       if (width > 1280 || height > 720) {
         return true;
       } else if (duration <  16 * 60) {
@@ -854,13 +856,6 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         }
       } else if (duration >= 31 * 60) {
         return false; // このくらいの長さになってくると解像度だけでは判断できないので保留
-        //if (height > 360) {
-        //  return true;
-        //}
-        //if (![640, 480].includes(width) ||
-        //    ![360]     .includes(height)) {
-        //  return true;
-        //}
       }
       return false;
     };
@@ -5327,7 +5322,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       this._viewerInfo   = info.viewerInfo;               // 閲覧者(＝おまいら)の情報
       this._flvInfo      = info.flvInfo;
       this._msgInfo      = info.msgInfo;
-      this._dmcInfo      = info.dmcInfo ? new DmcInfo(info.dmcInfo) : null;
+      this._dmcInfo      = (info.dmcInfo && info.dmcInfo.session_api) ? new DmcInfo(info.dmcInfo) : null;
       this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
       this._playlistToken = info.playlistToken;
       this._watchAuthKey = info.watchAuthKey;
@@ -10213,6 +10208,9 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       font-size: 16px;
       white-space: nowrap;
     }
+    .is-youTube .videoServerTypeMenu {
+      pointer-events:none;
+    }
 
     .is-dmcAvailable .videoServerTypeMenu  {
       text-shadow:
@@ -10452,9 +10450,10 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
 
 
                 <li class="dmcVideoQuality selected exec-command select-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
-                <!--<li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(high)</span></li>-->
-                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(mid)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(low)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
 
                 <li class="serverType select-smile exec-command" data-command="update-enableDmc" data-param="false" data-type="bool"><span>旧システムを使用</span></li>
                 <li class="smileVideoQuality select-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
@@ -20980,7 +20979,8 @@ const VideoSession = (function() {
 
   const VIDEO_QUALITY = {
     auto: /.*/,
-    high: /_(1080p|720p)$/,
+    veryhigh: /_(1080p)$/,
+    high: /_(720p)$/,
     mid:  /_(540p|480p)$/,
     low:  /_(360p)$/
   };
@@ -21001,10 +21001,10 @@ const VideoSession = (function() {
 //            archive_h264_600kbps_360p
 //            archive_h264_300kbps_360p
       var reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
-      _.each(dmcInfo.videos, function(format) {
+      dmcInfo.videos.forEach(format => {
         if (reg.test(format))  { videos.push(`<string>${format}</string>`); }
       });
-      _.each(dmcInfo.videos, function(format) {
+      dmcInfo.videos.forEach( format => {
         if (!reg.test(format)) { videos.push(`<string>${format}</string>`); }
       });
 
@@ -23521,7 +23521,10 @@ const VideoSession = (function() {
         this._playerConfig.getValue('autoDisableDmc') &&
         !videoInfo.isEconomy() &&
         util.isBetterThanDmcMayBe(
-          videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getDuration());
+          videoInfo.getWidth(),
+          videoInfo.getHeight(),
+          videoInfo.getDuration()
+        );
       videoInfo.isDmcDisable = autoDisableDmc;
 
       this._playerState.setState({

@@ -24,7 +24,8 @@ const VideoSession = (function() {
 
   const VIDEO_QUALITY = {
     auto: /.*/,
-    high: /_(1080p|720p)$/,
+    veryhigh: /_(1080p)$/,
+    high: /_(720p)$/,
     mid:  /_(540p|480p)$/,
     low:  /_(360p)$/
   };
@@ -45,10 +46,10 @@ const VideoSession = (function() {
 //            archive_h264_600kbps_360p
 //            archive_h264_300kbps_360p
       var reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
-      _.each(dmcInfo.videos, function(format) {
+      dmcInfo.videos.forEach(format => {
         if (reg.test(format))  { videos.push(`<string>${format}</string>`); }
       });
-      _.each(dmcInfo.videos, function(format) {
+      dmcInfo.videos.forEach( format => {
         if (!reg.test(format)) { videos.push(`<string>${format}</string>`); }
       });
 
