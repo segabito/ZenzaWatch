@@ -571,18 +571,22 @@ var ajax = function() {};
           return result;
         })();
 
+        let videoId = val('video_id');
+        let isChannel = videoId.substring(0, 2) === 'so';
+
         var result = {
           status: 'ok',
           _format: 'thumbInfo',
-          v:     watchId,
-          id:    val('video_id'),
+          v:     isChannel ? videoId : watchId,
+          id:    videoId,
+          isChannel,
           title: val('title'),
           description:  val('description'),
           thumbnail:    val('thumbnail_url'),
           movieType:    val('movie_type'),
           lastResBody:  val('last_res_body'),
-          duration:     duration,
-          postedAt:     postedAt,
+          duration,
+          postedAt,
           mylistCount:  parseInt(val('mylist_counter'), 10),
           viewCount:    parseInt(val('view_counter'), 10),
           commentCount: parseInt(val('comment_num'), 10),

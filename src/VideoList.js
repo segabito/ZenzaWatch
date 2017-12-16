@@ -2181,8 +2181,9 @@ class NicoSearchApiV2Loader {}
       var model = this._model;
       var index = this._index;
       return this._thumbInfoLoader.load(watchId).then((info) => {
-         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
-        info.id = watchId;
+        // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
+        // チャンネル動画はsoXXXXに統一したいのでvideoIdを使う. バッドノウハウ
+        info.id = info.isChannel ? info.id : watchId;
         var item = VideoListItem.createByThumbInfo(info);
         //window.console.info(item, info);
         model.insertItem(item, index + 1);
