@@ -773,10 +773,6 @@ var CONSTANT = {};
       font-size: 16px;
       white-space: nowrap;
     }
-    .is-youTube .videoServerTypeMenu {
-      pointer-events:none;
-    }
-
     .is-dmcAvailable .videoServerTypeMenu  {
       text-shadow:
         0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
@@ -787,7 +783,7 @@ var CONSTANT = {};
     .is-youTube .videoServerTypeMenu {
       text-shadow:
         0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
-      pointer-events: none;
+      pointer-events: none !important;
     }
 
 
