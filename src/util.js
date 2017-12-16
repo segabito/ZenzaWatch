@@ -955,6 +955,10 @@ class CrossDomainGate {}
         z-index: 10;
       }
 
+      /* Autopagerize難民救済 */
+      .autopagerize_page_info + * {
+        display: block !important;
+      }
     `;
     // 非ログイン状態のwatchページ用
     var __no_login_watch_css__ = `
