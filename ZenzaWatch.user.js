@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.14.22
+// @version        1.14.23
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.14.22';
+  var VER = '1.14.23';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -1037,6 +1037,10 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         z-index: 10;
       }
 
+      /* Autopagerize難民救済 */
+      .autopagerize_page_info + * {
+        display: block !important;
+      }
     `;
     // 非ログイン状態のwatchページ用
     var __no_login_watch_css__ = `
@@ -3534,18 +3538,22 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
           return result;
         })();
 
+        let videoId = val('video_id');
+        let isChannel = videoId.substring(0, 2) === 'so';
+
         var result = {
           status: 'ok',
           _format: 'thumbInfo',
-          v:     watchId,
-          id:    val('video_id'),
+          v:     isChannel ? videoId : watchId,
+          id:    videoId,
+          isChannel,
           title: val('title'),
           description:  val('description'),
           thumbnail:    val('thumbnail_url'),
           movieType:    val('movie_type'),
           lastResBody:  val('last_res_body'),
-          duration:     duration,
-          postedAt:     postedAt,
+          duration,
+          postedAt,
           mylistCount:  parseInt(val('mylist_counter'), 10),
           viewCount:    parseInt(val('view_counter'), 10),
           commentCount: parseInt(val('comment_num'), 10),
@@ -10208,10 +10216,6 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       font-size: 16px;
       white-space: nowrap;
     }
-    .is-youTube .videoServerTypeMenu {
-      pointer-events:none;
-    }
-
     .is-dmcAvailable .videoServerTypeMenu  {
       text-shadow:
         0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
@@ -10222,7 +10226,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
     .is-youTube .videoServerTypeMenu {
       text-shadow:
         0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
-      pointer-events: none;
+      pointer-events: none !important;
     }
 
 
@@ -20721,8 +20725,9 @@ data-title="%no%: %date% ID:%userId%
       var model = this._model;
       var index = this._index;
       return this._thumbInfoLoader.load(watchId).then((info) => {
-         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
-        info.id = watchId;
+        // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
+        // チャンネル動画はsoXXXXに統一したいのでvideoIdを使う. バッドノウハウ
+        info.id = info.isChannel ? info.id : watchId;
         var item = VideoListItem.createByThumbInfo(info);
         //window.console.info(item, info);
         model.insertItem(item, index + 1);
