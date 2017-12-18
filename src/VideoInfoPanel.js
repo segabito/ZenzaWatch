@@ -2291,17 +2291,18 @@ const TagEditApi = function() {};
       this._elm.body.innerHTML = '';
     }
 
-    _onLoad(videoId, data) {
+    _onLoad(videoId, result) {
       if (this._props.videoId !== videoId) { return; }
       this.setState({isUpdating: false});
-      if (data.length < 1) { return; }
+      const data = result ? result.data : null;
+      if (!data || data.sponsors.length < 1) { return; }
 
       const df = document.createDocumentFragment();
       const div = document.createElement('div');
       div.className = 'screenshots';
       let idx = 0, screenshots = 0;
-      data.forEach(u => {
-        if (!u.bgkeyframe || idx >= 4) { return; }
+      data.sponsors.forEach(u => {
+        if (!u.auxiliary.bgVideoPosition || idx >= 4) { return; }
         u.added = true;
         div.append(this._createItem(u, idx++));
         screenshots++;
@@ -2309,12 +2310,12 @@ const TagEditApi = function() {};
       div.setAttribute('data-screenshot-count', screenshots);
       df.append(div);
 
-      data.forEach(u => {
-        if (!u.bgkeyframe || u.added) { return; }
+      data.sponsors.forEach(u => {
+        if (!u.auxiliary.bgVideoPosition || u.added) { return; }
         u.added = true;
         df.append(this._createItem(u, idx++));
       });
-      data.forEach(u => {
+      data.sponsors.forEach(u => {
         if (u.added) { return; }
         u.added = true;
         df.append(this._createItem(u, idx++));
@@ -2329,13 +2330,18 @@ const TagEditApi = function() {};
     _createItem(data, idx) {
       const df = document.createElement('div');
       const contact = document.createElement('span');
-      contact.textContent = data.contact;
+      contact.textContent = data.advertiserName;
       contact.className = 'contact';
       df.className = 'item';
+      const aux = data.auxiliary;
+      const bgkeyframe = aux.bgVideoPosition || 0;
+      if (data.message) {
+        data.title = data.message;
+      }
 
       df.setAttribute('data-index', idx);
-      if (data.bgkeyframe && idx < 4) {
-        const sec = (parseInt(data.bgkeyframe, 10) / 1000);
+      if (bgkeyframe && idx < 4) {
+        const sec = parseFloat(bgkeyframe);
         const cv = document.createElement('canvas');
         const ct = cv.getContext('2d');
         cv.className = 'screenshot command clickable';
@@ -2358,21 +2364,18 @@ const TagEditApi = function() {};
           cv.height = screenshot.height;
           ct.drawImage(screenshot, 0, 0);
         });
-      } else if (data.bgkeyframe) {
-        const sec = (parseInt(data.bgkeyframe, 10) / 1000);
+      } else if (bgkeyframe) {
+        const sec = parseFloat(bgkeyframe);
         df.classList.add('clickable');
         df.classList.add('command');
         df.classList.add('other');
         df.setAttribute('data-command', 'seek');
         df.setAttribute('data-type', 'number');
         df.setAttribute('data-param', sec);
-        contact.setAttribute('title', `(${util.secToTime(sec)})`);
+        contact.setAttribute('title', `${data.message}(${util.secToTime(sec)})`);
       } else {
         df.classList.add('other');
       }
-      //if (data.bgcolor && (/^0x([a-f0-9]{6})$/i).test(data.bgcolor)) {
-      //  df.style.backgroundColor = `#${RegExp.$1}`;
-      //}
       df.appendChild(contact);
       return df;
     }
@@ -2587,6 +2590,7 @@ const TagEditApi = function() {};
             color: inherit; /*#ccc;*/
             outline-offset: -2px;
           }
+
         .UaaDetails .item.other.clickable {
           display: inline-block;
           padding: 2px 4px;

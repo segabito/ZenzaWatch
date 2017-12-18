@@ -107,6 +107,32 @@ const START_PAGE_QUERY = 'hoge=fuga';
             'href': '/watch/1483135673' + a.search + '&shuffle=1'
           }).text('シャッフル再生');
           $autoPlay.after($shuffle);
+
+          // ニコニ広告枠のリンクを置き換える
+          window.setTimeout(() => {
+            Array.from(document.querySelectorAll('.nicoadVideoItem')).forEach(item => {
+              const pointLink = item.querySelector('.count .value a');
+              if (!pointLink) { return; }
+
+              // 動画idはここから取るしかなさそう
+              const a = document.createElement('a');
+              a.href = pointLink;
+              const videoId = a.pathname.replace(/^.*\//, '');
+              Array.from(item.querySelectorAll('a[data-link]')).forEach(link => {
+                link.href = `//www.nicovideo.jp/watch/${videoId}`;
+              });
+              // サムネの表示のしかたに愛を感じないので直す
+              if (util.hasLargeThumbnail(videoId)) {
+                const thumb = item.querySelector('.thumb');
+                const src = thumb.src || '';
+                if (src.match(/smile\?i=/) && !src.match(/\.L$/)) {
+                  thumb.src += '.L'; // 高画質のサムネを使う
+                  thumb.style.maxHeight = '120px';
+                  thumb.style.marginTop = '-15px';
+                }
+              }
+            });
+          }, 3000);
         })();
       }
 

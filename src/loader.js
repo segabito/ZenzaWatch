@@ -2176,45 +2176,11 @@ var ajax = function() {};
     // typoじゃなくて変なブロッカーと干渉しないために名前を変えている
     const UaaLoader = (() => {
 
-      let callbackId = 0;
-
       const load = (videoId, {limit = 50} = {}) => {
-        return new Promise((resolve, reject) => {
-
-          const api = '//api.uad.nicovideo.jp/UadsVideoService/getSponsorsJsonp';
-          const sc = document.createElement('script');
-
-          let timeoutTimer = null;
-
-          const funcName = (() => {
-            const funcName = `zenza_uaa_callback_${callbackId++}`;
-
-            window[funcName] = (uadData) => {
-              window.clearTimeout(timeoutTimer);
-              timeoutTimer = null;
-              sc.remove();
-              delete window[funcName];
-
-              if (uadData.meta.status !== 200) {
-                reject(new Error(`uaa fail(${uadData.meta.status})`));
-              } else {
-                resolve(uadData.data);
-              }
-            };
-
-            return funcName;
-          })();
-
-          timeoutTimer = window.setTimeout(() => {
-            sc.remove();
-            delete window[funcName];
-            if (timeoutTimer) { reject(new Error('uaa timeout')); }
-          }, 30000);
-
-          const url = `${api}?videoid=${videoId}&limit=${limit}&callback=${funcName}`;
-          sc.src = url;
-          document.body.appendChild(sc);
-        });
+        const url = `https://api.nicoad.nicovideo.jp/v1/contents/video/${videoId}/thanks?limit=${limit}`;
+        return util
+          .fetch(url, {credentials: 'include'})
+          .then(res => { return res.json(); });
       };
 
       return {
@@ -2224,61 +2190,4 @@ var ajax = function() {};
 
 
 //===END===
-    /**
-     *
-     */
-    const UadVideoIdFinder = (() => {
-
-      let callbackId = 0;
-
-      const load = (fileId) => {
-        return new Promise((resolve, reject) => {
-          const api = 'http://api.uad.nicovideo.jp/UadsVideoService/getAdvertisingJsonp?';
-          const sc = document.createElement('script');
-
-          let timeoutTimer = null;
-          const funcName = (() => {
-            const funcName = `zenza_uad_callback_${callbackId++}`;
-
-            window[funcName] = (uadData) => {
-              window.console.info(uadData);
-              window.clearTimeout(timeoutTimer);
-              timeoutTimer = null;
-              sc.remove();
-              delete window[funcName];
-
-              let result = {};
-              uadData.forEach(v => {
-                if (v.adfllg) {
-                  result = {
-                    videoId: v.idvideo,
-                    comments: v.comments,
-                    total: v.total,
-                    level: v.level
-                  };
-                }
-              });
-              resolve(result);
-            };
-
-            return funcName;
-          })();
-
-          timeoutTimer = window.setTimeout(() => {
-            sc.remove();
-            delete window[funcName];
-            if (timeoutTimer) { reject(new Error('uad timeout')); }
-          }, 30000);
-
-          const ids = `sm${fileId},nm${fileId},so${fileId}`;
-          const url = `${api}?videoid=${ids}&callback=${funcName}`;
-          sc.src = url;
-          document.body.appendChild(sc);
-        });
-      };
-
-      return {
-        load
-      };
-    })();
 

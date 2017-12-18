@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.14.23
+// @version        1.14.24
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.14.23';
+  var VER = '1.14.24';
 
   console.log(`exec ${PRODUCT} v${VER}...`);
   console.log('jQuery version: ', $.fn.jquery);
@@ -5143,45 +5143,11 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     // typoじゃなくて変なブロッカーと干渉しないために名前を変えている
     const UaaLoader = (() => {
 
-      let callbackId = 0;
-
       const load = (videoId, {limit = 50} = {}) => {
-        return new Promise((resolve, reject) => {
-
-          const api = '//api.uad.nicovideo.jp/UadsVideoService/getSponsorsJsonp';
-          const sc = document.createElement('script');
-
-          let timeoutTimer = null;
-
-          const funcName = (() => {
-            const funcName = `zenza_uaa_callback_${callbackId++}`;
-
-            window[funcName] = (uadData) => {
-              window.clearTimeout(timeoutTimer);
-              timeoutTimer = null;
-              sc.remove();
-              delete window[funcName];
-
-              if (uadData.meta.status !== 200) {
-                reject(new Error(`uaa fail(${uadData.meta.status})`));
-              } else {
-                resolve(uadData.data);
-              }
-            };
-
-            return funcName;
-          })();
-
-          timeoutTimer = window.setTimeout(() => {
-            sc.remove();
-            delete window[funcName];
-            if (timeoutTimer) { reject(new Error('uaa timeout')); }
-          }, 30000);
-
-          const url = `${api}?videoid=${videoId}&limit=${limit}&callback=${funcName}`;
-          sc.src = url;
-          document.body.appendChild(sc);
-        });
+        const url = `https://api.nicoad.nicovideo.jp/v1/contents/video/${videoId}/thanks?limit=${limit}`;
+        return util
+          .fetch(url, {credentials: 'include'})
+          .then(res => { return res.json(); });
       };
 
       return {
@@ -29191,17 +29157,18 @@ const VideoSession = (function() {
       this._elm.body.innerHTML = '';
     }
 
-    _onLoad(videoId, data) {
+    _onLoad(videoId, result) {
       if (this._props.videoId !== videoId) { return; }
       this.setState({isUpdating: false});
-      if (data.length < 1) { return; }
+      const data = result ? result.data : null;
+      if (!data || data.sponsors.length < 1) { return; }
 
       const df = document.createDocumentFragment();
       const div = document.createElement('div');
       div.className = 'screenshots';
       let idx = 0, screenshots = 0;
-      data.forEach(u => {
-        if (!u.bgkeyframe || idx >= 4) { return; }
+      data.sponsors.forEach(u => {
+        if (!u.auxiliary.bgVideoPosition || idx >= 4) { return; }
         u.added = true;
         div.append(this._createItem(u, idx++));
         screenshots++;
@@ -29209,12 +29176,12 @@ const VideoSession = (function() {
       div.setAttribute('data-screenshot-count', screenshots);
       df.append(div);
 
-      data.forEach(u => {
-        if (!u.bgkeyframe || u.added) { return; }
+      data.sponsors.forEach(u => {
+        if (!u.auxiliary.bgVideoPosition || u.added) { return; }
         u.added = true;
         df.append(this._createItem(u, idx++));
       });
-      data.forEach(u => {
+      data.sponsors.forEach(u => {
         if (u.added) { return; }
         u.added = true;
         df.append(this._createItem(u, idx++));
@@ -29229,13 +29196,18 @@ const VideoSession = (function() {
     _createItem(data, idx) {
       const df = document.createElement('div');
       const contact = document.createElement('span');
-      contact.textContent = data.contact;
+      contact.textContent = data.advertiserName;
       contact.className = 'contact';
       df.className = 'item';
+      const aux = data.auxiliary;
+      const bgkeyframe = aux.bgVideoPosition || 0;
+      if (data.message) {
+        data.title = data.message;
+      }
 
       df.setAttribute('data-index', idx);
-      if (data.bgkeyframe && idx < 4) {
-        const sec = (parseInt(data.bgkeyframe, 10) / 1000);
+      if (bgkeyframe && idx < 4) {
+        const sec = parseFloat(bgkeyframe);
         const cv = document.createElement('canvas');
         const ct = cv.getContext('2d');
         cv.className = 'screenshot command clickable';
@@ -29258,21 +29230,18 @@ const VideoSession = (function() {
           cv.height = screenshot.height;
           ct.drawImage(screenshot, 0, 0);
         });
-      } else if (data.bgkeyframe) {
-        const sec = (parseInt(data.bgkeyframe, 10) / 1000);
+      } else if (bgkeyframe) {
+        const sec = parseFloat(bgkeyframe);
         df.classList.add('clickable');
         df.classList.add('command');
         df.classList.add('other');
         df.setAttribute('data-command', 'seek');
         df.setAttribute('data-type', 'number');
         df.setAttribute('data-param', sec);
-        contact.setAttribute('title', `(${util.secToTime(sec)})`);
+        contact.setAttribute('title', `${data.message}(${util.secToTime(sec)})`);
       } else {
         df.classList.add('other');
       }
-      //if (data.bgcolor && (/^0x([a-f0-9]{6})$/i).test(data.bgcolor)) {
-      //  df.style.backgroundColor = `#${RegExp.$1}`;
-      //}
       df.appendChild(contact);
       return df;
     }
@@ -29487,6 +29456,7 @@ const VideoSession = (function() {
             color: inherit; /*#ccc;*/
             outline-offset: -2px;
           }
+
         .UaaDetails .item.other.clickable {
           display: inline-block;
           padding: 2px 4px;
@@ -29998,6 +29968,32 @@ const VideoSession = (function() {
             'href': '/watch/1483135673' + a.search + '&shuffle=1'
           }).text('シャッフル再生');
           $autoPlay.after($shuffle);
+
+          // ニコニ広告枠のリンクを置き換える
+          window.setTimeout(() => {
+            Array.from(document.querySelectorAll('.nicoadVideoItem')).forEach(item => {
+              const pointLink = item.querySelector('.count .value a');
+              if (!pointLink) { return; }
+
+              // 動画idはここから取るしかなさそう
+              const a = document.createElement('a');
+              a.href = pointLink;
+              const videoId = a.pathname.replace(/^.*\//, '');
+              Array.from(item.querySelectorAll('a[data-link]')).forEach(link => {
+                link.href = `//www.nicovideo.jp/watch/${videoId}`;
+              });
+              // サムネの表示のしかたに愛を感じないので直す
+              if (util.hasLargeThumbnail(videoId)) {
+                const thumb = item.querySelector('.thumb');
+                const src = thumb.src || '';
+                if (src.match(/smile\?i=/) && !src.match(/\.L$/)) {
+                  thumb.src += '.L'; // 高画質のサムネを使う
+                  thumb.style.maxHeight = '120px';
+                  thumb.style.marginTop = '-15px';
+                }
+              }
+            });
+          }, 3000);
         })();
       }
 
