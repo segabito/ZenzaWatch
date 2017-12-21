@@ -1564,7 +1564,7 @@ var CONSTANT = {};
           this._$currentTime.text(currentTimeText);
         }
         const per = Math.min(100, this._timeToPer(sec));
-        this._$seekBarPointer.css('transform', `translate3d(${per}%, 0, 0)`);
+        this._$seekBarPointer[0].style.transform = `translate3d(${per}%, 0, 0)`;
       }
     },
     setDuration: function(sec) {

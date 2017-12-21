@@ -779,6 +779,10 @@ var DmcStoryboardSession = {
         this._$container.append($view);
         document.body.addEventListener('touchend', () => { this._isHover = false; }, {passive: true});
 
+        this._innerWidth = window.innerWidth;
+        window.addEventListener('resize', _.throttle(() => {
+          this._innerWidth = window.innerWidth;
+        }, 500));
       },
       _onBoardClick: function(e) {
         var $board = $(e.target).closest('.board'), offset = $board.offset();
@@ -982,10 +986,10 @@ var DmcStoryboardSession = {
         }
 
         if (forceUpdate) {
-          this.scrollLeft(targetLeft - this._$inner.innerWidth() * per, true);
+          this.scrollLeft(targetLeft - this._innerWidth * per, true);
         } else {
           if (this._isHover) { return; }
-          this.scrollLeft(targetLeft - this._$inner.innerWidth() * per);
+          this.scrollLeft(targetLeft - this._innerWidth * per);
         }
       },
       _onScroll: function() {
