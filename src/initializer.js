@@ -121,16 +121,6 @@ const START_PAGE_QUERY = 'hoge=fuga';
               Array.from(item.querySelectorAll('a[data-link]')).forEach(link => {
                 link.href = `//www.nicovideo.jp/watch/${videoId}`;
               });
-              // サムネの表示のしかたに愛を感じないので直す
-              if (util.hasLargeThumbnail(videoId)) {
-                const thumb = item.querySelector('.thumb');
-                const src = thumb.src || '';
-                if (src.match(/smile\?i=/) && !src.match(/\.L$/)) {
-                  thumb.src += '.L'; // 高画質のサムネを使う
-                  thumb.style.maxHeight = '120px';
-                  thumb.style.marginTop = '-15px';
-                }
-              }
             });
           }, 3000);
         })();
