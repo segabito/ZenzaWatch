@@ -480,7 +480,7 @@ var DmcStoryboardSession = {
           this._initializeStoryboard();
           return ZenzaWatch.api.StoryboardInfoLoader.load(url);
         }).then(
-          this._onStoryboardInfoLoad.bind(this, watchId, videoInfo.getDuration())
+          this._onStoryboardInfoLoad.bind(this, watchId, videoInfo.duration)
         ).catch(
           this._onStoryboardInfoLoadFail.bind(this, watchId)
         );
@@ -488,7 +488,7 @@ var DmcStoryboardSession = {
       _getStoryboardUrl: function(videoInfo) {
         let url;
         if (!videoInfo.hasDmcStoryboard) {
-          url = videoInfo.getStoryboardUrl();
+          url = videoInfo.storyboardUrl;
           return url ? Promise.resolve(url) : Promise.reject('smile storyboard api not exist');
         }
 

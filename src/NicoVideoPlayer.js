@@ -418,8 +418,8 @@ class YouTubeWrapper {}
       });
     },
     _getSaveFileName: function({suffix = ''} = {}) {
-      const title = this._videoInfo.getTitle();
-      const watchId = this._videoInfo.getWatchId();
+      const title = this._videoInfo.title;
+      const watchId = this._videoInfo.watchId;
       const currentTime = this._videoPlayer.getCurrentTime();
       const min = Math.floor(currentTime / 60);
       const sec = (currentTime % 60 + 100).toString().substr(1, 6);

@@ -105,7 +105,7 @@ const location = {
                 url: url
               });
             }
-          }, (err) => {
+          }).catch(err => {
             reject({
               status: 'fail',
               message: 'storyboard not exist (2)',

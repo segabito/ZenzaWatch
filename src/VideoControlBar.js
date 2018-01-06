@@ -1549,7 +1549,7 @@ var CONSTANT = {};
       this._storyboard.setCurrentTime(currentTime);
     },
     _onLoadVideoInfo: function(videoInfo) {
-      this.setDuration(videoInfo.getDuration());
+      this.setDuration(videoInfo.duration);
     },
     setCurrentTime: function(sec) {
       if (this._currentTime !== sec) {

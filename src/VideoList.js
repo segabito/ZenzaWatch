@@ -1139,20 +1139,20 @@ class NicoSearchApiV2Loader {}
   };
 
   VideoListItem.createByVideoInfoModel = function(info) {
-    var count = info.getCount();
+    var count = info.count;
 
     return new VideoListItem({
       _format:        'thumbInfo',
-      id:             info.getWatchId(),
-      title:          info.getTitle(),
-      length_seconds: info.getDuration(),
+      id:             info.watchId,
+      title:          info.title,
+      length_seconds: info.duration,
       num_res:        count.comment,
       mylist_counter: count.mylist,
       view_counter:   count.view,
-      thumbnail_url:  info.getThumbnail(),
-      first_retrieve: info.getPostedAt(),
+      thumbnail_url:  info.thumbnail,
+      first_retrieve: info.postedAt,
 
-      owner:          info.getOwnerInfo()
+      owner:          info.ownerInfo
     });
   };
 
@@ -1261,14 +1261,14 @@ class NicoSearchApiV2Loader {}
     updateByVideoInfo: function(videoInfo) {
       const before = JSON.stringify(this.serialize());
       const rawData = this._rawData;
-      const count = videoInfo.getCount();
-      rawData.first_retrieve = util.dateToString(videoInfo.getPostedAt());
+      const count = videoInfo.count;
+      rawData.first_retrieve = util.dateToString(videoInfo.postedAt);
 
       rawData.num_res        = count.comment;
       rawData.mylist_counter = count.mylist;
       rawData.view_counter   = count.view;
 
-      rawData.thumbnail_url = videoInfo.getThumbnail();
+      rawData.thumbnail_url = videoInfo.thumbnail;
 
       if (JSON.stringify(this.serialize()) !== before) {
         this.emit('update', this);
@@ -2211,19 +2211,16 @@ class NicoSearchApiV2Loader {}
     insertCurrentVideo: function(videoInfo) {
       this._initializeView();
 
-      //window.console.log('insertCurrentVideo', videoInfo);
       if (this._activeItem &&
           !this._activeItem.isBlankData() &&
-          this._activeItem.getWatchId() === videoInfo.getWatchId()) {
+          this._activeItem.getWatchId() === videoInfo.watchId) {
         this._activeItem.updateByVideoInfo(videoInfo);
         this._activeItem.setIsPlayed(true);
         this.scrollToActiveItem();
-        //window.console.log('insertCurrentVideo.getWatchId() === videoInfo.getWatchId()');
         return;
       }
 
-      var currentItem = this._model.findByWatchId(videoInfo.getWatchId());
-      //window.console.log('currentItem: ', currentItem);
+      var currentItem = this._model.findByWatchId(videoInfo.watchId);
       if (currentItem && !currentItem.isBlankData()) {
         currentItem.updateByVideoInfo(videoInfo);
         currentItem.setIsPlayed(true);
@@ -2234,10 +2231,8 @@ class NicoSearchApiV2Loader {}
 
       var item = VideoListItem.createByVideoInfoModel(videoInfo);
       item.setIsPlayed(true);
-      //window.console.log('create item', item, 'index', this._index);
       if (this._activeItem) { this._activeItem.setIsActive(false); }
       this._model.insertItem(item, this._index + 1);
-      //window.console.log('findByItemId', item.getItemId(), this._model.findByItemId(item.getItemId()));
       this._activeItem = this._model.findByItemId(item.getItemId());
       this._refreshIndex(true);
     },

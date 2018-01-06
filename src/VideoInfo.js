@@ -114,19 +114,19 @@ var ZenzaWatch = {
     }
 
     isNgVideo(videoInfo) {
-      var isNg = false;
-      var isChannel = videoInfo.isChannel();
-      var ngTag = this.ngTag;
-      _.each(videoInfo.getTagList(), function(tag) {
-        var text = (tag.tag || '').toLowerCase();
+      let isNg = false;
+      let isChannel = videoInfo.isChannel;
+      let ngTag = this.ngTag;
+      videoInfo.tagList.forEach(tag => {
+        let text = (tag.tag || '').toLowerCase();
         if (_.contains(ngTag, text)) {
           isNg = true;
         }
       });
       if (isNg) { return true; }
 
-      var owner = videoInfo.getOwnerInfo();
-      var ownerId = isChannel ? ('ch' + owner.id) : owner.id;
+      let owner = videoInfo.ownerInfo;
+      let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
       if (ownerId && _.contains(this.ngOwner, ownerId)) {
         isNg = true;
       }
@@ -158,238 +158,262 @@ var ZenzaWatch = {
       ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
     }
 
-    getTitle() {
-      return this._videoDetail.title_original || this._videoDetail.title;
-    }
-    getDescription() {
-      return this._videoDetail.description || '';
-    }
-    /**
-     * マイリスト等がリンクになっていない物
-     */
-    getDescriptionOriginal() {
-      return this._videoDetail.description_original;
-    }
-    getPostedAt() {
-      return this._videoDetail.postedAt;
-    }
-    getThumbnail() {
-      return this._videoDetail.thumbnail;
-    }
-    /**
-     * 大きいサムネがあればそっちを返す
-     */
-    getBetterThumbnail() {
-      return this._rawData.thumbnail;
-    }
-    getVideoUrl() {
-      return this._flvInfo.url;
-    }
+  get title() {
+    return this._videoDetail.title_original || this._videoDetail.title;
+  }
 
-    getStoryboardUrl() {
-      let url = this._flvInfo.url;
-      if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
-        return null;
-      }
-      return url;
-    }
+  get description() {
+    return this._videoDetail.description || '';
+  }
 
-    getCurrentVideo() {
-      if (this._currentVideo) {
-        return Promise.resolve(this._currentVideo);
-      }
-      return new Promise((resolve, reject) => {
-        this._currentVideoPromise.push({resolve, reject});
-      });
-    }
+  /**
+   * マイリスト等がリンクになっていない物
+   */
+  get descriptionOriginal() {
+    return this._videoDetail.description_original;
+  }
 
-    setCurrentVideo(v) {
-      this._currentVideo = v;
-      this._currentVideoPromise.forEach(p => {
-        p.resolve(this._currentVideo);
-      });
-    }
+  get postedAt() {
+    return this._videoDetail.postedAt;
+  }
 
-    isEconomy() {
-      return this.getVideoUrl().match(/low$/) ? true : false;
+  get thumbnail() {
+    return this._videoDetail.thumbnail;
+  }
+
+  /**
+   * 大きいサムネがあればそっちを返す
+   */
+  get betterThumbnail() {
+    return this._rawData.thumbnail;
+  }
+
+  get videoUrl() {
+    return this._flvInfo.url;
+  }
+
+  get storyboardUrl() {
+    let url = this._flvInfo.url;
+    if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
+      return null;
     }
-    getTagList() {
-      return this._videoDetail.tagList;
+    return url;
+  }
+
+  /**
+   * @return Promise
+   */
+  getCurrentVideo() {
+    if (this._currentVideo) {
+      return Promise.resolve(this._currentVideo);
     }
-    getVideoId() { // sm12345
+    return new Promise((resolve, reject) => {
+      this._currentVideoPromise.push({resolve, reject});
+    });
+  }
+
+  setCurrentVideo(v) {
+    this._currentVideo = v;
+    this._currentVideoPromise.forEach(p => {
+      p.resolve(this._currentVideo);
+    });
+  }
+
+  get isEconomy() {
+    return this.videoUrl.match(/low$/) ? true : false;
+  }
+
+  get tagList() {
+    return this._videoDetail.tagList;
+  }
+
+  getVideoId() { // sm12345
+    return this.videoId;
+  }
+
+  get videoId() {
+    return this._videoDetail.id;
+  }
+
+  getWatchId() { // sm12345だったりスレッドIDだったり
+    return this.watchId;
+  }
+
+  get watchId() {
+    if (this.videoId.substring(0, 2) === 'so') {
       return this.videoId;
     }
+    return this._videoDetail.v;
+  }
 
-    get videoId() {
-      return this._videoDetail.id;
-    }
+  get watchUrl() {
+    return `http://www.nicovideo.jp/watch/${this.watchId}`;
+  }
 
-    getWatchId() { // sm12345だったりスレッドIDだったり
-      return this.watchId;
-    }
+  get threadId() { // watchIdと同一とは限らない
+    return this._videoDetail.thread_id;
+  }
 
-    get watchId() {
-      if (this.videoId.substring(0, 2) === 'so') {
-        return this.videoId;
-      }
-      return this._videoDetail.v;
-    }
+  get videoSize() {
+    return {
+      width:  this._videoDetail.width,
+      height: this._videoDetail.height
+    };
+  }
 
-    getWatchUrl() {
-      return location.protocol + '//www.nicovideo.jp/watch/' + this.getWatchId();
-    }
+  get duration() {
+    return this._videoDetail.length;
+  }
 
-    getThreadId() { // watchIdと同一とは限らない
-      return this._videoDetail.thread_id;
-    }
+  get count() {
+    const vd = this._videoDetail;
+    return {
+      comment: vd.commentCount,
+      mylist: vd.mylistCount,
+      view: vd.viewCount
+    };
+  }
 
-    getVideoSize() {
-      return {
-        width:  this._videoDetail.width,
-        height: this._videoDetail.height
+  get isChannel() {
+    return !!this._videoDetail.channelId;
+  }
+  get isMymemory() {
+    return !!this._videoDetail.isMymemory;
+  }
+
+  get isCommunityVideo() {
+    return !!(!this.isChannel && this._videoDetail.communityId);
+  }
+
+  get hasParentVideo() {
+    return !!(this._videoDetail.commons_tree_exists);
+  }
+
+  get isDmc() {
+    return this.isDmcOnly || (this._rawData.isDmc && !this._isDmcDisable);
+  }
+
+  get dmcInfo() {
+    return this._dmcInfo;
+  }
+
+  get msgInfo() {
+    return this._msgInfo;
+  }
+
+  get isDmcDisable() {
+    return this.isDmcOnly && this._isDmcDisable;
+  }
+
+  set isDmcDisable(v) {
+    this._isDmcDisable = v;
+  }
+
+  get isDmcOnly() {
+    return !!this._rawData.isDmcOnly;
+  }
+
+  get hasDmcStoryboard() {
+    return this._dmcInfo && this._dmcInfo.hasStoryboard;
+  }
+
+  get dmcStoryboardInfo() {
+    return !!this._dmcInfo ? this._dmcInfo.storyboardInfo : null;
+  }
+
+  /**
+   * 投稿者の情報
+   * チャンネル動画かどうかで分岐
+  */
+  get ownerInfo() {
+    var ownerInfo;
+    if (this.isChannel) {
+      var c = this._watchApiData.channelInfo || {};
+      ownerInfo = {
+        icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+        url: '//ch.nicovideo.jp/ch' + c.id,
+        id: c.id,
+        name: c.name,
+        favorite: c.is_favorited === 1, // こっちは01で
+        type: 'channel'
+      };
+    } else {
+      // 退会しているユーザーだと空になっている
+      var u = this._watchApiData.uploaderInfo || {};
+      var f = this._flashvars || {};
+      ownerInfo = {
+        icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+        url:  u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
+        id:   u.id || f.videoUserId || '',
+        name: u.nickname || '(非公開ユーザー)',
+        favorite: !!u.is_favorited, // こっちはbooleanという
+        type: 'user',
+        isMyVideoPublic: !!u.is_user_myvideo_public
       };
     }
-    getDuration() {
-      return this._videoDetail.length;
-    }
-    getCount() {
-      const vd = this._videoDetail;
-      return {
-        comment: vd.commentCount,
-        mylist: vd.mylistCount,
-        view: vd.viewCount
-      };
-    }
-    // TODO: このへんgetterにする
-    isChannel() {
-      return !!this._videoDetail.channelId;
-    }
-    isMymemory() {
-      return !!this._videoDetail.isMymemory;
-    }
-    isCommunityVideo() {
-      return !!(!this.isChannel() && this._videoDetail.communityId);
-    }
-    hasParentVideo() {
-      return !!(this._videoDetail.commons_tree_exists);
-    }
-    isDmc() {
-      return this.isDmcOnly || (this._rawData.isDmc && !this._isDmcDisable);
-    }
-    getDmcInfo() {
-      return this._dmcInfo;
-    }
-    getMsgInfo() {
-      return this._msgInfo;
-    }
 
-    get isDmcDisable() {
-      return this.isDmcOnly && this._isDmcDisable;
-    }
+    return ownerInfo;
+  }
 
-    set isDmcDisable(v) {
-      this._isDmcDisable = v;
-    }
+  get relatedVideoItems() {
+    return this._relatedVideo.playlist || [];
+  }
 
-    get isDmcOnly() {
-      return !!this._rawData.isDmcOnly;
-    }
+  get replacementWords() {
+    if (!this._flvInfo.ng_up) { return null; }
+    return ZenzaWatch.util.parseQuery(
+      this._flvInfo.ng_up || ''
+    );
+  }
 
-    get hasDmcStoryboard() {
-      return this._dmcInfo && this._dmcInfo.hasStoryboard;
-    }
+  get playlistToken() {
+    return this._playlistToken;
+  }
 
-    get dmcStoryboardInfo() {
-      return !!this._dmcInfo ? this._dmcInfo.storyboardInfo : null;
-    }
+  set playlistToken(v) {
+    this._playlistToken = v;
+  }
 
-    /**
-     * 投稿者の情報
-     * チャンネル動画かどうかで分岐
-    */
-    getOwnerInfo() {
-      var ownerInfo;
-      if (this.isChannel()) {
-        var c = this._watchApiData.channelInfo || {};
-        ownerInfo = {
-          icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
-          url: '//ch.nicovideo.jp/ch' + c.id,
-          id: c.id,
-          name: c.name,
-          favorite: c.is_favorited === 1, // こっちは01で
-          type: 'channel'
-        };
-      } else {
-        // 退会しているユーザーだと空になっている
-        var u = this._watchApiData.uploaderInfo || {};
-        var f = this._flashvars || {};
-        ownerInfo = {
-          icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
-          url:  u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
-          id:   u.id || f.videoUserId || '',
-          name: u.nickname || '(非公開ユーザー)',
-          favorite: !!u.is_favorited, // こっちはbooleanという
-          type: 'user',
-          isMyVideoPublic: !!u.is_user_myvideo_public
-        };
-      }
+  get watchAuthKey() {
+    return this._watchAuthKey;
+  }
 
-      return ownerInfo;
-    }
-    getRelatedVideoItems() {
-      return this._relatedVideo.playlist || [];
-    }
-    getReplacementWords() {
-      if (!this._flvInfo.ng_up) { return null; }
-      return ZenzaWatch.util.parseQuery(
-        this._flvInfo.ng_up || ''
-      );
-    }
-    getPlaylistToken() {
-      return this._playlistToken;
-    }
+  set watchAuthKey(v) {
+    this._watchAuthKey = v;
+  }
 
-    setPlaylistToken(v) {
-      this._playlistToken = v;
-    }
+  get seekToken() {
+    return this._seekToken;
+  }
 
-    getWatchAuthKey() {
-      return this._watchAuthKey;
-    }
+  get width() {
+    return parseInt(this._videoDetail.width, 10);
+  }
 
-    setWatchAuthKey(v) {
-      this._watchAuthKey = v;
-    }
+  get height() {
+    return parseInt(this._videoDetail.height, 10);
+  }
 
-    getSeekToken() {
-      return this._seekToken;
-    }
+  get initialPlaybackTime() {
+    if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) { return 0; }
+    return parseFloat(this._resumeInfo.initialPlaybackPosition, 10);
+  }
 
-    getWidth() {
-      return parseInt(this._videoDetail.width, 10);
-    }
+  get csrfToken() {
+    return this._rawData.csrfToken || '';
+  }
 
-    getHeight() {
-      return parseInt(this._videoDetail.height, 10);
-    }
-
-    get initialPlaybackTime() {
-      if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) { return 0; }
-      return parseFloat(this._resumeInfo.initialPlaybackPosition, 10);
-    }
-
-    get csrfToken() {
-      return this._rawData.csrfToken || '';
-    }
-
+  get extension() {
+    if (this.isDmc) { return 'mp4'; }
+    const url = this.videoUrl;
+    if (url.match(/smile\?m=/)) { return 'mp4'; }
+    if (url.match(/smile\?v=/)) { return 'flv'; }
+    if (url.match(/smile\?s=/)) { return 'swf'; }
+    return 'unknown';
+  }
   }
 
 
 //===END===
-// iOS9 constはイケるがletはアカンらしい
-//const hoge = 123;
-//let fuga = 456;
-
-
 
 

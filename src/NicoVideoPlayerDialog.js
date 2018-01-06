@@ -1519,7 +1519,7 @@ var CONSTANT = {};
         case 'mylistRemove':
           return this._onMylistRemove(param.mylistId, param.mylistName);
         case 'mylistWindow':
-          util.openMylistWindow(this._videoInfo.getWatchId());
+          util.openMylistWindow(this._videoInfo.watchId);
           break;
         case 'settingPanel':
           this._view.toggleSettingPanel();
@@ -1532,7 +1532,7 @@ var CONSTANT = {};
           this.setCurrentTime(this.getCurrentTime() + param * 1);
           break;
         case 'seekRelativePercent':
-          let dur = this._videoInfo.getDuration();
+          let dur = this._videoInfo.duration;
           //let st = param.perStartX;
           let mv = Math.abs(param.movePerX) > 10 ?
             (param.movePerX / 2) : (param.movePerX / 8);
@@ -1610,9 +1610,9 @@ var CONSTANT = {};
         case 'screenShot':
           if (this._playerState.isYouTube) {
             util.capTube({
-              title: this._videoInfo.getTitle(),
-              videoId: this._videoInfo.getVideoId(),
-              author: this._videoInfo.getOwnerInfo().name
+              title: this._videoInfo.title,
+              videoId: this._videoInfo.videoId,
+              author: this._videoInfo.ownerInfo.name
             });
             return;
           }
@@ -1635,7 +1635,7 @@ var CONSTANT = {};
           this.setVideo(param);
           break;
         case 'copy-video-watch-url':
-          util.copyToClipBoard(this._videoInfo.getWatchUrl());
+          util.copyToClipBoard(this._videoInfo.watchUrl);
           break;
         case 'update-forceEconomy':
         case 'update-enableDmc':
@@ -1898,8 +1898,8 @@ var CONSTANT = {};
       option.append = this._playlist.isEnable();
 
       if (option.owner) {
-        var ownerId = parseInt(this._videoInfo.getOwnerInfo().id, 10);
-        if (this._videoInfo.isChannel()) {
+        var ownerId = parseInt(this._videoInfo.ownerInfo.id, 10);
+        if (this._videoInfo.isChannel) {
           option.channelId = ownerId;
         } else {
           option.userId = ownerId;
@@ -1946,9 +1946,9 @@ var CONSTANT = {};
       this._playerState.isUpdatingDeflist = true;
       let timer = window.setTimeout(unlock, 10000);
 
-      const owner = this._videoInfo.getOwnerInfo();
+      const owner = this._videoInfo.ownerInfo;
 
-      watchId = watchId || this._videoInfo.getWatchId();
+      watchId = watchId || this._videoInfo.watchId;
       const description =
         (watchId === this._watchId && this._playerConfig.getValue('enableAutoMylistComment')) ? ('投稿者: ' + owner.name) : '';
       if (!this._mylistApiLoader) {
@@ -1975,7 +1975,7 @@ var CONSTANT = {};
 
       let timer = window.setTimeout(unlock, 10000);
 
-      watchId = watchId || this._videoInfo.getWatchId();
+      watchId = watchId || this._videoInfo.watchId;
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
       }
@@ -2001,8 +2001,8 @@ var CONSTANT = {};
       this._playerState.isUpdatingMylist = true;
       let timer = window.setTimeout(unlock, 10000);
 
-      const owner = this._videoInfo.getOwnerInfo();
-      const watchId = this._videoInfo.getWatchId();
+      const owner = this._videoInfo.ownerInfo;
+      const watchId = this._videoInfo.watchId;
       const description =
         this._playerConfig.getValue('enableAutoMylistComment') ? ('投稿者: ' + owner.name) : '';
       if (!this._mylistApiLoader) {
@@ -2030,7 +2030,7 @@ var CONSTANT = {};
       this._playerState.isUpdatingMylist = true;
       var timer = window.setTimeout(unlock, 10000);
 
-      var watchId = this._videoInfo.getWatchId();
+      var watchId = this._videoInfo.watchId;
 
       if (!this._mylistApiLoader) {
         this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
@@ -2204,32 +2204,32 @@ var CONSTANT = {};
       const autoDisableDmc =
         !videoInfo.isDmcOnly &&
         this._playerConfig.getValue('autoDisableDmc') &&
-        !videoInfo.isEconomy() &&
+        !videoInfo.isEconomy &&
         util.isBetterThanDmcMayBe(
-          videoInfo.getWidth(),
-          videoInfo.getHeight(),
-          videoInfo.getDuration()
+          videoInfo.width,
+          videoInfo.height,
+          videoInfo.duration
         );
       videoInfo.isDmcDisable = autoDisableDmc;
 
       this._playerState.setState({
-        isDmcAvailable: videoInfo.isDmc(),
-        isCommunity: videoInfo.isCommunityVideo(),
-        isMymemory: videoInfo.isMymemory(),
-        isChannel: videoInfo.isChannel()
+        isDmcAvailable: videoInfo.isDmc,
+        isCommunity: videoInfo.isCommunityVideo,
+        isMymemory: videoInfo.isMymemory,
+        isChannel: videoInfo.isChannel
       });
 
       const createSession = () => {
-        this._videoSession = new VideoSession({
+        this._videoSession = VideoSession.createInstance({
           videoInfo,
           videoWatchOptions: this._videoWatchOptions,
           videoQuality: this._playerConfig.getValue('dmcVideoQuality'),
-          serverType: videoInfo.isDmc() ? 'dmc' : 'old',
+          serverType: videoInfo.isDmc ? 'dmc' : 'old',
           isPlayingCallback: this.isPlaying.bind(this)
         });
       };
       createSession();
-      this._setThumbnail(videoInfo.getBetterThumbnail());
+      this._setThumbnail(videoInfo.betterThumbnail);
 
       if (this._videoFilter.isNgVideo(videoInfo)) {
         return this._onVideoFilterMatch();
@@ -2237,17 +2237,17 @@ var CONSTANT = {};
 
       const loadSmilevideo = () => {
         if (this._playerConfig.getValue('enableVideoSession')) {
-          this._videoSession.create();
+          this._videoSession.connect();
         }
-        videoInfo.setCurrentVideo(videoInfo.getVideoUrl());
+        videoInfo.setCurrentVideo(videoInfo.videoUrl);
         this._playerState.isDmcPlaying = false;
-        this.setVideo(videoInfo.getVideoUrl());
+        this.setVideo(videoInfo.videoUrl);
         this.emit('videoServerType', 'smile', {});
       };
 
       if (!autoDisableDmc &&
-        this._playerConfig.getValue('enableDmc') && videoInfo.isDmc()) {
-        this._videoSession.create().then(
+        this._playerConfig.getValue('enableDmc') && videoInfo.isDmc) {
+        this._videoSession.connect().then(
           (sessionInfo) => {
             this.setVideo(sessionInfo.url);
             this._videoSessionInfo = sessionInfo;
@@ -2262,15 +2262,15 @@ var CONSTANT = {};
       }
       this._nicoVideoPlayer.setVideoInfo(videoInfo);
 
-      this.loadComment(videoInfo.getMsgInfo());
+      this.loadComment(videoInfo.msgInfo);
 
       this.emit('loadVideoInfo', videoInfo);
 
       if (FullScreen.now() || this._playerConfig.getValue('screenMode') === 'wide') {
         this.execCommand('notifyHtml',
-          '<img src="' + videoInfo.getThumbnail() + '" style="width: 96px;">' +
+          '<img src="' + videoInfo.thumbnail + '" style="width: 96px;">' +
           // タイトルは原則エスケープされてるけど信用してない
-          ZenzaWatch.util.escapeToZenkaku(videoInfo.getTitle())
+          util.escapeToZenkaku(videoInfo.title)
         );
       }
     },
@@ -2285,7 +2285,7 @@ var CONSTANT = {};
       );
     },
     reloadComment: function(param = {}) {
-      const msgInfo = this._videoInfo.getMsgInfo();
+      const msgInfo = this._videoInfo.msgInfo;
       if (typeof param.when === 'number') {
         msgInfo.when = param.when;
       }
@@ -2301,7 +2301,7 @@ var CONSTANT = {};
       this._playerState.isError = true;
       if (e.info) {
         this._videoInfo = new VideoInfoModel(e.info);
-        this._setThumbnail(this._videoInfo.getBetterThumbnail());
+        this._setThumbnail(this._videoInfo.betterThumbnail);
         this.emit('loadVideoInfoFail', this._videoInfo);
       } else {
         this.emit('loadVideoInfoFail');
@@ -2354,8 +2354,8 @@ var CONSTANT = {};
         return;
       }
       let options = {
-        replacement: this._videoInfo.getReplacementWords(),
-        duration: this._videoInfo.getDuration()
+        replacement: this._videoInfo.replacementWords,
+        duration: this._videoInfo.duration
       };
       this._nicoVideoPlayer.closeCommentPlayer();
       this._threadInfo = result.threadInfo;
@@ -2419,11 +2419,11 @@ var CONSTANT = {};
         this._initializePlaylist();
       }
       // チャンネル動画は、1本の動画がwatchId表記とvideoId表記で2本登録されてしまう。
-      // そこでvideoId表記のほうを除去する
+      // そこでwatchId表記のほうを除去する
       this._playlist.insertCurrentVideo(this._videoInfo);
-      if (this._videoInfo.getWatchId() !==this._videoInfo.getVideoId() &&
-          this._videoInfo.getVideoId().indexOf('so') === 0) {
-        this._playlist.removeItemByWatchId(this._videoInfo.getVideoId());
+      if (this._videoInfo.watchId !==this._videoInfo.videoId &&
+          this._videoInfo.videoId.indexOf('so') === 0) {
+        this._playlist.removeItemByWatchId(this._videoInfo.watchId);
       }
 
 
@@ -2469,7 +2469,7 @@ var CONSTANT = {};
       this._playerState.setVideoErrorOccurred();
 
       this.emit('error', e);
-      const isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc();
+      const isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc;
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
@@ -2485,7 +2485,7 @@ var CONSTANT = {};
         this.reload({ currentTime: this.getCurrentTime() });
       } else {
         if (this._videoInfo && !isDmc &&
-            (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy())
+            (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy)
           ) {
           this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
           setTimeout(() => {
@@ -2713,7 +2713,7 @@ var CONSTANT = {};
       };
 
       const _onTicketFail = (err) => {
-        this._messageApiLoader.load(this._videoInfo.getMsgInfo()).then(
+        this._messageApiLoader.load(this._videoInfo.msgInfo).then(
           (result) => {
             window.console.log('ticket再取得 success');
             this._threadInfo = result.threadInfo;
@@ -2759,7 +2759,7 @@ var CONSTANT = {};
     },
     getDuration: function() {
       if (!this._videoInfo) { return 0; }
-      return this._videoInfo.getDuration();
+      return this._videoInfo.duration;
     },
     getBufferedRange: function() {
       return this._nicoVideoPlayer.getBufferedRange();

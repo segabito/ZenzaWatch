@@ -878,7 +878,7 @@ const TagEditApi = function() {};
       this._videoInfo = videoInfo;
       this._videoHeaderPanel.update(videoInfo);
 
-      var owner = videoInfo.getOwnerInfo();
+      var owner = videoInfo.ownerInfo;
       this._$ownerIcon.attr('src', owner.icon);
       this._$ownerPageLink.attr('href', owner.url);
       this._$ownerName.text(owner.name);
@@ -886,23 +886,23 @@ const TagEditApi = function() {};
 
       this._videoMetaInfo.update(videoInfo);
       this._tagListView.update({
-        tagList: videoInfo.getTagList(),
-        watchId: videoInfo.getWatchId(),
-        videoId: videoInfo.getVideoId(),
+        tagList: videoInfo.tagList,
+        watchId: videoInfo.watchId,
+        videoId: videoInfo.videoId,
         token: videoInfo.csrfToken,
-        watchAuthKey: videoInfo.getWatchAuthKey()
+        watchAuthKey: videoInfo.watchAuthKey
       });
 
-      this._updateVideoDescription(videoInfo.getDescription(), videoInfo.isChannel());
+      this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
-        .toggleClass('is-community', this._videoInfo.isCommunityVideo())
-        .toggleClass('is-mymemory',  this._videoInfo.isMymemory())
-        .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo');
+        .toggleClass('is-community', this._videoInfo.isCommunityVideo)
+        .toggleClass('is-mymemory',  this._videoInfo.isMymemory)
+        .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
 
       this._ichibaItemView.clear();
-      this._ichibaItemView.videoId = videoInfo.getVideoId();
+      this._ichibaItemView.videoId = videoInfo.videoId;
 
       this._uaaView.clear();
       this._uaaView.update(videoInfo);
@@ -1067,7 +1067,7 @@ const TagEditApi = function() {};
           this.emit('command', 'setVideo', this._zenTubeUrl);
         }, 100);
       }
-      var relatedVideo = videoInfo.getRelatedVideoItems();
+      var relatedVideo = videoInfo.relatedVideoItems;
       this._relatedVideoList.update(relatedVideo, watchId);
     },
     _onVideoCountUpdate: function(...args) {
@@ -1081,7 +1081,7 @@ const TagEditApi = function() {};
           this._onTagSearch(param);
           break;
         case 'playlistSetUploadedVideo':
-          var owner = this._videoInfo.getOwnerInfo();
+          var owner = this._videoInfo.ownerInfo;
           this.emit('command', 'playlistSetUploadedVideo', owner.id);
           break;
         default:
@@ -1437,28 +1437,28 @@ const TagEditApi = function() {};
     update: function(videoInfo) {
       this._videoInfo = videoInfo;
 
-      const videoTitle = util.unescapeHtml(videoInfo.getTitle());
+      const videoTitle = util.unescapeHtml(videoInfo.title);
       this._$videoTitle.text(videoTitle).attr('title', videoTitle);
 
       var watchId = videoInfo.watchId;
       this._videoMetaInfo.update(videoInfo);
 
       this._tagListView.update({
-        tagList: videoInfo.getTagList(),
+        tagList: videoInfo.tagList,
         watchId,
-        videoId: videoInfo.getVideoId(),
+        videoId: videoInfo.videoId,
         token: videoInfo.csrfToken,
-        watchAuthKey: videoInfo.getWatchAuthKey()
+        watchAuthKey: videoInfo.watchAuthKey
       });
 
       this._relatedInfoMenu.update(videoInfo);
 
       this._$view
         .removeClass('userVideo channelVideo initializing')
-        .toggleClass('is-community', this._videoInfo.isCommunityVideo())
-        .toggleClass('is-mymemory',  this._videoInfo.isMymemory())
-        .toggleClass('has-Parent', this._videoInfo.hasParentVideo())
-        .addClass(videoInfo.isChannel() ? 'channelVideo' : 'userVideo')
+        .toggleClass('is-community', this._videoInfo.isCommunityVideo)
+        .toggleClass('is-mymemory',  this._videoInfo.isMymemory)
+        .toggleClass('has-Parent', this._videoInfo.hasParentVideo)
+        .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
         .css('display', '');
 
       window.setTimeout(() => { this._onResize(); }, 1000);
@@ -2272,13 +2272,13 @@ const TagEditApi = function() {};
       if (this._state.isUpdating) { return; }
       this.setState({isUpdating: true});
       this._props.videoInfo = videoInfo;
-      this._props.videoId   = videoInfo.getVideoId();
+      this._props.videoId   = videoInfo.videoId;
 
       window.setTimeout(() => { this.load(videoInfo); }, 5000);
     }
 
     load(videoInfo) {
-      const videoId = videoInfo.getVideoId();
+      const videoId = videoInfo.videoId;
 
       return UaaLoader.load(videoId, {limit: 50})
         .then(this._onLoad.bind(this, videoId))
@@ -2713,9 +2713,9 @@ const TagEditApi = function() {};
       this._currentWatchId = videoInfo.watchId;
       this._currentVideoId = videoInfo.videoId;
       this.setState({
-        'isParentVideoExist': videoInfo.hasParentVideo(),
-        'isCommunity': videoInfo.isCommunityVideo(),
-        'isMymemory': videoInfo.isMymemory()
+        'isParentVideoExist': videoInfo.hasParentVideo,
+        'isCommunity': videoInfo.isCommunityVideo,
+        'isMymemory': videoInfo.isMymemory
       });
     }
 
@@ -2917,8 +2917,8 @@ const TagEditApi = function() {};
     }
 
     update(videoInfo) {
-      this._elm.postedAt.textContent = videoInfo.getPostedAt();
-      const count = videoInfo.getCount();
+      this._elm.postedAt.textContent = videoInfo.postedAt;
+      const count = videoInfo.count;
       this.updateVideoCount(count);
     }
 

@@ -955,70 +955,7 @@ class CrossDomainGate {}
         z-index: 10;
       }
 
-      /* Autopagerize難民救済 */
-      .autopagerize_page_info + * {
-        display: block !important;
-      }
     `;
-    // 非ログイン状態のwatchページ用
-    var __no_login_watch_css__ = `
-      body .logout-video-thumb-box {
-        width: 672px;
-        height: 386px;
-        margin-left: -6px;
-      }
-
-      .commentLayerFrame {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 672px;
-        height: 386px;
-        z-index: 10000;
-        border: 0;
-        transition: opacity 1s ease, top 0.4s ease;
-        pointer-events: none;
-        contain: paint;
-        transform: translateZ(0);
-      }
-
-      .logout-video-thumb-box:hover .commentLayerFrame {
-        top: -50px;
-      }
-
-      .login-box {
-        z-index: 10001;
-        opacity: 0 !important;
-        background-color: rgba(255, 255, 255, 0.8) !important;
-        transition: opacity 1s ease;
-      }
-
-      .login-box:hover {
-        opacity: 1 !important;
-        transition: opacity 0.3s ease;
-      }
-
-      .videoPlayer {
-        position: fixed;
-        right: 100px;
-        bottom: calc(50% - 100px);
-        width: 320px;
-        height: 200px;
-      }
-
-      .logout-video-thumb-box .videoPlayer {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        right: 0;
-        width: 100%;
-        height: 100%;
-        background: #000;
-      }
-
-    `;
-
 
     var WindowMessageEmitter = (function() {
       var asyncEmitter = new AsyncEmitter();
@@ -1219,15 +1156,15 @@ class CrossDomainGate {}
             return;
           }
           window.history.replaceState(null, null, url);
-        });
+        }, 0);
         isOpen = true;
       };
 
       var onVideoInfoLoad = function(videoInfo) {
-        if (!videoInfo.getWatchId) { return; }
-        var watchId = videoInfo.getWatchId();
+        if (!videoInfo.watchId) { return; }
+        var watchId = videoInfo.watchId;
         var title =
-           'nicovideo: ' + videoInfo.getTitle() + ' - ' + videoInfo.getOwnerInfo().name;
+           'nicovideo: ' + videoInfo.title + ' - ' + videoInfo.ownerInfo.name;
         if (location.host !== 'www.nicovideo.jp') {
           if (ZenzaWatch.api.nicovideoLoader) {
             ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId, title);
@@ -1235,7 +1172,7 @@ class CrossDomainGate {}
           return;
         }
         var url = originalUrl, originalTitle = document.title;
-        if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+        if (!util.isGinzaWatchUrl(originalUrl)) {
           url = location.href;
         }
 
@@ -1251,11 +1188,11 @@ class CrossDomainGate {}
         // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
         window.setTimeout(() => {
           document.title = originalTitle;
-          if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
+          if (util.isGinzaWatchUrl(originalUrl)) {
             return;
           }
           window.history.replaceState(null, null, url);
-        }, 1000);
+        }, 3000);
        };
 
       var initialize = function(_dialog) {
@@ -1466,20 +1403,20 @@ class CrossDomainGate {}
     addTemplate._id = 0;
 
     ZenzaWatch.util.openTweetWindow = function(videoInfo) {
-      var watchId = videoInfo.getWatchId();
+      var watchId = videoInfo.watchId;
       var nicomsUrl = 'http://nico.ms/' + watchId;
       var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
-      var sec = videoInfo.getDuration();
+      var sec = videoInfo.duration;
       var m = Math.floor(sec / 60);
       var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
       var dur = ['(', m, ':', s, ')'].join('');
-      var nicoch = videoInfo.isChannel() ? ',+nicoch' : '';
+      var nicoch = videoInfo.isChannel ? ',+nicoch' : '';
       var url =
         'https://twitter.com/intent/tweet?' +
         'url='       + encodeURIComponent(nicomsUrl) +
-        '&text='     + encodeURIComponent(videoInfo.getTitle() + dur) +
-        '&hashtags=' + encodeURIComponent(videoInfo.getVideoId() + nicoch) +
+        '&text='     + encodeURIComponent(videoInfo.title + dur) +
+        '&hashtags=' + encodeURIComponent(videoInfo.videoId + nicoch) +
         '&original_referer=' + encodeURIComponent(watchUrl) +
         '';
       window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
@@ -1664,12 +1601,12 @@ class CrossDomainGate {}
     util.saveMymemory = function(player, videoInfo) {
       let html = player.getMymemory();
       const title =
-        videoInfo.getWatchId() + ' - ' +
-        videoInfo.getTitle(); // エスケープされてる
+        videoInfo.watchId + ' - ' +
+        videoInfo.title; // エスケープされてる
       const info = (`
         <div>
-          <h2>${videoInfo.getTitle()}</h2>
-          <a href="//www.nicovideo.jp/watch/${videoInfo.getWatchId()}?from=${Math.floor(player.getCurrentTime())}">元動画</a><br>
+          <h2>${videoInfo.title}</h2>
+          <a href="//www.nicovideo.jp/watch/${videoInfo.watchId}?from=${Math.floor(player.getCurrentTime())}">元動画</a><br>
           作成環境: ${navigator.userAgent}<br>
           作成日: ${(new Date()).toLocaleString()}<br>
           <button
