@@ -5,6 +5,7 @@ const ZenzaWatch = {
   debug: {},
   api: {}
 };
+const util = {};
 //var AsyncEmitter = function() {};
 const VideoInfoLoader = {};
 const PopupMessage = {};
@@ -13,6 +14,8 @@ const ajax = function() {};
 //===BEGIN===
 
 const VideoSession = (function() {
+  //const http = require('http');
+  //const fetch = require('node-fetch');
 
   const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 10min
   const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec
@@ -37,95 +40,98 @@ const VideoSession = (function() {
     }
 
     toString() {
-      var dmcInfo = this._dmcInfo;
+      let dmcInfo = this._dmcInfo;
 
-      // たぶんここの順番をなんやかんやすると画質優先度が変わる
-      var videos = [];
-//            archive_h264_2000kbps_720p
-//            archive_h264_1000kbps_540p
-//            archive_h264_600kbps_360p
-//            archive_h264_300kbps_360p
-      var reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
+      let videos = [];
+
+      let reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
       dmcInfo.videos.forEach(format => {
-        if (reg.test(format))  { videos.push(`<string>${format}</string>`); }
+        if (reg.test(format))  { videos.push(format); }
       });
       dmcInfo.videos.forEach( format => {
-        if (!reg.test(format)) { videos.push(`<string>${format}</string>`); }
+        if (!reg.test(format)) { videos.push(format); }
       });
 
-      var audios = []; //            archive_aac_64kbps
-      _.each(dmcInfo.audios, function(format) {
-        audios.push(`<string>${format}</string>`);
+      let audios = [];
+      dmcInfo.audios.forEach(format => {
+        audios.push(format);
       });
 
-       return (
-        `
-<session>
-  <recipe_id>${dmcInfo.recipeId}</recipe_id>
-  <content_id>${dmcInfo.contentId}</content_id>
-  <content_type>movie</content_type>
-  <protocol>
-    <name>http</name>
-    <parameters>
-      <http_parameters>
-        <method>GET</method>
-        <parameters>
-          <http_output_download_parameters>
-            <file_extension>mp4</file_extension>
-          </http_output_download_parameters>
-        </parameters>
-      </http_parameters>
-    </parameters>
-  </protocol>
-  <priority>${dmcInfo.priority}</priority>
-  <content_src_id_sets>
-    <content_src_id_set>
-      <content_src_ids>
-        <src_id_to_mux>
-          <video_src_ids>
-            ${videos.join('')}
-          </video_src_ids>
-          <audio_src_ids>
-            ${audios.join('')}
-          </audio_src_ids>
-        </src_id_to_mux>
-      </content_src_ids>
-    </content_src_id_set>
-  </content_src_id_sets>
-  <keep_method>
-    <heartbeat>
-      <lifetime>${dmcInfo.heartBeatLifeTimeMs}</lifetime>
-    </heartbeat>
-  </keep_method>
-  <timing_constraint>unlimited</timing_constraint>
-  <session_operation_auth>
-    <session_operation_auth_by_signature>
-      <token>${dmcInfo.token}</token>
-      <signature>${dmcInfo.signature}</signature>
-    </session_operation_auth_by_signature>
-  </session_operation_auth>
-  <content_auth>
-    <auth_type>ht2</auth_type>
-    <service_id>nicovideo</service_id>
-    <service_user_id>${dmcInfo.serviceUserId}</service_user_id>
-    <max_content_count>10</max_content_count>
-    <content_key_timeout>600000</content_key_timeout>
-  </content_auth>
-  <client_info>
-    <player_id>${dmcInfo.playerId}</player_id>
-  </client_info>
-</session>
-        `
-      ).trim();
+      let request = {
+        session: {
+          client_info: {
+            player_id: dmcInfo.playerId
+          },
+          content_auth: {
+            auth_type: 'ht2',
+            content_key_timeout: 600 * 1000,
+            service_id: 'nicovideo',
+            service_user_id: dmcInfo.serviceUserId,
+            //max_content_count: 10,
+          },
+          content_id: dmcInfo.contentId,
+          content_src_id_sets: [
+            {content_src_ids: [
+                {src_id_to_mux: {
+                  audio_src_ids: audios,
+                  video_src_ids: videos
+                }}
+              ]
+            }
+          ],
+          content_type: 'movie',
+          content_uri: '',
+          keep_method: {
+            heartbeat: {lifetime: dmcInfo.heartBeatLifeTimeMs}
+          },
+          priority: dmcInfo.priority,
+          protocol: {
+            name: 'http',
+            parameters: {
+              http_parameters: {
+                //method: 'GET',
+                parameters: {
+                  http_output_download_parameters: {
+                    use_ssl: 'no',
+                    use_well_known_port: 'no',
+  //                  file_extension: 'mp4'
+                  }
+                }
+              }
+            }
+          },
+          recipe_id: dmcInfo.recipeId,
+
+          session_operation_auth: {
+            session_operation_auth_by_signature: {
+              signature: dmcInfo.signature,
+              token: dmcInfo.token
+            }
+          },
+
+          timing_constraint: 'unlimited'
+        }
+      };
+
+      return JSON.stringify(request, null, 2);
     }
   }
 
   class VideoSession {
+
+    static createInstance(params) {
+      if (params.serverType === 'dmc') {
+        return new DmcSession(params);
+      } else {
+        return new SmileSession(params);
+      }
+    }
+
     constructor(params) {
       this._videoInfo = params.videoInfo;
       this._videoWatchOptions = params.videoWatchOptions;
 
-      this._isPlaying = params.isPlayingCallback || _.noop;
+      this._isPlaying = params.isPlayingCallback || (() => {});
       this._pauseCount = 0;
       this._failCount  = 0;
       this._lastResponse = '';
@@ -133,87 +139,13 @@ const VideoSession = (function() {
       this._videoSessionInfo = {};
       this._isDeleted = false;
 
-      var serverType = this._serverType = params.serverType || 'dmc';
-      if (serverType === 'dmc') {
-        this._heartBeatInterval = DMC_HEART_BEAT_INTERVAL_MS;
-        this._heartBeat         = this._heartBeatDmc.bind(this);
-        this._createSession     = this._createSessionDmc.bind(this);
-        this._deleteSession     = this._deleteSessionDmc.bind(this);
-      } else {
-        this._heartBeatInterval = SMILE_HEART_BEAT_INTERVAL_MS;
-        this._heartBeat         = this._heartBeatSmile.bind(this);
-        this._createSession     = this._createSessionSmile.bind(this);
-        this._deleteSession     = this._deleteSessionSmile.bind(this);
-      }
       this._heartBeatTimer = null;
 
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
       this._onHeartBeatFail    = this._onHeartBeatFail.bind(this);
     }
 
-    _createSessionDmc(videoInfo) {
-      var dmcInfo = videoInfo.getDmcInfo();
-      window.console.time('create DMC session');
-      return new Promise((resolve, reject) => {
-        var url = `${dmcInfo.apiUrl}?_format=xml`;
-
-        //window.console.log('dmc post', url, (new DmcPostData(dmcInfo)).toString());
-
-        ajax({
-          url: url,
-          type: 'post',
-          timeout: 10000,
-          dataType: 'text',
-          data: (new DmcPostData(dmcInfo, this._videoQuality)).toString()
-        }).then((result) => {
-            //window.console.log('create api result', result, result.toString());
-            var doc = (new DOMParser()).parseFromString(result, 'text/xml');
-            var url =
-              doc.querySelector('content_uri').firstChild.nodeValue.trim();
-            var sessionId =
-              doc.querySelector('session id').firstChild.nodeValue.trim();
-            var videoFormat =
-              doc.querySelector('video_src_ids string').firstChild.nodeValue.trim();
-            var audioFormat =
-              doc.querySelector('audio_src_ids string').firstChild.nodeValue.trim();
-
-            this._heartBeatUrl =
-              `${dmcInfo.apiUrl}/${sessionId}?_format=xml&_method=PUT`;
-            this._deleteSessionUrl =
-              `${dmcInfo.apiUrl}/${sessionId}?_format=xml&_method=DELETE`;
-
-            this._lastResponse = doc.querySelector('session').outerHTML;
-            this._videoSessionInfo = {
-              type: 'dmc',
-              url: url,
-              sessionId: sessionId,
-              videoFormat: videoFormat,
-              audioFormat: audioFormat,
-              heartBeatUrl: this._heartBeatUrl,
-              deleteSessionUrl: this._deleteSessionUrl,
-              lastResponse: result
-            };
-            //window.console.info('session info: ', this._videoSessionInfo);
-            this.enableHeartBeat();
-            window.console.timeEnd('create DMC session');
-            resolve(this._videoSessionInfo);
-          },
-          (err) => {
-            window.console.error('create api fail', err);
-            reject(err);
-          });
-      });
-    }
-
-    _createSessionSmile(videoInfo) {
-      this.enableHeartBeat();
-      return new Promise((resolve) => {
-        var videoUrl = videoInfo.getVideoUrl();
-        return resolve(videoUrl);
-      });
-    }
-
-    create() {
+    connect() {
       this._createdAt = Date.now();
       return this._createSession(this._videoInfo);
     }
@@ -247,100 +179,15 @@ const VideoSession = (function() {
 
     _onHeartBeatInterval() {
       if (this._isClosed) { return; }
-
-      //PopupMessage.debug('HeartBeat!!!!');
       this._heartBeat();
     }
 
-    _heartBeatSmile() {
-      //PopupMessage.debug('HeartBeat');
-      // sp.nicovideo.jp を参考に
-      // 10分ごとに叩いているっぽい
-      var url = this._videoInfo.getWatchUrl();
-      var query = [
-       // 'mode=sp_web_html5',
-        'mode=normal',
-        'playlist_token=' + this._videoInfo.getPlaylistToken(),
-        'continue_watching=1'
-      ];
-      if (this._videoInfo.isEconomy()) { query.push('eco=1'); }
-
-      if (query.length > 0) { url += '?' + query.join('&'); }
-      window.console.info('heartBeat url', url);
-
-      ajax({
-        url: url,
-        timeout: 10000,
-        xhrFields: { withCredentials: true },
-      }).then(
-        this._onHeartBeatSuccess,
-        this._onHeartBeatFail
-      );
-    }
-
-    _heartBeatDmc() {
-      var url = this._videoSessionInfo.heartBeatUrl;
-      //window.console.log('HeartBeat');
-      ajax({
-        url: url,
-        type: 'post',
-        dataType: 'text',
-        timeout: 10000,
-        data: this._lastResponse
-      }).then(
-        this._onHeartBeatSuccess,
-        this._onHeartBeatFail
-      );
-    }
-
-
-    _deleteSessionDmc() {
-      if (this._isDeleted) { return; }
-      this._isDeleted = true;
-      var url = this._videoSessionInfo.deleteSessionUrl;
-      ajax({
-        url: url,
-        type: 'post',
-        dataType: 'text',
-        timeout: 10000,
-        data: this._lastResponse
-      }).then(
-        function() { console.log('delete success'); },
-        function() { console.log('delete fail'); }
-      );
-    }
-
-
-    _deleteSessionSmile() {
-      if (this._isDeleted) { return; }
-      this._isDeleted = true;
-    }
-
-
     _onHeartBeatSuccess(result) {
-      //PopupMessage.debug('HeartBeat ok');
-      if (this._serverType === 'dmc') {
-        var doc = (new DOMParser()).parseFromString(result, 'text/xml');
-        this._lastResponse = doc.querySelector('session').outerHTML;
-      } else {
-        //window.console.log('HeartBeatSuccess');
-        this._lastResponse = result;
-        window.console.info('heartBeat result', result);
-        if (result.status !== 'ok') { return this._onHeartBeatFail(); }
-        // TODO: エコノミータイムを跨いだ時に動画url変わるかも？の検証と対応
-        //if (result && result.flashvars && result.flashvars.flvInfo) {
-        //  const flvInfo = util.parseQuery(decodeURIComponent(result.flashvars.flvInfo));
-        //  window.console.info('video url',
-        //    this._videoInfo.getVideoUrl(),
-        //    flvInfo.url
-        //  );
-        //}
-        this._videoInfo.setWatchAuthKey(json.watchAuthKey);
-      }
+      console.log('HeartBeat success');
     }
 
     _onHeartBeatFail() {
-      //PopupMessage.debug('HeartBeat fail');
+      PopupMessage.debug('HeartBeat fail');
       this._failCount++;
       if (this._failCount >= SESSION_CLOSE_FAIL_COUNT) {
         this.close();
@@ -349,7 +196,7 @@ const VideoSession = (function() {
 
     _onPauseCheckInterval() {
       if (this._isClosed) { return; }
-      var isPlaying = this._isPlaying();
+      let isPlaying = this._isPlaying();
       //window.console.log('isPlaying?', isPlaying, this._pauseCount);
       if (!isPlaying) {
         this._pauseCount++;
@@ -357,7 +204,6 @@ const VideoSession = (function() {
         this._pauseCount = 0;
       }
       //PopupMessage.debug('pause: ' + this._pauseCount);
-
 
       // 一定時間停止が続いた and 生成から一定時間経過している場合は破棄
       if (this._pauseCount             >= SESSION_CLOSE_PAUSE_COUNT &&
@@ -371,7 +217,7 @@ const VideoSession = (function() {
       //PopupMessage.debug('session close');
       this._isClosed = true;
       this.disableHeartBeat();
-      this._deleteSession();
+      return this._deleteSession();
     }
 
     get isDeleted() {
@@ -383,94 +229,163 @@ const VideoSession = (function() {
     }
   }
 
+  class DmcSession extends VideoSession {
+    constructor(params) {
+      super(params);
+
+      this._serverType = 'dmc';
+      this._heartBeatInterval = DMC_HEART_BEAT_INTERVAL_MS;
+      this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
+      this._onHeartBeatFail    = this._onHeartBeatFail.bind(this);
+    }
+
+    _createSession(videoInfo) {
+      let dmcInfo = videoInfo.dmcInfo;
+      console.time('create DMC session');
+      return new Promise((resolve, reject) => {
+        let url = `${dmcInfo.apiUrl}?_format=json`;
+
+        console.log('dmc post', url); //'\n', (new DmcPostData(dmcInfo)).toString());
+
+        util.fetch(url, {
+          method: 'post',
+          timeout: 10000,
+          dataType: 'text',
+          body: (new DmcPostData(dmcInfo, this._videoQuality)).toString()
+        }).then(res => { return res.json(); })
+          .then(json => {
+            //console.log('\n\ncreate api result', JSON.stringify(json, null, 2));
+            //const json = JSON.parse(result);
+            const data = json.data || {}, session = data.session || {};
+            let url = session.content_uri;
+            let sessionId = session.id;
+            let content_src_id_sets = session.content_src_id_sets;
+            let videoFormat =
+              content_src_id_sets[0].content_src_ids[0].src_id_to_mux.video_src_ids[0];
+            let audioFormat =
+              content_src_id_sets[0].content_src_ids[0].src_id_to_mux.audio_src_ids[0];
+
+            this._heartBeatUrl =
+              `${dmcInfo.apiUrl}/${sessionId}?_format=json&_method=PUT`;
+            this._deleteSessionUrl =
+              `${dmcInfo.apiUrl}/${sessionId}?_format=json&_method=DELETE`;
+
+            this._lastResponse = data;
+            this._videoSessionInfo = {
+              type: 'dmc',
+              url: url,
+              sessionId: sessionId,
+              videoFormat: videoFormat,
+              audioFormat: audioFormat,
+              heartBeatUrl: this._heartBeatUrl,
+              deleteSessionUrl: this._deleteSessionUrl,
+              lastResponse: json
+            };
+            //console.info('session info: ', this._videoSessionInfo);
+            this.enableHeartBeat();
+            console.timeEnd('create DMC session');
+            resolve(this._videoSessionInfo);
+          }).catch(err => {
+            console.error('create api fail', err);
+            reject(err);
+          });
+      });
+    }
+
+    _heartBeat() {
+      let url = this._videoSessionInfo.heartBeatUrl;
+      console.log('HeartBeat', url);
+      util.fetch(url, {
+        method: 'post',
+        dataType: 'text',
+        timeout: 10000,
+        body: JSON.stringify(this._lastResponse)
+      }).then(res => { return res.json(); })
+        .then(this._onHeartBeatSuccess)
+        .catch(this._onHeartBeatFail);
+    }
+
+    _deleteSession() {
+      if (this._isDeleted) { return Promise.resolve(); }
+      this._isDeleted = true;
+      let url = this._videoSessionInfo.deleteSessionUrl;
+      return util.fetch(url, {
+        method: 'post',
+        dataType: 'text',
+        timeout: 10000,
+        body: JSON.stringify(this._lastResponse)
+      }).then(res => res.text())
+        .then(() => { console.log('delete success'); })
+        .catch(err => { console.error('delete fail', err); });
+    }
+
+    _onHeartBeatSuccess(result) {
+      console.log('heartbeat success: ', result.meta);
+      let json = result;
+      this._lastResponse = json.data;
+    }
+  }
+
+  class SmileSession extends VideoSession {
+    constructor(params) {
+      super(params);
+      this._serverType = 'smile';
+      this._heartBeatInterval = SMILE_HEART_BEAT_INTERVAL_MS;
+      this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
+      this._onHeartBeatFail    = this._onHeartBeatFail.bind(this);
+    }
+
+    _createSession(videoInfo) {
+      this.enableHeartBeat();
+      return new Promise((resolve) => {
+        let videoUrl = videoInfo.videoUrl;
+        return resolve(videoUrl);
+      });
+    }
+
+    _heartBeat() {
+      let url = this._videoInfo.watchUrl;
+      let query = [
+        'mode=normal',
+        'playlist_token=' + this._videoInfo.playlistToken,
+        'continue_watching=1'
+      ];
+      if (this._videoInfo.isEconomy) { query.push('eco=1'); }
+
+      if (query.length > 0) { url += '?' + query.join('&'); }
+      window.console.info('heartBeat url', url);
+
+      util.fetch(url, {
+        timeout: 10000,
+        credentials: 'include'
+      }).then(res => { return res.json(); })
+      .then(this._onHeartBeatSuccess)
+      .catch(this._onHeartBeatFail);
+    }
+
+    _deleteSession() {
+      if (this._isDeleted) { return Promise.resolve(); }
+      this._isDeleted = true;
+      return Promise.resolve();
+    }
+
+    _onHeartBeatSuccess(result) {
+      //console.log('HeartBeatSuccess');
+      this._lastResponse = result;
+      //console.info('heartBeat result', result);
+      if (result.status !== 'ok') { return this._onHeartBeatFail(); }
+      if (result && result.flashvars && result.flashvars.watchAuthKey) {
+        this._videoInfo.watchAuthKey = result.flashvars.watchAuthKey;
+      }
+    }
+
+  }
+
   return VideoSession;
 })();
 
-//===END===
-/*
-sample_response = `
-<?xml version="1.0" encoding="UTF-8" ?>
-  <object>
-    <meta status="201" message="created"/>
-    <data>
-    <session>
-      <id>%SESSION_ID%</id>
-      <recipe_id>nicovideo-%VIDEO_ID%</recipe_id>
-      <content_id>out1</content_id>
-      <content_src_id_sets>
-      <content_src_id_set>
-      <content_src_ids>
-        <src_id_to_mux>
-          <!--実際の画質-->
-          <video_src_ids><string>archive_h264_1000kbps_540p</string></video_src_ids>
-          <!--実際の音質-->
-          <audio_src_ids><string>archive_aac_128kbps</string></audio_src_ids>
-        </src_id_to_mux>
-      </content_src_ids>
-      </content_src_id_set>
-      </content_src_id_sets>
-      <content_type>movie</content_type>
-      <timing_constraint>unlimited</timing_constraint>
-      <keep_method>
-      <heartbeat><lifetime>60000</lifetime>
-      <onetime_token></onetime_token></heartbeat></keep_method>
-      <protocol><name>http</name>
-      <parameters>
-        <http_parameters>
-          <method>GET</method>
-          <parameters><http_output_download_parameters>
-          <file_extension>flv</file_extension>
-          <transfer_preset></transfer_preset>
-          </http_output_download_parameters>
-        </parameters>
-        </http_parameters>
-      </parameters>
-      </protocol>
-      <play_seek_time>0</play_seek_time>
-      <play_speed>1.0</play_speed>
-      <content_uri>
-        %video url%
-      </content_uri>
-      <session_operation_auth>
-        <session_operation_auth_by_signature>
-          <created_time>11111111111</created_time>
-          <expire_time>22222222222</expire_time>
-          <token>{...}</token>
-          <signature>
-            zzzzzzzzzzzzzzzzzzzzzzz
-          </signature>
-        </session_operation_auth_by_signature>
-      </session_operation_auth>
-      <content_auth>
-        <auth_type>ht2</auth_type>
-        <max_content_count>10</max_content_count>
-        <content_key_timeout>600000</content_key_timeout>
-        <service_id>nicovideo</service_id>
-        <service_user_id>%USERID%</service_user_id>
-        <content_auth_info><method>query</method>
-        <name>ht2_nicovideo</name>
-        <value>xxxxxxxxxxxxxxxxxxxxxxxxx</value>
-        </content_auth_info>
-      </content_auth>
-      <runtime_info>
-        <node_id></node_id>
-        <execution_history/>
-      </runtime_info>
-      <client_info>
-        <player_id>aafsakdaslfjaslfjlafj</player_id>
-        <remote_ip></remote_ip>
-        <tracking_info></tracking_info>
-      </client_info>
-      <created_time>111111111</created_time>
-      <modified_time>2222222222222</modified_time>
-      <priority>0.123456</priority>
-      <content_route>0</content_route>
-      <version></version>
-    </session>
-  </data>
-</object>`.trim();
 
-*/
+//===END===
 
 module.exports = {
   VideoSession: VideoSession
