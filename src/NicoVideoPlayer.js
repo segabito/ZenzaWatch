@@ -710,9 +710,6 @@ class YouTubeWrapper {}
       border: 1px inset;
     }
 
-    .is-youTube .screenShot {
-      display: none !important;
-    }
   `).trim();
 
   ContextMenu.__tpl__ = (`

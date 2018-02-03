@@ -2698,6 +2698,10 @@ const TagEditApi = function() {};
           document.body.addEventListener('mouseup', this._bound._onBodyClick);
         }
       }, 100));
+
+      this._ginzaLink = shadow.querySelector('.ginzaLink');
+      this._twitterLink = shadow.querySelector('.twitterHashLink');
+      this._parentVideoLink = shadow.querySelector('.parentVideoLink');
     }
 
     _onBodyClick() {
@@ -2717,6 +2721,10 @@ const TagEditApi = function() {};
         'isCommunity': videoInfo.isCommunityVideo,
         'isMymemory': videoInfo.isMymemory
       });
+
+      this._ginzaLink.setAttribute('href', `//${location.host}/watch/${this._currentWatchId}`);
+      this._twitterLink.setAttribute('href', `https://twitter.com/hashtag/${this._currentVideoId}`);
+      this._parentVideoLink.setAttribute('href', `//commons.nicovideo.jp/tree/${this._currentVideoId}`);
     }
 
     _onCommand(command, param) {
@@ -2796,15 +2804,17 @@ const TagEditApi = function() {};
         padding: 4px;
       }
 
-      .RelatedInfoMenu li span {
+      .RelatedInfoMenu li > .command {
         display: inline-block;
+        text-decoration: none;
+        color: #ccc;
       }
 
-      .RelatedInfoMenu li span:hover {
+      .RelatedInfoMenu li > .command:hover {
         text-decoration: underline;
       }
 
-      .RelatedInfoMenu li span:hover::before {
+      .RelatedInfoMenu li > .command:hover::before {
         content: '▷';
         position: absolute;
         transform: translate(-100%, 0);
@@ -2852,7 +2862,13 @@ const TagEditApi = function() {};
         line-height: 20px;
       }
 
+      :host-context(.zenzaWatchVideoInfoPanel) .RelatedInfoMenu li > .command {
+        color: #222;
+      }
 
+      .zenzaWatchVideoInfoPanel .RelatedInfoMenu li > .command {
+        color: #222;
+      }
 
     </style>
     <details class="root RelatedInfoMenu">
@@ -2860,24 +2876,24 @@ const TagEditApi = function() {};
       <div class="RelatedInfoMenuBody">
         <ul>
           <li class="ginzaMenu">
-            <span class="ginzaLink command"
-              rel="noopener" data-command="watch-ginza">GINZAで視聴</span>
+            <a class="ginzaLink command"
+              rel="noopener" data-command="watch-ginza">GINZAで視聴</a>
           </li>
           <li class="uadMenu">
             <span class="uadLink command"
               rel="noopener" data-command="open-uad">ニコニ広告で宣伝</span>
           </li>
           <li class="twitterHashMenu">
-            <span class="twitterHashLink command"
-              rel="noopener" data-command="open-twitter-hash">twitterの反応を見る</span>
+            <a class="twitterHashLink command"
+              rel="noopener" data-command="open-twitter-hash">twitterの反応を見る</a>
           </li>
           <li class="originalLinkMenu">
             <span class="originalLinkBox command"
               rel="noopener" data-command="open-original-video">元動画を開く</span>
           </li>
           <li class="parentVideoMenu">
-            <span class="parentVideoLink command"
-              rel="noopener" data-command="open-parent-video">親作品・コンテンツツリー</span>
+            <a class="parentVideoLink command"
+              rel="noopener" data-command="open-parent-video">親作品・コンテンツツリー</a>
           </li>
           <li class="copyVideoWatchUrlMenu">
             <span class="copyVideoWatchUrlLink command"
