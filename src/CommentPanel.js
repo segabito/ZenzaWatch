@@ -1465,6 +1465,7 @@ data-title="%no%: %date% ID:%userId%
     }
 
     _updateTimestamp() {
+      if (isNaN(this._currentTimestamp)) { return; }
       this._elm.time.textContent = this._currentTime = this._toDate(this._currentTimestamp);
     }
 

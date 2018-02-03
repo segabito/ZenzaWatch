@@ -1067,10 +1067,7 @@ var CONSTANT = {};
       this._initializeVideoInfoPanel();
       this._initializeResponsive();
 
-      //$dialog.toggleClass('is-iOS', /(iPad|iPhone|CriOS)/.test(navigator.userAgent));
-      // //タッチパネルがある場合は null ない場合は undefined になる
-      //$dialog.toggleClass('is-touchDeviceExist', window.ontouchstart !== undefined);
-
+      this.selectTab(this._playerConfig.getValue('videoInfoPanelTab'));
 
       ZenzaWatch.emitter.on('showMenu', () => { $container.addClass('menuOpen'); });
       ZenzaWatch.emitter.on('hideMenu', () => { $container.removeClass('menuOpen'); });
@@ -1301,6 +1298,7 @@ var CONSTANT = {};
       return this._videoInfoPanel.appendTab(name, title);
     },
     selectTab: function(name) {
+      this._playerConfig.setValue('videoInfoPanelTab', name);
       this._videoInfoPanel.selectTab(name);
     },
     execCommand: function(command, param) {
@@ -1633,6 +1631,9 @@ var CONSTANT = {};
           break;
         case 'setVideo':
           this.setVideo(param);
+          break;
+        case 'selectTab':
+          this._view.selectTab(param);
           break;
         case 'copy-video-watch-url':
           util.copyToClipBoard(this._videoInfo.watchUrl);

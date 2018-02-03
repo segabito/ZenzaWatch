@@ -223,6 +223,7 @@ class CrossDomainGate {}
         enableFullScreenOnDoubleClick: true,
         enableStoryboard: true, // シークバーサムネイル関連
         enableStoryboardBar: false, // シーンサーチ
+        videoInfoPanelTab: 'videoInfoTab',
 
         forceEconomy: false,
         // NG設定

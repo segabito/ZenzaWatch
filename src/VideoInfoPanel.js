@@ -846,7 +846,7 @@ const TagEditApi = function() {};
       $view.on('click', '.tabSelect', (e) => {
         var $target = $(e.target).closest('.tabSelect');
         var tabName = $target.attr('data-tab');
-        this.selectTab(tabName);
+        this._onCommand('selectTab', tabName);
       });
 
       $view.on('click', (e) => {
@@ -1127,7 +1127,7 @@ const TagEditApi = function() {};
     selectTab: function(tabName) {
       var $view = this._$view;
       var $target = $view.find('.tabs.' + tabName + ', .tabSelect.' + tabName);
-      if ($target.length < 1) { return; }
+      this._activeTabName = tabName;
       $view.find('.activeTab').removeClass('activeTab');
       $target.addClass('activeTab');
     },
@@ -1156,6 +1156,10 @@ const TagEditApi = function() {};
       $view.find('.tabSelectContainer').append($select);
       $view.append($body);
 
+      if (this._activeTabName === tabName) {
+        $select.addClass('activeTab');
+        $body.addClass('activeTab');
+      }
       return $body;
     },
     removeTab: function(tabName) {
