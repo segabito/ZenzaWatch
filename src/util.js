@@ -963,7 +963,8 @@ class CrossDomainGate {}
 
         var onMessage = function(event) {
           if (_.indexOf(knownSource, event.source) < 0 &&
-              event.origin !== location.protocol + '//ext.nicovideo.jp'
+              event.origin !== 'http://ext.nicovideo.jp' &&
+              event.origin !== 'https://ext.nicovideo.jp'
               ) { return; }
           try {
             var data = JSON.parse(event.data);
