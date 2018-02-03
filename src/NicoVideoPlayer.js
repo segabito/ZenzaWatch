@@ -457,6 +457,7 @@ class YouTubeWrapper {}
       this._bound.onBodyMouseUp   = this._onBodyMouseUp.bind(this);
       this._bound.onRepeat = this._onRepeat.bind(this);
       this._view.addEventListener('mousedown', onMouseDown);
+      this._isFirstShow = true;
       this._view.addEventListener('contextmenu', (e) => {
         setTimeout(() => { this.hide(); }, 100);
         e.preventDefault(); e.stopPropagation();
@@ -565,6 +566,15 @@ class YouTubeWrapper {}
       });
       view.find('.debug')
         .toggleClass('selected', this._playerState.isDebug);
+      if (this._isFirstShow) {
+        this._isFirstShow = false;
+        const handler = (command, param) => {
+          this.emit('command', command, param);
+        };
+        ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
+          view.querySelector('.empty-area-top'), handler
+        );
+      }
     }
   }
 
@@ -713,7 +723,7 @@ class YouTubeWrapper {}
             data-param="0.1" data-type="number" data-is-no-close="true">
             &#128247;<div class="tooltip">スクリーンショット</div>
           </div>
-          <div style="flex:4;"></div>
+          <div class="empty-area-top" style="flex:4;"></div>
         </div>
         <div class="controlButtonContainerFlex">
           <div class="controlButton command rate010 playbackRate" data-command="playbackRate"
@@ -1435,11 +1445,6 @@ class YouTubeWrapper {}
       let body = this._body = document.createElement('div');
       body.className = 'touchWrapper';
 
-      //body.addEventListener('mousedown', this._onMousedown.bind(this));
-      //body.addEventListener('mouseup',   this._onMouseup  .bind(this));
-      //body.addEventListener('contextMenu', (e) => {
-      //  this._execCommand('contextMenu', e);
-      //});
       body.addEventListener('click', this._onClick.bind(this));
 
       body.addEventListener('touchstart',  this._onTouchStart .bind(this));

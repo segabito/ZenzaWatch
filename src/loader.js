@@ -961,14 +961,13 @@ var ajax = function() {};
         },
         _post: function(server, xml) {
           // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
-          var isNmsg = server.indexOf('nmsg.nicovideo.jp') >= 0;
           return new Promise((resolve, reject) => {
             ajax({
               url: server,
               data: xml,
               timeout: 60000,
               type: 'POST',
-              contentType: isNmsg ? 'text/xml' : 'text/plain',
+              contentType: 'text/plain',
               dataType: 'xml',
               crossDomain: true,
               cache: false

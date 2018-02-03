@@ -112,6 +112,28 @@ var CONSTANT = {};
       height: 40px;
       z-index: 200;
     }
+
+    .controlItemContainer.left {
+      left: 0;
+      height: 40px;
+      white-space: nowrap;
+      overflow: visible;
+      transition: transform 0.2s ease, left 0.2s ease;
+    }
+    .controlItemContainer.left .scalingUI {
+      padding: 0 8px 0;
+    }
+    .controlItemContainer.left .scalingUI:empty{
+      display: none;
+    }
+    .is-mouseMoving .controlItemContainer.left .scalingUI>* {
+      background: #222;
+    }
+    .fullScreen .controlItemContainer.left {
+      top: auto;
+    }
+
+
     .controlItemContainer.center {
       left: 50%;
       height: 40px;
@@ -907,6 +929,9 @@ var CONSTANT = {};
         </div>
       </div>
 
+      <div class="controlItemContainer left">
+        <div class="scalingUI"></div>
+      </div>
       <div class="controlItemContainer center">
         <div class="scalingUI">
           <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
@@ -1080,6 +1105,7 @@ var CONSTANT = {};
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
       this._initializeVideoServerTypeSelectMenu();
+      this._isFirstVideoInitialized = false;
 
       ZenzaWatch.debug.videoControlBar = this;
     },
@@ -1134,7 +1160,6 @@ var CONSTANT = {};
       });
       this._seekBarToolTip.on('command', onCommand);
 
-
       this._commentPreview = new CommentPreview({
         $container: this._$seekBarContainer
       });
@@ -1155,6 +1180,7 @@ var CONSTANT = {};
 
       this._$videoServerTypeMenu       = $view.find('.videoServerTypeMenu');
       this._$videoServerTypeSelectMenu = $view.find('.videoServerTypeSelectMenu');
+
 
       ZenzaWatch.emitter.on('hideHover', () => {
         this._hideMenu();
@@ -1550,6 +1576,20 @@ var CONSTANT = {};
     },
     _onLoadVideoInfo: function(videoInfo) {
       this.setDuration(videoInfo.duration);
+
+      if (!this._isFirstVideoInitialized) {
+        this._isFirstVideoInitialized = true;
+        const handler = (command, param) => {
+          this.emit('command', command, param);
+        };
+
+        ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
+          this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
+        );
+        ZenzaWatch.emitter.emitAsync('seekBar.addonMenuReady',
+          this._$view[0].querySelector('.seekBar'), handler
+        );
+      }
     },
     setCurrentTime: function(sec) {
       if (this._currentTime !== sec) {

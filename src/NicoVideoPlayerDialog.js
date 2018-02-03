@@ -1671,6 +1671,9 @@ var CONSTANT = {};
           if (this._playerConfig.getValue(command) === param) { break; }
           this._playerConfig.setValue(command, param);
           break;
+        default:
+          this.emit('command', command, param);
+          ZenzaWatch.emitter.emit(`command-${command}`, param);
       }
     },
     _onKeyDown: function(name , e, param) {
