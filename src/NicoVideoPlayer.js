@@ -462,7 +462,11 @@ class YouTubeWrapper {}
         setTimeout(() => { this.hide(); }, 100);
         e.preventDefault(); e.stopPropagation();
       });
-     }
+    }
+
+    //_onCommand(command, param) {
+    //   super._onCommand(command, param);
+    //}
 
     _onClick(e) {
       if (e && e.button !== 0) {
@@ -571,8 +575,8 @@ class YouTubeWrapper {}
         const handler = (command, param) => {
           this.emit('command', command, param);
         };
-        ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
-          view.querySelector('.empty-area-top'), handler
+        ZenzaWatch.emitter.emitAsync('videoContextMenu.addonMenuReady',
+          view.find('.empty-area-top'), handler
         );
       }
     }
@@ -720,7 +724,7 @@ class YouTubeWrapper {}
             data-param="0.1" data-type="number" data-is-no-close="true">
             &#128247;<div class="tooltip">スクリーンショット</div>
           </div>
-          <div class="empty-area-top" style="flex:4;"></div>
+          <div class="empty-area-top" style="flex:4;" data-is-no-close="true"></div>
         </div>
         <div class="controlButtonContainerFlex">
           <div class="controlButton command rate010 playbackRate" data-command="playbackRate"

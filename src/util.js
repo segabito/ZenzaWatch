@@ -1965,6 +1965,8 @@ class CrossDomainGate {}
             node.appendChild(elm);
           }
         }
+
+        appendChild(...args) { this.append(...args); }
       }
 
       const createDom = util.createdom;
