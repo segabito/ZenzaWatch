@@ -148,7 +148,8 @@ const TagEditApi = function() {};
         bottom: auto;
         z-index: 1;
       }
-    }
+
+     }
 
     @media screen and (min-width: 1216px) {
       body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
@@ -228,7 +229,8 @@ const TagEditApi = function() {};
     }
 
     .zenzaWatchVideoInfoPanel .ownerPageLink {
-      display: inline-block;
+      display: block;
+      margin: 0 auto 8px;
       width: 104px;
     }
 
@@ -236,8 +238,9 @@ const TagEditApi = function() {};
       width: 96px;
       height: 96px;
       border: none;
-      margin-right: 8px;
-      box-shadow: 2px 2px 2px #666;
+      border-radius: 4px;
+      /*margin-right: 8px;*/
+      /*box-shadow: 2px 2px 2px #666;*/
       transition: opacity 1s ease;
       vertical-align: middle;
     }
@@ -246,26 +249,21 @@ const TagEditApi = function() {};
     }
 
     .zenzaWatchVideoInfoPanel .ownerName {
-      font-size: 18px;
+      font-size: 20px;
       word-break: break-all;
     }
 
     .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
-      padding: 8px;
+      padding: 16px;
       display: table;
-      width: calc(100% - 16px);
+      /*width: calc(100% - 16px);*/
+      width: 100%;
     }
 
     .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>*{
-      display: table-cell;
+      display: block;
       vertical-align: middle;
-      text-align: left;
-    }
-
-    .zenzaWatchVideoInfoPanel .favorite .ownerName:after {
-      content: '★';
-      color: yellow;
-      text-shadow: 1px 1px 1px red, -1px -1px 1px orange;
+      text-align: center;
     }
 
     .zenzaWatchVideoInfoPanel .videoDescription {
@@ -293,7 +291,7 @@ const TagEditApi = function() {};
       box-sizing: border-box;
       padding: 4px 16px;;
       min-height: 60px;
-      width: 240px;
+      width: 272px;
       margin: 8px 10px;
       background: #444;
       border-radius: 4px;
@@ -333,6 +331,7 @@ const TagEditApi = function() {};
       cursor: pointer;
       text-align: center;
       user-select: none;
+      margin-left: 8px;
     }
     .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
     .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
@@ -505,6 +504,14 @@ const TagEditApi = function() {};
       body:not(.fullScreen).zenzaScreenMode_normal .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
       }
+
+      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+        display: table;
+      }
+      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
+        display: table-cell;
+        text-align: left;
+      }
     }
 
     @media
@@ -532,6 +539,14 @@ const TagEditApi = function() {};
 
       body:not(.fullScreen).zenzaScreenMode_big .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
+      }
+
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+        display: table;
+      }
+      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
+        display: table-cell;
+        text-align: left;
       }
     }
 
@@ -673,10 +688,6 @@ const TagEditApi = function() {};
       transition: none;
     }
 
-    .zenzaWatchVideoInfoPanel .resumePlay:::after {
-      opacity: 0;
-    }
-
     .zenzaWatchVideoInfoPanel .resumeThumbnailContainer {
       display: inline-block;
       vertical-align: middle;
@@ -753,11 +764,11 @@ const TagEditApi = function() {};
               <div class="videoMetaInfoContainer"></div>
               <div class="relatedInfoMenuContainer"></div>
             </div>
+            <div class="videoDescription"></div>
             <div class="resumePlay" data-command="seek" data-param="0" type="button">
               続きから再生 (<span class="resumePlayPoint">00:00</span>)
               <div class="resumeThumbnailContainer"></div>
             </div>
-            <div class="videoDescription"></div>
           </div>
           <div class="zenzaWatchVideoInfoPanelFoot">
             <div class="uaaContainer"></div>
@@ -2704,6 +2715,7 @@ const TagEditApi = function() {};
       }, 100));
 
       this._ginzaLink = shadow.querySelector('.ginzaLink');
+      this._originalLink = shadow.querySelector('.originalLink');
       this._twitterLink = shadow.querySelector('.twitterHashLink');
       this._parentVideoLink = shadow.querySelector('.parentVideoLink');
     }
@@ -2727,6 +2739,7 @@ const TagEditApi = function() {};
       });
 
       this._ginzaLink.setAttribute('href', `//${location.host}/watch/${this._currentWatchId}`);
+      this._originalLink.setAttribute('href', `//${location.host}/watch/${this._currentVideoId}`);
       this._twitterLink.setAttribute('href', `https://twitter.com/hashtag/${this._currentVideoId}`);
       this._parentVideoLink.setAttribute('href', `//commons.nicovideo.jp/tree/${this._currentVideoId}`);
     }
@@ -2832,7 +2845,7 @@ const TagEditApi = function() {};
           display: none;
         }
 
-        .RelatedInfoMenu.is-CommunityVideo   .originalLinkMenu,
+        .RelatedInfoMenu.is-Community        .originalLinkMenu,
         .RelatedInfoMenu.is-Mymemory         .originalLinkMenu,
         .RelatedInfoMenu.is-ParentVideoExist .parentVideoMenu {
           display: block;
@@ -2892,8 +2905,8 @@ const TagEditApi = function() {};
               rel="noopener" data-command="open-twitter-hash">twitterの反応を見る</a>
           </li>
           <li class="originalLinkMenu">
-            <span class="originalLinkBox command"
-              rel="noopener" data-command="open-original-video">元動画を開く</span>
+            <a class="originalLink command"
+              rel="noopener" data-command="open-original-video">元動画を開く</a>
           </li>
           <li class="parentVideoMenu">
             <a class="parentVideoLink command"

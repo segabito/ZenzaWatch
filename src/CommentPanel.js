@@ -771,6 +771,7 @@ class BaseViewComponent {}
     }
 
     .active .commentListItem:hover {
+      overflow-x: hidden;
       overflow-y: visible;
       z-index: 60;
       height: auto;
@@ -780,7 +781,8 @@ class BaseViewComponent {}
     .active .commentListItem:hover .text {
       white-space: normal;
       word-break: break-all;
-      overflow-y: visible;
+      /*overflow-x: hidden;
+      overflow-y: visible;*/
       height: auto;
     }
 

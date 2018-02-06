@@ -265,7 +265,8 @@ class NicoSearchApiV2Loader {}
     padding: 0;
     width: 100vw;
     height: 100vh;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   #listContainerInner {
