@@ -1626,6 +1626,9 @@ var CONSTANT = {};
         case 'nicosSeek':
           this._onNicosSeek(param);
           break;
+        case 'fastSeek':
+          this._nicoVideoPlayer.fastSeek(param);
+          break;
         case 'saveMymemory':
           util.saveMymemory(this, this._videoInfo);
           break;
@@ -2083,9 +2086,9 @@ var CONSTANT = {};
       window.console.info('nicosSeek!', time);
       if (this.isPlaylistEnable()) {
         // 連続再生中は後方へのシークのみ有効にする
-        if (ct < time) { this.execCommand('seek', time); }
+        if (ct < time) { this.execCommand('fastSeek', time); }
       } else {
-        this.execCommand('seek', time);
+        this.execCommand('fastSeek', time);
       }
     },
     show: function() {

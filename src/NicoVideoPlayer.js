@@ -278,6 +278,9 @@ class YouTubeWrapper {}
     setCurrentTime: function(t) {
       this._videoPlayer.setCurrentTime(Math.max(0, t));
     },
+    fastSeek: function(t) {
+      this._videoPlayer.fastSeek(Math.max(0, t));
+    },
     getDuration: function() {
       return this._videoPlayer.getDuration();
     },
@@ -1267,6 +1270,25 @@ class YouTubeWrapper {}
         this._video.currentTime = sec;
         this.emit('seek', this._video.currentTime);
       }
+    }
+
+    /**
+     * fastSeekが使えたら使う。 現状Firefoxのみ？
+     * - currentTimeによるシーク 位置は正確だが遅い
+     * - fastSeekによるシーク キーフレームにしか飛べないが速い(FLashに近い)
+     * なので、smile動画のループ動画はこっちを使ったほうが再現度が高くなりそう
+     */
+    fastSeek(sec) {
+      window.console.log('fastSeek', sec);
+      if (typeof this._video.fastSeek !== 'function' || this._isYouTube) {
+        return this.setCurrentTime(sec);
+      }
+      // dmc動画はキーフレーム間隔が1秒とか意味不明な仕様なのでcurrentTimeでいい
+      if (this._src.indexOf('dmc.nico') >= 0) {
+        return this.setCurrentTime(sec);
+      }
+      this._video.fastSeek(sec);
+      this.emit('seek', this._video.currentTime);
     }
 
     getDuration () {

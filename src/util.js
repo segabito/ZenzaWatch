@@ -398,7 +398,9 @@ class CrossDomainGate {}
         if (config[key] !== value && arguments.length >= 2) {
           var storageKey = prefix + key;
           if (location.host === 'www.nicovideo.jp') {
-            localStorage.setItem(storageKey, JSON.stringify(value));
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(value));
+            } catch (e) { window.console.error(e); }
           }
           config[key] = value;
 
@@ -415,7 +417,9 @@ class CrossDomainGate {}
         if (config[key] !== value && arguments.length >= 2) {
           var storageKey = prefix + key;
           if (location.host === 'www.nicovideo.jp') {
-            localStorage.setItem(storageKey, JSON.stringify(value));
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(value));
+            } catch (e) { window.console.error(e); }
           }
           config[key] = value;
 
