@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name        ZenzaWatch 上級者向け設定
+// @name        ZenzaWatch 上級者用設定
 // @namespace   https://github.com/segabito/
-// @description ZenzaWatchの上級者向け設定をするアドオン。設定する時だけ有効にすればOK
+// @description ZenzaWatchの上級者向け設定。変更する時だけ有効にすればOK
 // @include     http://www.nicovideo.jp/my/*
-// @version     0.2.6
+// @version     0.2.8
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -54,6 +54,11 @@
         height: 8px;
         background: url(http://uni.res.nimg.jp/img/zero_my/icons.png) no-repeat;
         background-position: -8px -141px;
+      }
+
+
+      .summer2017Area {
+        display: none !important;
       }
     `).trim();
 
@@ -297,6 +302,14 @@
               旧システムのほうが画質が良さそうな時は旧システムにする。(旧システム側が1280x720を超える時)
             </label>
           </div>
+
+          <div class="autoZenTube control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="autoZenTube">
+              自動ZenTube (ZenTubeから戻す時は動画を右クリックからリロード)
+            </label>
+          </div>
+
 
           <div class="enableSlotLayoutEmulation control toggle">
             <label>
@@ -633,7 +646,7 @@
       window.console.log('ZenzaWatch is Ready');
       loadMonkey();
     } else {
-      window.jQuery('body').on('ZenzaWatchReady', function() {
+      document.body.addEventListener('ZenzaWatchInitialize', function() {
         window.console.log('onZenzaWatchReady');
         loadMonkey();
       });

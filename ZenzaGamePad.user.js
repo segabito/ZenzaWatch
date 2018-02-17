@@ -3,7 +3,7 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     http://*.nicovideo.jp/*
-// @version     1.3.2
+// @version     1.3.3
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -81,7 +81,8 @@
         return onButtonDownSaturn(button, deviceId);
       }
       // FC30なのにみんなVendor違うってどういうことだよ
-      if (deviceId.match(/Vendor: (3810|05a0|1235)/i)) {
+      // 8Bitdo FC30 Pro (Vendor: 1002 Product: 9000)
+      if (deviceId.match(/Vendor: (3810|05a0|1235|1002)/i)) {
         return onButtonDownFC30(button, deviceId);
       }
 
@@ -247,10 +248,10 @@
         //USB Gamepad (Vendor: 04b4 Product: 010a)"
         return onButtonUpSaturn(button, deviceId);
       }
-      if (deviceId.match(/Vendor: (3810|05a0|1235)/i)) {
+      // 8Bitdo FC30 Pro (Vendor: 1002 Product: 9000)
+      if (deviceId.match(/Vendor: (3810|05a0|1235|1002)/i)) {
         return onButtonUpFC30(button, deviceId);
       }
-
 
       switch (button) {
         case 0: // A
@@ -699,6 +700,8 @@
       var pollingTimer = null;
       var ZenzaGamePad = new ZenzaWatch.lib.AsyncEmitter();
 
+      const padIndex = localStorage['ZenzaGamePadpadIndex'] || 0;
+
       var detectGamepad = function() {
         if (primaryGamepad) {
           return;
@@ -708,6 +711,7 @@
           var pad = _.find(gamepads, (pad) => {
             return  pad &&
                     pad.id &&
+                    pad.index === padIndex &&
                     // windowsにDualShock4を繋ぐとあらわれる謎のデバイス
                     !pad.id.match(/Vendor: 00ff/i);
           });

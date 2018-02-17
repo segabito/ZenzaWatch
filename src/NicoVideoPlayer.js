@@ -1276,10 +1276,9 @@ class YouTubeWrapper {}
      * fastSeekが使えたら使う。 現状Firefoxのみ？
      * - currentTimeによるシーク 位置は正確だが遅い
      * - fastSeekによるシーク キーフレームにしか飛べないが速い(FLashに近い)
-     * なので、smile動画のループ動画はこっちを使ったほうが再現度が高くなりそう
+     * なので、smile動画のループはこっちを使ったほうが再現度が高くなりそう
      */
     fastSeek(sec) {
-      window.console.log('fastSeek', sec);
       if (typeof this._video.fastSeek !== 'function' || this._isYouTube) {
         return this.setCurrentTime(sec);
       }

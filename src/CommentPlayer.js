@@ -1,17 +1,18 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
+const $ = require('jquery');
+const _ = require('lodash');
+const ZenzaWatch = {
   util:{},
   debug: {},
   api: {}
 };
-var Config = {};
-var AsyncEmitter = {};
-var PopupMessage = {};
-var NicoTextParser = {};
-var CommentLayoutWorker = {};
-var SlotLayoutWorker = {};
-var VideoCaptureUtil = {};
+const Config = {};
+const AsyncEmitter = {};
+const PopupMessage = {};
+const NicoTextParser = {};
+const CommentLayoutWorker = {};
+const SlotLayoutWorker = {};
+const VideoCaptureUtil = {};
+const util = {};
 
 //===BEGIN===
 

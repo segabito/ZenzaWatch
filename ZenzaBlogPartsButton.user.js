@@ -2,11 +2,11 @@
 // @name           ZenzaBlogPartsButton
 // @namespace      https://github.com/segabito/
 // @description    ニコニコ動画のブログパーツにZenzaWatch起動用ボタンを追加
-// @match          http://ext.nicovideo.jp/thumb/*
+// @match          *://ext.nicovideo.jp/thumb/*
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.0.1
+// @version        0.0.2
 // ==/UserScript==
 
 
