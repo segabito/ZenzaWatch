@@ -271,7 +271,7 @@ var CONSTANT = {};
     }
 
     .togglePlay {
-      font-size: 20px;
+      font-size: 22px;
       width: 32px;
       height: 32px;
       line-height: 30px;
@@ -441,19 +441,25 @@ var CONSTANT = {};
     .videoControlBar .videoTime {
       display: inline-block;
       top: 0;
-      padding: 0 16px;
+      padding: 0 8px;
       color: #fff;
-      font-size: 10px;
+      font-size: 12px;
       white-space: nowrap;
       background: rgba(33, 33, 33, 0.5);
+      border: 0;
       border-radius: 4px;
-      text-align: center;
+      pointer-events: none;
+      user-select: none;
     }
     .videoControlBar .videoTime .currentTime,
     .videoControlBar .videoTime .duration {
       display: inline-block;
       color: #fff;
       text-align: center;
+      background: inherit;
+      border: 0;
+      width: 40px;
+      font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
     }
 
     .videoControlBar.is-loading .videoTime {
@@ -519,6 +525,7 @@ var CONSTANT = {};
       line-height: 30px;
       font-size: 18px;
       white-space: nowrap;
+      margin-right: 0;
     }
 
     .playbackRateMenu:active {
@@ -935,7 +942,7 @@ var CONSTANT = {};
       <div class="controlItemContainer center">
         <div class="scalingUI">
           <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
-            <div class="controlButtonInner">＜●＞</div>
+            <div class="controlButtonInner">&lt;●&gt;</div>
             <div class="tooltip">シーンサーチ</div>
           </div>
 
@@ -985,8 +992,7 @@ var CONSTANT = {};
           </div>
 
           <div class="videoTime">
-            <span class="currentTime"></span> /
-            <span class="duration"></span>
+            <input type="text" class="currentTime" value="00:00">/<input type="text" class="duration" value="00:00">
           </div>
 
           <div class="muteSwitch controlButton" data-command="toggleMute">
@@ -1601,7 +1607,7 @@ var CONSTANT = {};
         var currentTimeText = [m, s].join(':');
         if (this._currentTimeText !== currentTimeText) {
           this._currentTimeText = currentTimeText;
-          this._$currentTime.text(currentTimeText);
+          this._$currentTime[0].value = currentTimeText;
         }
         const per = Math.min(100, this._timeToPer(sec));
         this._$seekBarPointer[0].style.transform = `translate3d(${per}%, 0, 0)`;
@@ -1611,13 +1617,13 @@ var CONSTANT = {};
       if (sec !== this._duration) {
         this._duration = sec;
 
-        if (sec === 0) {
-          this._$duration.text('--:--');
+        if (sec === 0 || isNaN(sec)) {
+          this._$duration[0].value = '--:--';
         }
         var m = Math.floor(sec / 60);
         m = m < 10 ? ('0' + m) : m;
         var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-        this._$duration.text([m, s].join(':'));
+        this._$duration[0].value = [m, s].join(':');
         this.emit('durationChange');
       }
     },
