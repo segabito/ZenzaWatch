@@ -17,6 +17,9 @@ class BaseViewComponent {}
 //===BEGIN===
 
 const {YouTubeWrapper} = (() => {
+
+  const STATE_PLAYING = 1;
+
   class YouTubeWrapper extends AsyncEmitter {
     constructor({parentNode, autoplay = true, volume = 0.3, playbackRate = 1, loop = false}) {
       super();
@@ -212,7 +215,30 @@ const {YouTubeWrapper} = (() => {
     }
 
     get currentTime() {
-      return this._isSeeking ? this._seekTime : this._player.getCurrentTime();
+      const now = performance.now();
+      if (this._isSeeking) {
+        this._lastTime = now;
+        return this._seekTime;
+      }
+      const state = this._player.getPlayerState();
+      const currentTime = this._player.getCurrentTime();
+
+      if (state !== STATE_PLAYING || this._lastCurrentTime !== currentTime) {
+        this._lastCurrentTime = currentTime;
+        this._lastTime = now;
+        return currentTime;
+      }
+
+      // 本家watchページ上ではなぜかgetCurrentTimeの精度が落ちるため、
+      // status===PLAYINGにもかかわらずcurrentTimeが進んでいない時は、wrapper側で補完する。
+      // 精度が落ちると断続的なstalled判定になりコメントがカクカクする
+      const timeDiff = (now - this._lastTime) * this.playbackRate / 1000000;
+      if (this._lastCurrentTime !== currentTime) {
+        this._lastTime = now;
+      }
+
+      this._lastCurrentTime = Math.min(currentTime, this.duration);
+      return currentTime + timeDiff;
     }
 
     get duration() {
