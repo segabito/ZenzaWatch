@@ -105,9 +105,9 @@ var ZenzaWatch = {
     }
 
     set ngTag(tag) {
-      tag = _.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
-      var list = [];
-      _.each(tag, function(t) {
+      tag = Array.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
+      const list = [];
+      tag.forEach(t => {
         list.push(t.toLowerCase().trim());
       });
       this._ngTag = list;
@@ -119,7 +119,7 @@ var ZenzaWatch = {
       let ngTag = this.ngTag;
       videoInfo.tagList.forEach(tag => {
         let text = (tag.tag || '').toLowerCase();
-        if (_.contains(ngTag, text)) {
+        if (ngTag.includes(text)) {
           isNg = true;
         }
       });
@@ -127,7 +127,7 @@ var ZenzaWatch = {
 
       let owner = videoInfo.ownerInfo;
       let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
-      if (ownerId && _.contains(this.ngOwner, ownerId)) {
+      if (ownerId && this.ngOwner.includes(ownerId)) {
         isNg = true;
       }
 

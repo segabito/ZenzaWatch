@@ -554,7 +554,7 @@ var AsyncEmitter = function() {};
       });
 
       var onConfigUpdate = function(key, value) {
-        if (_.contains(['wordFilter', 'userIdFilter', 'commandFilter'], key)) {
+        if (['wordFilter', 'userIdFilter', 'commandFilter'].includes(key)) {
           map[key].val(value.join('\n'));
         }
       };

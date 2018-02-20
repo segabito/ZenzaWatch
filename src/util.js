@@ -444,7 +444,7 @@ class CrossDomainGate {}
       emitter.exportConfig = function() {
         var result = {};
         _.each(Object.keys(defaultConfig), function(key) {
-          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) { return; }
           var storageKey = prefix + key;
           if ((localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) &&
               defaultConfig[key] !== emitter.getValue(key)) {
@@ -457,7 +457,7 @@ class CrossDomainGate {}
       emitter.importConfig = function(data) {
         noEmit = true;
         _.each(Object.keys(data), function(key) {
-          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) { return; }
           window.console.log('import config: %s=%s', key, data[key]);
           try {
             emitter.setValue(key, data[key]);
@@ -469,7 +469,7 @@ class CrossDomainGate {}
       emitter.clearConfig = function() {
         noEmit = true;
         _.each(Object.keys(defaultConfig), function(key) {
-          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) { return; }
           var storageKey = prefix + key;
           try {
             if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {

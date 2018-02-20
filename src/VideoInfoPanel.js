@@ -1608,7 +1608,7 @@ const TagEditApi = function() {};
       const target = e.target.classList.contains('command') ?
         e.target : e.target.closest('.command');
 
-      if (!_.contains(['input', 'select'], tagName)) {
+      if (!['input', 'select'].includes(tagName)) {
         this._word.focus();
       }
 

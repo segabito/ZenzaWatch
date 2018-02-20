@@ -56,7 +56,7 @@ var CONSTANT = {};
       if (!this._mode) { return key; }
       switch (this._mode) {
         case 'ginza':
-          if (_.contains(['autoPlay', 'screenMode'], key)) {
+          if (['autoPlay', 'screenMode'].includes(key)) {
             return key + ':' + this._mode;
           }
           return key;
@@ -1776,7 +1776,7 @@ var CONSTANT = {};
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
-      if (!_.contains(['small', 'sideView'], screenMode)) {
+      if (!['small', 'sideView'].includes(screenMode)) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -2745,7 +2745,7 @@ var CONSTANT = {};
 
         if (errorCode === 3) {
           return _onTicketFail(err);
-        } else if (!_.contains([2, 4, 5], errorCode)) {
+        } else if (![2, 4, 5].includes(errorCode)) {
           return _onFailFinal(err);
         }
 
