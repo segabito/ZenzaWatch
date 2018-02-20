@@ -233,10 +233,6 @@ const {YouTubeWrapper} = (() => {
       // status===PLAYINGにもかかわらずcurrentTimeが進んでいない時は、wrapper側で補完する。
       // 精度が落ちると断続的なstalled判定になりコメントがカクカクする
       const timeDiff = (now - this._lastTime) * this.playbackRate / 1000000;
-      if (this._lastCurrentTime !== currentTime) {
-        this._lastTime = now;
-      }
-
       this._lastCurrentTime = Math.min(currentTime, this.duration);
       return currentTime + timeDiff;
     }
