@@ -1403,7 +1403,7 @@ const util = {};
       this._vpos = minv;
     },
     _parseCmd: function(cmd, isFork) {
-      var tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t]+/);
+      var tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t|\u2003]+/);
       var result = {};
       tmp.forEach(c => {
         if (NicoChat.COLORS[c]) {
