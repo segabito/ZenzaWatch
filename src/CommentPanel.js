@@ -488,7 +488,7 @@ class BaseViewComponent {}
       this.scrollTop(top);
     },
     setCurrentPoint: function(idx) {
-      if (!this._$window) { return; }
+      if (!this._$window || !this._itemViews) { return; }
       var innerHeight = this._$window.innerHeight();
       var itemViews = this._itemViews;
       var len  = itemViews.length;

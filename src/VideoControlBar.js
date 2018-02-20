@@ -441,7 +441,7 @@ var CONSTANT = {};
     .videoControlBar .videoTime {
       display: inline-block;
       top: 0;
-      padding: 0 8px;
+      padding: 0;
       color: #fff;
       font-size: 12px;
       white-space: nowrap;
@@ -458,7 +458,7 @@ var CONSTANT = {};
       text-align: center;
       background: inherit;
       border: 0;
-      width: 40px;
+      width: 44px;
       font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
     }
 

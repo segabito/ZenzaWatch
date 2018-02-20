@@ -746,6 +746,7 @@ var DmcStoryboardSession = {
         this._$failMessage   = $view.find('.failMessage');
         this._$cursorTime    = $view.find('.cursorTime');
         this._$pointer       = $view.find('.storyboardPointer');
+        this._inner = $inner[0];
 
         $view
           .toggleClass('webkit', ZenzaWatch.util.isWebkit())
@@ -887,17 +888,17 @@ var DmcStoryboardSession = {
         }
       },
       scrollLeft: function(left, forceUpdate) {
-        var $inner = this._$inner;
-        if (!$inner) { return 0; }
-      
+        const inner = this._inner;
+        if (!inner) { return 0; }
+
         if (left === undefined) {
-          return $inner.scrollLeft();
+          return inner.scrollLeft;
         } else if (left === 0 || Math.abs(this._scrollLeft - left) >= 1) {
           if (left === 0 || forceUpdate) {
-            $inner.scrollLeft(left);
+            inner.scrollLeft = left;
             this._scrollLeftChanged = false;
           } else {
-            var sl = $inner.scrollLeft();
+            var sl = inner.scrollLeft;
             this._scrollLeft = (left + sl) / 2;
             this._scrollLeftChanged = true;
           }
@@ -1098,7 +1099,6 @@ var DmcStoryboardSession = {
         background: #222;
         margin: 0;
       }
-
 
       .storyboardContainer.webkit .storyboardInner,
       .storyboardContainer .storyboardInner:hover {
