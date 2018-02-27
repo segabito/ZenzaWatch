@@ -215,23 +215,6 @@ var ajax = function() {};
         cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
         const playlist = {playlist: []};
-        data.playlist.items.forEach(item => {
-          if (!item.hasData) { return; }
-          playlist.playlist.push({
-              _format:       'html5playlist',
-              _data:          item,
-              id:             item.id,
-              title:          item.title,
-              length_seconds: item.lengthSeconds,
-              num_res:        item.numRes,
-              mylist_counter: item.mylistCounter,
-              view_counter:   item.viewCounter,
-              thumbnail_url:  item.thumbnailURL,
-              first_retrieve: item.firstRetrieve,
-              has_data:       true,
-              is_translated: false
-          });
-        });
 
         const tagList = [];
         data.tags.forEach(t => {
@@ -2180,6 +2163,27 @@ var ajax = function() {};
         return util
           .fetch(url, {credentials: 'include'})
           .then(res => { return res.json(); });
+      };
+
+      return {
+        load
+      };
+    })();
+
+    const PlaylistLoader = (() => {
+
+      const load = (watchId) => {
+        const url = `//www.nicovideo.jp/api/watch/playlist?watch_id=${watchId}`;
+        return util
+          .fetch(url, {credentials: 'include'})
+          .then(res => { return res.json(); })
+          .then(res => {
+            if (res.status !== 'ok') {
+              window.console.warn('load playlist fai', res);
+              throw new Error('load playlist fail');
+            }
+            return res.data;
+          });
       };
 
       return {

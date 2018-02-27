@@ -1078,8 +1078,33 @@ const TagEditApi = function() {};
           this.emit('command', 'setVideo', this._zenTubeUrl);
         }, 100);
       }
-      var relatedVideo = videoInfo.relatedVideoItems;
-      this._relatedVideoList.update(relatedVideo, watchId);
+      let relatedVideo = videoInfo.relatedVideoItems;
+      if (relatedVideo.length > 0) {
+        this._relatedVideoList.update(relatedVideo, watchId);
+      } else {
+        PlaylistLoader.load(watchId).then(data => {
+          const items = data.items || [];
+          (items || []).forEach(item => {
+            if (!item.hasData) { return; }
+            relatedVideo.push({
+              _format:       'playlistApi',
+              _data:          item,
+              id:             item.id,
+              title:          item.title,
+              length_seconds: item.lengthSeconds,
+              num_res:        item.numRes,
+              mylist_counter: item.mylistCounter,
+              view_counter:   item.viewCounter,
+              thumbnail_url:  item.thumbnailURL,
+              first_retrieve: item.firstRetrieve,
+              has_data:       item.hasData,
+              is_translated:  item.isTranslated
+            });
+          });
+          this._relatedVideoList.update(relatedVideo, watchId);
+        });
+      }
+
     },
     _onVideoCountUpdate: function(...args) {
       if (!this._videoHeaderPanel) { return; }

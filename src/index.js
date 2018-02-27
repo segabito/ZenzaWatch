@@ -26,8 +26,8 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.14.34
-// @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js
+// @version        1.14.40
+// @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
 
