@@ -91,7 +91,9 @@ const {YouTubeWrapper} = (() => {
 
       // 自動リンクでURLの前後につきそうな文字列を除去
       // たぶんYouTubeのVideoIdには使われない奴
-      return videoId.replace(/[\?\[\]\(\)"'@]/g, '');
+      return videoId
+        .replace(/[\?\[\]\(\)"'@]/g, '')
+        .replace(/<[a-z0-9]*>/, '');
     }
 
     _initPlayer(videoId, startSeconds = 0) {
