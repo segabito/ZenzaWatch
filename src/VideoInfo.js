@@ -79,6 +79,10 @@ var ZenzaWatch = {
     get storyboardInfo() {
       return this._rawData.storyboard_session_api;
     }
+
+    get transferPreset() {
+      return (this._session.transfer_presets || [''])[0] || '';
+    }
  }
 
   class VideoFilter {

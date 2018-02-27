@@ -94,6 +94,7 @@ const VideoSession = (function() {
                   http_output_download_parameters: {
                     use_ssl: 'no',
                     use_well_known_port: 'no',
+                    transfer_preset: dmcInfo.transferPreset
   //                  file_extension: 'mp4'
                   }
                 }
