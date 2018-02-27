@@ -1128,91 +1128,79 @@ class CrossDomainGate {}
      *  とりあえず既読リンクの色が変わるようにだけする
      */
     var WatchPageState = (function(config) {
-      var isOpen = false;
-      var originalUrl;
-      var dialog;
+      const originalUrl = location.href;
+      const originalTitle = document.title;
+      let isOpen = false;
+      let dialog;
 
-      var onDialogOpen = function(watchId, options) {
+      const onDialogOpen = (watchId/*, options*/) => {
         if (location.host !== 'www.nicovideo.jp') {
-          if (ZenzaWatch.api.nicovideoLoader) {
-            ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId);
-          }
           return;
         }
-        var url = originalUrl;
-        if (!ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
-          url = location.href;
-        }
-        var state = {
-          zenza: true,
-          watchId: watchId,
-          options: options.getRawData(),
-          originalUrl: url
-        };
         window.history.replaceState(
-          state,
           null,
-          '/watch/' + watchId // + '#' + originalUrl
+          null,
+          '/watch/' + watchId
         );
 
-        // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
+        // 一瞬だけ視聴ページのurlに変更して戻すことで、ブラウザの履歴に載せる
         // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
         window.setTimeout(() => {
-          if (ZenzaWatch.util.isGinzaWatchUrl(originalUrl)) {
-            return;
-          }
-          window.history.replaceState(null, null, url);
-        }, 0);
-        isOpen = true;
-      };
-
-      var onVideoInfoLoad = function(videoInfo) {
-        if (!videoInfo.watchId) { return; }
-        var watchId = videoInfo.watchId;
-        var title =
-           'nicovideo: ' + videoInfo.title + ' - ' + videoInfo.ownerInfo.name;
-        if (location.host !== 'www.nicovideo.jp') {
-          if (ZenzaWatch.api.nicovideoLoader) {
-            ZenzaWatch.api.nicovideoLoader.pushHistory('/watch/' + watchId, title);
-          }
-          return;
-        }
-        var url = originalUrl, originalTitle = document.title;
-        if (!util.isGinzaWatchUrl(originalUrl)) {
-          url = location.href;
-        }
-
-        var state = {};
-        window.history.replaceState(
-          state,
-          null,
-          '/watch/' + watchId // + '#' + originalUrl
-        );
-        document.title = title;
-
-        // 一瞬だけGinzaのurlに変更して戻すことで、ブラウザの履歴に載せる
-        // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
-        window.setTimeout(() => {
-          document.title = originalTitle;
           if (util.isGinzaWatchUrl(originalUrl)) {
             return;
           }
-          window.history.replaceState(null, null, url);
-        }, 3000);
-       };
+          window.history.replaceState(null, null, originalUrl);
+        }, 1000);
+        isOpen = true;
+      };
 
-      var initialize = function(_dialog) {
-        initialize = _.noop;
+      const onVideoInfoLoad = (videoInfo) => {
+        if (location.host !== 'www.nicovideo.jp') {
+          return;
+        }
+        if (!videoInfo.watchId || !isOpen) { return; }
+        const watchId = videoInfo.watchId;
+        const title =
+           'nicovideo: ' + videoInfo.title + ' - ' + videoInfo.ownerInfo.name;
+        const state = {};
+        window.history.replaceState(
+          state,
+          null,
+          '/watch/' + watchId
+        );
+        document.title = title;
+
+        // 一瞬だけ視聴ページのurlに変更して戻すことで、ブラウザの履歴に載せる
+        // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
+        window.setTimeout(() => {
+          if (util.isGinzaWatchUrl(originalUrl)) {
+            return;
+          }
+          document.title = originalTitle;
+          window.history.replaceState(null, null, originalUrl);
+        }, 1000);
+      };
+
+      const onDialogClose = () => {
+        window.history.replaceState(null, null, originalUrl);
+        document.title = originalTitle;
+        isOpen = false;
+      };
+
+      let initialize = (_dialog) => {
+        initialize = () => {};
         dialog = _dialog;
         if (!config.getValue('enablePushState')) {
           return;
         }
+        if (location.host !== 'www.nicovideo.jp') {
+          return;
+        }
 
-        originalUrl = location.href;
         
         dialog.on('open', onDialogOpen);
+        dialog.on('close', onDialogClose);
         dialog.on('loadVideoInfo', _.debounce(onVideoInfoLoad, 0));
-        //dialog.on('close', onDialogClose);
       };
 
       return {
