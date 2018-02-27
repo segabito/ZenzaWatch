@@ -462,7 +462,8 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 //      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
       .replace(/([\u2588]+)/g,
         (g) => { return '<span class="html5_fill_space u2588">'+
-          String.fromCharCode(0x2588).repeat(g.length) + '</span>';
+          //String.fromCharCode(0x2588).repeat(g.length) + '</span>';
+          '田'.repeat(g.length) + '</span>';
         })
       .replace(/[\r\n]+$/g, '')
       .replace(/[\n]/g, '<br>')
