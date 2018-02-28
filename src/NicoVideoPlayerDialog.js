@@ -2543,6 +2543,7 @@ var CONSTANT = {};
       this.emit('volumeChangeEnd', vol, mute);
     },
     _savePlaybackPosition: function(watchId, ct) {
+      if (!util.isLogin()) { return; }
       const vi = this._videoInfo;
       if (!vi) { return; }
       const dr = this.getDuration();
