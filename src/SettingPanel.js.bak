@@ -100,7 +100,7 @@ var AsyncEmitter = function() {};
       color: #fff;
       margin-bottom: 32px;
     }
-    .zenzaSettingPanel .filterEditContainer.forGuest {
+    .zenzaSettingPanel .filterEditContainer.for-guest {
       padding: 8px;
     }
     .zenzaSettingPanel .filterEditContainer p {
@@ -397,7 +397,7 @@ var AsyncEmitter = function() {};
         </div>
 
         <p class="caption">NG設定</p>
-        <div class="filterEditContainer forGuest">
+        <div class="filterEditContainer for-guest">
           設定の変更はログイン中のみ可能です。<br>
           非ログインでも、設定済みの内容は反映されます。
         </div>

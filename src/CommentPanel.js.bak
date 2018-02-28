@@ -180,7 +180,7 @@ const util = {};
     overflow: auto;
   }
 
-  .is-guest .forMember {
+  .is-guest .is-need-login {
     display: none !important;
   }
 
@@ -204,8 +204,8 @@ const util = {};
       <span class="menuButton itemDetailRequest"
         data-command="itemDetailRequest" title="詳細">？</span>
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
-      <span class="menuButton addUserIdFilter forMember"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
-      <span class="menuButton addWordFilter forMember"    data-command="addWordFilter" title="NGワード">NGword</span>
+      <span class="menuButton addUserIdFilter is-need-login"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+      <span class="menuButton addWordFilter is-need-login"    data-command="addWordFilter" title="NGワード">NGword</span>
 
     </div>
 
@@ -1122,7 +1122,7 @@ data-title="%no%: %date% ID:%userId%
             </div>
           </div>
         </div>
-      <div class="timeMachineContainer forMember"></div>
+      <div class="timeMachineContainer is-need-login"></div>
       </div>
       <div class="commentPanel-frame"></div>
     </div>
@@ -1691,7 +1691,7 @@ data-title="%no%: %date% ID:%userId%
     </div>
   `).trim();
 
-  TimeMachineView.__tpl__ = (`<div class="TimeMachineView forMember"></div>`).trim();
+  TimeMachineView.__tpl__ = (`<div class="TimeMachineView is-need-login"></div>`).trim();
 
 
 //===END===

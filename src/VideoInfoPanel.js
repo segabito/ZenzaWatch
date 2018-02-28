@@ -14,6 +14,7 @@ const IchibaLoader = {};
 const UaaLoader = {};
 const PRODUCT = 'ZenzaWatch';
 const TagEditApi = function() {};
+const PlaylistLoader = {load: () => {}};
 
 //===BEGIN===
 

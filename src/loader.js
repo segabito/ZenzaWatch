@@ -735,7 +735,7 @@ var ajax = function() {};
         },
         getPostKey: function(threadId, blockNo, language) {
           // memo:
-          // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+          // //flapi.nicovideo.jp/api/getpostkey?thread={optionalじゃないほうのID}
           //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
           var url =
             '//flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
@@ -772,7 +772,7 @@ var ajax = function() {};
           const threadId         =
             params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
           const duration         = params.msgInfo.duration;
-          const userId           = params.msgInfo.userId;
+          const userId           = params.msgInfo.userId || ''; // 0 の時は空文字
           const userKey          = params.msgInfo.userKey;
           const threadKey        = params.threadKey;
           const force184         = params.force184;
@@ -824,7 +824,7 @@ var ajax = function() {};
           const threadId         =
             params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
           const duration         = params.msgInfo.duration;
-          const userId           = params.msgInfo.userId;
+          const userId           = params.msgInfo.userId || '';
           const userKey          = params.msgInfo.userKey;
           const threadKey        = params.threadKey;
           const force184         = params.force184;

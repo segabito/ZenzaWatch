@@ -3406,18 +3406,18 @@ var CONSTANT = {};
             <div class="tooltip">ツイート</div>
             <div class="menuButtonInner">t</div>
           </div>
-          <div class="command menuButton mylistButton mylistAddMenu forMember" data-command="mylistMenu">
+          <div class="command menuButton mylistButton mylistAddMenu is-need-login" data-command="mylistMenu">
             <div class="tooltip">マイリスト登録</div>
             <div class="menuButtonInner">My</div>
           </div>
 
-          <div class="mylistSelectMenu selectMenu zenzaPopupMenu forMember">
+          <div class="mylistSelectMenu selectMenu zenzaPopupMenu is-need-login">
             <div class="triangle"></div>
             <div class="mylistSelectMenuInner">
             </div>
           </div>
 
-          <div class="command menuButton mylistButton deflistAdd forMember" data-command="deflistAdd">
+          <div class="command menuButton mylistButton deflistAdd is-need-login" data-command="deflistAdd">
             <div class="tooltip">とりあえずマイリスト(T)</div>
             <div class="menuButtonInner">&#x271A;</div>
           </div>

@@ -963,10 +963,10 @@ class CrossDomainGate {}
       #zenzaVideoPlayerDialog.is-guest .forMember {
         display: none;
       }
-      #zenzaVideoPlayerDialog .forGuest {
+      #zenzaVideoPlayerDialog .for-guest {
         display: none;
       }
-      #zenzaVideoPlayerDialog.is-guest .forGuest {
+      #zenzaVideoPlayerDialog.is-guest .for-guest {
         display: inherit;
       }
     `;

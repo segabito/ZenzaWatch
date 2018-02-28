@@ -170,9 +170,9 @@ const START_PAGE_QUERY = 'hoge=fuga';
       var isGinza = util.isGinzaWatchUrl() &&
         (!!document.getElementById('watchAPIDataContainer') ||
          !!document.getElementById('js-initial-watch-data'));
-      if (!util.isLogin()) {
-        return;
-      }
+      //if (!util.isLogin()) {
+      //  return;
+      //}
 
       replaceRedirectLinks();
 
@@ -189,14 +189,14 @@ const START_PAGE_QUERY = 'hoge=fuga';
 
         // watchページか？
         if (isGinza) {
-          if (util.isLogin()) {
+          //if (util.isLogin()) {
             dialog = initializeDialogPlayer(Config, offScreenLayer);
             if (isOverrideGinza()) {
               initializeGinzaSlayer(dialog, query);
             }
             if (window.name === 'watchGinza') { window.name = ''; }
 
-          }
+          //}
         } else {
           dialog = initializeDialogPlayer(Config, offScreenLayer);
         }

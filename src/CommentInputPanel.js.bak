@@ -221,7 +221,7 @@ var CONSTANT = {};
   `).trim();
 
   CommentInputPanel.__tpl__ = (`
-    <div class="commentInputPanel forMember">
+    <div class="commentInputPanel is-need-login">
       <form action="javascript: void(0);">
       <div class="commentInputOuter">
           <input
