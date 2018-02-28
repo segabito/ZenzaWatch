@@ -212,7 +212,7 @@ class CrossDomainGate {}
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
-        sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH, MAX
+        sharedNgLevel: 'HIGH',      // NG共有の強度 NONE, LOW, MID, HIGH, MAX
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
@@ -815,7 +815,7 @@ class CrossDomainGate {}
     };
     ZenzaWatch.util.getSubColor = getSubColor;
 
-    var __css__ = `
+    const __css__ = `
       .xDomainLoaderFrame {
         border: 0;
         position: fixed;
