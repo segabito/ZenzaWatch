@@ -2030,25 +2030,17 @@ class CrossDomainGate {}
           case map.HOME:
             key = 'SEEK_TO'; param = 0;
             break;
+          case map.SEEK_LEFT:
           case map.SEEK_LEFT2:
             key = 'SEEK_BY'; param = isVerySlow ? -0.5 : -5;
             break;
-          case map.SEEK_LEFT:
-          case 37: // LEFT
-            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ? -0.5 : -5; }
-            break;
-
           case map.VOL_UP:
             key = 'VOL_UP';
             break;
+          case map.SEEK_RIGHT:
           case map.SEEK_RIGHT2:
             key = 'SEEK_BY'; param = isVerySlow ?  0.5 :  5;
             break;
-          case map.SEEK_RIGHT:
-          case 39: // RIGHT
-            if (e.shiftKey || isVerySlow) { key = 'SEEK_BY'; param = isVerySlow ?  0.5 :  5; }
-            break;
-
           case map.VOL_DOWN:
             key = 'VOL_DOWN';
             break;
