@@ -581,7 +581,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
           NicoVideoApi.ajax({url: '//www.nicovideo.jp/'})
             .then(function(result) {
               var $dom = $('<div>' + result + '</div>');
-              var isLogin = $dom.find('#siteHeaderLogin').length < 1;
+              var isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
               var isPremium =
                 $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
               window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
