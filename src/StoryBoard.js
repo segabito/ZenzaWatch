@@ -585,7 +585,7 @@ var DmcStoryboardSession = {
     };
     _.assign(StoryboardBlockBorder.prototype, {
       initialize: function(width, height, cols) {
-        var $border = $(_.repeat('<div class="border"/>', cols)).css({
+        var $border = $('<div class="border"/>'.repeat(cols)).css({
           width: width,
           height: height
         });

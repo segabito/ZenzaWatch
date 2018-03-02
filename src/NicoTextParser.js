@@ -319,10 +319,10 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
         .replace(/([^\x01-\x7E^\xA0]+)/g, '<group>$1</group>')
         .replace(/([\u0020]+)/g, // '<span class="han_space type0020">$1</span>')
 
-          function(g) { return '<span class="han_space type0020">'+ _.repeat(S, g.length) + '</span>'; } )
+          function(g) { return '<span class="han_space type0020">'+ S.repeat(g.length) + '</span>'; } )
           //'<span class="han_space type0020">$1</span>')
         .replace(/([\u00A0]+)/g, //  '<span class="han_space type00A0">$1</span>')
-          function(g) { return '<span class="han_space type00A0">'+ _.repeat(S, g.length) + '</span>'; } )
+          function(g) { return '<span class="han_space type00A0">'+ S.repeat(g.length) + '</span>'; } )
         .replace(/(\t+)/g ,      '<span class="tab_space">$1</span>')
         .replace(/[\t]/g ,      '^');
 
@@ -388,8 +388,8 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
           .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
           .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
             function(g) { return '<span class="fill_space">'+
-              //_.repeat('■', g.length) + '</span>';
-              _.repeat('ｉ', g.length) + '</span>';
+              //'■'._repeat(g.length) + '</span>';
+              'ｉ'.repeat(g.length) + '</span>';
             } )
           .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
         // 非推奨空白文字。 とりあえず化けて出ないように
@@ -409,7 +409,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
         //  .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
         // 全角スペース
           .replace(/([\u3000]+)/g , //'<span class="zen_space type3000">$1</span>')
-            function(g) { return '<span class="zen_space type3000">'+ _.repeat(S, g.length) + '</span>'; } )
+            function(g) { return '<span class="zen_space type3000">'+ S.repeat(g.length) + '</span>'; } )
         // バックスラッシュ
           .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
         // ゼロ幅文字. ゼロ幅だけどdisplay: none; にすると狂う
