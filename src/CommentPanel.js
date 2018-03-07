@@ -17,7 +17,6 @@ const util = {};
   _.extend(CommentListModel.prototype, AsyncEmitter.prototype);
   _.assign(CommentListModel.prototype, {
     initialize: function(params) {
-      //this._$container = params.$container;
       this._isUniq = params.uniq;
       this._items = [];
       this._positions = [];
@@ -25,10 +24,10 @@ const util = {};
       this._currentSortKey = 'vpos';
       this._isDesc = false;
       this._currentTime = 0;
+      this._itemSet = new WeakSet();
     },
     setItem: function(itemList) {
-      itemList = _.isArray(itemList) ? itemList: [itemList];
-
+      itemList = Array.isArray(itemList) ? itemList: [itemList];
       this._items = itemList;
     },
     clear: function() {
@@ -49,10 +48,8 @@ const util = {};
       this._positions = positions.sort(function(a, b) { return a - b; });
       this._currentTime = 0;
 
-      //window.console.log(this._positions);
       this.sort();
       this.emit('update', this._items, true);
-
     },
     removeItemByIndex: function(index) {
       var target = this._getItemByIndex(index);
@@ -67,13 +64,13 @@ const util = {};
       return item;
     },
     indexOf: function(item) {
-      return _.indexOf(this._items, item);
+      return (this._items || []).indexOf(item);
     },
     getItemByIndex: function(index) {
       var item = this._getItemByIndex(index);
       if (!item) { return null; }
-      if (!item.hasBind) {
-        item.hasBind = true;
+      if (!this._itemSet.has(item)) {
+        this._itemSet.add(item);
         item.on('update', this._onItemUpdate.bind(this, item));
       }
       return item;
@@ -82,8 +79,8 @@ const util = {};
       itemId = parseInt(itemId, 10);
       return _.find(this._items, (item) => {
         if (item.getItemId() === itemId) {
-          if (!item.hasBind) {
-            item.hasBind = true;
+          if (!this._itemSet.has(item)) {
+            this._itemSet.add(item);
             item.on('update', this._onItemUpdate.bind(this, item));
           }
           return true;
@@ -135,7 +132,7 @@ const util = {};
         this._currentTime = sec;
         if (this._currentSortKey === 'vpos') {
           this.emit('currentTimeUpdate', sec, this.getInViewIndex(sec));
-        }// else { window.console.log('sort: ', this._currentSortKey); }
+        }
       }
     }
   });
@@ -158,8 +155,7 @@ const util = {};
 <title>CommentList</title>
 <style type="text/css">
   body {
-    -webkit-user-select: none;
-    -moz-user-select: none;
+    user-select: none;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -180,10 +176,122 @@ const util = {};
     overflow: auto;
   }
 
+  #listContainerInner:empty::after {
+    content: 'コメントはありません';
+    color: #666;
+    display: inline-block;
+    text-align: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
   .is-guest .forMember {
     display: none !important;
   }
 
+  .itemDetailContainer {
+    position: fixed;
+    display: block;
+    top: 50%;
+    left: 50%;
+    line-height: normal;
+    min-width: 280px;
+    max-height: 100%;
+    overflow-y: auto;
+    font-size: 14px;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 100;
+    border: 2px solid #fc9;
+    background-color: rgba(255, 255, 232, 0.9);
+    box-shadow: 4px 4px 0 rgba(99, 99, 66, 0.8);
+    transition: 0.2s opacity;
+  }
+
+  .itemDetailContainer.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .itemDetailContainer>* {
+  }
+  .itemDetailContainer * {
+    word-break: break-all;
+  }
+  .itemDetailContainer .reloadComment {
+    display: inline-block;
+    padding: 0 4px;
+    cursor: pointer;
+    transform: scale(1.4);
+    transition: transform 0.1s;
+  }
+  .itemDetailContainer .reloadComment:hover {
+    transform: scale(1.8);
+  }
+  .itemDetailContainer .reloadComment:active {
+    transform: scale(1.2);
+    transition: none;
+  }
+  .itemDetailContainer .resNo,
+  .itemDetailContainer .vpos,
+  .itemDetailContainer .time,
+  .itemDetailContainer .userId,
+  .itemDetailContainer .cmd {
+    font-size: 12px;
+  }
+  .itemDetailContainer .time {
+    cursor: pointer;
+    color: #339;
+  }
+  .itemDetailContainer .time:hover {
+    text-decoration: underline;
+  }
+  .itemDetailContainer .time:hover:after {
+    position: absolute;
+    content: '${'\\00231A'} 過去ログ';
+    right: 16px;
+    text-decoration: none;
+    transform: scale(1.4);
+  }
+  .itemDetailContainer .resNo:before,
+  .itemDetailContainer .vpos:before,
+  .itemDetailContainer .time:before,
+  .itemDetailContainer .userId:before,
+  .itemDetailContainer .cmd:before {
+    display: inline-block;
+    min-width: 50px;
+  }
+  .itemDetailContainer .resNo:before {
+    content: 'no';
+  }
+  .itemDetailContainer .vpos:before {
+    content: 'pos';
+  }
+  .itemDetailContainer .time:before {
+    content: 'date';
+  }
+  .itemDetailContainer .userId:before {
+    content: 'user';
+  }
+  .itemDetailContainer .cmd:before {
+    content: 'cmd';
+  }
+  .itemDetailContainer .text {
+    border: 1px inset #ccc;
+    padding: 8px;
+    margin: 4px 8px;
+  }
+  .itemDetailContainer .close {
+    border: 2px solid #666;
+    width: 50%;
+    cursor: pointer;
+    text-align: center;
+    margin: auto;
+    user-select: none;
+  }
 
 </style>
 <style id="listItemStyle">%CSS%</style>
@@ -199,8 +307,6 @@ const util = {};
   </div>
   <div id="listContainer">
     <div class="listMenu">
-      <span class="menuButton itemDetailRequest" data-command="itemDetailRequest">?</span>
-
       <span class="menuButton itemDetailRequest"
         data-command="itemDetailRequest" title="詳細">？</span>
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
@@ -219,8 +325,8 @@ const util = {};
   _.extend(CommentListView.prototype, AsyncEmitter.prototype);
   _.assign(CommentListView.prototype, {
     initialize: function(params) {
-      this._ItemBuilder = params.builder || CommentListItemView;
-      this._itemCss     = params.itemCss || CommentListItemView.__css__;
+      this._ItemView = CommentListItemView;
+      this._itemCss     = CommentListItemView.CSS;
       this._className   = params.className || 'commentList';
       this._$container  = params.$container;
 
@@ -249,7 +355,7 @@ const util = {};
     },
     _onIframeLoad: function(w) {
       var doc = this._document = w.document;
-      var $win  = this._$window = $(w);
+      this._window = w; //$(w);
       var body = this._body = doc.body;
       var $body = this._$body = $(body);
       if (this._className) {
@@ -259,7 +365,6 @@ const util = {};
       var $list = this._$list = $(doc.getElementById('listContainerInner'));
       if (this._html) {
         $list.html(this._html);
-        this._$items = this._$body.find('.commentListItem');
       }
       this._$menu = $body.find('.listMenu');
 
@@ -268,9 +373,8 @@ const util = {};
       $body
         .on('click',     this._onClick    .bind(this))
         .on('dblclick',  this._onDblClick .bind(this))
-//        .on('mousemove', _.debounce(this._onMouseMove.bind(this), 100))
-        .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); })
-        .on('keyup', function(e)   { ZenzaWatch.emitter.emit('keyup', e); })
+        .on('keydown', e => { ZenzaWatch.emitter.emit('keydown', e); })
+        .on('keyup', e => { ZenzaWatch.emitter.emit('keyup', e); })
         .toggleClass('is-guest', !util.isLogin());
 
       this._$menu.on('click', this._onMenuClick.bind(this));
@@ -279,17 +383,15 @@ const util = {};
       this._$container
         .on('mouseover', this._onMouseOver.bind(this))
         .on('mouseleave', this._onMouseOut .bind(this));
-      //  .on('scroll', this._onScroll.bind(this))
-      //  .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
       this._$container[0].addEventListener('scroll',
         this._onScroll.bind(this), {passive: true});
       this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
 
-      $win
-        .on('resize', this._onResize.bind(this));
+      w.addEventListener('resize', this._onResize.bind(this));
+      this._innerHeight = w.innerHeight;
 
       this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
-      this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
+      this._appendNewItems = util.createDrawCallFunc(this._appendNewItems.bind(this));
 
       this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
       this._$begin = $('<span class="begin"/>');
@@ -299,29 +401,27 @@ const util = {};
     _onModelUpdate: function(itemList, replaceAll) {
       window.console.time('update commentlistView');
       this.addClass('updating');
-      itemList = _.isArray(itemList) ? itemList: [itemList];
-      var itemViews = [], Builder = this._ItemBuilder;
+      itemList = Array.isArray(itemList) ? itemList: [itemList];
+      let itemViews = [];
       this._lastEndPoint = null;
       this._isActive = false;
-      this._$items = null;
 
       if (replaceAll) {
         this._scrollTop = 0;
       }
 
       itemList.forEach((item, i) => {
-        itemViews.push(new Builder({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
+        itemViews.push(new this._ItemView({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
       });
 
       this._itemViews = itemViews;
       this._inviewItemList = {};
-      this._$newItems = null;
+      this._newItems = null;
 
       window.setTimeout(() => {
         if (this._$list) {
           this._$list.html('');
           this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length + 100});
-          this._$items = this._$body.find('.commentListItem');
           this._$menu.removeClass('show');
           this._refreshInviewElements();
           this.hideItemDetail();
@@ -333,7 +433,6 @@ const util = {};
         this.emit('update');
       }, 100);
 
-
       window.console.timeEnd('update commentlistView');
     },
     _onClick: function(e) {
@@ -343,7 +442,6 @@ const util = {};
       if ($item.length > 0) { return this._debouncedOnItemClick($item); }
     },
     _onItemClick: function($item) {
-      //var offset = $item.offset();
       this._$menu
         .css('top', $item.attr('data-top') + 'px')
         .attr('data-item-id', $item.attr('data-item-id'))
@@ -398,6 +496,7 @@ const util = {};
       this.removeClass('active');
     },
     _onResize: function() {
+      this._innerHeight = this._window.innerHeight;
       this._refreshInviewElements();
     },
     _onScroll: function() {
@@ -410,53 +509,49 @@ const util = {};
     },
     _refreshInviewElements: function() {
       if (!this._$list) { return; }
-      var itemHeight = CommentListView.ITEM_HEIGHT;
-      var $win = this._$window;
-      var $container = this._$container;
-      var scrollTop   = $container.scrollTop();
-      var innerHeight = $win.innerHeight();
-      if (innerHeight > window.innerHeight) { return; }
-      var windowBottom = scrollTop + innerHeight;
-      var itemViews = this._itemViews;
-      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
-      var endIndex   = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
-      var i;
+      let itemHeight = CommentListView.ITEM_HEIGHT;
+      let $container = this._$container;
+      let scrollTop   = $container.scrollTop();
+      let innerHeight = this._innerHeight;
+      //if (innerHeight > window.innerHeight) { return; }
+      let windowBottom = scrollTop + innerHeight;
+      let itemViews = this._itemViews;
+      let startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
+      let endIndex   = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
+      let i;
 
-      var newItems = [], inviewItemList = this._inviewItemList;
+      const newItems = [], inviewItemList = this._inviewItemList;
       for (i = startIndex; i < endIndex; i++) {
         if (inviewItemList[i] || !itemViews[i]) { continue; }
-        newItems.push(itemViews[i].toString());
-        inviewItemList[i] = itemViews[i].getDomId();
+        newItems.push(itemViews[i]);
+        inviewItemList[i] = itemViews[i];
       }
 
       if (newItems.length < 1) { return; }
 
-      // 見えないitemを除去。 見えない場所なのでrequestAnimationFrame不要
-      var doc = this._document;
-      _.each(Object.keys(inviewItemList), function(i) {
+      Object.keys(inviewItemList).forEach(i => {
         if (i >= startIndex && i <= endIndex) { return; }
-        //$list.find('#' + inviewItemList[i]).remove();
-        doc.getElementById(inviewItemList[i]).remove();
+        inviewItemList[i].remove();
         delete inviewItemList[i];
       });
 
       this._inviewItemList = inviewItemList;
 
 
-      var $newItems = $(newItems.join(''));
-      if (this._$newItems) {
-        this._$newItems.append($newItems);
-      } else {
-        this._$newItems = $newItems;
-      }
+      this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
+
 
       this._appendNewItems();
     },
     _appendNewItems: function() {
-      if (this._$newItems) {
-        this._$list.append(this._$newItems);
+      if (this._newItems) {
+        const f = document.createDocumentFragment();
+        this._newItems.forEach(i => {
+          f.appendChild(i.getViewElement());
+        });
+        this._$list[0].appendChild(f);
       }
-      this._$newItems = null;
+      this._newItems = null;
     },
     addClass: function(className) {
       this.toggleClass(className, true);
@@ -475,11 +570,10 @@ const util = {};
       return this._document.querySelectorAll(query);
     },
     scrollTop: function(v) {
-      if (!this._$window) { return 0; }
+      if (!this._window) { return 0; }
 
       if (typeof v === 'number') {
         this._scrollTop = v;
-        //this._$container.scrollTop(v);
         this._$container[0].scrollTop = v;
       } else {
         this._scrollTop = this._$container[0].scrollTop;
@@ -488,15 +582,15 @@ const util = {};
     },
     scrollToItem: function(itemId) {
       if (!this._$body) { return; }
-      if (_.isFunction(itemId.getItemId)) { itemId = itemId.getItemId(); }
+      if (typeof itemId.getItemId === 'function') { itemId = itemId.getItemId(); }
       var $target = this._$body.find('.item' + itemId);
       if ($target.length < 1) { return; }
       var top = $target.offset().top;
       this.scrollTop(top);
     },
     setCurrentPoint: function(idx) {
-      if (!this._$window || !this._itemViews) { return; }
-      var innerHeight = this._$window.innerHeight();
+      if (!this._window || !this._itemViews) { return; }
+      var innerHeight = this._innerHeight;
       var itemViews = this._itemViews;
       var len  = itemViews.length;
       var view = itemViews[idx];
@@ -511,7 +605,6 @@ const util = {};
     showItemDetail: function(item) {
       let $d = this._$itemDetail;
       $d.attr('data-item-id', item.getItemId());
-      //window.console.log('showItemDetail', item);
       $d.find('.resNo')  .text(item.getNo()).end()
         .find('.vpos')   .text(item.getTimePos()).end()
         .find('.time')   .text(item.getFormattedDate()).end()
@@ -526,373 +619,310 @@ const util = {};
     }
   });
 
-  // なんか汎用性を持たせようとして失敗してる奴
-  var CommentListItemView = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentListItemView.prototype, AsyncEmitter.prototype);
+  const CommentListItemView = (() => {
+    // なんか汎用性を持たせようとして失敗してる奴
 
-  // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
-  CommentListItemView.__css__ = (`
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      background: #000;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      line-height: 0;
-    }
-
-    #listContainer::-webkit-scrollbar {
-      background: #222;
-    }
-
-    #listContainer::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #666;
-    }
-
-    #listContainer::-webkit-scrollbar-button {
-      background: #666;
-      display: none;
-    }
-
-
-    .listMenu {
-      position: absolute;
-      display: block;
-    }
-
-    .listMenu.show {
-      display: block;
-      width: 100%;
-      left: 0;
-      z-index: 100;
-    }
-
-    .listMenu  .menuButton {
-      display: inline-block;
-      position: absolute;
-      font-size: 13px;
-      line-height: 20px;
-      color: #fff;
-      background: #666;
-      cursor: pointer;
-      top: 0;
-      text-align: center;
-    }
-
-    .listMenu  .menuButton:hover {
-      border: 1px solid #ccc;
-      box-shadow: 2px 2px 2px #333;
-    }
-
-    .listMenu  .menuButton:active {
-      box-shadow: none;
-      transform: translate(4px, 4px);
-    }
-
-    .listMenu .itemDetailRequest {
-      right: 176px;
-      width: auto;
-      padding: 0 4px;
-    }
-
-    .listMenu .clipBoard {
-      right: 120px;
-      width: 48px;
-    }
-
-    .listMenu .addWordFilter {
-      right: 64px;
-      width: 48px;
-    }
-
-    .listMenu .addUserIdFilter {
-      right: 8px;
-      width: 48px;
-    }
-
-    .itemDetailContainer {
-      position: fixed;
-      display: block;
-      top: 50%;
-      left: 50%;
-      line-height: normal;
-      min-width: 280px;
-      max-height: 100%;
-      overflow-h: auto;
-      font-size: 14px;
-      transform: translate(-50%, -50%);
-      opacity: 0;
-      pointer-events: none;
-      z-index: 100;
-      border: 2px solid #fc9;
-      background-color: rgba(255, 255, 232, 0.9);
-      box-shadow: 4px 4px 0 rgba(99, 99, 66, 0.8);
-      transition: 0.2s opacity;
-    }
-
-    .itemDetailContainer.show {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .itemDetailContainer>* {
-    }
-    .itemDetailContainer * {
-      word-break: break-all;
-    }
-    .itemDetailContainer .reloadComment {
-      display: inline-block;
-      padding: 0 4px;
-      cursor: pointer;
-      transform: scale(1.4);
-      transition: transform 0.1s;
-    }
-    .itemDetailContainer .reloadComment:hover {
-      transform: scale(1.8);
-    }
-    .itemDetailContainer .reloadComment:active {
-      transform: scale(1.2);
-      transition: none;
-    }
-    .itemDetailContainer .resNo,
-    .itemDetailContainer .vpos,
-    .itemDetailContainer .time,
-    .itemDetailContainer .userId,
-    .itemDetailContainer .cmd {
-      font-size: 12px;
-    }
-    .itemDetailContainer .time {
-      cursor: pointer;
-      color: #339;
-    }
-    .itemDetailContainer .time:hover {
-      text-decoration: underline;
-    }
-    .itemDetailContainer .time:hover:after {
-      position: absolute;
-      content: '${'\\00231A'} 過去ログ';
-      right: 16px;
-      text-decoration: none;
-      transform: scale(1.4);
-    }
-    .itemDetailContainer .resNo:before,
-    .itemDetailContainer .vpos:before,
-    .itemDetailContainer .time:before,
-    .itemDetailContainer .userId:before,
-    .itemDetailContainer .cmd:before {
-      display: inline-block;
-      min-width: 50px;
-    }
-    .itemDetailContainer .resNo:before {
-      content: 'no';
-    }
-    .itemDetailContainer .vpos:before {
-      content: 'pos';
-    }
-    .itemDetailContainer .time:before {
-      content: 'date';
-    }
-    .itemDetailContainer .userId:before {
-      content: 'user';
-    }
-    .itemDetailContainer .cmd:before {
-      content: 'cmd';
-    }
-    .itemDetailContainer .text {
-      border: 1px inset #ccc;
-      padding: 8px;
-      margin: 4px 8px;
-    }
-    .itemDetailContainer .close {
-      border: 2px solid #666;
-      width: 50%;
-      cursor: pointer;
-      text-align: center;
-      margin: auto;
-      user-select: none;
-    }
-
-    .commentListItem {
-      position: absolute;
-      display: inline-block;
-      width: 100%;
-      height: 40px;
-      line-height: 20px;
-      font-size: 20px;
-      white-space: nowrap;
-      margin: 0;
-      padding: 0;
-      background: #222;
-      z-index: 50;
-    }
-
-    .active .commentListItem {
-      pointer-events: auto;
-    }
-
-    .commentListItem * {
-      cursor: default;
-    }
-
-    .commentListItem.odd {
-      background: #333;
-    }
-
-    .commentListItem.updating {
-      opacity: 0.5;
-      cursor: wait;
-    }
-
-    .commentListItem .info {
-      display: block;
-      width: 100%;
-      font-size: 14px;
-      height: 20px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      color: #888;
-      margin: 0;
-      padding: 0 4px;
-    }
-
-    .commentListItem .timepos {
-      display: inline-block;
-      width: 100px;
-    }
-
-    .commentListItem .text {
-      display: block;
-      font-size: 16px;
-      height: 20px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      color: #ccc;
-      margin: 0;
-      padding: 0 4px;
-      font-family: arial, 'Menlo';
-    }
-
-    .active .commentListItem:hover {
-      overflow-x: hidden;
-      overflow-y: visible;
-      z-index: 60;
-      height: auto;
-      box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
-    }
-
-    .active .commentListItem:hover .text {
-      white-space: normal;
-      word-break: break-all;
-      /*overflow-x: hidden;
-      overflow-y: visible;*/
-      height: auto;
-    }
-
-    .commentListItem.fork1 .timepos {
-      text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
-    }
-    .commentListItem.fork2 .timepos {
-      text-shadow: 1px 1px 0 #880000, -1px -1px 0 #880000 !important;
-    }
-    .commentListItem.fork2 .text,
-    .commentListItem.fork1 .text {
-      font-weight: bolder;
-    }
-
-
-    .commentListItem + .commentListItem {
-    }
-
-
-    .begin ~ .commentListItem .text {
-      color: #ffe;
-      font-weight: bolder;
-    }
-
-    .end ~ .commentListItem .text {
-      color: #ccc;
-      font-weight: normal;
-    }
-
-
-    .commentListItem.active {
-      outline: dashed 2px #ff8;
-      outline-offset: 4px;
-    }
-
-
-  `).trim();
-
-  CommentListItemView.__tpl__ = (`
-    <div id="item%itemId%" class="commentListItem no%no% item%itemId% %updating% fork%fork% %odd-even%"
-      data-item-id="%itemId%"
-      data-no="%no%" data-vpos"%vpos%"
-        style="top: %top%px;" data-top="%top%"
-data-title="%no%: %date% ID:%userId%
-  %text%"
-      >
-      <p class="info">
-        <span class="timepos">%timepos%</span>&nbsp;&nbsp;<span class="date">%date%</span>
-      </p>
-      <p class="text" style="%shadow%">%trimText%</p>
-    </div>
-  `).trim();
-
-  _.assign(CommentListItemView.prototype, {
-    initialize: function(params) {
-      this._item   = params.item;
-      this._index  = params.index;
-      this._height = params.height;
-
-      this._id = CommentListItemView.counter++;
-    },
-    build: function() {
-      var tpl = CommentListItemView.__tpl__;
-      var item = this._item;
-
-      var text = item.getEscapedText();
-      var trimText = text.trim();
-
-      tpl = tpl
-        .replace(/%domId%/g,    'item' + this._id)
-        .replace(/%no%/g,       item.getNo())
-        .replace(/%vpos%/g,     item.getVpos())
-        .replace(/%fork%/g,     item.getFork())
-        .replace(/%timepos%/g,  item.getTimePos())
-        .replace(/%itemId%/g,   item.getItemId())
-        .replace(/%userId%/g,   item.getUserId())
-        .replace(/%date%/g,     item.getFormattedDate())
-        .replace(/%text%/g,     text)
-        .replace(/%trimText%/g, trimText)
-        .replace(/%odd-even%/g, (this._index % 2 === 0) ? 'even' : 'odd')
-        .replace(/%top%/g,      this._index * this._height)
-        ;
-      var color = item.getColor();
-      if (color) {
-        tpl = tpl.replace('%shadow%', 'text-shadow: 0px 0px 2px ' + color + ';');
-      } else {
-        tpl = tpl.replace('%shadow%', '');
+    // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
+    const CSS = (`
+      * {
+        box-sizing: border-box;
       }
-      return tpl;
-    },
-    getItemId: function() {
-      return this._item.getItemId();
-    },
-    getDomId: function() {
-      return 'item' + this._item.getItemId();
-    },
-    getTop: function() {
-      return this._index * this._height;
-    },
-    toString: function() {
-      return this.build();
+
+      body {
+        background: #000;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        line-height: 0;
+      }
+
+      #listContainer::-webkit-scrollbar {
+        background: #222;
+      }
+
+      #listContainer::-webkit-scrollbar-thumb {
+        border-radius: 0;
+        background: #666;
+      }
+
+      #listContainer::-webkit-scrollbar-button {
+        background: #666;
+        display: none;
+      }
+
+
+      .listMenu {
+        position: absolute;
+        display: block;
+      }
+
+      .listMenu.show {
+        display: block;
+        width: 100%;
+        left: 0;
+        z-index: 100;
+      }
+
+      .listMenu  .menuButton {
+        display: inline-block;
+        position: absolute;
+        font-size: 13px;
+        line-height: 20px;
+        border: 1px solid #666;
+        color: #fff;
+        background: #666;
+        cursor: pointer;
+        top: 0;
+        text-align: center;
+      }
+
+      .listMenu  .menuButton:hover {
+        border: 1px solid #ccc;
+        box-shadow: 2px 2px 2px #333;
+      }
+
+      .listMenu  .menuButton:active {
+        box-shadow: none;
+        transform: translate(0, 1px);
+      }
+
+      .listMenu .itemDetailRequest {
+        right: 176px;
+        width: auto;
+        padding: 0 8px;
+      }
+
+      .listMenu .clipBoard {
+        right: 120px;
+        width: 48px;
+      }
+
+      .listMenu .addWordFilter {
+        right: 64px;
+        width: 48px;
+      }
+
+      .listMenu .addUserIdFilter {
+        right: 8px;
+        width: 48px;
+      }
+
+      .commentListItem {
+        position: absolute;
+        display: inline-block;
+        width: 100%;
+        height: 40px;
+        line-height: 20px;
+        font-size: 20px;
+        white-space: nowrap;
+        margin: 0;
+        padding: 0;
+        background: #222;
+        z-index: 50;
+      }
+
+      .active .commentListItem {
+        pointer-events: auto;
+      }
+
+      .commentListItem * {
+        cursor: default;
+      }
+
+      .commentListItem.odd {
+        background: #333;
+      }
+
+      .commentListItem.updating {
+        opacity: 0.5;
+        cursor: wait;
+      }
+
+      .commentListItem .info {
+        display: block;
+        width: 100%;
+        font-size: 14px;
+        height: 20px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: #888;
+        margin: 0;
+        padding: 0 4px;
+      }
+
+      .commentListItem .timepos {
+        display: inline-block;
+        width: 100px;
+      }
+
+      .commentListItem .text {
+        display: block;
+        font-size: 16px;
+        height: 20px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: #ccc;
+        margin: 0;
+        padding: 0 4px;
+        font-family: arial, 'Menlo';
+      }
+
+      .active .commentListItem:hover {
+        overflow-x: hidden;
+        overflow-y: visible;
+        z-index: 60;
+        height: auto;
+        box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
+      }
+
+      .active .commentListItem:hover .text {
+        white-space: normal;
+        word-break: break-all;
+        /*overflow-x: hidden;
+        overflow-y: visible;*/
+        height: auto;
+      }
+
+      .commentListItem.fork1 .timepos {
+        text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
+      }
+      .commentListItem.fork2 .timepos {
+        text-shadow: 1px 1px 0 #880000, -1px -1px 0 #880000 !important;
+      }
+      .commentListItem.fork2 .text,
+      .commentListItem.fork1 .text {
+        font-weight: bolder;
+      }
+
+      .begin ~ .commentListItem .text {
+        color: #ffe;
+        font-weight: bolder;
+      }
+
+      .end ~ .commentListItem .text {
+        color: #ccc;
+        font-weight: normal;
+      }
+
+
+      .commentListItem.active {
+        outline: dashed 2px #ff8;
+        outline-offset: 4px;
+      }
+
+
+    `).trim();
+
+
+    const TPL = (`
+      <div class="commentListItem">
+        <p class="info">
+          <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
+        </p>
+        <p class="text"></p>
+      </div>
+    `).trim();
+
+    let counter = 0;
+    let template;
+    class CommentListItemView extends AsyncEmitter {
+      static get template() {
+        if (!template) {
+          const t = document.createElement('template');
+          t.id = 'CommentListItemView-template' + Date.now();
+          t.innerHTML = TPL;
+          document.body.appendChild(t);
+          template = {
+            t,
+            clone: () => { return document.importNode(t.content, true).firstChild; },
+            commentListItem: t.content.querySelector('.commentListItem'),
+            timepos: t.content.querySelector('.timepos'),
+            date:    t.content.querySelector('.date'),
+            text:    t.content.querySelector('.text')
+          };
+        }
+        return template;
+      }
+
+      constructor(params) {
+        super();
+        this.initialize(params);
+      }
+
+      initialize(params) {
+        this._item   = params.item;
+        this._index  = params.index;
+        this._height = params.height;
+
+        this._id = counter++;
+      }
+
+      build() {
+        const template = this.constructor.template;
+        const {commentListItem, timepos, date, text} = template;
+        const item = this._item;
+        const oden = (this._index % 2 === 0) ? 'even' : 'odd';
+
+        const formattedDate = item.getFormattedDate();
+        commentListItem.setAttribute('id',           this.getDomId());
+        commentListItem.setAttribute('data-item-id', item.getItemId());
+        commentListItem.setAttribute('data-no',      item.getNo());
+        commentListItem.setAttribute('data-vpos',    item.getVpos());
+        commentListItem.setAttribute('data-top',     this.getTop());
+        commentListItem.setAttribute('data-title',
+          `${item.getNo()}: ${formattedDate} ID:${item.getUserId()}\n${item.getText()}`
+        );
+        commentListItem.className =
+          `commentListItem no${item.getNo()} item${this._id} ${oden}`;
+        commentListItem.style.top = `${this.getTop()}px`;
+
+        timepos.textContent = item.getTimePos();
+        date.textContent    = formattedDate;
+        text.textContent    = item.getText().trim();
+
+        const style = {};
+        const color = item.getColor();
+        style.textShadow = color ? `text-shadow: 0px 0px 2px ${color}` : '';
+        Object.assign(text.style, style);
+
+        this._view = template.clone();
+      }
+
+      getViewElement() {
+        if (!this._view) {
+          this.build();
+        }
+        return this._view;
+      }
+
+      getItemId() {
+        return this._item.getItemId();
+      }
+
+      getDomId() {
+        return 'item' + this._item.getItemId();
+      }
+
+      getTop() {
+        return this._index * this._height;
+      }
+
+      remove() {
+        if (!this._view) { return; }
+        this._view.remove();
+      }
+
+      toString() {
+        return this.getViewElement().outerHTML;
+      }
     }
-  });
+
+    CommentListItemView.TPL = TPL;
+    CommentListItemView.CSS = CSS;
+    return CommentListItemView;
+  })();
 
   var CommentListItem = function() { this.initialize.apply(this, arguments); };
   CommentListItem._itemId = 0;
@@ -904,7 +934,7 @@ data-title="%no%: %date% ID:%userId%
       this._itemId = CommentListItem._itemId++;
       this._vpos = nicoChat.getVpos();
       this._text = nicoChat.getText();
-      this._escapedText = ZenzaWatch.util.escapeHtml(this._text);
+      this._escapedText = util.escapeHtml(this._text);
       this._userId = nicoChat.getUserId();
       this._date = nicoChat.getDate();
       this._fork = nicoChat.getFork();
@@ -983,9 +1013,7 @@ data-title="%no%: %date% ID:%userId%
       if (this._view) { return; }
       this._view = new CommentListView({
         $container: this._$container,
-        model: this._model,
-        builder: CommentListItemView,
-        itemCss: CommentListItemView.__css__
+        model: this._model
       });
       this._view.on('command', this._onCommand.bind(this));
     },
@@ -993,7 +1021,7 @@ data-title="%no%: %date% ID:%userId%
       if (!this._view) { this._initializeView(); }
       this._watchId = watchId;
       var items = [];
-      _.each(listData, function(itemData) {
+      listData.forEach(itemData => {
         items.push(new CommentListItem(itemData));
       });
       if (items.length < 1) { return; }
@@ -1093,8 +1121,8 @@ data-title="%no%: %date% ID:%userId%
   CommentPanelView.__tpl__ = (`
     <div class="commentPanel-container">
       <div class="commentPanel-header">
-        <lavel class="commentPanel-menu-button autoScroll commentPanel-command"
-          data-command="toggleScroll"><icon class="commentPanel-menu-icon">⬇️</icon> 自動スクロール</lavel>
+        <label class="commentPanel-menu-button autoScroll commentPanel-command"
+          data-command="toggleScroll"><icon class="commentPanel-menu-icon">⬇️</icon> 自動スクロール</label>
 
         <div class="commentPanel-command commentPanel-menu-toggle" data-command="toggleMenu">
           ▼ メニュー
@@ -1231,10 +1259,6 @@ data-title="%no%: %date% ID:%userId%
       const $view = this._$view
         .toggleClass('autoScroll', commentPanel.isAutoScroll());
 
-      //let threadInfo = commentPanel.getThreadInfo();
-      //if (threadInfo) {
-      //  this._timeMachineView.update(threadInfo);
-      //}
       const langClass = 'lang-' + commentPanel.getLanguage();
       if (!$view.hasClass(langClass)) {
         $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
@@ -1291,7 +1315,6 @@ data-title="%no%: %date% ID:%userId%
       }
     },
     _onCommand: function(command, param, itemId) {
-      //window.console.log('CommentPanel.onCommand: ', command, param, itemId);
       var item;
       if (itemId) {
         item = this._model.findByItemId(itemId);
