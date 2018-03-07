@@ -10,6 +10,8 @@ const PopupMessage = {};
 const FrameLayer = function() {};
 const MylistPocket = function() {};
 class NicoSearchApiV2Loader {}
+const CONSTANT = {};
+const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2NgYGD4DwABBAEAcCBlCwAAAABJRU5ErkJggg==';
 
 
 //===BEGIN===
@@ -163,7 +165,8 @@ class NicoSearchApiV2Loader {}
       _.pull(this._items, item);
       var afterLen = this._items.length;
       if (beforeLen !== afterLen) {
-        this.emit('update', this._items);
+        //this.emit('update', this._items);
+        this.emit('item-remove', item);
       }
     },
     /**
@@ -187,7 +190,7 @@ class NicoSearchApiV2Loader {}
       });
     },
     _onItemUpdate: function(item, key, value) {
-      this.emit('itemUpdate', item, key, value);
+      this.emit('item-update', item, key, value);
     },
     getTotalDuration: function() {
       return _.reduce(this._items, function(result, item) {
@@ -231,6 +234,531 @@ class NicoSearchApiV2Loader {}
     }
   });
 
+  // なんか汎用性を持たせようとして失敗してる奴
+  const VideoListItemView = (() => {
+
+    const ITEM_HEIGHT = 100;
+    const THUMBNAIL_WIDTH  = 96;
+    const THUMBNAIL_HEIGHT = 72;
+
+    // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
+    const CSS = (`
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #333;
+        overflow-x: hidden;
+        counter-reset: video;
+      }
+
+      #listContainer::-webkit-scrollbar {
+        background: #222;
+      }
+
+      #listContainer::-webkit-scrollbar-thumb {
+        border-radius: 0;
+        background: #666;
+      }
+
+      #listContainer::-webkit-scrollbar-button {
+        background: #666;
+        display: none;
+      }
+
+      .scrollToTop {
+        position: fixed;
+        width: 32px;
+        height: 32px;
+        right: 32px;
+        bottom: 8px;
+        font-size: 24px;
+        line-height: 32px;
+        text-align: center;
+        z-index: 100;
+        background: #ccc;
+        color: #000;
+        border-radius: 100%;
+        cursor: pointer;
+        opacity: 0.3;
+        transition: opacity 0.4s ease;
+      }
+
+      .scrollToTop:hover {
+        opacity: 0.9;
+        box-shadow: 0 0 8px #fff;
+      }
+
+      .videoItem {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+        height: ${ITEM_HEIGHT}px;
+        overflow: hidden;
+        transition:
+          transform 0.4s ease, box-shadow 0.4s ease,
+          margin-left 0.4s ease, margin-top 0.4s ease;
+        -webkit-backface-visibility: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .playlist .videoItem {
+        cursor: move;
+      }
+
+
+      .playlist .videoItem::before {
+          content: counter(video);
+          counter-increment: video;
+          position: absolute;
+          right: 8px;
+          top: 80%;
+          color: #666;
+          font-family: Impact;
+          font-size: 45px;
+          pointer-events: none;
+          z-index: 1;
+          line-height: ${ITEM_HEIGHT}px;
+          opacity: 0.6;
+
+          transform: translate(0, -50%);
+      }
+
+      .videoItem.is-updating {
+        opacity: 0.5;
+        cursor: wait;
+      }
+
+      .videoItem.dragging {
+        pointer-events: none;
+        box-shadow: 8px 8px 4px #000;
+        background: #666;
+        opacity: 0.8;
+        transition:
+          box-shadow 0.4s ease,
+          margin-left 0.4s ease, margin-top 0.4s ease;
+        z-index: 10000;
+      }
+
+      body.dragging * {
+        cursor: move;
+      }
+
+      body.dragging .videoItem.dragover {
+        outline: 5px dashed #99f;
+      }
+
+      body.dragging .videoItem.dragover * {
+        opacity: 0.3;
+      }
+
+      body:not(.is-pocketReady) .pocket-info {
+        display: none !important;
+      }
+
+
+      .videoItem + .videoItem {
+        border-top: 1px dotted #888;
+        margin-top: 4px;
+        outline-offset: -8px;
+      }
+
+      .separator + .videoItem {
+        border-top: 1px dotted #333;
+      }
+
+      .videoItem .thumbnailContainer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width:  ${THUMBNAIL_WIDTH}px;
+        height: ${THUMBNAIL_HEIGHT}px;
+        margin: 4px 4px 0;
+      }
+
+      .videoItem .thumbnailContainer .thumbnail {
+        transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
+        width:  ${THUMBNAIL_WIDTH}px;
+        height: ${THUMBNAIL_HEIGHT}px;
+      }
+
+      .videoItem .thumbnailContainer .thumbnail:active {
+        box-shadow: 0 0 8px #f99;
+        transform: translate(0, 4px);
+        transition: none;
+      }
+
+
+      .videoItem .thumbnailContainer .playlistAdd,
+      .videoItem .playlistRemove,
+      .videoItem .thumbnailContainer .deflistAdd,
+      .videoItem .thumbnailContainer .pocket-info {
+        position: absolute;
+        display: none;
+        color: #fff;
+        background: #666;
+        width: 24px;
+        height: 20px;
+        line-height: 18px;
+        font-size: 14px;
+        box-sizing: border-box;
+        text-align: center;
+        font-weight: bolder;
+
+        color: #fff;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+      .videoItem .thumbnailContainer .playlistAdd {
+        left: 0;
+        bottom: 0;
+      }
+      .videoItem .playlistRemove {
+        right: 8px;
+        top: 0;
+      }
+      .videoItem .thumbnailContainer .deflistAdd {
+        right: 0;
+        bottom: 0;
+      }
+      .videoItem .thumbnailContainer .pocket-info {
+        right: 24px;
+        bottom: 0;
+      }
+      .playlist .videoItem .playlistAdd {
+        display: none !important;
+      }
+      .videoItem .playlistRemove {
+        display: none;
+      }
+      .playlist .videoItem:not(.is-active):hover .playlistRemove {
+        display: inline-block;
+      }
+
+
+      .playlist .videoItem:not(.is-active):hover .playlistRemove,
+      .videoItem:hover .thumbnailContainer .playlistAdd,
+      .videoItem:hover .thumbnailContainer .deflistAdd,
+      .videoItem:hover .thumbnailContainer .pocket-info {
+        display: inline-block;
+        border: 1px outset;
+      }
+
+      .playlist .videoItem:not(.is-active):hover .playlistRemove:hover,
+      .videoItem:hover .thumbnailContainer .playlistAdd:hover,
+      .videoItem:hover .thumbnailContainer .deflistAdd:hover,
+      .videoItem:hover .thumbnailContainer .pocket-info:hover {
+        transform: scale(1.5);
+        box-shadow: 2px 2px 2px #000;
+      }
+
+      .playlist .videoItem:not(.is-active):hover .playlistRemove:active,
+      .videoItem:hover .thumbnailContainer .playlistAdd:active,
+      .videoItem:hover .thumbnailContainer .deflistAdd:active,
+      .videoItem:hover .thumbnailContainer .pocket-info:active {
+        transform: scale(1.3);
+        border: 1px inset;
+        transition: none;
+      }
+
+      .videoItem.is-updating .thumbnailContainer .deflistAdd {
+        transform: scale(1.0) !important;
+        border: 1px inset !important;
+        pointer-events: none;
+      }
+
+      .videoItem .thumbnailContainer .duration {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        font-size: 12px;
+        color: #fff;
+      }
+      .videoItem:hover .thumbnailContainer .duration {
+        display: none;
+      }
+
+      .videoItem .videoInfo {
+        posigion: absolute;
+        top: 0;
+        margin-left: 104px;
+        height: 100%;
+      }
+
+      .videoItem .postedAt {
+        font-size: 12px;
+        color: #ccc;
+      }
+      .videoItem.is-played .postedAt::after {
+        content: ' ●';
+        font-size: 10px;
+      }
+
+      .videoItem .counter {
+        position: absolute;
+        top: 80px;
+        width: 100%;
+        text-align: center;
+      }
+
+      .videoItem .title {
+        height: 52px;
+        overflow: hidden;
+      }
+
+      .videoItem .videoLink {
+        font-size: 14px;
+        color: #ff9;
+        transition: background 0.4s ease, color 0.4s ease;
+      }
+      .videoItem .videoLink:visited {
+        color: #ffd;
+      }
+
+      .videoItem .videoLink:active {
+        color: #fff;
+        background: #663;
+        transition: none;
+      }
+
+
+      .videoItem.noVideoCounter .counter {
+        display: none;
+      }
+      .videoItem .counter {
+        font-size: 12px;
+        color: #ccc;
+      }
+      .videoItem .counter .value {
+        font-weight: bolder;
+      }
+      .videoItem .counter .count {
+        white-space: nowrap;
+      }
+      .videoItem .counter .count + .count {
+        margin-left: 8px;
+      }
+
+      .videoItem.is-active {
+        /*outline: dashed 2px #ff8;
+        outline-offset: 4px;*/
+        border: none !important;
+        background: #776;
+      }
+
+      @keyframes dropbox {
+          0% {  }
+          5% {  opacity: 0.8; }
+         99% { box-shadow: 8px 8px 8px #000;
+               transform: translate(0, 500px); opacity: 0.5; }
+        100% { opacity: 0; }
+      }
+
+      .videoItem.deleting {
+        pointer-events: none;
+        animation-name: dropbox;
+        animation-iteration-count: 1;
+        animation-timing-function: ease-in;
+        animation-duration: 0.5s;
+        animation-fill-mode: forwards;
+      }
+
+      @media screen and (min-width: 600px)
+      {
+        #listContainerInner {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+
+        .videoItem {
+          margin: 0 8px;
+          border-top: none !important;
+          border-bottom: 1px dotted #888;
+        }
+      }
+
+    `).trim();
+
+    const TPL = (`
+      <div class="videoItem">
+        <span class="command playlistRemove" data-command="playlistRemove" title="プレイリストから削除">×</span>
+        <div class="thumbnailContainer">
+          <a class="command" data-command="select">
+            <img class="thumbnail" decoding="async">
+            <span class="duration"></span>
+            <span class="command playlistAdd" data-command="playlistAdd" title="プレイリストに追加">▶</span>
+            <span class="command deflistAdd"  data-command="deflistAdd"  title="とりあえずマイリスト">&#x271A;</span>
+            <span class="command pocket-info" data-command="pocket-info"  title="動画情報">？</span>
+          </a>
+        </div>
+        <div class="videoInfo">
+          <div class="postedAt"></div>
+          <div class="title">
+            <a class="command videoLink" data-command="select"></a>
+          </div>
+        </div>
+        <div class="counter">
+          <span class="count">再生: <span class="value viewCount"></span></span>
+          <span class="count">コメ: <span class="value commentCount"></span></span>
+          <span class="count">マイ: <span class="value mylistCount"></span></span>
+        </div>
+     </div>
+    `).trim();
+
+    let counter = 0;
+    let template;
+    class VideoListItemView extends AsyncEmitter {
+      static get template() {
+        if (!template) {
+          const t = document.createElement('template');
+          t.id = 'VideoListItemView-template' + Date.now();
+          t.innerHTML = TPL;
+          document.body.appendChild(t);
+          const tc = t.content;
+          template = {
+            t,
+            clone: () => { return document.importNode(t.content, true).firstChild; },
+            videoItem:     tc.querySelector('.videoItem'),
+            duration:      tc.querySelector('.duration'),
+            thumbnail:     tc.querySelector('.thumbnail'),
+            thumbnailLink: tc.querySelector('.thumbnailContainer>a'),
+            videoLink:     tc.querySelector('.videoLink'),
+            postedAt:      tc.querySelector('.postedAt'),
+            viewCount:     tc.querySelector('.viewCount'),
+            commentCount:  tc.querySelector('.commentCount'),
+            mylistCount:   tc.querySelector('.mylistCount'),
+            playlistAdd:   tc.querySelector('.playlistAdd'),
+            playlistRemove:tc.querySelector('.playlistRemove'),
+            deflistAdd:    tc.querySelector('.deflistAdd'),
+            pocketInfo:    tc.querySelector('.pocket-info')
+          };
+        }
+        return template;
+      }
+
+      constructor(params) {
+        super();
+        this.initialize(params);
+      }
+
+      initialize(params) {
+        this.watchId = params.watchId;
+        this._item   = params.item;
+        this._isLazy = typeof params.enableLazyLoadImage === 'boolean' ?
+          params.enableLazyLoadImage : false;
+        this._id = counter++;
+      }
+
+      build() {
+        const template = this.constructor.template;
+        const {videoItem, duration, thumbnail, thumbnailLink, videoLink, postedAt, viewCount, commentCount, mylistCount, playlistAdd, playlistRemove, deflistAdd, pocketInfo} = template;
+        const item = this._item;
+        const title = item.getTitle();
+        const count = item.getCount();
+        const itemId = item.getItemId();
+        const watchId = item.getWatchId();
+        const watchUrl = `//www.nicovideo.jp/watch/${watchId}`;
+
+        videoItem.className = `videoItem watch${watchId} item${itemId} ${item.isActive() ? 'is-active' : ''} ${item.isUpdating() ? 'is-updating' : ''} ${item.isPlayed() ? 'is-played' : ''}`;
+        videoItem.setAttribute('data-item-id', itemId);
+        videoItem.setAttribute('data-watch-id', watchId);
+
+        thumbnail.classList.toggle('lazy-load', this._isLazy);
+        thumbnail.setAttribute('data-watch-id', watchId);
+        if (this._isLazy) {
+          thumbnail.setAttribute('src', CONSTANT.BLANK_PNG);
+        } else {
+          thumbnail.setAttribute('src', item.getThumbnail());
+        }
+        thumbnail.setAttribute('data-src', item.getThumbnail());
+
+
+        thumbnailLink.setAttribute('href', watchUrl);
+        thumbnailLink.setAttribute('data-param', itemId);
+        videoLink.setAttribute('href', watchUrl);
+        videoLink.setAttribute('data-param', itemId);
+        videoLink.setAttribute('title', title);
+        videoLink.textContent = title;
+
+        duration.textContent = this._secToTime(item.getDuration());
+        postedAt.textContent = item.getPostedAt();
+
+        viewCount.textContent    = this._addComma(count.view);
+        commentCount.textContent = this._addComma(count.comment);
+        mylistCount.textContent  = this._addComma(count.mylist);
+
+        playlistAdd   .setAttribute('data-param', watchId);
+        playlistRemove.setAttribute('data-param', watchId);
+        deflistAdd    .setAttribute('data-param', watchId);
+        pocketInfo    .setAttribute('data-param', watchId);
+
+        this._view = template.clone();
+      }
+
+      rebuild(item) {
+        this._isLazy = false;
+        this._item = item;
+        const lastView = this._view;
+        if (!lastView) { return this.build(); }
+        this.build();
+        if (lastView.parentNode) {
+          lastView.parentNode.replaceChild(this.getViewElement(), lastView);
+        }
+      }
+
+      getWatchId() {
+        return this._item.getWatchId();
+      }
+
+      getViewElement() {
+        if (!this._view) {
+          this.build();
+        }
+        return this._view;
+      }
+
+      remove() {
+        if (!this._view) { return; }
+        this._view.remove();
+      }
+
+      toString() {
+        return this.getView().outerHTML;
+      }
+
+      _secToTime(sec) {
+        const m = Math.floor(sec / 60);
+        const s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+        return [m, s].join(':');
+      }
+
+      _addComma(m) {
+        if (isNaN(m)) { return '---'; }
+        return m.toLocaleString ? m.toLocaleString() : util.escapeHtml(m);
+      }
+
+      addClass(className) {
+        this.toggleClass(className, true);
+      }
+
+      removeClass(className) {
+        this.toggleClass(className, false);
+      }
+
+      toggleClass(className, v) {
+        if (!this._view) { this.build(); }
+        this._view.classList.toggle(className, v);
+      }
+    }
+
+    VideoListItemView.CSS = CSS;
+    VideoListItemView.TPL = TPL;
+    return VideoListItemView;
+  })();
+
+
 /**
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
@@ -250,6 +778,10 @@ class NicoSearchApiV2Loader {}
     -webkit-user-select: none;
     -moz-user-select: none;
     min-height: 100%;
+  }
+
+  body.is-updating {
+    pointer-events: none;
   }
 
   body.drag-over>* {
@@ -289,26 +821,29 @@ class NicoSearchApiV2Loader {}
   _.extend(VideoListView.prototype, AsyncEmitter.prototype);
   _.assign(VideoListView.prototype, {
     initialize: function(params) {
-      this._ItemBuilder = params.builder || VideoListItemView;
-      this._itemCss     = params.itemCss || VideoListItemView.__css__;
+      this._ItemView    = params.itemView || VideoListItemView;
+      this._itemCss     = params.itemCss || VideoListItemView.CSS;
       this._className   = params.className || 'videoList';
       this._$container  = params.$container;
 
       this._retryGetIframeCount = 0;
 
-      this._htmlCache = {};
+      this._itemViewCache = new WeakMap();
       this._maxItems = params.max || 100;
       this._dragdrop = _.isBoolean(params.dragdrop) ? params.dragdrop : false;
       this._dropfile = _.isBoolean(params.dropfile) ? params.dropfile : false;
 
       this._model = params.model;
       if (this._model) {
-        this._model.on('update',     _.debounce(this._onModelUpdate.bind(this), 100));
-        this._model.on('itemUpdate', this._onModelItemUpdate.bind(this));
+        this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 100));
+        this._model.on('item-update', this._onModelItemUpdate.bind(this));
+        this._model.on('item-remove', this._onModelItemRemove.bind(this));
       }
       
-      this._isLazyLoadImage = window.IntersectionObserver ? true : false;
+      this._enableLazyLoadImage = window.IntersectionObserver ? true : false;
       this._hasLazyLoad = {};
+
+      
 
       this._initializeView(params);
     },
@@ -322,27 +857,24 @@ class NicoSearchApiV2Loader {}
       this._frame.on('load', this._onIframeLoad.bind(this));
     },
     _onIframeLoad: function(w) {
-      var doc = this._document = w.document;
-      var $win = this._$window = $(w);
-      var $body = this._$body = $(doc.body);
+      const doc = this._document = w.document;
+      const $body = this._$body = $(doc.body);
+      this._$window = $(w);
       if (this._className) {
-        $body.addClass(this._className);
+        doc.body.classList.add(this._className);
       }
 
       this._$container = $body.find('#listContainer');
-      var $list = this._$list = $(doc.getElementById('listContainerInner'));
-      if (this._html) {
-        $list.html(this._html);
+      const list = this._list = doc.getElementById('listContainerInner');
+      if (this._documentFragment instanceof Node) {
+        list.appendChild(this._documentFragment);
         this._setInviewObserver();
+        this._documentFragment = null;
       }
       $body.on('click', this._onClick.bind(this));
       $body.on('dblclick', this._onDblclick.bind(this));
-      $body.on('keydown', function(e) {
-        ZenzaWatch.emitter.emit('keydown', e);
-      });
-      $body.on('keyup', function(e) {
-        ZenzaWatch.emitter.emit('keyup', e);
-      });
+      $body.on('keydown', e => { ZenzaWatch.emitter.emit('keydown', e); });
+      $body.on('keyup', e => { ZenzaWatch.emitter.emit('keyup', e); });
 
       if (this._dragdrop) {
         $body.on('mousedown', this._onBodyMouseDown.bind(this));
@@ -468,43 +1000,62 @@ class NicoSearchApiV2Loader {}
       fileReader.readAsText(file);
     },
     _onModelUpdate: function(itemList, replaceAll) {
-      window.console.time('update playlistView');
-      this.addClass('updating');
-      itemList = _.isArray(itemList) ? itemList: [itemList];
-      var itemViews = [], Builder = this._ItemBuilder;
-
-      if (replaceAll) { this._htmlCache = {}; }
+      const timeLabel = `update playlistView  replaceAll=${!!replaceAll}`;
+      window.console.time(timeLabel);
+      this.addClass('is-updating');
+      itemList = Array.isArray(itemList) ? itemList: [itemList];
+      const itemViews = [];
 
       itemList.forEach((item) => {
-        var id = item.getItemId();
-        if (this._htmlCache[id]) {
-          //window.console.log('from cache');
-          itemViews.push(this._htmlCache[id]);
+        let id = item.getItemId();
+        if (this._itemViewCache.has(id)) {
+          itemViews.push(this._itemViewCache.get(item));
         } else {
-          var isLazy = this._isLazyLoadImage && !this._hasLazyLoad[item.getWatchId()];
-          var tpl = this._htmlCache[id] = (new Builder({
-            item: item,
-            isLazyLoadImage: isLazy
-          })).toString();
-          itemViews.push(tpl);
+          const isLazy = this._enableLazyLoadImage; // && !this._hasLazyLoad[item.getWatchId()];
+          const itemView = new this._ItemView({item, enableLazyLoadImage: isLazy});
+          this._itemViewCache.set(item, itemView);
+          itemViews.push(itemView);
         }
       });
 
-      this._html = itemViews.join('');
+      this._itemViews = itemViews;
+      if (itemViews.length < 1) {
+        this.removeClass('is-updating');
+        window.console.timeEnd(timeLabel);
+        return;
+      }
+
+      const f = document.createDocumentFragment();
+      itemViews.forEach(i => {
+        f.appendChild(i.getViewElement());
+      });
+
+      if (this._list) {
+        if (f instanceof Node) {
+          this._list.innerHTML = '';
+          this._list.appendChild(f);
+          this._documentFragment = null;
+        }
+      } else {
+        this._documentFragment = f;
+      }
 
       window.setTimeout(() => {
-        if (this._$list) { this._$list.html(this._html); }
-        this._setInviewObserver();
-      }, 0);
+       this._setInviewObserver();
 
-      window.setTimeout(() => {
-        this.removeClass('updating');
+        this.removeClass('is-updating');
         this.emit('update');
-      }, 100);
-      window.console.timeEnd('update playlistView');
+      }, 0);
+      window.console.timeEnd(timeLabel);
+    },
+    _onModelItemRemove: function(item) {
+      const itemView = this._itemViewCache.get(item);
+      if (!itemView) { return; }
+      itemView.remove();
+      this._itemViewCache.delete(item);
     },
     _setInviewObserver: function() {
-      if (!this._isLazyLoadImage || !this._document) { return; }
+      if (!this._enableLazyLoadImage || !this._document) { return; }
       if (this._intersectionObserver) {
         this._intersectionObserver.disconnect();
       }
@@ -520,42 +1071,42 @@ class NicoSearchApiV2Loader {}
       }
     },
     _onImageInview: function(entries) {
-      var observer = this._intersectionObserver;
-      for (var i = 0, len = entries.length; i < len; i++) {
-        var entry = entries[i];
-        var image = entry.target;
-        var $image = $(image);
-        var src = $image.attr('data-src');
-        var watchId = $image.attr('data-watch-id');
-        var itemId = $image.attr('data-item-id');
-        $image.removeClass('lazy-load');
+      const observer = this._intersectionObserver;
+      for (let i = 0, len = entries.length; i < len; i++) {
+        const entry = entries[i];
+        const image = entry.target;
+        const src = image.getAttribute('data-src');
+        image.classList.remove('lazy-load');
         observer.unobserve(image);
 
         if (!src) { continue; }
-        $image.attr('src', src);
-        if (watchId) { this._hasLazyLoad[watchId] = true; }
-        if (itemId) { this._htmlCache[itemId] = null; }
+        image.setAttribute('src', src);
       }
     },
     _onModelItemUpdate: function(item, key, value) {
       //window.console.log('_onModelItemUpdate', item, item.getItemId(), item.getTitle(), key, value);
       if (!this._$body) { return; }
-      var itemId = item.getItemId();
-      var $item = this._$body.find('.videoItem.item' + itemId);
+      const itemId = item.getItemId();
 
-      this._htmlCache[itemId] = (new this._ItemBuilder({item: item})).toString();
-      if (key === 'active') {
-        this._$body.find('.videoItem.active').removeClass('active');
+      const itemView = this._itemViewCache.get(item);
 
-        $item.toggleClass('active', value);
-        //if (value) { this.scrollToItem(itemId); }
-
-      } else if (key === 'updating' || key === 'played') {
-        $item.toggleClass(key, value);
+      if (!itemView) {
+        const newItemView = new this._ItemView({item});
+        this._itemViewCache.set(item, newItemView);
+        const itemViewElement = this._document.querySelector(`.videoItem.item${itemId}`);
+        this._list.insertBefore(
+          newItemView.getViewElement(), itemViewElement);
+        if (itemViewElement) {
+          this._document.body.removeChild(itemViewElement);
+        }
+        return;
+      }
+      
+      if (['active', 'updating', 'played'].includes(key) === 'active') {
+        itemView.toggleClass(`is-${key}`, value);
+        if (key === 'active' && value) { this.scrollToItem(itemId); }
       } else {
-        var $newItem = $(this._htmlCache[itemId]);
-        $item.before($newItem);
-        $item.remove();
+        itemView.rebuild(item);
       }
     },
     _onClick: function(e) {
@@ -573,8 +1124,8 @@ class NicoSearchApiV2Loader {}
           case 'deflistAdd':
             this.emit('deflistAdd', param, itemId);
             break;
-          case 'playlistAppend':
-            this.emit('playlistAppend', param, itemId);
+          case 'playlistAdd':
+            this.emit('playlistAdd', param, itemId);
             break;
           case 'pocket-info':
             window.setTimeout(() => { this._pocket.external.info(param); }, 100);
@@ -628,436 +1179,6 @@ class NicoSearchApiV2Loader {}
     }
   });
 
-  // なんか汎用性を持たせようとして失敗してる奴
-  var VideoListItemView = function() { this.initialize.apply(this, arguments); };
-  _.extend(VideoListItemView.prototype, AsyncEmitter.prototype);
-
-  VideoListItemView.ITEM_HEIGHT = 100;
-  VideoListItemView.THUMBNAIL_WIDTH  = 96;
-  VideoListItemView.THUMBNAIL_HEIGHT = 72;
-
-  // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
-  VideoListItemView.__css__ = (`
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      background: #333;
-      overflow-x: hidden;
-      counter-reset: video;
-    }
-
-    #listContainer::-webkit-scrollbar {
-      background: #222;
-    }
-
-    #listContainer::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #666;
-    }
-
-    #listContainer::-webkit-scrollbar-button {
-      background: #666;
-      display: none;
-    }
-
-    .scrollToTop {
-      position: fixed;
-      width: 32px;
-      height: 32px;
-      right: 32px;
-      bottom: 8px;
-      font-size: 24px;
-      line-height: 32px;
-      text-align: center;
-      z-index: 100;
-      background: #ccc;
-      color: #000;
-      border-radius: 100%;
-      cursor: pointer;
-      opacity: 0.3;
-      transition: opacity 0.4s ease;
-    }
-
-    .scrollToTop:hover {
-      opacity: 0.9;
-      box-shadow: 0 0 8px #fff;
-    }
-
-    .videoItem {
-      position: relative;
-      display: inline-block;
-      width: 100%;
-      height: ${VideoListItemView.ITEM_HEIGHT}px;
-      overflow: hidden;
-      transition:
-        transform 0.4s ease, box-shadow 0.4s ease,
-        margin-left 0.4s ease, margin-top 0.4s ease;
-    }
-
-    .playlist .videoItem {
-      cursor: move;
-    }
-
-
-    .playlist .videoItem::before {
-        content: counter(video);
-        counter-increment: video;
-        position: absolute;
-        right: 8px;
-        top: 80%;
-        color: #666;
-        font-family: Impact;
-        font-size: 45px;
-        pointer-events: none;
-        z-index: 1;
-        line-height: ${VideoListItemView.ITEM_HEIGHT}px;
-        opacity: 0.6;
-
-        transform: translate(0, -50%);
-    }
-
-    .videoItem.updating {
-      opacity: 0.5;
-      cursor: wait;
-    }
-
-    .videoItem.dragging {
-      pointer-events: none;
-      box-shadow: 8px 8px 4px #000;
-      background: #666;
-      opacity: 0.8;
-      transition:
-        box-shadow 0.4s ease,
-        margin-left 0.4s ease, margin-top 0.4s ease;
-      z-index: 10000;
-    }
-
-    body.dragging * {
-      cursor: move;
-    }
-
-    body.dragging .videoItem.dragover {
-      outline: 5px dashed #99f;
-    }
-
-    body.dragging .videoItem.dragover * {
-      opacity: 0.3;
-    }
-
-    body:not(.is-pocketReady) .pocket-info {
-      display: none !important;
-    }
-
-
-    .videoItem + .videoItem {
-      border-top: 1px dotted #888;
-      margin-top: 4px;
-      outline-offset: -8px;
-    }
-
-    .separator + .videoItem {
-      border-top: 1px dotted #333;
-    }
-
-    .videoItem .thumbnailContainer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
-      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
-      margin: 4px 4px 0;
-    }
-
-    .videoItem .thumbnailContainer .thumbnail {
-      transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
-      width:  ${VideoListItemView.THUMBNAIL_WIDTH}px;
-      height: ${VideoListItemView.THUMBNAIL_HEIGHT}px;
-    }
-
-    .videoItem .thumbnailContainer .thumbnail:active {
-      box-shadow: 0 0 8px #f99;
-      transform: translate(0, 4px);
-      transition: none;
-    }
-
-
-    .videoItem .thumbnailContainer .playlistAppend,
-    .videoItem .playlistRemove,
-    .videoItem .thumbnailContainer .deflistAdd,
-    .videoItem .thumbnailContainer .pocket-info {
-      position: absolute;
-      display: none;
-      color: #fff;
-      background: #666;
-      width: 24px;
-      height: 20px;
-      line-height: 18px;
-      font-size: 14px;
-      box-sizing: border-box;
-      text-align: center;
-      font-weight: bolder;
-
-      color: #fff;
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    .videoItem .thumbnailContainer .playlistAppend {
-      left: 0;
-      bottom: 0;
-    }
-    .videoItem .playlistRemove {
-      right: 8px;
-      top: 0;
-    }
-    .videoItem .thumbnailContainer .deflistAdd {
-      right: 0;
-      bottom: 0;
-    }
-    .videoItem .thumbnailContainer .pocket-info {
-      right: 24px;
-      bottom: 0;
-    }
-    .playlist .videoItem .playlistAppend {
-      display: none !important;
-    }
-    .videoItem .playlistRemove {
-      display: none;
-    }
-    .playlist .videoItem:not(.active):hover .playlistRemove {
-      display: inline-block;
-    }
-
-
-    .playlist .videoItem:not(.active):hover .playlistRemove,
-    .videoItem:hover .thumbnailContainer .playlistAppend,
-    .videoItem:hover .thumbnailContainer .deflistAdd,
-    .videoItem:hover .thumbnailContainer .pocket-info {
-      display: inline-block;
-      border: 1px outset;
-    }
-
-    .playlist .videoItem:not(.active):hover .playlistRemove:hover,
-    .videoItem:hover .thumbnailContainer .playlistAppend:hover,
-    .videoItem:hover .thumbnailContainer .deflistAdd:hover,
-    .videoItem:hover .thumbnailContainer .pocket-info:hover {
-      transform: scale(1.5);
-      box-shadow: 2px 2px 2px #000;
-    }
-
-    .playlist .videoItem:not(.active):hover .playlistRemove:active,
-    .videoItem:hover .thumbnailContainer .playlistAppend:active,
-    .videoItem:hover .thumbnailContainer .deflistAdd:active,
-    .videoItem:hover .thumbnailContainer .pocket-info:active {
-      transform: scale(1.3);
-      border: 1px inset;
-      transition: none;
-    }
-
-    .videoItem.updating .thumbnailContainer .deflistAdd {
-      transform: scale(1.0) !important;
-      border: 1px inset !important;
-      pointer-events: none;
-    }
-
-    .videoItem .thumbnailContainer .duration {
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      font-size: 12px;
-      color: #fff;
-    }
-    .videoItem:hover .thumbnailContainer .duration {
-      display: none;
-    }
-
-    .videoItem .videoInfo {
-      posigion: absolute;
-      top: 0;
-      margin-left: 104px;
-      height: 100%;
-    }
-
-    .videoItem .postedAt {
-      font-size: 12px;
-      color: #ccc;
-    }
-    .videoItem.played .postedAt::after {
-      content: ' ●';
-      font-size: 10px;
-    }
-
-    .videoItem .counter {
-      position: absolute;
-      top: 80px;
-      width: 100%;
-      text-align: center;
-    }
-
-    .videoItem .title {
-      height: 52px;
-      overflow: hidden;
-    }
-
-    .videoItem .videoLink {
-      font-size: 14px;
-      color: #ff9;
-      transition: background 0.4s ease, color 0.4s ease;
-    }
-    .videoItem .videoLink:visited {
-      color: #ffd;
-    }
-
-    .videoItem .videoLink:active {
-      color: #fff;
-      background: #663;
-      transition: none;
-    }
-
-
-    .videoItem.noVideoCounter .counter {
-      display: none;
-    }
-    .videoItem .counter {
-      font-size: 12px;
-      color: #ccc;
-    }
-    .videoItem .counter .value {
-      font-weight: bolder;
-    }
-    .videoItem .counter .count {
-      white-space: nowrap;
-    }
-    .videoItem .counter .count + .count {
-      margin-left: 8px;
-    }
-
-    .videoItem.active {
-      /*outline: dashed 2px #ff8;
-      outline-offset: 4px;*/
-      border: none !important;
-      background: #776;
-    }
-
-    @keyframes dropbox {
-        0% {  }
-        5% {  opacity: 0.8; }
-       99% { box-shadow: 8px 8px 8px #000;
-             transform: translate(0, 500px); opacity: 0.5; }
-      100% { opacity: 0; }
-    }
-
-    .videoItem.deleting {
-      pointer-events: none;
-      animation-name: dropbox;
-      animation-iteration-count: 1;
-      animation-timing-function: ease-in;
-      animation-duration: 0.5s;
-      animation-fill-mode: forwards;
-    }
-
-    @media screen and (min-width: 600px)
-    {
-      #listContainerInner {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      }
-
-      .videoItem {
-        margin: 0 8px;
-        border-top: none !important;
-        border-bottom: 1px dotted #888;
-      }
-    }
-
-  `).trim();
-
-  VideoListItemView.__tpl__ = (`
-    <div class="videoItem %className% watch%watchId% item%itemId% %active% %updating% %played%"
-      data-item-id="%itemId%"
-      data-watch-id="%watchId%">
-      <span class="command playlistRemove" data-command="playlistRemove" data-param="%watchId%" title="プレイリストから削除">×</span>
-      <div class="thumbnailContainer">
-        <a href="//www.nicovideo.jp/watch/%watchId%" class="command" data-command="select" data-param="%itemId%">
-          <img class="thumbnail %isLazy%" %src%="%thumbnail%" data-watch-id="%watchId%" data-item-id="%itemId%" decoding="async">
-          <span class="duration">%duration%</span>
-          <span class="command playlistAppend" data-command="playlistAppend" data-param="%watchId%" title="プレイリストに追加">▶</span>
-          <span class="command deflistAdd" data-command="deflistAdd" data-param="%watchId%" title="とりあえずマイリスト">&#x271A;</span>
-          <span class="command pocket-info" data-command="pocket-info" data-param="%watchId%" title="動画情報">？</span>
-        </a>
-      </div>
-      <div class="videoInfo">
-        <div class="postedAt">%postedAt%</div>
-        <div class="title">
-          <a href="//www.nicovideo.jp/watch/%watchId%" class="command videoLink" data-command="select" data-param="%itemId%" title="%videoTitle%">
-            %videoTitle%
-          </a>
-        </div>
-      </div>
-      <div class="counter">
-        <span class="count">再生: <span class="value">%viewCount%</span></span>
-        <span class="count">コメ: <span class="value">%commentCount%</span></span>
-        <span class="count">マイ: <span class="value">%mylistCount%</span></span>
-      </div>
-   </div>
-  `).trim();
-
-  _.assign(VideoListItemView.prototype, {
-    initialize: function(params) {
-      this.watchId = params.watchId;
-      this._item = params.item;
-      this._isLazy = _.isBoolean(params.isLazyLoadImage) ? params.isLazyLoadImage : false;
-    },
-    build: function() {
-      var tpl = VideoListItemView.__tpl__;
-      var item = this._item;
-
-      // 動画タイトルはあらかじめエスケープされている。
-      // ・・・のだが、データのいいかげんさから見て、
-      // 本当に全部やってあるの？って信用できない。(古い動画は特にいいかげん)
-      // なので念のためescapeしておく。過剰エスケープになっても気にしない
-      var title = util.escapeToZenkaku(item.getTitle());
-      var esc = util.escapeHtml;
-
-      var count = item.getCount();
-      //window.console.log('item', item, item.getThumbnail());
-      tpl = tpl
-        .replace(/%active%/g,     item.isActive() ? 'active' : '')
-        .replace(/%played%/g,     item.isPlayed() ? 'played' : '')
-        .replace(/%updating%/g,   item.isUpdating() ? 'updating' : '')
-        .replace(/%watchId%/g,    esc(item.getWatchId()))
-        .replace(/%itemId%/g,     parseInt(item.getItemId(), 10))
-        .replace(/%postedAt%/g,   esc(item.getPostedAt()))
-        .replace(/%videoTitle%/g, title)
-        .replace(/%thumbnail%/g,  esc(item.getThumbnail() || ''))
-        .replace(/%duration%/g,   this._secToTime(item.getDuration()))
-        .replace(/%viewCount%/g,    this._addComma(count.view))
-        .replace(/%commentCount%/g, this._addComma(count.comment))
-        .replace(/%mylistCount%/g,  this._addComma(count.mylist))
-        .replace(/%isLazy%/g,  this._isLazy ? 'lazy-load' : '')
-        .replace(/%src%/g,  this._isLazy ? 'data-src' : 'src')
-        .replace(/%className%/g, '')
-        ;
-      return tpl;
-    },
-    getWatchId: function() {
-      return this._item.getWatchId();
-    },
-    toString: function() {
-      return this.build();
-    },
-    _secToTime: function(sec) {
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      return [m, s].join(':');
-    },
-    _addComma: function(m) {
-      if (isNaN(m)) { return '---'; }
-      return m.toLocaleString ? m.toLocaleString() : ZenzaWatch.util.escapeHtml(m);
-    }
-  });
 
   var VideoListItem = function() { this.initialize.apply(this, arguments); };
   VideoListItem._itemId = 0;
@@ -1295,14 +1416,12 @@ class NicoSearchApiV2Loader {}
       if (this._view) { return; }
       this._view = new VideoListView({
         $container: this._$container,
-        model: this._model,
-        builder: VideoListItemView,
-        itemCss: VideoListItemView.__css__
+        model: this._model
       });
 
-      this._view.on('command',        this._onCommand     .bind(this));
-      this._view.on('deflistAdd',     this._onDeflistAdd  .bind(this));
-      this._view.on('playlistAppend', this._onPlaylistAdd .bind(this));
+      this._view.on('command',     this._onCommand     .bind(this));
+      this._view.on('deflistAdd',  this._onDeflistAdd  .bind(this));
+      this._view.on('playlistAdd', this._onPlaylistAdd .bind(this));
     },
     update: function(listData, watchId) {
       if (!this._view) { this._initializeView(); }
@@ -1325,7 +1444,7 @@ class NicoSearchApiV2Loader {}
       this.emit('command', command, param);
     },
     _onPlaylistAdd: function(watchId , itemId) {
-      this.emit('command', 'playlistAppend', watchId);
+      this.emit('command', 'playlistAdd', watchId);
       if (this._isUpdatingPlaylist) { return; }
       var item = this._model.findByItemId(itemId);
 
@@ -1566,13 +1685,13 @@ class NicoSearchApiV2Loader {}
   PlaylistView.__tpl__ = (`
     <div class="playlist-container">
       <div class="playlist-header">
-        <lavel class="playlist-menu-button toggleEnable playlist-command"
-          data-command="toggleEnable"><icon class="playlist-menu-icon">▶</icon> 連続再生</lavel>
-        <lavel class="playlist-menu-button toggleLoop playlist-command"
-          data-command="toggleLoop"><icon class="playlist-menu-icon">&#8635;</icon> リピート</lavel>
+        <label class="playlist-menu-button toggleEnable playlist-command"
+          data-command="toggleEnable"><icon class="playlist-menu-icon">▶</icon> 連続再生</label>
+        <label class="playlist-menu-button toggleLoop playlist-command"
+          data-command="toggleLoop"><icon class="playlist-menu-icon">&#8635;</icon> リピート</label>
 
         <div class="playlist-count playlist-command" data-command="toggleMenu">
-          <span class="playlist-index"></span> / <span class="playlist-length"></span>
+          <span class="playlist-index">---</span> / <span class="playlist-length">---</span>
           <div class="zenzaPopupMenu playlist-menu">
             <div class="listInner">
             <ul>
@@ -1632,7 +1751,7 @@ class NicoSearchApiV2Loader {}
       this._playlist = params.playlist;
 
 
-      ZenzaWatch.util.addStyle(PlaylistView.__css__);
+      util.addStyle(PlaylistView.__css__);
       var $view = this._$view = $(PlaylistView.__tpl__);
       this._$container.append($view);
 
@@ -1649,9 +1768,7 @@ class NicoSearchApiV2Loader {}
         model: this._model,
         className: 'playlist',
         dragdrop: true,
-        dropfile: true,
-        builder: VideoListItemView,
-        itemCss: VideoListItemView.__css__
+        dropfile: true
       });
       listView.on('command',    this._onCommand.bind(this));
       listView.on('deflistAdd', this._onDeflistAdd.bind(this));
@@ -1676,12 +1793,11 @@ class NicoSearchApiV2Loader {}
 
       $fileSelect.on('change', this._onImportFileSelect.bind(this));
 
-      _.each([
-        'addClass',
+      [ 'addClass',
         'removeClass',
         'scrollTop',
         'scrollToItem',
-      ], (func) => {
+      ].forEach(func => {
         this[func] = listView[func].bind(listView);
       });
     },
@@ -1858,9 +1974,7 @@ class NicoSearchApiV2Loader {}
       this._view = new PlaylistView({
         $container: this._$container,
         model: this._model,
-        playlist: this,
-        builder: VideoListItemView,
-        itemCss: VideoListItemView.__css__
+        playlist: this
       });
       this._view.on('command',    this._onCommand.bind(this));
       this._view.on('deflistAdd', this._onDeflistAdd.bind(this));
@@ -1937,7 +2051,7 @@ class NicoSearchApiV2Loader {}
       window.setTimeout(function() { a.remove(); }, 1000);
     },
     _onImportFileCommand: function(fileData) {
-      if (!ZenzaWatch.util.isValidJson(fileData)) { return; }
+      if (!util.isValidJson(fileData)) { return; }
 
       //this.emit('command', 'openNow', 'sm20353707');
       this.emit('command', 'pause');
