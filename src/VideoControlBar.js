@@ -812,7 +812,13 @@ var CONSTANT = {};
     .is-youTube .videoServerTypeMenu {
       text-shadow:
         0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
-      pointer-events: none !important;
+    }
+    .is-youTube .videoServerTypeMenu:not(.forYouTube),
+    .videoServerTypeMenu.forYouTube {
+      display: none;
+    }
+    .is-youTube .videoServerTypeMenu.forYouTube {
+      display: inline-block;
     }
 
 
@@ -1027,8 +1033,12 @@ var CONSTANT = {};
 
         <div class="scalingUI">
 
-          <div class="videoServerTypeMenu controlButton" data-command="videoServerTypeMenu">
+          <div class="videoServerTypeMenu controlButton forYouTube" data-command="reload" title="ZenTube解除">
             <div class="controlButtonInner">画</div>
+          </div>
+          <div class="videoServerTypeMenu controlButton " data-command="videoServerTypeMenu">
+            <div class="controlButtonInner">画</div>
+
             <div class="tooltip">動画サーバー・画質</div>
             <div class="videoServerTypeSelectMenu zenzaPopupMenu">
               <div class="triangle"></div>
