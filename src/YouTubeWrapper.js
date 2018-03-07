@@ -118,6 +118,9 @@ const {YouTubeWrapper} = (() => {
                 onStateChange: this._onPlayerStateChange.bind(this),
                 onPlaybackQualityChange: e => {
                   window.console.info('video quality: ', e.data);
+                },
+                onError: (e) => {
+                  this.emit('error', e);
                 }
               },
               playerVars: {

@@ -1037,7 +1037,7 @@ class YouTubeWrapper {}
     }
 
     _onError (e) {
-      if (this._isYouTube) { return; } // TODO: YouTube側のエラーハンドリング
+      if (this._isYouTube) { return; }
       if (this._videoElement.getAttribute('src') === CONSTANT.BLANK_VIDEO_URL) { return; }
       window.console.error('error src', this._video.src);
       window.console.error('%c_onError:', 'background: cyan; color: red;', arguments);
@@ -1045,9 +1045,40 @@ class YouTubeWrapper {}
       this._canPlay = false;
       this.emit('error', {
         code: e.target.error.code,
-        target: e.target
+        target: e.target,
+        type: 'normal'
       });
     }
+
+    _onYouTubeError (e) {
+      window.console.error('error src', this._video.src);
+      window.console.error('%c_onError:', 'background: cyan; color: red;', e);
+      this.addClass('is-error');
+      this._canPlay = false;
+
+      const code = e.data;
+      const description = (() => {
+        switch (code) {
+          case 2:
+            return 'YouTube Error: パラメータエラー (2 invalid parameter)';
+          case 5:
+            return 'YouTube Error: HTML5 関連エラー (5 HTML5 error)';
+          case 100:
+            return 'YouTube Error: 動画が見つからないか、非公開 (100 video not found)';
+          case 101: case 150:
+            return `YouTube Error: 外部での再生禁止 (${code} forbidden)`;
+          default:
+            return `YouTube Error: (code${code})`;
+        }
+      })();
+
+      this.emit('error', {
+        code,
+        description,
+        target: this._videoElement,
+        type: 'youtube'
+      });
+     }
 
     _onPause () {
       console.log('%c_onPause:', 'background: cyan;', arguments);
@@ -1203,6 +1234,7 @@ class YouTubeWrapper {}
       yt.on('pause',          this._onPause  .bind(this));
       yt.on('play',           this._onPlay   .bind(this));
       yt.on('volumechange',   this._onVolumeChange.bind(this));
+      yt.on('error',          this._onYouTubeError.bind(this));
 
       ZenzaWatch.debug.youtube = yt;
       return Promise.resolve(this._videoYouTube);

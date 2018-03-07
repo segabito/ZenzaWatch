@@ -2478,6 +2478,9 @@ var CONSTANT = {};
     },
     _onVideoError: function(e) {
       this._playerState.setVideoErrorOccurred();
+      if (e.type === 'youtube') {
+        return this._onYouTubeVideoError(e);
+      }
 
       this.emit('error', e);
       const isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc;
@@ -2507,6 +2510,11 @@ var CONSTANT = {};
           this._setErrorMessage('動画の再生に失敗しました。');
         }
       }
+    },
+    _onYouTubeVideoError: function(e) {
+      window.console.error('onYouTubeVideoError!', e);
+      this._setErrorMessage(e.description);
+      this.emit('error', e);
     },
     _onVideoAbort: function() {
       this.emit('abort');

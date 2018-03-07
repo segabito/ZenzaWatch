@@ -574,10 +574,10 @@ var DmcStoryboardSession = {
         $view.css('background-image', 'url(' + option.src + ')');
 
         this._$view = $view;
-       },
-       loadImage: function() {},
-       getPage: function() { return this._page; },
-       getView: function() { return this._$view; }
+      },
+      loadImage: function() {},
+      getPage: function() { return this._page; },
+      getView: function() { return this._$view; }
     });
 
     var StoryboardBlockBorder = function(width, height, cols) {
@@ -739,7 +739,7 @@ var DmcStoryboardSession = {
 
         this._$body = $('body');
 
-        ZenzaWatch.util.addStyle(StoryboardView.__css__);
+        util.addStyle(StoryboardView.__css__);
         var $view = this._$view = $(StoryboardView.__tpl__);
 
         var $inner = this._$inner = $view.find('.storyboardInner');
@@ -749,7 +749,7 @@ var DmcStoryboardSession = {
         this._inner = $inner[0];
 
         $view
-          .toggleClass('webkit', ZenzaWatch.util.isWebkit())
+          .toggleClass('webkit', util.isWebkit())
           .on('click',     '.board',   this._onBoardClick.bind(this))
           .on('mousemove', '.board',   this._onBoardMouseMove.bind(this))
           .on('mousemove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
@@ -1043,8 +1043,6 @@ var DmcStoryboardSession = {
         right: 0;
         width: 100%;
         box-sizing: border-box;
-        -moz-box-sizing: border-box;
-        -webkit-box-sizing: border-box;
         background-color: rgba(50, 50, 50, 0.5);
         z-index: 9005;
         overflow: hidden;
@@ -1065,11 +1063,7 @@ var DmcStoryboardSession = {
 
       .storyboardContainer * {
         box-sizing: border-box;
-        -moz-box-sizing: border-box;
-        -webkit-box-sizing: border-box;
         user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
       }
 
       .dragging .storyboardContainer,
