@@ -1930,7 +1930,6 @@ class NicoSearchApiV2Loader {}
       var url = window.URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.setAttribute('download', title + '.playlist.json');
-      a.setAttribute('target', '_blank');
       a.setAttribute('rel', 'noopener');
       a.setAttribute('href', url);
       document.body.appendChild(a);

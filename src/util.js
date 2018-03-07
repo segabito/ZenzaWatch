@@ -1626,7 +1626,6 @@ class CrossDomainGate {}
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.setAttribute('download', title + '.html');
-      a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
       a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
@@ -2630,7 +2629,6 @@ class CrossDomainGate {}
 
       window.console.info('download fileName: ', fileName);
       a.setAttribute('download', fileName);
-      a.setAttribute('target', '_blank');
       a.setAttribute('href', url);
       a.setAttribute('rel', 'noopener');
       document.body.appendChild(a);
