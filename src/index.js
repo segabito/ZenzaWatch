@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.15.1
+// @version        1.15.4
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -43,8 +43,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
   //@version
 
-  console.log(`exec ${PRODUCT} v${VER}...`);
-  console.log('jQuery version: ', $.fn.jquery);
+  console.log(`%c${PRODUCT} v${VER}`, 'font-size: 200%;');
+  console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
 
     var ZenzaWatch = {
       version: VER,
