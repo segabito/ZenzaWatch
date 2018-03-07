@@ -212,7 +212,7 @@ class CrossDomainGate {}
         continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
         backComment: false,        // コメントの裏流し
         autoPauseCommentInput: true, // コメント入力時に自動停止する
-        sharedNgLevel: 'HIGH',      // NG共有の強度 NONE, LOW, MID, HIGH, MAX
+        sharedNgLevel: 'MID',      // NG共有の強度 NONE, LOW, MID, HIGH, MAX
         enablePushState: true,     // ブラウザの履歴に乗せる
         enableHeatMap: true,
         enableCommentPreview: false,
