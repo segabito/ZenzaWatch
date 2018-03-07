@@ -1255,8 +1255,7 @@ var CONSTANT = {};
         this.css('background-image', `url(${thumbnail})`);
       } else {
         // base hrefのせいで変なurlを参照してしまうので適当な黒画像にする
-        const blank = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2NgYGD4DwABBAEAcCBlCwAAAABJRU5ErkJggg==';
-        this.css('background-image', `url(${blank})`);
+        this.css('background-image', `url(${CONSTANT.BLANK_PNG})`);
       }
     },
     focusToCommentInput: function() {

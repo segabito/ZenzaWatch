@@ -17,6 +17,8 @@
     // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
     BLANK_VIDEO_URL : '//',
 
+    BLANK_PNG: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2NgYGD4DwABBAEAcCBlCwAAAABJRU5ErkJggg==',
+
     MEDIA_ERROR: {
       MEDIA_ERR_ABORTED: 1,
       MEDIA_ERR_NETWORK: 2,
