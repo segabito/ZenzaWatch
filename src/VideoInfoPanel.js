@@ -1408,6 +1408,9 @@ const PlaylistLoader = {load: () => {}};
       z-index: 1000;
     }
 
+    .zenzaWatchVideoHeaderPanel.is-relatedMenuOpen {
+      z-index: ${CONSTANT.BASE_Z_INDEX + 50000};
+    }
   `);
 
   VideoHeaderPanel.__tpl__ = (`
@@ -1468,6 +1471,8 @@ const PlaylistLoader = {load: () => {}};
         isHeader: true
       });
       this._relatedInfoMenu.on('command', onCommand);
+      this._relatedInfoMenu.on('open', () => { $view.addClass('is-relatedMenuOpen'); });
+      this._relatedInfoMenu.on('close', () => { $view.removeClass('is-relatedMenuOpen'); });
 
       this._videoMetaInfo = new VideoMetaInfo({
         parentNode: view.querySelector('.videoMetaInfoContainer'),
@@ -2737,6 +2742,7 @@ const PlaylistLoader = {load: () => {}};
       this._elm.summary.addEventListener('click', _.debounce(() => {
         if (shadow.open) {
           document.body.addEventListener('mouseup', this._bound._onBodyClick);
+          this.emit('open');
         }
       }, 100));
 
@@ -2750,6 +2756,7 @@ const PlaylistLoader = {load: () => {}};
       const shadow = this._shadow || this._view;
       shadow.open = false;
       document.body.removeEventListener('mouseup', this._bound._onBodyClick);
+      this.emit('close');
     }
 
     update(videoInfo) {
@@ -2768,6 +2775,7 @@ const PlaylistLoader = {load: () => {}};
       this._originalLink.setAttribute('href', `//${location.host}/watch/${this._currentVideoId}`);
       this._twitterLink.setAttribute('href', `https://twitter.com/hashtag/${this._currentVideoId}`);
       this._parentVideoLink.setAttribute('href', `//commons.nicovideo.jp/tree/${this._currentVideoId}`);
+      this.emit('close');
     }
 
     _onCommand(command, param) {
@@ -2803,6 +2811,7 @@ const PlaylistLoader = {load: () => {}};
         default:
           super._onCommand(command, param);
       }
+      this.emit('close');
     }
 
 
