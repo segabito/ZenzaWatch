@@ -177,7 +177,7 @@ const util = {};
   }
 
   #listContainerInner:empty::after {
-    content: 'コメントはありません';
+    content: 'コメントは空です';
     color: #666;
     display: inline-block;
     text-align: center;
@@ -396,7 +396,12 @@ const util = {};
       this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
       this._$begin = $('<span class="begin"/>');
       this._$end   = $('<span class="end"/>');
+
+      // 互換用
       ZenzaWatch.debug.$commentList = $list;
+      ZenzaWatch.debug.getCommentPanelItems = () => {
+        return Array.from(doc.querySelectorAll('.commentListItem'));
+      };
     },
     _onModelUpdate: function(itemList, replaceAll) {
       window.console.time('update commentlistView');
@@ -812,6 +817,10 @@ const util = {};
         outline-offset: 4px;
       }
 
+      .font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
+      .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
+      .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
+      
 
     `).trim();
 
@@ -874,19 +883,17 @@ const util = {};
         commentListItem.setAttribute('data-title',
           `${item.getNo()}: ${formattedDate} ID:${item.getUserId()}\n${item.getText()}`
         );
+        const font = item.getFontCommand() || 'default';
         commentListItem.className =
-          `commentListItem no${item.getNo()} item${this._id} ${oden}`;
+          `commentListItem no${item.getNo()} item${this._id} ${oden} fork${item.getFork()} font-${font}`;
         commentListItem.style.top = `${this.getTop()}px`;
 
         timepos.textContent = item.getTimePos();
         date.textContent    = formattedDate;
         text.textContent    = item.getText().trim();
 
-        const style = {};
         const color = item.getColor();
-        style.textShadow = color ? `text-shadow: 0px 0px 2px ${color}` : '';
-        Object.assign(text.style, style);
-
+        text.style.textShadow = color ? `0px 0px 2px ${color}` : '';
         this._view = template.clone();
       }
 
@@ -940,6 +947,7 @@ const util = {};
       this._fork = nicoChat.getFork();
       this._no = nicoChat.getNo();
       this._color = nicoChat.getColor();
+      this._fontCommand = nicoChat.getFontCommand();
 
       var dt = new Date(this._date * 1000);
       this._formattedDate =
@@ -992,6 +1000,9 @@ const util = {};
     },
     getNo: function() {
       return this._no;
+    },
+    getFontCommand: function() {
+      return this._fontCommand;
     }
   });
 
