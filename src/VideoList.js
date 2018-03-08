@@ -778,10 +778,13 @@ const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
     -webkit-user-select: none;
     -moz-user-select: none;
     min-height: 100%;
+    transition: 0.2s opacity;
   }
 
   body.is-updating {
     pointer-events: none;
+    opacity: 0.5;
+    transition: none;
   }
 
   body.drag-over>* {
@@ -830,8 +833,8 @@ const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
 
       this._itemViewCache = new WeakMap();
       this._maxItems = params.max || 100;
-      this._dragdrop = _.isBoolean(params.dragdrop) ? params.dragdrop : false;
-      this._dropfile = _.isBoolean(params.dropfile) ? params.dropfile : false;
+      this._dragdrop = typeof params.dragdrop === 'boolean' ? params.dragdrop : false;
+      this._dropfile = typeof params.dropfile === 'boolean' ? params.dropfile : false;
 
       this._model = params.model;
       if (this._model) {
@@ -952,7 +955,8 @@ const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
       var srcId = $dragging.attr('data-item-id'), destId = $target.attr('data-item-id');
       if (srcId === destId) { return; }
 
-      $dragging.css({opacity: 0});
+      $dragging.css('opacity', 0);
+      $target.css('opacity', 0);
       this.emit('moveItem', srcId, destId);
     },
     _onBodyBlur: function() {
@@ -1011,7 +1015,7 @@ const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
         if (this._itemViewCache.has(id)) {
           itemViews.push(this._itemViewCache.get(item));
         } else {
-          const isLazy = this._enableLazyLoadImage; // && !this._hasLazyLoad[item.getWatchId()];
+          const isLazy = this._enableLazyLoadImage;
           const itemView = new this._ItemView({item, enableLazyLoadImage: isLazy});
           this._itemViewCache.set(item, itemView);
           itemViews.push(itemView);
@@ -1025,23 +1029,20 @@ const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
         return;
       }
 
-      const f = document.createDocumentFragment();
-      itemViews.forEach(i => {
-        f.appendChild(i.getViewElement());
-      });
+      window.setTimeout(() => {
+        const f = document.createDocumentFragment();
+        itemViews.forEach(i => {
+          f.appendChild(i.getViewElement());
+        });
 
-      if (this._list) {
-        if (f instanceof Node) {
+        if (this._list) {
           this._list.innerHTML = '';
           this._list.appendChild(f);
           this._documentFragment = null;
+          this._setInviewObserver();
+        } else {
+          this._documentFragment = f;
         }
-      } else {
-        this._documentFragment = f;
-      }
-
-      window.setTimeout(() => {
-       this._setInviewObserver();
 
         this.removeClass('is-updating');
         this.emit('update');
@@ -2053,19 +2054,18 @@ const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
     _onImportFileCommand: function(fileData) {
       if (!util.isValidJson(fileData)) { return; }
 
-      //this.emit('command', 'openNow', 'sm20353707');
       this.emit('command', 'pause');
       this.emit('command', 'notify', 'プレイリストを復元');
       this.unserialize(JSON.parse(fileData));
 
-      ZenzaWatch.util.callAsync(function() {
+      window.setTimeout(() => {
         var index = Math.max(0, fileData.index || 0);
         var item = this._model.getItemByIndex(index);
         if (item) {
           this.setIndex(index, true);
           this.emit('command', 'openNow', item.getWatchId());
         }
-      }, this, 2000);
+      }, 2000);
     },
     _onMoveItem: function(srcItemId, destItemId) {
       var srcItem  = this._model.findByItemId(srcItemId);
