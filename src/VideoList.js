@@ -1583,6 +1583,9 @@ const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
       text-shadow: 0 0 6px #f99;
       color: #ff9;
     }
+    .playlist-container .toggleLoop icon {
+      font-family: STIXGeneral;
+    }
 
     .playlist-container .shuffle {
       font-size: 14px;

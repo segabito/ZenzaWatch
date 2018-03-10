@@ -161,7 +161,7 @@ const util = {};
     overflow: hidden;
   }
 
-  body.scrolling #listContainerInner *{
+  body.is-scrolling #listContainerInner *{
     pointer-events: none;
   }
 
@@ -505,12 +505,12 @@ const util = {};
       this._refreshInviewElements();
     },
     _onScroll: function() {
-      if (!this.hasClass('scrolling')) { this.addClass('scrolling'); }
+      if (!this.hasClass('is-scrolling')) { this.addClass('is-scrolling'); }
       this._refreshInviewElements();
       this._debouncedOnScrollEnd();
     },
     _onScrollEnd: function() {
-      this.removeClass('scrolling');
+      this.removeClass('is-scrolling');
     },
     _refreshInviewElements: function() {
       if (!this._$list) { return; }
@@ -1174,7 +1174,7 @@ const util = {};
       this._commentPanel = params.commentPanel;
 
 
-      ZenzaWatch.util.addStyle(CommentPanelView.__css__);
+      util.addStyle(CommentPanelView.__css__);
       var $view = this._$view = $(CommentPanelView.__tpl__);
       this._$container.append($view);
 
@@ -1236,9 +1236,9 @@ const util = {};
       if (!command) { return; }
 
       var $view = this._$view;
-      var setUpdating = function() {
+      var setUpdating = () => {
         $view.addClass('updating');
-        window.setTimeout(function() {
+        window.setTimeout(() => {
           $view.removeClass('updating');
         }, 1000);
       };
@@ -1619,6 +1619,7 @@ const util = {};
         user-select: none;
         transition: transform 0.1s;
       }
+
       .is-WaybackMode .reloadButton {
         display: none;
       }
@@ -1627,6 +1628,8 @@ const util = {};
           transform: rotate(90deg) scale(1.3);
           transition: transform 1s, color 0.2s, text-shadow 0.2s;
           text-shadow: none;
+          font-family: 'STIXGeneral';
+          margin-right: 8px;
         }
         .reloadButton:hover {
           text-decoration: underline;

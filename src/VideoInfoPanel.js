@@ -55,6 +55,7 @@ const PlaylistLoader = {load: () => {}};
       z-index: 100;
       width: 100%;
       white-space: nowrap;
+      user-select: none;
     }
 
     .zenzaWatchVideoInfoPanel .tabSelect {

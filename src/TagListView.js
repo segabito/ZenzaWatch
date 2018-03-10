@@ -385,8 +385,10 @@ const TagEditApi = function() {};
       }
 
       .TagListView .button {
+        position: relative;
         display: inline-block;
         min-width: 40px;
+        min-height: 24px;
         cursor: pointer;
         user-select: none;
         transition: 0.2s transform, 0.2s box-shadow, 0.2s background;
@@ -405,7 +407,11 @@ const TagEditApi = function() {};
         box-shadow: 0 0 2px #000 inset;
       }
       .TagListView .button .icon {
+        position: absolute;
         display: inline-block;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
       }
 
       .TagListView *[data-tooltip]:hover:after {
@@ -699,12 +705,13 @@ const TagEditApi = function() {};
       }
 
       .TagListView .button.tagRefresh .icon {
-        transform: rotate(30deg);
+        transform: translate(-50%, -50%) rotate(90deg);
         transition: transform 0.2s ease;
+        font-family: STIXGeneral;
       }
 
       .TagListView .button.tagRefresh:active .icon {
-        transform: rotate(-330deg);
+        transform: translate(-50%, -50%) rotate(-330deg);
         transition: none;
       }
 

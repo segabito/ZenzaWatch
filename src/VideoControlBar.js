@@ -517,6 +517,9 @@ var CONSTANT = {};
       text-shadow: 0px 0px 2px #9cf;
       color: #9cf;
     }
+    .loopSwitch .controlButtonInner {
+      font-family: STIXGeneral;
+    }
 
     .playbackRateMenu {
       bottom: 0;
@@ -2102,13 +2105,13 @@ var CONSTANT = {};
       //this._applyView = ZenzaWatch.util.createDrawCallFunc(this._applyView.bind(this));
     },
     _initializeDom: function($container) {
-      ZenzaWatch.util.addStyle(CommentPreviewView.__css__);
+      util.addStyle(CommentPreviewView.__css__);
       var $view = this._$view = $(CommentPreviewView.__tpl__);
       this._$inner = $view.find('.zenzaCommentPreviewInner');
 
       $view
         .on('click', this._onClick.bind(this))
-        .on('mousewheel', function(e) { e.stopPropagation(); })
+        .on('wheel', e => { e.stopPropagation(); })
         .on('scroll', _.throttle(this._onScroll.bind(this), 50, {trailing: false}));
       //  .on('resize', _.throttle(this._onResize.bind(this), 50));
 
@@ -2197,7 +2200,7 @@ var CONSTANT = {};
     },
     _createDom: function(chat, idx) {
       var itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      var text = ZenzaWatch.util.escapeHtml(chat.getText());
+      var text = util.escapeHtml(chat.getText());
       var date = (new Date(chat.getDate() * 1000)).toLocaleString();
       var vpos = chat.getVpos();
       var no = chat.getNo();
@@ -2206,7 +2209,7 @@ var CONSTANT = {};
       var color = chat.getColor() || '#fff';
       var shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
-      var vposToTime = function(vpos) {
+      var vposToTime = (vpos) => {
         var sec = Math.floor(vpos / 100);
         var m = Math.floor(sec / 60);
         var s = (100 + (sec % 60)).toString().substr(1);
@@ -2258,7 +2261,7 @@ var CONSTANT = {};
 
       if (newItems.length < 1) { return; }
 
-      _.each(Object.keys(inviewTable), function(i) {
+      Object.keys(inviewTable).forEach(i => {
         if (i >= startIndex && i <= endIndex) { return; }
         var item = document.getElementById('commentPreviewItem' + i);
         if (item) { item.remove(); }

@@ -34,7 +34,7 @@ const window = {
 };
 const PRODUCT = 'ZenzaWatch';
 class CrossDomainGate {}
-
+const document = {};
 //===BEGIN===
 
     var AsyncEmitter = (function() {
