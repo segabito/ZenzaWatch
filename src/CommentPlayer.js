@@ -2517,18 +2517,9 @@ spacer {
       this._config = Config.namespace('commentLayer');
 
       var _refresh = this.refresh.bind(this);
-      // Firefoxでフルスクリーン切り替えするとコメントの描画が止まる問題の暫定対処
-      // ここに書いてるのは手抜き
-      if (ZenzaWatch.util.isFirefox()) {
-        ZenzaWatch.emitter.on('fullScreenStatusChange',
-          _.debounce(_refresh, 3000)
-        );
-      }
-
 
       // ウィンドウが非表示の時にブラウザが描画をサボっているので、
       // 表示になったタイミングで粛正する
-      //$(window).on('focus', _refresh);
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
           _refresh();
