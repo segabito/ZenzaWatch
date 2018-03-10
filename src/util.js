@@ -1734,6 +1734,23 @@ const document = {};
       });
     };
 
+    util.sortedLastIndex = (arr, value) => {
+      let head = 0;
+      let tail = arr.length;
+      while (head < tail) {
+        let p = Math.floor((head + tail) / 2);
+        let v = arr[p];
+        if (v <= value) {
+          head = p + 1;
+        } else {
+          tail = p;
+        }
+      }
+      return tail;
+    };
+
+
+
 
 
     // いずれjQueryを捨てるためのミニマム代用

@@ -153,7 +153,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       script.id = 'lodashLoader';
       script.setAttribute('type', 'text/javascript');
       script.setAttribute('charset', 'UTF-8');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js';
       document.body.appendChild(script);
       let count = 0;
 

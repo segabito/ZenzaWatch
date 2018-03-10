@@ -45,7 +45,7 @@ const util = {};
         positions.push(parseFloat(chatList[i].getVpos(), 10) / 100);
       }
       this._items = items;
-      this._positions = positions.sort(function(a, b) { return a - b; });
+      this._positions = positions.sort((a, b) => { return a - b; });
       this._currentTime = 0;
 
       this.sort();
@@ -54,7 +54,7 @@ const util = {};
     removeItemByIndex: function(index) {
       var target = this._getItemByIndex(index);
       if (!target) { return; }
-      this._items = _.reject(this._items, function(item) { return item === target; });
+      this._items = _.reject(this._items, item => { return item === target; });
     },
     getLength: function() {
       return this._items.length;
@@ -125,10 +125,10 @@ const util = {};
       this.emitAsync('update', this._items);
     },
     getInViewIndex: function(sec) {
-      return Math.max(0, _.sortedLastIndex(this._positions, sec + 1) - 1);
+      return Math.max(0, util.sortedLastIndex(this._positions, sec + 1) - 1);
     },
     setCurrentTime: function(sec) {
-      if (this._currentTime !== sec && _.isNumber(sec)) {
+      if (this._currentTime !== sec && typeof sec === 'number') {
         this._currentTime = sec;
         if (this._currentSortKey === 'vpos') {
           this.emit('currentTimeUpdate', sec, this.getInViewIndex(sec));
@@ -588,6 +588,8 @@ const util = {};
     scrollToItem: function(itemId) {
       if (!this._$body) { return; }
       if (typeof itemId.getItemId === 'function') { itemId = itemId.getItemId(); }
+
+      // scrollIntoViewIfNeed() があればそれでいいかも
       var $target = this._$body.find('.item' + itemId);
       if ($target.length < 1) { return; }
       var top = $target.offset().top;
