@@ -10,3 +10,4 @@ ZenzaWatch.user\ *.js
 node_modules/
 .gitkeep
 session/*
+.idea/*
