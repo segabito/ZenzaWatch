@@ -1,31 +1,33 @@
 //===BEGIN===
-  const CONSTANT = {
-    BASE_Z_INDEX: 100000,
+const CONSTANT = {
+  BASE_Z_INDEX: 100000,
 
-    CONTROL_BAR_HEIGHT: 40,
+  CONTROL_BAR_HEIGHT: 40,
 
-    SIDE_PLAYER_WIDTH: 400,
-    SIDE_PLAYER_HEIGHT: 225,
+  SIDE_PLAYER_WIDTH: 400,
+  SIDE_PLAYER_HEIGHT: 225,
 
-    BIG_PLAYER_WIDTH: 896,
-    BIG_PLAYER_HEIGHT: 480,
+  BIG_PLAYER_WIDTH: 896,
+  BIG_PLAYER_HEIGHT: 480,
 
-    RIGHT_PANEL_WIDTH: 320,
-    BOTTOM_PANEL_HEIGHT: 240,
+  RIGHT_PANEL_WIDTH: 320,
+  BOTTOM_PANEL_HEIGHT: 240,
 
-    // video.src クリア用。
-    // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
-    BLANK_VIDEO_URL : '//',
+  // video.src クリア用。
+  // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
+  BLANK_VIDEO_URL: '//',
 
-    BLANK_PNG: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2NgYGD4DwABBAEAcCBlCwAAAABJRU5ErkJggg==',
+  BLANK_PNG: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2NgYGD4DwABBAEAcCBlCwAAAABJRU5ErkJggg==',
 
-    MEDIA_ERROR: {
-      MEDIA_ERR_ABORTED: 1,
-      MEDIA_ERR_NETWORK: 2,
-      MEDIA_ERR_DECODE:  3,
-      MEDIA_ERR_SRC_NOT_SUPPORTED: 4
-    }
+  MEDIA_ERROR: {
+    MEDIA_ERR_ABORTED: 1,
+    MEDIA_ERR_NETWORK: 2,
+    MEDIA_ERR_DECODE: 3,
+    MEDIA_ERR_SRC_NOT_SUPPORTED: 4
+  }
 
-  };
+};
 
+//===END===
 
+export {CONSTANT};
