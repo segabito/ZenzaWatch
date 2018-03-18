@@ -198,26 +198,6 @@ var CONSTANT = {};
       background: #fff;
       box-shadow: 0 0 16px #ccf;
     }
-
-    .commentInputPanel .recButton {
-      display: none;
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 24px;
-      height: 24px;
-      border-radius: 100%;
-      cursor: pointer;
-      background: #666;
-    }
-
-    .commentInputPanel.active.availableRecognizer .recButton {
-      display: block;
-    }
-    .commentInputPanel .recButton.rec {
-      background: red;
-    }
-
   `).trim();
 
   CommentInputPanel.__tpl__ = (`
@@ -297,21 +277,6 @@ var CONSTANT = {};
         }
       }, this);
 
-      var $rec = this._$recButton = $view.find('.recButton');
-      $rec.on('click', _.bind(function() {
-        $rec.toggleClass('rec');
-        this._recognizerEnabled = $rec.hasClass('rec');
-        if (this._recognizerEnabled && !this._recognizer.isEnable()) {
-          this._recognizer.enable();
-          this._recognizer.on('result', _.bind(this._onRecognizerResult, this));
-        }
-        if (this._recognizerEnabled) {
-          this._recognizer.start();
-        } else {
-          this._recognizer.stop();
-        }
-        $input.focus();
-      }, this));
 
       $input
         .on('focus', _.bind(this._onFocus, this))
@@ -367,15 +332,18 @@ var CONSTANT = {};
         return;
       }
 
-      ZenzaWatch.util.callAsync(function() {
-        this._$commentInput.val('').blur();
-        this._$commandInput.blur();
+    setTimeout(() => {
+      this._$commentInput.val('').blur();
+      this._$commandInput.blur();
 
-        var $view = this._$view.addClass('updating');
-        this.emitPromise('post', chat, cmd).then(function() {
+      let $view = this._$view.addClass('updating');
+      (new Promise((resolve, reject) => {
+        this.emit('post', {resolve, reject}, chat, cmd);
+      }))
+        .then(() => {
           $view.removeClass('updating');
-        }, function() {
-          // TODO: 失敗時はなんかフィードバックさせる？
+        })
+        .catch(() => {
           $view.removeClass('updating');
         });
       }, this);
@@ -458,7 +426,6 @@ var CONSTANT = {};
     }
   });
 
-  ZenzaWatch.util.Recognizer = Recognizer;
 //===END===
 //
 
