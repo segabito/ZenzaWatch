@@ -1,12 +1,7 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {}
-};
-var FullScreen = {};
-var AsyncEmitter = function() {};
-var CONSTANT = {};
+import _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+import {CONSTANT} from './constant';
+import {AsyncEmitter} from './util';
 
 //===BEGIN===
 
@@ -362,3 +357,6 @@ _.assign(CommentInputPanel.prototype, {
 //===END===
 //
 
+export {
+  CommentInputPanel
+};
