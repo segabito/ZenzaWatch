@@ -75,3 +75,29 @@ describe('dateToString', function() {
   });
 });
 
+describe('sortedLastIndex', () => {
+  it('どのメンバーよりも小さかったら 0.  -1 ではない', () => {
+    let array = [1,3,5,7,9,11];
+    assert.equal(util.sortedLastIndex(array, -1), 0, array.join(', '));
+    assert.equal(util.sortedLastIndex(array, 0), 0, array.join(', '));
+  });
+
+  it('どのメンバーよりも大きかったら右端', () => {
+    let array = [1,3,5,7,9,11];
+    assert.equal(util.sortedLastIndex(array, 15), array.length, array.join(', '));
+  });
+
+  it('sortedLastIndex', () => {
+    let array = [1,3,5,7,9,11];
+    assert.equal(util.sortedLastIndex(array, 0), 0, array.join(', '));
+
+    assert.equal(util.sortedLastIndex(array, 1), 1, array.join(', '));
+
+    assert.equal(util.sortedLastIndex(array, 3), 2, array.join(', '));
+    assert.equal(util.sortedLastIndex(array, 4), 2, array.join(', '));
+
+    assert.equal(util.sortedLastIndex(array, 5), 3, array.join(', '));
+    assert.equal(util.sortedLastIndex(array, 7), 4, array.join(', '));
+  });
+
+});
