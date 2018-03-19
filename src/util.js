@@ -41,7 +41,6 @@ const NicoVideoApi = {
 // const document = {};
 
 
-
 //===BEGIN===
 
 
@@ -120,7 +119,7 @@ ZenzaWatch.lib.AsyncEmitter = AsyncEmitter;
 
 window.ZenzaWatch.emitter = ZenzaWatch.emitter = new AsyncEmitter();
 
-var FullScreen = {
+let FullScreen = {
   now: function () {
     if (document.fullScreenElement || document.mozFullScreen || document.webkitIsFullScreen) {
       return true;
@@ -129,7 +128,7 @@ var FullScreen = {
   },
   request: function (target) {
     this._handleEvents();
-    var elm = typeof target === 'string' ? document.getElementById(target) : target;
+    let elm = typeof target === 'string' ? document.getElementById(target) : target;
     if (!elm) {
       return;
     }
@@ -158,9 +157,9 @@ var FullScreen = {
   },
   _handleEvents: function () {
     this._handleEvnets = _.noop;
-    var self = this;
-    var handle = function () {
-      var isFullScreen = self.now();
+    let self = this;
+    let handle = function () {
+      let isFullScreen = self.now();
       if (isFullScreen) {
         document.body.classList.add('fullScreen');
       } else {
@@ -186,11 +185,11 @@ const Config = (function () {
   // 標準のJSON.stringifyがバグってる。
   // 勘弁して欲しい…。
   if (window.Prototype && Array.prototype.toJSON) {
-    var _json_stringify = JSON.stringify;
+    let _json_stringify = JSON.stringify;
     JSON.stringify = function (value) {
-      var toj = Array.prototype.toJSON;
+      let toj = Array.prototype.toJSON;
       delete Array.prototype.toJSON;
-      var r = _json_stringify(value);
+      let r = _json_stringify(value);
       Array.prototype.toJSON = toj;
       return r;
     };
@@ -361,7 +360,7 @@ const Config = (function () {
   let noEmit = false;
 
   Object.keys(defaultConfig).forEach(key => {
-    var storageKey = prefix + key;
+    let storageKey = prefix + key;
     if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
       try {
         config[key] = JSON.parse(localStorage.getItem(storageKey));
@@ -379,7 +378,7 @@ const Config = (function () {
    * 他のウィンドウで書き換えられる可能性のある物を読む前に使う
    */
   emitter.refreshValue = function (key) {
-    var storageKey = prefix + key;
+    let storageKey = prefix + key;
     if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
       try {
         config[key] = JSON.parse(localStorage.getItem(storageKey));
@@ -398,7 +397,7 @@ const Config = (function () {
 
   emitter.setValue = function (key, value) {
     if (config[key] !== value && arguments.length >= 2) {
-      var storageKey = prefix + key;
+      let storageKey = prefix + key;
       if (location.host === 'www.nicovideo.jp') {
         try {
           localStorage.setItem(storageKey, JSON.stringify(value));
@@ -424,7 +423,7 @@ const Config = (function () {
    */
   emitter.setValueSilently = function (key, value) {
     if (config[key] !== value && arguments.length >= 2) {
-      var storageKey = prefix + key;
+      let storageKey = prefix + key;
       if (location.host === 'www.nicovideo.jp') {
         try {
           localStorage.setItem(storageKey, JSON.stringify(value));
@@ -452,12 +451,12 @@ const Config = (function () {
   };
 
   emitter.exportConfig = function () {
-    var result = {};
+    let result = {};
     _.each(Object.keys(defaultConfig), function (key) {
       if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) {
         return;
       }
-      var storageKey = prefix + key;
+      let storageKey = prefix + key;
       if ((localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) &&
         defaultConfig[key] !== emitter.getValue(key)) {
         result[key] = emitter.getValue(key);
@@ -487,7 +486,7 @@ const Config = (function () {
       if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) {
         return;
       }
-      var storageKey = prefix + key;
+      let storageKey = prefix + key;
       try {
         if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           localStorage.removeItem(storageKey);
@@ -633,9 +632,9 @@ const PopupMessage = (() => {
     addStyle(__css__);
   };
 
-  var show = function ($msg) {
+  let show = function ($msg) {
     initialize();
-    var $target = $('.popupMessageContainer');
+    let $target = $('.popupMessageContainer');
     if ($target.length < 1) {
       $target = $('body');
     }
@@ -653,7 +652,7 @@ const PopupMessage = (() => {
     }, 8000);
   };
 
-  var notify = function (msg, allowHtml) {
+  let notify = function (msg, allowHtml) {
     if (msg === undefined) {
       msg = '不明なエラー';
       window.console.error('undefined message sent');
@@ -663,11 +662,11 @@ const PopupMessage = (() => {
     if (allowHtml !== true) {
       msg = ZenzaWatch.util.escapeHtml(msg);
     }
-    var $msg = $(__view__.replace('%MSG%', msg)).addClass('notify');
+    let $msg = $(__view__.replace('%MSG%', msg)).addClass('notify');
     show($msg);
   };
 
-  var alert = function (msg, allowHtml) {
+  let alert = function (msg, allowHtml) {
     if (msg === undefined) {
       msg = '不明なエラー';
       window.console.error('undefined message sent');
@@ -677,11 +676,11 @@ const PopupMessage = (() => {
     if (allowHtml !== true) {
       msg = ZenzaWatch.util.escapeHtml(msg);
     }
-    var $msg = $(__view__.replace('%MSG%', msg)).addClass('alert');
+    let $msg = $(__view__.replace('%MSG%', msg)).addClass('alert');
     show($msg);
   };
 
-  var debug = function (msg, allowHtml) {
+  let debug = function (msg, allowHtml) {
     if (msg === undefined) {
       msg = '不明なエラー';
       window.console.info('undefined message sent');
@@ -691,7 +690,7 @@ const PopupMessage = (() => {
     if (allowHtml !== true) {
       msg = ZenzaWatch.util.escapeHtml(msg);
     }
-    var $msg = $(__view__.replace('%MSG%', msg)).addClass('debug');
+    let $msg = $(__view__.replace('%MSG%', msg)).addClass('debug');
     show($msg);
   };
 
@@ -704,19 +703,19 @@ const PopupMessage = (() => {
 })();
 
 const PlayerSession = (function (storage) {
-  var prefix = 'ZenzaWatch_';
-  var PlayerSession = {};
+  let prefix = 'ZenzaWatch_';
+  let PlayerSession = {};
 
   PlayerSession.save = function (playingStatus) {
-    var key = prefix + 'PlayingStatus';
+    let key = prefix + 'PlayingStatus';
     storage[key] = JSON.stringify(playingStatus);
   };
 
   PlayerSession.restore = function () {
-    var key = prefix + 'PlayingStatus';
-    var session = {};
+    let key = prefix + 'PlayingStatus';
+    let session = {};
     try {
-      var data = storage[key];
+      let data = storage[key];
       if (!data) {
         return session;
       }
@@ -730,12 +729,12 @@ const PlayerSession = (function (storage) {
   };
 
   PlayerSession.clear = function () {
-    var key = prefix + 'PlayingStatus';
+    let key = prefix + 'PlayingStatus';
     storage.removeItem(key);
   };
 
   PlayerSession.hasRecord = function () {
-    var key = prefix + 'PlayingStatus';
+    let key = prefix + 'PlayingStatus';
     return storage.hasOwnProperty(key);
   };
 
@@ -744,17 +743,17 @@ const PlayerSession = (function (storage) {
 //ZenzaWatch.debug.PlayerSession = PlayerSession;
 
 var addStyle = function (styles, id) {
-  var elm = document.createElement('style');
+  let elm = document.createElement('style');
   //window.setTimeout(function() {
   elm.type = 'text/css';
   if (id) {
     elm.id = id;
   }
 
-  var text = styles.toString();
+  let text = styles.toString();
   text = document.createTextNode(text);
   elm.appendChild(text);
-  var head = document.getElementsByTagName('head');
+  let head = document.getElementsByTagName('head');
   head = head[0];
   head.appendChild(elm);
   //}, 0);
@@ -822,7 +821,7 @@ util.isBetterThanDmcMayBe = (width, height, duration /*, dmcVideos*/) => {
  * 動画IDからサムネのURLを逆算する。
  * 実際はどのサーバーでもサムネ自体はあるっぽい。
  */
-var getThumbnailUrlByVideoId = (() => {
+let getThumbnailUrlByVideoId = (() => {
   const videoIdReg = /^[a-z]{2}\d+$/;
   return function (videoId) {
     if (!videoIdReg.test(videoId)) {
@@ -837,8 +836,8 @@ var getThumbnailUrlByVideoId = (() => {
 ZenzaWatch.util.getThumbnailUrlByVideoId = getThumbnailUrlByVideoId;
 
 
-var getSubColor = function (color) {
-  var result = ['#'];
+let getSubColor = function (color) {
+  let result = ['#'];
   $(color.match(/#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})/)).each(
     function (i, cl) {
       if (i) {
@@ -1006,11 +1005,11 @@ const __css__ = `
       }
     `;
 
-var WindowMessageEmitter = (function () {
-  var asyncEmitter = new AsyncEmitter();
-  var knownSource = [];
+let WindowMessageEmitter = (function () {
+  let asyncEmitter = new AsyncEmitter();
+  let knownSource = [];
 
-  var onMessage = function (event) {
+  let onMessage = function (event) {
     if (_.indexOf(knownSource, event.source) < 0 &&
       event.origin !== 'http://ext.nicovideo.jp' &&
       event.origin !== 'https://ext.nicovideo.jp'
@@ -1018,7 +1017,7 @@ var WindowMessageEmitter = (function () {
       return;
     }
     try {
-      var data = JSON.parse(event.data);
+      let data = JSON.parse(event.data);
 
       if (data.id !== 'ZenzaWatch') {
         return;
@@ -1047,27 +1046,27 @@ var WindowMessageEmitter = (function () {
   return asyncEmitter;
 })();
 
-const broadcastEmitter = (function () {
+const broadcastEmitter = (() => {
   const broadcastEmitter = new AsyncEmitter();
-  var broadcastChannel =
+  const broadcastChannel =
     (window.BroadcastChannel && location.host === 'www.nicovideo.jp') ?
       (new window.BroadcastChannel('ZenzaWatch')) : null;
 
-  var pingResolve = null, pingReject = null;
+  let pingResolve = null, pingReject = null;
 
-  var onStorage = function (e) {
-    var key = e.key;
+  let onStorage = function (e) {
+    let key = e.key;
     if (e.type !== 'storage' || key.indexOf('ZenzaWatch_') !== 0) {
       return;
     }
 
     key = key.replace('ZenzaWatch_', '');
-    var oldValue = e.oldValue;
-    var newValue = e.newValue;
+    let oldValue = e.oldValue;
+    let newValue = e.newValue;
     broadcastEmitter.emit('change', key, newValue, oldValue);
 
     switch (key) {
-      case 'message':
+      case 'message': {
         const packet = JSON.parse(newValue);
         if (packet.type === 'pong' && pingResolve) {
           pingReject = null;
@@ -1076,10 +1075,11 @@ const broadcastEmitter = (function () {
         console.log('%cmessage', 'background: cyan;', newValue);
         broadcastEmitter.emit('message', packet);
         break;
+      }
     }
   };
 
-  var onBroadcastMessage = function (e) {
+  let onBroadcastMessage = function (e) {
     const packet = e.data;
     if (packet.type === 'pong' && pingResolve) {
       pingReject = null;
@@ -1108,7 +1108,7 @@ const broadcastEmitter = (function () {
         //window.console.log('configSync: ', data.message.key, data.message.value);
         Config.setValueSilently(data.message.key, data.message.value);
         break;
-      case 'message':
+      case 'message': {
         if (!data.message.value) {
           return;
         }
@@ -1119,6 +1119,7 @@ const broadcastEmitter = (function () {
         }
         broadcastEmitter.emit('message', packet);
         break;
+      }
     }
   });
 
@@ -1181,7 +1182,7 @@ const broadcastEmitter = (function () {
  *  あらゆるページに寄生するシステムの都合上断念。
  *  とりあえず既読リンクの色が変わるようにだけする
  */
-var WatchPageState = (function (config) {
+let WatchPageState = (function (config) {
   const originalUrl = location.href;
   const originalTitle = document.title;
   let isOpen = false;
@@ -1265,26 +1266,26 @@ var WatchPageState = (function (config) {
   };
 })(Config);
 
-var getWatchId = function (url) {
+let getWatchId = function (url) {
   /\/?watch\/([a-z0-9]+)/.test(url || location.pathname);
   return RegExp.$1;
 };
 ZenzaWatch.util.getWatchId = getWatchId;
 
-var isPremium = function () {
-  var h = document.getElementById('siteHeaderNotification');
+let isPremium = function () {
+  let h = document.getElementById('siteHeaderNotification');
   return h && h.className === 'siteHeaderPremium';
 };
 ZenzaWatch.util.isPremium = isPremium;
 
-var isLogin = function () {
+let isLogin = function () {
   return document.getElementsByClassName('siteHeaderLogin').length < 1;
 };
 ZenzaWatch.util.isLogin = isLogin;
 
-var getPageLanguage = function () {
+let getPageLanguage = function () {
   try {
-    var h = document.getElementsByClassName('html')[0];
+    let h = document.getElementsByClassName('html')[0];
     return h.lang || 'ja-JP';
   } catch (e) {
     return 'ja-JP';
@@ -1292,28 +1293,28 @@ var getPageLanguage = function () {
 };
 ZenzaWatch.util.getPageLanguage = getPageLanguage;
 
-var isSameOrigin = function () {
+let isSameOrigin = function () {
   return location.host === 'www.nicovideo.jp';
 };
 ZenzaWatch.util.isSameOrigin = isSameOrigin;
 
-var hasFlashPlayer = function () {
+let hasFlashPlayer = function () {
   return !!navigator.mimeTypes['application/x-shockwave-flash'];
 };
 ZenzaWatch.util.hasFlashPlayer = hasFlashPlayer;
 
-var isFirefox = function () {
+let isFirefox = function () {
   return navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 };
 ZenzaWatch.util.isFirefox = isFirefox;
 
-var isWebkit = function () {
+let isWebkit = function () {
   return navigator.userAgent.toLowerCase().indexOf('webkit') >= 0;
 };
 ZenzaWatch.util.isWebkit = isWebkit;
 
-var escapeHtml = function (text) {
-  var map = {
+let escapeHtml = function (text) {
+  let map = {
     '&': '&amp;',
     '\x27': '&#39;',
     '"': '&quot;',
@@ -1326,8 +1327,8 @@ var escapeHtml = function (text) {
 };
 ZenzaWatch.util.escapeHtml = escapeHtml;
 
-var unescapeHtml = function (text) {
-  var map = {
+let unescapeHtml = function (text) {
+  let map = {
     '&amp;': '&',
     '&#39;': '\x27',
     '&quot;': '"',
@@ -1344,8 +1345,8 @@ ZenzaWatch.util.unescapeHtml = unescapeHtml;
 // 基本的に動画タイトルはエスケープされている。
 // だが、なんかたまにいいかげんなデータがあるし、本当に信用できるか？
 // そこで、全角に置き換えてごますんだ！
-var escapeToZenkaku = function (text) {
-  var map = {
+let escapeToZenkaku = function (text) {
+  let map = {
     '&': '＆',
     '\'': '’',
     '"': '”',
@@ -1359,8 +1360,8 @@ var escapeToZenkaku = function (text) {
 ZenzaWatch.util.escapeToZenkaku = escapeToZenkaku;
 
 
-var escapeRegs = function (text) {
-  var map = {
+let escapeRegs = function (text) {
+  let map = {
     '\\': '\\\\',
     '*': '\\*',
     '+': '\\+',
@@ -1378,7 +1379,8 @@ var escapeRegs = function (text) {
     '|': '\\|',
     '/': '\\/',
   };
-  return text.replace(/[\\\*\+\.\?\{\}\(\)\[\]\^\$\-\|\/]/g, function (char) {
+  // return text.replace(/[\\\*\+\.\?\{\}\(\)\[\]\^\$\-\|\/]/g, char => {
+  return text.replace(/[\\*+.?{}()[\]^$-|/]/g, char => {
     return map[char];
   });
 };
@@ -1420,8 +1422,8 @@ util.dateToString = (date) => {
   return `${yy}/${mm}/${dd} ${h}:${m}:${s}`;
 };
 
-var copyToClipBoard = ZenzaWatch.util.copyToClipBoard = function (text) {
-  var clip = document.createElement('input');
+let copyToClipBoard = ZenzaWatch.util.copyToClipBoard = function (text) {
+  let clip = document.createElement('input');
   clip.type = 'text';
   clip.style.position = 'fixed';
   clip.style.left = '-9999px';
@@ -1458,16 +1460,16 @@ const addTemplate = ZenzaWatch.util.addTemplate = function (tpl, id) {
 addTemplate._id = 0;
 
 ZenzaWatch.util.openTweetWindow = function (videoInfo) {
-  var watchId = videoInfo.watchId;
-  var nicomsUrl = 'http://nico.ms/' + watchId;
-  var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
+  let watchId = videoInfo.watchId;
+  let nicomsUrl = 'http://nico.ms/' + watchId;
+  let watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
-  var sec = videoInfo.duration;
-  var m = Math.floor(sec / 60);
-  var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-  var dur = ['(', m, ':', s, ')'].join('');
-  var nicoch = videoInfo.isChannel ? ',+nicoch' : '';
-  var url =
+  let sec = videoInfo.duration;
+  let m = Math.floor(sec / 60);
+  let s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+  let dur = ['(', m, ':', s, ')'].join('');
+  let nicoch = videoInfo.isChannel ? ',+nicoch' : '';
+  let url =
     'https://twitter.com/intent/tweet?' +
     'url=' + encodeURIComponent(nicomsUrl) +
     '&text=' + encodeURIComponent(videoInfo.title + dur) +
@@ -1489,7 +1491,7 @@ if (!location.host.match(/\.nicovideo\.jp$/)) {
   };
 }
 
-var ajax = function (params) {
+let ajax = function (params) {
   if (location.host !== 'www.nicovideo.jp') {
     return NicoVideoApi.ajax(params);
   }
@@ -1510,7 +1512,7 @@ if (location.host.match(/\.nicovideo\.jp$/)) {
   ZenzaWatch.util.ajax = ajax;
 }
 
-var openMylistWindow = function (watchId) {
+let openMylistWindow = function (watchId) {
   window.open(
     '//www.nicovideo.jp/mylist_add/video/' + watchId,
     'nicomylistadd',
@@ -1518,7 +1520,7 @@ var openMylistWindow = function (watchId) {
 };
 ZenzaWatch.util.openMylistWindow = openMylistWindow;
 
-var isGinzaWatchUrl = function (url) {
+let isGinzaWatchUrl = function (url) {
   url = url || location.href;
   return /^https?:\/\/www\.nicovideo\.jp\/watch\//.test(url);
 };
@@ -1534,7 +1536,7 @@ ZenzaWatch.util.getPlayerVer = function () {
   return 'unknown';
 };
 
-var isZenzaPlayableVideo = function () {
+let isZenzaPlayableVideo = function () {
   try {
     // HTML5版プレイヤーなら再生できるはず
     if (util.getPlayerVer() === 'html5') {
@@ -1562,18 +1564,18 @@ var isZenzaPlayableVideo = function () {
 ZenzaWatch.util.isZenzaPlayableVideo = isZenzaPlayableVideo;
 
 ZenzaWatch.util.createDrawCallFunc = function (func) {
-  var requestAnimationFrame =
+  let requestAnimationFrame =
     (window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame).bind(window);
   if (!requestAnimationFrame) {
     return func;
   }
 
-  var lastCalled = 0, arg, requestId = 0;
-  var isBusy = function () {
+  let lastCalled = 0, arg, requestId = 0;
+  let isBusy = function () {
     return Date.now() - lastCalled < 1000;
   };
 
-  var onFrame = function () {
+  let onFrame = function () {
     func.apply(null, arg);
     requestId = lastCalled = 0;
   };
@@ -1604,8 +1606,8 @@ ZenzaWatch.util.waitForInitialize = function () {
 };
 
 ZenzaWatch.util.secToTime = function (sec) {
-  var m = Math.floor(sec / 60);
-  var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
+  let m = Math.floor(sec / 60);
+  let s = (Math.floor(sec) % 60 + 100).toString().substr(1);
   return [m, s].join(':');
 };
 
@@ -2252,7 +2254,7 @@ const ShortcutKeyEmitter = (function (config) {
     }
   };
 
-  var onKeyUp = function (e) {
+  let onKeyUp = function (e) {
     if (e.target.tagName === 'SELECT' ||
       e.target.tagName === 'INPUT' ||
       e.target.tagName === 'TEXTAREA') {
@@ -2292,21 +2294,21 @@ const ShortcutKeyEmitter = (function (config) {
 })(Config);
 ZenzaWatch.util.ShortcutKeyEmitter = ShortcutKeyEmitter;
 
-var AppendStyle = function () {
+let AppendStyle = function () {
   this.initialize.apply(this, arguments);
 };
 _.assign(AppendStyle.prototype, {
   initialzie: function (params) {
-    var css = this._css = params.css;
+    let css = this._css = params.css;
     this.updateParams(params.params);
     if (!params.appendLater) {
       this._style = ZenzaWatch.util.adStyle(css);
     }
   },
   updateParams: function (params) {
-    var css = this._css;
+    let css = this._css;
     _.each(Object.keys(params), function (key) {
-      var reg = new RegExp('%' + key + '%', 'g');
+      let reg = new RegExp('%' + key + '%', 'g');
       css = css.replace(reg, params[key]);
     });
     this._css = css;
@@ -2321,12 +2323,12 @@ _.assign(AppendStyle.prototype, {
   }
 });
 
-var ViewPort = function () {
+let ViewPort = function () {
   this.initialize.apply(this, arguments);
 };
 _.assign(ViewPort.prototype, {
   initialize: function () {
-    var $meta = $('meta[name=viewport]');
+    let $meta = $('meta[name=viewport]');
     if ($meta.length < 1) {
       $meta = $('<' + 'meta name="viewport"/>');
       $('head').append($meta);
@@ -2378,7 +2380,7 @@ _.assign(ViewPort.prototype, {
   }
 });
 
-var RequestAnimationFrame = function (callback, frameSkip) {
+let RequestAnimationFrame = function (callback, frameSkip) {
   this.initialize(callback, frameSkip);
 };
 _.assign(RequestAnimationFrame.prototype, {
@@ -2445,11 +2447,11 @@ _.assign(RequestAnimationFrame.prototype, {
 ZenzaWatch.util.RequestAnimationFrame = RequestAnimationFrame;
 
 
-var FrameLayer = function () {
+let FrameLayer = function () {
   this.initialize.apply(this, arguments);
 };
 FrameLayer.createReservedFrame = function () {
-  var iframe = document.createElement('iframe');
+  let iframe = document.createElement('iframe');
   iframe.className = 'reservedFrame';
   iframe.style.position = 'fixed';
   iframe.style.left = '-9999px';
@@ -2468,11 +2470,11 @@ _.assign(FrameLayer.prototype, {
   },
   _initializeView: function (params, retryCount) {
 
-    var iframe = this._getIframe();
+    let iframe = this._getIframe();
     iframe.className = params.className || '';
 
-    var onload = () => {
-      var win, doc;
+    let onload = () => {
+      let win, doc;
       iframe.onload = null;
       try {
         win = iframe.contentWindow;
@@ -2490,7 +2492,7 @@ _.assign(FrameLayer.prototype, {
       this.emit('load', win);
     };
 
-    var html = this._html = params.html;
+    let html = this._html = params.html;
     this._$container.append(iframe);
     if (iframe.srcdocType === 'string') {
       iframe.onload = onload;
@@ -2504,8 +2506,8 @@ _.assign(FrameLayer.prototype, {
     }
   },
   _getIframe: function () {
-    var reserved = document.getElementsByClassName('reservedFrame');
-    var iframe;
+    let reserved = document.getElementsByClassName('reservedFrame');
+    let iframe;
     if (reserved && reserved.length > 0) {
       iframe = reserved[0];
       document.body.removeChild(iframe);
@@ -2764,7 +2766,7 @@ const VideoCaptureUtil = (function () {
     const dataUrl = canvas.toDataURL('image/png');
     const bin = atob(dataUrl.split(',')[1]);
     const buf = new Uint8Array(bin.length);
-    for (var i = 0, len = buf.length; i < len; i++) {
+    for (let i = 0, len = buf.length; i < len; i++) {
       buf[i] = bin.charCodeAt(i);
     }
     const blob = new Blob([buf.buffer], {type: 'image/png'});
@@ -2951,12 +2953,10 @@ class BaseViewComponent extends AsyncEmitter {
 
 //===END===
 //
-// module.exports = ZenzaWatch.util;
-
-// const util = ZenzaWatch.util;
 
 export {
   util,
+  console,
   Config,
   FullScreen,
   AsyncEmitter,
