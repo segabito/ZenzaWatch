@@ -37,16 +37,16 @@
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
   const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
   const monkey = function (PRODUCT, START_PAGE_QUERY) {
-    var console = window.console;
-    var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
-    var TOKEN = 'r:' + (Math.random());
-    START_PAGE_QUERY = unescape(START_PAGE_QUERY);
+    let console = window.console;
+    let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
+    let TOKEN = 'r:' + (Math.random());
+    START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
 
     console.log(`%c${PRODUCT} v${VER}`, 'font-size: 200%;');
     console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
 
-    var ZenzaWatch = {
+    let ZenzaWatch = {
       version: VER,
       debug: {},
       api: {},
@@ -57,25 +57,12 @@
       },
       external: {},
       util: {
-        hereDoc: function(func) { // えせヒアドキュメント
-          return func.toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1].replace(/\{\*/g, '/*').replace(/\*\}/g, '*/').trim();
-        },
-        callAsync: function(func, self, delay) {
+        callAsync: function (func, self, delay) {
           delay = delay || 0;
           if (self) {
             func = func.bind(self);
           }
           window.setTimeout(func, delay);
-        },
-        callOnIdle: function(func, self) {
-          if (self) {
-            func = func.bind(self);
-          }
-          if (window.requestIdleCallback) {
-            window.requestIdleCallback(func);
-          } else {
-            window.setTimeout(func, 0);
-          }
         }
       }
     };
@@ -140,7 +127,38 @@
 
 //@require initializer.js
 
-  };
+    if (window.name !== 'commentLayerFrame') {
+      if (location.host === 'www.nicovideo.jp') {
+        initialize();
+      } else {
+        NicoVideoApi.configBridge(Config).then(() => {
+          window.console.log('%cZenzaWatch Bridge: %s', 'background: lightgreen;', location.host);
+          if (document.getElementById('siteHeaderNotification')) {
+            initialize();
+            return;
+          }
+          NicoVideoApi.ajax({url: '//www.nicovideo.jp/'})
+            .then(function (result) {
+              let $dom = $('<div>' + result + '</div>');
+              let isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
+              let isPremium =
+                $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
+              window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
+              util.isLogin = () => {
+                return isLogin;
+              };
+              util.isPremium = () => {
+                return isPremium;
+              };
+              initialize();
+            });
+        }, function () {
+          window.console.log('ZenzaWatch Bridge disabled');
+        });
+      }
+    }
+
+  }; // end of monkey
 
   let loadLodash = function () {
     if (window._) {
@@ -201,8 +219,8 @@
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
     // 先にiframeだけ作っておく
     // 効果はいまいち・・・
-    var iframe;
-    for (var i = 0; i < 3; i++) {
+    let iframe;
+    for (let i = 0; i < 3; i++) {
       iframe = document.createElement('iframe');
       iframe.className = 'reservedFrame';
       iframe.style.position = 'fixed';
@@ -213,23 +231,23 @@
     }
 
 
-    var loadGm = function () {
+    let loadGm = function () {
       let script = document.createElement('script');
       script.id = 'ZenzaWatchLoader';
       script.setAttribute('type', 'text/javascript');
       script.setAttribute('charset', 'UTF-8');
       script.appendChild(
-        document.createTextNode(`(${monkey})('${PRODUCT}', '${escape(START_PAGE_QUERY)}');`));
+        document.createTextNode(`(${monkey})('${PRODUCT}', '${encodeURIComponent(START_PAGE_QUERY)}');`));
       document.body.appendChild(script);
     };
 
-    var MIN_JQ = 10000600000;
-    var getJQVer = function () {
+    const MIN_JQ = 10000600000;
+    let getJQVer = function () {
       if (!window.jQuery) {
         return 0;
       }
-      var ver = [];
-      var t = window.jQuery.fn.jquery.split('.');
+      let ver = [];
+      let t = window.jQuery.fn.jquery.split('.');
       while (t.length < 3) {
         t.push(0);
       }
@@ -239,22 +257,22 @@
       return ver.join('') * 1;
     };
 
-    var loadJq = function () {
+    let loadJq = function () {
       console.log('JQVer: ', getJQVer());
       console.info('load jQuery from cdn...');
 
       return new Promise((resolve, reject) => {
-        var $j = window.jQuery || null;
-        var $$ = window.$ || null;
-        var script = document.createElement('script');
+        let $j = window.jQuery || null;
+        let $$ = window.$ || null;
+        let script = document.createElement('script');
         script.id = 'jQueryLoader';
         script.setAttribute('type', 'text/javascript');
         script.setAttribute('charset', 'UTF-8');
         script.src = 'https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js';
         document.body.appendChild(script);
-        var count = 0;
+        let count = 0;
 
-        var tm = setInterval(() => {
+        let tm = setInterval(() => {
           count++;
 
           if (getJQVer() >= MIN_JQ) {
