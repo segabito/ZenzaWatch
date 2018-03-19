@@ -1,166 +1,168 @@
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {}
-};
+import * as _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
 
 //===BEGIN===
 //
-  class DmcInfo {
-    constructor(rawData) {
-      this._rawData = rawData;
-      this._session = rawData.session_api;
-    }
-
-    get apiUrl() {
-      return this._session.urls[0].url;
-    }
-
-    get audios() {
-      return this._session.audios;
-    }
-
-    get videos() {
-      return this._session.videos;
-    }
-
-    get signature() {
-      return this._session.signature;
-    }
-
-    get token() {
-      return this._session.token;
-    }
-
-    get serviceUserId() {
-      return this._session.service_user_id;
-    }
-
-    get contentId() {
-      return this._session.content_id;
-    }
-
-    get playerId() {
-      return this._session.player_id;
-    }
-
-    get recipeId() {
-      return this._session.recipe_id;
-    }
-
-    get heartBeatLifeTimeMs() {
-      return this._session.heartbeat_lifetime;
-    }
-
-    get protocols() {
-      return this._session.protocols;
-    }
-
-    get contentKeyTimeout() {
-      return this._session.content_key_timeout;
-    }
-
-    get priority() {
-      return this._session.priority;
-    }
-
-    get authTypes() {
-      return this._session.authTypes;
-    }
-
-    get videoFormatList() {
-      return (this.videos || []).concat();
-    }
-
-    get hasStoryboard() {
-      return !!this._rawData.storyboard_session_api;
-    }
-
-    get storyboardInfo() {
-      return this._rawData.storyboard_session_api;
-    }
-
-    get transferPreset() {
-      return (this._session.transfer_presets || [''])[0] || '';
-    }
- }
-
-  class VideoFilter {
-    constructor(ngOwner, ngTag) {
-      this.ngOwner = ngOwner;
-      this.ngTag   = ngTag;
-    }
-
-    get ngOwner() {
-      return this._ngOwner || [];
-    }
-
-    set ngOwner(owner) {
-      owner = _.isArray(owner) ? owner : owner.toString().split(/[\r\n]/);
-      var list = [];
-      _.each(owner, function(o) {
-        list.push(o.replace(/#.*$/, '').trim());
-      });
-      this._ngOwner = list;
-    }
-
-    get ngTag() {
-      return this._ngTag || [];
-    }
-
-    set ngTag(tag) {
-      tag = Array.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
-      const list = [];
-      tag.forEach(t => {
-        list.push(t.toLowerCase().trim());
-      });
-      this._ngTag = list;
-    }
-
-    isNgVideo(videoInfo) {
-      let isNg = false;
-      let isChannel = videoInfo.isChannel;
-      let ngTag = this.ngTag;
-      videoInfo.tagList.forEach(tag => {
-        let text = (tag.tag || '').toLowerCase();
-        if (ngTag.includes(text)) {
-          isNg = true;
-        }
-      });
-      if (isNg) { return true; }
-
-      let owner = videoInfo.ownerInfo;
-      let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
-      if (ownerId && this.ngOwner.includes(ownerId)) {
-        isNg = true;
-      }
-
-      return isNg;
-    }
+class DmcInfo {
+  constructor(rawData) {
+    this._rawData = rawData;
+    this._session = rawData.session_api;
   }
 
-  class VideoInfoModel {
-    constructor(info) {
-      this._rawData = info;
-      this._watchApiData = info.watchApiData;
-      this._videoDetail  = info.watchApiData.videoDetail;
-      this._flashvars    = info.watchApiData.flashvars;   // flashに渡す情報
-      this._viewerInfo   = info.viewerInfo;               // 閲覧者(＝おまいら)の情報
-      this._flvInfo      = info.flvInfo;
-      this._msgInfo      = info.msgInfo;
-      this._dmcInfo      = (info.dmcInfo && info.dmcInfo.session_api) ? new DmcInfo(info.dmcInfo) : null;
-      this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
-      this._playlistToken = info.playlistToken;
-      this._watchAuthKey = info.watchAuthKey;
-      this._seekToken    = info.seekToken;
-      this._resumeInfo   = info.resumeInfo || {};
+  get apiUrl() {
+    return this._session.urls[0].url;
+  }
 
-      this._isDmcDisable = false;
-      this._currentVideoPromise = [];
 
-      if (!ZenzaWatch.debug.videoInfo) { ZenzaWatch.debug.videoInfo = {}; }
-      ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
+  get audios() {
+    return this._session.audios;
+  }
+
+  get videos() {
+    return this._session.videos;
+  }
+
+  get signature() {
+    return this._session.signature;
+  }
+
+  get token() {
+    return this._session.token;
+  }
+
+  get serviceUserId() {
+    return this._session.service_user_id;
+  }
+
+  get contentId() {
+    return this._session.content_id;
+  }
+
+  get playerId() {
+    return this._session.player_id;
+  }
+
+  get recipeId() {
+    return this._session.recipe_id;
+  }
+
+  get heartBeatLifeTimeMs() {
+    return this._session.heartbeat_lifetime;
+  }
+
+  get protocols() {
+    return this._session.protocols;
+  }
+
+  get contentKeyTimeout() {
+    return this._session.content_key_timeout;
+  }
+
+  get priority() {
+    return this._session.priority;
+  }
+
+  get authTypes() {
+    return this._session.authTypes;
+  }
+
+  get videoFormatList() {
+    return (this.videos || []).concat();
+  }
+
+  get hasStoryboard() {
+    return !!this._rawData.storyboard_session_api;
+  }
+
+  get storyboardInfo() {
+    return this._rawData.storyboard_session_api;
+  }
+
+  get transferPreset() {
+    return (this._session.transfer_presets || [''])[0] || '';
+  }
+}
+
+class VideoFilter {
+  constructor(ngOwner, ngTag) {
+    this.ngOwner = ngOwner;
+    this.ngTag = ngTag;
+  }
+
+  get ngOwner() {
+    return this._ngOwner || [];
+  }
+
+  set ngOwner(owner) {
+    owner = _.isArray(owner) ? owner : owner.toString().split(/[\r\n]/);
+    var list = [];
+    _.each(owner, function (o) {
+      list.push(o.replace(/#.*$/, '').trim());
+    });
+    this._ngOwner = list;
+  }
+
+  get ngTag() {
+    return this._ngTag || [];
+  }
+
+  set ngTag(tag) {
+    tag = Array.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
+    const list = [];
+    tag.forEach(t => {
+      list.push(t.toLowerCase().trim());
+    });
+    this._ngTag = list;
+  }
+
+  isNgVideo(videoInfo) {
+    let isNg = false;
+    let isChannel = videoInfo.isChannel;
+    let ngTag = this.ngTag;
+    videoInfo.tagList.forEach(tag => {
+      let text = (tag.tag || '').toLowerCase();
+      if (ngTag.includes(text)) {
+        isNg = true;
+      }
+    });
+    if (isNg) {
+      return true;
     }
+
+    let owner = videoInfo.ownerInfo;
+    let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
+    if (ownerId && this.ngOwner.includes(ownerId)) {
+      isNg = true;
+    }
+
+    return isNg;
+  }
+}
+
+class VideoInfoModel {
+  constructor(info) {
+    this._rawData = info;
+    this._watchApiData = info.watchApiData;
+    this._videoDetail = info.watchApiData.videoDetail;
+    this._flashvars = info.watchApiData.flashvars;   // flashに渡す情報
+    this._viewerInfo = info.viewerInfo;               // 閲覧者(＝おまいら)の情報
+    this._flvInfo = info.flvInfo;
+    this._msgInfo = info.msgInfo;
+    this._dmcInfo = (info.dmcInfo && info.dmcInfo.session_api) ? new DmcInfo(info.dmcInfo) : null;
+    this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
+    this._playlistToken = info.playlistToken;
+    this._watchAuthKey = info.watchAuthKey;
+    this._seekToken = info.seekToken;
+    this._resumeInfo = info.resumeInfo || {};
+
+    this._isDmcDisable = false;
+    this._currentVideoPromise = [];
+
+    if (!ZenzaWatch.debug.videoInfo) {
+      ZenzaWatch.debug.videoInfo = {};
+    }
+    ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
+  }
 
   get title() {
     return this._videoDetail.title_original || this._videoDetail.title;
@@ -260,7 +262,7 @@ var ZenzaWatch = {
 
   get videoSize() {
     return {
-      width:  this._videoDetail.width,
+      width: this._videoDetail.width,
       height: this._videoDetail.height
     };
   }
@@ -281,6 +283,7 @@ var ZenzaWatch = {
   get isChannel() {
     return !!this._videoDetail.channelId;
   }
+
   get isMymemory() {
     return !!this._videoDetail.isMymemory;
   }
@@ -328,7 +331,7 @@ var ZenzaWatch = {
   /**
    * 投稿者の情報
    * チャンネル動画かどうかで分岐
-  */
+   */
   get ownerInfo() {
     var ownerInfo;
     if (this.isChannel) {
@@ -347,8 +350,8 @@ var ZenzaWatch = {
       var f = this._flashvars || {};
       ownerInfo = {
         icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
-        url:  u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
-        id:   u.id || f.videoUserId || '',
+        url: u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
+        id: u.id || f.videoUserId || '',
         name: u.nickname || '(非公開ユーザー)',
         favorite: !!u.is_favorited, // こっちはbooleanという
         type: 'user',
@@ -364,7 +367,9 @@ var ZenzaWatch = {
   }
 
   get replacementWords() {
-    if (!this._flvInfo.ng_up) { return null; }
+    if (!this._flvInfo.ng_up) {
+      return null;
+    }
     return ZenzaWatch.util.parseQuery(
       this._flvInfo.ng_up || ''
     );
@@ -399,7 +404,9 @@ var ZenzaWatch = {
   }
 
   get initialPlaybackTime() {
-    if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) { return 0; }
+    if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) {
+      return 0;
+    }
     return parseFloat(this._resumeInfo.initialPlaybackPosition, 10);
   }
 
@@ -408,16 +415,26 @@ var ZenzaWatch = {
   }
 
   get extension() {
-    if (this.isDmc) { return 'mp4'; }
+    if (this.isDmc) {
+      return 'mp4';
+    }
     const url = this.videoUrl;
-    if (url.match(/smile\?m=/)) { return 'mp4'; }
-    if (url.match(/smile\?v=/)) { return 'flv'; }
-    if (url.match(/smile\?s=/)) { return 'swf'; }
+    if (url.match(/smile\?m=/)) {
+      return 'mp4';
+    }
+    if (url.match(/smile\?v=/)) {
+      return 'flv';
+    }
+    if (url.match(/smile\?s=/)) {
+      return 'swf';
+    }
     return 'unknown';
   }
-  }
+}
 
 
 //===END===
 
-
+export {
+  DmcInfo, VideoInfoModel, VideoFilter
+};

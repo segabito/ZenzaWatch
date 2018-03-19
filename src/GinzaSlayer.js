@@ -1,34 +1,33 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {},
-  api: {}
-};
-var Config = {};
-var AsyncEmitter = function() {};
-var getWatchId = function() {};
+import * as $ from 'jquery';
+import {util, AsyncEmitter} from './util';
+
+const Config = ZenzaWatch.config;
+const getWatchId = util.getWatchId;
 
 //===BEGIN===
-  var initializeGinzaSlayer =
-  (function() {
-    var initializeFlash = function(dialog, query) {
+var initializeGinzaSlayer =
+  (function () {
+    var initializeFlash = function (dialog, query) {
       $('.notify_update_flash_player').remove();
 
       const watchId = getWatchId();
       const options = {};
-      if (!isNaN(query.from)) { options.currentTime = parseFloat(query.from, 10); }
+      if (!isNaN(query.from)) {
+        options.currentTime = parseFloat(query.from, 10);
+      }
 
       dialog.open(watchId, options);
       $('#external_nicoplayer').remove();
     };
 
-    const initializeHtml5 = function(dialog, query) {
+    const initializeHtml5 = function (dialog, query) {
       const watchId = getWatchId();
       const options = {};
-      if (!isNaN(query.from)) { options.currentTime = parseFloat(query.from, 10); }
+      if (!isNaN(query.from)) {
+        options.currentTime = parseFloat(query.from, 10);
+      }
 
-      v = document.querySelector('#MainVideoPlayer video');
+      const v = document.querySelector('#MainVideoPlayer video');
       if (v) {
         v.pause();
         //if (v.currentTime > 0) { options.currentTime = v.currentTime; }
@@ -42,4 +41,4 @@ var getWatchId = function() {};
 
 //===END===
 
-initializeGinzaSlayer();
+export {initializeGinzaSlayer};

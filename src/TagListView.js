@@ -1,331 +1,362 @@
-const $ = require('jquery');
-const _ = require('lodash');
-const ZenzaWatch = {
-  util:{},
-  debug: {}
+import * as $ from 'jquery';
+import * as _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+
+const util = ZenzaWatch.util;
+const TagEditApi = function () {
 };
-const util = {};
-const TagEditApi = function() {};
 
 //===BEGIN===
 
-  class TagListView extends BaseViewComponent {
-    constructor({parentNode}) {
-      super({
-        parentNode,
-        name: 'TagListView',
-        template: '<div class="TagListView"></div>',
-        shadow: TagListView.__shadow__,
-        css: TagListView.__css__
-      });
+class TagListView extends BaseViewComponent {
+  constructor({parentNode}) {
+    super({
+      parentNode,
+      name: 'TagListView',
+      template: '<div class="TagListView"></div>',
+      shadow: TagListView.__shadow__,
+      css: TagListView.__css__
+    });
 
-      this._state = {
-        isInputing: false,
-        isUpdating: false,
-        isEditing: false
-      };
+    this._state = {
+      isInputing: false,
+      isUpdating: false,
+      isEditing: false
+    };
 
-      this._tagEditApi = new TagEditApi();
-    }
+    this._tagEditApi = new TagEditApi();
+  }
 
-    _initDom(...args) {
-      super._initDom(...args);
+  _initDom(...args) {
+    super._initDom(...args);
 
-      const v = this._shadow || this._view;
-      Object.assign(this._elm, {
-        videoTags: v.querySelector('.videoTags'),
-        videoTagsInner: v.querySelector('.videoTagsInner'),
-        tagInput: v.querySelector('.tagInputText'),
-        form: v.querySelector('form')
-      });
-      this._elm.tagInput.addEventListener('keydown', this._onTagInputKeyDown.bind(this));
-      this._elm.form.addEventListener('submit', this._onTagInputSubmit.bind(this));
-      v.addEventListener('keydown', e => {
-        if (this._state.isInputing) {
-          e.stopPropagation();
-        }
-      });
-
-      ZenzaWatch.emitter.on('hideHover', () => {
-        if (this._state.isEditing) {
-          this._endEdit();
-        }
-      });
-    }
-
-    _onCommand(command, param) {
-      switch (command) {
-        case 'refresh':
-          this._refreshTag();
-          break;
-        case 'toggleEdit':
-          if (this._state.isEditing) {
-            this._endEdit();
-          } else {
-            this._beginEdit();
-          }
-          break;
-        case 'toggleInput':
-          if (this._state.isInputing) {
-            this._endInput();
-          } else {
-            this._beginInput();
-          }
-          break;
-        case 'beginInput':
-          this._beginInput();
-          break;
-        case 'endInput':
-          this._endInput();
-          break;
-        case 'addTag':
-          this._addTag(param);
-          break;
-        case 'removeTag':
-          let elm = this._elm.videoTags.querySelector(`.tagItem[data-tag-id="${param}"]`);
-          if (!elm) { return; }
-          elm.classList.add('is-Removing');
-          let data = JSON.parse(elm.getAttribute('data-tag'));
-          this._removeTag(param, data.tag);
-          break;
-        default:
-          this.emit('command', command, param);
-          break;
-      }
-    }
-
-    update({tagList = [], watchId = null, videoId = null, token = null, watchAuthKey = null}) {
-      if (watchId) { this._watchId = watchId; }
-      if (videoId) { this._videoId = videoId; }
-      if (token) { this._token = token; }
-      if (watchAuthKey) { this._watchAuthKey = watchAuthKey; }
-
-      this.setState({
-        isInputing: false,
-        isUpdating: false,
-        isEditing: false,
-        isEmpty: false
-      });
-      this._update(tagList);
-
-      this._boundOnBodyClick = this._onBodyClick.bind(this);
-    }
-
-    _onClick(e) {
-      if (this._state.isInputing || this._state.isEditing) {
+    const v = this._shadow || this._view;
+    Object.assign(this._elm, {
+      videoTags: v.querySelector('.videoTags'),
+      videoTagsInner: v.querySelector('.videoTagsInner'),
+      tagInput: v.querySelector('.tagInputText'),
+      form: v.querySelector('form')
+    });
+    this._elm.tagInput.addEventListener('keydown', this._onTagInputKeyDown.bind(this));
+    this._elm.form.addEventListener('submit', this._onTagInputSubmit.bind(this));
+    v.addEventListener('keydown', e => {
+      if (this._state.isInputing) {
         e.stopPropagation();
       }
-      super._onClick(e);
+    });
+
+    ZenzaWatch.emitter.on('hideHover', () => {
+      if (this._state.isEditing) {
+        this._endEdit();
+      }
+    });
+  }
+
+  _onCommand(command, param) {
+    switch (command) {
+      case 'refresh':
+        this._refreshTag();
+        break;
+      case 'toggleEdit':
+        if (this._state.isEditing) {
+          this._endEdit();
+        } else {
+          this._beginEdit();
+        }
+        break;
+      case 'toggleInput':
+        if (this._state.isInputing) {
+          this._endInput();
+        } else {
+          this._beginInput();
+        }
+        break;
+      case 'beginInput':
+        this._beginInput();
+        break;
+      case 'endInput':
+        this._endInput();
+        break;
+      case 'addTag':
+        this._addTag(param);
+        break;
+      case 'removeTag':
+        let elm = this._elm.videoTags.querySelector(`.tagItem[data-tag-id="${param}"]`);
+        if (!elm) {
+          return;
+        }
+        elm.classList.add('is-Removing');
+        let data = JSON.parse(elm.getAttribute('data-tag'));
+        this._removeTag(param, data.tag);
+        break;
+      default:
+        this.emit('command', command, param);
+        break;
+    }
+  }
+
+  update({tagList = [], watchId = null, videoId = null, token = null, watchAuthKey = null}) {
+    if (watchId) {
+      this._watchId = watchId;
+    }
+    if (videoId) {
+      this._videoId = videoId;
+    }
+    if (token) {
+      this._token = token;
+    }
+    if (watchAuthKey) {
+      this._watchAuthKey = watchAuthKey;
     }
 
-    _update(tagList = []) {
-      let tags = [];
-      tagList.forEach(tag => {
-        tags.push(this._createTag(tag));
-      });
-      tags.push(this._createToggleInput());
-      this.setState({isEmpty: tagList.length < 1});
-      this._elm.videoTagsInner.innerHTML = tags.join('');
-    }
+    this.setState({
+      isInputing: false,
+      isUpdating: false,
+      isEditing: false,
+      isEmpty: false
+    });
+    this._update(tagList);
 
-    _createToggleInput() {
-      return (`
+    this._boundOnBodyClick = this._onBodyClick.bind(this);
+  }
+
+  _onClick(e) {
+    if (this._state.isInputing || this._state.isEditing) {
+      e.stopPropagation();
+    }
+    super._onClick(e);
+  }
+
+  _update(tagList = []) {
+    let tags = [];
+    tagList.forEach(tag => {
+      tags.push(this._createTag(tag));
+    });
+    tags.push(this._createToggleInput());
+    this.setState({isEmpty: tagList.length < 1});
+    this._elm.videoTagsInner.innerHTML = tags.join('');
+  }
+
+  _createToggleInput() {
+    return (`
         <div
           class="button command toggleInput"
           data-command="toggleInput"
           data-tooltip="タグ追加">
           <span class="icon">&#8853;</span>
         </div>`).trim();
-    }
-
-    _onApiResult(watchId, result) {
-      if (watchId !== this._watchId) {
-        return; // 通信してる間に動画変わったぽい
-      }
-      const err = result.error_msg;
-      if (err) {
-        this.emit('command', 'alert', err);
-      }
-
-      this.update(result.tags);
-    }
-
-    _addTag(tag) {
-      this.setState({isUpdating: true});
-
-      const wait3s = this._makeWait(3000);
-      const watchId = this._watchId;
-      const videoId = this._videoId;
-      const csrfToken = this._token;
-      const watchAuthKey = this._watchAuthKey;
-      const addTag = () => {
-        return this._tagEditApi.add({
-          videoId,
-          tag,
-          csrfToken,
-          watchAuthKey
-        });
-      };
-
-      return Promise.all([addTag(), wait3s]).then((results) => {
-        let result = results[0];
-        if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
-        if (result && result.tags) { this._update(result.tags); }
-        this.setState({ isInputing: false, isUpdating: false, isEditing: false });
-
-        if (result.error_msg) { this.emit('command', 'alert', result.error_msg); }
-      });
-    }
-
-    _removeTag(tagId, tag = '') {
-      this.setState({isUpdating: true});
-
-      const wait3s = this._makeWait(3000);
-      const watchId = this._watchId;
-      const videoId = this._videoId;
-      const csrfToken = this._token;
-      const watchAuthKey = this._watchAuthKey;
-      const removeTag = () => {
-        return this._tagEditApi.remove({
-          videoId,
-          tag,
-          id: tagId,
-          csrfToken,
-          watchAuthKey
-        });
-      };
-
-      return Promise.all([removeTag(), wait3s]).then((results) => {
-        let result = results[0];
-        if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
-        if (result && result.tags) { this._update(result.tags); }
-        this.setState({ isUpdating: false });
-
-        if (result.error_msg) { this.emit('command', 'alert', result.error_msg); }
-      });
-    }
-
-    _refreshTag() {
-      this.setState({isUpdating: true});
-      const watchId = this._watchId;
-      const wait1s = this._makeWait(1000);
-      const load = () => { return this._tagEditApi.load(this._videoId); };
-
-      return Promise.all([load(), wait1s]).then((results) => {
-        let result = results[0];
-        if (watchId !== this._watchId) { return; } // 待ってる間に動画が変わったぽい
-        this._update(result.tags);
-        this.setState({isUpdating: false, isInputing: false, isEditing: false});
-      });
-    }
-
-    _makeWait(ms) {
-      return new Promise(resolve => { setTimeout(() => { resolve(ms); }, ms); });
-    }
-
-    _createDicIcon(text, hasDic) {
-      let href= `//dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
-      // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
-      let src = hasDic ?
-        '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
-        '//live.nicovideo.jp/img/2012/watch/tag_icon003.png';
-      let icon = `<img class="dicIcon" src="${src}">`;
-      return `<a target="_blank" class="nicodic" href="${href}">${icon}</a>`;
-    }
-
-    _createDeleteButton(id) {
-      return `<span target="_blank" class="deleteButton command" title="削除" data-command="removeTag" data-param="${id}">ー</span>`;
-    }
-
-    _createLink(text) {
-      let href = `//www.nicovideo.jp/tag/${encodeURIComponent(text)}`;
-      // タグはエスケープされた物が来るのでそのままでつっこんでいいはずだが、
-      // 古いのはけっこういい加減なデータもあったりして信頼できない
-      text = util.escapeToZenkaku(util.unescapeHtml(text));
-      return `<a class="tagLink" href="${href}">${text}</a>`;
-    }
-
-    _createSearch(text) {
-      let title = 'タグ検索';
-      let command = 'tag-search';
-      let param = util.escapeHtml(text);
-      return (`<a class="playlistAppend command" title="${title}" data-command="${command}" data-param="${param}">▶</a>`);
-    }
-
-    _createTag(tag) {
-      let text = tag.tag;
-      let dic  = this._createDicIcon(text, !!tag.dic);
-      let del  = this._createDeleteButton(tag.id);
-      let link = this._createLink(text);
-      let search = this._createSearch(text);
-      let data = util.escapeHtml(JSON.stringify(tag));
-      // APIごとに形式が統一されてなくてひどい
-      let className = (tag.lock || tag.owner_lock === 1 || tag.lck === '1') ? 'tagItem is-Locked' : 'tagItem';
-      className = (tag.cat) ? `${className} is-Category` : className;
-      return `<li class="${className}" data-tag="${data}" data-tag-id="${tag.id}">${dic}${del}${link}${search}</li>`;
-    }
-
-    _onTagInputKeyDown(e) {
-      if (this._state.isUpdating) {
-        e.preventDefault(); e.stopPropagation();
-      }
-      switch (e.keyCode) {
-        case 27: // ESC
-          e.preventDefault();
-          e.stopPropagation();
-          this._endInput();
-          break;
-      }
-    }
-
-    _onTagInputSubmit(e) {
-      if (this._state.isUpdating) {
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      let val = (this._elm.tagInput.value || '').trim();
-      if (!val) {
-        this._endInput();
-        return;
-      }
-      this._onCommand('addTag', val);
-      this._elm.tagInput.value = '';
-    }
-
-    _onBodyClick() {
-      this._endInput();
-      this._endEdit();
-    }
-
-    _beginEdit() {
-      this.setState({isEditing: true});
-      document.body.addEventListener('click', this._boundOnBodyClick);
-    }
-
-    _endEdit() {
-      document.body.removeEventListener('click', this._boundOnBodyClick);
-      this.setState({isEditing: false});
-    }
-
-    _beginInput() {
-      this.setState({isInputing: true});
-      document.body.addEventListener('click', this._boundOnBodyClick);
-      this._elm.tagInput.value = '';
-      window.setTimeout(() => {
-        this._elm.tagInput.focus();
-      }, 100);
-    }
-    _endInput() {
-      this._elm.tagInput.blur();
-      document.body.removeEventListener('click', this._boundOnBodyClick);
-      this.setState({isInputing: false});
-    }
-
-
   }
 
-  TagListView.__shadow__ = (`
+  _onApiResult(watchId, result) {
+    if (watchId !== this._watchId) {
+      return; // 通信してる間に動画変わったぽい
+    }
+    const err = result.error_msg;
+    if (err) {
+      this.emit('command', 'alert', err);
+    }
+
+    this.update(result.tags);
+  }
+
+  _addTag(tag) {
+    this.setState({isUpdating: true});
+
+    const wait3s = this._makeWait(3000);
+    const watchId = this._watchId;
+    const videoId = this._videoId;
+    const csrfToken = this._token;
+    const watchAuthKey = this._watchAuthKey;
+    const addTag = () => {
+      return this._tagEditApi.add({
+        videoId,
+        tag,
+        csrfToken,
+        watchAuthKey
+      });
+    };
+
+    return Promise.all([addTag(), wait3s]).then((results) => {
+      let result = results[0];
+      if (watchId !== this._watchId) {
+        return;
+      } // 待ってる間に動画が変わったぽい
+      if (result && result.tags) {
+        this._update(result.tags);
+      }
+      this.setState({isInputing: false, isUpdating: false, isEditing: false});
+
+      if (result.error_msg) {
+        this.emit('command', 'alert', result.error_msg);
+      }
+    });
+  }
+
+  _removeTag(tagId, tag = '') {
+    this.setState({isUpdating: true});
+
+    const wait3s = this._makeWait(3000);
+    const watchId = this._watchId;
+    const videoId = this._videoId;
+    const csrfToken = this._token;
+    const watchAuthKey = this._watchAuthKey;
+    const removeTag = () => {
+      return this._tagEditApi.remove({
+        videoId,
+        tag,
+        id: tagId,
+        csrfToken,
+        watchAuthKey
+      });
+    };
+
+    return Promise.all([removeTag(), wait3s]).then((results) => {
+      let result = results[0];
+      if (watchId !== this._watchId) {
+        return;
+      } // 待ってる間に動画が変わったぽい
+      if (result && result.tags) {
+        this._update(result.tags);
+      }
+      this.setState({isUpdating: false});
+
+      if (result.error_msg) {
+        this.emit('command', 'alert', result.error_msg);
+      }
+    });
+  }
+
+  _refreshTag() {
+    this.setState({isUpdating: true});
+    const watchId = this._watchId;
+    const wait1s = this._makeWait(1000);
+    const load = () => {
+      return this._tagEditApi.load(this._videoId);
+    };
+
+    return Promise.all([load(), wait1s]).then((results) => {
+      let result = results[0];
+      if (watchId !== this._watchId) {
+        return;
+      } // 待ってる間に動画が変わったぽい
+      this._update(result.tags);
+      this.setState({isUpdating: false, isInputing: false, isEditing: false});
+    });
+  }
+
+  _makeWait(ms) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve(ms);
+      }, ms);
+    });
+  }
+
+  _createDicIcon(text, hasDic) {
+    let href = `//dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
+    // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
+    let src = hasDic ?
+      '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
+      '//live.nicovideo.jp/img/2012/watch/tag_icon003.png';
+    let icon = `<img class="dicIcon" src="${src}">`;
+    return `<a target="_blank" class="nicodic" href="${href}">${icon}</a>`;
+  }
+
+  _createDeleteButton(id) {
+    return `<span target="_blank" class="deleteButton command" title="削除" data-command="removeTag" data-param="${id}">ー</span>`;
+  }
+
+  _createLink(text) {
+    let href = `//www.nicovideo.jp/tag/${encodeURIComponent(text)}`;
+    // タグはエスケープされた物が来るのでそのままでつっこんでいいはずだが、
+    // 古いのはけっこういい加減なデータもあったりして信頼できない
+    text = util.escapeToZenkaku(util.unescapeHtml(text));
+    return `<a class="tagLink" href="${href}">${text}</a>`;
+  }
+
+  _createSearch(text) {
+    let title = 'タグ検索';
+    let command = 'tag-search';
+    let param = util.escapeHtml(text);
+    return (`<a class="playlistAppend command" title="${title}" data-command="${command}" data-param="${param}">▶</a>`);
+  }
+
+  _createTag(tag) {
+    let text = tag.tag;
+    let dic = this._createDicIcon(text, !!tag.dic);
+    let del = this._createDeleteButton(tag.id);
+    let link = this._createLink(text);
+    let search = this._createSearch(text);
+    let data = util.escapeHtml(JSON.stringify(tag));
+    // APIごとに形式が統一されてなくてひどい
+    let className = (tag.lock || tag.owner_lock === 1 || tag.lck === '1') ? 'tagItem is-Locked' : 'tagItem';
+    className = (tag.cat) ? `${className} is-Category` : className;
+    return `<li class="${className}" data-tag="${data}" data-tag-id="${tag.id}">${dic}${del}${link}${search}</li>`;
+  }
+
+  _onTagInputKeyDown(e) {
+    if (this._state.isUpdating) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    switch (e.keyCode) {
+      case 27: // ESC
+        e.preventDefault();
+        e.stopPropagation();
+        this._endInput();
+        break;
+    }
+  }
+
+  _onTagInputSubmit(e) {
+    if (this._state.isUpdating) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    let val = (this._elm.tagInput.value || '').trim();
+    if (!val) {
+      this._endInput();
+      return;
+    }
+    this._onCommand('addTag', val);
+    this._elm.tagInput.value = '';
+  }
+
+  _onBodyClick() {
+    this._endInput();
+    this._endEdit();
+  }
+
+  _beginEdit() {
+    this.setState({isEditing: true});
+    document.body.addEventListener('click', this._boundOnBodyClick);
+  }
+
+  _endEdit() {
+    document.body.removeEventListener('click', this._boundOnBodyClick);
+    this.setState({isEditing: false});
+  }
+
+  _beginInput() {
+    this.setState({isInputing: true});
+    document.body.addEventListener('click', this._boundOnBodyClick);
+    this._elm.tagInput.value = '';
+    window.setTimeout(() => {
+      this._elm.tagInput.focus();
+    }, 100);
+  }
+
+  _endInput() {
+    this._elm.tagInput.blur();
+    document.body.removeEventListener('click', this._boundOnBodyClick);
+    this.setState({isInputing: false});
+  }
+
+
+}
+
+TagListView.__shadow__ = (`
     <style>
       :host-context(.videoTagsContainer.sideTab) .tagLink {
         color: #000 !important;
@@ -760,7 +791,7 @@ const TagEditApi = function() {};
     </div>
   `).trim();
 
-  TagListView.__css__ = (`
+TagListView.__css__ = (`
 
     /* Firefox用 ShaowDOMサポートしたら不要 */
     .videoTagsContainer.sideTab .is-Updating {
@@ -783,4 +814,4 @@ const TagEditApi = function() {};
 
 //===END===
 
-module.exports = {TagListView};
+export {TagListView};

@@ -1,15 +1,14 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {}
-};
-var AsyncEmitter = function() {};
+import * as $ from 'jquery';
+import * as _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+import {AsyncEmitter} from './util';
 
 //===BEGIN===
 
-  var SettingPanel = function() { this.initialize.apply(this, arguments); };
-  SettingPanel.__css__ = (`
+var SettingPanel = function () {
+  this.initialize.apply(this, arguments);
+};
+SettingPanel.__css__ = (`
     .zenzaSettingPanel {
       position: absolute;
       left: 50%;
@@ -154,7 +153,7 @@ var AsyncEmitter = function() {};
 
   `).trim();
 
-  SettingPanel.__tpl__ = (`
+SettingPanel.__tpl__ = (`
     <div class="zenzaSettingPanel">
       <div class="settingPanelInner">
         <p class="caption">プレイヤーの設定</p>
@@ -422,177 +421,182 @@ var AsyncEmitter = function() {};
       </div>
     </div>
   `).trim();
-  _.extend(SettingPanel.prototype, AsyncEmitter.prototype);
+_.extend(SettingPanel.prototype, AsyncEmitter.prototype);
 
-  _.assign(SettingPanel.prototype, {
-    initialize: function(params) {
-      this._playerConfig     = params.playerConfig;
-      this._$playerContainer = params.$playerContainer;
-      this._player           = params.player;
+_.assign(SettingPanel.prototype, {
+  initialize: function (params) {
+    this._playerConfig = params.playerConfig;
+    this._$playerContainer = params.$playerContainer;
+    this._player = params.player;
 
-      this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
-      this._initializeDom();
-      this._initializeCommentFilterEdit();
-    },
-    _initializeDom: function() {
-      var $container = this._$playerContainer;
-      var config = this._playerConfig;
+    this._playerConfig.on('update', _.bind(this._onPlayerConfigUpdate, this));
+    this._initializeDom();
+    this._initializeCommentFilterEdit();
+  },
+  _initializeDom: function () {
+    var $container = this._$playerContainer;
+    var config = this._playerConfig;
 
-      ZenzaWatch.util.addStyle(SettingPanel.__css__);
-      $container.append(SettingPanel.__tpl__);
+    ZenzaWatch.util.addStyle(SettingPanel.__css__);
+    $container.append(SettingPanel.__tpl__);
 
-      var $panel = this._$panel = $container.find('.zenzaSettingPanel');
-      this._$view =
-        $container.find('.zenzaSettingPanel, .zenzaSettingPanelShadow1, .zenzaSettingPanelShadow2');
-      this._$view.on('click', function(e) {
-        e.stopPropagation();
-      });
-      this._$view.on('wheel', function(e) {
-        e.stopPropagation();
-      });
+    var $panel = this._$panel = $container.find('.zenzaSettingPanel');
+    this._$view =
+      $container.find('.zenzaSettingPanel, .zenzaSettingPanelShadow1, .zenzaSettingPanelShadow2');
+    this._$view.on('click', function (e) {
+      e.stopPropagation();
+    });
+    this._$view.on('wheel', function (e) {
+      e.stopPropagation();
+    });
 
-      var $check = $panel.find('input[type=checkbox]');
-      $check.each(function(i, check) {
-        var $c = $(check);
-        var settingName = $c.attr('data-setting-name');
-        var val = config.getValue(settingName);
-        $c.prop('checked', val);
-        $c.closest('.control').toggleClass('checked', val);
-      });
-      $check.on('change', _.bind(this._onToggleItemChange, this));
+    var $check = $panel.find('input[type=checkbox]');
+    $check.each(function (i, check) {
+      var $c = $(check);
+      var settingName = $c.attr('data-setting-name');
+      var val = config.getValue(settingName);
+      $c.prop('checked', val);
+      $c.closest('.control').toggleClass('checked', val);
+    });
+    $check.on('change', _.bind(this._onToggleItemChange, this));
 
-      const $radio = $panel.find('input[type=radio]');
-      $radio.each((i, check) => {
-        const $c = $(check);
-        const settingName = $c.attr('data-setting-name');
-        const val = config.getValue(settingName);
-        $c.prop('checked', val === $c.val());
-        //$c.closest('.control').toggleClass('checked', val);
-      });
-      $radio.on('change', this._onRadioItemChange.bind(this));
+    const $radio = $panel.find('input[type=radio]');
+    $radio.each((i, check) => {
+      const $c = $(check);
+      const settingName = $c.attr('data-setting-name');
+      const val = config.getValue(settingName);
+      $c.prop('checked', val === $c.val());
+      //$c.closest('.control').toggleClass('checked', val);
+    });
+    $radio.on('change', this._onRadioItemChange.bind(this));
 
-      var $text = $panel.find('input[type=text]');
-      $text.each(function(i, text) {
-        var $t = $(text);
-        var settingName = $t.attr('data-setting-name');
-        var val = config.getValue(settingName);
-        $t.val(val);
-      });
-      $text.on('change', _.bind(this._onInputItemChange, this));
+    var $text = $panel.find('input[type=text]');
+    $text.each(function (i, text) {
+      var $t = $(text);
+      var settingName = $t.attr('data-setting-name');
+      var val = config.getValue(settingName);
+      $t.val(val);
+    });
+    $text.on('change', _.bind(this._onInputItemChange, this));
 
-      var $select = $panel.find('select');
-      $select.each(function(i, select) {
-        var $s = $(select);
-        var settingName = $s.attr('data-setting-name');
-        var val = config.getValue(settingName);
-        $s.val(val);
-      });
-      $select.on('change', _.bind(this._onInputItemChange, this));
+    var $select = $panel.find('select');
+    $select.each(function (i, select) {
+      var $s = $(select);
+      var settingName = $s.attr('data-setting-name');
+      var val = config.getValue(settingName);
+      $s.val(val);
+    });
+    $select.on('change', _.bind(this._onInputItemChange, this));
 
 
-      ZenzaWatch.emitter.on('hideHover', _.bind(function() {
-        this.hide();
-      }, this));
+    ZenzaWatch.emitter.on('hideHover', _.bind(function () {
+      this.hide();
+    }, this));
 
-    },
-    _initializeCommentFilterEdit: function() {
-      var self = this;
-      var config = this._playerConfig;
-      var $view = this._$view;
-      var $edit          = $view.find('.filterEdit');
-      var $wordFilter    = $view.find('.wordFilterEdit');
-      var $userIdFilter  = $view.find('.userIdFilterEdit');
-      var $commandFilter = $view.find('.commandFilterEdit');
-      var map = {
-        wordFilter:    $wordFilter,
-        userIdFilter:  $userIdFilter,
-        commandFilter: $commandFilter
-      };
+  },
+  _initializeCommentFilterEdit: function () {
+    var self = this;
+    var config = this._playerConfig;
+    var $view = this._$view;
+    var $edit = $view.find('.filterEdit');
+    var $wordFilter = $view.find('.wordFilterEdit');
+    var $userIdFilter = $view.find('.userIdFilterEdit');
+    var $commandFilter = $view.find('.commandFilterEdit');
+    var map = {
+      wordFilter: $wordFilter,
+      userIdFilter: $userIdFilter,
+      commandFilter: $commandFilter
+    };
 
-      $edit.on('change', function(e) {
-        var $target = $(e.target);
-        var command = $target.attr('data-command');
-        var value   = $target.val();
-        self.emit('command', command, value);
-      });
-
-      _.each(Object.keys(map), function(v) {
-        var value = config.getValue(v) || [];
-        value = _.isArray(value) ? value.join('\n') : value;
-        map[v].val(value);
-      });
-
-      var onConfigUpdate = function(key, value) {
-        if (['wordFilter', 'userIdFilter', 'commandFilter'].includes(key)) {
-          map[key].val(value.join('\n'));
-        }
-      };
-      config.on('update', onConfigUpdate);
-    },
-    _onPlayerConfigUpdate: function(key, value) {
-      switch (key) {
-        case 'mute':
-        case 'loop':
-        case 'autoPlay':
-        case 'enableHeatMap':
-        case 'showComment':
-        case 'autoFullScreen':
-        case 'enableStoryboard':
-        case 'enableCommentPanel':
-        case 'debug':
-          this._$panel
-            .find('.' + key + 'Control').toggleClass('checked', value)
-            .find('input[type=checkbox]').prop('checked', value);
-          break;
-      }
-    },
-    _onToggleItemChange: function(e) {
-      let $target = $(e.target);
-      let settingName = $target.attr('data-setting-name');
-      let val = !!$target.prop('checked');
-
-      this._playerConfig.setValue(settingName, val);
-      $target.closest('.control').toggleClass('checked', val);
-    },
-    _onRadioItemChange: function(e) {
-      const $target = $(e.target);
-      const settingName = $target.attr('data-setting-name');
-      const checked = !!$target.prop('checked');
-      if (!checked) { return; }
-      this._playerConfig.setValue(settingName, $target.val());
-    },
-    _onInputItemChange: function(e) {
+    $edit.on('change', function (e) {
       var $target = $(e.target);
-      var settingName = $target.attr('data-setting-name');
-      var val = $target.val();
+      var command = $target.attr('data-command');
+      var value = $target.val();
+      self.emit('command', command, value);
+    });
 
-      this._playerConfig.setValue(settingName, val);
-    },
-    toggle: function(v) {
-      var eventName = 'click.ZenzaSettingPanel';
-      var $container = this._$playerContainer.off(eventName);
-      var $body = $('body').off(eventName);
-      var $view = this._$view.toggleClass('show', v);
+    _.each(Object.keys(map), function (v) {
+      var value = config.getValue(v) || [];
+      value = _.isArray(value) ? value.join('\n') : value;
+      map[v].val(value);
+    });
 
-      var onBodyClick = function() {
-        $view.removeClass('show');
-        $container.off(eventName);
-        $body.off(eventName);
-      };
-
-      if ($view.hasClass('show')) {
-        $container.on(eventName, onBodyClick);
-        $body.on(eventName, onBodyClick);
+    var onConfigUpdate = function (key, value) {
+      if (['wordFilter', 'userIdFilter', 'commandFilter'].includes(key)) {
+        map[key].val(value.join('\n'));
       }
-    },
-    show: function() {
-      this.toggle(true);
-    },
-    hide: function() {
-      this.toggle(false);
+    };
+    config.on('update', onConfigUpdate);
+  },
+  _onPlayerConfigUpdate: function (key, value) {
+    switch (key) {
+      case 'mute':
+      case 'loop':
+      case 'autoPlay':
+      case 'enableHeatMap':
+      case 'showComment':
+      case 'autoFullScreen':
+      case 'enableStoryboard':
+      case 'enableCommentPanel':
+      case 'debug':
+        this._$panel
+          .find('.' + key + 'Control').toggleClass('checked', value)
+          .find('input[type=checkbox]').prop('checked', value);
+        break;
     }
-  });
+  },
+  _onToggleItemChange: function (e) {
+    let $target = $(e.target);
+    let settingName = $target.attr('data-setting-name');
+    let val = !!$target.prop('checked');
+
+    this._playerConfig.setValue(settingName, val);
+    $target.closest('.control').toggleClass('checked', val);
+  },
+  _onRadioItemChange: function (e) {
+    const $target = $(e.target);
+    const settingName = $target.attr('data-setting-name');
+    const checked = !!$target.prop('checked');
+    if (!checked) {
+      return;
+    }
+    this._playerConfig.setValue(settingName, $target.val());
+  },
+  _onInputItemChange: function (e) {
+    var $target = $(e.target);
+    var settingName = $target.attr('data-setting-name');
+    var val = $target.val();
+
+    this._playerConfig.setValue(settingName, val);
+  },
+  toggle: function (v) {
+    var eventName = 'click.ZenzaSettingPanel';
+    var $container = this._$playerContainer.off(eventName);
+    var $body = $('body').off(eventName);
+    var $view = this._$view.toggleClass('show', v);
+
+    var onBodyClick = function () {
+      $view.removeClass('show');
+      $container.off(eventName);
+      $body.off(eventName);
+    };
+
+    if ($view.hasClass('show')) {
+      $container.on(eventName, onBodyClick);
+      $body.on(eventName, onBodyClick);
+    }
+  },
+  show: function () {
+    this.toggle(true);
+  },
+  hide: function () {
+    this.toggle(false);
+  }
+});
 
 //===END===
 //
 
+export {
+  SettingPanel
+};

@@ -1,27 +1,18 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {},
-  api: {}
-};
-const util = {};
-var __css__ = '';
-var PlayerSession = {};
-var Config = {};
-var NicoComment = {};
-var broadcastEmitter = {};
-var PopupMessage = {};
-var VideoInfoLoader = {};
-var WatchPageState = {};
-var WindowMessageEmitter = {};
-var NicoVideoApi = {};
-var PlaylistSession = {};
+import * as $ from 'jquery';
+import * as _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+import {PlayerSession} from './util';
+import {NicoComment} from './CommentPlayer';
+import {broadcastEmitter, WatchPageState, WindowMessageEmitter, PlaylistSession} from './util';
+import {NicoVideoPlayerDialog} from './NicoVideoPlayerDialog';
+// import {NicoVideoApi}
 
-var MessageApiLoader = function() {};
-var NicoVideoPlayer = function() {};
-var NicoVideoPlayerDialog = function() {};
-var AsyncEmitter = function() {};
+const util = ZenzaWatch.util;
+const Config = ZenzaWatch.config;
+const NicoVideoApi = {};
+const __css__ = '';
+
+
 const START_PAGE_QUERY = 'hoge=fuga';
 
 //===BEGIN===
@@ -170,9 +161,6 @@ const START_PAGE_QUERY = 'hoge=fuga';
       var isGinza = util.isGinzaWatchUrl() &&
         (!!document.getElementById('watchAPIDataContainer') ||
          !!document.getElementById('js-initial-watch-data'));
-      //if (!util.isLogin()) {
-      //  return;
-      //}
 
       replaceRedirectLinks();
 
@@ -189,14 +177,12 @@ const START_PAGE_QUERY = 'hoge=fuga';
 
         // watchページか？
         if (isGinza) {
-          //if (util.isLogin()) {
-            dialog = initializeDialogPlayer(Config, offScreenLayer);
-            if (isOverrideGinza()) {
-              initializeGinzaSlayer(dialog, query);
-            }
-            if (window.name === 'watchGinza') { window.name = ''; }
+          dialog = initializeDialogPlayer(Config, offScreenLayer);
+          if (isOverrideGinza()) {
+            initializeGinzaSlayer(dialog, query);
+          }
+          if (window.name === 'watchGinza') { window.name = ''; }
 
-          //}
         } else {
           dialog = initializeDialogPlayer(Config, offScreenLayer);
         }
@@ -595,3 +581,8 @@ const START_PAGE_QUERY = 'hoge=fuga';
       }
     }
 
+//===END===
+
+export {
+  initialize
+};

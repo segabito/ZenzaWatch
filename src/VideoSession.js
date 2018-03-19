@@ -1,36 +1,28 @@
-const $ = require('jquery');
-const _ = require('lodash');
-const ZenzaWatch = {
-  util:{},
-  debug: {},
-  api: {}
-};
-const util = {};
-//var AsyncEmitter = function() {};
-const VideoInfoLoader = {};
-const PopupMessage = {};
-const ajax = function() {};
+import {ZenzaWatch} from './ZenzaWatchIndex';
+
+const util = ZenzaWatch.util;
+import {PopupMessage} from './util';
 
 //===BEGIN===
 
-const VideoSession = (function() {
+const VideoSession = (function () {
   //const http = require('http');
   //const fetch = require('node-fetch');
 
-  const SMILE_HEART_BEAT_INTERVAL_MS  = 10 * 60 * 1000; // 10min
-  const DMC_HEART_BEAT_INTERVAL_MS    = 30 * 1000;      // 30sec
+  const SMILE_HEART_BEAT_INTERVAL_MS = 10 * 60 * 1000; // 10min
+  const DMC_HEART_BEAT_INTERVAL_MS = 30 * 1000;      // 30sec
 
-  const CHECK_PAUSE_INTERVAL      = 30 * 1000;
+  const CHECK_PAUSE_INTERVAL = 30 * 1000;
   const SESSION_CLOSE_PAUSE_COUNT = 10;
-  const SESSION_CLOSE_FAIL_COUNT  = 3;
-  const SESSION_CLOSE_TIME_MS     = 12 * 60 * 1000; // 12min
+  const SESSION_CLOSE_FAIL_COUNT = 3;
+  const SESSION_CLOSE_TIME_MS = 12 * 60 * 1000; // 12min
 
   const VIDEO_QUALITY = {
     auto: /.*/,
     veryhigh: /_(1080p)$/,
     high: /_(720p)$/,
-    mid:  /_(540p|480p)$/,
-    low:  /_(360p)$/
+    mid: /_(540p|480p)$/,
+    low: /_(360p)$/
   };
 
   class DmcPostData {
@@ -46,10 +38,14 @@ const VideoSession = (function() {
 
       let reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
       dmcInfo.videos.forEach(format => {
-        if (reg.test(format))  { videos.push(format); }
+        if (reg.test(format)) {
+          videos.push(format);
+        }
       });
-      dmcInfo.videos.forEach( format => {
-        if (!reg.test(format)) { videos.push(format); }
+      dmcInfo.videos.forEach(format => {
+        if (!reg.test(format)) {
+          videos.push(format);
+        }
       });
 
       let audios = [];
@@ -71,11 +67,14 @@ const VideoSession = (function() {
           },
           content_id: dmcInfo.contentId,
           content_src_id_sets: [
-            {content_src_ids: [
-                {src_id_to_mux: {
-                  audio_src_ids: audios,
-                  video_src_ids: videos
-                }}
+            {
+              content_src_ids: [
+                {
+                  src_id_to_mux: {
+                    audio_src_ids: audios,
+                    video_src_ids: videos
+                  }
+                }
               ]
             }
           ],
@@ -132,9 +131,10 @@ const VideoSession = (function() {
       this._videoInfo = params.videoInfo;
       this._videoWatchOptions = params.videoWatchOptions;
 
-      this._isPlaying = params.isPlayingCallback || (() => {});
+      this._isPlaying = params.isPlayingCallback || (() => {
+      });
       this._pauseCount = 0;
-      this._failCount  = 0;
+      this._failCount = 0;
       this._lastResponse = '';
       this._videoQuality = params.videoQuality || 'auto';
       this._videoSessionInfo = {};
@@ -143,7 +143,7 @@ const VideoSession = (function() {
       this._heartBeatTimer = null;
 
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
-      this._onHeartBeatFail    = this._onHeartBeatFail.bind(this);
+      this._onHeartBeatFail = this._onHeartBeatFail.bind(this);
     }
 
     connect() {
@@ -179,7 +179,9 @@ const VideoSession = (function() {
     }
 
     _onHeartBeatInterval() {
-      if (this._isClosed) { return; }
+      if (this._isClosed) {
+        return;
+      }
       this._heartBeat();
     }
 
@@ -196,7 +198,9 @@ const VideoSession = (function() {
     }
 
     _onPauseCheckInterval() {
-      if (this._isClosed) { return; }
+      if (this._isClosed) {
+        return;
+      }
       let isPlaying = this._isPlaying();
       //window.console.log('isPlaying?', isPlaying, this._pauseCount);
       if (!isPlaying) {
@@ -207,8 +211,8 @@ const VideoSession = (function() {
       //PopupMessage.debug('pause: ' + this._pauseCount);
 
       // 一定時間停止が続いた and 生成から一定時間経過している場合は破棄
-      if (this._pauseCount             >= SESSION_CLOSE_PAUSE_COUNT &&
-          Date.now() - this._createdAt >= SESSION_CLOSE_TIME_MS) {
+      if (this._pauseCount >= SESSION_CLOSE_PAUSE_COUNT &&
+        Date.now() - this._createdAt >= SESSION_CLOSE_TIME_MS) {
         //PopupMessage.debug('VideoSession closed.');
         this.close();
       }
@@ -237,7 +241,7 @@ const VideoSession = (function() {
       this._serverType = 'dmc';
       this._heartBeatInterval = DMC_HEART_BEAT_INTERVAL_MS;
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
-      this._onHeartBeatFail    = this._onHeartBeatFail.bind(this);
+      this._onHeartBeatFail = this._onHeartBeatFail.bind(this);
     }
 
     _createSession(videoInfo) {
@@ -253,7 +257,9 @@ const VideoSession = (function() {
           timeout: 10000,
           dataType: 'text',
           body: (new DmcPostData(dmcInfo, this._videoQuality)).toString()
-        }).then(res => { return res.json(); })
+        }).then(res => {
+          return res.json();
+        })
           .then(json => {
             //console.log('\n\ncreate api result', JSON.stringify(json, null, 2));
             //const json = JSON.parse(result);
@@ -287,9 +293,9 @@ const VideoSession = (function() {
             console.timeEnd('create DMC session');
             resolve(this._videoSessionInfo);
           }).catch(err => {
-            console.error('create api fail', err);
-            reject(err);
-          });
+          console.error('create api fail', err);
+          reject(err);
+        });
       });
     }
 
@@ -301,13 +307,17 @@ const VideoSession = (function() {
         dataType: 'text',
         timeout: 10000,
         body: JSON.stringify(this._lastResponse)
-      }).then(res => { return res.json(); })
+      }).then(res => {
+        return res.json();
+      })
         .then(this._onHeartBeatSuccess)
         .catch(this._onHeartBeatFail);
     }
 
     _deleteSession() {
-      if (this._isDeleted) { return Promise.resolve(); }
+      if (this._isDeleted) {
+        return Promise.resolve();
+      }
       this._isDeleted = true;
       let url = this._videoSessionInfo.deleteSessionUrl;
       return util.fetch(url, {
@@ -316,8 +326,12 @@ const VideoSession = (function() {
         timeout: 10000,
         body: JSON.stringify(this._lastResponse)
       }).then(res => res.text())
-        .then(() => { console.log('delete success'); })
-        .catch(err => { console.error('delete fail', err); });
+        .then(() => {
+          console.log('delete success');
+        })
+        .catch(err => {
+          console.error('delete fail', err);
+        });
     }
 
     _onHeartBeatSuccess(result) {
@@ -333,7 +347,7 @@ const VideoSession = (function() {
       this._serverType = 'smile';
       this._heartBeatInterval = SMILE_HEART_BEAT_INTERVAL_MS;
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
-      this._onHeartBeatFail    = this._onHeartBeatFail.bind(this);
+      this._onHeartBeatFail = this._onHeartBeatFail.bind(this);
     }
 
     _createSession(videoInfo) {
@@ -351,30 +365,38 @@ const VideoSession = (function() {
         'playlist_token=' + this._videoInfo.playlistToken,
         'continue_watching=1'
       ];
-      if (this._videoInfo.isEconomy) { query.push('eco=1'); }
+      if (this._videoInfo.isEconomy) {
+        query.push('eco=1');
+      }
 
-      if (query.length > 0) { url += '?' + query.join('&'); }
-      window.console.info('heartBeat url', url);
+      if (query.length > 0) {
+        url += '?' + query.join('&');
+      }
 
       util.fetch(url, {
         timeout: 10000,
         credentials: 'include'
-      }).then(res => { return res.json(); })
-      .then(this._onHeartBeatSuccess)
-      .catch(this._onHeartBeatFail);
+      }).then(res => {
+        return res.json();
+      })
+        .then(this._onHeartBeatSuccess)
+        .catch(this._onHeartBeatFail);
     }
 
     _deleteSession() {
-      if (this._isDeleted) { return Promise.resolve(); }
+      if (this._isDeleted) {
+        return Promise.resolve();
+      }
       this._isDeleted = true;
       return Promise.resolve();
     }
 
     _onHeartBeatSuccess(result) {
-      //console.log('HeartBeatSuccess');
       this._lastResponse = result;
-      //console.info('heartBeat result', result);
-      if (result.status !== 'ok') { return this._onHeartBeatFail(); }
+      if (result.status !== 'ok') {
+        return this._onHeartBeatFail();
+      }
+
       if (result && result.flashvars && result.flashvars.watchAuthKey) {
         this._videoInfo.watchAuthKey = result.flashvars.watchAuthKey;
       }
@@ -388,8 +410,7 @@ const VideoSession = (function() {
 
 //===END===
 
-module.exports = {
-  VideoSession: VideoSession
+export {
+  VideoSession
 };
-
 

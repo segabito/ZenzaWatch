@@ -1,15 +1,12 @@
-var _ = require('lodash');
-var Config = {};
-var ZenzaWatch = {
-  util:{},
-  debug: {},
-  api: {}
-};
+import * as _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+
+// const Config = ZenzaWatch.config;
 
 //===BEGIN===
 
-var SlotLayoutWorker = (function() {
-  var func = function(self) {
+var SlotLayoutWorker = (function () {
+  var func = function (self) {
 
     // 暫定設置
     var SLOT_COUNT = 40;
@@ -19,16 +16,18 @@ var SlotLayoutWorker = (function() {
      * デザパタ的にいうならFlyweightパターンの亜種。
      * ゲームプログラミングではよくあるやつ。
      */
-    var SlotEntry = function() { this.initialize.apply(this, arguments); };
+    var SlotEntry = function () {
+      this.initialize.apply(this, arguments);
+    };
     SlotEntry.prototype = {
-      initialize: function(slotCount) {
+      initialize: function (slotCount) {
         this._slotCount = slotCount || SLOT_COUNT;
         this._slot = [];
         this._itemTable = {};
 
         this._p = 1;
       },
-      _findIdle: function(sec) {
+      _findIdle: function (sec) {
         var count = this._slotCount, slot = this._slot, table = this._itemTable;
         for (var i = 0; i < count; i++) {
           if (!slot[i]) {
@@ -46,7 +45,7 @@ var SlotLayoutWorker = (function() {
         }
         return -1;
       },
-      _findOldest: function() {
+      _findOldest: function () {
         var idx = 0, slot = this._slot, min = slot[0];
         for (var i = 1, len = this._slot.length; i < len; i++) {
           if (slot[i] < min) {
@@ -56,18 +55,20 @@ var SlotLayoutWorker = (function() {
         }
         return idx;
       },
-      find: function(item, sec) {
+      find: function (item, sec) {
         // まずは空いてるスロットを小さい順に探す
         var slot = this._findIdle(sec);
         // なかったら、一番古いやつから奪い取る
-        if (slot < 0) { slot = this._findOldest(); }
+        if (slot < 0) {
+          slot = this._findOldest();
+        }
         this._itemTable[slot] = item;
         return slot;
       }
     };
 
-    var sortByBeginTime = function(data) {
-      data = data.concat().sort(function(a, b) {
+    var sortByBeginTime = function (data) {
+      data = data.concat().sort(function (a, b) {
         var av = a.begin, bv = b.begin;
         if (av !== bv) {
           return av - bv;
@@ -78,7 +79,7 @@ var SlotLayoutWorker = (function() {
       return data;
     };
 
-    var execute = function(e) {
+    var execute = function (e) {
       var data = [];
       data = data.concat(e.data.top);
       data = data.concat(e.data.naka);
@@ -89,7 +90,9 @@ var SlotLayoutWorker = (function() {
 
       for (var i = 0, len = data.length; i < len; i++) {
         var o = data[i];
-        if (o.invisible) { continue; }
+        if (o.invisible) {
+          continue;
+        }
         var sec = o.begin;
         var fork = o.fork % 3;
         o.slot = slotEntries[fork].find(o, sec);
@@ -97,7 +100,7 @@ var SlotLayoutWorker = (function() {
       return data;
     };
 
-    self.onmessage = function(e) {
+    self.onmessage = function (e) {
       //console.log('SlotLayout', e.data);
       console.time('SlotLayoutWorker');
 
@@ -114,7 +117,7 @@ var SlotLayoutWorker = (function() {
 
   return {
     _func: func,
-    create: function() {
+    create: function () {
       if (!ZenzaWatch.util.isWebWorkerAvailable()) {
         return null;
       }
@@ -124,36 +127,35 @@ var SlotLayoutWorker = (function() {
 })();
 
 
-
 //===END===
 
-var workerWrapper = (function(worker) {
+// var workerWrapper = (function (worker) {
+//
+//   var wrapper = {};
+//
+//   var workerInterface = {
+//     postMessage: function (data) {
+//       var packet = {data: data};
+//       wrapper.onmessage(packet);
+//     }
+//   };
+//
+//   wrapper.postMessage = function (data) {
+//     var packet = {data: data};
+//     worker(workerInterface);
+//     workerInterface.onmessage(packet);
+//   };
+//
+//   wrapper.addEventListener = function (name, callback) {
+//     wrapper['on' + name.toLowerCase()] = callback;
+//   };
+//
+//   return wrapper;
+// })(SlotLayoutWorker._func);
 
-  var wrapper = {};
 
-  var workerInterface = {
-    postMessage: function(data) {
-      var packet = { data: data };
-      wrapper.onmessage(packet);
-    }
-  };
-
-  wrapper.postMessage = function(data) {
-    var packet = { data: data };
-    worker(workerInterface);
-    workerInterface.onmessage(packet);
-  };
-
-  wrapper.addEventListener = function(name, callback) {
-    wrapper['on' + name.toLowerCase()] = callback;
-  };
-
-  return wrapper;
-})(SlotLayoutWorker._func);
-
-
-module.exports = {
-  SlotLayoutWorker: workerWrapper
+export {
+  SlotLayoutWorker
 };
 
 

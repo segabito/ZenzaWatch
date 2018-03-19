@@ -32,19 +32,19 @@
 // ==/UserScript==
 
 
-(function(window) {
-const PRODUCT = 'ZenzaWatch';
+(function (window) {
+  const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
-const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
-const monkey = function(PRODUCT, START_PAGE_QUERY) {
-  var console = window.console;
-  var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
-  var TOKEN = 'r:' + (Math.random());
-  START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  //@version
+  const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
+  const monkey = function (PRODUCT, START_PAGE_QUERY) {
+    var console = window.console;
+    var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
+    var TOKEN = 'r:' + (Math.random());
+    START_PAGE_QUERY = unescape(START_PAGE_QUERY);
+    //@version
 
-  console.log(`%c${PRODUCT} v${VER}`, 'font-size: 200%;');
-  console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
+    console.log(`%c${PRODUCT} v${VER}`, 'font-size: 200%;');
+    console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
 
     var ZenzaWatch = {
       version: VER,
@@ -87,7 +87,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     }
 
     const util = ZenzaWatch.util;
-    
+
 //@require constant.js
 
 //@require util.js
@@ -103,7 +103,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 //@require loader/Storyboard.js
 
 //@require YouTubeWrapper.js
-  
+
 //@require NicoVideoPlayer.js
 
 //@require StoryBoard.js
@@ -140,9 +140,9 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 //@require initializer.js
 
-};
+  };
 
-  let loadLodash = function() {
+  let loadLodash = function () {
     if (window._) {
       return Promise.resolve();
     }
@@ -160,7 +160,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       let tm = setInterval(() => {
         count++;
 
-        if (window._)  {
+        if (window._) {
           clearInterval(tm);
           resolve();
           return;
@@ -179,13 +179,15 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
 //@require exApi.js
 
-  if (window.ZenzaWatch) { return; }
+  if (window.ZenzaWatch) {
+    return;
+  }
   let document = window.document;
   let host = window.location.host || '';
   let href = (location.href || '').replace(/#.*$/, '');
   let prot = location.protocol;
   if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
-      window.name === 'nicovideoApiLoader') {
+    window.name === 'nicovideoApiLoader') {
     loadLodash().then(nicovideoApi);
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
     loadLodash().then(smileApi);
@@ -211,29 +213,33 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     }
 
 
-    var loadGm = function() {
+    var loadGm = function () {
       let script = document.createElement('script');
       script.id = 'ZenzaWatchLoader';
       script.setAttribute('type', 'text/javascript');
       script.setAttribute('charset', 'UTF-8');
       script.appendChild(
-        document.createTextNode(`(${monkey})('${PRODUCT}', '${escape(START_PAGE_QUERY)}');` ));
+        document.createTextNode(`(${monkey})('${PRODUCT}', '${escape(START_PAGE_QUERY)}');`));
       document.body.appendChild(script);
     };
 
     var MIN_JQ = 10000600000;
-    var getJQVer = function() {
+    var getJQVer = function () {
       if (!window.jQuery) {
         return 0;
       }
       var ver = [];
       var t = window.jQuery.fn.jquery.split('.');
-      while(t.length < 3) { t.push(0); }
-      t.forEach((v) => { ver.push((v * 1 + 100000).toString().substr(1)); });
+      while (t.length < 3) {
+        t.push(0);
+      }
+      t.forEach((v) => {
+        ver.push((v * 1 + 100000).toString().substr(1));
+      });
       return ver.join('') * 1;
     };
 
-    var loadJq = function() {
+    var loadJq = function () {
       console.log('JQVer: ', getJQVer());
       console.info('load jQuery from cdn...');
 
@@ -251,11 +257,15 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         var tm = setInterval(() => {
           count++;
 
-          if (getJQVer() >= MIN_JQ)  {
+          if (getJQVer() >= MIN_JQ) {
             clearInterval(tm);
             window.ZenzaJQuery = window.jQuery;
-            if ($j) { window.jQuery = $j; }
-            if ($$) { window.$      = $$; }
+            if ($j) {
+              window.jQuery = $j;
+            }
+            if ($$) {
+              window.$ = $$;
+            }
             resolve();
             return;
           }

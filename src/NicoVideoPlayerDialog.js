@@ -1,325 +1,346 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {}
-};
-const util = {};
-var PlaybackPosition = {};
-var FullScreen = {};
-var VideoInfoLoader = {};
-var PopupMessage = {};
-var ShortcutKeyEmitter = {};
-var PlaylistSession = {};
-var NicoVideoPlayer = function() {};
-var MessageApiLoader = function() {};
-var AsyncEmitter = function() {};
-var VideoControlBar = function() {};
-var VideoInfoPanel = function() {};
-var VideoInfoModel = function() {};
-var CommentInputPanel = function() {};
-var SettingPanel = function() {};
-var Playlist = function() {};
-var VideoSession = function() {};
-var CommentPanel = function() {};
-var VideoFilter = function() {};
+import * as $ from 'jquery';
+import * as _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+import {CONSTANT} from './constant';
+import {PlaybackPosition} from './loader';
+import {FullScreen} from './util';
+import {VideoInfoLoader} from './loader';
+import {PopupMessage} from './util';
+import {ShortcutKeyEmitter} from './util';
+import {NicoVideoPlayer} from './NicoVideoPlayer';
+import {MessageApiLoader} from './loader';
+import {AsyncEmitter} from './util';
+import {VideoInfoModel} from './VideoInfo';
+import {CommentInputPanel} from './CommentInputPanel';
+import {CommentPanel} from './CommentPanel';
+import {VideoFilter} from './VideoInfo';
+import {VideoControlBar} from './VideoControlBar';
+import {VideoInfoPanel} from './VideoInfoPanel';
+import {SettingPanel} from './SettingPanel';
+import {Playlist} from './VideoList';
+import {PlaylistSession} from './VideoList';
+import {VideoSession} from './VideoSession';
 
-var CONSTANT = {};
+const util = ZenzaWatch.util;
 
 //===BEGIN===
-  var PlayerConfig = function() { this.initialize.apply(this, arguments); };
-  _.assign(PlayerConfig.prototype, {
-    initialize: function(params) {
-      var config = this._config = params.config;
-      this._mode = params.mode || '';
-      if (!this._mode && ZenzaWatch.util.isGinzaWatchUrl()) {
-        this._mode = 'ginza';
-      }
-
-      if (!this._mode) {
-        _.each([
-          'refreshValue',
-          'getValue',
-          'setValue',
-          'setValueSilently',
-          'setSessionValue',
-          'on',
-          'off'
-        ], (func) => {
-          //this[func] = _.bind(config[func], config);
-          this[func] = config[func].bind(config);
-        });
-      }
-    },
-    // 環境ごとに独立させたい要求が出てきたのでラップする
-    _getNativeKey: function(key) {
-      if (!this._mode) { return key; }
-      switch (this._mode) {
-        case 'ginza':
-          if (['autoPlay', 'screenMode'].includes(key)) {
-            return key + ':' + this._mode;
-          }
-          return key;
-        default:
-          return key;
-      }
-    },
-    refreshValue: function(key) {
-      key = this._getNativeKey(key);
-      return this._config.refreshValue(key);
-    },
-    getValue: function(key, refresh) {
-      key = this._getNativeKey(key);
-      return this._config.getValue(key, refresh);
-    },
-    setValue: function(key, value) {
-      key = this._getNativeKey(key);
-      return this._config.setValue(key, value);
-    },
-    setValueSilently: function(key, value) {
-      key = this._getNativeKey(key);
-      return this._config.setValueSilently(key, value);
-    },
-    setSessionValue: function(key, value) {
-      key = this._getNativeKey(key);
-      return this._config.setSessionValue(key, value);
-    },
-    _wrapFunc: function(func) {
-      return function(key, value) {
-        key = key.replace(/:.*?$/, '');
-        func(key, value);
-      };
-    },
-    on: function(key, func) {
-      if (key.match(/^update-(.*)$/)) {
-        key = RegExp.$1;
-        var nativeKey = this._getNativeKey(key);
-        //if (key !== nativeKey) { window.console.log('config.on %s -> %s', key, nativeKey); }
-        this._config.on('update-' + nativeKey, func);
-      } else {
-        this._config.on(key, this._wrapFunc(func));
-      }
-    },
-    off: function(/*key, func*/) {
-      throw new Error('not supported!');
-    }
-  });
-
-  var VideoWatchOptions = function() { this.initialize.apply(this, arguments); };
-  _.extend(VideoWatchOptions.prototype, AsyncEmitter.prototype);
-  _.assign(VideoWatchOptions.prototype, {
-    initialize: function(watchId, options, config) {
-      this._watchId = watchId;
-      this._options = options || {};
-      this._config  = config;
-    },
-    getRawData: function() {
-      // window.console.trace();
-      return this._options;
-    },
-    getEventType: function() {
-      return this._options.eventType || '';
-    },
-    getQuery: function() {
-      return this._options.query || {};
-    },
-    getVideoLoadOptions: function() {
-      var options = {
-        economy: this.isEconomy()
-      };
-      return options;
-    },
-    getMylistLoadOptions: function() {
-      var options = {};
-      var query = this.getQuery();
-      if (query.mylist_sort) { options.sort = query.mylist_sort; }
-      options.group_id = query.group_id;
-      options.watchId = this._watchId;
-      return options;
-    },
-    isPlaylistStartRequest: function() {
-      var eventType = this.getEventType();
-      var query = this.getQuery();
-      if (eventType === 'click' &&
-          query.continuous === '1' &&
-          ['mylist', 'deflist', 'tag', 'search'].includes(query.playlist_type) &&
-          (query.group_id || query.order)) {
-        return true;
-      }
-      return false;
-    },
-    hasKey: function(key) {
-      return _.has(this._options, key);
-    },
-    isOpenNow: function() {
-      return this._options.openNow === true;
-    },
-    isEconomy: function() {
-      return _.isBoolean(this._options.economy) ?
-        this._options.economy : this._config.getValue('forceEconomy');
-    },
-    isAutoCloseFullScreen: function() {
-      return !!this._options.autoCloseFullScreen;
-    },
-    isReload: function() {
-      return this._options.isReload === true;
-    },
-    getCurrentTime: function() {
-      return _.isNumber(this._options.currentTime) ?
-        parseFloat(this._options.currentTime, 10) : 0;
-    },
-    createOptionsForVideoChange: function(options) {
-      options = options || {};
-      delete this._options.economy;
-      _.defaults(options, this._options);
-      options.openNow = true;
-      options.isReload = false;
-      options.currentTime = 0;
-      options.query = {};
-      return options;
-    },
-    createOptionsForReload: function(options) {
-      options = options || {};
-      delete this._options.economy;
-      _.defaults(options, this._options);
-      options.openNow = true;
-      options.isReload = true;
-      options.query = {};
-      return options;
-    },
-    createOptionsForSession: function(options) {
-      options = options || {};
-      _.defaults(options, this._options);
-      options.query = {};
-      return options;
-    }
-  });
-
-  class BaseState extends AsyncEmitter {
-    constructor() {
-      super();
-
-      this._name = '';
-      this._state = {};
-      this._props = {};
+var PlayerConfig = function () {
+  this.initialize.apply(this, arguments);
+};
+_.assign(PlayerConfig.prototype, {
+  initialize: function (params) {
+    var config = this._config = params.config;
+    this._mode = params.mode || '';
+    if (!this._mode && ZenzaWatch.util.isGinzaWatchUrl()) {
+      this._mode = 'ginza';
     }
 
-    _defineProperty() {
-      Object.keys(this._state).forEach(key => {
-        Object.defineProperty(
-          this,
-          key, {
-            get: () => { return this._state[key]; },
-            set: (v) => { this._setState(key, v); }
-          });
+    if (!this._mode) {
+      _.each([
+        'refreshValue',
+        'getValue',
+        'setValue',
+        'setValueSilently',
+        'setSessionValue',
+        'on',
+        'off'
+      ], (func) => {
+        //this[func] = _.bind(config[func], config);
+        this[func] = config[func].bind(config);
       });
     }
-
-    setState(key, val) {
-      if (_.isString(key)) {
-        return this._setState(key, val);
-      }
-      Object.keys(key).forEach(k => {
-        this._setState(k, key[k]);
-      });
+  },
+  // 環境ごとに独立させたい要求が出てきたのでラップする
+  _getNativeKey: function (key) {
+    if (!this._mode) {
+      return key;
     }
-
-    _setState(key, val) {
-      if (!this._state.hasOwnProperty(key)) {
-        window.console.warn('%cUnknown property %s = %s', 'background: yellow;', key, val);
-        console.trace();
-      }
-      if (this._state[key] === val) { return; }
-      this._state[key] = val;
-      this.emit('change', key, val);
-      this.emit(`update-${key}`, val);
+    switch (this._mode) {
+      case 'ginza':
+        if (['autoPlay', 'screenMode'].includes(key)) {
+          return key + ':' + this._mode;
+        }
+        return key;
+      default:
+        return key;
     }
+  },
+  refreshValue: function (key) {
+    key = this._getNativeKey(key);
+    return this._config.refreshValue(key);
+  },
+  getValue: function (key, refresh) {
+    key = this._getNativeKey(key);
+    return this._config.getValue(key, refresh);
+  },
+  setValue: function (key, value) {
+    key = this._getNativeKey(key);
+    return this._config.setValue(key, value);
+  },
+  setValueSilently: function (key, value) {
+    key = this._getNativeKey(key);
+    return this._config.setValueSilently(key, value);
+  },
+  setSessionValue: function (key, value) {
+    key = this._getNativeKey(key);
+    return this._config.setSessionValue(key, value);
+  },
+  _wrapFunc: function (func) {
+    return function (key, value) {
+      key = key.replace(/:.*?$/, '');
+      func(key, value);
+    };
+  },
+  on: function (key, func) {
+    if (key.match(/^update-(.*)$/)) {
+      key = RegExp.$1;
+      var nativeKey = this._getNativeKey(key);
+      //if (key !== nativeKey) { window.console.log('config.on %s -> %s', key, nativeKey); }
+      this._config.on('update-' + nativeKey, func);
+    } else {
+      this._config.on(key, this._wrapFunc(func));
+    }
+  },
+  off: function (/*key, func*/) {
+    throw new Error('not supported!');
   }
+});
 
-  class PlayerState extends BaseState {
-    constructor(player, config) {
-      super();
-
-      this._name = 'Player';
-      this._state = {
-        isAbort:   false,
-        isAutoPlay: config.getValue('autoPlay'),
-        isBackComment:    config.getValue('backComment'),
-        isChanging: false,
-        isChannel: false,
-        isCommentVisible: config.getValue('showComment'),
-        isCommentReady: false,
-        isCommentPosting: false,
-        isCommunity: false,
-        isWaybackMode: false,
-        isDebug:   config.getValue('debug'),
-        isDmcAvailable: false,
-        isDmcPlaying:   false,
-        isError:   false,
-        isLoading: false,
-        isLoop:    config.getValue('loop'),
-        isMute:    config.getValue('mute'),
-        isMymemory: false,
-        isOpen:    false,
-        isPausing: false,
-        isPlaylistEnable: false,
-        isPlaying: false,
-        isRegularUser: !util.isPremium(),
-        isStalled: false,
-        isUpdatingDeflist: false,
-        isUpdatingMylist: false,
-        isNotPlayed: true,
-        isYouTube: false,
-
-        isEnableFilter: config.getValue('enableFilter'),
-        sharedNgLevel: config.getValue('sharedNgLevel'),
-
-        screenMode: config.getValue('screenMode'),
-        playbackRate: config.getValue('playbackRate')
-      };
-
-      this._defineProperty();
-
-      this.getCurrentTime = () => { player.getCurrentTime(); };
-    }
-
-    resetVideoLoadingStatus() {
-      this.setState({
-        isLoading: true,
-        isPlaying: false,
-        isStalled: false,
-        isError: false,
-        isAbort: false,
-        isMymemory: false,
-        isCommunity: false,
-        isChannel: false
-      });
+var VideoWatchOptions = function () {
+  this.initialize.apply(this, arguments);
+};
+_.extend(VideoWatchOptions.prototype, AsyncEmitter.prototype);
+_.assign(VideoWatchOptions.prototype, {
+  initialize: function (watchId, options, config) {
+    this._watchId = watchId;
+    this._options = options || {};
+    this._config = config;
+  },
+  getRawData: function () {
+    // window.console.trace();
+    return this._options;
+  },
+  getEventType: function () {
+    return this._options.eventType || '';
+  },
+  getQuery: function () {
+    return this._options.query || {};
+  },
+  getVideoLoadOptions: function () {
+    var options = {
+      economy: this.isEconomy()
+    };
+    return options;
+  },
+  getMylistLoadOptions: function () {
+    var options = {};
+    var query = this.getQuery();
+    if (query.mylist_sort) {
+      options.sort = query.mylist_sort;
     }
 
     setVideoCanPlay() {
       this.setState({
         isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true, isError: false});
+    options.group_id = query.group_id;
+    options.watchId = this._watchId;
+    return options;
+  },
+  isPlaylistStartRequest: function () {
+    var eventType = this.getEventType();
+    var query = this.getQuery();
+    if (eventType === 'click' &&
+      query.continuous === '1' &&
+      ['mylist', 'deflist', 'tag', 'search'].includes(query.playlist_type) &&
+      (query.group_id || query.order)) {
+      return true;
     }
+    return false;
+  },
+  hasKey: function (key) {
+    return _.has(this._options, key);
+  },
+  isOpenNow: function () {
+    return this._options.openNow === true;
+  },
+  isEconomy: function () {
+    return _.isBoolean(this._options.economy) ?
+      this._options.economy : this._config.getValue('forceEconomy');
+  },
+  isAutoCloseFullScreen: function () {
+    return !!this._options.autoCloseFullScreen;
+  },
+  isReload: function () {
+    return this._options.isReload === true;
+  },
+  getCurrentTime: function () {
+    return _.isNumber(this._options.currentTime) ?
+      parseFloat(this._options.currentTime, 10) : 0;
+  },
+  createOptionsForVideoChange: function (options) {
+    options = options || {};
+    delete this._options.economy;
+    _.defaults(options, this._options);
+    options.openNow = true;
+    options.isReload = false;
+    options.currentTime = 0;
+    options.query = {};
+    return options;
+  },
+  createOptionsForReload: function (options) {
+    options = options || {};
+    delete this._options.economy;
+    _.defaults(options, this._options);
+    options.openNow = true;
+    options.isReload = true;
+    options.query = {};
+    return options;
+  },
+  createOptionsForSession: function (options) {
+    options = options || {};
+    _.defaults(options, this._options);
+    options.query = {};
+    return options;
+  }
+});
 
     setPlaying() {
       this.setState({isPlaying: true, isPausing: false, isLoading: false, isNotPlayed: false, isError: false});
     }
+class BaseState extends AsyncEmitter {
+  constructor() {
+    super();
 
-    setPausing() {
-      this.setState({isPlaying: false, isPausing: true});
-    }
+    this._name = '';
+    this._state = {};
+    this._props = {};
+  }
+
+  _defineProperty() {
+    Object.keys(this._state).forEach(key => {
+      Object.defineProperty(
+        this,
+        key, {
+          get: () => {
+            return this._state[key];
+          },
+          set: (v) => {
+            this._setState(key, v);
+          }
+        });
+    });
+  }
 
     setVideoEnded() {
       this.setState({isPlaying: false, isPausing: false});
+  setState(key, val) {
+    if (_.isString(key)) {
+      return this._setState(key, val);
     }
+    Object.keys(key).forEach(k => {
+      this._setState(k, key[k]);
+    });
+  }
 
     setVideoErrorOccurred() {
       this.setState({isError: true, isPlaying: false, isLoading: false});
+  _setState(key, val) {
+    if (!this._state.hasOwnProperty(key)) {
+      window.console.warn('%cUnknown property %s = %s', 'background: yellow;', key, val);
+      console.trace();
     }
+    if (this._state[key] === val) {
+      return;
+    }
+    this._state[key] = val;
+    this.emit('change', key, val);
+    this.emit(`update-${key}`, val);
+  }
+}
+
+class PlayerState extends BaseState {
+  constructor(player, config) {
+    super();
+
+    this._name = 'Player';
+    this._state = {
+      isAbort: false,
+      isAutoPlay: config.getValue('autoPlay'),
+      isBackComment: config.getValue('backComment'),
+      isChanging: false,
+      isChannel: false,
+      isCommentVisible: config.getValue('showComment'),
+      isCommentReady: false,
+      isCommentPosting: false,
+      isCommunity: false,
+      isWaybackMode: false,
+      isDebug: config.getValue('debug'),
+      isDmcAvailable: false,
+      isDmcPlaying: false,
+      isError: false,
+      isLoading: false,
+      isLoop: config.getValue('loop'),
+      isMute: config.getValue('mute'),
+      isMymemory: false,
+      isOpen: false,
+      isPausing: false,
+      isPlaylistEnable: false,
+      isPlaying: false,
+      isRegularUser: !util.isPremium(),
+      isStalled: false,
+      isUpdatingDeflist: false,
+      isUpdatingMylist: false,
+      isNotPlayed: true,
+      isYouTube: false,
+
+      isEnableFilter: config.getValue('enableFilter'),
+      sharedNgLevel: config.getValue('sharedNgLevel'),
+
+      screenMode: config.getValue('screenMode'),
+      playbackRate: config.getValue('playbackRate')
+    };
+
+    this._defineProperty();
+
+    this.getCurrentTime = () => {
+      player.getCurrentTime();
+    };
   }
 
-  var NicoVideoPlayerDialogView = function() { this.initialize.apply(this, arguments); };
-  NicoVideoPlayerDialogView.__css__ = `
+  resetVideoLoadingStatus() {
+    this.setState({
+      isLoading: true,
+      isPlaying: false,
+      isStalled: false,
+      isError: false,
+      isAbort: false,
+      isMymemory: false,
+      isCommunity: false,
+      isChannel: false
+    });
+  }
+
+
+  setPlaying() {
+    this.setState({
+      isPlaying: true,
+      isPausing: false,
+      isLoading: false,
+      isNotPlayed: false,
+      isError: false,
+      isStalled: false
+    });
+  }
+
+  setPausing() {
+    this.setState({isPlaying: false, isPausing: true});
+  }
+
+
+var NicoVideoPlayerDialogView = function () {
+  this.initialize.apply(this, arguments);
+};
+NicoVideoPlayerDialogView.__css__ = `
 
     /*
       プレイヤーが動いてる間、裏の余計な物のマウスイベントを無効化
@@ -928,7 +949,7 @@ var CONSTANT = {};
 
   `;
 
-  NicoVideoPlayerDialogView.__tpl__ = (`
+NicoVideoPlayerDialogView.__tpl__ = (`
     <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
@@ -942,934 +963,997 @@ var CONSTANT = {};
     </div>
   `).trim();
 
-  _.extend(NicoVideoPlayerDialogView.prototype, AsyncEmitter.prototype);
-  _.assign(NicoVideoPlayerDialogView.prototype, {
-    initialize: function(params) {
-      const dialog = this._dialog = params.dialog;
-      this._playerConfig = params.playerConfig;
-      this._nicoVideoPlayer = params.nicoVideoPlayer;
-      this._playerState = params.playerState;
-      this._currentTimeGetter = params.currentTimeGetter;
+_.extend(NicoVideoPlayerDialogView.prototype, AsyncEmitter.prototype);
+_.assign(NicoVideoPlayerDialogView.prototype, {
+  initialize: function (params) {
+    const dialog = this._dialog = params.dialog;
+    this._playerConfig = params.playerConfig;
+    this._nicoVideoPlayer = params.nicoVideoPlayer;
+    this._playerState = params.playerState;
+    this._currentTimeGetter = params.currentTimeGetter;
 
-      this._aspectRatio = 9 / 16;
+    this._aspectRatio = 9 / 16;
 
-      dialog.on('canPlay',           this._onVideoCanPlay.bind(this));
-      dialog.on('videoCount',        this._onVideoCount.bind(this));
-      dialog.on('error',             this._onVideoError.bind(this));
-      dialog.on('play',              this._onVideoPlay.bind(this));
-      dialog.on('playing',           this._onVideoPlaying.bind(this));
-      dialog.on('pause',             this._onVideoPause.bind(this));
-      dialog.on('stalled',           this._onVideoStalled.bind(this));
-      dialog.on('abort',             this._onVideoAbort.bind(this));
-      dialog.on('aspectRatioFix',    this._onVideoAspectRatioFix.bind(this));
-      dialog.on('volumeChange',      this._onVolumeChange.bind(this));
-      dialog.on('volumeChangeEnd',   this._onVolumeChangeEnd.bind(this));
-      dialog.on('beforeVideoOpen',   this._onBeforeVideoOpen.bind(this));
-      dialog.on('loadVideoInfo',     this._onVideoInfoLoad.bind(this));
-      dialog.on('loadVideoInfoFail', this._onVideoInfoFail.bind(this));
-      dialog.on('videoServerType',   this._onVideoServerType.bind(this));
+    dialog.on('canPlay', this._onVideoCanPlay.bind(this));
+    dialog.on('videoCount', this._onVideoCount.bind(this));
+    dialog.on('error', this._onVideoError.bind(this));
+    dialog.on('play', this._onVideoPlay.bind(this));
+    dialog.on('playing', this._onVideoPlaying.bind(this));
+    dialog.on('pause', this._onVideoPause.bind(this));
+    dialog.on('stalled', this._onVideoStalled.bind(this));
+    dialog.on('abort', this._onVideoAbort.bind(this));
+    dialog.on('aspectRatioFix', this._onVideoAspectRatioFix.bind(this));
+    dialog.on('volumeChange', this._onVolumeChange.bind(this));
+    dialog.on('volumeChangeEnd', this._onVolumeChangeEnd.bind(this));
+    dialog.on('beforeVideoOpen', this._onBeforeVideoOpen.bind(this));
+    dialog.on('loadVideoInfo', this._onVideoInfoLoad.bind(this));
+    dialog.on('loadVideoInfoFail', this._onVideoInfoFail.bind(this));
+    dialog.on('videoServerType', this._onVideoServerType.bind(this));
 
-      this._initializeDom();
-      this._playerState.on('change', this._onPlayerStateChange.bind(this));
-    },
-    _initializeDom: function() {
-      util.addStyle(NicoVideoPlayerDialogView.__css__);
-      const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
-      const onCommand = this._onCommand.bind(this);
-      const config = this._playerConfig;
-      const dialog = this._dialog;
+    this._initializeDom();
+    this._playerState.on('change', this._onPlayerStateChange.bind(this));
+  },
+  _initializeDom: function () {
+    util.addStyle(NicoVideoPlayerDialogView.__css__);
+    const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
+    const onCommand = this._onCommand.bind(this);
+    const config = this._playerConfig;
+    const dialog = this._dialog;
 
-      const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
-      const container = $container[0];
+    const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
+    const container = $container[0];
 
-      $container.on('click', (e) => {
-        ZenzaWatch.emitter.emitAsync('hideHover');
-        if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
-          onCommand('togglePlay');
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        $container.removeClass('menuOpen');
-      });
-
-      this._applyState();
-
-      // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
-      let lastX = 0, lastY = 0;
-      let onMouseMove    = this._onMouseMove.bind(this);
-      let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 400);
-      $container.on('mousemove', (e) => {
-        if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
-          return;
-        }
-        lastX = e.screenX;
-        lastY = e.screenY;
-        onMouseMove(e);
-        onMouseMoveEnd(e);
-      });
-
-      $dialog
-        .on('click', this._onClick.bind(this))
-        .on('dblclick', (e) => {
-          if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') { return; }
-          if (config.getValue('enableDblclickClose')) {
-            this.emit('command', 'close');
-          }
-        })
-        .toggleClass('is-guest', !util.isLogin());
-
-      this._hoverMenu = new VideoHoverMenu({
-        playerContainer: container,
-        playerState: this._playerState
-      });
-      this._hoverMenu.on('command', onCommand);
-
-      this._commentInput = new CommentInputPanel({
-        $playerContainer: $container,
-        playerConfig: config
-      });
-
-      this._commentInput.on('post', (e, chat, cmd) => {
-        this.emit('postChat', e, chat, cmd);
-      });
-
-      let isPlaying = false;
-      this._commentInput.on('focus', (isAutoPause) => {
-        isPlaying = this._nicoVideoPlayer.isPlaying();
-        if (isAutoPause) {
-          this.emit('command', 'pause');
-        }
-      });
-      this._commentInput.on('blur', (isAutoPause) => {
-        if (isAutoPause && isPlaying && dialog.isOpen()) {
-          this.emit('command', 'play');
-        }
-      });
-      this._commentInput.on('esc', () => {
-        this._escBlockExpiredAt = Date.now() + 1000 * 2;
-      });
-
-      this._settingPanel = new SettingPanel({
-        $playerContainer: $container,
-        playerConfig: config,
-        player: this._dialog
-      });
-      this._settingPanel.on('command', onCommand);
-
-      this._videoControlBar = new VideoControlBar({
-        $playerContainer: $container,
-        playerConfig: config,
-        player: this._dialog
-      });
-      this._videoControlBar.on('command', onCommand);
-
-      this._$errorMessageContainer = $container.find('.errorMessageContainer');
-
-      this._initializeVideoInfoPanel();
-      this._initializeResponsive();
-
-      this.selectTab(this._playerConfig.getValue('videoInfoPanelTab'));
-
-      ZenzaWatch.emitter.on('showMenu', () => { $container.addClass('menuOpen'); });
-      ZenzaWatch.emitter.on('hideMenu', () => { $container.removeClass('menuOpen'); });
-      document.body.appendChild($dialog[0]);
-    },
-    _initializeVideoInfoPanel: function() {
-      if (this._videoInfoPanel) { return this._videoInfoPanel; }
-      this._videoInfoPanel = new VideoInfoPanel({
-        dialog: this,
-        node: this._$playerContainer,
-        currentTimeGetter: this._currentTimeGetter
-      });
-      this._videoInfoPanel.on('command', this._onCommand.bind(this));
-      return this._videoInfoPanel;
-    },
-    _onCommand: function(command, param) {
-      this.emit('command', command, param);
-    },
-    _initializeResponsive: function() {
-      window.addEventListener('resize', _.debounce(this._updateResponsive.bind(this),  500));
-    },
-    _updateResponsive: function() {
-      var $container = this._$playerContainer;
-      var $bar    = $container.find('.videoControlBar');
-      var $header = $container.find('.zenzaWatchVideoHeaderPanel');
-
-      // 画面の縦幅にシークバー分の余裕がある時は常時表示
-      const update = () => {
-        const w = window.innerWidth, h = window.innerHeight;
-        const videoControlBarHeight = $bar.outerHeight();
-        const vMargin = h - w * this._aspectRatio;
-
-        this.toggleClass('showVideoControlBar', vMargin >= videoControlBarHeight);
-        this.toggleClass('showVideoHeaderPanel',
-            vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
-      };
-
-      update();
-    },
-    _onMouseMove: function() {
-      if (this._isMouseMoving) { return; }
-      this.addClass('is-mouseMoving');
-      this._isMouseMoving = true;
-    },
-    _onMouseMoveEnd: function() {
-      if (!this._isMouseMoving) { return; }
-      this.removeClass('is-mouseMoving');
-      this._isMouseMoving = false;
-    },
-    _onVideoCanPlay: function(watchId, videoInfo, options) {
-      this.emit('canPlay', watchId, videoInfo, options);
-    },
-    _onVideoCount: function({comment, view, mylist} = {}) {
-      this.emit('videoCount', {comment, view, mylist});
-    },
-    _onVideoError: function(e) {
-      this.emit('error', e);
-    },
-    _onBeforeVideoOpen: function() {
-      this.setThumbnail();
-    },
-    _onVideoInfoLoad: function(videoInfo) {
-      this._videoInfoPanel.update(videoInfo);
-    },
-    _onVideoInfoFail: function(videoInfo) {
-      if (videoInfo) {
-        this._videoInfoPanel.update(videoInfo);
+    $container.on('click', (e) => {
+      ZenzaWatch.emitter.emitAsync('hideHover');
+      if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
+        onCommand('togglePlay');
       }
-    },
-    _onVideoServerType: function(type, sessionInfo) {
-      this.toggleClass('is-dmcPlaying', type === 'dmc');
-      this.emit('videoServerType', type, sessionInfo);
-    },
-    _onVideoPlay: function() {},
-    _onVideoPlaying: function() {},
-    _onVideoPause: function() {},
-    _onVideoStalled: function() {},
-    _onVideoAbort: function() {},
-    _onVideoAspectRatioFix: function(ratio) {
-      this._aspectRatio = ratio;
-      this._updateResponsive();
-    },
-    _onVolumeChange: function(/*vol, mute*/) {
-      this.addClass('volumeChanging');
-    },
-    _onVolumeChangeEnd: function(/*vol, mute*/) {
-      this.removeClass('volumeChanging');
-    },
-    _onScreenModeChange: function() {
-      this.addClass('changeScreenMode');
-      this._applyScreenMode();
-      window.setTimeout(() => { this.removeClass('changeScreenMode'); }, 1000);
-    },
-    _getStateClassNameTable: function() {
-      return { // TODO: テーブルなくても対応できるようにcss名を整理
-        isAbort:   'is-abort',
-        isBackComment: 'is-backComment',
-        isCommentVisible: 'is-showComment',
-        isDebug:   'is-debug',
-        isDmcAvailable: 'is-dmcAvailable',
-        isDmcPlaying:   'is-dmcPlaying',
-        isError:   'is-error',
-        isLoading: 'is-loading',
-        isMute:    'is-mute',
-        isLoop:    'is-loop',
-        isOpen:    'is-open',
-        isPlaying: 'is-playing',
-        isPausing: 'is-pausing',
-        isStalled: 'is-stalled',
-        isChanging: 'is-changing',
-        isUpdatingDeflist: 'is-updatingDeflist',
-        isUpdatingMylist:  'is-updatingMylist',
-        isPlaylistEnable:  'is-playlistEnable',
-        isCommentPosting:  'is-commentPosting',
-        isRegularUser: 'is-regularUser',
-        isWaybackMode: 'is-waybackMode',
-        isNotPlayed: 'is-notPlayed',
-        isYouTube: 'is-youTube',
-      };
-    },
-    _onPlayerStateChange: function(key, value) {
-      const table = this._getStateClassNameTable();
-      const className = table[key];
-      if (className) { this.toggleClass(className, !!value); }
-      switch(key) {
-        case 'screenMode':
-        case 'isOpen':
-          if (this._playerState.isOpen) { this._onScreenModeChange(); }
-          break;
-      }
-    },
-    _applyState: function() {
-      const table = this._getStateClassNameTable();
-      const container = this._$playerContainer[0];
-      const state = this._playerState;
-      Object.keys(table).forEach(key => {
-        const className = table[key];
-        if (!className) { return; }
-        container.classList.toggle(className, state[key]);
-      });
+      e.preventDefault();
+      e.stopPropagation();
+      $container.removeClass('menuOpen');
+    });
 
-      if (this._playerState.isOpen) { this._applyScreenMode(); }
-    },
-    _getScreenModeClassNameTable: function() {
-      return [
-        'zenzaScreenMode_3D',
-        'zenzaScreenMode_small',
-        'zenzaScreenMode_sideView',
-        'zenzaScreenMode_normal',
-        'zenzaScreenMode_big',
-        'zenzaScreenMode_wide'
-      ];
-    },
-    _applyScreenMode: function() {
-      const screenMode = `zenzaScreenMode_${this._playerState.screenMode}`;
-      const body = util.$('body, html');
-      const modes = this._getScreenModeClassNameTable();
-      modes.forEach(m => { body.toggleClass(m, m === screenMode); });
-    },
-    show: function() {
-      this._$dialog.addClass('is-open');
-      if (!FullScreen.now()) {
-        document.body.classList.remove('fullScreen');
-      }
-      util.$('body, html').addClass('showNicoVideoPlayerDialog');
-    },
-    hide: function() {
-      this._$dialog.removeClass('is-open');
-      this._settingPanel.hide();
-      util.$('body, html').removeClass('showNicoVideoPlayerDialog');
-      this.clearClass();
-    },
-    clearClass: function() {
-      const modes = this._getScreenModeClassNameTable().join(' ');
-      util.$('body, html').removeClass(modes);
-    },
-    _onClick: function() {
-    },
-    setNicoVideoPlayer: function(nicoVideoPlayer) {
-      this._nicoVideoPlayer = nicoVideoPlayer;
-    },
-    setThumbnail: function(thumbnail) {
-      if (thumbnail) {
-        this.css('background-image', `url(${thumbnail})`);
-      } else {
-        // base hrefのせいで変なurlを参照してしまうので適当な黒画像にする
-        this.css('background-image', `url(${CONSTANT.BLANK_PNG})`);
-      }
-    },
-    focusToCommentInput: function() {
-      // 即フォーカスだと入力欄に"C"が入ってしまうのを雑に対処
-      window.setTimeout(() => { this._commentInput.focus(); }, 0);
-    },
-    toggleSettingPanel: function() {
-      this._settingPanel.toggle();
-    },
-    setErrorMessage: function(msg) {
-      this._$errorMessageContainer.text(msg);
-    },
-    get$Container: function() {
-      return this._$playerContainer;
-    },
-    css: function(key, val) {
-      util.$(this._$playerContainer[0]).css(key, val);
-    },
-    addClass: function(name) {
-      return this.toggleClass(name, true);
-    },
-    removeClass: function(name) {
-      return this.toggleClass(name, false);
-    },
-    toggleClass: function(name, v) {
-      const container = this._$playerContainer[0];
-      name.split(/[ ]+/).forEach(n => {
-        if (_.isBoolean(v)) {
-          container.classList.toggle(n, v);
-        } else {
-          container.classList.toggle(n);
-        }
-      });
-    },
-    hasClass: function(name) {
-      const container = this._$playerContainer[0];
-      return container.classList.contains(name);
-    },
-    appendTab: function(name, title) {
-      return this._videoInfoPanel.appendTab(name, title);
-    },
-    selectTab: function(name) {
-      this._playerConfig.setValue('videoInfoPanelTab', name);
-      this._videoInfoPanel.selectTab(name);
-    },
-    execCommand: function(command, param) {
-      this.emit('command', command, param);
-    },
-    blinkTab: function(name) {
-      this._videoInfoPanel.blinkTab(name);
-    },
-    clearPanel: function() {
-      this._videoInfoPanel.clear();
-    }
-  });
+    this._applyState();
 
-
-  /**
-   * TODO: 分割 まにあわなくなっても知らんぞー
-   */
-  var NicoVideoPlayerDialog = function() { this.initialize.apply(this, arguments); };
-
-  _.extend(NicoVideoPlayerDialog.prototype, AsyncEmitter.prototype);
-  _.assign(NicoVideoPlayerDialog.prototype, {
-    initialize: function(params) {
-      this._offScreenLayer = params.offScreenLayer;
-      this._playerConfig = new PlayerConfig({config: params.playerConfig});
-      this._playerState = new PlayerState(this, this._playerConfig);
-
-      this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
-
-      this._initializeDom();
-
-      this._keyEmitter.on('keyDown', this._onKeyDown.bind(this));
-      this._keyEmitter.on('keyUp',   this._onKeyUp  .bind(this));
-
-      this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
-      this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
-
-      this._escBlockExpiredAt = -1;
-
-      this._videoFilter = new VideoFilter(
-        this._playerConfig.getValue('videoOwnerFilter'),
-        this._playerConfig.getValue('videoTagFilter')
-      );
-
-      this._savePlaybackPosition =
-        _.throttle(this._savePlaybackPosition.bind(this), 1000, {trailing: false});
-      this._dynamicCss = new DynamicCss({playerConfig: this._playerConfig});
-    },
-    _initializeDom: function() {
-      this._view = new NicoVideoPlayerDialogView({
-        dialog: this,
-        playerConfig: this._playerConfig,
-        nicoVideoPlayer: this._nicoVideoPlayer,
-        playerState: this._playerState,
-        currentTimeGetter: () => { return this.getCurrentTime(); }
-      });
-      if (this._playerConfig.getValue('enableCommentPanel')) {
-        this._initializeCommentPanel();
-      }
-
-      this._$playerContainer = this._view.get$Container();
-      this._view.on('command', this._onCommand.bind(this));
-      this._view.on('postChat', (e, chat, cmd) => {
-        this.addChat(chat, cmd).then(
-          () => { e.resolve(); },
-          () => { e.reject(); }
-        );
-      });
-    },
-    _initializeNicoVideoPlayer: function() {
-      if (this._nicoVideoPlayer) {
-        return this._nicoVideoPlayer();
-      }
-      var config = this._playerConfig;
-      var nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
-        offScreenLayer: this._offScreenLayer,
-        node:           this._$playerContainer,
-        playerConfig:  config,
-        playerState:   this._playerState,
-        volume:        config.getValue('volume'),
-        loop:          config.getValue('loop'),
-        enableFilter:  config.getValue('enableFilter'),
-        wordFilter:    config.getValue('wordFilter'),
-        wordRegFilter: config.getValue('wordRegFilter'),
-        wordRegFilterFlags: config.getValue('wordRegFilterFlags'),
-        commandFilter: config.getValue('commandFilter'),
-        userIdFilter:  config.getValue('userIdFilter')
-      });
-      this._view.setNicoVideoPlayer(nicoVideoPlayer);
-
-      this._messageApiLoader = new MessageApiLoader();
-
-      nicoVideoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
-      nicoVideoPlayer.on('ended',          this._onVideoEnded.bind(this));
-      nicoVideoPlayer.on('canPlay',        this._onVideoCanPlay.bind(this));
-      nicoVideoPlayer.on('play',           this._onVideoPlay.bind(this));
-      nicoVideoPlayer.on('pause',          this._onVideoPause.bind(this));
-      nicoVideoPlayer.on('playing',        this._onVideoPlaying.bind(this));
-      nicoVideoPlayer.on('stalled',        this._onVideoStalled.bind(this));
-      nicoVideoPlayer.on('progress',       this._onVideoProgress.bind(this));
-      nicoVideoPlayer.on('aspectRatioFix', this._onVideoAspectRatioFix.bind(this));
-      nicoVideoPlayer.on('commentParsed',  this._onCommentParsed.bind(this));
-      nicoVideoPlayer.on('commentChange',  this._onCommentChange.bind(this));
-      nicoVideoPlayer.on('commentFilterChange', this._onCommentFilterChange.bind(this));
-      nicoVideoPlayer.on('videoPlayerTypeChange', this._onVideoPlayerTypeChange.bind(this));
-
-      nicoVideoPlayer.on('error', this._onVideoError.bind(this));
-      nicoVideoPlayer.on('abort', this._onVideoAbort.bind(this));
-
-      nicoVideoPlayer.on('volumeChange', this._onVolumeChange.bind(this));
-      nicoVideoPlayer.on('volumeChange', _.debounce(this._onVolumeChangeEnd.bind(this), 1500));
-      nicoVideoPlayer.on('command', this._onCommand.bind(this));
-
-      return nicoVideoPlayer;
-    },
-    execCommand: function(command, param) {
-      return this._onCommand(command, param);
-    },
-    _onCommand: function(command, param) {
-      // なんかdispatcher的なのに分離したい
-      var v;
-      console.log('command: %s param: %s', command, param, typeof param);
-      switch(command) {
-        case 'notifyHtml':
-          PopupMessage.notify(param, true);
-          break;
-        case 'notify':
-          PopupMessage.notify(param);
-          break;
-        case 'alert':
-          PopupMessage.alert(param);
-          break;
-        case 'alertHtml':
-          PopupMessage.alert(param, true);
-          break;
-        case 'volume':
-          this.setVolume(param);
-          break;
-        case 'volumeUp':
-          this._nicoVideoPlayer.volumeUp();
-          break;
-        case 'volumeDown':
-          this._nicoVideoPlayer.volumeDown();
-          break;
-        case 'togglePlay':
-          this.togglePlay();
-          break;
-        case 'pause':
-          this.pause();
-          break;
-        case 'play':
-          this.play();
-          break;
-        case 'toggleComment':
-        case 'toggleShowComment':
-          v = this._playerConfig.getValue('showComment');
-          this._playerConfig.setValue('showComment', !v);
-          break;
-        case 'toggleBackComment':
-          v = this._playerConfig.getValue('backComment');
-          this._playerConfig.setValue('backComment', !v);
-          break;
-        case 'toggleConfig':
-          v = this._playerConfig.getValue(param);
-          this._playerConfig.setValue(param, !v);
-          break;
-        case 'toggleMute':
-          v = this._playerConfig.getValue('mute');
-          this._playerConfig.setValue('mute', !v);
-          break;
-        case 'toggleLoop':
-          v = this._playerConfig.getValue('loop');
-          this._playerConfig.setValue('loop', !v);
-          break;
-        case 'fullScreen':
-        case 'toggle-fullScreen':
-          this._nicoVideoPlayer.toggleFullScreen();
-          break;
-        case 'deflistAdd':
-          return this._onDeflistAdd(param);
-        case 'deflistRemove':
-          return this._onDeflistRemove(param);
-        case 'playlistAdd':
-        case 'playlistAppend':
-          this._onPlaylistAppend(param);
-          break;
-        case 'playlistInsert':
-          this._onPlaylistInsert(param);
-          break;
-        case 'playlistSetMylist':
-          this._onPlaylistSetMylist(param);
-          break;
-        case 'playlistSetUploadedVideo':
-          this._onPlaylistSetUploadedVideo(param);
-          break;
-        case 'playlistSetSearchVideo':
-          this._onPlaylistSetSearchVideo(param);
-          break;
-        case 'playNextVideo':
-          this.playNextVideo();
-          break;
-        case 'playPreviousVideo':
-          this.playPreviousVideo();
-          break;
-        case 'playlistShuffle':
-          if (this._playlist) {
-            this._playlist.shuffle();
-          }
-          break;
-        case 'togglePlaylist': case 'playlistToggle': //TODO: こういうのをどっちかに統一
-          if (this._playlist) {
-            this._playlist.toggleEnable();
-          }
-          break;
-        case 'mylistAdd':
-          return this._onMylistAdd(param.mylistId, param.mylistName);
-        case 'mylistRemove':
-          return this._onMylistRemove(param.mylistId, param.mylistName);
-        case 'mylistWindow':
-          util.openMylistWindow(this._videoInfo.watchId);
-          break;
-        case 'settingPanel':
-          this._view.toggleSettingPanel();
-          break;
-        case 'seek':
-        case 'seekTo':
-          this.setCurrentTime(param * 1);
-          break;
-        case 'seekBy':
-          this.setCurrentTime(this.getCurrentTime() + param * 1);
-          break;
-        case 'seekRelativePercent':
-          let dur = this._videoInfo.duration;
-          //let st = param.perStartX;
-          let mv = Math.abs(param.movePerX) > 10 ?
-            (param.movePerX / 2) : (param.movePerX / 8);
-          let pos = this.getCurrentTime() + (mv * dur / 100);
-          //let pos = (st + mv) * dur / 100);
-          this.setCurrentTime(Math.min(Math.max(0, pos), dur));
-          break;
-        case 'addWordFilter':
-          this._nicoVideoPlayer.addWordFilter(param);
-          PopupMessage.notify('NGワード追加: ' + param);
-          break;
-        case 'setWordRegFilter':
-        case 'setWordRegFilterFlags':
-          this._nicoVideoPlayer.setWordRegFilter(param);
-          PopupMessage.notify('NGワード正規表現更新');
-          break;
-        case 'addUserIdFilter':
-          this._nicoVideoPlayer.addUserIdFilter(param);
-          PopupMessage.notify('NGID追加: ' + param);
-          break;
-        case 'addCommandFilter':
-          this._nicoVideoPlayer.addCommandFilter(param);
-          PopupMessage.notify('NGコマンド追加: ' + param);
-          break;
-        case 'setWordFilterList':
-          this._nicoVideoPlayer.setWordFilterList(param);
-          PopupMessage.notify('NGワード更新');
-          break;
-        case 'setUserIdFilterList':
-          this._nicoVideoPlayer.setUserIdFilterList(param);
-          PopupMessage.notify('NGID更新');
-          break;
-        case 'setCommandFilterList':
-          this._nicoVideoPlayer.setCommandFilterList(param);
-          PopupMessage.notify('NGコマンド更新');
-          break;
-        case 'tweet':
-          ZenzaWatch.util.openTweetWindow(this._videoInfo);
-          break;
-        case 'openNow':
-          this.open(param, {openNow: true});
-          break;
-        case 'open':
-          this.open(param);
-          break;
-        case 'close':
-          this.close(param);
-          break;
-        case 'reload':
-          this.reload({currentTime: this.getCurrentTime()});
-          break;
-        case 'openGinza':
-          window.open('//www.nicovideo.jp/watch/' + this._watchId, 'watchGinza');
-          break;
-        case 'reloadComment':
-          this.reloadComment(param);
-          break;
-        case 'playbackRate':
-          this._playerConfig.setValue(command, param);
-          break;
-        case 'shiftUp':
-          {
-            v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
-            if (v < 2) { v += 0.25; } else { v = Math.min(10, v + 0.5); }
-            this._playerConfig.setValue('playbackRate', v);
-          }
-          break;
-        case 'shiftDown':
-          {
-            v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
-            if (v > 2) { v -= 0.5; } else { v = Math.max(0.1, v - 0.25); }
-            this._playerConfig.setValue('playbackRate', v);
-          }
-          break;
-        case 'screenShot':
-          if (this._playerState.isYouTube) {
-            util.capTube({
-              title: this._videoInfo.title,
-              videoId: this._videoInfo.videoId,
-              author: this._videoInfo.ownerInfo.name
-            });
-            return;
-          }
-          this._nicoVideoPlayer.getScreenShot();
-          break;
-        case 'screenShotWithComment':
-          if (this._playerState.isYouTube) { return; }
-          this._nicoVideoPlayer.getScreenShotWithComment();
-          break;
-        case 'nextVideo':
-          this._nextVideo = param;
-          break;
-        case 'nicosSeek':
-          this._onNicosSeek(param);
-          break;
-        case 'fastSeek':
-          this._nicoVideoPlayer.fastSeek(param);
-          break;
-        case 'saveMymemory':
-          util.saveMymemory(this, this._videoInfo);
-          break;
-        case 'setVideo':
-          this.setVideo(param);
-          break;
-        case 'selectTab':
-          this._view.selectTab(param);
-          break;
-        case 'copy-video-watch-url':
-          util.copyToClipBoard(this._videoInfo.watchUrl);
-          break;
-        case 'update-forceEconomy':
-        case 'update-enableDmc':
-        case 'update-dmcVideoQuality':
-          command = command.replace(/^update-/, '');
-          if (this._playerConfig.getValue(command) === param) { break; }
-          this._playerConfig.setValue(command, param);
-          this.reload();
-          break;
-        case 'update-commentLanguage':
-          command = command.replace(/^update-/, '');
-          if (this._playerConfig.getValue(command) === param) { break; }
-          this._playerConfig.setValue(command, param);
-          this.reloadComment(param);
-          break;
-        case 'toggle-comment': // その日の気分で実装するからこうなるんやで
-        case 'toggle-showComment':
-        case 'toggle-backComment':
-        case 'toggle-mute':
-        case 'toggle-loop':
-        case 'toggle-debug':
-        case 'toggle-enableFilter':
-        case 'toggle-enableNicosJumpVideo':
-          command = command.replace(/^toggle-/, '');
-          this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
-          break;
-        case 'baseFontFamily':
-        case 'baseChatScale':
-        case 'enableFilter':  case 'update-enableFilter':
-        case 'screenMode':    case 'update-screenMode':
-        case 'sharedNgLevel': case 'update-sharedNgLevel':
-          command = command.replace(/^update-/, '');
-          if (this._playerConfig.getValue(command) === param) { break; }
-          this._playerConfig.setValue(command, param);
-          break;
-        default:
-          this.emit('command', command, param);
-          ZenzaWatch.emitter.emit(`command-${command}`, param);
-      }
-    },
-    _onKeyDown: function(name , e, param) {
-      this._onKeyEvent(name, e, param);
-    },
-    _onKeyUp: function(name , e, param) {
-      this._onKeyEvent(name, e, param);
-    },
-    _onKeyEvent: function(name , e, param) {
-      if (!this._playerState.isOpen) {
-        var lastWatchId = this._playerConfig.getValue('lastWatchId');
-        if (name === 'RE_OPEN' && lastWatchId) {
-          this.open(lastWatchId);
-          e.preventDefault();
-        }
+    // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
+    let lastX = 0, lastY = 0;
+    let onMouseMove = this._onMouseMove.bind(this);
+    let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 400);
+    $container.on('mousemove', (e) => {
+      if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
         return;
       }
-      switch (name) {
-        case 'RE_OPEN':
-          this.execCommand('reload');
-          break;
-        case 'PAUSE':
-          this.pause();
-          break;
-        case 'SPACE':
-        case 'TOGGLE_PLAY':
-          this.togglePlay();
-          break;
-        case 'TOGGLE_PLAYLIST':
-          this.execCommand('playlistToggle');
-          break;
-        case 'ESC':
-          // ESCキーは連打にならないようブロック期間を設ける
-          if (Date.now() < this._escBlockExpiredAt) {
-            window.console.log('block ESC');
-            break;
-          }
-          this._escBlockExpiredAt = Date.now() + 1000 * 2;
-          if (!FullScreen.now()) {
-            this.close();
-          }
-          break;
-        case 'FULL':
-          this._nicoVideoPlayer.requestFullScreen();
-          break;
-        case 'INPUT_COMMENT':
-          this._view.focusToCommentInput();
-          break;
-        case 'DEFLIST':
-          this._onDeflistAdd(param);
-          break;
-        case 'DEFLIST_REMOVE':
-          this._onDeflistRemove(param);
-          break;
-        case 'VIEW_COMMENT':
-          this.execCommand('toggleShowComment');
-          break;
-        case 'MUTE':
-          this.execCommand('toggleMute');
-          break;
-        case 'VOL_UP':
-          this.execCommand('volumeUp');
-          break;
-        case 'VOL_DOWN':
-          this.execCommand('volumeDown');
-          break;
-        case 'SEEK_TO':
-          this.execCommand('seekTo', param);
-          break;
-        case 'SEEK_BY':
-          this.execCommand('seekBy', param);
-          break;
-        case 'NEXT_VIDEO':
-          this.playNextVideo();
-          break;
-        case 'PREV_VIDEO':
-          this.playPreviousVideo();
-          break;
-        case 'PLAYBACK_RATE':
-          this.execCommand('playbackRate', param);
-          break;
-        case 'SHIFT_UP':
-          this.execCommand('shiftUp');
-          break;
-        case 'SHIFT_DOWN':
-          this.execCommand('shiftDown');
-          break;
-        case 'SCREEN_MODE':
-          this.execCommand('screenMode', param);
-          break;
-        case 'SCREEN_SHOT':
-          this.execCommand('screenShot');
-          break;
-        case 'SCREEN_SHOT_WITH_COMMENT':
-          this.execCommand('screenShotWithComment');
-          break;
+      lastX = e.screenX;
+      lastY = e.screenY;
+      onMouseMove(e);
+      onMouseMoveEnd(e);
+    });
+
+    $dialog
+      .on('click', this._onClick.bind(this))
+      .on('dblclick', (e) => {
+        if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') {
+          return;
+        }
+        if (config.getValue('enableDblclickClose')) {
+          this.emit('command', 'close');
+        }
+      })
+      .toggleClass('is-guest', !util.isLogin());
+
+    this._hoverMenu = new VideoHoverMenu({
+      playerContainer: container,
+      playerState: this._playerState
+    });
+    this._hoverMenu.on('command', onCommand);
+
+    this._commentInput = new CommentInputPanel({
+      $playerContainer: $container,
+      playerConfig: config
+    });
+
+    this._commentInput.on('post', (e, chat, cmd) => {
+      this.emit('postChat', e, chat, cmd);
+    });
+
+    let isPlaying = false;
+    this._commentInput.on('focus', (isAutoPause) => {
+      isPlaying = this._nicoVideoPlayer.isPlaying();
+      if (isAutoPause) {
+        this.emit('command', 'pause');
       }
-      var screenMode = this._playerConfig.getValue('screenMode');
-      if (!['small', 'sideView'].includes(screenMode)) {
+    });
+    this._commentInput.on('blur', (isAutoPause) => {
+      if (isAutoPause && isPlaying && dialog.isOpen()) {
+        this.emit('command', 'play');
+      }
+    });
+    this._commentInput.on('esc', () => {
+      this._escBlockExpiredAt = Date.now() + 1000 * 2;
+    });
+
+    this._settingPanel = new SettingPanel({
+      $playerContainer: $container,
+      playerConfig: config,
+      player: this._dialog
+    });
+    this._settingPanel.on('command', onCommand);
+
+    this._videoControlBar = new VideoControlBar({
+      $playerContainer: $container,
+      playerConfig: config,
+      player: this._dialog
+    });
+    this._videoControlBar.on('command', onCommand);
+
+    this._$errorMessageContainer = $container.find('.errorMessageContainer');
+
+    this._initializeVideoInfoPanel();
+    this._initializeResponsive();
+
+    this.selectTab(this._playerConfig.getValue('videoInfoPanelTab'));
+
+    ZenzaWatch.emitter.on('showMenu', () => {
+      $container.addClass('menuOpen');
+    });
+    ZenzaWatch.emitter.on('hideMenu', () => {
+      $container.removeClass('menuOpen');
+    });
+    document.body.appendChild($dialog[0]);
+  },
+  _initializeVideoInfoPanel: function () {
+    if (this._videoInfoPanel) {
+      return this._videoInfoPanel;
+    }
+    this._videoInfoPanel = new VideoInfoPanel({
+      dialog: this,
+      node: this._$playerContainer,
+      currentTimeGetter: this._currentTimeGetter
+    });
+    this._videoInfoPanel.on('command', this._onCommand.bind(this));
+    return this._videoInfoPanel;
+  },
+  _onCommand: function (command, param) {
+    this.emit('command', command, param);
+  },
+  _initializeResponsive: function () {
+    window.addEventListener('resize', _.debounce(this._updateResponsive.bind(this), 500));
+  },
+  _updateResponsive: function () {
+    var $container = this._$playerContainer;
+    var $bar = $container.find('.videoControlBar');
+    var $header = $container.find('.zenzaWatchVideoHeaderPanel');
+
+    // 画面の縦幅にシークバー分の余裕がある時は常時表示
+    const update = () => {
+      const w = window.innerWidth, h = window.innerHeight;
+      const videoControlBarHeight = $bar.outerHeight();
+      const vMargin = h - w * this._aspectRatio;
+
+      this.toggleClass('showVideoControlBar', vMargin >= videoControlBarHeight);
+      this.toggleClass('showVideoHeaderPanel',
+        vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
+    };
+
+    update();
+  },
+  _onMouseMove: function () {
+    if (this._isMouseMoving) {
+      return;
+    }
+    this.addClass('is-mouseMoving');
+    this._isMouseMoving = true;
+  },
+  _onMouseMoveEnd: function () {
+    if (!this._isMouseMoving) {
+      return;
+    }
+    this.removeClass('is-mouseMoving');
+    this._isMouseMoving = false;
+  },
+  _onVideoCanPlay: function (watchId, videoInfo, options) {
+    this.emit('canPlay', watchId, videoInfo, options);
+  },
+  _onVideoCount: function ({comment, view, mylist} = {}) {
+    this.emit('videoCount', {comment, view, mylist});
+  },
+  _onVideoError: function (e) {
+    this.emit('error', e);
+  },
+  _onBeforeVideoOpen: function () {
+    this.setThumbnail();
+  },
+  _onVideoInfoLoad: function (videoInfo) {
+    this._videoInfoPanel.update(videoInfo);
+  },
+  _onVideoInfoFail: function (videoInfo) {
+    if (videoInfo) {
+      this._videoInfoPanel.update(videoInfo);
+    }
+  },
+  _onVideoServerType: function (type, sessionInfo) {
+    this.toggleClass('is-dmcPlaying', type === 'dmc');
+    this.emit('videoServerType', type, sessionInfo);
+  },
+  _onVideoPlay: function () {
+  },
+  _onVideoPlaying: function () {
+  },
+  _onVideoPause: function () {
+  },
+  _onVideoStalled: function () {
+  },
+  _onVideoAbort: function () {
+  },
+  _onVideoAspectRatioFix: function (ratio) {
+    this._aspectRatio = ratio;
+    this._updateResponsive();
+  },
+  _onVolumeChange: function (/*vol, mute*/) {
+    this.addClass('volumeChanging');
+  },
+  _onVolumeChangeEnd: function (/*vol, mute*/) {
+    this.removeClass('volumeChanging');
+  },
+  _onScreenModeChange: function () {
+    this.addClass('changeScreenMode');
+    this._applyScreenMode();
+    window.setTimeout(() => {
+      this.removeClass('changeScreenMode');
+    }, 1000);
+  },
+  _getStateClassNameTable: function () {
+    return { // TODO: テーブルなくても対応できるようにcss名を整理
+      isAbort: 'is-abort',
+      isBackComment: 'is-backComment',
+      isCommentVisible: 'is-showComment',
+      isDebug: 'is-debug',
+      isDmcAvailable: 'is-dmcAvailable',
+      isDmcPlaying: 'is-dmcPlaying',
+      isError: 'is-error',
+      isLoading: 'is-loading',
+      isMute: 'is-mute',
+      isLoop: 'is-loop',
+      isOpen: 'is-open',
+      isPlaying: 'is-playing',
+      isPausing: 'is-pausing',
+      isStalled: 'is-stalled',
+      isChanging: 'is-changing',
+      isUpdatingDeflist: 'is-updatingDeflist',
+      isUpdatingMylist: 'is-updatingMylist',
+      isPlaylistEnable: 'is-playlistEnable',
+      isCommentPosting: 'is-commentPosting',
+      isRegularUser: 'is-regularUser',
+      isWaybackMode: 'is-waybackMode',
+      isNotPlayed: 'is-notPlayed',
+      isYouTube: 'is-youTube',
+    };
+  },
+  _onPlayerStateChange: function (key, value) {
+    const table = this._getStateClassNameTable();
+    const className = table[key];
+    if (className) {
+      this.toggleClass(className, !!value);
+    }
+    switch (key) {
+      case 'screenMode':
+      case 'isOpen':
+        if (this._playerState.isOpen) {
+          this._onScreenModeChange();
+        }
+        break;
+    }
+  },
+  _applyState: function () {
+    const table = this._getStateClassNameTable();
+    const container = this._$playerContainer[0];
+    const state = this._playerState;
+    Object.keys(table).forEach(key => {
+      const className = table[key];
+      if (!className) {
+        return;
+      }
+      container.classList.toggle(className, state[key]);
+    });
+
+    if (this._playerState.isOpen) {
+      this._applyScreenMode();
+    }
+  },
+  _getScreenModeClassNameTable: function () {
+    return [
+      'zenzaScreenMode_3D',
+      'zenzaScreenMode_small',
+      'zenzaScreenMode_sideView',
+      'zenzaScreenMode_normal',
+      'zenzaScreenMode_big',
+      'zenzaScreenMode_wide'
+    ];
+  },
+  _applyScreenMode: function () {
+    const screenMode = `zenzaScreenMode_${this._playerState.screenMode}`;
+    const body = util.$('body, html');
+    const modes = this._getScreenModeClassNameTable();
+    modes.forEach(m => {
+      body.toggleClass(m, m === screenMode);
+    });
+  },
+  show: function () {
+    this._$dialog.addClass('is-open');
+    if (!FullScreen.now()) {
+      document.body.classList.remove('fullScreen');
+    }
+    util.$('body, html').addClass('showNicoVideoPlayerDialog');
+  },
+  hide: function () {
+    this._$dialog.removeClass('is-open');
+    this._settingPanel.hide();
+    util.$('body, html').removeClass('showNicoVideoPlayerDialog');
+    this.clearClass();
+  },
+  clearClass: function () {
+    const modes = this._getScreenModeClassNameTable().join(' ');
+    util.$('body, html').removeClass(modes);
+  },
+  _onClick: function () {
+  },
+  setNicoVideoPlayer: function (nicoVideoPlayer) {
+    this._nicoVideoPlayer = nicoVideoPlayer;
+  },
+  setThumbnail: function (thumbnail) {
+    if (thumbnail) {
+      this.css('background-image', `url(${thumbnail})`);
+    } else {
+      // base hrefのせいで変なurlを参照してしまうので適当な黒画像にする
+      this.css('background-image', `url(${CONSTANT.BLANK_PNG})`);
+    }
+  },
+  focusToCommentInput: function () {
+    // 即フォーカスだと入力欄に"C"が入ってしまうのを雑に対処
+    window.setTimeout(() => {
+      this._commentInput.focus();
+    }, 0);
+  },
+  toggleSettingPanel: function () {
+    this._settingPanel.toggle();
+  },
+  setErrorMessage: function (msg) {
+    this._$errorMessageContainer.text(msg);
+  },
+  get$Container: function () {
+    return this._$playerContainer;
+  },
+  css: function (key, val) {
+    util.$(this._$playerContainer[0]).css(key, val);
+  },
+  addClass: function (name) {
+    return this.toggleClass(name, true);
+  },
+  removeClass: function (name) {
+    return this.toggleClass(name, false);
+  },
+  toggleClass: function (name, v) {
+    const container = this._$playerContainer[0];
+    name.split(/[ ]+/).forEach(n => {
+      if (_.isBoolean(v)) {
+        container.classList.toggle(n, v);
+      } else {
+        container.classList.toggle(n);
+      }
+    });
+  },
+  hasClass: function (name) {
+    const container = this._$playerContainer[0];
+    return container.classList.contains(name);
+  },
+  appendTab: function (name, title) {
+    return this._videoInfoPanel.appendTab(name, title);
+  },
+  selectTab: function (name) {
+    this._playerConfig.setValue('videoInfoPanelTab', name);
+    this._videoInfoPanel.selectTab(name);
+  },
+  execCommand: function (command, param) {
+    this.emit('command', command, param);
+  },
+  blinkTab: function (name) {
+    this._videoInfoPanel.blinkTab(name);
+  },
+  clearPanel: function () {
+    this._videoInfoPanel.clear();
+  }
+});
+
+
+/**
+ * TODO: 分割 まにあわなくなっても知らんぞー
+ */
+var NicoVideoPlayerDialog = function () {
+  this.initialize.apply(this, arguments);
+};
+
+_.extend(NicoVideoPlayerDialog.prototype, AsyncEmitter.prototype);
+_.assign(NicoVideoPlayerDialog.prototype, {
+  initialize: function (params) {
+    this._offScreenLayer = params.offScreenLayer;
+    this._playerConfig = new PlayerConfig({config: params.playerConfig});
+    this._playerState = new PlayerState(this, this._playerConfig);
+
+    this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
+
+    this._initializeDom();
+
+    this._keyEmitter.on('keyDown', this._onKeyDown.bind(this));
+    this._keyEmitter.on('keyUp', this._onKeyUp.bind(this));
+
+    this._id = 'ZenzaWatchDialog_' + Date.now() + '_' + Math.random();
+    this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
+
+    this._escBlockExpiredAt = -1;
+
+    this._videoFilter = new VideoFilter(
+      this._playerConfig.getValue('videoOwnerFilter'),
+      this._playerConfig.getValue('videoTagFilter')
+    );
+
+    this._savePlaybackPosition =
+      _.throttle(this._savePlaybackPosition.bind(this), 1000, {trailing: false});
+    this._dynamicCss = new DynamicCss({playerConfig: this._playerConfig});
+  },
+  _initializeDom: function () {
+    this._view = new NicoVideoPlayerDialogView({
+      dialog: this,
+      playerConfig: this._playerConfig,
+      nicoVideoPlayer: this._nicoVideoPlayer,
+      playerState: this._playerState,
+      currentTimeGetter: () => {
+        return this.getCurrentTime();
+      }
+    });
+    if (this._playerConfig.getValue('enableCommentPanel')) {
+      this._initializeCommentPanel();
+    }
+
+    this._$playerContainer = this._view.get$Container();
+    this._view.on('command', this._onCommand.bind(this));
+    this._view.on('postChat', (e, chat, cmd) => {
+      this.addChat(chat, cmd).then(
+        () => {
+          e.resolve();
+        },
+        () => {
+          e.reject();
+        }
+      );
+    });
+  },
+  _initializeNicoVideoPlayer: function () {
+    if (this._nicoVideoPlayer) {
+      return this._nicoVideoPlayer();
+    }
+    var config = this._playerConfig;
+    var nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
+      offScreenLayer: this._offScreenLayer,
+      node: this._$playerContainer,
+      playerConfig: config,
+      playerState: this._playerState,
+      volume: config.getValue('volume'),
+      loop: config.getValue('loop'),
+      enableFilter: config.getValue('enableFilter'),
+      wordFilter: config.getValue('wordFilter'),
+      wordRegFilter: config.getValue('wordRegFilter'),
+      wordRegFilterFlags: config.getValue('wordRegFilterFlags'),
+      commandFilter: config.getValue('commandFilter'),
+      userIdFilter: config.getValue('userIdFilter')
+    });
+    this._view.setNicoVideoPlayer(nicoVideoPlayer);
+
+    this._messageApiLoader = new MessageApiLoader();
+
+    nicoVideoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
+    nicoVideoPlayer.on('ended', this._onVideoEnded.bind(this));
+    nicoVideoPlayer.on('canPlay', this._onVideoCanPlay.bind(this));
+    nicoVideoPlayer.on('play', this._onVideoPlay.bind(this));
+    nicoVideoPlayer.on('pause', this._onVideoPause.bind(this));
+    nicoVideoPlayer.on('playing', this._onVideoPlaying.bind(this));
+    nicoVideoPlayer.on('stalled', this._onVideoStalled.bind(this));
+    nicoVideoPlayer.on('progress', this._onVideoProgress.bind(this));
+    nicoVideoPlayer.on('aspectRatioFix', this._onVideoAspectRatioFix.bind(this));
+    nicoVideoPlayer.on('commentParsed', this._onCommentParsed.bind(this));
+    nicoVideoPlayer.on('commentChange', this._onCommentChange.bind(this));
+    nicoVideoPlayer.on('commentFilterChange', this._onCommentFilterChange.bind(this));
+    nicoVideoPlayer.on('videoPlayerTypeChange', this._onVideoPlayerTypeChange.bind(this));
+
+    nicoVideoPlayer.on('error', this._onVideoError.bind(this));
+    nicoVideoPlayer.on('abort', this._onVideoAbort.bind(this));
+
+    nicoVideoPlayer.on('volumeChange', this._onVolumeChange.bind(this));
+    nicoVideoPlayer.on('volumeChange', _.debounce(this._onVolumeChangeEnd.bind(this), 1500));
+    nicoVideoPlayer.on('command', this._onCommand.bind(this));
+
+    return nicoVideoPlayer;
+  },
+  execCommand: function (command, param) {
+    return this._onCommand(command, param);
+  },
+  _onCommand: function (command, param) {
+    // なんかdispatcher的なのに分離したい
+    var v;
+    console.log('command: %s param: %s', command, param, typeof param);
+    switch (command) {
+      case 'notifyHtml':
+        PopupMessage.notify(param, true);
+        break;
+      case 'notify':
+        PopupMessage.notify(param);
+        break;
+      case 'alert':
+        PopupMessage.alert(param);
+        break;
+      case 'alertHtml':
+        PopupMessage.alert(param, true);
+        break;
+      case 'volume':
+        this.setVolume(param);
+        break;
+      case 'volumeUp':
+        this._nicoVideoPlayer.volumeUp();
+        break;
+      case 'volumeDown':
+        this._nicoVideoPlayer.volumeDown();
+        break;
+      case 'togglePlay':
+        this.togglePlay();
+        break;
+      case 'pause':
+        this.pause();
+        break;
+      case 'play':
+        this.play();
+        break;
+      case 'toggleComment':
+      case 'toggleShowComment':
+        v = this._playerConfig.getValue('showComment');
+        this._playerConfig.setValue('showComment', !v);
+        break;
+      case 'toggleBackComment':
+        v = this._playerConfig.getValue('backComment');
+        this._playerConfig.setValue('backComment', !v);
+        break;
+      case 'toggleConfig':
+        v = this._playerConfig.getValue(param);
+        this._playerConfig.setValue(param, !v);
+        break;
+      case 'toggleMute':
+        v = this._playerConfig.getValue('mute');
+        this._playerConfig.setValue('mute', !v);
+        break;
+      case 'toggleLoop':
+        v = this._playerConfig.getValue('loop');
+        this._playerConfig.setValue('loop', !v);
+        break;
+      case 'fullScreen':
+      case 'toggle-fullScreen':
+        this._nicoVideoPlayer.toggleFullScreen();
+        break;
+      case 'deflistAdd':
+        return this._onDeflistAdd(param);
+      case 'deflistRemove':
+        return this._onDeflistRemove(param);
+      case 'playlistAdd':
+      case 'playlistAppend':
+        this._onPlaylistAppend(param);
+        break;
+      case 'playlistInsert':
+        this._onPlaylistInsert(param);
+        break;
+      case 'playlistSetMylist':
+        this._onPlaylistSetMylist(param);
+        break;
+      case 'playlistSetUploadedVideo':
+        this._onPlaylistSetUploadedVideo(param);
+        break;
+      case 'playlistSetSearchVideo':
+        this._onPlaylistSetSearchVideo(param);
+        break;
+      case 'playNextVideo':
+        this.playNextVideo();
+        break;
+      case 'playPreviousVideo':
+        this.playPreviousVideo();
+        break;
+      case 'playlistShuffle':
+        if (this._playlist) {
+          this._playlist.shuffle();
+        }
+        break;
+      case 'togglePlaylist':
+      case 'playlistToggle': //TODO: こういうのをどっちかに統一
+        if (this._playlist) {
+          this._playlist.toggleEnable();
+        }
+        break;
+      case 'mylistAdd':
+        return this._onMylistAdd(param.mylistId, param.mylistName);
+      case 'mylistRemove':
+        return this._onMylistRemove(param.mylistId, param.mylistName);
+      case 'mylistWindow':
+        util.openMylistWindow(this._videoInfo.watchId);
+        break;
+      case 'settingPanel':
+        this._view.toggleSettingPanel();
+        break;
+      case 'seek':
+      case 'seekTo':
+        this.setCurrentTime(param * 1);
+        break;
+      case 'seekBy':
+        this.setCurrentTime(this.getCurrentTime() + param * 1);
+        break;
+      case 'seekRelativePercent':
+        let dur = this._videoInfo.duration;
+        //let st = param.perStartX;
+        let mv = Math.abs(param.movePerX) > 10 ?
+          (param.movePerX / 2) : (param.movePerX / 8);
+        let pos = this.getCurrentTime() + (mv * dur / 100);
+        //let pos = (st + mv) * dur / 100);
+        this.setCurrentTime(Math.min(Math.max(0, pos), dur));
+        break;
+      case 'addWordFilter':
+        this._nicoVideoPlayer.addWordFilter(param);
+        PopupMessage.notify('NGワード追加: ' + param);
+        break;
+      case 'setWordRegFilter':
+      case 'setWordRegFilterFlags':
+        this._nicoVideoPlayer.setWordRegFilter(param);
+        PopupMessage.notify('NGワード正規表現更新');
+        break;
+      case 'addUserIdFilter':
+        this._nicoVideoPlayer.addUserIdFilter(param);
+        PopupMessage.notify('NGID追加: ' + param);
+        break;
+      case 'addCommandFilter':
+        this._nicoVideoPlayer.addCommandFilter(param);
+        PopupMessage.notify('NGコマンド追加: ' + param);
+        break;
+      case 'setWordFilterList':
+        this._nicoVideoPlayer.setWordFilterList(param);
+        PopupMessage.notify('NGワード更新');
+        break;
+      case 'setUserIdFilterList':
+        this._nicoVideoPlayer.setUserIdFilterList(param);
+        PopupMessage.notify('NGID更新');
+        break;
+      case 'setCommandFilterList':
+        this._nicoVideoPlayer.setCommandFilterList(param);
+        PopupMessage.notify('NGコマンド更新');
+        break;
+      case 'tweet':
+        ZenzaWatch.util.openTweetWindow(this._videoInfo);
+        break;
+      case 'openNow':
+        this.open(param, {openNow: true});
+        break;
+      case 'open':
+        this.open(param);
+        break;
+      case 'close':
+        this.close(param);
+        break;
+      case 'reload':
+        this.reload({currentTime: this.getCurrentTime()});
+        break;
+      case 'openGinza':
+        window.open('//www.nicovideo.jp/watch/' + this._watchId, 'watchGinza');
+        break;
+      case 'reloadComment':
+        this.reloadComment(param);
+        break;
+      case 'playbackRate':
+        this._playerConfig.setValue(command, param);
+        break;
+      case 'shiftUp': {
+        v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
+        if (v < 2) {
+          v += 0.25;
+        } else {
+          v = Math.min(10, v + 0.5);
+        }
+        this._playerConfig.setValue('playbackRate', v);
+      }
+        break;
+      case 'shiftDown': {
+        v = parseFloat(this._playerConfig.getValue('playbackRate'), 10);
+        if (v > 2) {
+          v -= 0.5;
+        } else {
+          v = Math.max(0.1, v - 0.25);
+        }
+        this._playerConfig.setValue('playbackRate', v);
+      }
+        break;
+      case 'screenShot':
+        if (this._playerState.isYouTube) {
+          util.capTube({
+            title: this._videoInfo.title,
+            videoId: this._videoInfo.videoId,
+            author: this._videoInfo.ownerInfo.name
+          });
+          return;
+        }
+        this._nicoVideoPlayer.getScreenShot();
+        break;
+      case 'screenShotWithComment':
+        if (this._playerState.isYouTube) {
+          return;
+        }
+        this._nicoVideoPlayer.getScreenShotWithComment();
+        break;
+      case 'nextVideo':
+        this._nextVideo = param;
+        break;
+      case 'nicosSeek':
+        this._onNicosSeek(param);
+        break;
+      case 'fastSeek':
+        this._nicoVideoPlayer.fastSeek(param);
+        break;
+      case 'saveMymemory':
+        util.saveMymemory(this, this._videoInfo);
+        break;
+      case 'setVideo':
+        this.setVideo(param);
+        break;
+      case 'selectTab':
+        this._view.selectTab(param);
+        break;
+      case 'copy-video-watch-url':
+        util.copyToClipBoard(this._videoInfo.watchUrl);
+        break;
+      case 'update-forceEconomy':
+      case 'update-enableDmc':
+      case 'update-dmcVideoQuality':
+        command = command.replace(/^update-/, '');
+        if (this._playerConfig.getValue(command) === param) {
+          break;
+        }
+        this._playerConfig.setValue(command, param);
+        this.reload();
+        break;
+      case 'update-commentLanguage':
+        command = command.replace(/^update-/, '');
+        if (this._playerConfig.getValue(command) === param) {
+          break;
+        }
+        this._playerConfig.setValue(command, param);
+        this.reloadComment(param);
+        break;
+      case 'toggle-comment': // その日の気分で実装するからこうなるんやで
+      case 'toggle-showComment':
+      case 'toggle-backComment':
+      case 'toggle-mute':
+      case 'toggle-loop':
+      case 'toggle-debug':
+      case 'toggle-enableFilter':
+      case 'toggle-enableNicosJumpVideo':
+        command = command.replace(/^toggle-/, '');
+        this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
+        break;
+      case 'baseFontFamily':
+      case 'baseChatScale':
+      case 'enableFilter':
+      case 'update-enableFilter':
+      case 'screenMode':
+      case 'update-screenMode':
+      case 'sharedNgLevel':
+      case 'update-sharedNgLevel':
+        command = command.replace(/^update-/, '');
+        if (this._playerConfig.getValue(command) === param) {
+          break;
+        }
+        this._playerConfig.setValue(command, param);
+        break;
+      default:
+        this.emit('command', command, param);
+        ZenzaWatch.emitter.emit(`command-${command}`, param);
+    }
+  },
+  _onKeyDown: function (name, e, param) {
+    this._onKeyEvent(name, e, param);
+  },
+  _onKeyUp: function (name, e, param) {
+    this._onKeyEvent(name, e, param);
+  },
+  _onKeyEvent: function (name, e, param) {
+    if (!this._playerState.isOpen) {
+      var lastWatchId = this._playerConfig.getValue('lastWatchId');
+      if (name === 'RE_OPEN' && lastWatchId) {
+        this.open(lastWatchId);
         e.preventDefault();
-        e.stopPropagation();
       }
-    },
-    _onPlayerConfigUpdate: function(key, value) {
-      switch (key) {
-        case 'autoPlay':
-          this._playerState.isAutoPlay = !!value;
+      return;
+    }
+    switch (name) {
+      case 'RE_OPEN':
+        this.execCommand('reload');
+        break;
+      case 'PAUSE':
+        this.pause();
+        break;
+      case 'SPACE':
+      case 'TOGGLE_PLAY':
+        this.togglePlay();
+        break;
+      case 'TOGGLE_PLAYLIST':
+        this.execCommand('playlistToggle');
+        break;
+      case 'ESC':
+        // ESCキーは連打にならないようブロック期間を設ける
+        if (Date.now() < this._escBlockExpiredAt) {
+          window.console.log('block ESC');
           break;
-        case 'backComment':
-          this._playerState.isBackComment = !!value;
-          break;
-        case 'showComment':
-          this._playerState.isCommentVisible = !!value;
-          break;
-        case 'loop':
-          this._playerState.isLoop = !!value;
-          break;
-        case 'mute':
-          this._playerState.isMute = !!value;
-          break;
-        case 'sharedNgLevel':
-          this._playerState.sharedNgLevel = value;
-          //PopupMessage.notify('NG共有: ' +
-          //  {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
-          break;
-        case 'debug':
-          this._playerState.isDebug = !!value;
-          PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
-          break;
-        case 'enableFilter':
-          //PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
-          this._playerState.isEnableFilter = value;
-          this._nicoVideoPlayer.setIsCommentFilterEnable(value);
-          break;
-        case 'wordFilter':
-          this._nicoVideoPlayer.setWordFilterList(value);
-          break;
-        case 'setWordRegFilter':
-          this._nicoVideoPlayer.setWordRegFilter(value);
-          break;
-        case 'userIdFilter':
-          this._nicoVideoPlayer.setUserIdFilterList(value);
-          break;
-        case 'commandFilter':
-          this._nicoVideoPlayer.setCommandFilterList(value);
-          break;
-        case 'screenMode':
-          this._playerState.screenMode = value;
-          break;
-        case 'playbackRate':
-          this._playerState.playbackRate = value;
-          break;
-      }
-    },
-    _updateScreenMode: function(mode) {
-      this.emit('screenModeChange', mode);
-    },
-    _clearClass: function() {
-      this._view.clearClass();
-    },
-    _onClick: function() {
-    },
-    _onPlaylistAppend: function(watchId) {
-      this._initializePlaylist();
-      if (!this._playlist) { return; }
+        }
+        this._escBlockExpiredAt = Date.now() + 1000 * 2;
+        if (!FullScreen.now()) {
+          this.close();
+        }
+        break;
+      case 'FULL':
+        this._nicoVideoPlayer.requestFullScreen();
+        break;
+      case 'INPUT_COMMENT':
+        this._view.focusToCommentInput();
+        break;
+      case 'DEFLIST':
+        this._onDeflistAdd(param);
+        break;
+      case 'DEFLIST_REMOVE':
+        this._onDeflistRemove(param);
+        break;
+      case 'VIEW_COMMENT':
+        this.execCommand('toggleShowComment');
+        break;
+      case 'MUTE':
+        this.execCommand('toggleMute');
+        break;
+      case 'VOL_UP':
+        this.execCommand('volumeUp');
+        break;
+      case 'VOL_DOWN':
+        this.execCommand('volumeDown');
+        break;
+      case 'SEEK_TO':
+        this.execCommand('seekTo', param);
+        break;
+      case 'SEEK_BY':
+        this.execCommand('seekBy', param);
+        break;
+      case 'NEXT_VIDEO':
+        this.playNextVideo();
+        break;
+      case 'PREV_VIDEO':
+        this.playPreviousVideo();
+        break;
+      case 'PLAYBACK_RATE':
+        this.execCommand('playbackRate', param);
+        break;
+      case 'SHIFT_UP':
+        this.execCommand('shiftUp');
+        break;
+      case 'SHIFT_DOWN':
+        this.execCommand('shiftDown');
+        break;
+      case 'SCREEN_MODE':
+        this.execCommand('screenMode', param);
+        break;
+      case 'SCREEN_SHOT':
+        this.execCommand('screenShot');
+        break;
+      case 'SCREEN_SHOT_WITH_COMMENT':
+        this.execCommand('screenShotWithComment');
+        break;
+    }
+    var screenMode = this._playerConfig.getValue('screenMode');
+    if (!['small', 'sideView'].includes(screenMode)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  },
+  _onPlayerConfigUpdate: function (key, value) {
+    switch (key) {
+      case 'autoPlay':
+        this._playerState.isAutoPlay = !!value;
+        break;
+      case 'backComment':
+        this._playerState.isBackComment = !!value;
+        break;
+      case 'showComment':
+        this._playerState.isCommentVisible = !!value;
+        break;
+      case 'loop':
+        this._playerState.isLoop = !!value;
+        break;
+      case 'mute':
+        this._playerState.isMute = !!value;
+        break;
+      case 'sharedNgLevel':
+        this._playerState.sharedNgLevel = value;
+        //PopupMessage.notify('NG共有: ' +
+        //  {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
+        break;
+      case 'debug':
+        this._playerState.isDebug = !!value;
+        PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
+        break;
+      case 'enableFilter':
+        //PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
+        this._playerState.isEnableFilter = value;
+        this._nicoVideoPlayer.setIsCommentFilterEnable(value);
+        break;
+      case 'wordFilter':
+        this._nicoVideoPlayer.setWordFilterList(value);
+        break;
+      case 'setWordRegFilter':
+        this._nicoVideoPlayer.setWordRegFilter(value);
+        break;
+      case 'userIdFilter':
+        this._nicoVideoPlayer.setUserIdFilterList(value);
+        break;
+      case 'commandFilter':
+        this._nicoVideoPlayer.setCommandFilterList(value);
+        break;
+      case 'screenMode':
+        this._playerState.screenMode = value;
+        break;
+      case 'playbackRate':
+        this._playerState.playbackRate = value;
+        break;
+    }
+  },
+  _updateScreenMode: function (mode) {
+    this.emit('screenModeChange', mode);
+  },
+  _clearClass: function () {
+    this._view.clearClass();
+  },
+  _onClick: function () {
+  },
+  _onPlaylistAppend: function (watchId) {
+    this._initializePlaylist();
+    if (!this._playlist) {
+      return;
+    }
 
-      var onAppend = _.debounce(() => {
-        this._playlist.scrollToWatchId(watchId);
-      }, 500);
-      this._playlist.append(watchId).then(onAppend, onAppend);
-    },
-    _onPlaylistInsert: function(watchId) {
-      this._initializePlaylist();
-      if (!this._playlist) { return; }
+    var onAppend = _.debounce(() => {
+      this._playlist.scrollToWatchId(watchId);
+    }, 500);
+    this._playlist.append(watchId).then(onAppend, onAppend);
+  },
+  _onPlaylistInsert: function (watchId) {
+    this._initializePlaylist();
+    if (!this._playlist) {
+      return;
+    }
 
-      this._playlist.insert(watchId);
-    },
-    _onPlaylistSetMylist: function(mylistId, option) {
-      this._initializePlaylist();
-      if (!this._playlist) { return; }
+    this._playlist.insert(watchId);
+  },
+  _onPlaylistSetMylist: function (mylistId, option) {
+    this._initializePlaylist();
+    if (!this._playlist) {
+      return;
+    }
 
-      option = option || {watchId: this._watchId};
-      // デフォルトで古い順にする
-      option.sort = isNaN(option.sort) ? 7 : option.sort;
-      // 通常時はプレイリストの置き換え、
-      // 連続再生中はプレイリストに追加で読み込む
-      option.append = this._playlist.isEnable();
+    option = option || {watchId: this._watchId};
+    // デフォルトで古い順にする
+    option.sort = isNaN(option.sort) ? 7 : option.sort;
+    // 通常時はプレイリストの置き換え、
+    // 連続再生中はプレイリストに追加で読み込む
+    option.append = this._playlist.isEnable();
 
-      var query = this._videoWatchOptions.getQuery();
-      option.shuffle = parseInt(query.shuffle, 10) === 1;
+    var query = this._videoWatchOptions.getQuery();
+    option.shuffle = parseInt(query.shuffle, 10) === 1;
 
-      this._playlist.loadFromMylist(mylistId, option).then((result) => {
+    this._playlist.loadFromMylist(mylistId, option).then((result) => {
         this.execCommand('notify', result.message);
         this._view.selectTab('playlist');
         this._playlist.insertCurrentVideo(this._videoInfo);
@@ -1877,15 +1961,15 @@ var CONSTANT = {};
       () => {
         this.execCommand('alert', 'マイリストのロード失敗');
       });
-    },
-    _onPlaylistSetUploadedVideo: function(userId, option) {
-      this._initializePlaylist();
-      option = option || {watchId: this._watchId};
-      // 通常時はプレイリストの置き換え、
-      // 連続再生中はプレイリストに追加で読み込む
-      option.append = this._playlist.isEnable();
+  },
+  _onPlaylistSetUploadedVideo: function (userId, option) {
+    this._initializePlaylist();
+    option = option || {watchId: this._watchId};
+    // 通常時はプレイリストの置き換え、
+    // 連続再生中はプレイリストに追加で読み込む
+    option.append = this._playlist.isEnable();
 
-      this._playlist.loadUploadedVideo(userId, option).then((result) => {
+    this._playlist.loadUploadedVideo(userId, option).then((result) => {
         this.execCommand('notify', result.message);
         this._view.selectTab('playlist');
         this._playlist.insertCurrentVideo(this._videoInfo);
@@ -1893,78 +1977,84 @@ var CONSTANT = {};
       (err) => {
         this.execCommand('alert', err.message || '投稿動画一覧のロード失敗');
       });
-    },
-    _onPlaylistSetSearchVideo: function(params) {
-      this._initializePlaylist();
+  },
+  _onPlaylistSetSearchVideo: function (params) {
+    this._initializePlaylist();
 
-      var option = params.option || {};
-      var word = params.word;
-      option = option || {};
-      // 通常時はプレイリストの置き換え、
-      // 連続再生中はプレイリストに追加で読み込む
-      option.append = this._playlist.isEnable();
+    var option = params.option || {};
+    var word = params.word;
+    option = option || {};
+    // 通常時はプレイリストの置き換え、
+    // 連続再生中はプレイリストに追加で読み込む
+    option.append = this._playlist.isEnable();
 
-      if (option.owner) {
-        var ownerId = parseInt(this._videoInfo.ownerInfo.id, 10);
-        if (this._videoInfo.isChannel) {
-          option.channelId = ownerId;
-        } else {
-          option.userId = ownerId;
-        }
+    if (option.owner) {
+      var ownerId = parseInt(this._videoInfo.ownerInfo.id, 10);
+      if (this._videoInfo.isChannel) {
+        option.channelId = ownerId;
+      } else {
+        option.userId = ownerId;
       }
-      delete option.owner;
+    }
+    delete option.owner;
 
-      var query = this._videoWatchOptions.getQuery();
-      Object.assign(option, query);
+    var query = this._videoWatchOptions.getQuery();
+    Object.assign(option, query);
 
-      //window.console.log('_onPlaylistSetSearchVideo:', word, option);
-      this._view.selectTab('playlist');
-      this._playlist.loadSearchVideo(word, option).then((result) => {
+    //window.console.log('_onPlaylistSetSearchVideo:', word, option);
+    this._view.selectTab('playlist');
+    this._playlist.loadSearchVideo(word, option).then((result) => {
         this.execCommand('notify', result.message);
         this._playlist.insertCurrentVideo(this._videoInfo);
         ZenzaWatch.emitter.emitAsync('searchVideo', {word, option});
-        window.setTimeout(() => { this._playlist.scrollToActiveItem(); }, 1000);
+        window.setTimeout(() => {
+          this._playlist.scrollToActiveItem();
+        }, 1000);
       },
       (err) => {
         this.execCommand('alert', err.message || '検索失敗または該当無し: 「' + word + '」');
       });
-    },
-    _onPlaylistStatusUpdate: function() {
-      var playlist = this._playlist;
-      this._playerConfig.setValue('playlistLoop', playlist.isLoop());
-      this._playerState.isPlaylistEnable = playlist.isEnable();
-      if (playlist.isEnable()) {
-        this._playerConfig.setValue('loop', false);
-      }
-      this._view.blinkTab('playlist');
-    },
-    _onCommentPanelStatusUpdate: function() {
-      var commentPanel = this._commentPanel;
-      this._playerConfig.setValue(
-        'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
-    },
-    _onDeflistAdd: function(watchId) {
-      if (this._playerState.isUpdatingDeflist) { return; } //busy
-      if (!util.isLogin()) { return; }
+  },
+  _onPlaylistStatusUpdate: function () {
+    var playlist = this._playlist;
+    this._playerConfig.setValue('playlistLoop', playlist.isLoop());
+    this._playerState.isPlaylistEnable = playlist.isEnable();
+    if (playlist.isEnable()) {
+      this._playerConfig.setValue('loop', false);
+    }
+    this._view.blinkTab('playlist');
+  },
+  _onCommentPanelStatusUpdate: function () {
+    var commentPanel = this._commentPanel;
+    this._playerConfig.setValue(
+      'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
+  },
+  _onDeflistAdd: function (watchId) {
+    if (this._playerState.isUpdatingDeflist) {
+      return;
+    } //busy
+    if (!util.isLogin()) {
+      return;
+    }
 
-      const unlock = () => {
-        this._playerState.isUpdatingDeflist = false;
-      };
+    const unlock = () => {
+      this._playerState.isUpdatingDeflist = false;
+    };
 
-      this._playerState.isUpdatingDeflist = true;
-      let timer = window.setTimeout(unlock, 10000);
+    this._playerState.isUpdatingDeflist = true;
+    let timer = window.setTimeout(unlock, 10000);
 
-      const owner = this._videoInfo.ownerInfo;
+    const owner = this._videoInfo.ownerInfo;
 
-      watchId = watchId || this._videoInfo.watchId;
-      const description =
-        (watchId === this._watchId && this._playerConfig.getValue('enableAutoMylistComment')) ? ('投稿者: ' + owner.name) : '';
-      if (!this._mylistApiLoader) {
-        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-      }
+    watchId = watchId || this._videoInfo.watchId;
+    const description =
+      (watchId === this._watchId && this._playerConfig.getValue('enableAutoMylistComment')) ? ('投稿者: ' + owner.name) : '';
+    if (!this._mylistApiLoader) {
+      this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+    }
 
-      return this._mylistApiLoader.addDeflistItem(watchId, description)
-        .then(result => {
+    return this._mylistApiLoader.addDeflistItem(watchId, description)
+      .then(result => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.notify(result.message);
@@ -1973,24 +2063,28 @@ var CONSTANT = {};
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.alert(err.message);
       });
-    },
-    _onDeflistRemove: function(watchId) {
-      if (this._playerState.isUpdatingDeflist) { return; } //busy
-      if (!util.isLogin()) { return; }
-      const unlock = () => {
-        this._playerState.isUpdatingDeflist = false;
-      };
-      this._playerState.isUpdatingDeflist = true;
+  },
+  _onDeflistRemove: function (watchId) {
+    if (this._playerState.isUpdatingDeflist) {
+      return;
+    } //busy
+    if (!util.isLogin()) {
+      return;
+    }
+    const unlock = () => {
+      this._playerState.isUpdatingDeflist = false;
+    };
+    this._playerState.isUpdatingDeflist = true;
 
-      let timer = window.setTimeout(unlock, 10000);
+    let timer = window.setTimeout(unlock, 10000);
 
-      watchId = watchId || this._videoInfo.watchId;
-      if (!this._mylistApiLoader) {
-        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-      }
+    watchId = watchId || this._videoInfo.watchId;
+    if (!this._mylistApiLoader) {
+      this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+    }
 
-      return this._mylistApiLoader.removeDeflistItem(watchId)
-        .then(result => {
+    return this._mylistApiLoader.removeDeflistItem(watchId)
+      .then(result => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.notify(result.message);
@@ -1999,28 +2093,32 @@ var CONSTANT = {};
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.alert(err.message);
       });
-    },
-    _onMylistAdd: function(groupId, mylistName) {
-      if (this._playerState.isUpdatingMylist) { return; } //busy
-      if (!util.isLogin()) { return; }
+  },
+  _onMylistAdd: function (groupId, mylistName) {
+    if (this._playerState.isUpdatingMylist) {
+      return;
+    } //busy
+    if (!util.isLogin()) {
+      return;
+    }
 
-      const unlock = () => {
-        this._playerState.isUpdatingMylist = false;
-      };
+    const unlock = () => {
+      this._playerState.isUpdatingMylist = false;
+    };
 
-      this._playerState.isUpdatingMylist = true;
-      let timer = window.setTimeout(unlock, 10000);
+    this._playerState.isUpdatingMylist = true;
+    let timer = window.setTimeout(unlock, 10000);
 
-      const owner = this._videoInfo.ownerInfo;
-      const watchId = this._videoInfo.watchId;
-      const description =
-        this._playerConfig.getValue('enableAutoMylistComment') ? ('投稿者: ' + owner.name) : '';
-      if (!this._mylistApiLoader) {
-        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-      }
+    const owner = this._videoInfo.ownerInfo;
+    const watchId = this._videoInfo.watchId;
+    const description =
+      this._playerConfig.getValue('enableAutoMylistComment') ? ('投稿者: ' + owner.name) : '';
+    if (!this._mylistApiLoader) {
+      this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+    }
 
-      return this._mylistApiLoader.addMylistItem(watchId, groupId, description)
-        .then(result => {
+    return this._mylistApiLoader.addMylistItem(watchId, groupId, description)
+      .then(result => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.notify(result.message + ': ' + mylistName);
@@ -2029,26 +2127,30 @@ var CONSTANT = {};
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.alert(err.message + ': ' + mylistName);
       });
-    },
-    _onMylistRemove: function(groupId, mylistName) {
-      if (this._playerState.isUpdatingMylist) { return; } //busy
-      if (!util.isLogin()) { return; }
+  },
+  _onMylistRemove: function (groupId, mylistName) {
+    if (this._playerState.isUpdatingMylist) {
+      return;
+    } //busy
+    if (!util.isLogin()) {
+      return;
+    }
 
-      const unlock = () => {
-        this._playerState.isUpdatingMylist = false;
-      };
+    const unlock = () => {
+      this._playerState.isUpdatingMylist = false;
+    };
 
-      this._playerState.isUpdatingMylist = true;
-      var timer = window.setTimeout(unlock, 10000);
+    this._playerState.isUpdatingMylist = true;
+    var timer = window.setTimeout(unlock, 10000);
 
-      var watchId = this._videoInfo.watchId;
+    var watchId = this._videoInfo.watchId;
 
-      if (!this._mylistApiLoader) {
-        this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-      }
+    if (!this._mylistApiLoader) {
+      this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+    }
 
-      return this._mylistApiLoader.removeMylistItem(watchId, groupId)
-        .then(result => {
+    return this._mylistApiLoader.removeMylistItem(watchId, groupId)
+      .then(result => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.notify(result.message + ': ' + mylistName);
@@ -2057,286 +2159,276 @@ var CONSTANT = {};
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.alert(err.message + ': ' + mylistName);
       });
-    },
-    _onCommentParsed: function() {
-      const lang = this._playerConfig.getValue('commentLanguage');
-      this.emit('commentParsed', lang, this._threadInfo);
-      ZenzaWatch.emitter.emit('commentParsed');
-    },
-    _onCommentChange: function() {
-      const lang = this._playerConfig.getValue('commentLanguage');
-      this.emit('commentChange', lang, this._threadInfo);
-      ZenzaWatch.emitter.emit('commentChange');
-    },
-    _onCommentFilterChange: function(filter) {
-      var config = this._playerConfig;
-      config.setValue('enableFilter',  filter.isEnable());
-      config.setValue('wordFilter',    filter.getWordFilterList());
-      config.setValue('userIdFilter',  filter.getUserIdFilterList());
-      config.setValue('commandFilter', filter.getCommandFilterList());
-      this.emit('commentFilterChange', filter);
-    },
-    _onVideoPlayerTypeChange: function(type = '') {
-      switch(type.toLowerCase()) {
-        case 'youtube':
-          this._playerState.setState({isYouTube: true});
-          break;
-        default:
-          this._playerState.setState({isYouTube: false});
-      }
-    },
-    _onNicosSeek: function(time) {
-      const ct = this.getCurrentTime();
-      window.console.info('nicosSeek!', time);
-      if (this.isPlaylistEnable()) {
-        // 連続再生中は後方へのシークのみ有効にする
-        if (ct < time) { this.execCommand('fastSeek', time); }
-      } else {
+  },
+  _onCommentParsed: function () {
+    const lang = this._playerConfig.getValue('commentLanguage');
+    this.emit('commentParsed', lang, this._threadInfo);
+    ZenzaWatch.emitter.emit('commentParsed');
+  },
+  _onCommentChange: function () {
+    const lang = this._playerConfig.getValue('commentLanguage');
+    this.emit('commentChange', lang, this._threadInfo);
+    ZenzaWatch.emitter.emit('commentChange');
+  },
+  _onCommentFilterChange: function (filter) {
+    var config = this._playerConfig;
+    config.setValue('enableFilter', filter.isEnable());
+    config.setValue('wordFilter', filter.getWordFilterList());
+    config.setValue('userIdFilter', filter.getUserIdFilterList());
+    config.setValue('commandFilter', filter.getCommandFilterList());
+    this.emit('commentFilterChange', filter);
+  },
+  _onVideoPlayerTypeChange: function (type = '') {
+    switch (type.toLowerCase()) {
+      case 'youtube':
+        this._playerState.setState({isYouTube: true});
+        break;
+      default:
+        this._playerState.setState({isYouTube: false});
+    }
+  },
+  _onNicosSeek: function (time) {
+    const ct = this.getCurrentTime();
+    window.console.info('nicosSeek!', time);
+    if (this.isPlaylistEnable()) {
+      // 連続再生中は後方へのシークのみ有効にする
+      if (ct < time) {
         this.execCommand('fastSeek', time);
       }
-    },
-    show: function() {
-      this._view.show();
-      this._updateScreenMode(this._playerConfig.getValue('screenMode'));
-      this._playerState.isOpen = true;
-    },
-    hide: function() {
-      this._playerState.isOpen = false;
-      this._view.hide();
-    },
-    open: function(watchId, options) {
-      if (!watchId) { return; }
-      // 連打対策
-      if (Date.now() - this._lastOpenAt < 1500 && this._watchId === watchId) { return; }
+    } else {
+      this.execCommand('fastSeek', time);
+    }
+  },
+  show: function () {
+    this._view.show();
+    this._updateScreenMode(this._playerConfig.getValue('screenMode'));
+    this._playerState.isOpen = true;
+  },
+  hide: function () {
+    this._playerState.isOpen = false;
+    this._view.hide();
+  },
+  open: function (watchId, options) {
+    if (!watchId) {
+      return;
+    }
+    // 連打対策
+    if (Date.now() - this._lastOpenAt < 1500 && this._watchId === watchId) {
+      return;
+    }
 
-      this.refreshLastPlayerId();
-      this._requestId = 'play-' + Math.random();
-      this._videoWatchOptions = options =new VideoWatchOptions(watchId, options, this._playerConfig);
+    this.refreshLastPlayerId();
+    this._requestId = 'play-' + Math.random();
+    this._videoWatchOptions = options = new VideoWatchOptions(watchId, options, this._playerConfig);
 
-      if (!options.isPlaylistStartRequest() &&
-          this.isPlaying() && this.isPlaylistEnable() && !options.isOpenNow()) {
-        this._onPlaylistInsert(watchId);
-        return;
+    if (!options.isPlaylistStartRequest() &&
+      this.isPlaying() && this.isPlaylistEnable() && !options.isOpenNow()) {
+      this._onPlaylistInsert(watchId);
+      return;
+    }
+
+    window.console.time('動画選択から再生可能までの時間 watchId=' + watchId);
+
+    let nicoVideoPlayer = this._nicoVideoPlayer;
+    if (!nicoVideoPlayer) {
+      nicoVideoPlayer = this._initializeNicoVideoPlayer();
+    } else {
+      this._savePlaybackPosition(this._watchId, this.getCurrentTime());
+      nicoVideoPlayer.close();
+      this._view.clearPanel();
+      this.emit('beforeVideoOpen');
+      if (this._videoSession) {
+        this._videoSession.close();
       }
+    }
 
-      window.console.time('動画選択から再生可能までの時間 watchId=' + watchId);
+    this._playerState.resetVideoLoadingStatus();
 
-      let nicoVideoPlayer = this._nicoVideoPlayer;
-      if (!nicoVideoPlayer) {
-        nicoVideoPlayer = this._initializeNicoVideoPlayer();
-      } else {
-        this._savePlaybackPosition(this._watchId, this.getCurrentTime());
-        nicoVideoPlayer.close();
-        this._view.clearPanel();
-        this.emit('beforeVideoOpen');
-        if (this._videoSession) { this._videoSession.close(); }
-      }
-      
-      this._playerState.resetVideoLoadingStatus();
+    // watchIdからサムネイルを逆算できる時は最速でセットする
+    const thumbnail = util.getThumbnailUrlByVideoId(watchId);
+    if (thumbnail) {
+      this._view.setThumbnail(thumbnail);
+    }
 
-      // watchIdからサムネイルを逆算できる時は最速でセットする
-      const thumbnail = ZenzaWatch.util.getThumbnailUrlByVideoId(watchId);
-      if (thumbnail) {
-        this._view.setThumbnail(thumbnail);
-      }
-
-      this._playerState.isCommentReady = false;
-      this._watchId = watchId;
-      this._lastCurrentTime = 0;
-      this._lastOpenAt = Date.now();
-      this._playerState.isError = false;
-
-      VideoInfoLoader.load(watchId, options.getVideoLoadOptions()).then(
-        this._onVideoInfoLoaderLoad.bind(this, this._requestId),
-        this._onVideoInfoLoaderFail.bind(this, this._requestId)
-      );
-
-      this.show();
-      if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
-        nicoVideoPlayer.requestFullScreen();
-      }
-      this.emit('open', watchId, options);
-      ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
-    },
-    isOpen: function() {
-      return this._playerState.isOpen;
-    },
-    reload: function(options) {
-      options = this._videoWatchOptions.createOptionsForReload(options);
-      
-      if (this._lastCurrentTime > 0) {
-        options.currentTime = this._lastCurrentTime;
-      }
-      this.open(this._watchId, options);
-    },
-    getCurrentTime: function() {
-      if (!this._nicoVideoPlayer) {
-        return 0;
-      }
-      var ct = this._nicoVideoPlayer.getCurrentTime() * 1;
-      if (!this._playerState.isError && ct > 0) {
-        this._lastCurrentTime = ct;
-      }
-      return this._lastCurrentTime;
-    },
-    setCurrentTime: function(sec) {
-      if (!this._nicoVideoPlayer) {
-        return;
-      }
-      if (!!'一般会員でもシークできるようになった'
-          /*ZenzaWatch.util.isPremium() ||
-          this.isInSeekableBuffer(sec)*/) {
-        this._nicoVideoPlayer.setCurrentTime(sec);
-        this._lastCurrentTime = sec;
-        //this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
-      }
-    },
-    isInSeekableBuffer: function() {
-      return true;
-    },
-    getId: function() {
-      return this._id;
-    },
-    isLastOpenedPlayer: function() {
-      return this.getId() === this._playerConfig.getValue('lastPlayerId', true);
-    },
-    refreshLastPlayerId: function() {
-      if (this.isLastOpenedPlayer()) { return; }
-      this._playerConfig.setValue('lastPlayerId', '');
-      this._playerConfig.setValue('lastPlayerId', this.getId());
-    },
-    _onVideoInfoLoaderLoad: function(requestId, videoInfoData, type, watchId) {
-      console.log('VideoInfoLoader.load!', requestId, watchId, type, videoInfoData);
-      if (this._requestId !== requestId) {
-        return;
-      }
-      const videoInfo = this._videoInfo = new VideoInfoModel(videoInfoData);
-
-      const autoDisableDmc =
-        !videoInfo.isDmcOnly &&
-        this._playerConfig.getValue('autoDisableDmc') &&
-        !videoInfo.isEconomy &&
-        util.isBetterThanDmcMayBe(
-          videoInfo.width,
-          videoInfo.height,
-          videoInfo.duration
-        );
-      videoInfo.isDmcDisable = autoDisableDmc;
-
-      this._playerState.setState({
-        isDmcAvailable: videoInfo.isDmc,
-        isCommunity: videoInfo.isCommunityVideo,
-        isMymemory: videoInfo.isMymemory,
-        isChannel: videoInfo.isChannel
-      });
-
-      const createSession = () => {
         this._videoSession = VideoSession.createInstance({
-          videoInfo,
-          videoWatchOptions: this._videoWatchOptions,
-          videoQuality: this._playerConfig.getValue('dmcVideoQuality'),
-          serverType: videoInfo.isDmc ? 'dmc' : 'old',
-          isPlayingCallback: this.isPlaying.bind(this)
-        });
-      };
-      createSession();
-      this._setThumbnail(videoInfo.betterThumbnail);
+    this._playerState.isCommentReady = false;
+    this._watchId = watchId;
+    this._lastCurrentTime = 0;
+    this._lastOpenAt = Date.now();
+    this._playerState.isError = false;
 
-      if (this._videoFilter.isNgVideo(videoInfo)) {
-        return this._onVideoFilterMatch();
-      }
+    VideoInfoLoader.load(watchId, options.getVideoLoadOptions()).then(
+      this._onVideoInfoLoaderLoad.bind(this, this._requestId),
+      this._onVideoInfoLoaderFail.bind(this, this._requestId)
+    );
 
-      const loadSmilevideo = () => {
-        if (this._playerConfig.getValue('enableVideoSession')) {
-          this._videoSession.connect();
-        }
-        videoInfo.setCurrentVideo(videoInfo.videoUrl);
-        this._playerState.isDmcPlaying = false;
-        this.setVideo(videoInfo.videoUrl);
-        this.emit('videoServerType', 'smile', {});
-      };
+    this.show();
+    if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
+      nicoVideoPlayer.requestFullScreen();
+    }
+    this.emit('open', watchId, options);
+    ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
+  },
+  isOpen: function () {
+    return this._playerState.isOpen;
+  },
+  reload: function (options) {
+    options = this._videoWatchOptions.createOptionsForReload(options);
 
-      if (!autoDisableDmc &&
-        this._playerConfig.getValue('enableDmc') && videoInfo.isDmc) {
-        this._videoSession.connect().then(
-          (sessionInfo) => {
-            this.setVideo(sessionInfo.url);
-            this._videoSessionInfo = sessionInfo;
-            videoInfo.setCurrentVideo(sessionInfo.url);
-            this._playerState.isDmcPlaying = true;
-            this.emit('videoServerType', 'dmc', sessionInfo);
-          },
-          this._onVideoSessionFail.bind(this)
-        );
-      } else {
-        loadSmilevideo();
-      }
-      this._nicoVideoPlayer.setVideoInfo(videoInfo);
-
-      this.loadComment(videoInfo.msgInfo);
-
-      this.emit('loadVideoInfo', videoInfo);
-
-      if (FullScreen.now() || this._playerConfig.getValue('screenMode') === 'wide') {
-        this.execCommand('notifyHtml',
-          '<img src="' + videoInfo.thumbnail + '" style="width: 96px;">' +
-          // タイトルは原則エスケープされてるけど信用してない
-          util.escapeToZenkaku(videoInfo.title)
-        );
-      }
-    },
-    setVideo: function(url) {
-      this._nicoVideoPlayer.setVideo(url);
-    },
-    loadComment: function(msgInfo) {
-      msgInfo.language = this._playerConfig.getValue('commentLanguage');
-      this._messageApiLoader.load(msgInfo).then(
-        this._onCommentLoadSuccess.bind(this, this._requestId),
-        this._onCommentLoadFail   .bind(this, this._requestId)
+    if (this._lastCurrentTime > 0) {
+      options.currentTime = this._lastCurrentTime;
+    }
+    this.open(this._watchId, options);
+  },
+  getCurrentTime: function () {
+    if (!this._nicoVideoPlayer) {
+      return 0;
+    }
+    var ct = this._nicoVideoPlayer.getCurrentTime() * 1;
+    if (!this._playerState.isError && ct > 0) {
+      this._lastCurrentTime = ct;
+    }
+    return this._lastCurrentTime;
+  },
+  setCurrentTime: function (sec) {
+    if (!this._nicoVideoPlayer) {
+      return;
+    }
+    if (!!'一般会員でもシークできるようになった'
+    /*ZenzaWatch.util.isPremium() ||
+    this.isInSeekableBuffer(sec)*/) {
+      this._nicoVideoPlayer.setCurrentTime(sec);
+      this._lastCurrentTime = sec;
+      //this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
+    }
+  },
+  isInSeekableBuffer: function () {
+    return true;
+  },
+  getId: function () {
+    return this._id;
+  },
+  isLastOpenedPlayer: function () {
+    return this.getId() === this._playerConfig.getValue('lastPlayerId', true);
+  },
+  refreshLastPlayerId: function () {
+    if (this.isLastOpenedPlayer()) {
+      return;
+    }
+    this._playerConfig.setValue('lastPlayerId', '');
+    this._playerConfig.setValue('lastPlayerId', this.getId());
+  },
+  _onVideoInfoLoaderLoad: function (requestId, videoInfoData, type, watchId) {
+    console.log('VideoInfoLoader.load!', requestId, watchId, type, videoInfoData);
+    if (this._requestId !== requestId) {
+      return;
+    }
+    const autoDisableDmc =
+      !videoInfo.isDmcOnly &&
+      this._playerConfig.getValue('autoDisableDmc') &&
+      !videoInfo.isEconomy &&
+      util.isBetterThanDmcMayBe(
+        videoInfo.width,
+        videoInfo.height,
+        videoInfo.duration
       );
-    },
-    reloadComment: function(param = {}) {
-      const msgInfo = this._videoInfo.msgInfo;
-      if (typeof param.when === 'number') {
-        msgInfo.when = param.when;
-      }
-      this.loadComment(msgInfo);
-    },
-    _onVideoInfoLoaderFail: function(requestId, e) {
-      const watchId = e.watchId;
-      window.console.error('_onVideoInfoLoaderFail', watchId, e);
-      if (this._requestId !== requestId) {
-        return;
-      }
-      this._setErrorMessage(e.message || '通信エラー', watchId);
-      this._playerState.isError = true;
-      if (e.info) {
-        this._videoInfo = new VideoInfoModel(e.info);
-        this._setThumbnail(this._videoInfo.betterThumbnail);
-        this.emit('loadVideoInfoFail', this._videoInfo);
-      } else {
-        this.emit('loadVideoInfoFail');
-      }
-      ZenzaWatch.emitter.emitAsync('loadVideoInfoFail', e);
+    videoInfo.isDmcDisable = autoDisableDmc;
 
-      if (!this.isPlaylistEnable()) { return; }
-      if (e.reason === 'forbidden' || e.info.isPlayable === false) {
-        window.setTimeout(() => { this.playNextVideo(); }, 3000);
+    this._playerState.setState({
+      isDmcAvailable: videoInfo.isDmc,
+      isCommunity: videoInfo.isCommunityVideo,
+      isMymemory: videoInfo.isMymemory,
+      isChannel: videoInfo.isChannel
+    });
+
+    const createSession = () => {
+        videoInfo,
+        videoWatchOptions: this._videoWatchOptions,
+        videoQuality: this._playerConfig.getValue('dmcVideoQuality'),
+        serverType: videoInfo.isDmc ? 'dmc' : 'old',
+        isPlayingCallback: this.isPlaying.bind(this)
+      });
+    };
+    createSession();
+    this._setThumbnail(videoInfo.betterThumbnail);
+
+    if (this._videoFilter.isNgVideo(videoInfo)) {
+      return this._onVideoFilterMatch();
+    }
+
+    const loadSmilevideo = () => {
+      if (this._playerConfig.getValue('enableVideoSession')) {
+        this._videoSession.connect();
       }
-    },
-    _onVideoSessionFail: function(result) {
-      window.console.error('dmc fail', result);
-      this._setErrorMessage('動画の読み込みに失敗しました(dmc.nico)', this._watchId);
-      this._playerState.setState({isError: true, isLoading: false});
-      if (this.isPlaylistEnable()) {
-        window.setTimeout(() => { this.playNextVideo(); }, 3000);
-      }
-    },
+      videoInfo.setCurrentVideo(videoInfo.videoUrl);
+      this._playerState.isDmcPlaying = false;
+      this.setVideo(videoInfo.videoUrl);
+      this.emit('videoServerType', 'smile', {});
+    };
+
+    if (!autoDisableDmc &&
+      this._playerConfig.getValue('enableDmc') && videoInfo.isDmc) {
+      this._videoSession.connect().then(
+        (sessionInfo) => {
+          this.setVideo(sessionInfo.url);
+          this._videoSessionInfo = sessionInfo;
+          videoInfo.setCurrentVideo(sessionInfo.url);
+          this._playerState.isDmcPlaying = true;
+          this.emit('videoServerType', 'dmc', sessionInfo);
+        },
+        this._onVideoSessionFail.bind(this)
+      );
+    } else {
+      loadSmilevideo();
+    }
+    this._nicoVideoPlayer.setVideoInfo(videoInfo);
+
     _onVideoPlayStartFail: function(err) {
       window.console.error('動画再生開始に失敗', err);
       this._setErrorMessage('動画の再生開始に失敗しました', this._watchId);
       this._playerState.isError = true;
+    this.loadComment(videoInfo.msgInfo);
 
+    this.emit('loadVideoInfo', videoInfo);
+
+    if (FullScreen.now() || this._playerConfig.getValue('screenMode') === 'wide') {
+      this.execCommand('notifyHtml',
+        '<img src="' + videoInfo.thumbnail + '" style="width: 96px;">' +
+        // タイトルは原則エスケープされてるけど信用してない
+        util.escapeToZenkaku(videoInfo.title)
+      );
+    }
+  },
+  setVideo: function (url) {
+    this._nicoVideoPlayer.setVideo(url);
+  },
+  loadComment: function (msgInfo) {
+    msgInfo.language = this._playerConfig.getValue('commentLanguage');
+    this._messageApiLoader.load(msgInfo).then(
+      this._onCommentLoadSuccess.bind(this, this._requestId),
+      this._onCommentLoadFail.bind(this, this._requestId)
+    );
+  },
+  reloadComment: function (param = {}) {
+    const msgInfo = this._videoInfo.msgInfo;
+    if (typeof param.when === 'number') {
+      msgInfo.when = param.when;
+    }
+    this.loadComment(msgInfo);
+  },
+  _onVideoInfoLoaderFail: function (requestId, e) {
+    const watchId = e.watchId;
+    window.console.error('_onVideoInfoLoaderFail', watchId, e);
+    if (this._requestId !== requestId) {
+      return;
+    }
+    this._setErrorMessage(e.message || '通信エラー', watchId);
+    this._playerState.isError = true;
+    if (e.info) {
+      this._videoInfo = new VideoInfoModel(e.info);
+      this._setThumbnail(this._videoInfo.betterThumbnail);
+      this.emit('loadVideoInfoFail', this._videoInfo);
+    } else {
       this.emit('loadVideoInfoFail');
       ZenzaWatch.emitter.emitAsync('loadVideoInfoFail');
 
@@ -2345,478 +2437,536 @@ var CONSTANT = {};
         window.console.info('%cリロードしたら直るかも', 'background: yellow');
       }
     },
-    _onVideoFilterMatch: function() {
-      window.console.error('ng video', this._watchId);
-      this._setErrorMessage('再生除外対象の動画または投稿者です');
-      this._playerState.isError = true;
-      this.emit('error');
-      if (this.isPlaylistEnable()) {
-        window.setTimeout(() => { this.playNextVideo(); }, 3000);
+    if (!this.isPlaylistEnable()) {
+      return;
+    }
+    if (e.reason === 'forbidden' || e.info.isPlayable === false) {
+      window.setTimeout(() => {
+        this.playNextVideo();
+      }, 3000);
+    }
+  },
+  _onVideoSessionFail: function (result) {
+    window.console.error('dmc fail', result);
+    this._setErrorMessage('動画の読み込みに失敗しました(dmc.nico)', this._watchId);
+    this._playerState.setState({isError: true, isLoading: false});
+    if (this.isPlaylistEnable()) {
+      window.setTimeout(() => {
+        this.playNextVideo();
+      }, 3000);
+    }
+  },
+  _onVideoFilterMatch: function () {
+    window.console.error('ng video', this._watchId);
+    this._setErrorMessage('再生除外対象の動画または投稿者です');
+    this._playerState.isError = true;
+    this.emit('error');
+    if (this.isPlaylistEnable()) {
+      window.setTimeout(() => {
+        this.playNextVideo();
+      }, 3000);
+    }
+  },
+  _setThumbnail: function (thumbnail) {
+    this._view.setThumbnail(thumbnail);
+  },
+  _setErrorMessage: function (msg) {
+    this._view.setErrorMessage(msg);
+  },
+  _onCommentLoadSuccess: function (requestId, result) {
+    if (requestId !== this._requestId) {
+      return;
+    }
+    let options = {
+      replacement: this._videoInfo.replacementWords,
+      duration: this._videoInfo.duration
+    };
+    this._nicoVideoPlayer.closeCommentPlayer();
+    this._threadInfo = result.threadInfo;
+    this._nicoVideoPlayer.setComment(result.xml, options);
+
+    this._playerState.isCommentReady = true;
+    this._playerState.isWaybackMode = result.threadInfo.isWaybackMode;
+    this.emit('commentReady', result, this._threadInfo);
+    this.emit('videoCount', {comment: parseInt(result.threadInfo.lastRes, 10)});
+  },
+  _onCommentLoadFail: function (requestId, e) {
+    if (requestId !== this._requestId) {
+      return;
+    }
+    PopupMessage.alert(e.message);
+  },
+  _onLoadedMetaData: function () {
+    // YouTubeは動画指定時にパラメータで開始位置を渡すので不要
+    if (this._playerState.isYouTube) {
+      return;
+    }
+
+    // パラメータで開始秒数が指定されていたらそこにシーク
+    var currentTime = this._videoWatchOptions.getCurrentTime();
+    if (currentTime > 0) {
+      this.setCurrentTime(currentTime);
+    }
+  },
+  _onVideoCanPlay: function () {
+    if (this._playerState.isYouTube) {
+      return;
+    }
+    window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
+    this._playerConfig.setValue('lastWatchId', this._watchId);
+
+    if (this._videoWatchOptions.isPlaylistStartRequest()) {
+      this._initializePlaylist();
+
+      var option = this._videoWatchOptions.getMylistLoadOptions();
+      var query = this._videoWatchOptions.getQuery();
+
+      // 通常時はプレイリストの置き換え、
+      // 連続再生中はプレイリストに追加で読み込む
+      option.append = this.isPlaying() && this._playlist.isEnable();
+
+      // //www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
+      option.shuffle = parseInt(query.shuffle, 10) === 1;
+      console.log('playlist option:', option);
+
+      if (query.playlist_type === 'mylist') {
+        this._playlist.loadFromMylist(option.group_id, option);
+      } else if (query.playlist_type === 'deflist') {
+        this._playlist.loadFromMylist('deflist', option);
+      } else if (query.playlist_type === 'tag' || query.playlist_type === 'search') {
+        var word = query.tag || query.keyword;
+        option.searchType = query.tag ? 'tag' : '';
+        _.assign(option, query);
+        this._playlist.loadSearchVideo(word, option, this._playerConfig.getValue('search.limit'));
       }
-    },
-    _setThumbnail: function(thumbnail) {
-      this._view.setThumbnail(thumbnail);
-    },
-    _setErrorMessage: function(msg) {
-      this._view.setErrorMessage(msg);
-    },
-    _onCommentLoadSuccess: function(requestId, result) {
-      if (requestId !== this._requestId) {
+      this._playlist.toggleEnable(true);
+    } else if (PlaylistSession.isExist() && !this._playlist) {
+      this._initializePlaylist();
+      this._playlist.restoreFromSession();
+    } else {
+      this._initializePlaylist();
+    }
+    // チャンネル動画は、1本の動画がwatchId表記とvideoId表記で2本登録されてしまう。
+    // そこでwatchId表記のほうを除去する
+    this._playlist.insertCurrentVideo(this._videoInfo);
+    if (this._videoInfo.watchId !== this._videoInfo.videoId &&
+      this._videoInfo.videoId.indexOf('so') === 0) {
+      this._playlist.removeItemByWatchId(this._videoInfo.watchId);
+    }
+
+
+    this._playerState.setVideoCanPlay();
+    this.emitAsync('canPlay', this._watchId, this._videoInfo, this._videoWatchOptions);
+
+    // プレイリストによって開かれた時は、自動再生設定に関係なく再生する
+    if (this._videoWatchOptions.getEventType() === 'playlist' && this.isOpen()) {
+      this.play();
+    }
+    if (this._nextVideo) {
+      const nextVideo = this._nextVideo;
+      this._nextVideo = null;
+      if (!this._playlist) {
         return;
       }
-      let options = {
-        replacement: this._videoInfo.replacementWords,
-        duration: this._videoInfo.duration
-      };
-      this._nicoVideoPlayer.closeCommentPlayer();
-      this._threadInfo = result.threadInfo;
-      this._nicoVideoPlayer.setComment(result.xml, options);
-
-      this._playerState.isCommentReady = true;
-      this._playerState.isWaybackMode = result.threadInfo.isWaybackMode;
-      this.emit('commentReady', result, this._threadInfo);
-      this.emit('videoCount', {comment: parseInt(result.threadInfo.lastRes, 10)});
-    },
-    _onCommentLoadFail: function(requestId, e) {
-      if (requestId !== this._requestId) {
+      if (!this._playerConfig.getValue('enableNicosJumpVideo')) {
         return;
       }
-      PopupMessage.alert(e.message);
-    },
-    _onLoadedMetaData: function() {
-      // YouTubeは動画指定時にパラメータで開始位置を渡すので不要
-      if (this._playerState.isYouTube) { return; }
+      const nv = this._playlist.findByWatchId(nextVideo);
+      if (nv && nv.isPlayed()) {
+        return;
+      } // 既にリストにあって再生済みなら追加しない(無限ループ対策)
+      this.execCommand('notify', '@ジャンプ: ' + nextVideo);
+      this.execCommand('playlistInsert', nextVideo);
+    }
 
-      // パラメータで開始秒数が指定されていたらそこにシーク
-      var currentTime = this._videoWatchOptions.getCurrentTime();
-      if (currentTime > 0) {
-        this.setCurrentTime(currentTime);
-      }
-    },
-    _onVideoCanPlay: function() {
-      if (this._playerState.isYouTube) { return; }
-      window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
-      this._playerConfig.setValue('lastWatchId', this._watchId);
+  },
+  _onVideoPlay: function () {
+    this._playerState.setPlaying();
+    this.emit('play');
+  },
+  _onVideoPlaying: function () {
+    this._playerState.setPlaying();
+    this.emit('playing');
+  },
+  _onVideoPause: function () {
+    this._savePlaybackPosition(this._watchId, this.getCurrentTime());
+    this.emit('pause');
+  },
+  _onVideoProgress: function (range, currentTime) {
+    this.emit('progress', range, currentTime);
+  },
+  _onVideoError: function (e) {
+    this._playerState.setVideoErrorOccurred();
+    if (e.type === 'youtube') {
+      return this._onYouTubeVideoError(e);
+    }
 
-      if (this._videoWatchOptions.isPlaylistStartRequest()) {
-        this._initializePlaylist();
 
-        var option = this._videoWatchOptions.getMylistLoadOptions();
-        var query = this._videoWatchOptions.getQuery();
+    if (this._playerState.isPausing) {
+      //this.reload();
+      this._setErrorMessage(`停止中に動画のセッションが切れました。(code:${code})`);
+      return;
+    }
 
-        // 通常時はプレイリストの置き換え、
-        // 連続再生中はプレイリストに追加で読み込む
-        option.append = this.isPlaying() && this._playlist.isEnable();
-
-        // //www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
-        option.shuffle = parseInt(query.shuffle, 10) === 1;
-        console.log('playlist option:', option);
-
-        if (query.playlist_type === 'mylist') {
-          this._playlist.loadFromMylist(option.group_id, option);
-        } else if (query.playlist_type === 'deflist') {
-          this._playlist.loadFromMylist('deflist', option);
-        } else if (query.playlist_type === 'tag' || query.playlist_type === 'search'){
-          var word = query.tag || query.keyword;
-          option.searchType = query.tag ? 'tag' : '';
-          _.assign(option, query);
-          this._playlist.loadSearchVideo(word, option, this._playerConfig.getValue('search.limit'));
-        }
-        this._playlist.toggleEnable(true);
-      } else if (PlaylistSession.isExist() && !this._playlist) {
-        this._initializePlaylist();
-        this._playlist.restoreFromSession();
+      if (this._videoInfo && !isDmc &&
+        (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy)
+      ) {
+        this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
+        setTimeout(() => {
+          if (!this.isOpen()) {
+            return;
+          }
+          this.reload({economy: true});
+        }, 3000);
       } else {
-        this._initializePlaylist();
+        this._setErrorMessage('動画の再生に失敗しました。');
       }
-      // チャンネル動画は、1本の動画がwatchId表記とvideoId表記で2本登録されてしまう。
-      // そこでwatchId表記のほうを除去する
-      this._playlist.insertCurrentVideo(this._videoInfo);
-      if (this._videoInfo.watchId !==this._videoInfo.videoId &&
-          this._videoInfo.videoId.indexOf('so') === 0) {
-        this._playlist.removeItemByWatchId(this._videoInfo.watchId);
-      }
+    }
+  },
+  _onYouTubeVideoError: function (e) {
+    window.console.error('onYouTubeVideoError!', e);
+    this._setErrorMessage(e.description);
+    this.emit('error', e);
+  },
+  _onVideoAbort: function () {
+    this.emit('abort');
+  },
+  _onVideoAspectRatioFix: function (ratio) {
+    this.emit('aspectRatioFix', ratio);
+  },
+  _onVideoEnded: function () {
+    // ループ再生中は飛んでこない
+    this.emitAsync('ended');
+    this._playerState.setVideoEnded();
+    this._savePlaybackPosition(this._watchId, 0);
+    if (this.isPlaylistEnable() && this._playlist.hasNext()) {
+      this.playNextVideo({eventType: 'playlist'});
+      return;
+    } else if (this._playlist) {
+      this._playlist.toggleEnable(false);
+    }
 
-
-      this._playerState.setVideoCanPlay();
-      this.emitAsync('canPlay', this._watchId, this._videoInfo, this._videoWatchOptions);
-
-      // プレイリストによって開かれた時は、自動再生設定に関係なく再生する
-      if (this._videoWatchOptions.getEventType() === 'playlist' && this.isOpen()) {
-        this.play();
-      }
-      if (this._nextVideo) {
-        const nextVideo = this._nextVideo;
-        this._nextVideo = null;
-        if (!this._playlist) { return; }
-        if (!this._playerConfig.getValue('enableNicosJumpVideo')) { return; }
-        const nv = this._playlist.findByWatchId(nextVideo);
-        if (nv && nv.isPlayed()) { return; } // 既にリストにあって再生済みなら追加しない(無限ループ対策)
-        this.execCommand('notify', '@ジャンプ: ' + nextVideo);
-        this.execCommand('playlistInsert', nextVideo);
-      }
-
-    },
-    _onVideoPlay:    function() {
-      this._playerState.setPlaying();
-      this.emit('play');
-    },
-    _onVideoPlaying: function() {
-      this.emit('playing');
-    },
-    _onVideoPause:   function() {
+    var isAutoCloseFullScreen =
+      this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
+        this._videoWatchOptions.isAutoCloseFullScreen() :
+        this._playerConfig.getValue('autoCloseFullScreen');
+    if (FullScreen.now() && isAutoCloseFullScreen) {
+      FullScreen.cancel();
+    }
+    ZenzaWatch.emitter.emitAsync('videoEnded');
+  },
+  _onVolumeChange: function (vol, mute) {
+    this.emit('volumeChange', vol, mute);
+  },
+  _onVolumeChangeEnd: function (vol, mute) {
+    this.emit('volumeChangeEnd', vol, mute);
+  },
+  _savePlaybackPosition: function (watchId, ct) {
+    if (!util.isLogin()) {
+      return;
+    }
+    const vi = this._videoInfo;
+    if (!vi) {
+      return;
+    }
+    const dr = this.getDuration();
+    console.info('%csave PlaybackPosition:', 'background: cyan', ct, dr, vi.csrfToken);
+    if (vi.getWatchId() !== watchId) {
+      return;
+    }
+    if (Math.abs(ct - dr) < 3) {
+      return;
+    }
+    if (dr < 120) {
+      return;
+    } // 短い動画は記録しない
+    PlaybackPosition.record(
+      watchId,
+      ct,
+      vi.csrfToken
+    ).catch((e) => {
+      window.console.warn('save playback fail', e);
+    });
+  },
+  close: function () {
+    if (this.isPlaying()) {
       this._savePlaybackPosition(this._watchId, this.getCurrentTime());
-      this.emit('pause');
-    },
-    _onVideoStalled: function() {
-      this._playerState.isStalled = true;
-      this._savePlaybackPosition(this._watchId, this.getCurrentTime());
-      this.emit('stalled');
-    },
-    _onVideoProgress: function(range, currentTime) {
-      this.emit('progress', range, currentTime);
-    },
-    _onVideoError: function(e) {
-      this._playerState.setVideoErrorOccurred();
-      if (e.type === 'youtube') {
-        return this._onYouTubeVideoError(e);
-      }
+    }
+    if (FullScreen.now()) {
+      FullScreen.cancel();
+    }
+    this.pause();
+    this.hide();
+    this._refresh();
+    this.emit('close');
+    ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
+  },
+  _refresh: function () {
+    if (this._nicoVideoPlayer) {
+      this._nicoVideoPlayer.close();
+    }
+    if (this._videoSession) {
+      this._videoSession.close();
+    }
+  },
+  _initializePlaylist: function () {
+    if (this._playlist) {
+      return;
+    }
+    //if (!this._videoInfoPanel) { return; }
+    var $container = this._view.appendTab('playlist', 'プレイリスト');
+    this._playlist = new Playlist({
+      loader: ZenzaWatch.api.ThumbInfoLoader,
+      $container: $container,
+      loop: this._playerConfig.getValue('playlistLoop')
+    });
+    this._playlist.on('command', this._onCommand.bind(this));
+    this._playlist.on('update', _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
+  },
+  _initializeCommentPanel: function () {
+    if (this._commentPanel) {
+      return;
+    }
+    var $container = this._view.appendTab('comment', 'コメント');
+    this._commentPanel = new CommentPanel({
+      player: this,
+      $container: $container,
+      autoScroll: this._playerConfig.getValue('enableCommentPanelAutoScroll'),
+      language: this._playerConfig.getValue('commentLanguage')
+    });
+    this._commentPanel.on('command', this._onCommand.bind(this));
+    this._commentPanel.on('update', _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
+  },
+  isPlaylistEnable: function () {
+    return this._playlist && this._playlist.isEnable();
+  },
+  playNextVideo: function (options) {
+    if (!this._playlist || !this.isOpen()) {
+      return;
+    }
+    var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
 
       this.emit('error', e);
       const isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc;
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
-      if (this._playerState.isPausing) {
-        //this.reload();
-        this._setErrorMessage(`停止中に動画のセッションが切れました。(code:${code})`);
-        return;
-      }
+    var nextId = this._playlist.selectNext();
+    if (nextId) {
+      this.open(nextId, opt);
+    }
+  },
+  playPreviousVideo: function (options) {
+    if (!this._playlist || !this.isOpen()) {
+      return;
+    }
+    var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
 
       // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
       // と思われるので開き直す
       if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
         this.reload({ currentTime: this.getCurrentTime() });
       } else {
-        if (this._videoInfo && !isDmc &&
-            (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy)
-          ) {
-          this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
-          setTimeout(() => {
-            if (!this.isOpen()) { return; }
-            this.reload({economy: true});
-          }, 3000);
-        } else {
-          this._setErrorMessage('動画の再生に失敗しました。');
-        }
-      }
-    },
-    _onYouTubeVideoError: function(e) {
-      window.console.error('onYouTubeVideoError!', e);
-      this._setErrorMessage(e.description);
-      this.emit('error', e);
-    },
-    _onVideoAbort: function() {
-      this.emit('abort');
-    },
-    _onVideoAspectRatioFix: function(ratio) {
-      this.emit('aspectRatioFix', ratio);
-    },
-    _onVideoEnded: function() {
-      // ループ再生中は飛んでこない
-      this.emitAsync('ended');
-      this._playerState.setVideoEnded();
-      this._savePlaybackPosition(this._watchId, 0);
-      if (this.isPlaylistEnable() && this._playlist.hasNext()) {
-        this.playNextVideo({eventType: 'playlist'});
-        return;
-      } else if (this._playlist) {
-        this._playlist.toggleEnable(false);
-      }
-
-      var isAutoCloseFullScreen =
-        this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
-          this._videoWatchOptions.isAutoCloseFullScreen() :
-          this._playerConfig.getValue('autoCloseFullScreen');
-      if (FullScreen.now() && isAutoCloseFullScreen) {
-        FullScreen.cancel();
-      }
-      ZenzaWatch.emitter.emitAsync('videoEnded');
-    },
-    _onVolumeChange: function(vol, mute) {
-      this.emit('volumeChange', vol, mute);
-    },
-    _onVolumeChangeEnd: function(vol, mute) {
-      this.emit('volumeChangeEnd', vol, mute);
-    },
-    _savePlaybackPosition: function(watchId, ct) {
-      if (!util.isLogin()) { return; }
-      const vi = this._videoInfo;
-      if (!vi) { return; }
-      const dr = this.getDuration();
-      console.info('%csave PlaybackPosition:', 'background: cyan', ct, dr, vi.csrfToken);
-      if (vi.getWatchId() !== watchId) { return; }
-      if (Math.abs(ct - dr) < 3) { return; }
-      if (dr < 120) { return; } // 短い動画は記録しない
-      PlaybackPosition.record(
-        watchId,
-        ct,
-        vi.csrfToken
-      ).catch((e) => { window.console.warn('save playback fail', e); });
-    },
-    close: function() {
+    var prevId = this._playlist.selectPrevious();
+    if (prevId) {
+      this.open(prevId, opt);
+    }
+  },
+  play: function () {
+    if (!this._playerState.isError && this._nicoVideoPlayer) {
+      this._nicoVideoPlayer.play().catch((e) => {
+        this._onVideoPlayStartFail(e);
+      });
+    }
+  },
+  pause: function () {
+    if (!this._playerState.isError && this._nicoVideoPlayer) {
+      this._nicoVideoPlayer.pause();
+      this._playerState.setPausing();
+    }
+  },
+  isPlaying: function () {
+    return this._playerState.isPlaying;
+  },
+  togglePlay: function () {
+    if (!this._playerState.isError && this._nicoVideoPlayer) {
       if (this.isPlaying()) {
-        this._savePlaybackPosition(this._watchId, this.getCurrentTime());
+        this.pause();
+        return;
       }
-      if (FullScreen.now()) {
-        FullScreen.cancel();
-      }
-      this.pause();
-      this.hide();
-      this._refresh();
-      this.emit('close');
-      ZenzaWatch.emitter.emitAsync('DialogPlayerClose');
-    },
-    _refresh: function() {
-      if (this._nicoVideoPlayer) {
-        this._nicoVideoPlayer.close();
-      }
-      if (this._videoSession) { this._videoSession.close(); }
-    },
-    _initializePlaylist: function() {
-      if (this._playlist) { return; }
-      //if (!this._videoInfoPanel) { return; }
-      var $container = this._view.appendTab('playlist', 'プレイリスト');
-      this._playlist = new Playlist({
-        loader: ZenzaWatch.api.ThumbInfoLoader,
-        $container: $container,
-        loop: this._playerConfig.getValue('playlistLoop')
+
+      this._nicoVideoPlayer.togglePlay().catch((e) => {
+        this._onVideoPlayStartFail(e);
       });
-      this._playlist.on('command', this._onCommand.bind(this));
-      this._playlist.on('update', _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
-    },
-    _initializeCommentPanel: function() {
-      if (this._commentPanel) { return; }
-      var $container = this._view.appendTab('comment', 'コメント');
-      this._commentPanel = new CommentPanel({
-        player: this,
-        $container: $container,
-        autoScroll: this._playerConfig.getValue('enableCommentPanelAutoScroll'),
-        language: this._playerConfig.getValue('commentLanguage')
-      });
-      this._commentPanel.on('command', this._onCommand.bind(this));
-      this._commentPanel.on('update', _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
-    },
-    isPlaylistEnable: function() {
-      return this._playlist && this._playlist.isEnable();
-    },
-    playNextVideo: function(options) {
-      if (!this._playlist || !this.isOpen()) { return; }
-      var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
+    }
+  },
+  setVolume: function (v) {
+    if (this._nicoVideoPlayer) {
+      this._nicoVideoPlayer.setVolume(v);
+    }
+  },
+  addChat: function (text, cmd, vpos, options) {
+    if (!this._nicoVideoPlayer ||
+      !this._messageApiLoader ||
+      !this._playerState.isCommentReady ||
+      this._playerState.isCommentPosting) {
+      return Promise.reject();
+    }
+    if (!util.isLogin()) {
+      return Promise.reject();
+    }
 
-      var nextId = this._playlist.selectNext();
-      if (nextId) {
-        this.open(nextId, opt);
+    if (this._threadInfo.force184 !== '1') {
+      cmd = '184 ' + cmd;
+    }
+    options = options || {};
+    options.mine = '1';
+    options.updating = '1';
+    vpos = vpos || this._nicoVideoPlayer.getVpos();
+    const nicoChat = this._nicoVideoPlayer.addChat(text, cmd, vpos, options);
+
+    this._playerState.isCommentPosting = true;
+
+    let timeout;
+    let resolve, reject;
+    const lang = this._playerConfig.getValue('commentLanguage');
+    window.console.time('コメント投稿');
+
+    const _onSuccess = (result) => {
+      window.console.timeEnd('コメント投稿');
+      nicoChat.setIsUpdating(false);
+      PopupMessage.notify('コメント投稿成功');
+      this._playerState.isCommentPosting = false;
+
+      this._threadInfo.blockNo = result.blockNo;
+      window.clearTimeout(timeout);
+
+      resolve(result);
+    };
+
+    const _onFailFinal = (err) => {
+      err = err || {};
+
+      window.console.log('_onFailFinal: ', err);
+      window.clearTimeout(timeout);
+      window.console.timeEnd('コメント投稿');
+
+      nicoChat.setIsPostFail(true);
+      nicoChat.setIsUpdating(false);
+      PopupMessage.alert(err.message);
+      this._playerState.isCommentPosting = false;
+      if (err.blockNo && typeof err.blockNo === 'number') {
+        this._threadInfo.blockNo = err.blockNo;
       }
-    },
-    playPreviousVideo: function(options) {
-      if (!this._playlist || !this.isOpen()) { return; }
-      var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
+      reject(err);
+    };
 
-      var prevId = this._playlist.selectPrevious();
-      if (prevId) {
-        this.open(prevId, opt);
-      }
-    },
-    play: function() {
-      if (!this._playerState.isError && this._nicoVideoPlayer) {
-        this._nicoVideoPlayer.play().catch((e) => {
-          this._onVideoPlayStartFail(e);
-        });
-      }
-    },
-    pause: function() {
-      if (!this._playerState.isError && this._nicoVideoPlayer) {
-        this._nicoVideoPlayer.pause();
-        this._playerState.setPausing();
-      }
-    },
-    isPlaying: function() {
-      return this._playerState.isPlaying;
-    },
-    togglePlay: function() {
-      if (!this._playerState.isError && this._nicoVideoPlayer) {
-        if (this.isPlaying()) {
-          this.pause();
-          return;
-        }
+    const _onTimeout = () => {
+      PopupMessage.alert('コメント投稿失敗(timeout)');
+      this._playerState.isCommentPosting = false;
+      reject({});
+    };
 
-        this._nicoVideoPlayer.togglePlay().catch((e) => {
-          this._onVideoPlayStartFail(e);
-        });
-      }
-    },
-    setVolume: function(v) {
-      if (this._nicoVideoPlayer) {
-        this._nicoVideoPlayer.setVolume(v);
-      }
-    },
-    addChat: function(text, cmd, vpos, options) {
-      if (!this._nicoVideoPlayer ||
-          !this._messageApiLoader ||
-          !this._playerState.isCommentReady ||
-          this._playerState.isCommentPosting) {
-        return Promise.reject();
-      }
-      if (!util.isLogin()) { return Promise.reject(); }
+    const _retryPost = () => {
+      window.clearTimeout(timeout);
+      window.console.info('retry: コメント投稿');
+      timeout = window.setTimeout(_onTimeout, 30000);
 
-      if (this._threadInfo.force184 !== '1') {
-        cmd = '184 ' + cmd;
-      }
-      options = options || {};
-      options.mine = '1';
-      options.updating = '1';
-      vpos = vpos || this._nicoVideoPlayer.getVpos();
-      const nicoChat = this._nicoVideoPlayer.addChat(text, cmd, vpos, options);
-
-      this._playerState.isCommentPosting = true;
-
-      let timeout;
-      let resolve, reject;
-      const lang = this._playerConfig.getValue('commentLanguage');
-      window.console.time('コメント投稿');
-
-      const _onSuccess = (result) => {
-        window.console.timeEnd('コメント投稿');
-        nicoChat.setIsUpdating(false);
-        PopupMessage.notify('コメント投稿成功');
-        this._playerState.isCommentPosting = false;
-
-        this._threadInfo.blockNo = result.blockNo;
-        window.clearTimeout(timeout);
-
-        resolve(result);
-      };
-
-      const _onFailFinal = (err) => {
-        err = err || {};
-
-        window.console.log('_onFailFinal: ', err);
-        window.clearTimeout(timeout);
-        window.console.timeEnd('コメント投稿');
-
-        nicoChat.setIsPostFail(true);
-        nicoChat.setIsUpdating(false);
-        PopupMessage.alert(err.message);
-        this._playerState.isCommentPosting = false;
-        if (err.blockNo && typeof err.blockNo === 'number') {
-          this._threadInfo.blockNo = err.blockNo;
-        }
-        reject(err);
-      };
-
-      const _onTimeout = () => {
-        PopupMessage.alert('コメント投稿失敗(timeout)');
-        this._playerState.isCommentPosting = false;
-        reject({});
-      };
-
-      const _retryPost = () => {
-        window.clearTimeout(timeout);
-        window.console.info('retry: コメント投稿');
-        timeout = window.setTimeout(_onTimeout, 30000);
-
-        return this._messageApiLoader
-          .postChat(this._threadInfo, text, cmd, vpos, lang).then(
+      return this._messageApiLoader
+        .postChat(this._threadInfo, text, cmd, vpos, lang).then(
           _onSuccess,
           _onFailFinal
         );
-      };
+    };
 
-      const _onTicketFail = (err) => {
-        this._messageApiLoader.load(this._videoInfo.msgInfo).then(
-          (result) => {
-            window.console.log('ticket再取得 success');
-            this._threadInfo = result.threadInfo;
-            return _retryPost();
-          },
-          (e) => {
-            window.console.log('ticket再取得 fail: ', e);
-            _onFailFinal(err);
-          }
-        );
-      };
-
-      const _onFail1st = (err) => {
-        err = err || {};
-
-        const errorCode = parseInt(err.code, 10);
-        window.console.log('_onFail1st: ', errorCode);
-
-        if (err.blockNo && typeof err.blockNo === 'number') {
-          this._threadInfo.blockNo = err.blockNo;
+    const _onTicketFail = (err) => {
+      this._messageApiLoader.load(this._videoInfo.msgInfo).then(
+        (result) => {
+          window.console.log('ticket再取得 success');
+          this._threadInfo = result.threadInfo;
+          return _retryPost();
+        },
+        (e) => {
+          window.console.log('ticket再取得 fail: ', e);
+          _onFailFinal(err);
         }
+      );
+    };
 
-        if (errorCode === 3) {
-          return _onTicketFail(err);
-        } else if (![2, 4, 5].includes(errorCode)) {
-          return _onFailFinal(err);
-        }
+    const _onFail1st = (err) => {
+      err = err || {};
 
-        return _retryPost();
-      };
+      const errorCode = parseInt(err.code, 10);
+      window.console.log('_onFail1st: ', errorCode);
 
-      timeout = window.setTimeout(_onTimeout, 30000);
-
-      text = ZenzaWatch.util.escapeHtml(text);
-      return new Promise((res, rej) => {
-        resolve = res;
-        reject = rej;
-        this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos, lang).then(
-          _onSuccess,
-          _onFail1st
-        );
-      });
-    },
-    getDuration: function() {
-      if (!this._videoInfo) { return 0; }
-      return this._videoInfo.duration;
-    },
-    getBufferedRange: function() {
-      return this._nicoVideoPlayer.getBufferedRange();
-    },
-    getNonFilteredChatList: function() {
-      return this._nicoVideoPlayer.getNonFilteredChatList();
-    },
-    getChatList: function() {
-      return this._nicoVideoPlayer.getChatList();
-    },
-    getPlayingStatus: function() {
-      if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
-        return {};
+      if (err.blockNo && typeof err.blockNo === 'number') {
+        this._threadInfo.blockNo = err.blockNo;
       }
 
-      const session = {
-        playing: true,
-        watchId: this._watchId,
-        url: location.href,
-        currentTime: this._nicoVideoPlayer.getCurrentTime()
-      };
+      if (errorCode === 3) {
+        return _onTicketFail(err);
+      } else if (![2, 4, 5].includes(errorCode)) {
+        return _onFailFinal(err);
+      }
 
-      const options = this._videoWatchOptions.createOptionsForSession();
-      Object.keys(options).forEach(key => {
-        session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
-      });
+      return _retryPost();
+    };
 
-      return session;
-    },
-    getMymemory: function() {
-      return this._nicoVideoPlayer.getMymemory();
+    timeout = window.setTimeout(_onTimeout, 30000);
+
+    text = ZenzaWatch.util.escapeHtml(text);
+    return new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+      this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos, lang).then(
+        _onSuccess,
+        _onFail1st
+      );
+    });
+  },
+  getDuration: function () {
+    if (!this._videoInfo) {
+      return 0;
     }
-  });
+    return this._videoInfo.duration;
+  },
+  getBufferedRange: function () {
+    return this._nicoVideoPlayer.getBufferedRange();
+  },
+  getNonFilteredChatList: function () {
+    return this._nicoVideoPlayer.getNonFilteredChatList();
+  },
+  getChatList: function () {
+    return this._nicoVideoPlayer.getChatList();
+  },
+  getPlayingStatus: function () {
+    if (!this._nicoVideoPlayer || !this._nicoVideoPlayer.isPlaying()) {
+      return {};
+    }
 
-  var VideoHoverMenu = function() { this.initialize.apply(this, arguments); };
-  VideoHoverMenu.__css__ = (`
+    const session = {
+      playing: true,
+      watchId: this._watchId,
+      url: location.href,
+      currentTime: this._nicoVideoPlayer.getCurrentTime()
+    };
+
+    const options = this._videoWatchOptions.createOptionsForSession();
+    Object.keys(options).forEach(key => {
+      session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
+    });
+
+    return session;
+  },
+  getMymemory: function () {
+    return this._nicoVideoPlayer.getMymemory();
+  }
+});
+
+var VideoHoverMenu = function () {
+  this.initialize.apply(this, arguments);
+};
+VideoHoverMenu.__css__ = (`
 
     /* マイページはなぜかhtmlにoverflow-y: scroll が指定されているので打ち消す */
     html.showNicoVideoPlayerDialog.zenzaScreenMode_3D,
@@ -3400,7 +3550,7 @@ var CONSTANT = {};
 
   `).trim();
 
-  VideoHoverMenu.__tpl__ = (`
+VideoHoverMenu.__tpl__ = (`
     <div class="hoverMenuContainer">
       <div class="menuItemContainer leftTop">
           <div class="command menuButton toggleDebugButton" data-command="toggle-debug">
@@ -3504,221 +3654,241 @@ var CONSTANT = {};
     </div>
   `).trim();
 
-  _.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
-  _.assign(VideoHoverMenu.prototype, {
-    initialize: function(params) {
-      this._container        = params.playerContainer;
-      this._playerState      = params.playerState;
+_.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
+_.assign(VideoHoverMenu.prototype, {
+  initialize: function (params) {
+    this._container = params.playerContainer;
+    this._playerState = params.playerState;
 
-      this._bound = {};
-      this._bound.onBodyClick = this._onBodyClick.bind(this);
-      this._bound.emitClose =
-        _.debounce(() => { this.emit('command', 'close'); }, 300);
+    this._bound = {};
+    this._bound.onBodyClick = this._onBodyClick.bind(this);
+    this._bound.emitClose =
+      _.debounce(() => {
+        this.emit('command', 'close');
+      }, 300);
 
-      this._initializeDom();
-      this._initializeNgSettingMenu();
+    this._initializeDom();
+    this._initializeNgSettingMenu();
 
-      window.setTimeout(this._initializeMylistSelectMenu.bind(this), 0);
-    },
-    _initializeDom: function() {
-      util.addStyle(VideoHoverMenu.__css__);
+    window.setTimeout(this._initializeMylistSelectMenu.bind(this), 0);
+  },
+  _initializeDom: function () {
+    util.addStyle(VideoHoverMenu.__css__);
 
-      let container = this._container;
-      container.appendChild(util.createDom(VideoHoverMenu.__tpl__));
+    let container = this._container;
+    container.appendChild(util.createDom(VideoHoverMenu.__tpl__));
 
-      let menuContainer = util.$(container.querySelectorAll('.menuItemContainer'));
-      menuContainer.on('contextmenu',
-        e => { e.preventDefault(); e.stopPropagation(); });
-      menuContainer.on('click',     this._onClick.bind(this));
-      menuContainer.on('mousedown', this._onMouseDown.bind(this));
-
-      ZenzaWatch.emitter.on('hideHover', this._hideMenu.bind(this));
-    },
-    _initializeMylistSelectMenu: function() {
-      if (!util.isLogin()) { return; }
-      this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-      this._mylistApiLoader.getMylistList().then(mylistList => {
-        this._mylistList = mylistList;
-        this._initializeMylistSelectMenuDom();
+    let menuContainer = util.$(container.querySelectorAll('.menuItemContainer'));
+    menuContainer.on('contextmenu',
+      e => {
+        e.preventDefault();
+        e.stopPropagation();
       });
-    },
-    _initializeMylistSelectMenuDom: function(mylistList) {
-      if (!util.isLogin()) { return; }
-      mylistList = mylistList || this._mylistList;
-      let menu = this._container.querySelector('.mylistSelectMenu');
-      menu.addEventListener('wheel', e => { e.stopPropagation(); }, {passive: true});
+    menuContainer.on('click', this._onClick.bind(this));
+    menuContainer.on('mousedown', this._onMouseDown.bind(this));
 
-      let ul = document.createElement('ul');
-      mylistList.forEach(mylist => {
-        let li = document.createElement('li');
-        li.className = `folder${mylist.icon_id}`;
-
-        let icon = document.createElement('span');
-        icon.className = 'mylistIcon command';
-        util.$(icon).attr({
-          'data-mylist-id':   mylist.id,
-          'data-mylist-name': mylist.name,
-          'data-command': 'mylistOpen',
-          title: mylist.name + 'を開く'
-        });
-
-        let link = document.createElement('a');
-        link.className = 'mylistLink name command';
-        link.textContent = mylist.name;
-        util.$(link).attr({
-          href: `//www.nicovideo.jp/my/mylist/#/${mylist.id}`,
-          'data-mylist-id': mylist.id,
-          'data-mylist-name': mylist.name,
-          'data-command': 'mylistAdd'
-        });
-
-        li.appendChild(icon);
-        li.appendChild(link);
-        ul.appendChild(li);
-      });
-
-      this._container.querySelector('.mylistSelectMenuInner').appendChild(ul);
-    },
-    _initializeNgSettingMenu: function() {
-      let state = this._playerState;
-      let menu = this._container.querySelector('.ngSettingSelectMenu');
-
-      let enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
-      const updateEnableFilter = (v) => {
-        enableFilterItems.forEach(item => {
-          const p = JSON.parse(item.getAttribute('data-param'));
-          item.classList.toggle('selected', v === p);
-        });
-        menu.classList.toggle('is-enableFilter', v);
-      };
-      updateEnableFilter(state.isEnableFilter);
-      state.on('update-isEnableFilter', updateEnableFilter);
-
-      let sharedNgItems = Array.from(menu.querySelectorAll('.sharedNgLevel'));
-      const updateNgLevel = (level) => {
-        sharedNgItems.forEach(item => {
-          item.classList.toggle('selected', level === item.getAttribute('data-param'));
-        });
-      };
-      updateNgLevel(state.sharedNgLevel);
-      state.on('update-sharedNgLevel', updateNgLevel);
-    },
-    _onMouseDown: function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const target =
-        e.target.classList.contains('command') ?  e.target : e.target.closest('.command');
-      if (!target) { return; }
-      let command = target.getAttribute('data-command');
-      switch (command) {
-        case 'deflistAdd':
-          if (e.shiftKey) {
-            command = 'mylistWindow';
-          } else {
-            command = e.which > 1 ? 'deflistRemove' : 'deflistAdd';
-          }
-          this.emit('command', command);
-          break;
-        case 'mylistAdd': {
-          command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
-          let mylistId   = target.getAttribute('data-mylist-id');
-          let mylistName = target.getAttribute('data-mylist-name');
-          this._hideMenu();
-          this.emit('command', command, {mylistId: mylistId, mylistName: mylistName});
-          break;
-        }
-        case 'mylistOpen': {
-          let mylistId   = target.getAttribute('data-mylist-id');
-          location.href = `//www.nicovideo.jp/my/mylist/#/${mylistId}`;
-          break;
-        }
-        case 'close':
-          this._bound.emitClose();
-          break;
-        default:
-          return;
-      }
-    },
-    _onClick: function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const target =
-        e.target.classList.contains('command') ?  e.target : e.target.closest('.command');
-      if (!target) { return; }
-      const command = target.getAttribute('data-command');
-
-      const type  = target.getAttribute('data-type') || 'string';
-      let param   = target.getAttribute('data-param');
-      switch (type) {
-        case 'json':
-        case 'bool':
-        case 'number':
-          param = JSON.parse(param);
-          break;
-      }
-
-      switch (command) {
-        case 'deflistAdd': case 'mylistAdd': case 'mylistOpen': case 'close':
-          this._hideMenu();
-          break;
-        case 'mylistMenu':
-          if (e.shiftKey) {
-            this.emit('command', 'mylistWindow');
-          } else {
-            this.toggleMylistMenu();
-          }
-          break;
-        case 'ngSettingMenu':
-          this.toggleNgSettingMenu();
-          break;
-        default:
-          this._hideMenu();
-          this.emit('command', command, param);
-          break;
-       }
-    },
-    _hideMenu: function() {
-      window.setTimeout(() => {
-        this.toggleMylistMenu(false);
-        this.toggleNgSettingMenu(false);
-      }, 0);
-    },
-    toggleMylistMenu: function(v) {
-      this._toggleMenu('mylistAddMenu mylistSelectMenu', v);
-    },
-    toggleNgSettingMenu: function(v) {
-      this._toggleMenu('ngSettingMenu ngSettingSelectMenu', v);
-    },
-    _toggleMenu: function(name, v) {
-      const body = this._body || util.$('body');
-      this._body = body;
-      
-      body.off('click', this._bound.onBodyClick);
-
-      util.$('.selectMenu, .menuButton').forEach(item => {
-        if (util.$(item).hasClass(name)) {
-          util.$(item).toggleClass('show', v);
-          v = util.$(item).hasClass('show');
-        } else {
-          item.classList.remove('show');
-        }
-      });
-
-      if (v) {
-        body.on('click', this._bound.onBodyClick);
-        ZenzaWatch.emitter.emitAsync('showMenu');
-      }
-      return !!v;
-    },
-    _onBodyClick: function() {
-      this._hideMenu();
-      ZenzaWatch.emitter.emitAsync('hideMenu');
+    ZenzaWatch.emitter.on('hideHover', this._hideMenu.bind(this));
+  },
+  _initializeMylistSelectMenu: function () {
+    if (!util.isLogin()) {
+      return;
     }
-  });
+    this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
+    this._mylistApiLoader.getMylistList().then(mylistList => {
+      this._mylistList = mylistList;
+      this._initializeMylistSelectMenuDom();
+    });
+  },
+  _initializeMylistSelectMenuDom: function (mylistList) {
+    if (!util.isLogin()) {
+      return;
+    }
+    mylistList = mylistList || this._mylistList;
+    let menu = this._container.querySelector('.mylistSelectMenu');
+    menu.addEventListener('wheel', e => {
+      e.stopPropagation();
+    }, {passive: true});
+
+    let ul = document.createElement('ul');
+    mylistList.forEach(mylist => {
+      let li = document.createElement('li');
+      li.className = `folder${mylist.icon_id}`;
+
+      let icon = document.createElement('span');
+      icon.className = 'mylistIcon command';
+      util.$(icon).attr({
+        'data-mylist-id': mylist.id,
+        'data-mylist-name': mylist.name,
+        'data-command': 'mylistOpen',
+        title: mylist.name + 'を開く'
+      });
+
+      let link = document.createElement('a');
+      link.className = 'mylistLink name command';
+      link.textContent = mylist.name;
+      util.$(link).attr({
+        href: `//www.nicovideo.jp/my/mylist/#/${mylist.id}`,
+        'data-mylist-id': mylist.id,
+        'data-mylist-name': mylist.name,
+        'data-command': 'mylistAdd'
+      });
+
+      li.appendChild(icon);
+      li.appendChild(link);
+      ul.appendChild(li);
+    });
+
+    this._container.querySelector('.mylistSelectMenuInner').appendChild(ul);
+  },
+  _initializeNgSettingMenu: function () {
+    let state = this._playerState;
+    let menu = this._container.querySelector('.ngSettingSelectMenu');
+
+    let enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
+    const updateEnableFilter = (v) => {
+      enableFilterItems.forEach(item => {
+        const p = JSON.parse(item.getAttribute('data-param'));
+        item.classList.toggle('selected', v === p);
+      });
+      menu.classList.toggle('is-enableFilter', v);
+    };
+    updateEnableFilter(state.isEnableFilter);
+    state.on('update-isEnableFilter', updateEnableFilter);
+
+    let sharedNgItems = Array.from(menu.querySelectorAll('.sharedNgLevel'));
+    const updateNgLevel = (level) => {
+      sharedNgItems.forEach(item => {
+        item.classList.toggle('selected', level === item.getAttribute('data-param'));
+      });
+    };
+    updateNgLevel(state.sharedNgLevel);
+    state.on('update-sharedNgLevel', updateNgLevel);
+  },
+  _onMouseDown: function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const target =
+      e.target.classList.contains('command') ? e.target : e.target.closest('.command');
+    if (!target) {
+      return;
+    }
+    let command = target.getAttribute('data-command');
+    switch (command) {
+      case 'deflistAdd':
+        if (e.shiftKey) {
+          command = 'mylistWindow';
+        } else {
+          command = e.which > 1 ? 'deflistRemove' : 'deflistAdd';
+        }
+        this.emit('command', command);
+        break;
+      case 'mylistAdd': {
+        command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
+        let mylistId = target.getAttribute('data-mylist-id');
+        let mylistName = target.getAttribute('data-mylist-name');
+        this._hideMenu();
+        this.emit('command', command, {mylistId: mylistId, mylistName: mylistName});
+        break;
+      }
+      case 'mylistOpen': {
+        let mylistId = target.getAttribute('data-mylist-id');
+        location.href = `//www.nicovideo.jp/my/mylist/#/${mylistId}`;
+        break;
+      }
+      case 'close':
+        this._bound.emitClose();
+        break;
+      default:
+        return;
+    }
+  },
+  _onClick: function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const target =
+      e.target.classList.contains('command') ? e.target : e.target.closest('.command');
+    if (!target) {
+      return;
+    }
+    const command = target.getAttribute('data-command');
+
+    const type = target.getAttribute('data-type') || 'string';
+    let param = target.getAttribute('data-param');
+    switch (type) {
+      case 'json':
+      case 'bool':
+      case 'number':
+        param = JSON.parse(param);
+        break;
+    }
+
+    switch (command) {
+      case 'deflistAdd':
+      case 'mylistAdd':
+      case 'mylistOpen':
+      case 'close':
+        this._hideMenu();
+        break;
+      case 'mylistMenu':
+        if (e.shiftKey) {
+          this.emit('command', 'mylistWindow');
+        } else {
+          this.toggleMylistMenu();
+        }
+        break;
+      case 'ngSettingMenu':
+        this.toggleNgSettingMenu();
+        break;
+      default:
+        this._hideMenu();
+        this.emit('command', command, param);
+        break;
+    }
+  },
+  _hideMenu: function () {
+    window.setTimeout(() => {
+      this.toggleMylistMenu(false);
+      this.toggleNgSettingMenu(false);
+    }, 0);
+  },
+  toggleMylistMenu: function (v) {
+    this._toggleMenu('mylistAddMenu mylistSelectMenu', v);
+  },
+  toggleNgSettingMenu: function (v) {
+    this._toggleMenu('ngSettingMenu ngSettingSelectMenu', v);
+  },
+  _toggleMenu: function (name, v) {
+    const body = this._body || util.$('body');
+    this._body = body;
+
+    body.off('click', this._bound.onBodyClick);
+
+    util.$('.selectMenu, .menuButton').forEach(item => {
+      if (util.$(item).hasClass(name)) {
+        util.$(item).toggleClass('show', v);
+        v = util.$(item).hasClass('show');
+      } else {
+        item.classList.remove('show');
+      }
+    });
+
+    if (v) {
+      body.on('click', this._bound.onBodyClick);
+      ZenzaWatch.emitter.emitAsync('showMenu');
+    }
+    return !!v;
+  },
+  _onBodyClick: function () {
+    this._hideMenu();
+    ZenzaWatch.emitter.emitAsync('hideMenu');
+  }
+});
 
 
-  var DynamicCss = function() { this.initialize.apply(this, arguments); };
-  DynamicCss.__css__ = `
+var DynamicCss = function () {
+  this.initialize.apply(this, arguments);
+};
+DynamicCss.__css__ = `
     .scalingUI {
       transform: scale(%SCALE%);
     }
@@ -3731,65 +3901,60 @@ var CONSTANT = {};
     }
 
   `;
-  DynamicCss.prototype = {
-    initialize: function(params) {
-      var config = this._playerConfig = params.playerConfig;
+DynamicCss.prototype = {
+  initialize: function (params) {
+    var config = this._playerConfig = params.playerConfig;
 
-      this._scale = 1.0;
-      this._commentLayerOpacity = 1.0;
+    this._scale = 1.0;
+    this._commentLayerOpacity = 1.0;
 
-      var update = _.debounce(this._update.bind(this), 1000);
-      config.on('update-menuScale', update);
-      config.on('update-commentLayerOpacity', update);
-      update();
-    },
-    _update: function() {
-      var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
-      var commentLayerOpacity =
-        parseFloat(this._playerConfig.getValue('commentLayerOpacity'), 10);
+    var update = _.debounce(this._update.bind(this), 1000);
+    config.on('update-menuScale', update);
+    config.on('update-commentLayerOpacity', update);
+    update();
+  },
+  _update: function () {
+    var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
+    var commentLayerOpacity =
+      parseFloat(this._playerConfig.getValue('commentLayerOpacity'), 10);
 
-      if (this._scale === scale &&
-          this._commentLayerOpacity === commentLayerOpacity) { return; }
+    if (this._scale === scale &&
+      this._commentLayerOpacity === commentLayerOpacity) {
+      return;
+    }
 
-      if (!this._style) {
-        this._style = util.addStyle('');
-      }
+    if (!this._style) {
+      this._style = util.addStyle('');
+    }
 
-      this._scale = scale;
-      this._commentLayerOpacity = commentLayerOpacity;
+    this._scale = scale;
+    this._commentLayerOpacity = commentLayerOpacity;
 
-      var tpl = DynamicCss.__css__
+    var tpl = DynamicCss.__css__
         .replace(/%SCALE%/g, scale)
         .replace(/%CONTROL_BAR_HEIGHT%/g,
           (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
           VideoControlBar.BASE_SEEKBAR_HEIGHT
-          )
+        )
         .replace(/%COMMENT_LAYER_OPACITY%/g, commentLayerOpacity)
-        //.replace(/%HEADER_OFFSET%/g, headerOffset * -1)
-        ;
-      //window.console.log(tpl);
-      this._style.innerHTML = tpl;
-    }
-  };
-
-
-
-
-
-
-
-
-
+      //.replace(/%HEADER_OFFSET%/g, headerOffset * -1)
+    ;
+    //window.console.log(tpl);
+    this._style.innerHTML = tpl;
+  }
+};
 
 
 //===END===
 //
-/*
-interface MediaError {
-  const unsigned short MEDIA_ERR_ABORTED = 1;
-  const unsigned short MEDIA_ERR_NETWORK = 2;
-  const unsigned short MEDIA_ERR_DECODE = 3;
-  const unsigned short MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
-  readonly attribute unsigned short code;
-};
-*/
+
+export {
+  PlayerConfig,
+  VideoWatchOptions,
+  BaseState,
+  PlayerState,
+  NicoVideoPlayerDialog,
+  NicoVideoPlayerDialogView,
+  VideoHoverMenu,
+  DynamicCss
+}

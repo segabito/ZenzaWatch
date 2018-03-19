@@ -1,18 +1,6 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {},
-  api: {}
-};
-var FullScreen = {};
-var NicoCommentPlayer = function() {};
-var AsyncEmitter = function() {};
-const CONSTANT = {};
-class VideoCaptureUtil {}
-const Config = {};
-const util = {};
-class BaseViewComponent {}
+import _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+import {AsyncEmitter} from './util';
 
 //===BEGIN===
 
@@ -87,7 +75,9 @@ const {YouTubeWrapper} = (() => {
           return query.v;
         }
       })();
-      if (!videoId) { return videoId; }
+      if (!videoId) {
+        return videoId;
+      }
 
       // 自動リンクでURLの前後につきそうな文字列を除去
       // たぶんYouTubeのVideoIdには使われない奴
@@ -136,13 +126,15 @@ const {YouTubeWrapper} = (() => {
                 rel: 0,
                 showInfo: 1,
               }
-          });
+            });
         });
       });
     }
 
     _initYT() {
-      if (window.YT) { return Promise.resolve(window.YT); }
+      if (window.YT) {
+        return Promise.resolve(window.YT);
+      }
 
       return new Promise(resolve => {
         if (window.onYouTubeIframeAPIReady) {
@@ -155,7 +147,7 @@ const {YouTubeWrapper} = (() => {
           resolve(window.YT);
         };
         const tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
+        tag.src = 'https://www.youtube.com/iframe_api';
         const firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
       });
@@ -169,7 +161,7 @@ const {YouTubeWrapper} = (() => {
     _onPlayerStateChange(e) {
       const state = e.data;
       const YT = window.YT;
-      switch(state) {
+      switch (state) {
         case YT.PlayerState.ENDED:
           if (this._loop) {
             this.currentTime = 0;
@@ -303,10 +295,20 @@ const {YouTubeWrapper} = (() => {
     }
 
     // 互換のためのダミー実装
-    get videoWidth() { return 1280; }
-    get videoHeight() { return 720; }
-    getAttribute(k) { return this[k]; }
-    removeAttribute() {}
+    get videoWidth() {
+      return 1280;
+    }
+
+    get videoHeight() {
+      return 720;
+    }
+
+    getAttribute(k) {
+      return this[k];
+    }
+
+    removeAttribute() {
+    }
   }
 
   return {YouTubeWrapper};
@@ -316,7 +318,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
 
 //===END===
 
-module.exports = {
+export {
   YouTubeWrapper
 };
 
