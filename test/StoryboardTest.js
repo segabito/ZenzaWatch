@@ -1,7 +1,12 @@
-const assert = require('power-assert');
-const {StoryboardSession, DmcStoryboardInfoLoader} = require('../src/loader/Storyboard');
-const sinon = require('sinon');
+'use strict';
 
+import assert from 'power-assert';
+import {StoryboardSession} from '../src/loader/Storyboard';
+import {DmcStoryboardInfoLoader} from '../src/loader/Storyboard';
+
+// const assert = require('power-assert');
+// const {StoryboardSession} = require('../src/loader/Storyboard');
+// const {DmcStoryboardInfoLoader} = require('../src/loader/Storyboard');
 
 describe('Storyboard apiのテスト', () => {
 
@@ -9,21 +14,21 @@ describe('Storyboard apiのテスト', () => {
     let info = {
       audios: [],
       auth_types: {
-        storyboard: "auth-12345"
+        storyboard: 'auth-12345'
       },
-      content_id: "12345",
+      content_id: '12345',
       content_key_timeout: Math.floor(Math.random() * 60000),
       heartbeat_lifetime: Math.floor(Math.random() * 30000),
       movies: [],
-      player_id: "abcdefg-h-ijklmnopqrstr_1234567890",
+      player_id: 'abcdefg-h-ijklmnopqrstr_1234567890',
       priority: Math.random(),
       protocols: [
-        "niconico"
+        'niconico'
       ],
-      recipe_id: "sushi-sm9",
+      recipe_id: 'sushi-sm9',
       service_user_id: '1234',
       signature: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      token: "12345-token",
+      token: '12345-token',
       urls: [
         {
           is_ssl: Math.random() > 0.5,
@@ -79,49 +84,49 @@ describe('Storyboard apiのテスト', () => {
   });
 
   const metadata = {
-     "meta": {
-      "status": 200,
-      "message": "ok"
-     },
-     "data": {
-      "version": 1,
-      "storyboards": [
-       {
-        "thumbnail_width": Math.floor(Math.random() * 320),
-        "thumbnail_height": Math.floor(Math.random() * 180),
-        "rows": Math.floor(Math.random() * 50),
-        "columns": 10,
-        "interval": 1000,
-        "quality": Math.floor(Math.random() * 100),
-        "images": [
-         {
-          "timestamp": 0,
-          "uri": "http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX1"
-         },
-         {
-          "timestamp": 100000,
-          "uri": "http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX2"
-         }
-        ]
-       },
-       {
-        "thumbnail_width": Math.floor(Math.random() * 320),
-        "thumbnail_height": Math.floor(Math.random() * 180),
-        "rows": Math.floor(Math.random() * 50),
-        "columns": 10,
-        "interval": 1000,
-        "quality": Math.floor(Math.random() * 100),
-        "images": [
-         {
-          "timestamp": 0,
-          "uri": "http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX3"
-         },
-         {
-          "timestamp": 100000,
-          "uri": "http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX4"
-         }
-        ]
-       }
+    'meta': {
+      'status': 200,
+      'message': 'ok'
+    },
+    'data': {
+      'version': 1,
+      'storyboards': [
+        {
+          'thumbnail_width': Math.floor(Math.random() * 320),
+          'thumbnail_height': Math.floor(Math.random() * 180),
+          'rows': Math.floor(Math.random() * 50),
+          'columns': 10,
+          'interval': 1000,
+          'quality': Math.floor(Math.random() * 100),
+          'images': [
+            {
+              'timestamp': 0,
+              'uri': 'http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX1'
+            },
+            {
+              'timestamp': 100000,
+              'uri': 'http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX2'
+            }
+          ]
+        },
+        {
+          'thumbnail_width': Math.floor(Math.random() * 320),
+          'thumbnail_height': Math.floor(Math.random() * 180),
+          'rows': Math.floor(Math.random() * 50),
+          'columns': 10,
+          'interval': 1000,
+          'quality': Math.floor(Math.random() * 100),
+          'images': [
+            {
+              'timestamp': 0,
+              'uri': 'http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX3'
+            },
+            {
+              'timestamp': 100000,
+              'uri': 'http://example.com/storyboard/ht2_nicovideo/nicovideo-smXXXXXX4'
+            }
+          ]
+        }
       ]
     }
   };

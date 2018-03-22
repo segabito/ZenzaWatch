@@ -4,6 +4,7 @@ import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
 import {AsyncEmitter} from './util';
 import {Storyboard} from './StoryBoard';
+import {util} from './util';
 
 //===BEGIN===
 

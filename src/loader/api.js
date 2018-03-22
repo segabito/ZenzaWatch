@@ -1,12 +1,39 @@
 import * as _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
-import {CONSTANT} from './constant';
-import {AsyncEmitter, PopupMessage, WindowMessageEmitter} from './util';
+// import * as Zen from '../ZenzaWatchIndex';
+import {ZenzaWatch} from '../ZenzaWatchIndex';
+import {util, Config, AsyncEmitter, PopupMessage, WindowMessageEmitter} from '../util';
+// import * as _util from '../util';
+// import {Config} from '../util';
+import * as _util from '../util';
+// import * as AsyncEmitter from 'emitter';
+// import events from 'emitter';
+// const AsyncEmitter = events.EventEmitter;
+// console.log('Emitter', AsyncEmitter);
+// const {Config} = _util;
+// let ZenzaWatch = Zen.ZenzaWatch;
+// if (!ZenzaWatch) {
+//   ZenzaWatch = {
+//     api: {},
+//     lib: {},
+//     debug: {},
+//     emitter: {on: () => {}},
+//     init: () => {}
+//   };
+// }
+// import {GateAPI} from './GateAPI';
+// console.log('GateAPI', GateAPI);
+// const Config = _util.Config || {};
+// Config.getValue = Config.getValue || (() => {});
+// Config.setValue = Config.getValue || (() => {});
+// console.log('Zen', Zen);
+// console.log('_util', _util);
+// console.log('Config', Config);
+// console.log('ZenzaWatch', ZenzaWatch);
+// // console.log('doc', document);
+// console.log(Config);
+import {browser} from '../browser';
+const {navigator, location, localStorage, sessionStorage} = browser.window;
 
-const util = ZenzaWatch.util;
-const Config = util.Config;
-const isLogin = util.isLogin;
-const isSameOrigin = util.isSameOrigin;
 const TOKEN = Math.random();
 
 //===BEGIN===
@@ -621,9 +648,9 @@ var ThumbInfoLoader = (function () {
       var cache = cacheStorage.getItem('thumbInfo_' + watchId);
       if (cache) {
         console.log('cache exist: ', watchId);
-        ZenzaWatch.util.callAsync(function () {
+        setTimeout(() => {
           resolve(cache);
-        });
+        }, 0);
         return;
       }
 
@@ -1288,16 +1315,16 @@ var MylistApiLoader = (function () {
         var cacheData = cacheStorage.getItem(cacheKey);
         if (cacheData) {
           console.log('cache exists: ', cacheKey, cacheData);
-          ZenzaWatch.util.callAsync(function () {
+          setTimeout(() => {
             if (options.sort) {
               cacheData = sortItem(cacheData, options.sort, 'www');
             }
             resolve(cacheData);
-          }, this);
+          }, 0);
           return;
         }
 
-        ajax({
+        util.ajax({
           url: url,
           timeout: 60000,
           cache: false,
@@ -1341,16 +1368,16 @@ var MylistApiLoader = (function () {
         var cacheData = cacheStorage.getItem(cacheKey);
         if (cacheData) {
           console.log('cache exists: ', cacheKey, cacheData);
-          ZenzaWatch.util.callAsync(function () {
+          setTimeout(() => {
             if (options.sort) {
               cacheData = sortItem(cacheData, options.sort, 'flapi');
             }
             resolve(cacheData);
-          }, this);
+          }, 0);
           return;
         }
 
-        return ajax({
+        return util.ajax({
           url: url,
           timeout: 60000,
           cache: false,
@@ -1505,13 +1532,13 @@ var MylistApiLoader = (function () {
         var cacheData = cacheStorage.getItem(cacheKey);
         if (cacheData) {
           console.log('cache exists: ', cacheKey, cacheData);
-          ZenzaWatch.util.callAsync(function () {
+          setTimeout(() => {
             resolve(cacheData);
-          });
+          }, 0);
           return;
         }
 
-        ajax({
+        util.ajax({
           url: url,
           timeout: 60000,
           cache: false,
@@ -1843,13 +1870,13 @@ var UploadedVideoApiLoader = (function () {
         var cacheData = cacheStorage.getItem(cacheKey);
         if (cacheData) {
           console.log('cache exists: ', cacheKey, cacheData);
-          ZenzaWatch.util.callAsync(function () {
+          setTimeout(() => {
             resolve(cacheData);
-          }, this);
+          }, 0);
           return;
         }
 
-        return ajax({
+        return util.ajax({
           url: url,
           timeout: 60000,
           cache: false,
@@ -1902,9 +1929,9 @@ _.assign(CrossDomainGate.prototype, {
     switch (this._initializeStatus) {
       case 'done':
         return new Promise(function (resolve) {
-          util.callAsync(function () {
+          setTimeout(() => {
             resolve();
-          });
+          }, 0);
         });
       case 'initializing':
         return new Promise(function (resolve, reject) {

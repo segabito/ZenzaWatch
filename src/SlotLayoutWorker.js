@@ -1,4 +1,3 @@
-import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 
 // const Config = ZenzaWatch.config;

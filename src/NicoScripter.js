@@ -1,8 +1,4 @@
-import _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
-import {AsyncEmitter} from './util';
-
-const util = ZenzaWatch.util;
+import {util, AsyncEmitter} from './util';
 
 //===BEGIN===
 
@@ -63,7 +59,7 @@ class NicoScriptParser {
             v += c;
           }
           break;
-        case "'":
+        case '\'':
         case '"':
           if (v !== '') {
             if (quot !== c) {
@@ -119,7 +115,7 @@ class NicoScriptParser {
             }
           }
           break;
-        case "'":
+        case '\'':
         case '"':
           if (v !== '') {
             if (quot !== c) {
@@ -138,16 +134,16 @@ class NicoScriptParser {
             quot = c;
           }
           break;
-        case "「":
+        case '「':
           if (v !== '') {
             v += c;
           } else {
             quot = c;
           }
           break;
-        case "」":
+        case '」':
           if (v !== '') {
-            if (quot !== "「") {
+            if (quot !== '「') {
               v += c;
             } else {
               if (lastC === '\\') {
@@ -176,7 +172,7 @@ class NicoScriptParser {
 
   static parseNicos(text) {
     text = text.trim();
-    let text1 = (text || '').split(/[ 　:：]+/)[0];
+    let text1 = (text || '').split(/[ 　:：]+/)[0]; // eslint-disable-line
     let params;
     let type;
     switch (text1) {
@@ -233,7 +229,7 @@ class NicoScriptParser {
             v += c;
           }
           break;
-        case "'":
+        case '\'':
         case '"':
           if (isStr) {
             if (quot === c) {
@@ -312,8 +308,10 @@ class NicoScriptParser {
 
   static parse逆(str) {
     let tmp = NicoScriptParser.parseNicosParams(str);
+    /* eslint-disable */
     //var tmp = str.split(/[ 　]+/);
     //＠逆　投コメ
+    /* eslint-enable */
     let target = (tmp[1] || '').trim();
     //＠置換キーワード置換後置換範囲投コメ一致条件
     return {
@@ -344,7 +342,7 @@ class NicoScriptParser {
 
   static parseジャンプマーカー(str) {
     let tmp = NicoScriptParser.parseNicosParams(str);
-    let name = tmp[0].split(/[:： 　]/)[1];
+    let name = tmp[0].split(/[:： 　]/)[1]; // eslint-disable-line
     return {name};
   }
 
@@ -431,10 +429,11 @@ class NicoScripter extends AsyncEmitter {
         case 'SEEK':
           this.emit('command', 'nicosSeek', Math.max(0, p.params.time * 1 + diff));
           break;
-        case 'SEEK_MARKER':
+        case 'SEEK_MARKER': {
           let time = this._marker[p.params.time] || 0;
           this.emit('command', 'nicosSeek', Math.max(0, time + diff));
           break;
+        }
       }
     });
   }
@@ -629,9 +628,10 @@ class NicoScripter extends AsyncEmitter {
 //===END===
 
 export {
-  parseParams: NicoScriptParser.parseParams,
-  parseNicosParams: NicoScriptParser.parseNicosParams,
-  splitLines: NicoScriptParser.splitLines
+  NicoScripter,
+  NicoScriptParser
 };
-
+/* eslint-disable */
 //＠置換　U　「( ˘ω˘)ｽﾔｧ」 全
+/* eslint-enable */
+

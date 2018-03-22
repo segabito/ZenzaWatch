@@ -1,10 +1,4 @@
-import {ZenzaWatch} from '../ZenzaWatchIndex';
-
-const util = ZenzaWatch.util;
-
-// const location = {
-//   protocol: 'http:'
-// };
+import {util} from '../util';
 
 //===BEGIN===
 

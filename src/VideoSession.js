@@ -1,7 +1,4 @@
-import {ZenzaWatch} from './ZenzaWatchIndex';
-
-const util = ZenzaWatch.util;
-import {PopupMessage} from './util';
+import {util, PopupMessage} from './util';
 
 //===BEGIN===
 

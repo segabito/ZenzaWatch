@@ -1,12 +1,13 @@
-import * as $ from 'jquery';
-import * as _ from 'lodash';
+// import * as $ from 'jquery';
+// import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {AsyncEmitter} from './util';
-import {PopupMessage} from './util';
-import {FrameLayer} from './util';
+import {util, AsyncEmitter, FrameLayer} from './util';
 import {CONSTANT} from './constant';
+import {NicoSearchApiV2Loader} from './loader/VideoSearch';
 
-const util = ZenzaWatch.util;
+const MylistPocketDetector = {
+  detect: () => { return Promise.resolve(); }
+};
 
 //===BEGIN===
 

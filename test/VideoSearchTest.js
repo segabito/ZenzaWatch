@@ -1,7 +1,5 @@
-'use strict';
-
-const assert = require('assert');
-const {NicoSearchApiV2Query} = require('../src/loader/VideoSearch.js');
+import assert from 'power-assert';
+import {NicoSearchApiV2Query} from '../src/loader/VideoSearch';
 const {F_RANGE, L_RANGE} = NicoSearchApiV2Query;
 
 describe('Video Search API v2', () => {

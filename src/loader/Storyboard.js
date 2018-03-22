@@ -1,12 +1,6 @@
 import * as $ from 'jquery';
-import * as _ from 'lodash';
 import {ZenzaWatch} from '../ZenzaWatchIndex';
-
-const util = ZenzaWatch.util;
-// const location = {
-//   protocol: 'http:'
-// };
-
+import {util} from '../util';
 
 //===BEGIN===
 

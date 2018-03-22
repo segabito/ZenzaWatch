@@ -1,10 +1,7 @@
-import * as $ from 'jquery';
-import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
+import {BaseViewComponent, util} from './util';
+import {TagEditApi} from './loader/TagEditApi';
 
-const util = ZenzaWatch.util;
-const TagEditApi = function () {
-};
 
 //===BEGIN===
 

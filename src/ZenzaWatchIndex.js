@@ -1,22 +1,28 @@
-import {util, Config} from './util';
+import {Config, AsyncEmitter, util} from './util';
 
 const PRODUCT = 'ZenzaWatch';
 const ZenzaWatch = {
-  config: Config,
-  util,
+  config: Config || {},
+  util: util || {},
   debug: {
     contextMenu: {},
     dialog: {},
-    getInViewElements: function () {
+    getInViewElements: () => {
       return [];
     },
-    ping: function () {
+    ping: () => {
       return Promise.resolve();
     },
-    video: HTMLElement,
+    video: {}, /* HTMLElement */
     watchApiData: {}
   },
-  api: {}
+  api: {},
+  external: {},
+  lib: {},
+  init: {},
+  emitter: new AsyncEmitter(),
+  ready: false,
+  version: '1.0.0'
 };
 
 export {

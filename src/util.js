@@ -1,44 +1,29 @@
 import _ from 'lodash';
-import $ from 'jQuery';
-import {ZenzaWatch, PRODUCT} from './ZenzaWatchIndex';
+import * as jQuery from 'jQuery';
 import {CONSTANT} from './constant';
-import * as loader from './loader';
+import {browser} from './browser';
+const {navigator, location} = browser.window;
 
-const util = {};
-let console = null;
-const CrossDomainGate = loader.CrossDomainGate;
-const NicoVideoApi = {
-  load: _.noop
+const $ = jQuery.default;
+const ZenzaWatch = {
+  debug: {},
+  api: {},
+  external: {},
+  lib: {}
 };
 
-// const location = {
-//   host: 'www.nicovideo.jp'
-// };
-// const navigator = {
-//   userAgent: 'Mozilla'
-// };
-// const localStorage = {
-//   getItem: function () {
-//   }
-// };
-// const jQuery = function () {
-//   return {
-//     on: function () {
-//     }
-//   };
-// };
-// const sessionStorage = localStorage;
-// const window = {
-//   ZenzaWatch,
-//   location,
-//   navigator,
-//   jQuery,
-//   localStorage,
-//   sessionStorage,
-//   addEventListener: function () {
-//   }
-// };
-// const document = {};
+const window = browser.window;
+const document = browser.document;
+let console = window.console;
+
+Object.assign(window, {
+  ZenzaWatch,
+});
+
+const PRODUCT = 'ZenzaWatch';
+let NicoVideoApi = {};
+let CrossDomainGate = () => {};
+const util = {};
 
 
 //===BEGIN===

@@ -1,20 +1,14 @@
-const $ = require('jquery');
-const _ = require('lodash');
-const ZenzaWatch = {
-  util:{},
-  debug: {}
-};
-const util = {};
-const Config = {};
-const RelatedVideoList = function() {};
-const AsyncEmitter = function() {};
-const CONSTANT = {};
-const MylistPocketDetector = {};
-const IchibaLoader = {};
-const UaaLoader = {};
-const PRODUCT = 'ZenzaWatch';
-const TagEditApi = function() {};
-const PlaylistLoader = {load: () => {}};
+import * as $ from 'jquery';
+import * as _ from 'lodash';
+import {ZenzaWatch} from './ZenzaWatchIndex';
+import {CONSTANT} from './constant';
+import {util, Config, AsyncEmitter, MylistPocketDetector} from './util';
+import {IchibaLoader} from './loader/api';
+import {UaaLoader} from './loader/api';
+import {PlaylistLoader} from './loader/api';
+import {RelatedVideoList} from './VideoList';
+import {TagListView} from './TagListView';
+import {BaseViewComponent} from './util';
 
 //===BEGIN===
 

@@ -1,6 +1,6 @@
-import _ from 'lodash';
+import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {AsyncEmitter} from './util';
+import {util, AsyncEmitter} from './util';
 
 //===BEGIN===
 
@@ -82,7 +82,7 @@ const {YouTubeWrapper} = (() => {
       // 自動リンクでURLの前後につきそうな文字列を除去
       // たぶんYouTubeのVideoIdには使われない奴
       return videoId
-        .replace(/[\?\[\]\(\)"'@]/g, '')
+        .replace(/[?[\]()"'@]/g, '')
         .replace(/<[a-z0-9]*>/, '');
     }
 

@@ -1,10 +1,9 @@
-var assert = require('assert');
-var nicos = require('../src/NicoScripter.js');
+// var assert = require('assert');
+// var nicos = require('../src/NicoScripter.js');
+import assert from 'power-assert';
+import {NicoScriptParser} from '../src/NicoScripter';
 
-
-describe('hoge', function() {
-  assert.equal(nicos.hoge(), true);
-});
+const nicos = NicoScriptParser;
 
 describe('parseParams', function() {
   it('ニワン語シングルクォート、ダブルクォート対応', function() {

@@ -1,0 +1,5 @@
+--compilers js:babel-register
+--recursive
+--require babel-polyfill
+--require mock-local-storage
+--require ./test/setup.js

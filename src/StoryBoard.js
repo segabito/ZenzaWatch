@@ -1,16 +1,12 @@
 import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {AsyncEmitter} from './util';
+import {util, AsyncEmitter} from './util';
+import {StoryboardSession} from './loader/Storyboard';
 
-var DmcStoryboardSession = {
-  create: function () {
-    return Promise.resolve();
-  }
-};
+/* eslint-disable */
 // シークバーのサムネイル関連
 // 動ける間になんとか作り上げよう
-
 /*
 // マスコットキャラクターのサムネーヨちゃん サムネイルがない時にあらわれる
 　 ∧  ∧　  　┌────────────
@@ -20,8 +16,8 @@ var DmcStoryboardSession = {
 　　　　 ＼　　　　　／
 　　　　　 ∪∪￣∪∪
 */
+/* eslint-enable */
 
-// TODO: StoryBoard.js -> Storyboard.js に変更
 //===BEGIN===
 
 
@@ -729,7 +725,7 @@ _.assign(StoryboardBlockList.prototype, {
 
 var StoryboardView = function () {
   this.initialize.apply(this, arguments);
-}
+};
 _.extend(StoryboardView.prototype, AsyncEmitter.prototype);
 
 _.assign(StoryboardView.prototype, {
@@ -1323,4 +1319,4 @@ export {
   StoryboardBlockBorder,
   StoryboardBlockList,
   StoryboardView
-}
+};

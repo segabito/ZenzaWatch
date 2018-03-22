@@ -56,15 +56,7 @@
         _: _
       },
       external: {},
-      util: {
-        callAsync: function (func, self, delay) {
-          delay = delay || 0;
-          if (self) {
-            func = func.bind(self);
-          }
-          window.setTimeout(func, delay);
-        }
-      }
+      util: {}
     };
 
     if (location.host.match(/\.nicovideo\.jp$/)) {
@@ -79,7 +71,7 @@
 
 //@require util.js
 
-//@require loader.js
+//@require loader/api.js
 
 //@require VideoInfo.js
 
@@ -160,39 +152,6 @@
 
   }; // end of monkey
 
-  let loadLodash = function () {
-    if (window._) {
-      return Promise.resolve();
-    }
-    console.info('load lodash from cdn...');
-
-    return new Promise((resolve, reject) => {
-      let script = document.createElement('script');
-      script.id = 'lodashLoader';
-      script.setAttribute('type', 'text/javascript');
-      script.setAttribute('charset', 'UTF-8');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js';
-      document.body.appendChild(script);
-      let count = 0;
-
-      let tm = setInterval(() => {
-        count++;
-
-        if (window._) {
-          clearInterval(tm);
-          resolve();
-          return;
-        }
-
-        if (count >= 100) {
-          clearInterval(tm);
-          console.error('load lodash timeout');
-          reject();
-        }
-
-      }, 300);
-    });
-  };
 
 
 //@require exApi.js
@@ -206,15 +165,15 @@
   let prot = location.protocol;
   if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
     window.name === 'nicovideoApiLoader') {
-    loadLodash().then(nicovideoApi);
+    nicovideoApi();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
-    loadLodash().then(smileApi);
+    smileApi();
   } else if (host === 'api.search.nicovideo.jp' && window.name.startsWith('searchApiLoader')) {
-    loadLodash().then(searchApi);
+    searchApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
-    loadLodash().then(thumbInfoApi);
+    thumbInfoApi();
   } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
-    loadLodash().then(exApi);
+    exApi();
   } else if (window === window.top) {
     // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
     // 先にiframeだけ作っておく
@@ -230,6 +189,39 @@
       document.body.appendChild(iframe);
     }
 
+    let loadLodash = function () {
+      if (window._) {
+        return Promise.resolve();
+      }
+      console.info('load lodash from cdn...');
+
+      return new Promise((resolve, reject) => {
+        let script = document.createElement('script');
+        script.id = 'lodashLoader';
+        script.setAttribute('type', 'text/javascript');
+        script.setAttribute('charset', 'UTF-8');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js';
+        document.body.appendChild(script);
+        let count = 0;
+
+        let tm = setInterval(() => {
+          count++;
+
+          if (window._) {
+            clearInterval(tm);
+            resolve();
+            return;
+          }
+
+          if (count >= 100) {
+            clearInterval(tm);
+            console.error('load lodash timeout');
+            reject();
+          }
+
+        }, 300);
+      });
+    };
 
     let loadGm = function () {
       let script = document.createElement('script');
