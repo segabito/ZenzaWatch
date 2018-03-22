@@ -1,5 +1,8 @@
 .eslintignore.js
-src/index.js
+src/_template.js
 *.user.js
 gulpfile.babel.js
 build.js
+webpack.config.js
+lib/*
+ZenzaWatch.user\ *.js

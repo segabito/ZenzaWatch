@@ -4,12 +4,14 @@ module.exports = {
     "es6": true
   },
   "extends": "eslint:recommended",
+  // "parser": "babel-eslint",
   "parserOptions": {
-    "sourceType": "module"
+    "sourceType": "module",
+    "ecmaVersion": 2017
   },
   "rules": {
     "indent": [
-      "warn", // "error",
+      0, //"warn", // "error",
       2,
       {"SwitchCase": 1}
     ],
@@ -27,10 +29,14 @@ module.exports = {
     ],
     "no-unused-vars": 1,
     "no-console": 0,
-    "no-extra-boolean-cast": 0
+    "no-extra-boolean-cast": 0,
+    "no-empty": 1,
+    "no-var": 1
   },
   "globals": {
     "_": true,
-    "$": true
+    "$": true,
+    "describe": true,
+    "it": true
   }
 };
