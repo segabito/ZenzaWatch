@@ -6,7 +6,7 @@ const util = ZenzaWatch.util;
 
 //===BEGIN===
 
-var CommentLayoutWorker = (function (config, NicoChat, NicoCommentViewModel) {
+var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/) {
   var func = function (self) {
 
     // 暫定設置

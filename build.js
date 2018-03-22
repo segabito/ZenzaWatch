@@ -1,6 +1,6 @@
 var srcDir = './src';
-var indexFile =  'index.js';
-var outFile = 'ZenzaWatch.user.js';
+var templateFile =  '_template.js';
+var outFile = 'dist/ZenzaWatch.user.js';
 
 function writeIfModified(file, newData, callback) {
   var fs = require('fs');
@@ -65,7 +65,7 @@ function deploy(srcFile) {
 }
 
 
-function loadIndexFile(srcDir, indexFile, outFile) {
+function loadTemplateFile(srcDir, indexFile, outFile) {
   var fs = require('fs');
   var lines = [];
   var ver = null;
@@ -96,7 +96,7 @@ function loadIndexFile(srcDir, indexFile, outFile) {
 }
 
 function build() {
-  loadIndexFile(srcDir, indexFile, outFile);
+  loadTemplateFile(srcDir, templateFile, outFile);
 }
 
 function watch(srcDir) {

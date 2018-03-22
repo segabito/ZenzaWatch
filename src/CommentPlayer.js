@@ -1,31 +1,24 @@
 import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {CONSTANT} from './constant';
-import {util, AsyncEmitter, PopupMessage, VideoCaptureUtil} from './util';
+import {util, Config, AsyncEmitter, PopupMessage, VideoCaptureUtil} from './util';
 import {CommentLayoutWorker} from './CommentLayoutWorker';
-
-const Config = ZenzaWatch.config;
-// const AsyncEmitter = {};
-// const PopupMessage = {};
-const NicoTextParser = {};
-// const CommentLayoutWorker = {};
-const SlotLayoutWorker = {};
-const VideoCaptureUtil = {};
-const util = ZenzaWatch.util;
+import {NicoScripter} from './NicoScripter';
+import {NicoTextParser} from './NicoTextParser';
+import {SlotLayoutWorker} from './SlotLayoutWorker';
 
 //===BEGIN===
 
 
 // 大百科より
-var SHARED_NG_LEVEL = {
+const SHARED_NG_LEVEL = {
   NONE: 'NONE',
   LOW: 'LOW',
   MID: 'MID',
   HIGH: 'HIGH',
   MAX: 'MAX'
 };
-var SHARED_NG_SCORE = {
+const SHARED_NG_SCORE = {
   NONE: -99999,//Number.MIN_VALUE,
   LOW: -10000,
   MID: -5000,
@@ -97,9 +90,9 @@ _.assign(NicoCommentPlayer.prototype, {
   _onCommentChange: function (e) {
     console.log('onCommentChange', e);
     if (this._view) {
-      ZenzaWatch.util.callAsync(function () {
+      setTimeout(() => {
         this._view.refresh();
-      }, this);
+      }, 0);
     }
     this.emit('change');
   },
@@ -567,7 +560,6 @@ NicoComment.offScreenLayer = (function () {
   var offScreenFrame;
   var offScreenLayer;
   var textField;
-  var layoutStyle;
   var optionStyle;
   var config;
 
@@ -577,7 +569,7 @@ NicoComment.offScreenLayer = (function () {
       var baseFont = config.getValue('baseFontFamily');
       var inner = optionStyle.innerHTML;
       if (baseFont) {
-        baseFont = baseFont.replace(/[;{}\*\/]/g, '');
+        baseFont = baseFont.replace(/[;{}*/]/g, '');
         tmp.push(
           [
             '.gothic    {font-family: %BASEFONT%; }\n',
@@ -621,7 +613,6 @@ NicoComment.offScreenLayer = (function () {
       var getElements = function () {
         var doc = offScreenFrame.contentWindow.document;
         layer = doc.getElementById('offScreenLayer');
-        layoutStyle = doc.getElementById('layoutCss');
         optionStyle = doc.getElementById('optionCss');
       };
 
@@ -1274,7 +1265,7 @@ NicoChat.TYPE = {
   BOTTOM: 'shita'
 };
 
-NicoChat._CMD_DURATION = /(@|＠)([0-9\.]+)/;
+NicoChat._CMD_DURATION = /(@|＠)([0-9.]+)/;
 NicoChat._CMD_REPLACE = /(ue|shita|sita|big|small|ender|full|[ ])/g;
 NicoChat._COLOR_MATCH = /(#[0-9a-f]+)/i;
 NicoChat._COLOR_NAME_MATCH = /([a-z]+)/i;
@@ -1367,7 +1358,7 @@ _.assign(NicoChat.prototype, {
     // fork * 100000000を足してるのは苦し紛れの措置. いつか直す (本当に？)
     this._no =
       parseInt(chat.getAttribute('no') || '0', 10) + this._fork * 100000000;
-    if (this._fork > 0 && text.match(/^[\/＠@]/)) {
+    if (this._fork > 0 && text.match(/^[/＠@]/)) {
       this._isNicoScript = true;
       this._isInvisible = true;
     }
@@ -1897,10 +1888,13 @@ _.assign(NicoChatViewModel.prototype, {
         NicoCommentViewModel.SCREEN.WIDTH_INNER;
     var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
     var isEnder = nicoChat.isEnder();
+    /* eslint-disable */
     //メモ
     //█　　　　　　　　　　　　　　　　　　　　　　　　　　　█
     // メモ
     // "        "
+    /* eslint-enable */
+
 
     var originalScale = this._scale;
     // 改行リサイズ
@@ -2281,7 +2275,7 @@ var NicoCommentCss3PlayerView = function () {
 _.extend(NicoCommentCss3PlayerView.prototype, AsyncEmitter.prototype);
 
 NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
-
+/* eslint-disable */
 NicoCommentCss3PlayerView.__TPL__ = (`
 <!DOCTYPE html>
 <html lang="ja">
@@ -2365,7 +2359,6 @@ body.in-capture .commentLayer {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  content: layout;
 }
 
 .debug .commentLayer {
@@ -2555,13 +2548,13 @@ body.in-capture .commentLayer {
 
 .nicoChat.fork1 {
   text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
 }
 .nicoChat.ue.fork1,
 .nicoChat.shita.fork1 {
   display: inline-block;
   text-shadow: 0 0 3px #080 !important;
-  -webkit-text-stroke: none;
+  -webkit-text-stroke: unset;
 }
 
 .nicoChat.fork2 {
@@ -2643,6 +2636,7 @@ spacer {
 </body></html>
 
   `).trim();
+/* eslint-enable */
 
 _.assign(NicoCommentCss3PlayerView.prototype, {
   initialize: function (params) {
@@ -3089,7 +3083,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
   /*
      * 古い順に要素を除去していく
      */
-  _gcInviewElements: function (outViewIds) {
+  _gcInviewElements: function (/*outViewIds*/) {
     if (!this._commentLayer || !this._style) {
       return;
     }

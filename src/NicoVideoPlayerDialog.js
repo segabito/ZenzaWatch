@@ -2,26 +2,17 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {PlaybackPosition} from './loader';
-import {FullScreen} from './util';
-import {VideoInfoLoader} from './loader';
-import {PopupMessage} from './util';
-import {ShortcutKeyEmitter} from './util';
+import {MessageApiLoader, PlaybackPosition, VideoInfoLoader} from './loader/api';
+import {AsyncEmitter, FullScreen, PopupMessage, ShortcutKeyEmitter, util} from './util';
 import {NicoVideoPlayer} from './NicoVideoPlayer';
-import {MessageApiLoader} from './loader';
-import {AsyncEmitter} from './util';
-import {VideoInfoModel} from './VideoInfo';
+import {VideoFilter, VideoInfoModel} from './VideoInfo';
 import {CommentInputPanel} from './CommentInputPanel';
 import {CommentPanel} from './CommentPanel';
-import {VideoFilter} from './VideoInfo';
 import {VideoControlBar} from './VideoControlBar';
 import {VideoInfoPanel} from './VideoInfoPanel';
 import {SettingPanel} from './SettingPanel';
-import {Playlist} from './VideoList';
-import {PlaylistSession} from './VideoList';
+import {Playlist, PlaylistSession} from './VideoList';
 import {VideoSession} from './VideoSession';
-
-const util = ZenzaWatch.util;
 
 //===BEGIN===
 var PlayerConfig = function () {

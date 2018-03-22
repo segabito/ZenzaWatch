@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.15.6
+// @version        1.15.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -65,11 +65,14 @@
       window.ZenzaWatch = {};
     }
 
-    const util = ZenzaWatch.util;
 
+    let util = ZenzaWatch.util;
 //@require constant.js
 
 //@require util.js
+    const debug = ZenzaWatch.debug;
+    const emitter = ZenzaWatch.emitter;
+    ZenzaWatch.lib.AsyncEmitter = AsyncEmitter;
 
 //@require loader/api.js
 
@@ -119,183 +122,49 @@
 
 //@require initializer.js
 
-    if (window.name !== 'commentLayerFrame') {
-      if (location.host === 'www.nicovideo.jp') {
-        initialize();
-      } else {
-        NicoVideoApi.configBridge(Config).then(() => {
-          window.console.log('%cZenzaWatch Bridge: %s', 'background: lightgreen;', location.host);
-          if (document.getElementById('siteHeaderNotification')) {
-            initialize();
-            return;
-          }
-          NicoVideoApi.ajax({url: '//www.nicovideo.jp/'})
-            .then(function (result) {
-              let $dom = $('<div>' + result + '</div>');
-              let isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
-              let isPremium =
-                $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
-              window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
-              util.isLogin = () => {
-                return isLogin;
-              };
-              util.isPremium = () => {
-                return isPremium;
-              };
-              initialize();
-            });
-        }, function () {
-          window.console.log('ZenzaWatch Bridge disabled');
-        });
-      }
+//@require parts/CustomElements.js
+
+    if (window.name === 'commentLayerFrame') {
+      return;
     }
+
+    if (location.host === 'www.nicovideo.jp') {
+      return initialize();
+    }
+
+    NicoVideoApi.configBridge(Config).then(() => {
+      window.console.log('%cZenzaWatch Bridge: %s', 'background: lightgreen;', location.host);
+      if (document.getElementById('siteHeaderNotification')) {
+        initialize();
+        return;
+      }
+      NicoVideoApi.ajax({url: '//www.nicovideo.jp/'})
+        .then(result => {
+          let $dom = $('<div>' + result + '</div>');
+          let isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
+          let isPremium =
+            $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
+          window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
+          util.isLogin = () => {
+            return isLogin;
+          };
+          util.isPremium = () => {
+            return isPremium;
+          };
+          initialize();
+        });
+    }, () => {
+      window.console.log('ZenzaWatch Bridge disabled');
+    });
+
 
   }; // end of monkey
 
 
+//@require loader/GateAPI.js
 
-//@require exApi.js
+//@require boot.js
 
-  if (window.ZenzaWatch) {
-    return;
-  }
-  let document = window.document;
-  let host = window.location.host || '';
-  let href = (location.href || '').replace(/#.*$/, '');
-  let prot = location.protocol;
-  if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
-    window.name === 'nicovideoApiLoader') {
-    nicovideoApi();
-  } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
-    smileApi();
-  } else if (host === 'api.search.nicovideo.jp' && window.name.startsWith('searchApiLoader')) {
-    searchApi();
-  } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
-    thumbInfoApi();
-  } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoaderLoader') >= 0) {
-    exApi();
-  } else if (window === window.top) {
-    // ロードのタイミングによって行儀の悪い広告に乗っ取られることがあるので
-    // 先にiframeだけ作っておく
-    // 効果はいまいち・・・
-    let iframe;
-    for (let i = 0; i < 3; i++) {
-      iframe = document.createElement('iframe');
-      iframe.className = 'reservedFrame';
-      iframe.style.position = 'fixed';
-      iframe.style.left = '-9999px';
-      iframe.srcdocType = typeof iframe.srcdoc;
-      iframe.srcdoc = '<html></html>';
-      document.body.appendChild(iframe);
-    }
+  boot(monkey, PRODUCT, START_PAGE_QUERY);
 
-    let loadLodash = function () {
-      if (window._) {
-        return Promise.resolve();
-      }
-      console.info('load lodash from cdn...');
-
-      return new Promise((resolve, reject) => {
-        let script = document.createElement('script');
-        script.id = 'lodashLoader';
-        script.setAttribute('type', 'text/javascript');
-        script.setAttribute('charset', 'UTF-8');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js';
-        document.body.appendChild(script);
-        let count = 0;
-
-        let tm = setInterval(() => {
-          count++;
-
-          if (window._) {
-            clearInterval(tm);
-            resolve();
-            return;
-          }
-
-          if (count >= 100) {
-            clearInterval(tm);
-            console.error('load lodash timeout');
-            reject();
-          }
-
-        }, 300);
-      });
-    };
-
-    let loadGm = function () {
-      let script = document.createElement('script');
-      script.id = 'ZenzaWatchLoader';
-      script.setAttribute('type', 'text/javascript');
-      script.setAttribute('charset', 'UTF-8');
-      script.appendChild(
-        document.createTextNode(`(${monkey})('${PRODUCT}', '${encodeURIComponent(START_PAGE_QUERY)}');`));
-      document.body.appendChild(script);
-    };
-
-    const MIN_JQ = 10000600000;
-    let getJQVer = function () {
-      if (!window.jQuery) {
-        return 0;
-      }
-      let ver = [];
-      let t = window.jQuery.fn.jquery.split('.');
-      while (t.length < 3) {
-        t.push(0);
-      }
-      t.forEach((v) => {
-        ver.push((v * 1 + 100000).toString().substr(1));
-      });
-      return ver.join('') * 1;
-    };
-
-    let loadJq = function () {
-      console.log('JQVer: ', getJQVer());
-      console.info('load jQuery from cdn...');
-
-      return new Promise((resolve, reject) => {
-        let $j = window.jQuery || null;
-        let $$ = window.$ || null;
-        let script = document.createElement('script');
-        script.id = 'jQueryLoader';
-        script.setAttribute('type', 'text/javascript');
-        script.setAttribute('charset', 'UTF-8');
-        script.src = 'https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js';
-        document.body.appendChild(script);
-        let count = 0;
-
-        let tm = setInterval(() => {
-          count++;
-
-          if (getJQVer() >= MIN_JQ) {
-            clearInterval(tm);
-            window.ZenzaJQuery = window.jQuery;
-            if ($j) {
-              window.jQuery = $j;
-            }
-            if ($$) {
-              window.$ = $$;
-            }
-            resolve();
-            return;
-          }
-
-          if (count >= 100) {
-            clearInterval(tm);
-            console.error('load jQuery timeout');
-            reject();
-          }
-
-        }, 300);
-      });
-    };
-
-    loadLodash().then(() => {
-      if (getJQVer() >= MIN_JQ) {
-        loadGm();
-      } else {
-        loadJq().then(loadGm);
-      }
-    });
-  }
 })(window.unsafeWindow || window);

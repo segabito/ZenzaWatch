@@ -77,7 +77,7 @@ class TagListView extends BaseViewComponent {
       case 'addTag':
         this._addTag(param);
         break;
-      case 'removeTag':
+      case 'removeTag': {
         let elm = this._elm.videoTags.querySelector(`.tagItem[data-tag-id="${param}"]`);
         if (!elm) {
           return;
@@ -86,6 +86,7 @@ class TagListView extends BaseViewComponent {
         let data = JSON.parse(elm.getAttribute('data-tag'));
         this._removeTag(param, data.tag);
         break;
+      }
       default:
         this.emit('command', command, param);
         break;

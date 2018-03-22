@@ -1,5 +1,6 @@
 import _ from 'lodash';
 import {AsyncEmitter} from './util';
+import {NicoComment, NicoCommentViewModel, NicoCommentCss3PlayerView} from './CommentPlayer';
 const Emitter = AsyncEmitter;
 
 //===BEGIN===
@@ -70,7 +71,7 @@ body {
   `).trim();
 
 
-const {CommentLayer} = (({}) => {
+const {CommentLayer} = (() => {
   const OffscreenLayer = (() => {
     const __offscreen_tpl__ = (`
     <!DOCTYPE html>
@@ -224,7 +225,7 @@ const {CommentLayer} = (({}) => {
 
 
   class NicoChat extends Emitter {
-    constructor({chat, videoDuration}) {
+    constructor({chat/*, videoDuration*/}) {
       super();
       this._id = 'chat' + NicoChat.id++;
       this._currentTime = 0;
@@ -315,6 +316,6 @@ const {CommentLayer} = (({}) => {
 //===END===
 //
 //
-module.exports = {
+export {
   CommentLayer
 };

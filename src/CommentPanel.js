@@ -1,7 +1,6 @@
 import _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {CONSTANT} from './constant';
-import {util, AsyncEmitter, PopupMessage, FrameLayer, BaseViewComponent} from './util';
+import {AsyncEmitter, BaseViewComponent, FrameLayer, util} from './util';
 
 //===BEGIN===
 
@@ -1818,7 +1817,7 @@ TimeMachineView._shadow_ = (`
     </div>
   `).trim();
 
-TimeMachineView.__tpl__ = (`<div class="TimeMachineView forMember"></div>`).trim();
+TimeMachineView.__tpl__ = ('<div class="TimeMachineView forMember"></div>').trim();
 
 
 //===END===

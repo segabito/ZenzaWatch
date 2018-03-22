@@ -1,5 +1,7 @@
-import {ZenzaWatch} from '../ZenzaWatchIndex';
-
+// import {ZenzaWatch} from '../ZenzaWatchIndex';
+import {util} from '../util';
+import {CrossDomainGate} from './api';
+import {WindowMessageEmitter} from '../util';
 // const location = {
 //   protocol: 'http:'
 // };

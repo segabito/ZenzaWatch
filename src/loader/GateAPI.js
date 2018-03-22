@@ -1,10 +1,6 @@
 //===BEGIN===
-const {
-  thumbInfoApi,
-  nicovideoApi,
-  smileApi,
-  searchApi
-} = (() => {
+
+const GateAPI = (() => {
   let xmlHttp = function (options) {
     try {
       //window.console.log('xmlHttp bridge: ', options.url, options);
@@ -52,17 +48,6 @@ const {
       alert(e);
       console.log('err', e);
     }
-  };
-
-  let parseQuery = function (query) {
-    let result = {};
-    query.split('&').forEach(function (item) {
-      let sp = item.split('=');
-      let key = sp[0];
-      let val = decodeURIComponent(sp.slice(1).join('='));
-      result[key] = val;
-    });
-    return result;
   };
 
   const parseUrl = (url) => {
@@ -183,7 +168,7 @@ const {
 
   const HOST_REG = /^[a-z0-9]*\.nicovideo\.jp$/;
 
-  let thumbInfoApi = function () {
+  let thumbInfo = function () {
     if (window.name.indexOf('thumbInfoLoader') < 0) {
       return;
     }
@@ -262,7 +247,7 @@ const {
     }
   };
 
-  let nicovideoApi = function () {
+  let nicovideo = function () {
     if (window.name.indexOf('nicovideoApiLoader') < 0) {
       return;
     }
@@ -283,7 +268,6 @@ const {
     let token = location.hash ? location.hash.substring(1) : null;
     location.hash = '';
 
-    let originalUrl = location.href;
     let pushHistory = function (path) {
       // ブラウザの既読リンクの色をつけるためにreplaceStateする
       // という目的だったのだが、iframeの中では効かないようだ。残念。
@@ -431,7 +415,7 @@ const {
   };
 
 
-  let smileApi = function () {
+  let smile = function () {
     if (window.name.indexOf('storyboard') < 0) {
       return;
     }
@@ -524,7 +508,7 @@ const {
 
   };
 
-  const searchApi = function () {
+  const search = function () {
     if (window.name.indexOf('search') < 0) {
       return;
     }
@@ -564,18 +548,14 @@ const {
   };
 
   return {
-    thumbInfoApi,
-    nicovideoApi,
-    smileApi,
-    searchApi
+    thumbInfo,
+    nicovideo,
+    smile,
+    search
   };
 })();
 
 //===END===
 
-export {
-  thumbInfoApi,
-  nicovideoApi,
-  smileApi,
-  searchApi
-};
+
+export {GateAPI};

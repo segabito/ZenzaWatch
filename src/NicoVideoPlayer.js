@@ -2,12 +2,9 @@ import _ from 'lodash';
 import $ from 'jQuery';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {NicoCommentPlayer} from './CommentPlayer';
-import {AsyncEmitter, FullScreen, VideoCaptureUtil, BaseViewComponent} from './util';
+import {util, Config, AsyncEmitter, FullScreen, VideoCaptureUtil, BaseViewComponent} from './util';
 import {YouTubeWrapper} from './YouTubeWrapper';
 import {CONSTANT} from './constant';
-
-const Config = ZenzaWatch.config;
-const util = ZenzaWatch.util;
 
 
 //===BEGIN===

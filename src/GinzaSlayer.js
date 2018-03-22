@@ -1,7 +1,6 @@
 import * as $ from 'jquery';
-import {util, AsyncEmitter} from './util';
+import {util} from './util';
 
-const Config = ZenzaWatch.config;
 const getWatchId = util.getWatchId;
 
 //===BEGIN===
