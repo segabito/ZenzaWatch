@@ -1,4 +1,5 @@
-import {Config, AsyncEmitter, util} from './util';
+import {Emitter, Handler, Observable} from './baselib';
+import {Config, util} from './util';
 
 const PRODUCT = 'ZenzaWatch';
 const ZenzaWatch = {
@@ -19,8 +20,13 @@ const ZenzaWatch = {
   api: {},
   external: {},
   lib: {},
+  modules: {
+    Emitter,
+    Handler,
+    Observable
+  },
   init: {},
-  emitter: new AsyncEmitter(),
+  emitter: new Emitter(),
   ready: false,
   version: '1.0.0'
 };
