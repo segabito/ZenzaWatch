@@ -13,6 +13,7 @@ import {VideoInfoPanel} from './VideoInfoPanel';
 import {SettingPanel} from './SettingPanel';
 import {Playlist, PlaylistSession} from './VideoList';
 import {VideoSession} from './VideoSession';
+import {Emitter} from './baselib';
 
 //===BEGIN===
 var PlayerConfig = function () {
@@ -717,8 +718,6 @@ NicoVideoPlayerDialogView.__css__ = `
       left: 0;
       transform: none;
     }
-    .zenzaScreenMode_small .zenzaVideoPlayerDialogInner:hover {
-    }
 
 
 
@@ -938,7 +937,7 @@ NicoVideoPlayerDialogView.__css__ = `
     }
 
 
-  `;
+  `.trim();
 
 NicoVideoPlayerDialogView.__tpl__ = (`
     <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog">
@@ -1006,7 +1005,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
 
     this._applyState();
 
-    // マウスを動かしてないのにmousemoveが飛んでくるのでねずみかます
+    // マウスを動かしてないのにmousemoveが飛んできたらスルー
     let lastX = 0, lastY = 0;
     let onMouseMove = this._onMouseMove.bind(this);
     let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 400);
@@ -1111,9 +1110,9 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     window.addEventListener('resize', _.debounce(this._updateResponsive.bind(this), 500));
   },
   _updateResponsive: function () {
-    var $container = this._$playerContainer;
-    var $bar = $container.find('.videoControlBar');
-    var $header = $container.find('.zenzaWatchVideoHeaderPanel');
+    let $container = this._$playerContainer;
+    let $bar = $container.find('.videoControlBar');
+    let $header = $container.find('.zenzaWatchVideoHeaderPanel');
 
     // 画面の縦幅にシークバー分の余裕がある時は常時表示
     const update = () => {
@@ -1581,7 +1580,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'seekBy':
         this.setCurrentTime(this.getCurrentTime() + param * 1);
         break;
-      case 'seekRelativePercent':
+      case 'seekRelativePercent': {
         let dur = this._videoInfo.duration;
         //let st = param.perStartX;
         let mv = Math.abs(param.movePerX) > 10 ?
@@ -1590,6 +1589,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         //let pos = (st + mv) * dur / 100);
         this.setCurrentTime(Math.min(Math.max(0, pos), dur));
         break;
+      }
       case 'addWordFilter':
         this._nicoVideoPlayer.addWordFilter(param);
         PopupMessage.notify('NGワード追加: ' + param);
@@ -1620,7 +1620,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         PopupMessage.notify('NGコマンド更新');
         break;
       case 'tweet':
-        ZenzaWatch.util.openTweetWindow(this._videoInfo);
+        util.openTweetWindow(this._videoInfo);
         break;
       case 'openNow':
         this.open(param, {openNow: true});
@@ -2021,10 +2021,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
   },
   _onDeflistAdd: function (watchId) {
-    if (this._playerState.isUpdatingDeflist) {
-      return;
-    } //busy
-    if (!util.isLogin()) {
+    if (this._playerState.isUpdatingDeflist || !util.isLogin()) {
       return;
     }
 
@@ -2079,7 +2076,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.notify(result.message);
-      }, err => {
+      }).catch(err => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.alert(err.message);
@@ -2113,7 +2110,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.notify(result.message + ': ' + mylistName);
-      }, err => {
+      }).catch(err => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.alert(err.message + ': ' + mylistName);
@@ -2145,7 +2142,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.notify(result.message + ': ' + mylistName);
-      }, err => {
+      }).catch(err => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
         PopupMessage.alert(err.message + ': ' + mylistName);
@@ -2285,13 +2282,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!this._nicoVideoPlayer) {
       return;
     }
-    if (!!'一般会員でもシークできるようになった'
-    /*ZenzaWatch.util.isPremium() ||
-    this.isInSeekableBuffer(sec)*/) {
-      this._nicoVideoPlayer.setCurrentTime(sec);
-      this._lastCurrentTime = sec;
-      //this._lastCurrentTime = this._nicoVideoPlayer.getCurrentTime();
-    }
+
+    this._nicoVideoPlayer.setCurrentTime(sec);
+    this._lastCurrentTime = sec;
   },
   isInSeekableBuffer: function () {
     return true;
@@ -3948,4 +3941,4 @@ export {
   NicoVideoPlayerDialogView,
   VideoHoverMenu,
   DynamicCss
-}
+};

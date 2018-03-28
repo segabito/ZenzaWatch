@@ -1,36 +1,7 @@
 import * as _ from 'lodash';
-// import * as Zen from '../ZenzaWatchIndex';
 import {ZenzaWatch} from '../ZenzaWatchIndex';
 import {util, Config, AsyncEmitter, PopupMessage, WindowMessageEmitter} from '../util';
-// import * as _util from '../util';
-// import {Config} from '../util';
 import * as _util from '../util';
-// import * as AsyncEmitter from 'emitter';
-// import events from 'emitter';
-// const AsyncEmitter = events.EventEmitter;
-// console.log('Emitter', AsyncEmitter);
-// const {Config} = _util;
-// let ZenzaWatch = Zen.ZenzaWatch;
-// if (!ZenzaWatch) {
-//   ZenzaWatch = {
-//     api: {},
-//     lib: {},
-//     debug: {},
-//     emitter: {on: () => {}},
-//     init: () => {}
-//   };
-// }
-// import {GateAPI} from './GateAPI';
-// console.log('GateAPI', GateAPI);
-// const Config = _util.Config || {};
-// Config.getValue = Config.getValue || (() => {});
-// Config.setValue = Config.getValue || (() => {});
-// console.log('Zen', Zen);
-// console.log('_util', _util);
-// console.log('Config', Config);
-// console.log('ZenzaWatch', ZenzaWatch);
-// // console.log('doc', document);
-// console.log(Config);
 import {browser} from '../browser';
 const {navigator, location, localStorage, sessionStorage} = browser.window;
 
@@ -1980,7 +1951,7 @@ const {
     },
     _initializeCrossDomainGate: function () {
       this._initializeCrossDomainGate = _.noop;
-      this._messager.on('onMessage', _.bind(this._onMessage, this));
+      this._messager.on('onMessage', this._onMessage.bind(this));
 
       console.log('%c initialize ' + this._type, 'background: lightgreen;');
 

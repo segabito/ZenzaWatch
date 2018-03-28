@@ -36,7 +36,7 @@
   const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
   const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
-  const monkey = function (PRODUCT, START_PAGE_QUERY) {
+  const monkey = (PRODUCT, START_PAGE_QUERY) => {
     let console = window.console;
     let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
     let TOKEN = 'r:' + (Math.random());
@@ -46,7 +46,11 @@
     console.log(`%c${PRODUCT} v${VER}`, 'font-size: 200%;');
     console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
 
-    let ZenzaWatch = {
+//@require baselib.js
+
+//@require Config.js
+
+    const ZenzaWatch = {
       version: VER,
       debug: {},
       api: {},
@@ -64,15 +68,16 @@
     } else {
       window.ZenzaWatch = {};
     }
+    window.ZenzaWatch.emitter = ZenzaWatch.emitter = new Emitter();
+    const debug = ZenzaWatch.debug;
+    const emitter = ZenzaWatch.emitter;
+    const util = ZenzaWatch.util;
+    // const modules = ZenzaWatch.modules;
 
 
-    let util = ZenzaWatch.util;
 //@require constant.js
 
 //@require util.js
-    const debug = ZenzaWatch.debug;
-    const emitter = ZenzaWatch.emitter;
-    ZenzaWatch.lib.AsyncEmitter = AsyncEmitter;
 
 //@require loader/api.js
 

@@ -1,4 +1,5 @@
-import {util, AsyncEmitter} from './util';
+import {util} from './util';
+import {Emitter} from './baselib';
 
 //===BEGIN===
 
@@ -349,7 +350,7 @@ class NicoScriptParser {
 }
 
 
-class NicoScripter extends AsyncEmitter {
+class NicoScripter extends Emitter {
   constructor() {
     super();
     this.reset();

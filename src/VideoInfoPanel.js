@@ -2,14 +2,14 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {util, Config, AsyncEmitter, MylistPocketDetector} from './util';
+import {util, Config, AsyncEmitter, MylistPocketDetector, Sleep} from './util';
 import {IchibaLoader} from './loader/api';
 import {UaaLoader} from './loader/api';
 import {PlaylistLoader} from './loader/api';
 import {RelatedVideoList} from './VideoList';
 import {TagListView} from './TagListView';
 import {BaseViewComponent} from './util';
-
+import {Emitter} from './baselib';
 //===BEGIN===
 
 var VideoInfoPanel = function () {
@@ -325,7 +325,6 @@ VideoInfoPanel.__css__ = (`
       background: #666;
       text-decoration: none;
       border: 1px outset;
-      transition: transform 0.2s ease;
       cursor: pointer;
       text-align: center;
       user-select: none;
@@ -672,7 +671,7 @@ VideoInfoPanel.__css__ = (`
       display: block;
     }
     .zenzaWatchVideoInfoPanel .resumePlay:hover {
-      transform: translate(0, -4px);
+      transform: translate(0, -2px);
       box-shadow: 0 4px 2px #000;
       transition:
         0.2s transform ease,
@@ -753,9 +752,9 @@ VideoInfoPanel.__tpl__ = (`
               </a>
               <span class="owner">
                 <span class="ownerName"></span>
-                <a class="playlistSetUploadedVideo userVideo"
+                <zenza-playlist-append class="playlistSetUploadedVideo userVideo"
                   data-command="playlistSetUploadedVideo"
-                  title="投稿動画一覧をプレイリストで開く">▶</a>
+                  title="投稿動画一覧をプレイリストで開く">▶</zenza-playlist-append>
               </span>
             </div>
             <div class="publicStatus">
@@ -992,7 +991,7 @@ _.assign(VideoInfoPanel.prototype, {
           $watchLink.addClass('popupThumbnail').append($img);
         }
         var $playlistAppend =
-          $('<a class="playlistAppend" title="プレイリストで開く">▶</a>')
+          $('<zenza-playlist-append class="playlistAppend clickable-item" title="プレイリストで開く">▶</zenza-playlist-append>')
             .attr('data-watch-id', videoId);
         var $deflistAdd =
           $('<a class="deflistAdd" title="とりあえずマイリスト">&#x271A;</a>')
@@ -1008,7 +1007,7 @@ _.assign(VideoInfoPanel.prototype, {
         var $mylistLink = $(mylistLink);
         var mylistId = $mylistLink.text().split('/')[1];
         var $playlistAppend =
-          $('<a class="playlistSetMylist" title="プレイリストで開く">▶</a>')
+          $('<zenza-playlist-append class="playlistSetMylist clickable-item" title="プレイリストで開く">▶</zenza-playlist-append>')
             .attr('data-mylist-id', mylistId)
         ;
         $mylistLink.append($playlistAppend);
@@ -1583,7 +1582,7 @@ _.assign(VideoHeaderPanel.prototype, {
 });
 
 
-class VideoSearchForm extends AsyncEmitter {
+class VideoSearchForm extends Emitter {
   constructor(...args) {
     super();
     this._config = Config.namespace('videoSearch');
@@ -2203,8 +2202,8 @@ IchibaItemView.__css__ = (`
          -moz-user-select: none;
       }
       .ZenzaIchibaItemView .loadStartButton:hover {
-        transform: translate(0, -4px);
-        box-shadow: 0 4px 4px #000;
+        /* transform: translate(0, -2px); */
+        /*box-shadow: 0 4px 2px #000; */
         transition:
           0.2s transform ease,
           0.2s box-shadow ease
@@ -2566,10 +2565,7 @@ UaaView._shadow_ = (`
         cursor: pointer;
         transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
       }
-        .UaaDetails .clickable:hover {
-          transform: translate(0, -4px);
-          box-shadow: 0 4px 4px #000;
-        }
+
         .UaaDetails .clickable:active {
           transition: none;
           transform: translate(0, 0);
@@ -2627,10 +2623,6 @@ UaaView._shadow_ = (`
         margin: 0 4px 0 0;
       }
 
-
-        .UaaDetails .item:not(.has-screenshot):hover {
-        }
-
         .UaaDetails .item.has-screenshot {
           position: relative;
           display:inline-block;
@@ -2670,8 +2662,8 @@ UaaView._shadow_ = (`
           transform: translate(-50%, -50%);
           color: #fff;
           text-shadow: 1px 1px 1px #000;
-          text-stroke: #000 1px;
-          -webkit-text-stroke: #000 1px;
+          text-stroke: 1px #000;
+          -webkit-text-stroke: 1px #000;
           pointer-events: none;
           font-size: 16px;
         }
@@ -2774,7 +2766,7 @@ UaaView._shadow_ = (`
     </details>
   `).trim();
 
-UaaView.__tpl__ = (`<div class="uaaView"></div>`).trim();
+UaaView.__tpl__ = ('<div class="uaaView"></div>').trim();
 
 UaaView.__css__ = (`
     uaaView {
@@ -2888,7 +2880,7 @@ class RelatedInfoMenu extends BaseViewComponent {
 
 }
 
-RelatedInfoMenu._css_ = (``).trim();
+RelatedInfoMenu._css_ = ('').trim();
 
 RelatedInfoMenu._shadow_ = (`
     <style>
@@ -3077,7 +3069,7 @@ class VideoMetaInfo extends BaseViewComponent {
   }
 }
 
-VideoMetaInfo._css_ = (``).trim();
+VideoMetaInfo._css_ = ('').trim();
 
 VideoMetaInfo._shadow_ = (`
     <style>

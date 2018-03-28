@@ -5,7 +5,7 @@ import {NicoCommentPlayer} from './CommentPlayer';
 import {util, Config, AsyncEmitter, FullScreen, VideoCaptureUtil, BaseViewComponent} from './util';
 import {YouTubeWrapper} from './YouTubeWrapper';
 import {CONSTANT} from './constant';
-
+import {Emitter} from './baselib';
 
 //===BEGIN===
 
@@ -534,7 +534,7 @@ class ContextMenu extends BaseViewComponent {
 
   _endRepeat() {
     this._repeatEvent = null;
-    this.isRepeating = false;
+    // this._isRepeating = false;
     if (this._repeatTimer) {
       window.clearInterval(this._repeatTimer);
       this._repeatTimer = null;
@@ -830,8 +830,7 @@ ContextMenu.__tpl__ = (`
  *  Video要素をラップした物
  *
  */
-  //_.extend(VideoPlayer.prototype, AsyncEmitter.prototype);
-class VideoPlayer extends AsyncEmitter {
+class VideoPlayer extends Emitter {
   constructor(params) {
     super();
     this._initialize(params);
@@ -1052,7 +1051,7 @@ class VideoPlayer extends AsyncEmitter {
     if (this._isYouTube) {
       return;
     } // TODO: YouTube側のエラーハンドリング
-    window.console.warn('%c_onAbort:', 'background: cyan; color: red;');
+    console.warn('%c_onAbort:', 'background: cyan; color: red;');
     this._isPlaying = false;
     this.addClass('is-abort');
     this.emit('abort');
@@ -1517,7 +1516,7 @@ VideoPlayer.__css__ = `
   `.trim();
 
 
-class TouchWrapper extends AsyncEmitter {
+class TouchWrapper extends Emitter {
   constructor({parentElement}) {
     super();
     this._parentElement = parentElement;

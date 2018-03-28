@@ -276,7 +276,7 @@ class TagListView extends BaseViewComponent {
     let title = 'タグ検索';
     let command = 'tag-search';
     let param = util.escapeHtml(text);
-    return (`<a class="playlistAppend command" title="${title}" data-command="${command}" data-param="${param}">▶</a>`);
+    return (`<zenza-playlist-append class="playlistAppend command" title="${title}" data-command="${command}" data-param="${param}">▶</zenza-playlist-append>`);
   }
 
   _createTag(tag) {
@@ -558,7 +558,6 @@ TagListView.__shadow__ = (`
         color: #ccc;
         text-decoration: none;
         border: 1px outset;
-        transition: transform 0.2s ease;
         cursor: pointer;
         text-align: center;
         user-select: none;
@@ -568,7 +567,6 @@ TagListView.__shadow__ = (`
 
       .tagItem:hover .playlistAppend {
         visibility: visible;
-        transition: transform 0.2s ease;
       }
 
       .tagItem:hover .playlistAppend:hover {

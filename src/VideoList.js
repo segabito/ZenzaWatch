@@ -1,9 +1,8 @@
-// import * as $ from 'jquery';
-// import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {util, AsyncEmitter, FrameLayer} from './util';
 import {CONSTANT} from './constant';
 import {NicoSearchApiV2Loader} from './loader/VideoSearch';
+import {Emitter} from './baselib';
 
 const MylistPocketDetector = {
   detect: () => { return Promise.resolve(); }
@@ -403,7 +402,6 @@ const VideoListItemView = (() => {
 
         color: #fff;
         cursor: pointer;
-        transition: transform 0.2s;
       }
       .videoItem .thumbnailContainer .playlistAdd {
         left: 0;
@@ -583,7 +581,7 @@ const VideoListItemView = (() => {
           <a class="command" data-command="select">
             <img class="thumbnail" decoding="async">
             <span class="duration"></span>
-            <span class="command playlistAdd" data-command="playlistAdd" title="プレイリストに追加">▶</span>
+            <zenza-playlist-append class="command playlistAdd" data-command="playlistAdd" title="プレイリストに追加">▶</zenza-playlist-append>
             <span class="command deflistAdd"  data-command="deflistAdd"  title="とりあえずマイリスト">&#x271A;</span>
             <span class="command pocket-info" data-command="pocket-info"  title="動画情報">？</span>
           </a>
@@ -809,10 +807,6 @@ VideoListView.__tpl__ = (`
     height: 100vh;
     overflow-x: hidden;
     overflow-y: auto;
-  }
-
-  #listContainerInner {
-    scroll-behavior: smooth;
   }
 
 
@@ -2639,16 +2633,16 @@ _.assign(Playlist.prototype, {
   sortBy: function (key, isDesc) {
     this._model.sortBy(key, isDesc);
     this._refreshIndex(true);
-    ZenzaWatch.util.callAsync(function () {
+    setTimeout(() => {
       this._view.scrollToItem(this._activeItem);
-    }, this, 1000);
+    }, 1000);
   },
   removePlayedItem: function () {
     this._model.removePlayedItem();
     this._refreshIndex(true);
-    ZenzaWatch.util.callAsync(function () {
+    setTimeout(() => {
       this._view.scrollToItem(this._activeItem);
-    }, this, 1000);
+    }, 1000);
   },
   removeNonActiveItem: function () {
     this._model.removeNonActiveItem();
@@ -2659,13 +2653,12 @@ _.assign(Playlist.prototype, {
     if (!this.hasNext()) {
       return null;
     }
-    var index = this.getIndex();
-    var len = this.getLength();
+    let index = this.getIndex();
+    let len = this.getLength();
     if (len < 1) {
       return null;
     }
 
-    //window.console.log('selectNext', index, len);
     if (index < -1) {
       this.setIndex(0);
     } else if (index + 1 < len) {

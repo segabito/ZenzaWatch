@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {util, AsyncEmitter} from './util';
+import {util} from './util';
+import {Emitter} from './baselib';
 
 //===BEGIN===
 
@@ -8,7 +9,7 @@ const {YouTubeWrapper} = (() => {
 
   const STATE_PLAYING = 1;
 
-  class YouTubeWrapper extends AsyncEmitter {
+  class YouTubeWrapper extends Emitter {
     constructor({parentNode, autoplay = true, volume = 0.3, playbackRate = 1, loop = false}) {
       super();
       this._isInitialized = false;

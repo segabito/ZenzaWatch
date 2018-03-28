@@ -7,14 +7,14 @@ import {
   PlayerSession,
   PlaylistSession,
   util,
-  WatchPageState,
+  WatchPageHistory,
   WindowMessageEmitter
 } from './util';
 import {NicoComment} from './CommentPlayer';
 import {NicoVideoPlayerDialog} from './NicoVideoPlayerDialog';
 import {initializeGinzaSlayer} from './GinzaSlayer';
-
-const __css__ = '';
+import {CONSTANT} from './constant';
+import {CustomElements} from './parts/CustomElements';
 
 const START_PAGE_QUERY = 'hoge=fuga';
 
@@ -239,7 +239,7 @@ const {initialize} = (() => {
         broadcastEmitter.notifyClose();
       });
 
-      WatchPageState.initialize(dialog);
+      WatchPageHistory.initialize(dialog);
 
       if (dialog) {
         hoverMenu.setPlayer(dialog);
@@ -292,6 +292,7 @@ const {initialize} = (() => {
     });
 
     window.ZenzaWatch.ready = true;
+    CustomElements.initialize();
     ZenzaWatch.emitter.emitAsync('ready');
     util.dispatchCustomEvent(
       document.body, 'ZenzaWatchInitialize', window.ZenzaWatch);

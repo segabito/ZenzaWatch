@@ -863,7 +863,7 @@ _.assign(StoryboardView.prototype, {
     this._innerWidth = window.innerWidth;
     window.addEventListener('resize', _.throttle(() => {
       this._innerWidth = window.innerWidth;
-    }, 500));
+    }, 500), {passive: true});
   },
   _onBoardClick: function (e) {
     var $board = $(e.target).closest('.board'), offset = $board.offset();

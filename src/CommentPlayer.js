@@ -2642,8 +2642,8 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
   initialize: function (params) {
     this._viewModel = params.viewModel;
 
-    this._viewModel.on('setXml', _.bind(this._onSetXml, this));
-    this._viewModel.on('currentTime', _.bind(this._onCurrentTime, this));
+    this._viewModel.on('setXml', this._onSetXml.bind(this));
+    this._viewModel.on('currentTime', this._onCurrentTime.bind(this));
 
     this._lastCurrentTime = 0;
     this._isShow = true;
@@ -3542,7 +3542,7 @@ _.assign(NicoChatFilter.prototype, {
     this._userIdReg = null;
     this._commandReg = null;
 
-    this._onChange = _.debounce(_.bind(this._onChange, this), 50);
+    this._onChange = _.debounce(this._onChange.bind(this), 50);
 
     if (params.wordRegFilter) {
       this.setWordRegFilter(params.wordRegFilter, params.wordRegFilterFlags);
