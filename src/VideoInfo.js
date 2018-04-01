@@ -95,7 +95,7 @@ class VideoFilter {
 
   set ngOwner(owner) {
     owner = _.isArray(owner) ? owner : owner.toString().split(/[\r\n]/);
-    var list = [];
+    let list = [];
     _.each(owner, function (o) {
       list.push(o.replace(/#.*$/, '').trim());
     });
@@ -333,9 +333,9 @@ class VideoInfoModel {
    * チャンネル動画かどうかで分岐
    */
   get ownerInfo() {
-    var ownerInfo;
+    let ownerInfo;
     if (this.isChannel) {
-      var c = this._watchApiData.channelInfo || {};
+      let c = this._watchApiData.channelInfo || {};
       ownerInfo = {
         icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
         url: '//ch.nicovideo.jp/ch' + c.id,
@@ -346,8 +346,8 @@ class VideoInfoModel {
       };
     } else {
       // 退会しているユーザーだと空になっている
-      var u = this._watchApiData.uploaderInfo || {};
-      var f = this._flashvars || {};
+      let u = this._watchApiData.uploaderInfo || {};
+      let f = this._flashvars || {};
       ownerInfo = {
         icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
         url: u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
