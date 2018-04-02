@@ -16,13 +16,13 @@ import {Emitter} from './baselib';
  * とはいえmasterはVideoPlayerでCommentPlayerは表示位置を受け取るのみ。
  *
  */
-var NicoVideoPlayer = function () {
+let NicoVideoPlayer = function () {
   this.initialize.apply(this, arguments);
 };
 _.extend(NicoVideoPlayer.prototype, AsyncEmitter.prototype);
 _.assign(NicoVideoPlayer.prototype, {
   initialize: function (params) {
-    var conf = this._playerConfig = params.playerConfig;
+    let conf = this._playerConfig = params.playerConfig;
 
     this._fullScreenNode = params.fullScreenNode;
     this._playerState = params.playerState;
@@ -159,16 +159,16 @@ _.assign(NicoVideoPlayer.prototype, {
     }
   },
   volumeUp: function () {
-    var v = Math.max(0.01, this._videoPlayer.getVolume());
-    var r = (v < 0.05) ? 1.3 : 1.1;
+    let v = Math.max(0.01, this._videoPlayer.getVolume());
+    let r = (v < 0.05) ? 1.3 : 1.1;
     this._videoPlayer.setVolume(v * r);
   },
   volumeDown: function () {
-    var v = this._videoPlayer.getVolume();
+    let v = this._videoPlayer.getVolume();
     this._videoPlayer.setVolume(v / 1.2);
   },
   _onTimer: function () {
-    var currentTime = this._videoPlayer.getCurrentTime();
+    let currentTime = this._videoPlayer.getCurrentTime();
     this._commentPlayer.setCurrentTime(currentTime);
   },
   _onAspectRatioFix: function (ratio) {
@@ -314,7 +314,7 @@ _.assign(NicoVideoPlayer.prototype, {
     this._videoPlayer.setVolume(v);
   },
   appendTo: function (node) {
-    var $node = typeof node === 'string' ? $(node) : node;
+    let $node = typeof node === 'string' ? $(node) : node;
     this._$parentNode = node;
     this._videoPlayer.appendTo($node[0]);
     this._commentPlayer.appendTo($node);
@@ -352,7 +352,7 @@ _.assign(NicoVideoPlayer.prototype, {
     if (!this._commentPlayer) {
       return;
     }
-    var nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
+    let nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
     console.log('addChat:', text, cmd, vpos, options, nicoChat);
     return nicoChat;
   },
@@ -859,7 +859,7 @@ class VideoPlayer extends Emitter {
   }
 
   toggleClass(className, v) {
-    var body = this._body;
+    const body = this._body;
     className.split(/[ ]+/).forEach(name => {
       body.classList.toggle(name, v);
     });
@@ -894,7 +894,7 @@ class VideoPlayer extends Emitter {
     util.$(body)
       .addClass(`videoPlayer nico ${this._id}`);
     util.$(video)
-      .addClass(`videoPlayer-video`)
+      .addClass('videoPlayer-video')
       .attr(options);
     body.id = 'ZenzaWatchVideoPlayerContainer';
     this._body = body;
@@ -1330,7 +1330,7 @@ class VideoPlayer extends Emitter {
   }
 
   setCurrentTime(sec) {
-    var cur = this._video.currentTime;
+    let cur = this._video.currentTime;
     if (cur !== sec) {
       this._video.currentTime = sec;
       this.emit('seek', this._video.currentTime);
@@ -1388,7 +1388,7 @@ class VideoPlayer extends Emitter {
     //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
     // たまにリセットされたり反映されなかったりする？
     this._playbackRate = v;
-    var video = this._video;
+    let video = this._video;
     video.playbackRate = 1;
     window.setTimeout(function () {
       video.playbackRate = parseFloat(v);
@@ -1469,7 +1469,7 @@ class VideoPlayer extends Emitter {
 
 VideoPlayer.__css__ = `
     .videoPlayer iframe,
-    .videoPlayer video {
+    .videoPlayer .zenzaWatchVideoElement {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -1499,7 +1499,7 @@ VideoPlayer.__css__ = `
       display: none !important;
     }
 
-    .videoPlayer.is-youtube video {
+    .videoPlayer.is-youtube .zenzaWatchVideoElement {
       display: none;
     }
 
