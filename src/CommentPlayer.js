@@ -46,7 +46,7 @@ const SHARED_NG_SCORE = {
  *  コメントを静的なCSS3アニメーションとして保存
  *  console.log(ZenzaWatch.debug.css3Player.toString())*
  */
-var NicoCommentPlayer = function () {
+let NicoCommentPlayer = function () {
   this.initialize.apply(this, arguments);
 };
 _.extend(NicoCommentPlayer.prototype, AsyncEmitter.prototype);
@@ -64,7 +64,7 @@ _.assign(NicoCommentPlayer.prototype, {
       opacity: _.isNumber(params.commentOpacity) ? params.commentOpacity : 1.0
     });
 
-    var onCommentChange = _.throttle(this._onCommentChange.bind(this), 1000);
+    let onCommentChange = _.throttle(this._onCommentChange.bind(this), 1000);
     this._model.on('change', onCommentChange);
     this._model.on('filterChange', this._onFilterChange.bind(this));
     this._model.on('parsed', this._onCommentParsed.bind(this));
@@ -74,7 +74,7 @@ _.assign(NicoCommentPlayer.prototype, {
     ZenzaWatch.debug.nicoCommentPlayer = this;
   },
   setComment: function (xml, options) {
-    var parser = new DOMParser();
+    let parser = new DOMParser();
     if (typeof xml.getElementsByTagName === 'function') {
       this._model.setXml(xml, options);
     } else if (typeof xml === 'string') {
@@ -133,7 +133,7 @@ _.assign(NicoCommentPlayer.prototype, {
     if (typeof vpos !== 'number') {
       vpos = this.getVpos();
     }
-    var nicoChat = NicoChat.create(text, cmd, vpos, options);
+    let nicoChat = NicoChat.create(text, cmd, vpos, options);
     this._model.addChat(nicoChat);
 
     return nicoChat;
@@ -243,7 +243,7 @@ _.assign(NicoComment.prototype, {
       this.emit('command', command, param);
     });
 
-    var onChange = _.debounce(this._onChange.bind(this), 100);
+    let onChange = _.debounce(this._onChange.bind(this), 100);
     this._topGroup.on('change', onChange);
     this._nakaGroup.on('change', onChange);
     this._bottomGroup.on('change', onChange);
@@ -261,19 +261,19 @@ _.assign(NicoComment.prototype, {
     this._bottomGroup.reset();
     const duration = this._duration =
       parseInt(options.duration || 0x7FFFFF);
-    var nicoScripter = this._nicoScripter;
-    var nicoChats = [];
+    let nicoScripter = this._nicoScripter;
+    let nicoChats = [];
 
     nicoScripter.reset();
-    var chats = xml.getElementsByTagName('chat');
-    var top = [], bottom = [], naka = [];
-    for (var i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
-      var chat = chats[i];
+    let chats = xml.getElementsByTagName('chat');
+    let top = [], bottom = [], naka = [];
+    for (let i = 0, len = Math.min(chats.length, NicoComment.MAX_COMMENT); i < len; i++) {
+      let chat = chats[i];
       if (!chat.firstChild) {
         continue;
       }
 
-      var nicoChat = new NicoChat(chat, duration);
+      let nicoChat = new NicoChat(chat, duration);
       if (nicoChat.isDeleted()) {
         continue;
       }
@@ -306,8 +306,8 @@ _.assign(NicoComment.prototype, {
     }
 
     nicoChats.forEach(nicoChat => {
-      var type = nicoChat.getType();
-      var group;
+      let type = nicoChat.getType();
+      let group;
       switch (type) {
         case NicoChat.TYPE.TOP:
           group = top;
@@ -339,18 +339,18 @@ _.assign(NicoComment.prototype, {
    * なにがやりたかったのやら
    */
   _compileWordReplacer(replacement) {
-    var func = function (text) {
+    let func = function (text) {
       return text;
     };
 
-    var makeFullReplacement = function (f, src, dest) {
+    let makeFullReplacement = function (f, src, dest) {
       return function (text) {
         return f(text.indexOf(src) >= 0 ? dest : text);
       };
     };
 
-    var makeRegReplacement = function (f, src, dest) {
-      var reg = new RegExp(ZenzaWatch.util.escapeRegs(src), 'g');
+    let makeRegReplacement = function (f, src, dest) {
+      let reg = new RegExp(ZenzaWatch.util.escapeRegs(src), 'g');
       return function (text) {
         return f(text.replace(reg, dest));
       };
@@ -360,7 +360,7 @@ _.assign(NicoComment.prototype, {
       if (!key) {
         return;
       }
-      var val = replacement[key];
+      let val = replacement[key];
       window.console.log('コメント置換フィルタ: "%s" => "%s"', key, val);
 
       if (key.charAt(0) === '*') {
@@ -377,8 +377,8 @@ _.assign(NicoComment.prototype, {
    */
   _preProcessWordReplacement(group, replacementFunc) {
     group.forEach(nicoChat => {
-      var text = nicoChat.getText();
-      var newText = replacementFunc(text);
+      let text = nicoChat.getText();
+      let newText = replacementFunc(text);
       if (text !== newText) {
         nicoChat.setText(newText);
       }
@@ -402,7 +402,7 @@ _.assign(NicoComment.prototype, {
     if (nicoChat.isDeleted()) {
       return;
     }
-    var type = nicoChat.getType();
+    let type = nicoChat.getType();
     if (this._wordReplacer) {
       nicoChat.setText(this._wordReplacer(nicoChat.getText()));
     }
@@ -413,7 +413,7 @@ _.assign(NicoComment.prototype, {
       window.console.timeEnd('ニコスクリプト適用');
     }
 
-    var group;
+    let group;
     switch (type) {
       case NicoChat.TYPE.TOP:
         group = this._topGroup;
@@ -436,7 +436,7 @@ _.assign(NicoComment.prototype, {
   _onChange: function (e) {
     console.log('NicoComment.onChange: ', e);
     e = e || {};
-    var ev = {
+    let ev = {
       nicoComment: this,
       group: e.group,
       chat: e.chat
@@ -530,7 +530,7 @@ _.assign(NicoComment.prototype, {
 // フォントサイズ計算用の非表示レイヤーを取得
 // 変なCSSの影響を受けないように、DOM的に隔離されたiframe内で計算する。
 NicoComment.offScreenLayer = (function () {
-  var __offscreen_tpl__ = (`
+  let __offscreen_tpl__ = (`
     <!DOCTYPE html>
     <html lang="ja">
     <head>
@@ -556,18 +556,18 @@ NicoComment.offScreenLayer = (function () {
     </body></html>
       `).trim();
 
-  var emitter = new AsyncEmitter();
-  var offScreenFrame;
-  var offScreenLayer;
-  var textField;
-  var optionStyle;
-  var config;
+  let emitter = new AsyncEmitter();
+  let offScreenFrame;
+  let offScreenLayer;
+  let textField;
+  let optionStyle;
+  let config;
 
-  var initializeOptionCss = function (optionStyle) {
-    var update = function () {
-      var tmp = [];
-      var baseFont = config.getValue('baseFontFamily');
-      var inner = optionStyle.innerHTML;
+  let initializeOptionCss = function (optionStyle) {
+    let update = function () {
+      let tmp = [];
+      let baseFont = config.getValue('baseFontFamily');
+      let inner = optionStyle.innerHTML;
       if (baseFont) {
         baseFont = baseFont.replace(/[;{}*/]/g, '');
         tmp.push(
@@ -577,11 +577,11 @@ NicoComment.offScreenLayer = (function () {
           ].join('').replace(/%BASEFONT%/g, baseFont)
         );
       }
-      var bolder = config.getValue('baseFontBolder');
+      let bolder = config.getValue('baseFontBolder');
       if (!bolder) {
         tmp.push('.nicoChat { font-weight: normal !important; }');
       }
-      var newCss = tmp.join('\n');
+      let newCss = tmp.join('\n');
       if (inner !== newCss) {
         optionStyle.innerHTML = newCss;
         ZenzaWatch.emitter.emit('updateOptionCss', newCss);
@@ -594,7 +594,7 @@ NicoComment.offScreenLayer = (function () {
 
   var initialize = function ($d) {
     initialize = _.noop;
-    var frame = document.createElement('iframe');
+    let frame = document.createElement('iframe');
     frame.className = 'offScreenLayer';
     frame.setAttribute('sandbox', 'allow-same-origin');
     document.body.appendChild(frame);
@@ -604,19 +604,19 @@ NicoComment.offScreenLayer = (function () {
 
     offScreenFrame = frame;
 
-    var layer;
-    var onload = function () {
+    let layer;
+    let onload = function () {
       frame.onload = _.noop;
 
       console.log('%conOffScreenLayerLoad', 'background: lightgreen;');
       createTextField();
-      var getElements = function () {
-        var doc = offScreenFrame.contentWindow.document;
+      let getElements = function () {
+        let doc = offScreenFrame.contentWindow.document;
         layer = doc.getElementById('offScreenLayer');
         optionStyle = doc.getElementById('optionCss');
       };
 
-      var resolve = function () {
+      let resolve = function () {
         initializeOptionCss(optionStyle);
         offScreenLayer = {
           getTextField: function () {
@@ -642,7 +642,7 @@ NicoComment.offScreenLayer = (function () {
       resolve();
     };
 
-    var html = __offscreen_tpl__
+    let html = __offscreen_tpl__
       .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
       .replace('%OPTION_CSS%', '');
     if (typeof frame.srcdoc === 'string') {
@@ -657,9 +657,9 @@ NicoComment.offScreenLayer = (function () {
     }
   };
 
-  var getLayer = function (_config) {
+  let getLayer = function (_config) {
     config = _config;
-    var $d = new $.Deferred();
+    let $d = new $.Deferred();
     if (offScreenLayer) {
       $d.resolve(offScreenLayer);
       return;
@@ -670,18 +670,18 @@ NicoComment.offScreenLayer = (function () {
   };
 
   var createTextField = function () {
-    var layer = offScreenFrame.contentWindow.document.getElementById('offScreenLayer');
+    let layer = offScreenFrame.contentWindow.document.getElementById('offScreenLayer');
     if (!layer) {
       return false;
     }
 
-    var span = document.createElement('span');
+    let span = document.createElement('span');
     span.className = 'nicoChat';
     Object.assign(span.style, {
       'display': 'inline-block',
       'content': 'layout'
     });
-    var scale = NicoChatViewModel.BASE_SCALE;
+    let scale = NicoChatViewModel.BASE_SCALE;
     NicoChatViewModel.emitter.on('updateBaseChatScale', function (v) {
       scale = v;
     });
@@ -823,7 +823,7 @@ _.assign(NicoCommentViewModel.prototype, {
     return this._currentTime;
   },
   toString: function () {
-    var result = [];
+    let result = [];
 
     result.push(['<comment ',
       '>'
@@ -879,8 +879,8 @@ _.assign(NicoChatGroup.prototype, {
     this._filteredMembers = [];
   },
   addChatArray: function (nicoChatArray) {
-    var members = this._members;
-    var newMembers = [];
+    let members = this._members;
+    let newMembers = [];
     _.each(nicoChatArray, function (nicoChat) {
       newMembers.push(nicoChat);
       members.push(nicoChat);
@@ -909,7 +909,7 @@ _.assign(NicoChatGroup.prototype, {
     if (this._filteredMembers.length > 0) {
       return this._filteredMembers;
     }
-    var members = this._filteredMembers = this._nicoChatFilter.applyFilter(this._members);
+    let members = this._filteredMembers = this._nicoChatFilter.applyFilter(this._members);
     return members;
   },
   getNonFilteredMembers: function () {
@@ -932,8 +932,8 @@ _.assign(NicoChatGroup.prototype, {
   },
   setCurrentTime: function (sec) {
     this._currentTime = sec;
-    var m = this._members;
-    for (var i = 0, len = m.length; i < len; i++) {
+    let m = this._members;
+    for (let i = 0, len = m.length; i < len; i++) {
       m[i].setCurrentTime(sec);
     }
   },
@@ -1015,7 +1015,7 @@ _.assign(NicoChatGroupViewModel.prototype, {
     if (this._members.length < 1) {
       return;
     }
-    var type = this._members[0].getType();
+    let type = this._members[0].getType();
     this._workerRequestId = type + ':' + Math.random();
 
     console.log('request worker: ', type);
@@ -1027,9 +1027,9 @@ _.assign(NicoChatGroupViewModel.prototype, {
     });
   },
   addChatArray: function (nicoChatArray) {
-    for (var i = 0, len = nicoChatArray.length; i < len; i++) {
-      var nicoChat = nicoChatArray[i];
-      var nc = new NicoChatViewModel(nicoChat, this._offScreen);
+    for (let i = 0, len = nicoChatArray.length; i < len; i++) {
+      let nicoChat = nicoChatArray[i];
+      let nc = new NicoChatViewModel(nicoChat, this._offScreen);
       this._members.push(nc);
     }
 
@@ -1047,17 +1047,17 @@ _.assign(NicoChatGroupViewModel.prototype, {
   },
   _groupCollision: function () {
     this._createVSortedMembers();
-    var members = this._vSortedMembers;
-    for (var i = 0, len = members.length; i < len; i++) {
-      var o = members[i];
+    let members = this._vSortedMembers;
+    for (let i = 0, len = members.length; i < len; i++) {
+      let o = members[i];
       this.checkCollision(o);
       o.setIsLayouted(true);
     }
   },
   addChat: function (nicoChat) {
-    var timeKey = 'addChat:' + nicoChat.getText();
+    let timeKey = 'addChat:' + nicoChat.getText();
     window.console.time(timeKey);
-    var nc = new NicoChatViewModel(nicoChat, this._offScreen);
+    let nc = new NicoChatViewModel(nicoChat, this._offScreen);
 
     this._lastUpdate = Date.now();
 
@@ -1076,8 +1076,8 @@ _.assign(NicoChatGroupViewModel.prototype, {
     window.console.timeEnd(timeKey);
   },
   reset: function () {
-    var m = this._members;
-    for (var i = 0, len = m.length; i < len; i++) {
+    let m = this._members;
+    for (let i = 0, len = m.length; i < len; i++) {
       m[i].reset();
     }
 
@@ -1096,10 +1096,10 @@ _.assign(NicoChatGroupViewModel.prototype, {
       return;
     }
 
-    var m = this._vSortedMembers;//this._members;
-    var o;
-    var beginLeft = target.getBeginLeftTiming();
-    for (var i = 0, len = m.length; i < len; i++) {
+    let m = this._vSortedMembers;//this._members;
+    let o;
+    let beginLeft = target.getBeginLeftTiming();
+    for (let i = 0, len = m.length; i < len; i++) {
       o = m[i];
 
       // 自分よりうしろのメンバーには影響を受けないので処理不要
@@ -1125,25 +1125,25 @@ _.assign(NicoChatGroupViewModel.prototype, {
   },
   getBulkLayoutData: function () {
     this._createVSortedMembers();
-    var m = this._vSortedMembers;
-    var result = [];
-    for (var i = 0, len = m.length; i < len; i++) {
+    let m = this._vSortedMembers;
+    let result = [];
+    for (let i = 0, len = m.length; i < len; i++) {
       result.push(m[i].getBulkLayoutData());
     }
     return result;
   },
   setBulkLayoutData: function (data) {
-    var m = this._vSortedMembers;
-    for (var i = 0, len = m.length; i < len; i++) {
+    let m = this._vSortedMembers;
+    for (let i = 0, len = m.length; i < len; i++) {
       m[i].setBulkLayoutData(data[i]);
     }
   },
   getBulkSlotData: function () {
     this._createVSortedMembers();
-    var m = this._vSortedMembers;
-    var result = [];
-    for (var i = 0, len = m.length; i < len; i++) {
-      var o = m[i];
+    let m = this._vSortedMembers;
+    let result = [];
+    for (let i = 0, len = m.length; i < len; i++) {
+      let o = m[i];
       result.push({
         id: o.getId(),
         slot: o.getSlot(),
@@ -1158,8 +1158,8 @@ _.assign(NicoChatGroupViewModel.prototype, {
     return result;
   },
   setBulkSlotData: function (data) {
-    var m = this._vSortedMembers;
-    for (var i = 0, len = m.length; i < len; i++) {
+    let m = this._vSortedMembers;
+    for (let i = 0, len = m.length; i < len; i++) {
       m[i].setSlot(data[i].slot);
     }
   },
@@ -1168,7 +1168,7 @@ _.assign(NicoChatGroupViewModel.prototype, {
    */
   _createVSortedMembers: function () {
     this._vSortedMembers = this._members.concat().sort(function (a, b) {
-      var av = a.getVpos(), bv = b.getVpos();
+      let av = a.getVpos(), bv = b.getVpos();
       if (av !== bv) {
         return av - bv;
       } else {
@@ -1196,9 +1196,9 @@ _.assign(NicoChatGroupViewModel.prototype, {
     // TODO: もっと効率化
     //var maxDuration = NicoChatViewModel.DURATION.NAKA;
 
-    var result = [], m = this._vSortedMembers, len = m.length;
-    for (var i = 0; i < len; i++) {
-      var chat = m[i]; //, s = m.getBeginLeftTiming();
+    let result = [], m = this._vSortedMembers, len = m.length;
+    for (let i = 0; i < len; i++) {
+      let chat = m[i]; //, s = m.getBeginLeftTiming();
       //if (sec - s > maxDuration) { break; }
       if (chat.isInViewBySecond(sec)) {
         result.push(chat);
@@ -1214,7 +1214,7 @@ _.assign(NicoChatGroupViewModel.prototype, {
     return this.getInViewMembersBySecond(vpos / 100);
   },
   toString: function () {
-    var result = [], m = this._members, len = m.length;
+    let result = [], m = this._members, len = m.length;
 
     result.push(['\t<group ',
       'type="', this._nicoChatGroup.getType(), '" ',
@@ -1222,7 +1222,7 @@ _.assign(NicoChatGroupViewModel.prototype, {
       '>'
     ].join(''));
 
-    for (var i = 0; i < len; i++) {
+    for (let i = 0; i < len; i++) {
       result.push(m[i].toString());
     }
 
@@ -1240,7 +1240,7 @@ var NicoChat = function () {
   this.initialize.apply(this, arguments);
 };
 NicoChat.create = function (text, cmd, vpos, options) {
-  var dom = document.createElement('chat');
+  let dom = document.createElement('chat');
   dom.appendChild(document.createTextNode(text));
 
   dom.setAttribute('mail', cmd || '');
@@ -1328,8 +1328,8 @@ _.assign(NicoChat.prototype, {
     this._id = 'chat' + NicoChat.id++;
     this._currentTime = 0;
 
-    var text = this._text = chat.firstChild.nodeValue;
-    var attr = chat.attributes;
+    let text = this._text = chat.firstChild.nodeValue;
+    let attr = chat.attributes;
     if (!attr) {
       this.reset();
       return;
@@ -1367,9 +1367,9 @@ _.assign(NicoChat.prototype, {
       return;
     }
 
-    var cmd = this._cmd;
+    let cmd = this._cmd;
     if (cmd.length > 0) {
-      var pcmd = this._parseCmd(cmd, this._fork > 0);
+      let pcmd = this._parseCmd(cmd, this._fork > 0);
 
       if (pcmd.COLOR) {
         this._color = pcmd.COLOR;
@@ -1436,8 +1436,8 @@ _.assign(NicoChat.prototype, {
     this._vpos = minv;
   },
   _parseCmd: function (cmd, isFork) {
-    var tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t|\u2003]+/);
-    var result = {};
+    let tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t|\u2003]+/);
+    let result = {};
     tmp.forEach(c => {
       if (NicoChat.COLORS[c]) {
         result.COLOR = NicoChat.COLORS[c];
@@ -1813,12 +1813,12 @@ _.assign(NicoChatViewModel.prototype, {
     // ブラウザから取得したouterHeightを使うより、職人の実測値のほうが信頼できる
     // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
     // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
-    var lc = this._htmlText.split('<br>').length;
+    let lc = this._htmlText.split('<br>').length;
     //if (this._nicoChat.getNo() === 427) { window.nnn = this._nicoChat; debugger; }
 
-    var margin = NicoChatViewModel.CHAT_MARGIN;
-    var lineHeight = NicoChatViewModel.LINE_HEIGHT.MEDIUM; // 29
-    var size = this._size;
+    let margin = NicoChatViewModel.CHAT_MARGIN;
+    let lineHeight = NicoChatViewModel.LINE_HEIGHT.MEDIUM; // 29
+    let size = this._size;
     switch (size) {
       case NicoChat.SIZE.BIG:
         lineHeight = NicoChatViewModel.LINE_HEIGHT.BIG;    // 45
@@ -1880,14 +1880,14 @@ _.assign(NicoChatViewModel.prototype, {
    *  位置固定モードにする(ueかshita)
    */
   _setupFixedMode: function () {
-    var isScaled = false;
-    var nicoChat = this._nicoChat;
-    var screenWidth =
+    let isScaled = false;
+    let nicoChat = this._nicoChat;
+    let screenWidth =
       nicoChat.isFull() ?
         NicoCommentViewModel.SCREEN.WIDTH_FULL_INNER :
         NicoCommentViewModel.SCREEN.WIDTH_INNER;
-    var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
-    var isEnder = nicoChat.isEnder();
+    let screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
+    let isEnder = nicoChat.isEnder();
     /* eslint-disable */
     //メモ
     //█　　　　　　　　　　　　　　　　　　　　　　　　　　　█
@@ -1896,7 +1896,7 @@ _.assign(NicoChatViewModel.prototype, {
     /* eslint-enable */
 
 
-    var originalScale = this._scale;
+    let originalScale = this._scale;
     // 改行リサイズ
     // 参考: http://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
     // 画面の高さの1/3を超える場合は大きさを半分にする
@@ -1906,7 +1906,7 @@ _.assign(NicoChatViewModel.prototype, {
     }
 
     // TODO: この判定は改行リサイズより前？後？を検証
-    var isOverflowWidth = this._width > screenWidth;
+    let isOverflowWidth = this._width > screenWidth;
 
     // 臨界幅リサイズ
     // 画面幅よりデカい場合の調整
@@ -1937,11 +1937,11 @@ _.assign(NicoChatViewModel.prototype, {
    *  流れる文字のモード
    */
   _setupMarqueeMode: function () {
-    var screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
+    let screenHeight = NicoCommentViewModel.SCREEN.HEIGHT;
     // 画面の高さの1/3を超える場合は大きさを半分にする
     if (!this._nicoChat.isEnder() && this._height > screenHeight / 3) {
       this._setScale(this._scale * 0.5);
-      var speed =
+      let speed =
         this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
       this._endLeftTiming = this._endRightTiming - this._width / speed;
       this._beginRightTiming = this._beginLeftTiming + this._width / speed;
@@ -1972,15 +1972,15 @@ _.assign(NicoChatViewModel.prototype, {
     }
 
     // Y座標が合わないなら絶対衝突しない
-    var targetY = target.getYpos();
-    var selfY = this.getYpos();
+    let targetY = target.getYpos();
+    let selfY = this.getYpos();
     if (targetY + target.getHeight() < selfY ||
       targetY > selfY + this.getHeight()) {
       return false;
     }
 
     // ターゲットと自分、どっちが右でどっちが左か？の判定
-    var rt, lt;
+    let rt, lt;
     if (this.getBeginLeftTiming() <= target.getBeginLeftTiming()) {
       lt = this;
       rt = target;
@@ -2043,18 +2043,18 @@ _.assign(NicoChatViewModel.prototype, {
    * @param NicoChatViewModel others 示談相手
    */
   moveToNextLine: function (others) {
-    var margin = 1; //NicoChatViewModel.CHAT_MARGIN;
-    var othersHeight = others.getHeight() + margin;
+    let margin = 1; //NicoChatViewModel.CHAT_MARGIN;
+    let othersHeight = others.getHeight() + margin;
     // 本来はちょっとでもオーバーしたらランダムすべきだが、
     // 本家とまったく同じサイズ計算は難しいのでマージンを入れる
     // コメントアートの再現という点では有効な妥協案
-    var overflowMargin = 10;
-    var rnd = Math.max(0, NicoCommentViewModel.SCREEN.HEIGHT - this._height);
-    var yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height + overflowMargin;
-    var yMin = 0 - overflowMargin;
+    let overflowMargin = 10;
+    let rnd = Math.max(0, NicoCommentViewModel.SCREEN.HEIGHT - this._height);
+    let yMax = NicoCommentViewModel.SCREEN.HEIGHT - this._height + overflowMargin;
+    let yMin = 0 - overflowMargin;
 
-    var type = this._nicoChat.getType();
-    var y = this._y;
+    let type = this._nicoChat.getType();
+    let y = this._y;
 
     if (type !== NicoChat.TYPE.BOTTOM) {
       y += othersHeight;
@@ -2187,7 +2187,7 @@ _.assign(NicoChatViewModel.prototype, {
     if (this._isFixed) {
       return (NicoCommentViewModel.SCREEN.WIDTH - this._width) / 2;
     } else {
-      var diff = sec - this._beginLeftTiming;
+      let diff = sec - this._beginLeftTiming;
       return NicoCommentViewModel.SCREEN.WIDTH + diff * this._speed;
     }
   },
@@ -2225,7 +2225,7 @@ _.assign(NicoChatViewModel.prototype, {
     // コンソールから
     // ZenzaWatch.debug.getInViewElements()
     // 叩いた時にmeta中に出る奴
-    var chat = JSON.stringify({
+    let chat = JSON.stringify({
       width: this.getWidth(),
       height: this.getHeight(),
       scale: this.getScale(),
@@ -2665,7 +2665,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
 
     this._config = Config.namespace('commentLayer');
 
-    var _refresh = this.refresh.bind(this);
+    let _refresh = this.refresh.bind(this);
 
     // ウィンドウが非表示の時にブラウザが描画をサボっているので、
     // 表示になったタイミングで粛正する
@@ -2847,8 +2847,8 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     }
   },
   _getIframe: function () {
-    var reserved = document.getElementsByClassName('reservedFrame');
-    var iframe;
+    let reserved = document.getElementsByClassName('reservedFrame');
+    let iframe;
     if (reserved && reserved.length > 0) {
       iframe = reserved[0];
       document.body.removeChild(iframe);
@@ -2884,7 +2884,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     if (typeof this._onResize === 'function') {
       return this._onResize();
     }
-    var $view = $(this._view);
+    let $view = $(this._view);
     $view.css({width: $view.outerWidth() + 1, height: $view.outerHeight() + 1}).offset();
     window.setTimeout(function () {
       $view.css({width: '', height: ''});
@@ -2905,7 +2905,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     this.clear();
   },
   _onCurrentTime: function (sec) {
-    var REFRESH_THRESHOLD = 1;
+    let REFRESH_THRESHOLD = 1;
     this._lastCurrentTime = this._currentTime;
     this._currentTime = sec;
 
@@ -2927,7 +2927,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     if (!this._commentLayer) {
       return;
     }
-    var cn = this._commentLayer.className.split(/ +/);
+    let cn = this._commentLayer.className.split(/ +/);
     if (_.indexOf(cn, name) >= 0) {
       return;
     }
@@ -2939,7 +2939,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     if (!this._commentLayer) {
       return;
     }
-    var cn = this._commentLayer.className.split(/ +/);
+    let cn = this._commentLayer.className.split(/ +/);
     if (_.indexOf(cn, name) < 0) {
       return;
     }
@@ -2990,26 +2990,26 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
       return;
     }
 
-    var groups = [
+    let groups = [
       this._viewModel.getGroup(NicoChat.TYPE.NAKA),
       this._viewModel.getGroup(NicoChat.TYPE.BOTTOM),
       this._viewModel.getGroup(NicoChat.TYPE.TOP)
     ];
 
-    var css = [], inView = [], dom = [];
-    var i, len;
+    let css = [], inView = [], dom = [];
+    let i, len;
     // 表示状態にあるchatを集める
     for (i = 0, len = groups.length; i < len; i++) {
-      var group = groups[i];
+      let group = groups[i];
       inView = inView.concat(group.getInViewMembers());
     }
 
-    var nicoChat;
-    var ct = this._currentTime;
-    var newView = [];
+    let nicoChat;
+    let ct = this._currentTime;
+    let newView = [];
     for (i = 0, len = inView.length; i < len; i++) {
       nicoChat = inView[i];
-      var domId = nicoChat.getId();
+      let domId = nicoChat.getId();
       if (this._inViewTable[domId]) {
         continue;
       }
@@ -3020,7 +3020,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
 
     if (newView.length > 1) {
       newView.sort(function (a, b) {
-        var av = a.getVpos(), bv = b.getVpos();
+        let av = a.getVpos(), bv = b.getVpos();
         if (av !== bv) {
           return av - bv;
         }
@@ -3032,19 +3032,19 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
 
     for (i = 0, len = newView.length; i < len; i++) {
       nicoChat = newView[i];
-      var type = nicoChat.getType();
-      var size = nicoChat.getSize();
+      let type = nicoChat.getType();
+      let size = nicoChat.getSize();
       dom.push(this._buildChatDom(nicoChat, type, size));
       css.push(this._buildChatCss(nicoChat, type, ct));
     }
 
     // DOMへの追加
     if (css.length > 0) {
-      var inSlotTable = this._inSlotTable, currentTime = this._currentTime;
-      var outViewIds = [];
-      var margin = 1;
+      let inSlotTable = this._inSlotTable, currentTime = this._currentTime;
+      let outViewIds = [];
+      let margin = 1;
       Object.keys(inSlotTable).forEach(key => {
-        var chat = inSlotTable[key];
+        let chat = inSlotTable[key];
         if (currentTime - margin < chat.getEndRightTiming()) {
           return;
         }
@@ -3055,7 +3055,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     }
   },
   _updateDom: function (dom, css, outViewIds) {
-    var fragment = document.createDocumentFragment();
+    let fragment = document.createDocumentFragment();
     while (dom.length > 0) {
       fragment.appendChild(dom.shift());
     }
@@ -3068,12 +3068,12 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
      * アニメーションが終わっているはずの要素を除去
      */
   _removeOutviewElements: function (outViewIds) {
-    var doc = this._document;
+    let doc = this._document;
     if (!doc) {
       return;
     }
     outViewIds.forEach(id => {
-      var elm = doc.getElementById(id);
+      let elm = doc.getElementById(id);
       if (!elm) {
         return;
       }
@@ -3088,10 +3088,10 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
       return;
     }
 
-    var max = NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT;
+    let max = NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT;
 
-    var commentLayer = this._commentLayer;
-    var i, inViewElements;
+    let commentLayer = this._commentLayer;
+    let i, inViewElements;
     //inViewElements = commentLayer.getElementsByClassName('nicoChat');
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
     for (i = inViewElements.length - max - 1; i >= 0; i--) {
@@ -3107,20 +3107,20 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     currentTime = currentTime || this._viewModel.getCurrentTime();
     window.console.time('buildHtml');
 
-    var groups = [
+    let groups = [
       this._viewModel.getGroup(NicoChat.TYPE.NAKA),
       this._viewModel.getGroup(NicoChat.TYPE.BOTTOM),
       this._viewModel.getGroup(NicoChat.TYPE.TOP)
     ];
 
-    var members = [];
-    for (var i = 0; i < groups.length; i++) {
-      var group = groups[i];
+    let members = [];
+    for (let i = 0; i < groups.length; i++) {
+      let group = groups[i];
       members = members.concat(group.getMembers());
     }
 
     members.sort(function (a, b) {
-      var av = a.getVpos(), bv = b.getVpos();
+      let av = a.getVpos(), bv = b.getVpos();
       if (av !== bv) {
         return av - bv;
       }
@@ -3129,11 +3129,11 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
       }
     });
 
-    var css = [], html = [];
+    let css = [], html = [];
     html.push(this._buildGroupHtml(members, currentTime));
     css.push(this._buildGroupCss(members, currentTime));
 
-    var tpl = NicoCommentCss3PlayerView.__TPL__
+    let tpl = NicoCommentCss3PlayerView.__TPL__
       .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
       .replace('%OPTION_CSS%', NicoComment.offScreenLayer.getOptionCss());
 
@@ -3144,29 +3144,29 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     return tpl;
   },
   _buildGroupHtml: function (m) {
-    var result = [];
+    let result = [];
 
-    for (var i = 0, len = m.length; i < len; i++) {
-      var chat = m[i];
-      var type = chat.getType();
+    for (let i = 0, len = m.length; i < len; i++) {
+      let chat = m[i];
+      let type = chat.getType();
       result.push(this._buildChatHtml(chat, type /*, currentTime */));
     }
     return result.join('\n');
   },
   _buildGroupCss: function (m, currentTime) {
-    var result = [];
+    let result = [];
 
-    for (var i = 0, len = m.length; i < len; i++) {
-      var chat = m[i];
-      var type = chat.getType();
+    for (let i = 0, len = m.length; i < len; i++) {
+      let chat = m[i];
+      let type = chat.getType();
       result.push(this._buildChatCss(chat, type, currentTime));
     }
     return result.join('\n');
   },
   _buildChatDom: function (chat, type, size) {
-    var span = document.createElement('span');
-    var className = ['nicoChat', type, size];
-    var scale = chat.getScale();
+    let span = document.createElement('span');
+    let className = ['nicoChat', type, size];
+    let scale = chat.getScale();
     if (chat.getColor() === '#000000') {
       className.push('black');
     }
@@ -3189,7 +3189,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     if (chat.isUpdating()) {
       className.push('updating');
     }
-    var fork = chat.getFork();
+    let fork = chat.getFork();
     className.push('fork' + fork);
 
 
@@ -3213,9 +3213,9 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     return span;
   },
   _buildChatHtml: function (chat, type /*, currentTime */) {
-    var size = chat.getSize();
-    var className = ['nicoChat', type, size];
-    var scale = chat.getScale();
+    let size = chat.getSize();
+    let className = ['nicoChat', type, size];
+    let scale = chat.getScale();
     if (chat.getColor() === '#000000') {
       className.push('black');
     }
@@ -3238,7 +3238,7 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
     if (chat.isUpdating()) {
       className.push('updating');
     }
-    var fork = chat.getFork();
+    let fork = chat.getFork();
     className.push('fork' + fork);
 
     const fontCommand = chat.getFontCommand();
@@ -3248,11 +3248,11 @@ _.assign(NicoCommentCss3PlayerView.prototype, {
 
     //className.push('ver-' + chat.getCommentVer());
 
-    var htmlText = '';
+    let htmlText = '';
     if (!chat.isInvisible()) {
       htmlText = chat.getHtmlText();
     }
-    var result =
+    let result =
       `<span id="${chat.getId()}" class="${className.join(' ')}">${htmlText}</span>`;
     return result;
   },
@@ -3559,13 +3559,13 @@ _.assign(NicoChatFilter.prototype, {
     return this._enable;
   },
   addWordFilter: function (text) {
-    var before = this._wordFilterList.join('\n');
+    let before = this._wordFilterList.join('\n');
     this._wordFilterList.push((text || '').trim());
     this._wordFilterList = _.uniq(this._wordFilterList);
     if (!ZenzaWatch.util.isPremium()) {
       this._wordFilterList.splice(20);
     }
-    var after = this._wordFilterList.join('\n');
+    let after = this._wordFilterList.join('\n');
     if (before !== after) {
       this._wordReg = null;
       this._onChange();
@@ -3574,13 +3574,13 @@ _.assign(NicoChatFilter.prototype, {
   setWordFilterList: function (list) {
     list = _.uniq(typeof list === 'string' ? list.trim().split('\n') : list);
 
-    var before = this._wordFilterList.join('\n');
-    var tmp = [];
+    let before = this._wordFilterList.join('\n');
+    let tmp = [];
     _.each(list, function (text) {
       tmp.push((text || '').trim());
     });
     tmp = _.compact(tmp);
-    var after = tmp.join('\n');
+    let after = tmp.join('\n');
 
     if (before !== after) {
       this._wordReg = null;
@@ -3609,13 +3609,13 @@ _.assign(NicoChatFilter.prototype, {
     this._onChange();
   },
   addUserIdFilter: function (text) {
-    var before = this._userIdFilterList.join('\n');
+    let before = this._userIdFilterList.join('\n');
     this._userIdFilterList.push(text);
     this._userIdFilterList = _.uniq(this._userIdFilterList);
     if (!ZenzaWatch.util.isPremium()) {
       this._userIdFilterList.splice(10);
     }
-    var after = this._userIdFilterList.join('\n');
+    let after = this._userIdFilterList.join('\n');
     if (before !== after) {
       this._userIdReg = null;
       this._onChange();
@@ -3624,13 +3624,13 @@ _.assign(NicoChatFilter.prototype, {
   setUserIdFilterList: function (list) {
     list = _.uniq(typeof list === 'string' ? list.trim().split('\n') : list);
 
-    var before = this._userIdFilterList.join('\n');
-    var tmp = [];
+    let before = this._userIdFilterList.join('\n');
+    let tmp = [];
     _.each(list, function (text) {
       tmp.push((text || '').trim());
     });
     tmp = _.compact(tmp);
-    var after = tmp.join('\n');
+    let after = tmp.join('\n');
 
     if (before !== after) {
       this._userIdReg = null;
@@ -3646,13 +3646,13 @@ _.assign(NicoChatFilter.prototype, {
   },
 
   addCommandFilter: function (text) {
-    var before = this._commandFilterList.join('\n');
+    let before = this._commandFilterList.join('\n');
     this._commandFilterList.push(text);
     this._commandFilterList = _.uniq(this._commandFilterList);
     if (!ZenzaWatch.util.isPremium()) {
       this._commandFilterList.splice(10);
     }
-    var after = this._commandFilterList.join('\n');
+    let after = this._commandFilterList.join('\n');
     if (before !== after) {
       this._commandReg = null;
       this._onChange();
@@ -3661,13 +3661,13 @@ _.assign(NicoChatFilter.prototype, {
   setCommandFilterList: function (list) {
     list = _.uniq(typeof list === 'string' ? list.trim().split('\n') : list);
 
-    var before = this._commandFilterList.join('\n');
-    var tmp = [];
+    let before = this._commandFilterList.join('\n');
+    let tmp = [];
     _.each(list, function (text) {
       tmp.push((text || '').trim());
     });
     tmp = _.compact(tmp);
-    var after = tmp.join('\n');
+    let after = tmp.join('\n');
 
     if (before !== after) {
       this._commandReg = null;
@@ -3697,7 +3697,7 @@ _.assign(NicoChatFilter.prototype, {
         return true;
       };
     }
-    var threthold = SHARED_NG_SCORE[this._sharedNgLevel];
+    let threthold = SHARED_NG_SCORE[this._sharedNgLevel];
 
     // NG設定の数×コメント数だけループを回すのはアホらしいので、
     // 連結した一個の正規表現を生成する
@@ -3710,17 +3710,17 @@ _.assign(NicoChatFilter.prototype, {
     if (!this._commandReg) {
       this._commandReg = this._buildFilterReg(this._commandFilterList);
     }
-    var wordReg = this._wordReg;
-    var wordRegReg = this._wordRegReg;
-    var userIdReg = this._userIdReg;
-    var commandReg = this._commandReg;
+    let wordReg = this._wordReg;
+    let wordRegReg = this._wordRegReg;
+    let userIdReg = this._userIdReg;
+    let commandReg = this._commandReg;
 
     if (Config.getValue('debug')) {
       return function (nicoChat) {
         if (nicoChat.getFork() > 0) {
           return true;
         }
-        var score = nicoChat.getScore();
+        let score = nicoChat.getScore();
         if (score <= threthold) {
           window.console.log('%cNG共有適用: %s <= %s %s %s秒 %s', 'background: yellow;',
             score,
@@ -3810,14 +3810,14 @@ _.assign(NicoChatFilter.prototype, {
     };
   },
   applyFilter: function (nicoChatArray) {
-    var before = nicoChatArray.length;
+    let before = nicoChatArray.length;
     if (before < 1) {
       return nicoChatArray;
     }
-    var timeKey = 'applyNgFilter: ' + nicoChatArray[0].getType();
+    let timeKey = 'applyNgFilter: ' + nicoChatArray[0].getType();
     window.console.time(timeKey);
-    var result = _.filter(nicoChatArray, this.getFilterFunc());
-    var after = result.length;
+    let result = _.filter(nicoChatArray, this.getFilterFunc());
+    let after = result.length;
     window.console.timeEnd(timeKey);
     window.console.log('NG判定結果: %s/%s', after, before);
     return result;
@@ -3829,7 +3829,7 @@ _.assign(NicoChatFilter.prototype, {
     if (filterList.length < 1) {
       return null;
     }
-    var r = [];
+    let r = [];
     const escapeRegs = ZenzaWatch.util.escapeRegs;
     filterList.forEach((filter) => {
       if (!filter) {
@@ -3843,7 +3843,7 @@ _.assign(NicoChatFilter.prototype, {
     if (filterList.length < 1) {
       return null;
     }
-    var r = [];
+    let r = [];
     const escapeRegs = ZenzaWatch.util.escapeRegs;
     filterList.forEach((filter) => {
       if (!filter) {
