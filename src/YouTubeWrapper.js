@@ -172,14 +172,16 @@ const {YouTubeWrapper} = (() => {
           }
           break;
         case YT.PlayerState.PLAYING:
-
           if (!this._canPlay) {
             this._canPlay = true;
-            this.emitAsync('loadedMetaData');
+            this.emitAsync('loadedmetadata');
             this.emit('canplay');
           }
           this.emit('play');
           this.emit('playing');
+          if (this._isSeeking) {
+            this.emit('seeked');
+          }
           break;
         case YT.PlayerState.PAUSED:
           this.emit('pause');
@@ -210,6 +212,7 @@ const {YouTubeWrapper} = (() => {
       this._isSeeking = true;
       this._seekTime = Math.max(0, Math.min(v, this.duration));
       this._onSeekEnd();
+      this.emit('seeking');
     }
 
     get currentTime() {
