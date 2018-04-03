@@ -86,34 +86,36 @@ _.assign(NicoVideoPlayer.prototype, {
     this._videoWatchTimer = null;
   },
   _initializeEvents: function () {
+    const eventBridge = function(...args) {
+      this.emit(...args);
+    };
     this._videoPlayer.on('volumeChange', this._onVolumeChange.bind(this));
     this._videoPlayer.on('dblclick', this._onDblClick.bind(this));
     this._videoPlayer.on('aspectRatioFix', this._onAspectRatioFix.bind(this));
     this._videoPlayer.on('play', this._onPlay.bind(this));
     this._videoPlayer.on('playing', this._onPlaying.bind(this));
-    this._videoPlayer.on('stalled', this._onStalled.bind(this));
-    this._videoPlayer.on('progress', this._onProgress.bind(this));
+    this._videoPlayer.on('stalled', eventBridge.bind(this, 'stalled'));
+    this._videoPlayer.on('progress', eventBridge.bind(this, 'progress'));
     this._videoPlayer.on('pause', this._onPause.bind(this));
     this._videoPlayer.on('ended', this._onEnded.bind(this));
     this._videoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
     this._videoPlayer.on('canPlay', this._onVideoCanPlay.bind(this));
-    this._videoPlayer.on('durationChange', this._onDurationChange.bind(this));
-    this._videoPlayer.on('playerTypeChange', this._onPlayerTypeChange.bind(this));
+    this._videoPlayer.on('durationChange', eventBridge.bind(this, 'durationChange'));
+    this._videoPlayer.on('playerTypeChange', eventBridge.bind(this, 'videoPlayerTypeChange'));
+    this._videoPlayer.on('buffercomplete', eventBridge.bind(this, 'buffercomplete'));
 
     // マウスホイールとトラックパッドで感度が違うのでthrottoleをかますと丁度良くなる(?)
     this._videoPlayer.on('mouseWheel',
       _.throttle(this._onMouseWheel.bind(this), 50));
 
-    this._videoPlayer.on('abort', this._onAbort.bind(this));
-    this._videoPlayer.on('error', this._onError.bind(this));
+    this._videoPlayer.on('abort', eventBridge.bind(this, 'abort'));
+    this._videoPlayer.on('error', eventBridge.bind(this, 'error'));
 
     this._videoPlayer.on('click', this._onClick.bind(this));
     this._videoPlayer.on('contextMenu', this._onContextMenu.bind(this));
-
-    this._commentPlayer.on('parsed', this._onCommentParsed.bind(this));
-    this._commentPlayer.on('change', this._onCommentChange.bind(this));
-    this._commentPlayer.on('filterChange', this._onCommentFilterChange.bind(this));
-    //this._playerConfig.on('update', this._onPlayerConfigUpdate.bind(this));
+    this._commentPlayer.on('parsed', eventBridge.bind(this, 'commentParsed'));
+    this._commentPlayer.on('change', eventBridge.bind(this, 'commentChange'));
+    this._commentPlayer.on('filterChange', eventBridge.bind(this, 'commentFilterChange'));
     this._playerState.on('change', this._onPlayerStateChange.bind(this));
   },
   _onVolumeChange: function (vol, mute) {
@@ -183,12 +185,6 @@ _.assign(NicoVideoPlayer.prototype, {
       });
     }
   },
-  _onDurationChange: function (duration) {
-    this.emit('durationChange', duration);
-  },
-  _onPlayerTypeChange: function (type) {
-    this.emit('videoPlayerTypeChange', type);
-  },
   _onPlay: function () {
     this._isPlaying = true;
     this.emit('play');
@@ -209,22 +205,10 @@ _.assign(NicoVideoPlayer.prototype, {
     this._isPlaying = false;
     this.emit('pause');
   },
-  _onStalled: function () {
-    this.emit('stalled');
-  },
-  _onProgress: function (range, currentTime) {
-    this.emit('progress', range, currentTime);
-  },
   _onEnded: function () {
     this._isPlaying = false;
     this._isEnded = true;
     this.emit('ended');
-  },
-  _onError: function (e) {
-    this.emit('error', e);
-  },
-  _onAbort: function () {
-    this.emit('abort');
   },
   _onClick: function () {
     this._contextMenu.hide();
@@ -240,15 +224,6 @@ _.assign(NicoVideoPlayer.prototype, {
       e.preventDefault();
       this._contextMenu.show(e.offsetX, e.offsetY);
     }
-  },
-  _onCommentParsed: function () {
-    this.emit('commentParsed');
-  },
-  _onCommentChange: function () {
-    this.emit('commentChange');
-  },
-  _onCommentFilterChange: function (nicoChatFilter) {
-    this.emit('commentFilterChange', nicoChatFilter);
   },
   setVideo: function (url) {
     let e = {src: url, url: null, promise: null};
@@ -483,10 +458,6 @@ class ContextMenu extends BaseViewComponent {
       e.stopPropagation();
     });
   }
-
-  //_onCommand(command, param) {
-  //   super._onCommand(command, param);
-  //}
 
   _onClick(e) {
     if (e && e.button !== 0) {
@@ -937,22 +908,27 @@ class VideoPlayer extends Emitter {
   }
 
   _initializeEvents() {
+    const eventBridge = function(name, ...args) {
+      console.log('%c_on-%s:', 'background: cyan;', name, ...args);
+      this.emit(name, ...args);
+    };
+
     util.$(this._video)
       .on('canplay', this._onCanPlay.bind(this))
-      .on('canplaythrough', this._onCanPlayThrough.bind(this))
-      .on('loadstart', this._onLoadStart.bind(this))
-      .on('loadeddata', this._onLoadedData.bind(this))
-      .on('loadedmetadata', this._onLoadedMetaData.bind(this))
-      .on('ended', this._onEnded.bind(this))
-      .on('emptied', this._onEmptied.bind(this))
-      .on('stalled', this._onStalled.bind(this))
-      .on('suspend', this._onSuspend.bind(this))
-      .on('waiting', this._onWaiting.bind(this))
+      .on('canplaythrough', eventBridge.bind(this, 'canplaythrough'))
+      .on('loadstart', eventBridge.bind(this, 'loadstart'))
+      .on('loadeddata', eventBridge.bind(this, 'loadeddata'))
+      .on('loadedmetadata', eventBridge.bind(this, 'loadedmetadata'))
+      .on('ended', eventBridge.bind(this, 'ended'))
+      .on('emptied', eventBridge.bind(this, 'emptied'))
+      .on('stalled', eventBridge.bind(this, 'stalled'))
+      .on('suspend', eventBridge.bind(this, 'suspend'))
+      .on('waiting', eventBridge.bind(this, 'waiting'))
       .on('progress', this._onProgress.bind(this))
       .on('durationchange', this._onDurationChange.bind(this))
-      .on('resize', this._onResize.bind(this))
       .on('abort', this._onAbort.bind(this))
       .on('error', this._onError.bind(this))
+      .on('buffercomplete', eventBridge.bind(this, 'buffercomplete'))
 
       .on('pause', this._onPause.bind(this))
       .on('play', this._onPlay.bind(this))
@@ -960,15 +936,15 @@ class VideoPlayer extends Emitter {
       .on('seeking', this._onSeeking.bind(this))
       .on('seeked', this._onSeeked.bind(this))
       .on('volumechange', this._onVolumeChange.bind(this))
-      .on('contextmenu', this._onContextMenu.bind(this))
-      .on('click', this._onClick.bind(this))
+      .on('contextmenu', eventBridge.bind(this, 'contextmenu'))
+      .on('click', eventBridge.bind(this, 'click'))
     ;
 
     const touch = util.$(this._touchWrapper.body);
     touch
-      .on('click', this._onClick.bind(this))
+      .on('click', eventBridge.bind(this, 'click'))
       .on('dblclick', this._onDoubleClick.bind(this))
-      .on('contextmenu', this._onContextMenu.bind(this))
+      .on('contextmenu', eventBridge.bind(this, 'contextmenu'))
       .on('wheel', this._onMouseWheel.bind(this))
     ;
   }
@@ -986,50 +962,6 @@ class VideoPlayer extends Emitter {
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
       }
     }
-
-  _onCanPlayThrough() {
-    console.log('%c_onCanPlayThrough:', 'background: cyan;', arguments);
-    this.emit('canPlayThrough');
-  }
-
-  _onLoadStart() {
-    console.log('%c_onLoadStart:', 'background: cyan;', arguments);
-    this.emit('loadStart');
-  }
-
-  _onLoadedData() {
-    console.log('%c_onLoadedData:', 'background: cyan;', arguments);
-    this.emit('loadedData');
-  }
-
-  _onLoadedMetaData() {
-    console.log('%c_onLoadedMetaData:', 'background: cyan;', arguments);
-    this.emit('loadedMetaData');
-  }
-
-  _onEnded() {
-    console.log('%c_onEnded:', 'background: cyan;', arguments);
-    this.emit('ended');
-  }
-
-  _onEmptied() {
-    console.log('%c_onEmptied:', 'background: cyan;', arguments);
-    this.emit('emptied');
-  }
-
-  _onStalled() {
-    console.log('%c_onStalled:', 'background: cyan;', arguments);
-    this.emit('stalled');
-  }
-
-  _onSuspend() {
-    console.log('%c_onSuspend:', 'background: cyan;', arguments);
-    this.emit('suspend');
-  }
-
-  _onWaiting() {
-    console.log('%c_onWaiting:', 'background: cyan;', arguments);
-    this.emit('waiting');
   }
 
   _onProgress() {
@@ -1040,11 +972,6 @@ class VideoPlayer extends Emitter {
   _onDurationChange() {
     console.log('%c_onDurationChange:', 'background: cyan;', arguments);
     this.emit('durationChange', this._video.duration);
-  }
-
-  _onResize() {
-    console.log('%c_onResize:', 'background: cyan;', arguments);
-    this.emit('resize');
   }
 
   _onAbort() {
@@ -1149,10 +1076,6 @@ class VideoPlayer extends Emitter {
     this.emit('volumeChange', this.getVolume(), this.isMuted());
   }
 
-  _onClick(e) {
-    this.emit('click', e);
-  }
-
   _onDoubleClick(e) {
     console.log('%c_onDoubleClick:', 'background: cyan;', arguments);
     e.preventDefault();
@@ -1168,10 +1091,6 @@ class VideoPlayer extends Emitter {
     if (delta !== 0) {
       this.emit('mouseWheel', e, delta);
     }
-  }
-
-  _onContextMenu(e) {
-    this.emit('contextMenu', e);
   }
 
   canPlay() {
@@ -1255,12 +1174,17 @@ class VideoPlayer extends Emitter {
       volume: this._volume,
       autoplay: this._videoElement.autoplay
     });
+    const eventBridge = function(...args) {
+      this.emit(...args);
+    };
+
     yt.on('canplay', this._onCanPlay.bind(this));
-    yt.on('loadedmetadata', this._onLoadedMetaData.bind(this));
-    yt.on('ended', this._onEnded.bind(this));
-    yt.on('stalled', this._onStalled.bind(this));
+    yt.on('loadedmetadata', eventBridge.bind(this, 'loadedmetadata'));
+    yt.on('ended', eventBridge.bind(this, 'ended'));
+    yt.on('stalled', eventBridge.bind(this, 'stalled'));
     yt.on('pause', this._onPause.bind(this));
     yt.on('play', this._onPlay.bind(this));
+    yt.on('playing', this._onPlaying.bind(this));
 
     yt.on('seeking', this._onSeeking.bind(this));
     yt.on('seeked', this._onSeeked.bind(this));
