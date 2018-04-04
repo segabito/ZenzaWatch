@@ -21,7 +21,7 @@ const START_PAGE_QUERY = 'hoge=fuga';
 //===BEGIN===
 const {initialize} = (() => {
   // GINZAを置き換えるべきか？の判定
-  var isOverrideGinza = function () {
+  let isOverrideGinza = function () {
     // GINZAで視聴のリンクできた場合はfalse
     if (window.name === 'watchGinza') {
       return false;
@@ -35,21 +35,21 @@ const {initialize} = (() => {
     return false;
   };
 
-  var replaceRedirectLinks = function () {
+  let replaceRedirectLinks = function () {
     $('a[href*="www.flog.jp/j.php/http://"]').each(function (i, a) {
-      var $a = $(a), href = $a.attr('href');
-      var replaced = href.replace(/^.*https?:/, '');
+      let $a = $(a), href = $a.attr('href');
+      let replaced = href.replace(/^.*https?:/, '');
       $a.attr('href', replaced);
     });
 
     $('a[href*="rd.nicovideo.jp/cc/"]').each(function (i, a) {
-      var $a = $(a), href = $a.attr('href');
+      let $a = $(a), href = $a.attr('href');
       if (href.match(/cc_video_id=([a-z0-9+]+)/)) {
-        var watchId = RegExp.$1;
+        let watchId = RegExp.$1;
         if (watchId.indexOf('lv') === 0) {
           return;
         }
-        var replaced = '//www.nicovideo.jp/watch/' + watchId;
+        let replaced = '//www.nicovideo.jp/watch/' + watchId;
         $a.attr('href', replaced);
       }
     });
@@ -58,23 +58,21 @@ const {initialize} = (() => {
     // マイリストページの連続再生ボタン横に「シャッフル再生」を追加する
     if (window.Nico && window.Nico.onReady) {
       window.Nico.onReady(function () {
-        var addShufflePlaylistLink = _.throttle(_.debounce(function () {
+        let addShufflePlaylistLink = _.throttle(_.debounce(function () {
           if ($('.zenzaPlaylistShuffleStart').length > 0) {
             return;
           }
-          var $a = $('a[href*="playlist_type=mylist"]:first,a[href*="playlist_type=deflist"]:first');
+          let $a = $('a[href*="playlist_type=mylist"]:first,a[href*="playlist_type=deflist"]:first');
           if ($a.length < 1) {
             return false;
           }
-          var a = $a[0];
-          var search = (a.search || '').substr(1);
-          //var query = ZenzaWatch.util.parseQuery(search);
-          //window.console.log(a, query);
-          var css = {
+          let a = $a[0];
+          let search = (a.search || '').substr(1);
+          let css = {
             'display': 'inline-block',
             'padding': '8px 6px'
           };
-          var $shuffle = $(a).clone().text('シャッフル再生');
+          let $shuffle = $(a).clone().text('シャッフル再生');
           $shuffle.addClass('zenzaPlaylistShuffleStart').attr(
             'href', '//www.nicovideo.jp/watch/1470321133?' +
             search + '&shuffle=1'
@@ -95,13 +93,13 @@ const {initialize} = (() => {
     if (location.host === 'www.nicovideo.jp' &&
       (location.pathname.indexOf('/search/') === 0 || location.pathname.indexOf('/tag/') === 0)) {
       (function () {
-        var $autoPlay = $('.autoPlay');
-        var $target = $autoPlay.find('a');
-        var search = (location.search || '').substr(1);
-        var href = $target.attr('href') + '&' + search;
+        let $autoPlay = $('.autoPlay');
+        let $target = $autoPlay.find('a');
+        let search = (location.search || '').substr(1);
+        let href = $target.attr('href') + '&' + search;
         $target.attr('href', href);
-        var $shuffle = $autoPlay.clone();
-        var a = $target[0];
+        let $shuffle = $autoPlay.clone();
+        let a = $target[0];
         $shuffle.find('a').attr({
           'href': '/watch/1483135673' + a.search + '&shuffle=1'
         }).text('シャッフル再生');
@@ -129,24 +127,24 @@ const {initialize} = (() => {
 
     if (location.host === 'ch.nicovideo.jp') {
       $('#sec_current a.item').closest('li').each(function (i, li) {
-        var $li = $(li), $img = $li.find('img');
-        var thumbnail = $img.attr('src') || $img.attr('data-original') || '';
-        var $a = $li.find('a');
+        let $li = $(li), $img = $li.find('img');
+        let thumbnail = $img.attr('src') || $img.attr('data-original') || '';
+        let $a = $li.find('a');
         if (thumbnail.match(/smile\?i=([0-9]+)/)) {
-          var watchId = 'so' + RegExp.$1;
+          let watchId = 'so' + RegExp.$1;
           $a.attr('href', '//www.nicovideo.jp/watch/' + watchId);
         }
       });
       $('.playerNavContainer .video img').each(function (i, img) {
-        var $img = $(img);
-        var $video = $img.closest('.video');
+        let $img = $(img);
+        let $video = $img.closest('.video');
         if ($video.length < 1) {
           return;
         }
-        var thumbnail = $img.attr('src') || $img.attr('data-original') || '';
+        let thumbnail = $img.attr('src') || $img.attr('data-original') || '';
         if (thumbnail.match(/smile\?i=([0-9]+)/)) {
-          var watchId = 'so' + RegExp.$1;
-          var $a = $('<a class="more zen" rel="noopener" target="_blank">watch</a>')
+          let watchId = 'so' + RegExp.$1;
+          let $a = $('<a class="more zen" rel="noopener" target="_blank">watch</a>')
             .css('right', '128px')
             .attr('href', '//www.nicovideo.jp/watch/' + watchId);
 
@@ -165,20 +163,20 @@ const {initialize} = (() => {
     }
   };
 
-  var initialize = function () {
+  let initialize = function () {
     window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
     initialize = _.noop;
 
 
     const query = util.parseQuery(START_PAGE_QUERY);
 
-    var isGinza = util.isGinzaWatchUrl() &&
+    let isGinza = util.isGinzaWatchUrl() &&
       (!!document.getElementById('watchAPIDataContainer') ||
         !!document.getElementById('js-initial-watch-data'));
 
     replaceRedirectLinks();
 
-    var hoverMenu = new HoverMenu({playerConfig: Config});
+    let hoverMenu = new HoverMenu({playerConfig: Config});
     ZenzaWatch.debug.hoverMenu = hoverMenu;
 
     window.console.time('createOffscreenLayer');
@@ -187,7 +185,7 @@ const {initialize} = (() => {
       // コメントの位置計算用のレイヤーが必要
       // スマートじゃないので改善したい
 
-      var dialog;
+      let dialog;
 
       // watchページか？
       if (isGinza) {
@@ -227,7 +225,7 @@ const {initialize} = (() => {
           return;
         }
 
-        window.console.log('recieve packet: ', packet);
+        console.log('recieve packet: ', packet);
         dialog.open(packet.watchId, {
           autoCloseFullScreen: false,
           query: packet.query,
@@ -258,8 +256,8 @@ const {initialize} = (() => {
         dialog.close();
       });
 
-      var lastSession = PlayerSession.restore();
-      var screenMode = Config.getValue('screenMode');
+      let lastSession = PlayerSession.restore();
+      let screenMode = Config.getValue('screenMode');
       if (
         lastSession.playing &&
         (screenMode === 'small' ||
@@ -275,7 +273,7 @@ const {initialize} = (() => {
       }
 
       WindowMessageEmitter.on('onMessage', (data/*, type*/) => {
-        var watchId = data.message.watchId;
+        let watchId = data.message.watchId;
         if (watchId && data.message.command === 'open') {
           //window.console.log('onMessage!: ', data.message.watchId, type);
           dialog.open(data.message.watchId, {
@@ -301,12 +299,12 @@ const {initialize} = (() => {
   };
 
 
-  var initializeDialogPlayer = function (conf, offScreenLayer) {
+  let initializeDialogPlayer = function (conf, offScreenLayer) {
     return initializeDialog(conf, offScreenLayer);
   };
 
 
-  var initializeExternal = function (dialog/*, config*/) {
+  let initializeExternal = function (dialog/*, config*/) {
     const command = (command, param) => {
       dialog.execCommand(command, param);
     };
@@ -399,14 +397,14 @@ const {initialize} = (() => {
     });
   };
 
-  var HoverMenu = function () {
+  const HoverMenu = function () {
     this.initialize.apply(this, arguments);
   };
   _.assign(HoverMenu.prototype, {
     initialize: function (param) {
       this._playerConfig = param.playerConfig;
 
-      var $view = $([
+      let $view = $([
         '<div class="zenzaWatchHoverMenu scalingUI">',
         '<span>Zen</span>',
         '</div>'].join(''));
@@ -417,7 +415,7 @@ const {initialize} = (() => {
         $view.removeClass('show');
       });
 
-      var $body = $('body')
+      let $body = $('body')
         .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
           this._onHover.bind(this))
         .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
@@ -466,15 +464,15 @@ const {initialize} = (() => {
       if (this._hoverElement !== e.target) {
         return;
       }
-      var $target = $(e.target).closest('a');
-      var href = $target.attr('data-href') || $target.attr('href');
-      var watchId = ZenzaWatch.util.getWatchId(href);
-      var offset = $target.offset();
-      var host = $target[0].hostname;
+      let $target = $(e.target).closest('a');
+      let href = $target.attr('data-href') || $target.attr('href');
+      let watchId = util.getWatchId(href);
+      let offset = $target.offset();
+      let host = $target[0].hostname;
       if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') {
         return;
       }
-      this._query = ZenzaWatch.util.parseQuery(($target[0].search || '').substr(1));
+      this._query = util.parseQuery(($target[0].search || '').substr(1));
 
 
       if ($target.hasClass('noHoverMenu')) {
@@ -555,14 +553,14 @@ const {initialize} = (() => {
           return;
         }
 
-        var $target = $(e.target).closest('a');
-        var href = $target.attr('data-href') || $target.attr('href');
-        var watchId = ZenzaWatch.util.getWatchId(href);
-        var host = $target[0].hostname;
+        let $target = $(e.target).closest('a');
+        let href = $target.attr('data-href') || $target.attr('href');
+        let watchId = util.getWatchId(href);
+        let host = $target[0].hostname;
         if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') {
           return;
         }
-        this._query = ZenzaWatch.util.parseQuery(($target[0].search || '').substr(1));
+        this._query = util.parseQuery(($target[0].search || '').substr(1));
 
         if ($target.hasClass('noHoverMenu')) {
           return;
