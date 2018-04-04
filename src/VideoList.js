@@ -766,7 +766,7 @@ const VideoListItemView = (() => {
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
  */
-var VideoListView = function () {
+let VideoListView = function () {
   this.initialize.apply(this, arguments);
 };
 _.extend(VideoListView.prototype, AsyncEmitter.prototype);
@@ -851,7 +851,7 @@ _.assign(VideoListView.prototype, {
     this._initializeView(params);
   },
   _initializeView: function (params) {
-    var html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
+    let html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
     this._frame = new FrameLayer({
       $container: params.$container,
       html: html,
@@ -907,7 +907,7 @@ _.assign(VideoListView.prototype, {
     });
   },
   _onBodyMouseDown: function (e) {
-    var $item = $(e.target).closest('.videoItem');
+    let $item = $(e.target).closest('.videoItem');
     if ($item.length < 1) {
       return;
     }
@@ -942,9 +942,9 @@ _.assign(VideoListView.prototype, {
     if (!this._$dragging) {
       return;
     }
-    var l = e.pageX - this._dragOffset.x;
-    var r = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
-    var translate = ['translate(', l, 'px, ', r, 'px)'].join('');
+    let l = e.pageX - this._dragOffset.x;
+    let r = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
+    let translate = ['translate(', l, 'px, ', r, 'px)'].join('');
 
     if (l * l + r * r < 100) {
       return;
@@ -956,7 +956,7 @@ _.assign(VideoListView.prototype, {
       .css('transform', translate);
 
     this._$body.find('.dragover').removeClass('dragover');
-    var $target = $(e.target).closest('.videoItem');
+    let $target = $(e.target).closest('.videoItem');
     if ($target.length < 1) {
       return;
     }
@@ -965,20 +965,20 @@ _.assign(VideoListView.prototype, {
   _onBodyMouseUp: function (e) {
     this._unbindDragStartEvents();
 
-    var $dragging = this._$dragging;
+    let $dragging = this._$dragging;
     this._endBodyMouseDragging();
     if (!$dragging) {
       return;
     }
 
-    var $target = $(e.target).closest('.videoItem');
+    let $target = $(e.target).closest('.videoItem');
     if ($target.length < 1) {
       $target = this._$dragTarget;
     }
     if (!$target || $target.length < 1) {
       return;
     }
-    var srcId = $dragging.attr('data-item-id'), destId = $target.attr('data-item-id');
+    let srcId = $dragging.attr('data-item-id'), destId = $target.attr('data-item-id');
     if (srcId === destId) {
       return;
     }
@@ -1024,12 +1024,12 @@ _.assign(VideoListView.prototype, {
     e.stopPropagation();
     this._$body.removeClass('drag-over');
 
-    var file = e.originalEvent.dataTransfer.files[0];
+    let file = e.originalEvent.dataTransfer.files[0];
     if (!/\.playlist\.json$/.test(file.name)) {
       return;
     }
 
-    var fileReader = new FileReader();
+    let fileReader = new FileReader();
     fileReader.onload = (ev) => {
       window.console.log('file data: ', ev.target.result);
       this.emit('filedrop', ev.target.result, file.name);
@@ -1098,14 +1098,14 @@ _.assign(VideoListView.prototype, {
     if (this._intersectionObserver) {
       this._intersectionObserver.disconnect();
     }
-    var onInview;
+    let onInview;
     if (!this._onImageInview_bind) {
       this._onImageInview_bind = this._onImageInview.bind(this);
     }
     onInview = this._onImageInview_bind;
-    var observer = this._intersectionObserver = new window.IntersectionObserver(onInview);
-    var images = this._document.querySelectorAll('img.lazy-load');
-    for (var i = 0, len = images.length; i < len; i++) {
+    let observer = this._intersectionObserver = new window.IntersectionObserver(onInview);
+    let images = this._document.querySelectorAll('img.lazy-load');
+    for (let i = 0, len = images.length; i < len; i++) {
       observer.observe(images[i]);
     }
   },
@@ -1157,14 +1157,14 @@ _.assign(VideoListView.prototype, {
   _onClick: function (e) {
     e.stopPropagation();
     ZenzaWatch.emitter.emitAsync('hideHover');
-    var $target = $(e.target).closest('.command');
-    var $item = $(e.target).closest('.videoItem');
+    let $target = $(e.target).closest('.command');
+    let $item = $(e.target).closest('.videoItem');
     if ($target.length > 0) {
       e.stopPropagation();
       e.preventDefault();
-      var command = $target.attr('data-command');
-      var param = $target.attr('data-param');
-      var itemId = $item.attr('data-item-id');
+      let command = $target.attr('data-command');
+      let param = $target.attr('data-param');
+      let itemId = $item.attr('data-item-id');
       switch (command) {
         case 'deflistAdd':
           this.emit('deflistAdd', param, itemId);
@@ -1190,8 +1190,8 @@ _.assign(VideoListView.prototype, {
     }
   },
   _onDblclick: function (e) {
-    var $target = $(e.target).closest('.command');
-    var command = $target.attr('data-command');
+    let $target = $(e.target).closest('.command');
+    let command = $target.attr('data-command');
     if (!command) {
       this.emit('dblclick', e);
     } else {
@@ -1227,11 +1227,11 @@ _.assign(VideoListView.prototype, {
     if (_.isFunction(itemId.getItemId)) {
       itemId = itemId.getItemId();
     }
-    var $target = this._$body.find('.item' + itemId);
+    let $target = this._$body.find('.item' + itemId);
     if ($target.length < 1) {
       return;
     }
-    var top = Math.max(0, $target.offset().top - 8 + this.scrollTop());
+    let top = Math.max(0, $target.offset().top - 8 + this.scrollTop());
     this.scrollTop(top);
   }
 });
@@ -1467,7 +1467,7 @@ _.assign(VideoListItem.prototype, {
   }
 });
 
-var VideoList = function () {
+let VideoList = function () {
   this.initialize.apply(this, arguments);
 };
 _.extend(VideoList.prototype, AsyncEmitter.prototype);
@@ -1501,8 +1501,8 @@ _.assign(VideoList.prototype, {
       this._initializeView();
     }
     this._watchId = watchId;
-    var items = [];
-    _.each(listData, function (itemData) {
+    const items = [];
+    listData.forEach(itemData => {
       if (!itemData.has_data) {
         return;
       }
@@ -1515,8 +1515,8 @@ _.assign(VideoList.prototype, {
   },
   _onCommand: function (command, param) {
     if (command === 'select') {
-      var item = this._model.findByItemId(param);
-      var watchId = item.getWatchId();
+      const item = this._model.findByItemId(param);
+      const watchId = item.watchId;
       this.emit('command', 'open', watchId);
       return;
     }
@@ -1527,7 +1527,7 @@ _.assign(VideoList.prototype, {
     if (this._isUpdatingPlaylist) {
       return;
     }
-    var item = this._model.findByItemId(itemId);
+    let item = this._model.findByItemId(itemId);
 
     const unlock = () => {
       item.setIsUpdating(false);
@@ -1581,7 +1581,7 @@ _.assign(VideoList.prototype, {
   }
 });
 
-var RelatedVideoList = function () {
+const RelatedVideoList = function () {
   this.initialize.apply(this, arguments);
 };
 _.extend(RelatedVideoList.prototype, VideoList.prototype);
@@ -1592,7 +1592,7 @@ _.assign(RelatedVideoList.prototype, {
       this._initializeView();
     }
     this._watchId = watchId;
-    var items = [];
+    let items = [];
     listData.forEach(itemData => {
       if (!itemData.has_data) {
         return;
@@ -1626,7 +1626,7 @@ _.assign(PlaylistModel.prototype, {
   },
 });
 
-var PlaylistView = function () {
+const PlaylistView = function () {
   this.initialize.apply(this, arguments);
 };
 _.extend(PlaylistView.prototype, AsyncEmitter.prototype);
@@ -1852,18 +1852,18 @@ _.assign(PlaylistView.prototype, {
 
 
     util.addStyle(PlaylistView.__css__);
-    var $view = this._$view = $(PlaylistView.__tpl__);
+    let $view = this._$view = $(PlaylistView.__tpl__);
     this._$container.append($view);
 
     this._$index = $view.find('.playlist-index');
     this._$length = $view.find('.playlist-length');
-    var $menu = this._$menu = this._$view.find('.playlist-menu');
-    var $fileDrop = this._$fileDrop = $view.find('.playlist-file-drop');
-    var $fileSelect = this._$fileSelect = $view.find('.playlist-import-file-select');
+    let $menu = this._$menu = this._$view.find('.playlist-menu');
+    let $fileDrop = this._$fileDrop = $view.find('.playlist-file-drop');
+    let $fileSelect = $view.find('.playlist-import-file-select');
 
     ZenzaWatch.debug.playlistView = this._$view;
 
-    var listView = this._listView = new VideoListView({
+    let listView = this._listView = new VideoListView({
       $container: this._$view.find('.playlist-frame'),
       model: this._model,
       className: 'playlist',
@@ -1920,9 +1920,9 @@ _.assign(PlaylistView.prototype, {
     this.emit('deflistAdd', watchId, itemId);
   },
   _onPlaylistCommandClick: function (e) {
-    var $target = $(e.target).closest('.playlist-command');
-    var command = $target.attr('data-command');
-    var param = $target.attr('data-param');
+    let $target = $(e.target).closest('.playlist-command');
+    let command = $target.attr('data-command');
+    let param = $target.attr('data-param');
     e.stopPropagation();
     if (!command) {
       return;
@@ -1939,8 +1939,7 @@ _.assign(PlaylistView.prototype, {
         return;
       case 'shuffle':
       case 'sortBy':
-        var $view = this._$view;
-        $view.addClass('shuffle');
+        this._$view.addClass('shuffle');
         window.setTimeout(() => {
           this._$view.removeClass('shuffle');
         }, 1000);
@@ -1952,7 +1951,7 @@ _.assign(PlaylistView.prototype, {
     ZenzaWatch.emitter.emitAsync('hideHover');
   },
   _onPlaylistStatusUpdate: function () {
-    var playlist = this._playlist;
+    let playlist = this._playlist;
     this._$view
       .toggleClass('enable', playlist.isEnable())
       .toggleClass('loop', playlist.isLoop())
@@ -1980,12 +1979,12 @@ _.assign(PlaylistView.prototype, {
     e.stopPropagation();
     this._$fileDrop.removeClass('show drag-over');
 
-    var file = e.originalEvent.dataTransfer.files[0];
+    let file = e.originalEvent.dataTransfer.files[0];
     if (!/\.playlist\.json$/.test(file.name)) {
       return;
     }
 
-    var fileReader = new FileReader();
+    let fileReader = new FileReader();
     fileReader.onload = (ev) => {
       window.console.log('file data: ', ev.target.result);
       this.emit('command', 'importFile', ev.target.result);
@@ -1996,12 +1995,12 @@ _.assign(PlaylistView.prototype, {
   _onImportFileSelect: function (e) {
     e.preventDefault();
 
-    var file = e.originalEvent.target.files[0];
+    let file = e.originalEvent.target.files[0];
     if (!/\.playlist\.json$/.test(file.name)) {
       return;
     }
 
-    var fileReader = new FileReader();
+    let fileReader = new FileReader();
     fileReader.onload = (ev) => {
       window.console.log('file data: ', ev.target.result);
       this.emit('command', 'importFile', ev.target.result);
@@ -2016,12 +2015,12 @@ _.assign(PlaylistView.prototype, {
   }
 });
 
-var PlaylistSession = (function (storage) {
-  var KEY = 'ZenzaWatchPlaylist';
+const PlaylistSession = (storage => {
+  const KEY = 'ZenzaWatchPlaylist';
 
   return {
     isExist: function () {
-      var data = storage.getItem(KEY);
+      let data = storage.getItem(KEY);
       if (!data) {
         return false;
       }
@@ -2036,7 +2035,7 @@ var PlaylistSession = (function (storage) {
       storage.setItem(KEY, JSON.stringify(data));
     },
     restore: function () {
-      var data = storage.getItem(KEY);
+      let data = storage.getItem(KEY);
       if (!data) {
         return null;
       }
@@ -2049,7 +2048,7 @@ var PlaylistSession = (function (storage) {
   };
 })(sessionStorage);
 
-var Playlist = function () {
+let Playlist = function () {
   this.initialize.apply(this, arguments);
 };
 _.extend(Playlist.prototype, VideoList.prototype);
@@ -2066,7 +2065,7 @@ _.assign(Playlist.prototype, {
 
     ZenzaWatch.debug.playlist = this;
     this.on('update', _.debounce(() => {
-      var data = this.serialize();
+      const data = this.serialize();
       PlaylistSession.save(data);
     }, 3000));
   },
@@ -2107,7 +2106,7 @@ _.assign(Playlist.prototype, {
     this._view.on('moveItem', this._onMoveItem.bind(this));
   },
   _onCommand: function (command, param, itemId) {
-    var item;
+    let item;
     switch (command) {
       case 'toggleEnable':
         this.toggleEnable();
@@ -2159,24 +2158,24 @@ _.assign(Playlist.prototype, {
     }
   },
   _onExportFileCommand: function () {
-    var dt = new Date();
-    var title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます',
+    let dt = new Date();
+    let title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます',
       util.dateToString(dt) + 'のプレイリスト');
     if (!title) {
       return;
     }
 
-    var data = JSON.stringify(this.serialize());
+    let data = JSON.stringify(this.serialize());
 
-    var blob = new Blob([data], {'type': 'text/html'});
-    var url = window.URL.createObjectURL(blob);
-    var a = document.createElement('a');
+    let blob = new Blob([data], {'type': 'text/html'});
+    let url = window.URL.createObjectURL(blob);
+    let a = document.createElement('a');
     a.setAttribute('download', title + '.playlist.json');
     a.setAttribute('rel', 'noopener');
     a.setAttribute('href', url);
     document.body.appendChild(a);
     a.click();
-    window.setTimeout(function () {
+    setTimeout(() => {
       a.remove();
     }, 1000);
   },
@@ -2190,28 +2189,28 @@ _.assign(Playlist.prototype, {
     this.unserialize(JSON.parse(fileData));
 
     window.setTimeout(() => {
-      var index = Math.max(0, fileData.index || 0);
-      var item = this._model.getItemByIndex(index);
+      let index = Math.max(0, fileData.index || 0);
+      let item = this._model.getItemByIndex(index);
       if (item) {
         this.setIndex(index, true);
-        this.emit('command', 'openNow', item.getWatchId());
+        this.emit('command', 'openNow', item.watchId);
       }
     }, 2000);
   },
   _onMoveItem: function (srcItemId, destItemId) {
-    var srcItem = this._model.findByItemId(srcItemId);
-    var destItem = this._model.findByItemId(destItemId);
+    let srcItem = this._model.findByItemId(srcItemId);
+    let destItem = this._model.findByItemId(destItemId);
     if (!srcItem || !destItem) {
       return;
     }
-    var destIndex = this._model.indexOf(destItem);
+    let destIndex = this._model.indexOf(destItem);
     this._model.removeItem(srcItem);
     this._model.insertItem(srcItem, destIndex);
     this._refreshIndex();
   },
   _setItemData: function (listData) {
-    var items = [];
-    _.each(listData, function (itemData) {
+    const items = [];
+    listData.forEach(itemData => {
       items.push(new VideoListItem(itemData));
     });
     //window.console.log('_setItemData', listData);
@@ -2221,7 +2220,7 @@ _.assign(Playlist.prototype, {
   _replaceAll: function (videoListItems, options) {
     options = options || {};
     this._model.setItem(videoListItems);
-    var item = this._model.findByWatchId(options.watchId);
+    const item = this._model.findByWatchId(options.watchId);
     if (item) {
       item.setIsActive(true);
       item.setIsPlayed(true);
@@ -2235,7 +2234,7 @@ _.assign(Playlist.prototype, {
   _appendAll: function (videoListItems, options) {
     options = options || {};
     this._model.appendItem(videoListItems);
-    var item = this._model.findByWatchId(options.watchId);
+    const item = this._model.findByWatchId(options.watchId);
     if (item) {
       item.setIsActive(true);
       item.setIsPlayed(true);
@@ -2256,7 +2255,7 @@ _.assign(Playlist.prototype, {
     return this._mylistApiLoader
       .getMylistItems(mylistId, options).then((items) => {
         window.console.timeEnd('loadMylist: ' + mylistId);
-        var videoListItems = [];
+        let videoListItems = [];
         //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
         items.forEach((item) => {
           // マイリストはitem_typeがint
@@ -2322,7 +2321,7 @@ _.assign(Playlist.prototype, {
     return this._uploadedVideoApiLoader
       .getUploadedVideos(userId, options).then((items) => {
         window.console.timeEnd('loadUploadedVideos' + userId);
-        var videoListItems = [];
+        let videoListItems = [];
 
         //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
         items.forEach((item) => {
@@ -2385,8 +2384,8 @@ _.assign(Playlist.prototype, {
     return this._nicoSearchApiLoader
       .searchMore(word, options, limit).then((result) => {
         window.console.timeEnd('loadSearchVideos' + word);
-        var items = result.list || [];
-        var videoListItems = [];
+        let items = result.list || [];
+        let videoListItems = [];
 
         //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
         items.forEach((item) => {
@@ -2451,14 +2450,13 @@ _.assign(Playlist.prototype, {
       return Promise.resolve();
     }
 
-    var model = this._model;
-    var index = this._index;
+    const model = this._model;
+    const index = this._index;
     return this._thumbInfoLoader.load(watchId).then((info) => {
         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         // チャンネル動画はsoXXXXに統一したいのでvideoIdを使う. バッドノウハウ
         info.id = info.isChannel ? info.id : watchId;
-        var item = VideoListItem.createByThumbInfo(info);
-        //window.console.info(item, info);
+        const item = VideoListItem.createByThumbInfo(info);
         model.insertItem(item, index + 1);
         this._refreshIndex(true);
 
@@ -2469,16 +2467,15 @@ _.assign(Playlist.prototype, {
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );
-      },
-      (result) => {
-        var item = VideoListItem.createBlankInfo(watchId);
+      }).catch(result => {
+        const item = VideoListItem.createBlankInfo(watchId);
         model.insertItem(item, index + 1);
         this._refreshIndex(true);
 
         this.emit('update');
 
         window.console.error(result);
-        this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
+        this.emit('command', 'alert', `動画情報の取得に失敗: ${watchId}`);
       });
   },
   insertCurrentVideo: function (videoInfo) {
@@ -2493,8 +2490,8 @@ _.assign(Playlist.prototype, {
       return;
     }
 
-    var currentItem = this._model.findByWatchId(videoInfo.watchId);
-    if (currentItem && !currentItem.isBlankData()) {
+    let currentItem = this._model.findByWatchId(videoInfo.watchId);
+    if (currentItem && !currentItem.isBlankData) {
       currentItem.updateByVideoInfo(videoInfo);
       currentItem.setIsPlayed(true);
       this.setIndex(this._model.indexOf(currentItem));
@@ -2502,8 +2499,8 @@ _.assign(Playlist.prototype, {
       return;
     }
 
-    var item = VideoListItem.createByVideoInfoModel(videoInfo);
     item.setIsPlayed(true);
+    const item = VideoListItem.createByVideoInfoModel(videoInfo);
     if (this._activeItem) {
       this._activeItem.setIsActive(false);
     }
@@ -2512,8 +2509,8 @@ _.assign(Playlist.prototype, {
     this._refreshIndex(true);
   },
   removeItemByWatchId: function (watchId) {
-    var item = this._model.findByWatchId(watchId);
     if (!item || item.isActive()) {
+    const item = this._model.findByWatchId(watchId);
       return;
     }
     this._model.removeItem(item);
@@ -2525,11 +2522,11 @@ _.assign(Playlist.prototype, {
       return Promise.resolve();
     }
 
-    var model = this._model;
+    const model = this._model;
     return this._thumbInfoLoader.load(watchId).then((info) => {
         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         info.id = watchId;
-        var item = VideoListItem.createByThumbInfo(info);
+        const item = VideoListItem.createByThumbInfo(info);
         //window.console.info(item, info);
         model.appendItem(item);
         this._refreshIndex();
@@ -2539,9 +2536,8 @@ _.assign(Playlist.prototype, {
           '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
           item.getTitle()
         );
-      },
-      (result) => {
-        var item = VideoListItem.createBlankInfo(watchId);
+      }).catch(result => {
+        const item = VideoListItem.createBlankInfo(watchId);
         model.appendItem(item);
         this._refreshIndex(true);
         this._refreshIndex();
@@ -2555,10 +2551,8 @@ _.assign(Playlist.prototype, {
   },
   setIndex: function (v, force) {
     v = parseInt(v, 10);
-    //window.console.log('setIndex: %s -> %s', this._index, v);
     if (this._index !== v || force) {
       this._index = v;
-      //window.console.log('before active', this._activeItem);
       if (this._activeItem) {
         this._activeItem.setIsActive(false);
       }
@@ -2566,7 +2560,6 @@ _.assign(Playlist.prototype, {
       if (this._activeItem) {
         this._activeItem.setIsActive(true);
       }
-      //window.console.log('after active', this._activeItem);
       this.emit('update');
     }
   },
@@ -2579,13 +2572,13 @@ _.assign(Playlist.prototype, {
     }
   },
   _setIndexByItemId: function (itemId) {
-    var item = this._model.findByItemId(itemId);
+    const item = this._model.findByItemId(itemId);
     if (item) {
       this._setIndexByItem(item);
     }
   },
   _setIndexByItem: function (item) {
-    var index = this._model.indexOf(item);
+    const index = this._model.indexOf(item);
     if (index >= 0) {
       this.setIndex(index);
     }
@@ -2594,7 +2587,7 @@ _.assign(Playlist.prototype, {
     return this._model.getLength();
   },
   hasNext: function () {
-    var len = this._model.getLength();
+    const len = this._model.getLength();
     return len > 0 && (this.isLoop() || this._index < len - 1);
   },
   isEnable: function () {
@@ -2669,8 +2662,8 @@ _.assign(Playlist.prototype, {
     return this._activeItem ? this._activeItem.getWatchId() : null;
   },
   selectPrevious: function () {
-    var index = this.getIndex();
-    var len = this.getLength();
+    let index = this.getIndex();
+    let len = this.getLength();
     if (len < 1) {
       return null;
     }
@@ -2693,7 +2686,7 @@ _.assign(Playlist.prototype, {
     }
   },
   scrollToWatchId: function (watchId) {
-    var item = this._model.findByWatchId(watchId);
+    const item = this._model.findByWatchId(watchId);
     if (item) {
       this._view.scrollToItem(item);
     }
