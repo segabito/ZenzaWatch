@@ -1,35 +1,30 @@
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {NicoChat, NicoCommentViewModel} from './CommentPlayer';
 
 const Config = ZenzaWatch.config;
 const util = ZenzaWatch.util;
 
 //===BEGIN===
 
-var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/) {
-  var func = function (self) {
+let CommentLayoutWorker = (config => {
+  let func = function (self) {
 
     // 暫定設置
-    var NicoChat = {
-      TYPE: {
-        TOP: 'ue',
-        NAKA: 'naka',
-        BOTTOM: 'shita'
-      }
+    let TYPE = {
+      TOP: 'ue',
+      NAKA: 'naka',
+      BOTTOM: 'shita'
     };
 
-    var NicoCommentViewModel = {
-      SCREEN: {
-        WIDTH_INNER: 512,
+    let SCREEN = {
+      WIDTH_INNER: 512,
         WIDTH_FULL_INNER: 640,
         WIDTH: 512 + 32,
         WIDTH_FULL: 640 + 32,
         HEIGHT: 384 + 1
-      }
     };
 
 
-    var isConflict = function (target, others) {
+    let isConflict = function (target, others) {
       // 一度はみ出した文字は当たり判定を持たない
       if (target.isOverflow || others.isOverflow || others.isInvisible) {
         return false;
@@ -40,15 +35,15 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
       }
 
       // Y座標が合わないなら絶対衝突しない
-      var othersY = others.ypos;
-      var targetY = target.ypos;
+      let othersY = others.ypos;
+      let targetY = target.ypos;
       if (othersY + others.height < targetY ||
         othersY > targetY + target.height) {
         return false;
       }
 
       // ターゲットと自分、どっちが右でどっちが左か？の判定
-      var rt, lt;
+      let rt, lt;
       if (target.beginLeft <= others.beginLeft) {
         lt = target;
         rt = others;
@@ -82,23 +77,23 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
       return false;
     };
 
-    var moveToNextLine = function (target, others) {
-      var margin = 1;
-      var othersHeight = others.height + margin;
+    let moveToNextLine = function (target, others) {
+      let margin = 1;
+      let othersHeight = others.height + margin;
       // 本来はちょっとでもオーバーしたらランダムすべきだが、
       // 本家とまったく同じサイズ計算は難しいのでマージンを入れる
       // コメントアートの再現という点では有効な妥協案
-      var overflowMargin = 10;
-      var rnd = Math.max(0, NicoCommentViewModel.SCREEN.HEIGHT - target.height);
-      var yMax = NicoCommentViewModel.SCREEN.HEIGHT - target.height + overflowMargin;
+      let overflowMargin = 10;
+      let rnd = Math.max(0, SCREEN.HEIGHT - target.height);
+      let yMax = SCREEN.HEIGHT - target.height + overflowMargin;
       //var rnd =  Math.max(0, 385 - target.height);
       //var yMax = 385 - target.height + overflowMargin;
-      var yMin = 0 - overflowMargin;
+      let yMin = 0 - overflowMargin;
 
-      var type = target.type;
-      var ypos = target.ypos;
+      let type = target.type;
+      let ypos = target.ypos;
 
-      if (type !== NicoChat.TYPE.BOTTOM) {
+      if (type !== TYPE.BOTTOM) {
         ypos += othersHeight;
         // 画面内に入りきらなかったらランダム配置
         if (ypos > yMax) {
@@ -122,15 +117,15 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
      * 最初に衝突が起こりうるindexを返す。
      * 処理効率化のための物
      */
-    var findCollisionStartIndex = function (target, members) {
-      var o;
-      var tl = target.beginLeft;
-      var tr = target.endRight;
-      var fork = target.fork;
-      for (var i = 0, len = members.length; i < len; i++) {
+    let findCollisionStartIndex = function (target, members) {
+      let o;
+      let tl = target.beginLeft;
+      let tr = target.endRight;
+      let fork = target.fork;
+      for (let i = 0, len = members.length; i < len; i++) {
         o = members[i];
-        var ol = o.beginLeft;
-        var or = o.endRight;
+        let ol = o.beginLeft;
+        let or = o.endRight;
 
         // 自分よりうしろのメンバーには影響を受けないので処理不要
         if (o.id === target.id) {
@@ -149,10 +144,10 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
       return -1;
     };
 
-    var _checkCollision = function (target, members, collisionStartIndex) {
-      var o;
+    let _checkCollision = function (target, members, collisionStartIndex) {
+      let o;
       const beginLeft = target.beginLeft;
-      for (var i = collisionStartIndex, len = members.length; i < len; i++) {
+      for (let i = collisionStartIndex, len = members.length; i < len; i++) {
         o = members[i];
 
         // 自分よりうしろのメンバーには影響を受けないので処理不要
@@ -176,12 +171,12 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
       return target;
     };
 
-    var checkCollision = function (target, members) {
+    let checkCollision = function (target, members) {
       if (target.isInvisible) {
         return target;
       }
 
-      var collisionStartIndex = findCollisionStartIndex(target, members);
+      let collisionStartIndex = findCollisionStartIndex(target, members);
 
       if (collisionStartIndex < 0) {
         return target;
@@ -191,43 +186,9 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
     };
 
 
-    /**
-     * findCollisionStartIndexの効率化を適用する前の物
-     */
-    var checkCollision_old = function (target, members) {
-      if (target.isInvisible) {
-        return target;
-      }
 
-      var o;
-      var beginLeft = target.beginLeft;
-      for (var i = 0, len = members.length; i < len; i++) {
-        o = members[i];
-
-        // 自分よりうしろのメンバーには影響を受けないので処理不要
-        if (o.id === target.id) {
-          return target;
-        }
-
-        if (beginLeft > o.endRight) {
-          continue;
-        }
-
-
-        if (isConflict(target, o)) {
-          target = moveToNextLine(target, o);
-
-          // ずらした後は再度全チェックするのを忘れずに(再帰)
-          if (!target.isOverflow) {
-            return checkCollision(target, members);
-          }
-        }
-      }
-      return target;
-    };
-
-    var groupCollision = function (members) {
-      for (var i = 0, len = members.length; i < len; i++) {
+    let groupCollision = function (members) {
+      for (let i = 0, len = members.length; i < len; i++) {
         members[i] = checkCollision(members[i], members);
       }
       return members;
@@ -249,7 +210,7 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
 
   };
 
-  var instance = null;
+  let instance = null;
   return {
     _func: func,
     create: function () {
@@ -268,20 +229,18 @@ var CommentLayoutWorker = (function (config /*, NicoChat, NicoCommentViewModel*/
       return instance;
     }
   };
-})(Config, NicoChat, NicoCommentViewModel);
+})(Config);
 
-ZenzaWatch.util.createWebWorker = function (func) {
-  var src = func.toString().replace(/^function.*?\{/, '').replace(/}$/, '');
+util.createWebWorker = func => {
+  let src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
 
-  var blob = new Blob([src], {type: 'text/javascript'});
-  var url = URL.createObjectURL(blob);
-
-  //window.console.log('WebWorker src:', src);
+  let blob = new Blob([src], {type: 'text/javascript'});
+  let url = URL.createObjectURL(blob);
 
   return new Worker(url);
 };
 
-ZenzaWatch.util.isWebWorkerAvailable = function () {
+util.isWebWorkerAvailable = () => {
   return !!(window.Blob && window.Worker && window.URL);
 };
 
@@ -294,3 +253,37 @@ export {
 };
 
 
+// /**
+//  * findCollisionStartIndexの効率化を適用する前の物
+//  */
+// let checkCollision_old = function (target, members) {
+//   if (target.isInvisible) {
+//     return target;
+//   }
+//
+//   let o;
+//   let beginLeft = target.beginLeft;
+//   for (let i = 0, len = members.length; i < len; i++) {
+//     o = members[i];
+//
+//     // 自分よりうしろのメンバーには影響を受けないので処理不要
+//     if (o.id === target.id) {
+//       return target;
+//     }
+//
+//     if (beginLeft > o.endRight) {
+//       continue;
+//     }
+//
+//
+//     if (isConflict(target, o)) {
+//       target = moveToNextLine(target, o);
+//
+//       // ずらした後は再度全チェックするのを忘れずに(再帰)
+//       if (!target.isOverflow) {
+//         return checkCollision(target, members);
+//       }
+//     }
+//   }
+//   return target;
+// };
