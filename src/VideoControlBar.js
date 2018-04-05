@@ -1105,7 +1105,7 @@ import {util} from './util';
     initialize: function(params) {
       this._playerConfig        = params.playerConfig;
       this._$playerContainer    = params.$playerContainer;
-      var player = this._player = params.player;
+      let player = this._player = params.player;
 
       player.on('open',           this._onPlayerOpen.bind(this));
       player.on('canPlay',        this._onPlayerCanPlay.bind(this));
@@ -1127,10 +1127,10 @@ import {util} from './util';
     },
     _initializeDom: function() {
       util.addStyle(VideoControlBar.__css__);
-      var $view = this._$view = $(VideoControlBar.__tpl__);
-      var $container = this._$playerContainer;
-      var config = this._playerConfig;
-      var onCommand = (command, param) => { this.emit('command', command, param); };
+      let $view = this._$view = $(VideoControlBar.__tpl__);
+      let $container = this._$playerContainer;
+      let config = this._playerConfig;
+      let onCommand = (command, param) => { this.emit('command', command, param); };
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
@@ -1156,7 +1156,7 @@ import {util} from './util';
       this._heatMap = new HeatMap({
         $container: this._$seekBarContainer.find('.seekBar')
       });
-      var updateHeatMapVisibility = (v) => {
+      let updateHeatMapVisibility = (v) => {
         this._$seekBarContainer.toggleClass('noHeatMap', !v);
       };
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
@@ -1180,7 +1180,7 @@ import {util} from './util';
         $container: this._$seekBarContainer
       });
       this._commentPreview.on('command', onCommand);
-      var updateEnableCommentPreview = (v) => {
+      let updateEnableCommentPreview = (v) => {
         this._$seekBarContainer.toggleClass('enableCommentPreview', v);
         this._commentPreview.setIsEnable(v);
       };
@@ -1207,41 +1207,39 @@ import {util} from './util';
       this._width = this._$seekBarContainer.innerWidth();
     },
     _initializeScreenModeSelectMenu: function() {
-      var self = this;
-      var $menu = this._$screenModeSelectMenu;
+      let $menu = this._$screenModeSelectMenu;
 
-      $menu.on('click', 'span', function(e) {
+      $menu.on('click', 'span', e =>  {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target).closest('.screenMode');
-        var mode     = $target.attr('data-screen-mode');
+        let $target  = $(e.target).closest('.screenMode');
+        let mode     = $target.attr('data-screen-mode');
 
-        self.emit('command', 'screenMode', mode);
+        this.emit('command', 'screenMode', mode);
       });
 
     },
     _initializePlaybackRateSelectMenu: function() {
-      var self = this;
-      var config = this._playerConfig;
-      var $btn  = this._$playbackRateMenu;
-      var $label = $btn.find('.controlButtonInner');
-      var $menu = this._$playbackRateSelectMenu;
+      let config = this._playerConfig;
+      let $btn  = this._$playbackRateMenu;
+      let $label = $btn.find('.controlButtonInner');
+      let $menu = this._$playbackRateSelectMenu;
 
-      $menu.on('click', '.playbackRate', function(e) {
+      $menu.on('click', '.playbackRate', e => {
         e.preventDefault();
         e.stopPropagation();
-        var $target  = $(e.target).closest('.playbackRate');
-        var rate     = parseFloat($target.attr('data-rate'), 10);
-        self.emit('command', 'playbackRate', rate);
+        let $target  = $(e.target).closest('.playbackRate');
+        let rate     = parseFloat($target.attr('data-rate'), 10);
+        this.emit('command', 'playbackRate', rate);
       });
 
-      var updatePlaybackRate = function(rate) {
+      let updatePlaybackRate =  rate => {
         $label.text('x' + rate);
         $menu.find('.selected').removeClass('selected');
-        var fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
+        let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $menu.find('.playbackRate').each(function(i, item) {
-          var $item = $(item);
-          var r = parseFloat($item.attr('data-rate'), 10);
+          let $item = $(item);
+          let r = parseFloat($item.attr('data-rate'), 10);
           if (fr === r) {
             $item.addClass('selected');
           }
@@ -1252,71 +1250,70 @@ import {util} from './util';
       config.on('update-playbackRate', updatePlaybackRate);
     },
     _initializeVolumeControl: function() {
-      var $container = this._$view.find('.volumeControl');
-      var $tooltip = $container.find('.tooltip');
-      var $bar     = $container.find('.slideBar');
-      var $pointer = $container.find('.volumeBarPointer');
-      var $body    = $('body');
-      var $window  = $(window);
-      var config   = this._playerConfig;
-      var self = this;
+      let $container = this._$view.find('.volumeControl');
+      let $tooltip = $container.find('.tooltip');
+      let $bar     = $container.find('.slideBar');
+      let $pointer = $container.find('.volumeBarPointer');
+      let $body    = $('body');
+      let $window  = $(window);
+      let config   = this._playerConfig;
 
-      var setVolumeBar = this._setVolumeBar = function(v) {
-        var per = Math.round(v * 100);
+      let setVolumeBar = this._setVolumeBar = v => {
+        let per = Math.round(v * 100);
         $bar.css({ width: per + '%'});
         $pointer.css({ left: per + '%'});
         $tooltip.text('音量 (' + per + '%)');
       };
 
-      var $inner = $container.find('.volumeControlInner');
-      var posToVol = function(x) {
-        var width = $inner.outerWidth();
-        var vol = x / width;
+      let $inner = $container.find('.volumeControlInner');
+      let posToVol = x => {
+        let width = $inner.outerWidth();
+        let vol = x / width;
         return Math.max(0, Math.min(vol, 1.0));
       };
 
-      var onBodyMouseMove = function(e) {
-        var offset = $inner.offset();
-        var scale = Math.max(0.1, parseFloat(config.getValue('menuScale'), 10));
-        var left = (e.clientX - offset.left) / scale;
-        var vol = posToVol(left);
+      let onBodyMouseMove = e => {
+        let offset = $inner.offset();
+        let scale = Math.max(0.1, parseFloat(config.getValue('menuScale'), 10));
+        let left = (e.clientX - offset.left) / scale;
+        let vol = posToVol(left);
 
-        self.emit('command', 'volume', vol);
+        this.emit('command', 'volume', vol);
       };
 
-      var bindDragEvent = function() {
+      let bindDragEvent = () => {
         $body
           .on('mousemove.ZenzaWatchVolumeBar', onBodyMouseMove)
           .on('mouseup.ZenzaWatchVolumeBar',   onBodyMouseUp);
         $window.on('blur.ZenzaWatchVolumeBar', onWindowBlur);
       };
-      var unbindDragEvent = function() {
+      let unbindDragEvent = () => {
         $body
           .off('mousemove.ZenzaWatchVolumeBar')
           .off('mouseup.ZenzaWatchVolumeBar');
         $window.off('blur.ZenzaWatchVolumeBar');
       };
-      var beginMouseDrag = function() {
+      let beginMouseDrag = () => {
         bindDragEvent();
         $container.addClass('dragging');
       };
-      var endMouseDrag = function() {
+      let endMouseDrag = () => {
         unbindDragEvent();
         $container.removeClass('dragging');
       };
-      var onBodyMouseUp = function() {
+      let onBodyMouseUp = () => {
         endMouseDrag();
       };
-      var onWindowBlur = function() {
+      let onWindowBlur = () => {
         endMouseDrag();
       };
 
-      var onVolumeBarMouseDown = function(e) {
+      let onVolumeBarMouseDown = e => {
         e.preventDefault();
         e.stopPropagation();
 
-        var vol = posToVol(e.offsetX);
-        self.emit('command', 'volume', vol);
+        let vol = posToVol(e.offsetX);
+        this.emit('command', 'volume', vol);
 
         beginMouseDrag();
       };
@@ -1336,7 +1333,7 @@ import {util} from './util';
         const $target  = $(e.target).closest('.exec-command');
         const command  = $target.attr('data-command');
         if (!command) { return; }
-        var   param    = $target.attr('data-param');
+        let   param    = $target.attr('data-param');
         const type     = $target.attr('data-type');
         if (param && type === 'bool') {
           param = JSON.parse(param);
@@ -1346,26 +1343,26 @@ import {util} from './util';
         this.emit('command', command, param);
       });
 
-      const updateEnableDmc = function(value) {
+      const updateEnableDmc = value => {
         $menu.toggleClass('is-dmcEnable', value);
         const $d = $menu.find('.serverType');
         $d.removeClass('selected');
         $menu.find('.select-' + (value ? 'dmc' : 'smile')).addClass('selected');
       };
 
-      const updateForceEconomy = function(value) {
+      const updateForceEconomy = value => {
         const $dq = $menu.find('.smileVideoQuality');
         $dq.removeClass('selected');
         $menu.find('.select-' + (value ? 'economy' : 'default')).addClass('selected');
       };
 
-      const updateDmcVideoQuality = function(value) {
+      const updateDmcVideoQuality = value => {
         const $dq = $menu.find('.dmcVideoQuality');
         $dq.removeClass('selected');
         $menu.find('.select-' + value).addClass('selected');
       };
 
-      const onVideoServerType = function(type, videoSessionInfo) {
+      const onVideoServerType = (type, videoSessionInfo) => {
         if (type !== 'dmc') {
           if (config.getValue('autoDisableDmc')) {
             $current.text('----');
@@ -1390,10 +1387,10 @@ import {util} from './util';
       e.preventDefault();
       e.stopPropagation();
 
-      var $target = $(e.target).closest('.controlButton');
-      var command = $target.attr('data-command');
-      var param   = $target.attr('data-param');
-      var type    = $target.attr('data-type');
+      let $target = $(e.target).closest('.controlButton');
+      let command = $target.attr('data-command');
+      let param   = $target.attr('data-param');
+      let type    = $target.attr('data-type');
       if (param && (type === 'bool' || type === 'json')) {
         param = JSON.parse(param);
       }
@@ -1416,39 +1413,37 @@ import {util} from './util';
        }
     },
     _hideMenu: function() {
-      var self = this;
-      $([
-        'toggleScreenModeMenu',
+      [ 'toggleScreenModeMenu',
         'togglePlaybackRateMenu',
         'toggleVideoServerTypeMenu'
-      ]).each(function(i, func) {
-        (self[func])(false);
+      ].forEach(func => {
+        this[func](false);
       });
     },
     togglePlaybackRateMenu: function(v) {
-      var $btn  = this._$playbackRateMenu;
-      var $menu = this._$playbackRateSelectMenu;
+      let $btn  = this._$playbackRateMenu;
+      let $menu = this._$playbackRateSelectMenu;
       this._toggleMenu('playbackRate', $btn, $menu, v);
     },
     toggleScreenModeMenu: function(v) {
-      var $btn  = this._$screenModeMenu;
-      var $menu = this._$screenModeSelectMenu;
+      let $btn  = this._$screenModeMenu;
+      let $menu = this._$screenModeSelectMenu;
       this._toggleMenu('screenMode', $btn, $menu, v);
     },
     toggleVideoServerTypeMenu: function(v) {
-      var $btn  = this._$videoServerTypeMenu;
-      var $menu = this._$videoServerTypeSelectMenu;
+      let $btn  = this._$videoServerTypeMenu;
+      let $menu = this._$videoServerTypeSelectMenu;
       this._toggleMenu('screenMode', $btn, $menu, v);
     },
     _toggleMenu: function(name, $btn, $menu, v) {
-      var $body = $('body');
-      var eventName = 'click.ZenzaWatch_' + name + 'Menu';
+      let $body = $('body');
+      let eventName = 'click.ZenzaWatch_' + name + 'Menu';
 
       $body.off(eventName);
       $btn .toggleClass('show', v);
       $menu.toggleClass('show', v);
 
-      var onBodyClick = function() {
+      let onBodyClick = function() {
         $btn.removeClass('show');
         $menu.removeClass('show');
         $body.off(eventName);
@@ -1463,7 +1458,7 @@ import {util} from './util';
       }
     },
     _posToTime: function(pos) {
-      var width = this._$seekBar.innerWidth();
+      let width = this._$seekBar.innerWidth();
       return this._duration * (pos / Math.max(width, 1));
     },
     _timeToPos: function(time) {
@@ -1481,7 +1476,7 @@ import {util} from './util';
       this.resetBufferedRange();
     },
     _onPlayerCanPlay: function(watchId, videoInfo) {
-      var duration = this._player.getDuration();
+      let duration = this._player.getDuration();
       this.setDuration(duration);
       this._storyboard.onVideoCanPlay(watchId, videoInfo);
 
@@ -1521,8 +1516,8 @@ import {util} from './util';
       e.preventDefault();
       e.stopPropagation();
 
-      var left = e.offsetX;
-      var sec = this._posToTime(left);
+      let left = e.offsetX;
+      let sec = this._posToTime(left);
 
       this.emit('command', 'seek', sec);
 
@@ -1532,8 +1527,8 @@ import {util} from './util';
       if (!this._$view.hasClass('dragging')) {
         e.stopPropagation();
       }
-      var left = e.offsetX;
-      var sec = this._posToTime(left);
+      let left = e.offsetX;
+      let sec = this._posToTime(left);
       this._seekBarMouseX = left;
 
       this._commentPreview.setCurrentTime(sec);
@@ -1552,9 +1547,9 @@ import {util} from './util';
       this._$view.removeClass('dragging');
     },
     _onBodyMouseMove: function(e) {
-      var offset = this._$seekBar.offset();
-      var left = e.clientX - offset.left;
-      var sec = this._posToTime(left);
+      let offset = this._$seekBar.offset();
+      let left = e.clientX - offset.left;
+      let sec = this._posToTime(left);
 
       this.emit('command', 'seek', sec);
       this._seekBarToolTip.update(sec, left);
@@ -1581,8 +1576,8 @@ import {util} from './util';
     },
     _onTimer: function() {
       this._timerCount++;
-      var player = this._player;
-      var currentTime = player.getCurrentTime();
+      let player = this._player;
+      let currentTime = player.getCurrentTime();
       if (this._timerCount % 15 === 0) {
         this.setCurrentTime(currentTime);
       }
@@ -1630,15 +1625,15 @@ import {util} from './util';
       }
     },
     setBufferedRange: function(range, currentTime) {
-      var $range = this._$bufferRange;
+      let $range = this._$bufferRange;
       if (!range || !range.length || !this._duration) {
         return;
       }
-      for (var i = 0, len = range.length; i < len; i++) {
+      for (let i = 0, len = range.length; i < len; i++) {
         try {
-          var start = range.start(i);
-          var end   = range.end(i);
-          var width = end - start;
+          let start = range.start(i);
+          let end   = range.end(i);
+          let width = end - start;
           if (start <= currentTime && end >= currentTime) {
             if (this._bufferStart !== start ||
                 this._bufferEnd   !== end) {
@@ -1661,7 +1656,7 @@ import {util} from './util';
     }
   });
 
-  var HeatMapModel = function() { this.initialize.apply(this, arguments); };
+  let HeatMapModel = function() { this.initialize.apply(this, arguments); };
   HeatMapModel.RESOLUTION = 100;
   _.extend(HeatMapModel.prototype, AsyncEmitter.prototype);
   _.assign(HeatMapModel.prototype, {
@@ -1690,7 +1685,7 @@ import {util} from './util';
       if (this._duration < 0 || !this._chatReady /* || this._isUpdated */) {
         return;
       }
-      var map = this._getHeatMap();
+      let map = this._getHeatMap();
       this.emitAsync('update', map);
       ZenzaWatch.emitter.emit('heatMapUpdate', {map, duration: this._duration});
       // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
@@ -1700,20 +1695,20 @@ import {util} from './util';
     },
     _getHeatMap: function() {
       //console.time('update HeatMapModel');
-      var chatList =
+      let chatList =
         this._chat.top.concat(this._chat.naka, this._chat.bottom);
-      var duration = this._duration;
+      let duration = this._duration;
       if (!duration) { return; }
-      var map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
-      var i = map.length;
+      let map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
+      let i = map.length;
       while(i > 0) map[--i] = 0;
 
-      var ratio = duration > map.length ? (map.length / duration) : 1;
+      let ratio = duration > map.length ? (map.length / duration) : 1;
 
       for (i = chatList.length - 1; i >= 0; i--) {
-        var nicoChat = chatList[i];
-        var pos = nicoChat.getVpos();
-        var mpos = Math.min(Math.floor(pos * ratio / 100), map.length -1);
+        let nicoChat = chatList[i];
+        let pos = nicoChat.getVpos();
+        let mpos = Math.min(Math.floor(pos * ratio / 100), map.length -1);
         map[mpos]++;
       }
 
@@ -1722,7 +1717,7 @@ import {util} from './util';
     }
   });
 
-  var HeatMapView = function() { this.initialize.apply(this, arguments); };
+  let HeatMapView = function() { this.initialize.apply(this, arguments); };
   _.assign(HeatMapView.prototype, {
     _canvas:  null,
     _palette: null,
@@ -1740,8 +1735,8 @@ import {util} from './util';
     _initializePalette: function() {
       this._palette = [];
       // NicoHeatMaoより控え目な配色にしたい
-      for (var c = 0; c < 256; c++) {
-        var
+      for (let c = 0; c < 256; c++) {
+        let
           r = Math.floor((c > 127) ? (c / 2 + 128) : 0),
           g = Math.floor((c > 127) ? (255 - (c - 128) * 2) : (c * 2)),
           b = Math.floor((c > 127) ? 0 : (255  - c * 2));
@@ -1785,12 +1780,12 @@ import {util} from './util';
       // 一番コメント密度が高い所を100%として相対的な比率にする
       // 赤い所が常にピークになってわかりやすいが、
       // コメントが一カ所に密集している場合はそれ以外が薄くなってしまうのが欠点
-      var max = 0, i;
+      let max = 0, i;
       // -4 してるのは、末尾にコメントがやたら集中してる事があるのを集計対象外にするため (ニコニ広告に付いてたコメントの名残？)
       for (i = Math.max(map.length - 4, 0); i >= 0; i--) max = Math.max(map[i], max);
 
       if (max > 0) {
-        var rate = 255 / max;
+        let rate = 255 / max;
         for (i = map.length - 1; i >= 0; i--) {
           map[i] = Math.min(255, Math.floor(map[i] * rate));
         }
@@ -1799,7 +1794,7 @@ import {util} from './util';
         return;
       }
 
-      var
+      let
         scale = map.length >= this._width ? 1 : (this._width / Math.max(map.length, 1)),
         blockWidth = (this._width / map.length) * scale,
         context = this._context;
@@ -1837,7 +1832,7 @@ import {util} from './util';
   });
 
 
-  var CommentPreviewModel = function() { this.initialize.apply(this, arguments); };
+  let CommentPreviewModel = function() { this.initialize.apply(this, arguments); };
   _.extend(CommentPreviewModel.prototype, AsyncEmitter.prototype);
   _.assign(CommentPreviewModel.prototype, {
     initialize: function() {
@@ -1848,9 +1843,9 @@ import {util} from './util';
       this.emit('reset');
     },
     setChatList: function(chatList) {
-      var list = chatList.top.concat(chatList.naka, chatList.bottom);
+      let list = chatList.top.concat(chatList.naka, chatList.bottom);
       list.sort(function(a, b) {
-        var av = a.getVpos(), bv = b.getVpos();
+        let av = a.getVpos(), bv = b.getVpos();
         return av - bv;
       });
 
@@ -1877,9 +1872,9 @@ import {util} from './util';
       return this.getVposIndex(this._vpos);
     },
     getVposIndex: function(vpos) {
-      var list = this._chatList;
-      for (var i = list.length - 1; i >= 0; i--) {
-        var chat = list[i], cv = chat.getVpos();
+      let list = this._chatList;
+      for (let i = list.length - 1; i >= 0; i--) {
+        let chat = list[i], cv = chat.getVpos();
         if (cv <= vpos - 400) {
           return i + 1;
         }
@@ -1893,10 +1888,10 @@ import {util} from './util';
       return this.getItemByVpos(this._vpos);
     },
     getItemByVpos: function(vpos) {
-      var list = this._chatList;
-      var result = [];
-      for (var i = 0, len = list.length; i < len; i++) {
-        var chat = list[i], cv = chat.getVpos(), diff = vpos - cv;
+      let list = this._chatList;
+      let result = [];
+      for (let i = 0, len = list.length; i < len; i++) {
+        let chat = list[i], cv = chat.getVpos(), diff = vpos - cv;
         if (diff >= -100 && diff <= 400) {
           result.push(chat);
         }
@@ -1904,9 +1899,9 @@ import {util} from './util';
       return result;
     },
     getItemByNo: function(no) {
-      var list = this._chatList;
-      for (var i = 0, len = list.length; i < len; i++) {
-        var nicoChat = list[i];
+      let list = this._chatList;
+      for (let i = 0, len = list.length; i < len; i++) {
+        let nicoChat = list[i];
         if (nicoChat.getNo() === no) {
           return nicoChat;
         }
@@ -1918,7 +1913,7 @@ import {util} from './util';
     }
   });
 
-  var CommentPreviewView = function() { this.initialize.apply(this, arguments); };
+  let CommentPreviewView = function() { this.initialize.apply(this, arguments); };
   CommentPreviewView.MAX_HEIGHT = '200px';
   CommentPreviewView.ITEM_HEIGHT = 20;
   _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
@@ -2077,7 +2072,7 @@ import {util} from './util';
 
   _.assign(CommentPreviewView.prototype, {
     initialize: function(params) {
-      var model = this._model = params.model;
+      let model = this._model = params.model;
       this._$container = params.$container;
 
       this._showing = false;
@@ -2095,7 +2090,7 @@ import {util} from './util';
     },
     _initializeDom: function($container) {
       util.addStyle(CommentPreviewView.__css__);
-      var $view = this._$view = $(CommentPreviewView.__tpl__);
+      let $view = this._$view = $(CommentPreviewView.__tpl__);
       this._$inner = $view.find('.zenzaCommentPreviewInner');
 
       $view
@@ -2109,12 +2104,12 @@ import {util} from './util';
     },
     _onClick: function(e) {
       e.stopPropagation();
-      var $view = this._$view;
-      var $target = $(e.target);
-      var command = $target.attr('data-command');
-      var $nicoChat = $target.closest('.nicoChat');
-      var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
-      var nicoChat  = this._model.getItemByNo(no);
+      let $view = this._$view;
+      let $target = $(e.target);
+      let command = $target.attr('data-command');
+      let $nicoChat = $target.closest('.nicoChat');
+      let no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
+      let nicoChat  = this._model.getItemByNo(no);
 
       if (command && nicoChat && !$view.hasClass('updating')) {
         $view.addClass('updating');
@@ -2134,7 +2129,7 @@ import {util} from './util';
         }
         return;
       }
-      var vpos = $nicoChat.attr('data-vpos');
+      let vpos = $nicoChat.attr('data-vpos');
       if (vpos !== undefined) {
         this.emit('command', 'seek', vpos / 100);
       }
@@ -2147,8 +2142,8 @@ import {util} from './util';
       }
     },
     _onVpos: function() {
-      var index = Math.max(0, this._model.getCurrentIndex());
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      let index = Math.max(0, this._model.getCurrentIndex());
+      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
       this._inviewIndex = index;
       this._scrollTop = itemHeight * index;
       this._refreshInviewElements(this._scrollTop);
@@ -2169,7 +2164,7 @@ import {util} from './util';
       this._chatList = [];
     },
     _updateView: function() {
-      var chatList = this._chatList = this._model.getChatList();
+      let chatList = this._chatList = this._model.getChatList();
       if (chatList.length < 1) {
         this.hide();
         this._updated = false;
@@ -2177,7 +2172,7 @@ import {util} from './util';
       }
 
       window.console.time('updateCommentPreviewView');
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
       this._$inner.css({
         height:
@@ -2188,15 +2183,15 @@ import {util} from './util';
       window.console.timeEnd('updateCommentPreviewView');
     },
     _createDom: function(chat, idx) {
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      var text = util.escapeHtml(chat.getText());
-      var date = (new Date(chat.getDate() * 1000)).toLocaleString();
-      var vpos = chat.getVpos();
-      var no = chat.getNo();
-      var oe = idx % 2 === 0 ? 'even' : 'odd';
-      var title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
-      var color = chat.getColor() || '#fff';
-      var shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
+      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      let text = util.escapeHtml(chat.getText());
+      let date = (new Date(chat.getDate() * 1000)).toLocaleString();
+      let vpos = chat.getVpos();
+      let no = chat.getNo();
+      let oe = idx % 2 === 0 ? 'even' : 'odd';
+      let title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
+      let color = chat.getColor() || '#fff';
+      let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
       let vposToTime = (vpos) => {
         let sec = Math.floor(vpos / 100);
@@ -2221,26 +2216,26 @@ import {util} from './util';
     },
     _refreshInviewElements: function(scrollTop, startIndex, endIndex) {
       if (!this._$inner) { return; }
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
-      var $view = this._$view;
+      let $view = this._$view;
       scrollTop = _.isNumber(scrollTop) ? scrollTop : $view.scrollTop();
 
-      var viewHeight = $view.innerHeight();
-      var viewBottom = scrollTop + viewHeight;
-      var chatList = this._chatList;
+      let viewHeight = $view.innerHeight();
+      let viewBottom = scrollTop + viewHeight;
+      let chatList = this._chatList;
       if (!chatList || chatList.length < 1) { return; }
       startIndex =
         _.isNumber(startIndex) ? startIndex : Math.max(0, Math.floor(scrollTop / itemHeight) - 5);
       endIndex   =
         _.isNumber(endIndex) ? endIndex : Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5);
-      var i;
+      let i;
       //window.console.log(`index ${startIndex} 〜 ${endIndex}`);
 
-      var newItems = [], inviewTable = this._inviewTable;
-      var create = this._createDom;
+      let newItems = [], inviewTable = this._inviewTable;
+      let create = this._createDom;
       for (i = startIndex; i < endIndex; i++) {
-        var chat = chatList[i];
+        let chat = chatList[i];
         if (inviewTable[i] || !chat) { continue; }
         newItems.push(create(chat, i));
         inviewTable[i] = true;
@@ -2250,14 +2245,14 @@ import {util} from './util';
 
       Object.keys(inviewTable).forEach(i => {
         if (i >= startIndex && i <= endIndex) { return; }
-        var item = document.getElementById('commentPreviewItem' + i);
+        let item = document.getElementById('commentPreviewItem' + i);
         if (item) { item.remove(); }
         else { window.console.log('not found ', 'commentPreviewItem' + i);}
         delete inviewTable[i];
       });
 
 
-      var $newItems = $(newItems.join(''));
+      let $newItems = $(newItems.join(''));
       if (this._$newItems) {
         this._$newItems.append($newItems);
       } else {
@@ -2277,15 +2272,15 @@ import {util} from './util';
       if (this._isEmpty()) {
         return;
       }
-      var $view = this._$view, width = $view.outerWidth();
-      var containerWidth = this._$container.innerWidth();
+      let $view = this._$view, width = $view.outerWidth();
+      let containerWidth = this._$container.innerWidth();
 
       left = Math.min(Math.max(0, left - width / 2), containerWidth - width);
       this._left = left;
       this._applyView();
     },
     _applyView: function() {
-      var $view = this._$view;
+      let $view = this._$view;
       if (!$view.hasClass('show')) { $view.addClass('show'); }
       if (this._$newItems) {
         this._$inner.append(this._$newItems);
@@ -2307,7 +2302,7 @@ import {util} from './util';
     }
   });
 
-  var CommentPreview = function() { this.initialize.apply(this, arguments); };
+  let CommentPreview = function() { this.initialize.apply(this, arguments); };
   _.extend(CommentPreview.prototype, AsyncEmitter.prototype);
   _.assign(CommentPreview .prototype, {
     initialize: function(param) {
@@ -2317,9 +2312,8 @@ import {util} from './util';
         model:      this._model,
         $container: param.$container
       });
-      var self = this;
-      this._view.on('command', function(command, param) {
-        self.emit('command', command, param);
+      this._view.on('command', (command, param) => {
+        this.emit('command', command, param);
       });
 
       this.reset();
@@ -2498,8 +2492,6 @@ import {util} from './util';
       this._storyboard = params.storyboard;
       this._initializeDom(params.$container);
 
-      //this.update = ZenzaWatch.util.createDrawCallFunc(this.update.bind(this));
-
       this._boundOnRepeat = this._onRepeat.bind(this);
       this._boundOnMouseUp = this._onMouseUp.bind(this);
     },
@@ -2524,12 +2516,12 @@ import {util} from './util';
     },
     _onMouseDown: function(e) {
       e.stopPropagation();
-      var $target = $(e.target).closest('.controlButton');
-      var command = $target.attr('data-command');
+      let $target = $(e.target).closest('.controlButton');
+      let command = $target.attr('data-command');
       if (!command) { return; }
 
-      var param   = $target.attr('data-param');
-      var repeat  = $target.attr('data-repeat') === 'on';
+      let param   = $target.attr('data-param');
+      let repeat  = $target.attr('data-repeat') === 'on';
 
       this.emit('command', command, param);
       if (repeat) {
@@ -2571,8 +2563,8 @@ import {util} from './util';
       if (this._timeText !== timeText) {
         this._timeText = timeText;
         this._$currentTime.text(timeText);
-        var w  = this._$view.outerWidth();
-        var vw = this._$container.innerWidth();
+        let w  = this._$view.outerWidth();
+        let vw = this._$container.innerWidth();
         left = Math.max(0, Math.min(left - w / 2, vw - w));
         this._$view.css({
           'transform': 'translate3d(' + left + 'px, 0, 0)'
