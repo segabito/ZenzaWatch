@@ -60,7 +60,10 @@
         _: _
       },
       external: {},
-      util: {}
+      util: {},
+      modules: {Emitter, Handler, Observable},
+      config: Config,
+      emitter: new Emitter()
     };
 
     if (location.host.match(/\.nicovideo\.jp$/)) {

@@ -167,6 +167,9 @@ const {initialize} = (() => {
     window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
     initialize = _.noop;
 
+    util.dispatchCustomEvent(
+      document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch);
+    util.addStyle(CONSTANT.COMMON_CSS);
 
     const query = util.parseQuery(START_PAGE_QUERY);
 

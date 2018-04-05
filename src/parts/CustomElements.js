@@ -4,7 +4,9 @@ const window = browser.window;
 
 //===BEGIN===
 
-(() => {
+const CustomElements = {};
+
+CustomElements.initialize = (() => {
   if (!window.customElements) {
     return;
   }
@@ -78,4 +80,10 @@ const window = browser.window;
   }
 
   window.customElements.define('zenza-playlist-append', PlaylistAppend);
-})();
+});
+
+//===END===
+
+export {
+  CustomElements
+};
