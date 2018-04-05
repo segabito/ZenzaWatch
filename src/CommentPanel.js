@@ -1001,18 +1001,9 @@ _.assign(CommentListItem.prototype, {
     this._color = nicoChat.getColor();
     this._fontCommand = nicoChat.getFontCommand();
 
-    var dt = new Date(this._date * 1000);
-    this._formattedDate =
-      dt.getFullYear() + '/' +
-      ('0' + (dt.getMonth() + 1)).slice(-2) + '/' +
-      ('0' + dt.getDate()).slice(-2) + ' ' +
-      ('0' + dt.getHours()).slice(-2) + ':' +
-      ('0' + dt.getMinutes()).slice(-2);
-
-    var sec = this._vpos / 100;
-    var m = (Math.floor(sec / 60) + 100).toString().substr(1);
-    var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-    this._timePos = m + ':' + s;
+    this._formattedDate = util.dateToString(this._date * 1000);
+    let sec = this._vpos / 100;
+    this._timePos = util.secToTime(sec);
   },
   getItemId: function () {
     return this._itemId;
@@ -1632,8 +1623,8 @@ class TimeMachineView extends BaseViewComponent {
   }
 
   _padTime(time) {
-    let pad = (v) => {
-      return (v * 1 + 100).toString().substr(1);
+    let pad = v => {
+      return v.toString().padStart(2, '0');
     };
     let dt = new Date(time);
     return {

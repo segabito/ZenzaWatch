@@ -677,7 +677,7 @@ const VideoListItemView = (() => {
       videoLink.setAttribute('title', title);
       videoLink.textContent = title;
 
-      duration.textContent = this._secToTime(item.getDuration());
+      duration.textContent = util.secToTime(item.getDuration());
       postedAt.textContent = item.getPostedAt();
 
       viewCount.textContent = this._addComma(count.view);
@@ -705,8 +705,8 @@ const VideoListItemView = (() => {
       }
     }
 
-    getWatchId() {
-      return this._item.getWatchId();
+    get watchId() {
+      return this._item.watchId;
     }
 
     getViewElement() {
@@ -725,12 +725,6 @@ const VideoListItemView = (() => {
 
     toString() {
       return this.getView().outerHTML;
-    }
-
-    _secToTime(sec) {
-      const m = Math.floor(sec / 60);
-      const s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      return [m, s].join(':');
     }
 
     _addComma(m) {
@@ -862,7 +856,6 @@ _.assign(VideoListView.prototype, {
   _onIframeLoad: function (w) {
     const doc = this._document = w.document;
     const $body = this._$body = $(doc.body);
-    this._$window = $(w);
     if (this._className) {
       doc.body.classList.add(this._className);
     }
@@ -2532,9 +2525,7 @@ _.assign(Playlist.prototype, {
         this._refreshIndex();
         this.emit('update');
         this.emit('command', 'notifyHtml',
-          'リストの末尾に追加: ' +
-          '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
-          item.getTitle()
+          `リストの末尾に追加: <img src="${item.thumbnail}" style="width: 96px;">${util.escapeToZenkaku(item.title)}`
         );
       }).catch(result => {
         const item = VideoListItem.createBlankInfo(watchId);

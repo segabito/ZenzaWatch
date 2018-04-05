@@ -863,21 +863,18 @@ util.dateToString = (date) => {
     date = new Date(date);
   }
 
-  let [yy, mm, dd, h, m, s] =
-    ([
+  let [yy, mm, dd, h, m, s] = [
       date.getFullYear(),
       date.getMonth() + 1,
       date.getDate(),
       date.getHours(),
       date.getMinutes(),
       date.getSeconds()
-    ]).map(n => {
-      return n < 10 ? `0${n}` : n;
-    });
+    ].map(n => n.toString().padStart(2, '0'));
   return `${yy}/${mm}/${dd} ${h}:${m}:${s}`;
 };
 
-util.copyToClipBoard = function (text) {
+util.copyToClipBoard = text => {
   let clip = document.createElement('input');
   clip.type = 'text';
   clip.style.position = 'fixed';
@@ -903,15 +900,15 @@ util.isValidJson = function (data) {
 };
 
 
-util.openTweetWindow = function (videoInfo) {
+util.openTweetWindow = videoInfo => {
   let watchId = videoInfo.watchId;
   let nicomsUrl = 'http://nico.ms/' + watchId;
   let watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
   let sec = videoInfo.duration;
   let m = Math.floor(sec / 60);
-  let s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-  let dur = ['(', m, ':', s, ')'].join('');
+  let s = (Math.floor(sec) % 60).toString().padStart(2, '0');
+  let dur = `(${m}:${s})`;
   let nicoch = videoInfo.isChannel ? ',+nicoch' : '';
   let url =
     'https://twitter.com/intent/tweet?' +
@@ -952,23 +949,23 @@ let ajax = function (params) {
   });
 };
 
-if (location.host.match(/\.nicovideo\.jp$/)) {
-  ZenzaWatch.util.ajax = ajax;
+if (!location.host.match(/\.nicovideo\.jp$/)) {
+  util.ajax = util.fetch = () => {};
 }
 
-util.openMylistWindow = function (watchId) {
+util.openMylistWindow = watchId => {
   window.open(
     '//www.nicovideo.jp/mylist_add/video/' + watchId,
     'nicomylistadd',
     'width=500, height=400, menubar=no, scrollbars=no');
 };
 
-util.isGinzaWatchUrl = function (url) {
+util.isGinzaWatchUrl = url => {
   url = url || location.href;
   return /^https?:\/\/www\.nicovideo\.jp\/watch\//.test(url);
 };
 
-util.getPlayerVer = function () {
+util.getPlayerVer = () => {
   if (!!document.getElementById('js-initial-watch-data')) {
     return 'html5';
   }
@@ -978,7 +975,7 @@ util.getPlayerVer = function () {
   return 'unknown';
 };
 
-util.isZenzaPlayableVideo = function () {
+util.isZenzaPlayableVideo = () => {
   try {
     // HTML5版プレイヤーなら再生できるはず
     if (util.getPlayerVer() === 'html5') {
@@ -1004,7 +1001,7 @@ util.isZenzaPlayableVideo = function () {
   }
 };
 
-util.createDrawCallFunc = function (func) {
+util.createDrawCallFunc = func => {
 
   let args, requestId = 0;
 
@@ -1034,10 +1031,10 @@ util.waitForInitialize = function () {
   });
 };
 
-util.secToTime = function (sec) {
-  let m = Math.floor(sec / 60);
-  let s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-  return [m, s].join(':');
+util.secToTime = sec => {
+  let m = Math.floor(sec / 60).toString().padStart(2, '0');
+  let s = (Math.floor(sec) % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 };
 
     const css = {
@@ -2039,7 +2036,7 @@ const VideoCaptureUtil = (function () {
     canvas.width = width;
     canvas.height = height;
 
-    return videoToCanvas(video).then(({canvas, img}) => {
+    return videoToCanvas(video).then(({canvas/*, img*/}) => {
 
       //canvas.style.border = '2px solid red'; document.body.appendChild(canvas);
       ct.fillStyle = 'rgb(0, 0, 0)';
@@ -2099,7 +2096,7 @@ const VideoCaptureUtil = (function () {
   };
 })();
 
-class BaseViewComponent extends AsyncEmitter {
+class BaseViewComponent extends Emitter {
   constructor({parentNode = null, name = '', template = '', shadow = '', css = ''}) {
     super();
 

@@ -8,7 +8,7 @@ import {util} from './util';
 
 //===BEGIN===
 
-  var VideoControlBar = function() { this.initialize.apply(this, arguments); };
+  let VideoControlBar = function() { this.initialize.apply(this, arguments); };
   _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
   VideoControlBar.BASE_HEIGHT = CONSTANT.CONTROL_BAR_HEIGHT;
   VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
@@ -1327,8 +1327,6 @@ import {util} from './util';
     },
     _initializeVideoServerTypeSelectMenu: function() {
       const config = this._playerConfig;
-      //const $btn   = this._$videoServerTypeMenu;
-      //const $label = $btn.find('.controlButtonInner');
       const $menu  = this._$videoServerTypeSelectMenu;
       const $current = $menu.find('.currentVideoQuality');
 
@@ -1611,10 +1609,7 @@ import {util} from './util';
       if (this._currentTime !== sec) {
         this._currentTime = sec;
 
-        var m = Math.floor(sec / 60);
-        m = m < 10 ? ('0' + m) : m;
-        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-        var currentTimeText = [m, s].join(':');
+        let currentTimeText = util.secToTime(sec);
         if (this._currentTimeText !== currentTimeText) {
           this._currentTimeText = currentTimeText;
           this._$currentTime[0].value = currentTimeText;
@@ -1630,10 +1625,7 @@ import {util} from './util';
         if (sec === 0 || isNaN(sec)) {
           this._$duration[0].value = '--:--';
         }
-        var m = Math.floor(sec / 60);
-        m = m < 10 ? ('0' + m) : m;
-        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-        this._$duration[0].value = [m, s].join(':');
+        this._$duration[0].value = util.secToTime(sec);
         this.emit('durationChange');
       }
     },
@@ -2206,11 +2198,9 @@ import {util} from './util';
       var color = chat.getColor() || '#fff';
       var shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
-      var vposToTime = (vpos) => {
-        var sec = Math.floor(vpos / 100);
-        var m = Math.floor(sec / 60);
-        var s = (100 + (sec % 60)).toString().substr(1);
-        return [m, s].join(':');
+      let vposToTime = (vpos) => {
+        let sec = Math.floor(vpos / 100);
+        return util.secToTime(sec);
       };
 
       return `<li class="nicoChat fork${chat.getFork()} ${oe}"
@@ -2514,8 +2504,8 @@ import {util} from './util';
       this._boundOnMouseUp = this._onMouseUp.bind(this);
     },
     _initializeDom: function($container) {
-      ZenzaWatch.util.addStyle(SeekBarToolTip.__css__);
-      var $view = this._$view = $(SeekBarToolTip.__tpl__);
+      util.addStyle(SeekBarToolTip.__css__);
+      let $view = this._$view = $(SeekBarToolTip.__tpl__);
 
       this._$currentTime = $view.find('.currentTime');
 
@@ -2577,9 +2567,7 @@ import {util} from './util';
       this.emit('command', this._repeatCommand, this._repeatParam);
     },
     update: function(sec, left) {
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      var timeText = [m, s].join(':');
+      let timeText = util.secToTime(sec);
       if (this._timeText !== timeText) {
         this._timeText = timeText;
         this._$currentTime.text(timeText);
@@ -2619,7 +2607,7 @@ export {
 //       this._playerConfig = params.playerConfig;
 //       this._volume =
 //         parseFloat(params.volume || this._playerConfig.getValue('speakLarkVolume'), 10);
-//       this._lang = params.lang || ZenzaWatch.util.getPageLanguage();
+//       this._lang = params.lang || util.getPageLanguage();
 //       this._enabled = false;
 //       this._timer = null;
 //       this._timeoutTimer = null;
