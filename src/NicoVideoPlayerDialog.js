@@ -1431,7 +1431,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     });
     this._view.setNicoVideoPlayer(nicoVideoPlayer);
 
-    this._messageApiLoader = new MessageApiLoader();
+    this._messageApiLoader = new ThreadLoader();
 
     nicoVideoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
     nicoVideoPlayer.on('ended', this._onVideoEnded.bind(this));

@@ -11,7 +11,6 @@ const TOKEN = Math.random();
 const {
   VideoInfoLoader,
   ThumbInfoLoader,
-  MessageApiLoader,
   MylistApiLoader,
   UploadedVideoApiLoader,
   CacheStorage,
@@ -125,6 +124,7 @@ const {
         let playlistToken = watchApiData.playlistToken;
         let watchAuthKey = watchApiData.flashvars.watchAuthKey;
         let seekToken = watchApiData.flashvars.seek_token;
+        let threads = [];
         let msgInfo = {
           server: flvInfo.ms,
           threadId: flvInfo.thread_id,
@@ -132,10 +132,18 @@ const {
           userId: flvInfo.user_id,
           isNeedKey: flvInfo.needs_key === '1',
           optionalThreadId: flvInfo.optional_thread_id,
+          defaultThread: {id: flvInfo.thread_id},
+          optionalThreads: [],
+          layers: [],
+          threads,
           userKey: flvInfo.userkey,
           hasOwnerThread: !!watchApiData.videoDetail.has_owner_thread,
           when: null
         };
+        if (msgInfo.hasOwnerThread) {
+          threads.push({id: flvInfo.thread_id, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: false, fork: 1});
+        }
+        threads.push({id: flvInfo.thread_id, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: true});
 
         let playlist =
           JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
@@ -190,27 +198,40 @@ const {
       const isMp4 = /\/smile\?m=/.test(videoUrl);
       const isSwf = /\/smile\?s=/.test(videoUrl);
       const isDmc = !!dmcInfo && !!dmcInfo.session_api;
-      const isChannel = !!data.channel;
-      const isCommunity = !!data.community;
+      // const isChannel = !!data.channel;
+      // const isCommunity = !!data.community;
       const csrfToken = data.context.csrfToken;
       const watchAuthKey = data.context.watchAuthKey;
       const playlistToken = env.playlistToken;
       const context = data.context;
+      const commentComposite = data.commentComposite;
+      const threads = commentComposite.threads.map(t => Object.assign({}, t));
+      const layers  = commentComposite.layers.map(t => Object.assign({}, t));
+      layers.forEach(layer => {
+        layer.threadIds.forEach(({id, fork}) => {
+          threads.forEach(thread => {
+            if (thread.id === id && fork === 0) {
+              thread.layer = layer;
+            }
+          });
+        });
+      });
       const linkedChannelVideo =
         (context.linkedChannelVideos || []).find(ch => {
           return !!ch.isChannelMember;
         });
       const isNeedPayment = context.isNeedPayment;
+      const defaultThread = threads.find(t => t.isDefaultPostTarget);
       const msgInfo = {
         server: data.thread.serverUrl,
-        threadId: data.thread.ids.community || data.thread.ids.default,
-        //threadId: data.thread.ids.default,
+        threadId: defaultThread ? defaultThread.id : (data.thread.ids.community || data.thread.ids.default),
         duration: data.video.duration,
         userId: data.viewer.id,
-        isNeedKey: (isChannel || isCommunity), // ??? flvInfo.needs_key === '1',
+        isNeedKey: threads.findIndex(t => t.isThreadkeyRequired) >= 0, // (isChannel || isCommunity)
         optionalThreadId: '',
-        //data.thread.ids.community ? data.thread.ids.default : '', //data.thread.ids.nicos,
-        //data.thread.ids.nicos,
+        defaultThread,
+        optionalThreads: threads.filter(t => t.id !== defaultThread.id) || [],
+        threads,
         userKey: data.context.userkey,
         hasOwnerThread: data.thread.hasOwnerThread,
         when: null
@@ -293,17 +314,18 @@ const {
       let ngFilters = null;
       if (data.video && data.video.dmcInfo && data.video.dmcInfo.thread && data.video.dmcInfo.thread) {
         if (data.video.dmcInfo.thread.channel_ng_words && data.video.dmcInfo.thread.channel_ng_words.length) {
-          ngFilters = data.video.dmcInfo.thread.channel_ng_words.length;
+          ngFilters = data.video.dmcInfo.thread.channel_ng_words;
         } else if (data.video.dmcInfo.thread.owner_ng_words && data.video.dmcInfo.thread.owner_ng_words.length) {
-          ngFilters = data.video.dmcInfo.thread.owner_ng_words.length;
+          ngFilters = data.video.dmcInfo.thread.owner_ng_words;
         }
       }
       if (data.context && data.context.ownerNGList && data.context.ownerNGList.length) {
         ngFilters = data.context.ownerNGList;
       }
-      if (ngFilters) {
+      if (ngFilters && ngFilters.length) {
         const ngtmp = [];
-        ngFilters.forEach((ng) => {
+        ngFilters.forEach(ng => {
+          if (!ng.source || !ng.destination) { return; }
           ngtmp.push(
             encodeURIComponent(ng.source) + '=' + encodeURIComponent(ng.destination));
         });
@@ -590,7 +612,7 @@ const {
         tagList: tags
       };
       var userId = val('user_id');
-      if (userId !== null) {
+      if (userId !== null && userId !== '') {
         result.owner = {
           type: 'user',
           id: userId,
@@ -600,7 +622,7 @@ const {
         };
       }
       var channelId = val('ch_id');
-      if (channelId !== null) {
+      if (channelId !== null && channelId !== '') {
         result.owner = {
           type: 'channel',
           id: channelId,
@@ -659,590 +681,6 @@ const {
 // ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
 
 
-  var MessageApiLoader = (function () {
-    var VERSION_OLD = '20061206';
-    var VERSION = '20090904';
-
-    const LANG_CODE = {
-      'en_us': 1,
-      'zh_tw': 2
-    };
-
-    var MessageApiLoader = function () {
-      this.initialize.apply(this, arguments);
-    };
-
-    _.assign(MessageApiLoader.prototype, {
-      initialize: function () {
-        this._threadKeys = {};
-        this._waybackKeys = {};
-      },
-      /**
-       * 動画の長さに応じて取得するコメント数を変える
-       * 本家よりちょっと盛ってる
-       */
-      getRequestCountByDuration: function (duration) {
-        if (duration < 60) {
-          return 100;
-        }
-        if (duration < 240) {
-          return 200;
-        }
-        if (duration < 300) {
-          return 400;
-        }
-        return 1000;
-      },
-      getThreadKey: function (threadId, language) {
-        // memo:
-        // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
-        var url =
-          '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
-        const langCode = this.getLangCode(language);
-        if (langCode) {
-          url += `&language_id=${langCode}`;
-        }
-
-        return new Promise((resolve, reject) => {
-          util.ajax({
-            url: url,
-            contentType: 'text/plain',
-            crossDomain: true,
-            cache: false,
-            xhrFields: {
-              withCredentials: true
-            }
-          }).then((e) => {
-            var result = util.parseQuery(e);
-            this._threadKeys[threadId] = result;
-            resolve(result);
-          }, (result) => {
-            reject({
-              result: result,
-              message: 'ThreadKeyの取得失敗 ' + threadId
-            });
-          });
-        });
-      },
-      getWaybackKey: function (threadId, language) {
-        let url =
-          '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
-        const langCode = this.getLangCode(language);
-        if (langCode) {
-          url += `&language_id=${langCode}`;
-        }
-        return new Promise((resolve, reject) => {
-          util.ajax({
-            url: url,
-            contentType: 'text/plain',
-            crossDomain: true,
-            cache: false,
-            xhrFields: {
-              withCredentials: true
-            }
-          }).then((e) => {
-            let result = util.parseQuery(e);
-            this._waybackKeys[threadId] = result;
-            resolve(result);
-          }, (result) => {
-            reject({
-              result: result,
-              message: 'WaybackKeyの取得失敗 ' + threadId
-            });
-          });
-        });
-      },
-      getLangCode: function (language) {
-        language = language.replace('-', '_').toLowerCase();
-        if (LANG_CODE[language]) {
-          return LANG_CODE[language];
-        }
-        return 0;
-      },
-      getPostKey: function (threadId, blockNo/*, language*/) {
-        // memo:
-        // //flapi.nicovideo.jp/api/getpostkey?thread={optionalじゃないほうのID}
-        //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
-        var url =
-          '//flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
-          '&block_no=' + blockNo +
-          '&version=1&version_sub=2&yugi=' +
-          //          '&language_id=0';
-          '';
-        //const langCode = this.getLangCode(language);
-        //if (langCode) { url += `&language_id=${langCode}`; }
-
-        console.log('getPostkey url: ', url);
-        return new Promise((resolve, reject) => {
-          util.ajax({
-            url: url,
-            contentType: 'text/plain',
-            crossDomain: true,
-            cache: false,
-            xhrFields: {
-              withCredentials: true
-            }
-          }).then((e) => {
-            resolve(ZenzaWatch.util.parseQuery(e));
-          }, (result) => {
-            //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
-            reject({
-              result: result,
-              message: 'PostKeyの取得失敗 ' + threadId
-            });
-          });
-        });
-      },
-      _createThreadXml:
-        function (params) { //msgInfo, version, threadKey, force184, duration, userKey) {
-          const threadId =
-            params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
-          // const duration = params.msgInfo.duration;
-          const userId = params.msgInfo.userId || ''; // 0 の時は空文字
-          const userKey = params.msgInfo.userKey;
-          const threadKey = params.threadKey;
-          const force184 = params.force184;
-          const version = params.version;
-          const when = params.msgInfo.when;
-          const waybackKey = params.waybackKey;
-
-          const thread = document.createElement('thread');
-          thread.setAttribute('thread', threadId);
-          thread.setAttribute('version', version);
-          if (params.useUserKey) {
-            thread.setAttribute('userkey', userKey);
-          }
-          if (params.useDuration) {
-            //const resCount = this.getRequestCountByDuration(duration);
-            thread.setAttribute('click_revision', '-1');
-            thread.setAttribute('res_from', '-1000');
-            thread.setAttribute('fork', '1');
-          }
-          //if (params.msgInfo.hasOwnerThread && !params.isOptional) {
-          //}
-          if (typeof userId !== 'undefined') {
-            thread.setAttribute('user_id', userId);
-          }
-          if (params.useThreadKey && typeof threadKey !== 'undefined') {
-            thread.setAttribute('threadkey', threadKey);
-          }
-          if (params.useThreadKey && typeof force184 !== 'undefined') {
-            thread.setAttribute('force_184', force184);
-          }
-          if (waybackKey) {
-            thread.setAttribute('waybackkey', waybackKey);
-          }
-          if (when) {
-            thread.setAttribute('when', when);
-          }
-          thread.setAttribute('scores', '1');
-          thread.setAttribute('nicoru', '1');
-          thread.setAttribute('with_global', '1');
-
-          const langCode = this.getLangCode(params.msgInfo.language);
-          if (langCode) {
-            thread.setAttribute('language', langCode);
-          }
-
-          return thread;
-        },
-      _createThreadLeavesXml:
-      //function(threadId, version, userId, threadKey, force184, duration, userKey) {
-        function (params) {//msgInfo, version, threadKey, force184, userKey) {
-          const threadId =
-            params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
-          const duration = params.msgInfo.duration;
-          const userId = params.msgInfo.userId || '';
-          const userKey = params.msgInfo.userKey;
-          const threadKey = params.threadKey;
-          const force184 = params.force184;
-          const when = params.msgInfo.when;
-          const waybackKey = params.waybackKey;
-
-          const thread_leaves = document.createElement('thread_leaves');
-          const resCount = this.getRequestCountByDuration(duration);
-          const threadLeavesParam =
-            ['0-', (Math.floor(duration / 60) + 1), ':100,', resCount].join('');
-          thread_leaves.setAttribute('thread', threadId);
-          if (params.useUserKey) {
-            thread_leaves.setAttribute('userkey', userKey);
-          }
-          if (typeof userId !== 'undefined') {
-            thread_leaves.setAttribute('user_id', userId);
-          }
-          if (typeof threadKey !== 'undefined') {
-            thread_leaves.setAttribute('threadkey', threadKey);
-          }
-          if (typeof force184 !== 'undefined') {
-            thread_leaves.setAttribute('force_184', force184);
-          }
-          if (waybackKey) {
-            thread_leaves.setAttribute('waybackkey', waybackKey);
-          }
-          if (when) {
-            thread_leaves.setAttribute('when', when);
-          }
-          thread_leaves.setAttribute('scores', '1');
-          thread_leaves.setAttribute('nicoru', '1');
-
-          const langCode = this.getLangCode(params.msgInfo.language);
-          if (langCode) {
-            thread_leaves.setAttribute('language', langCode);
-          }
-
-          thread_leaves.innerHTML = threadLeavesParam;
-
-          return thread_leaves;
-        },
-
-      buildPacket: function (msgInfo, threadKey, force184, waybackKey) {
-
-        const span = document.createElement('span');
-        const packet = document.createElement('packet');
-
-        // リクエスト用のxml生成なのだが闇が深い
-        // 不要なところにdurationやuserKeyを渡すとコメントが取得できなくなったりする
-        // 不要なら無視してくれればいいのに
-        // 本当よくわからないので困る
-        if (msgInfo.optionalThreadId) {
-          packet.appendChild(
-            this._createThreadXml({
-              msgInfo: msgInfo,
-              version: VERSION,
-              useDuration: false,
-              useUserKey: true,
-              useThreadKey: false,
-              isOptional: true,
-              waybackKey
-            })
-          );
-          packet.appendChild(
-            this._createThreadLeavesXml({
-              msgInfo: msgInfo,
-              version: VERSION,
-              useUserKey: true,
-              useThreadKey: false,
-              isOptional: true,
-              waybackKey
-            })
-          );
-        } else {
-          // forkを取得するには必要っぽい
-          packet.appendChild(
-            this._createThreadXml({
-              msgInfo: msgInfo,
-              version: VERSION_OLD,
-              threadKey: threadKey,
-              force184: force184,
-              useDuration: true,
-              useThreadKey: false,
-              useUserKey: false,
-              waybackKey
-            })
-          );
-        }
-        packet.appendChild(
-          this._createThreadXml({
-            msgInfo: msgInfo,
-            version: VERSION,
-            threadKey: threadKey,
-            force184: force184,
-            useDuration: false,
-            useThreadKey: true,
-            useUserKey: false,
-            waybackKey
-          })
-        );
-        packet.appendChild(
-          this._createThreadLeavesXml({
-            msgInfo: msgInfo,
-            version: VERSION,
-            threadKey: threadKey,
-            force184: force184,
-            useThreadKey: true,
-            useUserKey: false,
-            waybackKey
-          })
-        );
-
-
-        span.appendChild(packet);
-        return span.innerHTML;
-      },
-      _post: function (server, xml) {
-        // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
-        return new Promise((resolve, reject) => {
-          util.ajax({
-            url: server,
-            data: xml,
-            timeout: 60000,
-            type: 'POST',
-            contentType: 'text/plain',
-            dataType: 'xml',
-            crossDomain: true,
-            cache: false
-          }).then((result) => {
-            //console.log('post success: ', result);
-            resolve(result);
-          }, (result) => {
-            //console.log('post fail: ', result);
-            reject({
-              result: result,
-              message: 'コメントの通信失敗 server: ' + server
-            });
-          });
-        });
-      },
-      _get: function (server, threadId, duration, threadKey, force184) {
-        // nmsg.nicovideo.jpでググったら出てきた。
-        // http://favstar.fm/users/koizuka/status/23032783744012288
-        // xmlじゃなくてもいいのかよ!
-
-        var resCount = this.getRequestCountByDuration(duration);
-
-        var url = server +
-          'thread?version=' + VERSION +
-          '&thread=' + threadId +
-          '&scores=1' +
-          '&res_from=-' + resCount;
-        if (threadKey) {
-          url += '&threadkey=' + threadKey;
-        }
-        if (force184) {
-          url += '&force_184=' + force184;
-        }
-
-        console.log('%cthread url:', 'background: cyan;', url);
-        return new Promise((resolve, reject) => {
-          util.ajax({
-            url: url,
-            timeout: 60000,
-            crossDomain: true,
-            cache: false
-          }).then(function (result) {
-            //console.log('post success: ', result);
-            resolve(result);
-          }, function (result) {
-            //console.log('post fail: ', result);
-            reject({
-              result: result,
-              message: 'コメントの取得失敗' + server
-            });
-          });
-        });
-      },
-      _load: function (msgInfo) {
-        let packet, threadKey, waybackKey, force184;
-
-        const loadThreadKey = () => {
-          if (!msgInfo.isNeedKey) {
-            return Promise.resolve();
-          }
-          return this.getThreadKey(msgInfo.threadId, msgInfo.language).then(info => {
-            console.log('threadKey: ', info);
-            threadKey = info.threadkey;
-            force184 = info.force_184;
-          });
-        };
-        const loadWaybackKey = () => {
-          if (!msgInfo.when) {
-            return Promise.resolve();
-          }
-          return this.getWaybackKey(msgInfo.threadId, msgInfo.language).then(info => {
-            window.console.log('waybackKey: ', info);
-            waybackKey = info.waybackkey;
-          });
-        };
-
-        return loadThreadKey().then(loadWaybackKey).then(() => {
-          //console.log('build', msgInfo, threadKey, force184, waybackKey);
-          packet = this.buildPacket(msgInfo, threadKey, force184, waybackKey);
-
-          console.log('post xml...', msgInfo.server, packet);
-          return this._post(msgInfo.server, packet, msgInfo.threadId);
-        });
-
-      },
-      load: function (msgInfo) {
-        const server = msgInfo.server;
-        const threadId = msgInfo.threadId;
-        const userId = msgInfo.userId;
-
-        const timeKey = `loadComment server: ${server} thread: ${threadId}`;
-        window.console.time(timeKey);
-
-        var resolve, reject;
-        const onSuccess = (result) => {
-          window.console.timeEnd(timeKey);
-          ZenzaWatch.debug.lastMessageServerResult = result;
-
-          var thread, xml, ticket, lastRes = 0;
-          var resultCodes = [], resultCode = null;
-          try {
-            xml = result.documentElement;
-            var threads = xml.getElementsByTagName('thread');
-
-            thread = threads[0];
-
-            _.each(threads, function (t) {
-              var tid = t.getAttribute('thread');
-              if (parseInt(tid, 10) === parseInt(threadId, 10)) {
-                thread = t;
-                return false;
-              }
-            });
-            // どのthreadを参照すればいいのか仕様がわからない。
-            // しかたないので総当たり
-            _.each(threads, function (t) {
-
-              var rc = t.getAttribute('resultcode');
-              if (rc.length) {
-                resultCodes.push(parseInt(rc, 10));
-              }
-
-              var tid = t.getAttribute('thread');
-              //window.console.log(t, t.outerHTML);
-              if (parseInt(tid, 10) === parseInt(threadId, 10)) {
-                thread = t;
-                const tk = thread.getAttribute('ticket');
-                if (tk && tk !== '0') {
-                  ticket = tk;
-                }
-              }
-            });
-
-            //const tk = thread.getAttribute('ticket');
-            //if (tk && tk !== '0') { ticket = tk; }
-            const lr = thread.getAttribute('last_res');
-            if (!isNaN(lr)) {
-              lastRes = Math.max(lastRes, lr);
-            }
-
-            //resultCode = thread.getAttribute('resultcode');
-            resultCode = (resultCodes.sort())[0];
-          } catch (e) {
-            console.error(e);
-          }
-
-          //if (resultCode !== '0' && (!chats || chats.length < 1)) {
-          console.log('resultCodes: ', resultCodes);
-          if (resultCode !== 0) {
-            reject({
-              message: `コメント取得失敗[${resultCodes.join(', ')}]`
-            });
-            return;
-          }
-
-          var threadInfo = {
-            server: server,
-            userId: userId,
-            resultCode: resultCode,
-            threadId: threadId,
-            thread: thread.getAttribute('thread'),
-            serverTime: thread.getAttribute('server_time'),
-            lastRes: lastRes,
-            blockNo: Math.floor((lastRes + 1) / 100),
-            ticket: ticket,
-            revision: thread.getAttribute('revision'),
-            when: msgInfo.when,
-            isWaybackMode: !!msgInfo.when
-          };
-
-          if (this._threadKeys[threadId]) {
-            threadInfo.threadKey = this._threadKeys[threadId].threadkey;
-            threadInfo.force184 = this._threadKeys[threadId].force_184;
-          }
-
-          console.log('threadInfo: ', threadInfo);
-          resolve({
-            resultCode: resultCode,
-            threadInfo: threadInfo,
-            xml: xml
-          });
-        };
-
-        const onFailFinally = (e) => {
-          window.console.timeEnd(timeKey);
-          window.console.error('loadComment fail: ', e);
-          reject({
-            message: 'コメントサーバーの通信失敗: ' + server
-          });
-        };
-
-        const onFail1st = (e) => {
-          window.console.timeEnd(timeKey);
-          window.console.error('loadComment fail: ', e);
-          PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
-
-          window.setTimeout(() => {
-            this._load(msgInfo).then(onSuccess, onFailFinally);
-          }, 3000);
-        };
-
-
-        return new Promise((res, rej) => {
-          resolve = res;
-          reject = rej;
-          this._load(msgInfo).then(onSuccess, onFail1st);
-        });
-      },
-      _postChat: function (threadInfo, postKey, text, cmd, vpos) {
-        const div = document.createElement('div');
-        const chat = document.createElement('chat');
-        chat.setAttribute('premium', ZenzaWatch.util.isPremium() ? '1' : '0');
-        chat.setAttribute('postkey', postKey);
-        chat.setAttribute('user_id', threadInfo.userId);
-        chat.setAttribute('ticket', threadInfo.ticket);
-        chat.setAttribute('thread', threadInfo.thread);
-        chat.setAttribute('mail', cmd);
-        chat.setAttribute('vpos', vpos);
-        chat.innerHTML = text;
-        div.appendChild(chat);
-        var xml = div.innerHTML;
-
-        window.console.log('post xml: ', xml);
-        return this._post(threadInfo.server, xml).then((result) => {
-          var status = null, chat_result, no = 0, blockNo = 0, xml;
-          try {
-            xml = result.documentElement;
-            chat_result = xml.getElementsByTagName('chat_result')[0];
-            status = chat_result.getAttribute('status');
-            no = parseInt(chat_result.getAttribute('no'), 10);
-            blockNo = Math.floor((no + 1) / 100);
-          } catch (e) {
-            console.error(e);
-          }
-
-          if (status !== '0') {
-            return Promise.reject({
-              status: 'fail',
-              no: no,
-              blockNo: blockNo,
-              code: status,
-              message: 'コメント投稿失敗 status: ' + status + ' server: ' + threadInfo.server
-            });
-          }
-
-          return Promise.resolve({
-            status: 'ok',
-            no: no,
-            blockNo: blockNo,
-            code: status,
-            message: 'コメント投稿成功'
-          });
-        });
-      },
-      postChat: function (threadInfo, text, cmd, vpos, language) {
-        return this.getPostKey(threadInfo.threadId, threadInfo.blockNo, language)
-          .then((result) => {
-            return this._postChat(threadInfo, result.postkey, text, cmd, vpos);
-          });
-      }
-    });
-
-    return MessageApiLoader;
-  })();
-  ZenzaWatch.api.MessageApiLoader = MessageApiLoader;
 
   var MylistApiLoader = (function () {
     // マイリスト/とりあえずマイリストの取得APIには
@@ -2284,7 +1722,6 @@ const {
   return {
     VideoInfoLoader,
     ThumbInfoLoader,
-    MessageApiLoader,
     MylistApiLoader,
     UploadedVideoApiLoader,
     CacheStorage,
@@ -2302,7 +1739,6 @@ const {
 export {
   VideoInfoLoader,
   ThumbInfoLoader,
-  MessageApiLoader,
   MylistApiLoader,
   UploadedVideoApiLoader,
   CacheStorage,
@@ -2310,3 +1746,592 @@ export {
   IchibaLoader,
   UaaLoader,
   PlaybackPosition,
+  PlaylistLoader,
+  NicoVideoApi
+};
+
+
+var MessageApiLoader = (function () {
+  var VERSION_OLD = '20061206';
+  var VERSION = '20090904';
+
+  const LANG_CODE = {
+    'en_us': 1,
+    'zh_tw': 2
+  };
+
+  var MessageApiLoader = function () {
+    this.initialize.apply(this, arguments);
+  };
+
+  _.assign(MessageApiLoader.prototype, {
+    initialize: function () {
+      this._threadKeys = {};
+      this._waybackKeys = {};
+    },
+    /**
+     * 動画の長さに応じて取得するコメント数を変える
+     * 本家よりちょっと盛ってる
+     */
+    getRequestCountByDuration: function (duration) {
+      if (duration < 60) {
+        return 100;
+      }
+      if (duration < 240) {
+        return 200;
+      }
+      if (duration < 300) {
+        return 400;
+      }
+      return 1000;
+    },
+    getThreadKey: function (threadId, language) {
+      // memo:
+      // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
+      var url =
+        '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
+      const langCode = this.getLangCode(language);
+      if (langCode) {
+        url += `&language_id=${langCode}`;
+      }
+
+      return new Promise((resolve, reject) => {
+        util.ajax({
+          url: url,
+          contentType: 'text/plain',
+          crossDomain: true,
+          cache: false,
+          xhrFields: {
+            withCredentials: true
+          }
+        }).then((e) => {
+          var result = util.parseQuery(e);
+          this._threadKeys[threadId] = result;
+          resolve(result);
+        }, (result) => {
+          reject({
+            result: result,
+            message: 'ThreadKeyの取得失敗 ' + threadId
+          });
+        });
+      });
+    },
+    getWaybackKey: function (threadId, language) {
+      let url =
+        '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
+      const langCode = this.getLangCode(language);
+      if (langCode) {
+        url += `&language_id=${langCode}`;
+      }
+      return new Promise((resolve, reject) => {
+        util.ajax({
+          url: url,
+          contentType: 'text/plain',
+          crossDomain: true,
+          cache: false,
+          xhrFields: {
+            withCredentials: true
+          }
+        }).then((e) => {
+          let result = util.parseQuery(e);
+          this._waybackKeys[threadId] = result;
+          resolve(result);
+        }, (result) => {
+          reject({
+            result: result,
+            message: 'WaybackKeyの取得失敗 ' + threadId
+          });
+        });
+      });
+    },
+    getLangCode: function (language) {
+      language = language.replace('-', '_').toLowerCase();
+      if (LANG_CODE[language]) {
+        return LANG_CODE[language];
+      }
+      return 0;
+    },
+    getPostKey: function (threadId, blockNo/*, language*/) {
+      // memo:
+      // //flapi.nicovideo.jp/api/getpostkey?thread={optionalじゃないほうのID}
+      //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
+      var url =
+        '//flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
+        '&block_no=' + blockNo +
+        '&version=1&version_sub=2&yugi=' +
+        //          '&language_id=0';
+        '';
+      //const langCode = this.getLangCode(language);
+      //if (langCode) { url += `&language_id=${langCode}`; }
+
+      console.log('getPostkey url: ', url);
+      return new Promise((resolve, reject) => {
+        util.ajax({
+          url: url,
+          contentType: 'text/plain',
+          crossDomain: true,
+          cache: false,
+          xhrFields: {
+            withCredentials: true
+          }
+        }).then((e) => {
+          resolve(util.parseQuery(e));
+        }, (result) => {
+          //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
+          reject({
+            result: result,
+            message: 'PostKeyの取得失敗 ' + threadId
+          });
+        });
+      });
+    },
+    _createThreadXml:
+      function (params) { //msgInfo, version, threadKey, force184, duration, userKey) {
+        const threadId =
+          params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
+        // const duration = params.msgInfo.duration;
+        const userId = params.msgInfo.userId || ''; // 0 の時は空文字
+        const userKey = params.msgInfo.userKey;
+        const threadKey = params.threadKey;
+        const force184 = params.force184;
+        const version = params.version;
+        const when = params.msgInfo.when;
+        const waybackKey = params.waybackKey;
+
+        const thread = document.createElement('thread');
+        thread.setAttribute('thread', threadId);
+        thread.setAttribute('version', version);
+        if (params.useUserKey) {
+          thread.setAttribute('userkey', userKey);
+        }
+        if (params.useDuration) {
+          //const resCount = this.getRequestCountByDuration(duration);
+          thread.setAttribute('click_revision', '-1');
+          thread.setAttribute('res_from', '-1000');
+          thread.setAttribute('fork', '1');
+        }
+        //if (params.msgInfo.hasOwnerThread && !params.isOptional) {
+        //}
+        if (typeof userId !== 'undefined') {
+          thread.setAttribute('user_id', userId);
+        }
+        if (params.useThreadKey && typeof threadKey !== 'undefined') {
+          thread.setAttribute('threadkey', threadKey);
+        }
+        if (params.useThreadKey && typeof force184 !== 'undefined') {
+          thread.setAttribute('force_184', force184);
+        }
+        if (waybackKey) {
+          thread.setAttribute('waybackkey', waybackKey);
+        }
+        if (when) {
+          thread.setAttribute('when', when);
+        }
+        thread.setAttribute('scores', '1');
+        thread.setAttribute('nicoru', '1');
+        thread.setAttribute('with_global', '1');
+
+        const langCode = this.getLangCode(params.msgInfo.language);
+        if (langCode) {
+          thread.setAttribute('language', langCode);
+        }
+
+        return thread;
+      },
+    _createThreadLeavesXml:
+    //function(threadId, version, userId, threadKey, force184, duration, userKey) {
+      function (params) {//msgInfo, version, threadKey, force184, userKey) {
+        const threadId =
+          params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
+        const duration = params.msgInfo.duration;
+        const userId = params.msgInfo.userId || '';
+        const userKey = params.msgInfo.userKey;
+        const threadKey = params.threadKey;
+        const force184 = params.force184;
+        const when = params.msgInfo.when;
+        const waybackKey = params.waybackKey;
+
+        const thread_leaves = document.createElement('thread_leaves');
+        const resCount = this.getRequestCountByDuration(duration);
+        const threadLeavesParam =
+          ['0-', (Math.floor(duration / 60) + 1), ':100,', resCount].join('');
+        thread_leaves.setAttribute('thread', threadId);
+        if (params.useUserKey) {
+          thread_leaves.setAttribute('userkey', userKey);
+        }
+        if (typeof userId !== 'undefined') {
+          thread_leaves.setAttribute('user_id', userId);
+        }
+        if (typeof threadKey !== 'undefined') {
+          thread_leaves.setAttribute('threadkey', threadKey);
+        }
+        if (typeof force184 !== 'undefined') {
+          thread_leaves.setAttribute('force_184', force184);
+        }
+        if (waybackKey) {
+          thread_leaves.setAttribute('waybackkey', waybackKey);
+        }
+        if (when) {
+          thread_leaves.setAttribute('when', when);
+        }
+        thread_leaves.setAttribute('scores', '1');
+        thread_leaves.setAttribute('nicoru', '1');
+
+        const langCode = this.getLangCode(params.msgInfo.language);
+        if (langCode) {
+          thread_leaves.setAttribute('language', langCode);
+        }
+
+        thread_leaves.innerHTML = threadLeavesParam;
+
+        return thread_leaves;
+      },
+
+    buildPacket: function (msgInfo, threadKey, force184, waybackKey) {
+
+      const span = document.createElement('span');
+      const packet = document.createElement('packet');
+
+      // リクエスト用のxml生成なのだが闇が深い
+      // 不要なところにdurationやuserKeyを渡すとコメントが取得できなくなったりする
+      // 不要なら無視してくれればいいのに
+      // 本当よくわからないので困る
+      if (msgInfo.optionalThreadId) {
+        packet.appendChild(
+          this._createThreadXml({
+            msgInfo: msgInfo,
+            version: VERSION,
+            useDuration: false,
+            useUserKey: true,
+            useThreadKey: false,
+            isOptional: true,
+            waybackKey
+          })
+        );
+        packet.appendChild(
+          this._createThreadLeavesXml({
+            msgInfo: msgInfo,
+            version: VERSION,
+            useUserKey: true,
+            useThreadKey: false,
+            isOptional: true,
+            waybackKey
+          })
+        );
+      } else {
+        // forkを取得するには必要っぽい
+        packet.appendChild(
+          this._createThreadXml({
+            msgInfo: msgInfo,
+            version: VERSION_OLD,
+            threadKey: threadKey,
+            force184: force184,
+            useDuration: true,
+            useThreadKey: false,
+            useUserKey: false,
+            waybackKey
+          })
+        );
+      }
+      packet.appendChild(
+        this._createThreadXml({
+          msgInfo: msgInfo,
+          version: VERSION,
+          threadKey: threadKey,
+          force184: force184,
+          useDuration: false,
+          useThreadKey: true,
+          useUserKey: false,
+          waybackKey
+        })
+      );
+      packet.appendChild(
+        this._createThreadLeavesXml({
+          msgInfo: msgInfo,
+          version: VERSION,
+          threadKey: threadKey,
+          force184: force184,
+          useThreadKey: true,
+          useUserKey: false,
+          waybackKey
+        })
+      );
+
+
+      span.appendChild(packet);
+      return span.innerHTML;
+    },
+    _post: function (server, xml) {
+      // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
+      return new Promise((resolve, reject) => {
+        util.ajax({
+          url: server,
+          data: xml,
+          timeout: 60000,
+          type: 'POST',
+          contentType: 'text/plain',
+          dataType: 'xml',
+          crossDomain: true,
+          cache: false
+        }).then((result) => {
+          //console.log('post success: ', result);
+          resolve(result);
+        }, (result) => {
+          //console.log('post fail: ', result);
+          reject({
+            result: result,
+            message: 'コメントの通信失敗 server: ' + server
+          });
+        });
+      });
+    },
+    _get: function (server, threadId, duration, threadKey, force184) {
+      // nmsg.nicovideo.jpでググったら出てきた。
+      // http://favstar.fm/users/koizuka/status/23032783744012288
+      // xmlじゃなくてもいいのかよ!
+
+      var resCount = this.getRequestCountByDuration(duration);
+
+      var url = server +
+        'thread?version=' + VERSION +
+        '&thread=' + threadId +
+        '&scores=1' +
+        '&res_from=-' + resCount;
+      if (threadKey) {
+        url += '&threadkey=' + threadKey;
+      }
+      if (force184) {
+        url += '&force_184=' + force184;
+      }
+
+      console.log('%cthread url:', 'background: cyan;', url);
+      return new Promise((resolve, reject) => {
+        util.ajax({
+          url: url,
+          timeout: 60000,
+          crossDomain: true,
+          cache: false
+        }).then(function (result) {
+          //console.log('post success: ', result);
+          resolve(result);
+        }, function (result) {
+          //console.log('post fail: ', result);
+          reject({
+            result: result,
+            message: 'コメントの取得失敗' + server
+          });
+        });
+      });
+    },
+    _load: function (msgInfo) {
+      let packet, threadKey, waybackKey, force184;
+
+      const loadThreadKey = () => {
+        if (!msgInfo.isNeedKey) {
+          return Promise.resolve();
+        }
+        return this.getThreadKey(msgInfo.threadId, msgInfo.language).then(info => {
+          console.log('threadKey: ', info);
+          threadKey = info.threadkey;
+          force184 = info.force_184;
+        });
+      };
+      const loadWaybackKey = () => {
+        if (!msgInfo.when) {
+          return Promise.resolve();
+        }
+        return this.getWaybackKey(msgInfo.threadId, msgInfo.language).then(info => {
+          window.console.log('waybackKey: ', info);
+          waybackKey = info.waybackkey;
+        });
+      };
+
+      return loadThreadKey().then(loadWaybackKey).then(() => {
+        //console.log('build', msgInfo, threadKey, force184, waybackKey);
+        packet = this.buildPacket(msgInfo, threadKey, force184, waybackKey);
+
+        console.log('post xml...', msgInfo.server, packet);
+        return this._post(msgInfo.server, packet, msgInfo.threadId);
+      });
+
+    },
+    load: function (msgInfo) {
+      const server = msgInfo.server;
+      const threadId = msgInfo.threadId;
+      const userId = msgInfo.userId;
+
+      const timeKey = `loadComment server: ${server} thread: ${threadId}`;
+      window.console.time(timeKey);
+
+      let resolve, reject;
+      const onSuccess = result => {
+        window.console.timeEnd(timeKey);
+        ZenzaWatch.debug.lastMessageServerResult = result;
+
+        let thread, xml, ticket, lastRes = 0;
+        let resultCodes = [], resultCode = null;
+        try {
+          xml = result.documentElement;
+          let threads = xml.getElementsByTagName('thread');
+
+          thread = threads[0];
+
+          threads.forEach(t => {
+            let tid = t.getAttribute('thread');
+            if (parseInt(tid, 10) === parseInt(threadId, 10)) {
+              thread = t;
+              return false;
+            }
+          });
+          // どのthreadを参照すればいいのか仕様がわからない。
+          // しかたないので総当たり
+          threads.forEach(t => {
+
+            let rc = t.getAttribute('resultcode');
+            if (rc.length) {
+              resultCodes.push(parseInt(rc, 10));
+            }
+
+            let tid = t.getAttribute('thread');
+            //window.console.log(t, t.outerHTML);
+            if (parseInt(tid, 10) === parseInt(threadId, 10)) {
+              thread = t;
+              const tk = thread.getAttribute('ticket');
+              if (tk && tk !== '0') {
+                ticket = tk;
+              }
+            }
+          });
+
+          //const tk = thread.getAttribute('ticket');
+          //if (tk && tk !== '0') { ticket = tk; }
+          const lr = thread.getAttribute('last_res');
+          if (!isNaN(lr)) {
+            lastRes = Math.max(lastRes, lr);
+          }
+
+          //resultCode = thread.getAttribute('resultcode');
+          resultCode = (resultCodes.sort())[0];
+        } catch (e) {
+          console.error(e);
+        }
+
+        //if (resultCode !== '0' && (!chats || chats.length < 1)) {
+        console.log('resultCodes: ', resultCodes);
+        if (resultCode !== 0) {
+          reject({
+            message: `コメント取得失敗[${resultCodes.join(', ')}]`
+          });
+          return;
+        }
+
+        let threadInfo = {
+          server,
+          userId,
+          resultCode,
+          threadId,
+          thread: thread.getAttribute('thread'),
+          serverTime: thread.getAttribute('server_time'),
+          lastRes,
+          blockNo: Math.floor((lastRes + 1) / 100),
+          ticket,
+          revision: thread.getAttribute('revision'),
+          when: msgInfo.when,
+          isWaybackMode: !!msgInfo.when
+        };
+
+        if (this._threadKeys[threadId]) {
+          threadInfo.threadKey = this._threadKeys[threadId].threadkey;
+          threadInfo.force184 = this._threadKeys[threadId].force_184;
+        }
+
+        console.log('threadInfo: ', threadInfo);
+        resolve({
+          resultCode: resultCode,
+          threadInfo: threadInfo,
+          xml: xml
+        });
+      };
+
+      const onFailFinally = e => {
+        window.console.timeEnd(timeKey);
+        window.console.error('loadComment fail: ', e);
+        reject({
+          message: 'コメントサーバーの通信失敗: ' + server
+        });
+      };
+
+      const onFail1st = e => {
+        window.console.timeEnd(timeKey);
+        window.console.error('loadComment fail: ', e);
+        PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
+
+        window.setTimeout(() => {
+          this._load(msgInfo).then(onSuccess).catch(onFailFinally);
+        }, 3000);
+      };
+
+
+      return new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+        this._load(msgInfo).then(onSuccess).catch(onFail1st);
+      });
+    },
+    _postChat: function (threadInfo, postKey, text, cmd, vpos) {
+      const div = document.createElement('div');
+      const chat = document.createElement('chat');
+      chat.setAttribute('premium', util.isPremium() ? '1' : '0');
+      chat.setAttribute('postkey', postKey);
+      chat.setAttribute('user_id', threadInfo.userId);
+      chat.setAttribute('ticket', threadInfo.ticket);
+      chat.setAttribute('thread', threadInfo.thread);
+      chat.setAttribute('mail', cmd);
+      chat.setAttribute('vpos', vpos);
+      chat.innerHTML = text;
+      div.appendChild(chat);
+      var xml = div.innerHTML;
+
+      window.console.log('post xml: ', xml);
+      return this._post(threadInfo.server, xml).then((result) => {
+        var status = null, chat_result, no = 0, blockNo = 0, xml;
+        try {
+          xml = result.documentElement;
+          chat_result = xml.getElementsByTagName('chat_result')[0];
+          status = chat_result.getAttribute('status');
+          no = parseInt(chat_result.getAttribute('no'), 10);
+          blockNo = Math.floor((no + 1) / 100);
+        } catch (e) {
+          console.error(e);
+        }
+
+        if (status !== '0') {
+          return Promise.reject({
+            status: 'fail',
+            no: no,
+            blockNo: blockNo,
+            code: status,
+            message: 'コメント投稿失敗 status: ' + status + ' server: ' + threadInfo.server
+          });
+        }
+
+        return Promise.resolve({
+          status: 'ok',
+          no: no,
+          blockNo: blockNo,
+          code: status,
+          message: 'コメント投稿成功'
+        });
+      });
+    },
+    postChat: function (threadInfo, text, cmd, vpos, language) {
+      return this.getPostKey(threadInfo.threadId, threadInfo.blockNo, language)
+        .then((result) => {
+          return this._postChat(threadInfo, result.postkey, text, cmd, vpos);
+        });
+    }
+  });
+
+  return MessageApiLoader;
+})();
+ZenzaWatch.api.MessageApiLoader = MessageApiLoader;

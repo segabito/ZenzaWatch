@@ -92,6 +92,8 @@
 
 //@require loader/Storyboard.js
 
+//@require loader/ThreadLoader.js
+
 //@require YouTubeWrapper.js
 
 //@require NicoVideoPlayer.js
