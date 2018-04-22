@@ -1,5 +1,5 @@
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {util, AsyncEmitter, FrameLayer} from './util';
+import {util, FrameLayer} from './util';
 import {CONSTANT} from './constant';
 import {NicoSearchApiV2Loader} from './loader/VideoSearch';
 import {Emitter} from './baselib';
@@ -2158,7 +2158,7 @@ _.assign(Playlist.prototype, {
       return;
     }
 
-    let data = JSON.stringify(this.serialize());
+    let data = JSON.stringify(this.serialize(), null, 2);
 
     let blob = new Blob([data], {'type': 'text/html'});
     let url = window.URL.createObjectURL(blob);
@@ -2312,12 +2312,12 @@ _.assign(Playlist.prototype, {
     window.console.time('loadUploadedVideos' + userId);
 
     return this._uploadedVideoApiLoader
-      .getUploadedVideos(userId, options).then((items) => {
+      .getUploadedVideos(userId, options).then(items => {
         window.console.timeEnd('loadUploadedVideos' + userId);
         let videoListItems = [];
 
         //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
-        items.forEach((item) => {
+        items.forEach(item => {
           if (item.item_data) {
             if (parseInt(item.item_type, 10) !== 0) {
               return;
@@ -2367,7 +2367,6 @@ _.assign(Playlist.prototype, {
     this._initializeView();
 
     if (!this._searchApiLoader) {
-      //this._nicoSearchApiLoader = ZenzaWatch.init.nicoSearchApiLoader;
       this._nicoSearchApiLoader = NicoSearchApiV2Loader;
     }
 
@@ -2375,7 +2374,7 @@ _.assign(Playlist.prototype, {
     options = options || {};
 
     return this._nicoSearchApiLoader
-      .searchMore(word, options, limit).then((result) => {
+      .searchMore(word, options, limit).then(result => {
         window.console.timeEnd('loadSearchVideos' + word);
         let items = result.list || [];
         let videoListItems = [];
@@ -2445,7 +2444,7 @@ _.assign(Playlist.prototype, {
 
     const model = this._model;
     const index = this._index;
-    return this._thumbInfoLoader.load(watchId).then((info) => {
+    return this._thumbInfoLoader.load(watchId).then(info => {
         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         // チャンネル動画はsoXXXXに統一したいのでvideoIdを使う. バッドノウハウ
         info.id = info.isChannel ? info.id : watchId;
@@ -2456,9 +2455,7 @@ _.assign(Playlist.prototype, {
         this.emit('update');
 
         this.emit('command', 'notifyHtml',
-          '次に再生: ' +
-          '<img src="' + item.getThumbnail() + '" style="width: 96px;">' +
-          item.getTitle()
+          `次に再生: <img src="${item.thumbnail}" style="width: 96px;">${util.escapeToZenkaku(item.title)}`
         );
       }).catch(result => {
         const item = VideoListItem.createBlankInfo(watchId);

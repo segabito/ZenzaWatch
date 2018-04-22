@@ -1,13 +1,21 @@
 import * as _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {AsyncEmitter} from './util';
+import {Emitter} from './baselib';
+import {util} from './util';
 
 //===BEGIN===
+class CommentInputPanel extends Emitter {
+  constructor(params) {
+    super();
 
-var CommentInputPanel = function () {
-  this.initialize.apply(this, arguments);
-};
+    this._$playerContainer = params.$playerContainer;
+    this._playerConfig = params.playerConfig;
+
+    this._initializeDom();
+
+    this._playerConfig.on('update-autoPauseCommentInput', this._onAutoPauseCommentInputChange.bind(this));
+  }
+}
 CommentInputPanel.__css__ = (`
     .commentInputPanel {
       position: fixed;
@@ -40,12 +48,7 @@ CommentInputPanel.__css__ = (`
       top:  auto !important;
       bottom: 120px !important;
       transform: translate(-50%, 0);
-      /*left: calc(-50vw + 50% + 50vw) !important;*/
       left: 50%;
-    }
-    .zenzaScreenMode_wide .commentInputPanel.active,
-    .fullScreen           .commentInputPanel.active {
-      /*left: calc(-50vw + 50% + 50vw) !important;*/
     }
 
     /* 縦長モニター */
@@ -54,7 +57,6 @@ CommentInputPanel.__css__ = (`
       (max-width: 991px) and (min-height: 700px)
     {
       .zenzaScreenMode_normal .commentInputPanel {
-        /*top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);*/
         transform: translate(-50%, -230px);
       }
     }
@@ -63,11 +65,9 @@ CommentInputPanel.__css__ = (`
       (max-width: 1215px) and (min-height: 700px)
     {
       .zenzaScreenMode_big .commentInputPanel {
-        /*top: calc(-50vh + 50% + 100vh - 60px - 70px - 120px);*/
         transform: translate(-50%, -230px);
       }
     }
-
 
     .commentInputPanel>* {
       pointer-events: none;
@@ -237,59 +237,45 @@ CommentInputPanel.__tpl__ = (`
     </div>
   `).trim();
 
-_.extend(CommentInputPanel.prototype, AsyncEmitter.prototype);
 _.assign(CommentInputPanel.prototype, {
-  initialize: function (params) {
-    this._$playerContainer = params.$playerContainer;
-    this._playerConfig = params.playerConfig;
-
-    this._initializeDom();
-
-    this._playerConfig.on('update-autoPauseCommentInput',
-      _.bind(this._onAutoPauseCommentInputChange, this));
-  },
   _initializeDom: function () {
-    var $container = this._$playerContainer;
-    var config = this._playerConfig;
+    let $container = this._$playerContainer;
+    let config = this._playerConfig;
 
-    ZenzaWatch.util.addStyle(CommentInputPanel.__css__);
+    util.addStyle(CommentInputPanel.__css__);
     $container.append(CommentInputPanel.__tpl__);
 
-    var $view = this._$view = $container.find('.commentInputPanel');
-    var $input = this._$input = $view.find('.commandInput, .commentInput');
+    let $view = this._$view = $container.find('.commentInputPanel');
+    let $input = this._$input = $view.find('.commandInput, .commentInput');
     this._$form = $container.find('form');
-    var $autoPause = this._$autoPause = $container.find('.autoPause');
+    let $autoPause = this._$autoPause = $container.find('.autoPause');
     this._$commandInput = $container.find('.commandInput');
-    var $cmt = this._$commentInput = $container.find('.commentInput');
+    let $cmt = this._$commentInput = $container.find('.commentInput');
     this._$commentSubmit = $container.find('.commentSubmit');
-    var preventEsc = _.bind(function (e) {
+    let preventEsc = e => {
       if (e.keyCode === 27) { // ESC
         e.preventDefault();
         e.stopPropagation();
         this.emit('esc');
         $input.blur();
       }
-    }, this);
+    };
 
     $input
-      .on('focus', _.bind(this._onFocus, this))
-      .on('blur', _.debounce(_.bind(this._onBlur, this), 500))
+      .on('focus', this._onFocus.bind(this))
+      .on('blur', _.debounce(this._onBlur.bind(this), 500))
       .on('keydown', preventEsc)
       .on('keyup', preventEsc);
 
     $autoPause.prop('checked', config.getValue('autoPauseCommentInput'));
-    this._$autoPause.on('change', function () {
+    this._$autoPause.on('change', () => {
       config.setValue('autoPauseCommentInput', !!$autoPause.prop('checked'));
       $cmt.focus();
     });
-    this._$view.find('label').on('click', function (e) {
-      e.stopPropagation();
-    });
-    this._$form.on('submit', _.bind(this._onSubmit, this));
-    this._$commentSubmit.on('click', _.bind(this._onSubmitButtonClick, this));
-    $view.on('click', function (e) {
-      e.stopPropagation();
-    });
+    this._$view.find('label').on('click', e => e.stopPropagation());
+    this._$form.on('submit', this._onSubmit.bind(this));
+    this._$commentSubmit.on('click', this._onSubmitButtonClick.bind(this));
+    $view.on('click', e => e.stopPropagation());
   },
   _onFocus: function () {
     this._$view.addClass('active');
@@ -320,7 +306,7 @@ _.assign(CommentInputPanel.prototype, {
   submit: function () {
     let chat = this._$commentInput.val().trim();
     let cmd = this._$commandInput.val().trim();
-    if (chat.length < 1) {
+    if (!chat.length) {
       return;
     }
 
@@ -329,15 +315,9 @@ _.assign(CommentInputPanel.prototype, {
       this._$commandInput.blur();
 
       let $view = this._$view.addClass('updating');
-      (new Promise((resolve, reject) => {
-        this.emit('post', {resolve, reject}, chat, cmd);
-      }))
-        .then(() => {
-          $view.removeClass('updating');
-        })
-        .catch(() => {
-          $view.removeClass('updating');
-        });
+      (new Promise((resolve, reject) => this.emit('post', {resolve, reject}, chat, cmd)))
+        .then(() => $view.removeClass('updating'))
+        .catch(() => $view.removeClass('updating'));
     }, 0);
   },
   isAutoPause: function () {

@@ -400,10 +400,6 @@ _.assign(NicoVideoPlayer.prototype, {
     const video = this._videoPlayer.getVideoElement();
     const html = this._commentPlayer.getCurrentScreenHtml();
 
-    //return VideoCaptureUtil.htmlToCanvas({html, video}).then(({canvas}) => {
-    //  VideoCaptureUtil.saveToFile(canvas, fileName);
-    //  window.console.timeEnd('screenShotWithComment');
-    //});
     return VideoCaptureUtil.nicoVideoToCanvas({video, html}).then(({canvas}) => {
       VideoCaptureUtil.saveToFile(canvas, fileName);
       window.console.timeEnd('screenShotWithComment');
@@ -413,9 +409,7 @@ _.assign(NicoVideoPlayer.prototype, {
     const title = this._videoInfo.title;
     const watchId = this._videoInfo.watchId;
     const currentTime = this._videoPlayer.getCurrentTime();
-    const min = Math.floor(currentTime / 60);
-    const sec = (currentTime % 60 + 100).toString().substr(1, 6);
-    const time = `${min}_${sec}`;
+    const time = util.secToTime(currentTime).replace(':', '_');
     const prefix = Config.getValue('screenshot.prefix') || '';
 
     return `${prefix}${title} - ${watchId}@${time}${suffix}.png`;
@@ -570,6 +564,9 @@ class ContextMenu extends BaseViewComponent {
       ZenzaWatch.emitter.emitAsync('videoContextMenu.addonMenuReady',
         view.find('.empty-area-top'), handler
       );
+      ZenzaWatch.emitter.emitAsync('videoContextMenu.addonMenuReady.list',
+        view.find('.listInner ul'), handler
+      );
     }
   }
 }
@@ -586,8 +583,6 @@ ContextMenu.__css__ = (`
       min-width: 200px;
       z-index: 150000;
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
     }
     .zenzaPlayerContextMenu.is-Open {
       opacity: 0.5;
@@ -949,8 +944,8 @@ class VideoPlayer extends Emitter {
     ;
   }
 
-  _onCanPlay() {
-    console.log('%c_onCanPlay:', 'background: cyan; color: blue;', arguments);
+  _onCanPlay(...args) {
+    console.log('%c_onCanPlay:', 'background: cyan; color: blue;', ...args);
 
     this.setPlaybackRate(this.getPlaybackRate());
     // リピート時にも飛んでくるっぽいので初回だけにする
@@ -1370,7 +1365,7 @@ class VideoPlayer extends Emitter {
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d');
-    context.drawImage(video._video || video, 0, 0);
+    context.drawImage(video.drawableElement || video, 0, 0);
     return canvas;
   }
 
@@ -1479,18 +1474,7 @@ class TouchWrapper extends Emitter {
     return this._body;
   }
 
-  _onMousedown(e) {
-    //window.console.log('onmousedown', e, e.button);
-    //if (e.button !== 0) {
-    //  this._body.style.display = 'none';
-    //  window.setTimeout(() => { this._body.style.display = 'block'; }, 400);
-    //}
-  }
-
-  _onClick(e) {
-    //const count = Math.max(this._lastTap, this._maxCount);
-    //window.console.info('click', this._maxCount, this._lastTap, count);
-
+  _onClick() {
     this._lastTap = 0;
   }
 
@@ -1513,7 +1497,6 @@ class TouchWrapper extends Emitter {
     this._maxCount = Math.max(this._maxCount, this.touchCount);
     this._startCenter = this._getCenter(e);
     this._lastCenter = this._getCenter(e);
-    this._startAt = Date.now();
     this._isMoved = false;
   }
 
@@ -1586,13 +1569,11 @@ class TouchWrapper extends Emitter {
   _onSwipe2Y(diff) {
     this._execCommand(diff.perY < 0 ? 'shiftUp' : 'shiftDown');
     this._startCenter = this._lastCenter;
-    this._startAt = Date.now();
   }
 
   _onSwipe3X(diff) {
     this._execCommand(diff.perX < 0 ? 'playNextVideo' : 'playPreviousVideo');
     this._startCenter = this._lastCenter;
-    this._startAt = Date.now();
   }
 
   _execCommand(command, param) {
@@ -1631,9 +1612,6 @@ class TouchWrapper extends Emitter {
       switch (this._maxCount) {
         case 2:
           this._execCommand(config.getValue('tap2command'));
-          //window.setTimeout(() => {
-          //  this._execCommand(config.getValue('tap2command'));
-          //}, 0);
           break;
         case 3:
           this._execCommand(config.getValue('tap3command'));

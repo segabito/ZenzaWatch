@@ -1,6 +1,7 @@
 import _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {AsyncEmitter, BaseViewComponent, FrameLayer, util} from './util';
+import {CONSTANT} from './constant';
 
 //===BEGIN===
 
@@ -627,7 +628,6 @@ _.assign(CommentListView.prototype, {
       itemId = itemId.getItemId();
     }
 
-    // scrollIntoViewIfNeed() があればそれでいいかも
     var $target = this._$body.find('.item' + itemId);
     if ($target.length < 1) {
       return;
@@ -687,20 +687,7 @@ const CommentListItemView = (() => {
         line-height: 0;
       }
 
-      #listContainer::-webkit-scrollbar {
-        background: #222;
-      }
-
-      #listContainer::-webkit-scrollbar-thumb {
-        border-radius: 0;
-        background: #666;
-      }
-
-      #listContainer::-webkit-scrollbar-button {
-        background: #666;
-        display: none;
-      }
-
+      ${CONSTANT.SCROLLBAR_CSS}
 
       .listMenu {
         position: absolute;

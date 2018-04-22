@@ -174,7 +174,7 @@ const {YouTubeWrapper} = (() => {
         case YT.PlayerState.PLAYING:
           if (!this._canPlay) {
             this._canPlay = true;
-            this.emitAsync('loadedmetadata');
+            this.emit('loadedmetadata');
             this.emit('canplay');
           }
           this.emit('play');

@@ -59,8 +59,6 @@ CONSTANT.COMMON_CSS = `
         transition: box-shadow 0.2s ease, opacity 0.4s ease, padding 0.2s ease;
         box-shadow: 2px 2px 3px #000;
         user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
       }
       .zenzaWatchHoverMenu:hover {
         box-shadow: 4px 4px 5px #000;
@@ -92,8 +90,6 @@ CONSTANT.COMMON_CSS = `
         transition: opacity 0.3s ease;
         z-index: ${CONSTANT.BASE_Z_INDEX + 50000};
         user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
       }
 
       .zenzaPopupMenu:not(.show) {
@@ -119,7 +115,6 @@ CONSTANT.COMMON_CSS = `
       .zenzaPopupMenu ul li + li {
         border-top: 1px dotted #ccc;
       }
-      /* .zenzaPopupMenu ul li:last-child { border-bottom: none; } */
 
       .zenzaPopupMenu li.selected {
         font-weight: bolder;
@@ -183,7 +178,31 @@ CONSTANT.COMMON_CSS = `
       #zenzaVideoPlayerDialog.is-guest .forGuest {
         display: inherit;
       }
-`;
+`.trim();
+
+
+CONSTANT.SCROLLBAR_CSS = `
+    .videoInfoTab::-webkit-scrollbar,
+    #listContainer::-webkit-scrollbar,
+    .zenzaCommentPreview::-webkit-scrollbar {
+      background: #222;
+    }
+
+    .videoInfoTab::-webkit-scrollbar-thumb,
+    #listContainer::-webkit-scrollbar-thumb,
+    .zenzaCommentPreview::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #666;
+    }
+
+    .videoInfoTab::-webkit-scrollbar-button,
+    #listContainer::-webkit-scrollbar-button,
+    .zenzaCommentPreview::-webkit-scrollbar-button {
+      background: #666;
+      display: none;
+    }
+
+`.trim();
 //===END===
 
 export {CONSTANT};

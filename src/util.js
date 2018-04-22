@@ -196,8 +196,6 @@ const PopupMessage = (() => {
           pointer-events: none;
           background: #000;
           user-select: none;
-          -webkit-user-select: none;
-          -moz-user-select: none;
         }
 
         .zenzaPopupMessage.show {
@@ -397,8 +395,8 @@ util.parseQuery = function (query = '') {
 };
 
 util.hasLargeThumbnail = function (videoId) { // return true;
-  // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
-  // ※この数字以降でもごく稀に例外はある。
+                                              // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
+                                              // ※この数字以降でもごく稀に例外はある。
   const threthold = 16371888;
   const cid = videoId.substr(0, 2);
   if (cid !== 'sm') {
@@ -772,7 +770,7 @@ util.isWebkit = function () {
   return navigator.userAgent.toLowerCase().indexOf('webkit') >= 0;
 };
 
-util.escapeHtml = function (text) {
+util.escapeHtml = text => {
   let map = {
     '&': '&amp;',
     '\x27': '&#39;',
@@ -802,7 +800,7 @@ util.unescapeHtml = function (text) {
 // 基本的に動画タイトルはエスケープされている。
 // だが、なんかたまにいいかげんなデータがあるし、本当に信用できるか？
 // そこで、全角に置き換えてごますんだ！
-util.escapeToZenkaku = function (text) {
+util.escapeToZenkaku = text => {
   let map = {
     '&': '＆',
     '\'': '’',
@@ -816,7 +814,7 @@ util.escapeToZenkaku = function (text) {
 };
 
 
-util.escapeRegs = function (text) {
+util.escapeRegs = text => {
   let map = {
     '\\': '\\\\',
     '*': '\\*',
@@ -885,12 +883,12 @@ util.copyToClipBoard = text => {
   clip.select();
   document.execCommand('copy');
 
-  window.setTimeout(function () {
+  window.setTimeout(() => {
     clip.remove();
   }, 0);
 };
 
-util.isValidJson = function (data) {
+util.isValidJson = data => {
   try {
     JSON.parse(data);
     return true;

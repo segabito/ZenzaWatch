@@ -157,11 +157,6 @@ class VideoInfoModel {
 
     this._isDmcDisable = false;
     this._currentVideoPromise = [];
-
-    if (!ZenzaWatch.debug.videoInfo) {
-      ZenzaWatch.debug.videoInfo = {};
-    }
-    ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
   }
 
   get title() {

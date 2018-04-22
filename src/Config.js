@@ -1,9 +1,9 @@
 import {Emitter} from './baselib';
-import {browser} from './browser';
 
-const {navigator, location} = browser.window;
-const window = browser.window;
-let console = window.console;
+const location = {host: 'www.nicovideo.jp'};
+const navigator = {};
+const window = {console: console};
+// let console = window.console;
 
 //===BEGIN===
 const Config = (() => {

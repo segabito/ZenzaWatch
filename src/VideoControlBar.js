@@ -26,8 +26,6 @@ import {util} from './util';
       transition: opacity 0.3s ease, transform 0.3s ease;
 
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
       content: layout;
     }
     .changeScreenMode .videoControlBar {
@@ -63,14 +61,9 @@ import {util} from './util';
       }
     }
 
-
-
-
     .videoControlBar * {
       box-sizing: border-box;
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
     }
 
     .zenzaScreenMode_wide .videoControlBar,
@@ -261,8 +254,6 @@ import {util} from './util';
       margin-top: -2px;
       line-height: 30px;
     }
-    .seekTop .controlButtonInner{
-    }
     .seekTop:active {
       font-size: 18px;
     }
@@ -329,9 +320,7 @@ import {util} from './util';
     .is-loading .seekBarContainer,
     .is-error   .seekBarContainer {
       pointer-events: none;
-      webkit-filter: grayscale();
-      moz-filter: grayscale();
-      filter: grayscale();
+      filter: grayscale(100%);
     }
     .is-abort   .seekBarContainer *,
     .is-loading .seekBarContainer *,
@@ -701,16 +690,6 @@ import {util} from './util';
 
     .videoControlBar .volumeControl .volumeBarPointer {
       display: none;
-               /*
-      position: absolute;
-      top: 50%;
-      width: 6px;
-      height: 10px;
-      background: #ccc;
-      transform: translate(-50%, -50%);
-      z-index: 200;
-      pointer-events: none;
-      */
     }
 
     .videoControlBar .volumeControl .tooltip {
@@ -769,7 +748,6 @@ import {util} from './util';
     .toggleStoryboard {
       visibility: hidden;
       font-size: 13px;
-      /*width: 32px;*/
       height: 32px;
       margin-top: -2px;
       line-height: 36px;
@@ -1137,7 +1115,7 @@ import {util} from './util';
       this._$seekBarPointer = $view.find('.seekBarPointer');
       this._$bufferRange    = $view.find('.bufferRange');
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
-      $view.on('click', (e) => {
+      $view.on('click', e => {
         e.stopPropagation();
         ZenzaWatch.emitter.emitAsync('hideHover');
       });
@@ -1156,7 +1134,7 @@ import {util} from './util';
       this._heatMap = new HeatMap({
         $container: this._$seekBarContainer.find('.seekBar')
       });
-      let updateHeatMapVisibility = (v) => {
+      let updateHeatMapVisibility = v => {
         this._$seekBarContainer.toggleClass('noHeatMap', !v);
       };
       updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
@@ -1180,7 +1158,7 @@ import {util} from './util';
         $container: this._$seekBarContainer
       });
       this._commentPreview.on('command', onCommand);
-      let updateEnableCommentPreview = (v) => {
+      let updateEnableCommentPreview = v => {
         this._$seekBarContainer.toggleClass('enableCommentPreview', v);
         this._commentPreview.setIsEnable(v);
       };
@@ -1327,7 +1305,7 @@ import {util} from './util';
       const $menu  = this._$videoServerTypeSelectMenu;
       const $current = $menu.find('.currentVideoQuality');
 
-      $menu.on('click', '.exec-command', (e) => {
+      $menu.on('click', '.exec-command', e => {
         e.preventDefault();
         e.stopPropagation();
         const $target  = $(e.target).closest('.exec-command');
@@ -1443,7 +1421,7 @@ import {util} from './util';
       $btn .toggleClass('show', v);
       $menu.toggleClass('show', v);
 
-      let onBodyClick = function() {
+      let onBodyClick = () => {
         $btn.removeClass('show');
         $menu.removeClass('show');
         $body.off(eventName);
@@ -1682,7 +1660,7 @@ import {util} from './util';
       this.update();
     },
     update: function() {
-      if (this._duration < 0 || !this._chatReady /* || this._isUpdated */) {
+      if (this._duration < 0 || !this._chatReady) {
         return;
       }
       let map = this._getHeatMap();
@@ -1694,7 +1672,6 @@ import {util} from './util';
       //this._isUpdated = true;
     },
     _getHeatMap: function() {
-      //console.time('update HeatMapModel');
       let chatList =
         this._chat.top.concat(this._chat.naka, this._chat.bottom);
       let duration = this._duration;
@@ -1844,7 +1821,7 @@ import {util} from './util';
     },
     setChatList: function(chatList) {
       let list = chatList.top.concat(chatList.naka, chatList.bottom);
-      list.sort(function(a, b) {
+      list.sort((a, b) => {
         let av = a.getVpos(), bv = b.getVpos();
         return av - bv;
       });
@@ -1937,26 +1914,10 @@ import {util} from './util';
       color: #ccc;
       z-index: 100;
       overflow: hidden;
-      /*box-shadow: 0 0 4px #666;*/
       border-bottom: 24px solid transparent;
       transform: translate3d(0, 0, 0);
       transition: transform 0.2s;
     }
-
-    .zenzaCommentPreview::-webkit-scrollbar {
-      background: #222;
-    }
-
-    .zenzaCommentPreview::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #666;
-    }
-
-    .zenzaCommentPreview::-webkit-scrollbar-button {
-      background: #666;
-      display: none;
-    }
-
 
     .zenzaCommentPreview.updating {
       transition: opacity 0.2s ease;
@@ -1966,7 +1927,6 @@ import {util} from './util';
     .zenzaCommentPreview.updating *{
       pointer-evnets: none;
     }
-
 
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaCommentPreview,
     body:not(.fullScreen).zenzaScreenMode_small .zenzaCommentPreview {
@@ -2004,10 +1964,6 @@ import {util} from './util';
       white-space: nowrap;
       text-overflow: ellipsis;
       overflow: hidden;
-                /*border-top: 1px dotted transparent;*/
-    }
-    .zenzaCommentPreview:hover      .nicoChat + .nicoChat {
-      /*border-top: 1px dotted #888;*/
     }
     .zenzaCommentPreviewInner:hover .nicoChat.odd {
       background: #333;
@@ -2034,8 +1990,6 @@ import {util} from './util';
       white-space: nowrap;
     }
 
-    .zenzaCommentPreviewInner .nicoChat .vposTime {
-    }
     .zenzaCommentPreviewInner .nicoChat:hover .text {
       color: #fff !important;
     }
@@ -2085,8 +2039,7 @@ import {util} from './util';
       model.on('update', _.debounce(this._onUpdate.bind(this), 10));
       model.on('vpos',   _.throttle(this._onVpos  .bind(this), 100));
 
-      this.show = _.throttle(_.bind(this.show, this), 200);
-      //this._applyView = ZenzaWatch.util.createDrawCallFunc(this._applyView.bind(this));
+      this.show = _.throttle(this.show.bind(this), 200);
     },
     _initializeDom: function($container) {
       util.addStyle(CommentPreviewView.__css__);
@@ -2114,7 +2067,7 @@ import {util} from './util';
       if (command && nicoChat && !$view.hasClass('updating')) {
         $view.addClass('updating');
 
-        window.setTimeout(function() { $view.removeClass('updating'); }, 3000);
+        window.setTimeout(() => { $view.removeClass('updating'); }, 3000);
 
         switch (command) {
           case 'addUserIdFilter':
@@ -2177,7 +2130,6 @@ import {util} from './util';
       this._$inner.css({
         height:
         (chatList.length + 2) * itemHeight
-        //`calc(${chatList.length * itemHeight}px + ${CommentPreviewView.MAX_HEIGHT})`
       });
       this._updated = false;
       window.console.timeEnd('updateCommentPreviewView');
@@ -2193,7 +2145,7 @@ import {util} from './util';
       let color = chat.getColor() || '#fff';
       let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
-      let vposToTime = (vpos) => {
+      let vposToTime = vpos => {
         let sec = Math.floor(vpos / 100);
         return util.secToTime(sec);
       };
@@ -2503,7 +2455,7 @@ import {util} from './util';
 
       $view
         .on('mousedown',this._onMouseDown.bind(this))
-        .on('click', function(e) { e.stopPropagation(); e.preventDefault(); });
+        .on('click', e => { e.stopPropagation(); e.preventDefault(); });
 
       this._seekBarThumbnail = this._storyboard.getSeekBarThumbnail({
         $container: $view.find('.seekBarThumbnailContainer')
@@ -2575,9 +2527,6 @@ import {util} from './util';
   });
 
 
-
-
-
 //===END===
 
 export {
@@ -2590,177 +2539,4 @@ export {
   CommentPreview,
   SeekBarToolTip
 };
-
-//   var Lark = function() { this.initialize.apply(this, arguments); };
-//   _.extend(Lark.prototype, AsyncEmitter.prototype);
-//   _.assign(Lark.prototype, {
-//     initialize: function(params) {
-//       this._player = params.player;
-//       this._playerConfig = params.playerConfig;
-//       this._volume =
-//         parseFloat(params.volume || this._playerConfig.getValue('speakLarkVolume'), 10);
-//       this._lang = params.lang || util.getPageLanguage();
-//       this._enabled = false;
-//       this._timer = null;
-//       this._timeoutTimer = null;
-//       this._kidoku = [];
-//
-//       this._player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
-//       this._playerConfig.on('update-speakLark', _.bind(function(v) {
-//         if (v) { this.enable(); } else { this.disable(); }
-//       }, this));
-//       this._playerConfig.on('update-speakLarkVolume', _.bind(function(v) {
-//         this._volume = Math.max(0, Math.min(1.0, parseFloat(v, 10)));
-//         if (!this._msg) { return; }
-//         this._msg.volume = this._volume;
-//       }, this));
-//
-//       ZenzaWatch.debug.lark = this;
-//
-//       this._bind = {
-//         _onTimeout: _.debounce(_.bind(this._onTimeout, this), 6000)
-//       };
-//     },
-//     _initApi: function() {
-//       if (this._msg) { return true; }
-//       if (!window.SpeechSynthesisUtterance) { return false; }
-//       this._msg = new window.SpeechSynthesisUtterance();
-//       this._msg.lang = this._lang;
-//       this._msg.volume = this._volume;
-//       this._msg.onend   = _.bind(this._onSpeakEnd, this);
-//       this._msg.onerror = _.bind(this._onSpeakErr, this);
-//       return true;
-//     },
-//     _onCommentParsed: function() {
-//       //window.console.log('%conCommentParsed:', 'background: #f88;');
-//       this._speaking = false;
-//       if (this._playerConfig.getValue('speakLark')) {
-//         this.enable();
-//       }
-//     },
-//     speak: function(text, option) {
-//       if (!this._msg) { return; }
-//       //if (window.speechSynthesis.speaking) { return; }
-//       if (this._speaking) { return; }
-//       if (option.volume) { this._msg.volume = option.volume; }
-//       if (option.rate)   { this._msg.rate   = option.rate; }
-//
-//       if (window.speechSynthesis.speaking) {
-//         console.log('speak cancel: ', this._msg.text);
-//         window.speechSynthesis.cancel();
-//       }
-//       text = this._replaceWWW(text);
-//       this._msg.text = text;
-//       this._msg.pitch = Math.random() * 2;
-//       this._speaking = true;
-//       //console.log('%cspeak: "%s"', 'background: #f88;', text, this._msg);
-//       this._lastSpeakAt = Date.now();
-//       this._bind._onTimeout();
-//
-//       window.speechSynthesis.speak(this._msg);
-//     },
-//     _onSpeakEnd: function() {
-//       if (!window.speechSynthesis.speaking) {
-//         this._speaking = false;
-//       }
-//       this._onTimer();
-//     },
-//     _onSpeakErr: function(e) {
-//       window.console.log('speak error: ', e, this._msg.text);
-//       this._speaking = false;
-//       this._onTimer();
-//     },
-//     _onTimeout: function() {
-//       if (window.speechSynthesis.speaking) {
-//         var past = Date.now() - this._lastSpeakAt;
-//         console.log('speak timeout: ', past, this._msg.text);
-//       }
-//       this._speaking = false;
-//     },
-//     enable: function() {
-//       if (!this._initApi()) { return; }
-//
-//       this._kidoku = [];
-//       this._enabled = true;
-//       var chatList = this._player.getChatList();
-//       this._chatList = chatList.top.concat(chatList.naka, chatList.bottom);
-//       window.speechSynthesis.cancel();
-//       if (this._timer) {
-//         window.clearInterval(this._timer);
-//       }
-//       this._timer = window.setInterval(this._onTimer.bind(this), 300);
-//     },
-//     disable: function() {
-//       this._enabled = false;
-//       this._speaking = false;
-//       this._chatList = [];
-//       if (this._timer) {
-//         window.clearInterval(this._timer);
-//         this._timer = null;
-//       }
-//       if (window.speechSynthesis) {
-//         window.speechSynthesis.cancel();
-//       }
-//     },
-//     _onTimer: function() {
-//       if (!this._player.isPlaying()) { return; }
-//       if (this._speaking) { return; }
-//       var one = this._selectOne();
-//       if (!one) { return; }
-//       this.speak(one.text, {rate: one.rate});
-//     },
-//     _getInviewChat: function() {
-//       var player = this._player;
-//       var vpos = player.getCurrentTime() * 100;
-//       var result = [];
-//       var chatList = this._chatList;
-//       for (var i = 0, len = chatList.length; i < len; i++) {
-//         var chat = chatList[i];
-//         var vp = chat.getVpos();
-//         if (chat.isInvisible()) { continue; }
-//         if (vp - vpos > -250 && vp - vpos < 150) {
-//           result.push(chat);
-//         }
-//       }
-//       return result;
-//     },
-//     _selectOne: function() {
-//       var inviewChat = this._getInviewChat();
-//       var sample = _.shuffle(_.difference(inviewChat, this._kidoku));
-//       if (sample.length < 1) { return null; }
-//       var chat = sample[0];
-//       var text = chat.getText();
-//
-//       // コメントが多い時は早口
-//       var count = Math.max(1, Math.min(inviewChat.length, 40));
-//       this._kidoku.unshift(chat);
-//       this._kidoku.splice(5);
-//       return {
-//         text: text,
-//         rate: 0.5 + Math.max(0, Math.min(4, count / 15))
-//       };
-//     },
-//     _replaceWWW: function(text) {
-//       text = text.trim();
-//
-//       text = text.replace(/([~〜～])/g, 'ー');
-//       text = text.replace(/([\(（].*?[）\)])/g, 'ー'); // ほとんど顔文字なので
-//
-//       text = text.replace(/([wWＷｗ])+$/i, function(m) {
-//         return 'わら'.repeat(Math.min(3, m.length));
-//       });
-//
-//       text = text.replace(/([8８])+$/i, function(m) {
-//         return 'ぱち'.repeat(Math.min(3, m.length));
-//       });
-//
-//       return text;
-//     }
-//   });
-//
-//   ZenzaWatch.debug.Lark = Lark;
-
-
-
-
 

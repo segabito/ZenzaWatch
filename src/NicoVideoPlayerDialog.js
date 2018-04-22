@@ -498,8 +498,6 @@ NicoVideoPlayerDialogView.__css__ = `
       background: #000;
       will-change: transform, opacity;
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
       contain: paint;
     }
 
@@ -541,14 +539,11 @@ NicoVideoPlayerDialogView.__css__ = `
       width: 100%;
       height: 100%;
       z-index: 101;
-      transition: opacity 1s ease; /*, height 0.4s ease;*/
+      transition: opacity 1s ease;
       pointer-events: none;
-      /*transform: translateZ(0);*/
       cursor: none;
       will-change: transform, opacity;
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
       contain: paint;
     }
     .zenzaScreenMode_3D       .zenzaPlayerContainer .commentLayerFrame,
@@ -932,8 +927,6 @@ NicoVideoPlayerDialogView.__css__ = `
       pointer-events: none;
       transform: translateZ(0);
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
     }
 
 
@@ -1021,7 +1014,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
 
     $dialog
       .on('click', this._onClick.bind(this))
-      .on('dblclick', (e) => {
+      .on('dblclick', e => {
         if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') {
           return;
         }
@@ -1047,13 +1040,13 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     });
 
     let isPlaying = false;
-    this._commentInput.on('focus', (isAutoPause) => {
+    this._commentInput.on('focus', isAutoPause => {
       isPlaying = this._nicoVideoPlayer.isPlaying();
       if (isAutoPause) {
         this.emit('command', 'pause');
       }
     });
-    this._commentInput.on('blur', (isAutoPause) => {
+    this._commentInput.on('blur', isAutoPause => {
       if (isAutoPause && isPlaying && dialog.isOpen()) {
         this.emit('command', 'play');
       }
@@ -1421,8 +1414,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (this._nicoVideoPlayer) {
       return this._nicoVideoPlayer();
     }
-    var config = this._playerConfig;
-    var nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
+    let config = this._playerConfig;
+    let nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
       offScreenLayer: this._offScreenLayer,
       node: this._$playerContainer,
       playerConfig: config,
@@ -1453,6 +1446,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     nicoVideoPlayer.on('commentChange', this._onCommentChange.bind(this));
     nicoVideoPlayer.on('commentFilterChange', this._onCommentFilterChange.bind(this));
     nicoVideoPlayer.on('videoPlayerTypeChange', this._onVideoPlayerTypeChange.bind(this));
+    // nicoVideoPlayer.on('buffercomplete', e => {});
 
     nicoVideoPlayer.on('error', this._onVideoError.bind(this));
     nicoVideoPlayer.on('abort', this._onVideoAbort.bind(this));
@@ -1468,7 +1462,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   },
   _onCommand: function (command, param) {
     // なんかdispatcher的なのに分離したい
-    var v;
+    let v;
     console.log('command: %s param: %s', command, param, typeof param);
     switch (command) {
       case 'notifyHtml':
@@ -1668,7 +1662,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
           util.capTube({
             title: this._videoInfo.title,
             videoId: this._videoInfo.videoId,
-            author: this._videoInfo.ownerInfo.name
+            author: this._videoInfo.owner.name
           });
           return;
         }
@@ -1757,7 +1751,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   },
   _onKeyEvent: function (name, e, param) {
     if (!this._playerState.isOpen) {
-      var lastWatchId = this._playerConfig.getValue('lastWatchId');
+      let lastWatchId = this._playerConfig.getValue('lastWatchId');
       if (name === 'RE_OPEN' && lastWatchId) {
         this.open(lastWatchId);
         e.preventDefault();
@@ -1844,7 +1838,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this.execCommand('screenShotWithComment');
         break;
     }
-    var screenMode = this._playerConfig.getValue('screenMode');
+    let screenMode = this._playerConfig.getValue('screenMode');
     if (!['small', 'sideView'].includes(screenMode)) {
       e.preventDefault();
       e.stopPropagation();
@@ -1915,7 +1909,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
 
-    var onAppend = _.debounce(() => {
+    let onAppend = _.debounce(() => {
       this._playlist.scrollToWatchId(watchId);
     }, 500);
     this._playlist.append(watchId).then(onAppend, onAppend);
@@ -1941,7 +1935,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     // 連続再生中はプレイリストに追加で読み込む
     option.append = this._playlist.isEnable();
 
-    var query = this._videoWatchOptions.getQuery();
+    let query = this._videoWatchOptions.getQuery();
     option.shuffle = parseInt(query.shuffle, 10) === 1;
 
     this._playlist.loadFromMylist(mylistId, option).then((result) => {
@@ -1972,15 +1966,14 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   _onPlaylistSetSearchVideo: function (params) {
     this._initializePlaylist();
 
-    var option = params.option || {};
-    var word = params.word;
-    option = option || {};
+    let option = Object.assign({watchId: this._watchId}, params.option || {});
+    let word = params.word;
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
     option.append = this._playlist.isEnable();
 
     if (option.owner) {
-      var ownerId = parseInt(this._videoInfo.ownerInfo.id, 10);
+      let ownerId = parseInt(this._videoInfo.owner.id, 10);
       if (this._videoInfo.isChannel) {
         option.channelId = ownerId;
       } else {
@@ -1989,12 +1982,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
     delete option.owner;
 
-    var query = this._videoWatchOptions.getQuery();
-    Object.assign(option, query);
+    let query = this._videoWatchOptions.getQuery();
+    option = Object.assign(option, query);
 
-    //window.console.log('_onPlaylistSetSearchVideo:', word, option);
     this._view.selectTab('playlist');
-    this._playlist.loadSearchVideo(word, option).then((result) => {
+    this._playlist.loadSearchVideo(word, option).then(result => {
         this.execCommand('notify', result.message);
         this._playlist.insertCurrentVideo(this._videoInfo);
         ZenzaWatch.emitter.emitAsync('searchVideo', {word, option});
@@ -2002,12 +1994,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
           this._playlist.scrollToActiveItem();
         }, 1000);
       },
-      (err) => {
+      err => {
         this.execCommand('alert', err.message || '検索失敗または該当無し: 「' + word + '」');
       });
   },
   _onPlaylistStatusUpdate: function () {
-    var playlist = this._playlist;
+    let playlist = this._playlist;
     this._playerConfig.setValue('playlistLoop', playlist.isLoop());
     this._playerState.isPlaylistEnable = playlist.isEnable();
     if (playlist.isEnable()) {
@@ -2016,7 +2008,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._view.blinkTab('playlist');
   },
   _onCommentPanelStatusUpdate: function () {
-    var commentPanel = this._commentPanel;
+    let commentPanel = this._commentPanel;
     this._playerConfig.setValue(
       'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
   },
@@ -2053,10 +2045,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       });
   },
   _onDeflistRemove: function (watchId) {
-    if (this._playerState.isUpdatingDeflist) {
-      return;
-    } //busy
-    if (!util.isLogin()) {
+    if (this._playerState.isUpdatingDeflist || !util.isLogin()) {
       return;
     }
     const unlock = () => {
@@ -2083,10 +2072,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       });
   },
   _onMylistAdd: function (groupId, mylistName) {
-    if (this._playerState.isUpdatingMylist) {
-      return;
-    } //busy
-    if (!util.isLogin()) {
+    if (this._playerState.isUpdatingMylist || !util.isLogin()) {
       return;
     }
 
@@ -2097,10 +2083,10 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._playerState.isUpdatingMylist = true;
     let timer = window.setTimeout(unlock, 10000);
 
-    const owner = this._videoInfo.ownerInfo;
+    const owner = this._videoInfo.owner;
     const watchId = this._videoInfo.watchId;
     const description =
-      this._playerConfig.getValue('enableAutoMylistComment') ? ('投稿者: ' + owner.name) : '';
+      this._playerConfig.getValue('enableAutoMylistComment') ? `投稿者: ${owner.name}` : '';
     if (!this._mylistApiLoader) {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
     }
@@ -2117,10 +2103,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       });
   },
   _onMylistRemove: function (groupId, mylistName) {
-    if (this._playerState.isUpdatingMylist) {
-      return;
-    } //busy
-    if (!util.isLogin()) {
+    if (this._playerState.isUpdatingMylist || !util.isLogin()) {
       return;
     }
 
@@ -2129,9 +2112,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     };
 
     this._playerState.isUpdatingMylist = true;
-    var timer = window.setTimeout(unlock, 10000);
+    let timer = window.setTimeout(unlock, 10000);
 
-    var watchId = this._videoInfo.watchId;
+    let watchId = this._videoInfo.watchId;
 
     if (!this._mylistApiLoader) {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
@@ -2159,7 +2142,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     ZenzaWatch.emitter.emit('commentChange');
   },
   _onCommentFilterChange: function (filter) {
-    var config = this._playerConfig;
+    let config = this._playerConfig;
     config.setValue('enableFilter', filter.isEnable());
     config.setValue('wordFilter', filter.getWordFilterList());
     config.setValue('userIdFilter', filter.getUserIdFilterList());
@@ -2246,12 +2229,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._playerState.isError = false;
 
     VideoInfoLoader.load(watchId, options.getVideoLoadOptions()).then(
-      this._onVideoInfoLoaderLoad.bind(this, this._requestId),
+      this._onVideoInfoLoaderLoad.bind(this, this._requestId)).catch(
       this._onVideoInfoLoaderFail.bind(this, this._requestId)
     );
 
     this.show();
-    if (this._playerConfig.getValue('autoFullScreen') && !ZenzaWatch.util.fullScreen.now()) {
+    if (this._playerConfig.getValue('autoFullScreen') && !util.fullScreen.now()) {
       nicoVideoPlayer.requestFullScreen();
     }
     this.emit('open', watchId, options);
@@ -2272,7 +2255,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!this._nicoVideoPlayer) {
       return 0;
     }
-    var ct = this._nicoVideoPlayer.getCurrentTime() * 1;
+    let ct = this._nicoVideoPlayer.getCurrentTime() * 1;
     if (!this._playerState.isError && ct > 0) {
       this._lastCurrentTime = ct;
     }
@@ -2502,8 +2485,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (this._videoWatchOptions.isPlaylistStartRequest()) {
       this._initializePlaylist();
 
-      var option = this._videoWatchOptions.getMylistLoadOptions();
-      var query = this._videoWatchOptions.getQuery();
+      let option = this._videoWatchOptions.getMylistLoadOptions();
+      let query = this._videoWatchOptions.getQuery();
 
       // 通常時はプレイリストの置き換え、
       // 連続再生中はプレイリストに追加で読み込む
@@ -2518,9 +2501,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       } else if (query.playlist_type === 'deflist') {
         this._playlist.loadFromMylist('deflist', option);
       } else if (query.playlist_type === 'tag' || query.playlist_type === 'search') {
-        var word = query.tag || query.keyword;
+        let word = query.tag || query.keyword;
         option.searchType = query.tag ? 'tag' : '';
-        _.assign(option, query);
+        option = Object.assign(option, query);
         this._playlist.loadSearchVideo(word, option, this._playerConfig.getValue('search.limit'));
       }
       this._playlist.toggleEnable(true);
@@ -2537,7 +2520,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._videoInfo.videoId.indexOf('so') === 0) {
       this._playlist.removeItemByWatchId(this._videoInfo.watchId);
     }
-
 
     this._playerState.setVideoCanPlay();
     this.emitAsync('canPlay', this._watchId, this._videoInfo, this._videoWatchOptions);
@@ -2971,8 +2953,6 @@ VideoHoverMenu.__css__ = (`
 
       will-change: transform, opacity;
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
     }
       .menuItemContainer:hover .menuButton {
         pointer-events: auto;
@@ -3082,7 +3062,7 @@ VideoHoverMenu.__css__ = (`
       }
       .menuItemContainer.onErrorMenu .menuButton:active {
         background: #ccc;
-        transform: translate(4px, 4px);
+        transform: translate(0, 4px);
         border: 2px inset;
         box-shadow: none;
       }
@@ -3099,7 +3079,6 @@ VideoHoverMenu.__css__ = (`
       opacity: 0;
       transition:
         opacity 0.4s ease,
-        transform 0.2s linear,
         box-shadow 0.2s ease,
         background 0.4s ease;
       box-sizing: border-box;
@@ -3107,8 +3086,6 @@ VideoHoverMenu.__css__ = (`
       text-shadow: none;
 
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
     }
       .menuButton:hover {
         box-shadow: 0 0 4px #000;
@@ -3116,7 +3093,7 @@ VideoHoverMenu.__css__ = (`
         opacity: 1;
       }
       .menuButton:active {
-        transform: translate(4px, 4px);
+        transform: translate(0, 4px);
         box-shadow: 0 0 0 #000;
       }
 
@@ -3145,10 +3122,10 @@ VideoHoverMenu.__css__ = (`
 
       .menuButton .selectMenu {
         transition: transform 0.2s linear;
-        transform: translate( 4px,  4px);
+        transform: translate(0,  4px);
       }
       .menuButton:active .selectMenu {
-        transform: translate(-4px, -4px);
+        transform: translate(0, -4px);
       }
 
 
@@ -3226,8 +3203,7 @@ VideoHoverMenu.__css__ = (`
         background: #888;
         border: 1px solid #ccc;
         box-shadow: none;
-        margin-left: 4px;
-        margin-top:  4px;
+        transform: translate(0, 2px);
       }
 
     .ngSettingSelectMenu {
@@ -3359,15 +3335,14 @@ VideoHoverMenu.__css__ = (`
         vertical-align: middle;
         margin-right: 15px;
         background: url("//uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
-        transform: scale(1.5); -webkit-transform: scale(1.5);
-        transform-origin: 0 0 0; -webkit-transform-origin: 0 0 0;
+        transform: scale(1.5);
+        transform-origin: 0 0 0;
         transition: transform 0.1s ease, box-shadow 0.1s ease;
-        -webkit-transition: -webkit-transform 0.1s ease, box-shadow 0.1s ease;
         cursor: pointer;
       }
       .mylistSelectMenu .mylistIcon:hover {
         background-color: #ff9;
-        transform: scale(2); -webkit-transform: scale(2);
+        transform: scale(2);
       }
       .mylistSelectMenu .mylistIcon:hover::after {
         background: #fff;
@@ -3416,18 +3391,12 @@ VideoHoverMenu.__css__ = (`
       font-size: 24px;
       white-space: nowrap;
     }
-      .is-mouseMoving .zenzaTweetButton {
-        /*text-shadow: 1px 1px 2px #88c;*/
-      }
+
       .zenzaTweetButton:hover {
         text-shadow: 1px 1px 2px #88c;
         background: #1da1f2;
         color: #fff;
       }
-      /*.zenzaTweetButton:active {
-        transform: scale(0.8);
-      }*/
-
 
     .closeButton {
       position: absolute;
