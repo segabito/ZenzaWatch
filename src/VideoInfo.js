@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {util} from './util';
 
 //===BEGIN===
 //
@@ -96,7 +96,7 @@ class VideoFilter {
   set ngOwner(owner) {
     owner = _.isArray(owner) ? owner : owner.toString().split(/[\r\n]/);
     let list = [];
-    _.each(owner, function (o) {
+    owner.forEach(o => {
       list.push(o.replace(/#.*$/, '').trim());
     });
     this._ngOwner = list;
@@ -190,7 +190,7 @@ class VideoInfoModel {
   }
 
   get videoUrl() {
-    return this._flvInfo.url;
+    return this._flvInfo.url || '';
   }
 
   get storyboardUrl() {

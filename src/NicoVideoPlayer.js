@@ -2,7 +2,7 @@ import _ from 'lodash';
 import $ from 'jQuery';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {NicoCommentPlayer} from './CommentPlayer';
-import {util, Config, AsyncEmitter, FullScreen, VideoCaptureUtil, BaseViewComponent} from './util';
+import {util, Config, FullScreen, VideoCaptureUtil, BaseViewComponent} from './util';
 import {YouTubeWrapper} from './YouTubeWrapper';
 import {CONSTANT} from './constant';
 import {Emitter} from './baselib';
@@ -16,10 +16,12 @@ import {Emitter} from './baselib';
  * とはいえmasterはVideoPlayerでCommentPlayerは表示位置を受け取るのみ。
  *
  */
-let NicoVideoPlayer = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(NicoVideoPlayer.prototype, AsyncEmitter.prototype);
+class NicoVideoPlayer extends Emitter {
+  constructor(params) {
+    super();
+    this.initialize(params);
+  }
+}
 _.assign(NicoVideoPlayer.prototype, {
   initialize: function (params) {
     let conf = this._playerConfig = params.playerConfig;

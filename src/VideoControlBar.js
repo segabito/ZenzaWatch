@@ -2,14 +2,18 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {AsyncEmitter} from './util';
 import {Storyboard} from './StoryBoard';
 import {util} from './util';
+import {Emitter} from './baselib';
 
 //===BEGIN===
 
-  let VideoControlBar = function() { this.initialize.apply(this, arguments); };
-  _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
+  class VideoControlBar extends Emitter {
+    constructor(...args) {
+      super();
+      this.initialize(...args);
+    }
+  }
   VideoControlBar.BASE_HEIGHT = CONSTANT.CONTROL_BAR_HEIGHT;
   VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
 
@@ -113,7 +117,7 @@ import {util} from './util';
     .controlItemContainer.left .scalingUI {
       padding: 0 8px 0;
     }
-    .controlItemContainer.left .scalingUI:empty{
+    .controlItemContainer.left .scalingUI:empty {
       display: none;
     }
     .is-mouseMoving .controlItemContainer.left .scalingUI>* {
@@ -161,8 +165,6 @@ import {util} from './util';
       top: auto;
     }
 
-    .is-mouseMoving .controlItemContainer.right {
-    }
     .is-mouseMoving .controlItemContainer.right .controlButton{
       background: #333;
     }
@@ -183,8 +185,10 @@ import {util} from './util';
       margin-right: 8px;
       vertical-align: middle;
     }
-    .controlButton:hover {
+    .controlButton:hover .controlButtonInner {
       text-shadow: 0 0 8px #ff9;
+    }
+    .controlButton:hover {
       cursor: pointer;
       opacity: 1;
     }
@@ -517,7 +521,7 @@ import {util} from './util';
       margin-right: 0;
     }
 
-    .playbackRateMenu:active {
+    .playbackRateMenu:active .controlButtonInner {
       font-size: 13px;
     }
     .playbackRateMenu.show {
@@ -528,7 +532,7 @@ import {util} from './util';
     }
 
 
-    .playbackRateSelectMenu  {
+    .playbackRateSelectMenu {
       bottom: 44px;
       left: 50%;
       transform: translate(-50%, 0);
@@ -949,7 +953,7 @@ import {util} from './util';
             </div>
           </div>
 
-          <div class="playbackRateMenu controlButton " data-command="playbackRateMenu">
+          <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
             <div class="controlButtonInner">x1</div>
             <div class="tooltip">再生速度</div>
             <div class="playbackRateSelectMenu zenzaPopupMenu">
@@ -1471,8 +1475,7 @@ import {util} from './util';
       this._commentPreview.setChatList(this._chatList);
     },
     _onPlayerDurationChange: function() {
-      // TODO: 動画のメタデータ解析後に動画長情報が変わることがあるので、
-      // そこで情報を更新する
+      this._heatMap.setChatList(this._chatList);
     },
     _onPlayerClose: function() {
       this._stopTimer();
@@ -1482,7 +1485,7 @@ import {util} from './util';
     },
     _startTimer: function() {
       this._timerCount = 0;
-      this._timer = window.setInterval(this._onTimer.bind(this), 10);
+      this._timer = window.setInterval(this._onTimer.bind(this), 100);
     },
     _stopTimer: function() {
       if (this._timer) {
@@ -1541,10 +1544,10 @@ import {util} from './util';
     },
     _bindDragEvent: function() {
       $('body')
-        .on('mousemove.ZenzaWatchSeekBar', _.bind(this._onBodyMouseMove, this))
-        .on('mouseup.ZenzaWatchSeekBar',   _.bind(this._onBodyMouseUp, this));
+        .on('mousemove.ZenzaWatchSeekBar', this._onBodyMouseMove.bind(this))
+        .on('mouseup.ZenzaWatchSeekBar',   this._onBodyMouseUp.bind(this));
 
-      $(window).on('blur.ZenzaWatchSeekBar', _.bind(this._onWindowBlur, this));
+      $(window).on('blur.ZenzaWatchSeekBar', this._onWindowBlur.bind(this));
     },
     _unbindDragEvent: function() {
       $('body')
@@ -1556,7 +1559,7 @@ import {util} from './util';
       this._timerCount++;
       let player = this._player;
       let currentTime = player.getCurrentTime();
-      if (this._timerCount % 15 === 0) {
+      if (this._timerCount % 2 === 0) {
         this.setCurrentTime(currentTime);
       }
       this._storyboard.setCurrentTime(currentTime);
@@ -1579,28 +1582,26 @@ import {util} from './util';
       }
     },
     setCurrentTime: function(sec) {
-      if (this._currentTime !== sec) {
-        this._currentTime = sec;
+      if (this._currentTime === sec) { return; }
+      this._currentTime = sec;
 
-        let currentTimeText = util.secToTime(sec);
-        if (this._currentTimeText !== currentTimeText) {
-          this._currentTimeText = currentTimeText;
-          this._$currentTime[0].value = currentTimeText;
-        }
-        const per = Math.min(100, this._timeToPer(sec));
-        this._$seekBarPointer[0].style.transform = `translate3d(${per}%, 0, 0)`;
+      let currentTimeText = util.secToTime(sec);
+      if (this._currentTimeText !== currentTimeText) {
+        this._currentTimeText = currentTimeText;
+        this._$currentTime[0].value = currentTimeText;
       }
+      const per = Math.min(100, this._timeToPer(sec));
+      this._$seekBarPointer[0].style.transform = `translate3d(${per}%, 0, 0)`;
     },
     setDuration: function(sec) {
-      if (sec !== this._duration) {
-        this._duration = sec;
+      if (sec === this._duration) { return; }
+      this._duration = sec;
 
-        if (sec === 0 || isNaN(sec)) {
-          this._$duration[0].value = '--:--';
-        }
-        this._$duration[0].value = util.secToTime(sec);
-        this.emit('durationChange');
+      if (sec === 0 || isNaN(sec)) {
+        this._$duration[0].value = '--:--';
       }
+      this._$duration[0].value = util.secToTime(sec);
+      this.emit('durationChange');
     },
     setBufferedRange: function(range, currentTime) {
       let $range = this._$bufferRange;
@@ -1634,25 +1635,24 @@ import {util} from './util';
     }
   });
 
-  let HeatMapModel = function() { this.initialize.apply(this, arguments); };
-  HeatMapModel.RESOLUTION = 100;
-  _.extend(HeatMapModel.prototype, AsyncEmitter.prototype);
-  _.assign(HeatMapModel.prototype, {
-    initialize: function(params) {
+  class HeatMapModel extends Emitter {
+    constructor(params) {
+      super();
       this._resolution = params.resolution || HeatMapModel.RESOLUTION;
       this.reset();
-    },
+    }
+  }
+  HeatMapModel.RESOLUTION = 100;
+  _.assign(HeatMapModel.prototype, {
     reset: function() {
       this._duration = -1;
       this._chatReady = false;
-      //this._isUpdated = false;
       this.emit('reset');
     },
     setDuration: function(duration) {
-      if (this._duration !== duration) {
-        this._duration = duration;
-        this.update();
-      }
+      if (this._duration === duration) { return; }
+      this._duration = duration;
+      this.update();
     },
     setChatList: function(comment) {
       this._chat = comment;
@@ -1689,26 +1689,26 @@ import {util} from './util';
         map[mpos]++;
       }
 
-      //console.timeEnd('update HeatMapModel');
       return map;
     }
   });
 
-  let HeatMapView = function() { this.initialize.apply(this, arguments); };
-  _.assign(HeatMapView.prototype, {
-    _canvas:  null,
-    _palette: null,
-    _width: 100,
-    _height: 12,
-    initialize: function(params) {
+  class HeatMapView {
+    constructor(params) {
       this._model  = params.model;
       this._$container = params.$container;
       this._width  = params.width || 100;
       this._height = params.height || 10;
 
-      this._model.on('update', _.bind(this._onUpdate, this));
-      this._model.on('reset',  _.bind(this._onReset, this));
-    },
+      this._model.on('update', this._onUpdate.bind(this));
+      this._model.on('reset',  this._onReset.bind(this));
+    }
+  }
+  _.assign(HeatMapView.prototype, {
+    _canvas:  null,
+    _palette: null,
+    _width: 100,
+    _height: 12,
     _initializePalette: function() {
       this._palette = [];
       // NicoHeatMaoより控え目な配色にしたい
@@ -1785,35 +1785,32 @@ import {util} from './util';
     }
   });
 
-  var HeatMap = function() { this.initialize.apply(this, arguments); };
-  //_.extend(HeatMap.prototype, AsyncEmitter.prototype);
-  _.assign(HeatMap.prototype, {
-    initialize: function(params) {
-      this._model = new HeatMapModel({
-      });
+  class HeatMap {
+    constructor(params) {
+      this._model = new HeatMapModel({});
       this._view = new HeatMapView({
         model: this._model,
         $container: params.$container
       });
       this.reset();
-    },
-    reset: function() {
+    }
+    reset() {
       this._model.reset();
-    },
-    setDuration: function(duration) {
+    }
+    setDuration(duration) {
       this._model.setDuration(duration);
-    },
-    setChatList: function(chatList) {
+    }
+    setChatList(chatList) {
       this._model.setChatList(chatList);
     }
-  });
+  }
 
-
-  let CommentPreviewModel = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentPreviewModel.prototype, AsyncEmitter.prototype);
+  class CommentPreviewModel extends Emitter {
+    constructor() {
+      super();
+    }
+  }
   _.assign(CommentPreviewModel.prototype, {
-    initialize: function() {
-    },
     reset: function() {
       this._chatReady = false;
       this._vpos = -1;
@@ -1890,10 +1887,14 @@ import {util} from './util';
     }
   });
 
-  let CommentPreviewView = function() { this.initialize.apply(this, arguments); };
+  class CommentPreviewView extends Emitter {
+    constructor(...args) {
+      super();
+      this.initialize(...args);
+    }
+  }
   CommentPreviewView.MAX_HEIGHT = '200px';
   CommentPreviewView.ITEM_HEIGHT = 20;
-  _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
   CommentPreviewView.__tpl__ = (`
     <div class="zenzaCommentPreview">
       <div class="zenzaCommentPreviewInner">
@@ -2046,11 +2047,10 @@ import {util} from './util';
       let $view = this._$view = $(CommentPreviewView.__tpl__);
       this._$inner = $view.find('.zenzaCommentPreviewInner');
 
-      $view
-        .on('click', this._onClick.bind(this))
-        .on('wheel', e => { e.stopPropagation(); })
-        .on('scroll', _.throttle(this._onScroll.bind(this), 50, {trailing: false}));
-      //  .on('resize', _.throttle(this._onResize.bind(this), 50));
+      $view.on('click', this._onClick.bind(this));
+      $view[0].addEventListener('wheel', e => e.stopPropagation(), {passive: true})
+      $view[0].addEventListener('scroll',
+        _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
       $container.on('mouseleave', this.hide.bind(this));
       $container.append($view);
@@ -2097,7 +2097,6 @@ import {util} from './util';
     _onVpos: function() {
       let index = Math.max(0, this._model.getCurrentIndex());
       let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      this._inviewIndex = index;
       this._scrollTop = itemHeight * index;
       this._refreshInviewElements(this._scrollTop);
     },
@@ -2111,7 +2110,6 @@ import {util} from './util';
     _onReset: function() {
       this._$inner.html('');
       this._inviewTable = {};
-      this._inviewIndex = 0;
       this._scrollTop = 0;
       this._$newItems = null;
       this._chatList = [];
@@ -2254,22 +2252,22 @@ import {util} from './util';
     }
   });
 
-  let CommentPreview = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentPreview.prototype, AsyncEmitter.prototype);
-  _.assign(CommentPreview .prototype, {
-    initialize: function(param) {
-      this._model = new CommentPreviewModel({
-      });
+  class CommentPreview extends Emitter {
+    constructor(params) {
+      super();
+      this._model = new CommentPreviewModel({});
       this._view = new CommentPreviewView({
         model:      this._model,
-        $container: param.$container
+        $container: params.$container
       });
       this._view.on('command', (command, param) => {
         this.emit('command', command, param);
       });
 
       this.reset();
-    },
+    }
+  }
+  _.assign(CommentPreview .prototype, {
     reset: function() {
       this._left = 0;
       this._model.reset();
@@ -2302,8 +2300,18 @@ import {util} from './util';
     }
   });
 
-  var SeekBarToolTip = function() { this.initialize.apply(this, arguments); };
-  _.extend(SeekBarToolTip.prototype, AsyncEmitter.prototype);
+  class SeekBarToolTip extends Emitter {
+    constructor(params) {
+      super();
+      this._$container = params.$container;
+      this._storyboard = params.storyboard;
+      this._initializeDom(params.$container);
+
+      this._boundOnRepeat = this._onRepeat.bind(this);
+      this._boundOnMouseUp = this._onMouseUp.bind(this);
+    }
+  }
+
   SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
       position: absolute;
@@ -2439,14 +2447,6 @@ import {util} from './util';
   `).trim();
 
   _.assign(SeekBarToolTip .prototype, {
-    initialize: function(params) {
-      this._$container = params.$container;
-      this._storyboard = params.storyboard;
-      this._initializeDom(params.$container);
-
-      this._boundOnRepeat = this._onRepeat.bind(this);
-      this._boundOnMouseUp = this._onMouseUp.bind(this);
-    },
     _initializeDom: function($container) {
       util.addStyle(SeekBarToolTip.__css__);
       let $view = this._$view = $(SeekBarToolTip.__tpl__);
@@ -2460,9 +2460,7 @@ import {util} from './util';
       this._seekBarThumbnail = this._storyboard.getSeekBarThumbnail({
         $container: $view.find('.seekBarThumbnailContainer')
       });
-      this._seekBarThumbnail.on('visible', v => {
-        $view.toggleClass('storyboard', v);
-      });
+      this._seekBarThumbnail.on('visible', v => $view.toggleClass('storyboard', v));
 
       $container.append($view);
     },
@@ -2518,9 +2516,7 @@ import {util} from './util';
         let w  = this._$view.outerWidth();
         let vw = this._$container.innerWidth();
         left = Math.max(0, Math.min(left - w / 2, vw - w));
-        this._$view.css({
-          'transform': 'translate3d(' + left + 'px, 0, 0)'
-        });
+        this._$view.css('transform', `translate3d(${left}px, 0, 0)`);
       }
       this._seekBarThumbnail.setCurrentTime(sec);
     }

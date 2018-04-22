@@ -1,10 +1,8 @@
 import {util, PopupMessage} from './util';
+import {Config} from './Config';
 
 //===BEGIN===
-
-const VideoSession = (function () {
-  //const http = require('http');
-  //const fetch = require('node-fetch');
+const VideoSession = (() => {
 
   const SMILE_HEART_BEAT_INTERVAL_MS = 10 * 60 * 1000; // 10min
   const DMC_HEART_BEAT_INTERVAL_MS = 30 * 1000;      // 30sec
@@ -182,14 +180,14 @@ const VideoSession = (function () {
       this._heartBeat();
     }
 
-    _onHeartBeatSuccess(result) {
-      console.log('HeartBeat success');
+    _onHeartBeatSuccess(/* result */) {
+      //console.log('HeartBeat success');
     }
 
     _onHeartBeatFail() {
-      PopupMessage.debug('HeartBeat fail');
       this._failCount++;
       if (this._failCount >= SESSION_CLOSE_FAIL_COUNT) {
+        this._isAbnormallyClosed = true;
         this.close();
       }
     }
@@ -199,13 +197,11 @@ const VideoSession = (function () {
         return;
       }
       let isPlaying = this._isPlaying();
-      //window.console.log('isPlaying?', isPlaying, this._pauseCount);
       if (!isPlaying) {
         this._pauseCount++;
       } else {
         this._pauseCount = 0;
       }
-      //PopupMessage.debug('pause: ' + this._pauseCount);
 
       // 一定時間停止が続いた and 生成から一定時間経過している場合は破棄
       if (this._pauseCount >= SESSION_CLOSE_PAUSE_COUNT &&
@@ -216,7 +212,6 @@ const VideoSession = (function () {
     }
 
     close() {
-      //PopupMessage.debug('session close');
       this._isClosed = true;
       this.disableHeartBeat();
       return this._deleteSession();
@@ -239,27 +234,37 @@ const VideoSession = (function () {
       this._heartBeatInterval = DMC_HEART_BEAT_INTERVAL_MS;
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
       this._onHeartBeatFail = this._onHeartBeatFail.bind(this);
+      this._useHLS = typeof params.useHLS === 'boolean' ? params.useHLS : true;
+      this._lastUpdate = Date.now();
+      this._heartbeatLifeTime = this._heartbeatInterval;
     }
 
     _createSession(videoInfo) {
       let dmcInfo = videoInfo.dmcInfo;
       console.time('create DMC session');
+      const baseUrl = dmcInfo.urls.find(url => {
+        return url.is_well_known_port === this._useWellKnownPort;
+      }).url;
       return new Promise((resolve, reject) => {
-        let url = `${dmcInfo.apiUrl}?_format=json`;
+        let url = `${baseUrl}?_format=json`;
 
-        console.log('dmc post', url); //'\n', (new DmcPostData(dmcInfo)).toString());
+        this._heartbeatLifeTime = dmcInfo.heartbeatLifeTime;
+        const postData = new DmcPostData(dmcInfo, this._videoQuality, {
+          useHLS: this.useHLS,
+          useSSL: url.startsWith('https://'),
+          useWellKnownPort: this._useWellKnownPort
+        });
+        //console.log('dmc post', url); console.log(postData.toString());
 
         util.fetch(url, {
           method: 'post',
           timeout: 10000,
           dataType: 'text',
-          body: (new DmcPostData(dmcInfo, this._videoQuality)).toString()
+          body: postData.toString()
         }).then(res => {
           return res.json();
         })
           .then(json => {
-            //console.log('\n\ncreate api result', JSON.stringify(json, null, 2));
-            //const json = JSON.parse(result);
             const data = json.data || {}, session = data.session || {};
             let url = session.content_uri;
             let sessionId = session.id;
@@ -285,7 +290,6 @@ const VideoSession = (function () {
               deleteSessionUrl: this._deleteSessionUrl,
               lastResponse: json
             };
-            //console.info('session info: ', this._videoSessionInfo);
             this.enableHeartBeat();
             console.timeEnd('create DMC session');
             resolve(this._videoSessionInfo);
@@ -332,7 +336,6 @@ const VideoSession = (function () {
     }
 
     _onHeartBeatSuccess(result) {
-      console.log('heartbeat success: ', result.meta);
       let json = result;
       this._lastResponse = json.data;
     }

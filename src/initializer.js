@@ -171,6 +171,11 @@ const {initialize} = (() => {
       document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch);
     util.addStyle(CONSTANT.COMMON_CSS);
 
+    if (location.host === 'www.nicovideo.jp' && location.pathname === '/favicon.ico' && top === window) {
+      util.addStyle(`
+        body { background: inherit !important; }
+      `);
+    }
     const query = util.parseQuery(START_PAGE_QUERY);
 
     let isGinza = util.isGinzaWatchUrl() &&
@@ -203,8 +208,6 @@ const {initialize} = (() => {
       } else {
         dialog = initializeDialogPlayer(Config, offScreenLayer);
       }
-
-      ZenzaWatch.debug.dialog = dialog;
 
       broadcastEmitter.on('message', (packet) => {
         const isLast = dialog.isLastOpenedPlayer();
@@ -398,11 +401,19 @@ const {initialize} = (() => {
         export: exportPlaylist
       }
     });
+    Object.assign(ZenzaWatch.debug, {
+      dialog,
+      getFrameBodies: () => {
+        return Array.from(document.querySelectorAll('.zenzaPlayerContainer iframe')).map(f => f.contentWindow.document.body);
+      }
+    });
   };
 
-  const HoverMenu = function () {
-    this.initialize.apply(this, arguments);
-  };
+  class HoverMenu {
+    constructor(param) {
+      this.initialize(param);
+    }
+  }
   _.assign(HoverMenu.prototype, {
     initialize: function (param) {
       this._playerConfig = param.playerConfig;
@@ -438,11 +449,6 @@ const {initialize} = (() => {
     },
     setPlayer: function (player) {
       this._player = player;
-      //if (this._selectedWatchId) {
-      //  window.setTimeout(() => {
-      //    player.open(this._selectedWatchId, this._playerOption);
-      //  }, this, 1000);
-      //}
       if (this._playerResolve) {
         this._playerResolve(player);
       }
@@ -488,9 +494,6 @@ const {initialize} = (() => {
         return;
       }
 
-      $('.zenzaWatching').removeClass('zenzaWatching');
-      $target.addClass('.zenzaWatching');
-
       this._watchId = watchId;
 
       this._$view.css({
@@ -521,7 +524,7 @@ const {initialize} = (() => {
         eventType: 'click'
       }, params);
 
-      this._getPlayer().then((player) => {
+      this._getPlayer().then(player => {
         let isSingleton = this._playerConfig.getValue('enableSingleton');
         if (isSingleton) {
           ZenzaWatch.external.sendOrOpen(watchId, this._playerOption);
@@ -529,12 +532,6 @@ const {initialize} = (() => {
           player.open(watchId, this._playerOption);
         }
       });
-
-      //if (this._player) {
-      //  this._player.open(watchId, this._playerOption);
-      //} else {
-      //  this._selectedWatchId = watchId;
-      //}
     },
     send: function (watchId, params) {
       this._send(watchId, params);
@@ -548,7 +545,7 @@ const {initialize} = (() => {
       });
     },
     _overrideGinzaLink: function () {
-      $('body').on('click', 'a[href*="watch/"]', (e) => {
+      $('body').on('click', 'a[href*="watch/"]', e => {
         if (e.ctrlKey) {
           return;
         }
@@ -576,9 +573,6 @@ const {initialize} = (() => {
         }
 
         e.preventDefault();
-
-        //$('.zenzaWatching').removeClass('zenzaWatching');
-        //$target.addClass('.zenzaWatching');
 
         if (e.shiftKey) {
           // 秘密機能。最後にZenzaWatchを開いたウィンドウで開く

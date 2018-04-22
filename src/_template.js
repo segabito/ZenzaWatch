@@ -24,9 +24,8 @@
 // @exclude        *://flapi.nicovideo.jp/*
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
-// @author         segabito macmoto
-// @license        public domain
-// @version        1.15.7
+// @author         segabito
+// @version        1.16.0
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -61,7 +60,7 @@
       },
       external: {},
       util: {},
-      modules: {Emitter, Handler, Observable},
+      modules: {Emitter, Handler},
       config: Config,
       emitter: new Emitter()
     };

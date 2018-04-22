@@ -1,8 +1,9 @@
 import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {util, AsyncEmitter} from './util';
+import {util} from './util';
 import {StoryboardSession} from './loader/Storyboard';
+import {Emitter} from './baselib';
 
 /* eslint-disable */
 // シークバーのサムネイル関連
@@ -21,10 +22,12 @@ import {StoryboardSession} from './loader/Storyboard';
 //===BEGIN===
 
 
-var StoryboardModel = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(StoryboardModel.prototype, AsyncEmitter.prototype);
+class StoryboardModel extends Emitter{
+  constructor(params) {
+    super();
+    this.initialize(params);
+  }
+}
 
 _.assign(StoryboardModel.prototype, {
   initialize: function (params) {
@@ -32,7 +35,7 @@ _.assign(StoryboardModel.prototype, {
   },
   _createBlankData: function (info) {
     info = info || {};
-    _.assign(info, {
+    Object.assign(info, {
       format: 'smile',
       status: 'fail',
       duration: 1,
@@ -172,12 +175,12 @@ _.assign(StoryboardModel.prototype, {
    */
   getIndex: function (ms, storyboardIndex) {
     // msec -> sec
-    var v = Math.floor(ms / 1000);
+    let v = Math.floor(ms / 1000);
     v = Math.max(0, Math.min(this.getDuration(), v));
 
     // サムネの総数 ÷ 秒数
     // Math.maxはゼロ除算対策
-    var n = this.getCount(storyboardIndex) / Math.max(1, this.getDuration());
+    let n = this.getCount(storyboardIndex) / Math.max(1, this.getDuration());
 
     return parseInt(Math.floor(v * n), 10);
   },
@@ -186,8 +189,8 @@ _.assign(StoryboardModel.prototype, {
    * Indexのサムネイルは何番目のページにあるか？を返す
    */
   getPageIndex: function (thumbnailIndex, storyboardIndex) {
-    var perPage = this.getCountPerPage(storyboardIndex);
-    var pageIndex = parseInt(thumbnailIndex / perPage, 10);
+    let perPage = this.getCountPerPage(storyboardIndex);
+    let pageIndex = parseInt(thumbnailIndex / perPage, 10);
     return Math.max(0, Math.min(this.getPageCount(storyboardIndex), pageIndex));
   },
 
@@ -195,12 +198,12 @@ _.assign(StoryboardModel.prototype, {
    *  msに相当するサムネは何ページの何番目にあるか？を返す
    */
   getThumbnailPosition: function (ms, storyboardIndex) {
-    var thumbnailIndex = this.getIndex(ms, storyboardIndex);
-    var pageIndex = this.getPageIndex(thumbnailIndex);
+    let thumbnailIndex = this.getIndex(ms, storyboardIndex);
+    let pageIndex = this.getPageIndex(thumbnailIndex);
 
-    var mod = thumbnailIndex % this.getCountPerPage(storyboardIndex);
-    var row = Math.floor(mod / Math.max(1, this.getCols()));
-    var col = mod % this.getRows(storyboardIndex);
+    let mod = thumbnailIndex % this.getCountPerPage(storyboardIndex);
+    let row = Math.floor(mod / Math.max(1, this.getCols()));
+    let col = mod % this.getRows(storyboardIndex);
 
     return {
       page: pageIndex,
@@ -214,15 +217,15 @@ _.assign(StoryboardModel.prototype, {
    * nページ目のx, y座標をmsに変換して返す
    */
   getPointMs: function (x, y, page, storyboardIndex) {
-    var width = Math.max(1, this.getWidth(storyboardIndex));
-    var height = Math.max(1, this.getHeight(storyboardIndex));
-    var row = Math.floor(y / height);
-    var col = Math.floor(x / width);
-    var mod = x % width;
+    let width = Math.max(1, this.getWidth(storyboardIndex));
+    let height = Math.max(1, this.getHeight(storyboardIndex));
+    let row = Math.floor(y / height);
+    let col = Math.floor(x / width);
+    let mod = x % width;
 
 
     // 何番目のサムネに相当するか？
-    var point =
+    let point =
       page * this.getCountPerPage(storyboardIndex) +
       row * this.getCols(storyboardIndex) +
       col +
@@ -230,7 +233,7 @@ _.assign(StoryboardModel.prototype, {
     ;
 
     // 全体の何%あたり？
-    var percent = point / Math.max(1, this.getCount(storyboardIndex));
+    let percent = point / Math.max(1, this.getCount(storyboardIndex));
     percent = Math.max(0, Math.min(100, percent));
 
     // msは㍉秒単位なので1000倍
@@ -241,8 +244,8 @@ _.assign(StoryboardModel.prototype, {
    * msは何ページ目に当たるか？を返す
    */
   getmsPage: function (ms, storyboardIndex) {
-    var index = this._storyboard.getIndex(ms, storyboardIndex);
-    var page = this._storyboard.getPageIndex(index, storyboardIndex);
+    let index = this._storyboard.getIndex(ms, storyboardIndex);
+    let page = this._storyboard.getPageIndex(index, storyboardIndex);
 
     return page;
   },
@@ -251,17 +254,17 @@ _.assign(StoryboardModel.prototype, {
    * nページ目のCols, Rowsがsubではどこになるかを返す
    */
   getPointPageColAndRowForSub: function (page, row, col) {
-    var mainPageCount = this.getCountPerPage();
-    var subPageCount = this.getCountPerPage(1);
-    var mainCols = this.getCols();
-    var subCols = this.getCols(1);
+    let mainPageCount = this.getCountPerPage();
+    let subPageCount = this.getCountPerPage(1);
+    let mainCols = this.getCols();
+    let subCols = this.getCols(1);
 
-    var mainIndex = mainPageCount * page + mainCols * row + col;
-    var subOffset = mainIndex % subPageCount;
+    let mainIndex = mainPageCount * page + mainCols * row + col;
+    let subOffset = mainIndex % subPageCount;
 
-    var subPage = Math.floor(mainIndex / subPageCount);
-    var subRow = Math.floor(subOffset / subCols);
-    var subCol = subOffset % subCols;
+    let subPage = Math.floor(mainIndex / subPageCount);
+    let subRow = Math.floor(subOffset / subCols);
+    let subCol = subOffset % subCols;
 
     return {
       page: subPage,
@@ -273,9 +276,12 @@ _.assign(StoryboardModel.prototype, {
 });
 
 
-var SeekBarThumbnail = function () {
-  this.initialize.apply(this, arguments);
-};
+class SeekBarThumbnail extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 SeekBarThumbnail.BASE_WIDTH = 160;
 SeekBarThumbnail.BASE_HEIGHT = 90;
 
@@ -322,7 +328,6 @@ SeekBarThumbnail.__css__ = (`
 
     `).trim();
 
-_.extend(SeekBarThumbnail.prototype, AsyncEmitter.prototype);
 _.assign(SeekBarThumbnail.prototype, {
   initialize: function (params) {
     this._model = params.model;
@@ -344,16 +349,16 @@ _.assign(SeekBarThumbnail.prototype, {
     }
     this.initializeView();
 
-    var model = this._model;
+    let model = this._model;
     this._isAvailable = true;
-    var width = this._colWidth = Math.max(1, model.getWidth());
-    var height = this._rowHeight = Math.max(1, model.getHeight());
-    var scale = Math.min(
+    let width = this._colWidth = Math.max(1, model.getWidth());
+    let height = this._rowHeight = Math.max(1, model.getHeight());
+    let scale = Math.min(
       SeekBarThumbnail.BASE_WIDTH / width,
       SeekBarThumbnail.BASE_HEIGHT / height
     );
 
-    var css = {
+    let css = {
       width: this._colWidth * this._scale,
       height: this._rowHeight * this._scale,
       opacity: '',
@@ -362,13 +367,12 @@ _.assign(SeekBarThumbnail.prototype, {
       (model.getRows() * this._rowHeight * this._scale) + 'px'
     };
     if (scale > 1.0) {
-      css.transform = 'scale(' + scale + ')';
+      css.transform = `scale(${scale})`;
     } else {
       css.transform = '';
     }
 
     this._$image.css(css);
-    //this._$view.css('height', this._rowHeight * this + 4);
 
     this._preloadImages();
     this.show();
@@ -383,20 +387,20 @@ _.assign(SeekBarThumbnail.prototype, {
   _preloadImages: function () {
     // セッションの有効期限が切れる前に全部の画像をロードしてキャッシュに収めておく
     // やっておかないと、しばらく放置した時に読み込めない
-    var model = this._model;
+    let model = this._model;
     if (!model.isAvailable()) {
       return;
     }
-    var pages = model.getPageCount();
-    var div = document.createElement('div');
-    for (var i = 0; i < pages; i++) {
-      var url = model.getPageUrl(i);
-      var img = document.createElement('img');
+    let pages = model.getPageCount();
+    let div = document.createElement('div');
+    for (let i = 0; i < pages; i++) {
+      let url = model.getPageUrl(i);
+      let img = document.createElement('img');
       img.src = url;
       div.appendChild(img);
     }
 
-    this._$preloadImageContainer.html(div.innerHTML);
+    this._$preloadImageContainer.empty().append(div);
   },
   show: function () {
     if (!this._$view) {
@@ -416,10 +420,10 @@ _.assign(SeekBarThumbnail.prototype, {
     this.initializeView = _.noop;
 
     if (!SeekBarThumbnail.styleAdded) {
-      ZenzaWatch.util.addStyle(SeekBarThumbnail.__css__);
+      util.addStyle(SeekBarThumbnail.__css__);
       SeekBarThumbnail.styleAdded = true;
     }
-    var $view = this._$view = $(SeekBarThumbnail.__tpl__);
+    let $view = this._$view = $(SeekBarThumbnail.__tpl__);
     this._$image = $view.find('.zenzaSeekThumbnail-image');
 
     this._$preloadImageContainer =
@@ -435,17 +439,17 @@ _.assign(SeekBarThumbnail.prototype, {
       return;
     }
 
-    var ms = Math.floor(sec * 1000);
-    var model = this._model;
-    var pos = model.getThumbnailPosition(ms, 0);
-    var url = model.getPageUrl(pos.page);
-    var x = pos.col * this._colWidth * -1 * this._scale;
-    var y = pos.row * this._rowHeight * -1 * this._scale;
-    var css = {};
-    var updated = false;
+    let ms = Math.floor(sec * 1000);
+    let model = this._model;
+    let pos = model.getThumbnailPosition(ms, 0);
+    let url = model.getPageUrl(pos.page);
+    let x = pos.col * this._colWidth * -1 * this._scale;
+    let y = pos.row * this._rowHeight * -1 * this._scale;
+    let css = {};
+    let updated = false;
 
     if (this._imageUrl !== url) {
-      css.backgroundImage = 'url(' + url + ')';
+      css.backgroundImage = `url(${url})`;
       this._imageUrl = url;
       updated = true;
     }
@@ -465,14 +469,15 @@ _.assign(SeekBarThumbnail.prototype, {
   }
 });
 
-var Storyboard = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(Storyboard.prototype, AsyncEmitter.prototype);
+class Storyboard extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 _.assign(Storyboard.prototype, {
   initialize: function (params) {
 
-    //this._player = params.player;
     this._playerConfig = params.playerConfig;
     this._$container = params.$container;
     this._loader = params.loader || ZenzaWatch.api.StoryboardInfoLoader;
@@ -494,7 +499,7 @@ _.assign(Storyboard.prototype, {
         $container: this._$container,
         enable: this._playerConfig.getValue('enableStoryboardBar')
       });
-      this._view.on('select', (ms) => {
+      this._view.on('select', ms => {
         this.emit('command', 'seek', ms / 1000);
       });
       this._view.on('command', (command, param) => {
@@ -596,23 +601,25 @@ _.assign(Storyboard.prototype, {
 });
 
 
-var StoryboardBlock = function () {
-  this.initialize.apply(this, arguments);
-};
+class StoryboardBlock {
+  constructor(...args) {
+    this.initialize(...args);
+  }
+}
 _.assign(StoryboardBlock.prototype, {
   initialize: function (option) {
-    var height = option.boardHeight;
+    let height = option.boardHeight;
 
     this._backgroundPosition = '0 -' + height * option.row + 'px';
     this._src = option.src;
     this._page = option.page;
     this._isLoaded = true;
 
-    var $view = $('<div class="board"/>')
+    let $view = $('<div class="board"/>')
       .css({
         width: option.pageWidth,
         height: height,
-        'background-image': 'url(' + this._src + ')',
+        'background-image': `url(${this.src})`,
         'background-position': this._backgroundPosition,
         //'background-size': '',
       })
@@ -639,46 +646,42 @@ _.assign(StoryboardBlock.prototype, {
   }
 });
 
-var StoryboardBlockBorder = function (width, height, cols) {
-  this.initialize(width, height, cols);
-};
-_.assign(StoryboardBlockBorder.prototype, {
-  initialize: function (width, height, cols) {
-    var $border = $('<div class="border"/>'.repeat(cols)).css({
+class StoryboardBlockBorder {
+  constructor(width, height, cols) {
+    let $border = $('<div class="border"/>'.repeat(cols)).css({
       width: width,
       height: height
     });
-    var $div = $('<div />');
+    let $div = $('<div />');
     $div.append($border);
     this._$view = $div;
-  },
-  getView: function () {
+  }
+  getView() {
     return this._$view.clone();
   }
-});
+}
 
-var StoryboardBlockList = function () {
-  this.initialize.apply(this, arguments);
-};
-_.assign(StoryboardBlockList.prototype, {
-  initialize: function (storyboard) {
+class StoryboardBlockList {
+  constructor(storyboard) {
     if (storyboard) {
       this.create(storyboard);
     }
-  },
+  }
+}
+_.assign(StoryboardBlockList.prototype, {
   create: function (storyboard) {
-    var pages = storyboard.getPageCount();
-    var pageWidth = storyboard.getPageWidth();
-    var width = storyboard.getWidth();
-    var height = storyboard.getHeight();
-    var rows = storyboard.getRows();
-    var cols = storyboard.getCols();
+    let pages = storyboard.getPageCount();
+    let pageWidth = storyboard.getPageWidth();
+    let width = storyboard.getWidth();
+    let height = storyboard.getHeight();
+    let rows = storyboard.getRows();
+    let cols = storyboard.getCols();
 
-    var totalRows = storyboard.getTotalRows();
-    var rowCnt = 0;
+    let totalRows = storyboard.getTotalRows();
+    let rowCnt = 0;
     this._$innerBorder =
       new StoryboardBlockBorder(width, height, cols);
-    var $view = $('<div class="boardList"/>')
+    let $view = $('<div class="boardList"/>')
       .css({
         width: storyboard.getCount() * width,
         height: height
@@ -686,10 +689,10 @@ _.assign(StoryboardBlockList.prototype, {
     this._$view = $view;
     this._blocks = [];
 
-    for (var i = 0; i < pages; i++) {
-      var src = storyboard.getPageUrl(i);
-      for (var j = 0; j < rows; j++) {
-        var option = {
+    for (let i = 0; i < pages; i++) {
+      let src = storyboard.getPageUrl(i);
+      for (let j = 0; j < rows; j++) {
+        let option = {
           width: width,
           pageWidth: pageWidth,
           boardHeight: height,
@@ -708,7 +711,7 @@ _.assign(StoryboardBlockList.prototype, {
   },
   appendBlock: function (option) {
     option.$inner = this._$innerBorder.getView();
-    var block = new StoryboardBlock(option);
+    let block = new StoryboardBlock(option);
     this._blocks.push(block);
     this._$view.append(block.getView());
   },
@@ -723,17 +726,19 @@ _.assign(StoryboardBlockList.prototype, {
 });
 
 
-var StoryboardView = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(StoryboardView.prototype, AsyncEmitter.prototype);
+class StoryboardView extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 
 _.assign(StoryboardView.prototype, {
   initialize: function (params) {
     console.log('%c initialize StoryboardView', 'background: lightgreen;');
     this._$container = params.$container;
 
-    var sb = this._model = params.model;
+    let sb = this._model = params.model;
 
     this._isHover = false;
     this._currentUrl = '';
@@ -746,12 +751,11 @@ _.assign(StoryboardView.prototype, {
     sb.on('update', this._onStoryboardUpdate.bind(this));
     sb.on('reset', this._onStoryboardReset.bind(this));
 
-    var frame = this._requestAnimationFrame = new util.RequestAnimationFrame(
+    let frame = this._requestAnimationFrame = new util.RequestAnimationFrame(
       this._onRequestAnimationFrame.bind(this), 1
     );
 
-    // TODO: グローバルのイベントフックじゃなくてちゃんと処理しましょう
-    ZenzaWatch.emitter.on('DialogPlayerClose', function () {
+    ZenzaWatch.emitter.on('DialogPlayerClose', () => {
       frame.disable();
     });
 
@@ -812,9 +816,9 @@ _.assign(StoryboardView.prototype, {
     this._$body = $('body');
 
     util.addStyle(StoryboardView.__css__);
-    var $view = this._$view = $(StoryboardView.__tpl__);
+    let $view = this._$view = $(StoryboardView.__tpl__);
 
-    var $inner = this._$inner = $view.find('.storyboardInner');
+    let $inner = this._$inner = $view.find('.storyboardInner');
     this._$failMessage = $view.find('.failMessage');
     this._$cursorTime = $view.find('.cursorTime');
     this._$pointer = $view.find('.storyboardPointer');
@@ -829,19 +833,19 @@ _.assign(StoryboardView.prototype, {
       .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
 
 
-    var hoverOutTimer;
-    var onHoverOutTimer = () => {
+    let hoverOutTimer;
+    let onHoverOutTimer = () => {
       this._isHover = false;
     };
 
-    var onHoverIn = () => {
+    let onHoverIn = () => {
       if (hoverOutTimer) {
         window.clearTimeout(hoverOutTimer);
       }
       this._isHover = true;
     };
 
-    var onHoverOut = () => {
+    let onHoverOut = () => {
       if (hoverOutTimer) {
         window.clearTimeout(hoverOutTimer);
       }
@@ -866,18 +870,18 @@ _.assign(StoryboardView.prototype, {
     }, 500), {passive: true});
   },
   _onBoardClick: function (e) {
-    var $board = $(e.target).closest('.board'), offset = $board.offset();
-    var y = $board.attr('data-top') * 1;
-    var x = e.pageX - offset.left;
-    var page = $board.attr('data-page');
-    var ms = this._model.getPointMs(x, y, page);
+    let $board = $(e.target).closest('.board'), offset = $board.offset();
+    let y = $board.attr('data-top') * 1;
+    let x = e.pageX - offset.left;
+    let page = $board.attr('data-page');
+    let ms = this._model.getPointMs(x, y, page);
     if (isNaN(ms)) {
       return;
     }
 
-    var $view = this._$view;
+    let $view = this._$view;
     $view.addClass('clicked');
-    window.setTimeout(function () {
+    window.setTimeout(() => {
       $view.removeClass('clicked');
     }, 1000);
     this._$cursorTime.css({
@@ -887,9 +891,9 @@ _.assign(StoryboardView.prototype, {
     this.emit('select', ms);
   },
   _onCommandClick: function (e) {
-    var $command = $(e).closest('.command');
-    var command = $command.attr('data-command');
-    var param = $command.attr('data-param');
+    let $command = $(e).closest('.command');
+    let command = $command.attr('data-command');
+    let param = $command.attr('data-param');
     if (!command) {
       return;
     }
@@ -898,17 +902,17 @@ _.assign(StoryboardView.prototype, {
     this.emit('command', command, param);
   },
   _onBoardMouseMove: function (e) {
-    var $board = $(e.target).closest('.board'), offset = $board.offset();
-    var y = $board.attr('data-top') * 1;
-    var x = e.pageX - offset.left;
-    var page = $board.attr('data-page');
-    var ms = this._model.getPointMs(x, y, page);
+    let $board = $(e.target).closest('.board'), offset = $board.offset();
+    let y = $board.attr('data-top') * 1;
+    let x = e.pageX - offset.left;
+    let page = $board.attr('data-page');
+    let ms = this._model.getPointMs(x, y, page);
     if (isNaN(ms)) {
       return;
     }
-    var sec = Math.floor(ms / 1000);
+    let sec = Math.floor(ms / 1000);
 
-    var time = Math.floor(sec / 60) + ':' + ((sec % 60) + 100).toString().substr(1);
+    let time = util.secToTime(sec);
     this._$cursorTime.text(time).css({
       transform: `translate(${e.pageX}px, 0) translate(-50%, 0)`
     });
@@ -922,8 +926,8 @@ _.assign(StoryboardView.prototype, {
   _onMouseWheel: function (e) {
     // 縦ホイールで左右スクロールできるようにする
     e.stopPropagation();
-    var deltaX = parseInt(e.originalEvent.deltaX, 10);
-    var delta = parseInt(e.originalEvent.deltaY, 10);
+    let deltaX = parseInt(e.originalEvent.deltaX, 10);
+    let delta = parseInt(e.originalEvent.deltaY, 10);
     if (Math.abs(deltaX) > Math.abs(delta)) {
       // 横ホイールがある環境ならなにもしない
       return;
@@ -931,7 +935,7 @@ _.assign(StoryboardView.prototype, {
     e.preventDefault();
     this._isHover = true;
     this._isMouseMoving = true;
-    var left = this.scrollLeft();
+    let left = this.scrollLeft();
     this.scrollLeft(left + delta * 5, true);
   },
   _onMouseWheelEnd: function (e, delta) {
@@ -988,7 +992,7 @@ _.assign(StoryboardView.prototype, {
         inner.scrollLeft = left;
         this._scrollLeftChanged = false;
       } else {
-        var sl = inner.scrollLeft;
+        let sl = inner.scrollLeft;
         this._scrollLeft = (left + sl) / 2;
         this._scrollLeftChanged = true;
       }
@@ -1001,10 +1005,10 @@ _.assign(StoryboardView.prototype, {
     this.scrollLeft(-this._model.getWidth());
   },
   _updateSuccess: function () {
-    var url = this._model.getUrl();
-    var $view = this._$view;
+    let url = this._model.getUrl();
+    let $view = this._$view;
     $view
-      .css('transform', 'translate3d(0px, -' + this._model.getHeight() + 'px, 0)')
+      .css('transform', `translate3d(0px, -${this._model.getHeight()}px, 0)`)
       .addClass('success');
 
     if (this._currentUrl !== url) {
@@ -1027,7 +1031,7 @@ _.assign(StoryboardView.prototype, {
 
   },
   _updateSuccessDom: function () {
-    var list = new StoryboardBlockList(this._model);
+    let list = new StoryboardBlockList(this._model);
     this._storyboardBlockList = list;
     this._$pointer.css({
       width: this._model.getWidth(),
@@ -1074,18 +1078,17 @@ _.assign(StoryboardView.prototype, {
     }
 
     this._lastCurrentTime = sec;
-    var ms = sec * 1000;
-    var storyboard = this._model;
-    var duration = Math.max(1, storyboard.getDuration());
-    var per = ms / (duration * 1000);
-    var width = storyboard.getWidth();
-    var boardWidth = storyboard.getCount() * width;
-    var targetLeft = boardWidth * per;
+    let ms = sec * 1000;
+    let storyboard = this._model;
+    let duration = Math.max(1, storyboard.getDuration());
+    let per = ms / (duration * 1000);
+    let width = storyboard.getWidth();
+    let boardWidth = storyboard.getCount() * width;
+    let targetLeft = boardWidth * per;
 
     if (this._pointerLeft !== targetLeft) {
       this._pointerLeft = targetLeft;
       this._pointerLeftChanged = true;
-      //this._$pointer.css('left', targetLeft);
     }
 
     if (forceUpdate) {
@@ -1103,9 +1106,9 @@ _.assign(StoryboardView.prototype, {
     e.preventDefault();
     e.stopPropagation();
 
-    var $button = this._$disableButton;
+    let $button = this._$disableButton;
     $button.addClass('clicked');
-    window.setTimeout(function () {
+    window.setTimeout(() => {
       $button.removeClass('clicked');
     }, 1000);
 
@@ -1141,169 +1144,169 @@ StoryboardView.__tpl__ = [
 
 
 StoryboardView.__css__ = (`
-      .storyboardContainer {
-        position: fixed;
-        top: calc(100vh + 500px);
-        opacity: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
-        box-sizing: border-box;
-        background-color: rgba(50, 50, 50, 0.5);
-        z-index: 9005;
-        overflow: hidden;
-        box-shadow: 0 -2px 2px #666;
-        pointer-events: none;
-        transform: translateZ(0);
-        display: none;
-        contain: layout paint;
-      }
+  .storyboardContainer {
+    position: fixed;
+    top: calc(100vh + 500px);
+    opacity: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: rgba(50, 50, 50, 0.5);
+    z-index: 9005;
+    overflow: hidden;
+    box-shadow: 0 -2px 2px #666;
+    pointer-events: none;
+    transform: translateZ(0);
+    display: none;
+    contain: layout paint;
+  }
 
-      .storyboardContainer.success {
-        display: block;
-        transition:
-          bottom 0.5s ease-in-out,
-          top 0.5s ease-in-out,
-          transform 0.5s ease-in-out;
-      }
+  .storyboardContainer.success {
+    display: block;
+    transition:
+      bottom 0.5s ease-in-out,
+      top 0.5s ease-in-out,
+      transform 0.5s ease-in-out;
+  }
 
-      .storyboardContainer * {
-        box-sizing: border-box;
-        user-select: none;
-      }
+  .storyboardContainer * {
+    box-sizing: border-box;
+    user-select: none;
+  }
 
-      .dragging .storyboardContainer,
-      .storyboardContainer.show {
-        top: 0px;
-        z-index: 50;
-        opacity: 1;
-        pointer-events: auto;
-      }
+  .dragging .storyboardContainer,
+  .storyboardContainer.show {
+    top: 0px;
+    z-index: 50;
+    opacity: 1;
+    pointer-events: auto;
+  }
 
-      .dragging .storyboardContainer {
-        pointer-events: none;
-      }
-
-
-      .fullScreen  .dragging .storyboardContainer,
-      .fullScreen            .storyboardContainer.show{
-        top: calc(100% - 10px);
-      }
-
-      .storyboardContainer .storyboardInner {
-        display: none;
-        position: relative;
-        text-align: center;
-        overflow: hidden;
-        white-space: nowrap;
-        background: #222;
-        margin: 0;
-      }
-
-      .storyboardContainer.webkit .storyboardInner,
-      .storyboardContainer .storyboardInner:hover {
-        overflow-x: auto;
-      }
-      /*.storyboardContainer .storyboardInner::-moz-scrollbar,*/
-      .storyboardContainer .storyboardInner::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-        background: rgba(0, 0, 0, 0);
-      }
-
-      /*.storyboardContainer .storyboardInner::-moz-scrollbar-thumb,*/
-      .storyboardContainer .storyboardInner::-webkit-scrollbar-thumb {
-        border-radius: 6px;
-        background: #f8f;
-      }
-
-      /*.storyboardContainer .storyboardInner::-moz-scrollbar-button,*/
-      .storyboardContainer .storyboardInner::-webkit-scrollbar-button {
-        display: none;
-      }
-
-      .storyboardContainer.success .storyboardInner {
-        display: block;
-      }
-
-      .storyboardContainer .storyboardInner .boardList {
-        overflow: hidden;
-      }
-
-      .storyboardContainer .boardList .board {
-        display: inline-block;
-        cursor: pointer;
-        background-color: #101010;
-      }
-
-      .storyboardContainer.clicked .storyboardInner * {
-        opacity: 0.3;
-        pointer-events: none;
-      }
-
-      .storyboardContainer.opening .storyboardInner .boardList .board {
-        pointer-events: none;
-      }
-
-      .storyboardContainer .boardList .board.loadFail {
-        background-color: #c99;
-      }
-
-      .storyboardContainer .boardList .board > div {
-        white-space: nowrap;
-      }
-      .storyboardContainer .boardList .board .border {
-        box-sizing: border-box;
-        -moz-box-sizing: border-box;
-        -webkit-box-sizing: border-box;
-        border-style: solid;
-        border-color: #000 #333 #000 #999;
-        border-width: 0     2px    0  2px;
-        display: inline-block;
-        pointer-events: none;
-      }
-
-      .storyboardContainer .storyboardHeader {
-        position: relative;
-        width: 100%;
-      }
-
-      .storyboardContainer .cursorTime {
-        display: none;
-        position: absolute;
-        bottom: -30px;
-        left: 0;
-        font-size: 10pt;
-        border: 1px solid #000;
-        z-index: 9010;
-        background: #ffc;
-        pointer-events: none;
-      }
-      .storyboardContainer:hover .cursorTime {
-        display: block;
-      }
-
-      .storyboardContainer.clicked .cursorTime,
-      .storyboardContainer.opening .cursorTime {
-        display: none;
-      }
+  .dragging .storyboardContainer {
+    pointer-events: none;
+  }
 
 
-      .storyboardPointer {
-        position: absolute;
-        top: 0;
-        z-index: 100;
-        pointer-events: none;
-        transform: translate(-50%, 0);
-        box-shadow: 0 0 4px #333;
-        background: #ff9;
-        opacity: 0.5;
-      }
+  .fullScreen  .dragging .storyboardContainer,
+  .fullScreen            .storyboardContainer.show{
+    top: calc(100% - 10px);
+  }
 
-      .storyboardContainer:hover .storyboardPointer {
-        box-shadow: 0 0 8px #ccc;
-        transition: transform 0.4s ease-out;
-      }
+  .storyboardContainer .storyboardInner {
+    display: none;
+    position: relative;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    background: #222;
+    margin: 0;
+  }
+
+  .storyboardContainer.webkit .storyboardInner,
+  .storyboardContainer .storyboardInner:hover {
+    overflow-x: auto;
+  }
+  /*.storyboardContainer .storyboardInner::-moz-scrollbar,*/
+  .storyboardContainer .storyboardInner::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: rgba(0, 0, 0, 0);
+  }
+
+  /*.storyboardContainer .storyboardInner::-moz-scrollbar-thumb,*/
+  .storyboardContainer .storyboardInner::-webkit-scrollbar-thumb {
+    border-radius: 6px;
+    background: #f8f;
+  }
+
+  /*.storyboardContainer .storyboardInner::-moz-scrollbar-button,*/
+  .storyboardContainer .storyboardInner::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  .storyboardContainer.success .storyboardInner {
+    display: block;
+  }
+
+  .storyboardContainer .storyboardInner .boardList {
+    overflow: hidden;
+  }
+
+  .storyboardContainer .boardList .board {
+    display: inline-block;
+    cursor: pointer;
+    background-color: #101010;
+  }
+
+  .storyboardContainer.clicked .storyboardInner * {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .storyboardContainer.opening .storyboardInner .boardList .board {
+    pointer-events: none;
+  }
+
+  .storyboardContainer .boardList .board.loadFail {
+    background-color: #c99;
+  }
+
+  .storyboardContainer .boardList .board > div {
+    white-space: nowrap;
+  }
+  .storyboardContainer .boardList .board .border {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    border-style: solid;
+    border-color: #000 #333 #000 #999;
+    border-width: 0     2px    0  2px;
+    display: inline-block;
+    pointer-events: none;
+  }
+
+  .storyboardContainer .storyboardHeader {
+    position: relative;
+    width: 100%;
+  }
+
+  .storyboardContainer .cursorTime {
+    display: none;
+    position: absolute;
+    bottom: -30px;
+    left: 0;
+    font-size: 10pt;
+    border: 1px solid #000;
+    z-index: 9010;
+    background: #ffc;
+    pointer-events: none;
+  }
+  .storyboardContainer:hover .cursorTime {
+    display: block;
+  }
+
+  .storyboardContainer.clicked .cursorTime,
+  .storyboardContainer.opening .cursorTime {
+    display: none;
+  }
+
+
+  .storyboardPointer {
+    position: absolute;
+    top: 0;
+    z-index: 100;
+    pointer-events: none;
+    transform: translate(-50%, 0);
+    box-shadow: 0 0 4px #333;
+    background: #ff9;
+    opacity: 0.5;
+  }
+
+  .storyboardContainer:hover .storyboardPointer {
+    box-shadow: 0 0 8px #ccc;
+    transition: transform 0.4s ease-out;
+  }
 
     `).trim();
 

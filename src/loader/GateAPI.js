@@ -45,8 +45,10 @@ const GateAPI = (() => {
         }),
         origin);
     } catch (e) {
-      alert(e);
-      console.log('err', e);
+      console.error(
+        '%cError: parent.postMessage - ',
+        'color: red; background: yellow',
+        e);
     }
   };
 
@@ -253,7 +255,7 @@ const GateAPI = (() => {
     }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    let parentHost = parseUrl(document.referrer).hostname;
+    const parentHost = parseUrl(document.referrer).hostname;
     window.console.log('parentHost', parentHost);
     if (!HOST_REG.test(parentHost) &&
       localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
@@ -264,69 +266,64 @@ const GateAPI = (() => {
 
 
     let isOk = false;
-    let type = 'nicovideoApi';
-    let token = location.hash ? location.hash.substring(1) : null;
+    const apiType = 'nicovideoApi';
+    const token = location.hash ? location.hash.substring(1) : null;
     location.hash = '';
 
-    let pushHistory = function (path) {
+    const pushHistory = (path, title = '') => {
       // ブラウザの既読リンクの色をつけるためにreplaceStateする
       // という目的だったのだが、iframeの中では効かないようだ。残念。
       window.history.replaceState(null, null, path);
+      if (title) {
+        document.title = title;
+      }
     };
 
-    let PREFIX = 'ZenzaWatch_';
-    let dumpConfig = function (data) {
+    const PREFIX = 'ZenzaWatch';
+    const dumpConfig = (data) => {
       if (!data.keys) {
         return;
       }
-      let prefix = PREFIX;
-      let config = {};
-      let sessionId = data.sessionId;
+      const prefix = PREFIX;
+      const config = {};
+      const sessionId = data.sessionId;
 
-      data.keys.forEach((key) => {
-        let storageKey = prefix + key;
+      data.keys.forEach(key => {
+        let storageKey = `${prefix}_${key}`;
         if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
             config[key] = JSON.parse(localStorage.getItem(storageKey));
-            //window.console.log('dump config: %s = %s', key, config[key]);
           } catch (e) {
             window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
           }
         }
       });
 
-      try {
-        parentPostMessage(type, {
-          sessionId: sessionId,
-          status: 'ok',
-          token: token,
-          command: data.command,
-          body: config
-        });
-      } catch (e) {
-        console.log(
-          '%cError: parent.postMessage - ',
-          'color: red; background: yellow',
-          e, event.origin, event.data);
-      }
+      parentPostMessage(apiType, {
+        sessionId,
+        status: 'ok',
+        token,
+        command: data.command,
+        body: config
+      });
     };
 
-    let saveConfig = function (data) {
+    const saveConfig = data => {
       if (!data.key) {
         return;
       }
-      let prefix = PREFIX;
-      let storageKey = prefix + data.key;
+      const storageKey = `${PREFIX}_${data.key}`;
       //window.console.log('bridge save config: %s = %s', storageKey, data.value);
       localStorage.setItem(storageKey, JSON.stringify(data.value));
     };
 
-    window.addEventListener('message', function (event) {
-      //window.console.log('nicovideoApiLoaderWindow.onMessage origin="%s"', event.origin, event.data);
+    window.addEventListener('message', event => {
+      // window.console.log('nicovideoApiLoaderWindow.onMessage origin="%s"', event.origin, event.data);
       if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
         return;
       }
-      let data = JSON.parse(event.data), command = data.command;
+      const data = JSON.parse(event.data);
+      const command = data.command;
 
       if (data.token !== token) {
         window.console.log('invalid token: ', data.token, token, command);
@@ -339,33 +336,27 @@ const GateAPI = (() => {
           isOk = true;
           break;
         case 'loadUrl':
-          loadUrl(data, type, token);
-          break;
+          return loadUrl(data, apiType, token);
         case 'fetch':
-          loadUrlByFetch(data, type, token);
-          break;
+          return loadUrlByFetch(data, apiType, token);
         case 'dumpConfig':
-          dumpConfig(data);
-          break;
+          return dumpConfig(data);
         case 'saveConfig':
-          saveConfig(data);
-          break;
+          return saveConfig(data);
         case 'pushHistory':
-          pushHistory(data.path, data.title);
-          break;
+          return pushHistory(data.path, data.title);
       }
     });
 
-    let onStorage = function (e) {
+    const onStorage = e => {
       let key = e.key || '';
-      if (e.type !== 'storage' || key.indexOf('ZenzaWatch_') !== 0) {
+      if (e.type !== 'storage' || key.indexOf(`${PREFIX}_`) !== 0) {
         return;
       }
 
-      key = key.replace('ZenzaWatch_', '');
-      let oldValue = e.oldValue;
-      let newValue = e.newValue;
-      //asyncEmitter.emit('change', key, newValue, oldValue);
+      key = key.replace(`${PREFIX}_`, '');
+      const oldValue = e.oldValue;
+      const newValue = e.newValue;
       if (oldValue === newValue) {
         return;
       }
@@ -373,7 +364,7 @@ const GateAPI = (() => {
         return;
       }
 
-      parentPostMessage(type, {
+      parentPostMessage(apiType, {
         command: 'configSync',
         token: token,
         key: key,
@@ -383,35 +374,28 @@ const GateAPI = (() => {
       switch (key) {
         case 'message':
           //console.log('%cmessage', 'background: cyan;', newValue);
-          parentPostMessage(type, {command: 'message', value: newValue, token: token});
-          break;
+          return parentPostMessage(apiType, {command: 'message', value: newValue, token: token});
       }
     };
 
 
-    let onBroadcastMessage = function (e) {
+    const onBroadcastMessage = e => {
       const packet = e.data;
-      //window.console.log('%cmessage', 'background: cyan;', packet);
       if (!isOk) {
         return;
       }
 
-      parentPostMessage(type, {command: 'message', value: JSON.stringify(packet), token: token});
+      parentPostMessage(apiType, {command: 'message', value: JSON.stringify(packet), token: token});
     };
 
-    let broadcastChannel =
-      window.BroadcastChannel ? (new window.BroadcastChannel('ZenzaWatch')) : null;
+    const broadcastChannel =
+      window.BroadcastChannel ? (new window.BroadcastChannel(PREFIX)) : null;
     if (broadcastChannel) {
       broadcastChannel.addEventListener('message', onBroadcastMessage);
     }
     window.addEventListener('storage', onStorage);
 
-
-    try {
-      parentPostMessage(type, {status: 'initialized'});
-    } catch (e) {
-      console.log('err', e);
-    }
+    parentPostMessage(apiType, {status: 'initialized'});
   };
 
 
@@ -499,13 +483,7 @@ const GateAPI = (() => {
       }
     });
 
-    try {
-      //window.console.log('%cpost initialized:', 'font-weight: bolder;', type);
-      parentPostMessage(type, {status: 'initialized'});
-    } catch (e) {
-      console.log('err', e);
-    }
-
+    parentPostMessage(type, {status: 'initialized'});
   };
 
   const search = function () {
@@ -533,18 +511,25 @@ const GateAPI = (() => {
         return;
       }
 
+      if (data.command !== 'fetch') {
+        return;
+      }
+
       if (!data.url) {
         return;
       }
 
+      if (parseUrl(data.url).hostname !== location.host) {
+        return;
+      }
+
+      data.options = data.options || {};
+      delete data.options.credentials;
+
       loadUrlByFetch(data, type, token);
     });
 
-    try {
-      parentPostMessage(type, {status: 'initialized'});
-    } catch (e) {
-      console.log('err', e);
-    }
+    parentPostMessage(type, {status: 'initialized'});
   };
 
   return {

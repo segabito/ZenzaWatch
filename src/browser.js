@@ -1,5 +1,6 @@
 import jsdom from 'jsdom';
 import * as $ from 'jquery';
+// import {Emitter} from './baselib';
 
 const html = `
 <!doctype html><html><body>
@@ -26,11 +27,14 @@ if (typeof window !== 'object') {
     console: console,
     jQuery: $.default,
     MylistPocket: {isReady: true},
-    localStorage: new Map(),
-    sessionStorage: new Map()
+    localStorage: {},
+    sessionStorage: {},
+    history: {}
   });
   window.top = window;
 
+  browser.Node = jsdom.JSDOM;
+  browser.NodeList = jsdom.JSDOM;
   browser.document = document;
   browser.window = window;
 } else {

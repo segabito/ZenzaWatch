@@ -5,11 +5,14 @@ import {Emitter} from './baselib';
 import {Config} from './Config';
 import {browser} from './browser';
 import {ZenzaWatch, PRODUCT} from './ZenzaWatchIndex';
-
 const {navigator, location} = browser.window;
 const $ = jQuery.default;
 const window = browser.window;
 const document = browser.document;
+const history = window.history;
+const Node = browser.Node;
+const NodeList = browser.NodeList;
+const HTMLCollection = browser.NodeList;
 let console = window.console;
 
 Object.assign(window, {
@@ -25,80 +28,32 @@ const util = {};
 //===BEGIN===
 
 
-const AsyncEmitter = (function () {
-
-  function AsyncEmitter() {
+class Sleep {
+  constructor(time, result) {
+    return new Promise(resolve => setTimeout(() => {
+      resolve(result);
+    }, time));
   }
+}
 
-  AsyncEmitter.prototype.on = function (name, callback) {
-    if (!this._events) {
-      this._events = {};
-    }
-    //if (typeof callback !== 'function') { debugger; }
-    name = name.toLowerCase();
-    if (!this._events[name]) {
-      this._events[name] = [];
-    }
-    this._events[name].push(callback);
+util.sleep = async function sleep(time = 0) {
+  return new Sleep(time);
+};
+
+
+const AsyncEmitter = (() => {
+  // 過渡期の措置
+  const emitter = function () {
   };
-
-  AsyncEmitter.prototype.off = function (name, func) {
-    if (!this._events) {
-      this._events = {};
-    }
-    if (!func) {
-      this._events[name] = [];
-      return;
-    }
-
-    if (!this._events[name]) {
-      this._events[name] = [];
-    }
-    _.pull(this._events[name], func);
-  };
-
-      AsyncEmitter.prototype.emit = function(name) {
-        var arg = Array.prototype.slice.call(arguments, 1);
-        for (var i =0, len = e.length; i < len; i++) {
-            e[i].apply(null, arg); //Array.prototype.slice.call(arguments, 1));
-        }
-      };
-  AsyncEmitter.prototype.clear = function (name) {
-    if (!this._events) {
-      this._events = {};
-    }
-    if (name) {
-      this._events[name] = [];
-    } else {
-      this._events = {};
-    }
-  };
-
-    if (!this._events) {
-      this._events = {};
-    }
-    name = name.toLowerCase();
-    if (!this._events.hasOwnProperty(name)) {
-      return;
-    }
-    const e = this._events[name];
-
-  AsyncEmitter.prototype.emitAsync = function (...args) {
-    if (!this._events) {
-      this._events = {};
-    }
-
-    window.setTimeout(() => {
-      this.emit(...args);
-    }, 0);
-  };
-
-  return AsyncEmitter;
+  emitter.prototype.on = Emitter.prototype.on;
+  emitter.prototype.once = Emitter.prototype.once;
+  emitter.prototype.off = Emitter.prototype.off;
+  emitter.prototype.clear = Emitter.prototype.clear;
+  emitter.prototype.emit = Emitter.prototype.emit;
+  emitter.prototype.emitAsync = Emitter.prototype.emitAsync;
+  return emitter;
 })();
-
-ZenzaWatch.lib.AsyncEmitter = AsyncEmitter;
-
-window.ZenzaWatch.emitter = ZenzaWatch.emitter = new AsyncEmitter();
+(ZenzaWatch.lib || {}).AsyncEmitter = AsyncEmitter;
 
 let FullScreen = {
   now: function () {
@@ -252,7 +207,7 @@ const PopupMessage = (() => {
 
       `;
 
-  var initialize = function () {
+  let initialize = function () {
     initialize = _.noop;
     util.addStyle(__css__);
   };
@@ -394,9 +349,9 @@ util.parseQuery = function (query = '') {
   return result;
 };
 
-util.hasLargeThumbnail = function (videoId) { // return true;
-                                              // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
-                                              // ※この数字以降でもごく稀に例外はある。
+util.hasLargeThumbnail = function (videoId) {
+  // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
+  // ※この数字以降でもごく稀に例外はある。
   const threthold = 16371888;
   const cid = videoId.substr(0, 2);
   if (cid !== 'sm') {
@@ -411,38 +366,12 @@ util.hasLargeThumbnail = function (videoId) { // return true;
   return true;
 };
 
-// DMCよりも画質が良さそうか？を返す。
-// ビットレートは取得できないので動画長と解像度で返すしかない
-util.isBetterThanDmcMayBe = (width, height, duration /*, dmcVideos*/) => {
-  // dmcInfoのvideosをパースして判別するのがいいのでは？と思っていたけど
-  // 1080pの仕様がうまい具合にはまったので、何もしないことにした
-  if (width > 1280 || height > 720) {
-    return true;
-  } else if (duration < 16 * 60) {
-    // プリセットに存在しない解像度なら再エンコードされていない可能性が高い？
-    if (//![1280, 960, 854, 640, 480].includes(width) ||
-      ![720, 540, 480, 360].includes(height)) {
-      return true;
-    }
-  } else if (duration >= 16 * 60 && duration <= 30 * 60 + 59) {
-    if (height > 540) {
-      return true;
-    }
-    if (//![960, 854, 640, 480].includes(width) ||
-      ![540, 480, 360, 384, 486].includes(height)) {
-      return true;
-    }
-  } else if (duration >= 31 * 60) {
-    return false; // このくらいの長さになってくると解像度だけでは判断できないので保留
-  }
-  return false;
-};
 
 /**
  * 動画IDからサムネのURLを逆算する。
  * 実際はどのサーバーでもサムネ自体はあるっぽい。
  */
-let getThumbnailUrlByVideoId = (() => {
+util.getThumbnailUrlByVideoId = (() => {
   const videoIdReg = /^[a-z]{2}\d+$/;
   return function (videoId) {
     if (!videoIdReg.test(videoId)) {
@@ -454,24 +383,9 @@ let getThumbnailUrlByVideoId = (() => {
     return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
   };
 })();
-util.getThumbnailUrlByVideoId = getThumbnailUrlByVideoId;
 
-
-util.getSubColor = function (color) {
-  let result = ['#'];
-  $(color.match(/#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})/)).each(
-    function (i, cl) {
-      if (i) {
-        result.push((parseInt(cl, 16) + 384).toString(16).substr(1));
-      }
-    }
-  );
-  return result.join('');
-};
-
-
-let WindowMessageEmitter = (function () {
-  let asyncEmitter = new AsyncEmitter();
+let WindowMessageEmitter = (() => {
+  let emitter = new Emitter();
   let knownSource = [];
 
   let onMessage = function (event) {
@@ -488,7 +402,7 @@ let WindowMessageEmitter = (function () {
         return;
       }
 
-      asyncEmitter.emit('onMessage', data.body, data.type);
+      emitter.emit('onMessage', data.body, data.type);
     } catch (e) {
       console.log(
         '%cNicoCommentLayer.Error: window.onMessage  - ',
@@ -502,24 +416,24 @@ let WindowMessageEmitter = (function () {
     }
   };
 
-  asyncEmitter.addKnownSource = function (win) {
+  emitter.addKnownSource = function (win) {
     knownSource.push(win);
   };
 
   window.addEventListener('message', onMessage);
 
-  return asyncEmitter;
+  return emitter;
 })();
 
 const broadcastEmitter = (() => {
-  const broadcastEmitter = new AsyncEmitter();
+  const broadcastEmitter = new Emitter();
   const broadcastChannel =
     (window.BroadcastChannel && location.host === 'www.nicovideo.jp') ?
       (new window.BroadcastChannel('ZenzaWatch')) : null;
 
   let pingResolve = null, pingReject = null;
 
-  let onStorage = function (e) {
+  let onStorage = e => {
     let key = e.key;
     if (e.type !== 'storage' || key.indexOf('ZenzaWatch_') !== 0) {
       return;
@@ -544,7 +458,7 @@ const broadcastEmitter = (() => {
     }
   };
 
-  let onBroadcastMessage = function (e) {
+  let onBroadcastMessage = e => {
     const packet = e.data;
     if (packet.type === 'pong' && pingResolve) {
       pingReject = null;
@@ -554,7 +468,7 @@ const broadcastEmitter = (() => {
     broadcastEmitter.emit('message', packet);
   };
 
-  broadcastEmitter.send = function (packet) {
+  broadcastEmitter.send = packet => {
     if (broadcastChannel) {
       broadcastChannel.postMessage(packet);
     } else {
@@ -564,7 +478,7 @@ const broadcastEmitter = (() => {
     }
   };
 
-  WindowMessageEmitter.on('onMessage', function (data, type) {
+  WindowMessageEmitter.on('onMessage', (data, type) => {
     if (type !== 'nicovideoApi') {
       return;
     }
@@ -588,11 +502,11 @@ const broadcastEmitter = (() => {
     }
   });
 
-  broadcastEmitter.pong = function (playerId) {
+  broadcastEmitter.pong = playerId => {
     broadcastEmitter.send({id: playerId, type: 'pong'});
   };
 
-  broadcastEmitter.ping = function () {
+  broadcastEmitter.ping = () => {
     const TIMEOUT = broadcastChannel ? 500 : 500;
     return new Promise(function (resolve, reject) {
       pingResolve = resolve;
@@ -615,17 +529,17 @@ const broadcastEmitter = (() => {
     }, params));
   };
 
-  broadcastEmitter.notifyClose = function () {
+  broadcastEmitter.notifyClose = () => {
     broadcastEmitter.send({type: 'notifyClose'});
   };
 
   if (ZenzaWatch.debug) {
     ZenzaWatch.debug.ping = () => {
       window.console.time('ping');
-      return broadcastEmitter.ping().then((result) => {
+      return broadcastEmitter.ping().then(result => {
         window.console.timeEnd('ping');
         window.console.info('ping result: ok', result);
-      }, (result) => {
+      }).catch(result => {
         window.console.timeEnd('ping');
         window.console.error('ping result: ', result);
       });
@@ -647,105 +561,93 @@ const broadcastEmitter = (() => {
  *  あらゆるページに寄生するシステムの都合上断念。
  *  とりあえず既読リンクの色が変わるようにだけする
  */
-let WatchPageState = (function (config) {
+const WatchPageHistory = (({config, location, document, history}) => {
   const originalUrl = location.href;
   const originalTitle = document.title;
   let isOpen = false;
   let dialog;
+  let watchId;
+  let title;
+  let path;
+  let restore = _.debounce(() => {
+    if (!isOpen) { return; }
+    history.replaceState(null, null, originalUrl);
+    document.title = originalTitle;
+  }, 3000);
 
-  const onDialogOpen = (watchId/*, options*/) => {
-    if (location.host !== 'www.nicovideo.jp') {
-      return;
-    }
-    window.history.replaceState(
-      null,
-      null,
-      '/watch/' + watchId
-    );
-
-    // 一瞬だけ視聴ページのurlに変更して戻すことで、ブラウザの履歴に載せる
-    // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
-    window.setTimeout(() => {
-      if (util.isGinzaWatchUrl(originalUrl)) {
-        return;
-      }
-      window.history.replaceState(null, null, originalUrl);
-    }, 1000);
-    isOpen = true;
-  };
-
-  const onVideoInfoLoad = (videoInfo) => {
-    if (location.host !== 'www.nicovideo.jp') {
-      return;
-    }
+  const onVideoInfoLoad = _.debounce(videoInfo => {
     if (!videoInfo.watchId || !isOpen) {
       return;
     }
-    const watchId = videoInfo.watchId;
-    const title =
-      'nicovideo: ' + videoInfo.title + ' - ' + videoInfo.ownerInfo.name;
-    const state = {};
-    window.history.replaceState(
-      state,
-      null,
-      '/watch/' + watchId
-    );
+    watchId = videoInfo.watchId;
+    title = `${videoInfo.title} by ${videoInfo.owner.name} - ZenzaWatch`;
+    path = `watch/${watchId}`;
+
+    if (location.host !== 'www.nicovideo.jp') {
+      if (NicoVideoApi && NicoVideoApi.postMessage) {
+        NicoVideoApi.postMessage('pushHistory', {path, title});
+      }
+      return;
+    }
+
+    history.replaceState(null, null, path);
     document.title = title;
 
-    // 一瞬だけ視聴ページのurlに変更して戻すことで、ブラウザの履歴に載せる
-    // とりあえずChromeでは動いたけどすべてのブラウザでいけるのかは不明
-    window.setTimeout(() => {
-      if (util.isGinzaWatchUrl(originalUrl)) {
-        return;
-      }
-      document.title = originalTitle;
-      window.history.replaceState(null, null, originalUrl);
-    }, 1000);
+    if (util.isGinzaWatchUrl(originalUrl)) {
+      return;
+    }
+
+    restore();
+  });
+
+  const onDialogOpen = () => {
+    isOpen = true;
   };
 
   const onDialogClose = () => {
-    window.history.replaceState(null, null, originalUrl);
-    document.title = originalTitle;
     isOpen = false;
+    watchId = title = path = null;
+    history.replaceState(null, null, originalUrl);
+    document.title = originalTitle;
   };
 
-  let initialize = (_dialog) => {
-    initialize = () => {
-    };
-    dialog = _dialog;
+  const initialize = _dialog => {
+    if (dialog) {
+      return;
+    }
     if (!config.getValue('enablePushState')) {
       return;
     }
-    if (location.host !== 'www.nicovideo.jp') {
-      return;
+    dialog = _dialog;
+
+    if (location.host === 'www.nicovideo.jp') {
+      dialog.on('close', onDialogClose);
     }
 
-
     dialog.on('open', onDialogOpen);
-    dialog.on('close', onDialogClose);
-    dialog.on('loadVideoInfo', _.debounce(onVideoInfoLoad, 0));
+    dialog.on('loadVideoInfo', onVideoInfoLoad);
   };
 
   return {
     initialize: initialize
   };
-})(Config);
+})({config: Config, location, document, history});
 
-util.getWatchId = function (url) {
+util.getWatchId = url => {
   /\/?watch\/([a-z0-9]+)/.test(url || location.pathname);
   return RegExp.$1;
 };
 
-util.isPremium = function () {
+util.isPremium = () => {
   let h = document.getElementById('siteHeaderNotification');
   return h && h.className === 'siteHeaderPremium';
 };
 
-util.isLogin = function () {
+util.isLogin = () => {
   return document.getElementsByClassName('siteHeaderLogin').length < 1;
 };
 
-util.getPageLanguage = function () {
+util.getPageLanguage = () => {
   try {
     let h = document.getElementsByClassName('html')[0];
     return h.lang || 'ja-JP';
@@ -918,19 +820,44 @@ util.openTweetWindow = videoInfo => {
   window.open(url, '_blank', 'width=550, height=480, left=100, top50, personalbar=0, toolbar=0, scrollbars=1, sizable=1', 0);
 };
 
-ZenzaWatch.util.fetch = function (url, params) {
+util.fetch = (url, params) => {
   if (location.host !== 'www.nicovideo.jp') {
     return NicoVideoApi.fetch(url, params);
   }
-  return window.fetch(url, params);
+  if (url.indexOf('nmsg') >= 0) {
+    window.console.info('%cfetch nmsg', 'background: pink;', url, params);
+  }
+  params = params || {};
+  const racers = [];
+
+  const timeout = (typeof params.timeout === 'number' && !isNaN(params.timeout)) ? params.timeout : 30 * 1000;
+  if (timeout > 0) {
+    racers.push(new Promise((resolve, reject) => {
+        setTimeout(() => {
+          reject({name: 'timeout'});
+        }, timeout);
+      })
+    );
+  }
+
+  const controller = window.AbortController ? (new AbortController()) : null;
+  if (controller) {
+    params.signal = controller.signal;
+  }
+  racers.push(window.fetch(url, params));
+  return Promise.race(racers).catch(err => {
+    if (err.name === 'timeout') {
+      window.console.warn('request timeout', url, params);
+      if (controller) {
+        controller.abort();
+      }
+    }
+    return Promise.reject(err);
+  });
 };
 
-if (!location.host.match(/\.nicovideo\.jp$/)) {
-  ZenzaWatch.util.fetch = function () {
-  };
-}
 
-let ajax = function (params) {
+util.ajax = params => {
   if (location.host !== 'www.nicovideo.jp') {
     return NicoVideoApi.ajax(params);
   }
@@ -1016,17 +943,6 @@ util.createDrawCallFunc = func => {
     args = _args;
     requestId = requestAnimationFrame(onFrame);
   };
-};
-
-util.waitForInitialize = function () {
-  return new Promise((resolve) => {
-    if (ZenzaWatch.ready) {
-      return resolve();
-    }
-    ZenzaWatch.emitter.on('ready', () => {
-      Promise.resolve();
-    });
-  });
 };
 
 util.secToTime = sec => {
@@ -1203,24 +1119,24 @@ util.speak = (() => {
   };
 })();
 
-util.createDom = function (template) {
+util.createDom = template => {
   const tpl = document.createElement('template');
   tpl.innerHTML = template;
-  return document.importNode(tpl.content, true).querySelector('*');
+  return document.importNode(tpl.content, true);
 };
 
-util.dispatchCustomEvent = function (elm, name, detail) {
+util.dispatchCustomEvent = (elm, name, detail) => {
   const ev = new CustomEvent(name, {
     detail
   });
   elm.dispatchEvent(ev);
 };
 
-util.getNicoHistory = function () {
-  return window.unescape(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
+util.getNicoHistory = () => {
+  return window.decodeURIComponent(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''));
 };
 
-util.watchResize = function (target, callback) {
+util.watchResize = (target, callback) => {
   if (window.ResizeObserver) {
     const ro = new window.ResizeObserver(entries => {
       for (let entry of entries) {
@@ -1443,52 +1359,53 @@ util.$ = (() => {
     }
 
     append(elm) {
-      if (this._elements.length < 1) {
-        return;
+      if (!this.length) {
+        return this;
       }
-      let node = this._elements[0];
-      if (elm instanceof ($wrapper) || elm.forEach) {
+      const node = this[0];
+      if (elm instanceof ($Elements) || elm.forEach) {
         elm.forEach(e => {
           node.appendChild(e);
         });
-      } else if (elm instanceof (NodeList)) {
-        elm = Array.from(elm);
-        elm.forEach(e => {
+      } else if (elm instanceof NodeList || elm instanceof HTMLCollection) {
+        for (let e of elm) {
           node.appendChild(e);
-        });
-      } else if (elm instanceof (Node)) {
+        }
+      } else if (elm instanceof Node) {
         node.appendChild(elm);
       }
+      return this;
     }
 
     appendChild(...args) {
-      this.append(...args);
+      return this.append(...args);
     }
   }
 
-  const createDom = util.createdom;
-
-  const $ = function (q) {
-    if (q instanceof ($wrapper)) {
+  let ret = q => {
+    if (q instanceof ($Elements)) {
       return q;
-    } else if (q instanceof (Node)) {
-      return new $wrapper([q]);
-    } else if (q instanceof (NodeList)) {
-      return new $wrapper(Array.from(q));
+    } else if (q instanceof Node) {
+      return new $Elements([q]);
+    } else if (q instanceof NodeList || q instanceof HTMLCollection) {
+      return new $Elements(q);
     } else if (typeof q === 'string') {
       if (q.startsWith('<')) {
-        return new $wrapper(Array.from(createDom(q).querySelectorAll('*')));
+        return new $Elements(Array.from(util.createDom(q).querySelectorAll('*')));
       } else {
-        return new $wrapper(Array.from(document.querySelectorAll(q)));
+        return new $Elements(Array.from(document.querySelectorAll(q)));
       }
+    } else {
+      return new $Elements(q);
     }
   };
 
-  return $;
+  ret.$Elements = $Elements;
+  return ret;
 })();
 
-const ShortcutKeyEmitter = (function (config) {
-  let emitter = new AsyncEmitter();
+const ShortcutKeyEmitter = (config => {
+  let emitter = new Emitter();
   let isVerySlow = false;
 
   // コンソールでキーバインド変更
@@ -1534,7 +1451,7 @@ const ShortcutKeyEmitter = (function (config) {
     map[key] = parseInt(config.getValue('KEY_' + key), 10);
   });
 
-  let onKeyDown = function (e) {
+  let onKeyDown = e => {
     if (e.target.tagName === 'SELECT' ||
       e.target.tagName === 'INPUT' ||
       e.target.tagName === 'TEXTAREA') {
@@ -1678,7 +1595,7 @@ const ShortcutKeyEmitter = (function (config) {
     }
   };
 
-  let onKeyUp = function (e) {
+  let onKeyUp = e => {
     if (e.target.tagName === 'SELECT' ||
       e.target.tagName === 'INPUT' ||
       e.target.tagName === 'TEXTAREA') {
@@ -1704,7 +1621,7 @@ const ShortcutKeyEmitter = (function (config) {
     }
   };
 
-  let initialize = function () {
+  let initialize = () => {
     initialize = _.noop;
     document.body.addEventListener('keydown', onKeyDown);
     document.body.addEventListener('keyup', onKeyUp);
@@ -1715,6 +1632,7 @@ const ShortcutKeyEmitter = (function (config) {
   ZenzaWatch.emitter.once('ready', initialize);
   return emitter;
 })(Config);
+util.ShortcutKeyEmitter = ShortcutKeyEmitter;
 
 
 let RequestAnimationFrame = function (callback, frameSkip) {
@@ -1757,18 +1675,17 @@ _.assign(RequestAnimationFrame.prototype, {
 util.RequestAnimationFrame = RequestAnimationFrame;
 
 
-let FrameLayer = function () {
-  this.initialize.apply(this, arguments);
-};
-
-_.extend(FrameLayer.prototype, AsyncEmitter.prototype);
-_.assign(FrameLayer.prototype, {
-  initialize: function (params) {
+class FrameLayer extends Emitter {
+  constructor(params) {
+    super();
     this._$container = params.$container;
     this._retryGetIframeCount = 0;
 
     this._initializeView(params, 0);
-  },
+  }
+}
+
+_.assign(FrameLayer.prototype, {
   _initializeView: function (params, retryCount) {
 
     let iframe = this._getIframe();
@@ -1832,12 +1749,12 @@ _.assign(FrameLayer.prototype, {
   }
 });
 
-const MylistPocketDetector = (function () {
+const MylistPocketDetector = (() => {
   let isReady = false;
   let pocket = null;
-  const emitter = new AsyncEmitter();
+  const emitter = new Emitter();
 
-  const initialize = function () {
+  const initialize = () => {
     const onPocketReady = () => {
       isReady = true;
       pocket = window.MylistPocket;
@@ -1848,19 +1765,18 @@ const MylistPocketDetector = (function () {
     if (window.MylistPocket && window.MylistPocket.isReady) {
       onPocketReady();
     } else {
-      window.jQuery('body').on('MylistPocketReady', () => {
-        //document.body.addEventListener('MylistPocketInitialized', () => {
+      document.body.addEventListener('MylistPocketInitialized', () => {
         onPocketReady();
-      });
+      }, {once: true});
     }
   };
 
-  const detect = function () {
+  const detect = () => {
     return new Promise(res => {
       if (isReady) {
         return res(pocket);
       }
-      emitter.on('ready', () => {
+      emitter.once('ready', () => {
         res(pocket);
       });
     });
@@ -1874,10 +1790,10 @@ const MylistPocketDetector = (function () {
 })();
 
 
-const VideoCaptureUtil = (function () {
+const VideoCaptureUtil = (() => {
   const crossDomainGates = {};
 
-  const initializeByServer = function (server, fileId) {
+  const initializeByServer = (server, fileId) => {
     if (crossDomainGates[server]) {
       return crossDomainGates[server];
     }
@@ -1894,7 +1810,7 @@ const VideoCaptureUtil = (function () {
     return crossDomainGates[server];
   };
 
-  const _toCanvas = function (v, width, height) {
+  const _toCanvas = (v, width, height) => {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.width = width;
@@ -1903,14 +1819,14 @@ const VideoCaptureUtil = (function () {
     return canvas;
   };
 
-  const isCORSReadySrc = function (src) {
+  const isCORSReadySrc = src => {
     if (src.indexOf('dmc.nico') >= 0) {
       return true;
     }
     return false;
   };
 
-  const videoToCanvas = function (video) {
+  const videoToCanvas = video => {
     const src = video.src;
     const sec = video.currentTime;
     const a = document.createElement('a');
@@ -1966,7 +1882,7 @@ const VideoCaptureUtil = (function () {
 
   // 参考
   // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
-  const htmlToSvg = function (html, width = 682, height = 384) {
+  const htmlToSvg = (html, width = 682, height = 384) => {
     const data =
       (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
           <foreignObject width='100%' height='100%'>${html}</foreignObject>
@@ -1975,7 +1891,7 @@ const VideoCaptureUtil = (function () {
     return {svg, data};
   };
 
-  const htmlToCanvas = function (html, width = 640, height = 360) {
+  const htmlToCanvas = (html, width = 640, height = 360) => {
 
     const imageW = height * 16 / 9;
     const imageH = imageW * 9 / 16;
@@ -2016,7 +1932,7 @@ const VideoCaptureUtil = (function () {
     });
   };
 
-  const nicoVideoToCanvas = function ({video, html, minHeight = 1080}) {
+  const nicoVideoToCanvas = ({video, html, minHeight = 1080}) => {
     let scale = 1;
     let width =
       Math.max(video.videoWidth, video.videoHeight * 16 / 9);
@@ -2036,7 +1952,6 @@ const VideoCaptureUtil = (function () {
 
     return videoToCanvas(video).then(({canvas/*, img*/}) => {
 
-      //canvas.style.border = '2px solid red'; document.body.appendChild(canvas);
       ct.fillStyle = 'rgb(0, 0, 0)';
       ct.fillRect(0, 0, width, height);
 
@@ -2051,8 +1966,6 @@ const VideoCaptureUtil = (function () {
       return htmlToCanvas(html, width, height);
     }).then(({canvas, img}) => {
 
-      //canvas.style.border = '2px solid green'; document.body.appendChild(canvas);
-
       ct.drawImage(canvas, 0, 0, width, height);
 
       return Promise.resolve({canvas, img});
@@ -2062,7 +1975,7 @@ const VideoCaptureUtil = (function () {
   };
 
 
-  const saveToFile = function (canvas, fileName = 'sample.png') {
+  const saveToFile = (canvas, fileName = 'sample.png') => {
     const dataUrl = canvas.toDataURL('image/png');
     const bin = atob(dataUrl.split(',')[1]);
     const buf = new Uint8Array(bin.length);

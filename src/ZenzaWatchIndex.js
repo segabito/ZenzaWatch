@@ -1,10 +1,10 @@
-import {Emitter, Handler, Observable} from './baselib';
-import {Config, util} from './util';
+import {Emitter, Handler} from './baselib';
+import {Config} from './Config';
 
 const PRODUCT = 'ZenzaWatch';
 const ZenzaWatch = {
   config: Config || {},
-  util: util || {},
+  util: {},
   debug: {
     contextMenu: {},
     dialog: {},
@@ -14,7 +14,7 @@ const ZenzaWatch = {
     ping: () => {
       return Promise.resolve();
     },
-    video: {}, /* HTMLElement */
+    video: {},
     watchApiData: {}
   },
   api: {},
@@ -22,8 +22,7 @@ const ZenzaWatch = {
   lib: {},
   modules: {
     Emitter,
-    Handler,
-    Observable
+    Handler
   },
   init: {},
   emitter: new Emitter(),

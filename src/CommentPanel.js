@@ -1,14 +1,17 @@
 import _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {AsyncEmitter, BaseViewComponent, FrameLayer, util} from './util';
+import {BaseViewComponent, FrameLayer, util} from './util';
 import {CONSTANT} from './constant';
+import {Emitter} from './baselib';
 
 //===BEGIN===
 
-var CommentListModel = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(CommentListModel.prototype, AsyncEmitter.prototype);
+class CommentListModel extends Emitter {
+  constructor(params) {
+    super();
+    this.initialize(params);
+  }
+}
 _.assign(CommentListModel.prototype, {
   initialize: function (params) {
     this._isUniq = params.uniq;
@@ -31,9 +34,9 @@ _.assign(CommentListModel.prototype, {
   },
   setChatList: function (chatList) {
     chatList = chatList.top.concat(chatList.naka, chatList.bottom);
-    var items = [];
-    var positions = [];
-    for (var i = 0, len = chatList.length; i < len; i++) {
+    let items = [];
+    let positions = [];
+    for (let i = 0, len = chatList.length; i < len; i++) {
       items.push(new CommentListItem(chatList[i]));
       positions.push(parseFloat(chatList[i].getVpos(), 10) / 100);
     }
@@ -47,7 +50,7 @@ _.assign(CommentListModel.prototype, {
     this.emit('update', this._items, true);
   },
   removeItemByIndex: function (index) {
-    var target = this._getItemByIndex(index);
+    let target = this._getItemByIndex(index);
     if (!target) {
       return;
     }
@@ -59,14 +62,14 @@ _.assign(CommentListModel.prototype, {
     return this._items.length;
   },
   _getItemByIndex: function (index) {
-    var item = this._items[index];
+    let item = this._items[index];
     return item;
   },
   indexOf: function (item) {
     return (this._items || []).indexOf(item);
   },
   getItemByIndex: function (index) {
-    var item = this._getItemByIndex(index);
+    let item = this._getItemByIndex(index);
     if (!item) {
       return null;
     }
@@ -81,9 +84,9 @@ _.assign(CommentListModel.prototype, {
     });
   },
   removeItem: function (item) {
-    var beforeLen = this._items.length;
+    let beforeLen = this._items.length;
     _.pull(this._items, item);
-    var afterLen = this._items.length;
+    let afterLen = this._items.length;
     if (beforeLen !== afterLen) {
       this.emit('update', this._items);
     }
@@ -92,13 +95,13 @@ _.assign(CommentListModel.prototype, {
     this.emit('itemUpdate', item, key, value);
   },
   sortBy: function (key, isDesc) {
-    var table = {
+    let table = {
       vpos: 'getVpos',
       date: 'getDate',
       text: 'getText',
       user: 'getUserId',
     };
-    var func = table[key];
+    let func = table[key];
     if (!func) {
       return;
     }
@@ -138,12 +141,14 @@ _.assign(CommentListModel.prototype, {
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
  */
-var CommentListView = function () {
-  this.initialize.apply(this, arguments);
-};
+class CommentListView extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 CommentListView.ITEM_HEIGHT = 40;
 
-_.extend(CommentListView.prototype, AsyncEmitter.prototype);
 CommentListView.__css__ = '';
 
 CommentListView.__tpl__ = (`
@@ -321,7 +326,6 @@ CommentListView.__tpl__ = (`
 
   `).trim();
 
-_.extend(CommentListView.prototype, AsyncEmitter.prototype);
 _.assign(CommentListView.prototype, {
   initialize: function (params) {
     this._ItemView = CommentListItemView;
@@ -340,11 +344,11 @@ _.assign(CommentListView.prototype, {
       this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
     }
 
-    this.scrollTop = ZenzaWatch.util.createDrawCallFunc(this.scrollTop.bind(this));
+    this.scrollTop = util.createDrawCallFunc(this.scrollTop.bind(this));
     this._initializeView(params, 0);
   },
   _initializeView: function (params) {
-    var html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
+    let html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
     this._frame = new FrameLayer({
       $container: params.$container,
       html: html,
@@ -353,15 +357,15 @@ _.assign(CommentListView.prototype, {
     this._frame.on('load', this._onIframeLoad.bind(this));
   },
   _onIframeLoad: function (w) {
-    var doc = this._document = w.document;
+    let doc = this._document = w.document;
     this._window = w; //$(w);
-    var body = this._body = doc.body;
-    var $body = this._$body = $(body);
+    let body = this._body = doc.body;
+    let $body = this._$body = $(body);
     if (this._className) {
       body.classList.add(this._className);
     }
     this._$container = $body.find('#listContainer');
-    var $list = this._$list = $(doc.getElementById('listContainerInner'));
+    let $list = this._$list = $(doc.getElementById('listContainerInner'));
     if (this._html) {
       $list.html(this._html);
     }
@@ -394,7 +398,7 @@ _.assign(CommentListView.prototype, {
     this._innerHeight = w.innerHeight;
 
     this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
-    this._appendNewItems = util.createDrawCallFunc(this._appendNewItems.bind(this));
+    //this._appendNewItems = util.createDrawCallFunc(this._appendNewItems.bind(this));
 
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
     this._$begin = $('<span class="begin"/>');
@@ -428,7 +432,7 @@ _.assign(CommentListView.prototype, {
 
     window.setTimeout(() => {
       if (this._$list) {
-        this._$list.html('');
+        this._$list.empty();
         this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length + 100});
         this._$menu.removeClass('show');
         this._refreshInviewElements();
@@ -446,7 +450,7 @@ _.assign(CommentListView.prototype, {
   _onClick: function (e) {
     e.stopPropagation();
     ZenzaWatch.emitter.emitAsync('hideHover');
-    var $item = $(e.target).closest('.commentListItem');
+    let $item = $(e.target).closest('.commentListItem');
     if ($item.length > 0) {
       return this._debouncedOnItemClick($item);
     }
@@ -458,12 +462,12 @@ _.assign(CommentListView.prototype, {
       .addClass('show');
   },
   _onMenuClick: function (e) {
-    var $target = $(e.target).closest('.menuButton');
+    let $target = $(e.target).closest('.menuButton');
     this._$menu.removeClass('show');
     if ($target.length < 1) {
       return;
     }
-    var itemId = $target.closest('.listMenu').attr('data-item-id');
+    let itemId = $target.closest('.listMenu').attr('data-item-id');
     if ($target.length < 1) {
       return;
     }
@@ -471,7 +475,7 @@ _.assign(CommentListView.prototype, {
       return;
     }
 
-    var command = $target.attr('data-command');
+    let command = $target.attr('data-command');
 
     if (command === 'addUserIdFilter' || command === 'addWordFilter') {
       this._$list.find('.item' + itemId).hide();
@@ -500,13 +504,13 @@ _.assign(CommentListView.prototype, {
   },
   _onDblClick: function (e) {
     e.stopPropagation();
-    var $item = $(e.target).closest('.commentListItem');
+    let $item = $(e.target).closest('.commentListItem');
     if ($item.length < 0) {
       return;
     }
     e.preventDefault();
 
-    var itemId = $item.attr('data-item-id');
+    let itemId = $item.attr('data-item-id');
     this.emit('command', 'select', null, itemId);
   },
   _onMouseMove: function () {
@@ -628,28 +632,28 @@ _.assign(CommentListView.prototype, {
       itemId = itemId.getItemId();
     }
 
-    var $target = this._$body.find('.item' + itemId);
+    let $target = this._$body.find('.item' + itemId);
     if ($target.length < 1) {
       return;
     }
-    var top = $target.offset().top;
+    let top = $target.offset().top;
     this.scrollTop(top);
   },
   setCurrentPoint: function (idx) {
     if (!this._window || !this._itemViews) {
       return;
     }
-    var innerHeight = this._innerHeight;
-    var itemViews = this._itemViews;
-    var len = itemViews.length;
-    var view = itemViews[idx];
+    let innerHeight = this._innerHeight;
+    let itemViews = this._itemViews;
+    let len = itemViews.length;
+    let view = itemViews[idx];
     if (len < 1 || !view) {
       return;
     }
 
     if (!this._isActive) {
-      var itemHeight = CommentListView.ITEM_HEIGHT;
-      var top = view.getTop();
+      let itemHeight = CommentListView.ITEM_HEIGHT;
+      let top = view.getTop();
       this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
     }
   },
@@ -968,12 +972,13 @@ const CommentListItemView = (() => {
   return CommentListItemView;
 })();
 
-var CommentListItem = function () {
-  this.initialize.apply(this, arguments);
-};
+class CommentListItem {
+  constructor(nicoChat) {
+    this.initialize(nicoChat);
+  }
+}
 CommentListItem._itemId = 0;
 
-_.extend(CommentListItem.prototype, AsyncEmitter.prototype);
 _.assign(CommentListItem.prototype, {
   initialize: function (nicoChat) {
     this._nicoChat = nicoChat;
@@ -1036,10 +1041,12 @@ _.assign(CommentListItem.prototype, {
   }
 });
 
-var CommentList = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(CommentList.prototype, AsyncEmitter.prototype);
+class CommentList extends Emitter {
+  constructor(params) {
+    super();
+    this.initialize(params);
+  }
+}
 _.assign(CommentList.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
@@ -1067,7 +1074,7 @@ _.assign(CommentList.prototype, {
       this._initializeView();
     }
     this._watchId = watchId;
-    var items = [];
+    let items = [];
     listData.forEach(itemData => {
       items.push(new CommentListItem(itemData));
     });
@@ -1082,10 +1089,12 @@ _.assign(CommentList.prototype, {
 });
 
 
-var CommentPanelView = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(CommentPanelView.prototype, AsyncEmitter.prototype);
+class CommentPanelView extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 CommentPanelView.__css__ = (`
     :root {
       --zenza-comment-panel-header-height: 64px;
@@ -1094,6 +1103,7 @@ CommentPanelView.__css__ = (`
     .commentPanel-container {
       height: 100%;
       overflow: hidden;
+      user-select: none;
     }
 
     .commentPanel-header {
@@ -1215,14 +1225,14 @@ _.assign(CommentPanelView.prototype, {
 
 
     util.addStyle(CommentPanelView.__css__);
-    var $view = this._$view = $(CommentPanelView.__tpl__);
+    let $view = this._$view = $(CommentPanelView.__tpl__);
     this._$container.append($view);
 
-    var $menu = this._$menu = this._$view.find('.commentPanel-menu');
+    let $menu = this._$menu = this._$view.find('.commentPanel-menu');
 
     ZenzaWatch.debug.commentPanelView = this;
 
-    var listView = this._listView = new CommentListView({
+    let listView = this._listView = new CommentListView({
       $container: this._$view.find('.commentPanel-frame'),
       model: this._model,
       className: 'commentList',
@@ -1276,16 +1286,16 @@ _.assign(CommentPanelView.prototype, {
     }
   },
   _onCommentListCommandClick: function (e) {
-    var $target = $(e.target).closest('.commentPanel-command');
-    var command = $target.attr('data-command');
-    var param = $target.attr('data-param');
+    let $target = $(e.target).closest('.commentPanel-command');
+    let command = $target.attr('data-command');
+    let param = $target.attr('data-param');
     e.stopPropagation();
     if (!command) {
       return;
     }
 
-    var $view = this._$view;
-    var setUpdating = () => {
+    let $view = this._$view;
+    let setUpdating = () => {
       $view.addClass('updating');
       window.setTimeout(() => {
         $view.removeClass('updating');
@@ -1327,15 +1337,17 @@ _.assign(CommentPanelView.prototype, {
 });
 
 
-var CommentPanel = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(CommentPanel.prototype, AsyncEmitter.prototype);
+class CommentPanel extends Emitter {
+  constructor(params) {
+    super();
+    this.initialize(params);
+  }
+}
 _.assign(CommentPanel.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
     this._$container = params.$container;
-    var player = this._player = params.player;
+    let player = this._player = params.player;
 
     this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
 
@@ -1379,7 +1391,7 @@ _.assign(CommentPanel.prototype, {
     }
   },
   _onCommand: function (command, param, itemId) {
-    var item;
+    let item;
     if (itemId) {
       item = this._model.findByItemId(itemId);
     }
@@ -1397,7 +1409,7 @@ _.assign(CommentPanel.prototype, {
         // TODO: コメント強調
         break;
       case 'clipBoard':
-        ZenzaWatch.util.copyToClipBoard(item.getText());
+        util.copyToClipBoard(item.getText());
         this.emit('command', 'notify', 'クリップボードにコピーしました');
         break;
       case 'addUserIdFilter':

@@ -2,7 +2,7 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {util, Config, AsyncEmitter, MylistPocketDetector, Sleep} from './util';
+import {util, Config, MylistPocketDetector, Sleep} from './util';
 import {IchibaLoader} from './loader/api';
 import {UaaLoader} from './loader/api';
 import {PlaylistLoader} from './loader/api';
@@ -10,13 +10,28 @@ import {RelatedVideoList} from './VideoList';
 import {TagListView} from './TagListView';
 import {BaseViewComponent} from './util';
 import {Emitter} from './baselib';
+import {WindowResizeObserver} from './baselib';
+
 //===BEGIN===
 
-var VideoInfoPanel = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(VideoInfoPanel.prototype, AsyncEmitter.prototype);
+class VideoInfoPanel extends Emitter {
+  constructor(params) {
+    super();
+    this._videoHeaderPanel = new VideoHeaderPanel(params);
+    this._dialog = params.dialog;
+    this._config = Config;
+    this._currentTimeGetter = params.currentTimeGetter;
 
+    this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
+    this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
+
+    this._videoHeaderPanel.on('command', this._onCommand.bind(this));
+
+    if (params.node) {
+      this.appendTo(params.node);
+    }
+  }
+}
 VideoInfoPanel.__css__ = (`
     .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
       display: none;
@@ -237,8 +252,6 @@ VideoInfoPanel.__css__ = (`
       height: 96px;
       border: none;
       border-radius: 4px;
-      /*margin-right: 8px;*/
-      /*box-shadow: 2px 2px 2px #666;*/
       transition: opacity 1s ease;
       vertical-align: middle;
     }
@@ -254,7 +267,6 @@ VideoInfoPanel.__css__ = (`
     .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
       padding: 16px;
       display: table;
-      /*width: calc(100% - 16px);*/
       width: 100%;
     }
 
@@ -553,6 +565,7 @@ VideoInfoPanel.__css__ = (`
       width: 100%;
       height: 100%;
       margin: 0;
+      user-select: none;
     }
 
     .zenzaWatchVideoInfoPanel .videoListFrame,
@@ -613,19 +626,7 @@ VideoInfoPanel.__css__ = (`
       width: 100%;
     }
 
-    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar {
-      background: #222;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #666;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-button {
-      background: #666;
-      display: none;
-    }
+    ${CONSTANT.SCROLLBAR_CSS}
 
     body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar {
       background: #f0f0f0;
@@ -661,11 +662,7 @@ VideoInfoPanel.__css__ = (`
       line-height: 20px;
       user-select: none;
       text-align: center;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -webkit-appearance: inherit;
-      -moz-appearance: inherit;
-      -ms-appearance: inherit;
+      user-select: none;
     }
     .zenzaWatchVideoInfoPanel .resumePlay.is-resumePlayable {
       display: block;
@@ -673,16 +670,11 @@ VideoInfoPanel.__css__ = (`
     .zenzaWatchVideoInfoPanel .resumePlay:hover {
       transform: translate(0, -2px);
       box-shadow: 0 4px 2px #000;
-      transition:
-        0.2s transform ease,
-        0.2s box-shadow ease
-        ;
     }
 
     .zenzaWatchVideoInfoPanel .resumePlay:active {
-      transform: translate(0, 4px);
+      transform: translate(0, 2px);
       box-shadow: none;
-      transition: none;
     }
 
     .zenzaWatchVideoInfoPanel .resumeThumbnailContainer {
@@ -785,22 +777,6 @@ VideoInfoPanel.__tpl__ = (`
   `).trim();
 
 _.assign(VideoInfoPanel.prototype, {
-  initialize: function (params) {
-    this._videoHeaderPanel = new VideoHeaderPanel(params);
-    this._dialog = params.dialog;
-    this._config = Config;
-    this._currentTimeGetter = params.currentTimeGetter;
-
-    this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
-    this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
-
-    this._videoHeaderPanel.on('command', this._onCommand.bind(this));
-
-    if (params.node) {
-      this.appendTo(params.node);
-    }
-
-  },
   _initializeDom: function () {
     if (this._isInitialized) {
       return;
@@ -808,12 +784,11 @@ _.assign(VideoInfoPanel.prototype, {
     this._isInitialized = true;
 
     util.addStyle(VideoInfoPanel.__css__);
-    var $view = this._$view = $(VideoInfoPanel.__tpl__);
+    let $view = this._$view = $(VideoInfoPanel.__tpl__);
     const view = this._view = $view[0];
     let onCommand = this._onCommand.bind(this);
 
-    this._$ownerContainer = $view.find('.videoOwnerInfoContainer');
-    var $icon = this._$ownerIcon = $view.find('.ownerIcon');
+    let $icon = this._$ownerIcon = $view.find('.ownerIcon');
     this._$ownerName = $view.find('.ownerName');
     this._$ownerPageLink = $view.find('.ownerPageLink');
 
@@ -850,49 +825,49 @@ _.assign(VideoInfoPanel.prototype, {
         'command', 'seek', this._resumePlayButton.getAttribute('data-param'));
     });
 
-    this._$tabSelect = $view.find('.tabSelect');
-    $view.on('click', '.tabSelect', (e) => {
-      var $target = $(e.target).closest('.tabSelect');
-      var tabName = $target.attr('data-tab');
+    view.querySelector('.tabSelectContainer').addEventListener('click', e => {
+      let $target = $(e.target).closest('.tabSelect');
+      let tabName = $target.attr('data-tab');
       this._onCommand('selectTab', tabName);
     });
 
-    $view.on('click', (e) => {
+    view.addEventListener('click', e => {
       e.stopPropagation();
       ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-      var $target = $(e.target);
-      var command = $target.attr('data-command');
-      var param = $target.attr('data-param') || '';
-      if (command) {
-        this._onCommand(command, param);
+      let $target = $(e.target);
+      let command = $target.attr('data-command');
+      if (!command) {
+        return;
       }
-    }).on('wheel', (e) => {
-      e.stopPropagation();
+      let param = $target.attr('data-param') || '';
+      this._onCommand(command, param);
     });
+    view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
     $icon.on('load', () => {
       $icon.removeClass('is-loading');
     });
 
-    $view.on('touchenter', () => {
-      $view.addClass('is-slideOpen');
+    view.classList.add(util.fullScreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    ZenzaWatch.emitter.on('fullScreenStatusChange', isFull => {
+      view.classList.toggle('is-fullscreen', isFull);
+      view.classList.toggle('is-notFullscreen', !isFull);
     });
-    ZenzaWatch.emitter.on('hideHover', () => {
-      $view.removeClass('is-slideOpen');
-    });
-    MylistPocketDetector.detect().then((pocket) => {
+
+    view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
+    ZenzaWatch.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
+    MylistPocketDetector.detect().then(pocket => {
       this._pocket = pocket;
-      $view.addClass('is-pocketReady');
+      view.classList.add('is-pocketReady');
     });
   },
   update: function (videoInfo) {
     this._videoInfo = videoInfo;
     this._videoHeaderPanel.update(videoInfo);
 
-    var owner = videoInfo.ownerInfo;
+    let owner = videoInfo.owner;
     this._$ownerIcon.attr('src', owner.icon);
     this._$ownerPageLink.attr('href', owner.url);
     this._$ownerName.text(owner.name);
-    this._$ownerContainer.toggleClass('favorite', owner.favorite);
 
     this._videoMetaInfo.update(videoInfo);
     this._tagListView.update({
@@ -956,7 +931,7 @@ _.assign(VideoInfoPanel.prototype, {
       // urlの自動リンク処理
       // チャンネル動画は自前でリンク貼れるので何もしない
 
-      var linkmatch = /<a.*?<\/a>/, links = [], n;
+      let linkmatch = /<a.*?<\/a>/, links = [], n;
       html = html.split('<br />').join(' <br /> ');
       while ((n = linkmatch.exec(html)) !== null) {
         links.push(n);
@@ -965,7 +940,7 @@ _.assign(VideoInfoPanel.prototype, {
 
       html = html.replace(/\((https?:\/\/[\x21-\x3b\x3d-\x7e]+)\)/gi, '( $1 )');
       html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" rel="noopener" target="_blank" class="otherSite">$1</a>');
-      for (var i = 0, len = links.length; i < len; i++) {
+      for (let i = 0, len = links.length; i < len; i++) {
         html = html.replace(' <!----> ', links[i]);
       }
 
@@ -980,23 +955,23 @@ _.assign(VideoInfoPanel.prototype, {
 
     window.setTimeout(() => {
       this._$description.find('.watch').each((i, watchLink) => {
-        var $watchLink = $(watchLink);
-        var videoId = $watchLink.text().replace('watch/', '');
+        let $watchLink = $(watchLink);
+        let videoId = $watchLink.text().replace('watch/', '');
         if (!/^(sm|so|nm)/.test(videoId)) {
           return;
         }
-        var thumbnail = util.getThumbnailUrlByVideoId(videoId);
+        let thumbnail = util.getThumbnailUrlByVideoId(videoId);
         if (thumbnail) {
-          var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
+          let $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
           $watchLink.addClass('popupThumbnail').append($img);
         }
-        var $playlistAppend =
+        let $playlistAppend =
           $('<zenza-playlist-append class="playlistAppend clickable-item" title="プレイリストで開く">▶</zenza-playlist-append>')
             .attr('data-watch-id', videoId);
-        var $deflistAdd =
+        let $deflistAdd =
           $('<a class="deflistAdd" title="とりあえずマイリスト">&#x271A;</a>')
             .attr('data-watch-id', videoId);
-        var $pocketInfo =
+        let $pocketInfo =
           $('<a class="pocket-info" title="動画情報">？</a>')
             .attr('data-watch-id', videoId);
         $watchLink.append($playlistAppend);
@@ -1004,9 +979,9 @@ _.assign(VideoInfoPanel.prototype, {
         $watchLink.append($pocketInfo);
       });
       this._$description.find('.mylistLink').each((i, mylistLink) => {
-        var $mylistLink = $(mylistLink);
-        var mylistId = $mylistLink.text().split('/')[1];
-        var $playlistAppend =
+        let $mylistLink = $(mylistLink);
+        let mylistId = $mylistLink.text().split('/')[1];
+        let $playlistAppend =
           $('<zenza-playlist-append class="playlistSetMylist clickable-item" title="プレイリストで開く">▶</zenza-playlist-append>')
             .attr('data-mylist-id', mylistId)
         ;
@@ -1092,7 +1067,7 @@ _.assign(VideoInfoPanel.prototype, {
       }, 100);
     }
     let relatedVideo = videoInfo.relatedVideoItems;
-    if (relatedVideo.length > 0) {
+    if (relatedVideo.length) {
       this._relatedVideoList.update(relatedVideo, watchId);
     } else {
       PlaylistLoader.load(watchId).then(data => {
@@ -1160,7 +1135,7 @@ _.assign(VideoInfoPanel.prototype, {
     this.emit('command', 'playlistSetSearchVideo', {word, option});
   },
   appendTo: function (node) {
-    var $node = $(node);
+    let $node = $(node);
     this._initializeDom();
     $node.append(this._$view);
     this._videoHeaderPanel.appendTo($node);
@@ -1178,31 +1153,31 @@ _.assign(VideoInfoPanel.prototype, {
     this._$description.empty();
   },
   selectTab: function (tabName) {
-    var $view = this._$view;
-    var $target = $view.find('.tabs.' + tabName + ', .tabSelect.' + tabName);
+    let $view = this._$view;
+    let $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
     this._activeTabName = tabName;
     $view.find('.activeTab').removeClass('activeTab');
     $target.addClass('activeTab');
   },
   blinkTab: function (tabName) {
-    var $view = this._$view;
-    var $target = $view.find('.tabs.' + tabName + ', .tabSelect.' + tabName);
-    if ($target.length < 1) {
+    let $view = this._$view;
+    let $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
+    if (!$target.length) {
       return;
     }
     $target.addClass('blink');
-    window.setTimeout(function () {
+    window.setTimeout(() => {
       $target.removeClass('blink');
     }, 50);
   },
   appendTab: function (tabName, title, content) {
-    var $view = this._$view;
-    var $select =
+    let $view = this._$view;
+    let $select =
       $('<div class="tabSelect"/>')
         .addClass(tabName)
         .attr('data-tab', tabName)
         .text(title);
-    var $body = $('<div class="tabs"/>')
+    let $body = $('<div class="tabs"/>')
       .addClass(tabName);
     if (content) {
       $body.append($(content));
@@ -1216,17 +1191,15 @@ _.assign(VideoInfoPanel.prototype, {
       $body.addClass('activeTab');
     }
     return $body;
-  },
-  removeTab: function (tabName) {
-    this._$view.find('.tabSelect.' + tabName).remove();
-    this._$view.find('.tabs.' + tabName).detach();
   }
 });
 
-var VideoHeaderPanel = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(VideoHeaderPanel.prototype, AsyncEmitter.prototype);
+class VideoHeaderPanel extends Emitter {
+  constructor(params) {
+    super();
+    this._currentTimeGetter = params.currentTimeGetter;
+  }
+}
 
 VideoHeaderPanel.__css__ = (`
     .zenzaWatchVideoHeaderPanel {
@@ -1243,8 +1216,8 @@ VideoHeaderPanel.__css__ = (`
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
     }
-    body.zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
-    body.fullScreen .zenzaWatchVideoHeaderPanel {
+    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
+    .zenzaWatchVideoHeaderPanel.is-fullscreen {
       z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
     }
 
@@ -1448,9 +1421,6 @@ VideoHeaderPanel.__tpl__ = (`
   `).trim();
 
 _.assign(VideoHeaderPanel.prototype, {
-  initialize: function (params) {
-    this._currentTimeGetter = params.currentTimeGetter;
-  },
   _initializeDom: function () {
     if (this._isInitialized) {
       return;
@@ -1467,19 +1437,17 @@ _.assign(VideoHeaderPanel.prototype, {
     });
     this._searchForm.on('command', onCommand);
 
-    $view.on('click', (e) => {
+    $view.on('click', e => {
       e.stopPropagation();
       ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
 
-      var $target = $(e.target);
-      var command = $target.attr('data-command');
-      var param = $target.attr('data-param') || '';
-      if (command) {
-        this.emit('command', command, param);
-      }
-    }).on('wheel', (e) => {
-      e.stopPropagation();
+      let $target = $(e.target);
+      let command = $target.attr('data-command');
+      if (!command) { return; }
+      let param = $target.attr('data-param') || '';
+      this.emit('command', command, param);
     });
+    view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
 
     this._tagListView = new TagListView({
       parentNode: view.querySelector('.videoTagsContainer')
@@ -1510,7 +1478,7 @@ _.assign(VideoHeaderPanel.prototype, {
     const videoTitle = util.unescapeHtml(videoInfo.title);
     this._$videoTitle.text(videoTitle).attr('title', videoTitle);
 
-    var watchId = videoInfo.watchId;
+    let watchId = videoInfo.watchId;
     this._videoMetaInfo.update(videoInfo);
 
     this._tagListView.update({
@@ -1569,15 +1537,8 @@ _.assign(VideoHeaderPanel.prototype, {
   getPublicStatusDom: function () {
     return this._$view.find('.publicStatus').html();
   },
-  getVideoTagsDom: function () {
-    return this._$tagList.html();
-  },
   _onCommand: function (command, param) {
-    switch (command, param) {
-      default:
-        this.emit('command', command, param);
-        break;
-    }
+    this.emit('command', command, param);
   }
 });
 
@@ -1628,7 +1589,7 @@ class VideoSearchForm extends Emitter {
     const updateFocus = this._updateFocus.bind(this);
     const updateFocusD = _.debounce(updateFocus, 1000);
     const submit = _.debounce(this.submit.bind(this), 500);
-    Array.prototype.forEach.call(view.querySelectorAll('input, select'), (item) => {
+    Array.from(view.querySelectorAll('input, select')).forEach(item => {
       item.addEventListener('focus', updateFocus);
       item.addEventListener('blur', updateFocusD);
       if (item.type === 'checkbox') {
@@ -1777,9 +1738,6 @@ VideoSearchForm.__css__ = (`
       padding: 0 8px
       width: 248px;
       z-index: 1000;
-    }
-
-    .zenzaVideoSearchPanel.is-active {
     }
 
     .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .zenzaVideoSearchPanel,
@@ -1977,23 +1935,12 @@ VideoSearchForm.__css__ = (`
         cursor: pointer;
       }
 
-      .zenzaVideoSearchPanel .autoPauseLabel input {
-
-      }
-
       .zenzaVideoSearchPanel .autoPauseLabel input + span {
         display: inline-block;
         pointer-events: none;
       }
 
-      .zenzaVideoSearchPanel .autoPauseLabel input:checked + span {
-      }
-
-
-
-
-
-  `).toString();
+  `).trim();
 
 VideoSearchForm.__tpl__ = (`
     <div class="zenzaVideoSearchPanel" id="zenzaVideoSearchPanel">
@@ -2184,41 +2131,26 @@ IchibaItemView.__css__ = (`
     }
 
       .ZenzaIchibaItemView .loadStartButton {
-         /*width: 200px;*/
          font-size: 24px;
          padding: 8px 8px;
          margin: 8px;
          background: inherit;
          color: inherit;
          border: 1px solid #ccc;
-         /*border: none;*/
          outline: none;
          line-height: 20px;
-         /*text-shadow: 1px 1px #000;*/
          border-radius: 8px;
          cursor: pointer;
          user-select: none;
-         -webkit-user-select: none;
-         -moz-user-select: none;
-      }
-      .ZenzaIchibaItemView .loadStartButton:hover {
-        /* transform: translate(0, -2px); */
-        /*box-shadow: 0 4px 2px #000; */
-        transition:
-          0.2s transform ease,
-          0.2s box-shadow ease
-          ;
       }
 
-      .ZenzaIchibaItemView .loadStartButton:active {
-        transform: none;
-        box-shadow: none;
-        transition: none;
-      }
       .ZenzaIchibaItemView .loadStartButton:active::after {
         opacity: 0;
       }
-
+      
+      .ZenzaIchibaItemView .loadStartButton:active {
+        transform: translate(0, 2px);
+      }
 
       .ZenzaIchibaItemView .ichibaLoadingView,
       .ZenzaIchibaItemView .ichibaItemListContainer {
@@ -2258,8 +2190,6 @@ IchibaItemView.__css__ = (`
       }
 
 
-    .ZenzaIchibaItemView.is-fail {
-    }
       .ZenzaIchibaItemView.is-fail .ichibaLoadingView,
       .ZenzaIchibaItemView.is-fail .loadStartButton {
         display: none;
@@ -2287,7 +2217,6 @@ IchibaItemView.__css__ = (`
       .ZenzaIchibaItemView .buy,
       .ZenzaIchibaItemView .click {
         font-weight: bold;
-        /*color: #fcc;*/
       }
 
 
@@ -2563,12 +2492,10 @@ UaaView._shadow_ = (`
 
       .UaaDetails .clickable {
         cursor: pointer;
-        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
       }
 
         .UaaDetails .clickable:active {
-          transition: none;
-          transform: translate(0, 0);
+          transform: translate(0, 2px);
           box-shadow: none;
         }
 
@@ -2576,10 +2503,9 @@ UaaView._shadow_ = (`
         opacity: 0;
         pointer-events: none;
         max-height: 0;
-        margin: 0 8px 0px;
+        margin: 0 8px 0;
         color: #ccc;
         overflow: hidden;
-        /*width: 208px;*/
         text-align: center;
         word-break: break-all;
       }
@@ -2599,7 +2525,6 @@ UaaView._shadow_ = (`
         }
 
       .UaaDetails .uaaSummary {
-        /*width: 200px;*/
         height: 38px;
         margin: 4px 4px 8px;
         color: inherit;
@@ -2633,7 +2558,7 @@ UaaView._shadow_ = (`
           position: absolute;
           right: 0;
           bottom: 0;
-          pading: 2px 4px;
+          padding: 2px 4px;
           background: #000;
           color: #ccc;
           font-size: 12px;
@@ -2804,7 +2729,7 @@ class RelatedInfoMenu extends BaseViewComponent {
     this._elm.summary = shadow.querySelector('summary');
     this._elm.summary.addEventListener('click', _.debounce(() => {
       if (shadow.open) {
-        document.body.addEventListener('mouseup', this._bound._onBodyClick);
+        document.body.addEventListener('mouseup', this._bound._onBodyClick, {once: true});
         this.emit('open');
       }
     }, 100));
@@ -2829,9 +2754,9 @@ class RelatedInfoMenu extends BaseViewComponent {
     this._currentWatchId = videoInfo.watchId;
     this._currentVideoId = videoInfo.videoId;
     this.setState({
-      'isParentVideoExist': videoInfo.hasParentVideo,
-      'isCommunity': videoInfo.isCommunityVideo,
-      'isMymemory': videoInfo.isMymemory
+      isParentVideoExist: videoInfo.hasParentVideo,
+      isCommunity: videoInfo.isCommunityVideo,
+      isMymemory: videoInfo.isMymemory
     });
 
     this._ginzaLink.setAttribute('href', `//${location.host}/watch/${this._currentWatchId}`);
@@ -2907,9 +2832,6 @@ RelatedInfoMenu._shadow_ = (`
         border: 1px solid #ccc;
       }
 
-      .RelatedInfoMenuBody {
-      }
-
       .RelatedInfoMenu ul {
         list-style-type: none;
         padding-left: 32px;
@@ -2936,8 +2858,6 @@ RelatedInfoMenu._shadow_ = (`
       }
 
 
-      .RelatedInfoMenu[open] {
-      }
         .RelatedInfoMenu .originalLinkMenu,
         .RelatedInfoMenu .parentVideoMenu {
           display: none;
