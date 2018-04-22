@@ -249,12 +249,14 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
+        <!--
         <div class="enableVideoSession control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableVideoSession">
             20分を超える動画の再生安定化テストを有効にする
           </label>
         </div>
+        -->
 
         <div class="enableNicosJumpVideo control toggle">
           <label>
@@ -273,7 +275,13 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
-
+        <div class="enableNicosJumpVideo control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="useWellKnownPort"
+            data-command="toggle-useWellKnownPort">
+            DMCの通信ポートを固定 (ファイアーウォール等の都合で再生できない場合のみ推奨)
+          </label>
+        </div>
 
 
         <div class="menuScaleControl control toggle">
@@ -527,6 +535,7 @@ _.assign(SettingPanel.prototype, {
       case 'showComment':
       case 'autoFullScreen':
       case 'enableStoryboard':
+      case 'enableCommentPanel':
       case 'enableCommentPanel':
       case 'debug':
         this._$panel
