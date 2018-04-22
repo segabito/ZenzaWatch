@@ -65,11 +65,17 @@ function deploy(srcFile) {
 }
 
 
-function loadTemplateFile(srcDir, indexFile, outFile) {
+function loadTemplateFile(srcDir, indexFile, outFile, params) {
   var fs = require('fs');
   var lines = [];
   var ver = null;
   fs.readFileSync(srcDir + '/' + indexFile, 'utf-8').split('\n').some(function(line) {
+    if (params.dev) {
+      if (line.match(/^(\s*)\/\/\s*@(name|description)(.*)$/)) {
+        line = line.replace(/[\r\n]/g, '');
+        lines.push(line + '(DEV版)');
+      }
+    }
     if (line.match(/^(\s*)\/\/\s*@version(.*)$/)) {
       if (!ver) {
         ver = RegExp.$2.trim();
@@ -95,16 +101,19 @@ function loadTemplateFile(srcDir, indexFile, outFile) {
   });
 }
 
-function build() {
-  loadTemplateFile(srcDir, templateFile, outFile);
+function build(params) {
+  if (params.dev && !/-dev\.user\.js$/.test(outFile)) {
+    outFile = outFile.replace(/\.user\.js$/, '-dev.user.js');
+  }
+  loadTemplateFile(srcDir, templateFile, outFile, params);
 }
 
-function watch(srcDir) {
+function watch(srcDir, params) {
   var fs = require('fs');
   fs.watch(srcDir, {recursive: true}, function(event, filename) {
     console.log('\n\n\n', event, filename);
     try {
-      build();
+      build(params);
     } catch(e) {
       console.log(e);
     }
@@ -112,9 +121,21 @@ function watch(srcDir) {
 }
 
 function run() {
-  build();
 
-  watch(srcDir);
+  let params = {};
+  process.argv.concat().splice(-2).forEach(v => {
+    if (/^--(.+)$/.test(v)) {
+      params[RegExp.$1] = 1;
+    } else if (/^([a-z0-9]+)=(.*)$/.test(v)) {
+      params[RegExp.$1] = RegExp.$2;
+    }
+  });
+
+  console.log(params);
+  build(params);
+  if (params.watch) {
+    watch(srcDir, params);
+  }
 }
 
 run();

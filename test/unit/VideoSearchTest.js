@@ -1,5 +1,5 @@
 import assert from 'power-assert';
-import {NicoSearchApiV2Query} from '../src/loader/VideoSearch';
+import {NicoSearchApiV2Query} from '../../src/loader/VideoSearch';
 const {F_RANGE, L_RANGE} = NicoSearchApiV2Query;
 
 describe('Video Search API v2', () => {

@@ -1,8 +1,8 @@
 require('babel-core/register');
+const path = require('path');
 // require('@babel/register');
 console.log('load webpack.config.js');
-// hoge();
-// export default {
+
 module.exports = {
   entry: {
     main: './src/ZenzaWatchIndex.js'
@@ -30,4 +30,13 @@ module.exports = {
     }],
   },
   devtool: 'inline-source-map',
+  devServer: {
+    contentBase: path.resolve(__dirname, 'test/browser'),
+    headers: {
+      "Access-Control-Allow-Origin": "http://www.nicovideo.jp",
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-id, Content-Length, X-Requested-With",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS"
+    }
+  }
 };

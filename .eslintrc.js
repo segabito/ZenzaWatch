@@ -37,6 +37,7 @@ module.exports = {
     "_": true,
     "$": true,
     "describe": true,
-    "it": true
+    "it": true,
+    "beforeEach": true
   }
 };

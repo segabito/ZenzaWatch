@@ -1,8 +1,8 @@
 'use strict';
 
 import assert from 'power-assert';
-import {StoryboardSession} from '../src/loader/Storyboard';
-import {DmcStoryboardInfoLoader} from '../src/loader/Storyboard';
+import {StoryboardSession} from '../../src/loader/Storyboard';
+import {DmcStoryboardInfoLoader} from '../../src/loader/Storyboard';
 
 // const assert = require('power-assert');
 // const {StoryboardSession} = require('../src/loader/Storyboard');

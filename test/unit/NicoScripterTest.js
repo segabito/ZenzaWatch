@@ -1,7 +1,7 @@
 // var assert = require('assert');
 // var nicos = require('../src/NicoScripter.js');
 import assert from 'power-assert';
-import {NicoScriptParser} from '../src/NicoScripter';
+import {NicoScriptParser} from '../../src/NicoScripter';
 
 const nicos = NicoScriptParser;
 

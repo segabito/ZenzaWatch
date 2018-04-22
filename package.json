@@ -33,7 +33,9 @@
     "eslint-plugin-promise": "^3.7.0",
     "eslint-plugin-standard": "^3.0.1",
     "espower-babel": "^4.0.3",
+    "event-emitter": "^0.3.5",
     "gulp": "^3.9.0",
+    "gulp-concat": "^2.6.1",
     "gulp-mocha": "^2.2.0",
     "intelli-espower-loader": "^1.0.1",
     "jquery": "^3.3.1",
@@ -43,7 +45,9 @@
     "mock-local-storage": "^1.0.5",
     "power-assert": "^1.4.4",
     "sinon": "^1.17.7",
-    "webpack": "^3.11.0"
+    "webpack": "^3.11.0",
+    "webpack-cli": "^2.0.14",
+    "webpack-dev-server": "^2.11.2"
   },
   "directories": {
     "test": "test/"
@@ -68,7 +72,10 @@
   "scripts": {
     "build": "NODE_ENV=development babel src --out-dir lib --compilers js:@babel/register --source-maps",
     "watch": "NODE_ENV=development babel src --out-dir lib --compilers js:@babel/register --source-maps inline --watch",
-    "test": "NODE_ENV=test mocha --require ./test/setup.js test/**/*.js",
-    "watch:monkey": "./build.js"
+    "test": "NODE_ENV=test mocha --require ./test/setup.js test/**/unit/*.js",
+    "test:browser": "webpack-dev-server --inline",
+    "build:production": "node ./build.js",
+    "build:monkey": "node ./build.js --dev",
+    "watch:monkey": "node ./build.js --dev --watch"
   }
 }
