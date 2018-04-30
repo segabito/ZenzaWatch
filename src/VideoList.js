@@ -10,223 +10,275 @@ const MylistPocketDetector = {
 
 //===BEGIN===
 
-  var VideoListModel = function() { this.initialize.apply(this, arguments); };
-  _.extend(VideoListModel.prototype, AsyncEmitter.prototype);
-  _.assign(VideoListModel.prototype, {
-    initialize: function(params) {
-      //this._$container = params.$container;
-      this._isUniq = params.uniq;
-      this._items = [];
-      this._maxItems = params.maxItems || 100;
+class VideoListModel extends Emitter {
+  constructor(params) {
+    super();
+    this._boundSet = new WeakSet();
+    this.initialize(params);
+  }
 
-      this._boundOnItemUpdate = this._onItemUpdate.bind(this);
-    },
-    setItem: function(itemList) {
-      itemList = _.isArray(itemList) ? itemList: [itemList];
+  initialize(params) {
+    this._isUniq = params.uniq;
+    this._items = [];
+    this._maxItems = params.maxItems || 100;
 
-      this._items = itemList;
-      if (this._isUniq) {
-        this._items =
-          _.uniq(this._items, false, function(item) { return item.getWatchId(); });
-      }
+    this._boundOnItemUpdate = this._onItemUpdate.bind(this);
+  }
+  setItem(itemList) {
+    itemList = Array.isArray(itemList) ? itemList : [itemList];
 
-      this.emit('update', this._items, true);
-    },
-    clear: function() {
-      this.setItem([]);
-    },
-    insertItem: function(itemList, index) {
-      //window.console.log('insertItem', itemList, index);
-      itemList = _.isArray(itemList) ? itemList : [itemList];
-      if (itemList.length < 1) { return; }
-      index = Math.min(this._items.length, (_.isNumber(index) ? index : 0));
-
-      Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
-
-      if (this._isUniq) {
-        _.each(itemList, (i) => { this.removeSameWatchId(i); });
-      }
-
-      this._items.splice(this._maxItems);
-      this.emit('update', this._items);
-
-      return this.indexOf(itemList[0]);
-    },
-    appendItem: function(itemList) {
-      itemList = _.isArray(itemList) ? itemList: [itemList];
-      if (itemList.length < 1) { return; }
-
-      this._items = this._items.concat(itemList);
-
-      if (this._isUniq) {
-        _.each(itemList, (i) => { this.removeSameWatchId(i); });
-      }
-
-      while (this._items.length > this._maxItems) { this._items.shift(); }
-      this.emit('update', this._items);
-
-      return this._items.length - 1;
-    },
-    updateItem: function(index, videoInfo) {
-      var target = this._getItemByIndex(index);
-      if (!target) { return; }
-      target.updateByVideoInfo(videoInfo);
-    },
-    removeItemByIndex: function(index) {
-      var target = this._getItemByIndex(index);
-      if (!target) { return; }
-      this._items = _.reject(this._items, function(item) { return item === target; });
-    },
-    removePlayedItem: function() {
-      var beforeLen = this._items.length;
+    this._items = itemList;
+    if (this._isUniq) {
       this._items =
-        _.reject(this._items, function(item) { return !item.isActive() && item.isPlayed(); });
-      var afterLen = this._items.length;
-      if (beforeLen !== afterLen) {
-        this.emit('update', this._items);
-      }
-    },
-    resetPlayedItemFlag: function() {
-      _.each(this._items, function(item) {
-        if (item.isPlayed()) {
-          item.setIsPlayed(false);
-        }
-      });
-      this.onUpdate();
-    },
-    removeNonActiveItem: function() {
-      var beforeLen = this._items.length;
-      this._items = _.reject(this._items, function(item) { return !item.isActive(); });
-      var afterLen = this._items.length;
-      if (beforeLen !== afterLen) {
-        this.emit('update', this._items);
-      }
-    },
-    shuffle: function() {
-      this._items = _.shuffle(this._items);
-      this.emit('update', this._items);
-    },
-    getLength: function() {
-      return this._items.length;
-    },
-    _getItemByIndex: function(index) {
-      var item = this._items[index];
-      return item;
-    },
-    indexOf: function(item) {
-      return _.indexOf(this._items, item);
-    },
-    getItemByIndex: function(index) {
-      var item = this._getItemByIndex(index);
-      if (!item) { return null; }
-      if (!item.hasBind) {
-        item.hasBind = true;
-        item.on('update', this._boundOnItemUpdate);
-      }
-      return item;
-    },
-    findByItemId: function(itemId) {
-      itemId = parseInt(itemId, 10);
-      return _.find(this._items, (item) => {
-        if (item.getItemId() === itemId) {
-          if (!item.hasBind) {
-            item.hasBind = true;
-            item.on('update', this._boundOnItemUpdate);
-          }
-          return true;
-        }
-      });
-    },
-    findByWatchId: function(watchId) {
-      watchId = watchId + '';
-      return _.find(this._items, (item) => {
-        if (item.getWatchId() === watchId) {
-          if (!item.hasBind) {
-            item.hasBind = true;
-            item.on('update', this._boundOnItemUpdate);
-          }
-          return true;
-        }
-      });
-    },
-    findActiveItem: function() {
-      return _.find(this._items, (item) => {
-        return item.isActive();
-      });
-    },
-    removeItem: function(item) {
-      var beforeLen = this._items.length;
-      _.pull(this._items, item);
-      var afterLen = this._items.length;
-      if (beforeLen !== afterLen) {
-        //this.emit('update', this._items);
-        this.emit('item-remove', item);
-      }
-    },
-    /**
-     * パラメータで指定されたitemと同じwatchIdのitemを削除
-     */
-    removeSameWatchId: function(item) {
-      const watchId = item.getWatchId();
-      const beforeLen = this._items.length;
-      _.remove(this._items, i => {
-        return item !== i && i.getWatchId() === watchId;
-      });
-      var afterLen = this._items.length;
-      if (beforeLen !== afterLen) {
-        this.emit('update', this._items);
-      }
-    },
-    uniq: function(item) {
-      this._items.forEach((i) => {
-        if (i === item) { return; }
+        _.uniq(this._items, false, item => {
+          return item.uniqId;
+        });
+    }
+
+    this.emit('update', this._items, true);
+  }
+  clear() {
+    this.setItem([]);
+  }
+
+  insertItem(itemList, index) {
+    //window.console.log('insertItem', itemList, index);
+    itemList = Array.isArray(itemList) ? itemList : [itemList];
+    if (itemList.length < 1) {
+      return;
+    }
+    index = Math.min(this._items.length, (_.isNumber(index) ? index : 0));
+
+    Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
+
+    if (this._isUniq) {
+      itemList.forEach(i => {
         this.removeSameWatchId(i);
       });
-    },
-    _onItemUpdate: function(item, key, value) {
-      this.emit('item-update', item, key, value);
-    },
-    getTotalDuration: function() {
-      return _.reduce(this._items, function(result, item) {
-        return result + item.getDuration();
-      }, 0);
-    },
-    serialize: function() {
-      return _.reduce(this._items, function(result, item) {
-        result.push(item.serialize());
-        return result;
-      }, []);
-    },
-    unserialize: function(itemDataList) {
-      var items = [];
-      _.each(itemDataList, function(itemData) {
-        items.push(new VideoListItem(itemData));
-      });
-      this.setItem(items);
-    },
-    sortBy: function(key, isDesc) {
-      var table = {
-        watchId:  'getWatchId',
-        duration: 'getDuration',
-        title:    'getSortTitle',
-        comment:  'getCommentCount',
-        mylist:   'getMylistCount',
-        view:     'getViewCount',
-        postedAt: 'getPostedAt',
-      };
-      var func = table[key];
-      //window.console.log('sortBy', key, func, isDesc);
-      if (!func) { return; }
-      this._items = _.sortBy(this._items, function(item) { return item[func](); });
-      if (isDesc) {
-        this._items.reverse();
-      }
-      this.onUpdate();
-    },
-    onUpdate: function() {
-      this.emitAsync('update', this._items);
     }
-  });
+
+    this._items.splice(this._maxItems);
+    this.emit('update', this._items);
+
+    return this.indexOf(itemList[0]);
+  }
+
+  appendItem(itemList) {
+    itemList = Array.isArray(itemList) ? itemList : [itemList];
+    if (itemList.length < 1) {
+      return;
+    }
+
+    this._items = this._items.concat(itemList);
+
+    if (this._isUniq) {
+      itemList.forEach(i => {
+        this.removeSameWatchId(i);
+      });
+    }
+
+    while (this._items.length > this._maxItems) {
+      this._items.shift();
+    }
+    this.emit('update', this._items);
+
+    return this._items.length - 1;
+  }
+
+  removeItemByIndex(index) {
+    const item = this._getItemByIndex(index);
+    if (!item) {
+      return;
+    }
+    this._items = this._items.filter(i => {
+      return i !== item;
+    });
+  }
+
+  removePlayedItem() {
+    const beforeLen = this._items.length;
+    this._items = this._items.filter(item => {
+      return item.isActive || !item.isPlayed;
+    });
+    const afterLen = this._items.length;
+    if (beforeLen !== afterLen) {
+      this.emit('update', this._items);
+    }
+  }
+
+  resetPlayedItemFlag() {
+    this._items.forEach(item => {
+      if (item.isPlayed) {
+        item.isPlayed = false;
+      }
+    });
+    this.onUpdate();
+  }
+
+  removeNonActiveItem() {
+    const beforeLen = this._items.length;
+    this._items = this._items.filter(item => {
+      return item.isActive;
+    });
+    const afterLen = this._items.length;
+    if (beforeLen !== afterLen) {
+      this.emit('update', this._items);
+    }
+  }
+
+  shuffle() {
+    this._items = _.shuffle(this._items);
+    this.emit('update', this._items);
+  }
+
+  getLength() {
+    return this._items.length;
+  }
+
+  _getItemByIndex(index) {
+    return this._items[index];
+  }
+
+  indexOf(item) {
+    if (!item || !item.itemId) { return -1; }
+    return this._items.findIndex(i => i.itemId === item.itemId);
+  }
+
+  getItemByIndex(index) {
+    const item = this._getItemByIndex(index);
+    if (!item) {
+      return null;
+    }
+    if (!this._boundSet.has(item)) {
+      this._boundSet.add(item);
+      item.on('update', this._boundOnItemUpdate);
+    }
+    return item;
+  }
+
+  findByItemId(itemId) {
+    itemId = parseInt(itemId, 10);
+    const item = this._items.find(item => {
+      return item.itemId === itemId;
+    });
+    if (item && !this._boundSet.has(item)) {
+      this._boundSet.add(item);
+      item.on('update', this._boundOnItemUpdate);
+    }
+    return item;
+  }
+
+  findByWatchId(watchId) {
+    watchId = watchId + '';
+    const item = this._items.find(item => {
+      return item.watchId === watchId;
+    });
+    if (item && !this._boundSet.has(item)) {
+      this._boundSet.add(item);
+      item.on('update', this._boundOnItemUpdate);
+    }
+    return item;
+  }
+
+  findActiveItem() {
+    const item = this._items.find(item => {
+      return item.isActive;
+    });
+    if (item && !this._boundSet.has(item)) {
+      this._boundSet.add(item);
+      item.on('update', this._boundOnItemUpdate);
+    }
+    return item;
+  }
+
+  removeItem(item) {
+    const beforeLen = this._items.length;
+    _.pull(this._items, item);
+    item.off('update', this._boundOnItemUpdate);
+    this._boundSet.delete(item);
+    const afterLen = this._items.length;
+    if (beforeLen !== afterLen) {
+      this.emit('item-remove', item);
+    }
+  }
+
+  /**
+   * パラメータで指定されたitemと同じwatchIdのitemを削除
+   */
+  removeSameWatchId(item) {
+    const watchId = item.watchId;
+    const uniqId = item.uniqId;
+    const beforeLen = this._items.length;
+    _.remove(this._items, i => {
+      return item !== i && (i.watchId === watchId || i.uniqId === uniqId);
+    });
+    const afterLen = this._items.length;
+    if (beforeLen !== afterLen) {
+      this.emit('update', this._items);
+    }
+  }
+
+  uniq(item) {
+    this._items.forEach((i) => {
+      if (i === item) {
+        return;
+      }
+      this.removeSameWatchId(i);
+    });
+  }
+
+  _onItemUpdate(item, key, value) {
+    this.emit('item-update', item, key, value);
+  }
+
+  serialize() {
+    return this._items.reduce((result, item) => {
+      result.push(item.serialize());
+      return result;
+    }, []);
+  }
+
+  unserialize(itemDataList) {
+    const items = [];
+    itemDataList.forEach(itemData => {
+      items.push(new VideoListItem(itemData));
+    });
+    this.setItem(items);
+  }
+
+  sortBy(key, isDesc) {
+    const table = {
+      watchId: 'watchId',
+      duration: 'getDuration',
+      title: 'getSortTitle',
+      comment: 'getCommentCount',
+      mylist: 'getMylistCount',
+      view: 'getViewCount',
+      postedAt: 'getPostedAt',
+    };
+    const func = table[key];
+    if (!func) {
+      return;
+    }
+    this._items = _.sortBy(this._items, item => {
+      return typeof item[func] === 'function' ? item[func](): item[func];
+    });
+    if (isDesc) {
+      this._items.reverse();
+    }
+    this.onUpdate();
+  }
+
+  onUpdate() {
+    this.emitAsync('update', this._items);
+  }
+
+  get totalDuration() {
+    return this._items.reduce((result, item) => {
+      return result + item.getDuration();
+    }, 0);
+  }
+}
 
 // なんか汎用性を持たせようとして失敗してる奴
 const VideoListItemView = (() => {
@@ -241,70 +293,25 @@ const VideoListItemView = (() => {
         box-sizing: border-box;
       }
 
-      body {
-        background: #333;
-        overflow-x: hidden;
-        counter-reset: video;
-      }
-
-      #listContainer::-webkit-scrollbar {
-        background: #222;
-      }
-
-      #listContainer::-webkit-scrollbar-thumb {
-        border-radius: 0;
-        background: #666;
-      }
-
-      #listContainer::-webkit-scrollbar-button {
-        background: #666;
-        display: none;
-      }
-
-      .scrollToTop {
-        position: fixed;
-        width: 32px;
-        height: 32px;
-        right: 32px;
-        bottom: 8px;
-        font-size: 24px;
-        line-height: 32px;
-        text-align: center;
-        z-index: 100;
-        background: #ccc;
-        color: #000;
-        border-radius: 100%;
-        cursor: pointer;
-        opacity: 0.3;
-        transition: opacity 0.4s ease;
-      }
-
-      .scrollToTop:hover {
-        opacity: 0.9;
-        box-shadow: 0 0 8px #fff;
-      }
-
       .videoItem {
         position: relative;
-        display: inline-block;
+        display: list-item;
         width: 100%;
         height: ${ITEM_HEIGHT}px;
         overflow: hidden;
         transition:
-          transform 0.4s ease, box-shadow 0.4s ease,
-          margin-left 0.4s ease, margin-top 0.4s ease;
-        -webkit-backface-visibility: hidden;
-        -webkit-font-smoothing: antialiased;
+          transform 0.4s ease, box-shadow 0.4s ease;
+        /* なんか重たいなと思ったらこいつが原因だったので保留 */
+        /*backface-visibility: hidden;*/
       }
 
       .playlist .videoItem {
         cursor: move;
       }
 
-
       .playlist .videoItem::before {
-          content: counter(video);
-          counter-increment: video;
+          content: counter(itemIndex);
+          counter-increment: itemIndex;
           position: absolute;
           right: 8px;
           top: 80%;
@@ -330,64 +337,67 @@ const VideoListItemView = (() => {
         background: #666;
         opacity: 0.8;
         transition:
-          box-shadow 0.4s ease,
-          margin-left 0.4s ease, margin-top 0.4s ease;
+          box-shadow 0.4s ease;
         z-index: 10000;
       }
 
-      body.dragging * {
+      .dragging * {
         cursor: move;
       }
 
-      body.dragging .videoItem.dragover {
+      .dragging .videoItem.dragover {
         outline: 5px dashed #99f;
       }
 
-      body.dragging .videoItem.dragover * {
+      .dragging .videoItem.dragover * {
         opacity: 0.3;
       }
-
-      body:not(.is-pocketReady) .pocket-info {
-        display: none !important;
-      }
-
 
       .videoItem + .videoItem {
         border-top: 1px dotted #888;
         margin-top: 4px;
         outline-offset: -8px;
       }
-
-      .separator + .videoItem {
-        border-top: 1px dotted #333;
+      
+      .videoItem.is-ng-rejected {
+        display: none;
+      }
+      .videoItem.is-fav-favorited .postedAt::after {
+        content: ' ★';
+        color: #fea;
+        text-shadow: 2px 2px 2px #000;
       }
 
-      .videoItem .thumbnailContainer {
+      .thumbnailContainer {
         position: absolute;
-        top: 0;
-        left: 0;
+        top: 4px;
+        left: 4px;
         width:  ${THUMBNAIL_WIDTH}px;
         height: ${THUMBNAIL_HEIGHT}px;
-        margin: 4px 4px 0;
+        margin: 0;
+        background-color: black;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
       }
-
-      .videoItem .thumbnailContainer .thumbnail {
-        transition: box-shaow 0.4s ease, outline 0.4s ease, transform 0.4s ease;
+      
+      .thumbnailContainer a {
+        display: inline-block;
         width:  ${THUMBNAIL_WIDTH}px;
         height: ${THUMBNAIL_HEIGHT}px;
+        transition: box-shaow 0.4s ease, transform 0.4s ease;
       }
 
-      .videoItem .thumbnailContainer .thumbnail:active {
+      .thumbnailContainer a:active {
         box-shadow: 0 0 8px #f99;
-        transform: translate(0, 4px);
+        transform: translate(0, 2px);
         transition: none;
       }
 
-
-      .videoItem .thumbnailContainer .playlistAdd,
-      .videoItem .playlistRemove,
-      .videoItem .thumbnailContainer .deflistAdd,
-      .videoItem .thumbnailContainer .pocket-info {
+      .thumbnailContainer .playlistAppend,
+      .playlistRemove,
+      .thumbnailContainer .deflistAdd,
+      .thumbnailContainer .pocket-info {
         position: absolute;
         display: none;
         color: #fff;
@@ -403,26 +413,31 @@ const VideoListItemView = (() => {
         color: #fff;
         cursor: pointer;
       }
-      .videoItem .thumbnailContainer .playlistAdd {
+      .thumbnailContainer .playlistAppend {
         left: 0;
         bottom: 0;
       }
-      .videoItem .playlistRemove {
+      .playlistRemove {
         right: 8px;
         top: 0;
       }
-      .videoItem .thumbnailContainer .deflistAdd {
+      .thumbnailContainer .deflistAdd {
         right: 0;
         bottom: 0;
       }
-      .videoItem .thumbnailContainer .pocket-info {
+      .thumbnailContainer .pocket-info {
+        display: none !important;
         right: 24px;
         bottom: 0;
       }
-      .playlist .videoItem .playlistAdd {
+      .is-pocketReady .videoItem:hover .pocket-info {
+        display: inline-block !important;
+      }
+
+      .playlist .playlistAppend {
         display: none !important;
       }
-      .videoItem .playlistRemove {
+      .playlistRemove {
         display: none;
       }
       .playlist .videoItem:not(.is-active):hover .playlistRemove {
@@ -431,7 +446,7 @@ const VideoListItemView = (() => {
 
 
       .playlist .videoItem:not(.is-active):hover .playlistRemove,
-      .videoItem:hover .thumbnailContainer .playlistAdd,
+      .videoItem:hover .thumbnailContainer .playlistAppend,
       .videoItem:hover .thumbnailContainer .deflistAdd,
       .videoItem:hover .thumbnailContainer .pocket-info {
         display: inline-block;
@@ -439,7 +454,7 @@ const VideoListItemView = (() => {
       }
 
       .playlist .videoItem:not(.is-active):hover .playlistRemove:hover,
-      .videoItem:hover .thumbnailContainer .playlistAdd:hover,
+      .videoItem:hover .thumbnailContainer .playlistAppend:hover,
       .videoItem:hover .thumbnailContainer .deflistAdd:hover,
       .videoItem:hover .thumbnailContainer .pocket-info:hover {
         transform: scale(1.5);
@@ -447,7 +462,7 @@ const VideoListItemView = (() => {
       }
 
       .playlist .videoItem:not(.is-active):hover .playlistRemove:active,
-      .videoItem:hover .thumbnailContainer .playlistAdd:active,
+      .videoItem:hover .thumbnailContainer .playlistAppend:active,
       .videoItem:hover .thumbnailContainer .deflistAdd:active,
       .videoItem:hover .thumbnailContainer .pocket-info:active {
         transform: scale(1.3);
@@ -461,11 +476,11 @@ const VideoListItemView = (() => {
         pointer-events: none;
       }
 
-      .videoItem .thumbnailContainer .duration {
+      .thumbnailContainer .duration {
         position: absolute;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
+        background: #000;
         font-size: 12px;
         color: #fff;
       }
@@ -473,89 +488,69 @@ const VideoListItemView = (() => {
         display: none;
       }
 
-      .videoItem .videoInfo {
+      .videoInfo {
         posigion: absolute;
         top: 0;
         margin-left: 104px;
         height: 100%;
       }
 
-      .videoItem .postedAt {
+      .postedAt {
         font-size: 12px;
         color: #ccc;
       }
-      .videoItem.is-played .postedAt::after {
+      .is-played .postedAt::after {
         content: ' ●';
         font-size: 10px;
       }
 
-      .videoItem .counter {
+      .counter {
         position: absolute;
         top: 80px;
         width: 100%;
         text-align: center;
       }
 
-      .videoItem .title {
+      .title {
         height: 52px;
         overflow: hidden;
       }
 
-      .videoItem .videoLink {
+      .videoLink {
         font-size: 14px;
         color: #ff9;
         transition: background 0.4s ease, color 0.4s ease;
       }
-      .videoItem .videoLink:visited {
+      .videoLink:visited {
         color: #ffd;
       }
-
-      .videoItem .videoLink:active {
+      .videoLink:active {
         color: #fff;
         background: #663;
         transition: none;
       }
 
 
-      .videoItem.noVideoCounter .counter {
+      .noVideoCounter .counter {
         display: none;
       }
-      .videoItem .counter {
+      .counter {
         font-size: 12px;
         color: #ccc;
       }
-      .videoItem .counter .value {
+      .counter .value {
         font-weight: bolder;
       }
-      .videoItem .counter .count {
+      .counter .count {
         white-space: nowrap;
       }
-      .videoItem .counter .count + .count {
+      .counter .count + .count {
         margin-left: 8px;
       }
 
       .videoItem.is-active {
-        /*outline: dashed 2px #ff8;
-        outline-offset: 4px;*/
         border: none !important;
         background: #776;
-      }
-
-      @keyframes dropbox {
-          0% {  }
-          5% {  opacity: 0.8; }
-         99% { box-shadow: 8px 8px 8px #000;
-               transform: translate(0, 500px); opacity: 0.5; }
-        100% { opacity: 0; }
-      }
-
-      .videoItem.deleting {
-        pointer-events: none;
-        animation-name: dropbox;
-        animation-iteration-count: 1;
-        animation-timing-function: ease-in;
-        animation-duration: 0.5s;
-        animation-fill-mode: forwards;
       }
 
       @media screen and (min-width: 600px)
@@ -579,12 +574,11 @@ const VideoListItemView = (() => {
         <span class="command playlistRemove" data-command="playlistRemove" title="プレイリストから削除">×</span>
         <div class="thumbnailContainer">
           <a class="command" data-command="select">
-            <img class="thumbnail" decoding="async">
             <span class="duration"></span>
-            <zenza-playlist-append class="command playlistAdd" data-command="playlistAdd" title="プレイリストに追加">▶</zenza-playlist-append>
-            <span class="command deflistAdd"  data-command="deflistAdd"  title="とりあえずマイリスト">&#x271A;</span>
-            <span class="command pocket-info" data-command="pocket-info"  title="動画情報">？</span>
           </a>
+          <span class="command playlistAppend" data-command="playlistAppend" title="プレイリストに追加">▶</span>
+          <span class="command deflistAdd"  data-command="deflistAdd"  title="とりあえずマイリスト">&#x271A;</span>
+          <span class="command pocket-info" data-command="pocket-info"  title="動画情報">？</span>
         </div>
         <div class="videoInfo">
           <div class="postedAt"></div>
@@ -603,10 +597,11 @@ const VideoListItemView = (() => {
   let counter = 0;
   let template;
 
+  class VideoListItemView {
     static get template() {
       if (!template) {
         const t = document.createElement('template');
-        t.id = 'VideoListItemView-template' + Date.now();
+        t.id = `VideoListItemView-template${Date.now()}`;
         t.innerHTML = TPL;
         document.body.appendChild(t);
         const tc = t.content;
@@ -617,14 +612,14 @@ const VideoListItemView = (() => {
           },
           videoItem: tc.querySelector('.videoItem'),
           duration: tc.querySelector('.duration'),
-          thumbnail: tc.querySelector('.thumbnail'),
+          thumbnail: tc.querySelector('.thumbnailContainer'),
           thumbnailLink: tc.querySelector('.thumbnailContainer>a'),
           videoLink: tc.querySelector('.videoLink'),
           postedAt: tc.querySelector('.postedAt'),
           viewCount: tc.querySelector('.viewCount'),
           commentCount: tc.querySelector('.commentCount'),
           mylistCount: tc.querySelector('.mylistCount'),
-          playlistAdd: tc.querySelector('.playlistAdd'),
+          playlistAppend: tc.querySelector('.playlistAppend'),
           playlistRemove: tc.querySelector('.playlistRemove'),
           deflistAdd: tc.querySelector('.deflistAdd'),
           pocketInfo: tc.querySelector('.pocket-info')
@@ -633,41 +628,40 @@ const VideoListItemView = (() => {
       return template;
     }
 
-    constructor(params) {
-      //super();
-      this.initialize(params);
+    constructor(item) {
+      this.initialize(item);
     }
 
-    initialize(params) {
-      this.watchId = params.watchId;
-      this._item = params.item;
-      this._isLazy = typeof params.enableLazyLoadImage === 'boolean' ?
-        params.enableLazyLoadImage : false;
+    initialize(item) {
+      this._item = item.item;
+      this._isLazy = typeof item.enableLazyLoadImage === 'boolean' ?
+        item.enableLazyLoadImage : false;
       this._id = counter++;
     }
 
     build() {
       const template = this.constructor.template;
-      const {videoItem, duration, thumbnail, thumbnailLink, videoLink, postedAt, viewCount, commentCount, mylistCount, playlistAdd, playlistRemove, deflistAdd, pocketInfo} = template;
+      const {videoItem, duration, thumbnail, thumbnailLink, videoLink, postedAt, viewCount, commentCount, mylistCount, playlistAppend, playlistRemove, deflistAdd, pocketInfo} = template;
       const item = this._item;
-      const title = item.getTitle();
-      const count = item.getCount();
-      const itemId = item.getItemId();
-      const watchId = item.getWatchId();
+      const title = item.title;
+      const count = item.count;
+      const itemId = item.itemId;
+      const watchId = item.watchId;
       const watchUrl = `//www.nicovideo.jp/watch/${watchId}`;
 
-      videoItem.className = `videoItem watch${watchId} item${itemId} ${item.isActive() ? 'is-active' : ''} ${item.isUpdating() ? 'is-updating' : ''} ${item.isPlayed() ? 'is-played' : ''}`;
+      videoItem.className = `videoItem watch${watchId} item${itemId} ${item.isActive ? 'is-active' : ''} ${item.isUpdating ? 'is-updating' : ''} ${item.isPlayed ? 'is-played' : ''}`;
       videoItem.setAttribute('data-item-id', itemId);
       videoItem.setAttribute('data-watch-id', watchId);
 
       thumbnail.classList.toggle('lazy-load', this._isLazy);
       thumbnail.setAttribute('data-watch-id', watchId);
       if (this._isLazy) {
-        thumbnail.setAttribute('src', CONSTANT.BLANK_PNG);
+        thumbnail.style.backgroundColor = '#666';
+        thumbnail.style.backgroundImage = 'none';
       } else {
-        thumbnail.setAttribute('src', item.getThumbnail());
+        thumbnail.style.backgroundImage = `url(${item.thumbnail})`;
       }
-      thumbnail.setAttribute('data-src', item.getThumbnail());
+      thumbnail.setAttribute('data-src', item.thumbnail);
 
 
       thumbnailLink.setAttribute('href', watchUrl);
@@ -684,7 +678,7 @@ const VideoListItemView = (() => {
       commentCount.textContent = this._addComma(count.comment);
       mylistCount.textContent = this._addComma(count.mylist);
 
-      playlistAdd.setAttribute('data-param', watchId);
+      playlistAppend.setAttribute('data-param', watchId);
       playlistRemove.setAttribute('data-param', watchId);
       deflistAdd.setAttribute('data-param', watchId);
       pocketInfo.setAttribute('data-param', watchId);
@@ -760,10 +754,12 @@ const VideoListItemView = (() => {
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
  */
-let VideoListView = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(VideoListView.prototype, AsyncEmitter.prototype);
+class VideoListView extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 VideoListView.__css__ = '';
 
 VideoListView.__tpl__ = (`
@@ -773,24 +769,26 @@ VideoListView.__tpl__ = (`
 <meta charset="utf-8">
 <title>VideoList</title>
 <style type="text/css">
+
+  ${CONSTANT.SCROLLBAR_CSS}
+
   body {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    min-height: 100%;
-    transition: 0.2s opacity;
+    user-select: none;
+    background: #333;
+    overflow: hidden;
   }
 
-  body.is-updating {
+  .drag-over>* {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  
+  .is-updating #listContainer {
     pointer-events: none;
     opacity: 0.5;
     transition: none;
   }
-
-  body.drag-over>* {
-    opacity: 0.5;
-    pointer-events: none;
-  }
-
+  
   #listContainer {
     position: absolute;
     top: 0;
@@ -801,8 +799,37 @@ VideoListView.__tpl__ = (`
     height: 100vh;
     overflow-x: hidden;
     overflow-y: auto;
+    transition: 0.2s opacity;
+    counter-reset: itemIndex;
+  }
+  
+  .is-scrolling #listContainerInner {
+    pointer-events: none;
+    animation-play-state: paused !important;
   }
 
+  .scrollToTop {
+    position: fixed;
+    width: 32px;
+    height: 32px;
+    right: 32px;
+    bottom: 8px;
+    font-size: 24px;
+    line-height: 32px;
+    text-align: center;
+    z-index: 100;
+    background: #ccc;
+    color: #000;
+    border-radius: 100%;
+    cursor: pointer;
+    opacity: 0.3;
+    transition: opacity 0.4s ease;
+  }
+
+  .scrollToTop:hover {
+    opacity: 0.9;
+    box-shadow: 0 0 8px #fff;
+  }
 
 </style>
 <style id="listItemStyle">%CSS%</style>
@@ -816,7 +843,6 @@ VideoListView.__tpl__ = (`
 
   `).trim();
 
-_.extend(VideoListView.prototype, AsyncEmitter.prototype);
 _.assign(VideoListView.prototype, {
   initialize: function (params) {
     this._ItemView = params.itemView || VideoListItemView;
@@ -839,8 +865,6 @@ _.assign(VideoListView.prototype, {
     }
 
     this._enableLazyLoadImage = window.IntersectionObserver ? true : false;
-    this._hasLazyLoad = {};
-
 
     this._initializeView(params);
   },
@@ -861,30 +885,36 @@ _.assign(VideoListView.prototype, {
     }
 
     this._$container = $body.find('#listContainer');
+    const container = this._$container[0];
     const list = this._list = doc.getElementById('listContainerInner');
     if (this._documentFragment instanceof Node) {
       list.appendChild(this._documentFragment);
       this._setInviewObserver();
       this._documentFragment = null;
     }
-    $body.on('click', this._onClick.bind(this));
-    $body.on('dblclick', this._onDblclick.bind(this));
-    $body.on('keydown', e => {
-      ZenzaWatch.emitter.emit('keydown', e);
-    });
-    $body.on('keyup', e => {
-      ZenzaWatch.emitter.emit('keyup', e);
-    });
-    $body.on('mouseover', e => {
-      this._isActive = true;
-    });
-    $body.on('mouseout', e => {
-      this._isActive = false;
-    });
+    doc.body.addEventListener('click', this._onClick.bind(this));
+    doc.body.addEventListener('dblclick', this._onDblclick.bind(this));
+    doc.body.addEventListener('keydown', e => ZenzaWatch.emitter.emit('keydown', e));
+    doc.body.addEventListener('keyup', e => ZenzaWatch.emitter.emit('keyup', e));
+    w.addEventListener('focus', () => this._isActive = true);
+    w.addEventListener('blur', () => this._isActive = false);
 
     if (this._dragdrop) {
-      $body.on('mousedown', this._onBodyMouseDown.bind(this));
+      doc.body.addEventListener('mousedown', this._onBodyMouseDown.bind(this), {passive: true});
     }
+
+    const onScroll = () => {
+     if (!container.classList.contains('is-scrolling')) {
+       container.classList.add('is-scrolling');
+     }
+     onScrollEnd();
+    };
+    const onScrollEnd = _.debounce(() => {
+     if (container.classList.contains('is-scrolling')) {
+       container.classList.remove('is-scrolling');
+     }
+    }, 500);
+    container.addEventListener('scroll', onScroll, {passive: true});
 
     if (this._dropfile) {
       $body
@@ -1023,7 +1053,7 @@ _.assign(VideoListView.prototype, {
     }
 
     let fileReader = new FileReader();
-    fileReader.onload = (ev) => {
+    fileReader.onload = ev => {
       window.console.log('file data: ', ev.target.result);
       this.emit('filedrop', ev.target.result, file.name);
     };
@@ -1037,7 +1067,7 @@ _.assign(VideoListView.prototype, {
     itemList = Array.isArray(itemList) ? itemList : [itemList];
     const itemViews = [];
 
-    itemList.forEach((item) => {
+    itemList.forEach(item => {
       let id = item.getItemId();
       if (this._itemViewCache.has(id)) {
         itemViews.push(this._itemViewCache.get(item));
@@ -1091,34 +1121,28 @@ _.assign(VideoListView.prototype, {
     if (this._intersectionObserver) {
       this._intersectionObserver.disconnect();
     }
-    let onInview;
-    if (!this._onImageInview_bind) {
-      this._onImageInview_bind = this._onImageInview.bind(this);
-    }
-    onInview = this._onImageInview_bind;
+    let images = [...this._document.querySelectorAll('.lazy-load')];
+    if (!images.length) { return; }
+    let onInview = this._onImageInview_bind || this._onImageInview.bind(this);
     let observer = this._intersectionObserver = new window.IntersectionObserver(onInview);
-    let images = this._document.querySelectorAll('img.lazy-load');
-    for (let i = 0, len = images.length; i < len; i++) {
-      observer.observe(images[i]);
-    }
+    images.forEach(img => observer.observe(img));
   },
   _onImageInview: function (entries) {
     const observer = this._intersectionObserver;
-    for (let i = 0, len = entries.length; i < len; i++) {
-      const entry = entries[i];
-      const image = entry.target;
-      const src = image.getAttribute('data-src');
-      image.classList.remove('lazy-load');
-      observer.unobserve(image);
+    entries.forEach(entry => {
+      const thumbnail = entry.target;
+      const src = thumbnail.getAttribute('data-src');
+      thumbnail.classList.remove('lazy-load');
+      observer.unobserve(thumbnail);
 
       if (!src) {
-        continue;
+        return;
       }
-      image.setAttribute('src', src);
-    }
+      thumbnail.style.backgroundImage = `url(${src})`;
+      thumbnail.style.backgroundColor = 'transparent';
+    });
   },
   _onModelItemUpdate: function (item, key, value) {
-    //window.console.log('_onModelItemUpdate', item, item.getItemId(), item.getTitle(), key, value);
     if (!this._$body) {
       return;
     }
@@ -1138,9 +1162,9 @@ _.assign(VideoListView.prototype, {
       return;
     }
 
-    if (['active', 'updating', 'played'].includes(key) === 'active') {
+    if (['active', 'updating', 'played'].includes(key)) {
       itemView.toggleClass(`is-${key}`, value);
-      if (key === 'active' && value) {
+      if (key === 'active' && value && !this._isActive) {
         this.scrollToItem(itemId);
       }
     } else {
@@ -1152,7 +1176,7 @@ _.assign(VideoListView.prototype, {
     ZenzaWatch.emitter.emitAsync('hideHover');
     let $target = $(e.target).closest('.command');
     let $item = $(e.target).closest('.videoItem');
-    if ($target.length > 0) {
+    if ($target.length) {
       e.stopPropagation();
       e.preventDefault();
       let command = $target.attr('data-command');
@@ -1162,8 +1186,8 @@ _.assign(VideoListView.prototype, {
         case 'deflistAdd':
           this.emit('deflistAdd', param, itemId);
           break;
-        case 'playlistAdd':
-          this.emit('playlistAdd', param, itemId);
+        case 'playlistAppend':
+          this.emit('playlistAppend', param, itemId);
           break;
         case 'pocket-info':
           window.setTimeout(() => {
@@ -1208,9 +1232,9 @@ _.assign(VideoListView.prototype, {
       return 0;
     }
     if (typeof v === 'number') {
-      this._$container.scrollTop(v);
+      this._$container[0].scrollTop = v;
     } else {
-      return this._$container.scrollTop();
+      return this._$container[0].scrollTop;
     }
   },
   scrollToItem: function (itemId) {
@@ -1220,218 +1244,248 @@ _.assign(VideoListView.prototype, {
     if (_.isFunction(itemId.getItemId)) {
       itemId = itemId.getItemId();
     }
-    let $target = this._$body.find('.item' + itemId);
-    if ($target.length < 1) {
+    let $target = this._$body.find(`.item${itemId}`);
+    if (!$target.length) {
       return;
     }
-    let top = Math.max(0, $target.offset().top - 8 + this.scrollTop());
-    this.scrollTop(top);
+    $target[0].scrollIntoView({block: 'start', behavior: 'instant'});
   }
 });
 
 
-var VideoListItem = function () {
-  this.initialize.apply(this, arguments);
-};
-VideoListItem._itemId = 0;
-VideoListItem.createByThumbInfo = function (info) {
-  return new VideoListItem({
-    _format: 'thumbInfo',
-    id: info.id,
-    title: info.title,
-    length_seconds: info.duration,
-    num_res: info.commentCount,
-    mylist_counter: info.mylistCount,
-    view_counter: info.viewCount,
-    thumbnail_url: info.thumbnail,
-    first_retrieve: info.postedAt,
+class VideoListItem extends Emitter {
+  static createByThumbInfo(info) {
+    return new this({
+      _format: 'thumbInfo',
+      id: info.id,
+      title: info.title,
+      length_seconds: info.duration,
+      num_res: info.commentCount,
+      mylist_counter: info.mylistCount,
+      view_counter: info.viewCount,
+      thumbnail_url: info.thumbnail,
+      first_retrieve: info.postedAt,
 
-    tags: info.tagList,
-    movieType: info.movieType,
-    owner: info.owner,
-    lastResBody: info.lastResBody
-  });
-};
-
-VideoListItem.createBlankInfo = function (id) {
-  var postedAt = '0000/00/00 00:00:00';
-  if (!isNaN(id)) {
-    postedAt = util.dateToString(new Date(id * 1000));
-  }
-  return new VideoListItem({
-    _format: 'blank',
-    id: id,
-    title: id + '(動画情報不明)',
-    length_seconds: 0,
-    num_res: 0,
-    mylist_counter: 0,
-    view_counter: 0,
-    thumbnail_url: '//uni.res.nimg.jp/img/user/thumb/blank_s.jpg',
-    first_retrieve: postedAt,
-  });
-};
-
-VideoListItem.createByMylistItem = function (item) {
-  if (item.item_data) {
-    var item_data = item.item_data || {};
-    return new VideoListItem({
-      _format: 'mylistItemOldApi',
-      id: item_data.watch_id,
-      title: item_data.title,
-      length_seconds: item_data.length_seconds,
-      num_res: item_data.num_res,
-      mylist_counter: item_data.mylist_counter,
-      view_counter: item_data.view_counter,
-      thumbnail_url: item_data.thumbnail_url,
-      first_retrieve: util.dateToString(new Date(item_data.first_retrieve * 1000)),
-
-      videoId: item_data.video_id,
-      lastResBody: item_data.last_res_body,
-      mylistItemId: item.item_id,
-      item_type: item.item_type
+      tags: info.tagList,
+      movieType: info.movieType,
+      owner: info.owner,
+      lastResBody: info.lastResBody
     });
   }
 
-  // APIレスポンスの統一されてなさよ・・・
-  if (!item.length_seconds && _.isString(item.length)) {
-    var tmp = item.length.split(':');
-    item.length_seconds = tmp[0] * 60 + tmp[1] * 1;
+  static createBlankInfo(id) {
+    let postedAt = '0000/00/00 00:00:00';
+    if (!isNaN(id)) {
+      postedAt = util.dateToString(new Date(id * 1000));
+    }
+    return new this({
+      _format: 'blank',
+      id: id,
+      title: id + '(動画情報不明)',
+      length_seconds: 0,
+      num_res: 0,
+      mylist_counter: 0,
+      view_counter: 0,
+      thumbnail_url: '//uni.res.nimg.jp/img/user/thumb/blank_s.jpg',
+      first_retrieve: postedAt,
+    });
   }
-  return new VideoListItem({
-    _format: 'mylistItemRiapi',
-    id: item.id,
-    title: item.title,
-    length_seconds: item.length_seconds,
-    num_res: item.num_res,
-    mylist_counter: item.mylist_counter,
-    view_counter: item.view_counter,
-    thumbnail_url: item.thumbnail_url,
-    first_retrieve: item.first_retrieve,
 
-    lastResBody: item.last_res_body,
-  });
-};
+  static createByMylistItem(item) {
+    if (item.item_data) {
+      const item_data = item.item_data || {};
+      return new VideoListItem({
+        _format: 'mylistItemOldApi',
+        id: item_data.watch_id,
+        uniq_id: item_data.watch_id,
+        title: item_data.title,
+        length_seconds: item_data.length_seconds,
+        num_res: item_data.num_res,
+        mylist_counter: item_data.mylist_counter,
+        view_counter: item_data.view_counter,
+        thumbnail_url: item_data.thumbnail_url,
+        first_retrieve: util.dateToString(new Date(item_data.first_retrieve * 1000)),
 
-VideoListItem.createByVideoInfoModel = function (info) {
-  var count = info.count;
+        videoId: item_data.video_id,
+        lastResBody: item_data.last_res_body,
+        mylistItemId: item.item_id,
+        item_type: item.item_type
+      });
+    }
 
-  return new VideoListItem({
-    _format: 'thumbInfo',
-    id: info.watchId,
-    title: info.title,
-    length_seconds: info.duration,
-    num_res: count.comment,
-    mylist_counter: count.mylist,
-    view_counter: count.view,
-    thumbnail_url: info.thumbnail,
-    first_retrieve: info.postedAt,
+    // APIレスポンスの統一されてなさよ・・・
+    if (!item.length_seconds && typeof item.length === 'string') {
+      const [min, sec] = item.length.split(':');
+      item.length_seconds = min * 60 + sec * 1;
+    }
+    return new VideoListItem({
+      _format: 'mylistItemRiapi',
+      id: item.id,
+      uniq_id: item.id,
+      title: item.title,
+      length_seconds: item.length_seconds,
+      num_res: item.num_res,
+      mylist_counter: item.mylist_counter,
+      view_counter: item.view_counter,
+      thumbnail_url: item.thumbnail_url,
+      first_retrieve: item.first_retrieve,
+      lastResBody: item.last_res_body
+    });
+  }
 
-    owner: info.ownerInfo
-  });
-};
+  static createByVideoInfoModel(info) {
+    const count = info.count;
+    return new VideoListItem({
+      _format: 'thumbInfo',
+      id: info.watchId,
+      uniq_id: info.contextWatchId,
+      title: info.title,
+      length_seconds: info.duration,
+      num_res: count.comment,
+      mylist_counter: count.mylist,
+      view_counter: count.view,
+      thumbnail_url: info.thumbnail,
+      first_retrieve: info.postedAt,
+      owner: info.owner
+    });
+  }
 
-
-_.extend(VideoListItem.prototype, AsyncEmitter.prototype);
-_.assign(VideoListItem.prototype, {
-  initialize: function (rawData) {
+  constructor(rawData) {
+    super();
     this._rawData = rawData;
     this._itemId = VideoListItem._itemId++;
     this._isActive = false;
+    this._lastActivated = rawData.last_activated || 0;
     this._isUpdating = false;
     this._isPlayed = !!rawData.played;
+    this._uniq_id = rawData.uniqId || this.watchId;
     rawData.first_retrieve = util.dateToString(rawData.first_retrieve);
 
     this._sortTitle = this.getTitle()
-      .replace(/([0-9]{1,9})/g, (m) => {
-        return '0'.repeat(10 - m.length) + m;
-      })
-      .replace(/([０-９]{1,9})/g, (m) => {
-        return '０'.repeat(10 - m.length) + m;
-      });
-  },
-  _getData: function (key, defValue) {
-    return this._rawData.hasOwnProperty(key) ?
-      this._rawData[key] : defValue;
-  },
-  getItemId: function () {
+      .replace(/([0-9]{1,9})/g, m =>  m.padStart(10, '0'))
+      .replace(/([０-９]{1,9})/g, m => m.padStart(10, '０'));
+  }
+
+  get uniqId() {
+    return this._uniq_id;
+  }
+
+  get itemId() {
     return this._itemId;
-  },
-  getWatchId: function () {
+  }
+
+  get watchId() {
     return (this._getData('id', '') || '').toString();
-  },
-  getTitle: function () {
+  }
+
+  get title() {
     return this._getData('title', '');
-  },
-  getSortTitle: function () {
+  }
+
+  get sortTitle() {
     return this._sortTitle;
-  },
-  getDuration: function () {
+  }
+
+  get duration() {
     return parseInt(this._getData('length_seconds', '0'), 10);
-  },
-  getCount: function () {
+  }
+
+  get count() {
     return {
       comment: parseInt(this._rawData.num_res, 10),
       mylist: parseInt(this._rawData.mylist_counter, 10),
       view: parseInt(this._rawData.view_counter, 10)
     };
-  },
-  getCommentCount: function () {
-    return parseInt(this._rawData.num_res, 10);
-  },
-  getMylistCount: function () {
-    return parseInt(this._rawData.mylist_counter, 10);
-  },
-  getViewCount: function () {
-    return parseInt(this._rawData.view_counter, 10);
-  },
-  getThumbnail: function () {
+  }
+  get thumbnail() {
     return this._rawData.thumbnail_url;
-  },
-  getBetterThumbnail: function () {
-    var watchId = this.getWatchId();
-    var hasLargeThumbnail = util.hasLargeThumbnail(watchId);
-    return this._rawData.thumbnail + (hasLargeThumbnail ? '.L' : '');
-  },
-  getPostedAt: function () {
+  }
+
+  get postedAt() {
     return this._rawData.first_retrieve;
-  },
-  isActive: function () {
+  }
+
+  equals(item) {
+    return this.uniqId === item.uniqId;
+  }
+
+  _getData(key, defValue) {
+    return this._rawData.hasOwnProperty(key) ?
+      this._rawData[key] : defValue;
+  }
+
+  getItemId() {
+    return this.itemId;
+  }
+  getWatchId() {
+    return this.watchId;
+  }
+  getTitle() {
+    return this.title;
+  }
+  getSortTitle() {
+    return this.sortTitle;
+  }
+  getDuration() {
+    return this.duration;
+  }
+  getCount() {
+    return this.count;
+  }
+  getCommentCount() {
+    return this.count.comment;
+  }
+  getMylistCount() {
+    return this.count.mylist;
+  }
+  getViewCount() {
+    return this.count.view;
+  }
+  getPostedAt() {
+    return this.postedAt;
+  }
+  get isActive() {
     return this._isActive;
-  },
-  setIsActive: function (v) {
+  }
+  set isActive(v) {
     v = !!v;
     if (this._isActive !== v) {
       this._isActive = v;
+      if (v) {
+        this._lastActivated = Date.now();
+      }
       this.emit('update', this, 'active', v);
     }
-  },
-  isUpdating: function () {
+  }
+  get isUpdating() {
     return this._isUpdating;
-  },
-  setIsUpdating: function (v) {
+  }
+  set isUpdating(v) {
     v = !!v;
     if (this._isUpdating !== v) {
       this._isUpdating = v;
       this.emit('update', this, 'updating', v);
     }
-  },
-  isPlayed: function () {
+  }
+  get isPlayed() {
     return this._isPlayed;
-  },
-  setIsPlayed: function (v) {
+  }
+  set isPlayed(v) {
     v = !!v;
     if (this._isPlayed !== v) {
       this._isPlayed = v;
       this.emit('update', this, 'played', v);
     }
-  },
-  isBlankData: function () {
+  }
+  get isBlankData() {
     return this._rawData._format === 'blank';
-  },
-  serialize: function () {
+  }
+  serialize() {
     return {
       active: this._isActive,
+      last_activated: this._lastActivated || 0,
       played: this._isPlayed,
+      uniq_id: this._uniq_id,
       id: this._rawData.id,
       title: this._rawData.title,
       length_seconds: this._rawData.length_seconds,
@@ -1441,8 +1495,8 @@ _.assign(VideoListItem.prototype, {
       thumbnail_url: this._rawData.thumbnail_url,
       first_retrieve: this._rawData.first_retrieve,
     };
-  },
-  updateByVideoInfo: function (videoInfo) {
+  }
+  updateByVideoInfo(videoInfo) {
     const before = JSON.stringify(this.serialize());
     const rawData = this._rawData;
     const count = videoInfo.count;
@@ -1458,12 +1512,15 @@ _.assign(VideoListItem.prototype, {
       this.emit('update', this);
     }
   }
-});
+}
+VideoListItem._itemId = 0;
 
-let VideoList = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(VideoList.prototype, AsyncEmitter.prototype);
+class VideoList extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 _.assign(VideoList.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
@@ -1515,19 +1572,19 @@ _.assign(VideoList.prototype, {
     }
     this.emit('command', command, param);
   },
-  _onPlaylistAdd: function (watchId, itemId) {
-    this.emit('command', 'playlistAdd', watchId);
+  _onplaylistAppend: function (watchId, itemId) {
+    this.emit('command', 'playlistAppend', watchId);
     if (this._isUpdatingPlaylist) {
       return;
     }
     let item = this._model.findByItemId(itemId);
 
     const unlock = () => {
-      item.setIsUpdating(false);
+      item.isUpdating = false;
       this._isUpdatingPlaylist = false;
     };
 
-    item.setIsUpdating(true);
+    item.isUpdating = true;
     this._isUpdatingPlaylist = true;
 
     window.setTimeout(unlock, 1000);
@@ -1536,51 +1593,29 @@ _.assign(VideoList.prototype, {
     if (this._isUpdatingDeflist) {
       return;
     }
-    if (!this._mylistApiLoader) {
-      this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
-    }
-    var item = this._model.findByItemId(itemId);
+
+    let item = this._model.findByItemId(itemId);
 
     const unlock = () => {
-      item.setIsUpdating(false);
+      item.isUpdating = false;
       this._isUpdatingDeflist = false;
     };
 
-    item.setIsUpdating(true);
+    item.isUpdating = true;
     this._isUpdatingDeflist = true;
 
-    var timer = window.setTimeout(unlock, 10000);
+    window.setTimeout(unlock, 1000);
 
-    var onSuccess = this._onDeflistAddSuccess.bind(this, timer, unlock);
-    var onFail = this._onDeflistAddFail.bind(this, timer, unlock);
-    return this._thumbInfoLoader.load(watchId).then((info) => {
-      var description = '投稿者: ' + info.owner.name;
-      return this._mylistApiLoader.addDeflistItem(watchId, description)
-        .then(onSuccess, onFail);
-    }, () => {
-      return this._mylistApiLoader.addDeflistItem(watchId)
-        .then(onSuccess, onFail);
-    });
-  },
-  _onDeflistAddSuccess: function (timer, unlock, result) {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(unlock, 500);
-    this.emit('command', 'notify', result.message);
-  },
-  _onDeflistAddFail: function (timer, unlock, err) {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(unlock, 2000);
-    this.emit('command', 'alert', err.message);
+    this.emit('command', 'deflistAdd', watchId);
   }
 });
 
-const RelatedVideoList = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(RelatedVideoList.prototype, VideoList.prototype);
-_.assign(RelatedVideoList.prototype, {
-  update: function (listData, watchId) {
-    //window.console.log('RelatedVideoList: ', listData, watchId);
+class RelatedVideoList extends VideoList {
+  constructor(...args) {
+    super(...args);
+  }
+
+  update(listData, watchId) {
     if (!this._view) {
       this._initializeView();
     }
@@ -1595,34 +1630,35 @@ _.assign(RelatedVideoList.prototype, {
       }
       items.push(new VideoListItem(itemData));
     });
-    if (items.length < 1) {
+    if (!items.length) {
       return;
     }
-    //window.console.log('insertItem: ', items);
     this._model.insertItem(items);
     this._view.scrollTop(0);
-  },
-});
+  }
+}
 
 
-var PlaylistModel = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(PlaylistModel.prototype, VideoListModel.prototype);
-_.assign(PlaylistModel.prototype, {
-  initialize: function () {
+class PlaylistModel extends VideoListModel {
+  constructor(params) {
+    super(params);
+  }
+
+  initialize() {
     this._maxItems = 10000;
     this._items = [];
     this._isUniq = true;
 
     this._boundOnItemUpdate = this._onItemUpdate.bind(this);
-  },
-});
+  }
+}
 
-const PlaylistView = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(PlaylistView.prototype, AsyncEmitter.prototype);
+class PlaylistView extends Emitter {
+  constructor(...args) {
+    super(...args);
+    this.initialize(...args);
+  }
+}
 PlaylistView.__css__ = (`
 
     .is-playlistEnable .tabSelect.playlist::after {
@@ -1630,13 +1666,14 @@ PlaylistView.__css__ = (`
       color: #fff;
       text-shadow: 0 0 8px orange;
     }
-    body:not(.fullScreen).zenzaScreenMode_sideView .is-playlistEnable .tabSelect.playlist::after  {
+    .zenzaScreenMode_sideView .is-playlistEnable .is-notFullscreen .tabSelect.playlist::after  {
       text-shadow: 0 0 8px #336;
     }
 
     .playlist-container {
       height: 100%;
       overflow: hidden;
+      user-select: none;
     }
 
     .playlist-header {
@@ -1644,13 +1681,14 @@ PlaylistView.__css__ = (`
       border-bottom: 1px solid #000;
       background: #333;
       color: #ccc;
+      user-select: none;
     }
 
     .playlist-menu-button {
       cursor: pointer;
       border: 1px solid #333;
       padding: 0px 4px;
-      margin: 0 4px;
+      margin: 0 0 0 4px;
       background: #666;
       font-size: 16px;
       line-height: 28px;
@@ -1696,6 +1734,7 @@ PlaylistView.__css__ = (`
 
     .playlist-count {
       position: absolute;
+      top: 0;
       right: 8px;
       display: inline-block;
       font-size: 14px;
@@ -1728,7 +1767,6 @@ PlaylistView.__css__ = (`
       margin: 8px 8px;
     }
 
-
     .playlist-file-drop {
       display: none;
       position: absolute;
@@ -1746,7 +1784,6 @@ PlaylistView.__css__ = (`
     }
 
     .playlist-file-drop.show {
-      /*display: block;*/
       opacity: 0.98 !important;
     }
 
@@ -1842,7 +1879,6 @@ _.assign(PlaylistView.prototype, {
     this._$container = params.$container;
     this._model = params.model;
     this._playlist = params.playlist;
-
 
     util.addStyle(PlaylistView.__css__);
     let $view = this._$view = $(PlaylistView.__tpl__);
@@ -2041,11 +2077,12 @@ const PlaylistSession = (storage => {
   };
 })(sessionStorage);
 
-let Playlist = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(Playlist.prototype, VideoList.prototype);
-_.assign(Playlist.prototype, {
+class Playlist extends VideoList {
+  constructor(...args) {
+    super(...args);
+  }
+}
+Object.assign(Playlist.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
     this._$container = params.$container;
@@ -2110,17 +2147,18 @@ _.assign(Playlist.prototype, {
       case 'shuffle':
         this.shuffle();
         break;
-      case 'sortBy':
-        var tmp = param.split(':');
-        this.sortBy(tmp[0], tmp[1] === 'desc');
+      case 'sortBy': {
+        let [key, order] = param.split(':');
+        this.sortBy(key, order === 'desc');
         break;
+      }
       case 'clear':
         this._setItemData([]);
         break;
       case 'select':
         item = this._model.findByItemId(itemId);
         this.setIndex(this._model.indexOf(item));
-        this.emit('command', 'openNow', item.getWatchId());
+        this.emit('command', 'openNow', item.watchId);
         break;
       case 'playlistRemove':
         item = this._model.findByItemId(itemId);
@@ -2215,8 +2253,8 @@ _.assign(Playlist.prototype, {
     this._model.setItem(videoListItems);
     const item = this._model.findByWatchId(options.watchId);
     if (item) {
-      item.setIsActive(true);
-      item.setIsPlayed(true);
+      item.isActive = true;
+      item.isPlayed = true;
       this._activeItem = item;
       setTimeout(() => {
         this._view.scrollToItem(item);
@@ -2229,8 +2267,8 @@ _.assign(Playlist.prototype, {
     this._model.appendItem(videoListItems);
     const item = this._model.findByWatchId(options.watchId);
     if (item) {
-      item.setIsActive(true);
-      item.setIsPlayed(true);
+      item.isActive = true;
+      item.isPlayed = true;
       this._refreshIndex(false);
     }
     setTimeout(() => {
@@ -2249,7 +2287,6 @@ _.assign(Playlist.prototype, {
       .getMylistItems(mylistId, options).then((items) => {
         window.console.timeEnd('loadMylist: ' + mylistId);
         let videoListItems = [];
-        //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
         items.forEach((item) => {
           // マイリストはitem_typeがint
           // とりまいはitem_typeがstringっていうね
@@ -2316,7 +2353,6 @@ _.assign(Playlist.prototype, {
         window.console.timeEnd('loadUploadedVideos' + userId);
         let videoListItems = [];
 
-        //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
         items.forEach(item => {
           if (item.item_data) {
             if (parseInt(item.item_type, 10) !== 0) {
@@ -2379,7 +2415,6 @@ _.assign(Playlist.prototype, {
         let items = result.list || [];
         let videoListItems = [];
 
-        //var excludeId = /^(ar|sg)/; // nmは含めるべきかどうか
         items.forEach((item) => {
           if (item.item_data) {
             if (parseInt(item.item_type, 10) !== 0) {
@@ -2438,7 +2473,7 @@ _.assign(Playlist.prototype, {
   },
   insert: function (watchId) {
     this._initializeView();
-    if (this._activeItem && this._activeItem.getWatchId() === watchId) {
+    if (this._activeItem && this._activeItem.watchId === watchId) {
       return Promise.resolve();
     }
 
@@ -2472,10 +2507,10 @@ _.assign(Playlist.prototype, {
     this._initializeView();
 
     if (this._activeItem &&
-      !this._activeItem.isBlankData() &&
-      this._activeItem.getWatchId() === videoInfo.watchId) {
+      !this._activeItem.isBlankData &&
+      this._activeItem.watchId === videoInfo.watchId) {
       this._activeItem.updateByVideoInfo(videoInfo);
-      this._activeItem.setIsPlayed(true);
+      this._activeItem.isPlayed = true;
       this.scrollToActiveItem();
       return;
     }
@@ -2483,24 +2518,24 @@ _.assign(Playlist.prototype, {
     let currentItem = this._model.findByWatchId(videoInfo.watchId);
     if (currentItem && !currentItem.isBlankData) {
       currentItem.updateByVideoInfo(videoInfo);
-      currentItem.setIsPlayed(true);
+      currentItem.isPlayed = true;
       this.setIndex(this._model.indexOf(currentItem));
       this.scrollToActiveItem();
       return;
     }
 
-    item.setIsPlayed(true);
     const item = VideoListItem.createByVideoInfoModel(videoInfo);
+    item.isPlayed = true;
     if (this._activeItem) {
-      this._activeItem.setIsActive(false);
+      this._activeItem.isActive = false;
     }
     this._model.insertItem(item, this._index + 1);
     this._activeItem = this._model.findByItemId(item.getItemId());
     this._refreshIndex(true);
   },
   removeItemByWatchId: function (watchId) {
-    if (!item || item.isActive()) {
     const item = this._model.findByWatchId(watchId);
+    if (!item || item.isActive) {
       return;
     }
     this._model.removeItem(item);
@@ -2508,7 +2543,7 @@ _.assign(Playlist.prototype, {
   },
   append: function (watchId) {
     this._initializeView();
-    if (this._activeItem && this._activeItem.getWatchId() === watchId) {
+    if (this._activeItem && this._activeItem.watchId === watchId) {
       return Promise.resolve();
     }
 
@@ -2542,11 +2577,11 @@ _.assign(Playlist.prototype, {
     if (this._index !== v || force) {
       this._index = v;
       if (this._activeItem) {
-        this._activeItem.setIsActive(false);
+        this._activeItem.isActive = false;
       }
       this._activeItem = this._model.getItemByIndex(v);
       if (this._activeItem) {
-        this._activeItem.setIsActive(true);
+        this._activeItem.isActive = true;
       }
       this.emit('update');
     }
@@ -2647,7 +2682,7 @@ _.assign(Playlist.prototype, {
     } else if (this.isLoop()) {
       this.setIndex((index + 1) % len);
     }
-    return this._activeItem ? this._activeItem.getWatchId() : null;
+    return this._activeItem ? this._activeItem.watchId : null;
   },
   selectPrevious: function () {
     let index = this.getIndex();
@@ -2666,7 +2701,7 @@ _.assign(Playlist.prototype, {
       return null;
     }
 
-    return this._activeItem ? this._activeItem.getWatchId() : null;
+    return this._activeItem ? this._activeItem.watchId : null;
   },
   scrollToActiveItem: function () {
     if (this._activeItem) {

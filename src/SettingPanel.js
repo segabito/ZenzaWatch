@@ -536,7 +536,6 @@ _.assign(SettingPanel.prototype, {
       case 'autoFullScreen':
       case 'enableStoryboard':
       case 'enableCommentPanel':
-      case 'enableCommentPanel':
       case 'debug':
         this._$panel
           .find(`.${key}Control`).toggleClass('checked', value)

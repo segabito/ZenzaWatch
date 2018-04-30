@@ -656,19 +656,19 @@ util.getPageLanguage = () => {
   }
 };
 
-util.isSameOrigin = function () {
+util.isSameOrigin = () => {
   return location.host === 'www.nicovideo.jp';
 };
 
-util.hasFlashPlayer = function () {
+util.hasFlashPlayer = () => {
   return !!navigator.mimeTypes['application/x-shockwave-flash'];
 };
 
-util.isFirefox = function () {
+util.isFirefox = () => {
   return navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 };
 
-util.isWebkit = function () {
+util.isWebkit = () => {
   return navigator.userAgent.toLowerCase().indexOf('webkit') >= 0;
 };
 
@@ -680,12 +680,10 @@ util.escapeHtml = text => {
     '<': '&lt;',
     '>': '&gt;'
   };
-  return text.replace(/[&"'<>]/g, function (char) {
-    return map[char];
-  });
+  return text.replace(/[&"'<>]/g, char => map[char]);
 };
 
-util.unescapeHtml = function (text) {
+util.unescapeHtml = text => {
   let map = {
     '&amp;': '&',
     '&#39;': '\x27',
@@ -693,9 +691,7 @@ util.unescapeHtml = function (text) {
     '&lt;': '<',
     '&gt;': '>'
   };
-  return text.replace(/(&amp;|&#39;|&quot;|&lt;|&gt;)/g, function (char) {
-    return map[char];
-  });
+  return text.replace(/(&amp;|&#39;|&quot;|&lt;|&gt;)/g, char => map[char]);
 };
 
 
@@ -710,38 +706,17 @@ util.escapeToZenkaku = text => {
     '<': '＜',
     '>': '＞'
   };
-  return text.replace(/["'<>]/g, function (char) {
-    return map[char];
-  });
+  return text.replace(/["'<>]/g, char => map[char]);
 };
 
 
 util.escapeRegs = text => {
-  let map = {
-    '\\': '\\\\',
-    '*': '\\*',
-    '+': '\\+',
-    '.': '\\.',
-    '?': '\\?',
-    '{': '\\{',
-    '}': '\\}',
-    '(': '\\(',
-    ')': '\\)',
-    '[': '\\[',
-    ']': '\\]',
-    '^': '\\^',
-    '$': '\\$',
-    '-': '\\-',
-    '|': '\\|',
-    '/': '\\/',
-  };
+  let match = /[\\^$.*+?()[\]{}|]/g;
   // return text.replace(/[\\\*\+\.\?\{\}\(\)\[\]\^\$\-\|\/]/g, char => {
-  return text.replace(/[\\*+.?{}()[\]^$-|/]/g, char => {
-    return map[char];
-  });
+  return text.replace(match, '\\$&');
 };
 
-util.dateToString = (date) => {
+util.dateToString = date => {
   if (typeof date === 'string') {
     const origDate = date;
     date = date.replace(/\//g, '-');
@@ -951,6 +926,17 @@ util.secToTime = sec => {
   return `${m}:${s}`;
 };
 
+util.toRgba = (c, alpha = 1) => {
+  return `rgba(${parseInt(c.substr(1, 2), 16)},${parseInt(c.substr(3, 2), 16)},${parseInt(c.substr(5, 2), 16)},${alpha})`;
+};
+
+util.videoCapture = (src, sec) => {
+  return new Promise((resolve, reject) => {
+    let resolved = false;
+    const v = util.createVideoElement('capture');
+    if (!v) {
+      return reject();
+    }
     const css = {
       width: '64px',
       height: '36px',
@@ -970,10 +956,6 @@ util.secToTime = sec => {
       reject(err);
     });
 
-    ZenzaWatch.util.videoCapture = function(src, sec) {
-      return new Promise((resolve, reject) => {
-        let resolved = false;
-        const v = document.createElement('video');
     const onSeeked = () => {
       if (resolved) {
         return;
@@ -991,6 +973,13 @@ util.secToTime = sec => {
 
     v.addEventListener('seeked', onSeeked);
 
+    setTimeout(() => {
+      if (resolved) {
+        return;
+      }
+      v.remove();
+      reject();
+    }, 30000);
 
     document.body.appendChild(v);
     v.volume = 0;
@@ -1025,6 +1014,8 @@ util.saveMymemory = function (player, videoInfo) {
           <a href="//www.nicovideo.jp/watch/${videoInfo.watchId}?from=${Math.floor(player.getCurrentTime())}">元動画</a><br>
           作成環境: ${navigator.userAgent}<br>
           作成日: ${(new Date()).toLocaleString()}<br>
+          ZenzaWatch: ver${ZenzaWatch.version} (${ZenzaWatch.env})<br>
+
           <button
             onclick="document.body.classList.toggle('debug');return false;">
             デバッグON/OFF
@@ -1180,67 +1171,80 @@ util.sortedLastIndex = (arr, value) => {
   return tail;
 };
 
+util.createVideoElement = (...args) => {
+  if (ZenzaWatch.debug.createVideoElement) {
+    return ZenzaWatch.debug.createVideoElement(...args);
+  }
+  return document.createElement('video');
+};
 
 util.$ = (() => {
 
-  const eventListener = {};
+  const elementEventsMap = new WeakMap();
   const toCamel = p => {
-    return p.replace(/-./g, s => {
-      return s.charAt(1).toUpperCase();
-    });
+    return p.replace(/-./g, s => s.charAt(1).toUpperCase());
   };
 
-  class $wrapper {
-    constructor(elements) {
-      elements = elements || [];
-      if (elements instanceof (NodeList)) {
-        elements = Array.from(elements);
+  class $Elements extends Array {
+    constructor(elm) {
+      super();
+      // window.console.log('$Elements', this, this instanceof Array, this instanceof $Elements, this.on);
+      if (elm instanceof Node) {
+        this[0] = elm;
+      } else if (elm[Symbol.iterator] || elm instanceof NodeList || elm instanceof HTMLCollection) {
+        for (let e of elm) {
+          this.push(e);
+        }
+      } else {
+        this.push(elm);
       }
-      this._elements = _.uniq(elements);
-    }
-
-    forEach(callback) {
-      return this._elements.forEach(callback);
-    }
-
-    some(callback) {
-      return this._elements.some(callback);
-    }
-
-    get length() {
-      return this._elements.length;
     }
 
     find(query) {
-      const result = [];
+      const found = [];
       this.forEach(elm => {
-        Array.from(elm.querySelectorAll(query)).forEach(e => {
-          result.push(e);
-        });
+        for (let e of elm.querySelectorAll(query)) {
+          if (!found.includes(e)) {
+            found.push(e);
+          }
+        }
       });
-
-      return new $wrapper(_.uniq(result));
+      const result = new $Elements(found);
+      result.end = () => { return this; };
+      return result;
     }
 
-    closest(query) {
-      if (this.hasClass(query)) {
-        return this;
-      }
-      let result;
-      this.some(elm => {
-        const e = elm.closest(query);
+    end() {
+      return this;
+    }
+
+    each(callback) {
+      this.forEach((elm, index) => {
+        callback(index, new $Elements(elm));
+      });
+    }
+
+    closest(selector) {
+      const result = super.find(elm => {
+        const e = elm.closest(selector);
         if (e) {
-          result = e;
-          return true;
+          return e;
         }
       });
       if (result) {
-        return new $wrapper(result);
+        return new $Elements(result);
       }
       return null;
     }
 
     toggleClass(className, v) {
+      if (typeof v === 'boolean') {
+        if (v) {
+          return this.addClass(className);
+        } else {
+          return this.removeClass(className);
+        }
+      }
       this.forEach(elm => {
         className.trim().split(/[ ]+/).forEach(c => {
           elm.classList.toggle(c, v);
@@ -1250,19 +1254,30 @@ util.$ = (() => {
     }
 
     addClass(className) {
-      return this.toggleClass(className, true);
+      let names = className.split(/[ ]+/);
+      this.forEach(elm => {
+        elm.classList.add(...names);
+      });
+      return this;
     }
 
     removeClass(className) {
-      return this.toggleClass(className, false);
+      let names = className.split(/[ ]+/);
+      this.forEach(elm => {
+        elm.classList.remove(...names);
+      });
+      return this;
     }
 
     hasClass(className) {
-      return this.some(e => {
-        return className.split(/[ ]+/).some(cn => {
-          return e.classList.contains(cn);
-        });
-      });
+      const names = className.trim().split(/[ ]+/);
+      const hasClass = (name) => {
+        for (let e of this) {
+          if (e.classList.contains(name)) { return true; }
+        }
+        return false;
+      };
+      return names.findIndex(hasClass) >= 0;
     }
 
     _css(key, val) {
@@ -1288,35 +1303,72 @@ util.$ = (() => {
 
     on(eventName, callback, options) {
       if (typeof callback !== 'function') {
-        return;
+        return this;
       }
-      const listener = eventListener[eventName] || [];
-      listener.push(callback);
-      eventListener[eventName] = listener;
-
-      eventName = eventName.split('.')[0];
+      eventName = eventName.trim();
+      const elementEventName = eventName.split('.')[0];
       this.forEach(e => {
-        e.addEventListener(eventName, callback, options);
+        const elementEvents = elementEventsMap.get(e) || {};
+        const listeners = elementEvents[eventName] = elementEvents[eventName] || [];
+        if (!listeners.includes(callback)) {
+          listeners.push(callback);
+        }
+        elementEventsMap.set(e, elementEvents);
+
+        e.addEventListener(elementEventName, callback, options);
       });
       return this;
     }
 
-    off(eventName, callback, options) {
-      if (typeof callback !== 'function') {
-        this.forEach((e) => {
-          const listener = eventListener[eventName] || [];
+    off(eventName, callback) {
 
-          eventName = eventName.split('.')[0];
-          listener.forEach(ls => {
-            e.removeEventListener(eventName, ls);
+      if (!eventName) {
+        this.forEach(e => {
+          const elementEvents = elementEventsMap.get(e) || {};
+          Object.keys(elementEvents).forEach(eventName => {
+            this.off(eventName);
+          });
+          elementEventsMap.delete(e);
+        });
+        return this;
+      }
+
+      eventName = eventName.trim();
+      const [elementEventName, eventKey] = eventName.split('.');
+      if (!callback) {
+        this.forEach(e => {
+          const elementEvents = elementEventsMap.get(e) || {};
+
+          for (let cb of (elementEvents[eventName] || [])) {
+            e.removeEventListener(elementEventName, cb);
+          }
+          delete elementEvents[eventName];
+
+          Object.keys(elementEvents).forEach(key => {
+            if ((!eventKey && key.startsWith(`${elementEventName}.`)) || (!elementEventName && key.endsWith(`.${eventKey}`))
+            ) {
+              this.off(key);
+            }
           });
         });
-      } else {
-        eventName = eventName.split('.')[0];
-        this.forEach((e) => {
-          e.removeEventListener(eventName, callback, options);
-        });
+        return this;
       }
+
+      this.forEach(e => {
+        const elementEvents = elementEventsMap.get(e) || {};
+        elementEvents[eventName] = (elementEvents[eventName] || []).find(cb => {
+          return cb !== callback;
+        });
+        let found = Object.keys(elementEvents).find(key => {
+          const listeners = elementEvents[key] || [];
+          if (key.startsWith(`${elementEventName}.`) && listeners.includes(callback)) {
+            return true;
+          }
+        });
+        if (found) { return; }
+        e.removeEventListener(elementEventName, callback);
+      });
+
       return this;
     }
 
@@ -2178,13 +2230,14 @@ export {
   PlayerSession,
   WindowMessageEmitter,
   broadcastEmitter,
-  WatchPageState,
-  AppendStyle,
-  ViewPort,
+  WatchPageHistory,
+  // AppendStyle,
+  // ViewPort,
   RequestAnimationFrame,
   FrameLayer,
   MylistPocketDetector,
   VideoCaptureUtil,
-  BaseViewComponent
+  BaseViewComponent,
+  Sleep
 };
 

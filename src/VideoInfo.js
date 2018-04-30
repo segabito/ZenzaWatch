@@ -13,6 +13,9 @@ class DmcInfo {
     return this._session.urls[0].url;
   }
 
+  get urls() {
+    return this._session.urls;
+  }
 
   get audios() {
     return this._session.audios;
@@ -81,6 +84,14 @@ class DmcInfo {
   get transferPreset() {
     return (this._session.transfer_presets || [''])[0] || '';
   }
+
+  get heartbeatLifeTime() {
+    return this._session.heartbeat_lifetime || 120 * 1000;
+  }
+
+  get importVersion() {
+    return this._rawData.import_version || 0;
+  }
 }
 
 class VideoFilter {
@@ -129,7 +140,7 @@ class VideoFilter {
       return true;
     }
 
-    let owner = videoInfo.ownerInfo;
+    let owner = videoInfo.owner;
     let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
     if (ownerId && this.ngOwner.includes(ownerId)) {
       isNg = true;
@@ -247,6 +258,10 @@ class VideoInfoModel {
     return this._videoDetail.v;
   }
 
+  get contextWatchId() {
+    return this._videoDetail.v;
+  }
+
   get watchUrl() {
     return `http://www.nicovideo.jp/watch/${this.watchId}`;
   }
@@ -295,6 +310,10 @@ class VideoInfoModel {
     return this.isDmcOnly || (this._rawData.isDmc && !this._isDmcDisable);
   }
 
+  get isDmcAvailable() {
+    return this._rawData.isDmc;
+  }
+
   get dmcInfo() {
     return this._dmcInfo;
   }
@@ -312,7 +331,7 @@ class VideoInfoModel {
   }
 
   get isDmcOnly() {
-    return !!this._rawData.isDmcOnly;
+    return !!this._rawData.isDmcOnly || !this.videoUrl;
   }
 
   get hasDmcStoryboard() {
@@ -327,7 +346,7 @@ class VideoInfoModel {
    * 投稿者の情報
    * チャンネル動画かどうかで分岐
    */
-  get ownerInfo() {
+  get owner() {
     let ownerInfo;
     if (this.isChannel) {
       let c = this._watchApiData.channelInfo || {};
@@ -362,10 +381,10 @@ class VideoInfoModel {
   }
 
   get replacementWords() {
-    if (!this._flvInfo.ng_up) {
+    if (!this._flvInfo.ng_up || this._flvInfo.ng_up === '') {
       return null;
     }
-    return ZenzaWatch.util.parseQuery(
+    return util.parseQuery(
       this._flvInfo.ng_up || ''
     );
   }
@@ -425,6 +444,72 @@ class VideoInfoModel {
     }
     return 'unknown';
   }
+
+  get community() {
+    return this._rawData.community || null;
+  }
+
+  get commentComposite() {
+    return this._rawData.commentComposite;
+  }
+
+  get maybeBetterQualityServerType() {
+    if (this.isDmcOnly) {
+      return 'dmc';
+    }
+    if (this.isEconomy) {
+      return 'dmc';
+    }
+    let dmcInfo = this.dmcInfo;
+    if (!dmcInfo) {
+      return 'smile';
+    }
+    if (/smile\?[sv]=/.test(this.videoUrl)) {
+      return 'dmc';
+    }
+
+    let smileWidth = this.width;
+    let smileHeight = this.height;
+    let dmcVideos = dmcInfo.videos;
+    let importVersion = dmcInfo.importVersion;
+
+    // smile側に 1280w 720h を上回る動画がある場合は再エンコードされていない
+    // smile側の再エンコードでは1280x720以下の動画しか生成されないため
+    if (smileWidth > 1280 || smileHeight > 720) {
+      return 'smile';
+    }
+
+    if (importVersion > 0) {
+      return 'smile';
+    }
+
+    // smileのほうがdmcの下限以下を持っている ≒ 再エンコードされていない
+    if (smileHeight < 360) {
+      return 'smile';
+    }
+
+    const highestDmc = Math.max(...dmcVideos.map(v => {
+      return (/_([0-9]+)p$/.exec(v)[1] || '') * 1;
+    }));
+
+    if (highestDmc >= 720) {
+      return 'dmc';
+    }
+
+    // 864x486 648x486 640x384 512x384 旧プレイヤーぴったい合わせの解像度
+    if (smileHeight === 486 || smileHeight === 384) {
+      return 'smile';
+    }
+
+    // DMCのほうが高解像度を持っているなら恐らくDMC側が高画質
+    if (highestDmc >= smileHeight) {
+      return 'dmc';
+    }
+
+    // それ以外はsmile...と行きたいが判断保留は dmc
+    return 'dmc';
+  }
+
 }
 
 

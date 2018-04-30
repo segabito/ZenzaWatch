@@ -60,7 +60,7 @@ const GateAPI = (() => {
 
   const isNicoServiceHost = url => {
     const host = parseUrl(url).hostname;
-    return /(^[a-z0-9.-]*\.nicovideo\.jp$|^[^.]*\.nico$)/.test(host);
+    return /(^[a-z0-9.-]*\.nicovideo\.jp$|^[a-z0-9.-]*\.nico(|:[0-9]+)$)/.test(host);
   };
 
   let loadUrl = function (data, type, token) {
@@ -121,51 +121,60 @@ const GateAPI = (() => {
   };
 
   const loadUrlByFetch = function (data, type, token) {
-    let timeoutTimer = null, isTimeout = false;
+    // let timeoutTimer = null, isTimeout = false;
     const url = data.url;
+
+    const sessionId = data.sessionId;
+    const result = {
+      sessionId,
+      token,
+      command: data.command,
+      url
+    };
 
     if (!isNicoServiceHost(url)) {
       return Promise.reject();
     }
-    const options = data.options;
-    const sessionId = data.sessionId;
 
-    fetch(url, options).then((resp) => {
+    const params = data.options || {};
+
+    const racers = [];
+
+    const timeout = (typeof params.timeout === 'number' && !isNaN(params.timeout)) ? params.timeout : 30 * 1000;
+    if (timeout > 0) {
+      racers.push(new Promise((resolve, reject) => {
+          setTimeout(() => {
+            reject({name: 'timeout'});
+          }, timeout);
+        })
+      );
+    }
+
+    const controller = window.AbortController ? (new AbortController()) : null;
+    if (controller) {
+      params.signal = controller.signal;
+    }
+
+    racers.push(window.fetch(url, params));
+    return Promise.race(racers).then(resp => {
       return resp.text();
     }).then(text => {
-      if (isTimeout) {
-        return;
+      parentPostMessage(type, Object.assign(result, {
+        status: 'ok',
+        body: text
+      }));
+    }).catch(err => {
+      if (err && err.name === 'timeout') {
+        if (controller) {
+          console.warn('request timeout');
+          controller.abort();
+        }
+        result.status = 'timeout';
+      } else {
+        result.status = 'fail';
       }
-      else {
-        window.clearTimeout(timeoutTimer);
-      }
-      try {
-        parentPostMessage(type, {
-          sessionId: sessionId,
-          status: 'ok',
-          token: token,
-          command: data.command,
-          url: data.url,
-          body: text
-        });
-      } catch (e) {
-        console.log(
-          '%cError: parent.postMessage - ',
-          'color: red; background: yellow',
-          e, event.origin, event.data);
-      }
+      parentPostMessage(type, result);
     });
-
-    timeoutTimer = window.setTimeout(() => {
-      isTimeout = true;
-      parentPostMessage(type, {
-        sessionId: sessionId,
-        status: 'timeout',
-        token: token,
-        command: 'loadUrlByFetch',
-        url: data.url
-      });
-    }, 30000);
   };
 
   const HOST_REG = /^[a-z0-9]*\.nicovideo\.jp$/;

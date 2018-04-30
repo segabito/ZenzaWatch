@@ -1,9 +1,9 @@
 import * as _ from 'lodash';
 import {ZenzaWatch} from '../ZenzaWatchIndex';
-import {util, Config, AsyncEmitter, PopupMessage, WindowMessageEmitter} from '../util';
-import * as _util from '../util';
+import {util, Config, PopupMessage, WindowMessageEmitter} from '../util';
 import {browser} from '../browser';
-const {navigator, location, localStorage, sessionStorage} = browser.window;
+const {location, localStorage, sessionStorage} = browser.window;
+import {Emitter} from '../baselib';
 
 const TOKEN = Math.random();
 
@@ -104,7 +104,7 @@ const {
       try {
         let watchApiData = JSON.parse(dom.querySelector('#watchAPIDataContainer').textContent);
         let videoId = watchApiData.videoDetail.id;
-        let hasLargeThumbnail = ZenzaWatch.util.hasLargeThumbnail(videoId);
+        let hasLargeThumbnail = util.hasLargeThumbnail(videoId);
         let flvInfo = util.parseQuery(
           decodeURIComponent(watchApiData.flashvars.flvInfo)
         );
@@ -127,7 +127,7 @@ const {
         let threads = [];
         let msgInfo = {
           server: flvInfo.ms,
-          threadId: flvInfo.thread_id,
+          threadId: flvInfo.thread_id * 1,
           duration: flvInfo.l,
           userId: flvInfo.user_id,
           isNeedKey: flvInfo.needs_key === '1',
@@ -141,9 +141,9 @@ const {
           when: null
         };
         if (msgInfo.hasOwnerThread) {
-          threads.push({id: flvInfo.thread_id, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: false, fork: 1});
+          threads.push({id: flvInfo.thread_id * 1, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: false, fork: 1});
         }
-        threads.push({id: flvInfo.thread_id, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: true});
+        threads.push({id: flvInfo.thread_id * 1, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: true});
 
         let playlist =
           JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
@@ -551,8 +551,8 @@ const {
 
 
   var ThumbInfoLoader = (function () {
-    var BASE_URL = location.protocol + '//ext.nicovideo.jp/';
-    var MESSAGE_ORIGIN = location.protocol + '//ext.nicovideo.jp/';
+    var BASE_URL = 'https://ext.nicovideo.jp/';
+    var MESSAGE_ORIGIN = 'https://ext.nicovideo.jp/';
     var gate = null;
     var cacheStorage;
 
@@ -601,7 +601,7 @@ const {
         isChannel,
         title: val('title'),
         description: val('description'),
-        thumbnail: val('thumbnail_url'),
+        thumbnail: val('thumbnail_url').replace(/^http:/, ''),
         movieType: val('movie_type'),
         lastResBody: val('last_res_body'),
         duration,
@@ -726,8 +726,8 @@ const {
       },
       getDeflistItems: function (options) {
         options = options || {};
-        var url = '//www.nicovideo.jp/api/deflist/list';
-        //var url = 'http://flapi.nicovideo.jp/api/watch/deflistvideo';
+        var url = 'http://www.nicovideo.jp/api/deflist/list';
+        //var url = 'https://flapi.nicovideo.jp/api/watch/deflistvideo';
         var cacheKey = 'deflistItems';
         var sortItem = this.sortItem;
         options = options || {};
@@ -781,7 +781,7 @@ const {
           return this.getDeflistItems(options);
         }
         // flapiじゃないと自分のマイリストしか取れないことが発覚
-        var url = '//flapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
+        var url = 'https://flapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
         var cacheKey = 'mylistItems: ' + groupId;
         var sortItem = this.sortItem;
 
@@ -1284,7 +1284,7 @@ const {
         }
       },
       getUploadedVideos: function (userId/*, options*/) {
-        var url = '//flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+        var url = 'https://flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
         var cacheKey = 'uploadedvideo: ' + userId;
 
         return new Promise(function (resolve, reject) {
@@ -1330,10 +1330,12 @@ const {
   ZenzaWatch.init.UploadedVideoApiLoader = new UploadedVideoApiLoader();
 
 
-  var CrossDomainGate = function () {
-    this.initialize.apply(this, arguments);
-  };
-  _.extend(CrossDomainGate.prototype, AsyncEmitter.prototype);
+  class CrossDomainGate extends Emitter {
+    constructor(...args) {
+      super();
+      this.initialize(...args);
+    }
+  }
   _.assign(CrossDomainGate.prototype, {
     initialize: function (params) {
       this._baseUrl = params.baseUrl;
@@ -1345,17 +1347,14 @@ const {
       this._initializeStatus = '';
     },
     _initializeFrame: function () {
-      var self = this;
       switch (this._initializeStatus) {
         case 'done':
-          return new Promise(function (resolve) {
-            setTimeout(() => {
-              resolve();
-            }, 0);
+          return new Promise(resolve => {
+            setTimeout(resolve, 0);
           });
         case 'initializing':
-          return new Promise(function (resolve, reject) {
-            self.on('initialize', function (e) {
+          return new Promise((resolve, reject) => {
+            this.on('initialize', e => {
               if (e.status === 'ok') {
                 resolve();
               } else {
@@ -1363,28 +1362,30 @@ const {
               }
             });
           });
-        case '':
+        case '': {
           this._initializeStatus = 'initializing';
-          var initialPromise = new Promise(function (resolve, reject) {
-            self._sessions.initial = {
+          let initialPromise;
+          initialPromise = new Promise((resolve, reject) => {
+            this._sessions.initial = {
               promise: initialPromise,
               resolve: resolve,
               reject: reject
             };
-            window.setTimeout(function () {
-              if (self._initializeStatus !== 'done') {
-                var rej = {
+            window.setTimeout(() => {
+              if (this._initializeStatus !== 'done') {
+                let rej = {
                   status: 'fail',
-                  message: 'CrossDomainGate初期化タイムアウト (' + self._type + ')'
+                  message: `CrossDomainGate初期化タイムアウト (${this._type})`
                 };
                 reject(rej);
-                self.emit('initialize', rej);
+                this.emit('initialize', rej);
               }
             }, 60 * 1000);
-            self._initializeCrossDomainGate();
+            this._initializeCrossDomainGate();
 
           });
           return initialPromise;
+        }
       }
     },
     _initializeCrossDomainGate: function () {
@@ -1393,9 +1394,8 @@ const {
 
       console.log('%c initialize ' + this._type, 'background: lightgreen;');
 
-      var loaderFrame = document.createElement('iframe');
+      let loaderFrame = document.createElement('iframe');
       loaderFrame.name = this._type + 'Loader';
-      //loaderFrame.src  = this._baseUrl;
       loaderFrame.className = 'xDomainLoaderFrame ' + this._type;
       document.body.appendChild(loaderFrame);
 
@@ -1405,18 +1405,16 @@ const {
     },
     _onMessage: function (data, type) {
       if (type !== this._type) {
-        //window.console.info('invalid type', type, this._type, data);
         return;
       }
-      var info = data.message;
-      var token = info.token;
-      var sessionId = info.sessionId;
-      var status = info.status;
-      var command = info.command || 'loadUrl';
-      var session = this._sessions[sessionId];
+      let info = data.message;
+      let token = info.token;
+      let sessionId = info.sessionId;
+      let status = info.status;
+      let command = info.command || 'loadUrl';
+      let session = this._sessions[sessionId];
 
       if (status === 'initialized') {
-        //window.console.log(type + ' initialized');
         this._initializeStatus = 'done';
         this._sessions.initial.resolve();
         this.emitAsync('initialize', {status: 'ok'});
@@ -1457,20 +1455,16 @@ const {
       }, true);
     },
     ajax: function (options) {
-      var url = options.url;
-      return this.load(url, options).then(function (result) {
-        //window.console.log('xDomain ajax result', result);
+      let url = options.url;
+      return this.load(url, options).then(result => {
         ZenzaWatch.debug.lastCrossDomainAjaxResult = result;
         try {
-          var dataType = (options.dataType || '').toLowerCase();
+          let dataType = (options.dataType || '').toLowerCase();
           switch (dataType) {
             case 'json':
-              var json = JSON.parse(result);
-              return Promise.resolve(json);
+              return Promise.resolve(JSON.parse(result));
             case 'xml':
-              var parser = new DOMParser();
-              var xml = parser.parseFromString(result, 'text/xml');
-              return Promise.resolve(xml);
+              return Promise.resolve(new DOMParser().parseFromString(result, 'text/xml'));
           }
           return Promise.resolve(result);
         } catch (e) {
@@ -1512,22 +1506,20 @@ const {
           },
           xml: () => {
             return new Promise(res => {
-              const parser = new DOMParser();
-              return res(parser.parseFromString(text, 'text/xml'));
+              return res(new DOMParser().parseFromString(text, 'text/xml'));
             });
           }
         });
       });
     },
     configBridge: function (config) {
-      var self = this;
-      var keys = config.getKeys();
-      self._config = config;
+      let keys = config.getKeys();
+      this._config = config;
 
-      return new Promise(function (resolve, reject) {
-        self._configBridgeResolve = resolve;
-        self._configBridgeReject = reject;
-        self._postMessage({
+      return new Promise((resolve, reject) => {
+        this._configBridgeResolve = resolve;
+        this._configBridgeReject = reject;
+        this._postMessage({
           url: '',
           command: 'dumpConfig',
           keys: keys
@@ -1556,6 +1548,9 @@ const {
           }
         });
       });
+    },
+    postMessage: function(...args) {
+      return this._postMessage(...args);
     },
     _onDumpConfig: function (configData) {
       _.each(Object.keys(configData), (key) => {
@@ -1660,7 +1655,7 @@ const {
 
   const PlaybackPosition = (function () {
     const record = (watchId, playbackPosition, csrfToken) => {
-      const url = 'http://flapi.nicovideo.jp/api/record_current_playback_position';
+      const url = 'https://flapi.nicovideo.jp/api/record_current_playback_position';
       const body =
         `watch_id=${watchId}&playback_position=${playbackPosition}&csrf_token=${csrfToken}`;
       return util.fetch(url, {
@@ -1789,7 +1784,7 @@ var MessageApiLoader = (function () {
       // memo:
       // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
       var url =
-        '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
+        'https://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
       const langCode = this.getLangCode(language);
       if (langCode) {
         url += `&language_id=${langCode}`;
@@ -1818,7 +1813,7 @@ var MessageApiLoader = (function () {
     },
     getWaybackKey: function (threadId, language) {
       let url =
-        '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
+        'https://flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
       const langCode = this.getLangCode(language);
       if (langCode) {
         url += `&language_id=${langCode}`;
@@ -1856,7 +1851,7 @@ var MessageApiLoader = (function () {
       // //flapi.nicovideo.jp/api/getpostkey?thread={optionalじゃないほうのID}
       //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
       var url =
-        '//flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
+        'https://flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
         '&block_no=' + blockNo +
         '&version=1&version_sub=2&yugi=' +
         //          '&language_id=0';

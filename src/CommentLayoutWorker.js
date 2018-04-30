@@ -20,7 +20,7 @@ let CommentLayoutWorker = (config => {
         WIDTH_FULL_INNER: 640,
         WIDTH: 512 + 32,
         WIDTH_FULL: 640 + 32,
-        HEIGHT: 384 + 1
+        HEIGHT: 384
     };
 
 
@@ -30,7 +30,7 @@ let CommentLayoutWorker = (config => {
         return false;
       }
 
-      if (target.fork !== others.fork) {
+      if (target.layerId !== others.layerId) {
         return false;
       }
 
@@ -86,8 +86,6 @@ let CommentLayoutWorker = (config => {
       let overflowMargin = 10;
       let rnd = Math.max(0, SCREEN.HEIGHT - target.height);
       let yMax = SCREEN.HEIGHT - target.height + overflowMargin;
-      //var rnd =  Math.max(0, 385 - target.height);
-      //var yMax = 385 - target.height + overflowMargin;
       let yMin = 0 - overflowMargin;
 
       let type = target.type;
@@ -186,7 +184,6 @@ let CommentLayoutWorker = (config => {
     };
 
 
-
     let groupCollision = function (members) {
       for (let i = 0, len = members.length; i < len; i++) {
         members[i] = checkCollision(members[i], members);
@@ -214,15 +211,15 @@ let CommentLayoutWorker = (config => {
   return {
     _func: func,
     create: function () {
-      if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
-        return null;
-      }
+      // if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
+      //   return null;
+      // }
       return util.createWebWorker(func);
     },
     getInstance: function () {
-      if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
-        return null;
-      }
+      // if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
+      //   return null;
+      // }
       if (!instance) {
         instance = util.createWebWorker(func);
       }

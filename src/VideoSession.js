@@ -134,8 +134,12 @@ const VideoSession = (() => {
       this._videoQuality = params.videoQuality || 'auto';
       this._videoSessionInfo = {};
       this._isDeleted = false;
+      this._isAbnormallyClosed = false;
 
       this._heartBeatTimer = null;
+
+      this._useSSL = !!params.useSSL;
+      this._useWellKnownPort = !!params.useWellKnownPort;
 
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
       this._onHeartBeatFail = this._onHeartBeatFail.bind(this);
@@ -224,6 +228,10 @@ const VideoSession = (() => {
     get isDmc() {
       return this._serverType === 'dmc';
     }
+
+    get isAbnormallyClosed() {
+      return this._isAbnormallyClosed;
+    }
   }
 
   class DmcSession extends VideoSession {
@@ -275,11 +283,13 @@ const VideoSession = (() => {
               content_src_id_sets[0].content_src_ids[0].src_id_to_mux.audio_src_ids[0];
 
             this._heartBeatUrl =
-              `${dmcInfo.apiUrl}/${sessionId}?_format=json&_method=PUT`;
+              `${baseUrl}/${sessionId}?_format=json&_method=PUT`;
             this._deleteSessionUrl =
-              `${dmcInfo.apiUrl}/${sessionId}?_format=json&_method=DELETE`;
+              `${baseUrl}/${sessionId}?_format=json&_method=DELETE`;
 
             this._lastResponse = data;
+
+            this._lastUpdate = Date.now();
             this._videoSessionInfo = {
               type: 'dmc',
               url: url,
@@ -321,11 +331,21 @@ const VideoSession = (() => {
       }
       this._isDeleted = true;
       let url = this._videoSessionInfo.deleteSessionUrl;
-      return util.fetch(url, {
-        method: 'post',
-        dataType: 'text',
-        timeout: 10000,
-        body: JSON.stringify(this._lastResponse)
+      // video側はsessionの概念を持たないため、動画クローズと同時にsessionを消すと、
+      // たまに微妙な時間差でvideoにネットワークエラーが出る。
+      // その緩和のため、フラグ上はdeletedを立てるけど実際のdeleteは遅延させる
+      //
+      // こっちからdeleteしなくてもいずれsessionは勝手に消えるので、
+      // 失敗は気にしなくていい
+      return new Promise(res => {
+        setTimeout(res, 3000);
+      }).then(() => {
+        return util.fetch(url, {
+          method: 'post',
+          dataType: 'text',
+          timeout: 10000,
+          body: JSON.stringify(this._lastResponse)
+        });
       }).then(res => res.text())
         .then(() => {
           console.log('delete success');
@@ -338,6 +358,11 @@ const VideoSession = (() => {
     _onHeartBeatSuccess(result) {
       let json = result;
       this._lastResponse = json.data;
+      this._lastUpdate = Date.now();
+    }
+
+    get isDeleted() {
+      return !!this._isDeleted || (Date.now() - this._lastUpdate) > this._heartbeatLifeTime * 1.2;
     }
   }
 
@@ -348,6 +373,7 @@ const VideoSession = (() => {
       this._heartBeatInterval = SMILE_HEART_BEAT_INTERVAL_MS;
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
       this._onHeartBeatFail = this._onHeartBeatFail.bind(this);
+      this._lastUpdate = Date.now();
     }
 
     _createSession(videoInfo) {
@@ -397,11 +423,17 @@ const VideoSession = (() => {
         return this._onHeartBeatFail();
       }
 
+      this._lastUpdate = Date.now();
       if (result && result.flashvars && result.flashvars.watchAuthKey) {
         this._videoInfo.watchAuthKey = result.flashvars.watchAuthKey;
       }
     }
 
+    // smileには明確なセッション終了の概念がないため、
+    // cookieの有効期限が切れていそうな時間が経っているかどうかで判断する
+    get isDeleted() {
+      return this._isDeleted || (Date.now() - this._lastUpdate > 10 * 60 * 1000);
+    }
   }
 
   return VideoSession;

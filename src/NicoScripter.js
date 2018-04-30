@@ -291,8 +291,8 @@ class NicoScriptParser {
     //＠置換 "И"       "██" 単       投コメ
 
     // 投稿者コメントを含めるかどうか
-    let target = 'user';
-    if (tmp[4] === '含む') {
+    let target = 'user'; // '投コメ'
+    if (tmp[4] === '含む' || tmp[4] === '全') { // マニュアルにはないが '全' もあるらしい
       target = 'owner user';
     } else if (tmp[4] === '投コメ') {
       target = 'owner';
@@ -310,7 +310,6 @@ class NicoScriptParser {
   static parse逆(str) {
     let tmp = NicoScriptParser.parseNicosParams(str);
     /* eslint-disable */
-    //var tmp = str.split(/[ 　]+/);
     //＠逆　投コメ
     /* eslint-enable */
     let target = (tmp[1] || '').trim();
@@ -519,6 +518,7 @@ class NicoScripter extends Emitter {
         if (!params) {
           return;
         }
+        // if (nicoChat.isNicoScript()) { return; }
         if (nicoChat.getFork() > 0 && (params.target || '').indexOf('owner') < 0) {
           return;
         }
@@ -540,9 +540,9 @@ class NicoScripter extends Emitter {
 
         if (params.fill === true) {
           text = params.dest;
-        } else {
+        } else {// ＠置換 "~" "\n" 単 全
           let reg = new RegExp(util.escapeRegs(params.src), 'g');
-          text = text.replace(reg, params.dest.replace(/\$/g, '\\$'));
+          text = text.replace(reg, params.dest);
         }
         nicoChat.setText(text);
 
@@ -577,7 +577,7 @@ class NicoScripter extends Emitter {
     };
 
 
-    this._list.forEach((nicos) => {
+    this._list.forEach(nicos => {
       let p = NicoScriptParser.parseNicos(nicos.getText());
       if (!p) {
         return;
@@ -609,7 +609,7 @@ class NicoScripter extends Emitter {
       let beginTime = nicos.getBeginTime();
       let endTime = beginTime + nicos.getDuration();
 
-      (group.getMembers ? group.getMembers : group).forEach((nicoChat) => {
+      (group.getMembers ? group.getMembers : group).forEach(nicoChat => {
         if (nicoChat.isNicoScript()) {
           return;
         }
@@ -618,7 +618,6 @@ class NicoScripter extends Emitter {
         if (beginTime > ct || endTime < ct) {
           return;
         }
-
         func(nicoChat, nicos, p.params);
       });
     });

@@ -8,4 +8,5 @@ https://greasyfork.org/ja/scripts/14391-zenzawatch
 
 
 # ライセンス
-パブリックドメインです。
+
+特に権利を主張する気はないので、こっちに迷惑かけなければ勝手に使ってください。

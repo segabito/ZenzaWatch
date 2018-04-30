@@ -125,6 +125,7 @@ import {Emitter} from './baselib';
     }
     .fullScreen .controlItemContainer.left {
       top: auto;
+      transform-origin: top left;
     }
 
 
@@ -909,6 +910,20 @@ import {Emitter} from './baselib';
       }
     }
 
+    .ZenzaWatchVer {
+      display: none;
+    }
+    .ZenzaWatchVer[data-env="DEV"] {
+      display: inline-block;
+      color: #999;
+      position: absolute;
+      right: 0;
+      background: transparent !important;
+      transform: translate(100%, 0);
+      font-size: 12px;
+      line-height: 32px;
+      pointer-events: none;
+    }
   `).trim();
 
   VideoControlBar.__tpl__ = (`
@@ -925,7 +940,9 @@ import {Emitter} from './baselib';
       </div>
 
       <div class="controlItemContainer left">
-        <div class="scalingUI"></div>
+        <div class="scalingUI">
+          <div class="ZenzaWatchVer" data-env="${ZenzaWatch.env}">ver ${ZenzaWatch.version}${ZenzaWatch.env === 'DEV' ? '(Dev)' : ''}</div>
+        </div>
       </div>
       <div class="controlItemContainer center">
         <div class="scalingUI">
@@ -1872,15 +1889,8 @@ import {Emitter} from './baselib';
       }
       return result;
     },
-    getItemByNo: function(no) {
-      let list = this._chatList;
-      for (let i = 0, len = list.length; i < len; i++) {
-        let nicoChat = list[i];
-        if (nicoChat.getNo() === no) {
-          return nicoChat;
-        }
-      }
-      return null;
+    getItemByUniqNo: function(uniqNo) {
+      return this._chatList.find(chat => chat.getUniqNo() === uniqNo);
     },
     update: function() {
       this.emit('update');
@@ -2030,9 +2040,7 @@ import {Emitter} from './baselib';
       let model = this._model = params.model;
       this._$container = params.$container;
 
-      this._showing = false;
       this._inviewTable = {};
-      this._$newItems = '';
       this._chatList = [];
       this._initializeDom(this._$container);
 
@@ -2061,8 +2069,8 @@ import {Emitter} from './baselib';
       let $target = $(e.target);
       let command = $target.attr('data-command');
       let $nicoChat = $target.closest('.nicoChat');
-      let no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
-      let nicoChat  = this._model.getItemByNo(no);
+      let uniqNo = parseInt($nicoChat.attr('data-nicochat-uniq-no'), 10);
+      let nicoChat  = this._model.getItemByUniqNo(uniqNo);
 
       if (command && nicoChat && !$view.hasClass('updating')) {
         $view.addClass('updating');
@@ -2138,6 +2146,7 @@ import {Emitter} from './baselib';
       let date = (new Date(chat.getDate() * 1000)).toLocaleString();
       let vpos = chat.getVpos();
       let no = chat.getNo();
+      let uniqNo = chat.getUniqNo();
       let oe = idx % 2 === 0 ? 'even' : 'odd';
       let title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
       let color = chat.getColor() || '#fff';
@@ -2151,7 +2160,7 @@ import {Emitter} from './baselib';
       return `<li class="nicoChat fork${chat.getFork()} ${oe}"
             id="commentPreviewItem${idx}"
             data-vpos="${vpos}"
-            data-nicochat-no="${no}"
+            data-nicochat-uniq-no="${uniqNo}"
             style="top: ${idx * itemHeight}px;"
             >
             <span class="vposTime">${vposToTime(vpos)}: </span>

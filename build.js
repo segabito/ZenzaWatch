@@ -2,6 +2,11 @@ var srcDir = './src';
 var templateFile =  '_template.js';
 var outFile = 'dist/ZenzaWatch.user.js';
 
+const DEV_HEADER = {
+  name: '// @name           ZenzaWatch DEV版',
+  description: '// @description    ZenzaWatchの開発 先行バージョン'
+};
+
 function writeIfModified(file, newData, callback) {
   var fs = require('fs');
   try {
@@ -21,10 +26,11 @@ function writeIfModified(file, newData, callback) {
   }
 }
 
-function requireFile(srcDir, file) {
+function requireFile(srcDir, file, params) {
   var fs = require('fs');
   var lines = [];
   var begin = false;
+  var trim = !params.dev && !/NicoTextParser\.js/.test(file);
   fs.readFileSync(srcDir + '/' + file, 'utf-8').split('\n').some(function(line) {
     if (line.trim().indexOf('//===BEGIN===') === 0) {
       begin = true;
@@ -35,7 +41,15 @@ function requireFile(srcDir, file) {
       if (line.trim().indexOf('//===END===') === 0) {
         return true;
       }
-      lines.push(line);
+      if (!trim) {
+        lines.push(line);
+        return;
+      }
+      if (line.trim().length === 0) { return; }
+      lines.push(line
+        .replace(/^[ ]+/g, '')
+        .replace(/([ ]+)/g, ' ')
+      );
     }
   });
 
@@ -71,10 +85,16 @@ function loadTemplateFile(srcDir, indexFile, outFile, params) {
   var ver = null;
   fs.readFileSync(srcDir + '/' + indexFile, 'utf-8').split('\n').some(function(line) {
     if (params.dev) {
-      if (line.match(/^(\s*)\/\/\s*@(name|description)(.*)$/)) {
-        line = line.replace(/[\r\n]/g, '');
-        lines.push(line + '(DEV版)');
+      if (line.match(/^\/\/\s*@([a-z0-9+]+)(.*)$/)) {
+        let name = RegExp.$1;
+        // console.log('header:', name, RegExp.$2);
+        if (DEV_HEADER[name]) {
+          line = DEV_HEADER[name].trim();
+        }
       }
+    }
+    if (line.match(/^(\s*)\/\/\s*@environment$/)) {
+      lines.push(`${RegExp.$1}const ENV = '${params.dev ? 'DEV' : 'STABLE'}';\n`);
     }
     if (line.match(/^(\s*)\/\/\s*@version(.*)$/)) {
       if (!ver) {
@@ -87,7 +107,7 @@ function loadTemplateFile(srcDir, indexFile, outFile, params) {
       }
     } else if (line.match(/^\s*\/\/@require (.+)$/)) {
       console.log('require ' + RegExp.$1);
-      lines.push(requireFile(srcDir, RegExp.$1));
+      lines.push(requireFile(srcDir, RegExp.$1, params));
     } else {
       lines.push(line);
     }

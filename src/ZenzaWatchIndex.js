@@ -27,7 +27,8 @@ const ZenzaWatch = {
   init: {},
   emitter: new Emitter(),
   ready: false,
-  version: '1.0.0'
+  version: '1.0.0',
+  ENV: 'DEV'
 };
 
 export {

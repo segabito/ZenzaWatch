@@ -17,6 +17,7 @@
 // @match          *://api.search.nicovideo.jp/*
 // @match          *://*.nicovideo.jp/smile*
 // @match          *://site.nicovideo.jp/*
+// @match          *://anime.nicovideo.jp/*
 // @exclude        *://ads.nicovideo.jp/*
 // @exclude        *://www.upload.nicovideo.jp/*
 // @exclude        *://www.nicovideo.jp/watch/*?edit=*
@@ -25,7 +26,7 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito
-// @version        1.16.0
+// @version        2.0.0beta
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,8 +42,9 @@
     let TOKEN = 'r:' + (Math.random());
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
+    //@environment
 
-    console.log(`%c${PRODUCT} v${VER}`, 'font-size: 200%;');
+    console.log(`%c${PRODUCT}@${ENV} v${VER}`, 'font-size: 200%;');
     console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
 
 //@require baselib.js
@@ -51,6 +53,7 @@
 
     const ZenzaWatch = {
       version: VER,
+      env: ENV,
       debug: {},
       api: {},
       init: {},

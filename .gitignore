@@ -12,4 +12,3 @@ node_modules/
 session/*
 .idea/*
 ./lib/*
-*-dev.user.js

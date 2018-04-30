@@ -101,12 +101,66 @@ import {util} from './util';
 *}
 
 
+<div style="
+    display: block;
+    padding: 0;
+    margin: 0;
+    width: 684px;
+    white-space: nowrap;
+    border: 1px solid orange;
+    box-sizing: border-box;
+    border-width: 0 16px 16px 0
+">
+  <!--684x50 17-->
+  <span class="big" style="display: inline-block;font-size: 39px;line-height: 46px;padding: 2px;margin: 0;font-weight: 600;letter-spacing: 1px;"
+  >一二三四五六七八九十一二三四五六七</span><br>
+  <!--679x34 25-->
+  <span class="medium" style="display: inline-block;font-size: 26px;line-height: 30px;padding: 2px;margin: 0;font-weight: 600;letter-spacing: 1px;"
+  >一二三四五六七八九十一二三四五六七八九十一二三四五</span><br>
+  <!--670x22 37-->
+  <span class="small" style="display: inline-block;font-size: 17px;line-height: 18px;padding: 2px;margin: 0;font-weight: 600;letter-spacing: 1px;"
+  >一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七</span>
+</div>
+
+<div style="
+    display: block;
+    padding: 0;
+    margin: 0;
+    width: 672px;
+    white-space: nowrap;
+    border: 1px solid orange;
+    box-sizing: border-box;
+    border-width: 0 16px 16px 0
+">
+  <span class="big" style="
+    display: inline-block;
+    font-size: 39px;
+    line-height: 46px;
+    padding: 2px;margin: 0;font-weight: 600;letter-spacing: 1px;"
+  >一二三四五六七八九十一二三四五六七</span><br>
+  <span class="medium" style="
+    display: inline-block;
+    font-size: 26px;
+    line-height: 30px;
+    padding: 2px;margin: 0;font-weight: 600;letter-spacing: 1px;"
+  >一二三四五六七八九十一二三四五六七八九十一二三四五</span><br>
+  <span class="small" style="
+    display: inline-block;
+    font-size: 17px;
+    line-height: 18px;
+    padding: 2px;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 1px;"
+  >一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七</span>
+</div>
+
 
 */
 //===BEGIN===
 
-var NicoTextParser = function () {
-};
+class NicoTextParser {
+}
 NicoTextParser._FONT_REG = {
   // TODO: wikiにあるテーブルを正規表現に落とし込む
   // MING_LIUは昔どこかで拾ったのだけど出典がわからない
@@ -138,65 +192,64 @@ body {
 
 .default {}
 .gothic  {font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo'; }
-.mincho  {font-family: Simsun,            Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', 'Hiragino Mincho ProN', monospace; }
-.gulim   {font-family: Gulim,             Osaka-mono, "Osaka−等幅",              'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
-.mingLiu {font-family: PmingLiu, mingLiu, MingLiU, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', monospace; }
+.mincho  {font-family: Simsun,            "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅', 'Hiragino Mincho ProN'; }
+.gulim   {font-family: Gulim,             Osaka-mono, "Osaka−等幅",              'ＭＳ ゴシック', 'モトヤLシーダ3等幅'; }
+.mingLiu {font-family: PmingLiu, mingLiu, MingLiU, Osaka-mono, "Osaka−等幅", 'ＭＳ 明朝', 'ＭＳ ゴシック', 'モトヤLシーダ3等幅'; }
 han_group { font-family: 'Arial'; }
 
 
 /* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
-.cmd-gothic {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
-.cmd-mincho {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
-/*.cmd-defont {font-family: "ＭＳ Ｐゴシック", "MS PGothic", 'Yu Gothic', 'YuGothic', "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }*/
-.cmd-defont {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-/*.cmd-defont {font-family: monospace, "ＭＳ ゴシック", "MS Gothic", 'Yu Gothic', 'YuGothic', "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, Menlo; }*/
-
-.cmd-gothic, .cmd-mincho, .cmd-defont { letter-spacing: 0; /*font-feature-settings: "tnum";*/ }
+.cmd-gothic {
+  font-weight: 400;
+  font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
+.cmd-mincho {
+  font-weight: 400;
+  font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;
+}
+.cmd-defont {
+  font-family: arial, "ＭＳ Ｐゴシック", "MS PGothic", "MSPGothic", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo;
+}
 
 .nicoChat {
   position: absolute;
-  padding: 1px;
 
   letter-spacing: 1px;
-  margin: 2px 1px 1px 1px;
+  padding: 2px 0 2px;
+  margin: 0;
   white-space: nowrap;
-  font-weight: bolder;
+  font-weight: 600;
   font-kerning: none;
 }
 
-.nicoChat.cmd-gothic, .nicoChat.cmd-mincho, .nicoChat.cmd-defont {
-  padding: 0;
-  margin: 1px;
-}
-
   .nicoChat.big {
-    line-height: 47.5px;
+    line-height: 45px;
   }
-    .nicoChat.big.noScale {
-      line-height: 45px;
+    .nicoChat.big.html5 {
+      line-height: ${47.5 -1}px;
+    }
+    .nicoChat.big.is-lineResized {
+      line-height: ${48}px;
     }
 
   .nicoChat.medium {
-    line-height: 30px;
+    line-height: 29px; 
   }
-    .nicoChat.medium.noScale {
-      line-height: 29px;
+    .nicoChat.medium.html5 {
+      line-height: ${(384 - 4) / 13}px;
+    }
+    .nicoChat.medium.is-lineResized {
+      line-height: ${(384 - 4) * 2 / 25 -0.4}px;
     }
 
   .nicoChat.small {
-    line-height: 20px;
+    line-height: 18px;
   }
-    .nicoChat.small.noScale {
-      line-height: 18px;
+    .nicoChat.small.html5 {
+      line-height: ${(384 - 4) / 21}px;
     }
-
-  .nicoChat .zero_space {
-  }
-    .nicoChat .zen_space.type115A {
+    .nicoChat.small.is-lineResized {
+      line-height: ${(384 - 4) * 2 / 38}px;
     }
-
-  .type2001 {
-  }
 
   .arial.type2001 {
     font-family: Arial;
@@ -235,9 +288,15 @@ han_group { font-family: 'Arial'; }
 .small  .type0020 > spacer { width: 5px; }
 
 .big    .type3000 > spacer { width: 40px; }
-.medium .type3000 > spacer { width: 25px; }
-.small  .type3000 > spacer { width: 16px; }
+.medium .type3000 > spacer { width: 26px; }
+.small  .type3000 > spacer { width: 18px; }
 
+/*
+.type3000 > spacer::after { content: ' '; }
+.mincho > .type3000 > spacer::after, .gulim > .type3000 > spacer::after, .mincho > .type3000 > spacer::after {
+  content: '全'; 
+}
+*/
 .big    .gothic > .type3000 > spacer { width: 26.8984375px; }
 .medium .gothic > .type3000 > spacer { width: 16.9375px; }
 .small  .gothic > .type3000 > spacer { width: 10.9609375px; }
@@ -254,8 +313,8 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   white-space: nowrap;
 }
 .big    .mesh_space { width: 40px; }
-.medium .mesh_space { width: 25px; }
-.small  .mesh_space { width: 16px; }
+.medium .mesh_space { width: 26px; }
+.small  .mesh_space { width: 18px; }
 
 /*
 .fill_space {
@@ -273,7 +332,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 }
 
 /* Mac Chrome バグ対策？ 空白文字がなぜか詰まる これでダメならspacer作戦 */
-.mincho .invisible_code {
+.invisible_code {
   font-family: gulim;
 }
 
@@ -308,8 +367,9 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
  *  ならどうしてやっているのかといえば、過去のコメントアートを再現したいからである。
  */
 NicoTextParser.likeXP = function (text) {
-  var S = '<spacer> </spacer>';
-  var htmlText =
+  let S = '<spacer> </spacer>';
+  let ZS = '<spacer>全</spacer>';
+  let htmlText =
     util.escapeHtml(text)
     // 行末の半角スペース、全角スペース、タブの除去
     //.replace(/([\x20|\u3000|\t])+([\n$])/g , '$2')
@@ -330,14 +390,14 @@ NicoTextParser.likeXP = function (text) {
       .replace(/(\t+)/g, '<span class="tab_space">$1</span>')
       .replace(/[\t]/g, '^');
 
-  var /* hasFontChanged = false, */ strongFont = 'gothic';
+  let /* hasFontChanged = false, */ strongFont = 'gothic';
   // フォント変化処理  XPをベースにしたい
   // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
   // 一文字ずつ走査してもさほど問題ないはず
   htmlText =
     htmlText.replace(NicoTextParser._FONT_REG.GR, function (all, group, firstChar) {
       // hasFontChanged = true;
-      var baseFont = '';
+      let baseFont = '';
       if (firstChar.match(NicoTextParser._FONT_REG.GOTHIC)) {
         baseFont = 'gothic';
       } else if (firstChar.match(NicoTextParser._FONT_REG.MINCHO)) {
@@ -351,9 +411,9 @@ NicoTextParser.likeXP = function (text) {
         strongFont = baseFont = 'mingLiu';
       }
 
-      var tmp = [], closer = [], currentFont = baseFont;
-      for (var i = 0, len = group.length; i < len; i++) {
-        var c = group.charAt(i);
+      let tmp = [], closer = [], currentFont = baseFont;
+      for (let i = 0, len = group.length; i < len; i++) {
+        let c = group.charAt(i);
         if (currentFont !== 'gothic' && c.match(NicoTextParser._FONT_REG.GOTHIC)) {
           tmp.push('<span class="gothic">');
           closer.push('</span>');
@@ -377,7 +437,7 @@ NicoTextParser.likeXP = function (text) {
         tmp.push(c);
       }
 
-      var result = [
+      let result = [
         '<group class="', baseFont, ' fontChanged">',
         tmp.join(''),
         closer.join(''),
@@ -392,16 +452,16 @@ NicoTextParser.likeXP = function (text) {
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
       .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
         function (g) {
-          return '<span class="fill_space">' +
+          return '<span class="fill_space">' + //+ g + '</span>';
             //'■'._repeat(g.length) + '</span>';
-            'ｉ'.repeat(g.length) + '</span>';
+            '田'.repeat(g.length) + '</span>';
         })
       .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
       // 非推奨空白文字。 とりあえず化けて出ないように
       .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
         //'<span class="invisible_code">$1</span>')
         function (g) {
-          var e = window.escape(g);
+          let e = window.escape(g);
           return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
         })
       // 結合文字 前の文字と同じ幅になるらしい
@@ -415,7 +475,7 @@ NicoTextParser.likeXP = function (text) {
       // 全角スペース
       .replace(/([\u3000]+)/g, //'<span class="zen_space type3000">$1</span>')
         function (g) {
-          return '<span class="zen_space type3000">' + S.repeat(g.length) + '</span>';
+          return '<span class="zen_space type3000">' + ZS.repeat(g.length) + '</span>';
         })
       // バックスラッシュ
       .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
@@ -424,7 +484,7 @@ NicoTextParser.likeXP = function (text) {
         '<span class="zero_space">$1</span>')
       // &emsp;
       .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
-      .replace(/[\r\n]+$/g, '')
+      // .replace(/[\r\n]+$/g, '')
       //        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
       .replace(/[\n]/g, '<br>')
   ;
@@ -445,25 +505,23 @@ NicoTextParser.likeXP = function (text) {
 };
 
 NicoTextParser.likeHTML5 = function (text) {
-  var htmlText =
+  let htmlText =
     util.escapeHtml(text)
-      .replace(/([\x20\xA0]+)/g, (g) => {
-        return '<span class="html5_space">' +
-          '_'.repeat(g.length) + '</span>';
+      .replace(/([\x20\xA0]+)/g, g => {
+        return `<span class="html5_space" data-text="${encodeURIComponent(g)}">${g}</span>`;
+          // ' '.repeat(g.length) + '</span>';
       })
-      .replace(/([\u2000\u2002]+)/g, (g) => {
-        return '<span class="html5_space half">' +
-          '_'.repeat(g.length) + '</span>';
+      .replace(/([\u2000\u2002]+)/g, g => {
+        return `<span class="html5_space half" data-text="${encodeURIComponent(g)}">${g}</span>`;
+          //'_'.repeat(g.length) + '</span>';
       })
-      .replace(/([\u3000\u2001\u2003]+)/g,
-        (g) => {
-          return '<span class="html5_zen_space">全</span>'.repeat(g.length);
+      .replace(/([\u3000\u2001\u2003]+)/g, g => {
+          return `<span class="html5_zen_space" data-text="${encodeURIComponent(g)}">${'全'.repeat(g.length)}</span>`;
         })
-      .replace(/[\u200B-\u200F]+/g, (g) => {
-        return '<span class="html5_zero_width"></span>'.repeat(g.length);
+      .replace(/[\u200B-\u200F]+/g, g => {
+        return `<span class="html5_zero_width" data-text="${encodeURIComponent(g)}"></span>`;
       })
-      .replace(/([\t]+)/g,
-        (g) => {
+      .replace(/([\t]+)/g, g => {
           return '<span class="html5_tab_space">' +
             '□'.repeat(g.length * 2) + '</span>';
         })
@@ -471,11 +529,12 @@ NicoTextParser.likeHTML5 = function (text) {
       //      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
       .replace(/([\u2588]+)/g,
         (g) => {
-          return '<span class="html5_fill_space u2588">' +
-            //String.fromCharCode(0x2588).repeat(g.length) + '</span>';
-            '田'.repeat(g.length) + '</span>';
+          return '<span class="html5_fill_space u2588">' + //g + '</span>';
+          // return '<span class="html5_fill_space u2588">' +
+          //   //String.fromCharCode(0x2588).repeat(g.length) + '</span>';
+             '田'.repeat(g.length) + '</span>';
         })
-      .replace(/[\r\n]+$/g, '')
+      // .replace(/[\r\n]+$/g, '')
       .replace(/[\n]/g, '<br>')
   ;
 

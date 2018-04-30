@@ -10,7 +10,7 @@ const JSDOM = jsdom.JSDOM;
 //===BEGIN===
 
 const {ThreadLoader} = (() => {
-  // const VERSION_OLD = '20061206';
+  const VERSION_OLD = '20061206';
   const VERSION     = '20090904';
 
   const LANG_CODE = {
@@ -119,6 +119,7 @@ const {ThreadLoader} = (() => {
       msgInfo.threads.forEach(thread => {
         window.console.log('buildPacketData.threads', thread);
         if (!thread.isActive) { return; }
+        if (!['default', 'community', 'nicos', 'owner'].includes(thread.label)) { return; }
         
         let t = {
           thread: thread.id.toString(),
@@ -143,12 +144,16 @@ const {ThreadLoader} = (() => {
         if (options.resFrom > 0) {
           t.res_from = options.resFrom;
         }
-        // threadkeyかwaybackkeyがある場合にuserkeyをつけるとエラー。いらないなら無視すりゃいいだろが
+        // threadkeyかwaybackkeyがある場合にuserkeyをつけてしまうとエラー。いらないなら無視すりゃいいだろが
         if (!t.threadkey && !t.waybackkey && msgInfo.userKey) {
           t.userkey = msgInfo.userKey;
         }
-        packets.push({thread:        Object.assign({with_blobal: 1, version: VERSION}, t)});
-        packets.push({thread_leaves: Object.assign({content: leafContent}, t)});
+        if (t.fork) { // 投稿者コメント
+          packets.push({thread: Object.assign({with_blobal: 1, version: VERSION_OLD, res_from: -1000}, t)});
+        } else {
+          packets.push({thread: Object.assign({with_blobal: 1, version: VERSION}, t)});
+          packets.push({thread_leaves: Object.assign({content: leafContent}, t)});
+        }
       });
       return packets;
     }
@@ -268,7 +273,8 @@ const {ThreadLoader} = (() => {
           let lastId = null;
           Array.from(threads).forEach(t => {
             let id = parseInt(t.thread, 10);
-            if (lastId === id) {
+            let fork = t.fork || 0;
+            if (lastId === id || fork) {
               return;
             }
             lastId = id;
@@ -278,9 +284,8 @@ const {ThreadLoader} = (() => {
               resultCode = t.resultcode;
             }
             let lr = parseInt(t.last_res, 10);
-            if (!isNaN(lr)) {
+            if (!isNaN(lr) && !fork) { // 投稿者コメントはカウントしない
               totalResCount += lr;
-              lastRes = Math.max(lastRes, lr);
             }
           });
         } catch (e) {
@@ -301,7 +306,8 @@ const {ThreadLoader} = (() => {
           threadId,
           thread:     thread.thread,
           serverTime: thread.server_time,
-          lastRes,
+          force184:   msgInfo.defaultThread.isThreadkeyRequired ? '1' : '0',
+          lastRes:    thread.last_res * 1,
           totalResCount,
           blockNo:    Math.floor((lastRes + 1) / 100),
           ticket:     thread.ticket || '0',
@@ -310,6 +316,7 @@ const {ThreadLoader} = (() => {
           when:       msgInfo.when,
           isWaybackMode: !!msgInfo.when
         };
+        msgInfo[threadId*1] = threadInfo;
 
         console.log('threadInfo: ', threadInfo);
         return Promise.resolve({resultCode, threadInfo, body: result, format});

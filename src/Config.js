@@ -83,7 +83,7 @@ const Config = (() => {
     speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
 
 
-    enableCommentLayoutWorker: true, // コメントの配置計算を一部マルチスレッド化(テスト中)
+    // enableCommentLayoutWorker: true, // コメントの配置計算を一部マルチスレッド化(テスト中)
 
     enableSingleton: false,
 

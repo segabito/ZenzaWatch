@@ -954,7 +954,11 @@ class VideoPlayer extends Emitter {
     if (!this._canPlay) {
       this._canPlay = true;
       this.removeClass('is-loading');
-      this.emit('canPlay');
+      this.emit('canPlay', ...args);
+      if (this._video.videoHeight < 1) {
+        this._isAspectRatioFixed = false;
+      } else {
+        this._isAspectRatioFixed = true;
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
       }
@@ -985,7 +989,7 @@ class VideoPlayer extends Emitter {
     if (this._isYouTube) {
       return;
     }
-    if (this._videoElement.getAttribute('src') === CONSTANT.BLANK_VIDEO_URL) {
+    if (this._videoElement.src === CONSTANT.BLANK_VIDEO_URL || !this._videoElement.src || this._videoElement.src.match(/^https?:$/)) {
       return;
     }
     window.console.error('error src', this._video.src);
@@ -994,7 +998,7 @@ class VideoPlayer extends Emitter {
     this._canPlay = false;
     this.emit('error', {
       code: (e && e.target && e.target.error && e.target.error.code) || 0,
-      target: e.target,
+      target: e.target || this._video,
       type: 'normal'
     });
   }
@@ -1049,6 +1053,10 @@ class VideoPlayer extends Emitter {
     console.log('%c_onPlaying:', 'background: cyan;', arguments);
     this._isPlaying = true;
 
+    if (!this._isAspectRatioFixed) {
+      this._isAspectRatioFixed = true;
+      this.emit('aspectRatioFix',
+        this._video.videoHeight / Math.max(1, this._video.videoWidth));
     }
 
     this.emit('playing');
@@ -1094,6 +1102,9 @@ class VideoPlayer extends Emitter {
     return !!this._canPlay;
   }
 
+  play() {
+    if (this._currentVideo.currentTime === this.getDuration()) {
+      this.setCurrentTime(0);
     }
     const p = this._video.play();
     // video.play()がPromiseを返すかどうかはブラウザによって異なるっぽい。。。
@@ -1458,10 +1469,10 @@ class TouchWrapper extends Emitter {
 
     body.addEventListener('click', this._onClick.bind(this));
 
-    body.addEventListener('touchstart', this._onTouchStart.bind(this));
+    body.addEventListener('touchstart', this._onTouchStart.bind(this), {passive: true});
     body.addEventListener('touchmove', this._onTouchMove.bind(this));
-    body.addEventListener('touchend', this._onTouchEnd.bind(this));
-    body.addEventListener('touchcancel', this._onTouchCancel.bind(this));
+    body.addEventListener('touchend', this._onTouchEnd.bind(this), {passive: true});
+    body.addEventListener('touchcancel', this._onTouchCancel.bind(this), {passive: true});
 
     this._onTouchMoveThrottled =
       _.throttle(this._onTouchMoveThrottled.bind(this), 200);

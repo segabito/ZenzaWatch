@@ -822,8 +822,6 @@ const CommentListItemView = (() => {
       .active .commentListItem:hover .text {
         white-space: normal;
         word-break: break-all;
-        /*overflow-x: hidden;
-        overflow-y: visible;*/
         height: auto;
       }
 
@@ -848,6 +846,9 @@ const CommentListItemView = (() => {
         font-weight: normal;
       }
 
+      .commentListItem.subThread {
+        opacity: 0.6;
+      }
 
       .commentListItem.active {
         outline: dashed 2px #ff8;
@@ -917,14 +918,16 @@ const CommentListItemView = (() => {
       commentListItem.setAttribute('id', this.getDomId());
       commentListItem.setAttribute('data-item-id', item.getItemId());
       commentListItem.setAttribute('data-no', item.getNo());
+      commentListItem.setAttribute('data-uniq-no', item.getUniqNo());
       commentListItem.setAttribute('data-vpos', item.getVpos());
       commentListItem.setAttribute('data-top', this.getTop());
+      commentListItem.setAttribute('data-thread', item.getThreadId());
       commentListItem.setAttribute('data-title',
         `${item.getNo()}: ${formattedDate} ID:${item.getUserId()}\n${item.getText()}`
       );
       const font = item.getFontCommand() || 'default';
       commentListItem.className =
-        `commentListItem no${item.getNo()} item${this._id} ${oden} fork${item.getFork()} font-${font}`;
+        `commentListItem no${item.getNo()} item${this._id} ${oden} fork${item.getFork()} font-${font} ${item.isSubThread() ? 'subThread' : ''}`;
       commentListItem.style.top = `${this.getTop()}px`;
 
       timepos.textContent = item.getTimePos();
@@ -992,6 +995,7 @@ _.assign(CommentListItem.prototype, {
     this._no = nicoChat.getNo();
     this._color = nicoChat.getColor();
     this._fontCommand = nicoChat.getFontCommand();
+    this._isSubThread = nicoChat.isSubThread();
 
     this._formattedDate = util.dateToString(this._date * 1000);
     let sec = this._vpos / 100;
@@ -1036,8 +1040,17 @@ _.assign(CommentListItem.prototype, {
   getNo: function () {
     return this._no;
   },
+  getUniqNo: function () {
+    return this._nicoChat.getUniqNo();
+  },
   getFontCommand: function () {
     return this._fontCommand;
+  },
+  isSubThread: function() {
+    return this._isSubThread;
+  },
+  getThreadId: function() {
+    return this._nicoChat.getThreadId();
   }
 });
 

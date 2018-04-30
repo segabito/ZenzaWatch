@@ -2,8 +2,8 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {MessageApiLoader, PlaybackPosition, VideoInfoLoader} from './loader/api';
-import {AsyncEmitter, FullScreen, PopupMessage, ShortcutKeyEmitter, util} from './util';
+import {PlaybackPosition, VideoInfoLoader} from './loader/api';
+import {FullScreen, PopupMessage, ShortcutKeyEmitter, util} from './util';
 import {NicoVideoPlayer} from './NicoVideoPlayer';
 import {VideoFilter, VideoInfoModel} from './VideoInfo';
 import {CommentInputPanel} from './CommentInputPanel';
@@ -98,18 +98,15 @@ _.assign(PlayerConfig.prototype, {
   }
 });
 
-var VideoWatchOptions = function () {
-  this.initialize.apply(this, arguments);
-};
-_.extend(VideoWatchOptions.prototype, AsyncEmitter.prototype);
-_.assign(VideoWatchOptions.prototype, {
-  initialize: function (watchId, options, config) {
+class VideoWatchOptions {
+  constructor(watchId, options, config) {
     this._watchId = watchId;
     this._options = options || {};
     this._config = config;
-  },
+  }
+}
+_.assign(VideoWatchOptions.prototype, {
   getRawData: function () {
-    // window.console.trace();
     return this._options;
   },
   getEventType: function () {
@@ -328,10 +325,21 @@ class PlayerState extends BaseState {
     this.setState({isPlaying: false, isPausing: true});
   }
 
+  setVideoEnded() {
+    this.setState({isPlaying: false, isPausing: false, isSeeking: false});
+  }
 
-var NicoVideoPlayerDialogView = function () {
-  this.initialize.apply(this, arguments);
-};
+  setVideoErrorOccurred() {
+    this.setState({isError: true, isPlaying: false, isLoading: false, isSeeking: false});
+  }
+}
+
+class NicoVideoPlayerDialogView extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 NicoVideoPlayerDialogView.__css__ = `
 
     /*
@@ -378,18 +386,7 @@ NicoVideoPlayerDialogView.__css__ = `
       font-size: 13px;
       text-align: left;
       box-sizing: border-box;
-      /*transition:
-        width: 0.4s ease-in, height: 0.4s ease-in 0.4s,
-        right 0.4s ease-in, bottom 0.4s ease-in;*/
       contain: layout;
-    }
-
-    .zenzaScreenMode_big     .zenzaVideoPlayerDialog,
-    .zenzaScreenMode_normal  .zenzaVideoPlayerDialog,
-    .zenzaScreenMode_wide    .zenzaVideoPlayerDialog,
-    .zenzaScreenMode_3D      .zenzaVideoPlayerDialog,
-    .fullScreen              .zenzaVideoPlayerDialog {
-      /*transform: translatez(0);*/
     }
 
     .is-regularUser  .forPremium {
@@ -432,7 +429,6 @@ NicoVideoPlayerDialogView.__css__ = `
       transform: translate(-50%, -50%);
       z-index: ${CONSTANT.BASE_Z_INDEX + 1};
       box-shadow: 4px 4px 4px #000;
-      /*transition: none; top 0.4s ease-in, left 0.4s ease-in;*/
     }
     .zenzaScreenMode_3D       .zenzaVideoPlayerDialogInner,
     .zenzaScreenMode_sideView .zenzaVideoPlayerDialogInner,
@@ -448,11 +444,9 @@ NicoVideoPlayerDialogView.__css__ = `
 
     .zenzaPlayerContainer {
       position: relative;
-      /* overflow: hidden; */
       background: #000;
       width: 672px;
       height: 384px;
-              /*transition: width 0.4s ease-in 0.4s, height 0.4s ease-in;*/
       background-size: cover;
       background-repeat: no-repeat;
       background-position: center center;
@@ -479,11 +473,6 @@ NicoVideoPlayerDialogView.__css__ = `
     .fullScreen               .zenzaPlayerContainer {
       transition: none !important;
     }
-
-    .fullScreen .zenzaPlayerContainer {
-      /*transform: translateZ(0);*/
-    }
-
 
     .zenzaPlayerContainer .videoPlayer {
       position: absolute;
@@ -573,12 +562,6 @@ NicoVideoPlayerDialogView.__css__ = `
       bottom: auto;
       z-index: 1;
     }
-
-    .is-mouseMoving .commentLayerFrame {
-      /* height: calc(100% - 50px); */
-      cursor: auto;
-    }
-
 
 
     .fullScreen           .videoPlayer,
@@ -676,8 +659,6 @@ NicoVideoPlayerDialogView.__css__ = `
     }
     body.zenzaScreenMode_sideView.nofix:not(.fullScreen) {
       margin-top: 40px;
-    }
-    body.zenzaScreenMode_sideView #siteHeader {
     }
     body.zenzaScreenMode_sideView:not(.nofix) #siteHeader {
       margin-left: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
@@ -874,8 +855,6 @@ NicoVideoPlayerDialogView.__css__ = `
       text-shadow: 0 0 8px #003;
       font-family: serif;
       letter-spacing: 2px;
-      /*animation-name: loadingVideo;*/
-      /*background: rgba(0, 0, 0, 0.5);*/
     }
 
     @keyframes spin {
@@ -928,8 +907,6 @@ NicoVideoPlayerDialogView.__css__ = `
       transform: translateZ(0);
       user-select: none;
     }
-
-
   `.trim();
 
 NicoVideoPlayerDialogView.__tpl__ = (`
@@ -946,7 +923,6 @@ NicoVideoPlayerDialogView.__tpl__ = (`
     </div>
   `).trim();
 
-_.extend(NicoVideoPlayerDialogView.prototype, AsyncEmitter.prototype);
 _.assign(NicoVideoPlayerDialogView.prototype, {
   initialize: function (params) {
     const dialog = this._dialog = params.dialog;
@@ -1002,7 +978,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     let lastX = 0, lastY = 0;
     let onMouseMove = this._onMouseMove.bind(this);
     let onMouseMoveEnd = _.debounce(this._onMouseMoveEnd.bind(this), 400);
-    $container.on('mousemove', (e) => {
+    container.addEventListener('mousemove', _.throttle(e => {
       if (e.buttons === 0 && lastX === e.screenX && lastY === e.screenY) {
         return;
       }
@@ -1212,19 +1188,26 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       isYouTube: 'is-youTube',
     };
   },
+  _onPlayerStateUpdate: function (changedState) {
+    Object.keys(changedState).forEach(key => {
+      this._onPlayerStateChange(key, changedState[key]);
+    });
+  },
   _onPlayerStateChange: function (key, value) {
-    const table = this._getStateClassNameTable();
-    const className = table[key];
-    if (className) {
-      this.toggleClass(className, !!value);
-    }
     switch (key) {
+      case 'thumbnail':
+        return this.setThumbnail(value);
       case 'screenMode':
       case 'isOpen':
         if (this._playerState.isOpen) {
           this._onScreenModeChange();
         }
         break;
+    }
+    const table = this._getStateClassNameTable();
+    const className = table[key];
+    if (className) {
+      this.toggleClass(className, !!value);
     }
   },
   _applyState: function () {
@@ -1310,19 +1293,20 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     util.$(this._$playerContainer[0]).css(key, val);
   },
   addClass: function (name) {
-    return this.toggleClass(name, true);
+    //const container = this._$playerContainer[0];
+    return this._classList.add(...name.split(/[ ]+/));
   },
   removeClass: function (name) {
-    return this.toggleClass(name, false);
+    //const container = this._$playerContainer[0];
+    return this._classList.remove(...name.split(/[ ]+/));
   },
   toggleClass: function (name, v) {
-    const container = this._$playerContainer[0];
+    if (_.isBoolean(v)) {
+      return v ? this.addClass(name) : this.removeClass(name);
+    }
+    //const container = this._$playerContainer[0];
     name.split(/[ ]+/).forEach(n => {
-      if (_.isBoolean(v)) {
-        container.classList.toggle(n, v);
-      } else {
-        container.classList.toggle(n);
-      }
+      this._classList.toggle(n);
     });
   },
   hasClass: function (name) {
@@ -1347,15 +1331,59 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   }
 });
 
-
+class ClassListWrapper {
+  constructor(element) {
+    this._element = element;
+    this._next = Array.from(element.classList).sort();
+    this._last = this._next;
+  }
+  add(...names) {
+    this._next.push(...names.filter(name => !this._next.includes(name)));
+    this._apply();
+    return true;
+  }
+  remove(...names) {
+    this._next = this._next.filter(name => !names.includes(name));
+    this._apply();
+    return false;
+  }
+  contains(name) {
+    return this._next.includes(name);
+  }
+  toggle(name, v) {
+    if (v !== undefined) {
+      v = !!v;
+    } else {
+      v = !this.contains(name);
+    }
+    return !!v ? this.add(name) : this.remove(name);
+  }
+  _apply() {
+    if (this._applying) { return; }
+    let last = this._last.join(',');
+    let next = this._next.sort().join(',');
+    if (next === last) { return; }
+    this._applying = requestAnimationFrame(() => {
+      this._applying = null;
+      let added   = this._next.filter(name => !this._last.includes(name));
+      let removed = this._last.filter(name => !this._next.includes(name));
+      if (added.length)   { this._element.classList.add(...added); }
+      if (removed.length) { this._element.classList.remove(...removed); }
+      this._next = Array.from(this._element.classList).sort();
+      this._last = this._next.concat();
+    });
+  }
+}
 /**
  * TODO: 分割 まにあわなくなっても知らんぞー
  */
-var NicoVideoPlayerDialog = function () {
-  this.initialize.apply(this, arguments);
-};
+class NicoVideoPlayerDialog extends Emitter {
+  constructor(params) {
+    super();
+    this.initialize(params);
+  }
+}
 
-_.extend(NicoVideoPlayerDialog.prototype, AsyncEmitter.prototype);
 _.assign(NicoVideoPlayerDialog.prototype, {
   initialize: function (params) {
     this._offScreenLayer = params.offScreenLayer;
@@ -1400,14 +1428,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._$playerContainer = this._view.get$Container();
     this._view.on('command', this._onCommand.bind(this));
     this._view.on('postChat', (e, chat, cmd) => {
-      this.addChat(chat, cmd).then(
-        () => {
-          e.resolve();
-        },
-        () => {
-          e.reject();
-        }
-      );
+      this.addChat(chat, cmd)
+        .then(() => e.resolve())
+        .catch(() => e.reject());
     });
   },
   _initializeNicoVideoPlayer: function () {
@@ -1576,11 +1599,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         break;
       case 'seekRelativePercent': {
         let dur = this._videoInfo.duration;
-        //let st = param.perStartX;
         let mv = Math.abs(param.movePerX) > 10 ?
           (param.movePerX / 2) : (param.movePerX / 8);
         let pos = this.getCurrentTime() + (mv * dur / 100);
-        //let pos = (st + mv) * dur / 100);
         this.setCurrentTime(Math.min(Math.max(0, pos), dur));
         break;
       }
@@ -1863,15 +1884,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         break;
       case 'sharedNgLevel':
         this._playerState.sharedNgLevel = value;
-        //PopupMessage.notify('NG共有: ' +
-        //  {'HIGH': '強', 'MID': '中', 'LOW': '弱', 'NONE': 'なし'}[value]);
         break;
       case 'debug':
         this._playerState.isDebug = !!value;
         PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
         break;
       case 'enableFilter':
-        //PopupMessage.notify('NG設定: ' + (value ? 'ON' : 'OFF'));
         this._playerState.isEnableFilter = value;
         this._nicoVideoPlayer.setIsCommentFilterEnable(value);
         break;
@@ -2022,27 +2040,33 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     };
 
     this._playerState.isUpdatingDeflist = true;
-    let timer = window.setTimeout(unlock, 10000);
-
-    const owner = this._videoInfo.ownerInfo;
+    let timer = setTimeout(unlock, 10000);
 
     watchId = watchId || this._videoInfo.watchId;
-    const description =
-      (watchId === this._watchId && this._playerConfig.getValue('enableAutoMylistComment')) ? ('投稿者: ' + owner.name) : '';
+    let description;
     if (!this._mylistApiLoader) {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
     }
 
-    return this._mylistApiLoader.addDeflistItem(watchId, description)
-      .then(result => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        PopupMessage.notify(result.message);
-      }, err => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        PopupMessage.alert(err.message);
-      });
+    (() => {
+      if (watchId === this._watchId || !this._playerConfig.getValue('enableAutoMylistComment')) {
+        return Promise.resolve(this._videoInfo);
+      }
+      return ZenzaWatch.api.ThumbInfoLoader.load(watchId);
+    })().then(info => {
+      description =
+        this._playerConfig.getValue('enableAutoMylistComment') ? `投稿者: ${info.owner.name}` : '';
+    }).then(() => {
+      return this._mylistApiLoader.addDeflistItem(watchId, description);
+    }).then(result => {
+      clearTimeout(timer);
+      timer = setTimeout(unlock, 2000);
+      this.execCommand('notify', result.message);
+    }).catch(err => {
+      clearTimeout(timer);
+      timer = setTimeout(unlock, 2000);
+      this.execCommand('alert', err.message ? err.message : 'とりあえずマイリストに登録失敗');
+    });
   },
   _onDeflistRemove: function (watchId) {
     if (this._playerState.isUpdatingDeflist || !util.isLogin()) {
@@ -2198,13 +2222,14 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
 
+    window.console.log('%copen video: ', 'color: blue;', watchId);
     window.console.time('動画選択から再生可能までの時間 watchId=' + watchId);
 
     let nicoVideoPlayer = this._nicoVideoPlayer;
     if (!nicoVideoPlayer) {
       nicoVideoPlayer = this._initializeNicoVideoPlayer();
     } else {
-      this._savePlaybackPosition(this._watchId, this.getCurrentTime());
+      this._savePlaybackPosition(this._videoInfo.contextWatchId, this.getCurrentTime());
       nicoVideoPlayer.close();
       this._view.clearPanel();
       this.emit('beforeVideoOpen');
@@ -2217,11 +2242,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
 
     // watchIdからサムネイルを逆算できる時は最速でセットする
     const thumbnail = util.getThumbnailUrlByVideoId(watchId);
-    if (thumbnail) {
-      this._view.setThumbnail(thumbnail);
-    }
+    this._playerState.thumbnail = thumbnail;
 
-        this._videoSession = VideoSession.createInstance({
     this._playerState.isCommentReady = false;
     this._watchId = watchId;
     this._lastCurrentTime = 0;
@@ -2434,9 +2456,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       }, 3000);
     }
   },
-  _setThumbnail: function (thumbnail) {
-    this._view.setThumbnail(thumbnail);
-  },
   _setErrorMessage: function (msg) {
     this._view.setErrorMessage(msg);
   },
@@ -2446,16 +2465,18 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
     let options = {
       replacement: this._videoInfo.replacementWords,
-      duration: this._videoInfo.duration
+      duration: this._videoInfo.duration,
+      mainThreadId: result.threadInfo.threadId,
+      format: result.format
     };
     this._nicoVideoPlayer.closeCommentPlayer();
     this._threadInfo = result.threadInfo;
-    this._nicoVideoPlayer.setComment(result.xml, options);
+    this._nicoVideoPlayer.setComment(result.body, options);
 
     this._playerState.isCommentReady = true;
     this._playerState.isWaybackMode = result.threadInfo.isWaybackMode;
     this.emit('commentReady', result, this._threadInfo);
-    this.emit('videoCount', {comment: parseInt(result.threadInfo.lastRes, 10)});
+    this.emit('videoCount', {comment: result.threadInfo.totalResCount});
   },
   _onCommentLoadFail: function (requestId, e) {
     if (requestId !== this._requestId) {
@@ -2470,7 +2491,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
 
     // パラメータで開始秒数が指定されていたらそこにシーク
-    var currentTime = this._videoWatchOptions.getCurrentTime();
+    let currentTime = this._videoWatchOptions.getCurrentTime();
     if (currentTime > 0) {
       this.setCurrentTime(currentTime);
     }
@@ -2604,7 +2625,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     // ループ再生中は飛んでこない
     this.emitAsync('ended');
     this._playerState.setVideoEnded();
-    this._savePlaybackPosition(this._watchId, 0);
+    this._savePlaybackPosition(this._videoInfo.contextWatchId, 0);
     if (this.isPlaylistEnable() && this._playlist.hasNext()) {
       this.playNextVideo({eventType: 'playlist'});
       return;
@@ -2627,7 +2648,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   _onVolumeChangeEnd: function (vol, mute) {
     this.emit('volumeChangeEnd', vol, mute);
   },
-  _savePlaybackPosition: function (watchId, ct) {
+  _savePlaybackPosition: function (contextWatchId, ct) {
     if (!util.isLogin()) {
       return;
     }
@@ -2637,7 +2658,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
     const dr = this.getDuration();
     console.info('%csave PlaybackPosition:', 'background: cyan', ct, dr, vi.csrfToken);
-    if (vi.getWatchId() !== watchId) {
+    if (vi.contextWatchId !== contextWatchId) {
       return;
     }
     if (Math.abs(ct - dr) < 3) {
@@ -2647,7 +2668,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     } // 短い動画は記録しない
     PlaybackPosition.record(
-      watchId,
+      contextWatchId,
       ct,
       vi.csrfToken
     ).catch((e) => {
@@ -2782,39 +2803,38 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return Promise.reject();
     }
 
+    // force184のスレッドに184コマンドをつけてしまうとエラー. 同じなんだから無視すりゃいいだろが
     if (this._threadInfo.force184 !== '1') {
       cmd = '184 ' + cmd;
     }
     options = options || {};
-    options.mine = '1';
-    options.updating = '1';
+    options.isMine = true;
+    options.isUpdating = true;
+    options.thread = this._threadInfo.threadId * 1;
     vpos = vpos || this._nicoVideoPlayer.getVpos();
     const nicoChat = this._nicoVideoPlayer.addChat(text, cmd, vpos, options);
 
     this._playerState.isCommentPosting = true;
 
-    let timeout;
-    let resolve, reject;
     const lang = this._playerConfig.getValue('commentLanguage');
     window.console.time('コメント投稿');
 
-    const _onSuccess = (result) => {
+    const _onSuccess = result => {
       window.console.timeEnd('コメント投稿');
       nicoChat.setIsUpdating(false);
+      nicoChat.setNo(result.no);
       PopupMessage.notify('コメント投稿成功');
       this._playerState.isCommentPosting = false;
 
       this._threadInfo.blockNo = result.blockNo;
-      window.clearTimeout(timeout);
 
-      resolve(result);
+      return Promise.resolve(result);
     };
 
-    const _onFailFinal = (err) => {
+    const _onFailFinal = err => {
       err = err || {};
 
       window.console.log('_onFailFinal: ', err);
-      window.clearTimeout(timeout);
       window.console.timeEnd('コメント投稿');
 
       nicoChat.setIsPostFail(true);
@@ -2824,42 +2844,32 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       if (err.blockNo && typeof err.blockNo === 'number') {
         this._threadInfo.blockNo = err.blockNo;
       }
-      reject(err);
-    };
-
-    const _onTimeout = () => {
-      PopupMessage.alert('コメント投稿失敗(timeout)');
-      this._playerState.isCommentPosting = false;
-      reject({});
+      return Promise.reject(err);
     };
 
     const _retryPost = () => {
-      window.clearTimeout(timeout);
       window.console.info('retry: コメント投稿');
-      timeout = window.setTimeout(_onTimeout, 30000);
 
-      return this._messageApiLoader
-        .postChat(this._threadInfo, text, cmd, vpos, lang).then(
-          _onSuccess,
-          _onFailFinal
-        );
+      return new Sleep(3000).then(() => {
+        return this._messageApiLoader
+          .postChat(this._threadInfo, text, cmd, vpos, lang);
+      }).then(_onSuccess).catch(_onFailFinal);
     };
 
-    const _onTicketFail = (err) => {
+    const _onTicketFail = err => {
       this._messageApiLoader.load(this._videoInfo.msgInfo).then(
-        (result) => {
+        result => {
           window.console.log('ticket再取得 success');
           this._threadInfo = result.threadInfo;
           return _retryPost();
-        },
-        (e) => {
+        }).catch(e => {
           window.console.log('ticket再取得 fail: ', e);
           _onFailFinal(err);
         }
       );
     };
 
-    const _onFail1st = (err) => {
+    const _onFail1st = err => {
       err = err || {};
 
       const errorCode = parseInt(err.code, 10);
@@ -2929,9 +2939,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   }
 });
 
-var VideoHoverMenu = function () {
-  this.initialize.apply(this, arguments);
-};
+class VideoHoverMenu extends Emitter {
+  constructor(...args) {
+    super();
+    this.initialize(...args);
+  }
+}
 VideoHoverMenu.__css__ = (`
 
     /* マイページはなぜかhtmlにoverflow-y: scroll が指定されているので打ち消す */
@@ -3012,6 +3025,10 @@ VideoHoverMenu.__css__ = (`
       .menuItemContainer.leftBottom .scalingUI {
         transform-origin: left bottom;
       }
+      .menuItemContainer.leftBottom .scalingUI>* {
+        display: inline-block;
+        margin-right: 8px;
+      }
       .zenzaScreenMode_wide .menuItemContainer.leftBottom .scalingUI,
       .fullScreen           .menuItemContainer.leftBottom .scalingUI {
         height: 64px;
@@ -3038,12 +3055,21 @@ VideoHoverMenu.__css__ = (`
       display: none;
       white-space: nowrap;
     }
-      .is-error .menuItemContainer.onErrorMenu {
+      .is-error .onErrorMenu {
         display: block !important;
         opacity: 1 !important;
       }
-      .is-error .menuItemContainer.onErrorMenu .menuButton {
+
+      .onErrorMenu .menuButton {
         opacity: 0.8 !important;
+      }
+
+      .is-youTube .onErrorMenu .for-nicovideo,
+                  .onErrorMenu .for-ZenTube {
+        display: none;
+      }
+      .is-youTube.is-error .onErrorMenu .for-ZenTube {
+        display: inline-block;
       }
 
       .menuItemContainer.onErrorMenu .menuButton {
@@ -3062,9 +3088,7 @@ VideoHoverMenu.__css__ = (`
       }
       .menuItemContainer.onErrorMenu .menuButton:active {
         background: #ccc;
-        transform: translate(0, 4px);
         border: 2px inset;
-        box-shadow: none;
       }
       .menuItemContainer.onErrorMenu .playNextVideo {
         display: none !important;
@@ -3084,17 +3108,19 @@ VideoHoverMenu.__css__ = (`
       box-sizing: border-box;
       text-align: center;
       text-shadow: none;
-
       user-select: none;
     }
       .menuButton:hover {
-        box-shadow: 0 0 4px #000;
+        box-shadow: 0 2px 0 #000;
         cursor: pointer;
         opacity: 1;
+        background: #888;
+        color: #000;
       }
       .menuButton:active {
-        transform: translate(0, 4px);
+        transform: translate(0, 2px);
         box-shadow: 0 0 0 #000;
+        transition: none;
       }
 
       .menuButton .tooltip {
@@ -3119,13 +3145,14 @@ VideoHoverMenu.__css__ = (`
       .menuButton:hover .tooltip {
         display: block;
       }
-
-      .menuButton .selectMenu {
-        transition: transform 0.2s linear;
-        transform: translate(0,  4px);
+      .menuButton:avtive .tooltip {
+        display: none;
       }
+
+
       .menuButton:active .selectMenu {
-        transform: translate(0, -4px);
+        transform: translate(0, -2px);
+        transition: none;
       }
 
 
@@ -3145,7 +3172,6 @@ VideoHoverMenu.__css__ = (`
         background: rgba(80, 80, 80, 0.5);
         border: 1px solid #888;
         transition:
-          transform 0.2s linear,
           box-shadow 0.2s ease,
           background 0.4s ease;
       }
@@ -3153,7 +3179,6 @@ VideoHoverMenu.__css__ = (`
         opacity: 0.8;
         word-break: normal;
         transition:
-          transform 0.2s linear,
           box-shadow 0.2s ease,
           background 0.4s ease;
        }
@@ -3163,16 +3188,18 @@ VideoHoverMenu.__css__ = (`
       left: 0;
       width:  32px;
       height: 32px;
+      background:#888;
       color: #000;
       border: 1px solid #666;
       line-height: 30px;
       font-size: 24px;
       text-decoration: line-through;
+      filter: grayscale(100%);
       border-radius: 4px;
     }
       .is-showComment .showCommentSwitch {
-        background:#888;
         color: #fff;
+        filter: none;
         text-shadow: 0 0 6px orange;
         text-decoration: none;
       }
@@ -3191,26 +3218,15 @@ VideoHoverMenu.__css__ = (`
       .is-showComment .ngSettingMenu {
         display: block;
       }
-      .ngSettingMenu:hover {
-        background: #888;
-        /*font-size: 120%;*/
-        box-shadow: 4px 4px 0 #000;
-        text-shadow: 0px 0px 2px #ccf;
-      }
-      .ngSettingMenu.show,
-      .ngSettingMenu:active {
-        opacity: 1;
-        background: #888;
-        border: 1px solid #ccc;
-        box-shadow: none;
-        transform: translate(0, 2px);
-      }
 
     .ngSettingSelectMenu {
       white-space: nowrap;
       bottom: 0px;
       left: 32px;
     }
+      .ngSettingMenu:active .ngSettingSelectMenu {
+        transition: none;
+      }
       .ngSettingSelectMenu .triangle {
         transform: rotate(45deg);
         left: -8px;
@@ -3240,9 +3256,6 @@ VideoHoverMenu.__css__ = (`
       font-size: 21px;
       white-space: nowrap;
     }
-    .is-mouseMoving .mylistButton {
-      /*text-shadow: 1px 1px 2px #888;*/
-    }
 
     .mylistButton.mylistAddMenu {
       left: 40px;
@@ -3251,12 +3264,6 @@ VideoHoverMenu.__css__ = (`
     .mylistButton.deflistAdd {
       left: 80px;
       top: 0;
-    }
-
-    .menuItemContainer .mylistButton:hover {
-      background: #888;
-      color: #000;
-      text-shadow: 0px 0px 2px #66f;
     }
 
     @keyframes spinX {
@@ -3452,10 +3459,6 @@ VideoHoverMenu.__css__ = (`
       background: rgba(192, 192, 192, 0.8);
     }
 
-    .is-filterEnable {
-    }
-
-
     .togglePlayMenu {
       display: none;
       position: absolute;
@@ -3607,7 +3610,6 @@ VideoHoverMenu.__tpl__ = (`
     </div>
   `).trim();
 
-_.extend(VideoHoverMenu.prototype, AsyncEmitter.prototype);
 _.assign(VideoHoverMenu.prototype, {
   initialize: function (params) {
     this._container = params.playerContainer;
@@ -3818,8 +3820,8 @@ _.assign(VideoHoverMenu.prototype, {
 
     util.$('.selectMenu, .menuButton').forEach(item => {
       if (util.$(item).hasClass(name)) {
-        util.$(item).toggleClass('show', v);
-        v = util.$(item).hasClass('show');
+        item.classList.toggle('show', v);
+        v = item.classList.contains('show');
       } else {
         item.classList.remove('show');
       }
@@ -3838,37 +3840,21 @@ _.assign(VideoHoverMenu.prototype, {
 });
 
 
-var DynamicCss = function () {
-  this.initialize.apply(this, arguments);
-};
-DynamicCss.__css__ = `
-    .scalingUI {
-      transform: scale(%SCALE%);
-    }
-    .videoControlBar {
-      height: %CONTROL_BAR_HEIGHT%px !important;
-    }
-
-    .zenzaPlayerContainer .commentLayerFrame {
-      opacity: %COMMENT_LAYER_OPACITY%;
-    }
-
-  `;
-DynamicCss.prototype = {
-  initialize: function (params) {
-    var config = this._playerConfig = params.playerConfig;
+class DynamicCss {
+  constructor(params) {
+    let config = this._playerConfig = params.playerConfig;
 
     this._scale = 1.0;
     this._commentLayerOpacity = 1.0;
 
-    var update = _.debounce(this._update.bind(this), 1000);
+    let update = _.debounce(this._update.bind(this), 1000);
     config.on('update-menuScale', update);
     config.on('update-commentLayerOpacity', update);
     update();
-  },
-  _update: function () {
-    var scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
-    var commentLayerOpacity =
+  }
+  _update() {
+    let scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
+    let commentLayerOpacity =
       parseFloat(this._playerConfig.getValue('commentLayerOpacity'), 10);
 
     if (this._scale === scale &&
@@ -3883,7 +3869,7 @@ DynamicCss.prototype = {
     this._scale = scale;
     this._commentLayerOpacity = commentLayerOpacity;
 
-    var tpl = DynamicCss.__css__
+    let tpl = DynamicCss.__css__
         .replace(/%SCALE%/g, scale)
         .replace(/%CONTROL_BAR_HEIGHT%/g,
           (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
@@ -3895,8 +3881,21 @@ DynamicCss.prototype = {
     //window.console.log(tpl);
     this._style.innerHTML = tpl;
   }
-};
 
+}
+DynamicCss.__css__ = `
+    .scalingUI {
+      transform: scale(%SCALE%);
+    }
+    .videoControlBar {
+      height: %CONTROL_BAR_HEIGHT%px !important;
+    }
+
+    .zenzaPlayerContainer .commentLayerFrame {
+      opacity: %COMMENT_LAYER_OPACITY%;
+    }
+
+  `;
 
 //===END===
 //
