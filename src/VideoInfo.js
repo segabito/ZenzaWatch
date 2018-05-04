@@ -449,10 +449,6 @@ class VideoInfoModel {
     return this._rawData.community || null;
   }
 
-  get commentComposite() {
-    return this._rawData.commentComposite;
-  }
-
   get maybeBetterQualityServerType() {
     if (this.isDmcOnly) {
       return 'dmc';

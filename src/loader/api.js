@@ -22,8 +22,8 @@ const {
   NicoVideoApi
 } = (() => {
 
-  var CacheStorage = (function () {
-    var PREFIX = 'ZenzaWatch_cache_';
+  let CacheStorage = (function () {
+    let PREFIX = 'ZenzaWatch_cache_';
 
     function CacheStorage() {
       this.initialize.apply(this, arguments);
@@ -35,7 +35,7 @@ const {
       },
       setItem: function (key, data, expireTime) {
         key = PREFIX + key;
-        var expiredAt =
+        let expiredAt =
           typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
         console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
         this._storage[key] = JSON.stringify({
@@ -49,7 +49,7 @@ const {
         if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
           return null;
         }
-        var item = null, data = null;
+        let item = null, data = null;
         try {
           item = JSON.parse(this._storage[key]);
           if (item.type === 'string') {
@@ -80,7 +80,7 @@ const {
         this._storage.removeItem(key);
       },
       clear: function () {
-        var storage = this._storage;
+        let storage = this._storage;
         _.each(Object.keys(storage), function (v) {
           if (v.indexOf(PREFIX) === 0) {
             window.console.log('remove item', v, storage[v]);
@@ -550,24 +550,24 @@ const {
   })();
 
 
-  var ThumbInfoLoader = (function () {
-    var BASE_URL = 'https://ext.nicovideo.jp/';
-    var MESSAGE_ORIGIN = 'https://ext.nicovideo.jp/';
-    var gate = null;
-    var cacheStorage;
+  let ThumbInfoLoader = (function () {
+    let BASE_URL = 'https://ext.nicovideo.jp/';
+    let MESSAGE_ORIGIN = 'https://ext.nicovideo.jp/';
+    let gate = null;
+    let cacheStorage;
 
-    var parseXml = function (xmlText) {
-      var parser = new DOMParser();
-      var xml = parser.parseFromString(xmlText, 'text/xml');
-      var val = function (name) {
-        var elms = xml.getElementsByTagName(name);
+    let parseXml = function (xmlText) {
+      let parser = new DOMParser();
+      let xml = parser.parseFromString(xmlText, 'text/xml');
+      let val = function (name) {
+        let elms = xml.getElementsByTagName(name);
         if (elms.length < 1) {
           return null;
         }
         return elms[0].innerHTML;
       };
 
-      var resp = xml.getElementsByTagName('nicovideo_thumb_response');
+      let resp = xml.getElementsByTagName('nicovideo_thumb_response');
       if (resp.length < 1 || resp[0].getAttribute('status') !== 'ok') {
         return {
           status: 'fail',
@@ -576,14 +576,14 @@ const {
         };
       }
 
-      var duration = (function () {
-        var tmp = val('length').split(':');
+      let duration = (function () {
+        let tmp = val('length').split(':');
         return parseInt(tmp[0], 10) * 60 + parseInt(tmp[1], 10);
       })();
-      var watchId = val('watch_url').split('/').reverse()[0];
-      var postedAt = util.dateToString(new Date(val('first_retrieve')));
-      var tags = (function () {
-        var result = [], t = xml.getElementsByTagName('tag');
+      let watchId = val('watch_url').split('/').reverse()[0];
+      let postedAt = util.dateToString(new Date(val('first_retrieve')));
+      let tags = (function () {
+        let result = [], t = xml.getElementsByTagName('tag');
         _.each(t, function (tag) {
           result.push(tag.innerHTML);
         });
@@ -593,7 +593,7 @@ const {
       let videoId = val('video_id');
       let isChannel = videoId.substring(0, 2) === 'so';
 
-      var result = {
+      let result = {
         status: 'ok',
         _format: 'thumbInfo',
         v: isChannel ? videoId : watchId,
@@ -611,7 +611,7 @@ const {
         commentCount: parseInt(val('comment_num'), 10),
         tagList: tags
       };
-      var userId = val('user_id');
+      let userId = val('user_id');
       if (userId !== null && userId !== '') {
         result.owner = {
           type: 'user',
@@ -621,7 +621,7 @@ const {
           icon: val('user_icon_url') || '//res.nimg.jp/img/user/thumb/blank.jpg'
         };
       }
-      var channelId = val('ch_id');
+      let channelId = val('ch_id');
       if (channelId !== null && channelId !== '') {
         result.owner = {
           type: 'channel',
@@ -649,11 +649,11 @@ const {
       });
     };
 
-    var load = function (watchId) {
+    let load = function (watchId) {
       initialize();
 
       return new Promise(function (resolve, reject) {
-        var cache = cacheStorage.getItem('thumbInfo_' + watchId);
+        let cache = cacheStorage.getItem('thumbInfo_' + watchId);
         if (cache) {
           console.log('cache exist: ', watchId);
           setTimeout(() => {
@@ -682,7 +682,7 @@ const {
 
 
 
-  var MylistApiLoader = (function () {
+  let MylistApiLoader = (function () {
     // マイリスト/とりあえずマイリストの取得APIには
     // www.nicovideo.jp配下とflapi.nicovideo.jp配下の２種類がある
     // 他人のマイリストを取得するにはflapi、マイリストの編集にはwwwのapiが必要
@@ -690,10 +690,10 @@ const {
     //
     // おかげでソート処理が悲しいことに
     //
-    var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
-    var TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
-    var token = '';
-    var cacheStorage = null;
+    let CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
+    let TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
+    let token = '';
+    let cacheStorage = null;
 
     function MylistApiLoader() {
       this.initialize.apply(this, arguments);
@@ -726,15 +726,15 @@ const {
       },
       getDeflistItems: function (options) {
         options = options || {};
-        var url = 'http://www.nicovideo.jp/api/deflist/list';
+        let url = 'http://www.nicovideo.jp/api/deflist/list';
         //var url = 'https://flapi.nicovideo.jp/api/watch/deflistvideo';
-        var cacheKey = 'deflistItems';
-        var sortItem = this.sortItem;
+        let cacheKey = 'deflistItems';
+        let sortItem = this.sortItem;
         options = options || {};
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -761,7 +761,7 @@ const {
               return;
             }
 
-            var data = result.list || result.mylistitem;
+            let data = result.list || result.mylistitem;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             if (options.sort) {
               data = sortItem(data, options.sort, 'www');
@@ -781,13 +781,13 @@ const {
           return this.getDeflistItems(options);
         }
         // flapiじゃないと自分のマイリストしか取れないことが発覚
-        var url = 'https://flapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
-        var cacheKey = 'mylistItems: ' + groupId;
-        var sortItem = this.sortItem;
+        let url = 'https://flapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
+        let cacheKey = 'mylistItems: ' + groupId;
+        let sortItem = this.sortItem;
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -813,7 +813,7 @@ const {
               });
             }
 
-            var data = result.list || result.mylistitem;
+            let data = result.list || result.mylistitem;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             if (options.sort) {
               data = sortItem(data, options.sort, 'flapi');
@@ -834,7 +834,7 @@ const {
         // flapiに統一したい
         sortId = parseInt(sortId, 10);
 
-        var sortKey = ([
+        let sortKey = ([
           'create_time', 'create_time',
           'mylist_comment', 'mylist_comment', // format = wwwの時はdescription
           'title', 'title',
@@ -853,7 +853,7 @@ const {
           sortKey = 'update_time';
         }
 
-        var order;
+        let order;
         switch (sortKey) {
           // 偶数がascで奇数がdescかと思ったら特に統一されてなかった
           case 'first_retrieve':
@@ -877,7 +877,7 @@ const {
           return items;
         }
 
-        var getKeyFunc = (function (sortKey, format) {
+        let getKeyFunc = (function (sortKey, format) {
           switch (sortKey) {
             case 'create_time':
             case 'description':
@@ -912,13 +912,13 @@ const {
           }
         })(sortKey, format);
 
-        var compareFunc = (function (order, getKey) {
+        let compareFunc = (function (order, getKey) {
           switch (order) {
             // sortKeyが同一だった場合は動画IDでソートする
             // 銀魂など、一部公式チャンネル動画向けの対応
             case 'asc':
               return function (a, b) {
-                var ak = getKey(a), bk = getKey(b);
+                let ak = getKey(a), bk = getKey(b);
                 if (ak !== bk) {
                   return ak > bk ? 1 : -1;
                 }
@@ -929,7 +929,7 @@ const {
               };
             case 'desc':
               return function (a, b) {
-                var ak = getKey(a), bk = getKey(b);
+                let ak = getKey(a), bk = getKey(b);
                 if (ak !== bk) {
                   return (ak < bk) ? 1 : -1;
                 }
@@ -946,12 +946,12 @@ const {
         return items;
       },
       getMylistList: function () {
-        var url = '//www.nicovideo.jp/api/mylistgroup/list';
-        var cacheKey = 'mylistList';
+        let url = '//www.nicovideo.jp/api/mylistgroup/list';
+        let cacheKey = 'mylistList';
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -974,7 +974,7 @@ const {
               });
             }
 
-            var data = result.mylistgroup;
+            let data = result.mylistgroup;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             return resolve(data);
           }, function (err) {
@@ -987,8 +987,8 @@ const {
       },
       findDeflistItemByWatchId: function (watchId) {
         return this.getDeflistItems().then(function (items) {
-          for (var i = 0, len = items.length; i < len; i++) {
-            var item = items[i], wid = item.id || item.item_data.watch_id;
+          for (let i = 0, len = items.length; i < len; i++) {
+            let item = items[i], wid = item.id || item.item_data.watch_id;
             if (wid === watchId) {
               return Promise.resolve(item);
             }
@@ -998,8 +998,8 @@ const {
       },
       findMylistItemByWatchId: function (watchId, groupId) {
         return this._getMylistItemsFromWapi(groupId).then(function (items) {
-          for (var i = 0, len = items.length; i < len; i++) {
-            var item = items[i], wid = item.id || item.item_data.watch_id;
+          for (let i = 0, len = items.length; i < len; i++) {
+            let item = items[i], wid = item.id || item.item_data.watch_id;
             if (wid === watchId) {
               return Promise.resolve(item);
             }
@@ -1010,7 +1010,7 @@ const {
       _getMylistItemsFromWapi: function (groupId) {
         // めんどくさいが、マイリスト取得APIは2種類ある
         // こっちは自分のマイリストだけを取る奴。 編集にはこっちが必要。
-        var url = '//www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
+        let url = '//www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
         return util.ajax({
           url: url,
           timeout: 60000,
@@ -1026,10 +1026,10 @@ const {
       },
       removeDeflistItem: function (watchId) {
         return this.findDeflistItemByWatchId(watchId).then(function (item) {
-          var url = '//www.nicovideo.jp/api/deflist/delete';
-          var data = 'id_list[0][]=' + item.item_id + '&token=' + token;
-          var cacheKey = 'deflistItems';
-          var req = {
+          let url = '//www.nicovideo.jp/api/deflist/delete';
+          let data = 'id_list[0][]=' + item.item_id + '&token=' + token;
+          let cacheKey = 'deflistItems';
+          let req = {
             url: url,
             method: 'POST',
             data: data,
@@ -1062,7 +1062,7 @@ const {
             });
           });
 
-        }, function (err) {
+        }).catch(err => {
           return Promise.reject({
             status: 'fail',
             result: err,
@@ -1072,11 +1072,11 @@ const {
       },
       removeMylistItem: function (watchId, groupId) {
         return this.findMylistItemByWatchId(watchId, groupId).then(function (item) {
-          var url = '//www.nicovideo.jp/api/mylist/delete';
+          let url = '//www.nicovideo.jp/api/mylist/delete';
           window.console.log('delete item:', item);
-          var data = 'id_list[0][]=' + item.item_id + '&token=' + token + '&group_id=' + groupId;
-          var cacheKey = 'mylistItems: ' + groupId;
-          var req = {
+          let data = 'id_list[0][]=' + item.item_id + '&token=' + token + '&group_id=' + groupId;
+          let cacheKey = 'mylistItems: ' + groupId;
+          let req = {
             url: url,
             method: 'POST',
             data: data,
@@ -1119,14 +1119,14 @@ const {
         });
       },
       _addDeflistItem: function (watchId, description, isRetry) {
-        var url = '//www.nicovideo.jp/api/deflist/add';
-        var data = 'item_id=' + watchId + '&token=' + token;
+        let url = '//www.nicovideo.jp/api/deflist/add';
+        let data = 'item_id=' + watchId + '&token=' + token;
         if (description) {
           data += '&description=' + encodeURIComponent(description);
         }
-        var cacheKey = 'deflistItems';
+        let cacheKey = 'deflistItems';
 
-        var req = {
+        let req = {
           url: url,
           method: 'POST',
           data: data,
@@ -1136,7 +1136,7 @@ const {
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         };
 
-        var self = this;
+        let self = this;
         return new Promise(function (resolve, reject) {
           util.ajax(req).then(function (result) {
             if (result.status && result.status === 'ok') {
@@ -1202,14 +1202,14 @@ const {
         return this._addDeflistItem(watchId, description, false);
       },
       addMylistItem: function (watchId, groupId, description) {
-        var url = '//www.nicovideo.jp/api/mylist/add';
-        var data = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
+        let url = '//www.nicovideo.jp/api/mylist/add';
+        let data = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
         if (description) {
           data += '&description=' + encodeURIComponent(description);
         }
-        var cacheKey = 'mylistItems: ' + groupId;
+        let cacheKey = 'mylistItems: ' + groupId;
 
-        var req = {
+        let req = {
           url: url,
           method: 'POST',
           data: data,
@@ -1219,7 +1219,7 @@ const {
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         };
 
-        var self = this;
+        let self = this;
         return new Promise(function (resolve, reject) {
           util.ajax(req).then(function (result) {
             if (result.status && result.status === 'ok') {
@@ -1269,9 +1269,9 @@ const {
   ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
 //    window.mmm = ZenzaWatch.init.mylistApiLoader;
 //
-  var UploadedVideoApiLoader = (function () {
-    var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
-    var cacheStorage = null;
+  let UploadedVideoApiLoader = (function () {
+    let CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
+    let cacheStorage = null;
 
     function UploadedVideoApiLoader() {
       this.initialize.apply(this, arguments);
@@ -1284,12 +1284,12 @@ const {
         }
       },
       getUploadedVideos: function (userId/*, options*/) {
-        var url = 'https://flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
-        var cacheKey = 'uploadedvideo: ' + userId;
+        let url = 'https://flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+        let cacheKey = 'uploadedvideo: ' + userId;
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -1312,7 +1312,7 @@ const {
               });
             }
 
-            var data = result.list;
+            let data = result.list;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             return resolve(data);
           }, function (err) {
@@ -1746,16 +1746,16 @@ export {
 };
 
 
-var MessageApiLoader = (function () {
-  var VERSION_OLD = '20061206';
-  var VERSION = '20090904';
+let MessageApiLoader = (function () {
+  let VERSION_OLD = '20061206';
+  let VERSION = '20090904';
 
   const LANG_CODE = {
     'en_us': 1,
     'zh_tw': 2
   };
 
-  var MessageApiLoader = function () {
+  let MessageApiLoader = function () {
     this.initialize.apply(this, arguments);
   };
 
@@ -1783,7 +1783,7 @@ var MessageApiLoader = (function () {
     getThreadKey: function (threadId, language) {
       // memo:
       // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
-      var url =
+      let url =
         'https://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
       const langCode = this.getLangCode(language);
       if (langCode) {
@@ -1800,7 +1800,7 @@ var MessageApiLoader = (function () {
             withCredentials: true
           }
         }).then((e) => {
-          var result = util.parseQuery(e);
+          let result = util.parseQuery(e);
           this._threadKeys[threadId] = result;
           resolve(result);
         }, (result) => {
@@ -1850,7 +1850,7 @@ var MessageApiLoader = (function () {
       // memo:
       // //flapi.nicovideo.jp/api/getpostkey?thread={optionalじゃないほうのID}
       //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
-      var url =
+      let url =
         'https://flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
         '&block_no=' + blockNo +
         '&version=1&version_sub=2&yugi=' +
@@ -2085,9 +2085,9 @@ var MessageApiLoader = (function () {
       // http://favstar.fm/users/koizuka/status/23032783744012288
       // xmlじゃなくてもいいのかよ!
 
-      var resCount = this.getRequestCountByDuration(duration);
+      let resCount = this.getRequestCountByDuration(duration);
 
-      var url = server +
+      let url = server +
         'thread?version=' + VERSION +
         '&thread=' + threadId +
         '&scores=1' +
@@ -2285,11 +2285,11 @@ var MessageApiLoader = (function () {
       chat.setAttribute('vpos', vpos);
       chat.innerHTML = text;
       div.appendChild(chat);
-      var xml = div.innerHTML;
+      let xml = div.innerHTML;
 
       window.console.log('post xml: ', xml);
       return this._post(threadInfo.server, xml).then((result) => {
-        var status = null, chat_result, no = 0, blockNo = 0, xml;
+        let status = null, chat_result, no = 0, blockNo = 0, xml;
         try {
           xml = result.documentElement;
           chat_result = xml.getElementsByTagName('chat_result')[0];

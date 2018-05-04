@@ -1361,9 +1361,8 @@ class VideoListItem extends Emitter {
     this._uniq_id = rawData.uniqId || this.watchId;
     rawData.first_retrieve = util.dateToString(rawData.first_retrieve);
 
-    this._sortTitle = this.getTitle()
-      .replace(/([0-9]{1,9})/g, m =>  m.padStart(10, '0'))
-      .replace(/([０-９]{1,9})/g, m => m.padStart(10, '０'));
+    this._sortTitle = util.convertKansuEi(this.getTitle())
+      .replace(/([0-9]{1,9})/g, m => m.padStart(10, '0')).replace(/([０-９]{1,9})/g, m => m.padStart(10, '０'));
   }
 
   get uniqId() {
@@ -2444,7 +2443,7 @@ Object.assign(Playlist.prototype, {
           videoListItems = _.sortBy(
             videoListItems,
             (item) => {
-              return item.getPostedAt();
+              return item.postedAt + item.sortTitle;
             }
           );
           //videoListItems.reverse();

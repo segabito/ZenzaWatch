@@ -122,6 +122,7 @@ import {Emitter} from './baselib';
     }
     .is-mouseMoving .controlItemContainer.left .scalingUI>* {
       background: #222;
+      display: inline-block;
     }
     .fullScreen .controlItemContainer.left {
       top: auto;

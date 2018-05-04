@@ -14,16 +14,20 @@ import {SettingPanel} from './SettingPanel';
 import {Playlist, PlaylistSession} from './VideoList';
 import {VideoSession} from './VideoSession';
 import {Emitter} from './baselib';
+import {ThreadLoader} from './loader/ThreadLoader';
+import {Sleep} from './util';
 
 //===BEGIN===
-var PlayerConfig = function () {
-  this.initialize.apply(this, arguments);
-};
+class PlayerConfig {
+  constructor(params) {
+    this.initialize(params);
+  }
+}
 _.assign(PlayerConfig.prototype, {
   initialize: function (params) {
-    var config = this._config = params.config;
+    let config = this._config = params.config;
     this._mode = params.mode || '';
-    if (!this._mode && ZenzaWatch.util.isGinzaWatchUrl()) {
+    if (!this._mode && util.isGinzaWatchUrl()) {
       this._mode = 'ginza';
     }
 
@@ -1053,10 +1057,10 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     this.selectTab(this._playerConfig.getValue('videoInfoPanelTab'));
 
     ZenzaWatch.emitter.on('showMenu', () => {
-      $container.addClass('menuOpen');
+      this.addClass('menuOpen');
     });
     ZenzaWatch.emitter.on('hideMenu', () => {
-      $container.removeClass('menuOpen');
+      this.removeClass('menuOpen');
     });
     document.body.appendChild($dialog[0]);
   },
@@ -2633,7 +2637,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._playlist.toggleEnable(false);
     }
 
-    var isAutoCloseFullScreen =
+    let isAutoCloseFullScreen =
       this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
         this._videoWatchOptions.isAutoCloseFullScreen() :
         this._playerConfig.getValue('autoCloseFullScreen');
@@ -2701,7 +2705,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
     //if (!this._videoInfoPanel) { return; }
-    var $container = this._view.appendTab('playlist', 'プレイリスト');
+    let $container = this._view.appendTab('playlist', 'プレイリスト');
     this._playlist = new Playlist({
       loader: ZenzaWatch.api.ThumbInfoLoader,
       $container: $container,
@@ -2714,7 +2718,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (this._commentPanel) {
       return;
     }
-    var $container = this._view.appendTab('comment', 'コメント');
+    let $container = this._view.appendTab('comment', 'コメント');
     this._commentPanel = new CommentPanel({
       player: this,
       $container: $container,
@@ -3024,10 +3028,6 @@ VideoHoverMenu.__css__ = (`
       }
       .menuItemContainer.leftBottom .scalingUI {
         transform-origin: left bottom;
-      }
-      .menuItemContainer.leftBottom .scalingUI>* {
-        display: inline-block;
-        margin-right: 8px;
       }
       .zenzaScreenMode_wide .menuItemContainer.leftBottom .scalingUI,
       .fullScreen           .menuItemContainer.leftBottom .scalingUI {

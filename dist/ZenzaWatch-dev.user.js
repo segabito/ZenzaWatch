@@ -1497,6 +1497,29 @@ util.escapeRegs = text => {
   return text.replace(match, '\\$&');
 };
 
+// 漢数字のタイトルのソートに使うだけなので百とか千とか考えない
+util.convertKansuEi = text => {
+  // `〇話,一話,二話,三話,四話,五話,六話,七話,八話,九話,十話,十一話,十二話,十三話,
+  // 十四話,十五話,十六話,十七話,十八話,十九話,二十話,二十一話,二十二話,二十三話,二十四話,二十五話,二十六話`
+  // .split(',').map(c => convertKansuEi(c).replace(/([0-9]{1,9})/g, m =>  m.padStart(3, '0'))).sort()
+  let match = /[〇一二三四五六七八九零壱弐惨伍]/g;
+  let map = {
+    '〇': '0', '零': '0',
+    '一': '1', '壱': '1',
+    '二': '2', '弐': '2',
+    '三': '3', '惨': '3',
+    '四': '4',
+    '五': '5', '伍': '5',
+    '六': '6',
+    '七': '7',
+    '八': '8',
+    '九': '9',
+    // '十': 'Ａ', '拾': 'Ａ'
+  };
+  text = text.replace(match, char => map[char]);
+  text = text.replace(/([1-9]?)[十拾]([0-9]?)/g, (n, a, b) => (a && b) ? `${a}${b}` : (a ? a * 10 : 10 + b * 1));
+  return text;
+};
 util.dateToString = date => {
   if (typeof date === 'string') {
     const origDate = date;
@@ -3012,8 +3035,8 @@ const {
   NicoVideoApi
 } = (() => {
 
-  var CacheStorage = (function () {
-    var PREFIX = 'ZenzaWatch_cache_';
+  let CacheStorage = (function () {
+    let PREFIX = 'ZenzaWatch_cache_';
 
     function CacheStorage() {
       this.initialize.apply(this, arguments);
@@ -3025,7 +3048,7 @@ const {
       },
       setItem: function (key, data, expireTime) {
         key = PREFIX + key;
-        var expiredAt =
+        let expiredAt =
           typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
         console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
         this._storage[key] = JSON.stringify({
@@ -3039,7 +3062,7 @@ const {
         if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
           return null;
         }
-        var item = null, data = null;
+        let item = null, data = null;
         try {
           item = JSON.parse(this._storage[key]);
           if (item.type === 'string') {
@@ -3070,7 +3093,7 @@ const {
         this._storage.removeItem(key);
       },
       clear: function () {
-        var storage = this._storage;
+        let storage = this._storage;
         _.each(Object.keys(storage), function (v) {
           if (v.indexOf(PREFIX) === 0) {
             window.console.log('remove item', v, storage[v]);
@@ -3540,24 +3563,24 @@ const {
   })();
 
 
-  var ThumbInfoLoader = (function () {
-    var BASE_URL = 'https://ext.nicovideo.jp/';
-    var MESSAGE_ORIGIN = 'https://ext.nicovideo.jp/';
-    var gate = null;
-    var cacheStorage;
+  let ThumbInfoLoader = (function () {
+    let BASE_URL = 'https://ext.nicovideo.jp/';
+    let MESSAGE_ORIGIN = 'https://ext.nicovideo.jp/';
+    let gate = null;
+    let cacheStorage;
 
-    var parseXml = function (xmlText) {
-      var parser = new DOMParser();
-      var xml = parser.parseFromString(xmlText, 'text/xml');
-      var val = function (name) {
-        var elms = xml.getElementsByTagName(name);
+    let parseXml = function (xmlText) {
+      let parser = new DOMParser();
+      let xml = parser.parseFromString(xmlText, 'text/xml');
+      let val = function (name) {
+        let elms = xml.getElementsByTagName(name);
         if (elms.length < 1) {
           return null;
         }
         return elms[0].innerHTML;
       };
 
-      var resp = xml.getElementsByTagName('nicovideo_thumb_response');
+      let resp = xml.getElementsByTagName('nicovideo_thumb_response');
       if (resp.length < 1 || resp[0].getAttribute('status') !== 'ok') {
         return {
           status: 'fail',
@@ -3566,14 +3589,14 @@ const {
         };
       }
 
-      var duration = (function () {
-        var tmp = val('length').split(':');
+      let duration = (function () {
+        let tmp = val('length').split(':');
         return parseInt(tmp[0], 10) * 60 + parseInt(tmp[1], 10);
       })();
-      var watchId = val('watch_url').split('/').reverse()[0];
-      var postedAt = util.dateToString(new Date(val('first_retrieve')));
-      var tags = (function () {
-        var result = [], t = xml.getElementsByTagName('tag');
+      let watchId = val('watch_url').split('/').reverse()[0];
+      let postedAt = util.dateToString(new Date(val('first_retrieve')));
+      let tags = (function () {
+        let result = [], t = xml.getElementsByTagName('tag');
         _.each(t, function (tag) {
           result.push(tag.innerHTML);
         });
@@ -3583,7 +3606,7 @@ const {
       let videoId = val('video_id');
       let isChannel = videoId.substring(0, 2) === 'so';
 
-      var result = {
+      let result = {
         status: 'ok',
         _format: 'thumbInfo',
         v: isChannel ? videoId : watchId,
@@ -3601,7 +3624,7 @@ const {
         commentCount: parseInt(val('comment_num'), 10),
         tagList: tags
       };
-      var userId = val('user_id');
+      let userId = val('user_id');
       if (userId !== null && userId !== '') {
         result.owner = {
           type: 'user',
@@ -3611,7 +3634,7 @@ const {
           icon: val('user_icon_url') || '//res.nimg.jp/img/user/thumb/blank.jpg'
         };
       }
-      var channelId = val('ch_id');
+      let channelId = val('ch_id');
       if (channelId !== null && channelId !== '') {
         result.owner = {
           type: 'channel',
@@ -3639,11 +3662,11 @@ const {
       });
     };
 
-    var load = function (watchId) {
+    let load = function (watchId) {
       initialize();
 
       return new Promise(function (resolve, reject) {
-        var cache = cacheStorage.getItem('thumbInfo_' + watchId);
+        let cache = cacheStorage.getItem('thumbInfo_' + watchId);
         if (cache) {
           console.log('cache exist: ', watchId);
           setTimeout(() => {
@@ -3672,7 +3695,7 @@ const {
 
 
 
-  var MylistApiLoader = (function () {
+  let MylistApiLoader = (function () {
     // マイリスト/とりあえずマイリストの取得APIには
     // www.nicovideo.jp配下とflapi.nicovideo.jp配下の２種類がある
     // 他人のマイリストを取得するにはflapi、マイリストの編集にはwwwのapiが必要
@@ -3680,10 +3703,10 @@ const {
     //
     // おかげでソート処理が悲しいことに
     //
-    var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
-    var TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
-    var token = '';
-    var cacheStorage = null;
+    let CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
+    let TOKEN_EXPIRE_TIME = 59 * 60 * 1000;
+    let token = '';
+    let cacheStorage = null;
 
     function MylistApiLoader() {
       this.initialize.apply(this, arguments);
@@ -3716,15 +3739,15 @@ const {
       },
       getDeflistItems: function (options) {
         options = options || {};
-        var url = 'http://www.nicovideo.jp/api/deflist/list';
+        let url = 'http://www.nicovideo.jp/api/deflist/list';
         //var url = 'https://flapi.nicovideo.jp/api/watch/deflistvideo';
-        var cacheKey = 'deflistItems';
-        var sortItem = this.sortItem;
+        let cacheKey = 'deflistItems';
+        let sortItem = this.sortItem;
         options = options || {};
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -3751,7 +3774,7 @@ const {
               return;
             }
 
-            var data = result.list || result.mylistitem;
+            let data = result.list || result.mylistitem;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             if (options.sort) {
               data = sortItem(data, options.sort, 'www');
@@ -3771,13 +3794,13 @@ const {
           return this.getDeflistItems(options);
         }
         // flapiじゃないと自分のマイリストしか取れないことが発覚
-        var url = 'https://flapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
-        var cacheKey = 'mylistItems: ' + groupId;
-        var sortItem = this.sortItem;
+        let url = 'https://flapi.nicovideo.jp/api/watch/mylistvideo?id=' + groupId;
+        let cacheKey = 'mylistItems: ' + groupId;
+        let sortItem = this.sortItem;
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -3803,7 +3826,7 @@ const {
               });
             }
 
-            var data = result.list || result.mylistitem;
+            let data = result.list || result.mylistitem;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             if (options.sort) {
               data = sortItem(data, options.sort, 'flapi');
@@ -3824,7 +3847,7 @@ const {
         // flapiに統一したい
         sortId = parseInt(sortId, 10);
 
-        var sortKey = ([
+        let sortKey = ([
           'create_time', 'create_time',
           'mylist_comment', 'mylist_comment', // format = wwwの時はdescription
           'title', 'title',
@@ -3843,7 +3866,7 @@ const {
           sortKey = 'update_time';
         }
 
-        var order;
+        let order;
         switch (sortKey) {
           // 偶数がascで奇数がdescかと思ったら特に統一されてなかった
           case 'first_retrieve':
@@ -3867,7 +3890,7 @@ const {
           return items;
         }
 
-        var getKeyFunc = (function (sortKey, format) {
+        let getKeyFunc = (function (sortKey, format) {
           switch (sortKey) {
             case 'create_time':
             case 'description':
@@ -3902,13 +3925,13 @@ const {
           }
         })(sortKey, format);
 
-        var compareFunc = (function (order, getKey) {
+        let compareFunc = (function (order, getKey) {
           switch (order) {
             // sortKeyが同一だった場合は動画IDでソートする
             // 銀魂など、一部公式チャンネル動画向けの対応
             case 'asc':
               return function (a, b) {
-                var ak = getKey(a), bk = getKey(b);
+                let ak = getKey(a), bk = getKey(b);
                 if (ak !== bk) {
                   return ak > bk ? 1 : -1;
                 }
@@ -3919,7 +3942,7 @@ const {
               };
             case 'desc':
               return function (a, b) {
-                var ak = getKey(a), bk = getKey(b);
+                let ak = getKey(a), bk = getKey(b);
                 if (ak !== bk) {
                   return (ak < bk) ? 1 : -1;
                 }
@@ -3936,12 +3959,12 @@ const {
         return items;
       },
       getMylistList: function () {
-        var url = '//www.nicovideo.jp/api/mylistgroup/list';
-        var cacheKey = 'mylistList';
+        let url = '//www.nicovideo.jp/api/mylistgroup/list';
+        let cacheKey = 'mylistList';
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -3964,7 +3987,7 @@ const {
               });
             }
 
-            var data = result.mylistgroup;
+            let data = result.mylistgroup;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             return resolve(data);
           }, function (err) {
@@ -3977,8 +4000,8 @@ const {
       },
       findDeflistItemByWatchId: function (watchId) {
         return this.getDeflistItems().then(function (items) {
-          for (var i = 0, len = items.length; i < len; i++) {
-            var item = items[i], wid = item.id || item.item_data.watch_id;
+          for (let i = 0, len = items.length; i < len; i++) {
+            let item = items[i], wid = item.id || item.item_data.watch_id;
             if (wid === watchId) {
               return Promise.resolve(item);
             }
@@ -3988,8 +4011,8 @@ const {
       },
       findMylistItemByWatchId: function (watchId, groupId) {
         return this._getMylistItemsFromWapi(groupId).then(function (items) {
-          for (var i = 0, len = items.length; i < len; i++) {
-            var item = items[i], wid = item.id || item.item_data.watch_id;
+          for (let i = 0, len = items.length; i < len; i++) {
+            let item = items[i], wid = item.id || item.item_data.watch_id;
             if (wid === watchId) {
               return Promise.resolve(item);
             }
@@ -4000,7 +4023,7 @@ const {
       _getMylistItemsFromWapi: function (groupId) {
         // めんどくさいが、マイリスト取得APIは2種類ある
         // こっちは自分のマイリストだけを取る奴。 編集にはこっちが必要。
-        var url = '//www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
+        let url = '//www.nicovideo.jp/api/mylist/list?group_id=' + groupId;
         return util.ajax({
           url: url,
           timeout: 60000,
@@ -4016,10 +4039,10 @@ const {
       },
       removeDeflistItem: function (watchId) {
         return this.findDeflistItemByWatchId(watchId).then(function (item) {
-          var url = '//www.nicovideo.jp/api/deflist/delete';
-          var data = 'id_list[0][]=' + item.item_id + '&token=' + token;
-          var cacheKey = 'deflistItems';
-          var req = {
+          let url = '//www.nicovideo.jp/api/deflist/delete';
+          let data = 'id_list[0][]=' + item.item_id + '&token=' + token;
+          let cacheKey = 'deflistItems';
+          let req = {
             url: url,
             method: 'POST',
             data: data,
@@ -4052,7 +4075,7 @@ const {
             });
           });
 
-        }, function (err) {
+        }).catch(err => {
           return Promise.reject({
             status: 'fail',
             result: err,
@@ -4062,11 +4085,11 @@ const {
       },
       removeMylistItem: function (watchId, groupId) {
         return this.findMylistItemByWatchId(watchId, groupId).then(function (item) {
-          var url = '//www.nicovideo.jp/api/mylist/delete';
+          let url = '//www.nicovideo.jp/api/mylist/delete';
           window.console.log('delete item:', item);
-          var data = 'id_list[0][]=' + item.item_id + '&token=' + token + '&group_id=' + groupId;
-          var cacheKey = 'mylistItems: ' + groupId;
-          var req = {
+          let data = 'id_list[0][]=' + item.item_id + '&token=' + token + '&group_id=' + groupId;
+          let cacheKey = 'mylistItems: ' + groupId;
+          let req = {
             url: url,
             method: 'POST',
             data: data,
@@ -4109,14 +4132,14 @@ const {
         });
       },
       _addDeflistItem: function (watchId, description, isRetry) {
-        var url = '//www.nicovideo.jp/api/deflist/add';
-        var data = 'item_id=' + watchId + '&token=' + token;
+        let url = '//www.nicovideo.jp/api/deflist/add';
+        let data = 'item_id=' + watchId + '&token=' + token;
         if (description) {
           data += '&description=' + encodeURIComponent(description);
         }
-        var cacheKey = 'deflistItems';
+        let cacheKey = 'deflistItems';
 
-        var req = {
+        let req = {
           url: url,
           method: 'POST',
           data: data,
@@ -4126,7 +4149,7 @@ const {
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         };
 
-        var self = this;
+        let self = this;
         return new Promise(function (resolve, reject) {
           util.ajax(req).then(function (result) {
             if (result.status && result.status === 'ok') {
@@ -4192,14 +4215,14 @@ const {
         return this._addDeflistItem(watchId, description, false);
       },
       addMylistItem: function (watchId, groupId, description) {
-        var url = '//www.nicovideo.jp/api/mylist/add';
-        var data = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
+        let url = '//www.nicovideo.jp/api/mylist/add';
+        let data = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
         if (description) {
           data += '&description=' + encodeURIComponent(description);
         }
-        var cacheKey = 'mylistItems: ' + groupId;
+        let cacheKey = 'mylistItems: ' + groupId;
 
-        var req = {
+        let req = {
           url: url,
           method: 'POST',
           data: data,
@@ -4209,7 +4232,7 @@ const {
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         };
 
-        var self = this;
+        let self = this;
         return new Promise(function (resolve, reject) {
           util.ajax(req).then(function (result) {
             if (result.status && result.status === 'ok') {
@@ -4259,9 +4282,9 @@ const {
   ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
 //    window.mmm = ZenzaWatch.init.mylistApiLoader;
 //
-  var UploadedVideoApiLoader = (function () {
-    var CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
-    var cacheStorage = null;
+  let UploadedVideoApiLoader = (function () {
+    let CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
+    let cacheStorage = null;
 
     function UploadedVideoApiLoader() {
       this.initialize.apply(this, arguments);
@@ -4274,12 +4297,12 @@ const {
         }
       },
       getUploadedVideos: function (userId/*, options*/) {
-        var url = 'https://flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
-        var cacheKey = 'uploadedvideo: ' + userId;
+        let url = 'https://flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+        let cacheKey = 'uploadedvideo: ' + userId;
 
         return new Promise(function (resolve, reject) {
 
-          var cacheData = cacheStorage.getItem(cacheKey);
+          let cacheData = cacheStorage.getItem(cacheKey);
           if (cacheData) {
             console.log('cache exists: ', cacheKey, cacheData);
             setTimeout(() => {
@@ -4302,7 +4325,7 @@ const {
               });
             }
 
-            var data = result.list;
+            let data = result.list;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             return resolve(data);
           }, function (err) {
@@ -5165,10 +5188,6 @@ class VideoInfoModel {
 
   get community() {
     return this._rawData.community || null;
-  }
-
-  get commentComposite() {
-    return this._rawData.commentComposite;
   }
 
   get maybeBetterQualityServerType() {
@@ -9894,6 +9913,7 @@ StoryboardView.__css__ = (`
     }
     .is-mouseMoving .controlItemContainer.left .scalingUI>* {
       background: #222;
+      display: inline-block;
     }
     .fullScreen .controlItemContainer.left {
       top: auto;
@@ -12496,6 +12516,13 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 */
 .html5_zero_width { display: none; }
 
+.no-height { 
+  line-height: 0 !important;
+  opacity: 0;
+  display: block;
+  visibility: hidden;
+ }
+
   `).trim();
 
 /**
@@ -12631,7 +12658,7 @@ NicoTextParser.likeXP = function (text) {
         '<span class="zero_space">$1</span>')
       // &emsp;
       .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
-      // .replace(/[\r\n]+$/g, '')
+      .replace(/\r\n/g, '\n').replace(/([^\n])[\n]$/, '$1') //.replace(/^[\r\n]/, '')
       //        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
       .replace(/[\n]/g, '<br>')
   ;
@@ -12643,7 +12670,7 @@ NicoTextParser.likeXP = function (text) {
 //        }
 //      }
   // \u2001だけのグループ＝全角文字に隣接してない ≒ 半角に挟まれている
-  htmlText = htmlText.replace(/(.)<group>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
+  htmlText = htmlText.replace(/(.)<gro  up>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
 
   htmlText = htmlText.replace(/<group>/g, '<group class="' + strongFont + '">');
 
@@ -12655,7 +12682,7 @@ NicoTextParser.likeHTML5 = function (text) {
   let htmlText =
     util.escapeHtml(text)
       .replace(/([\x20\xA0]+)/g, g => {
-        return `<span class="html5_space" data-text="${encodeURIComponent(g)}">${g}</span>`;
+        return `<span class="html5_space" data-text="${encodeURIComponent(g)}">${'&nbsp;'.repeat(g.length)}</span>`;
           // ' '.repeat(g.length) + '</span>';
       })
       .replace(/([\u2000\u2002]+)/g, g => {
@@ -12666,11 +12693,11 @@ NicoTextParser.likeHTML5 = function (text) {
           return `<span class="html5_zen_space" data-text="${encodeURIComponent(g)}">${'全'.repeat(g.length)}</span>`;
         })
       .replace(/[\u200B-\u200F]+/g, g => {
-        return `<span class="html5_zero_width" data-text="${encodeURIComponent(g)}"></span>`;
+        return `<span class="html5_zero_width" data-text="${encodeURIComponent(g)}">${g}</span>`;
       })
       .replace(/([\t]+)/g, g => {
           return '<span class="html5_tab_space">' +
-            '□'.repeat(g.length * 2) + '</span>';
+            '丁'.repeat(g.length * 2) + '</span>';
         })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
       //      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
@@ -12684,6 +12711,13 @@ NicoTextParser.likeHTML5 = function (text) {
       // .replace(/[\r\n]+$/g, '')
       .replace(/[\n]/g, '<br>')
   ;
+
+  let sp = htmlText.split('<br>');
+  if (sp.length >= 70) {
+    htmlText = `${sp.slice(0, 70).join('<br>')}<span class="no-height">${sp.slice(70).join('<br>')}</span>`;
+  } else if (sp.length >= 53) {
+    htmlText = `${sp.slice(0,53).join('<br>')}<span class="no-height">${sp.slice(53).join('<br>')}</span>`;
+  }
 
   return htmlText;
 };
@@ -14533,26 +14567,31 @@ class NicoChatViewModel {
     return lineHeight;
   }
 
-  _calcDoubleResizedHeight({lc = 1, cssScale}) {
+  _calcDoubleResizedLineHeight({lc = 1, cssScale, size = NicoChat.SIZE.BIG}) {
     const MARGIN = 5;
+    // ニコスクリプトだとBIG以外の二重リサイズもあり得る?
+    if (size !== NicoChat.SIZE.BIG) {
+      return (size === NicoChat.SIZE.MEDIUM ? 24 : 13) + MARGIN;
+    }
+    // @see https://www37.atwiki.jp/commentart/pages/20.html
     cssScale = typeof cssScale === 'number' ? cssScale : this.getCssScale();
     // 本当は行数ではなく縮小率から計算すべきなのだろうけど
     let lineHeight;
     if (lc <= 9) {
-      lineHeight = ((392 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((392 / cssScale) - MARGIN) / lc -1;
+      // lineHeight = ((392 - MARGIN * cssScale) / cssScale) / lc -1;
     } else if (lc <= 10) {
-      lineHeight = ((384 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((384 / cssScale) - MARGIN) / lc -1;
     } else if (lc <= 11) {
-      lineHeight = ((389 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((389 / cssScale) - MARGIN) / lc -1;
     } else if (lc <= 12) {
-      lineHeight = ((388 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((388 / cssScale) - MARGIN) / lc -1;
     } else if (lc <= 13) {
-      lineHeight = ((381 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((381 / cssScale) - MARGIN) / lc -1;
     } else {
-      lineHeight = ((381 - MARGIN * cssScale) / cssScale) / 14 -1;
+      lineHeight = ((381 / cssScale) - MARGIN) / 14;
     }
-    this._cssLineHeight = lineHeight;
-    return (lineHeight * lc + MARGIN);
+    return lineHeight;
   }
 
   /**
@@ -14570,7 +14609,15 @@ class NicoChatViewModel {
     let lineHeight;
     scale *= NicoChatViewModel.BASE_SCALE;
     if (isDoubleResized) {
-      return this._calcDoubleResizedHeight({lc}) * scale * 0.5 -1;
+      this._cssLineHeight = this._calcDoubleResizedLineHeight({lc, size});
+      // let lh =
+      return ((this._cssLineHeight - MARGIN) * lc) * scale * 0.5  + MARGIN -1;
+      // if (size === NicoChat.SIZE.BIG) {
+      //   return this._calcDoubleResizedHeight({lc}) * scale * 0.5 - 1;
+      // } else {
+      //   this._cssLineHeight = (size === NicoChat.SIZE.MEDIUM ? 24 : 13) + MARGIN;
+      //   return ((this._cssLineHeight - MARGIN) * lc) * scale * 0.5  + MARGIN -1;
+      // }
     }
 
     let height;
@@ -14589,7 +14636,7 @@ class NicoChatViewModel {
     // 非enderで画面の高さの1/3を超える時は改行リサイズ
     this._isLineResized = true;
     lineHeight = this._calcLineHeight({lc, size, scale: scale * 0.5});
-    this._cssLineHeight = lineHeight * 2;
+    this._cssLineHeight = lineHeight * 2 -1;
     return (lineHeight * lc + MARGIN) * scale - 1;
   }
 
@@ -14887,12 +14934,11 @@ class NicoChatViewModel {
       score: this._nicoChat.getScore(),
       userId: this._nicoChat.getUserId(),
       date: this._nicoChat.getDate(),
-      deleted: this._nicoChat.isDeleted(),
       cmd: this._nicoChat.getCmd(),
       fork: this._nicoChat.getFork(),
       layerId: this._nicoChat.getLayerId(),
       ver: this._nicoChat.getCommentVer(),
-      lc: this.getText().split('\n').length,
+      lc: this._lineCount,
       ls: this.isLineResized(),
       thread: this._nicoChat.getThreadId(),
       isSub: this._nicoChat.isSubThread(),
@@ -15015,8 +15061,8 @@ NicoChatViewModel.FONT_SIZE_PIXEL = {
 };
 NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5 = {
   BIG: 40 - 1,      // 684 / 17 > x > 684 / 18
-  MEDIUM: 26 -1,   // 684 / 25 > x > 684 / 26
-  SMALL: 18 -1     // 684 / 37 > x > 684 / 38
+  MEDIUM: 26 -1 -0.6,   // 684 / 25 > x > 684 / 26
+  SMALL: 18.4 -1     // 684 / 37 > x > 684 / 38
 };
 
 NicoChatViewModel.LINE_HEIGHT = {
@@ -15570,7 +15616,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       inViewElements[i].remove();
     }
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
-    for (i = inViewElements.length - max - 1; i >= 0; i--) {
+    for (i = inViewElements.length - max * 2 - 1; i >= 0; i--) {
       inViewElements[i].remove();
     }
   }
@@ -16137,19 +16183,10 @@ class NicoChatCss3View {
     let span = document.createElement('span');
     let ver = chat.getCommentVer();
     let className = ['nicoChat', type, size, ver];
-    // let scale = chat.getCssScale();// * (chat.isLineResized() ? 0.5 : 1);
     if (chat.getColor() === '#000000') {
       className.push('black');
     }
 
-    // 泥臭い
-//     if (scale < 0.75) {
-//       className.push('halfScale');
-// //    } else if (scale === 1.0 && ver !== 'html5') {
-// //      className.push('noScale');
-//     } else if (scale > 1.0) {
-//       className.push('largeScale');
-//     }
     if (chat.isDoubleResized()) {
       className.push('is-doubleResized');
     } else if (chat.isLineResized()) {
@@ -16249,10 +16286,10 @@ class NicoChatCss3View {
     // 逆再生
     const reverse = chat.isReverse() ? 'animation-direction: reverse;' : '';
     let isAlignMiddle = false;
-    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2) ||
+    if ((commentVer === 'html5' && (height >= screenHeight - fontSizePx / 2 || chat.isOverflow())) ||
       (commentVer !== 'html5' && height >= screenHeight - fontSizePx / 2 && height < screenHeight + fontSizePx)
     ) {
-      isAlignMiddle = true;
+        isAlignMiddle = true;
     }
     let top = isAlignMiddle ? '50%' : `${ypos}px`;
     let vAlign = isAlignMiddle ? '-middle' : '';
@@ -16324,8 +16361,8 @@ class NicoChatCss3View {
     let transY;
 
     // 画面高さに近い・超える時は上端または下端にぴったりつける
-    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2) ||
-        (commentVer !== 'html5' && height >= screenHeight - fontSizePx / 2 && height < screenHeight + fontSizePx)) {
+    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2 || chat.isOverflow()) ||
+        (commentVer !== 'html5' && height >= screenHeight * 0.7)) {
       top = `${type === NicoChat.TYPE.BOTTOM ? 100 : 0}%`;
       transY = `${type === NicoChat.TYPE.BOTTOM ? -100 : 0}%`;
     } else {
@@ -20888,9 +20925,8 @@ class VideoListItem extends Emitter {
     this._uniq_id = rawData.uniqId || this.watchId;
     rawData.first_retrieve = util.dateToString(rawData.first_retrieve);
 
-    this._sortTitle = this.getTitle()
-      .replace(/([0-9]{1,9})/g, m =>  m.padStart(10, '0'))
-      .replace(/([０-９]{1,9})/g, m => m.padStart(10, '０'));
+    this._sortTitle = util.convertKansuEi(this.getTitle())
+      .replace(/([0-9]{1,9})/g, m => m.padStart(10, '0')).replace(/([０-９]{1,9})/g, m => m.padStart(10, '０'));
   }
 
   get uniqId() {
@@ -21973,7 +22009,7 @@ Object.assign(Playlist.prototype, {
           videoListItems = _.sortBy(
             videoListItems,
             (item) => {
-              return item.getPostedAt();
+              return item.postedAt + item.sortTitle;
             }
           );
           //videoListItems.reverse();
@@ -24955,7 +24991,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!nicoVideoPlayer) {
       nicoVideoPlayer = this._initializeNicoVideoPlayer();
     } else {
-      this._savePlaybackPosition(this._videoInfo.contextWatchId, this.getCurrentTime());
+      if (this._videoInfo) {
+        this._savePlaybackPosition(this._videoInfo.contextWatchId, this.getCurrentTime());
+      }
       nicoVideoPlayer.close();
       this._view.clearPanel();
       this.emit('beforeVideoOpen');
@@ -25411,7 +25449,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._playlist.toggleEnable(false);
     }
 
-    var isAutoCloseFullScreen =
+    let isAutoCloseFullScreen =
       this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
         this._videoWatchOptions.isAutoCloseFullScreen() :
         this._playerConfig.getValue('autoCloseFullScreen');
@@ -25479,7 +25517,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
     //if (!this._videoInfoPanel) { return; }
-    var $container = this._view.appendTab('playlist', 'プレイリスト');
+    let $container = this._view.appendTab('playlist', 'プレイリスト');
     this._playlist = new Playlist({
       loader: ZenzaWatch.api.ThumbInfoLoader,
       $container: $container,
@@ -25492,7 +25530,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (this._commentPanel) {
       return;
     }
-    var $container = this._view.appendTab('comment', 'コメント');
+    let $container = this._view.appendTab('comment', 'コメント');
     this._commentPanel = new CommentPanel({
       player: this,
       $container: $container,
@@ -25509,9 +25547,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!this._playlist || !this.isOpen()) {
       return;
     }
-    var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
+    let opt = this._videoWatchOptions.createOptionsForVideoChange(options);
 
-    var nextId = this._playlist.selectNext();
+    let nextId = this._playlist.selectNext();
     if (nextId) {
       this.open(nextId, opt);
     }
@@ -25520,9 +25558,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!this._playlist || !this.isOpen()) {
       return;
     }
-    var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
+    let opt = this._videoWatchOptions.createOptionsForVideoChange(options);
 
-    var prevId = this._playlist.selectPrevious();
+    let prevId = this._playlist.selectPrevious();
     if (prevId) {
       this.open(prevId, opt);
     }
@@ -25783,10 +25821,6 @@ VideoHoverMenu.__css__ = (`
       }
       .menuItemContainer.leftBottom .scalingUI {
         transform-origin: left bottom;
-      }
-      .menuItemContainer.leftBottom .scalingUI>* {
-        display: inline-block;
-        margin-right: 8px;
       }
       .zenzaScreenMode_wide .menuItemContainer.leftBottom .scalingUI,
       .fullScreen           .menuItemContainer.leftBottom .scalingUI {
@@ -29483,7 +29517,7 @@ _.assign(VideoInfoPanel.prototype, {
     const config = Config.namespace('videoSearch');
 
     let option = {
-      searchType: 'tag',
+      // searchType: 'tag',
       order: config.getValue('order'),
       sort: config.getValue('sort') || 'playlist',
       owner: config.getValue('ownerOnly')

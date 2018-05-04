@@ -716,6 +716,29 @@ util.escapeRegs = text => {
   return text.replace(match, '\\$&');
 };
 
+// 漢数字のタイトルのソートに使うだけなので百とか千とか考えない
+util.convertKansuEi = text => {
+  // `〇話,一話,二話,三話,四話,五話,六話,七話,八話,九話,十話,十一話,十二話,十三話,
+  // 十四話,十五話,十六話,十七話,十八話,十九話,二十話,二十一話,二十二話,二十三話,二十四話,二十五話,二十六話`
+  // .split(',').map(c => convertKansuEi(c).replace(/([0-9]{1,9})/g, m =>  m.padStart(3, '0'))).sort()
+  let match = /[〇一二三四五六七八九零壱弐惨伍]/g;
+  let map = {
+    '〇': '0', '零': '0',
+    '一': '1', '壱': '1',
+    '二': '2', '弐': '2',
+    '三': '3', '惨': '3',
+    '四': '4',
+    '五': '5', '伍': '5',
+    '六': '6',
+    '七': '7',
+    '八': '8',
+    '九': '9',
+    // '十': 'Ａ', '拾': 'Ａ'
+  };
+  text = text.replace(match, char => map[char]);
+  text = text.replace(/([1-9]?)[十拾]([0-9]?)/g, (n, a, b) => (a && b) ? `${a}${b}` : (a ? a * 10 : 10 + b * 1));
+  return text;
+};
 util.dateToString = date => {
   if (typeof date === 'string') {
     const origDate = date;
