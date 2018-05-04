@@ -155,7 +155,6 @@ import {util} from './util';
   >一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七</span>
 </div>
 
-
 */
 //===BEGIN===
 
@@ -349,6 +348,13 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 */
 .html5_zero_width { display: none; }
 
+.no-height { 
+  line-height: 0 !important;
+  opacity: 0;
+  display: block;
+  visibility: hidden;
+ }
+
   `).trim();
 
 /**
@@ -484,7 +490,7 @@ NicoTextParser.likeXP = function (text) {
         '<span class="zero_space">$1</span>')
       // &emsp;
       .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
-      // .replace(/[\r\n]+$/g, '')
+      .replace(/\r\n/g, '\n').replace(/([^\n])[\n]$/, '$1') //.replace(/^[\r\n]/, '')
       //        .replace(/[\n]$/g, '<br><span class="han_space">|</span>')
       .replace(/[\n]/g, '<br>')
   ;
@@ -508,7 +514,7 @@ NicoTextParser.likeHTML5 = function (text) {
   let htmlText =
     util.escapeHtml(text)
       .replace(/([\x20\xA0]+)/g, g => {
-        return `<span class="html5_space" data-text="${encodeURIComponent(g)}">${g}</span>`;
+        return `<span class="html5_space" data-text="${encodeURIComponent(g)}">${'&nbsp;'.repeat(g.length)}</span>`;
           // ' '.repeat(g.length) + '</span>';
       })
       .replace(/([\u2000\u2002]+)/g, g => {
@@ -519,11 +525,11 @@ NicoTextParser.likeHTML5 = function (text) {
           return `<span class="html5_zen_space" data-text="${encodeURIComponent(g)}">${'全'.repeat(g.length)}</span>`;
         })
       .replace(/[\u200B-\u200F]+/g, g => {
-        return `<span class="html5_zero_width" data-text="${encodeURIComponent(g)}"></span>`;
+        return `<span class="html5_zero_width" data-text="${encodeURIComponent(g)}">${g}</span>`;
       })
       .replace(/([\t]+)/g, g => {
           return '<span class="html5_tab_space">' +
-            '□'.repeat(g.length * 2) + '</span>';
+            '丁'.repeat(g.length * 2) + '</span>';
         })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
       //      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
@@ -537,6 +543,13 @@ NicoTextParser.likeHTML5 = function (text) {
       // .replace(/[\r\n]+$/g, '')
       .replace(/[\n]/g, '<br>')
   ;
+
+  let sp = htmlText.split('<br>');
+  if (sp.length >= 70) {
+    htmlText = `${sp.slice(0, 70).join('<br>')}<span class="no-height">${sp.slice(70).join('<br>')}</span>`;
+  } else if (sp.length >= 53) {
+    htmlText = `${sp.slice(0,53).join('<br>')}<span class="no-height">${sp.slice(53).join('<br>')}</span>`;
+  }
 
   return htmlText;
 };

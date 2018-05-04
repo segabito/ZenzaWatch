@@ -12670,7 +12670,7 @@ NicoTextParser.likeXP = function (text) {
 //        }
 //      }
   // \u2001だけのグループ＝全角文字に隣接してない ≒ 半角に挟まれている
-  htmlText = htmlText.replace(/(.)<gro  up>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
+  htmlText = htmlText.replace(/(.)<group>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
 
   htmlText = htmlText.replace(/<group>/g, '<group class="' + strongFont + '">');
 
@@ -14610,14 +14610,7 @@ class NicoChatViewModel {
     scale *= NicoChatViewModel.BASE_SCALE;
     if (isDoubleResized) {
       this._cssLineHeight = this._calcDoubleResizedLineHeight({lc, size});
-      // let lh =
       return ((this._cssLineHeight - MARGIN) * lc) * scale * 0.5  + MARGIN -1;
-      // if (size === NicoChat.SIZE.BIG) {
-      //   return this._calcDoubleResizedHeight({lc}) * scale * 0.5 - 1;
-      // } else {
-      //   this._cssLineHeight = (size === NicoChat.SIZE.MEDIUM ? 24 : 13) + MARGIN;
-      //   return ((this._cssLineHeight - MARGIN) * lc) * scale * 0.5  + MARGIN -1;
-      // }
     }
 
     let height;
@@ -21108,7 +21101,7 @@ _.assign(VideoList.prototype, {
 
     this._view.on('command', this._onCommand.bind(this));
     this._view.on('deflistAdd', this._onDeflistAdd.bind(this));
-    this._view.on('playlistAppend', this._onplaylistAppend.bind(this));
+    this._view.on('playlistAppend', this._onPlaylistAppend.bind(this));
   },
   update: function (listData, watchId) {
     if (!this._view) {
@@ -21136,7 +21129,7 @@ _.assign(VideoList.prototype, {
     }
     this.emit('command', command, param);
   },
-  _onplaylistAppend: function (watchId, itemId) {
+  _onPlaylistAppend: function (watchId, itemId) {
     this.emit('command', 'playlistAppend', watchId);
     if (this._isUpdatingPlaylist) {
       return;

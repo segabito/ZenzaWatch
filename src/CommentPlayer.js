@@ -1852,26 +1852,31 @@ class NicoChatViewModel {
     return lineHeight;
   }
 
-  _calcDoubleResizedHeight({lc = 1, cssScale}) {
+  _calcDoubleResizedLineHeight({lc = 1, cssScale, size = NicoChat.SIZE.BIG}) {
     const MARGIN = 5;
+    // ニコスクリプトだとBIG以外の二重リサイズもあり得る?
+    if (size !== NicoChat.SIZE.BIG) {
+      return (size === NicoChat.SIZE.MEDIUM ? 24 : 13) + MARGIN;
+    }
+    // @see https://www37.atwiki.jp/commentart/pages/20.html
     cssScale = typeof cssScale === 'number' ? cssScale : this.getCssScale();
     // 本当は行数ではなく縮小率から計算すべきなのだろうけど
     let lineHeight;
     if (lc <= 9) {
-      lineHeight = ((392 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((392 / cssScale) - MARGIN) / lc -1;
+      // lineHeight = ((392 - MARGIN * cssScale) / cssScale) / lc -1;
     } else if (lc <= 10) {
-      lineHeight = ((384 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((384 / cssScale) - MARGIN) / lc -1;
     } else if (lc <= 11) {
-      lineHeight = ((389 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((389 / cssScale) - MARGIN) / lc -1;
     } else if (lc <= 12) {
-      lineHeight = ((388 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((388 / cssScale) - MARGIN) / lc -1;
     } else if (lc <= 13) {
-      lineHeight = ((381 - MARGIN * cssScale) / cssScale) / lc -1;
+      lineHeight = ((381 / cssScale) - MARGIN) / lc -1;
     } else {
-      lineHeight = ((381 - MARGIN * cssScale) / cssScale) / 14 -1;
+      lineHeight = ((381 / cssScale) - MARGIN) / 14;
     }
-    this._cssLineHeight = lineHeight;
-    return (lineHeight * lc + MARGIN);
+    return lineHeight;
   }
 
   /**
@@ -1889,7 +1894,8 @@ class NicoChatViewModel {
     let lineHeight;
     scale *= NicoChatViewModel.BASE_SCALE;
     if (isDoubleResized) {
-      return this._calcDoubleResizedHeight({lc}) * scale * 0.5 -1;
+      this._cssLineHeight = this._calcDoubleResizedLineHeight({lc, size});
+      return ((this._cssLineHeight - MARGIN) * lc) * scale * 0.5  + MARGIN -1;
     }
 
     let height;
@@ -1908,7 +1914,7 @@ class NicoChatViewModel {
     // 非enderで画面の高さの1/3を超える時は改行リサイズ
     this._isLineResized = true;
     lineHeight = this._calcLineHeight({lc, size, scale: scale * 0.5});
-    this._cssLineHeight = lineHeight * 2;
+    this._cssLineHeight = lineHeight * 2 -1;
     return (lineHeight * lc + MARGIN) * scale - 1;
   }
 
@@ -2206,12 +2212,11 @@ class NicoChatViewModel {
       score: this._nicoChat.getScore(),
       userId: this._nicoChat.getUserId(),
       date: this._nicoChat.getDate(),
-      deleted: this._nicoChat.isDeleted(),
       cmd: this._nicoChat.getCmd(),
       fork: this._nicoChat.getFork(),
       layerId: this._nicoChat.getLayerId(),
       ver: this._nicoChat.getCommentVer(),
-      lc: this.getText().split('\n').length,
+      lc: this._lineCount,
       ls: this.isLineResized(),
       thread: this._nicoChat.getThreadId(),
       isSub: this._nicoChat.isSubThread(),
@@ -2334,8 +2339,8 @@ NicoChatViewModel.FONT_SIZE_PIXEL = {
 };
 NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5 = {
   BIG: 40 - 1,      // 684 / 17 > x > 684 / 18
-  MEDIUM: 26 -1,   // 684 / 25 > x > 684 / 26
-  SMALL: 18 -1     // 684 / 37 > x > 684 / 38
+  MEDIUM: 26 -1 -0.6,   // 684 / 25 > x > 684 / 26
+  SMALL: 18.4 -1     // 684 / 37 > x > 684 / 38
 };
 
 NicoChatViewModel.LINE_HEIGHT = {
@@ -2889,7 +2894,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       inViewElements[i].remove();
     }
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
-    for (i = inViewElements.length - max - 1; i >= 0; i--) {
+    for (i = inViewElements.length - max * 2 - 1; i >= 0; i--) {
       inViewElements[i].remove();
     }
   }
@@ -3456,19 +3461,10 @@ class NicoChatCss3View {
     let span = document.createElement('span');
     let ver = chat.getCommentVer();
     let className = ['nicoChat', type, size, ver];
-    // let scale = chat.getCssScale();// * (chat.isLineResized() ? 0.5 : 1);
     if (chat.getColor() === '#000000') {
       className.push('black');
     }
 
-    // 泥臭い
-//     if (scale < 0.75) {
-//       className.push('halfScale');
-// //    } else if (scale === 1.0 && ver !== 'html5') {
-// //      className.push('noScale');
-//     } else if (scale > 1.0) {
-//       className.push('largeScale');
-//     }
     if (chat.isDoubleResized()) {
       className.push('is-doubleResized');
     } else if (chat.isLineResized()) {
@@ -3568,10 +3564,10 @@ class NicoChatCss3View {
     // 逆再生
     const reverse = chat.isReverse() ? 'animation-direction: reverse;' : '';
     let isAlignMiddle = false;
-    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2) ||
+    if ((commentVer === 'html5' && (height >= screenHeight - fontSizePx / 2 || chat.isOverflow())) ||
       (commentVer !== 'html5' && height >= screenHeight - fontSizePx / 2 && height < screenHeight + fontSizePx)
     ) {
-      isAlignMiddle = true;
+        isAlignMiddle = true;
     }
     let top = isAlignMiddle ? '50%' : `${ypos}px`;
     let vAlign = isAlignMiddle ? '-middle' : '';
@@ -3643,8 +3639,8 @@ class NicoChatCss3View {
     let transY;
 
     // 画面高さに近い・超える時は上端または下端にぴったりつける
-    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2) ||
-        (commentVer !== 'html5' && height >= screenHeight - fontSizePx / 2 && height < screenHeight + fontSizePx)) {
+    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2 || chat.isOverflow()) ||
+        (commentVer !== 'html5' && height >= screenHeight * 0.7)) {
       top = `${type === NicoChat.TYPE.BOTTOM ? 100 : 0}%`;
       transY = `${type === NicoChat.TYPE.BOTTOM ? -100 : 0}%`;
     } else {
