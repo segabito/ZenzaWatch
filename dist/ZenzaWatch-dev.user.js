@@ -282,6 +282,9 @@ const Config = (() => {
     enableCommentPanel: true,
     enableCommentPanelAutoScroll: true,
 
+    commentSpeedRate: 1.0,
+    autoCommentSpeedRate: false,
+
     playlistLoop: false,
     commentLanguage: 'ja_JP',
 
@@ -346,6 +349,7 @@ const Config = (() => {
     'touch.tap5command': 'screenShot',
 
     autoZenTube: false,
+    bestZenTube: false,
 
     KEY_CLOSE: 27,          // ESC
     KEY_RE_OPEN: 27 + 0x1000, // SHIFT + ESC
@@ -6599,7 +6603,7 @@ const {YouTubeWrapper} = (() => {
       }
 
       let resolved = false;
-      return this._initYT().then((YT) => {
+      return this._initYT().then(YT => {
         return new Promise(resolve => {
           this._player = new YT.Player(
             this._parentNode, {
@@ -6662,7 +6666,7 @@ const {YouTubeWrapper} = (() => {
 
     _onPlayerReady() {
       this.emitAsync('loadedMetaData');
-      this.emitAsync('canplay');
+      // this.emitAsync('canplay');
     }
 
     _onPlayerStateChange(e) {
@@ -6680,6 +6684,7 @@ const {YouTubeWrapper} = (() => {
         case YT.PlayerState.PLAYING:
           if (!this._canPlay) {
             this._canPlay = true;
+            this.muted = this._muted;
             this.emit('loadedmetadata');
             this.emit('canplay');
           }
@@ -6707,6 +6712,14 @@ const {YouTubeWrapper} = (() => {
 
     pause() {
       this._player.pauseVideo();
+    }
+
+    selectBestQuality() {
+      let levels = this._player.getAvailableQualityLevels();
+      let best = levels[0];
+      let current = this._player.getPlaybackQuality();
+      this._player.setPlaybackQuality(best);
+      // window.console.info('bestQuality', levels, best, current);
     }
 
     _onSeekEnd() {
@@ -6748,17 +6761,18 @@ const {YouTubeWrapper} = (() => {
       return this._player.getDuration();
     }
 
-    set mute(v) {
+    set muted(v) {
+      window.console.info('set muted', v);
       if (v) {
         this._player.mute();
       } else {
         this._player.unMute();
       }
-      this._mute = !!v;
+      this._muted = !!v;
     }
 
-    get mute() {
-      return this._player.mute;
+    get muted() {
+      return this._player.isMuted();
     }
 
     set volume(v) {
@@ -6974,9 +6988,6 @@ _.assign(NicoVideoPlayer.prototype, {
     }
   },
   _onMouseWheel: function (e, delta) {
-    // 下げる時は「うわ音でけぇ」
-    // 上げる時は「ちょっと上げようかな」
-    // なので下げる速度のほうが速い
     if (delta > 0) { // up
       this.volumeUp();
     } else {         // down
@@ -7087,7 +7098,6 @@ _.assign(NicoVideoPlayer.prototype, {
     return this._videoPlayer.togglePlay();
   },
   setPlaybackRate: function (playbackRate) {
-    //if (!ZenzaWatch.util.isPremium()) { playbackRate = Math.min(1, playbackRate); }
     playbackRate = Math.max(0, Math.min(playbackRate, 10));
     this._videoPlayer.setPlaybackRate(playbackRate);
     this._commentPlayer.setPlaybackRate(playbackRate);
@@ -7791,6 +7801,9 @@ class VideoPlayer extends Emitter {
         this._isAspectRatioFixed = true;
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
+      }
+      if (this._isYouTube && Config.getValue('bestZenTube')) {
+        this._videoYouTube.selectBestQuality();
       }
     }
   }
@@ -13687,6 +13700,7 @@ _.assign(NicoChatGroupViewModel.prototype, {
     nicoChatGroup.on('reset', this._onReset.bind(this));
     nicoChatGroup.on('change', this._onChange.bind(this));
     NicoChatViewModel.emitter.on('updateBaseChatScale', this._onChange.bind(this));
+    NicoChatViewModel.emitter.on('updateCommentSpeedRate', this._onCommentSpeedRateUpdate.bind(this));
 
     this.addChatArray(nicoChatGroup.getMembers());
   },
@@ -13765,6 +13779,13 @@ _.assign(NicoChatGroupViewModel.prototype, {
     // } else {
     //   this._groupCollision();
     // }
+  },
+  _onCommentSpeedRateUpdate() {
+    this.changeSpeed(NicoChatViewModel.SPEED_RATE);
+  },
+  changeSpeed: function(speedRate = 1) {
+    this._members.forEach(member => member.recalcBeginEndTiming(speedRate));
+    this._execCommentLayoutWorker();
   },
   _groupCollision: function () {
     this._createVSortedMembers();
@@ -14393,6 +14414,8 @@ class NicoChatViewModel {
   }
 
   constructor(nicoChat, offScreen) {
+    this._speedRate = NicoChatViewModel.SPEED_RATE;
+
     this.initialize(nicoChat, offScreen);
 
     if (this._height >= NicoCommentViewModel.SCREEN.HEIGHT - this._fontSizePixel / 2) {
@@ -14520,9 +14543,10 @@ class NicoChatViewModel {
     // w を使わずにspwを計算するとNaNになる。謎
     let w = this._width;
     let speed;
+    let duration = this._duration / this._speedRate;
     if (!this._isFixed) { // 流れるコメント (naka)
       speed =
-        this._speed = (w + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        this._speed = (w + NicoCommentViewModel.SCREEN.WIDTH) / duration;
       let spw = w / speed;
       this._endLeftTiming = this._endRightTiming - spw;
       this._beginRightTiming = this._beginLeftTiming + spw;
@@ -14531,10 +14555,30 @@ class NicoChatViewModel {
       this._endLeftTiming = this._endRightTiming;
       this._beginRightTiming = this._beginLeftTiming;
     }
-
   }
 
-  _calcLineHeight({lc, size, scale = 1}) {
+  recalcBeginEndTiming(speedRate = 1) {
+    let width = this._width;
+    let duration = this._duration / speedRate;
+    this._endRightTiming = this._beginLeftTiming + duration;
+    this._speedRate = speedRate;
+    if (isNaN(width)) {
+      return;
+    }
+    if (!this._isFixed) {
+      let speed =
+        this._speed = (width + NicoCommentViewModel.SCREEN.WIDTH) / duration;
+      let spw = width / speed;
+      this._endLeftTiming = this._endRightTiming - spw;
+      this._beginRightTiming = this._beginLeftTiming + spw;
+    } else {
+      this._speed = 0;
+      this._endLeftTiming = this._endRightTiming;
+      this._beginRightTiming = this._beginLeftTiming;
+    }
+  }
+
+  _calcLineHeight({size, scale = 1}) {
     const SIZE = NicoChat.SIZE;
     const MARGIN = 5;
     //const TABLE_HEIGHT = 385;
@@ -14675,9 +14719,10 @@ class NicoChatViewModel {
    */
   _setupMarqueeMode () {
     if (this._isLineResized) {
+      let duration = this._duration / this._speedRate;
       this._setScale(this._scale);
       let speed =
-        this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / duration;
       this._endLeftTiming = this._endRightTiming - this._width / speed;
       this._beginRightTiming = this._beginLeftTiming + this._width / speed;
     }
@@ -14772,7 +14817,7 @@ class NicoChatViewModel {
   }
 
   getDuration () {
-    return this._duration;
+    return this._duration / this._speedRate;
   }
 
   getSpeed () {
@@ -14906,6 +14951,7 @@ class NicoChatViewModel {
       width: this.getWidth(),
       height: this.getHeight(),
       scale: this.getCssScale(),
+      cmd: this._nicoChat.getCmd(),
       fontSize: this.getFontSizePixel(),
       vpos: this.getVpos(),
       xpos: this.getXpos(),
@@ -14918,7 +14964,7 @@ class NicoChatViewModel {
       color: this.getColor(),
       size: this.getSize(),
       duration: this.getDuration(),
-      inView: this.isInView(),
+      // inView: this.isInView(),
 
       ender: this._nicoChat.isEnder(),
       full: this._nicoChat.isFull(),
@@ -14927,7 +14973,6 @@ class NicoChatViewModel {
       score: this._nicoChat.getScore(),
       userId: this._nicoChat.getUserId(),
       date: this._nicoChat.getDate(),
-      cmd: this._nicoChat.getCmd(),
       fork: this._nicoChat.getFork(),
       layerId: this._nicoChat.getLayerId(),
       ver: this._nicoChat.getCommentVer(),
@@ -15076,6 +15121,23 @@ Config.on('update-baseChatScale', scale => {
   NicoChatViewModel.emitter.emit('updateBaseChatScale', scale);
 });
 
+NicoChatViewModel.SPEED_RATE = 1.0;
+let updateSpeedRate = () => {
+  let rate = Config.getValue('commentSpeedRate') * 1;
+  if (Config.getValue('autoCommentSpeedRate')) {
+    rate = rate / Config.getValue('playbackRate');
+  }
+  // window.console.info('updateSpeedRate', rate, Config.getValue('commentSpeedRate'), NicoChatViewModel.SPEED_RATE);
+  if (rate !== NicoChatViewModel.SPEED_RATE) {
+    NicoChatViewModel.SPEED_RATE = rate;
+    NicoChatViewModel.emitter.emit('updateCommentSpeedRate', rate);
+  }
+};
+Config.on('update-commentSpeedRate', updateSpeedRate);
+Config.on('update-autoCommentSpeedRate', updateSpeedRate);
+Config.on('update-playbackRate', updateSpeedRate);
+updateSpeedRate();
+
 class FlashNicoChatViewModel extends NicoChatViewModel {
   // getCssScaleY() {
   //   return this.isDoubleResized() ? this.getCssScale() : super.getCssScaleY();
@@ -15206,6 +15268,9 @@ class NicoCommentCss3PlayerView extends Emitter {
       if (!document.hidden) {
         _refresh();
       }
+    });
+    NicoChatViewModel.emitter.on('updateCommentSpeedRate', () => {
+      this.refresh();
     });
     ZenzaWatch.debug.css3Player = this;
 
@@ -15420,7 +15485,9 @@ class NicoCommentCss3PlayerView extends Emitter {
   }
   setPlaybackRate (playbackRate) {
     this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
-    this.refresh();
+    if (!Config.getValue('autoCommentSpeedRate')) {
+      this.refresh();
+    }
   }
   setAspectRatio (ratio) {
     this._aspectRatio = ratio;
@@ -15552,7 +15619,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     if (css.length > 0) {
       let inSlotTable = this._inSlotTable, currentTime = this._currentTime;
       let outViewIds = [];
-      let margin = 1;
+      let margin = 2 / NicoChatViewModel.SPEED_RATE;
       Object.keys(inSlotTable).forEach(key => {
         let chat = inSlotTable[key];
         if (currentTime - margin < chat.getEndRightTiming()) {
@@ -16238,7 +16305,7 @@ class NicoChatCss3View {
     let id = chat.getId();
     let commentVer = chat.getCommentVer();
     let duration = chat.getDuration() / playbackRate;
-    let scale = chat.getCssScale();// * (chat.isLineResized() ? 0.5 : 1);
+    let scale = chat.getCssScale();
     let scaleY = chat.getCssScaleY();
     let beginL = chat.getBeginLeftTiming();
     let screenWidth = NicoCommentViewModel.SCREEN.WIDTH;
@@ -24481,6 +24548,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this.reload({isAutoSmileDisabled: true});
         break;
       case 'update-commentLanguage':
+      case 'update-commentSpeedRate':
         command = command.replace(/^update-/, '');
         if (this._playerConfig.getValue(command) === param) {
           break;
@@ -24497,6 +24565,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'toggle-enableFilter':
       case 'toggle-enableNicosJumpVideo':
       case 'toggle-useWellKnownPort':
+      case 'toggle-bestZenTube':
+      case 'toggle-autoCommentSpeedRate':
         command = command.replace(/^toggle-/, '');
         this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
         break;
@@ -27260,15 +27330,6 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
-        <!--
-        <div class="enableVideoSession control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableVideoSession">
-            20分を超える動画の再生安定化テストを有効にする
-          </label>
-        </div>
-        -->
-
         <div class="enableNicosJumpVideo control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableNicosJumpVideo"
@@ -27286,14 +27347,22 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
+        <div class="bestZenTube control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="bestZenTube"
+            data-command="toggle-bestZenTube">
+              ZenTubeで常に最高画質を選択する
+          </label>
+        </div>
+        
         <div class="enableNicosJumpVideo control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="useWellKnownPort"
             data-command="toggle-useWellKnownPort">
-            DMCの通信ポートを固定 (ファイアーウォール等の都合で再生できない場合のみ推奨)
+            DMCの通信ポートを固定<br>
+            <small>ファイアーウォール等の都合で再生できない場合のみ推奨</small>
           </label>
         </div>
-
 
         <div class="menuScaleControl control toggle">
           <label>
@@ -27309,8 +27378,31 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
-        <p class="caption">フォントの設定</p>
+        <p class="caption">コメント・フォントの設定</p>
         <div class="fontEdit">
+
+          <div class="autoCommentSpeedRate control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="autoCommentSpeedRate">
+              再生速度を変えてもコメントの速度を維持する<br>
+                <small>※ コメントアートが一部崩れます</small>
+            </label>
+          </div>
+          
+          <div class="commentSpeedRate control toggle">
+            <label>
+              <select class="commentSpeedRate" data-setting-name="commentSpeedRate">
+                  <option value="0.5">0.5倍</option>
+                  <option value="0.8">0.8倍</option>
+                  <option value="1" selected>標準</option>
+                  <option value="1.2">1.2倍</option>
+                  <option value="1.5">1.5倍</option>
+                  <option value="2.0"2倍</option>
+              </select>
+              コメントの速度(倍率)<br>
+                <small>※ コメントアートが一部崩れます</small>
+            </label>
+          </div>
 
           <div class="baseFontBolderControl control toggle">
             <label>

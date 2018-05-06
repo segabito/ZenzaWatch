@@ -249,15 +249,6 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
-        <!--
-        <div class="enableVideoSession control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="enableVideoSession">
-            20分を超える動画の再生安定化テストを有効にする
-          </label>
-        </div>
-        -->
-
         <div class="enableNicosJumpVideo control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableNicosJumpVideo"
@@ -275,14 +266,22 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
+        <div class="bestZenTube control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="bestZenTube"
+            data-command="toggle-bestZenTube">
+              ZenTubeで常に最高画質を選択する
+          </label>
+        </div>
+        
         <div class="enableNicosJumpVideo control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="useWellKnownPort"
             data-command="toggle-useWellKnownPort">
-            DMCの通信ポートを固定 (ファイアーウォール等の都合で再生できない場合のみ推奨)
+            DMCの通信ポートを固定<br>
+            <small>ファイアーウォール等の都合で再生できない場合のみ推奨</small>
           </label>
         </div>
-
 
         <div class="menuScaleControl control toggle">
           <label>
@@ -298,8 +297,31 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
-        <p class="caption">フォントの設定</p>
+        <p class="caption">コメント・フォントの設定</p>
         <div class="fontEdit">
+
+          <div class="autoCommentSpeedRate control toggle">
+            <label>
+              <input type="checkbox" class="checkbox" data-setting-name="autoCommentSpeedRate">
+              再生速度を変えてもコメントの速度を維持する<br>
+                <small>※ コメントアートが一部崩れます</small>
+            </label>
+          </div>
+          
+          <div class="commentSpeedRate control toggle">
+            <label>
+              <select class="commentSpeedRate" data-setting-name="commentSpeedRate">
+                  <option value="0.5">0.5倍</option>
+                  <option value="0.8">0.8倍</option>
+                  <option value="1" selected>標準</option>
+                  <option value="1.2">1.2倍</option>
+                  <option value="1.5">1.5倍</option>
+                  <option value="2.0"2倍</option>
+              </select>
+              コメントの速度(倍率)<br>
+                <small>※ コメントアートが一部崩れます</small>
+            </label>
+          </div>
 
           <div class="baseFontBolderControl control toggle">
             <label>

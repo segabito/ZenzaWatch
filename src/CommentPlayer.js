@@ -972,6 +972,7 @@ _.assign(NicoChatGroupViewModel.prototype, {
     nicoChatGroup.on('reset', this._onReset.bind(this));
     nicoChatGroup.on('change', this._onChange.bind(this));
     NicoChatViewModel.emitter.on('updateBaseChatScale', this._onChange.bind(this));
+    NicoChatViewModel.emitter.on('updateCommentSpeedRate', this._onCommentSpeedRateUpdate.bind(this));
 
     this.addChatArray(nicoChatGroup.getMembers());
   },
@@ -1050,6 +1051,13 @@ _.assign(NicoChatGroupViewModel.prototype, {
     // } else {
     //   this._groupCollision();
     // }
+  },
+  _onCommentSpeedRateUpdate() {
+    this.changeSpeed(NicoChatViewModel.SPEED_RATE);
+  },
+  changeSpeed: function(speedRate = 1) {
+    this._members.forEach(member => member.recalcBeginEndTiming(speedRate));
+    this._execCommentLayoutWorker();
   },
   _groupCollision: function () {
     this._createVSortedMembers();
@@ -1678,6 +1686,8 @@ class NicoChatViewModel {
   }
 
   constructor(nicoChat, offScreen) {
+    this._speedRate = NicoChatViewModel.SPEED_RATE;
+
     this.initialize(nicoChat, offScreen);
 
     if (this._height >= NicoCommentViewModel.SCREEN.HEIGHT - this._fontSizePixel / 2) {
@@ -1805,9 +1815,10 @@ class NicoChatViewModel {
     // w を使わずにspwを計算するとNaNになる。謎
     let w = this._width;
     let speed;
+    let duration = this._duration / this._speedRate;
     if (!this._isFixed) { // 流れるコメント (naka)
       speed =
-        this._speed = (w + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        this._speed = (w + NicoCommentViewModel.SCREEN.WIDTH) / duration;
       let spw = w / speed;
       this._endLeftTiming = this._endRightTiming - spw;
       this._beginRightTiming = this._beginLeftTiming + spw;
@@ -1816,10 +1827,30 @@ class NicoChatViewModel {
       this._endLeftTiming = this._endRightTiming;
       this._beginRightTiming = this._beginLeftTiming;
     }
-
   }
 
-  _calcLineHeight({lc, size, scale = 1}) {
+  recalcBeginEndTiming(speedRate = 1) {
+    let width = this._width;
+    let duration = this._duration / speedRate;
+    this._endRightTiming = this._beginLeftTiming + duration;
+    this._speedRate = speedRate;
+    if (isNaN(width)) {
+      return;
+    }
+    if (!this._isFixed) {
+      let speed =
+        this._speed = (width + NicoCommentViewModel.SCREEN.WIDTH) / duration;
+      let spw = width / speed;
+      this._endLeftTiming = this._endRightTiming - spw;
+      this._beginRightTiming = this._beginLeftTiming + spw;
+    } else {
+      this._speed = 0;
+      this._endLeftTiming = this._endRightTiming;
+      this._beginRightTiming = this._beginLeftTiming;
+    }
+  }
+
+  _calcLineHeight({size, scale = 1}) {
     const SIZE = NicoChat.SIZE;
     const MARGIN = 5;
     //const TABLE_HEIGHT = 385;
@@ -1960,9 +1991,10 @@ class NicoChatViewModel {
    */
   _setupMarqueeMode () {
     if (this._isLineResized) {
+      let duration = this._duration / this._speedRate;
       this._setScale(this._scale);
       let speed =
-        this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / this._duration;
+        this._speed = (this._width + NicoCommentViewModel.SCREEN.WIDTH) / duration;
       this._endLeftTiming = this._endRightTiming - this._width / speed;
       this._beginRightTiming = this._beginLeftTiming + this._width / speed;
     }
@@ -2057,7 +2089,7 @@ class NicoChatViewModel {
   }
 
   getDuration () {
-    return this._duration;
+    return this._duration / this._speedRate;
   }
 
   getSpeed () {
@@ -2191,6 +2223,7 @@ class NicoChatViewModel {
       width: this.getWidth(),
       height: this.getHeight(),
       scale: this.getCssScale(),
+      cmd: this._nicoChat.getCmd(),
       fontSize: this.getFontSizePixel(),
       vpos: this.getVpos(),
       xpos: this.getXpos(),
@@ -2203,7 +2236,7 @@ class NicoChatViewModel {
       color: this.getColor(),
       size: this.getSize(),
       duration: this.getDuration(),
-      inView: this.isInView(),
+      // inView: this.isInView(),
 
       ender: this._nicoChat.isEnder(),
       full: this._nicoChat.isFull(),
@@ -2212,7 +2245,6 @@ class NicoChatViewModel {
       score: this._nicoChat.getScore(),
       userId: this._nicoChat.getUserId(),
       date: this._nicoChat.getDate(),
-      cmd: this._nicoChat.getCmd(),
       fork: this._nicoChat.getFork(),
       layerId: this._nicoChat.getLayerId(),
       ver: this._nicoChat.getCommentVer(),
@@ -2361,6 +2393,23 @@ Config.on('update-baseChatScale', scale => {
   NicoChatViewModel.emitter.emit('updateBaseChatScale', scale);
 });
 
+NicoChatViewModel.SPEED_RATE = 1.0;
+let updateSpeedRate = () => {
+  let rate = Config.getValue('commentSpeedRate') * 1;
+  if (Config.getValue('autoCommentSpeedRate')) {
+    rate = rate / Config.getValue('playbackRate');
+  }
+  // window.console.info('updateSpeedRate', rate, Config.getValue('commentSpeedRate'), NicoChatViewModel.SPEED_RATE);
+  if (rate !== NicoChatViewModel.SPEED_RATE) {
+    NicoChatViewModel.SPEED_RATE = rate;
+    NicoChatViewModel.emitter.emit('updateCommentSpeedRate', rate);
+  }
+};
+Config.on('update-commentSpeedRate', updateSpeedRate);
+Config.on('update-autoCommentSpeedRate', updateSpeedRate);
+Config.on('update-playbackRate', updateSpeedRate);
+updateSpeedRate();
+
 class FlashNicoChatViewModel extends NicoChatViewModel {
   // getCssScaleY() {
   //   return this.isDoubleResized() ? this.getCssScale() : super.getCssScaleY();
@@ -2491,6 +2540,9 @@ class NicoCommentCss3PlayerView extends Emitter {
       if (!document.hidden) {
         _refresh();
       }
+    });
+    NicoChatViewModel.emitter.on('updateCommentSpeedRate', () => {
+      this.refresh();
     });
     ZenzaWatch.debug.css3Player = this;
 
@@ -2705,7 +2757,9 @@ class NicoCommentCss3PlayerView extends Emitter {
   }
   setPlaybackRate (playbackRate) {
     this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
-    this.refresh();
+    if (!Config.getValue('autoCommentSpeedRate')) {
+      this.refresh();
+    }
   }
   setAspectRatio (ratio) {
     this._aspectRatio = ratio;
@@ -2837,7 +2891,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     if (css.length > 0) {
       let inSlotTable = this._inSlotTable, currentTime = this._currentTime;
       let outViewIds = [];
-      let margin = 1;
+      let margin = 2 / NicoChatViewModel.SPEED_RATE;
       Object.keys(inSlotTable).forEach(key => {
         let chat = inSlotTable[key];
         if (currentTime - margin < chat.getEndRightTiming()) {
@@ -3523,7 +3577,7 @@ class NicoChatCss3View {
     let id = chat.getId();
     let commentVer = chat.getCommentVer();
     let duration = chat.getDuration() / playbackRate;
-    let scale = chat.getCssScale();// * (chat.isLineResized() ? 0.5 : 1);
+    let scale = chat.getCssScale();
     let scaleY = chat.getCssScaleY();
     let beginL = chat.getBeginLeftTiming();
     let screenWidth = NicoCommentViewModel.SCREEN.WIDTH;

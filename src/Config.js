@@ -68,6 +68,9 @@ const Config = (() => {
     enableCommentPanel: true,
     enableCommentPanelAutoScroll: true,
 
+    commentSpeedRate: 1.0,
+    autoCommentSpeedRate: false,
+
     playlistLoop: false,
     commentLanguage: 'ja_JP',
 
@@ -132,6 +135,7 @@ const Config = (() => {
     'touch.tap5command': 'screenShot',
 
     autoZenTube: false,
+    bestZenTube: false,
 
     KEY_CLOSE: 27,          // ESC
     KEY_RE_OPEN: 27 + 0x1000, // SHIFT + ESC

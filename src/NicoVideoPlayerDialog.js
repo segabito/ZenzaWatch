@@ -1746,6 +1746,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'toggle-debug':
       case 'toggle-enableFilter':
       case 'toggle-enableNicosJumpVideo':
+      case 'toggle-useWellKnownPort':
+      case 'toggle-bestZenTube':
+      case 'toggle-autoCommentSpeedRate':
         command = command.replace(/^toggle-/, '');
         this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
         break;

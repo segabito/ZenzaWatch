@@ -93,7 +93,7 @@ const {YouTubeWrapper} = (() => {
       }
 
       let resolved = false;
-      return this._initYT().then((YT) => {
+      return this._initYT().then(YT => {
         return new Promise(resolve => {
           this._player = new YT.Player(
             this._parentNode, {
@@ -156,7 +156,7 @@ const {YouTubeWrapper} = (() => {
 
     _onPlayerReady() {
       this.emitAsync('loadedMetaData');
-      this.emitAsync('canplay');
+      // this.emitAsync('canplay');
     }
 
     _onPlayerStateChange(e) {
@@ -174,6 +174,7 @@ const {YouTubeWrapper} = (() => {
         case YT.PlayerState.PLAYING:
           if (!this._canPlay) {
             this._canPlay = true;
+            this.muted = this._muted;
             this.emit('loadedmetadata');
             this.emit('canplay');
           }
@@ -201,6 +202,14 @@ const {YouTubeWrapper} = (() => {
 
     pause() {
       this._player.pauseVideo();
+    }
+
+    selectBestQuality() {
+      let levels = this._player.getAvailableQualityLevels();
+      let best = levels[0];
+      let current = this._player.getPlaybackQuality();
+      this._player.setPlaybackQuality(best);
+      // window.console.info('bestQuality', levels, best, current);
     }
 
     _onSeekEnd() {
@@ -242,17 +251,18 @@ const {YouTubeWrapper} = (() => {
       return this._player.getDuration();
     }
 
-    set mute(v) {
+    set muted(v) {
+      window.console.info('set muted', v);
       if (v) {
         this._player.mute();
       } else {
         this._player.unMute();
       }
-      this._mute = !!v;
+      this._muted = !!v;
     }
 
-    get mute() {
-      return this._player.mute;
+    get muted() {
+      return this._player.isMuted();
     }
 
     set volume(v) {
