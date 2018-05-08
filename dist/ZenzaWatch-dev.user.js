@@ -29636,7 +29636,7 @@ _.assign(VideoInfoPanel.prototype, {
     const config = Config.namespace('videoSearch');
 
     let option = {
-      // searchType: 'tag',
+      searchType: config.getValue('mode'),
       order: config.getValue('order'),
       sort: config.getValue('sort') || 'playlist',
       owner: config.getValue('ownerOnly')
