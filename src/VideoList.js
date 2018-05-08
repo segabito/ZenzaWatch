@@ -856,6 +856,7 @@ _.assign(VideoListView.prototype, {
     this._maxItems = params.max || 100;
     this._dragdrop = typeof params.dragdrop === 'boolean' ? params.dragdrop : false;
     this._dropfile = typeof params.dropfile === 'boolean' ? params.dropfile : false;
+    this._enablePocketWatch = params.enablePocketWatch;
 
     this._model = params.model;
     if (this._model) {
@@ -924,9 +925,16 @@ _.assign(VideoListView.prototype, {
         .on('drop', this._onBodyDropFile.bind(this));
     }
 
-    MylistPocketDetector.detect().then((pocket) => {
+    MylistPocketDetector.detect().then(pocket => {
       this._pocket = pocket;
       $body.addClass('is-pocketReady');
+      if (pocket.external.observe && this._enablePocketWatch) {
+        pocket.external.observe({
+          query: 'a.videoLink',
+          container,
+          closest: '.videoItem'
+        });
+      }
     });
   },
   _onBodyMouseDown: function (e) {
@@ -1538,12 +1546,13 @@ _.assign(VideoList.prototype, {
     }
     this._view = new VideoListView({
       $container: this._$container,
-      model: this._model
+      model: this._model,
+      enablePocketWatch: true
     });
 
     this._view.on('command', this._onCommand.bind(this));
     this._view.on('deflistAdd', this._onDeflistAdd.bind(this));
-    this._view.on('playlistAdd', this._onPlaylistAdd.bind(this));
+    this._view.on('playlistAppend', this._onPlaylistAppend.bind(this));
   },
   update: function (listData, watchId) {
     if (!this._view) {
@@ -1571,7 +1580,7 @@ _.assign(VideoList.prototype, {
     }
     this.emit('command', command, param);
   },
-  _onplaylistAppend: function (watchId, itemId) {
+  _onPlaylistAppend: function (watchId, itemId) {
     this.emit('command', 'playlistAppend', watchId);
     if (this._isUpdatingPlaylist) {
       return;
@@ -1896,7 +1905,8 @@ _.assign(PlaylistView.prototype, {
       model: this._model,
       className: 'playlist',
       dragdrop: true,
-      dropfile: true
+      dropfile: true,
+      enablePocketWatch: false
     });
     listView.on('command', this._onCommand.bind(this));
     listView.on('deflistAdd', this._onDeflistAdd.bind(this));
