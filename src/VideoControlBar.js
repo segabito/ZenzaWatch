@@ -120,7 +120,7 @@ import {Emitter} from './baselib';
     .controlItemContainer.left .scalingUI:empty {
       display: none;
     }
-    .is-mouseMoving .controlItemContainer.left .scalingUI>* {
+    .controlItemContainer.left .scalingUI>* {
       background: #222;
       display: inline-block;
     }
@@ -786,11 +786,11 @@ import {Emitter} from './baselib';
       font-size: 16px;
       white-space: nowrap;
     }
-    .is-dmcAvailable .videoServerTypeMenu  {
+    .videoServerTypeMenu.is-dmc-playing  {
       text-shadow:
         0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
     }
-    .is-mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
+    .is-mouseMoving .videoServerTypeMenu.is-dmc-playing {
       background: #336;
     }
     .is-youTube .videoServerTypeMenu {
@@ -871,7 +871,7 @@ import {Emitter} from './baselib';
     }
 
     /* dmcを使用不能の時はdmc選択とdmc画質選択を薄く */
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc,
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc,
     .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality,
     .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
       opacity: 0.4;
@@ -881,7 +881,7 @@ import {Emitter} from './baselib';
     .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
       display: none;
     }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc span:before,
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc span:before,
     .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality       span:before{
       display: none !important;
     }
@@ -891,14 +891,13 @@ import {Emitter} from './baselib';
 
 
     /* dmcを使用している時はsmileの画質選択を薄く */
-    .zenzaPlayerContainer.is-dmcPlaying .smileVideoQuality {
-      opacity: 0.4;
-      pointer-events: none;
-    }
+    .is-dmc-playing .smileVideoQuality {
+      display: none;
+     }
 
     /* dmcを選択していない状態ではdmcの画質選択を隠す */
-    .videoServerTypeSelectMenu:not(.is-dmcEnable) .currentVideoQuality,
-    .videoServerTypeSelectMenu:not(.is-dmcEnable) .dmcVideoQuality {
+    .is-smile-playing .currentVideoQuality,
+    .is-smile-playing .dmcVideoQuality {
       display: none;
     }
 
@@ -1045,21 +1044,23 @@ import {Emitter} from './baselib';
               <p class="caption">動画サーバー・画質</p>
               <ul>
 
-                <li class="serverType select-dmc   exec-command" data-command="update-enableDmc" data-param="true"  data-type="bool">
+                <li class="serverType select-server-dmc exec-command" data-command="update-videoServerType" data-param="dmc">
                   <span>新システムを使用</span>
                   <p class="currentVideoQuality"></p>
                 </li>
 
 
-                <li class="dmcVideoQuality selected exec-command select-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
 
-                <li class="serverType select-smile exec-command" data-command="update-enableDmc" data-param="false" data-type="bool"><span>旧システムを使用</span></li>
-                <li class="smileVideoQuality select-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
-                <li class="smileVideoQuality select-economy exec-command" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
+                <li class="serverType select-server-smile exec-command" data-command="update-videoServerType" data-param="smile">
+                  <span>旧システムを使用</span>
+                </li>
+                <li class="smileVideoQuality select-smile-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
+                <li class="smileVideoQuality select-smile-economy exec-command" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
              </ul>
             </div>
           </div>
@@ -1324,13 +1325,15 @@ import {Emitter} from './baselib';
     },
     _initializeVideoServerTypeSelectMenu: function() {
       const config = this._playerConfig;
-      const $menu  = this._$videoServerTypeSelectMenu;
-      const $current = $menu.find('.currentVideoQuality');
+      const $button = this._$videoServerTypeMenu;
+      const $select  = this._$videoServerTypeSelectMenu;
+      const $current = $select.find('.currentVideoQuality');
 
-      $menu.on('click', '.exec-command', e => {
+      $select.on('click', e => {
         e.preventDefault();
         e.stopPropagation();
         const $target  = $(e.target).closest('.exec-command');
+        if (!$target.length) { return; }
         const command  = $target.attr('data-command');
         if (!command) { return; }
         let   param    = $target.attr('data-param');
@@ -1343,42 +1346,31 @@ import {Emitter} from './baselib';
         this.emit('command', command, param);
       });
 
-      const updateEnableDmc = value => {
-        $menu.toggleClass('is-dmcEnable', value);
-        const $d = $menu.find('.serverType');
-        $d.removeClass('selected');
-        $menu.find('.select-' + (value ? 'dmc' : 'smile')).addClass('selected');
-      };
-
-      const updateForceEconomy = value => {
-        const $dq = $menu.find('.smileVideoQuality');
+      const updateSmileVideoQuality = value => {
+        const $dq = $select.find('.smileVideoQuality');
         $dq.removeClass('selected');
-        $menu.find('.select-' + (value ? 'economy' : 'default')).addClass('selected');
+        $select.find('.select-smile-' + (value === 'eco' ? 'economy' : 'default')).addClass('selected');
       };
 
       const updateDmcVideoQuality = value => {
-        const $dq = $menu.find('.dmcVideoQuality');
+        const $dq = $select.find('.dmcVideoQuality');
         $dq.removeClass('selected');
-        $menu.find('.select-' + value).addClass('selected');
+        $select.find('.select-dmc-' + value).addClass('selected');
       };
 
       const onVideoServerType = (type, videoSessionInfo) => {
-        if (type !== 'dmc') {
-          if (config.getValue('autoDisableDmc')) {
-            $current.text('----');
-          } else {
-            $current.text('----');
-          }
-          return;
-        }
-        $current.text(videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+        $button.removeClass('is-smile-playing is-dmc-playing')
+          .addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
+        $select.find('.serverType').removeClass('selected');
+        $select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
+        $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
       };
 
-      updateEnableDmc(      config.getValue('enableDmc'));
-      updateForceEconomy(   config.getValue('forceEconomy'));
+      // updateEnableDmc(      config.getValue('enableDmc'));
+      updateSmileVideoQuality(   config.getValue('smileVideoQuality'));
       updateDmcVideoQuality(config.getValue('dmcVideoQuality'));
-      config.on('update-enableDmc',       updateEnableDmc);
-      config.on('update-forceEconomy',    updateForceEconomy);
+      // config.on('update-enableDmc',       updateEnableDmc);
+      config.on('update-forceEconomy',    updateSmileVideoQuality);
       config.on('update-dmcVideoQuality', updateDmcVideoQuality);
 
       this._player.on('videoServerType', onVideoServerType);

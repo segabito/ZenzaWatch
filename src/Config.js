@@ -53,7 +53,8 @@ const Config = (() => {
     enableStoryboardBar: false, // シーンサーチ
     videoInfoPanelTab: 'videoInfoTab',
 
-    forceEconomy: false,
+
+    // forceEconomy: false,
     // NG設定
     enableFilter: true,
     wordFilter: '',
@@ -106,9 +107,11 @@ const Config = (() => {
     message: '',
 
     enableVideoSession: true,
-    enableDmc: true, // 新サーバーを使うかどうか
+    videoServerType: 'dmc',
+    // enableDmc: true, // 新サーバーを使うかどうか
     autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
     dmcVideoQuality: 'auto',   // 優先する画質 auto, veryhigh, high, mid, low
+    smileVideoQuality: 'default', // default eco
     useWellKnownPort: false,
     'video.hls.enable': true,
     'video.hls.segmentDuration': 5000,

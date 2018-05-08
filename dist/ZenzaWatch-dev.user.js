@@ -267,7 +267,8 @@ const Config = (() => {
     enableStoryboardBar: false, // シーンサーチ
     videoInfoPanelTab: 'videoInfoTab',
 
-    forceEconomy: false,
+
+    // forceEconomy: false,
     // NG設定
     enableFilter: true,
     wordFilter: '',
@@ -320,9 +321,11 @@ const Config = (() => {
     message: '',
 
     enableVideoSession: true,
-    enableDmc: true, // 新サーバーを使うかどうか
+    videoServerType: 'dmc',
+    // enableDmc: true, // 新サーバーを使うかどうか
     autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
     dmcVideoQuality: 'auto',   // 優先する画質 auto, veryhigh, high, mid, low
+    smileVideoQuality: 'default', // default eco
     useWellKnownPort: false,
     'video.hls.enable': true,
     'video.hls.segmentDuration': 5000,
@@ -6610,11 +6613,13 @@ const {YouTubeWrapper} = (() => {
               videoId,
               events: {
                 onReady: () => {
-                  if (!resolved) {
-                    resolved = true;
-                    resolve({player: this._player});
-                  }
-                  this._onPlayerReady();
+                  setTimeout(() => {
+                    if (!resolved) {
+                      resolved = true;
+                      resolve({player: this._player});
+                    }
+                    this._onPlayerReady();
+                  }, 0);
                 },
                 onStateChange: this._onPlayerStateChange.bind(this),
                 onPlaybackQualityChange: e => {
@@ -6718,7 +6723,11 @@ const {YouTubeWrapper} = (() => {
       let levels = this._player.getAvailableQualityLevels();
       let best = levels[0];
       let current = this._player.getPlaybackQuality();
+      //let currentTime = this.currentTime();
+      this._player.pauseVideo();
       this._player.setPlaybackQuality(best);
+      //this.currentTime = currentTime;
+      this._player.playVideo();
       // window.console.info('bestQuality', levels, best, current);
     }
 
@@ -6762,7 +6771,6 @@ const {YouTubeWrapper} = (() => {
     }
 
     set muted(v) {
-      window.console.info('set muted', v);
       if (v) {
         this._player.mute();
       } else {
@@ -9924,7 +9932,7 @@ StoryboardView.__css__ = (`
     .controlItemContainer.left .scalingUI:empty {
       display: none;
     }
-    .is-mouseMoving .controlItemContainer.left .scalingUI>* {
+    .controlItemContainer.left .scalingUI>* {
       background: #222;
       display: inline-block;
     }
@@ -10590,11 +10598,11 @@ StoryboardView.__css__ = (`
       font-size: 16px;
       white-space: nowrap;
     }
-    .is-dmcAvailable .videoServerTypeMenu  {
+    .videoServerTypeMenu.is-dmc-playing  {
       text-shadow:
         0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
     }
-    .is-mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
+    .is-mouseMoving .videoServerTypeMenu.is-dmc-playing {
       background: #336;
     }
     .is-youTube .videoServerTypeMenu {
@@ -10675,7 +10683,7 @@ StoryboardView.__css__ = (`
     }
 
     /* dmcを使用不能の時はdmc選択とdmc画質選択を薄く */
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc,
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc,
     .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality,
     .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
       opacity: 0.4;
@@ -10685,7 +10693,7 @@ StoryboardView.__css__ = (`
     .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
       display: none;
     }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc span:before,
+    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc span:before,
     .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality       span:before{
       display: none !important;
     }
@@ -10695,14 +10703,13 @@ StoryboardView.__css__ = (`
 
 
     /* dmcを使用している時はsmileの画質選択を薄く */
-    .zenzaPlayerContainer.is-dmcPlaying .smileVideoQuality {
-      opacity: 0.4;
-      pointer-events: none;
-    }
+    .is-dmc-playing .smileVideoQuality {
+      display: none;
+     }
 
     /* dmcを選択していない状態ではdmcの画質選択を隠す */
-    .videoServerTypeSelectMenu:not(.is-dmcEnable) .currentVideoQuality,
-    .videoServerTypeSelectMenu:not(.is-dmcEnable) .dmcVideoQuality {
+    .is-smile-playing .currentVideoQuality,
+    .is-smile-playing .dmcVideoQuality {
       display: none;
     }
 
@@ -10849,21 +10856,23 @@ StoryboardView.__css__ = (`
               <p class="caption">動画サーバー・画質</p>
               <ul>
 
-                <li class="serverType select-dmc   exec-command" data-command="update-enableDmc" data-param="true" data-type="bool">
+                <li class="serverType select-server-dmc exec-command" data-command="update-videoServerType" data-param="dmc">
                   <span>新システムを使用</span>
                   <p class="currentVideoQuality"></p>
                 </li>
 
 
-                <li class="dmcVideoQuality selected exec-command select-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
+                <li class="dmcVideoQuality selected exec-command select-dmc-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
 
-                <li class="serverType select-smile exec-command" data-command="update-enableDmc" data-param="false" data-type="bool"><span>旧システムを使用</span></li>
-                <li class="smileVideoQuality select-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
-                <li class="smileVideoQuality select-economy exec-command" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
+                <li class="serverType select-server-smile exec-command" data-command="update-videoServerType" data-param="smile">
+                  <span>旧システムを使用</span>
+                </li>
+                <li class="smileVideoQuality select-smile-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
+                <li class="smileVideoQuality select-smile-economy exec-command" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
              </ul>
             </div>
           </div>
@@ -11128,13 +11137,15 @@ StoryboardView.__css__ = (`
     },
     _initializeVideoServerTypeSelectMenu: function() {
       const config = this._playerConfig;
-      const $menu  = this._$videoServerTypeSelectMenu;
-      const $current = $menu.find('.currentVideoQuality');
+      const $button = this._$videoServerTypeMenu;
+      const $select  = this._$videoServerTypeSelectMenu;
+      const $current = $select.find('.currentVideoQuality');
 
-      $menu.on('click', '.exec-command', e => {
+      $select.on('click', e => {
         e.preventDefault();
         e.stopPropagation();
         const $target  = $(e.target).closest('.exec-command');
+        if (!$target.length) { return; }
         const command  = $target.attr('data-command');
         if (!command) { return; }
         let   param    = $target.attr('data-param');
@@ -11147,42 +11158,31 @@ StoryboardView.__css__ = (`
         this.emit('command', command, param);
       });
 
-      const updateEnableDmc = value => {
-        $menu.toggleClass('is-dmcEnable', value);
-        const $d = $menu.find('.serverType');
-        $d.removeClass('selected');
-        $menu.find('.select-' + (value ? 'dmc' : 'smile')).addClass('selected');
-      };
-
-      const updateForceEconomy = value => {
-        const $dq = $menu.find('.smileVideoQuality');
+      const updateSmileVideoQuality = value => {
+        const $dq = $select.find('.smileVideoQuality');
         $dq.removeClass('selected');
-        $menu.find('.select-' + (value ? 'economy' : 'default')).addClass('selected');
+        $select.find('.select-smile-' + (value === 'eco' ? 'economy' : 'default')).addClass('selected');
       };
 
       const updateDmcVideoQuality = value => {
-        const $dq = $menu.find('.dmcVideoQuality');
+        const $dq = $select.find('.dmcVideoQuality');
         $dq.removeClass('selected');
-        $menu.find('.select-' + value).addClass('selected');
+        $select.find('.select-dmc-' + value).addClass('selected');
       };
 
       const onVideoServerType = (type, videoSessionInfo) => {
-        if (type !== 'dmc') {
-          if (config.getValue('autoDisableDmc')) {
-            $current.text('----');
-          } else {
-            $current.text('----');
-          }
-          return;
-        }
-        $current.text(videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+        $button.removeClass('is-smile-playing is-dmc-playing')
+          .addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
+        $select.find('.serverType').removeClass('selected');
+        $select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
+        $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
       };
 
-      updateEnableDmc(      config.getValue('enableDmc'));
-      updateForceEconomy(   config.getValue('forceEconomy'));
+      // updateEnableDmc(      config.getValue('enableDmc'));
+      updateSmileVideoQuality(   config.getValue('smileVideoQuality'));
       updateDmcVideoQuality(config.getValue('dmcVideoQuality'));
-      config.on('update-enableDmc',       updateEnableDmc);
-      config.on('update-forceEconomy',    updateForceEconomy);
+      // config.on('update-enableDmc',       updateEnableDmc);
+      config.on('update-forceEconomy',    updateSmileVideoQuality);
       config.on('update-dmcVideoQuality', updateDmcVideoQuality);
 
       this._player.on('videoServerType', onVideoServerType);
@@ -22948,7 +22948,7 @@ _.assign(VideoWatchOptions.prototype, {
   },
   isEconomySelected: function () {
     return _.isBoolean(this._options.economy) ?
-      this._options.economy : this._config.getValue('forceEconomy');
+      this._options.economy : this._config.getValue('smileVideoQuality') === 'eco';
   },
   isAutoCloseFullScreen: function () {
     return !!this._options.autoCloseFullScreen;
@@ -22956,8 +22956,8 @@ _.assign(VideoWatchOptions.prototype, {
   isReload: function () {
     return this._options.reloadCount > 0;
   },
-  isAutoSmileDisabled: function() {
-    return !!this._options.isAutoSmileDisabled;
+  getVideoServerType: function() {
+    return this._options.videoServerType;
   },
   isAutoZenTubeDisabled: function() {
     return !!this._options.isAutoZenTubeDisabled;
@@ -22974,7 +22974,7 @@ _.assign(VideoWatchOptions.prototype, {
     delete this._options.economy;
     _.defaults(options, this._options);
     options.openNow = true;
-    options.isAutoSmileDisabled = false;
+    delete options.videoServerType;
     options.isAutoZenTubeDisabled = false;
     options.currentTime = 0;
     options.reloadCount = 0;
@@ -24537,18 +24537,21 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'copy-video-watch-url':
         util.copyToClipBoard(this._videoInfo.watchUrl);
         break;
-      case 'update-forceEconomy':
-      case 'update-enableDmc':
+      case 'update-smileVideoQuality':
+        this._playerConfig.setValue('videoServerType', 'smile');
+        this._playerConfig.setValue('smileVideoQuality', param);
+        this.reload({videoServerType: 'smile', economy: param === 'eco'});
+        break;
       case 'update-dmcVideoQuality':
-        command = command.replace(/^update-/, '');
-        if (this._playerConfig.getValue(command) === param) {
-          break;
-        }
-        this._playerConfig.setValue(command, param);
-        this.reload({isAutoSmileDisabled: true});
+        this._playerConfig.setValue('videoServerType', 'dmc');
+        this._playerConfig.setValue('dmcVideoQuality', param);
+        this.reload({videoServerType: 'dmc'});
+        break;
+      case 'update-videoServerType':
+        this._playerConfig.setValue('videoServerType', param);
+        this.reload({videoServerType: param === 'dmc' ? 'dmc' : 'smile'});
         break;
       case 'update-commentLanguage':
-      case 'update-commentSpeedRate':
         command = command.replace(/^update-/, '');
         if (this._playerConfig.getValue(command) === param) {
           break;
@@ -24556,7 +24559,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this._playerConfig.setValue(command, param);
         this.reloadComment(param);
         break;
-      case 'toggle-comment': // その日の気分で実装するからこうなるんやで
+      case 'toggle-comment':
       case 'toggle-showComment':
       case 'toggle-backComment':
       case 'toggle-mute':
@@ -24578,6 +24581,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'update-screenMode':
       case 'sharedNgLevel':
       case 'update-sharedNgLevel':
+      case 'update-commentSpeedRate':
         command = command.replace(/^update-/, '');
         if (this._playerConfig.getValue(command) === param) {
           break;
@@ -25142,11 +25146,24 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     const videoInfo = this._videoInfo = new VideoInfoModel(videoInfoData);
     ZenzaWatch.debug.videoInfo = videoInfo;
 
-    const autoDisableDmc =
-      this._playerConfig.getValue('autoDisableDmc') &&
-      !this._videoWatchOptions.isAutoSmileDisabled() &&
-      videoInfo.maybeBetterQualityServerType === 'smile';
-    //videoInfo.isDmcDisable = autoDisableDmc;
+
+    let serverType = 'dmc';
+    if (!videoInfo.isDmcAvailable) {
+      serverType = 'smile';
+    } else if (videoInfo.isDmcOnly) {
+      serverType = 'dmc';
+    } else if (['dmc', 'smile'].includes(this._videoWatchOptions.getVideoServerType())) {
+      serverType = this._videoWatchOptions.getVideoServerType();
+    } else if (this._playerConfig.getValue('videoServerType') === 'smile') {
+      serverType = 'smile';
+    } else {
+      const disableDmc =
+        this._playerConfig.getValue('autoDisableDmc') &&
+        this._videoWatchOptions.getVideoServerType() !== 'smile' &&
+        videoInfo.maybeBetterQualityServerType === 'smile';
+      //videoInfo.isDmcDisable = autoDisableDmc;
+      serverType = disableDmc ? 'smile' : 'dmc';
+    }
 
     this._playerState.setState({
       isDmcAvailable: videoInfo.isDmcAvailable,
@@ -25159,7 +25176,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       videoInfo,
       videoWatchOptions: this._videoWatchOptions,
       videoQuality: this._playerConfig.getValue('dmcVideoQuality'),
-      serverType: (videoInfo.isDmcAvailable && !autoDisableDmc) ? 'dmc' : 'old',
+      serverType, //: (videoInfo.isDmcAvailable && !autoDisableDmc) ? 'dmc' : 'smile',
       isPlayingCallback: this.isPlaying.bind(this),
       useWellKnownPort: this._playerConfig.getValue('useWellKnownPort'),
       useHLS: !!ZenzaWatch.debug.isHLSSupported
@@ -25171,28 +25188,24 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return this._onVideoFilterMatch();
     }
 
-    const loadSmilevideo = () => {
+//    if (!autoDisableDmc &&
+//      this._playerConfig.getValue('enableDmc') && videoInfo.isDmcAvailable) {
+    if (this._videoSession.isDmc) {
+      this._videoSession.connect().then(sessionInfo => {
+          this.setVideo(sessionInfo.url);
+          // this._videoSessionInfo = sessionInfo;
+          videoInfo.setCurrentVideo(sessionInfo.url);
+          this._playerState.isDmcPlaying = true;
+          this.emit('videoServerType', 'dmc', sessionInfo, videoInfo);
+        }).catch(this._onVideoSessionFail.bind(this));
+    } else {
       if (this._playerConfig.getValue('enableVideoSession')) {
         this._videoSession.connect();
       }
       videoInfo.setCurrentVideo(videoInfo.videoUrl);
       this._playerState.isDmcPlaying = false;
       this.setVideo(videoInfo.videoUrl);
-      this.emit('videoServerType', 'smile', {});
-    };
-
-//    if (!autoDisableDmc &&
-//      this._playerConfig.getValue('enableDmc') && videoInfo.isDmcAvailable) {
-    if (this._videoSession.isDmc) {
-      this._videoSession.connect().then(sessionInfo => {
-          this.setVideo(sessionInfo.url);
-          this._videoSessionInfo = sessionInfo;
-          videoInfo.setCurrentVideo(sessionInfo.url);
-          this._playerState.isDmcPlaying = true;
-          this.emit('videoServerType', 'dmc', sessionInfo);
-        }).catch(this._onVideoSessionFail.bind(this));
-    } else {
-      loadSmilevideo();
+      this.emit('videoServerType', 'smile', {}, videoInfo);
     }
     this._nicoVideoPlayer.setVideoInfo(videoInfo);
 
@@ -25463,7 +25476,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
 
 
     const videoWatchOptions = this._videoWatchOptions;
-    const isDmcPlaying = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc;
+    const isDmcPlaying = this._videoSession.isDmc;
     const code = (e && e.target && e.target.error && e.target.error.code) || 0;
     window.console.error('VideoError!', code, e, (e.target && e.target.error), this._videoSession.isDeleted, this._videoSession.isAbnormallyClosed);
 
@@ -25477,12 +25490,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       } else {
         this._setErrorMessage('動画のセッションが切断されました。');
       }
-    } else if (!isDmcPlaying && this._videoInfo.isDmc) {
-      this.execCommand('alert', '旧仕様動画の再生に失敗しました。新仕様動画に接続します。');
-      retry({economy: false, isAutoSmileDisabled: true});
+    } else if (!isDmcPlaying && this._videoInfo.isDmcAvailable) {
+      this._setErrorMessage('SMILE動画の再生に失敗しました。DMC動画に接続します。');
+      retry({economy: false, videoServerType: 'dmc'});
     } if ((!this._videoWatchOptions.isEconomySelected() && !this._videoInfo.isEconomy)) {
-      this.execCommand('alert', '動画の再生に失敗しました。エコノミー動画に接続します。');
-      retry({economy: true});
+      this._setErrorMessage('動画の再生に失敗しました。エコノミー動画に接続します。');
+      retry({economy: true, videoServerType: 'smile'});
     } else {
       this._setErrorMessage('動画の再生に失敗しました。');
     }
@@ -26452,7 +26465,7 @@ VideoHoverMenu.__tpl__ = (`
 
         <div class="command menuButton reloadMenu for-nicovideo" data-command="reload">
           <div class="menuButtonInner for-nicovideo">リロード</div>
-          <div class="menuButtonInner for-ZenTube">ZenTubeから戻す</div>
+          <div class="menuButtonInner for-ZenTube">ZenTube解除</div>
         </div>
 
         <div class="command menuButton playNextVideo" data-command="playNextVideo">
@@ -27351,7 +27364,7 @@ SettingPanel.__tpl__ = (`
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="bestZenTube"
             data-command="toggle-bestZenTube">
-              ZenTubeで常に最高画質を選択する
+              ZenTube使用時に最高画質をリクエストする
           </label>
         </div>
         

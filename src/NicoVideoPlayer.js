@@ -153,9 +153,6 @@ _.assign(NicoVideoPlayer.prototype, {
     }
   },
   _onMouseWheel: function (e, delta) {
-    // 下げる時は「うわ音でけぇ」
-    // 上げる時は「ちょっと上げようかな」
-    // なので下げる速度のほうが速い
     if (delta > 0) { // up
       this.volumeUp();
     } else {         // down
@@ -258,7 +255,6 @@ _.assign(NicoVideoPlayer.prototype, {
     return this._videoPlayer.togglePlay();
   },
   setPlaybackRate: function (playbackRate) {
-    //if (!ZenzaWatch.util.isPremium()) { playbackRate = Math.min(1, playbackRate); }
     playbackRate = Math.max(0, Math.min(playbackRate, 10));
     this._videoPlayer.setPlaybackRate(playbackRate);
     this._commentPlayer.setPlaybackRate(playbackRate);

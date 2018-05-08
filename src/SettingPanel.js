@@ -270,7 +270,7 @@ SettingPanel.__tpl__ = (`
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="bestZenTube"
             data-command="toggle-bestZenTube">
-              ZenTubeで常に最高画質を選択する
+              ZenTube使用時に最高画質をリクエストする
           </label>
         </div>
         

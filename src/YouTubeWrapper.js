@@ -100,11 +100,13 @@ const {YouTubeWrapper} = (() => {
               videoId,
               events: {
                 onReady: () => {
-                  if (!resolved) {
-                    resolved = true;
-                    resolve({player: this._player});
-                  }
-                  this._onPlayerReady();
+                  setTimeout(() => {
+                    if (!resolved) {
+                      resolved = true;
+                      resolve({player: this._player});
+                    }
+                    this._onPlayerReady();
+                  }, 0);
                 },
                 onStateChange: this._onPlayerStateChange.bind(this),
                 onPlaybackQualityChange: e => {
@@ -208,7 +210,11 @@ const {YouTubeWrapper} = (() => {
       let levels = this._player.getAvailableQualityLevels();
       let best = levels[0];
       let current = this._player.getPlaybackQuality();
+      //let currentTime = this.currentTime();
+      this._player.pauseVideo();
       this._player.setPlaybackQuality(best);
+      //this.currentTime = currentTime;
+      this._player.playVideo();
       // window.console.info('bestQuality', levels, best, current);
     }
 
@@ -252,7 +258,6 @@ const {YouTubeWrapper} = (() => {
     }
 
     set muted(v) {
-      window.console.info('set muted', v);
       if (v) {
         this._player.mute();
       } else {
