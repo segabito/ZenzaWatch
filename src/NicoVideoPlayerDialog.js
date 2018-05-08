@@ -911,6 +911,9 @@ NicoVideoPlayerDialogView.__css__ = `
       box-shadow: 8px 8px 4px rgba(128, 0, 0, 0.8);
       white-space: nowrap;
     }
+    .errorMessageContainer:empty {
+      display: none !important;
+    }
 
     .popupMessageContainer {
       top: 50px;
@@ -1611,6 +1614,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'seekBy':
         this.setCurrentTime(this.getCurrentTime() + param * 1);
         break;
+      case 'seekPrevFrame':
+      case 'seekNextFrame':
+        this.execCommand('pause');
+        this.execCommand('seekBy', command === 'seekNextFrame' ? 1/60 : -1/60);
+        break;
       case 'seekRelativePercent': {
         let dur = this._videoInfo.duration;
         let mv = Math.abs(param.movePerX) > 10 ?
@@ -1855,6 +1863,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         break;
       case 'SEEK_BY':
         this.execCommand('seekBy', param);
+        break;
+      case 'SEEK_PREV_FRAME':
+        this.execCommand('seekPrevFrame');
+        break;
+      case 'SEEK_NEXT_FRAME':
+        this.execCommand('seekNextFrame');
         break;
       case 'NEXT_VIDEO':
         this.playNextVideo();
@@ -2251,7 +2265,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!nicoVideoPlayer) {
       nicoVideoPlayer = this._initializeNicoVideoPlayer();
     } else {
-      this._savePlaybackPosition(this._videoInfo.contextWatchId, this.getCurrentTime());
+      if (this._videoInfo) {
+        this._savePlaybackPosition(this._videoInfo.contextWatchId, this.getCurrentTime());
+      }
       nicoVideoPlayer.close();
       this._view.clearPanel();
       this.emit('beforeVideoOpen');
@@ -2520,7 +2536,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
   },
   _onVideoCanPlay: function () {
-    if (this._playerState.isYouTube) {
+    if (!this._playerState.isLoading) {
       return;
     }
     window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
@@ -2911,17 +2927,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return _retryPost();
     };
 
-    timeout = window.setTimeout(_onTimeout, 30000);
-
-    text = ZenzaWatch.util.escapeHtml(text);
-    return new Promise((res, rej) => {
-      resolve = res;
-      reject = rej;
-      this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos, lang).then(
-        _onSuccess,
-        _onFail1st
-      );
-    });
+    return this._messageApiLoader.postChat(this._threadInfo, text, cmd, vpos, lang)
+      .then(_onSuccess).catch(_onFail1st);
   },
   getDuration: function () {
     if (!this._videoInfo) {

@@ -1497,6 +1497,8 @@ const ShortcutKeyEmitter = (config => {
     SEEK_RIGHT: 0,
     SEEK_LEFT2: 0,
     SEEK_RIGHT2: 0,
+    SEEK_PREV_FRAME: 0,
+    SEEK_NEXT_FRAME: 0,
     VOL_UP: 0,
     VOL_DOWN: 0,
     INPUT_COMMENT: 0,
@@ -1587,7 +1589,12 @@ const ShortcutKeyEmitter = (config => {
           param = isVerySlow ? 0.5 : 5;
         }
         break;
-
+      case map.SEEK_PREV_FRAME:
+        key = 'SEEK_PREV_FRAME';
+        break;
+      case map.SEEK_NEXT_FRAME:
+        key = 'SEEK_NEXT_FRAME';
+        break;
       case map.VOL_DOWN:
         key = 'VOL_DOWN';
         break;

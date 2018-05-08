@@ -148,6 +148,9 @@ const Config = (() => {
     KEY_SEEK_RIGHT: 39 + 0x1000, // SHIFT + RIGHT
     KEY_SEEK_LEFT2: 99999999, // カスタマイズ用
     KEY_SEEK_RIGHT2: 99999999, //
+    // 1/60秒戻る・進む  1コマに移動したいが動画のフレームレートを取得できないため
+    KEY_SEEK_PREV_FRAME: 188, // ,
+    KEY_SEEK_NEXT_FRAME: 190, // .
 
     KEY_VOL_UP: 38 + 0x1000, // SHIFT + UP
     KEY_VOL_DOWN: 40 + 0x1000, // SHIFT + DOWN

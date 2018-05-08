@@ -362,6 +362,9 @@ const Config = (() => {
     KEY_SEEK_RIGHT: 39 + 0x1000, // SHIFT + RIGHT
     KEY_SEEK_LEFT2: 99999999, // カスタマイズ用
     KEY_SEEK_RIGHT2: 99999999, //
+    // 1/60秒戻る・進む  1コマに移動したいが動画のフレームレートを取得できないため
+    KEY_SEEK_PREV_FRAME: 188, // ,
+    KEY_SEEK_NEXT_FRAME: 190, // .
 
     KEY_VOL_UP: 38 + 0x1000, // SHIFT + UP
     KEY_VOL_DOWN: 40 + 0x1000, // SHIFT + DOWN
@@ -2285,6 +2288,8 @@ const ShortcutKeyEmitter = (config => {
     SEEK_RIGHT: 0,
     SEEK_LEFT2: 0,
     SEEK_RIGHT2: 0,
+    SEEK_PREV_FRAME: 0,
+    SEEK_NEXT_FRAME: 0,
     VOL_UP: 0,
     VOL_DOWN: 0,
     INPUT_COMMENT: 0,
@@ -2375,7 +2380,12 @@ const ShortcutKeyEmitter = (config => {
           param = isVerySlow ? 0.5 : 5;
         }
         break;
-
+      case map.SEEK_PREV_FRAME:
+        key = 'SEEK_PREV_FRAME';
+        break;
+      case map.SEEK_NEXT_FRAME:
+        key = 'SEEK_NEXT_FRAME';
+        break;
       case map.VOL_DOWN:
         key = 'VOL_DOWN';
         break;
@@ -24418,6 +24428,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'seekBy':
         this.setCurrentTime(this.getCurrentTime() + param * 1);
         break;
+      case 'seekPrevFrame':
+      case 'seekNextFrame':
+        this.execCommand('pause');
+        this.execCommand('seekBy', command === 'seekNextFrame' ? 1/60 : -1/60);
+        break;
       case 'seekRelativePercent': {
         let dur = this._videoInfo.duration;
         let mv = Math.abs(param.movePerX) > 10 ?
@@ -24662,6 +24677,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         break;
       case 'SEEK_BY':
         this.execCommand('seekBy', param);
+        break;
+      case 'SEEK_PREV_FRAME':
+        this.execCommand('seekPrevFrame');
+        break;
+      case 'SEEK_NEXT_FRAME':
+        this.execCommand('seekNextFrame');
         break;
       case 'NEXT_VIDEO':
         this.playNextVideo();
