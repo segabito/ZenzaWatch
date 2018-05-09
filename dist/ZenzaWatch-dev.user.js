@@ -1613,9 +1613,6 @@ util.fetch = (url, params) => {
   if (location.host !== 'www.nicovideo.jp') {
     return NicoVideoApi.fetch(url, params);
   }
-  if (url.indexOf('nmsg') >= 0) {
-    window.console.info('%cfetch nmsg', 'background: pink;', url, params);
-  }
   params = params || {};
   const racers = [];
 
@@ -3162,7 +3159,7 @@ const {
           userId: flvInfo.user_id,
           isNeedKey: flvInfo.needs_key === '1',
           optionalThreadId: flvInfo.optional_thread_id,
-          defaultThread: {id: flvInfo.thread_id},
+          defaultThread: {id: flvInfo.thread_id * 1},
           optionalThreads: [],
           layers: [],
           threads,
@@ -3171,10 +3168,22 @@ const {
           when: null
         };
         if (msgInfo.hasOwnerThread) {
-          threads.push({id: flvInfo.thread_id * 1, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: false, fork: 1});
+          threads.push({
+            id: flvInfo.thread_id * 1,
+            isThreadkeyRequired: flvInfo.needs_key === '1',
+            isDefaultPostTarget: false,
+            fork: 1,
+            isActive: true,
+            label: 'owner'
+          });
         }
-        threads.push({id: flvInfo.thread_id * 1, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: true});
-
+        threads.push({
+          id: flvInfo.thread_id * 1,
+          isThreadkeyRequired: flvInfo.needs_key === '1',
+          isDefaultPostTarget: true,
+          isActive: true,
+          label: flvInfo.needs_key === '1' ? 'community' : 'default'
+        });
         let playlist =
           JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
         const isPlayableSmile = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);
@@ -6370,6 +6379,7 @@ const {ThreadLoader} = (() => {
       return Promise.all([loadThreadKeys(), loadWaybackKeys()]).then(() => {
         let format = options.format === 'xml' ? 'xml' : 'json';
         let server = format === 'json' ? msgInfo.server.replace('/api/', '/api.json/') : msgInfo.server;
+        server = server.replace(/^http:/, '');
         packet = this.buildPacket(msgInfo, format);
 
         console.log('post packet...', server, packet);
@@ -6391,9 +6401,8 @@ const {ThreadLoader} = (() => {
         ZenzaWatch.debug.lastMessageServerResult = result;
 
         let format = 'array';
-        let thread, lastRes = 0, totalResCount = 0;
+        let thread, totalResCount = 0;
         let resultCode = null;
-        msgInfo.threadInfo = {};
         try {
           let threads = result.filter(t => t.thread).map(t => t.thread);
           let lastId = null;
@@ -6409,9 +6418,8 @@ const {ThreadLoader} = (() => {
               thread = t;
               resultCode = t.resultcode;
             }
-            let lr = parseInt(t.last_res, 10);
-            if (!isNaN(lr) && !fork) { // 投稿者コメントはカウントしない
-              totalResCount += lr;
+            if (!isNaN(t.last_res) && !fork) { // 投稿者コメントはカウントしない
+              totalResCount += t.last_res;
             }
           });
         } catch (e) {
@@ -6433,16 +6441,17 @@ const {ThreadLoader} = (() => {
           thread:     thread.thread,
           serverTime: thread.server_time,
           force184:   msgInfo.defaultThread.isThreadkeyRequired ? '1' : '0',
-          lastRes:    thread.last_res * 1,
+          lastRes:    thread.last_res,
           totalResCount,
-          blockNo:    Math.floor((lastRes + 1) / 100),
+          blockNo:    Math.floor((thread.last_res + 1) / 100),
           ticket:     thread.ticket || '0',
           revision:   thread.revision,
           language:   msgInfo.language,
           when:       msgInfo.when,
           isWaybackMode: !!msgInfo.when
         };
-        msgInfo[threadId*1] = threadInfo;
+
+        msgInfo.threadInfo = threadInfo;
 
         console.log('threadInfo: ', threadInfo);
         return Promise.resolve({resultCode, threadInfo, body: result, format});

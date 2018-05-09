@@ -90,8 +90,7 @@ _.assign(PlayerConfig.prototype, {
   on: function (key, func) {
     if (key.match(/^update-(.*)$/)) {
       key = RegExp.$1;
-      var nativeKey = this._getNativeKey(key);
-      //if (key !== nativeKey) { window.console.log('config.on %s -> %s', key, nativeKey); }
+      let nativeKey = this._getNativeKey(key);
       this._config.on('update-' + nativeKey, func);
     } else {
       this._config.on(key, this._wrapFunc(func));

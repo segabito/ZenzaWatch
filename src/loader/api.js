@@ -132,7 +132,7 @@ const {
           userId: flvInfo.user_id,
           isNeedKey: flvInfo.needs_key === '1',
           optionalThreadId: flvInfo.optional_thread_id,
-          defaultThread: {id: flvInfo.thread_id},
+          defaultThread: {id: flvInfo.thread_id * 1},
           optionalThreads: [],
           layers: [],
           threads,
@@ -141,10 +141,22 @@ const {
           when: null
         };
         if (msgInfo.hasOwnerThread) {
-          threads.push({id: flvInfo.thread_id * 1, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: false, fork: 1});
+          threads.push({
+            id: flvInfo.thread_id * 1,
+            isThreadkeyRequired: flvInfo.needs_key === '1',
+            isDefaultPostTarget: false,
+            fork: 1,
+            isActive: true,
+            label: 'owner'
+          });
         }
-        threads.push({id: flvInfo.thread_id * 1, isThreadkeyRequired: flvInfo.needs_key === '1', isDefaultPostTarget: true});
-
+        threads.push({
+          id: flvInfo.thread_id * 1,
+          isThreadkeyRequired: flvInfo.needs_key === '1',
+          isDefaultPostTarget: true,
+          isActive: true,
+          label: flvInfo.needs_key === '1' ? 'community' : 'default'
+        });
         let playlist =
           JSON.parse(dom.querySelector('#playlistDataContainer').textContent);
         const isPlayableSmile = isMp4 && !isSwf && (videoUrl.indexOf('http') === 0);

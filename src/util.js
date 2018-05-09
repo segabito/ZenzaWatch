@@ -822,9 +822,6 @@ util.fetch = (url, params) => {
   if (location.host !== 'www.nicovideo.jp') {
     return NicoVideoApi.fetch(url, params);
   }
-  if (url.indexOf('nmsg') >= 0) {
-    window.console.info('%cfetch nmsg', 'background: pink;', url, params);
-  }
   params = params || {};
   const racers = [];
 
