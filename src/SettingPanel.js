@@ -303,7 +303,7 @@ SettingPanel.__tpl__ = (`
           <div class="autoCommentSpeedRate control toggle">
             <label>
               <input type="checkbox" class="checkbox" data-setting-name="autoCommentSpeedRate">
-              再生速度を変えてもコメントの速度を維持する<br>
+              倍速再生でもコメントは速くしない<br>
                 <small>※ コメントアートが一部崩れます</small>
             </label>
           </div>

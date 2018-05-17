@@ -1056,6 +1056,7 @@ _.assign(NicoChatGroupViewModel.prototype, {
     this.changeSpeed(NicoChatViewModel.SPEED_RATE);
   },
   changeSpeed: function(speedRate = 1) {
+    // TODO: y座標と弾幕判定はリセットしないといけない気がする
     this._members.forEach(member => member.recalcBeginEndTiming(speedRate));
     this._execCommentLayoutWorker();
   },
@@ -2397,7 +2398,7 @@ NicoChatViewModel.SPEED_RATE = 1.0;
 let updateSpeedRate = () => {
   let rate = Config.getValue('commentSpeedRate') * 1;
   if (Config.getValue('autoCommentSpeedRate')) {
-    rate = rate / Config.getValue('playbackRate');
+    rate = rate / Math.max(Config.getValue('playbackRate'), 1);
   }
   // window.console.info('updateSpeedRate', rate, Config.getValue('commentSpeedRate'), NicoChatViewModel.SPEED_RATE);
   if (rate !== NicoChatViewModel.SPEED_RATE) {
@@ -2757,7 +2758,7 @@ class NicoCommentCss3PlayerView extends Emitter {
   }
   setPlaybackRate (playbackRate) {
     this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
-    if (!Config.getValue('autoCommentSpeedRate')) {
+    if (!Config.getValue('autoCommentSpeedRate') || this._playbackRate <= 1) {
       this.refresh();
     }
   }

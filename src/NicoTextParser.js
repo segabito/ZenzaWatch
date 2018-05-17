@@ -187,6 +187,7 @@ body {
   padding: 0;
   overflow: hidden;
   pointer-events: none;
+  user-select: none;
 }
 
 .default {}
@@ -200,13 +201,13 @@ han_group { font-family: 'Arial'; }
 /* 参考: https://www65.atwiki.jp/commentart2/pages/16.html */
 .cmd-gothic {
   font-weight: 400;
-  font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
+  font-family: "游ゴシック", "Yu Gothic", 'YuGothic', Simsun, "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
 .cmd-mincho {
   font-weight: 400;
   font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;
 }
 .cmd-defont {
-  font-family: arial, "ＭＳ Ｐゴシック", "MS PGothic", "MSPGothic", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo;
+  font-family: arial, "ＭＳ Ｐゴシック", "MS PGothic", "MSPGothic", "ヒラギノ角ゴ", "ヒラギノ角ゴシック", "Hiragino Sans", "IPAMonaPGothic", sans-serif, monospace, Menlo;
 }
 
 .nicoChat {

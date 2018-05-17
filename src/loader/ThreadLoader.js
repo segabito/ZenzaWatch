@@ -119,8 +119,7 @@ const {ThreadLoader} = (() => {
       msgInfo.threads.forEach(thread => {
         window.console.log('buildPacketData.threads', thread);
         if (!thread.isActive) { return; }
-        if (!['default', 'community', 'nicos', 'owner'].includes(thread.label)) { return; }
-        
+
         let t = {
           thread: thread.id.toString(),
           user_id: msgInfo.userId > 0 ? msgInfo.userId.toString() : '', // 0の時は空文字
