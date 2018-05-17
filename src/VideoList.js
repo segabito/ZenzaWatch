@@ -1978,9 +1978,7 @@ _.assign(PlaylistView.prototype, {
       case 'shuffle':
       case 'sortBy':
         this._$view.addClass('shuffle');
-        window.setTimeout(() => {
-          this._$view.removeClass('shuffle');
-        }, 1000);
+        window.setTimeout(() => this._$view.removeClass('shuffle'), 1000);
         this.emit('command', command, param);
         break;
       default:
@@ -2284,6 +2282,22 @@ Object.assign(Playlist.prototype, {
       this._view.scrollToItem(videoListItems[0]);
     }, 1000);
   },
+  _insertAll: function (videoListItems, options) {
+    options = options || {};
+
+    this._model.insertItem(
+      videoListItems, //.filter(item => item.watchId !== this._activeItem.watchId),
+      this.getIndex() + 1);
+    const item = this._model.findByWatchId(options.watchId);
+    if (item) {
+      item.isActive = true;
+      item.isPlayed = true;
+      this._refreshIndex(false);
+    }
+    setTimeout(() => {
+      this._view.scrollToItem(videoListItems[0]);
+    }, 1000);
+  },
   loadFromMylist: function (mylistId, options) {
     this._initializeView();
 
@@ -2293,10 +2307,9 @@ Object.assign(Playlist.prototype, {
     window.console.time('loadMylist: ' + mylistId);
 
     return this._mylistApiLoader
-      .getMylistItems(mylistId, options).then((items) => {
+      .getMylistItems(mylistId, options).then(items => {
         window.console.timeEnd('loadMylist: ' + mylistId);
-        let videoListItems = [];
-        items.forEach((item) => {
+        let videoListItems = items.filter(item => {
           // マイリストはitem_typeがint
           // とりまいはitem_typeがstringっていうね
           if (item.id === null) {
@@ -2310,17 +2323,12 @@ Object.assign(Playlist.prototype, {
               return;
             } // 削除動画を除外
           } else {
-            //if (excludeId.test(item.id)) { return; } // not video
             if (item.thumbnail_url && item.thumbnail_url.indexOf('video_deleted') >= 0) {
               return;
             }
           }
-          videoListItems.push(
-            VideoListItem.createByMylistItem(item)
-          );
-        });
-
-        //window.console.log('videoListItems!!', videoListItems);
+          return true;
+        }).map(item => VideoListItem.createByMylistItem(item));
 
         if (videoListItems.length < 1) {
           return Promise.reject({
@@ -2332,10 +2340,12 @@ Object.assign(Playlist.prototype, {
           videoListItems = _.shuffle(videoListItems);
         }
 
-        if (!options.append) {
-          this._replaceAll(videoListItems, options);
-        } else {
+        if (options.insert) {
+          this._insertAll(videoListItems, options);
+        } else if (options.append) {
           this._appendAll(videoListItems, options);
+        } else {
+          this._replaceAll(videoListItems, options);
         }
 
         this.emit('update');
@@ -2360,26 +2370,12 @@ Object.assign(Playlist.prototype, {
     return this._uploadedVideoApiLoader
       .getUploadedVideos(userId, options).then(items => {
         window.console.timeEnd('loadUploadedVideos' + userId);
-        let videoListItems = [];
-
-        items.forEach(item => {
-          if (item.item_data) {
-            if (parseInt(item.item_type, 10) !== 0) {
-              return;
-            } // not video
-            if (parseInt(item.item_data.deleted, 10) !== 0) {
-              return;
-            } // 削除動画を除外
-          } else {
-            //if (excludeId.test(item.id)) { return; } // not video
-            if (item.thumbnail_url.indexOf('video_deleted') >= 0) {
-              return;
-            }
-          }
-          videoListItems.push(
-            VideoListItem.createByMylistItem(item)
-          );
-        });
+        let videoListItems = items.filter(item => {
+            return (item.item_data &&
+              parseInt(item.item_type, 10) === 0 && // video 以外を除外
+              parseInt(item.item_data.deleted, 10) === 0) ||
+              (item.thumbnail_url || '').indexOf('video_deleted') < 0;
+          }).map(item => VideoListItem.createByMylistItem(item));
 
         if (videoListItems.length < 1) {
           return Promise.reject({});
@@ -2390,12 +2386,13 @@ Object.assign(Playlist.prototype, {
         if (options.shuffle) {
           videoListItems = _.shuffle(videoListItems);
         }
-        //window.console.log('videoListItems!!', videoListItems);
 
-        if (!options.append) {
-          this._replaceAll(videoListItems, options);
-        } else {
+        if (options.insert) {
+          this._insertAll(videoListItems, options);
+        } else if (options.append) {
           this._appendAll(videoListItems, options);
+        } else {
+          this._replaceAll(videoListItems, options);
         }
 
         this.emit('update');
@@ -2422,26 +2419,13 @@ Object.assign(Playlist.prototype, {
       .searchMore(word, options, limit).then(result => {
         window.console.timeEnd('loadSearchVideos' + word);
         let items = result.list || [];
-        let videoListItems = [];
-
-        items.forEach((item) => {
-          if (item.item_data) {
-            if (parseInt(item.item_type, 10) !== 0) {
-              return;
-            } // not video
-            if (parseInt(item.item_data.deleted, 10) !== 0) {
-              return;
-            } // 削除動画を除外
-          } else {
-            //if (excludeId.test(item.id)) { return; } // not video
-            if (item.thumbnail_url.indexOf('video_deleted') >= 0) {
-              return;
-            }
-          }
-          videoListItems.push(
-            VideoListItem.createByMylistItem(item)
-          );
-        });
+        let videoListItems = items
+          .filter(item => {
+            return (item.item_data &&
+              parseInt(item.item_type, 10) === 0 && // video 以外を除外
+              parseInt(item.item_data.deleted, 10) === 0) ||
+              (item.thumbnail_url || '').indexOf('video_deleted') < 0;
+        }).map(item => VideoListItem.createByMylistItem(item));
 
         if (videoListItems.length < 1) {
           return Promise.reject({});
@@ -2451,23 +2435,19 @@ Object.assign(Playlist.prototype, {
           // 連続再生のために結果を古い順に並べる
           // 検索対象のソート順とは別
           videoListItems = _.sortBy(
-            videoListItems,
-            (item) => {
-              return item.postedAt + item.sortTitle;
-            }
-          );
-          //videoListItems.reverse();
+            videoListItems, item =>  item.postedAt + item.sortTitle);
         }
 
         if (options.shuffle) {
           videoListItems = _.shuffle(videoListItems);
         }
-        //window.console.log('videoListItems!!', videoListItems);
 
-        if (!options.append) {
-          this._replaceAll(videoListItems, options);
-        } else {
+        if (options.insert) {
+          this._insertAll(videoListItems, options);
+        } else if (options.append) {
           this._appendAll(videoListItems, options);
+        } else {
+          this._replaceAll(videoListItems, options);
         }
 
         this.emit('update');

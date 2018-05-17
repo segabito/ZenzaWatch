@@ -180,7 +180,7 @@ _.assign(VideoWatchOptions.prototype, {
     return _.isNumber(this._options.currentTime) ?
       parseFloat(this._options.currentTime, 10) : 0;
   },
-  createOptionsForVideoChange: function (options) {
+  createForVideoChange: function (options) {
     options = options || {};
     delete this._options.economy;
     _.defaults(options, this._options);
@@ -1721,7 +1721,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._onKeyEvent(name, e, param);
   },
   _onKeyEvent: function (name, e, param) {
-    if (!this._playerState.isOpen) {
+    if (!this._state.isOpen) {
       let lastWatchId = this._playerConfig.getValue('lastWatchId');
       if (name === 'RE_OPEN' && lastWatchId) {
         this.open(lastWatchId);
@@ -1819,35 +1819,31 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     option.sort = isNaN(option.sort) ? 7 : option.sort;
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
-    option.append = this._playlist.isEnable();
+    option.insert = this._playlist.isEnable();
 
     let query = this._videoWatchOptions.getQuery();
     option.shuffle = parseInt(query.shuffle, 10) === 1;
 
-    this._playlist.loadFromMylist(mylistId, option).then((result) => {
+    this._playlist.loadFromMylist(mylistId, option).then(result => {
         this.execCommand('notify', result.message);
-        this._view.selectTab('playlist');
+        this._state.currentTab = 'playlist';
         this._playlist.insertCurrentVideo(this._videoInfo);
       },
-      () => {
-        this.execCommand('alert', 'マイリストのロード失敗');
-      });
+      () => this.execCommand('alert', 'マイリストのロード失敗'));
   },
   _onPlaylistSetUploadedVideo: function (userId, option) {
     this._initializePlaylist();
     option = option || {watchId: this._watchId};
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
-    option.append = this._playlist.isEnable();
+    option.insert = this._playlist.isEnable();
 
-    this._playlist.loadUploadedVideo(userId, option).then((result) => {
+    this._playlist.loadUploadedVideo(userId, option).then(result => {
         this.execCommand('notify', result.message);
-        this._view.selectTab('playlist');
+        this._state.currentTab = 'playlist';
         this._playlist.insertCurrentVideo(this._videoInfo);
       },
-      (err) => {
-        this.execCommand('alert', err.message || '投稿動画一覧のロード失敗');
-      });
+      err => this.execCommand('alert', err.message || '投稿動画一覧のロード失敗'));
   },
   _onPlaylistSetSearchVideo: function (params) {
     this._initializePlaylist();
@@ -1856,7 +1852,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     let word = params.word;
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
-    option.append = this._playlist.isEnable();
+    option.insert = this._playlist.isEnable();
 
     if (option.owner) {
       let ownerId = parseInt(this._videoInfo.owner.id, 10);
@@ -2132,9 +2128,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._nicoVideoPlayer.setCurrentTime(sec);
     this._lastCurrentTime = sec;
   },
-  isInSeekableBuffer: function () {
-    return true;
-  },
   getId: function () {
     return this._id;
   },
@@ -2330,8 +2323,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._threadInfo = result.threadInfo;
     this._nicoVideoPlayer.setComment(result.body, options);
 
-    this._playerState.isCommentReady = true;
-    this._playerState.isWaybackMode = result.threadInfo.isWaybackMode;
+    this._state.isCommentReady = true;
+    this._state.isWaybackMode = result.threadInfo.isWaybackMode;
     this.emit('commentReady', result, this._threadInfo);
     this.emit('videoCount', {comment: result.threadInfo.totalResCount});
   },
@@ -2339,11 +2332,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (requestId !== this._requestId) {
       return;
     }
-    PopupMessage.alert(e.message);
+    this.execCommand('alert', e.message);
   },
   _onLoadedMetaData: function () {
     // YouTubeは動画指定時にパラメータで開始位置を渡すので不要
-    if (this._playerState.isYouTube) {
+    if (this._state.isYouTube) {
       return;
     }
 
@@ -2425,11 +2418,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
 
   },
   _onVideoPlay: function () {
-    this._playerState.setPlaying();
+    this._state.setPlaying();
     this.emit('play');
   },
   _onVideoPlaying: function () {
-    this._playerState.setPlaying();
+    this._state.setPlaying();
     this.emit('playing');
   },
   _onVideoPause: function () {
