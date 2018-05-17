@@ -26,7 +26,7 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito
-// @version        2.0.0beta
+// @version        2.0.1beta
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@
     let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
     let TOKEN = 'r:' + (Math.random());
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.0.0beta';
+    var VER = '2.0.1beta';
     const ENV = 'DEV';
 
     //@environment
@@ -24509,6 +24509,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this._playerConfig.setValue(command, param);
         this.reloadComment(param);
         break;
+      case 'saveMymemory':
+        util.saveMymemory(this, this._state.videoInfo);
+        break;
       default:
         this.emit('command', command, param);
     }
@@ -26583,9 +26586,6 @@ const RootDispatcher = (() => {
         case 'alertHtml':
           PopupMessage.alert(param, true);
           break;
-        case 'saveMymemory':
-          util.saveMymemory(this, playerState.videoInfo);
-          break;
         case 'copy-video-watch-url':
           util.copyToClipBoard(playerState.videoInfo.watchUrl);
           break;
@@ -27216,13 +27216,6 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
-        <div class="backCommentControl control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="backComment">
-            コメントを動画の後ろに流す
-          </label>
-        </div>
-
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableAutoMylistComment">
@@ -27260,6 +27253,14 @@ SettingPanel.__tpl__ = (`
             <input type="checkbox" class="checkbox" data-setting-name="bestZenTube"
             data-command="toggle-bestZenTube">
               ZenTube使用時に最高画質をリクエストする
+          </label>
+        </div>
+        
+        <div class="loadLinkedChannelVideoControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="loadLinkedChannelVideo">
+            無料期間の切れた動画はdアニメの映像を流す<br>
+            <small>(当然ながらdアニメニコニコチャンネル加入が必要)</small>
           </label>
         </div>
         
@@ -27410,7 +27411,13 @@ SettingPanel.__tpl__ = (`
 
           </div>
 
-
+        <div class="backCommentControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="backComment">
+            コメントを動画の後ろに流す
+          </label>
+        </div>
+        
         </div>
 
         <p class="caption">NG設定</p>
@@ -27547,6 +27554,7 @@ _.assign(SettingPanel.prototype, {
       case 'autoFullScreen':
       case 'enableStoryboard':
       case 'enableCommentPanel':
+      case 'loadLinkedChannelVideo':
       case 'debug':
         this._$panel
           .find(`.${key}Control`).toggleClass('checked', value)

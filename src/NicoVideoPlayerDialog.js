@@ -1679,9 +1679,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'fastSeek':
         this._nicoVideoPlayer.fastSeek(param);
         break;
-      case 'saveMymemory':
-        util.saveMymemory(this, this._videoInfo);
-        break;
       case 'setVideo':
         this.setVideo(param);
         break;
@@ -1709,6 +1706,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         }
         this._playerConfig.setValue(command, param);
         this.reloadComment(param);
+        break;
+      case 'saveMymemory':
+        util.saveMymemory(this, this._state.videoInfo);
         break;
       default:
         this.emit('command', command, param);

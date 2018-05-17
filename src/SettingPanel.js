@@ -227,13 +227,6 @@ SettingPanel.__tpl__ = (`
           </label>
         </div>
 
-        <div class="backCommentControl control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="backComment">
-            コメントを動画の後ろに流す
-          </label>
-        </div>
-
         <div class="enableAutoMylistCommentControl control toggle">
           <label>
             <input type="checkbox" class="checkbox" data-setting-name="enableAutoMylistComment">
@@ -271,6 +264,14 @@ SettingPanel.__tpl__ = (`
             <input type="checkbox" class="checkbox" data-setting-name="bestZenTube"
             data-command="toggle-bestZenTube">
               ZenTube使用時に最高画質をリクエストする
+          </label>
+        </div>
+        
+        <div class="loadLinkedChannelVideoControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="loadLinkedChannelVideo">
+            無料期間の切れた動画はdアニメの映像を流す<br>
+            <small>(当然ながらdアニメニコニコチャンネル加入が必要)</small>
           </label>
         </div>
         
@@ -421,7 +422,13 @@ SettingPanel.__tpl__ = (`
 
           </div>
 
-
+        <div class="backCommentControl control toggle">
+          <label>
+            <input type="checkbox" class="checkbox" data-setting-name="backComment">
+            コメントを動画の後ろに流す
+          </label>
+        </div>
+        
         </div>
 
         <p class="caption">NG設定</p>
@@ -558,6 +565,7 @@ _.assign(SettingPanel.prototype, {
       case 'autoFullScreen':
       case 'enableStoryboard':
       case 'enableCommentPanel':
+      case 'loadLinkedChannelVideo':
       case 'debug':
         this._$panel
           .find(`.${key}Control`).toggleClass('checked', value)

@@ -30,9 +30,6 @@ const RootDispatcher = (() => {
         case 'alertHtml':
           PopupMessage.alert(param, true);
           break;
-        case 'saveMymemory':
-          util.saveMymemory(this, playerState.videoInfo);
-          break;
         case 'copy-video-watch-url':
           util.copyToClipBoard(playerState.videoInfo.watchUrl);
           break;
