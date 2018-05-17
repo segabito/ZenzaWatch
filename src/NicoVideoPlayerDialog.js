@@ -3,7 +3,7 @@ import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
 import {PlaybackPosition, VideoInfoLoader} from './loader/api';
-import {FullScreen, PopupMessage, ShortcutKeyEmitter, util} from './util';
+import {FullScreen, ShortcutKeyEmitter, util} from './util';
 import {NicoVideoPlayer} from './NicoVideoPlayer';
 import {VideoFilter, VideoInfoModel} from './VideoInfo';
 import {CommentInputPanel} from './CommentInputPanel';
@@ -19,6 +19,12 @@ import {Sleep} from './util';
 
 //===BEGIN===
 class PlayerConfig {
+  static getInstance(config) {
+    if (!PlayerConfig.instance) {
+      PlayerConfig.instance = new PlayerConfig(config);
+    }
+    return PlayerConfig.instance;
+  }
   constructor(params) {
     this.initialize(params);
   }
@@ -119,28 +125,24 @@ _.assign(VideoWatchOptions.prototype, {
     return this._options.query || {};
   },
   getVideoLoadOptions: function () {
-    var options = {
-      economy: this.isEconomy()
+    let options = {
+      economy: this.isEconomySelected()
     };
     return options;
   },
   getMylistLoadOptions: function () {
-    var options = {};
-    var query = this.getQuery();
+    let options = {};
+    let query = this.getQuery();
     if (query.mylist_sort) {
       options.sort = query.mylist_sort;
     }
-
-    setVideoCanPlay() {
-      this.setState({
-        isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true, isError: false});
     options.group_id = query.group_id;
     options.watchId = this._watchId;
     return options;
   },
   isPlaylistStartRequest: function () {
-    var eventType = this.getEventType();
-    var query = this.getQuery();
+    let eventType = this.getEventType();
+    let query = this.getQuery();
     if (eventType === 'click' &&
       query.continuous === '1' &&
       ['mylist', 'deflist', 'tag', 'search'].includes(query.playlist_type) &&
@@ -205,10 +207,7 @@ _.assign(VideoWatchOptions.prototype, {
   }
 });
 
-    setPlaying() {
-      this.setState({isPlaying: true, isPausing: false, isLoading: false, isNotPlayed: false, isError: false});
-    }
-class BaseState extends AsyncEmitter {
+class BaseState extends Emitter {
   constructor() {
     super();
 
@@ -222,29 +221,21 @@ class BaseState extends AsyncEmitter {
       Object.defineProperty(
         this,
         key, {
-          get: () => {
-            return this._state[key];
-          },
-          set: (v) => {
+          get: () => this._state[key],
+          set: v => {
             this._setState(key, v);
           }
         });
     });
   }
 
-    setVideoEnded() {
-      this.setState({isPlaying: false, isPausing: false});
   setState(key, val) {
     if (_.isString(key)) {
       return this._setState(key, val);
     }
-    Object.keys(key).forEach(k => {
-      this._setState(k, key[k]);
-    });
+    Object.keys(key).forEach(k => this._setState(k, key[k]));
   }
 
-    setVideoErrorOccurred() {
-      this.setState({isError: true, isPlaying: false, isLoading: false});
   _setState(key, val) {
     if (!this._state.hasOwnProperty(key)) {
       window.console.warn('%cUnknown property %s = %s', 'background: yellow;', key, val);
@@ -260,17 +251,22 @@ class BaseState extends AsyncEmitter {
 }
 
 class PlayerState extends BaseState {
-  constructor(player, config) {
+  static getInstance(config) {
+    if (!PlayerState.instance) {
+       PlayerState.instance = new PlayerState(config);
+    }
+    return PlayerState.instance;
+  }
+  constructor(config) {
     super();
 
     this._name = 'Player';
     this._state = {
       isAbort: false,
-      isAutoPlay: config.getValue('autoPlay'),
       isBackComment: config.getValue('backComment'),
       isChanging: false,
       isChannel: false,
-      isCommentVisible: config.getValue('showComment'),
+      isShowComment: config.getValue('showComment'),
       isCommentReady: false,
       isCommentPosting: false,
       isCommunity: false,
@@ -287,6 +283,7 @@ class PlayerState extends BaseState {
       isPausing: false,
       isPlaylistEnable: false,
       isPlaying: false,
+      isSeeking: false,
       isRegularUser: !util.isPremium(),
       isStalled: false,
       isUpdatingDeflist: false,
@@ -297,22 +294,42 @@ class PlayerState extends BaseState {
       isEnableFilter: config.getValue('enableFilter'),
       sharedNgLevel: config.getValue('sharedNgLevel'),
 
+      currentSrc: '',
+      currentTab: config.getValue('videoInfoPanelTab'),
+      // aspectRatio: 9/16,
+
+      errorMessage: '',
       screenMode: config.getValue('screenMode'),
       playbackRate: config.getValue('playbackRate'),
-      thumbnail: ''
+      thumbnail: '',
+      videoCount: {},
+      videoSession: {}
     };
 
     this._defineProperty();
+  }
 
-    this.getCurrentTime = () => {
-      player.getCurrentTime();
-    };
+  set videoInfo(videoInfo) {
+    if (this._videoInfo) {
+      this._videoInfo.update(videoInfo);
+    } else {
+      this._videoInfo = videoInfo;
+    }
+    ZenzaWatch.debug.videoInfo = videoInfo;
+    this.videoCount = videoInfo.count;
+    this.thumbnail = videoInfo.betterThumbnail;
+    this.emit('update-videoInfo', videoInfo);
+  }
+
+  get videoInfo() {
+    return this._videoInfo;
   }
 
   resetVideoLoadingStatus() {
     this.setState({
       isLoading: true,
       isPlaying: false,
+      isSeeking: false,
       isStalled: false,
       isError: false,
       isAbort: false,
@@ -891,10 +908,10 @@ NicoVideoPlayerDialogView.__css__ = `
       animation-direction: reverse;
     }
 
-
     .errorMessageContainer {
       display: none;
       pointer-events: none;
+      user-select: none;
     }
 
     .zenzaPlayerContainer.is-error .errorMessageContainer {
@@ -944,7 +961,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     const dialog = this._dialog = params.dialog;
     this._playerConfig = params.playerConfig;
     this._nicoVideoPlayer = params.nicoVideoPlayer;
-    this._playerState = params.playerState;
+    this._state = params.playerState;
     this._currentTimeGetter = params.currentTimeGetter;
 
     this._aspectRatio = 9 / 16;
@@ -961,31 +978,33 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     dialog.on('volumeChange', this._onVolumeChange.bind(this));
     dialog.on('volumeChangeEnd', this._onVolumeChangeEnd.bind(this));
     dialog.on('beforeVideoOpen', this._onBeforeVideoOpen.bind(this));
-    dialog.on('loadVideoInfo', this._onVideoInfoLoad.bind(this));
     dialog.on('loadVideoInfoFail', this._onVideoInfoFail.bind(this));
     dialog.on('videoServerType', this._onVideoServerType.bind(this));
 
     this._initializeDom();
-    this._playerState.on('change', this._onPlayerStateChange.bind(this));
+    this._state.on('change', this._onPlayerStateChange.bind(this));
+    this._state.on('update-videoInfo', this._onVideoInfoLoad.bind(this));
   },
   _initializeDom: function () {
     util.addStyle(NicoVideoPlayerDialogView.__css__);
     const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
     const onCommand = this._onCommand.bind(this);
     const config = this._playerConfig;
-    const dialog = this._dialog;
+    const state = this._state;
+    this._$body = util.$('body, html');
 
     const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
     const container = $container[0];
+    const classList = this._classList = new ClassListWrapper(container);
 
-    $container.on('click', (e) => {
+    container.addEventListener('click', e => {
       ZenzaWatch.emitter.emitAsync('hideHover');
-      if (config.getValue('enableTogglePlayOnClick') && !$container.hasClass('menuOpen')) {
+      if (config.getValue('enableTogglePlayOnClick') && !classList.contains('menuOpen')) {
         onCommand('togglePlay');
       }
       e.preventDefault();
       e.stopPropagation();
-      $container.removeClass('menuOpen');
+      classList.remove('menuOpen');
     });
 
     this._applyState();
@@ -1002,10 +1021,9 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       lastY = e.screenY;
       onMouseMove(e);
       onMouseMoveEnd(e);
-    });
+    }, 100));
 
     $dialog
-      .on('click', this._onClick.bind(this))
       .on('dblclick', e => {
         if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') {
           return;
@@ -1018,7 +1036,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
 
     this._hoverMenu = new VideoHoverMenu({
       playerContainer: container,
-      playerState: this._playerState
+      playerState: state
     });
     this._hoverMenu.on('command', onCommand);
 
@@ -1031,21 +1049,19 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       this.emit('postChat', e, chat, cmd);
     });
 
-    let isPlaying = false;
+    let hasPlaying = false;
     this._commentInput.on('focus', isAutoPause => {
-      isPlaying = this._nicoVideoPlayer.isPlaying();
+      hasPlaying = state.isPlaying;
       if (isAutoPause) {
         this.emit('command', 'pause');
       }
     });
     this._commentInput.on('blur', isAutoPause => {
-      if (isAutoPause && isPlaying && dialog.isOpen()) {
+      if (isAutoPause && hasPlaying && state.isOpen) {
         this.emit('command', 'play');
       }
     });
-    this._commentInput.on('esc', () => {
-      this._escBlockExpiredAt = Date.now() + 1000 * 2;
-    });
+    this._commentInput.on('esc', () => this._escBlockExpiredAt = Date.now() + 1000 * 2);
 
     this._settingPanel = new SettingPanel({
       $playerContainer: $container,
@@ -1066,14 +1082,10 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     this._initializeVideoInfoPanel();
     this._initializeResponsive();
 
-    this.selectTab(this._playerConfig.getValue('videoInfoPanelTab'));
+    this.selectTab(this._state.currentTab);
 
-    ZenzaWatch.emitter.on('showMenu', () => {
-      this.addClass('menuOpen');
-    });
-    ZenzaWatch.emitter.on('hideMenu', () => {
-      this.removeClass('menuOpen');
-    });
+    ZenzaWatch.emitter.on('showMenu', () => this.addClass('menuOpen'));
+    ZenzaWatch.emitter.on('hideMenu', () => this.removeClass('menuOpen'));
     document.body.appendChild($dialog[0]);
   },
   _initializeVideoInfoPanel: function () {
@@ -1089,7 +1101,13 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     return this._videoInfoPanel;
   },
   _onCommand: function (command, param) {
-    this.emit('command', command, param);
+    switch (command) {
+      case 'settingPanel':
+        this.toggleSettingPanel();
+        break;
+      default:
+        this.emit('command', command, param);
+    }
   },
   _initializeResponsive: function () {
     window.addEventListener('resize', _.debounce(this._updateResponsive.bind(this), 500));
@@ -1136,7 +1154,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     this.emit('error', e);
   },
   _onBeforeVideoOpen: function () {
-    this.setThumbnail();
+    this._setThumbnail();
   },
   _onVideoInfoLoad: function (videoInfo) {
     this._videoInfoPanel.update(videoInfo);
@@ -1173,9 +1191,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   _onScreenModeChange: function () {
     this.addClass('changeScreenMode');
     this._applyScreenMode();
-    window.setTimeout(() => {
-      this.removeClass('changeScreenMode');
-    }, 1000);
+    window.setTimeout(() => this.removeClass('changeScreenMode'), 1000);
   },
   _getStateClassNameTable: function () {
     return { // TODO: テーブルなくても対応できるようにcss名を整理
@@ -1191,6 +1207,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       isLoop: 'is-loop',
       isOpen: 'is-open',
       isPlaying: 'is-playing',
+      isSeeking: 'is-seeking',
       isPausing: 'is-pausing',
       isStalled: 'is-stalled',
       isChanging: 'is-changing',
@@ -1212,13 +1229,20 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   _onPlayerStateChange: function (key, value) {
     switch (key) {
       case 'thumbnail':
-        return this.setThumbnail(value);
+        return this._setThumbnail(value);
       case 'screenMode':
       case 'isOpen':
-        if (this._playerState.isOpen) {
+        if (this._state.isOpen) {
+          this.show();
           this._onScreenModeChange();
+        } else {
+          this.hide();
         }
-        break;
+        return;
+      case 'errorMessage':
+        return this._$errorMessageContainer.text(value);
+      case 'currentTab':
+        return this.selectTab(value);
     }
     const table = this._getStateClassNameTable();
     const className = table[key];
@@ -1228,17 +1252,16 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   },
   _applyState: function () {
     const table = this._getStateClassNameTable();
-    const container = this._$playerContainer[0];
-    const state = this._playerState;
+    const state = this._state;
     Object.keys(table).forEach(key => {
       const className = table[key];
       if (!className) {
         return;
       }
-      container.classList.toggle(className, state[key]);
+      this._classList.toggle(className, state[key]);
     });
 
-    if (this._playerState.isOpen) {
+    if (this._state.isOpen) {
       this._applyScreenMode();
     }
   },
@@ -1253,36 +1276,32 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     ];
   },
   _applyScreenMode: function () {
-    const screenMode = `zenzaScreenMode_${this._playerState.screenMode}`;
-    const body = util.$('body, html');
+    const screenMode = `zenzaScreenMode_${this._state.screenMode}`;
+    if (this._lastScreenMode === screenMode) { return; }
+    this._lastScreenMode = screenMode;
+    const body = this._$body;
     const modes = this._getScreenModeClassNameTable();
-    modes.forEach(m => {
-      body.toggleClass(m, m === screenMode);
-    });
+    modes.forEach(m => body.toggleClass(m, m === screenMode));
   },
   show: function () {
     this._$dialog.addClass('is-open');
     if (!FullScreen.now()) {
       document.body.classList.remove('fullScreen');
     }
-    util.$('body, html').addClass('showNicoVideoPlayerDialog');
+    this._$body.addClass('showNicoVideoPlayerDialog');
   },
   hide: function () {
     this._$dialog.removeClass('is-open');
     this._settingPanel.hide();
-    util.$('body, html').removeClass('showNicoVideoPlayerDialog');
-    this.clearClass();
+    this._$body.removeClass('showNicoVideoPlayerDialog');
+    this._clearClass();
   },
-  clearClass: function () {
+  _clearClass: function () {
     const modes = this._getScreenModeClassNameTable().join(' ');
-    util.$('body, html').removeClass(modes);
+    this._lastScreenMode = '';
+    this._$body.removeClass(modes);
   },
-  _onClick: function () {
-  },
-  setNicoVideoPlayer: function (nicoVideoPlayer) {
-    this._nicoVideoPlayer = nicoVideoPlayer;
-  },
-  setThumbnail: function (thumbnail) {
+  _setThumbnail: function (thumbnail) {
     if (thumbnail) {
       this.css('background-image', `url(${thumbnail})`);
     } else {
@@ -1292,15 +1311,10 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   },
   focusToCommentInput: function () {
     // 即フォーカスだと入力欄に"C"が入ってしまうのを雑に対処
-    window.setTimeout(() => {
-      this._commentInput.focus();
-    }, 0);
+    window.setTimeout(() => this._commentInput.focus(), 0);
   },
   toggleSettingPanel: function () {
     this._settingPanel.toggle();
-  },
-  setErrorMessage: function (msg) {
-    this._$errorMessageContainer.text(msg);
   },
   get$Container: function () {
     return this._$playerContainer;
@@ -1309,21 +1323,16 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     util.$(this._$playerContainer[0]).css(key, val);
   },
   addClass: function (name) {
-    //const container = this._$playerContainer[0];
     return this._classList.add(...name.split(/[ ]+/));
   },
   removeClass: function (name) {
-    //const container = this._$playerContainer[0];
     return this._classList.remove(...name.split(/[ ]+/));
   },
   toggleClass: function (name, v) {
     if (_.isBoolean(v)) {
       return v ? this.addClass(name) : this.removeClass(name);
     }
-    //const container = this._$playerContainer[0];
-    name.split(/[ ]+/).forEach(n => {
-      this._classList.toggle(n);
-    });
+    name.split(/[ ]+/).forEach(n => this._classList.toggle(n));
   },
   hasClass: function (name) {
     const container = this._$playerContainer[0];
@@ -1372,7 +1381,7 @@ class ClassListWrapper {
     } else {
       v = !this.contains(name);
     }
-    return !!v ? this.add(name) : this.remove(name);
+    return v ? this.add(name) : this.remove(name);
   }
   _apply() {
     if (this._applying) { return; }
@@ -1403,8 +1412,8 @@ class NicoVideoPlayerDialog extends Emitter {
 _.assign(NicoVideoPlayerDialog.prototype, {
   initialize: function (params) {
     this._offScreenLayer = params.offScreenLayer;
-    this._playerConfig = new PlayerConfig({config: params.playerConfig});
-    this._playerState = new PlayerState(this, this._playerConfig);
+    this._playerConfig = params.config;
+    this._state = params.state;
 
     this._keyEmitter = params.keyHandler || ShortcutKeyEmitter;
 
@@ -1432,10 +1441,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       dialog: this,
       playerConfig: this._playerConfig,
       nicoVideoPlayer: this._nicoVideoPlayer,
-      playerState: this._playerState,
-      currentTimeGetter: () => {
-        return this.getCurrentTime();
-      }
+      playerState: this._state,
+      currentTimeGetter: () => this.getCurrentTime()
     });
     if (this._playerConfig.getValue('enableCommentPanel')) {
       this._initializeCommentPanel();
@@ -1458,7 +1465,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       offScreenLayer: this._offScreenLayer,
       node: this._$playerContainer,
       playerConfig: config,
-      playerState: this._playerState,
+      playerState: this._state,
       volume: config.getValue('volume'),
       loop: config.getValue('loop'),
       enableFilter: config.getValue('enableFilter'),
@@ -1468,7 +1475,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       commandFilter: config.getValue('commandFilter'),
       userIdFilter: config.getValue('userIdFilter')
     });
-    this._view.setNicoVideoPlayer(nicoVideoPlayer);
 
     this._messageApiLoader = new ThreadLoader();
 
@@ -1500,22 +1506,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     return this._onCommand(command, param);
   },
   _onCommand: function (command, param) {
-    // なんかdispatcher的なのに分離したい
     let v;
-    console.log('command: %s param: %s', command, param, typeof param);
+    // console.log('command: %s param: %s', command, param, typeof param);
     switch (command) {
-      case 'notifyHtml':
-        PopupMessage.notify(param, true);
-        break;
-      case 'notify':
-        PopupMessage.notify(param);
-        break;
-      case 'alert':
-        PopupMessage.alert(param);
-        break;
-      case 'alertHtml':
-        PopupMessage.alert(param, true);
-        break;
       case 'volume':
         this.setVolume(param);
         break;
@@ -1533,27 +1526,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         break;
       case 'play':
         this.play();
-        break;
-      case 'toggleComment':
-      case 'toggleShowComment':
-        v = this._playerConfig.getValue('showComment');
-        this._playerConfig.setValue('showComment', !v);
-        break;
-      case 'toggleBackComment':
-        v = this._playerConfig.getValue('backComment');
-        this._playerConfig.setValue('backComment', !v);
-        break;
-      case 'toggleConfig':
-        v = this._playerConfig.getValue(param);
-        this._playerConfig.setValue(param, !v);
-        break;
-      case 'toggleMute':
-        v = this._playerConfig.getValue('mute');
-        this._playerConfig.setValue('mute', !v);
-        break;
-      case 'toggleLoop':
-        v = this._playerConfig.getValue('loop');
-        this._playerConfig.setValue('loop', !v);
         break;
       case 'fullScreen':
       case 'toggle-fullScreen':
@@ -1585,16 +1557,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'playPreviousVideo':
         this.playPreviousVideo();
         break;
-      case 'playlistShuffle':
-        if (this._playlist) {
+      case 'shufflePlaylist':
           this._playlist.shuffle();
-        }
         break;
       case 'togglePlaylist':
-      case 'playlistToggle': //TODO: こういうのをどっちかに統一
-        if (this._playlist) {
           this._playlist.toggleEnable();
-        }
         break;
       case 'mylistAdd':
         return this._onMylistAdd(param.mylistId, param.mylistName);
@@ -1602,9 +1569,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         return this._onMylistRemove(param.mylistId, param.mylistName);
       case 'mylistWindow':
         util.openMylistWindow(this._videoInfo.watchId);
-        break;
-      case 'settingPanel':
-        this._view.toggleSettingPanel();
         break;
       case 'seek':
       case 'seekTo':
@@ -1628,35 +1592,25 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       }
       case 'addWordFilter':
         this._nicoVideoPlayer.addWordFilter(param);
-        PopupMessage.notify('NGワード追加: ' + param);
         break;
       case 'setWordRegFilter':
       case 'setWordRegFilterFlags':
         this._nicoVideoPlayer.setWordRegFilter(param);
-        PopupMessage.notify('NGワード正規表現更新');
         break;
       case 'addUserIdFilter':
         this._nicoVideoPlayer.addUserIdFilter(param);
-        PopupMessage.notify('NGID追加: ' + param);
         break;
       case 'addCommandFilter':
         this._nicoVideoPlayer.addCommandFilter(param);
-        PopupMessage.notify('NGコマンド追加: ' + param);
         break;
       case 'setWordFilterList':
         this._nicoVideoPlayer.setWordFilterList(param);
-        PopupMessage.notify('NGワード更新');
         break;
       case 'setUserIdFilterList':
         this._nicoVideoPlayer.setUserIdFilterList(param);
-        PopupMessage.notify('NGID更新');
         break;
       case 'setCommandFilterList':
         this._nicoVideoPlayer.setCommandFilterList(param);
-        PopupMessage.notify('NGコマンド更新');
-        break;
-      case 'tweet':
-        util.openTweetWindow(this._videoInfo);
         break;
       case 'openNow':
         this.open(param, {openNow: true});
@@ -1700,7 +1654,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       }
         break;
       case 'screenShot':
-        if (this._playerState.isYouTube) {
+        if (this._state.isYouTube) {
           util.capTube({
             title: this._videoInfo.title,
             videoId: this._videoInfo.videoId,
@@ -1711,7 +1665,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this._nicoVideoPlayer.getScreenShot();
         break;
       case 'screenShotWithComment':
-        if (this._playerState.isYouTube) {
+        if (this._state.isYouTube) {
           return;
         }
         this._nicoVideoPlayer.getScreenShotWithComment();
@@ -1732,10 +1686,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this.setVideo(param);
         break;
       case 'selectTab':
-        this._view.selectTab(param);
-        break;
-      case 'copy-video-watch-url':
-        util.copyToClipBoard(this._videoInfo.watchUrl);
+        this._state.currentTab = param;
         break;
       case 'update-smileVideoQuality':
         this._playerConfig.setValue('videoServerType', 'smile');
@@ -1759,38 +1710,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this._playerConfig.setValue(command, param);
         this.reloadComment(param);
         break;
-      case 'toggle-comment':
-      case 'toggle-showComment':
-      case 'toggle-backComment':
-      case 'toggle-mute':
-      case 'toggle-loop':
-      case 'toggle-debug':
-      case 'toggle-enableFilter':
-      case 'toggle-enableNicosJumpVideo':
-      case 'toggle-useWellKnownPort':
-      case 'toggle-bestZenTube':
-      case 'toggle-autoCommentSpeedRate':
-        command = command.replace(/^toggle-/, '');
-        this._playerConfig.setValue(command, !this._playerConfig.getValue(command));
-        break;
-      case 'baseFontFamily':
-      case 'baseChatScale':
-      case 'enableFilter':
-      case 'update-enableFilter':
-      case 'screenMode':
-      case 'update-screenMode':
-      case 'sharedNgLevel':
-      case 'update-sharedNgLevel':
-      case 'update-commentSpeedRate':
-        command = command.replace(/^update-/, '');
-        if (this._playerConfig.getValue(command) === param) {
-          break;
-        }
-        this._playerConfig.setValue(command, param);
-        break;
       default:
         this.emit('command', command, param);
-        ZenzaWatch.emitter.emit(`command-${command}`, param);
     }
   },
   _onKeyDown: function (name, e, param) {
@@ -1808,20 +1729,33 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       }
       return;
     }
+    const TABLE = {
+      'RE_OPEN': 'reload',
+      'PAUSE': 'pause',
+      'TOGGLE_PLAY': 'togglePlay',
+      'SPACE': 'togglePlay',
+      'FULL': 'toggle-fullScreen',
+      'TOGGLE_PLAYLIST': 'togglePlaylist',
+      'DEFLIST': 'deflistAdd',
+      'DEFLIST_REMOVE': 'deflistRemove',
+      'VIEW_COMMENT': 'toggle-showComment',
+      'MUTE': 'toggle-mute',
+      'VOL_UP': 'volumeUp',
+      'VOL_DOWN': 'volumeDown',
+      'SEEK_TO': 'seekTo',
+      'SEEK_BY': 'seekBy',
+      'SEEK_PREV_FRAME': 'seekPrevFrame',
+      'SEEK_NEXT_FRAME': 'seekNextFrame',
+      'NEXT_VIDEO': 'playNextVideo',
+      'PREV_VIDEO': 'playPreviousVideo',
+      'PLAYBACK_RATE': 'playbackRate',
+      'SHIFT_UP': 'shiftUp',
+      'SHIFT_DOWN': 'shiftDown',
+      'SCREEN_MODE': 'screenMode',
+      'SCREEN_SHOT': 'screenShot',
+      'SCREEN_SHOT_WITH_COMMENT': 'screenShotWithComment'
+    };
     switch (name) {
-      case 'RE_OPEN':
-        this.execCommand('reload');
-        break;
-      case 'PAUSE':
-        this.pause();
-        break;
-      case 'SPACE':
-      case 'TOGGLE_PLAY':
-        this.togglePlay();
-        break;
-      case 'TOGGLE_PLAYLIST':
-        this.execCommand('playlistToggle');
-        break;
       case 'ESC':
         // ESCキーは連打にならないようブロック期間を設ける
         if (Date.now() < this._escBlockExpiredAt) {
@@ -1833,99 +1767,23 @@ _.assign(NicoVideoPlayerDialog.prototype, {
           this.close();
         }
         break;
-      case 'FULL':
-        this._nicoVideoPlayer.requestFullScreen();
-        break;
       case 'INPUT_COMMENT':
         this._view.focusToCommentInput();
         break;
-      case 'DEFLIST':
-        this._onDeflistAdd(param);
-        break;
-      case 'DEFLIST_REMOVE':
-        this._onDeflistRemove(param);
-        break;
-      case 'VIEW_COMMENT':
-        this.execCommand('toggleShowComment');
-        break;
-      case 'MUTE':
-        this.execCommand('toggleMute');
-        break;
-      case 'VOL_UP':
-        this.execCommand('volumeUp');
-        break;
-      case 'VOL_DOWN':
-        this.execCommand('volumeDown');
-        break;
-      case 'SEEK_TO':
-        this.execCommand('seekTo', param);
-        break;
-      case 'SEEK_BY':
-        this.execCommand('seekBy', param);
-        break;
-      case 'SEEK_PREV_FRAME':
-        this.execCommand('seekPrevFrame');
-        break;
-      case 'SEEK_NEXT_FRAME':
-        this.execCommand('seekNextFrame');
-        break;
-      case 'NEXT_VIDEO':
-        this.playNextVideo();
-        break;
-      case 'PREV_VIDEO':
-        this.playPreviousVideo();
-        break;
-      case 'PLAYBACK_RATE':
-        this.execCommand('playbackRate', param);
-        break;
-      case 'SHIFT_UP':
-        this.execCommand('shiftUp');
-        break;
-      case 'SHIFT_DOWN':
-        this.execCommand('shiftDown');
-        break;
-      case 'SCREEN_MODE':
-        this.execCommand('screenMode', param);
-        break;
-      case 'SCREEN_SHOT':
-        this.execCommand('screenShot');
-        break;
-      case 'SCREEN_SHOT_WITH_COMMENT':
-        this.execCommand('screenShotWithComment');
-        break;
+      default:
+        if (!TABLE[name]) { return; }
+        this.execCommand(TABLE[name], param);
     }
     let screenMode = this._playerConfig.getValue('screenMode');
-    if (!['small', 'sideView'].includes(screenMode)) {
-      e.preventDefault();
-      e.stopPropagation();
+    if (['small', 'sideView'].includes(screenMode) && ['TOGGLE_PLAY'].includes(name)) {
+      return;
     }
+    e.preventDefault();
+    e.stopPropagation();
   },
   _onPlayerConfigUpdate: function (key, value) {
     switch (key) {
-      case 'autoPlay':
-        this._playerState.isAutoPlay = !!value;
-        break;
-      case 'backComment':
-        this._playerState.isBackComment = !!value;
-        break;
-      case 'showComment':
-        this._playerState.isCommentVisible = !!value;
-        break;
-      case 'loop':
-        this._playerState.isLoop = !!value;
-        break;
-      case 'mute':
-        this._playerState.isMute = !!value;
-        break;
-      case 'sharedNgLevel':
-        this._playerState.sharedNgLevel = value;
-        break;
-      case 'debug':
-        this._playerState.isDebug = !!value;
-        PopupMessage.notify('debug: ' + (value ? 'ON' : 'OFF'));
-        break;
       case 'enableFilter':
-        this._playerState.isEnableFilter = value;
         this._nicoVideoPlayer.setIsCommentFilterEnable(value);
         break;
       case 'wordFilter':
@@ -1940,46 +1798,21 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'commandFilter':
         this._nicoVideoPlayer.setCommandFilterList(value);
         break;
-      case 'screenMode':
-        this._playerState.screenMode = value;
-        break;
-      case 'playbackRate':
-        this._playerState.playbackRate = value;
-        break;
     }
   },
   _updateScreenMode: function (mode) {
     this.emit('screenModeChange', mode);
   },
-  _clearClass: function () {
-    this._view.clearClass();
-  },
-  _onClick: function () {
-  },
   _onPlaylistAppend: function (watchId) {
     this._initializePlaylist();
-    if (!this._playlist) {
-      return;
-    }
-
-    let onAppend = _.debounce(() => {
-      this._playlist.scrollToWatchId(watchId);
-    }, 500);
-    this._playlist.append(watchId).then(onAppend, onAppend);
+    this._playlist.append(watchId);
   },
   _onPlaylistInsert: function (watchId) {
     this._initializePlaylist();
-    if (!this._playlist) {
-      return;
-    }
-
     this._playlist.insert(watchId);
   },
   _onPlaylistSetMylist: function (mylistId, option) {
     this._initializePlaylist();
-    if (!this._playlist) {
-      return;
-    }
 
     option = option || {watchId: this._watchId};
     // デフォルトで古い順にする
@@ -2038,14 +1871,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     let query = this._videoWatchOptions.getQuery();
     option = Object.assign(option, query);
 
-    this._view.selectTab('playlist');
+    this._state.currentTab = 'playlist';
     this._playlist.loadSearchVideo(word, option).then(result => {
         this.execCommand('notify', result.message);
         this._playlist.insertCurrentVideo(this._videoInfo);
         ZenzaWatch.emitter.emitAsync('searchVideo', {word, option});
-        window.setTimeout(() => {
-          this._playlist.scrollToActiveItem();
-        }, 1000);
+        window.setTimeout(() => this._playlist.scrollToActiveItem(), 1000);
       },
       err => {
         this.execCommand('alert', err.message || '検索失敗または該当無し: 「' + word + '」');
@@ -2054,7 +1885,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   _onPlaylistStatusUpdate: function () {
     let playlist = this._playlist;
     this._playerConfig.setValue('playlistLoop', playlist.isLoop());
-    this._playerState.isPlaylistEnable = playlist.isEnable();
+    this._state.isPlaylistEnable = playlist.isEnable();
     if (playlist.isEnable()) {
       this._playerConfig.setValue('loop', false);
     }
@@ -2066,16 +1897,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
   },
   _onDeflistAdd: function (watchId) {
-    if (this._playerState.isUpdatingDeflist || !util.isLogin()) {
+    if (this._state.isUpdatingDeflist || !util.isLogin()) {
       return;
     }
-
-    const unlock = () => {
-      this._playerState.isUpdatingDeflist = false;
-    };
-
-    this._playerState.isUpdatingDeflist = true;
-    let timer = setTimeout(unlock, 10000);
+    const unlock = () => this._state.isUpdatingDeflist = false;
+    this._state.isUpdatingDeflist = true;
+    let timer = window.setTimeout(unlock, 10000);
 
     watchId = watchId || this._videoInfo.watchId;
     let description;
@@ -2091,27 +1918,20 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     })().then(info => {
       description =
         this._playerConfig.getValue('enableAutoMylistComment') ? `投稿者: ${info.owner.name}` : '';
-    }).then(() => {
-      return this._mylistApiLoader.addDeflistItem(watchId, description);
-    }).then(result => {
-      clearTimeout(timer);
-      timer = setTimeout(unlock, 2000);
-      this.execCommand('notify', result.message);
-    }).catch(err => {
-      clearTimeout(timer);
-      timer = setTimeout(unlock, 2000);
-      this.execCommand('alert', err.message ? err.message : 'とりあえずマイリストに登録失敗');
+    }).then(() => this._mylistApiLoader.addDeflistItem(watchId, description))
+      .then(result => this.execCommand('notify', result.message))
+      .catch(err => this.execCommand('alert', err.message ? err.message : 'とりあえずマイリストに登録失敗'))
+      .then(() => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(unlock, 2000);
     });
   },
   _onDeflistRemove: function (watchId) {
-    if (this._playerState.isUpdatingDeflist || !util.isLogin()) {
+    if (this._state.isUpdatingDeflist || !util.isLogin()) {
       return;
     }
-    const unlock = () => {
-      this._playerState.isUpdatingDeflist = false;
-    };
-    this._playerState.isUpdatingDeflist = true;
-
+    const unlock = () => this._state.isUpdatingDeflist = false;
+    this._state.isUpdatingDeflist = true;
     let timer = window.setTimeout(unlock, 10000);
 
     watchId = watchId || this._videoInfo.watchId;
@@ -2119,27 +1939,22 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
     }
 
-    return this._mylistApiLoader.removeDeflistItem(watchId)
-      .then(result => {
+    this._mylistApiLoader.removeDeflistItem(watchId)
+      .then(result => this.execCommand('notify', result.message))
+      .catch(err => this.execCommand('alert', err.message))
+      .then(() => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
-        PopupMessage.notify(result.message);
-      }).catch(err => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        PopupMessage.alert(err.message);
       });
   },
   _onMylistAdd: function (groupId, mylistName) {
-    if (this._playerState.isUpdatingMylist || !util.isLogin()) {
+    if (this._state.isUpdatingMylist || !util.isLogin()) {
       return;
     }
 
-    const unlock = () => {
-      this._playerState.isUpdatingMylist = false;
-    };
+    const unlock = () => this._state.isUpdatingMylist = false;
 
-    this._playerState.isUpdatingMylist = true;
+    this._state.isUpdatingMylist = true;
     let timer = window.setTimeout(unlock, 10000);
 
     const owner = this._videoInfo.owner;
@@ -2150,27 +1965,22 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
     }
 
-    return this._mylistApiLoader.addMylistItem(watchId, groupId, description)
-      .then(result => {
+    this._mylistApiLoader.addMylistItem(watchId, groupId, description)
+      .then(result => this.execCommand('notify', `${result.message}: ${mylistName}`))
+      .catch(err => this.execCommand('alert', `${err.message}: ${mylistName}`))
+      .then(() => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
-        PopupMessage.notify(result.message + ': ' + mylistName);
-      }).catch(err => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        PopupMessage.alert(err.message + ': ' + mylistName);
       });
   },
   _onMylistRemove: function (groupId, mylistName) {
-    if (this._playerState.isUpdatingMylist || !util.isLogin()) {
+    if (this._state.isUpdatingMylist || !util.isLogin()) {
       return;
     }
 
-    const unlock = () => {
-      this._playerState.isUpdatingMylist = false;
-    };
+    const unlock = () => this._state.isUpdatingMylist = false;
 
-    this._playerState.isUpdatingMylist = true;
+    this._state.isUpdatingMylist = true;
     let timer = window.setTimeout(unlock, 10000);
 
     let watchId = this._videoInfo.watchId;
@@ -2179,15 +1989,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._mylistApiLoader = new ZenzaWatch.api.MylistApiLoader();
     }
 
-    return this._mylistApiLoader.removeMylistItem(watchId, groupId)
-      .then(result => {
+    this._mylistApiLoader.removeMylistItem(watchId, groupId)
+      .then(result => this.execCommand('notify', `${result.message}: ${mylistName}`))
+      .catch(err => this.execCommand('alert', `${err.message}: ${mylistName}`))
+      .then(() => {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
-        PopupMessage.notify(result.message + ': ' + mylistName);
-      }).catch(err => {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(unlock, 2000);
-        PopupMessage.alert(err.message + ': ' + mylistName);
       });
   },
   _onCommentParsed: function () {
@@ -2211,10 +2018,10 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   _onVideoPlayerTypeChange: function (type = '') {
     switch (type.toLowerCase()) {
       case 'youtube':
-        this._playerState.setState({isYouTube: true});
+        this._state.setState({isYouTube: true});
         break;
       default:
-        this._playerState.setState({isYouTube: false});
+        this._state.setState({isYouTube: false});
     }
   },
   _onNicosSeek: function (time) {
@@ -2230,13 +2037,10 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
   },
   show: function () {
-    this._view.show();
-    this._updateScreenMode(this._playerConfig.getValue('screenMode'));
-    this._playerState.isOpen = true;
+    this._state.isOpen = true;
   },
   hide: function () {
-    this._playerState.isOpen = false;
-    this._view.hide();
+    this._state.isOpen = false;
   },
   open: function (watchId, options) {
     if (!watchId) {
@@ -2275,17 +2079,17 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       }
     }
 
-    this._playerState.resetVideoLoadingStatus();
+    this._state.resetVideoLoadingStatus();
 
     // watchIdからサムネイルを逆算できる時は最速でセットする
     const thumbnail = util.getThumbnailUrlByVideoId(watchId);
-    this._playerState.thumbnail = thumbnail;
+    this._state.thumbnail = thumbnail;
 
-    this._playerState.isCommentReady = false;
+    this._state.isCommentReady = false;
     this._watchId = watchId;
     this._lastCurrentTime = 0;
     this._lastOpenAt = Date.now();
-    this._playerState.isError = false;
+    this._state.isError = false;
 
     VideoInfoLoader.load(watchId, options.getVideoLoadOptions()).then(
       this._onVideoInfoLoaderLoad.bind(this, this._requestId)).catch(
@@ -2300,10 +2104,10 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     ZenzaWatch.emitter.emitAsync('DialogPlayerOpen', watchId, options);
   },
   isOpen: function () {
-    return this._playerState.isOpen;
+    return this._state.isOpen;
   },
   reload: function (options) {
-    options = this._videoWatchOptions.createOptionsForReload(options);
+    options = this._videoWatchOptions.createForReload(options);
 
     if (this._lastCurrentTime > 0) {
       options.currentTime = this._lastCurrentTime;
@@ -2315,7 +2119,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return 0;
     }
     let ct = this._nicoVideoPlayer.getCurrentTime() * 1;
-    if (!this._playerState.isError && ct > 0) {
+    if (!this._state.isError && ct > 0) {
       this._lastCurrentTime = ct;
     }
     return this._lastCurrentTime;
@@ -2350,8 +2154,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
     const videoInfo = this._videoInfo = new VideoInfoModel(videoInfoData);
-    ZenzaWatch.debug.videoInfo = videoInfo;
-
 
     let serverType = 'dmc';
     if (!videoInfo.isDmcAvailable) {
@@ -2367,11 +2169,10 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this._playerConfig.getValue('autoDisableDmc') &&
         this._videoWatchOptions.getVideoServerType() !== 'smile' &&
         videoInfo.maybeBetterQualityServerType === 'smile';
-      //videoInfo.isDmcDisable = autoDisableDmc;
       serverType = disableDmc ? 'smile' : 'dmc';
     }
 
-    this._playerState.setState({
+    this._state.setState({
       isDmcAvailable: videoInfo.isDmcAvailable,
       isCommunity: videoInfo.isCommunityVideo,
       isMymemory: videoInfo.isMymemory,
@@ -2382,26 +2183,20 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       videoInfo,
       videoWatchOptions: this._videoWatchOptions,
       videoQuality: this._playerConfig.getValue('dmcVideoQuality'),
-      serverType, //: (videoInfo.isDmcAvailable && !autoDisableDmc) ? 'dmc' : 'smile',
+      serverType,
       isPlayingCallback: this.isPlaying.bind(this),
       useWellKnownPort: this._playerConfig.getValue('useWellKnownPort'),
       useHLS: !!ZenzaWatch.debug.isHLSSupported
     });
-    
-    this._playerState.thumbnail = videoInfo.betterThumbnail;
 
     if (this._videoFilter.isNgVideo(videoInfo)) {
       return this._onVideoFilterMatch();
     }
 
-//    if (!autoDisableDmc &&
-//      this._playerConfig.getValue('enableDmc') && videoInfo.isDmcAvailable) {
     if (this._videoSession.isDmc) {
       this._videoSession.connect().then(sessionInfo => {
           this.setVideo(sessionInfo.url);
-          // this._videoSessionInfo = sessionInfo;
           videoInfo.setCurrentVideo(sessionInfo.url);
-          this._playerState.isDmcPlaying = true;
           this.emit('videoServerType', 'dmc', sessionInfo, videoInfo);
         }).catch(this._onVideoSessionFail.bind(this));
     } else {
@@ -2409,11 +2204,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this._videoSession.connect();
       }
       videoInfo.setCurrentVideo(videoInfo.videoUrl);
-      this._playerState.isDmcPlaying = false;
       this.setVideo(videoInfo.videoUrl);
       this.emit('videoServerType', 'smile', {}, videoInfo);
     }
-    this._nicoVideoPlayer.setVideoInfo(videoInfo);
+    this._state.videoInfo = videoInfo;
+    this._state.isDmcPlaying = this._videoSession.isDmc;
 
     this.loadComment(videoInfo.msgInfo);
 
@@ -2422,16 +2217,15 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (FullScreen.now() || this._playerConfig.getValue('screenMode') === 'wide') {
       this.execCommand('notifyHtml',
         '<img src="' + videoInfo.thumbnail + '" style="width: 96px;">' +
-        // タイトルは原則エスケープされてるけど信用してない
         util.escapeToZenkaku(videoInfo.title)
       );
     }
   },
   setVideo: function (url) {
-    if (url.indexOf('youtube') >= 0) {
-      this._playerState.isYouTube = true;
-    }
-    this._nicoVideoPlayer.setVideo(url);
+    this._state.setState({
+      isYouTube: url.indexOf('youtube') >= 0,
+      currentSrc: url
+    });
   },
   loadComment: function (msgInfo) {
     msgInfo.language = this._playerConfig.getValue('commentLanguage');
@@ -2454,10 +2248,10 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
     this._setErrorMessage(e.message || '通信エラー', watchId);
-    this._playerState.isError = true;
+    this._state.isError = true;
     if (e.info) {
       this._videoInfo = new VideoInfoModel(e.info);
-      this._playerState.thumbnail = this._videoInfo.betterThumbnail;
+      this._state.videoInfo = this._videoInfo;
       this.emit('loadVideoInfoFail', this._videoInfo);
     } else {
       this.emit('loadVideoInfoFail');
@@ -2468,34 +2262,59 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
     if (e.reason === 'forbidden' || e.info.isPlayable === false) {
-      window.setTimeout(() => {
-        this.playNextVideo();
-      }, 3000);
+      window.setTimeout(() => this.playNextVideo(), 3000);
     }
   },
   _onVideoSessionFail: function (result) {
     window.console.error('dmc fail', result);
     this._setErrorMessage('動画の読み込みに失敗しました(dmc.nico)', this._watchId);
-    this._playerState.setState({isError: true, isLoading: false});
+    this._state.setState({isError: true, isLoading: false});
     if (this.isPlaylistEnable()) {
       window.setTimeout(() => {
         this.playNextVideo();
       }, 3000);
     }
+  },
+  _onVideoPlayStartFail: function (err) {
+    window.console.error('動画再生開始に失敗', err);
+    if (!(err instanceof DOMException)) { //
+      return;
+    }
+
+    console.warn('play() request was rejected code: %s. message: %s', err.code, err.message);
+    const message = err.message;
+    switch (message) {
+      case 'SessionClosedError':
+        // TODO: DMCのセッション切れなら自動リロード
+        // if (this._videoSession.isDeleted && !this._videoSession.isAbnormallyClosed) {
+        //   window.console.info('%cリロードしたら直るかも', 'background: yellow');
+        //
+        // }
+        if (this._playserState.isError) { break; }
+        this._setErrorMessage('動画の再生開始に失敗しました', this._watchId);
+        this._state.setVideoErrorOccurred();
+        break;
+
+      case 'AbortError': // 再生開始を待っている間に動画変更などで中断された等
+      case 'NotAllowedError': // 自動再生のブロック
+      default:
+        break;
+    }
+
+    this.emit('loadVideoPlayStartFail');
+    ZenzaWatch.emitter.emitAsync('loadVideoPlayStartFail');
   },
   _onVideoFilterMatch: function () {
     window.console.error('ng video', this._watchId);
     this._setErrorMessage('再生除外対象の動画または投稿者です');
-    this._playerState.isError = true;
+    this._state.isError = true;
     this.emit('error');
     if (this.isPlaylistEnable()) {
-      window.setTimeout(() => {
-        this.playNextVideo();
-      }, 3000);
+      window.setTimeout(() => this.playNextVideo(), 3000);
     }
   },
   _setErrorMessage: function (msg) {
-    this._view.setErrorMessage(msg);
+    this._state.errorMessage = msg;
   },
   _onCommentLoadSuccess: function (requestId, result) {
     if (requestId !== this._requestId) {
@@ -2535,7 +2354,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
   },
   _onVideoCanPlay: function () {
-    if (!this._playerState.isLoading) {
+    if (!this._state.isLoading) {
       return;
     }
     window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
@@ -2580,7 +2399,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._playlist.removeItemByWatchId(this._videoInfo.watchId);
     }
 
-    this._playerState.setVideoCanPlay();
+    this._state.setVideoCanPlay();
     this.emitAsync('canPlay', this._watchId, this._videoInfo, this._videoWatchOptions);
 
     // プレイリストによって開かれた時は、自動再生設定に関係なく再生する
@@ -2662,7 +2481,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   _onVideoEnded: function () {
     // ループ再生中は飛んでこない
     this.emitAsync('ended');
-    this._playerState.setVideoEnded();
+    this._state.setVideoEnded();
     this._savePlaybackPosition(this._videoInfo.contextWatchId, 0);
     if (this.isPlaylistEnable() && this._playlist.hasNext()) {
       this.playNextVideo({eventType: 'playlist'});
@@ -2738,7 +2557,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (this._playlist) {
       return;
     }
-    //if (!this._videoInfoPanel) { return; }
     let $container = this._view.appendTab('playlist', 'プレイリスト');
     this._playlist = new Playlist({
       loader: ZenzaWatch.api.ThumbInfoLoader,
@@ -2769,14 +2587,14 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!this._playlist || !this.isOpen()) {
       return;
     }
-    var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
+    let opt = this._videoWatchOptions.createForVideoChange(options);
 
       this.emit('error', e);
       const isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc;
       const code = (e && e.target && e.target.error && e.target.error.code) || 0;
       window.console.error('VideoError!', code, e);
 
-    var nextId = this._playlist.selectNext();
+    let nextId = this._playlist.selectNext();
     if (nextId) {
       this.open(nextId, opt);
     }
@@ -2785,36 +2603,31 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!this._playlist || !this.isOpen()) {
       return;
     }
-    var opt = this._videoWatchOptions.createOptionsForVideoChange(options);
+    let opt = this._videoWatchOptions.createForVideoChange(options);
 
-      // 10分以上たってエラーになるのはセッション切れ(nicohistoryの有効期限)
-      // と思われるので開き直す
-      if (Date.now() - this._lastOpenAt > 10 * 60 * 1000) {
-        this.reload({ currentTime: this.getCurrentTime() });
-      } else {
-    var prevId = this._playlist.selectPrevious();
+    let prevId = this._playlist.selectPrevious();
     if (prevId) {
       this.open(prevId, opt);
     }
   },
   play: function () {
-    if (!this._playerState.isError && this._nicoVideoPlayer) {
+    if (!this._state.isError && this._nicoVideoPlayer) {
       this._nicoVideoPlayer.play().catch((e) => {
         this._onVideoPlayStartFail(e);
       });
     }
   },
   pause: function () {
-    if (!this._playerState.isError && this._nicoVideoPlayer) {
+    if (!this._state.isError && this._nicoVideoPlayer) {
       this._nicoVideoPlayer.pause();
-      this._playerState.setPausing();
+      this._state.setPausing();
     }
   },
   isPlaying: function () {
-    return this._playerState.isPlaying;
+    return this._state.isPlaying;
   },
   togglePlay: function () {
-    if (!this._playerState.isError && this._nicoVideoPlayer) {
+    if (!this._state.isError && this._nicoVideoPlayer) {
       if (this.isPlaying()) {
         this.pause();
         return;
@@ -2833,13 +2646,14 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   addChat: function (text, cmd, vpos, options) {
     if (!this._nicoVideoPlayer ||
       !this._messageApiLoader ||
-      !this._playerState.isCommentReady ||
-      this._playerState.isCommentPosting) {
+      !this._state.isCommentReady ||
+      this._state.isCommentPosting) {
       return Promise.reject();
     }
     if (!util.isLogin()) {
       return Promise.reject();
     }
+    // TODO: 通信周りはThreadLoaderのほうに移す
 
     // force184のスレッドに184コマンドをつけてしまうとエラー. 同じなんだから無視すりゃいいだろが
     if (this._threadInfo.force184 !== '1') {
@@ -2852,7 +2666,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     vpos = vpos || this._nicoVideoPlayer.getVpos();
     const nicoChat = this._nicoVideoPlayer.addChat(text, cmd, vpos, options);
 
-    this._playerState.isCommentPosting = true;
+    this._state.isCommentPosting = true;
 
     const lang = this._playerConfig.getValue('commentLanguage');
     window.console.time('コメント投稿');
@@ -2861,8 +2675,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       window.console.timeEnd('コメント投稿');
       nicoChat.setIsUpdating(false);
       nicoChat.setNo(result.no);
-      PopupMessage.notify('コメント投稿成功');
-      this._playerState.isCommentPosting = false;
+      this.execCommand('notify', 'コメント投稿成功');
+      this._state.isCommentPosting = false;
 
       this._threadInfo.blockNo = result.blockNo;
 
@@ -2877,8 +2691,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
 
       nicoChat.setIsPostFail(true);
       nicoChat.setIsUpdating(false);
-      PopupMessage.alert(err.message);
-      this._playerState.isCommentPosting = false;
+      this.execCommand('alert', err.message);
+      this._state.isCommentPosting = false;
       if (err.blockNo && typeof err.blockNo === 'number') {
         this._threadInfo.blockNo = err.blockNo;
       }
@@ -2956,7 +2770,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       currentTime: this._nicoVideoPlayer.getCurrentTime()
     };
 
-    const options = this._videoWatchOptions.createOptionsForSession();
+    const options = this._videoWatchOptions.createForSession();
     Object.keys(options).forEach(key => {
       session[key] = session.hasOwnProperty(key) ? session[key] : options[key];
     });
@@ -3639,7 +3453,7 @@ VideoHoverMenu.__tpl__ = (`
 _.assign(VideoHoverMenu.prototype, {
   initialize: function (params) {
     this._container = params.playerContainer;
-    this._playerState = params.playerState;
+    this._state = params.playerState;
 
     this._bound = {};
     this._bound.onBodyClick = this._onBodyClick.bind(this);
@@ -3722,7 +3536,7 @@ _.assign(VideoHoverMenu.prototype, {
     this._container.querySelector('.mylistSelectMenuInner').appendChild(ul);
   },
   _initializeNgSettingMenu: function () {
-    let state = this._playerState;
+    let state = this._state;
     let menu = this._container.querySelector('.ngSettingSelectMenu');
 
     let enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
@@ -3737,7 +3551,7 @@ _.assign(VideoHoverMenu.prototype, {
     state.on('update-isEnableFilter', updateEnableFilter);
 
     let sharedNgItems = Array.from(menu.querySelectorAll('.sharedNgLevel'));
-    const updateNgLevel = (level) => {
+    const updateNgLevel = level => {
       sharedNgItems.forEach(item => {
         item.classList.toggle('selected', level === item.getAttribute('data-param'));
       });

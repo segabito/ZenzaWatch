@@ -403,7 +403,6 @@ import {Emitter} from './baselib';
 
     .seekBar .seekBarPointer {
       position: absolute;
-      width: 100%;
       height: 100%;
       top: 0;
       left: 0;
@@ -421,7 +420,7 @@ import {Emitter} from './baselib';
         height: 140%;
         background: rgba(255, 255, 255, 0.6);
         border-radius: 2px;
-        transform: translate3d(-50%, -50%, 0);
+        transform: translate(-50%, -50%);
         box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
       }
 
@@ -951,7 +950,7 @@ import {Emitter} from './baselib';
             <div class="tooltip">シーンサーチ</div>
           </div>
 
-          <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
+          <div class="loopSwitch controlButton playControl" data-command="toggle-loop">
             <div class="controlButtonInner">&#8635;</div>
             <div class="tooltip">リピート</div>
           </div>
@@ -1000,7 +999,7 @@ import {Emitter} from './baselib';
             <input type="text" class="currentTime" value="00:00">/<input type="text" class="duration" value="00:00">
           </div>
 
-          <div class="muteSwitch controlButton" data-command="toggleMute">
+          <div class="muteSwitch controlButton" data-command="toggle-mute">
             <div class="tooltip">ミュート(M)</div>
             <div class="menuButtonInner mute-off">&#x1F50A;</div>
             <div class="menuButtonInner mute-on">&#x1F507;</div>
@@ -1408,9 +1407,7 @@ import {Emitter} from './baselib';
       [ 'toggleScreenModeMenu',
         'togglePlaybackRateMenu',
         'toggleVideoServerTypeMenu'
-      ].forEach(func => {
-        this[func](false);
-      });
+      ].forEach(func => this[func](false));
     },
     togglePlaybackRateMenu: function(v) {
       let $btn  = this._$playbackRateMenu;
@@ -1579,9 +1576,7 @@ import {Emitter} from './baselib';
 
       if (!this._isFirstVideoInitialized) {
         this._isFirstVideoInitialized = true;
-        const handler = (command, param) => {
-          this.emit('command', command, param);
-        };
+        const handler = (command, param) => this.emit('command', command, param);
 
         ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
           this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
@@ -1601,7 +1596,7 @@ import {Emitter} from './baselib';
         this._$currentTime[0].value = currentTimeText;
       }
       const per = Math.min(100, this._timeToPer(sec));
-      this._$seekBarPointer[0].style.transform = `translate3d(${per}%, 0, 0)`;
+      this._$seekBarPointer[0].style.transform = `translate3d(${per}vw, 0, 0)`;
     },
     setDuration: function(sec) {
       if (sec === this._duration) { return; }

@@ -6253,7 +6253,6 @@ const {ThreadLoader} = (() => {
       const language = this.getLangCode(msgInfo.language);
 
       msgInfo.threads.forEach(thread => {
-        window.console.log('buildPacketData.threads', thread);
         if (!thread.isActive) { return; }
 
         let t = {
@@ -6296,7 +6295,6 @@ const {ThreadLoader} = (() => {
     buildPacket(msgInfo, options = {}) {
       let packet = document.createElement('packet');
       let data = this.buildPacketData(msgInfo);
-      window.console.log('packetData', data);
       if (options.format !== 'xml') {
         return JSON.stringify(data);
       }
@@ -23793,7 +23791,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     const $dialog = this._$dialog = $(NicoVideoPlayerDialogView.__tpl__);
     const onCommand = this._onCommand.bind(this);
     const config = this._playerConfig;
-    const dialog = this._dialog;
+    const state = this._state;
     this._$body = util.$('body, html');
 
     const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
@@ -23839,7 +23837,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
 
     this._hoverMenu = new VideoHoverMenu({
       playerContainer: container,
-      playerState: this._state
+      playerState: state
     });
     this._hoverMenu.on('command', onCommand);
 
@@ -23852,15 +23850,15 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       this.emit('postChat', e, chat, cmd);
     });
 
-    let isPlaying = false;
+    let hasPlaying = false;
     this._commentInput.on('focus', isAutoPause => {
-      isPlaying = this._nicoVideoPlayer.isPlaying();
+      hasPlaying = state.isPlaying;
       if (isAutoPause) {
         this.emit('command', 'pause');
       }
     });
     this._commentInput.on('blur', isAutoPause => {
-      if (isAutoPause && isPlaying && dialog.isOpen()) {
+      if (isAutoPause && hasPlaying && state.isOpen) {
         this.emit('command', 'play');
       }
     });
@@ -25108,7 +25106,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
   },
   _setErrorMessage: function (msg) {
-    this._state.errorMessge = msg;
+    this._state.errorMessage = msg;
   },
   _onCommentLoadSuccess: function (requestId, result) {
     if (requestId !== this._requestId) {
@@ -25473,6 +25471,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!util.isLogin()) {
       return Promise.reject();
     }
+    // TODO: 通信周りはThreadLoaderのほうに移す
 
     // force184のスレッドに184コマンドをつけてしまうとエラー. 同じなんだから無視すりゃいいだろが
     if (this._threadInfo.force184 !== '1') {

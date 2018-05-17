@@ -65,7 +65,8 @@
       util: {},
       modules: {Emitter, Handler},
       config: Config,
-      emitter: new Emitter()
+      emitter: new Emitter(),
+      state: {}
     };
 
     if (location.host.match(/\.nicovideo\.jp$/)) {
@@ -121,6 +122,8 @@
 //@require VideoSession.js
 
 //@require NicoVideoPlayerDialog.js
+
+//@require RootDispatcher.js
 
 //@require CommentInputPanel.js
 

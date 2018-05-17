@@ -151,7 +151,17 @@ class VideoFilter {
 }
 
 class VideoInfoModel {
-  constructor(info) {
+  constructor(videoInfoData) {
+    this._update(videoInfoData);
+    this._currentVideoPromise = [];
+  }
+
+  update(videoInfoModel) {
+    this._update(videoInfoModel._rawData);
+    return true;
+  }
+
+  _update(info) {
     this._rawData = info;
     this._watchApiData = info.watchApiData;
     this._videoDetail = info.watchApiData.videoDetail;
@@ -165,9 +175,7 @@ class VideoInfoModel {
     this._watchAuthKey = info.watchAuthKey;
     this._seekToken = info.seekToken;
     this._resumeInfo = info.resumeInfo || {};
-
-    this._isDmcDisable = false;
-    this._currentVideoPromise = [];
+    return true;
   }
 
   get title() {
@@ -307,7 +315,7 @@ class VideoInfoModel {
   }
 
   get isDmc() {
-    return this.isDmcOnly || (this._rawData.isDmc && !this._isDmcDisable);
+    return this.isDmcOnly || (this._rawData.isDmc);
   }
 
   get isDmcAvailable() {
@@ -320,14 +328,6 @@ class VideoInfoModel {
 
   get msgInfo() {
     return this._msgInfo;
-  }
-
-  get isDmcDisable() {
-    return this.isDmcOnly && this._isDmcDisable;
-  }
-
-  set isDmcDisable(v) {
-    this._isDmcDisable = v;
   }
 
   get isDmcOnly() {

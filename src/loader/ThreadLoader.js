@@ -117,7 +117,6 @@ const {ThreadLoader} = (() => {
       const language = this.getLangCode(msgInfo.language);
 
       msgInfo.threads.forEach(thread => {
-        window.console.log('buildPacketData.threads', thread);
         if (!thread.isActive) { return; }
 
         let t = {
@@ -160,7 +159,6 @@ const {ThreadLoader} = (() => {
     buildPacket(msgInfo, options = {}) {
       let packet = document.createElement('packet');
       let data = this.buildPacketData(msgInfo);
-      window.console.log('packetData', data);
       if (options.format !== 'xml') {
         return JSON.stringify(data);
       }

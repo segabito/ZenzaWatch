@@ -11,10 +11,11 @@ import {
   WindowMessageEmitter
 } from './util';
 import {NicoComment} from './CommentPlayer';
-import {NicoVideoPlayerDialog} from './NicoVideoPlayerDialog';
+import {NicoVideoPlayerDialog, PlayerConfig, PlayerState} from './NicoVideoPlayerDialog';
 import {initializeGinzaSlayer} from './GinzaSlayer';
 import {CONSTANT} from './constant';
 import {CustomElements} from './parts/CustomElements';
+import {RootDispatcher} from './RootDispatcher';
 
 const START_PAGE_QUERY = 'hoge=fuga';
 
@@ -305,8 +306,18 @@ const {initialize} = (() => {
   };
 
 
-  let initializeDialogPlayer = function (conf, offScreenLayer) {
-    return initializeDialog(conf, offScreenLayer);
+  let initializeDialogPlayer = function (config, offScreenLayer) {
+    console.log('initializeDialog');
+    config = PlayerConfig.getInstance({config});
+    let state = PlayerState.getInstance(config);
+    ZenzaWatch.state.player = state;
+    let dialog = new NicoVideoPlayerDialog({
+      offScreenLayer: offScreenLayer,
+      config,
+      state
+    });
+    RootDispatcher.initialize(dialog);
+    return dialog;
   };
 
 
@@ -588,14 +599,6 @@ const {initialize} = (() => {
       });
     }
   });
-
-  let initializeDialog = function (conf, offScreenLayer) {
-    console.log('initializeDialog');
-    return new NicoVideoPlayerDialog({
-      offScreenLayer: offScreenLayer,
-      playerConfig: conf
-    });
-  };
 
   return {initialize};
 })();

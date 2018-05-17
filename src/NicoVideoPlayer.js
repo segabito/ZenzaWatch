@@ -27,13 +27,13 @@ _.assign(NicoVideoPlayer.prototype, {
     let conf = this._playerConfig = params.playerConfig;
 
     this._fullScreenNode = params.fullScreenNode;
-    this._playerState = params.playerState;
+    this._state = params.playerState;
+
+    this._state.on('update-videoInfo', this.setVideoInfo.bind(this));
 
     const playbackRate = conf.getValue('playbackRate');
 
-    const onCommand = (command, param) => {
-      this.emit('command', command, param);
-    };
+    const onCommand = (command, param) => this.emit('command', command, param);
     this._videoPlayer = new VideoPlayer({
       volume: conf.getValue('volume'),
       loop: conf.getValue('loop'),
@@ -61,7 +61,7 @@ _.assign(NicoVideoPlayer.prototype, {
 
     this._contextMenu = new ContextMenu({
       parentNode: params.node.length ? params.node[0] : params.node,
-      playerState: this._playerState
+      playerState: this._state
     });
     this._contextMenu.on('command', onCommand);
 
@@ -118,7 +118,7 @@ _.assign(NicoVideoPlayer.prototype, {
     this._commentPlayer.on('parsed', eventBridge.bind(this, 'commentParsed'));
     this._commentPlayer.on('change', eventBridge.bind(this, 'commentChange'));
     this._commentPlayer.on('filterChange', eventBridge.bind(this, 'commentFilterChange'));
-    this._playerState.on('change', this._onPlayerStateChange.bind(this));
+    this._state.on('change', this._onPlayerStateChange.bind(this));
   },
   _onVolumeChange: function (vol, mute) {
     this._playerConfig.setValue('volume', vol);
@@ -137,7 +137,7 @@ _.assign(NicoVideoPlayer.prototype, {
       case 'isAutoPlay':
         this._videoPlayer.setIsAutoPlay(value);
         break;
-      case 'isCommentVisible':
+      case 'isShowComment':
         if (value) {
           this._commentPlayer.show();
         } else {
@@ -149,6 +149,9 @@ _.assign(NicoVideoPlayer.prototype, {
         break;
       case 'sharedNgLevel':
         this.setSharedNgLevel(value);
+        break;
+      case 'currentSrc':
+        this.setVideo(value);
         break;
     }
   },
@@ -771,9 +774,9 @@ ContextMenu.__tpl__ = (`
           <li class="command" data-command="togglePlay">停止/再開</li>
           <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
           <hr class="separator">
-          <li class="command toggleLoop"        data-command="toggleLoop">リピート</li>
+          <li class="command toggleLoop"        data-command="toggle-loop">リピート</li>
           <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
-          <li class="command toggleShowComment" data-command="toggleShowComment">コメントを表示</li>
+          <li class="command toggleShowComment" data-command="toggle-showComment">コメントを表示</li>
 
           <hr class="separator">
           <li class="command"
@@ -957,6 +960,9 @@ class VideoPlayer extends Emitter {
         this._isAspectRatioFixed = true;
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
+      }
+      if (this._isYouTube && Config.getValue('bestZenTube')) {
+        this._videoYouTube.selectBestQuality();
       }
     }
   }
