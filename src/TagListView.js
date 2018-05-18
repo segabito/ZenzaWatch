@@ -273,7 +273,7 @@ class TagListView extends BaseViewComponent {
   }
 
   _createSearch(text) {
-    let title = 'タグ検索';
+    let title = 'プレイリストに追加';
     let command = 'tag-search';
     let param = util.escapeHtml(text);
     return (`<zenza-playlist-append class="playlistAppend command" title="${title}" data-command="${command}" data-param="${param}">▶</zenza-playlist-append>`);

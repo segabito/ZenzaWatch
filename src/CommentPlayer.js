@@ -2822,10 +2822,10 @@ class NicoCommentCss3PlayerView extends Emitter {
   }
   clear () {
     if (this._commentLayer) {
-      this._commentLayer.innerHTML = '';
+      this._commentLayer.textContent = '';
     }
     if (this._style) {
-      this._style.innerHTML = '';
+      this._style.textContent = '';
     }
 
     this._inViewTable = {};
@@ -2911,7 +2911,8 @@ class NicoCommentCss3PlayerView extends Emitter {
       fragment.appendChild(dom.shift());
     }
     this._commentLayer.appendChild(fragment);
-    this._style.innerHTML += css.join('');
+    //this._style.innerHTML += css.join('');
+    this._style.insertAdjacentHTML('beforeend', css.join(''));
     this._removeOutviewElements(outViewIds);
     this._gcInviewElements();
   }
@@ -2949,7 +2950,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       inViewElements[i].remove();
     }
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
-    for (i = inViewElements.length - max * 2 - 1; i >= 0; i--) {
+    for (i = inViewElements.length - max + 10 - 1; i >= 0; i--) {
       inViewElements[i].remove();
     }
   }
