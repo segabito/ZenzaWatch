@@ -286,17 +286,18 @@ han_group { font-family: 'Arial'; }
 .big    .type0020 > spacer { width: 11.8359375px; }
 .medium .type0020 > spacer { width: 7.668px; }
 .small  .type0020 > spacer { width: 5px; }
-
+/*
 .big    .type3000 > spacer { width: 40px; }
-.medium .type3000 > spacer { width: 26px; }
-.small  .type3000 > spacer { width: 18px; }
-
+.medium .type3000 > spacer { width: 25px; }
+.small  .type3000 > spacer { width: 17px; }
+*/
 /*
 .type3000 > spacer::after { content: ' '; }
 .mincho > .type3000 > spacer::after, .gulim > .type3000 > spacer::after, .mincho > .type3000 > spacer::after {
   content: '全'; 
 }
 */
+
 .big    .gothic > .type3000 > spacer { width: 26.8984375px; }
 .medium .gothic > .type3000 > spacer { width: 16.9375px; }
 .small  .gothic > .type3000 > spacer { width: 10.9609375px; }
@@ -385,15 +386,10 @@ NicoTextParser.likeXP = function (text) {
       // 全角文字の連続をグループ化 要検証: \u2003は含む？
       .replace(/([^\x01-\x7E^\xA0]+)/g, '<group>$1</group>') // eslint-disable-line
       .replace(/([\u0020]+)/g, // '<span class="han_space type0020">$1</span>')
-
-        function (g) {
-          return '<span class="han_space type0020">' + S.repeat(g.length) + '</span>';
-        })
+        g => `<span class="han_space type0020">${S.repeat(g.length)}</span>`)
       //'<span class="han_space type0020">$1</span>')
       .replace(/([\u00A0]+)/g, //  '<span class="han_space type00A0">$1</span>')
-        function (g) {
-          return '<span class="han_space type00A0">' + S.repeat(g.length) + '</span>';
-        })
+        g => `<span class="han_space type00A0">${S.repeat(g.length)}</span>`)
       .replace(/(\t+)/g, '<span class="tab_space">$1</span>')
       .replace(/[\t]/g, '^');
 
@@ -402,7 +398,7 @@ NicoTextParser.likeXP = function (text) {
   // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
   // 一文字ずつ走査してもさほど問題ないはず
   htmlText =
-    htmlText.replace(NicoTextParser._FONT_REG.GR, function (all, group, firstChar) {
+    htmlText.replace(NicoTextParser._FONT_REG.GR, (all, group, firstChar) => {
       // hasFontChanged = true;
       let baseFont = '';
       if (firstChar.match(NicoTextParser._FONT_REG.GOTHIC)) {
@@ -458,19 +454,18 @@ NicoTextParser.likeXP = function (text) {
     htmlText
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
       .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
-        function (g) {
-          return '<span class="fill_space">' + //+ g + '</span>';
+        g => `<span class="fill_space">${'田'.repeat(g.length)}</span>`)
+            //+ g + '</span>';
             //'■'._repeat(g.length) + '</span>';
-            '田'.repeat(g.length) + '</span>';
-        })
       .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
       // 非推奨空白文字。 とりあえず化けて出ないように
       .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
         //'<span class="invisible_code">$1</span>')
-        function (g) {
-          let e = window.escape(g);
-          return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
-        })
+        g => `<span class="invisible_code" data-code="${escape(g)}">${g}</span>`)
+        // function (g) {
+        //   let e = window.escape(g);
+        //   return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
+        // })
       // 結合文字 前の文字と同じ幅になるらしい
       // http://www.nicovideo.jp/watch/1376820446 このへんで見かけた
       .replace(/(.)[\u0655]/g, '$1<span class="type0655">$1</span>')
@@ -481,14 +476,14 @@ NicoTextParser.likeXP = function (text) {
       //  .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
       // 全角スペース
       .replace(/([\u3000]+)/g, //'<span class="zen_space type3000">$1</span>')
-        function (g) {
-          return '<span class="zen_space type3000">' + ZS.repeat(g.length) + '</span>';
-        })
+        g => `<span class="zen_space type3000">${ZS.repeat(g.length)}</span>`)
+        // function (g) {
+        //   return '<span class="zen_space type3000">' + ZS.repeat(g.length) + '</span>';
+        // })
       // バックスラッシュ
       .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
       // ゼロ幅文字. ゼロ幅だけどdisplay: none; にすると狂う
-      .replace(/([\u0323\u2029\u202a\u200b\u200c]+)/g,
-        '<span class="zero_space">$1</span>')
+      .replace(/([\u0323\u2029\u202a\u200b\u200c]+)/g, '<span class="zero_space">$1</span>')
       // &emsp;
       .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
       .replace(/\r\n/g, '\n').replace(/([^\n])[\n]$/, '$1') //.replace(/^[\r\n]/, '')
@@ -496,17 +491,10 @@ NicoTextParser.likeXP = function (text) {
       .replace(/[\n]/g, '<br>')
   ;
 
-//      if (hasFontChanged) {
-//        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
-//          var baseFont = RegExp.$1;
-//          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
-//        }
-//      }
   // \u2001だけのグループ＝全角文字に隣接してない ≒ 半角に挟まれている
   htmlText = htmlText.replace(/(.)<group>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
 
-  htmlText = htmlText.replace(/<group>/g, '<group class="' + strongFont + '">');
-
+  htmlText = htmlText.replace(/<group>/g, `<group class="${strongFont}">`);
 
   return htmlText;
 };
@@ -534,8 +522,7 @@ NicoTextParser.likeHTML5 = function (text) {
         })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
       //      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
-      .replace(/([\u2588]+)/g,
-        (g) => {
+      .replace(/([\u2588]+)/g, g => {
           return '<span class="html5_fill_space u2588">' + //g + '</span>';
           // return '<span class="html5_fill_space u2588">' +
           //   //String.fromCharCode(0x2588).repeat(g.length) + '</span>';

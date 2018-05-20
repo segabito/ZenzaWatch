@@ -52,9 +52,7 @@ class VideoListModel extends Emitter {
     Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
 
     if (this._isUniq) {
-      itemList.forEach(i => {
-        this.removeSameWatchId(i);
-      });
+      itemList.forEach(i => this.removeSameWatchId(i));
     }
 
     this._items.splice(this._maxItems);
@@ -72,9 +70,7 @@ class VideoListModel extends Emitter {
     this._items = this._items.concat(itemList);
 
     if (this._isUniq) {
-      itemList.forEach(i => {
-        this.removeSameWatchId(i);
-      });
+      itemList.forEach(i => this.removeSameWatchId(i));
     }
 
     while (this._items.length > this._maxItems) {

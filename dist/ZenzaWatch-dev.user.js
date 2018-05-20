@@ -26,7 +26,7 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito
-// @version        2.0.1beta
+// @version        2.0.4beta
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@
     let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
     let TOKEN = 'r:' + (Math.random());
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.0.1beta';
+    var VER = '2.0.4beta';
     const ENV = 'DEV';
 
     //@environment
@@ -9966,7 +9966,7 @@ StoryboardView.__css__ = (`
       left: 50%;
       height: 40px;
       transform: translate(-50%, 0);
-      background: #222;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 2px, #222);
       white-space: nowrap;
       overflow: visible;
       transition: transform 0.2s ease, left 0.2s ease;
@@ -9981,7 +9981,6 @@ StoryboardView.__css__ = (`
 
 
     .controlItemContainer.center .scalingUI {
-      background: #222;
       transform-origin: top center;
     }
 
@@ -10170,7 +10169,7 @@ StoryboardView.__css__ = (`
       position: relative;
       width: 100%;
       height: 10px;
-      margin: px 0 2px;
+      margin: 2px 0 2px;
       border-top:    1px solid #333;
       border-bottom: 1px solid #333;
       cursor: pointer;
@@ -10181,6 +10180,7 @@ StoryboardView.__css__ = (`
       height: 24px;
       margin-top: -14px;
       transition: none;
+      background-color: rgba(0, 0, 0, 0.5);
     }
 
     .fullScreen .seekBar {
@@ -10192,7 +10192,7 @@ StoryboardView.__css__ = (`
 
 
     .is-mouseMoving .seekBar {
-      background-color: rgba(0, 0, 0, 0.5);
+      /* background-color: rgba(0, 0, 0, 0.5);*/
     }
 
     .seekBarContainer .seekBar * {
@@ -10205,38 +10205,38 @@ StoryboardView.__css__ = (`
       height: 110%;
       left: 0px;
       top: 0px;
-      box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
+      box-shadow: 0 2px 2px #fea inset, 0 -2px 2px #fea inset;
       border-radius: 4px;
-      z-index: 100;
-      background: #663;
+      z-index: 190;
+      background: #ff9;
       transform-origin: left;
       transform: translate3d(0, 0, 0) scaleX(0);
       transition: transform 0.2s;
+      mix-blend-mode: overlay;
+      opacity: 0.6;
     }
 
     .is-youTube .bufferRange {
       width: 100% !important;
       height: 110% !important;
-      box-shadow: 0 0 6px #f96 inset, 0 0 4px #ff9;
-      transition: transform 0.8s ease 0.4s;
+      background: #f99; /*linear-gradient(to bottom, #f96, #ff9, #f96);*/
+      /*box-shadow: 0 0 4px #ff9;*/
+      transition: 0.5s transform ease 1s;
       transform: translate3d(0, 0, 0) scaleX(1) !important;
     }
 
     .zenzaStoryboardOpen .bufferRange {
       background: #ff9;
-      mix-blend-mode: lighten;
-      opacity: 0.5;
     }
 
-    .noHeatMap .bufferRange {
+    /*.noHeatMap .bufferRange {
       background: #666;
-    }
-
+    }*/
 
     .seekBar .seekBarPointer {
       position: absolute;
-      height: 100%;
-      top: 0;
+      height: calc(100% + 2px);
+      top: -1px;
       left: 0;
       z-index: 200;
       pointer-events: none;
@@ -10312,9 +10312,9 @@ StoryboardView.__css__ = (`
     .zenzaHeatMap {
       position: absolute;
       pointer-events: none;
-      top: 2px; left: 0;
+      top: 0; left: 0;
       width: 100%;
-      height: calc(100% - 2px);
+      height: 100%; /*calc(100% - 2px);*/
       transform-origin: 0 0 0;
       transform: translateZ(0);
       opacity: 0.5;
@@ -12482,17 +12482,18 @@ han_group { font-family: 'Arial'; }
 .big    .type0020 > spacer { width: 11.8359375px; }
 .medium .type0020 > spacer { width: 7.668px; }
 .small  .type0020 > spacer { width: 5px; }
-
+/*
 .big    .type3000 > spacer { width: 40px; }
-.medium .type3000 > spacer { width: 26px; }
-.small  .type3000 > spacer { width: 18px; }
-
+.medium .type3000 > spacer { width: 25px; }
+.small  .type3000 > spacer { width: 17px; }
+*/
 /*
 .type3000 > spacer::after { content: ' '; }
 .mincho > .type3000 > spacer::after, .gulim > .type3000 > spacer::after, .mincho > .type3000 > spacer::after {
   content: '全'; 
 }
 */
+
 .big    .gothic > .type3000 > spacer { width: 26.8984375px; }
 .medium .gothic > .type3000 > spacer { width: 16.9375px; }
 .small  .gothic > .type3000 > spacer { width: 10.9609375px; }
@@ -12581,15 +12582,10 @@ NicoTextParser.likeXP = function (text) {
       // 全角文字の連続をグループ化 要検証: \u2003は含む？
       .replace(/([^\x01-\x7E^\xA0]+)/g, '<group>$1</group>') // eslint-disable-line
       .replace(/([\u0020]+)/g, // '<span class="han_space type0020">$1</span>')
-
-        function (g) {
-          return '<span class="han_space type0020">' + S.repeat(g.length) + '</span>';
-        })
+        g => `<span class="han_space type0020">${S.repeat(g.length)}</span>`)
       //'<span class="han_space type0020">$1</span>')
       .replace(/([\u00A0]+)/g, //  '<span class="han_space type00A0">$1</span>')
-        function (g) {
-          return '<span class="han_space type00A0">' + S.repeat(g.length) + '</span>';
-        })
+        g => `<span class="han_space type00A0">${S.repeat(g.length)}</span>`)
       .replace(/(\t+)/g, '<span class="tab_space">$1</span>')
       .replace(/[\t]/g, '^');
 
@@ -12598,7 +12594,7 @@ NicoTextParser.likeXP = function (text) {
   // CA職人のマイメモリーでもない限りフォント変化文字にマッチすること自体がレアなので、
   // 一文字ずつ走査してもさほど問題ないはず
   htmlText =
-    htmlText.replace(NicoTextParser._FONT_REG.GR, function (all, group, firstChar) {
+    htmlText.replace(NicoTextParser._FONT_REG.GR, (all, group, firstChar) => {
       // hasFontChanged = true;
       let baseFont = '';
       if (firstChar.match(NicoTextParser._FONT_REG.GOTHIC)) {
@@ -12654,19 +12650,18 @@ NicoTextParser.likeXP = function (text) {
     htmlText
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="block_space">$1</span>')
       .replace(/([\u2588]+)/g, //'<span class="fill_space">$1</span>')
-        function (g) {
-          return '<span class="fill_space">' + //+ g + '</span>';
+        g => `<span class="fill_space">${'田'.repeat(g.length)}</span>`)
+            //+ g + '</span>';
             //'■'._repeat(g.length) + '</span>';
-            '田'.repeat(g.length) + '</span>';
-        })
       .replace(/([\u2592])/g, '<span class="mesh_space">$1$1</span>')
       // 非推奨空白文字。 とりあえず化けて出ないように
       .replace(/([\uE800\u2002-\u200A\u007F\u05C1\u0E3A\u3164]+)/g,
         //'<span class="invisible_code">$1</span>')
-        function (g) {
-          let e = window.escape(g);
-          return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
-        })
+        g => `<span class="invisible_code" data-code="${escape(g)}">${g}</span>`)
+        // function (g) {
+        //   let e = window.escape(g);
+        //   return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
+        // })
       // 結合文字 前の文字と同じ幅になるらしい
       // http://www.nicovideo.jp/watch/1376820446 このへんで見かけた
       .replace(/(.)[\u0655]/g, '$1<span class="type0655">$1</span>')
@@ -12677,14 +12672,14 @@ NicoTextParser.likeXP = function (text) {
       //  .replace(/([\u2001]+)/g ,  '<span class="zen_space type2001">$1</span>')
       // 全角スペース
       .replace(/([\u3000]+)/g, //'<span class="zen_space type3000">$1</span>')
-        function (g) {
-          return '<span class="zen_space type3000">' + ZS.repeat(g.length) + '</span>';
-        })
+        g => `<span class="zen_space type3000">${ZS.repeat(g.length)}</span>`)
+        // function (g) {
+        //   return '<span class="zen_space type3000">' + ZS.repeat(g.length) + '</span>';
+        // })
       // バックスラッシュ
       .replace(/\\/g, '<span lang="en" class="backslash">&#x5c;</span>')
       // ゼロ幅文字. ゼロ幅だけどdisplay: none; にすると狂う
-      .replace(/([\u0323\u2029\u202a\u200b\u200c]+)/g,
-        '<span class="zero_space">$1</span>')
+      .replace(/([\u0323\u2029\u202a\u200b\u200c]+)/g, '<span class="zero_space">$1</span>')
       // &emsp;
       .replace(/([\u2003]+)/g, '<span class="em_space">$1</span>')
       .replace(/\r\n/g, '\n').replace(/([^\n])[\n]$/, '$1') //.replace(/^[\r\n]/, '')
@@ -12692,17 +12687,10 @@ NicoTextParser.likeXP = function (text) {
       .replace(/[\n]/g, '<br>')
   ;
 
-//      if (hasFontChanged) {
-//        if (htmlText.match(/^<group class="(mincho|gulim|mingLiu)"/)) {
-//          var baseFont = RegExp.$1;
-//          htmlText = htmlText.replace(/<group>/g, '<group class="' + baseFont + '">');
-//        }
-//      }
   // \u2001だけのグループ＝全角文字に隣接してない ≒ 半角に挟まれている
   htmlText = htmlText.replace(/(.)<group>([\u2001]+)<\/group>(.)/, '$1<group class="zen_space arial type2001">$2</group>$3');
 
-  htmlText = htmlText.replace(/<group>/g, '<group class="' + strongFont + '">');
-
+  htmlText = htmlText.replace(/<group>/g, `<group class="${strongFont}">`);
 
   return htmlText;
 };
@@ -12730,8 +12718,7 @@ NicoTextParser.likeHTML5 = function (text) {
         })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
       //      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
-      .replace(/([\u2588]+)/g,
-        (g) => {
+      .replace(/([\u2588]+)/g, g => {
           return '<span class="html5_fill_space u2588">' + //g + '</span>';
           // return '<span class="html5_fill_space u2588">' +
           //   //String.fromCharCode(0x2588).repeat(g.length) + '</span>';
@@ -13434,7 +13421,7 @@ NicoComment.offScreenLayer = (() => {
         span.className = `nicoChat ${type} ${size} ${fontCommand} ${ver}`;
       },
       setFontSizePixel: pixel => {
-        span.style.fontSize = pixel + 'px';
+        span.style.fontSize = `${pixel}px`;
       },
       getOriginalWidth: () => {
         return span.offsetWidth;
@@ -15110,13 +15097,13 @@ NicoChatViewModel.DURATION = {
 
 NicoChatViewModel.FONT = '\'ＭＳ Ｐゴシック\''; // &#xe7cd;
 NicoChatViewModel.FONT_SIZE_PIXEL = {
-  BIG: 36, // 39
+  BIG: 39, // 39
   MEDIUM: 24,
   SMALL: 16 //15
 };
 NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5 = {
   BIG: 40 - 1,      // 684 / 17 > x > 684 / 18
-  MEDIUM: 26 -1 -0.6,   // 684 / 25 > x > 684 / 26
+  MEDIUM: 27 -1,   // 684 / 25 > x > 684 / 26
   SMALL: 18.4 -1     // 684 / 37 > x > 684 / 38
 };
 
@@ -15694,7 +15681,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       inViewElements[i].remove();
     }
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
-    for (i = inViewElements.length - max + 10 - 1; i >= 0; i--) {
+    for (i = inViewElements.length - max - 10 - 1; i >= 0; i--) {
       inViewElements[i].remove();
     }
   }
@@ -16260,7 +16247,10 @@ class NicoChatCss3View {
   static buildChatDom (chat, type, size) {
     let span = document.createElement('span');
     let ver = chat.getCommentVer();
-    let className = ['nicoChat', type, size, ver];
+    let className = ['nicoChat', type, size];
+    if (ver === 'html5') {
+      className.push(ver);
+    }
     if (chat.getColor() === '#000000') {
       className.push('black');
     }
@@ -16281,7 +16271,9 @@ class NicoChatCss3View {
       className.push('updating');
     }
     let fork = chat.getFork();
-    className.push('fork' + fork);
+    if (fork) {
+      className.push(`fork${fork}`);
+    }
 
     if (chat.isSubThread()) {
       className.push('subThread');
@@ -16486,7 +16478,7 @@ class NicoChatCss3View {
         animation-name: dokaben${id} !important;
       }
     `;
-    return '\n' + result.trim() + '\n';
+    return `\n${result.trim()}\n`;
   }
 
 }
@@ -16532,9 +16524,6 @@ _.assign(NicoChatFilter.prototype, {
     let before = this._wordFilterList.join('\n');
     this._wordFilterList.push((text || '').trim());
     this._wordFilterList = _.uniq(this._wordFilterList);
-    if (!util.isPremium()) {
-      this._wordFilterList.splice(20);
-    }
     let after = this._wordFilterList.join('\n');
     if (before !== after) {
       this._wordReg = null;
@@ -16556,9 +16545,6 @@ _.assign(NicoChatFilter.prototype, {
     if (before !== after) {
       this._wordReg = null;
       this._wordFilterList = tmp;
-      if (!util.isPremium()) {
-        this._wordFilterList.splice(20);
-      }
       this._onChange();
     }
   },
@@ -16583,9 +16569,6 @@ _.assign(NicoChatFilter.prototype, {
     let before = this._userIdFilterList.join('\n');
     this._userIdFilterList.push(text);
     this._userIdFilterList = _.uniq(this._userIdFilterList);
-    if (!util.isPremium()) {
-      this._userIdFilterList.splice(10);
-    }
     let after = this._userIdFilterList.join('\n');
     if (before !== after) {
       this._userIdReg = null;
@@ -16607,23 +16590,16 @@ _.assign(NicoChatFilter.prototype, {
     if (before !== after) {
       this._userIdReg = null;
       this._userIdFilterList = tmp;
-      if (!util.isPremium()) {
-        this._userIdFilterList.splice(10);
-      }
       this._onChange();
     }
   },
   getUserIdFilterList: function () {
     return this._userIdFilterList;
   },
-
   addCommandFilter: function (text) {
     let before = this._commandFilterList.join('\n');
     this._commandFilterList.push(text);
     this._commandFilterList = _.uniq(this._commandFilterList);
-    if (!util.isPremium()) {
-      this._commandFilterList.splice(10);
-    }
     let after = this._commandFilterList.join('\n');
     if (before !== after) {
       this._commandReg = null;
@@ -16645,9 +16621,6 @@ _.assign(NicoChatFilter.prototype, {
     if (before !== after) {
       this._commandReg = null;
       this._commandFilterList = tmp;
-      if (!util.isPremium()) {
-        this._commandFilterList.splice(10);
-      }
       this._onChange();
     }
   },
@@ -16666,22 +16639,24 @@ _.assign(NicoChatFilter.prototype, {
   },
   getFilterFunc: function () {
     if (!this._enable) {
-      return function () {
-        return true;
-      };
+      return () => true;
     }
     let threthold = SHARED_NG_SCORE[this._sharedNgLevel];
+    let isPremium = util.isPremium();
 
     // NG設定の数×コメント数だけループを回すのはアホらしいので、
     // 連結した一個の正規表現を生成する
     if (!this._wordReg) {
-      this._wordReg = this._buildFilterReg(this._wordFilterList);
+      this._wordReg = this._buildFilterReg(
+        isPremium ? this._wordFilterList : this._wordFilterList.concat().splice(40));
     }
     if (!this._userIdReg) {
-      this._userIdReg = this._buildFilterPerfectMatchinghReg(this._userIdFilterList);
+      this._userIdReg = this._buildFilterPerfectMatchinghReg(
+        isPremium ? this._userIdFilterList : this._userIdFilterList.concat().splice(40));
     }
     if (!this._commandReg) {
-      this._commandReg = this._buildFilterReg(this._commandFilterList);
+      this._commandReg = this._buildFilterReg(
+        isPremium ? this._commandFilterList : this._commandFilterList.concat().splice(40));
     }
     let wordReg = this._wordReg;
     let wordRegReg = this._wordRegReg;
@@ -16689,7 +16664,7 @@ _.assign(NicoChatFilter.prototype, {
     let commandReg = this._commandReg;
 
     if (Config.getValue('debug')) {
-      return function (nicoChat) {
+      return nicoChat => {
         if (nicoChat.getFork() > 0) {
           return true;
         }
@@ -16789,10 +16764,10 @@ _.assign(NicoChatFilter.prototype, {
     }
     let timeKey = 'applyNgFilter: ' + nicoChatArray[0].getType();
     window.console.time(timeKey);
-    let result = _.filter(nicoChatArray, this.getFilterFunc());
-    let after = result.length;
+    let filterFunc = this.getFilterFunc();
+    let result = nicoChatArray.filter(c => filterFunc(c));
     window.console.timeEnd(timeKey);
-    window.console.log('NG判定結果: %s/%s', after, before);
+    window.console.log('NG判定結果: %s/%s', result.length, before);
     return result;
   },
   isSafe: function (nicoChat) {
@@ -16802,28 +16777,16 @@ _.assign(NicoChatFilter.prototype, {
     if (filterList.length < 1) {
       return null;
     }
-    let r = [];
     const escapeRegs = util.escapeRegs;
-    filterList.forEach(filter => {
-      if (!filter) {
-        return;
-      }
-      r.push(escapeRegs(filter));
-    });
+    let r = filterList.filter(f => f).map(f => escapeRegs(f));
     return new RegExp('(' + r.join('|') + ')', 'i');
   },
   _buildFilterPerfectMatchinghReg: function (filterList) {
     if (filterList.length < 1) {
       return null;
     }
-    let r = [];
     const escapeRegs = util.escapeRegs;
-    filterList.forEach(filter => {
-      if (!filter) {
-        return;
-      }
-      r.push(escapeRegs(filter));
-    });
+    let r = filterList.filter(f => f).map(f => escapeRegs(f));
     return new RegExp('^(' + r.join('|') + ')$');
   },
   _onChange: function () {
@@ -19686,9 +19649,7 @@ class VideoListModel extends Emitter {
     Array.prototype.splice.apply(this._items, [index, 0].concat(itemList));
 
     if (this._isUniq) {
-      itemList.forEach(i => {
-        this.removeSameWatchId(i);
-      });
+      itemList.forEach(i => this.removeSameWatchId(i));
     }
 
     this._items.splice(this._maxItems);
@@ -19706,9 +19667,7 @@ class VideoListModel extends Emitter {
     this._items = this._items.concat(itemList);
 
     if (this._isUniq) {
-      itemList.forEach(i => {
-        this.removeSameWatchId(i);
-      });
+      itemList.forEach(i => this.removeSameWatchId(i));
     }
 
     while (this._items.length > this._maxItems) {
@@ -22840,9 +22799,7 @@ _.assign(PlayerConfig.prototype, {
         'setSessionValue',
         'on',
         'off'
-      ].forEach(func => {
-        this[func] = config[func].bind(config);
-      });
+      ].forEach(func => this[func] = config[func].bind(config));
     }
   },
   // 環境ごとに独立させたい要求が出てきたのでラップする
@@ -22853,7 +22810,7 @@ _.assign(PlayerConfig.prototype, {
     switch (this._mode) {
       case 'ginza':
         if (['autoPlay', 'screenMode'].includes(key)) {
-          return key + ':' + this._mode;
+          return `${key}:${this._mode}`;
         }
         return key;
       default:
@@ -23847,9 +23804,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       playerConfig: config
     });
 
-    this._commentInput.on('post', (e, chat, cmd) => {
-      this.emit('postChat', e, chat, cmd);
-    });
+    this._commentInput.on('post', (e, chat, cmd) =>
+      this.emit('postChat', e, chat, cmd));
 
     let hasPlaying = false;
     this._commentInput.on('focus', isAutoPause => {
@@ -24024,9 +23980,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     };
   },
   _onPlayerStateUpdate: function (changedState) {
-    Object.keys(changedState).forEach(key => {
-      this._onPlayerStateChange(key, changedState[key]);
-    });
+    Object.keys(changedState).forEach(key =>
+      this._onPlayerStateChange(key, changedState[key]));
   },
   _onPlayerStateChange: function (key, value) {
     switch (key) {
@@ -26322,9 +26277,7 @@ _.assign(VideoHoverMenu.prototype, {
     }
     mylistList = mylistList || this._mylistList;
     let menu = this._container.querySelector('.mylistSelectMenu');
-    menu.addEventListener('wheel', e => {
-      e.stopPropagation();
-    }, {passive: true});
+    menu.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
 
     let ul = document.createElement('ul');
     mylistList.forEach(mylist => {
@@ -26362,7 +26315,7 @@ _.assign(VideoHoverMenu.prototype, {
     let menu = this._container.querySelector('.ngSettingSelectMenu');
 
     let enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
-    const updateEnableFilter = (v) => {
+    const updateEnableFilter = v => {
       enableFilterItems.forEach(item => {
         const p = JSON.parse(item.getAttribute('data-param'));
         item.classList.toggle('selected', v === p);
@@ -27295,7 +27248,7 @@ SettingPanel.__tpl__ = (`
             <label>
               <input type="checkbox" class="checkbox" data-setting-name="autoCommentSpeedRate">
               倍速再生でもコメントは速くしない<br>
-                <small>※ コメントアートが一部崩れます</small>
+                <small>※ コメントのレイアウトが一部崩れます</small>
             </label>
           </div>
           
@@ -27310,7 +27263,7 @@ SettingPanel.__tpl__ = (`
                   <option value="2.0"2倍</option>
               </select>
               コメントの速度(倍率)<br>
-                <small>※ コメントアートが一部崩れます</small>
+                <small>※ コメントのレイアウトが一部崩れます</small>
             </label>
           </div>
 
@@ -31446,7 +31399,7 @@ var initializeGinzaSlayer =
     var initializeFlash = function (dialog, query) {
       $('.notify_update_flash_player').remove();
 
-      const watchId = getWatchId();
+      const watchId = util.getWatchId();
       const options = {};
       if (!isNaN(query.from)) {
         options.currentTime = parseFloat(query.from, 10);
@@ -31457,7 +31410,7 @@ var initializeGinzaSlayer =
     };
 
     const initializeHtml5 = function (dialog, query) {
-      const watchId = getWatchId();
+      const watchId = util.getWatchId();
       const options = {};
       if (!isNaN(query.from)) {
         options.currentTime = parseFloat(query.from, 10);

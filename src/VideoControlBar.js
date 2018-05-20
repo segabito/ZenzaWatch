@@ -134,7 +134,7 @@ import {Emitter} from './baselib';
       left: 50%;
       height: 40px;
       transform: translate(-50%, 0);
-      background: #222;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 2px, #222);
       white-space: nowrap;
       overflow: visible;
       transition: transform 0.2s ease, left 0.2s ease;
@@ -149,7 +149,6 @@ import {Emitter} from './baselib';
 
 
     .controlItemContainer.center .scalingUI {
-      background: #222;
       transform-origin: top center;
     }
 
@@ -338,7 +337,7 @@ import {Emitter} from './baselib';
       position: relative;
       width: 100%;
       height: 10px;
-      margin: px 0 2px;
+      margin: 2px 0 2px;
       border-top:    1px solid #333;
       border-bottom: 1px solid #333;
       cursor: pointer;
@@ -349,6 +348,7 @@ import {Emitter} from './baselib';
       height: 24px;
       margin-top: -14px;
       transition: none;
+      background-color: rgba(0, 0, 0, 0.5);
     }
 
     .fullScreen .seekBar {

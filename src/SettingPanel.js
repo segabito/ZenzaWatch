@@ -305,7 +305,7 @@ SettingPanel.__tpl__ = (`
             <label>
               <input type="checkbox" class="checkbox" data-setting-name="autoCommentSpeedRate">
               倍速再生でもコメントは速くしない<br>
-                <small>※ コメントアートが一部崩れます</small>
+                <small>※ コメントのレイアウトが一部崩れます</small>
             </label>
           </div>
           
@@ -320,7 +320,7 @@ SettingPanel.__tpl__ = (`
                   <option value="2.0"2倍</option>
               </select>
               コメントの速度(倍率)<br>
-                <small>※ コメントアートが一部崩れます</small>
+                <small>※ コメントのレイアウトが一部崩れます</small>
             </label>
           </div>
 

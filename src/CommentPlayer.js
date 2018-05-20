@@ -690,7 +690,7 @@ NicoComment.offScreenLayer = (() => {
         span.className = `nicoChat ${type} ${size} ${fontCommand} ${ver}`;
       },
       setFontSizePixel: pixel => {
-        span.style.fontSize = pixel + 'px';
+        span.style.fontSize = `${pixel}px`;
       },
       getOriginalWidth: () => {
         return span.offsetWidth;
@@ -2366,13 +2366,13 @@ NicoChatViewModel.DURATION = {
 
 NicoChatViewModel.FONT = '\'ＭＳ Ｐゴシック\''; // &#xe7cd;
 NicoChatViewModel.FONT_SIZE_PIXEL = {
-  BIG: 36, // 39
+  BIG: 39, // 39
   MEDIUM: 24,
   SMALL: 16 //15
 };
 NicoChatViewModel.FONT_SIZE_PIXEL_VER_HTML5 = {
   BIG: 40 - 1,      // 684 / 17 > x > 684 / 18
-  MEDIUM: 26 -1 -0.6,   // 684 / 25 > x > 684 / 26
+  MEDIUM: 27 -1,   // 684 / 25 > x > 684 / 26
   SMALL: 18.4 -1     // 684 / 37 > x > 684 / 38
 };
 
@@ -2950,7 +2950,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       inViewElements[i].remove();
     }
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
-    for (i = inViewElements.length - max + 10 - 1; i >= 0; i--) {
+    for (i = inViewElements.length - max - 10 - 1; i >= 0; i--) {
       inViewElements[i].remove();
     }
   }
@@ -3516,7 +3516,10 @@ class NicoChatCss3View {
   static buildChatDom (chat, type, size) {
     let span = document.createElement('span');
     let ver = chat.getCommentVer();
-    let className = ['nicoChat', type, size, ver];
+    let className = ['nicoChat', type, size];
+    if (ver === 'html5') {
+      className.push(ver);
+    }
     if (chat.getColor() === '#000000') {
       className.push('black');
     }
@@ -3537,7 +3540,9 @@ class NicoChatCss3View {
       className.push('updating');
     }
     let fork = chat.getFork();
-    className.push('fork' + fork);
+    if (fork) {
+      className.push(`fork${fork}`);
+    }
 
     if (chat.isSubThread()) {
       className.push('subThread');
@@ -3742,7 +3747,7 @@ class NicoChatCss3View {
         animation-name: dokaben${id} !important;
       }
     `;
-    return '\n' + result.trim() + '\n';
+    return `\n${result.trim()}\n`;
   }
 
 }
@@ -3945,7 +3950,7 @@ _.assign(NicoChatFilter.prototype, {
     let commandReg = this._commandReg;
 
     if (Config.getValue('debug')) {
-      return function (nicoChat) {
+      return nicoChat => {
         if (nicoChat.getFork() > 0) {
           return true;
         }
