@@ -9,7 +9,7 @@ var initializeGinzaSlayer =
     var initializeFlash = function (dialog, query) {
       $('.notify_update_flash_player').remove();
 
-      const watchId = getWatchId();
+      const watchId = util.getWatchId();
       const options = {};
       if (!isNaN(query.from)) {
         options.currentTime = parseFloat(query.from, 10);
@@ -20,7 +20,7 @@ var initializeGinzaSlayer =
     };
 
     const initializeHtml5 = function (dialog, query) {
-      const watchId = getWatchId();
+      const watchId = util.getWatchId();
       const options = {};
       if (!isNaN(query.from)) {
         options.currentTime = parseFloat(query.from, 10);

@@ -74,9 +74,7 @@ _.assign(NicoCommentPlayer.prototype, {
   _onCommentChange: function (e) {
     console.log('onCommentChange', e);
     if (this._view) {
-      setTimeout(() => {
-        this._view.refresh();
-      }, 0);
+      setTimeout(() => this._view.refresh(), 0);
     }
     this.emit('change');
   },
@@ -2542,9 +2540,9 @@ class NicoCommentCss3PlayerView extends Emitter {
         _refresh();
       }
     });
-    NicoChatViewModel.emitter.on('updateCommentSpeedRate', () => {
-      this.refresh();
-    });
+    // NicoChatViewModel.emitter.on('updateCommentSpeedRate', () => {
+    //   this.refresh();
+    // });
     ZenzaWatch.debug.css3Player = this;
 
   }
@@ -2592,21 +2590,19 @@ class NicoCommentCss3PlayerView extends Emitter {
       this._optionStyle = doc.getElementById('optionCss');
       this._style = doc.getElementById('nicoChatAnimationDefinition');
       const commentLayer = this._commentLayer = doc.getElementById('commentLayer');
-
+      const subLayer = this._subLayer = document.createElement('div');
+      subLayer.className = 'subLayer';
+      commentLayer.appendChild(subLayer);
       // Config直接参照してるのは手抜き
       doc.body.className = Config.getValue('debug') ? 'debug' : '';
-      Config.on('update-debug', val => {
-        doc.body.className = val ? 'debug' : '';
-      });
+      Config.on('update-debug', val => doc.body.className = val ? 'debug' : '');
       // 手抜きその2
       this._optionStyle.innerHTML = NicoComment.offScreenLayer.getOptionCss();
       ZenzaWatch.emitter.on('updateOptionCss', newCss => {
         this._optionStyle.innerHTML = newCss;
       });
 
-      ZenzaWatch.debug.getInViewElements = () => {
-        return doc.getElementsByClassName('nicoChat');
-      };
+      ZenzaWatch.debug.getInViewElements = () => doc.getElementsByClassName('nicoChat');
 
       const onResize = () => {
         const w = win.innerWidth, h = win.innerHeight;
@@ -2641,9 +2637,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 
       const updateTextShadow = type => {
         const types = ['shadow-type2', 'shadow-type3', 'shadow-stroke', 'shadow-dokaben'];
-        types.forEach(t => {
-          doc.body.classList.toggle(t, t === type);
-        });
+        types.forEach(t => doc.body.classList.toggle(t, t === type));
       };
       updateTextShadow(this._config.getValue('textShadowType'));
       this._config.on('update-textShadowType', _.debounce(updateTextShadow, 100));
@@ -2662,7 +2656,7 @@ class NicoCommentCss3PlayerView extends Emitter {
             document.body.appendChild(canvas);
             window.console.log('ok', canvas);
             return Promise.resolve({canvas, img});
-          }, (err) => {
+          }, err => {
             sessionStorage.lastCaptureErrorSrc = html;
             window.console.error('!', err);
             return Promise.reject(err);
@@ -2680,9 +2674,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         a.setAttribute('href', url);
         document.body.appendChild(a);
         a.click();
-        window.setTimeout(() => {
-          a.remove();
-        }, 1000);
+        window.setTimeout(() => a.remove(), 1000);
       };
 
       window.console.timeEnd('initialize NicoCommentCss3PlayerView');
@@ -2739,7 +2731,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         PopupMessage.alert('コメントレイヤーの生成に失敗しました');
       }
     }
-    iframe.setAttribute('allow', 'vr');
+//    iframe.setAttribute('allow', 'vr');
     return iframe;
   }
   _onCommand (command, param) {
@@ -2757,6 +2749,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     return this._view;
   }
   setPlaybackRate (playbackRate) {
+    // let isSpeedUp = this._playbackRate < playbackRate;
     this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
     if (!Config.getValue('autoCommentSpeedRate') || this._playbackRate <= 1) {
       this.refresh();
@@ -2823,6 +2816,7 @@ class NicoCommentCss3PlayerView extends Emitter {
   clear () {
     if (this._commentLayer) {
       this._commentLayer.textContent = '';
+      this._commentLayer.appendChild(this._subLayer);
     }
     if (this._style) {
       this._style.textContent = '';
@@ -2846,7 +2840,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       this._viewModel.getGroup(NicoChat.TYPE.TOP)
     ];
 
-    let css = [], inView = [], dom = [];
+    let css = [], inView = [], dom = [], subDom = [];
     let i, len;
     // 表示状態にあるchatを集める
     for (i = 0, len = groups.length; i < len; i++) {
@@ -2884,7 +2878,8 @@ class NicoCommentCss3PlayerView extends Emitter {
       nicoChat = newView[i];
       let type = nicoChat.getType();
       let size = nicoChat.getSize();
-      dom.push(NicoChatCss3View.buildChatDom(nicoChat, type, size));
+      (nicoChat.isSubThread() ? subDom : dom)
+        .push(NicoChatCss3View.buildChatDom(nicoChat, type, size));
       css.push(NicoChatCss3View.buildChatCss(nicoChat, type, ct, this._playbackRate));
     }
 
@@ -2901,17 +2896,21 @@ class NicoCommentCss3PlayerView extends Emitter {
         delete inSlotTable[key];
         outViewIds.push(key);
       });
-      this._updateDom(dom, css, outViewIds);
+      this._updateDom(dom, subDom, css, outViewIds);
     }
   }
 
-  _updateDom (dom, css, outViewIds) {
+  _updateDom (dom, subDom, css, outViewIds) {
     let fragment = document.createDocumentFragment();
     while (dom.length > 0) {
       fragment.appendChild(dom.shift());
     }
     this._commentLayer.appendChild(fragment);
-    //this._style.innerHTML += css.join('');
+    let subFragment = document.createDocumentFragment();
+    while (subDom.length > 0) {
+      subFragment.appendChild(subDom.shift());
+    }
+    this._subLayer.appendChild(subFragment);
     this._style.insertAdjacentHTML('beforeend', css.join(''));
     this._removeOutviewElements(outViewIds);
     this._gcInviewElements();
@@ -3230,12 +3229,19 @@ body.in-capture .commentLayer {
 }
 
 .commentLayer {
-  position: relative;
+  position: absolute;
   width: 544px;
   height: 384px;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.subLayer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0.7;
 }
 
 .debug .commentLayer {
@@ -3544,9 +3550,9 @@ class NicoChatCss3View {
       className.push(`fork${fork}`);
     }
 
-    if (chat.isSubThread()) {
-      className.push('subThread');
-    }
+    // if (chat.isSubThread()) {
+    //   className.push('subThread');
+    // }
 
     if (chat.isPostFail()) {
       className.push('fail');
@@ -3793,9 +3799,6 @@ _.assign(NicoChatFilter.prototype, {
     let before = this._wordFilterList.join('\n');
     this._wordFilterList.push((text || '').trim());
     this._wordFilterList = _.uniq(this._wordFilterList);
-    if (!util.isPremium()) {
-      this._wordFilterList.splice(20);
-    }
     let after = this._wordFilterList.join('\n');
     if (before !== after) {
       this._wordReg = null;
@@ -3817,9 +3820,6 @@ _.assign(NicoChatFilter.prototype, {
     if (before !== after) {
       this._wordReg = null;
       this._wordFilterList = tmp;
-      if (!util.isPremium()) {
-        this._wordFilterList.splice(20);
-      }
       this._onChange();
     }
   },
@@ -3844,9 +3844,6 @@ _.assign(NicoChatFilter.prototype, {
     let before = this._userIdFilterList.join('\n');
     this._userIdFilterList.push(text);
     this._userIdFilterList = _.uniq(this._userIdFilterList);
-    if (!util.isPremium()) {
-      this._userIdFilterList.splice(10);
-    }
     let after = this._userIdFilterList.join('\n');
     if (before !== after) {
       this._userIdReg = null;
@@ -3868,23 +3865,16 @@ _.assign(NicoChatFilter.prototype, {
     if (before !== after) {
       this._userIdReg = null;
       this._userIdFilterList = tmp;
-      if (!util.isPremium()) {
-        this._userIdFilterList.splice(10);
-      }
       this._onChange();
     }
   },
   getUserIdFilterList: function () {
     return this._userIdFilterList;
   },
-
   addCommandFilter: function (text) {
     let before = this._commandFilterList.join('\n');
     this._commandFilterList.push(text);
     this._commandFilterList = _.uniq(this._commandFilterList);
-    if (!util.isPremium()) {
-      this._commandFilterList.splice(10);
-    }
     let after = this._commandFilterList.join('\n');
     if (before !== after) {
       this._commandReg = null;
@@ -3906,9 +3896,6 @@ _.assign(NicoChatFilter.prototype, {
     if (before !== after) {
       this._commandReg = null;
       this._commandFilterList = tmp;
-      if (!util.isPremium()) {
-        this._commandFilterList.splice(10);
-      }
       this._onChange();
     }
   },
@@ -3927,22 +3914,24 @@ _.assign(NicoChatFilter.prototype, {
   },
   getFilterFunc: function () {
     if (!this._enable) {
-      return function () {
-        return true;
-      };
+      return () => true;
     }
     let threthold = SHARED_NG_SCORE[this._sharedNgLevel];
+    let isPremium = util.isPremium();
 
     // NG設定の数×コメント数だけループを回すのはアホらしいので、
     // 連結した一個の正規表現を生成する
     if (!this._wordReg) {
-      this._wordReg = this._buildFilterReg(this._wordFilterList);
+      this._wordReg = this._buildFilterReg(
+        isPremium ? this._wordFilterList : this._wordFilterList.concat().splice(40));
     }
     if (!this._userIdReg) {
-      this._userIdReg = this._buildFilterPerfectMatchinghReg(this._userIdFilterList);
+      this._userIdReg = this._buildFilterPerfectMatchinghReg(
+        isPremium ? this._userIdFilterList : this._userIdFilterList.concat().splice(40));
     }
     if (!this._commandReg) {
-      this._commandReg = this._buildFilterReg(this._commandFilterList);
+      this._commandReg = this._buildFilterReg(
+        isPremium ? this._commandFilterList : this._commandFilterList.concat().splice(40));
     }
     let wordReg = this._wordReg;
     let wordRegReg = this._wordRegReg;
@@ -4050,10 +4039,10 @@ _.assign(NicoChatFilter.prototype, {
     }
     let timeKey = 'applyNgFilter: ' + nicoChatArray[0].getType();
     window.console.time(timeKey);
-    let result = _.filter(nicoChatArray, this.getFilterFunc());
-    let after = result.length;
+    let filterFunc = this.getFilterFunc();
+    let result = nicoChatArray.filter(c => filterFunc(c));
     window.console.timeEnd(timeKey);
-    window.console.log('NG判定結果: %s/%s', after, before);
+    window.console.log('NG判定結果: %s/%s', result.length, before);
     return result;
   },
   isSafe: function (nicoChat) {
@@ -4063,28 +4052,16 @@ _.assign(NicoChatFilter.prototype, {
     if (filterList.length < 1) {
       return null;
     }
-    let r = [];
     const escapeRegs = util.escapeRegs;
-    filterList.forEach(filter => {
-      if (!filter) {
-        return;
-      }
-      r.push(escapeRegs(filter));
-    });
+    let r = filterList.filter(f => f).map(f => escapeRegs(f));
     return new RegExp('(' + r.join('|') + ')', 'i');
   },
   _buildFilterPerfectMatchinghReg: function (filterList) {
     if (filterList.length < 1) {
       return null;
     }
-    let r = [];
     const escapeRegs = util.escapeRegs;
-    filterList.forEach(filter => {
-      if (!filter) {
-        return;
-      }
-      r.push(escapeRegs(filter));
-    });
+    let r = filterList.filter(f => f).map(f => escapeRegs(f));
     return new RegExp('^(' + r.join('|') + ')$');
   },
   _onChange: function () {

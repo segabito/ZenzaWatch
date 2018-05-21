@@ -9961,7 +9961,7 @@ StoryboardView.__css__ = (`
       left: 50%;
       height: 40px;
       transform: translate(-50%, 0);
-      background: #222;/*linear-gradient(to bottom, rgba(0, 0, 0, 0) 2px, #222, #222);*/
+      background: #222;
       white-space: nowrap;
       overflow: visible;
       transition: transform 0.2s ease, left 0.2s ease;
@@ -10067,7 +10067,6 @@ StoryboardView.__css__ = (`
       text-shadow: 0 0 8px #ff9;
     }
     .controlButton:active .controlButtonInner {
-      /*font-size: 15px;*/
       transform: translate(0, 2px);
     }
     .settingPanelSwitch .tooltip {
@@ -10191,7 +10190,7 @@ StoryboardView.__css__ = (`
       height: 110%;
       left: 0px;
       top: 0px;
-      box-shadow: 0 2px 2px #fea inset, 0 -2px 2px #fea inset;
+      box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
       z-index: 190;
       background: #ff9;
       transform-origin: left;
@@ -10209,9 +10208,6 @@ StoryboardView.__css__ = (`
       transform: translate3d(0, 0, 0) scaleX(1) !important;
     }
 
-    .zenzaStoryboardOpen .bufferRange {
-      background: #ff9;
-    }
 
     .seekBar .seekBarPointer {
       position: absolute;
@@ -10229,8 +10225,8 @@ StoryboardView.__css__ = (`
         position: absolute;
         top: 50%;
         width: 12px;
-        height: 100%;
-        background: rgba(255, 255, 255, 0.9);
+        height: calc(100% + 2px);
+        background: rgba(255, 255, 255, 0.5);
         transform: translate(-50%, -50%);
         box-shadow: 0 0 4px #ffc inset;
       }
@@ -10314,7 +10310,6 @@ StoryboardView.__css__ = (`
     }
 
     .is-loop .loopSwitch {
-      /*text-shadow: 0px 0px 2px #9cf;*/
       color: #9cf;
     }
     .loopSwitch .controlButtonInner {
@@ -10570,7 +10565,6 @@ StoryboardView.__css__ = (`
       pointer-events: auto;
     }
     .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
-      /*text-shadow: 0px 0px 2px #9cf;*/
       color: #9cf;
     }
 
@@ -10745,7 +10739,7 @@ StoryboardView.__css__ = (`
       background: linear-gradient(
         to right, 
         rgba(0,0,0,0),
-        ${util.toRgba('#ffffff', 0.5)},
+        ${util.toRgba('#ffffcc', 0.3)},
         rgba(0,0,0)
       );
       mix-blend-mode: lighten;

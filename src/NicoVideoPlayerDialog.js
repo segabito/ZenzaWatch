@@ -38,18 +38,14 @@ _.assign(PlayerConfig.prototype, {
     }
 
     if (!this._mode) {
-      _.each([
-        'refreshValue',
+      [ 'refreshValue',
         'getValue',
         'setValue',
         'setValueSilently',
         'setSessionValue',
         'on',
         'off'
-      ], (func) => {
-        //this[func] = _.bind(config[func], config);
-        this[func] = config[func].bind(config);
-      });
+      ].forEach(func => this[func] = config[func].bind(config));
     }
   },
   // 環境ごとに独立させたい要求が出てきたのでラップする
@@ -1045,9 +1041,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       playerConfig: config
     });
 
-    this._commentInput.on('post', (e, chat, cmd) => {
-      this.emit('postChat', e, chat, cmd);
-    });
+    this._commentInput.on('post', (e, chat, cmd) =>
+      this.emit('postChat', e, chat, cmd));
 
     let hasPlaying = false;
     this._commentInput.on('focus', isAutoPause => {
@@ -3533,7 +3528,7 @@ _.assign(VideoHoverMenu.prototype, {
     let menu = this._container.querySelector('.ngSettingSelectMenu');
 
     let enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
-    const updateEnableFilter = (v) => {
+    const updateEnableFilter = v => {
       enableFilterItems.forEach(item => {
         const p = JSON.parse(item.getAttribute('data-param'));
         item.classList.toggle('selected', v === p);
