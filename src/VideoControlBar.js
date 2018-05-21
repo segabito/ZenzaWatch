@@ -28,14 +28,8 @@ import {Emitter} from './baselib';
       z-index: 150000;
       background: #000;
       transition: opacity 0.3s ease, transform 0.3s ease;
-
       user-select: none;
       content: layout;
-    }
-    .changeScreenMode .videoControlBar {
-      opacity: 0;
-      transform: translate3d(0, 0, 0);
-      transition: none;
     }
     .zenzaScreenMode_small    .videoControlBar,
     .zenzaScreenMode_sideView .videoControlBar,
@@ -107,6 +101,11 @@ import {Emitter} from './baselib';
       z-index: 200;
     }
 
+    .controlItemContainer:hover,
+    .videoControlBar.is-menuOpen .controlItemContainer {
+      z-index: 260;
+    }
+
     .controlItemContainer.left {
       left: 0;
       height: 40px;
@@ -134,7 +133,7 @@ import {Emitter} from './baselib';
       left: 50%;
       height: 40px;
       transform: translate(-50%, 0);
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 2px, #222);
+      background: #222;
       white-space: nowrap;
       overflow: visible;
       transition: transform 0.2s ease, left 0.2s ease;
@@ -184,6 +183,7 @@ import {Emitter} from './baselib';
       color: #fff;
       opacity: 0.8;
       margin-right: 8px;
+      min-width: 32px;
       vertical-align: middle;
     }
     .controlButton:hover .controlButtonInner {
@@ -238,8 +238,8 @@ import {Emitter} from './baselib';
     .settingPanelSwitch:hover {
       text-shadow: 0 0 8px #ff9;
     }
-    .controlButton:active {
-      font-size: 15px;
+    .controlButton:active .controlButtonInner {
+      transform: translate(0, 2px);
     }
     .settingPanelSwitch .tooltip {
       left: 0;
@@ -256,11 +256,7 @@ import {Emitter} from './baselib';
       font-size: 23px;
       width: 32px;
       height: 32px;
-      margin-top: -2px;
       line-height: 30px;
-    }
-    .seekTop:active {
-      font-size: 18px;
     }
 
     .togglePlay {
@@ -294,7 +290,7 @@ import {Emitter} from './baselib';
       left: 0;
       width: 100%;
       cursor: pointer;
-      z-index: 150;
+      z-index: 250;
     }
     .fullScreen .seekBarContainer {
       top: auto;
@@ -325,10 +321,8 @@ import {Emitter} from './baselib';
     .is-loading .seekBarContainer,
     .is-error   .seekBarContainer {
       pointer-events: none;
-      filter: grayscale(100%);
     }
     .is-abort   .seekBarContainer *,
-    .is-loading .seekBarContainer *,
     .is-error   .seekBarContainer * {
       display: none;
     }
@@ -358,11 +352,6 @@ import {Emitter} from './baselib';
       transition: none;
     }
 
-
-    .is-mouseMoving .seekBar {
-      background-color: rgba(0, 0, 0, 0.5);
-    }
-
     .seekBarContainer .seekBar * {
       pointer-events: none;
     }
@@ -374,35 +363,27 @@ import {Emitter} from './baselib';
       left: 0px;
       top: 0px;
       box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
-      border-radius: 4px;
-      z-index: 100;
-      background: #663;
+      z-index: 190;
+      background: #ff9;
       transform-origin: left;
       transform: translate3d(0, 0, 0) scaleX(0);
       transition: transform 0.2s;
+      mix-blend-mode: overlay;
+      opacity: 0.6;
     }
 
     .is-youTube .bufferRange {
       width: 100% !important;
       height: 110% !important;
-      box-shadow: 0 0 6px #f96 inset, 0 0 4px #ff9;
-      transition: transform 0.8s ease 0.4s;
+      background: #f99;
+      transition: 0.5s transform ease 1s;
       transform: translate3d(0, 0, 0) scaleX(1) !important;
-    }
-
-    .zenzaStoryboardOpen .bufferRange {
-      background: #ff9;
-      mix-blend-mode: lighten;
-      opacity: 0.5;
-    }
-
-    .noHeatMap .bufferRange {
-      background: #666;
     }
 
 
     .seekBar .seekBarPointer {
       position: absolute;
+      display: inline-block;
       height: 100%;
       top: 0;
       left: 0;
@@ -410,18 +391,16 @@ import {Emitter} from './baselib';
       pointer-events: none;
       transform: translate3d(0, 0, 0);
       transform-origin: left middle;
-      transition: none;
     }
 
       .seekBar .seekBarPointerCore {
         position: absolute;
         top: 50%;
         width: 12px;
-        height: 140%;
-        background: rgba(255, 255, 255, 0.6);
-        border-radius: 2px;
+        height: calc(100% + 2px);
+        background: rgba(255, 255, 255, 0.5);
         transform: translate(-50%, -50%);
-        box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
+        box-shadow: 0 0 4px #ffc inset;
       }
 
     .is-loading  .seekBar .seekBarPointer,
@@ -438,7 +417,6 @@ import {Emitter} from './baselib';
       white-space: nowrap;
       background: rgba(33, 33, 33, 0.5);
       border: 0;
-      border-radius: 4px;
       pointer-events: none;
       user-select: none;
     }
@@ -480,9 +458,9 @@ import {Emitter} from './baselib';
     .zenzaHeatMap {
       position: absolute;
       pointer-events: none;
-      top: 2px; left: 0;
+      top: 0; left: 0;
       width: 100%;
-      height: calc(100% - 2px);
+      height: 100%;
       transform-origin: 0 0 0;
       transform: translateZ(0);
       opacity: 0.5;
@@ -491,7 +469,6 @@ import {Emitter} from './baselib';
     .noHeatMap .zenzaHeatMap {
       display: none;
     }
-
 
     .loopSwitch {
       width:  32px;
@@ -505,7 +482,6 @@ import {Emitter} from './baselib';
     }
 
     .is-loop .loopSwitch {
-      text-shadow: 0px 0px 2px #9cf;
       color: #9cf;
     }
     .loopSwitch .controlButtonInner {
@@ -523,7 +499,7 @@ import {Emitter} from './baselib';
     }
 
     .playbackRateMenu:active .controlButtonInner {
-      font-size: 13px;
+      transform: translate(0, 2px);
     }
     .playbackRateMenu.show {
       background: #888;
@@ -676,8 +652,7 @@ import {Emitter} from './baselib';
       box-sizing: border-box;
       width: 64px;
       height: 8px;
-      border: 1px solid #888;
-      border-radius: 4px;
+      background: #333;
       cursor: pointer;
       overflow: hidden;
     }
@@ -690,7 +665,6 @@ import {Emitter} from './baselib';
       bottom: 0;
       background: #ccc;
       pointer-events: none;
-
     }
 
     .videoControlBar .volumeControl .volumeBarPointer {
@@ -763,7 +737,6 @@ import {Emitter} from './baselib';
       pointer-events: auto;
     }
     .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
-      text-shadow: 0px 0px 2px #9cf;
       color: #9cf;
     }
 
@@ -923,6 +896,36 @@ import {Emitter} from './baselib';
       line-height: 32px;
       pointer-events: none;
     }
+    
+    .progressWave {
+      display: none;
+    }
+    .is-loading .progressWave {
+      display: inline-block;
+      position: absolute;
+      left: 0;
+      top: 1px;
+      z-index: 400;
+      width: 40%;
+      height: calc(100% - 2px);
+      background: linear-gradient(
+        to right, 
+        rgba(0,0,0,0),
+        ${util.toRgba('#ffffcc', 0.3)},
+        rgba(0,0,0)
+      );
+      mix-blend-mode: lighten;
+      animation-name: progressWave;
+      animation-iteration-count: infinite;
+      animation-duration: 4s;
+      animation-timing-function: linear;
+      animation-delay: -1s;
+    }
+    @keyframes progressWave {
+      0%   { transform: translate3d(-100%, 0, 0) translate3d(-5vw, 0, 0); }
+      100% { transform: translate3d(100%, 0, 0) translate3d(150vw, 0, 0); }
+    }
+
   `).trim();
 
   VideoControlBar.__tpl__ = (`
@@ -935,6 +938,7 @@ import {Emitter} from './baselib';
             <div class="seekBarPointerCore"></div>
           </div>
           <div class="bufferRange"></div>
+          <div class="progressWave"></div>
         </div>
       </div>
 
@@ -1259,10 +1263,10 @@ import {Emitter} from './baselib';
       let config   = this._playerConfig;
 
       let setVolumeBar = this._setVolumeBar = v => {
-        let per = Math.round(v * 100);
-        $bar.css({ width: per + '%'});
-        $pointer.css({ left: per + '%'});
-        $tooltip.text('音量 (' + per + '%)');
+        let per = `${Math.round(v * 100)}%`;
+        $bar.css({ width: per });
+        $pointer.css({ left: per });
+        $tooltip.text(`音量 (${per})`);
       };
 
       let $inner = $container.find('.volumeControlInner');
@@ -1301,12 +1305,8 @@ import {Emitter} from './baselib';
         unbindDragEvent();
         $container.removeClass('dragging');
       };
-      let onBodyMouseUp = () => {
-        endMouseDrag();
-      };
-      let onWindowBlur = () => {
-        endMouseDrag();
-      };
+      let onBodyMouseUp = () => endMouseDrag();
+      let onWindowBlur = () => endMouseDrag();
 
       let onVolumeBarMouseDown = e => {
         e.preventDefault();
@@ -1341,7 +1341,6 @@ import {Emitter} from './baselib';
           param = JSON.parse(param);
         }
         this.toggleVideoServerTypeMenu(false);
-        //$menu.removeClass('show');
         this.emit('command', command, param);
       });
 
@@ -1365,10 +1364,8 @@ import {Emitter} from './baselib';
         $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
       };
 
-      // updateEnableDmc(      config.getValue('enableDmc'));
       updateSmileVideoQuality(   config.getValue('smileVideoQuality'));
       updateDmcVideoQuality(config.getValue('dmcVideoQuality'));
-      // config.on('update-enableDmc',       updateEnableDmc);
       config.on('update-forceEconomy',    updateSmileVideoQuality);
       config.on('update-dmcVideoQuality', updateDmcVideoQuality);
 
@@ -1426,7 +1423,7 @@ import {Emitter} from './baselib';
     },
     _toggleMenu: function(name, $btn, $menu, v) {
       let $body = $('body');
-      let eventName = 'click.ZenzaWatch_' + name + 'Menu';
+      let eventName = `click.ZenzaWatch_${name}Menu`;
 
       $body.off(eventName);
       $btn .toggleClass('show', v);
@@ -1716,13 +1713,12 @@ import {Emitter} from './baselib';
     _height: 12,
     _initializePalette: function() {
       this._palette = [];
-      // NicoHeatMaoより控え目な配色にしたい
       for (let c = 0; c < 256; c++) {
         let
           r = Math.floor((c > 127) ? (c / 2 + 128) : 0),
           g = Math.floor((c > 127) ? (255 - (c - 128) * 2) : (c * 2)),
           b = Math.floor((c > 127) ? 0 : (255  - c * 2));
-        this._palette.push('rgb(' + r + ', ' + g + ', ' + b + ')');
+        this._palette.push(`rgb(${r}, ${g}, ${b})`);
       }
     },
     _initializeCanvas: function() {
@@ -1744,11 +1740,10 @@ import {Emitter} from './baselib';
       this.reset();
     },
     reset: function() {
-      if (this._context) {
-        this._context.fillStyle = this._palette[0];
-        this._context.beginPath();
-        this._context.fillRect(0, 0, this._width, this._height);
-      }
+      if (!this._context) { return; }
+      this._context.fillStyle = this._palette[0];
+      this._context.beginPath();
+      this._context.fillRect(0, 0, this._width, this._height);
     },
     update: function(map) {
       if (!this._isInitialized) {
@@ -2044,7 +2039,7 @@ import {Emitter} from './baselib';
       this._$inner = $view.find('.zenzaCommentPreviewInner');
 
       $view.on('click', this._onClick.bind(this));
-      $view[0].addEventListener('wheel', e => e.stopPropagation(), {passive: true})
+      $view[0].addEventListener('wheel', e => e.stopPropagation(), {passive: true});
       $view[0].addEventListener('scroll',
         _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
@@ -2140,10 +2135,7 @@ import {Emitter} from './baselib';
       let color = chat.getColor() || '#fff';
       let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
-      let vposToTime = vpos => {
-        let sec = Math.floor(vpos / 100);
-        return util.secToTime(sec);
-      };
+      let vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
 
       return `<li class="nicoChat fork${chat.getFork()} ${oe}"
             id="commentPreviewItem${idx}"
@@ -2312,7 +2304,7 @@ import {Emitter} from './baselib';
   SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
       position: absolute;
-      display: inline-block;
+      display: none;
       z-index: 300;
       position: absolute;
       box-sizing: border-box;
@@ -2343,11 +2335,12 @@ import {Emitter} from './baselib';
 
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
+      display: inline-block;
       pointer-events: auto;
     }
 
     .fullScreen .seekBarContainer:not(:hover) .seekBarToolTip {
-      left: -100vw !important;
+      display: none;
     }
 
     .seekBarToolTip .seekBarToolTipInner {

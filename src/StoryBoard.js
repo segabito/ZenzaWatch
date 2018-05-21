@@ -881,9 +881,7 @@ _.assign(StoryboardView.prototype, {
 
     let $view = this._$view;
     $view.addClass('clicked');
-    window.setTimeout(() => {
-      $view.removeClass('clicked');
-    }, 1000);
+    window.setTimeout(() => $view.removeClass('clicked'), 1000);
     this._$cursorTime.css({
       transform: 'translate(-999px, 0)'
     });
@@ -914,7 +912,7 @@ _.assign(StoryboardView.prototype, {
 
     let time = util.secToTime(sec);
     this._$cursorTime.text(time).css({
-      transform: `translate(${e.pageX}px, 0) translate(-50%, 0)`
+      transform: `translate3d(${e.pageX}px, 0, 0) translate(-50%, 0)`
     });
 
     this._isHover = true;
@@ -1024,9 +1022,7 @@ _.assign(StoryboardView.prototype, {
       $view.addClass('opening show');
       this.scrollLeft(0);
       this.open();
-      window.setTimeout(function () {
-        $view.removeClass('opening');
-      }, 1000);
+      window.setTimeout(() => $view.removeClass('opening'), 1000);
     }
 
   },
@@ -1056,12 +1052,15 @@ _.assign(StoryboardView.prototype, {
     }
 
     if (this._scrollLeftChanged && !this._isHover) {
-      this._$inner.scrollLeft(this._scrollLeft);
+      // let lastScrollLeft = this._inner.scrollLeft;
+      this._inner.scrollLeft = this._scrollLeft;
       this._scrollLeftChanged = false;
+      // this._pointerLeft += this._scrollLeft - lastScrollLeft;
+      // this._pointerLeftChanged = true;
     }
     if (this._pointerLeftChanged) {
       this._$pointer.css('transform',
-        `translate(${this._pointerLeft}px, 0) translate(-50%, 0)`
+        `translate3d(${this._pointerLeft}px, 0, 0) translate(-50%, 0)`
       );
       this._pointerLeftChanged = false;
     }
@@ -1108,9 +1107,7 @@ _.assign(StoryboardView.prototype, {
 
     let $button = this._$disableButton;
     $button.addClass('clicked');
-    window.setTimeout(() => {
-      $button.removeClass('clicked');
-    }, 1000);
+    window.setTimeout(() => $button.removeClass('clicked'), 1000);
 
     this.emit('disableStoryboard');
   },
@@ -1297,8 +1294,8 @@ StoryboardView.__css__ = (`
     top: 0;
     z-index: 100;
     pointer-events: none;
-    transform: translate(-50%, 0);
-    box-shadow: 0 0 4px #333;
+    transform: translate3d(-50%, 0, 0);
+    /*box-shadow: 0 0 4px #333;*/
     background: #ff9;
     opacity: 0.5;
   }

@@ -5,7 +5,7 @@ import {util} from '../util';
 //===BEGIN===
 
 const SmileStoryboardInfoLoader = (function () {
-  var reject = function (err) {
+  let reject = function (err) {
     return new Promise(function (res, rej) {
       window.setTimeout(function () {
         rej(err);
@@ -13,8 +13,8 @@ const SmileStoryboardInfoLoader = (function () {
     });
   };
 
-  var parseStoryboard = function ($storyboard, url) {
-    var storyboardId = $storyboard.attr('id') || '1';
+  let parseStoryboard = function ($storyboard, url) {
+    let storyboardId = $storyboard.attr('id') || '1';
     return {
       id: storyboardId,
       url: url.replace('sb=1', 'sb=' + storyboardId),
@@ -32,14 +32,14 @@ const SmileStoryboardInfoLoader = (function () {
     };
   };
 
-  var parseXml = function (xml, url) {
-    var $xml = $(xml), $storyboard = $xml.find('storyboard');
+  let parseXml = function (xml, url) {
+    let $xml = $(xml), $storyboard = $xml.find('storyboard');
 
     if ($storyboard.length < 1) {
       return null;
     }
 
-    var info = {
+    let info = {
       format: 'smile',
       status: 'ok',
       message: '成功',
@@ -49,38 +49,38 @@ const SmileStoryboardInfoLoader = (function () {
       storyboard: []
     };
 
-    for (var i = 0, len = $storyboard.length; i < len; i++) {
-      var sbInfo = parseStoryboard($($storyboard[i]), url);
+    for (let i = 0, len = $storyboard.length; i < len; i++) {
+      let sbInfo = parseStoryboard($($storyboard[i]), url);
       info.storyboard.push(sbInfo);
     }
     info.storyboard.sort(function (a, b) {
-      var idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
+      let idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
       return (idA < idB) ? 1 : -1;
     });
     return info;
   };
 
 
-  var load = function (videoFileUrl) {
-    var a = document.createElement('a');
+  let load = function (videoFileUrl) {
+    let a = document.createElement('a');
     a.href = videoFileUrl;
-    var server = a.host;
-    var search = a.search;
+    let server = a.host;
+    let search = a.search;
 
     if (!/\?(.)=(\d+)\.(\d+)/.test(search)) {
       return reject({status: 'fail', message: 'invalid url', url: videoFileUrl});
     }
 
-    var fileType = RegExp.$1;
-    var fileId = RegExp.$2;
-    var key = RegExp.$3;
+    let fileType = RegExp.$1;
+    let fileId = RegExp.$2;
+    let key = RegExp.$3;
 
     if (fileType !== 'm') {
       return reject({status: 'fail', message: 'unknown file type', url: videoFileUrl});
     }
 
     return new Promise(function (resolve, reject) {
-      var url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
+      let url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
 
       util.fetch(url, {credentials: 'include'})
         .then(res => {

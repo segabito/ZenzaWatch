@@ -2075,7 +2075,6 @@ const VideoCaptureUtil = (() => {
       a.remove();
       URL.revokeObjectURL(url);
     }, 2000);
-    window.console.timeEnd('screenShot');
   };
 
   return {

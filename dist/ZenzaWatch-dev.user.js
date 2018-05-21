@@ -2867,7 +2867,6 @@ const VideoCaptureUtil = (() => {
       a.remove();
       URL.revokeObjectURL(url);
     }, 2000);
-    window.console.timeEnd('screenShot');
   };
 
   return {
@@ -5858,7 +5857,7 @@ class TagEditApi {
 
 
 const SmileStoryboardInfoLoader = (function () {
-  var reject = function (err) {
+  let reject = function (err) {
     return new Promise(function (res, rej) {
       window.setTimeout(function () {
         rej(err);
@@ -5866,8 +5865,8 @@ const SmileStoryboardInfoLoader = (function () {
     });
   };
 
-  var parseStoryboard = function ($storyboard, url) {
-    var storyboardId = $storyboard.attr('id') || '1';
+  let parseStoryboard = function ($storyboard, url) {
+    let storyboardId = $storyboard.attr('id') || '1';
     return {
       id: storyboardId,
       url: url.replace('sb=1', 'sb=' + storyboardId),
@@ -5885,14 +5884,14 @@ const SmileStoryboardInfoLoader = (function () {
     };
   };
 
-  var parseXml = function (xml, url) {
-    var $xml = $(xml), $storyboard = $xml.find('storyboard');
+  let parseXml = function (xml, url) {
+    let $xml = $(xml), $storyboard = $xml.find('storyboard');
 
     if ($storyboard.length < 1) {
       return null;
     }
 
-    var info = {
+    let info = {
       format: 'smile',
       status: 'ok',
       message: '成功',
@@ -5902,38 +5901,38 @@ const SmileStoryboardInfoLoader = (function () {
       storyboard: []
     };
 
-    for (var i = 0, len = $storyboard.length; i < len; i++) {
-      var sbInfo = parseStoryboard($($storyboard[i]), url);
+    for (let i = 0, len = $storyboard.length; i < len; i++) {
+      let sbInfo = parseStoryboard($($storyboard[i]), url);
       info.storyboard.push(sbInfo);
     }
     info.storyboard.sort(function (a, b) {
-      var idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
+      let idA = parseInt(a.id.substr(1), 10), idB = parseInt(b.id.substr(1), 10);
       return (idA < idB) ? 1 : -1;
     });
     return info;
   };
 
 
-  var load = function (videoFileUrl) {
-    var a = document.createElement('a');
+  let load = function (videoFileUrl) {
+    let a = document.createElement('a');
     a.href = videoFileUrl;
-    var server = a.host;
-    var search = a.search;
+    let server = a.host;
+    let search = a.search;
 
     if (!/\?(.)=(\d+)\.(\d+)/.test(search)) {
       return reject({status: 'fail', message: 'invalid url', url: videoFileUrl});
     }
 
-    var fileType = RegExp.$1;
-    var fileId = RegExp.$2;
-    var key = RegExp.$3;
+    let fileType = RegExp.$1;
+    let fileId = RegExp.$2;
+    let key = RegExp.$3;
 
     if (fileType !== 'm') {
       return reject({status: 'fail', message: 'unknown file type', url: videoFileUrl});
     }
 
     return new Promise(function (resolve, reject) {
-      var url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
+      let url = '//' + server + '/smile?m=' + fileId + '.' + key + '&sb=1';
 
       util.fetch(url, {credentials: 'include'})
         .then(res => {
@@ -9408,9 +9407,7 @@ _.assign(StoryboardView.prototype, {
 
     let $view = this._$view;
     $view.addClass('clicked');
-    window.setTimeout(() => {
-      $view.removeClass('clicked');
-    }, 1000);
+    window.setTimeout(() => $view.removeClass('clicked'), 1000);
     this._$cursorTime.css({
       transform: 'translate(-999px, 0)'
     });
@@ -9441,7 +9438,7 @@ _.assign(StoryboardView.prototype, {
 
     let time = util.secToTime(sec);
     this._$cursorTime.text(time).css({
-      transform: `translate(${e.pageX}px, 0) translate(-50%, 0)`
+      transform: `translate3d(${e.pageX}px, 0, 0) translate(-50%, 0)`
     });
 
     this._isHover = true;
@@ -9551,9 +9548,7 @@ _.assign(StoryboardView.prototype, {
       $view.addClass('opening show');
       this.scrollLeft(0);
       this.open();
-      window.setTimeout(function () {
-        $view.removeClass('opening');
-      }, 1000);
+      window.setTimeout(() => $view.removeClass('opening'), 1000);
     }
 
   },
@@ -9583,12 +9578,15 @@ _.assign(StoryboardView.prototype, {
     }
 
     if (this._scrollLeftChanged && !this._isHover) {
-      this._$inner.scrollLeft(this._scrollLeft);
+      // let lastScrollLeft = this._inner.scrollLeft;
+      this._inner.scrollLeft = this._scrollLeft;
       this._scrollLeftChanged = false;
+      // this._pointerLeft += this._scrollLeft - lastScrollLeft;
+      // this._pointerLeftChanged = true;
     }
     if (this._pointerLeftChanged) {
       this._$pointer.css('transform',
-        `translate(${this._pointerLeft}px, 0) translate(-50%, 0)`
+        `translate3d(${this._pointerLeft}px, 0, 0) translate(-50%, 0)`
       );
       this._pointerLeftChanged = false;
     }
@@ -9635,9 +9633,7 @@ _.assign(StoryboardView.prototype, {
 
     let $button = this._$disableButton;
     $button.addClass('clicked');
-    window.setTimeout(() => {
-      $button.removeClass('clicked');
-    }, 1000);
+    window.setTimeout(() => $button.removeClass('clicked'), 1000);
 
     this.emit('disableStoryboard');
   },
@@ -9824,8 +9820,8 @@ StoryboardView.__css__ = (`
     top: 0;
     z-index: 100;
     pointer-events: none;
-    transform: translate(-50%, 0);
-    box-shadow: 0 0 4px #333;
+    transform: translate3d(-50%, 0, 0);
+    /*box-shadow: 0 0 4px #333;*/
     background: #ff9;
     opacity: 0.5;
   }
@@ -9860,14 +9856,8 @@ StoryboardView.__css__ = (`
       z-index: 150000;
       background: #000;
       transition: opacity 0.3s ease, transform 0.3s ease;
-
       user-select: none;
       content: layout;
-    }
-    .changeScreenMode .videoControlBar {
-      opacity: 0;
-      transform: translate3d(0, 0, 0);
-      transition: none;
     }
     .zenzaScreenMode_small    .videoControlBar,
     .zenzaScreenMode_sideView .videoControlBar,
@@ -9939,6 +9929,11 @@ StoryboardView.__css__ = (`
       z-index: 200;
     }
 
+    .controlItemContainer:hover,
+    .videoControlBar.is-menuOpen .controlItemContainer {
+      z-index: 260;
+    }
+
     .controlItemContainer.left {
       left: 0;
       height: 40px;
@@ -9966,7 +9961,7 @@ StoryboardView.__css__ = (`
       left: 50%;
       height: 40px;
       transform: translate(-50%, 0);
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 2px, #222);
+      background: #222;/*linear-gradient(to bottom, rgba(0, 0, 0, 0) 2px, #222, #222);*/
       white-space: nowrap;
       overflow: visible;
       transition: transform 0.2s ease, left 0.2s ease;
@@ -10016,6 +10011,7 @@ StoryboardView.__css__ = (`
       color: #fff;
       opacity: 0.8;
       margin-right: 8px;
+      min-width: 32px;
       vertical-align: middle;
     }
     .controlButton:hover .controlButtonInner {
@@ -10070,8 +10066,9 @@ StoryboardView.__css__ = (`
     .settingPanelSwitch:hover {
       text-shadow: 0 0 8px #ff9;
     }
-    .controlButton:active {
-      font-size: 15px;
+    .controlButton:active .controlButtonInner {
+      /*font-size: 15px;*/
+      transform: translate(0, 2px);
     }
     .settingPanelSwitch .tooltip {
       left: 0;
@@ -10088,11 +10085,7 @@ StoryboardView.__css__ = (`
       font-size: 23px;
       width: 32px;
       height: 32px;
-      margin-top: -2px;
       line-height: 30px;
-    }
-    .seekTop:active {
-      font-size: 18px;
     }
 
     .togglePlay {
@@ -10126,7 +10119,7 @@ StoryboardView.__css__ = (`
       left: 0;
       width: 100%;
       cursor: pointer;
-      z-index: 150;
+      z-index: 250;
     }
     .fullScreen .seekBarContainer {
       top: auto;
@@ -10157,10 +10150,8 @@ StoryboardView.__css__ = (`
     .is-loading .seekBarContainer,
     .is-error   .seekBarContainer {
       pointer-events: none;
-      filter: grayscale(100%);
     }
     .is-abort   .seekBarContainer *,
-    .is-loading .seekBarContainer *,
     .is-error   .seekBarContainer * {
       display: none;
     }
@@ -10190,11 +10181,6 @@ StoryboardView.__css__ = (`
       transition: none;
     }
 
-
-    .is-mouseMoving .seekBar {
-      /* background-color: rgba(0, 0, 0, 0.5);*/
-    }
-
     .seekBarContainer .seekBar * {
       pointer-events: none;
     }
@@ -10206,7 +10192,6 @@ StoryboardView.__css__ = (`
       left: 0px;
       top: 0px;
       box-shadow: 0 2px 2px #fea inset, 0 -2px 2px #fea inset;
-      border-radius: 4px;
       z-index: 190;
       background: #ff9;
       transform-origin: left;
@@ -10219,8 +10204,7 @@ StoryboardView.__css__ = (`
     .is-youTube .bufferRange {
       width: 100% !important;
       height: 110% !important;
-      background: #f99; /*linear-gradient(to bottom, #f96, #ff9, #f96);*/
-      /*box-shadow: 0 0 4px #ff9;*/
+      background: #f99;
       transition: 0.5s transform ease 1s;
       transform: translate3d(0, 0, 0) scaleX(1) !important;
     }
@@ -10229,31 +10213,26 @@ StoryboardView.__css__ = (`
       background: #ff9;
     }
 
-    /*.noHeatMap .bufferRange {
-      background: #666;
-    }*/
-
     .seekBar .seekBarPointer {
       position: absolute;
-      height: calc(100% + 2px);
-      top: -1px;
+      display: inline-block;
+      height: 100%;
+      top: 0;
       left: 0;
       z-index: 200;
       pointer-events: none;
       transform: translate3d(0, 0, 0);
       transform-origin: left middle;
-      transition: none;
     }
 
       .seekBar .seekBarPointerCore {
         position: absolute;
         top: 50%;
         width: 12px;
-        height: 140%;
-        background: rgba(255, 255, 255, 0.6);
-        border-radius: 2px;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
         transform: translate(-50%, -50%);
-        box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
+        box-shadow: 0 0 4px #ffc inset;
       }
 
     .is-loading  .seekBar .seekBarPointer,
@@ -10270,7 +10249,6 @@ StoryboardView.__css__ = (`
       white-space: nowrap;
       background: rgba(33, 33, 33, 0.5);
       border: 0;
-      border-radius: 4px;
       pointer-events: none;
       user-select: none;
     }
@@ -10314,7 +10292,7 @@ StoryboardView.__css__ = (`
       pointer-events: none;
       top: 0; left: 0;
       width: 100%;
-      height: 100%; /*calc(100% - 2px);*/
+      height: 100%;
       transform-origin: 0 0 0;
       transform: translateZ(0);
       opacity: 0.5;
@@ -10323,7 +10301,6 @@ StoryboardView.__css__ = (`
     .noHeatMap .zenzaHeatMap {
       display: none;
     }
-
 
     .loopSwitch {
       width:  32px;
@@ -10337,7 +10314,7 @@ StoryboardView.__css__ = (`
     }
 
     .is-loop .loopSwitch {
-      text-shadow: 0px 0px 2px #9cf;
+      /*text-shadow: 0px 0px 2px #9cf;*/
       color: #9cf;
     }
     .loopSwitch .controlButtonInner {
@@ -10355,7 +10332,7 @@ StoryboardView.__css__ = (`
     }
 
     .playbackRateMenu:active .controlButtonInner {
-      font-size: 13px;
+      transform: translate(0, 2px);
     }
     .playbackRateMenu.show {
       background: #888;
@@ -10508,8 +10485,7 @@ StoryboardView.__css__ = (`
       box-sizing: border-box;
       width: 64px;
       height: 8px;
-      border: 1px solid #888;
-      border-radius: 4px;
+      background: #333;
       cursor: pointer;
       overflow: hidden;
     }
@@ -10522,7 +10498,6 @@ StoryboardView.__css__ = (`
       bottom: 0;
       background: #ccc;
       pointer-events: none;
-
     }
 
     .videoControlBar .volumeControl .volumeBarPointer {
@@ -10595,7 +10570,7 @@ StoryboardView.__css__ = (`
       pointer-events: auto;
     }
     .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
-      text-shadow: 0px 0px 2px #9cf;
+      /*text-shadow: 0px 0px 2px #9cf;*/
       color: #9cf;
     }
 
@@ -10755,6 +10730,36 @@ StoryboardView.__css__ = (`
       line-height: 32px;
       pointer-events: none;
     }
+    
+    .progressWave {
+      display: none;
+    }
+    .is-loading .progressWave {
+      display: inline-block;
+      position: absolute;
+      left: 0;
+      top: 1px;
+      z-index: 400;
+      width: 40%;
+      height: calc(100% - 2px);
+      background: linear-gradient(
+        to right, 
+        rgba(0,0,0,0),
+        ${util.toRgba('#ffffff', 0.5)},
+        rgba(0,0,0)
+      );
+      mix-blend-mode: lighten;
+      animation-name: progressWave;
+      animation-iteration-count: infinite;
+      animation-duration: 4s;
+      animation-timing-function: linear;
+      animation-delay: -1s;
+    }
+    @keyframes progressWave {
+      0%   { transform: translate3d(-100%, 0, 0) translate3d(-5vw, 0, 0); }
+      100% { transform: translate3d(100%, 0, 0) translate3d(150vw, 0, 0); }
+    }
+
   `).trim();
 
   VideoControlBar.__tpl__ = (`
@@ -10767,6 +10772,7 @@ StoryboardView.__css__ = (`
             <div class="seekBarPointerCore"></div>
           </div>
           <div class="bufferRange"></div>
+          <div class="progressWave"></div>
         </div>
       </div>
 
@@ -11091,10 +11097,10 @@ StoryboardView.__css__ = (`
       let config   = this._playerConfig;
 
       let setVolumeBar = this._setVolumeBar = v => {
-        let per = Math.round(v * 100);
-        $bar.css({ width: per + '%'});
-        $pointer.css({ left: per + '%'});
-        $tooltip.text('音量 (' + per + '%)');
+        let per = `${Math.round(v * 100)}%`;
+        $bar.css({ width: per });
+        $pointer.css({ left: per });
+        $tooltip.text(`音量 (${per})`);
       };
 
       let $inner = $container.find('.volumeControlInner');
@@ -11133,12 +11139,8 @@ StoryboardView.__css__ = (`
         unbindDragEvent();
         $container.removeClass('dragging');
       };
-      let onBodyMouseUp = () => {
-        endMouseDrag();
-      };
-      let onWindowBlur = () => {
-        endMouseDrag();
-      };
+      let onBodyMouseUp = () => endMouseDrag();
+      let onWindowBlur = () => endMouseDrag();
 
       let onVolumeBarMouseDown = e => {
         e.preventDefault();
@@ -11173,7 +11175,6 @@ StoryboardView.__css__ = (`
           param = JSON.parse(param);
         }
         this.toggleVideoServerTypeMenu(false);
-        //$menu.removeClass('show');
         this.emit('command', command, param);
       });
 
@@ -11197,10 +11198,8 @@ StoryboardView.__css__ = (`
         $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
       };
 
-      // updateEnableDmc(      config.getValue('enableDmc'));
       updateSmileVideoQuality(   config.getValue('smileVideoQuality'));
       updateDmcVideoQuality(config.getValue('dmcVideoQuality'));
-      // config.on('update-enableDmc',       updateEnableDmc);
       config.on('update-forceEconomy',    updateSmileVideoQuality);
       config.on('update-dmcVideoQuality', updateDmcVideoQuality);
 
@@ -11258,7 +11257,7 @@ StoryboardView.__css__ = (`
     },
     _toggleMenu: function(name, $btn, $menu, v) {
       let $body = $('body');
-      let eventName = 'click.ZenzaWatch_' + name + 'Menu';
+      let eventName = `click.ZenzaWatch_${name}Menu`;
 
       $body.off(eventName);
       $btn .toggleClass('show', v);
@@ -11277,6 +11276,7 @@ StoryboardView.__css__ = (`
         $body.on(eventName, onBodyClick);
         ZenzaWatch.emitter.emitAsync('showMenu');
       }
+      this._$view.toggleClass('is-menuOpen', $menu.hasClass('show'));
     },
     _posToTime: function(pos) {
       let width = this._$seekBar.innerWidth();
@@ -11548,13 +11548,12 @@ StoryboardView.__css__ = (`
     _height: 12,
     _initializePalette: function() {
       this._palette = [];
-      // NicoHeatMaoより控え目な配色にしたい
       for (let c = 0; c < 256; c++) {
         let
           r = Math.floor((c > 127) ? (c / 2 + 128) : 0),
           g = Math.floor((c > 127) ? (255 - (c - 128) * 2) : (c * 2)),
           b = Math.floor((c > 127) ? 0 : (255  - c * 2));
-        this._palette.push('rgb(' + r + ', ' + g + ', ' + b + ')');
+        this._palette.push(`rgb(${r}, ${g}, ${b})`);
       }
     },
     _initializeCanvas: function() {
@@ -11576,11 +11575,10 @@ StoryboardView.__css__ = (`
       this.reset();
     },
     reset: function() {
-      if (this._context) {
-        this._context.fillStyle = this._palette[0];
-        this._context.beginPath();
-        this._context.fillRect(0, 0, this._width, this._height);
-      }
+      if (!this._context) { return; }
+      this._context.fillStyle = this._palette[0];
+      this._context.beginPath();
+      this._context.fillRect(0, 0, this._width, this._height);
     },
     update: function(map) {
       if (!this._isInitialized) {
@@ -11876,7 +11874,7 @@ StoryboardView.__css__ = (`
       this._$inner = $view.find('.zenzaCommentPreviewInner');
 
       $view.on('click', this._onClick.bind(this));
-      $view[0].addEventListener('wheel', e => e.stopPropagation(), {passive: true})
+      $view[0].addEventListener('wheel', e => e.stopPropagation(), {passive: true});
       $view[0].addEventListener('scroll',
         _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
@@ -11972,10 +11970,7 @@ StoryboardView.__css__ = (`
       let color = chat.getColor() || '#fff';
       let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
-      let vposToTime = vpos => {
-        let sec = Math.floor(vpos / 100);
-        return util.secToTime(sec);
-      };
+      let vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
 
       return `<li class="nicoChat fork${chat.getFork()} ${oe}"
             id="commentPreviewItem${idx}"
@@ -12144,7 +12139,7 @@ StoryboardView.__css__ = (`
   SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
       position: absolute;
-      display: inline-block;
+      display: none;
       z-index: 300;
       position: absolute;
       box-sizing: border-box;
@@ -12175,11 +12170,12 @@ StoryboardView.__css__ = (`
 
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
+      display: inline-block;
       pointer-events: auto;
     }
 
     .fullScreen .seekBarContainer:not(:hover) .seekBarToolTip {
-      left: -100vw !important;
+      display: none;
     }
 
     .seekBarToolTip .seekBarToolTipInner {
@@ -12805,9 +12801,7 @@ _.assign(NicoCommentPlayer.prototype, {
   _onCommentChange: function (e) {
     console.log('onCommentChange', e);
     if (this._view) {
-      setTimeout(() => {
-        this._view.refresh();
-      }, 0);
+      setTimeout(() => this._view.refresh(), 0);
     }
     this.emit('change');
   },
@@ -15273,9 +15267,9 @@ class NicoCommentCss3PlayerView extends Emitter {
         _refresh();
       }
     });
-    NicoChatViewModel.emitter.on('updateCommentSpeedRate', () => {
-      this.refresh();
-    });
+    // NicoChatViewModel.emitter.on('updateCommentSpeedRate', () => {
+    //   this.refresh();
+    // });
     ZenzaWatch.debug.css3Player = this;
 
   }
@@ -15323,21 +15317,19 @@ class NicoCommentCss3PlayerView extends Emitter {
       this._optionStyle = doc.getElementById('optionCss');
       this._style = doc.getElementById('nicoChatAnimationDefinition');
       const commentLayer = this._commentLayer = doc.getElementById('commentLayer');
-
+      const subLayer = this._subLayer = document.createElement('div');
+      subLayer.className = 'subLayer';
+      commentLayer.appendChild(subLayer);
       // Config直接参照してるのは手抜き
       doc.body.className = Config.getValue('debug') ? 'debug' : '';
-      Config.on('update-debug', val => {
-        doc.body.className = val ? 'debug' : '';
-      });
+      Config.on('update-debug', val => doc.body.className = val ? 'debug' : '');
       // 手抜きその2
       this._optionStyle.innerHTML = NicoComment.offScreenLayer.getOptionCss();
       ZenzaWatch.emitter.on('updateOptionCss', newCss => {
         this._optionStyle.innerHTML = newCss;
       });
 
-      ZenzaWatch.debug.getInViewElements = () => {
-        return doc.getElementsByClassName('nicoChat');
-      };
+      ZenzaWatch.debug.getInViewElements = () => doc.getElementsByClassName('nicoChat');
 
       const onResize = () => {
         const w = win.innerWidth, h = win.innerHeight;
@@ -15372,9 +15364,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 
       const updateTextShadow = type => {
         const types = ['shadow-type2', 'shadow-type3', 'shadow-stroke', 'shadow-dokaben'];
-        types.forEach(t => {
-          doc.body.classList.toggle(t, t === type);
-        });
+        types.forEach(t => doc.body.classList.toggle(t, t === type));
       };
       updateTextShadow(this._config.getValue('textShadowType'));
       this._config.on('update-textShadowType', _.debounce(updateTextShadow, 100));
@@ -15393,7 +15383,7 @@ class NicoCommentCss3PlayerView extends Emitter {
             document.body.appendChild(canvas);
             window.console.log('ok', canvas);
             return Promise.resolve({canvas, img});
-          }, (err) => {
+          }, err => {
             sessionStorage.lastCaptureErrorSrc = html;
             window.console.error('!', err);
             return Promise.reject(err);
@@ -15411,9 +15401,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         a.setAttribute('href', url);
         document.body.appendChild(a);
         a.click();
-        window.setTimeout(() => {
-          a.remove();
-        }, 1000);
+        window.setTimeout(() => a.remove(), 1000);
       };
 
       window.console.timeEnd('initialize NicoCommentCss3PlayerView');
@@ -15470,7 +15458,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         PopupMessage.alert('コメントレイヤーの生成に失敗しました');
       }
     }
-    iframe.setAttribute('allow', 'vr');
+//    iframe.setAttribute('allow', 'vr');
     return iframe;
   }
   _onCommand (command, param) {
@@ -15488,6 +15476,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     return this._view;
   }
   setPlaybackRate (playbackRate) {
+    // let isSpeedUp = this._playbackRate < playbackRate;
     this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
     if (!Config.getValue('autoCommentSpeedRate') || this._playbackRate <= 1) {
       this.refresh();
@@ -15554,6 +15543,7 @@ class NicoCommentCss3PlayerView extends Emitter {
   clear () {
     if (this._commentLayer) {
       this._commentLayer.textContent = '';
+      this._commentLayer.appendChild(this._subLayer);
     }
     if (this._style) {
       this._style.textContent = '';
@@ -15577,7 +15567,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       this._viewModel.getGroup(NicoChat.TYPE.TOP)
     ];
 
-    let css = [], inView = [], dom = [];
+    let css = [], inView = [], dom = [], subDom = [];
     let i, len;
     // 表示状態にあるchatを集める
     for (i = 0, len = groups.length; i < len; i++) {
@@ -15615,7 +15605,8 @@ class NicoCommentCss3PlayerView extends Emitter {
       nicoChat = newView[i];
       let type = nicoChat.getType();
       let size = nicoChat.getSize();
-      dom.push(NicoChatCss3View.buildChatDom(nicoChat, type, size));
+      (nicoChat.isSubThread() ? subDom : dom)
+        .push(NicoChatCss3View.buildChatDom(nicoChat, type, size));
       css.push(NicoChatCss3View.buildChatCss(nicoChat, type, ct, this._playbackRate));
     }
 
@@ -15632,17 +15623,21 @@ class NicoCommentCss3PlayerView extends Emitter {
         delete inSlotTable[key];
         outViewIds.push(key);
       });
-      this._updateDom(dom, css, outViewIds);
+      this._updateDom(dom, subDom, css, outViewIds);
     }
   }
 
-  _updateDom (dom, css, outViewIds) {
+  _updateDom (dom, subDom, css, outViewIds) {
     let fragment = document.createDocumentFragment();
     while (dom.length > 0) {
       fragment.appendChild(dom.shift());
     }
     this._commentLayer.appendChild(fragment);
-    //this._style.innerHTML += css.join('');
+    let subFragment = document.createDocumentFragment();
+    while (subDom.length > 0) {
+      subFragment.appendChild(subDom.shift());
+    }
+    this._subLayer.appendChild(subFragment);
     this._style.insertAdjacentHTML('beforeend', css.join(''));
     this._removeOutviewElements(outViewIds);
     this._gcInviewElements();
@@ -15961,12 +15956,19 @@ body.in-capture .commentLayer {
 }
 
 .commentLayer {
-  position: relative;
+  position: absolute;
   width: 544px;
   height: 384px;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.subLayer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0.7;
 }
 
 .debug .commentLayer {
@@ -16275,9 +16277,9 @@ class NicoChatCss3View {
       className.push(`fork${fork}`);
     }
 
-    if (chat.isSubThread()) {
-      className.push('subThread');
-    }
+    // if (chat.isSubThread()) {
+    //   className.push('subThread');
+    // }
 
     if (chat.isPostFail()) {
       className.push('fail');
@@ -23089,7 +23091,8 @@ class PlayerState extends BaseState {
       isAbort: false,
       isMymemory: false,
       isCommunity: false,
-      isChannel: false
+      isChannel: false,
+      currentSrc: CONSTANT.BLANK_VIDEO_URL
     });
   }
 
@@ -25196,7 +25199,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this.emit('pause');
   },
   _onVideoStalled: function () {
-    this._state.isStalled = true;
+    // this._state.isStalled = true;
     this.emit('stalled');
   },
   _onVideoProgress: function (range, currentTime) {
