@@ -86,8 +86,8 @@ import {Emitter} from './baselib';
     }
 
 
-    .zenzaScreenMode_wide .videoControlBar.dragging,
-    .fullScreen           .videoControlBar.dragging,
+    .zenzaScreenMode_wide .videoControlBar.is-dragging,
+    .fullScreen           .videoControlBar.is-dragging,
     .zenzaScreenMode_wide .videoControlBar:hover,
     .fullScreen           .videoControlBar:hover {
       opacity: 1;
@@ -381,31 +381,66 @@ import {Emitter} from './baselib';
     }
 
 
+    /*
     .seekBar .seekBarPointer {
       position: absolute;
       display: inline-block;
-      height: 100%;
-      top: 0;
+      top: 50%;
       left: 0;
+      width: 12px;
+      background: rgba(255, 255, 255, 0.5);
+      height: calc(100% + 2px);
       z-index: 200;
+      box-shadow: 0 0 4px #ffc inset;
       pointer-events: none;
-      transform: translate3d(0, 0, 0);
-      transform-origin: left middle;
+      transform: translate3d(-50%, 0, 0) translate3d(-50%, -50%, 0);
+    }
+    .is-loading  .seekBar .seekBarPointer,
+    .is-dragging .seekBar .seekBarPointer {
+      transition: none;
+    }
+    */
+    
+    .seekBarPointer {
+      position: absolute;
+      display: inline-block;
+      top: 50%;
+      left: 0;
+      width: 12px;
+      background: rgba(255, 255, 255, 0.5);
+      height: calc(100% + 2px);
+      z-index: 200;
+      box-shadow: 0 0 4px #ffc inset;
+      pointer-events: none;
+      transform: translate3d(-6px, -50%, 0);
+    }
+    .seekBarPointer.is-smooth {
+      animation-duration: 1s;
+      animation-timing-function: linear;
+      animation-delay: 0s;
+      animation-name: seekBarPointerMove;
+    }
+    .seekBarPointer.is-refreshing {
+      opacity: 0.1;
     }
 
-      .seekBar .seekBarPointerCore {
-        position: absolute;
-        top: 50%;
-        width: 12px;
-        height: calc(100% + 2px);
-        background: rgba(255, 255, 255, 0.5);
-        transform: translate(-50%, -50%);
-        box-shadow: 0 0 4px #ffc inset;
-      }
-
-    .is-loading  .seekBar .seekBarPointer,
-    .dragging .seekBar .seekBarPointer {
+    .is-notPlayed .seekBarPointer,
+    .is-dragging .seekBarPointer,
+    .is-seeking  .seekBarPointer,
+    .is-pausing  .seekBarPointer {
+      animation-play-state: paused;
+    }
+    .is-loading .seekBarPointer {
+      animation: none !important;
+    }
+    .is-loading  .seekBarPointer:not(.is-smooth),
+    .is-dragging .seekBarPointer:not(.is-smooth) {
       transition: none;
+    }
+
+    @keyframes seekBarPointerMove {
+      0%   { transform: translate3d(-6px, -50%, 0) translate3d(0, 0, 0); }
+      100% { transform: translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0); }
     }
 
     .videoControlBar .videoTime {
@@ -450,7 +485,7 @@ import {Emitter} from './baselib';
       z-index: 150;
     }
 
-    .dragging .seekBarContainer .tooltip,
+    .is-dragging .seekBarContainer .tooltip,
     .seekBarContainer:hover .tooltip {
       opacity: 0.8;
     }
@@ -934,9 +969,7 @@ import {Emitter} from './baselib';
       <div class="seekBarContainer">
         <div class="seekBarShadow"></div>
         <div class="seekBar">
-          <div class="seekBarPointer">
-            <div class="seekBarPointerCore"></div>
-          </div>
+          <div class="seekBarPointer"></div>
           <div class="bufferRange"></div>
           <div class="progressWave"></div>
         </div>
@@ -1109,6 +1142,7 @@ import {Emitter} from './baselib';
     initialize: function(params) {
       this._playerConfig        = params.playerConfig;
       this._$playerContainer    = params.$playerContainer;
+      this._playerState         = params.playerState;
       let player = this._player = params.player;
 
       player.on('open',           this._onPlayerOpen.bind(this));
@@ -1138,8 +1172,10 @@ import {Emitter} from './baselib';
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
-      this._$seekBarPointer = $view.find('.seekBarPointer');
-      this._$bufferRange    = $view.find('.bufferRange');
+      // this._seekBarPointer = $view.find('.seekBarPointer')[0];
+      this._pointer         = new SmoothSeekBarPointer({
+        pointer: $view.find('.seekBarPointer')[0]});
+      this._bufferRange    = $view.find('.bufferRange')[0];
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
       $view.on('click', e => {
         e.stopPropagation();
@@ -1221,7 +1257,6 @@ import {Emitter} from './baselib';
 
         this.emit('command', 'screenMode', mode);
       });
-
     },
     _initializePlaybackRateSelectMenu: function() {
       let config = this._playerConfig;
@@ -1238,16 +1273,16 @@ import {Emitter} from './baselib';
       });
 
       let updatePlaybackRate =  rate => {
-        $label.text('x' + rate);
+        $label.text(`x${rate}`);
         $menu.find('.selected').removeClass('selected');
         let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
-        $menu.find('.playbackRate').each(function(i, item) {
-          let $item = $(item);
-          let r = parseFloat($item.attr('data-rate'), 10);
+        $menu.find('.playbackRate').each((i, item) => {
+          let r = parseFloat(item.getAttribute('data-rate'), 10);
           if (fr === r) {
-            $item.addClass('selected');
+            item.classList.add('selected');
           }
         });
+        this._pointer.playbackRate = rate;
       };
 
       updatePlaybackRate(config.getValue('playbackRate'));
@@ -1299,11 +1334,11 @@ import {Emitter} from './baselib';
       };
       let beginMouseDrag = () => {
         bindDragEvent();
-        $container.addClass('dragging');
+        $container.addClass('is-dragging');
       };
       let endMouseDrag = () => {
         unbindDragEvent();
-        $container.removeClass('dragging');
+        $container.removeClass('is-dragging');
       };
       let onBodyMouseUp = () => endMouseDrag();
       let onWindowBlur = () => endMouseDrag();
@@ -1442,6 +1477,7 @@ import {Emitter} from './baselib';
         $body.on(eventName, onBodyClick);
         ZenzaWatch.emitter.emitAsync('showMenu');
       }
+      this._$view.toggleClass('is-menuOpen', $menu.hasClass('show'));
     },
     _posToTime: function(pos) {
       let width = this._$seekBar.innerWidth();
@@ -1479,6 +1515,7 @@ import {Emitter} from './baselib';
       this._commentPreview.setChatList(this._chatList);
     },
     _onPlayerDurationChange: function() {
+      this._pointer.duration = this._playerState.videoInfo.duration;
       this._heatMap.setChatList(this._chatList);
     },
     _onPlayerClose: function() {
@@ -1509,7 +1546,7 @@ import {Emitter} from './baselib';
       this._beginMouseDrag();
     },
     _onSeekBarMouseMove: function(e) {
-      if (!this._$view.hasClass('dragging')) {
+      if (!this._$view.hasClass('is-dragging')) {
         e.stopPropagation();
       }
       let left = e.offsetX;
@@ -1525,11 +1562,11 @@ import {Emitter} from './baselib';
     },
     _beginMouseDrag: function() {
       this._bindDragEvent();
-      this._$view.addClass('dragging');
+      this._$view.addClass('is-dragging');
     },
     _endMouseDrag: function() {
       this._unbindDragEvent();
-      this._$view.removeClass('dragging');
+      this._$view.removeClass('is-dragging');
     },
     _onBodyMouseMove: function(e) {
       let offset = this._$seekBar.offset();
@@ -1592,12 +1629,13 @@ import {Emitter} from './baselib';
         this._currentTimeText = currentTimeText;
         this._$currentTime[0].value = currentTimeText;
       }
-      const per = Math.min(100, this._timeToPer(sec));
-      this._$seekBarPointer[0].style.transform = `translate3d(${per}vw, 0, 0)`;
+      this._pointer.currentTime = sec;
     },
     setDuration: function(sec) {
       if (sec === this._duration) { return; }
       this._duration = sec;
+      this._pointer.duration = sec;
+      this._pointer.currentTime = -1;
 
       if (sec === 0 || isNaN(sec)) {
         this._$duration[0].value = '--:--';
@@ -1606,7 +1644,7 @@ import {Emitter} from './baselib';
       this.emit('durationChange');
     },
     setBufferedRange: function(range, currentTime) {
-      let $range = this._$bufferRange;
+      let bufferRange = this._bufferRange;
       if (!range || !range.length || !this._duration) {
         return;
       }
@@ -1620,7 +1658,8 @@ import {Emitter} from './baselib';
                 this._bufferEnd   !== end) {
               const perLeft = (this._timeToPer(start) - 1);
               const scaleX = (this._timeToPer(width) + 2) / 100;
-              $range.css('transform', `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`);
+              bufferRange.style.transform =
+                `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`;
               this._bufferStart = start;
               this._bufferEnd   = end;
             }
@@ -1631,9 +1670,9 @@ import {Emitter} from './baselib';
       }
     },
     resetBufferedRange: function() {
-      this._buffferStart = 0;
-      this._buffferEnd = 0;
-      this._$bufferRange.css({transform: 'scaleX(0)'});
+      this._bufferStart = 0;
+      this._bufferEnd = 0;
+      this._bufferRange.style.transform = 'scaleX(0)';
     }
   });
 
@@ -2328,7 +2367,7 @@ import {Emitter} from './baselib';
       bottom: 10px;
     }
 
-    .dragging                .seekBarToolTip {
+    .is-dragging                .seekBarToolTip {
       opacity: 1;
       pointer-events: none;
     }
@@ -2512,6 +2551,65 @@ import {Emitter} from './baselib';
     }
   });
 
+  class SmoothSeekBarPointer {
+    constructor(params) {
+      this._pointer = params.pointer;
+      this._currentTime = 0;
+      this._duration = 1;
+      this._playbackRate = 1;
+      this._isRefreshing = false;
+      this._isSmoothMode = true;
+      if (navigator.userAgent.match(/(iPad|iPhone|Edge)/i)) {
+        this._isSmoothMode = false;
+      }
+      this._pointer.classList.toggle('is-smooth', this._isSmoothMode);
+    }
+    set currentTime(v) {
+      if (!this._isSmoothMode) {
+        const per = Math.min(100, this._timeToPer(v));
+        this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
+      }
+      let lastTime = this._currentTime;
+      this._currentTime = v;
+      if (v - lastTime > 0.5 || lastTime > v) {
+        this.refresh();
+      }
+    }
+    get animationDuration() {
+      return this._duration / this._playbackRate;
+    }
+    set duration(v) {
+      if (this._duration === v) { return; }
+      this._duration = v;
+      this.refresh();
+    }
+    set playbackRate(v) {
+      if (this._playbackRate === v) { return; }
+      this._playbackRate = v;
+      this.refresh();
+    }
+    _timeToPer(time) {
+      return (time / Math.max(this._duration, 1)) * 100;
+    }
+    refresh() {
+      if (!this._isSmoothMode) { return; }
+      if (this._isRefreshing) { return; }
+      this._isRefreshing = true;
+      // window.console.log('refresh pointer');
+      this._pointer.classList.add('is-refreshing');
+      this._pointer.style.animation = 'none';
+      requestAnimationFrame(() => {
+        this._pointer.style.animation = '';
+        requestAnimationFrame(() => {
+          this._pointer.style.animationDuration = `${this.animationDuration}s`;
+          this._pointer.style.animationDelay =
+            `${-this._currentTime / this._playbackRate}s`;
+          this._pointer.classList.remove('is-refreshing');
+          this._isRefreshing = false;
+        });
+      });
+    }
+  }
 
 //===END===
 

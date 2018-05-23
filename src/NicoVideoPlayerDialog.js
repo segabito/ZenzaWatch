@@ -1068,7 +1068,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     this._videoControlBar = new VideoControlBar({
       $playerContainer: $container,
       playerConfig: config,
-      player: this._dialog
+      player: this._dialog,
+      playerState: this._state
     });
     this._videoControlBar.on('command', onCommand);
 

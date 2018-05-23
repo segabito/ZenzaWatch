@@ -440,15 +440,15 @@ SettingPanel.__tpl__ = (`
           <span class="info">
             １行ごとに入力。プレミアム会員に上限はありませんが、増やしすぎると重くなります。
           </span>
-          <p>NGワード (一般会員は20まで)</p>
+          <p>NGワード (一般会員は40まで)</p>
           <textarea
             class="filterEdit wordFilterEdit"
             data-command="setWordFilterList"></textarea>
-          <p>NGコマンド (一般会員は10まで)</p>
+          <p>NGコマンド (一般会員は40まで)</p>
           <textarea
             class="filterEdit commandFilterEdit"
             data-command="setCommandFilterList"></textarea>
-          <p>NGユーザー (一般会員は10まで)</p>
+          <p>NGユーザー (一般会員は40まで)</p>
           <textarea
             class="filterEdit userIdFilterEdit"
             data-command="setUserIdFilterList"></textarea>

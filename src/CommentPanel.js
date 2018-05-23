@@ -365,6 +365,7 @@ _.assign(CommentListView.prototype, {
       body.classList.add(this._className);
     }
     this._$container = $body.find('#listContainer');
+    this._container = this._$container[0];
     let $list = this._$list = $(doc.getElementById('listContainerInner'));
     if (this._html) {
       $list.html(this._html);
@@ -387,10 +388,9 @@ _.assign(CommentListView.prototype, {
     this._$menu.on('click', this._onMenuClick.bind(this));
     this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
 
-    this._$container
-      .on('mouseover', this._onMouseOver.bind(this))
-      .on('mouseleave', this._onMouseOut.bind(this));
-    this._$container[0].addEventListener('scroll',
+    this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
+    this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
+    this._container.addEventListener('scroll',
       this._onScroll.bind(this), {passive: true});
     this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
 
@@ -544,8 +544,8 @@ _.assign(CommentListView.prototype, {
       return;
     }
     let itemHeight = CommentListView.ITEM_HEIGHT;
-    let $container = this._$container;
-    let scrollTop = $container.scrollTop();
+    // let $container = this._$container;
+    let scrollTop = this._container.scrollTop;
     let innerHeight = this._innerHeight;
     //if (innerHeight > window.innerHeight) { return; }
     let windowBottom = scrollTop + innerHeight;
@@ -618,9 +618,9 @@ _.assign(CommentListView.prototype, {
 
     if (typeof v === 'number') {
       this._scrollTop = v;
-      this._$container[0].scrollTop = v;
+      this._container.scrollTop = v;
     } else {
-      this._scrollTop = this._$container[0].scrollTop;
+      this._scrollTop = this._container.scrollTop;
       return this._scrollTop;
     }
   },

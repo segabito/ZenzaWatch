@@ -26,7 +26,7 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito
-// @version        2.0.4beta
+// @version        2.0.6beta
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@
     let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
     let TOKEN = 'r:' + (Math.random());
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.0.4beta';
+    var VER = '2.0.6beta';
     const ENV = 'DEV';
 
     //@environment
@@ -6430,6 +6430,7 @@ const {ThreadLoader} = (() => {
           });
         }
 
+        let last_res = isNaN(thread.last_res) ? 0 : thread.last_res * 1;
         let threadInfo = {
           server,
           userId,
@@ -6438,9 +6439,9 @@ const {ThreadLoader} = (() => {
           thread:     thread.thread,
           serverTime: thread.server_time,
           force184:   msgInfo.defaultThread.isThreadkeyRequired ? '1' : '0',
-          lastRes:    thread.last_res,
+          lastRes:    last_res,
           totalResCount,
-          blockNo:    Math.floor((thread.last_res + 1) / 100),
+          blockNo:    Math.floor((last_res + 1) / 100),
           ticket:     thread.ticket || '0',
           revision:   thread.revision,
           language:   msgInfo.language,
@@ -9914,8 +9915,8 @@ StoryboardView.__css__ = (`
     }
 
 
-    .zenzaScreenMode_wide .videoControlBar.dragging,
-    .fullScreen           .videoControlBar.dragging,
+    .zenzaScreenMode_wide .videoControlBar.is-dragging,
+    .fullScreen           .videoControlBar.is-dragging,
     .zenzaScreenMode_wide .videoControlBar:hover,
     .fullScreen           .videoControlBar:hover {
       opacity: 1;
@@ -10209,31 +10210,66 @@ StoryboardView.__css__ = (`
     }
 
 
+    /*
     .seekBar .seekBarPointer {
       position: absolute;
       display: inline-block;
-      height: 100%;
-      top: 0;
+      top: 50%;
       left: 0;
+      width: 12px;
+      background: rgba(255, 255, 255, 0.5);
+      height: calc(100% + 2px);
       z-index: 200;
+      box-shadow: 0 0 4px #ffc inset;
       pointer-events: none;
-      transform: translate3d(0, 0, 0);
-      transform-origin: left middle;
+      transform: translate3d(-50%, 0, 0) translate3d(-50%, -50%, 0);
+    }
+    .is-loading  .seekBar .seekBarPointer,
+    .is-dragging .seekBar .seekBarPointer {
+      transition: none;
+    }
+    */
+    
+    .seekBarPointer {
+      position: absolute;
+      display: inline-block;
+      top: 50%;
+      left: 0;
+      width: 12px;
+      background: rgba(255, 255, 255, 0.5);
+      height: calc(100% + 2px);
+      z-index: 200;
+      box-shadow: 0 0 4px #ffc inset;
+      pointer-events: none;
+      transform: translate3d(-6px, -50%, 0);
+    }
+    .seekBarPointer.is-smooth {
+      animation-duration: 1s;
+      animation-timing-function: linear;
+      animation-delay: 0s;
+      animation-name: seekBarPointerMove;
+    }
+    .seekBarPointer.is-refreshing {
+      opacity: 0.1;
     }
 
-      .seekBar .seekBarPointerCore {
-        position: absolute;
-        top: 50%;
-        width: 12px;
-        height: calc(100% + 2px);
-        background: rgba(255, 255, 255, 0.5);
-        transform: translate(-50%, -50%);
-        box-shadow: 0 0 4px #ffc inset;
-      }
-
-    .is-loading  .seekBar .seekBarPointer,
-    .dragging .seekBar .seekBarPointer {
+    .is-notPlayed .seekBarPointer,
+    .is-dragging .seekBarPointer,
+    .is-seeking  .seekBarPointer,
+    .is-pausing  .seekBarPointer {
+      animation-play-state: paused;
+    }
+    .is-loading .seekBarPointer {
+      animation: none !important;
+    }
+    .is-loading  .seekBarPointer:not(.is-smooth),
+    .is-dragging .seekBarPointer:not(.is-smooth) {
       transition: none;
+    }
+
+    @keyframes seekBarPointerMove {
+      0%   { transform: translate3d(-6px, -50%, 0) translate3d(0, 0, 0); }
+      100% { transform: translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0); }
     }
 
     .videoControlBar .videoTime {
@@ -10278,7 +10314,7 @@ StoryboardView.__css__ = (`
       z-index: 150;
     }
 
-    .dragging .seekBarContainer .tooltip,
+    .is-dragging .seekBarContainer .tooltip,
     .seekBarContainer:hover .tooltip {
       opacity: 0.8;
     }
@@ -10762,9 +10798,7 @@ StoryboardView.__css__ = (`
       <div class="seekBarContainer">
         <div class="seekBarShadow"></div>
         <div class="seekBar">
-          <div class="seekBarPointer">
-            <div class="seekBarPointerCore"></div>
-          </div>
+          <div class="seekBarPointer"></div>
           <div class="bufferRange"></div>
           <div class="progressWave"></div>
         </div>
@@ -10937,6 +10971,7 @@ StoryboardView.__css__ = (`
     initialize: function(params) {
       this._playerConfig        = params.playerConfig;
       this._$playerContainer    = params.$playerContainer;
+      this._playerState         = params.playerState;
       let player = this._player = params.player;
 
       player.on('open',           this._onPlayerOpen.bind(this));
@@ -10966,8 +11001,10 @@ StoryboardView.__css__ = (`
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
-      this._$seekBarPointer = $view.find('.seekBarPointer');
-      this._$bufferRange    = $view.find('.bufferRange');
+      // this._seekBarPointer = $view.find('.seekBarPointer')[0];
+      this._pointer         = new SmoothSeekBarPointer({
+        pointer: $view.find('.seekBarPointer')[0]});
+      this._bufferRange    = $view.find('.bufferRange')[0];
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
       $view.on('click', e => {
         e.stopPropagation();
@@ -11049,7 +11086,6 @@ StoryboardView.__css__ = (`
 
         this.emit('command', 'screenMode', mode);
       });
-
     },
     _initializePlaybackRateSelectMenu: function() {
       let config = this._playerConfig;
@@ -11066,16 +11102,16 @@ StoryboardView.__css__ = (`
       });
 
       let updatePlaybackRate =  rate => {
-        $label.text('x' + rate);
+        $label.text(`x${rate}`);
         $menu.find('.selected').removeClass('selected');
         let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
-        $menu.find('.playbackRate').each(function(i, item) {
-          let $item = $(item);
-          let r = parseFloat($item.attr('data-rate'), 10);
+        $menu.find('.playbackRate').each((i, item) => {
+          let r = parseFloat(item.getAttribute('data-rate'), 10);
           if (fr === r) {
-            $item.addClass('selected');
+            item.classList.add('selected');
           }
         });
+        this._pointer.playbackRate = rate;
       };
 
       updatePlaybackRate(config.getValue('playbackRate'));
@@ -11127,11 +11163,11 @@ StoryboardView.__css__ = (`
       };
       let beginMouseDrag = () => {
         bindDragEvent();
-        $container.addClass('dragging');
+        $container.addClass('is-dragging');
       };
       let endMouseDrag = () => {
         unbindDragEvent();
-        $container.removeClass('dragging');
+        $container.removeClass('is-dragging');
       };
       let onBodyMouseUp = () => endMouseDrag();
       let onWindowBlur = () => endMouseDrag();
@@ -11308,6 +11344,7 @@ StoryboardView.__css__ = (`
       this._commentPreview.setChatList(this._chatList);
     },
     _onPlayerDurationChange: function() {
+      this._pointer.duration = this._playerState.videoInfo.duration;
       this._heatMap.setChatList(this._chatList);
     },
     _onPlayerClose: function() {
@@ -11338,7 +11375,7 @@ StoryboardView.__css__ = (`
       this._beginMouseDrag();
     },
     _onSeekBarMouseMove: function(e) {
-      if (!this._$view.hasClass('dragging')) {
+      if (!this._$view.hasClass('is-dragging')) {
         e.stopPropagation();
       }
       let left = e.offsetX;
@@ -11354,11 +11391,11 @@ StoryboardView.__css__ = (`
     },
     _beginMouseDrag: function() {
       this._bindDragEvent();
-      this._$view.addClass('dragging');
+      this._$view.addClass('is-dragging');
     },
     _endMouseDrag: function() {
       this._unbindDragEvent();
-      this._$view.removeClass('dragging');
+      this._$view.removeClass('is-dragging');
     },
     _onBodyMouseMove: function(e) {
       let offset = this._$seekBar.offset();
@@ -11421,12 +11458,13 @@ StoryboardView.__css__ = (`
         this._currentTimeText = currentTimeText;
         this._$currentTime[0].value = currentTimeText;
       }
-      const per = Math.min(100, this._timeToPer(sec));
-      this._$seekBarPointer[0].style.transform = `translate3d(${per}vw, 0, 0)`;
+      this._pointer.currentTime = sec;
     },
     setDuration: function(sec) {
       if (sec === this._duration) { return; }
       this._duration = sec;
+      this._pointer.duration = sec;
+      this._pointer.currentTime = -1;
 
       if (sec === 0 || isNaN(sec)) {
         this._$duration[0].value = '--:--';
@@ -11435,7 +11473,7 @@ StoryboardView.__css__ = (`
       this.emit('durationChange');
     },
     setBufferedRange: function(range, currentTime) {
-      let $range = this._$bufferRange;
+      let bufferRange = this._bufferRange;
       if (!range || !range.length || !this._duration) {
         return;
       }
@@ -11449,7 +11487,8 @@ StoryboardView.__css__ = (`
                 this._bufferEnd   !== end) {
               const perLeft = (this._timeToPer(start) - 1);
               const scaleX = (this._timeToPer(width) + 2) / 100;
-              $range.css('transform', `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`);
+              bufferRange.style.transform =
+                `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`;
               this._bufferStart = start;
               this._bufferEnd   = end;
             }
@@ -11460,9 +11499,9 @@ StoryboardView.__css__ = (`
       }
     },
     resetBufferedRange: function() {
-      this._buffferStart = 0;
-      this._buffferEnd = 0;
-      this._$bufferRange.css({transform: 'scaleX(0)'});
+      this._bufferStart = 0;
+      this._bufferEnd = 0;
+      this._bufferRange.style.transform = 'scaleX(0)';
     }
   });
 
@@ -12157,7 +12196,7 @@ StoryboardView.__css__ = (`
       bottom: 10px;
     }
 
-    .dragging                .seekBarToolTip {
+    .is-dragging                .seekBarToolTip {
       opacity: 1;
       pointer-events: none;
     }
@@ -12341,6 +12380,65 @@ StoryboardView.__css__ = (`
     }
   });
 
+  class SmoothSeekBarPointer {
+    constructor(params) {
+      this._pointer = params.pointer;
+      this._currentTime = 0;
+      this._duration = 1;
+      this._playbackRate = 1;
+      this._isRefreshing = false;
+      this._isSmoothMode = true;
+      if (navigator.userAgent.match(/(iPad|iPhone|Edge)/i)) {
+        this._isSmoothMode = false;
+      }
+      this._pointer.classList.toggle('is-smooth', this._isSmoothMode);
+    }
+    set currentTime(v) {
+      if (!this._isSmoothMode) {
+        const per = Math.min(100, this._timeToPer(v));
+        this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
+      }
+      let lastTime = this._currentTime;
+      this._currentTime = v;
+      if (v - lastTime > 0.5 || lastTime > v) {
+        this.refresh();
+      }
+    }
+    get animationDuration() {
+      return this._duration / this._playbackRate;
+    }
+    set duration(v) {
+      if (this._duration === v) { return; }
+      this._duration = v;
+      this.refresh();
+    }
+    set playbackRate(v) {
+      if (this._playbackRate === v) { return; }
+      this._playbackRate = v;
+      this.refresh();
+    }
+    _timeToPer(time) {
+      return (time / Math.max(this._duration, 1)) * 100;
+    }
+    refresh() {
+      if (!this._isSmoothMode) { return; }
+      if (this._isRefreshing) { return; }
+      this._isRefreshing = true;
+      // window.console.log('refresh pointer');
+      this._pointer.classList.add('is-refreshing');
+      this._pointer.style.animation = 'none';
+      requestAnimationFrame(() => {
+        this._pointer.style.animation = '';
+        requestAnimationFrame(() => {
+          this._pointer.style.animationDuration = `${this.animationDuration}s`;
+          this._pointer.style.animationDelay =
+            `${-this._currentTime / this._playbackRate}s`;
+          this._pointer.classList.remove('is-refreshing');
+          this._isRefreshing = false;
+        });
+      });
+    }
+  }
 
 
 
@@ -12999,12 +13097,17 @@ _.assign(NicoComment.prototype, {
       }
       nicoChats.push(nicoChat);
     }
-    nicoChats =
-      new Array(...nicoChats.filter(c => c.isPatissier() && c.getFork() < 1))
-        .splice(this.constructor.getMaxCommentsByDuration(duration))
-        .concat(...nicoChats.filter(c => !c.isPatissier() || c.getFork() > 0));
+    nicoChats = []
+      .concat(...
+        nicoChats.filter(c => c.isPatissier() && c.getFork() < 1 && c.isSubThread())
+          .splice(this.constructor.getMaxCommentsByDuration(duration)))
+      .concat(...
+        nicoChats.filter(c => c.isPatissier() && c.getFork() < 1 && !c.isSubThread())
+          .splice(this.constructor.getMaxCommentsByDuration(duration)))
+      .concat(...nicoChats.filter(c => !c.isPatissier() || c.getFork() > 0));
 
     if (options.append) {
+      // TODO: uniqIdで比較
       nicoChats = nicoChats.filter(chat => {
         return !this._topGroup.includes(chat) && !this._nakaGroup.includes(chat) && !this._bottomGroup.includes(chat);
       });
@@ -15251,6 +15354,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     this._initializeView(params, 0);
 
     this._config = Config.namespace('commentLayer');
+    this._gcElements = document.createElement('div');
 
     let _refresh = this.refresh.bind(this);
 
@@ -15537,7 +15641,9 @@ class NicoCommentCss3PlayerView extends Emitter {
   clear () {
     if (this._commentLayer) {
       this._commentLayer.textContent = '';
+      this._subLayer.textContent = '';
       this._commentLayer.appendChild(this._subLayer);
+      this._gcElements.textContent = '';
     }
     if (this._style) {
       this._style.textContent = '';
@@ -15649,7 +15755,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       if (!elm) {
         return;
       }
-      elm.remove();
+      this._gcElements.appendChild(elm);
     });
   }
   /*
@@ -15667,11 +15773,11 @@ class NicoCommentCss3PlayerView extends Emitter {
     //inViewElements = commentLayer.getElementsByClassName('nicoChat');
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
     for (i = inViewElements.length - max - 1; i >= 0; i--) {
-      inViewElements[i].remove();
+      this._gcElements.appendChild(inViewElements[i]);
     }
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
     for (i = inViewElements.length - max - 10 - 1; i >= 0; i--) {
-      inViewElements[i].remove();
+      this._gcElements.appendChild(inViewElements[i]);
     }
   }
 
@@ -15897,7 +16003,7 @@ body.in-capture .commentLayer {
   100% {
     opacity: 1;
     transform:
-        translate3d(${-NicoCommentViewModel.SCREEN.OUTER_WIDTH_FULL}px, 0, 0) translate3d(-100%, -50%, 0);
+      translate3d(${-NicoCommentViewModel.SCREEN.OUTER_WIDTH_FULL}px, 0, 0) translate3d(-100%, -50%, 0);
   }
 }
 
@@ -16213,8 +16319,8 @@ spacer {
   outline: 3px dotted orange;
 }
 
-.is-stalled .nicoChat,
-.paused  .nicoChat {
+.is-stalled *,
+.paused *{
   animation-play-state: paused !important;
 }
 
@@ -16358,7 +16464,8 @@ class NicoChatCss3View {
         isAlignMiddle = true;
     }
     let top = isAlignMiddle ? '50%' : `${ypos}px`;
-    let vAlign = isAlignMiddle ? '-middle' : '';
+    //let vAlign = isAlignMiddle ? '-middle' : '';
+    let transY = isAlignMiddle ? '-50%' : '0';
 
       result = `
         #${id} {
@@ -16368,29 +16475,28 @@ class NicoChatCss3View {
            ${colorCss}
            ${lineHeightCss}
            font-size: ${fontSizePx}px;
-           animation-name: idou${scale === 1.0 ? '' : id}${vAlign};
+           animation-name: idou${id};
            animation-duration: ${duration}s;
            animation-delay: ${delay}s;
            ${reverse}
         }
-        `;
-      if (scale !== 1.0) {
-        let transY = isAlignMiddle ? '-50%' : '0';
-        result += `
-        @keyframes idou${id}${vAlign} {
+
+        @keyframes idou${id} {
           0%   {
             opacity: 1;
-            transform:
-              translate3d(0, 0, 0) ${scaleCss} translate3d(0, ${transY}, 0);
+            transform: translate3d(0, 0, 0) ${scaleCss} translate3d(0, ${transY}, 0);
           }
           100% {
             opacity: 1;
-            transform:
-              translate3d(-${outerScreenWidth}px, 0, 0) ${scaleCss} translate3d(-100%, ${transY}, 0);
+            transform: translate3d(-${outerScreenWidth}px, 0, 0)
+            ${scaleCss}
+            translate3d(-${chat.getWidth()}px, ${transY}, 0);
           }
         }
       `;
-      }
+    // メモ
+    // こう書けば個別に作らなくてもアニメーション定義を共通化できるが、vwや%などの変動しうる要素が入ったためかカクつきやすくなったので戻した
+    // translate3d(-${outerScreenWidth}px, ${transY}, 0) translate3d(-100%, 0, 0) ${scaleCss}
     return `\n${result.trim().replace(/[ ]+/g, ' ')}\n`;
   }
 
@@ -18143,6 +18249,7 @@ _.assign(CommentListView.prototype, {
       body.classList.add(this._className);
     }
     this._$container = $body.find('#listContainer');
+    this._container = this._$container[0];
     let $list = this._$list = $(doc.getElementById('listContainerInner'));
     if (this._html) {
       $list.html(this._html);
@@ -18165,10 +18272,9 @@ _.assign(CommentListView.prototype, {
     this._$menu.on('click', this._onMenuClick.bind(this));
     this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
 
-    this._$container
-      .on('mouseover', this._onMouseOver.bind(this))
-      .on('mouseleave', this._onMouseOut.bind(this));
-    this._$container[0].addEventListener('scroll',
+    this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
+    this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
+    this._container.addEventListener('scroll',
       this._onScroll.bind(this), {passive: true});
     this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
 
@@ -18322,8 +18428,8 @@ _.assign(CommentListView.prototype, {
       return;
     }
     let itemHeight = CommentListView.ITEM_HEIGHT;
-    let $container = this._$container;
-    let scrollTop = $container.scrollTop();
+    // let $container = this._$container;
+    let scrollTop = this._container.scrollTop;
     let innerHeight = this._innerHeight;
     //if (innerHeight > window.innerHeight) { return; }
     let windowBottom = scrollTop + innerHeight;
@@ -18396,9 +18502,9 @@ _.assign(CommentListView.prototype, {
 
     if (typeof v === 'number') {
       this._scrollTop = v;
-      this._$container[0].scrollTop = v;
+      this._container.scrollTop = v;
     } else {
-      this._scrollTop = this._$container[0].scrollTop;
+      this._scrollTop = this._container.scrollTop;
       return this._scrollTop;
     }
   },
@@ -19062,7 +19168,7 @@ _.assign(CommentPanelView.prototype, {
     this._$view.toggleClass(className, v);
   },
   _onModelCurrentTimeUpdate: function (sec, viewIndex) {
-    if (!this._$view || !this._$view.is(':visible')) {
+    if (!this._$view){ //} || !this._$view.is(':visible')) {
       return;
     }
 
@@ -23828,7 +23934,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     this._videoControlBar = new VideoControlBar({
       $playerContainer: $container,
       playerConfig: config,
-      player: this._dialog
+      player: this._dialog,
+      playerState: this._state
     });
     this._videoControlBar.on('command', onCommand);
 
@@ -27380,15 +27487,15 @@ SettingPanel.__tpl__ = (`
           <span class="info">
             １行ごとに入力。プレミアム会員に上限はありませんが、増やしすぎると重くなります。
           </span>
-          <p>NGワード (一般会員は20まで)</p>
+          <p>NGワード (一般会員は40まで)</p>
           <textarea
             class="filterEdit wordFilterEdit"
             data-command="setWordFilterList"></textarea>
-          <p>NGコマンド (一般会員は10まで)</p>
+          <p>NGコマンド (一般会員は40まで)</p>
           <textarea
             class="filterEdit commandFilterEdit"
             data-command="setCommandFilterList"></textarea>
-          <p>NGユーザー (一般会員は10まで)</p>
+          <p>NGユーザー (一般会員は40まで)</p>
           <textarea
             class="filterEdit userIdFilterEdit"
             data-command="setUserIdFilterList"></textarea>
