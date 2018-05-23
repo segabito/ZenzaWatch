@@ -278,12 +278,17 @@ _.assign(NicoComment.prototype, {
       }
       nicoChats.push(nicoChat);
     }
-    nicoChats =
-      new Array(...nicoChats.filter(c => c.isPatissier() && c.getFork() < 1))
-        .splice(this.constructor.getMaxCommentsByDuration(duration))
-        .concat(...nicoChats.filter(c => !c.isPatissier() || c.getFork() > 0));
+    nicoChats = []
+      .concat(...
+        nicoChats.filter(c => c.isPatissier() && c.getFork() < 1 && c.isSubThread())
+          .splice(this.constructor.getMaxCommentsByDuration(duration)))
+      .concat(...
+        nicoChats.filter(c => c.isPatissier() && c.getFork() < 1 && !c.isSubThread())
+          .splice(this.constructor.getMaxCommentsByDuration(duration)))
+      .concat(...nicoChats.filter(c => !c.isPatissier() || c.getFork() > 0));
 
     if (options.append) {
+      // TODO: uniqIdで比較
       nicoChats = nicoChats.filter(chat => {
         return !this._topGroup.includes(chat) && !this._nakaGroup.includes(chat) && !this._bottomGroup.includes(chat);
       });
@@ -2530,6 +2535,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     this._initializeView(params, 0);
 
     this._config = Config.namespace('commentLayer');
+    this._gcElements = document.createElement('div');
 
     let _refresh = this.refresh.bind(this);
 
@@ -2816,7 +2822,9 @@ class NicoCommentCss3PlayerView extends Emitter {
   clear () {
     if (this._commentLayer) {
       this._commentLayer.textContent = '';
+      this._subLayer.textContent = '';
       this._commentLayer.appendChild(this._subLayer);
+      this._gcElements.textContent = '';
     }
     if (this._style) {
       this._style.textContent = '';
@@ -2928,7 +2936,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       if (!elm) {
         return;
       }
-      elm.remove();
+      this._gcElements.appendChild(elm);
     });
   }
   /*
@@ -2946,11 +2954,11 @@ class NicoCommentCss3PlayerView extends Emitter {
     //inViewElements = commentLayer.getElementsByClassName('nicoChat');
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
     for (i = inViewElements.length - max - 1; i >= 0; i--) {
-      inViewElements[i].remove();
+      this._gcElements.appendChild(inViewElements[i]);
     }
     inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork1'));
     for (i = inViewElements.length - max - 10 - 1; i >= 0; i--) {
-      inViewElements[i].remove();
+      this._gcElements.appendChild(inViewElements[i]);
     }
   }
 
@@ -3176,7 +3184,7 @@ body.in-capture .commentLayer {
   100% {
     opacity: 1;
     transform:
-        translate3d(${-NicoCommentViewModel.SCREEN.OUTER_WIDTH_FULL}px, 0, 0) translate3d(-100%, -50%, 0);
+      translate3d(${-NicoCommentViewModel.SCREEN.OUTER_WIDTH_FULL}px, 0, 0) translate3d(-100%, -50%, 0);
   }
 }
 
@@ -3492,8 +3500,8 @@ spacer {
   outline: 3px dotted orange;
 }
 
-.is-stalled .nicoChat,
-.paused  .nicoChat {
+.is-stalled *,
+.paused *{
   animation-play-state: paused !important;
 }
 
@@ -3637,7 +3645,8 @@ class NicoChatCss3View {
         isAlignMiddle = true;
     }
     let top = isAlignMiddle ? '50%' : `${ypos}px`;
-    let vAlign = isAlignMiddle ? '-middle' : '';
+    //let vAlign = isAlignMiddle ? '-middle' : '';
+    let transY = isAlignMiddle ? '-50%' : '0';
 
       result = `
         #${id} {
@@ -3647,29 +3656,28 @@ class NicoChatCss3View {
            ${colorCss}
            ${lineHeightCss}
            font-size: ${fontSizePx}px;
-           animation-name: idou${scale === 1.0 ? '' : id}${vAlign};
+           animation-name: idou${id};
            animation-duration: ${duration}s;
            animation-delay: ${delay}s;
            ${reverse}
         }
-        `;
-      if (scale !== 1.0) {
-        let transY = isAlignMiddle ? '-50%' : '0';
-        result += `
-        @keyframes idou${id}${vAlign} {
+
+        @keyframes idou${id} {
           0%   {
             opacity: 1;
-            transform:
-              translate3d(0, 0, 0) ${scaleCss} translate3d(0, ${transY}, 0);
+            transform: translate3d(0, 0, 0) ${scaleCss} translate3d(0, ${transY}, 0);
           }
           100% {
             opacity: 1;
-            transform:
-              translate3d(-${outerScreenWidth}px, 0, 0) ${scaleCss} translate3d(-100%, ${transY}, 0);
+            transform: translate3d(-${outerScreenWidth}px, 0, 0)
+            ${scaleCss}
+            translate3d(-${chat.getWidth()}px, ${transY}, 0);
           }
         }
       `;
-      }
+    // メモ
+    // こう書けば個別に作らなくてもアニメーション定義を共通化できるが、vwや%などの変動しうる要素が入ったためかカクつきやすくなったので戻した
+    // translate3d(-${outerScreenWidth}px, ${transY}, 0) translate3d(-100%, 0, 0) ${scaleCss}
     return `\n${result.trim().replace(/[ ]+/g, ' ')}\n`;
   }
 
