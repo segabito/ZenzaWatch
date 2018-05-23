@@ -295,6 +295,7 @@ const {ThreadLoader} = (() => {
           });
         }
 
+        let last_res = isNaN(thread.last_res) ? 0 : thread.last_res * 1;
         let threadInfo = {
           server,
           userId,
@@ -303,9 +304,9 @@ const {ThreadLoader} = (() => {
           thread:     thread.thread,
           serverTime: thread.server_time,
           force184:   msgInfo.defaultThread.isThreadkeyRequired ? '1' : '0',
-          lastRes:    thread.last_res,
+          lastRes:    last_res,
           totalResCount,
-          blockNo:    Math.floor((thread.last_res + 1) / 100),
+          blockNo:    Math.floor((last_res + 1) / 100),
           ticket:     thread.ticket || '0',
           revision:   thread.revision,
           language:   msgInfo.language,
