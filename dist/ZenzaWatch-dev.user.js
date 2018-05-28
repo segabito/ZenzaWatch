@@ -21818,7 +21818,6 @@ Object.assign(Playlist.prototype, {
   },
   _setItemData: function (listData) {
     const items = listData.map(itemData => new VideoListItem(itemData));
-    //window.console.log('_setItemData', listData);
     this._model.setItem(items);
     this.setIndex(items.length > 0 ? 0 : -1);
   },

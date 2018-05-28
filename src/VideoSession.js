@@ -21,32 +21,51 @@ const VideoSession = (() => {
   };
 
   class DmcPostData {
-    constructor(dmcInfo, videoQuality) {
+    constructor(dmcInfo, videoQuality, {useHLS = true, useSSL = false, useWellKnownPort = false}) {
       this._dmcInfo = dmcInfo;
       this._videoQuality = videoQuality || 'auto';
+      this._useHLS = useHLS;
+      this._useSSL = useSSL;
+      this._useWellKnownPort = useWellKnownPort;
     }
 
     toString() {
       let dmcInfo = this._dmcInfo;
 
       let videos = [];
-
       let reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
-      dmcInfo.videos.forEach(format => {
-        if (reg.test(format)) {
-          videos.push(format);
+      if (reg === VIDEO_QUALITY.auto) {
+        videos = dmcInfo.videos.concat();
+      } else {
+        dmcInfo.videos.forEach(format => {
+          if (reg.test(format)) {
+            videos.push(format);
+          }
+        });
+        if (videos.length < 1) {
+          videos[0] = dmcInfo.videos[0];
         }
-      });
-      dmcInfo.videos.forEach(format => {
-        if (!reg.test(format)) {
-          videos.push(format);
-        }
-      });
+      }
 
-      let audios = [];
-      dmcInfo.audios.forEach(format => {
-        audios.push(format);
-      });
+      let audios = [dmcInfo.audios[0]];
+
+      let contentSrcIdSets =
+        (this._useHLS && reg === VIDEO_QUALITY.auto) ?
+          this._buildAbrContentSrcIdSets(videos, audios) :
+          this._buildContentSrcIdSets(videos, audios);
+
+      let http_parameters = {};
+      let parameters = {
+        use_ssl: this._useSSL ? 'yes' : 'no',
+        use_well_known_port: this._useWellKnownPort ? 'yes' : 'no',
+        transfer_preset: dmcInfo.transferPreset
+      };
+      if (this._useHLS) {
+        parameters.segment_duration = Config.getValue('video.hls.segmentDuration');
+      }
+      http_parameters.parameters = this._useHLS ?
+        {hls_parameters: parameters} :
+        {http_output_download_parameters: parameters};
 
       let request = {
         session: {
@@ -61,18 +80,7 @@ const VideoSession = (() => {
             //max_content_count: 10,
           },
           content_id: dmcInfo.contentId,
-          content_src_id_sets: [
-            {
-              content_src_ids: [
-                {
-                  src_id_to_mux: {
-                    audio_src_ids: audios,
-                    video_src_ids: videos
-                  }
-                }
-              ]
-            }
-          ],
+          content_src_id_sets: contentSrcIdSets,
           content_type: 'movie',
           content_uri: '',
           keep_method: {
@@ -81,19 +89,7 @@ const VideoSession = (() => {
           priority: dmcInfo.priority,
           protocol: {
             name: 'http',
-            parameters: {
-              http_parameters: {
-                //method: 'GET',
-                parameters: {
-                  http_output_download_parameters: {
-                    use_ssl: 'no',
-                    use_well_known_port: 'no',
-                    transfer_preset: dmcInfo.transferPreset
-  //                  file_extension: 'mp4'
-                  }
-                }
-              }
-            }
+            parameters: {http_parameters}
           },
           recipe_id: dmcInfo.recipeId,
 
@@ -110,7 +106,38 @@ const VideoSession = (() => {
 
       return JSON.stringify(request, null, 2);
     }
+
+    _buildContentSrcIdSets(videos, audios) {
+      return [
+        {
+          content_src_ids: [
+            {
+              src_id_to_mux: {
+                audio_src_ids: audios,
+                video_src_ids: videos
+              }
+            }
+          ]
+        }
+      ];
+    }
+
+    _buildAbrContentSrcIdSets(videos, audios) {
+      const v = videos.concat();
+      const contentSrcIds = [];
+      while (v.length > 0) {
+        contentSrcIds.push({
+          src_id_to_mux: {
+            audio_src_ids: [audios[0]],
+            video_src_ids: v.concat()
+          }
+        });
+        v.shift();
+      }
+      return [{content_src_ids: contentSrcIds}];
+    }
   }
+
 
   class VideoSession {
 
@@ -310,9 +337,13 @@ const VideoSession = (() => {
       });
     }
 
+    get useHLS() {
+      return this._useHLS &&
+        this._videoInfo.dmcInfo.protocols.includes('hls');
+    }
+
     _heartBeat() {
       let url = this._videoSessionInfo.heartBeatUrl;
-      console.log('HeartBeat', url);
       util.fetch(url, {
         method: 'post',
         dataType: 'text',

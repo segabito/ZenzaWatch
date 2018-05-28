@@ -1559,13 +1559,8 @@ _.assign(VideoList.prototype, {
       this._initializeView();
     }
     this._watchId = watchId;
-    const items = [];
-    listData.forEach(itemData => {
-      if (!itemData.has_data) {
-        return;
-      }
-      items.push(new VideoListItem(itemData));
-    });
+    const items = listData.filter(itemData => itemData.has_data)
+      .map(itemData => new VideoListItem(itemData));
     if (items.length < 1) {
       return;
     }
@@ -1914,12 +1909,8 @@ _.assign(PlaylistView.prototype, {
     });
     listView.on('command', this._onCommand.bind(this));
     listView.on('deflistAdd', this._onDeflistAdd.bind(this));
-    listView.on('moveItem', (src, dest) => {
-      this.emit('moveItem', src, dest);
-    });
-    listView.on('filedrop', (data) => {
-      this.emit('command', 'importFile', data);
-    });
+    listView.on('moveItem', (src, dest) => this.emit('moveItem', src, dest));
+    listView.on('filedrop', data => this.emit('command', 'importFile', data));
     listView.on('dblclick', this._onListDblclick.bind(this));
 
     this._playlist.on('update',
@@ -1943,9 +1934,7 @@ _.assign(PlaylistView.prototype, {
       'removeClass',
       'scrollTop',
       'scrollToItem',
-    ].forEach(func => {
-      this[func] = listView[func].bind(listView);
-    });
+    ].forEach(func => this[func] = listView[func].bind(listView));
   },
   toggleClass: function (className, v) {
     this._view.toggleClass(className, v);
@@ -2246,11 +2235,7 @@ Object.assign(Playlist.prototype, {
     this._refreshIndex();
   },
   _setItemData: function (listData) {
-    const items = [];
-    listData.forEach(itemData => {
-      items.push(new VideoListItem(itemData));
-    });
-    //window.console.log('_setItemData', listData);
+    const items = listData.map(itemData => new VideoListItem(itemData));
     this._model.setItem(items);
     this.setIndex(items.length > 0 ? 0 : -1);
   },

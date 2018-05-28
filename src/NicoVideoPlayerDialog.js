@@ -1480,7 +1480,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     nicoVideoPlayer.on('play', this._onVideoPlay.bind(this));
     nicoVideoPlayer.on('pause', this._onVideoPause.bind(this));
     nicoVideoPlayer.on('playing', this._onVideoPlaying.bind(this));
+    nicoVideoPlayer.on('seeking', this._onVideoSeeking.bind(this));
+    nicoVideoPlayer.on('seeked', this._onVideoSeeked.bind(this));
     nicoVideoPlayer.on('stalled', this._onVideoStalled.bind(this));
+    nicoVideoPlayer.on('waiting', this._onVideoStalled.bind(this));
+    nicoVideoPlayer.on('timeupdate', this._onVideoTimeUpdate.bind(this));
     nicoVideoPlayer.on('progress', this._onVideoProgress.bind(this));
     nicoVideoPlayer.on('aspectRatioFix', this._onVideoAspectRatioFix.bind(this));
     nicoVideoPlayer.on('commentParsed', this._onCommentParsed.bind(this));
@@ -2549,7 +2553,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     let $container = this._view.appendTab('playlist', 'プレイリスト');
     this._playlist = new Playlist({
       loader: ZenzaWatch.api.ThumbInfoLoader,
-      $container: $container,
+      container: $container[0],
       loop: this._playerConfig.getValue('playlistLoop')
     });
     this._playlist.on('command', this._onCommand.bind(this));
@@ -3489,9 +3493,7 @@ _.assign(VideoHoverMenu.prototype, {
     }
     mylistList = mylistList || this._mylistList;
     let menu = this._container.querySelector('.mylistSelectMenu');
-    menu.addEventListener('wheel', e => {
-      e.stopPropagation();
-    }, {passive: true});
+    menu.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
 
     let ul = document.createElement('ul');
     mylistList.forEach(mylist => {
