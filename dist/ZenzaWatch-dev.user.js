@@ -26,7 +26,7 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito
-// @version        2.0.6beta
+// @version        2.0.7beta
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@
     let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
     let TOKEN = 'r:' + (Math.random());
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.0.6beta';
+    var VER = '2.0.7beta';
     const ENV = 'DEV';
 
     //@environment
@@ -2549,7 +2549,7 @@ util.RequestAnimationFrame = RequestAnimationFrame;
 class FrameLayer extends Emitter {
   constructor(params) {
     super();
-    this._$container = params.$container;
+    this._container = params.container;
     this._retryGetIframeCount = 0;
 
     this._initializeView(params, 0);
@@ -2581,7 +2581,7 @@ _.assign(FrameLayer.prototype, {
     };
 
     let html = this._html = params.html;
-    this._$container.append(iframe);
+    this._container.appendChild(iframe);
     if (iframe.srcdocType === 'string') {
       iframe.onload = onload;
       iframe.srcdoc = html;
@@ -6957,6 +6957,8 @@ _.assign(NicoVideoPlayer.prototype, {
     this._videoPlayer.on('seeking', this._onSeeking.bind(this));
     this._videoPlayer.on('seeked', this._onSeeked.bind(this));
     this._videoPlayer.on('stalled', eventBridge.bind(this, 'stalled'));
+    this._videoPlayer.on('timeupdate', eventBridge.bind(this, 'timeupdate'));
+    this._videoPlayer.on('waiting', eventBridge.bind(this, 'waiting'));
     this._videoPlayer.on('progress', eventBridge.bind(this, 'progress'));
     this._videoPlayer.on('pause', this._onPause.bind(this));
     this._videoPlayer.on('ended', this._onEnded.bind(this));
@@ -7786,7 +7788,7 @@ class VideoPlayer extends Emitter {
       .on('loadedmetadata', eventBridge.bind(this, 'loadedmetadata'))
       .on('ended', eventBridge.bind(this, 'ended'))
       .on('emptied', eventBridge.bind(this, 'emptied'))
-      .on('stalled', eventBridge.bind(this, 'stalled'))
+      .on('stalled', this._onStalled.bind(this))
       .on('suspend', eventBridge.bind(this, 'suspend'))
       .on('waiting', eventBridge.bind(this, 'waiting'))
       .on('progress', this._onProgress.bind(this))
@@ -7967,6 +7969,11 @@ class VideoPlayer extends Emitter {
     if (delta !== 0) {
       this.emit('mouseWheel', e, delta);
     }
+  }
+
+  _onStalled(...args) {
+    this.emit(...args);
+    this._video.addEventListener('timeupdate', () => this.emit('timeupdate'), {once: true});
   }
 
   canPlay() {
@@ -9903,8 +9910,10 @@ StoryboardView.__css__ = (`
 
     .zenzaScreenMode_wide .volumeChanging .videoControlBar,
     .fullScreen           .volumeChanging .videoControlBar,
-    .zenzaScreenMode_wide .is-mouseMoving    .videoControlBar,
-    .fullScreen           .is-mouseMoving    .videoControlBar {
+    .zenzaScreenMode_wide .is-mouseMoving .videoControlBar,
+    .fullScreen           .is-mouseMoving .videoControlBar,
+    .zenzaScreenMode_wide .is-stalled    .videoControlBar,
+    .fullScreen           .is-stalled    .videoControlBar {
       opacity: 0.7;
       background: rgba(0, 0, 0, 0.5);
     }
@@ -10210,38 +10219,19 @@ StoryboardView.__css__ = (`
     }
 
 
-    /*
-    .seekBar .seekBarPointer {
-      position: absolute;
-      display: inline-block;
-      top: 50%;
-      left: 0;
-      width: 12px;
-      background: rgba(255, 255, 255, 0.5);
-      height: calc(100% + 2px);
-      z-index: 200;
-      box-shadow: 0 0 4px #ffc inset;
-      pointer-events: none;
-      transform: translate3d(-50%, 0, 0) translate3d(-50%, -50%, 0);
-    }
-    .is-loading  .seekBar .seekBarPointer,
-    .is-dragging .seekBar .seekBarPointer {
-      transition: none;
-    }
-    */
-    
     .seekBarPointer {
       position: absolute;
       display: inline-block;
       top: 50%;
       left: 0;
       width: 12px;
-      background: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.7);
       height: calc(100% + 2px);
       z-index: 200;
       box-shadow: 0 0 4px #ffc inset;
       pointer-events: none;
       transform: translate3d(-6px, -50%, 0);
+      mix-blend-mode: lighten;
     }
     .seekBarPointer.is-smooth {
       animation-duration: 1s;
@@ -10256,6 +10246,7 @@ StoryboardView.__css__ = (`
     .is-notPlayed .seekBarPointer,
     .is-dragging .seekBarPointer,
     .is-seeking  .seekBarPointer,
+    .is-stalled  .seekBarPointer,
     .is-pausing  .seekBarPointer {
       animation-play-state: paused;
     }
@@ -10764,6 +10755,7 @@ StoryboardView.__css__ = (`
     .progressWave {
       display: none;
     }
+    .is-stalled .progressWave,
     .is-loading .progressWave {
       display: inline-block;
       position: absolute;
@@ -17893,11 +17885,6 @@ class NicoScripter extends Emitter {
 class CommentListModel extends Emitter {
   constructor(params) {
     super();
-    this.initialize(params);
-  }
-}
-_.assign(CommentListModel.prototype, {
-  initialize: function (params) {
     this._isUniq = params.uniq;
     this._items = [];
     this._positions = [];
@@ -17905,18 +17892,17 @@ _.assign(CommentListModel.prototype, {
     this._currentSortKey = 'vpos';
     this._isDesc = false;
     this._currentTime = 0;
-  },
-  setItem: function (itemList) {
-    itemList = Array.isArray(itemList) ? itemList : [itemList];
-    this._items = itemList;
-  },
-  clear: function () {
+  }
+  setItem(itemList) {
+    this._items = Array.isArray(itemList) ? itemList : [itemList];
+  }
+  clear() {
     this._items = [];
     this._positions = [];
     this._currentTime = 0;
     this.emit('update', [], true);
-  },
-  setChatList: function (chatList) {
+  }
+  setChatList(chatList) {
     chatList = chatList.top.concat(chatList.naka, chatList.bottom);
     let items = [];
     let positions = [];
@@ -17925,60 +17911,52 @@ _.assign(CommentListModel.prototype, {
       positions.push(parseFloat(chatList[i].getVpos(), 10) / 100);
     }
     this._items = items;
-    this._positions = positions.sort((a, b) => {
-      return a - b;
-    });
+    this._positions = positions.sort((a, b) => a - b);
     this._currentTime = 0;
 
     this.sort();
     this.emit('update', this._items, true);
-  },
-  removeItemByIndex: function (index) {
+  }
+  removeItemByIndex(index) {
     let target = this._getItemByIndex(index);
     if (!target) {
       return;
     }
-    this._items = _.reject(this._items, item => {
-      return item === target;
-    });
-  },
-  getLength: function () {
+    this._items = _.reject(this._items, item => item === target);
+  }
+  getLength() {
     return this._items.length;
-  },
-  _getItemByIndex: function (index) {
+  }
+  _getItemByIndex(index) {
     let item = this._items[index];
     return item;
-  },
-  indexOf: function (item) {
+  }
+  indexOf(item) {
     return (this._items || []).indexOf(item);
-  },
-  getItemByIndex: function (index) {
+  }
+  getItemByIndex(index) {
     let item = this._getItemByIndex(index);
     if (!item) {
       return null;
     }
     return item;
-  },
-  findByItemId: function (itemId) {
+  }
+  findByItemId(itemId) {
     itemId = parseInt(itemId, 10);
-    return _.find(this._items, (item) => {
-      if (item.getItemId() === itemId) {
-        return true;
-      }
-    });
-  },
-  removeItem: function (item) {
+    return this._items.find(item => item.getItemId() === itemId);
+  }
+  removeItem(item) {
     let beforeLen = this._items.length;
     _.pull(this._items, item);
     let afterLen = this._items.length;
     if (beforeLen !== afterLen) {
       this.emit('update', this._items);
     }
-  },
-  _onItemUpdate: function (item, key, value) {
+  }
+  _onItemUpdate(item, key, value) {
     this.emit('itemUpdate', item, key, value);
-  },
-  sortBy: function (key, isDesc) {
+  }
+  sortBy(key, isDesc) {
     let table = {
       vpos: 'getVpos',
       date: 'getDate',
@@ -17989,29 +17967,27 @@ _.assign(CommentListModel.prototype, {
     if (!func) {
       return;
     }
-    this._items = _.sortBy(this._items, function (item) {
-      return item[func]();
-    });
+    this._items = _.sortBy(this._items, item => item[func]());
     if (isDesc) {
       this._items.reverse();
     }
     this._currentSortKey = key;
     this._isDesc = isDesc;
     this.onUpdate();
-  },
-  sort: function () {
+  }
+  sort() {
     this.sortBy(this._currentSortKey, this._isDesc);
-  },
-  getCurrentSortKey: function () {
+  }
+  getCurrentSortKey() {
     return this._currentSortKey;
-  },
-  onUpdate: function () {
+  }
+  onUpdate() {
     this.emitAsync('update', this._items);
-  },
-  getInViewIndex: function (sec) {
+  }
+  getInViewIndex(sec) {
     return Math.max(0, util.sortedLastIndex(this._positions, sec + 1) - 1);
-  },
-  setCurrentTime: function (sec) {
+  }
+  setCurrentTime(sec) {
     if (this._currentTime !== sec && typeof sec === 'number') {
       this._currentTime = sec;
       if (this._currentSortKey === 'vpos') {
@@ -18019,16 +17995,343 @@ _.assign(CommentListModel.prototype, {
       }
     }
   }
-});
+}
 
 /**
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
  */
 class CommentListView extends Emitter {
-  constructor(...args) {
+  constructor(params) {
     super();
-    this.initialize(...args);
+    this._ItemView = CommentListItemView;
+    this._itemCss = CommentListItemView.CSS;
+    this._className = params.className || 'commentList';
+
+    this._retryGetIframeCount = 0;
+
+    this._cache = {};
+    this._maxItems = 100000;
+    this._scrollTop = 0;
+
+    this._model = params.model;
+    if (this._model) {
+      this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
+    }
+
+    this.scrollTop = util.createDrawCallFunc(this.scrollTop.bind(this));
+    this._initializeView(params, 0);
+  }
+  _initializeView(params) {
+    let html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
+    this._frame = new FrameLayer({
+      container: params.container,
+      html: html,
+      className: 'commentListFrame'
+    });
+    this._frame.on('load', this._onIframeLoad.bind(this));
+  }
+  _onIframeLoad(w) {
+    let doc = this._document = w.document;
+    this._window = w; //$(w);
+    let body = this._body = doc.body;
+    let $body = this._$body = $(body);
+    if (this._className) {
+      body.classList.add(this._className);
+    }
+    this._$container = $body.find('#listContainer');
+    this._container = doc.querySelector('#listContainer');
+    let $list = this._$list = $(doc.getElementById('listContainerInner'));
+    if (this._html) {
+      $list.html(this._html);
+    }
+    this._$menu = $body.find('.listMenu');
+
+    this._$itemDetail = $body.find('.itemDetailContainer');
+
+    $body
+      .on('click', this._onClick.bind(this))
+      .on('dblclick', this._onDblClick.bind(this))
+      .on('keydown', e => ZenzaWatch.emitter.emit('keydown', e))
+      .on('keyup', e => ZenzaWatch.emitter.emit('keyup', e))
+      .toggleClass('is-guest', !util.isLogin());
+
+    this._$menu.on('click', this._onMenuClick.bind(this));
+    this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
+
+    this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
+    this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
+    this._container.addEventListener('scroll', this._onScroll.bind(this), {passive: true});
+    this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
+
+    w.addEventListener('resize', this._onResize.bind(this));
+    this._innerHeight = w.innerHeight;
+
+    this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
+    //this._appendNewItems = util.createDrawCallFunc(this._appendNewItems.bind(this));
+
+    this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
+
+    // 互換用
+    ZenzaWatch.debug.$commentList = $list;
+    ZenzaWatch.debug.getCommentPanelItems = () => {
+      return Array.from(doc.querySelectorAll('.commentListItem'));
+    };
+  }
+  _onModelUpdate(itemList, replaceAll) {
+    window.console.time('update commentlistView');
+    this.addClass('updating');
+    itemList = Array.isArray(itemList) ? itemList : [itemList];
+    let itemViews = [];
+    this._isActive = false;
+
+    if (replaceAll) {
+      this._scrollTop = 0;
+    }
+
+    itemViews = itemList.map((item, i) =>
+      new this._ItemView({item: item, index: i, height: CommentListView.ITEM_HEIGHT})
+    );
+
+    this._itemViews = itemViews;
+
+    window.setTimeout(() => {
+      if (this._$list) {
+        this._$list.empty();
+        this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length + 100});
+        this._$menu.removeClass('show');
+        this._refreshInviewElements();
+        this.hideItemDetail();
+      }
+    }, 0);
+
+    window.setTimeout(() => {
+      this.removeClass('updating');
+      this.emit('update');
+    }, 100);
+
+    window.console.timeEnd('update commentlistView');
+  }
+  _onClick(e) {
+    e.stopPropagation();
+    ZenzaWatch.emitter.emitAsync('hideHover');
+    let $item = $(e.target).closest('.commentListItem');
+    if ($item.length > 0) {
+      return this._debouncedOnItemClick($item);
+    }
+  }
+  _onItemClick($item) {
+    this._$menu
+      .css('top', $item.attr('data-top') + 'px')
+      .attr('data-item-id', $item.attr('data-item-id'))
+      .addClass('show');
+  }
+  _onMenuClick(e) {
+    let $target = $(e.target).closest('.menuButton');
+    this._$menu.removeClass('show');
+    if ($target.length < 1) {
+      return;
+    }
+    let itemId = $target.closest('.listMenu').attr('data-item-id');
+    if ($target.length < 1) {
+      return;
+    }
+    if (!itemId) {
+      return;
+    }
+
+    let command = $target.attr('data-command');
+
+    if (command === 'addUserIdFilter' || command === 'addWordFilter') {
+      this._$list.find('.item' + itemId).hide();
+    }
+
+    this.emit('command', command, null, itemId);
+  }
+  _onItemDetailClick(e) {
+    let $target = $(e.target).closest('.command');
+    if ($target.length < 1) {
+      return;
+    }
+    let itemId = this._$itemDetail.attr('data-item-id');
+    if (!itemId) {
+      return;
+    }
+    let command = $target.attr('data-command');
+    let param = $target.attr('data-param');
+    if (command === 'hideItemDetail') {
+      return this.hideItemDetail();
+    }
+    if (command === 'reloadComment') {
+      this.hideItemDetail();
+    }
+    this.emit('command', command, param, itemId);
+  }
+  _onDblClick(e) {
+    e.stopPropagation();
+    let $item = $(e.target).closest('.commentListItem');
+    if ($item.length < 0) {
+      return;
+    }
+    e.preventDefault();
+
+    let itemId = $item.attr('data-item-id');
+    this.emit('command', 'select', null, itemId);
+  }
+  _onMouseMove() {
+  }
+  _onMouseOver() {
+    this._isActive = true;
+    this.addClass('active');
+  }
+  _onMouseOut() {
+    this._isActive = false;
+    this.removeClass('active');
+  }
+  _onResize() {
+    this._innerHeight = this._window.innerHeight;
+    this._refreshInviewElements();
+  }
+  _onScroll() {
+    if (!this.hasClass('is-scrolling')) {
+      this.addClass('is-scrolling');
+    }
+    this._refreshInviewElements();
+    this._debouncedOnScrollEnd();
+  }
+  _onScrollEnd() {
+    this.removeClass('is-scrolling');
+  }
+  _refreshInviewElements() {
+    if (!this._$list) {
+      return;
+    }
+    let itemHeight = CommentListView.ITEM_HEIGHT;
+    let scrollTop = this._container.scrollTop;
+    let innerHeight = this._innerHeight;
+    let windowBottom = scrollTop + innerHeight;
+    let itemViews = this._itemViews;
+    let startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
+    let endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
+    let i;
+
+    const newItems = [], inviewItemList = this._inviewItemList || [];
+    for (i = startIndex; i < endIndex; i++) {
+      if (inviewItemList[i] || !itemViews[i]) {
+        continue;
+      }
+      newItems.push(itemViews[i]);
+      inviewItemList[i] = itemViews[i];
+    }
+
+    if (newItems.length < 1) {
+      return;
+    }
+
+    Object.keys(inviewItemList).forEach(i => {
+      if (i >= startIndex && i <= endIndex) {
+        return;
+      }
+      inviewItemList[i].remove();
+      delete inviewItemList[i];
+    });
+
+    this._inviewItemList = inviewItemList;
+
+
+    this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
+
+
+    this._appendNewItems();
+  }
+  _appendNewItems() {
+    if (this._newItems) {
+      const f = document.createDocumentFragment();
+      this._newItems.forEach(i => {
+        f.appendChild(i.getViewElement());
+      });
+      this._$list[0].appendChild(f);
+    }
+    this._newItems = null;
+  }
+  addClass(className) {
+    this.toggleClass(className, true);
+  }
+  removeClass(className) {
+    this.toggleClass(className, false);
+  }
+  toggleClass(className, v) {
+    if (!this._body) {
+      return;
+    }
+    this._body.classList.toggle(className, v);
+  }
+  hasClass(className) {
+    return this._body.classList.contains(className);
+  }
+  find(query) {
+    return this._document.querySelectorAll(query);
+  }
+  scrollTop(v) {
+    if (!this._window) {
+      return 0;
+    }
+
+    if (typeof v === 'number') {
+      this._scrollTop = v;
+      this._container.scrollTop = v;
+    } else {
+      this._scrollTop = this._container.scrollTop;
+      return this._scrollTop;
+    }
+  }
+  scrollToItem(itemId) {
+    if (!this._$body) {
+      return;
+    }
+    if (typeof itemId.getItemId === 'function') {
+      itemId = itemId.getItemId();
+    }
+
+    let $target = this._$body.find('.item' + itemId);
+    if ($target.length < 1) {
+      return;
+    }
+    let top = $target.offset().top;
+    this.scrollTop(top);
+  }
+  setCurrentPoint(idx) {
+    if (!this._window || !this._itemViews) {
+      return;
+    }
+    let innerHeight = this._innerHeight;
+    let itemViews = this._itemViews;
+    let len = itemViews.length;
+    let view = itemViews[idx];
+    if (len < 1 || !view) {
+      return;
+    }
+
+    if (!this._isActive) {
+      let itemHeight = CommentListView.ITEM_HEIGHT;
+      let top = view.getTop();
+      this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
+    }
+  }
+  showItemDetail(item) {
+    let $d = this._$itemDetail;
+    $d.attr('data-item-id', item.getItemId());
+    $d.find('.resNo').text(item.getNo()).end()
+      .find('.vpos').text(item.getTimePos()).end()
+      .find('.time').text(item.getFormattedDate()).end()
+      .find('.userId').text(item.getUserId()).end()
+      .find('.cmd').text(item.getCmd()).end()
+      .find('.text').text(item.getText()).end()
+      .addClass('show');
+    ZenzaWatch.debug.$itemDetail = $d;
+  }
+  hideItemDetail() {
+    this._$itemDetail.removeClass('show');
   }
 }
 CommentListView.ITEM_HEIGHT = 40;
@@ -18210,353 +18513,6 @@ CommentListView.__tpl__ = (`
 
   `).trim();
 
-_.assign(CommentListView.prototype, {
-  initialize: function (params) {
-    this._ItemView = CommentListItemView;
-    this._itemCss = CommentListItemView.CSS;
-    this._className = params.className || 'commentList';
-    this._$container = params.$container;
-
-    this._retryGetIframeCount = 0;
-
-    this._cache = {};
-    this._maxItems = 100000;
-    this._scrollTop = 0;
-
-    this._model = params.model;
-    if (this._model) {
-      this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
-    }
-
-    this.scrollTop = util.createDrawCallFunc(this.scrollTop.bind(this));
-    this._initializeView(params, 0);
-  },
-  _initializeView: function (params) {
-    let html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
-    this._frame = new FrameLayer({
-      $container: params.$container,
-      html: html,
-      className: 'commentListFrame'
-    });
-    this._frame.on('load', this._onIframeLoad.bind(this));
-  },
-  _onIframeLoad: function (w) {
-    let doc = this._document = w.document;
-    this._window = w; //$(w);
-    let body = this._body = doc.body;
-    let $body = this._$body = $(body);
-    if (this._className) {
-      body.classList.add(this._className);
-    }
-    this._$container = $body.find('#listContainer');
-    this._container = this._$container[0];
-    let $list = this._$list = $(doc.getElementById('listContainerInner'));
-    if (this._html) {
-      $list.html(this._html);
-    }
-    this._$menu = $body.find('.listMenu');
-
-    this._$itemDetail = $body.find('.itemDetailContainer');
-
-    $body
-      .on('click', this._onClick.bind(this))
-      .on('dblclick', this._onDblClick.bind(this))
-      .on('keydown', e => {
-        ZenzaWatch.emitter.emit('keydown', e);
-      })
-      .on('keyup', e => {
-        ZenzaWatch.emitter.emit('keyup', e);
-      })
-      .toggleClass('is-guest', !util.isLogin());
-
-    this._$menu.on('click', this._onMenuClick.bind(this));
-    this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
-
-    this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
-    this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
-    this._container.addEventListener('scroll',
-      this._onScroll.bind(this), {passive: true});
-    this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
-
-    w.addEventListener('resize', this._onResize.bind(this));
-    this._innerHeight = w.innerHeight;
-
-    this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
-    //this._appendNewItems = util.createDrawCallFunc(this._appendNewItems.bind(this));
-
-    this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
-    this._$begin = $('<span class="begin"/>');
-    this._$end = $('<span class="end"/>');
-
-    // 互換用
-    ZenzaWatch.debug.$commentList = $list;
-    ZenzaWatch.debug.getCommentPanelItems = () => {
-      return Array.from(doc.querySelectorAll('.commentListItem'));
-    };
-  },
-  _onModelUpdate: function (itemList, replaceAll) {
-    window.console.time('update commentlistView');
-    this.addClass('updating');
-    itemList = Array.isArray(itemList) ? itemList : [itemList];
-    let itemViews = [];
-    this._lastEndPoint = null;
-    this._isActive = false;
-
-    if (replaceAll) {
-      this._scrollTop = 0;
-    }
-
-    itemList.forEach((item, i) => {
-      itemViews.push(new this._ItemView({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
-    });
-
-    this._itemViews = itemViews;
-    this._inviewItemList = {};
-    this._newItems = null;
-
-    window.setTimeout(() => {
-      if (this._$list) {
-        this._$list.empty();
-        this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length + 100});
-        this._$menu.removeClass('show');
-        this._refreshInviewElements();
-        this.hideItemDetail();
-      }
-    }, 0);
-
-    window.setTimeout(() => {
-      this.removeClass('updating');
-      this.emit('update');
-    }, 100);
-
-    window.console.timeEnd('update commentlistView');
-  },
-  _onClick: function (e) {
-    e.stopPropagation();
-    ZenzaWatch.emitter.emitAsync('hideHover');
-    let $item = $(e.target).closest('.commentListItem');
-    if ($item.length > 0) {
-      return this._debouncedOnItemClick($item);
-    }
-  },
-  _onItemClick: function ($item) {
-    this._$menu
-      .css('top', $item.attr('data-top') + 'px')
-      .attr('data-item-id', $item.attr('data-item-id'))
-      .addClass('show');
-  },
-  _onMenuClick: function (e) {
-    let $target = $(e.target).closest('.menuButton');
-    this._$menu.removeClass('show');
-    if ($target.length < 1) {
-      return;
-    }
-    let itemId = $target.closest('.listMenu').attr('data-item-id');
-    if ($target.length < 1) {
-      return;
-    }
-    if (!itemId) {
-      return;
-    }
-
-    let command = $target.attr('data-command');
-
-    if (command === 'addUserIdFilter' || command === 'addWordFilter') {
-      this._$list.find('.item' + itemId).hide();
-    }
-
-    this.emit('command', command, null, itemId);
-  },
-  _onItemDetailClick: function (e) {
-    let $target = $(e.target).closest('.command');
-    if ($target.length < 1) {
-      return;
-    }
-    let itemId = this._$itemDetail.attr('data-item-id');
-    if (!itemId) {
-      return;
-    }
-    let command = $target.attr('data-command');
-    let param = $target.attr('data-param');
-    if (command === 'hideItemDetail') {
-      return this.hideItemDetail();
-    }
-    if (command === 'reloadComment') {
-      this.hideItemDetail();
-    }
-    this.emit('command', command, param, itemId);
-  },
-  _onDblClick: function (e) {
-    e.stopPropagation();
-    let $item = $(e.target).closest('.commentListItem');
-    if ($item.length < 0) {
-      return;
-    }
-    e.preventDefault();
-
-    let itemId = $item.attr('data-item-id');
-    this.emit('command', 'select', null, itemId);
-  },
-  _onMouseMove: function () {
-  },
-  _onMouseOver: function () {
-    //window.console.info('Active!');
-    this._isActive = true;
-    this.addClass('active');
-  },
-  _onMouseOut: function () {
-    //window.console.info('Blur!');
-    this._isActive = false;
-    this.removeClass('active');
-  },
-  _onResize: function () {
-    this._innerHeight = this._window.innerHeight;
-    this._refreshInviewElements();
-  },
-  _onScroll: function () {
-    if (!this.hasClass('is-scrolling')) {
-      this.addClass('is-scrolling');
-    }
-    this._refreshInviewElements();
-    this._debouncedOnScrollEnd();
-  },
-  _onScrollEnd: function () {
-    this.removeClass('is-scrolling');
-  },
-  _refreshInviewElements: function () {
-    if (!this._$list) {
-      return;
-    }
-    let itemHeight = CommentListView.ITEM_HEIGHT;
-    // let $container = this._$container;
-    let scrollTop = this._container.scrollTop;
-    let innerHeight = this._innerHeight;
-    //if (innerHeight > window.innerHeight) { return; }
-    let windowBottom = scrollTop + innerHeight;
-    let itemViews = this._itemViews;
-    let startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
-    let endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
-    let i;
-
-    const newItems = [], inviewItemList = this._inviewItemList;
-    for (i = startIndex; i < endIndex; i++) {
-      if (inviewItemList[i] || !itemViews[i]) {
-        continue;
-      }
-      newItems.push(itemViews[i]);
-      inviewItemList[i] = itemViews[i];
-    }
-
-    if (newItems.length < 1) {
-      return;
-    }
-
-    Object.keys(inviewItemList).forEach(i => {
-      if (i >= startIndex && i <= endIndex) {
-        return;
-      }
-      inviewItemList[i].remove();
-      delete inviewItemList[i];
-    });
-
-    this._inviewItemList = inviewItemList;
-
-
-    this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
-
-
-    this._appendNewItems();
-  },
-  _appendNewItems: function () {
-    if (this._newItems) {
-      const f = document.createDocumentFragment();
-      this._newItems.forEach(i => {
-        f.appendChild(i.getViewElement());
-      });
-      this._$list[0].appendChild(f);
-    }
-    this._newItems = null;
-  },
-  addClass: function (className) {
-    this.toggleClass(className, true);
-  },
-  removeClass: function (className) {
-    this.toggleClass(className, false);
-  },
-  toggleClass: function (className, v) {
-    if (!this._body) {
-      return;
-    }
-    this._body.classList.toggle(className, v);
-  },
-  hasClass: function (className) {
-    return this._body.classList.contains(className);
-  },
-  find: function (query) {
-    return this._document.querySelectorAll(query);
-  },
-  scrollTop: function (v) {
-    if (!this._window) {
-      return 0;
-    }
-
-    if (typeof v === 'number') {
-      this._scrollTop = v;
-      this._container.scrollTop = v;
-    } else {
-      this._scrollTop = this._container.scrollTop;
-      return this._scrollTop;
-    }
-  },
-  scrollToItem: function (itemId) {
-    if (!this._$body) {
-      return;
-    }
-    if (typeof itemId.getItemId === 'function') {
-      itemId = itemId.getItemId();
-    }
-
-    let $target = this._$body.find('.item' + itemId);
-    if ($target.length < 1) {
-      return;
-    }
-    let top = $target.offset().top;
-    this.scrollTop(top);
-  },
-  setCurrentPoint: function (idx) {
-    if (!this._window || !this._itemViews) {
-      return;
-    }
-    let innerHeight = this._innerHeight;
-    let itemViews = this._itemViews;
-    let len = itemViews.length;
-    let view = itemViews[idx];
-    if (len < 1 || !view) {
-      return;
-    }
-
-    if (!this._isActive) {
-      let itemHeight = CommentListView.ITEM_HEIGHT;
-      let top = view.getTop();
-      this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
-    }
-  },
-  showItemDetail: function (item) {
-    let $d = this._$itemDetail;
-    $d.attr('data-item-id', item.getItemId());
-    $d.find('.resNo').text(item.getNo()).end()
-      .find('.vpos').text(item.getTimePos()).end()
-      .find('.time').text(item.getFormattedDate()).end()
-      .find('.userId').text(item.getUserId()).end()
-      .find('.cmd').text(item.getCmd()).end()
-      .find('.text').text(item.getText()).end()
-      .addClass('show');
-    ZenzaWatch.debug.$itemDetail = $d;
-  },
-  hideItemDetail: function () {
-    this._$itemDetail.removeClass('show');
-  }
-});
 
 const CommentListItemView = (() => {
   // なんか汎用性を持たせようとして失敗してる奴
@@ -18861,13 +18817,6 @@ const CommentListItemView = (() => {
 
 class CommentListItem {
   constructor(nicoChat) {
-    this.initialize(nicoChat);
-  }
-}
-CommentListItem._itemId = 0;
-
-_.assign(CommentListItem.prototype, {
-  initialize: function (nicoChat) {
     this._nicoChat = nicoChat;
     this._itemId = CommentListItem._itemId++;
     this._vpos = nicoChat.getVpos();
@@ -18884,115 +18833,173 @@ _.assign(CommentListItem.prototype, {
     this._formattedDate = util.dateToString(this._date * 1000);
     let sec = this._vpos / 100;
     this._timePos = util.secToTime(sec);
-  },
-  getItemId: function () {
+  }
+  getItemId() {
     return this._itemId;
-  },
-  getVpos: function () {
+  }
+  getVpos() {
     return this._vpos;
-  },
-  getTimePos: function () {
+  }
+  getTimePos() {
     return this._timePos;
-  },
-  getCmd: function () {
+  }
+  getCmd() {
     return this._nicoChat.getCmd();
-  },
-  getText: function () {
+  }
+  getText() {
     return this._text;
-  },
-  getEscapedText: function () {
+  }
+  getEscapedText() {
     return this._escapedText;
-  },
-  getUserId: function () {
+  }
+  getUserId() {
     return this._userId;
-  },
-  getColor: function () {
+  }
+  getColor() {
     return this._color;
-  },
-  getDate: function () {
+  }
+  getDate() {
     return this._date;
-  },
-  getTime: function () {
+  }
+  getTime() {
     return this._date * 1000;
-  },
-  getFormattedDate: function () {
+  }
+  getFormattedDate() {
     return this._formattedDate;
-  },
-  getFork: function () {
+  }
+  getFork() {
     return this._fork;
-  },
-  getNo: function () {
+  }
+  getNo() {
     return this._no;
-  },
-  getUniqNo: function () {
+  }
+  getUniqNo() {
     return this._nicoChat.getUniqNo();
-  },
-  getFontCommand: function () {
+  }
+  getFontCommand() {
     return this._fontCommand;
-  },
-  isSubThread: function() {
+  }
+  isSubThread() {
     return this._isSubThread;
-  },
-  getThreadId: function() {
+  }
+  getThreadId() {
     return this._nicoChat.getThreadId();
   }
-});
-
-class CommentList extends Emitter {
-  constructor(params) {
-    super();
-    this.initialize(params);
-  }
 }
-_.assign(CommentList.prototype, {
-  initialize: function (params) {
-    this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
-    this._$container = params.$container;
-
-    this._model = new CommentListModel({
-      uniq: true,
-      maxItem: 100
-    });
-
-    this._initializeView();
-  },
-  _initializeView: function () {
-    if (this._view) {
-      return;
-    }
-    this._view = new CommentListView({
-      $container: this._$container,
-      model: this._model
-    });
-    this._view.on('command', this._onCommand.bind(this));
-  },
-  update: function (listData, watchId) {
-    if (!this._view) {
-      this._initializeView();
-    }
-    this._watchId = watchId;
-    let items = [];
-    listData.forEach(itemData => {
-      items.push(new CommentListItem(itemData));
-    });
-    if (items.length < 1) {
-      return;
-    }
-    this._view.insertItem(items);
-  },
-  _onCommand: function (command, param, itemId) {
-    this.emit('command', command, param, itemId);
-  }
-});
+CommentListItem._itemId = 0;
 
 
 class CommentPanelView extends Emitter {
-  constructor(...args) {
+  constructor(params) {
     super();
-    this.initialize(...args);
+    this._$container = params.$container;
+    this._model = params.model;
+    this._commentPanel = params.commentPanel;
+
+    util.addStyle(CommentPanelView.__css__);
+    let $view = this._$view = $(CommentPanelView.__tpl__);
+    this._$container.append($view);
+
+    let $menu = this._$menu = this._$view.find('.commentPanel-menu');
+
+    ZenzaWatch.debug.commentPanelView = this;
+
+    let listView = this._listView = new CommentListView({
+      container: this._$view.find('.commentPanel-frame')[0],
+      model: this._model,
+      className: 'commentList',
+      builder: CommentListItemView,
+      itemCss: CommentListItemView.__css__
+    });
+    listView.on('command', this._onCommand.bind(this));
+
+    this._timeMachineView = new TimeMachineView({
+      parentNode: document.querySelector('.timeMachineContainer')
+    });
+    this._timeMachineView.on('command', this._onCommand.bind(this));
+
+    this._commentPanel.on('threadInfo',
+      _.debounce(this._onThreadInfo.bind(this), 100));
+    this._commentPanel.on('update',
+      _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
+    this._commentPanel.on('itemDetailResp',
+      _.debounce(item => listView.showItemDetail(item), 100));
+    this._onCommentPanelStatusUpdate();
+
+    this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
+
+    this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
+
+    ZenzaWatch.emitter.on('hideHover', () => $menu.removeClass('show'));
+  }
+  toggleClass(className, v) {
+    this._view.toggleClass(className, v);
+    this._$view.toggleClass(className, v);
+  }
+  _onModelCurrentTimeUpdate(sec, viewIndex) {
+    if (!this._$view){ //} || !this._$view.is(':visible')) {
+      return;
+    }
+
+    this._lastCurrentTime = sec;
+    this._listView.setCurrentPoint(viewIndex);
+  }
+  _onCommand(command, param, itemId) {
+    switch (command) {
+      default:
+        this.emit('command', command, param, itemId);
+        break;
+    }
+  }
+  _onCommentListCommandClick(e) {
+    let $target = $(e.target).closest('.commentPanel-command');
+    let command = $target.attr('data-command');
+    let param = $target.attr('data-param');
+    e.stopPropagation();
+    if (!command) {
+      return;
+    }
+
+    let $view = this._$view;
+    let setUpdating = () => {
+      $view.addClass('updating');
+      window.setTimeout(() => $view.removeClass('updating'), 1000);
+    };
+
+    switch (command) {
+      case 'toggleMenu':
+        e.stopPropagation();
+        e.preventDefault();
+        this._$menu.addClass('show');
+        return;
+      case 'sortBy':
+        setUpdating();
+        this.emit('command', command, param);
+        break;
+      case 'reloadComment':
+        setUpdating();
+        this.emit('command', command, param);
+        break;
+      default:
+        this.emit('command', command, param);
+    }
+    ZenzaWatch.emitter.emitAsync('hideHover');
+  }
+  _onThreadInfo(threadInfo) {
+    this._timeMachineView.update(threadInfo);
+  }
+  _onCommentPanelStatusUpdate() {
+    let commentPanel = this._commentPanel;
+    const $view = this._$view
+      .toggleClass('autoScroll', commentPanel.isAutoScroll());
+
+    const langClass = `lang-${commentPanel.getLanguage()}`;
+    if (!$view.hasClass(langClass)) {
+      $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
+    }
   }
 }
-CommentPanelView.__css__ = (`
+CommentPanelView.__css__ = `
     :root {
       --zenza-comment-panel-header-height: 64px;
     }
@@ -19074,7 +19081,7 @@ CommentPanelView.__css__ = (`
     }
 
 
-  `).trim();
+  `.trim();
 
 CommentPanelView.__tpl__ = (`
     <div class="commentPanel-container">
@@ -19114,134 +19121,11 @@ CommentPanelView.__tpl__ = (`
     </div>
   `).trim();
 
-_.assign(CommentPanelView.prototype, {
-  initialize: function (params) {
-    this._$container = params.$container;
-    this._model = params.model;
-    this._commentPanel = params.commentPanel;
-
-
-    util.addStyle(CommentPanelView.__css__);
-    let $view = this._$view = $(CommentPanelView.__tpl__);
-    this._$container.append($view);
-
-    let $menu = this._$menu = this._$view.find('.commentPanel-menu');
-
-    ZenzaWatch.debug.commentPanelView = this;
-
-    let listView = this._listView = new CommentListView({
-      $container: this._$view.find('.commentPanel-frame'),
-      model: this._model,
-      className: 'commentList',
-      builder: CommentListItemView,
-      itemCss: CommentListItemView.__css__
-    });
-    listView.on('command', this._onCommand.bind(this));
-
-    this._timeMachineView = new TimeMachineView({
-      parentNode: document.querySelector('.timeMachineContainer')
-    });
-    this._timeMachineView.on('command', this._onCommand.bind(this));
-
-    this._commentPanel.on('threadInfo',
-      _.debounce(this._onThreadInfo.bind(this), 100));
-    this._commentPanel.on('update',
-      _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
-    this._commentPanel.on('itemDetailResp',
-      _.debounce((item) => {
-        listView.showItemDetail(item);
-      }, 100));
-    this._onCommentPanelStatusUpdate();
-
-    this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
-
-    this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
-
-
-    ZenzaWatch.emitter.on('hideHover', () => {
-      $menu.removeClass('show');
-    });
-
-  },
-  toggleClass: function (className, v) {
-    this._view.toggleClass(className, v);
-    this._$view.toggleClass(className, v);
-  },
-  _onModelCurrentTimeUpdate: function (sec, viewIndex) {
-    if (!this._$view){ //} || !this._$view.is(':visible')) {
-      return;
-    }
-
-    this._lastCurrentTime = sec;
-    this._listView.setCurrentPoint(viewIndex);
-  },
-  _onCommand: function (command, param, itemId) {
-    switch (command) {
-      default:
-        this.emit('command', command, param, itemId);
-        break;
-    }
-  },
-  _onCommentListCommandClick: function (e) {
-    let $target = $(e.target).closest('.commentPanel-command');
-    let command = $target.attr('data-command');
-    let param = $target.attr('data-param');
-    e.stopPropagation();
-    if (!command) {
-      return;
-    }
-
-    let $view = this._$view;
-    let setUpdating = () => {
-      $view.addClass('updating');
-      window.setTimeout(() => {
-        $view.removeClass('updating');
-      }, 1000);
-    };
-
-    switch (command) {
-      case 'toggleMenu':
-        e.stopPropagation();
-        e.preventDefault();
-        this._$menu.addClass('show');
-        return;
-      case 'sortBy':
-        setUpdating();
-        this.emit('command', command, param);
-        break;
-      case 'reloadComment':
-        setUpdating();
-        this.emit('command', command, param);
-        break;
-      default:
-        this.emit('command', command, param);
-    }
-    ZenzaWatch.emitter.emitAsync('hideHover');
-  },
-  _onThreadInfo(threadInfo) {
-    this._timeMachineView.update(threadInfo);
-  },
-  _onCommentPanelStatusUpdate: function () {
-    let commentPanel = this._commentPanel;
-    const $view = this._$view
-      .toggleClass('autoScroll', commentPanel.isAutoScroll());
-
-    const langClass = 'lang-' + commentPanel.getLanguage();
-    if (!$view.hasClass(langClass)) {
-      $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
-    }
-  }
-});
 
 
 class CommentPanel extends Emitter {
   constructor(params) {
     super();
-    this.initialize(params);
-  }
-}
-_.assign(CommentPanel.prototype, {
-  initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
     this._$container = params.$container;
     let player = this._player = params.player;
@@ -19258,8 +19142,8 @@ _.assign(CommentPanel.prototype, {
     player.on('close', this._onPlayerClose.bind(this));
 
     ZenzaWatch.debug.commentPanel = this;
-  },
-  _initializeView: function () {
+  }
+  _initializeView() {
     if (this._view) {
       return;
     }
@@ -19271,23 +19155,23 @@ _.assign(CommentPanel.prototype, {
       itemCss: CommentListItemView.__css__
     });
     this._view.on('command', this._onCommand.bind(this));
-  },
-  startTimer: function () {
+  }
+  startTimer() {
     this.stopTimer();
     this._timer = window.setInterval(this._onTimer.bind(this), 200);
-  },
-  stopTimer: function () {
+  }
+  stopTimer() {
     if (this._timer) {
       window.clearInterval(this._timer);
       this._timer = null;
     }
-  },
-  _onTimer: function () {
+  }
+  _onTimer() {
     if (this._autoScroll) {
       this.setCurrentTime(this._player.getCurrentTime());
     }
-  },
-  _onCommand: function (command, param, itemId) {
+  }
+  _onCommand(command, param, itemId) {
     let item;
     if (itemId) {
       item = this._model.findByItemId(itemId);
@@ -19296,15 +19180,15 @@ _.assign(CommentPanel.prototype, {
       case 'toggleScroll':
         this.toggleScroll();
         break;
-      case 'sortBy':
-        var tmp = param.split(':');
+      case 'sortBy': {
+        let tmp = param.split(':');
         this.sortBy(tmp[0], tmp[1] === 'desc');
-        break;
-      case 'select':
-        var vpos = item.getVpos();
+        break;}
+      case 'select':{
+        let vpos = item.getVpos();
         this.emit('command', 'seek', vpos / 100);
         // TODO: コメント強調
-        break;
+        break;}
       case 'clipBoard':
         util.copyToClipBoard(item.getText());
         this.emit('command', 'notify', 'クリップボードにコピーしました');
@@ -19322,7 +19206,6 @@ _.assign(CommentPanel.prototype, {
           param = {};
           let dt = new Date(item.getTime());
           this.emit('command', 'notify', item.getFormattedDate() + '頃のログ');
-          //window.console.log('when!', dt.getTime(), item);
           param.when = Math.floor(dt.getTime() / 1000);
         }
         this.emit('command', command, param);
@@ -19336,51 +19219,51 @@ _.assign(CommentPanel.prototype, {
       default:
         this.emit('command', command, param);
     }
-  },
-  _onCommentParsed: function (language) {
+  }
+  _onCommentParsed(language) {
     this.setLanguage(language);
     this._initializeView();
     this.setChatList(this._player.getChatList());
     this.startTimer();
-  },
-  _onCommentChange: function (language) {
+  }
+  _onCommentChange(language) {
     this.setLanguage(language);
     this._initializeView();
     this.setChatList(this._player.getChatList());
-  },
-  _onCommentReady: function (result, threadInfo) {
+  }
+  _onCommentReady(result, threadInfo) {
     this._threadInfo = threadInfo;
     this.emit('threadInfo', threadInfo);
-  },
-  _onPlayerOpen: function () {
+  }
+  _onPlayerOpen() {
     this._model.clear();
-  },
-  _onPlayerClose: function () {
+  }
+  _onPlayerClose() {
     this._model.clear();
     this.stopTimer();
-  },
-  setChatList: function (chatList) {
+  }
+  setChatList(chatList) {
     if (!this._model) {
       return;
     }
     this._model.setChatList(chatList);
-  },
-  isAutoScroll: function () {
+  }
+  isAutoScroll() {
     return this._autoScroll;
-  },
-  getLanguage: function () {
+  }
+  getLanguage() {
     return this._language || 'ja_JP';
-  },
-  getThreadInfo: function () {
+  }
+  getThreadInfo() {
     return this._threadInfo;
-  },
-  setLanguage: function (lang) {
+  }
+  setLanguage(lang) {
     if (lang !== this._language) {
       this._language = lang;
       this.emit('update');
     }
-  },
-  toggleScroll: function (v) {
+  }
+  toggleScroll(v) {
     if (!_.isBoolean(v)) {
       this._autoScroll = !this._autoScroll;
       if (this._autoScroll) {
@@ -19397,14 +19280,14 @@ _.assign(CommentPanel.prototype, {
       }
       this.emit('update');
     }
-  },
-  sortBy: function (key, isDesc) {
+  }
+  sortBy(key, isDesc) {
     this._model.sortBy(key, isDesc);
     if (key !== 'vpos') {
       this.toggleScroll(false);
     }
-  },
-  setCurrentTime: function (sec) {
+  }
+  setCurrentTime(sec) {
     if (!this._view) {
       return;
     }
@@ -19413,7 +19296,7 @@ _.assign(CommentPanel.prototype, {
     }
     this._model.setCurrentTime(sec);
   }
-});
+}
 
 class TimeMachineView extends BaseViewComponent {
   constructor({parentNode}) {
@@ -20454,6 +20337,10 @@ class VideoListView extends Emitter {
     super();
     this.initialize(...args);
   }
+
+  get hasFocus() {
+    return this._hasFocus;
+  }
 }
 VideoListView.__css__ = '';
 
@@ -20543,7 +20430,7 @@ _.assign(VideoListView.prototype, {
     this._ItemView = params.itemView || VideoListItemView;
     this._itemCss = params.itemCss || VideoListItemView.CSS;
     this._className = params.className || 'videoList';
-    this._$container = params.$container;
+    this._container = params.container;
 
     this._retryGetIframeCount = 0;
 
@@ -20552,6 +20439,7 @@ _.assign(VideoListView.prototype, {
     this._dragdrop = typeof params.dragdrop === 'boolean' ? params.dragdrop : false;
     this._dropfile = typeof params.dropfile === 'boolean' ? params.dropfile : false;
     this._enablePocketWatch = params.enablePocketWatch;
+    this._hasFocus = false;
 
     this._model = params.model;
     if (this._model) {
@@ -20567,7 +20455,7 @@ _.assign(VideoListView.prototype, {
   _initializeView: function (params) {
     let html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
     this._frame = new FrameLayer({
-      $container: params.$container,
+      container: params.container,
       html: html,
       className: 'videoListFrame'
     });
@@ -20580,8 +20468,7 @@ _.assign(VideoListView.prototype, {
       doc.body.classList.add(this._className);
     }
 
-    this._$container = $body.find('#listContainer');
-    const container = this._$container[0];
+    const container = this._container = doc.querySelector('#listContainer');
     const list = this._list = doc.getElementById('listContainerInner');
     if (this._documentFragment instanceof Node) {
       list.appendChild(this._documentFragment);
@@ -20592,8 +20479,8 @@ _.assign(VideoListView.prototype, {
     doc.body.addEventListener('dblclick', this._onDblclick.bind(this));
     doc.body.addEventListener('keydown', e => ZenzaWatch.emitter.emit('keydown', e));
     doc.body.addEventListener('keyup', e => ZenzaWatch.emitter.emit('keyup', e));
-    w.addEventListener('focus', () => this._isActive = true);
-    w.addEventListener('blur', () => this._isActive = false);
+    w.addEventListener('focus', () => this._hasFocus = true);
+    w.addEventListener('blur', () => this._hasFocus = false);
 
     if (this._dragdrop) {
       doc.body.addEventListener('mousedown', this._onBodyMouseDown.bind(this), {passive: true});
@@ -20668,11 +20555,11 @@ _.assign(VideoListView.prototype, {
     if (!this._$dragging) {
       return;
     }
-    let l = e.pageX - this._dragOffset.x;
-    let r = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
-    let translate = ['translate(', l, 'px, ', r, 'px)'].join('');
+    let x = e.pageX - this._dragOffset.x;
+    let y = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
+    let translate = `translate(${x}px, ${y}px)`;
 
-    if (l * l + r * r < 100) {
+    if (x * x + y * y < 100) {
       return;
     }
 
@@ -20867,7 +20754,7 @@ _.assign(VideoListView.prototype, {
 
     if (['active', 'updating', 'played'].includes(key)) {
       itemView.toggleClass(`is-${key}`, value);
-      if (key === 'active' && value && !this._isActive) {
+      if (key === 'active' && value && !this._hasFocus) {
         this.scrollToItem(itemId);
       }
     } else {
@@ -20931,13 +20818,13 @@ _.assign(VideoListView.prototype, {
     this._$body.toggleClass(className, v);
   },
   scrollTop: function (v) {
-    if (!this._$container) {
+    if (!this._container) {
       return 0;
     }
     if (typeof v === 'number') {
-      this._$container[0].scrollTop = v;
+      this._container.scrollTop = v;
     } else {
-      return this._$container[0].scrollTop;
+      return this._container.scrollTop;
     }
   },
   scrollToItem: function (itemId) {
@@ -21226,7 +21113,7 @@ class VideoList extends Emitter {
 _.assign(VideoList.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
-    this._$container = params.$container;
+    this._container = params.container;
 
     this._model = new VideoListModel({
       uniq: true,
@@ -21240,7 +21127,7 @@ _.assign(VideoList.prototype, {
       return;
     }
     this._view = new VideoListView({
-      $container: this._$container,
+      container: this._container,
       model: this._model,
       enablePocketWatch: true
     });
@@ -21254,13 +21141,8 @@ _.assign(VideoList.prototype, {
       this._initializeView();
     }
     this._watchId = watchId;
-    const items = [];
-    listData.forEach(itemData => {
-      if (!itemData.has_data) {
-        return;
-      }
-      items.push(new VideoListItem(itemData));
-    });
+    const items = listData.filter(itemData => itemData.has_data)
+      .map(itemData => new VideoListItem(itemData));
     if (items.length < 1) {
       return;
     }
@@ -21360,6 +21242,10 @@ class PlaylistView extends Emitter {
   constructor(...args) {
     super(...args);
     this.initialize(...args);
+  }
+
+  get hasFocus() {
+    return this._listView.hasFocus;
   }
 }
 PlaylistView.__css__ = (`
@@ -21579,13 +21465,13 @@ PlaylistView.__tpl__ = (`
 
 _.assign(PlaylistView.prototype, {
   initialize: function (params) {
-    this._$container = params.$container;
+    this._container = params.container;
     this._model = params.model;
     this._playlist = params.playlist;
 
     util.addStyle(PlaylistView.__css__);
     let $view = this._$view = $(PlaylistView.__tpl__);
-    this._$container.append($view);
+    this._container.appendChild($view[0]);
 
     this._$index = $view.find('.playlist-index');
     this._$length = $view.find('.playlist-length');
@@ -21596,7 +21482,7 @@ _.assign(PlaylistView.prototype, {
     ZenzaWatch.debug.playlistView = this._$view;
 
     let listView = this._listView = new VideoListView({
-      $container: this._$view.find('.playlist-frame'),
+      container: this._$view.find('.playlist-frame')[0],
       model: this._model,
       className: 'playlist',
       dragdrop: true,
@@ -21605,19 +21491,15 @@ _.assign(PlaylistView.prototype, {
     });
     listView.on('command', this._onCommand.bind(this));
     listView.on('deflistAdd', this._onDeflistAdd.bind(this));
-    listView.on('moveItem', (src, dest) => {
-      this.emit('moveItem', src, dest);
-    });
-    listView.on('filedrop', (data) => {
-      this.emit('command', 'importFile', data);
-    });
+    listView.on('moveItem', (src, dest) => this.emit('moveItem', src, dest));
+    listView.on('filedrop', data => this.emit('command', 'importFile', data));
     listView.on('dblclick', this._onListDblclick.bind(this));
 
     this._playlist.on('update',
       _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
 
     this._$view.on('click', '.playlist-command', this._onPlaylistCommandClick.bind(this));
-    ZenzaWatch.emitter.on('hideHover', function () {
+    ZenzaWatch.emitter.on('hideHover', () => {
       $menu.removeClass('show');
       $fileDrop.removeClass('show');
     });
@@ -21634,9 +21516,7 @@ _.assign(PlaylistView.prototype, {
       'removeClass',
       'scrollTop',
       'scrollToItem',
-    ].forEach(func => {
-      this[func] = listView[func].bind(listView);
-    });
+    ].forEach(func => this[func] = listView[func].bind(listView));
   },
   toggleClass: function (className, v) {
     this._view.toggleClass(className, v);
@@ -21716,7 +21596,7 @@ _.assign(PlaylistView.prototype, {
     }
 
     let fileReader = new FileReader();
-    fileReader.onload = (ev) => {
+    fileReader.onload = ev => {
       window.console.log('file data: ', ev.target.result);
       this.emit('command', 'importFile', ev.target.result);
     };
@@ -21732,7 +21612,7 @@ _.assign(PlaylistView.prototype, {
     }
 
     let fileReader = new FileReader();
-    fileReader.onload = (ev) => {
+    fileReader.onload = ev => {
       window.console.log('file data: ', ev.target.result);
       this.emit('command', 'importFile', ev.target.result);
     };
@@ -21787,7 +21667,7 @@ class Playlist extends VideoList {
 Object.assign(Playlist.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
-    this._$container = params.$container;
+    this._container = params.container;
 
     this._index = -1;
     this._isEnable = false;
@@ -21796,10 +21676,7 @@ Object.assign(Playlist.prototype, {
     this._model = new PlaylistModel({});
 
     ZenzaWatch.debug.playlist = this;
-    this.on('update', _.debounce(() => {
-      const data = this.serialize();
-      PlaylistSession.save(data);
-    }, 3000));
+    this.on('update', _.debounce(() => PlaylistSession.save(this.serialize()), 3000));
   },
   serialize: function () {
     return {
@@ -21829,7 +21706,7 @@ Object.assign(Playlist.prototype, {
       return;
     }
     this._view = new PlaylistView({
-      $container: this._$container,
+      container: this._container,
       model: this._model,
       playlist: this
     });
@@ -21884,7 +21761,7 @@ Object.assign(Playlist.prototype, {
         this._onImportFileCommand(param);
         break;
       case 'scrollToActiveItem':
-        this.scrollToActiveItem();
+        this.scrollToActiveItem(true);
         break;
       default:
         this.emit('command', command, param);
@@ -21908,9 +21785,7 @@ Object.assign(Playlist.prototype, {
     a.setAttribute('href', url);
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => {
-      a.remove();
-    }, 1000);
+    setTimeout(() => a.remove(), 1000);
   },
   _onImportFileCommand: function (fileData) {
     if (!util.isValidJson(fileData)) {
@@ -21942,10 +21817,7 @@ Object.assign(Playlist.prototype, {
     this._refreshIndex();
   },
   _setItemData: function (listData) {
-    const items = [];
-    listData.forEach(itemData => {
-      items.push(new VideoListItem(itemData));
-    });
+    const items = listData.map(itemData => new VideoListItem(itemData));
     //window.console.log('_setItemData', listData);
     this._model.setItem(items);
     this.setIndex(items.length > 0 ? 0 : -1);
@@ -21958,9 +21830,7 @@ Object.assign(Playlist.prototype, {
       item.isActive = true;
       item.isPlayed = true;
       this._activeItem = item;
-      setTimeout(() => {
-        this._view.scrollToItem(item);
-      }, 1000);
+      setTimeout(() => this._view.scrollToItem(item), 1000);
     }
     this.setIndex(this._model.indexOf(item));
   },
@@ -21973,9 +21843,7 @@ Object.assign(Playlist.prototype, {
       item.isPlayed = true;
       this._refreshIndex(false);
     }
-    setTimeout(() => {
-      this._view.scrollToItem(videoListItems[0]);
-    }, 1000);
+    setTimeout(() => this._view.scrollToItem(videoListItems[0]), 1000);
   },
   _insertAll: function (videoListItems, options) {
     options = options || {};
@@ -21989,9 +21857,7 @@ Object.assign(Playlist.prototype, {
       item.isPlayed = true;
       this._refreshIndex(false);
     }
-    setTimeout(() => {
-      this._view.scrollToItem(videoListItems[0]);
-    }, 1000);
+    setTimeout(() => this._view.scrollToItem(videoListItems[0]), 1000);
   },
   loadFromMylist: function (mylistId, options) {
     this._initializeView();
@@ -22232,7 +22098,7 @@ Object.assign(Playlist.prototype, {
     }
 
     const model = this._model;
-    return this._thumbInfoLoader.load(watchId).then((info) => {
+    return this._thumbInfoLoader.load(watchId).then(info => {
         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         info.id = watchId;
         const item = VideoListItem.createByThumbInfo(info);
@@ -22273,9 +22139,7 @@ Object.assign(Playlist.prototype, {
   _refreshIndex: function (scrollToActive) {
     this.setIndex(this._model.indexOf(this._activeItem), true);
     if (scrollToActive) {
-      setTimeout(() => {
-        this.scrollToActiveItem();
-      }, 1000);
+      setTimeout(() => this.scrollToActiveItem(true), 1000);
     }
   },
   _setIndexByItemId: function (itemId) {
@@ -22387,9 +22251,9 @@ Object.assign(Playlist.prototype, {
 
     return this._activeItem ? this._activeItem.watchId : null;
   },
-  scrollToActiveItem: function () {
-    if (this._activeItem) {
-      this._view.scrollToItem(this._activeItem);
+  scrollToActiveItem: function (force) {
+    if (this._activeItem && (force || !this._view.hasFocus)) {
+      this._view.scrollToItem(this._activeItem, force);
     }
   },
   scrollToWatchId: function (watchId) {
@@ -24348,6 +24212,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     nicoVideoPlayer.on('seeking', this._onVideoSeeking.bind(this));
     nicoVideoPlayer.on('seeked', this._onVideoSeeked.bind(this));
     nicoVideoPlayer.on('stalled', this._onVideoStalled.bind(this));
+    nicoVideoPlayer.on('waiting', this._onVideoStalled.bind(this));
+    nicoVideoPlayer.on('timeupdate', this._onVideoTimeUpdate.bind(this));
     nicoVideoPlayer.on('progress', this._onVideoProgress.bind(this));
     nicoVideoPlayer.on('aspectRatioFix', this._onVideoAspectRatioFix.bind(this));
     nicoVideoPlayer.on('commentParsed', this._onCommentParsed.bind(this));
@@ -25300,8 +25166,11 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this.emit('pause');
   },
   _onVideoStalled: function () {
-    // this._state.isStalled = true;
+    this._state.isStalled = true;
     this.emit('stalled');
+  },
+  _onVideoTimeUpdate: function () {
+    this._state.isStalled = false;
   },
   _onVideoProgress: function (range, currentTime) {
     this.emit('progress', range, currentTime);
@@ -25446,7 +25315,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     let $container = this._view.appendTab('playlist', 'プレイリスト');
     this._playlist = new Playlist({
       loader: ZenzaWatch.api.ThumbInfoLoader,
-      $container: $container,
+      container: $container[0],
       loop: this._playerConfig.getValue('playlistLoop')
     });
     this._playlist.on('command', this._onCommand.bind(this));
@@ -29511,7 +29380,7 @@ _.assign(VideoInfoPanel.prototype, {
     // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
     if (!this._relatedVideoList) {
       this._relatedVideoList = new RelatedVideoList({
-        $container: this._$view.find('.relatedVideoContainer')
+        container: this._$view.find('.relatedVideoContainer')[0]
       });
       this._relatedVideoList.on('command', this._onCommand.bind(this));
     }

@@ -1757,7 +1757,7 @@ util.RequestAnimationFrame = RequestAnimationFrame;
 class FrameLayer extends Emitter {
   constructor(params) {
     super();
-    this._$container = params.$container;
+    this._container = params.container;
     this._retryGetIframeCount = 0;
 
     this._initializeView(params, 0);
@@ -1789,7 +1789,7 @@ _.assign(FrameLayer.prototype, {
     };
 
     let html = this._html = params.html;
-    this._$container.append(iframe);
+    this._container.appendChild(iframe);
     if (iframe.srcdocType === 'string') {
       iframe.onload = onload;
       iframe.srcdoc = html;

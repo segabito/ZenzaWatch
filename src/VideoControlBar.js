@@ -74,8 +74,10 @@ import {Emitter} from './baselib';
 
     .zenzaScreenMode_wide .volumeChanging .videoControlBar,
     .fullScreen           .volumeChanging .videoControlBar,
-    .zenzaScreenMode_wide .is-mouseMoving    .videoControlBar,
-    .fullScreen           .is-mouseMoving    .videoControlBar {
+    .zenzaScreenMode_wide .is-mouseMoving .videoControlBar,
+    .fullScreen           .is-mouseMoving .videoControlBar,
+    .zenzaScreenMode_wide .is-stalled    .videoControlBar,
+    .fullScreen           .is-stalled    .videoControlBar {
       opacity: 0.7;
       background: rgba(0, 0, 0, 0.5);
     }
@@ -381,38 +383,19 @@ import {Emitter} from './baselib';
     }
 
 
-    /*
-    .seekBar .seekBarPointer {
-      position: absolute;
-      display: inline-block;
-      top: 50%;
-      left: 0;
-      width: 12px;
-      background: rgba(255, 255, 255, 0.5);
-      height: calc(100% + 2px);
-      z-index: 200;
-      box-shadow: 0 0 4px #ffc inset;
-      pointer-events: none;
-      transform: translate3d(-50%, 0, 0) translate3d(-50%, -50%, 0);
-    }
-    .is-loading  .seekBar .seekBarPointer,
-    .is-dragging .seekBar .seekBarPointer {
-      transition: none;
-    }
-    */
-    
     .seekBarPointer {
       position: absolute;
       display: inline-block;
       top: 50%;
       left: 0;
       width: 12px;
-      background: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.7);
       height: calc(100% + 2px);
       z-index: 200;
       box-shadow: 0 0 4px #ffc inset;
       pointer-events: none;
       transform: translate3d(-6px, -50%, 0);
+      mix-blend-mode: lighten;
     }
     .seekBarPointer.is-smooth {
       animation-duration: 1s;
@@ -427,6 +410,7 @@ import {Emitter} from './baselib';
     .is-notPlayed .seekBarPointer,
     .is-dragging .seekBarPointer,
     .is-seeking  .seekBarPointer,
+    .is-stalled  .seekBarPointer,
     .is-pausing  .seekBarPointer {
       animation-play-state: paused;
     }
@@ -935,6 +919,7 @@ import {Emitter} from './baselib';
     .progressWave {
       display: none;
     }
+    .is-stalled .progressWave,
     .is-loading .progressWave {
       display: inline-block;
       position: absolute;

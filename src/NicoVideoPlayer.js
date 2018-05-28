@@ -96,7 +96,11 @@ _.assign(NicoVideoPlayer.prototype, {
     this._videoPlayer.on('aspectRatioFix', this._onAspectRatioFix.bind(this));
     this._videoPlayer.on('play', this._onPlay.bind(this));
     this._videoPlayer.on('playing', this._onPlaying.bind(this));
+    this._videoPlayer.on('seeking', this._onSeeking.bind(this));
+    this._videoPlayer.on('seeked', this._onSeeked.bind(this));
     this._videoPlayer.on('stalled', eventBridge.bind(this, 'stalled'));
+    this._videoPlayer.on('timeupdate', eventBridge.bind(this, 'timeupdate'));
+    this._videoPlayer.on('waiting', eventBridge.bind(this, 'waiting'));
     this._videoPlayer.on('progress', eventBridge.bind(this, 'progress'));
     this._videoPlayer.on('pause', this._onPause.bind(this));
     this._videoPlayer.on('ended', this._onEnded.bind(this));
@@ -917,7 +921,7 @@ class VideoPlayer extends Emitter {
       .on('loadedmetadata', eventBridge.bind(this, 'loadedmetadata'))
       .on('ended', eventBridge.bind(this, 'ended'))
       .on('emptied', eventBridge.bind(this, 'emptied'))
-      .on('stalled', eventBridge.bind(this, 'stalled'))
+      .on('stalled', this._onStalled.bind(this))
       .on('suspend', eventBridge.bind(this, 'suspend'))
       .on('waiting', eventBridge.bind(this, 'waiting'))
       .on('progress', this._onProgress.bind(this))
@@ -1098,6 +1102,11 @@ class VideoPlayer extends Emitter {
     if (delta !== 0) {
       this.emit('mouseWheel', e, delta);
     }
+  }
+
+  _onStalled(...args) {
+    this.emit(...args);
+    this._video.addEventListener('timeupdate', () => this.emit('timeupdate'), {once: true});
   }
 
   canPlay() {

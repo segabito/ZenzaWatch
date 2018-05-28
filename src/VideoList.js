@@ -755,6 +755,10 @@ class VideoListView extends Emitter {
     super();
     this.initialize(...args);
   }
+
+  get hasFocus() {
+    return this._hasFocus;
+  }
 }
 VideoListView.__css__ = '';
 
@@ -844,7 +848,7 @@ _.assign(VideoListView.prototype, {
     this._ItemView = params.itemView || VideoListItemView;
     this._itemCss = params.itemCss || VideoListItemView.CSS;
     this._className = params.className || 'videoList';
-    this._$container = params.$container;
+    this._container = params.container;
 
     this._retryGetIframeCount = 0;
 
@@ -853,6 +857,7 @@ _.assign(VideoListView.prototype, {
     this._dragdrop = typeof params.dragdrop === 'boolean' ? params.dragdrop : false;
     this._dropfile = typeof params.dropfile === 'boolean' ? params.dropfile : false;
     this._enablePocketWatch = params.enablePocketWatch;
+    this._hasFocus = false;
 
     this._model = params.model;
     if (this._model) {
@@ -868,7 +873,7 @@ _.assign(VideoListView.prototype, {
   _initializeView: function (params) {
     let html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
     this._frame = new FrameLayer({
-      $container: params.$container,
+      container: params.container,
       html: html,
       className: 'videoListFrame'
     });
@@ -881,8 +886,7 @@ _.assign(VideoListView.prototype, {
       doc.body.classList.add(this._className);
     }
 
-    this._$container = $body.find('#listContainer');
-    const container = this._$container[0];
+    const container = this._container = doc.querySelector('#listContainer');
     const list = this._list = doc.getElementById('listContainerInner');
     if (this._documentFragment instanceof Node) {
       list.appendChild(this._documentFragment);
@@ -893,8 +897,8 @@ _.assign(VideoListView.prototype, {
     doc.body.addEventListener('dblclick', this._onDblclick.bind(this));
     doc.body.addEventListener('keydown', e => ZenzaWatch.emitter.emit('keydown', e));
     doc.body.addEventListener('keyup', e => ZenzaWatch.emitter.emit('keyup', e));
-    w.addEventListener('focus', () => this._isActive = true);
-    w.addEventListener('blur', () => this._isActive = false);
+    w.addEventListener('focus', () => this._hasFocus = true);
+    w.addEventListener('blur', () => this._hasFocus = false);
 
     if (this._dragdrop) {
       doc.body.addEventListener('mousedown', this._onBodyMouseDown.bind(this), {passive: true});
@@ -969,11 +973,11 @@ _.assign(VideoListView.prototype, {
     if (!this._$dragging) {
       return;
     }
-    let l = e.pageX - this._dragOffset.x;
-    let r = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
-    let translate = ['translate(', l, 'px, ', r, 'px)'].join('');
+    let x = e.pageX - this._dragOffset.x;
+    let y = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
+    let translate = `translate(${x}px, ${y}px)`;
 
-    if (l * l + r * r < 100) {
+    if (x * x + y * y < 100) {
       return;
     }
 
@@ -1168,7 +1172,7 @@ _.assign(VideoListView.prototype, {
 
     if (['active', 'updating', 'played'].includes(key)) {
       itemView.toggleClass(`is-${key}`, value);
-      if (key === 'active' && value && !this._isActive) {
+      if (key === 'active' && value && !this._hasFocus) {
         this.scrollToItem(itemId);
       }
     } else {
@@ -1232,13 +1236,13 @@ _.assign(VideoListView.prototype, {
     this._$body.toggleClass(className, v);
   },
   scrollTop: function (v) {
-    if (!this._$container) {
+    if (!this._container) {
       return 0;
     }
     if (typeof v === 'number') {
-      this._$container[0].scrollTop = v;
+      this._container.scrollTop = v;
     } else {
-      return this._$container[0].scrollTop;
+      return this._container.scrollTop;
     }
   },
   scrollToItem: function (itemId) {
@@ -1527,7 +1531,7 @@ class VideoList extends Emitter {
 _.assign(VideoList.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
-    this._$container = params.$container;
+    this._container = params.container;
 
     this._model = new VideoListModel({
       uniq: true,
@@ -1541,7 +1545,7 @@ _.assign(VideoList.prototype, {
       return;
     }
     this._view = new VideoListView({
-      $container: this._$container,
+      container: this._container,
       model: this._model,
       enablePocketWatch: true
     });
@@ -1661,6 +1665,10 @@ class PlaylistView extends Emitter {
   constructor(...args) {
     super(...args);
     this.initialize(...args);
+  }
+
+  get hasFocus() {
+    return this._listView.hasFocus;
   }
 }
 PlaylistView.__css__ = (`
@@ -1880,13 +1888,13 @@ PlaylistView.__tpl__ = (`
 
 _.assign(PlaylistView.prototype, {
   initialize: function (params) {
-    this._$container = params.$container;
+    this._container = params.container;
     this._model = params.model;
     this._playlist = params.playlist;
 
     util.addStyle(PlaylistView.__css__);
     let $view = this._$view = $(PlaylistView.__tpl__);
-    this._$container.append($view);
+    this._container.appendChild($view[0]);
 
     this._$index = $view.find('.playlist-index');
     this._$length = $view.find('.playlist-length');
@@ -1897,7 +1905,7 @@ _.assign(PlaylistView.prototype, {
     ZenzaWatch.debug.playlistView = this._$view;
 
     let listView = this._listView = new VideoListView({
-      $container: this._$view.find('.playlist-frame'),
+      container: this._$view.find('.playlist-frame')[0],
       model: this._model,
       className: 'playlist',
       dragdrop: true,
@@ -1918,7 +1926,7 @@ _.assign(PlaylistView.prototype, {
       _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
 
     this._$view.on('click', '.playlist-command', this._onPlaylistCommandClick.bind(this));
-    ZenzaWatch.emitter.on('hideHover', function () {
+    ZenzaWatch.emitter.on('hideHover', () => {
       $menu.removeClass('show');
       $fileDrop.removeClass('show');
     });
@@ -2017,7 +2025,7 @@ _.assign(PlaylistView.prototype, {
     }
 
     let fileReader = new FileReader();
-    fileReader.onload = (ev) => {
+    fileReader.onload = ev => {
       window.console.log('file data: ', ev.target.result);
       this.emit('command', 'importFile', ev.target.result);
     };
@@ -2033,7 +2041,7 @@ _.assign(PlaylistView.prototype, {
     }
 
     let fileReader = new FileReader();
-    fileReader.onload = (ev) => {
+    fileReader.onload = ev => {
       window.console.log('file data: ', ev.target.result);
       this.emit('command', 'importFile', ev.target.result);
     };
@@ -2088,7 +2096,7 @@ class Playlist extends VideoList {
 Object.assign(Playlist.prototype, {
   initialize: function (params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
-    this._$container = params.$container;
+    this._container = params.container;
 
     this._index = -1;
     this._isEnable = false;
@@ -2097,10 +2105,7 @@ Object.assign(Playlist.prototype, {
     this._model = new PlaylistModel({});
 
     ZenzaWatch.debug.playlist = this;
-    this.on('update', _.debounce(() => {
-      const data = this.serialize();
-      PlaylistSession.save(data);
-    }, 3000));
+    this.on('update', _.debounce(() => PlaylistSession.save(this.serialize()), 3000));
   },
   serialize: function () {
     return {
@@ -2130,7 +2135,7 @@ Object.assign(Playlist.prototype, {
       return;
     }
     this._view = new PlaylistView({
-      $container: this._$container,
+      container: this._container,
       model: this._model,
       playlist: this
     });
@@ -2185,7 +2190,7 @@ Object.assign(Playlist.prototype, {
         this._onImportFileCommand(param);
         break;
       case 'scrollToActiveItem':
-        this.scrollToActiveItem();
+        this.scrollToActiveItem(true);
         break;
       default:
         this.emit('command', command, param);
@@ -2209,9 +2214,7 @@ Object.assign(Playlist.prototype, {
     a.setAttribute('href', url);
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => {
-      a.remove();
-    }, 1000);
+    setTimeout(() => a.remove(), 1000);
   },
   _onImportFileCommand: function (fileData) {
     if (!util.isValidJson(fileData)) {
@@ -2259,9 +2262,7 @@ Object.assign(Playlist.prototype, {
       item.isActive = true;
       item.isPlayed = true;
       this._activeItem = item;
-      setTimeout(() => {
-        this._view.scrollToItem(item);
-      }, 1000);
+      setTimeout(() => this._view.scrollToItem(item), 1000);
     }
     this.setIndex(this._model.indexOf(item));
   },
@@ -2274,9 +2275,7 @@ Object.assign(Playlist.prototype, {
       item.isPlayed = true;
       this._refreshIndex(false);
     }
-    setTimeout(() => {
-      this._view.scrollToItem(videoListItems[0]);
-    }, 1000);
+    setTimeout(() => this._view.scrollToItem(videoListItems[0]), 1000);
   },
   _insertAll: function (videoListItems, options) {
     options = options || {};
@@ -2290,9 +2289,7 @@ Object.assign(Playlist.prototype, {
       item.isPlayed = true;
       this._refreshIndex(false);
     }
-    setTimeout(() => {
-      this._view.scrollToItem(videoListItems[0]);
-    }, 1000);
+    setTimeout(() => this._view.scrollToItem(videoListItems[0]), 1000);
   },
   loadFromMylist: function (mylistId, options) {
     this._initializeView();
@@ -2533,7 +2530,7 @@ Object.assign(Playlist.prototype, {
     }
 
     const model = this._model;
-    return this._thumbInfoLoader.load(watchId).then((info) => {
+    return this._thumbInfoLoader.load(watchId).then(info => {
         // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
         info.id = watchId;
         const item = VideoListItem.createByThumbInfo(info);
@@ -2574,9 +2571,7 @@ Object.assign(Playlist.prototype, {
   _refreshIndex: function (scrollToActive) {
     this.setIndex(this._model.indexOf(this._activeItem), true);
     if (scrollToActive) {
-      setTimeout(() => {
-        this.scrollToActiveItem();
-      }, 1000);
+      setTimeout(() => this.scrollToActiveItem(true), 1000);
     }
   },
   _setIndexByItemId: function (itemId) {
@@ -2688,9 +2683,9 @@ Object.assign(Playlist.prototype, {
 
     return this._activeItem ? this._activeItem.watchId : null;
   },
-  scrollToActiveItem: function () {
-    if (this._activeItem) {
-      this._view.scrollToItem(this._activeItem);
+  scrollToActiveItem: function (force) {
+    if (this._activeItem && (force || !this._view.hasFocus)) {
+      this._view.scrollToItem(this._activeItem, force);
     }
   },
   scrollToWatchId: function (watchId) {

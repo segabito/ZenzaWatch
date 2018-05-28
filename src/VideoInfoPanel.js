@@ -1049,7 +1049,7 @@ _.assign(VideoInfoPanel.prototype, {
     // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
     if (!this._relatedVideoList) {
       this._relatedVideoList = new RelatedVideoList({
-        $container: this._$view.find('.relatedVideoContainer')
+        container: this._$view.find('.relatedVideoContainer')[0]
       });
       this._relatedVideoList.on('command', this._onCommand.bind(this));
     }
