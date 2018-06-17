@@ -75,9 +75,7 @@ import {Emitter} from './baselib';
     .zenzaScreenMode_wide .volumeChanging .videoControlBar,
     .fullScreen           .volumeChanging .videoControlBar,
     .zenzaScreenMode_wide .is-mouseMoving .videoControlBar,
-    .fullScreen           .is-mouseMoving .videoControlBar,
-    .zenzaScreenMode_wide .is-stalled    .videoControlBar,
-    .fullScreen           .is-stalled    .videoControlBar {
+    .fullScreen           .is-mouseMoving .videoControlBar {
       opacity: 0.7;
       background: rgba(0, 0, 0, 0.5);
     }
@@ -397,28 +395,12 @@ import {Emitter} from './baselib';
       transform: translate3d(-6px, -50%, 0);
       mix-blend-mode: lighten;
     }
-    .seekBarPointer.is-smooth {
-      animation-duration: 1s;
-      animation-timing-function: linear;
-      animation-delay: 0s;
-      animation-name: seekBarPointerMove;
-    }
-    .seekBarPointer.is-refreshing {
-      opacity: 0.1;
-    }
 
-    .is-notPlayed .seekBarPointer,
-    .is-dragging .seekBarPointer,
-    .is-seeking  .seekBarPointer,
-    .is-stalled  .seekBarPointer,
-    .is-pausing  .seekBarPointer {
-      animation-play-state: paused;
-    }
     .is-loading .seekBarPointer {
-      animation: none !important;
+      display: none !important;
     }
-    .is-loading  .seekBarPointer:not(.is-smooth),
-    .is-dragging .seekBarPointer:not(.is-smooth) {
+    
+    .is-dragging .seekBarPointer.is-notSmooth {
       transition: none;
     }
 
@@ -929,7 +911,7 @@ import {Emitter} from './baselib';
       width: 40%;
       height: calc(100% - 2px);
       background: linear-gradient(
-        to right, 
+        to right,
         rgba(0,0,0,0),
         ${util.toRgba('#ffffcc', 0.3)},
         rgba(0,0,0)
@@ -944,6 +926,9 @@ import {Emitter} from './baselib';
     @keyframes progressWave {
       0%   { transform: translate3d(-100%, 0, 0) translate3d(-5vw, 0, 0); }
       100% { transform: translate3d(100%, 0, 0) translate3d(150vw, 0, 0); }
+    }
+    .is-seeking .progressWave {
+      display: none;
     }
 
   `).trim();
@@ -1159,7 +1144,9 @@ import {Emitter} from './baselib';
       this._$seekBar          = $view.find('.seekBar');
       // this._seekBarPointer = $view.find('.seekBarPointer')[0];
       this._pointer         = new SmoothSeekBarPointer({
-        pointer: $view.find('.seekBarPointer')[0]});
+        pointer: $view.find('.seekBarPointer')[0],
+        playerState: this._playerState
+      });
       this._bufferRange    = $view.find('.bufferRange')[0];
       this._$tooltip        = $view.find('.seekBarContainer .tooltip');
       $view.on('click', e => {
@@ -2256,7 +2243,7 @@ import {Emitter} from './baselib';
 
       $view
         .css({
-        'transform': 'translate3d(' + this._left + 'px, 0, 0)'
+        'transform': `translate3d(${this._left}px, 0, 0)`
       });
     },
     hide: function() {
@@ -2542,26 +2529,39 @@ import {Emitter} from './baselib';
       this._currentTime = 0;
       this._duration = 1;
       this._playbackRate = 1;
-      this._isRefreshing = false;
       this._isSmoothMode = true;
-      if (navigator.userAgent.match(/(iPad|iPhone|Edge)/i)) {
+      this._isPausing = false;
+      this._isSeeking = false;
+      this._isStalled = false;
+      if (!this._pointer.animate) {
         this._isSmoothMode = false;
       }
-      this._pointer.classList.toggle('is-smooth', this._isSmoothMode);
+      this._pointer.classList.toggle('is-notSmooth', !this._isSmoothMode);
+      params.playerState.on('update-isPausing', v => this.isPausing = v);
+      params.playerState.on('update-isSeeking', v => this.isSeeking = v);
+      params.playerState.on('update-isStalled', v => this.isStalled = v);
+     }
+    get currentTime() {
+      return this._currentTime;
     }
     set currentTime(v) {
       if (!this._isSmoothMode) {
         const per = Math.min(100, this._timeToPer(v));
         this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
       }
-      let lastTime = this._currentTime;
+      if (document.hidden) { return; }
       this._currentTime = v;
-      if (v - lastTime > 0.5 || lastTime > v) {
-        this.refresh();
+
+      // 誤差が一定以上になったときのみ補正する
+      // videoのcurrentTimeは秒. Animation APIのcurrentTimeはミリ秒
+      if (this._animation &&
+        Math.abs(v * 1000 - this._animation.currentTime) > 500) {
+        this._animation.currentTime = v * 1000;
+        window.console.info('refreshed!', v*1000, this._animation.currentTime);
       }
     }
-    get animationDuration() {
-      return this._duration / this._playbackRate;
+    _timeToPer(time) {
+      return (time / Math.max(this._duration, 1)) * 100;
     }
     set duration(v) {
       if (this._duration === v) { return; }
@@ -2571,28 +2571,60 @@ import {Emitter} from './baselib';
     set playbackRate(v) {
       if (this._playbackRate === v) { return; }
       this._playbackRate = v;
-      this.refresh();
+      if (!this._animation) { return; }
+      this._animation.playbackRate = v;
     }
-    _timeToPer(time) {
-      return (time / Math.max(this._duration, 1)) * 100;
+    get isPausing() {
+      return this._isPausing;
+    }
+    set isPausing(v) {
+      if (this._isPausing === v) { return; }
+      this._isPausing = v;
+      this._updatePlaying();
+    }
+    get isSeeking() {
+      return this._isSeeking;
+    }
+    set isSeeking(v) {
+      if (this._isSeeking === v) { return; }
+      this._isSeeking = v;
+      this._updatePlaying();
+    }
+    get isStalled() {
+      return this._isStalled;
+    }
+    set isStalled(v) {
+      if (this._isStalled === v) { return; }
+      this._isStalled = v;
+      this._updatePlaying();
+    }
+    get isPlaying() {
+      return !this.isPausing && !this.isStalled && !this.isSeeking;
+    }
+    _updatePlaying() {
+      if (!this._animation) { return; }
+      if (this.isPlaying) {
+        this._animation.play();
+      } else {
+        this._animation.pause();
+      }
     }
     refresh() {
       if (!this._isSmoothMode) { return; }
-      if (this._isRefreshing) { return; }
-      this._isRefreshing = true;
-      // window.console.log('refresh pointer');
-      this._pointer.classList.add('is-refreshing');
-      this._pointer.style.animation = 'none';
-      requestAnimationFrame(() => {
-        this._pointer.style.animation = '';
-        requestAnimationFrame(() => {
-          this._pointer.style.animationDuration = `${this.animationDuration}s`;
-          this._pointer.style.animationDelay =
-            `${-this._currentTime / this._playbackRate}s`;
-          this._pointer.classList.remove('is-refreshing');
-          this._isRefreshing = false;
-        });
+      if (this._animation) {
+        this._animation.finish();
+      }
+      this._animation = this._pointer.animate([
+        {transform: 'translate3d(-6px, -50%, 0) translate3d(0, 0, 0)'},
+        {transform: 'translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0)'}
+      ], {
+        duration: this._duration * 1000
       });
+      this._animation.currentTime = this._currentTime * 1000;
+      this._animation.playbackRate = this._playbackRate;
+      if (!this._isPausing) {
+        this._animation.play();
+      }
     }
   }
 
