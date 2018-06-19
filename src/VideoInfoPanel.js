@@ -2771,7 +2771,7 @@ class RelatedInfoMenu extends BaseViewComponent {
         super._onCommand('pause');
         break;
       case 'open-uad':
-        url = `//uad.nicovideo.jp/ads/?vid=${this._currentWatchId}`;
+        url = `//nicoad.nicovideo.jp/video/publish/${this._currentWatchId}?frontend_id=6&frontend_version=0&zenza_watch`;
         window.open(url, '', 'width=428, height=600, toolbar=no, scrollbars=1');
         break;
       case 'open-twitter-hash':
