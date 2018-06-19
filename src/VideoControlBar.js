@@ -211,7 +211,7 @@ import {Emitter} from './baselib';
       font-size: 12px;
       line-height: 16px;
       padding: 2px 4px;
-      border: 1px solid !000;
+      border: 1px solid #000;
       background: #ffc;
       color: #000;
       text-shadow: none;
@@ -253,35 +253,39 @@ import {Emitter} from './baselib';
 
     .seekTop {
       left: 0px;
-      font-size: 23px;
+      font-size: 20px;
       width: 32px;
       height: 32px;
       line-height: 30px;
+      transform: scale(1.1);
     }
 
     .togglePlay {
-      font-size: 22px;
+      font-size: 20px;
       width: 32px;
       height: 32px;
       line-height: 30px;
       box-sizing: border-box;
-      transition: font-size 0.2s ease;
+      transition: transform 0.2s ease, letter-spacing 0.2s;
+      transform: scale(1.1);
+      letter-spacing: -10px;
     }
     .togglePlay:active {
-      font-size: 15px;
+      transform: scale(0.75);
+    }
+    .is-playing .togglePlay {
+      letter-spacing: -3px;
     }
 
     .togglePlay .pause,
     .is-playing .togglePlay .play {
       display: none;
     }
-
-    .togglePlay>.pause {
-      letter-spacing: -10px;
-    }
-
     .is-playing .togglePlay .pause {
       display: block;
+    }
+    .togglePlay .play {
+      letter-spacing: -3px;
     }
 
     .seekBarContainer {
@@ -376,7 +380,7 @@ import {Emitter} from './baselib';
       width: 100% !important;
       height: 110% !important;
       background: #f99;
-      transition: 0.5s transform ease 1s;
+      transition: transform 0.5s ease 1s;
       transform: translate3d(0, 0, 0) scaleX(1) !important;
     }
 
@@ -410,12 +414,13 @@ import {Emitter} from './baselib';
     }
 
     .videoControlBar .videoTime {
-      display: inline-block;
+      display: inline-flex;
       top: 0;
       padding: 0;
       color: #fff;
       font-size: 12px;
       white-space: nowrap;
+      vertical-align: middle;
       background: rgba(33, 33, 33, 0.5);
       border: 0;
       pointer-events: none;
@@ -727,10 +732,9 @@ import {Emitter} from './baselib';
 
     .toggleStoryboard {
       visibility: hidden;
-      font-size: 13px;
+      font-size: 14px;
       height: 32px;
-      margin-top: -2px;
-      line-height: 36px;
+      line-height: 30px;
       pointer-events: none;
     }
     .storyboardAvailable .toggleStoryboard {
@@ -742,11 +746,11 @@ import {Emitter} from './baselib';
     }
 
     .toggleStoryboard .controlButtonInner {
-      transform: scaleX(-1);
+      letter-spacing: -1px;
     }
 
     .toggleStoryboard:active {
-      font-size: 10px;
+      transform: scale(0.75);
     }
 
 
@@ -969,7 +973,7 @@ import {Emitter} from './baselib';
 
           <div class="togglePlay controlButton playControl" data-command="togglePlay">
             <span class="play">▶</span>
-            <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
+            <span class="pause">&#10074; &#10074;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
             <div class="tooltip">
               <span class="play">再生</span>
               <span class="pause">一時停止</span>
@@ -2266,39 +2270,36 @@ import {Emitter} from './baselib';
 
       this.reset();
     }
-  }
-  _.assign(CommentPreview .prototype, {
-    reset: function() {
+    reset() {
       this._left = 0;
       this._model.reset();
       this._view.hide();
-    },
-    setChatList: function(chatList) {
+    }
+    setChatList(chatList) {
       this._model.setChatList(chatList);
-    },
-    setCurrentTime: function(sec) {
+    }
+    setCurrentTime(sec) {
       this._model.setCurrentTime(sec);
-    },
-    show: function(left) {
+    }
+    show(left) {
       this._left = left;
       this._isShow = true;
       if (this._isEnable) {
         this._view.show(left);
       }
-    },
-    hide: function() {
+    }
+    hide() {
       this._isShow = false;
       this._view.hide();
-    },
-    setIsEnable: function(v) {
-      if (v !== this._isEnable) {
-        this._isEnable = v;
-        if (v && this._isShow) {
-          this.show(this._left);
-        }
+    }
+    setIsEnable(v) {
+      if (v === this._isEnable) { return; }
+      this._isEnable = v;
+      if (v && this._isShow) {
+        this.show(this._left);
       }
     }
-  });
+  }
 
   class SeekBarToolTip extends Emitter {
     constructor(params) {
@@ -2324,13 +2325,13 @@ import {Emitter} from './baselib';
       width: 180px;
       white-space: nowrap;
       font-size: 10px;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.3);
       z-index: 150;
       opacity: 0;
       border: 1px solid #666;
       border-radius: 8px;
       padding: 4px 4px 10px 4px;
-      transform: translate3d(0, 0, 0);
+      transform: translate3d(0, 0, 10px);
       transition: transform 0.1s steps(1, start) 0, opacity 0.2s ease 0.5s;
       pointer-events: none;
     }
@@ -2376,7 +2377,7 @@ import {Emitter} from './baselib';
       text-align: center;
       font-size: 12px;
       line-height: 16px;
-      text-shadow: 0 0 4px #fff, 0 0 8px #fc9;
+      text-shadow: 0 0 2px #000;
     }
 
     .seekBarToolTip .controlButton {
@@ -2452,7 +2453,7 @@ import {Emitter} from './baselib';
       util.addStyle(SeekBarToolTip.__css__);
       let $view = this._$view = $(SeekBarToolTip.__tpl__);
 
-      this._$currentTime = $view.find('.currentTime');
+      this._currentTime = $view.find('.currentTime')[0];
 
       $view
         .on('mousedown',this._onMouseDown.bind(this))
@@ -2489,12 +2490,14 @@ import {Emitter} from './baselib';
 
       $('body').on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
       this._$view.on('mouseleave mouseup', this._boundOnMouseUp);
-
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+      }
       this._repeatTimer = window.setInterval(this._boundOnRepeat, 200);
       this._isRepeating = true;
     },
     _endRepeat: function() {
-      this.isRepeating = false;
+      this._isRepeating = false;
       if (this._repeatTimer) {
         window.clearInterval(this._repeatTimer);
         this._repeatTimer = null;
@@ -2511,14 +2514,13 @@ import {Emitter} from './baselib';
     },
     update: function(sec, left) {
       let timeText = util.secToTime(sec);
-      if (this._timeText !== timeText) {
-        this._timeText = timeText;
-        this._$currentTime.text(timeText);
-        let w  = this._$view.outerWidth();
-        let vw = this._$container.innerWidth();
-        left = Math.max(0, Math.min(left - w / 2, vw - w));
-        this._$view.css('transform', `translate3d(${left}px, 0, 0)`);
-      }
+      if (this._timeText === timeText) { return; }
+      this._timeText = timeText;
+      this._currentTime.textContent = timeText;
+      let w  = this._$view.outerWidth();
+      let vw = this._$container.innerWidth();
+      left = Math.max(0, Math.min(left - w / 2, vw - w));
+      this._$view.css('transform', `translate3d(${left}px, 0, 10px)`);
       this._seekBarThumbnail.setCurrentTime(sec);
     }
   });
@@ -2557,7 +2559,7 @@ import {Emitter} from './baselib';
       if (this._animation &&
         Math.abs(v * 1000 - this._animation.currentTime) > 500) {
         this._animation.currentTime = v * 1000;
-        window.console.info('refreshed!', v*1000, this._animation.currentTime);
+        // window.console.info('refreshed!', v*1000, this._animation.currentTime);
       }
     }
     _timeToPer(time) {

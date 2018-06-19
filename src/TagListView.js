@@ -426,13 +426,10 @@ TagListView.__shadow__ = (`
 
       .TagListView .button:hover {
         background: #666;
-        /*box-shadow: 0 2px 2px #333;
-        transform: translate(0, -2px);*/
       }
 
       .TagListView .button:active {
         transition: none;
-        /*transform: translate(0, 0);*/
         box-shadow: 0 0 2px #000 inset;
       }
       .TagListView .button .icon {
@@ -465,15 +462,20 @@ TagListView.__shadow__ = (`
         display: inline-block;
         padding: 0;
       }
+      
+      .videoTagsInner {
+        display: flex;
+        flex-wrap: wrap;
+      }
 
       .TagListView .tagItem {
         position: relative;
         list-style-type: none;
-        display: inline-block;
+        display: inline-flex;
         margin-right: 2px;
-        /*padding: 0 4px 0;*/
         line-height: 20px;
         max-width: 50vw;
+        align-items: center;
       }
 
       .TagListView .tagItem:first-child {
@@ -512,22 +514,21 @@ TagListView.__shadow__ = (`
         color: #fff;
         cursor: pointer;
         border-radius: 100%;
-        transition: 0.2s transform, 0.4s background;
+        transition: transform 0.2s, background 0.4s;
         text-shadow: none;
-        transform: scale(1.3);
-        line-height: 20px;
+        transform: scale(1.2);
         text-align: center;
         opacity: 0.8;
       }
 
       .TagListView.is-Editing .deleteButton:hover {
-        transform: rotate(0) scale(1.3);
+        transform: rotate(0) scale(1.2);
         background: #f00;
         opacity: 1;
       }
 
       .TagListView.is-Editing .deleteButton:active {
-        transform: rotate(360deg) scale(1.3);
+        transform: rotate(360deg) scale(1.2);
         transition: none;
         background: #888;
       }
@@ -579,10 +580,9 @@ TagListView.__shadow__ = (`
 
       .tagItem.is-Removing {
         transform-origin: right !important;
-        /*transform: translate(0, 150vh) rotate(-120deg) !important;*/
         transform: translate(0, 150vh) !important;
         opacity: 0 !important;
-        max-width: 0px !important;
+        max-width: 0 !important;
         transition:
           transform 2s ease 0.2s,
           opacity 1.5s linear 0.2s,
@@ -613,11 +613,6 @@ TagListView.__shadow__ = (`
         cursor: not-allowed;
       }
 
-      .is-Editing .tagItem.is-Locked .tagLink {
-        outline: 1px dashed #888;
-        outline-offset: 2px;
-      }
-
       .is-Editing .tagItem.is-Locked *{
         pointer-events: none;
       }
@@ -638,7 +633,6 @@ TagListView.__shadow__ = (`
       }
 
       .is-Editing .tagItem:not(.is-Locked) {
-        transform: translate(0, -4px);
         text-shadow: 0 4px 4px rgba(0, 0, 0, 0.8);
       }
 
@@ -703,7 +697,6 @@ TagListView.__shadow__ = (`
         top: 0;
         z-index: 1000;
         display: inline-block;
-        transform: translate(0, 6px);
       }
 
       .TagListView.is-Empty .tagEditContainer {
@@ -740,10 +733,6 @@ TagListView.__shadow__ = (`
       .TagListView .button.tagRefresh:active .icon {
         transform: translate(-50%, -50%) rotate(-330deg);
         transition: none;
-      }
-
-      .TagListView .toggleInput {
-        transform: translate(0, 6px);
       }
 
       .TagListView.is-Inputing .button.toggleInput {
