@@ -1,4 +1,5 @@
 import {Emitter} from './baselib';
+import {PRODUCT} from './ZenzaWatchIndex';
 
 const location = {host: 'www.nicovideo.jp'};
 const navigator = {};

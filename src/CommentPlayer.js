@@ -1334,11 +1334,6 @@ class NicoChat {
     let text = this._text = data.text;
 
     this._date = data.date;
-    //if (this._date >= 1483196400) { // 2017/01/01
-    //  this._commentVer = 'html5';
-    //} else {
-    //  this._commentVer = 'flash';
-    //}
     this._cmd = data.cmd;
     this._isPremium = data.premium ? '1' : '0';
     this._userId = data.user_id;
@@ -3163,30 +3158,6 @@ body.in-capture .commentLayer {
 .debug .mincho  { background: rgba(128, 0, 0, 0.3); }
 .debug .gulim   { background: rgba(0, 128, 0, 0.3); }
 .debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
-
-@keyframes idou {
-  0%   {
-    opacity: 1;
-    transform:
-      translate3d(0, 0, 0) translate3d(0, 0, 0);
-  }
-  100% {
-    opacity: 1;
-    transform:
-      translate3d(${-NicoCommentViewModel.SCREEN.OUTER_WIDTH_FULL}px, 0, 0) translate3d(-100%, 0, 0);
-  }
-}
-@keyframes idou-middle {
-  0%   {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) translate3d(0, -50%, 0);
-  }
-  100% {
-    opacity: 1;
-    transform:
-      translate3d(${-NicoCommentViewModel.SCREEN.OUTER_WIDTH_FULL}px, 0, 0) translate3d(-100%, -50%, 0);
-  }
-}
 
 @keyframes fixed {
    0% {opacity: 1;}

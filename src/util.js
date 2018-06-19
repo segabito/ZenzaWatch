@@ -53,7 +53,7 @@ const AsyncEmitter = (() => {
   emitter.prototype.emitAsync = Emitter.prototype.emitAsync;
   return emitter;
 })();
-(ZenzaWatch.lib || {}).AsyncEmitter = AsyncEmitter;
+(ZenzaWatch ? ZenzaWatch.lib : {}).AsyncEmitter = AsyncEmitter;
 
 let FullScreen = {
   now: function () {
@@ -533,7 +533,7 @@ const broadcastEmitter = (() => {
     broadcastEmitter.send({type: 'notifyClose'});
   };
 
-  if (ZenzaWatch.debug) {
+  if (ZenzaWatch && ZenzaWatch.debug) {
     ZenzaWatch.debug.ping = () => {
       window.console.time('ping');
       return broadcastEmitter.ping().then(result => {
@@ -1477,6 +1477,9 @@ util.$ = (() => {
 })();
 
 const ShortcutKeyEmitter = (config => {
+  if (!ZenzaWatch) {
+    return;
+  }
   let emitter = new Emitter();
   let isVerySlow = false;
 

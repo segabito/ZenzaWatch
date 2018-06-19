@@ -184,20 +184,23 @@ CONSTANT.COMMON_CSS = `
 CONSTANT.SCROLLBAR_CSS = `
     .videoInfoTab::-webkit-scrollbar,
     #listContainer::-webkit-scrollbar,
-    .zenzaCommentPreview::-webkit-scrollbar {
+    .zenzaCommentPreview::-webkit-scrollbar,
+    .mylistSelectMenuInner::-webkit-scrollbar {
       background: #222;
     }
 
     .videoInfoTab::-webkit-scrollbar-thumb,
     #listContainer::-webkit-scrollbar-thumb,
-    .zenzaCommentPreview::-webkit-scrollbar-thumb {
+    .zenzaCommentPreview::-webkit-scrollbar-thumb,
+    .mylistSelectMenuInner::-webkit-scrollbar-thumb {
       border-radius: 0;
       background: #666;
     }
 
     .videoInfoTab::-webkit-scrollbar-button,
     #listContainer::-webkit-scrollbar-button,
-    .zenzaCommentPreview::-webkit-scrollbar-button {
+    .zenzaCommentPreview::-webkit-scrollbar-button,
+    .mylistSelectMenuInner::-webkit-scrollbar-button {
       background: #666;
       display: none;
     }

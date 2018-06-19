@@ -311,7 +311,7 @@ SeekBarThumbnail.__css__ = (`
         box-sizing: border-box;
         border: 1px solid #666;
         border-width: 1px 1px 0 1px;
-        background: rgba(0, 0, 0, 0.8);
+        background: rgba(0, 0, 0, 0.3);
         padding: 8px 4px;
         border-radius: 8px 8px 0 0;
         z-index: 100;
@@ -323,7 +323,7 @@ SeekBarThumbnail.__css__ = (`
         margin: auto;
         transform-origin: center top;
         transition: background-position 0.1s steps(1, start) 0;
-        /*animation-timing-function: steps(1, start);*/
+        opacity: 0.8;
       }
 
     `).trim();

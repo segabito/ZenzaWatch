@@ -1104,8 +1104,8 @@ class VideoPlayer extends Emitter {
     }
   }
 
-  _onStalled(...args) {
-    this.emit(...args);
+  _onStalled(e) {
+    this.emit('stalled', e);
     this._video.addEventListener('timeupdate', () => this.emit('timeupdate'), {once: true});
   }
 
