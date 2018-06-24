@@ -378,9 +378,10 @@ util.getThumbnailUrlByVideoId = (() => {
       return null;
     }
     const fileId = parseInt(videoId.substr(2), 10);
-    const num = (fileId % 4) + 1;
+    //const num = (fileId % 4) + 1;
     const large = util.hasLargeThumbnail(videoId) ? '.L' : '';
-    return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
+    //return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
+    return '//tn.smilevideo.jp/smile?i=' + fileId + large;
   };
 })();
 
