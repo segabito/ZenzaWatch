@@ -176,7 +176,11 @@ import {Emitter} from './baselib';
     .controlButton {
       position: relative;
       display: inline-block;
-      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
+      transition: opacity 0.4s ease;
+      font-size: 20px;
+      width: 32px;
+      height: 32px;
+      line-height: 30px;
       box-sizing: border-box;
       text-align: center;
       cursor: pointer;
@@ -193,6 +197,10 @@ import {Emitter} from './baselib';
       cursor: pointer;
       opacity: 1;
     }
+    .controlButton:active .controlButtonInner {
+      transform: translate(0, 2px);
+    }
+
     .is-abort   .playControl,
     .is-error   .playControl,
     .is-loading .playControl {
@@ -229,17 +237,10 @@ import {Emitter} from './baselib';
     }
 
     .settingPanelSwitch {
-      font-size: 20px;
-      line-height: 30px;
       width: 32px;
-      height: 32px;
-      transition: font-size 0.2s ease;
     }
     .settingPanelSwitch:hover {
       text-shadow: 0 0 8px #ff9;
-    }
-    .controlButton:active .controlButtonInner {
-      transform: translate(0, 2px);
     }
     .settingPanelSwitch .tooltip {
       left: 0;
@@ -253,39 +254,53 @@ import {Emitter} from './baselib';
 
     .seekTop {
       left: 0px;
-      font-size: 20px;
       width: 32px;
-      height: 32px;
-      line-height: 30px;
       transform: scale(1.1);
     }
 
     .togglePlay {
-      font-size: 20px;
-      width: 32px;
-      height: 32px;
-      line-height: 30px;
-      box-sizing: border-box;
-      transition: transform 0.2s ease, letter-spacing 0.2s;
+      width: 36px;
+      transition: transform 0.2s ease;
       transform: scale(1.1);
-      letter-spacing: -10px;
     }
     .togglePlay:active {
       transform: scale(0.75);
     }
-    .is-playing .togglePlay {
-      letter-spacing: -3px;
-    }
 
-    .togglePlay .pause,
-    .is-playing .togglePlay .play {
-      display: none;
-    }
-    .is-playing .togglePlay .pause {
-      display: block;
+    .togglePlay .play,
+    .togglePlay .pause {
+      display: inline-block;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transition: transform 0.1s linear, opacity 0.1s linear;
+      user-select: none;
+      pointer-events: none;
     }
     .togglePlay .play {
-      letter-spacing: -3px;
+      width: 100%;
+      height: 100%;
+      transform: scale(1.2) translate(-50%, -50%) translate(10%, 10%);
+    }
+    .is-playing .togglePlay .play {
+      opacity: 0;
+    }
+    .togglePlay>.pause {
+      width: 28px;
+      height: 18px;
+      background-image: linear-gradient(
+        to right, 
+        transparent 0, transparent 12.5%, 
+        currentColor 0, currentColor 43.75%, 
+        transparent 0, transparent 56.25%, 
+        currentColor 0, currentColor 87.5%, 
+        transparent 0);
+      opacity: 0;
+      transform: scaleX(0);
+    }
+    .is-playing .togglePlay>.pause {
+      opacity: 1;
+      transform: translate(-50%, -50%);
     }
 
     .seekBarContainer {
@@ -383,7 +398,6 @@ import {Emitter} from './baselib';
       transition: transform 0.5s ease 1s;
       transform: translate3d(0, 0, 0) scaleX(1) !important;
     }
-
 
     .seekBarPointer {
       position: absolute;
@@ -496,6 +510,7 @@ import {Emitter} from './baselib';
 
     .playbackRateMenu {
       bottom: 0;
+      width: auto;
       min-width: 40px;
       height:    32px;
       line-height: 30px;
@@ -612,16 +627,6 @@ import {Emitter} from './baselib';
     }
 
 
-    .fullScreenSwitch {
-      width:  32px;
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
-    }
-    .fullScreenSwitch:active {
-      font-size: 15px;
-    }
-
              .fullScreen  .fullScreenSwitch .controlButtonInner .toFull,
     body:not(.fullScreen) .fullScreenSwitch .controlButtonInner .returnFull {
       display: none;
@@ -629,13 +634,7 @@ import {Emitter} from './baselib';
 
 
     .videoControlBar .muteSwitch {
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
       margin-right: 0;
-    }
-    .is-mute .videoControlBar .muteSwitch {
-      color: #888;
     }
     .videoControlBar .muteSwitch:active {
       font-size: 15px;
@@ -717,24 +716,14 @@ import {Emitter} from './baselib';
     .prevVideo,
     .nextVideo {
       font-size: 23px;
-      width: 32px;
-      height: 32px;
-      margin-top: -2px;
-      line-height: 30px;
     }
     .prevVideo .controlButtonInner {
       transform: scaleX(-1);
     }
 
-    .prevVideo:active {
-      font-size: 18px;
-    }
-
     .toggleStoryboard {
       visibility: hidden;
       font-size: 14px;
-      height: 32px;
-      line-height: 30px;
       pointer-events: none;
     }
     .storyboardAvailable .toggleStoryboard {
@@ -746,7 +735,7 @@ import {Emitter} from './baselib';
     }
 
     .toggleStoryboard .controlButtonInner {
-      letter-spacing: -1px;
+      letter-spacing: -2px;
     }
 
     .toggleStoryboard:active {
@@ -972,12 +961,8 @@ import {Emitter} from './baselib';
           </div>
 
           <div class="togglePlay controlButton playControl" data-command="togglePlay">
+            <span class="pause"><!--&#10074; &#10074;--><!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
             <span class="play">▶</span>
-            <span class="pause">&#10074; &#10074;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
-            <div class="tooltip">
-              <span class="play">再生</span>
-              <span class="pause">一時停止</span>
-            </div>
           </div>
 
           <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">

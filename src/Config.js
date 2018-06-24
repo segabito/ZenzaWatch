@@ -8,7 +8,7 @@ const window = {console: console};
 
 //===BEGIN===
 const Config = (() => {
-  const prefix = 'ZenzaWatch_';
+  const prefix = `${PRODUCT}_`;
   const emitter = new Emitter();
 
   // 古いprototype.jsが使われているページの対処

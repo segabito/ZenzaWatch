@@ -469,6 +469,11 @@ class VideoInfoModel {
     let dmcVideos = dmcInfo.videos;
     let importVersion = dmcInfo.importVersion;
 
+    // ぜんぜんわからん 時はdmc
+    if (typeof smileWidth !== 'number' || typeof smileHeight !== 'number') {
+      return 'dmc';
+    }
+
     // smile側に 1280w 720h を上回る動画がある場合は再エンコードされていない
     // smile側の再エンコードでは1280x720以下の動画しか生成されないため
     if (smileWidth > 1280 || smileHeight > 720) {
