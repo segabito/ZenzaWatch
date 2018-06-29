@@ -26,7 +26,7 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        1.15.6
+// @version        1.15.7
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -41,7 +41,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   var $ = window.ZenzaJQuery || window.jQuery, _ = window._;
   var TOKEN = 'r:' + (Math.random());
   START_PAGE_QUERY = unescape(START_PAGE_QUERY);
-  var VER = '1.15.6';
+  var VER = '1.15.7';
 
   console.log(`%c${PRODUCT} v${VER}`, 'font-size: 200%;');
   console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
@@ -843,6 +843,12 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     // DMCよりも画質が良さそうか？を返す。
     // ビットレートは取得できないので動画長と解像度で返すしかない
     util.isBetterThanDmcMayBe = (width, height, duration /*, dmcVideos*/) => {
+
+      // ぜんぜんわからん 時はdmc
+      if (isNaN(width) || isNaN(height)) {
+        return false;
+      }
+
       // dmcInfoのvideosをパースして判別するのがいいのでは？と思っていたけど
       // 1080pの仕様がうまい具合にはまったので、何もしないことにした
       if (width > 1280 || height > 720) {
@@ -29895,7 +29901,7 @@ const VideoSession = (function() {
           super._onCommand('pause');
           break;
         case 'open-uad':
-          url = `//uad.nicovideo.jp/ads/?vid=${this._currentWatchId}`;
+          url = `//nicoad.nicovideo.jp/video/publish/${this._currentWatchId}?frontend_id=6&frontend_version=0&zenza_watch`;
           window.open(url, '', 'width=428, height=600, toolbar=no, scrollbars=1');
           break;
         case 'open-twitter-hash':
