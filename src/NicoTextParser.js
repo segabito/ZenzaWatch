@@ -504,36 +504,32 @@ NicoTextParser.likeHTML5 = function (text) {
     util.escapeHtml(text)
       .replace(/([\x20\xA0]+)/g, g => {
         return `<span class="html5_space" data-text="${encodeURIComponent(g)}">${'&nbsp;'.repeat(g.length)}</span>`;
-          // ' '.repeat(g.length) + '</span>';
       })
       .replace(/([\u2000\u2002]+)/g, g => {
         return `<span class="html5_space half" data-text="${encodeURIComponent(g)}">${g}</span>`;
-          //'_'.repeat(g.length) + '</span>';
       })
       .replace(/([\u3000\u2001\u2003]+)/g, g => {
-          return `<span class="html5_zen_space" data-text="${encodeURIComponent(g)}">${'全'.repeat(g.length)}</span>`;
-        })
+        return `<span class="html5_zen_space" data-text="${encodeURIComponent(g)}">${'全'.repeat(g.length)}</span>`;
+      })
       .replace(/[\u200B-\u200F]+/g, g => {
         return `<span class="html5_zero_width" data-text="${encodeURIComponent(g)}">${g}</span>`;
       })
       .replace(/([\t]+)/g, g => {
-          return '<span class="html5_tab_space">' +
-            '丁'.repeat(g.length * 2) + '</span>';
-        })
+        return '<span class="html5_tab_space">' +
+          '丁'.repeat(g.length * 2) + '</span>';
+      })
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
-      //      .replace(/([\u2588])/g,'<span class="html5_fill_space u2588">$1</span>')
       .replace(/([\u2588]+)/g, g => {
-          return '<span class="html5_fill_space u2588">' + //g + '</span>';
-          // return '<span class="html5_fill_space u2588">' +
-          //   //String.fromCharCode(0x2588).repeat(g.length) + '</span>';
-             '田'.repeat(g.length) + '</span>';
-        })
-      // .replace(/[\r\n]+$/g, '')
+        return '<span class="html5_fill_space u2588">' + //g + '</span>';
+           '田'.repeat(g.length) + '</span>';
+      })
       .replace(/[\n]/g, '<br>')
   ;
 
   let sp = htmlText.split('<br>');
-  if (sp.length >= 70) {
+  if (sp.length >= 100) {
+    htmlText = `${sp.slice(0, 100).join('<br>')}<span class="no-height">${sp.slice(100).join('<br>')}</span>`;
+  } else if (sp.length >= 70) {
     htmlText = `${sp.slice(0, 70).join('<br>')}<span class="no-height">${sp.slice(70).join('<br>')}</span>`;
   } else if (sp.length >= 53) {
     htmlText = `${sp.slice(0,53).join('<br>')}<span class="no-height">${sp.slice(53).join('<br>')}</span>`;

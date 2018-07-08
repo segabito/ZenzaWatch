@@ -174,7 +174,7 @@ class TagListView extends BaseViewComponent {
       });
     };
 
-    return Promise.all([addTag(), wait3s]).then((results) => {
+    return Promise.all([addTag(), wait3s]).then(results => {
       let result = results[0];
       if (watchId !== this._watchId) {
         return;

@@ -470,7 +470,7 @@ class VideoInfoModel {
     let importVersion = dmcInfo.importVersion;
 
     // ぜんぜんわからん 時はdmc
-    if (typeof smileWidth !== 'number' || typeof smileHeight !== 'number') {
+    if (isNaN(smileWidth) || isNaN(smileHeight)) {
       return 'dmc';
     }
 

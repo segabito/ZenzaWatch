@@ -23325,12 +23325,8 @@ NicoVideoPlayerDialogView.__css__ = `
     }
 
     .zenzaVideoPlayerDialogInner {
-      /*position: fixed;
-      top:  50%;
-      left: 50%;*/
       background: #000;
       box-sizing: border-box;
-      /*transform: translate(-50%, -50%);*/
       z-index: ${CONSTANT.BASE_Z_INDEX + 1};
       box-shadow: 4px 4px 4px #000;
     }
@@ -23433,8 +23429,8 @@ NicoVideoPlayerDialogView.__css__ = `
     .zenzaPlayerContainer.is-backComment .commentLayerFrame,
     .zenzaPlayerContainer.is-backComment .commentLayerFrame {
       position: fixed;
-      top:  0; /*calc(-50vh + 50%);*/
-      left: 0; /*calc(-50vw + 50%);*/
+      top:  0;
+      left: 0;
       width:  100vw;
       height: calc(100vh - 40px);
       right: auto;
@@ -26709,7 +26705,7 @@ CommentInputPanel.__css__ = (`
     .commentInputPanel {
       position: fixed;
       top:  calc(-50vh + 50% + 100vh);
-      left: 50vw; /*calc(-50vw + 50% + 50vw);*/
+      left: 50vw;
       box-sizing: border-box;
 
       width: 200px;
@@ -26727,7 +26723,6 @@ CommentInputPanel.__css__ = (`
     }
 
     .commentInputPanel:focus-within {
-      /*left: 50vw;/*calc(-50vw + 50% + 50vw);*/
       width: 500px;
       z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
     }
@@ -26969,7 +26964,6 @@ _.assign(CommentInputPanel.prototype, {
     $view.on('click', e => e.stopPropagation());
   },
   _onFocus: function () {
-    //this._$view.addClass('active');
     if (!this._hasFocus) {
       this.emit('focus', this.isAutoPause());
     }
@@ -26980,7 +26974,6 @@ _.assign(CommentInputPanel.prototype, {
       this._$commentInput.is(':focus')) {
       return;
     }
-    //this._$view.removeClass('active');
     this.emit('blur', this.isAutoPause());
 
     this._hasFocus = false;

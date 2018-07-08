@@ -784,7 +784,7 @@ util.openTweetWindow = videoInfo => {
   let url =
     'https://twitter.com/intent/tweet?' +
     'url=' + encodeURIComponent(nicomsUrl) +
-    '&text=' + encodeURIComponent(videoInfo.title + dur) +
+    '&text=' + encodeURIComponent(videoInfo.title + dur).replace(/@/g, '@ ') +
     '&hashtags=' + encodeURIComponent(videoInfo.videoId + nicoch) +
     '&original_referer=' + encodeURIComponent(watchUrl) +
     '';
