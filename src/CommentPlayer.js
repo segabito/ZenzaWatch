@@ -2607,6 +2607,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 
       const onResize = () => {
         const w = win.innerWidth, h = win.innerHeight;
+        if (!w || !h) { return; }
         // 基本は元動画の縦幅合わせだが、16:9より横長にはならない
         const aspectRatio = Math.max(this._aspectRatio, 9 / 16);
         const targetHeight = Math.min(h, w * aspectRatio);
