@@ -20,7 +20,7 @@ CommentInputPanel.__css__ = (`
     .commentInputPanel {
       position: fixed;
       top:  calc(-50vh + 50% + 100vh);
-      left: calc(-50vw + 50% + 50vw);
+      left: 50vw;
       box-sizing: border-box;
 
       width: 200px;
@@ -37,8 +37,7 @@ CommentInputPanel.__css__ = (`
       display: none;
     }
 
-    .commentInputPanel.active {
-      left: calc(-50vw + 50% + 50vw);
+    .commentInputPanel:focus-within {
       width: 500px;
       z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
     }
@@ -52,6 +51,7 @@ CommentInputPanel.__css__ = (`
     }
 
     /* 縦長モニター */
+  /*
     @media
       screen and
       (max-width: 991px) and (min-height: 700px)
@@ -68,6 +68,7 @@ CommentInputPanel.__css__ = (`
         transform: translate(-50%, -230px);
       }
     }
+    */
 
     .commentInputPanel>* {
       pointer-events: none;
@@ -77,7 +78,7 @@ CommentInputPanel.__css__ = (`
       font-size: 18px;
     }
 
-    .commentInputPanel.active>*,
+    .commentInputPanel:focus-within>*,
     .commentInputPanel:hover>* {
       pointer-events: auto;
     }
@@ -88,11 +89,11 @@ CommentInputPanel.__css__ = (`
       border-radius: 8px;
       opacity: 0.5;
     }
-    .is-mouseMoving:not(.active) .commentInputOuter {
+    .is-mouseMoving:not(:focus-within) .commentInputOuter {
       box-shadow: 0 0 8px #fe9, 0 0 4px #fe9 inset;
     }
 
-    .commentInputPanel.active .commentInputOuter,
+    .commentInputPanel:focus-within .commentInputOuter,
     .commentInputPanel:hover  .commentInputOuter {
       border: none;
       opacity: 1;
@@ -115,10 +116,10 @@ CommentInputPanel.__css__ = (`
     .commentInputPanel:hover  .commentInput {
       opacity: 0.5;
     }
-    .commentInputPanel.active .commentInput {
+    .commentInputPanel:focus-within .commentInput {
       opacity: 0.9 !important;
     }
-    .commentInputPanel.active .commentInput,
+    .commentInputPanel:focus-within .commentInput,
     .commentInputPanel:hover  .commentInput {
       box-sizing: border-box;
       border: 1px solid #888;
@@ -131,7 +132,7 @@ CommentInputPanel.__css__ = (`
       display: none;
     }
 
-    .commentInputPanel.active .autoPauseLabel {
+    .commentInputPanel:focus-within .autoPauseLabel {
       position: absolute;
       top: 36px;
       left: 50%;
@@ -159,7 +160,7 @@ CommentInputPanel.__css__ = (`
       padding: 0 !important;
       margin-bottom: 0 !important;
     }
-    .commentInputPanel.active .commandInput {
+    .commentInputPanel:focus-within .commandInput {
       left: -108px;
       z-index: 1;
       opacity: 0.9;
@@ -184,13 +185,13 @@ CommentInputPanel.__css__ = (`
       line-height: 26px;
       letter-spacing: 0.2em;
     }
-    .commentInputPanel.active .commentSubmit {
+    .commentInputPanel:focus-within .commentSubmit {
       right: -108px;
       z-index: 1;
       opacity: 0.9;
       box-shadow: 0 0 8px #fff;
     }
-    .commentInputPanel.active .commentSubmit:active {
+    .commentInputPanel:focus-within .commentSubmit:active {
       color: #000;
       background: #fff;
       box-shadow: 0 0 16px #ccf;
@@ -278,7 +279,6 @@ _.assign(CommentInputPanel.prototype, {
     $view.on('click', e => e.stopPropagation());
   },
   _onFocus: function () {
-    this._$view.addClass('active');
     if (!this._hasFocus) {
       this.emit('focus', this.isAutoPause());
     }
@@ -289,7 +289,6 @@ _.assign(CommentInputPanel.prototype, {
       this._$commentInput.is(':focus')) {
       return;
     }
-    this._$view.removeClass('active');
     this.emit('blur', this.isAutoPause());
 
     this._hasFocus = false;

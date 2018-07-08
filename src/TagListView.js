@@ -466,6 +466,7 @@ TagListView.__shadow__ = (`
       .videoTagsInner {
         display: flex;
         flex-wrap: wrap;
+        padding: 0 8px;
       }
 
       .TagListView .tagItem {

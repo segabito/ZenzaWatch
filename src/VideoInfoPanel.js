@@ -151,31 +151,11 @@ VideoInfoPanel.__css__ = (`
       .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel.is-notFullscreen {
         display: inherit;
       }
-      .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50%);
-        left: calc(-50vw + 50% + 160px);
-        width:  100vw;
-        height: calc(100vh - 40px);
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
-
      }
 
     @media screen and (min-width: 1216px) {
       .zenzaScreenMode_big .zenzaWatchVideoInfoPanel.is-notFullscreen {
         display: inherit;
-      }
-
-      .zenzaScreenMode_big .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50%);
-        left: calc(-50vw + 50% + 160px);
-        width:  100vw;
-        height: calc(100vh - 40px);
-        right: auto;
-        bottom: auto;
-        z-index: 1;
       }
     }
 
@@ -417,6 +397,7 @@ VideoInfoPanel.__css__ = (`
 
     .zenzaWatchVideoInfoPanel .videoMetaInfoContainer {
       display: inline-block;
+      padding: 0 8px;
     }
 
     .zenzaScreenMode_small .zenzaWatchVideoInfoPanel.is-notFullscreen {
@@ -498,16 +479,6 @@ VideoInfoPanel.__css__ = (`
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
 
-      .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50% + 120px);
-        left: calc(-50vw + 50%);
-        width:  100vw;
-        height: 100vh;
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
-
       .zenzaScreenMode_normal .is-notFullscreen .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
       }
@@ -518,6 +489,9 @@ VideoInfoPanel.__css__ = (`
       .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel.is-notFullscreen .videoOwnerInfoContainer>* {
         display: table-cell;
         text-align: left;
+      }
+      .zenzaWatchVideoHeaderPanel {
+        width: 100% !important;
       }
     }
 
@@ -534,16 +508,6 @@ VideoInfoPanel.__css__ = (`
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
 
-      .zenzaScreenMode_big .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50% + 120px);
-        left: calc(-50vw + 50%);
-        width:  100vw;
-        height: 100vh;
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
-
       .zenzaScreenMode_big .is-notFullscreen .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
       }
@@ -554,6 +518,10 @@ VideoInfoPanel.__css__ = (`
       .zenzaScreenMode_big .zenzaWatchVideoInfoPanel.is-notFullscreen .videoOwnerInfoContainer>* {
         display: table-cell;
         text-align: left;
+      }
+      
+      .zenzaWatchVideoHeaderPanel {
+        width: 100% !important;
       }
     }
 
@@ -611,7 +579,6 @@ VideoInfoPanel.__css__ = (`
       animation-name: loadingRolling;
       animation-iteration-count: infinite;
       animation-duration: 4s;
-      animation-timing-function: linear;
     }
     .zenzaWatchVideoInfoPanel .nowLoading .loadingMessage {
       position: absolute;
@@ -644,50 +611,6 @@ VideoInfoPanel.__css__ = (`
       .zenzaWatchVideoInfoPanelContent {
         flex: 1;
       }
-
-    .zenzaWatchVideoInfoPanel .resumePlay {
-      display: none;
-      width: calc(100% - 16px);
-      font-size: 14px;
-      padding: 8px 4px;
-      cursor: pointer;
-      border-radius: 4px;
-      border: 1px solid #666;
-      margin: 0 8px 8px;
-      background: transparent;
-      color: inherit;
-      outline: none;
-      line-height: 20px;
-      user-select: none;
-      text-align: center;
-      user-select: none;
-    }
-    .zenzaWatchVideoInfoPanel .resumePlay.is-resumePlayable {
-      display: block;
-    }
-    .zenzaWatchVideoInfoPanel .resumePlay:hover {
-      transform: translate(0, -2px);
-      box-shadow: 0 4px 2px #000;
-    }
-
-    .zenzaWatchVideoInfoPanel .resumePlay:active {
-      transform: translate(0, 2px);
-      box-shadow: none;
-    }
-
-    .zenzaWatchVideoInfoPanel .resumeThumbnailContainer {
-      display: inline-block;
-      vertical-align: middle;
-      width: 128px;
-      min-height: 72px;
-      background: #333;
-      pointer-events: none;
-    }
-
-    .zenzaWatchVideoInfoPanel .resumeThumbnail {
-      max-width: 128px;
-      max-height: 96px;
-    }
 
     .zenzaTubeButton {
       display: inline-block;
@@ -752,10 +675,6 @@ VideoInfoPanel.__tpl__ = (`
               <div class="relatedInfoMenuContainer"></div>
             </div>
             <div class="videoDescription"></div>
-            <div class="resumePlay" data-command="seek" data-param="0" type="button">
-              続きから再生 (<span class="resumePlayPoint">00:00</span>)
-              <div class="resumeThumbnailContainer"></div>
-            </div>
           </div>
           <div class="zenzaWatchVideoInfoPanelFoot">
             <div class="uaaContainer"></div>
@@ -816,12 +735,6 @@ _.assign(VideoInfoPanel.prototype, {
     this._ichibaItemView = new IchibaItemView(
       {parentNode: this._ichibaContainer});
 
-    this._resumePlayButton = view.querySelector('.resumePlay');
-    this._resumePlayPoint = view.querySelector('.resumePlayPoint');
-    this._resumePlayButton.addEventListener('click', () => {
-      this._onCommand(
-        'command', 'seek', this._resumePlayButton.getAttribute('data-param'));
-    });
 
     view.querySelector('.tabSelectContainer').addEventListener('click', e => {
       let $target = $(e.target).closest('.tabSelect');
@@ -892,55 +805,30 @@ _.assign(VideoInfoPanel.prototype, {
 
     this._relatedInfoMenu.update(videoInfo);
 
-    this._updateResumePoint(videoInfo);
-  },
-  _updateResumePoint(videoInfo) {
-    const pt = videoInfo.initialPlaybackTime;
-    this._resumePlayPoint.textContent = util.secToTime(pt);
-    this._resumePlayButton.classList.toggle('is-resumePlayable', pt > 0);
-    this._resumePlayButton.setAttribute('data-param', pt);
-
-    const thumbnailContainer = this._resumeThumbnailContainer =
-      this._resumeThumbnailContainer ||
-      this._resumePlayButton.querySelector('.resumeThumbnailContainer');
-    thumbnailContainer.innerHTML = '';
-
-    if (pt < 1) {
-      return Promise.resolve();
-    }
-    return videoInfo.getCurrentVideo().then(url => {
-      return new Sleep(5000, url);
-    }).then(url => {
-      return util.videoCapture(url, pt);
-    }).then(canvas => {
-      canvas.className = 'resumeThumbnail';
-      thumbnailContainer.appendChild(canvas);
-    }).catch(() => {
-    });
   },
   /**
    * 説明文中のurlの自動リンク等の処理
    */
   _updateVideoDescription: function (html, isChannel) {
-    if (!isChannel) {
-      // urlの自動リンク処理
-      // チャンネル動画は自前でリンク貼れるので何もしない
-
-      let linkmatch = /<a.*?<\/a>/, links = [], n;
-      html = html.split('<br />').join(' <br /> ');
-      while ((n = linkmatch.exec(html)) !== null) {
-        links.push(n);
-        html = html.replace(n, ' <!----> ');
-      }
-
-      html = html.replace(/\((https?:\/\/[\x21-\x3b\x3d-\x7e]+)\)/gi, '( $1 )');
-      html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" rel="noopener" target="_blank" class="otherSite">$1</a>');
-      for (let i = 0, len = links.length; i < len; i++) {
-        html = html.replace(' <!----> ', links[i]);
-      }
-
-      html = html.split(' <br /> ').join('<br />');
-    }
+    // if (!isChannel) {
+    //   // urlの自動リンク処理
+    //   // チャンネル動画は自前でリンク貼れるので何もしない
+    //
+    //   let linkmatch = /<a.*?<\/a>/, links = [], n;
+    //   html = html.split('<br />').join(' <br /> ');
+    //   while ((n = linkmatch.exec(html)) !== null) {
+    //     links.push(n);
+    //     html = html.replace(n, ' <!----> ');
+    //   }
+    //
+    //   html = html.replace(/([(【])(https?:\/\/[\x21-\x3b\x3d-\x7e]+)([】)])/gi, '$1 $2 $3');
+    //   html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" rel="noopener" target="_blank" class="otherSite">$1</a>');
+    //   for (let i = 0, len = links.length; i < len; i++) {
+    //     html = html.replace(' <!----> ', links[i]);
+    //   }
+    //
+    //   html = html.split(' <br /> ').join('<br />');
+    // }
 
     this._$description.html(html)
       .find('a').addClass('noHoverMenu').end()
@@ -1196,8 +1084,8 @@ class VideoHeaderPanel extends Emitter {
 
 VideoHeaderPanel.__css__ = (`
     .zenzaWatchVideoHeaderPanel {
-      position: fixed;
-      width: 100%;
+      position: absolute;
+      width: calc(100%);
       z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
       box-sizing: border-box;
       padding: 8px 8px 0;
@@ -1208,6 +1096,10 @@ VideoHeaderPanel.__css__ = (`
       text-align: left;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
+    }
+    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-notFullscreen,
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-notFullscreen {
+      width: calc(100% + ${CONSTANT.RIGHT_PANEL_WIDTH}px);
     }
     .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
     .zenzaWatchVideoHeaderPanel.is-fullscreen {
@@ -1491,9 +1383,7 @@ _.assign(VideoHeaderPanel.prototype, {
       .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
       .css('display', '');
 
-    window.setTimeout(() => {
-      this._onResize();
-    }, 1000);
+    window.setTimeout(() => this._onResize(), 1000);
   },
   updateVideoCount: function (...args) {
     this._videoMetaInfo.updateVideoCount(...args);

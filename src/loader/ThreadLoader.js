@@ -146,7 +146,7 @@ const {ThreadLoader} = (() => {
         if (!t.threadkey && !t.waybackkey && msgInfo.userKey) {
           t.userkey = msgInfo.userKey;
         }
-        if (t.fork) { // 投稿者コメント
+        if (t.fork || thread.isLeafRequired === false) { // 投稿者コメントなど
           packets.push({thread: Object.assign({with_blobal: 1, version: VERSION_OLD, res_from: -1000}, t)});
         } else {
           packets.push({thread: Object.assign({with_blobal: 1, version: VERSION}, t)});

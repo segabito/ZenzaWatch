@@ -277,7 +277,9 @@ NicoVideoPlayerDialogView.__css__ = `
     }
 
     .zenzaVideoPlayerDialog.is-open {
-      display: block;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .zenzaVideoPlayerDialog li {
@@ -292,12 +294,8 @@ NicoVideoPlayerDialogView.__css__ = `
     }
 
     .zenzaVideoPlayerDialogInner {
-      position: fixed;
-      top:  50%;
-      left: 50%;
       background: #000;
       box-sizing: border-box;
-      transform: translate(-50%, -50%);
       z-index: ${CONSTANT.BASE_Z_INDEX + 1};
       box-shadow: 4px 4px 4px #000;
     }
@@ -334,15 +332,6 @@ NicoVideoPlayerDialogView.__css__ = `
     .zenzaPlayerContainer.is-error .videoPlayer,
     .zenzaPlayerContainer.is-error .commentLayerFrame {
       display: none;
-    }
-
-
-
-    .zenzaScreenMode_3D       .zenzaPlayerContainer,
-    .zenzaScreenMode_sideView .zenzaPlayerContainer,
-    .zenzaScreenMode_small    .zenzaPlayerContainer,
-    .fullScreen               .zenzaPlayerContainer {
-      transition: none !important;
     }
 
     .zenzaPlayerContainer .videoPlayer {
@@ -399,48 +388,31 @@ NicoVideoPlayerDialogView.__css__ = `
       width: 100%;
       height: 100%;
       z-index: 101;
-      transition: opacity 1s ease;
       pointer-events: none;
       cursor: none;
-      will-change: transform, opacity;
       user-select: none;
       contain: paint;
     }
-    .zenzaScreenMode_3D       .zenzaPlayerContainer .commentLayerFrame,
-    .zenzaScreenMode_sideView .zenzaPlayerContainer .commentLayerFrame,
-    .zenzaScreenMode_small    .zenzaPlayerContainer .commentLayerFrame,
-    .fullScreen .zenzaPlayerContainer .commentLayerFrame {
-      transition: none !important;
-    }
 
-    .zenzaScreenMode_small  .zenzaPlayerContainer.is-backComment .commentLayerFrame,
-    .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame,
-    .zenzaScreenMode_big    .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-      top:  calc(-50vh + 50%);
-      left: calc(-50vw + 50%);
+    .zenzaPlayerContainer.is-backComment .commentLayerFrame,
+    .zenzaPlayerContainer.is-backComment .commentLayerFrame,
+    .zenzaPlayerContainer.is-backComment .commentLayerFrame {
+      position: fixed;
+      top:  0;
+      left: 0;
       width:  100vw;
       height: calc(100vh - 40px);
       right: auto;
       bottom: auto;
       z-index: 1;
     }
-    .zenzaScreenMode_small  .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-      top:  0;
-      left: 0;
-      width:  100vw;
-      height: 100vh;
-      right: auto;
-      bottom: auto;
-      z-index: 1;
-    }
 
-
-    .fullScreen           .videoPlayer,
-    .fullScreen           .commentLayerFrame {
+    .fullScreen .videoPlayer,
+    .fullScreen .commentLayerFrame {
       top:  0 !important;
       left: 0 !important;
-      width:  100% !important;
-      height: 100% !important;
+      width:  100vw !important;
+      height: 100vh !important;
       right:  0 !important;
       bottom: 0 !important;
       border: 0 !important;
@@ -462,8 +434,8 @@ NicoVideoPlayerDialogView.__css__ = `
       border: 0 !important;
     }
 
-    .zenzaStoryboardOpen.fullScreen           .showVideoControlBar .videoPlayer,
-    .zenzaStoryboardOpen.fullScreen           .showVideoControlBar .commentLayerFrame {
+    .zenzaStoryboardOpen.fullScreen .showVideoControlBar .videoPlayer,
+    .zenzaStoryboardOpen.fullScreen .showVideoControlBar .commentLayerFrame {
       padding-bottom: 50px;
     }
 
@@ -499,7 +471,6 @@ NicoVideoPlayerDialogView.__css__ = `
       border: 0 !important;
       z-index: 102 !important;
     }
-
 
     .fullScreen .zenzaPlayerContainer {
       left: 0 !important;
@@ -549,6 +520,7 @@ NicoVideoPlayerDialogView.__css__ = `
 
     .zenzaScreenMode_small .zenzaVideoPlayerDialog,
     .zenzaScreenMode_sideView .zenzaVideoPlayerDialog {
+      display: block;
       position: fixed;
       top: 0; left: 0; right: 100%; bottom: 100%;
     }
@@ -565,7 +537,6 @@ NicoVideoPlayerDialogView.__css__ = `
       left: 0;
       transform: none;
     }
-
 
 
     body:not(.fullScreen).zenzaScreenMode_normal .zenzaPlayerContainer .videoPlayer {
@@ -650,8 +621,6 @@ NicoVideoPlayerDialogView.__css__ = `
         width: calc(960px * 1.05);
         height: 540px;
       }
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer .videoPlayer {
-      }
     }
 
     /* 1152x648 */
@@ -661,8 +630,6 @@ NicoVideoPlayerDialogView.__css__ = `
       body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer {
         width: calc(1152px * 1.05);
         height: 648px;
-      }
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaPlayerContainer .videoPlayer {
       }
     }
 
@@ -722,7 +689,7 @@ NicoVideoPlayerDialogView.__css__ = `
       right: 8px;
       bottom: 8px;
       font-size: 24px;
-      color: #ccc;
+      color: var(--base-fore-color);
       text-shadow: 0 0 8px #003;
       font-family: serif;
       letter-spacing: 2px;
@@ -847,6 +814,11 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       e.stopPropagation();
       classList.remove('menuOpen');
     });
+    container.addEventListener('command', e=> {
+      e.stopPropagation();
+      e.preventDefault();
+      this._onCommand(e.detail.command, e.detail.param);
+    });
 
     this._applyState();
 
@@ -879,7 +851,6 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       playerContainer: container,
       playerState: state
     });
-    this._hoverMenu.on('command', onCommand);
 
     this._commentInput = new CommentInputPanel({
       $playerContainer: $container,
@@ -1038,7 +1009,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     return { // TODO: テーブルなくても対応できるようにcss名を整理
       isAbort: 'is-abort',
       isBackComment: 'is-backComment',
-      isCommentVisible: 'is-showComment',
+      isShowComment: 'is-showComment',
       isDebug: 'is-debug',
       isDmcAvailable: 'is-dmcAvailable',
       isDmcPlaying: 'is-dmcPlaying',
@@ -2620,9 +2591,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   }
 });
 
-class VideoHoverMenu extends Emitter {
+class VideoHoverMenu {
   constructor(...args) {
-    super();
     this.initialize(...args);
   }
 }
@@ -2648,6 +2618,19 @@ VideoHoverMenu.__css__ = (`
       will-change: transform, opacity;
       user-select: none;
     }
+      .menuItemContainer .menuButton {
+        width: 32px;
+        height:32px;
+        font-size: 24px;
+        background: #888;
+        color: #000;
+        border: 1px solid #666;
+        border-radius: 4px;
+        line-height: 30px;
+        white-space: nowrap;
+        text-align: center;
+        cursor: pointer;
+      }
       .menuItemContainer:hover .menuButton {
         pointer-events: auto;
       }
@@ -2737,10 +2720,6 @@ VideoHoverMenu.__css__ = (`
         opacity: 1 !important;
       }
 
-      .onErrorMenu .menuButton {
-        opacity: 0.8 !important;
-      }
-
       .is-youTube .onErrorMenu .for-nicovideo,
                   .onErrorMenu .for-ZenTube {
         display: none;
@@ -2749,14 +2728,16 @@ VideoHoverMenu.__css__ = (`
         display: inline-block;
       }
 
-      .menuItemContainer.onErrorMenu .menuButton {
+      .onErrorMenu .menuButton {
         position: relative;
         display: inline-block !important;
         margin: 0 16px;
         padding: 8px;
         background: #888;
         color: #000;
+        opacity: 1;
         cursor: pointer;
+        border-radius: 0;
         box-shadow: 4px 4px 0 #333;
         border: 2px outset;
         width: 100px;
@@ -2764,7 +2745,7 @@ VideoHoverMenu.__css__ = (`
         line-height: 16px;
       }
       .menuItemContainer.onErrorMenu .menuButton:active {
-        background: #ccc;
+        background: var(--base-fore-color);
         border: 2px inset;
       }
       .menuItemContainer.onErrorMenu .playNextVideo {
@@ -2869,31 +2850,31 @@ VideoHoverMenu.__css__ = (`
       color: #000;
       border: 1px solid #666;
       line-height: 30px;
-      font-size: 24px;
-      text-decoration: line-through;
       filter: grayscale(100%);
       border-radius: 4px;
     }
       .is-showComment .showCommentSwitch {
         color: #fff;
         filter: none;
-        text-shadow: 0 0 6px orange;
         text-decoration: none;
       }
+      .showCommentSwitch .menuButtonInner {
+        text-decoration: line-through;
+      }
+      .is-showComment .showCommentSwitch .menuButtonInner {
+        text-decoration: none;
+      }
+
 
     .ngSettingMenu {
       display: none;
       left: 80px;
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #666;
-      line-height: 30px;
-      font-size: 18px;
-      border-radius: 4px;
     }
       .is-showComment .ngSettingMenu {
         display: block;
+      }
+      .ngSettingMenu .menuButtonInner {
+        font-size: 18px;      
       }
 
     .ngSettingSelectMenu {
@@ -2903,6 +2884,7 @@ VideoHoverMenu.__css__ = (`
     }
       .ngSettingMenu:active .ngSettingSelectMenu {
         transition: none;
+        font-size: 18px;
       }
       .ngSettingSelectMenu .triangle {
         transform: rotate(45deg);
@@ -2924,14 +2906,7 @@ VideoHoverMenu.__css__ = (`
 
 
     .menuItemContainer .mylistButton {
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #666;
-      border-radius: 4px;
-      line-height: 30px;
       font-size: 21px;
-      white-space: nowrap;
     }
 
     .mylistButton.mylistAddMenu {
@@ -3065,39 +3040,22 @@ VideoHoverMenu.__css__ = (`
         color: #fff;
       }
 
-    .menuItemContainer .zenzaTweetButton {
-      width:  32px;
-      height: 32px;
-      color: #000;
-      border: 1px solid #666;
-      border-radius: 4px;
-      line-height: 30px;
-      font-size: 24px;
-      white-space: nowrap;
-    }
-
       .zenzaTweetButton:hover {
         text-shadow: 1px 1px 2px #88c;
         background: #1da1f2;
         color: #fff;
       }
 
-    .closeButton {
+    .menuItemContainer .menuButton.closeButton {
       position: absolute;
-      cursor: pointer;
-      width: 32px;
-      height: 32px;
-      box-sizing: border-box;
-      text-align: center;
-      line-height: 30px;
       font-size: 20px;
       top: 0;
       right: 0;
       z-index: ${CONSTANT.BASE_Z_INDEX + 60000};
       margin: 0 0 40px 40px;
-      opacity: 0;
       color: #ccc;
       border: solid 1px #888;
+      border-radius: 0;
       transition:
         opacity 0.4s ease,
         transform 0.2s ease,
@@ -3128,10 +3086,7 @@ VideoHoverMenu.__css__ = (`
       padding: 8px 16px;
       color: #000;
       box-shadow: none;
-      line-height: 30px;
       font-size: 21px;
-      white-space: nowrap;
-      cursor: pointer;
       border: 1px solid black;
       background: rgba(192, 192, 192, 0.8);
     }
@@ -3148,7 +3103,7 @@ VideoHoverMenu.__css__ = (`
       line-height: 45px;
       border-radius: 8px;
       text-align: center;
-      color: #ccc;
+      color: var(--base-fore-color);
       z-index: ${CONSTANT.BASE_Z_INDEX + 10};
       background: rgba(0, 0, 0, 0.8);
       transition: transform 0.2s ease, box-shadow 0.2s, text-shadow 0.2s, font-size 0.2s;
@@ -3186,18 +3141,18 @@ VideoHoverMenu.__css__ = (`
 VideoHoverMenu.__tpl__ = (`
     <div class="hoverMenuContainer">
       <div class="menuItemContainer leftTop">
-          <div class="command menuButton toggleDebugButton" data-command="toggle-debug">
+          <div class="menuButton toggleDebugButton" data-command="toggle-debug">
             <div class="menuButtonInner">debug mode</div>
           </div>
       </div>
 
       <div class="menuItemContainer rightTop">
         <div class="scalingUI">
-          <div class="command menuButton zenzaTweetButton" data-command="tweet">
+          <div class="menuButton zenzaTweetButton" data-command="tweet">
             <div class="tooltip">ツイート</div>
             <div class="menuButtonInner">t</div>
           </div>
-          <div class="command menuButton mylistButton mylistAddMenu forMember" data-command="mylistMenu">
+          <div class="menuButton mylistButton mylistAddMenu forMember" data-command="mylistMenu">
             <div class="tooltip">マイリスト登録</div>
             <div class="menuButtonInner">My</div>
           </div>
@@ -3208,12 +3163,12 @@ VideoHoverMenu.__tpl__ = (`
             </div>
           </div>
 
-          <div class="command menuButton mylistButton deflistAdd forMember" data-command="deflistAdd">
+          <div class="menuButton mylistButton deflistAdd forMember" data-command="deflistAdd">
             <div class="tooltip">とりあえずマイリスト(T)</div>
             <div class="menuButtonInner">&#x271A;</div>
           </div>
 
-          <div class="command menuButton closeButton" data-command="close">
+          <div class="menuButton closeButton" data-command="close">
             <div class="menuButtonInner">&#x2716;</div>
           </div>
 
@@ -3222,12 +3177,12 @@ VideoHoverMenu.__tpl__ = (`
 
       <div class="menuItemContainer leftBottom">
         <div class="scalingUI">
-          <div class="command showCommentSwitch menuButton" data-command="toggle-showComment">
+          <div class="showCommentSwitch menuButton" data-command="toggle-showComment">
             <div class="tooltip">コメント表示ON/OFF(V)</div>
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="command ngSettingMenu menuButton" data-command="ngSettingMenu">
+          <div class="ngSettingMenu menuButton" data-command="ngSettingMenu">
             <div class="tooltip">NG設定</div>
             <div class="menuButtonInner">NG</div>
 
@@ -3235,28 +3190,28 @@ VideoHoverMenu.__tpl__ = (`
                 <div class="triangle"></div>
                 <p class="caption">NG設定</p>
                 <ul>
-                  <li class="command update-enableFilter"
+                  <li class="update-enableFilter"
                     data-command="update-enableFilter"
                     data-param="true"  data-type="bool"><span>ON</span></li>
-                  <li class="command update-enableFilter"
+                  <li class="update-enableFilter"
                     data-command="update-enableFilter"
                     data-param="false" data-type="bool"><span>OFF</span></li>
                 </ul>
                 <p class="caption sharedNgLevelSelect">NG共有設定</p>
                 <ul class="sharedNgLevelSelect">
-                  <li class="command sharedNgLevel max"
+                  <li class="sharedNgLevel max"
                     data-command="update-sharedNgLevel"
                     data-param="MAX"><span>最強</span></li>
-                  <li class="command sharedNgLevel high"
+                  <li class="sharedNgLevel high"
                     data-command="update-sharedNgLevel"
                     data-param="HIGH"><span>強</span></li>
-                  <li class="command sharedNgLevel mid"
+                  <li class="sharedNgLevel mid"
                     data-command="update-sharedNgLevel"
                     data-param="MID"><span>中</span></li>
-                  <li class="command sharedNgLevel low"
+                  <li class="sharedNgLevel low"
                     data-command="update-sharedNgLevel"
                     data-param="LOW"><span>弱</span></li>
-                  <li class="command sharedNgLevel none"
+                  <li class="sharedNgLevel none"
                     data-command="update-sharedNgLevel"
                     data-param="NONE"><span>なし</span></li>
                 </ul>
@@ -3267,21 +3222,21 @@ VideoHoverMenu.__tpl__ = (`
       </div>
 
       <div class="menuItemContainer onErrorMenu">
-        <div class="command menuButton openGinzaMenu" data-command="openGinza">
+        <div class="menuButton openGinzaMenu" data-command="openGinza">
           <div class="menuButtonInner">GINZAで視聴</div>
         </div>
 
-        <div class="command menuButton reloadMenu for-nicovideo" data-command="reload">
+        <div class="menuButton reloadMenu for-nicovideo" data-command="reload">
           <div class="menuButtonInner for-nicovideo">リロード</div>
           <div class="menuButtonInner for-ZenTube">ZenTube解除</div>
         </div>
 
-        <div class="command menuButton playNextVideo" data-command="playNextVideo">
+        <div class="menuButton playNextVideo" data-command="playNextVideo">
           <div class="menuButtonInner">次の動画</div>
         </div>
       </div>
 
-      <div class="command togglePlayMenu menuItemContainer center" data-command="togglePlay">
+      <div class="togglePlayMenu menuItemContainer center" data-command="togglePlay">
         ▶
       </div>
 
@@ -3296,9 +3251,7 @@ _.assign(VideoHoverMenu.prototype, {
     this._bound = {};
     this._bound.onBodyClick = this._onBodyClick.bind(this);
     this._bound.emitClose =
-      _.debounce(() => {
-        this.emit('command', 'close');
-      }, 300);
+      _.debounce(() => util.dispatchCommand(this._container, 'close'), 300);
 
     this._initializeDom();
     this._initializeNgSettingMenu();
@@ -3398,12 +3351,11 @@ _.assign(VideoHoverMenu.prototype, {
   _onMouseDown: function (e) {
     e.preventDefault();
     e.stopPropagation();
-    const target =
-      e.target.classList.contains('command') ? e.target : e.target.closest('.command');
+    const target = e.target.closest('[data-command]');
     if (!target) {
       return;
     }
-    let command = target.getAttribute('data-command');
+    let command = target.dataset.command;
     switch (command) {
       case 'deflistAdd':
         if (e.shiftKey) {
@@ -3411,18 +3363,19 @@ _.assign(VideoHoverMenu.prototype, {
         } else {
           command = e.which > 1 ? 'deflistRemove' : 'deflistAdd';
         }
-        this.emit('command', command);
+        util.dispatchCommand(target, command);
         break;
       case 'mylistAdd': {
         command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
-        let mylistId = target.getAttribute('data-mylist-id');
-        let mylistName = target.getAttribute('data-mylist-name');
+        let mylistId = target.dataset.mylistId;
+        let mylistName = target.dataset.mylistName;
         this._hideMenu();
-        this.emit('command', command, {mylistId: mylistId, mylistName: mylistName});
+        util.dispatchCommand(target, command,
+          {mylistId: mylistId, mylistName: mylistName});
         break;
       }
       case 'mylistOpen': {
-        let mylistId = target.getAttribute('data-mylist-id');
+        let mylistId = target.dataset.mylistId;
         location.href = `//www.nicovideo.jp/my/mylist/#/${mylistId}`;
         break;
       }
@@ -3436,15 +3389,14 @@ _.assign(VideoHoverMenu.prototype, {
   _onClick: function (e) {
     e.preventDefault();
     e.stopPropagation();
-    const target =
-      e.target.classList.contains('command') ? e.target : e.target.closest('.command');
+    const target = e.target.closest('[data-command]');
     if (!target) {
       return;
     }
-    const command = target.getAttribute('data-command');
+    const command = target.dataset.command;
 
-    const type = target.getAttribute('data-type') || 'string';
-    let param = target.getAttribute('data-param');
+    const type = target.dataset.type || 'string';
+    let param = target.dataset.param;
     switch (type) {
       case 'json':
       case 'bool':
@@ -3462,7 +3414,7 @@ _.assign(VideoHoverMenu.prototype, {
         break;
       case 'mylistMenu':
         if (e.shiftKey) {
-          this.emit('command', 'mylistWindow');
+          util.dispatchCommand(target, 'mylistWindow');
         } else {
           this.toggleMylistMenu();
         }
@@ -3472,7 +3424,7 @@ _.assign(VideoHoverMenu.prototype, {
         break;
       default:
         this._hideMenu();
-        this.emit('command', command, param);
+        util.dispatchCommand(target, command, param);
         break;
     }
   },
@@ -3552,9 +3504,7 @@ class DynamicCss {
           VideoControlBar.BASE_SEEKBAR_HEIGHT
         )
         .replace(/%COMMENT_LAYER_OPACITY%/g, commentLayerOpacity)
-      //.replace(/%HEADER_OFFSET%/g, headerOffset * -1)
     ;
-    //window.console.log(tpl);
     this._style.innerHTML = tpl;
   }
 
@@ -3579,7 +3529,6 @@ DynamicCss.__css__ = `
 export {
   PlayerConfig,
   VideoWatchOptions,
-  BaseState,
   PlayerState,
   NicoVideoPlayerDialog,
   NicoVideoPlayerDialogView,

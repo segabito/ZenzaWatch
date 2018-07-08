@@ -478,6 +478,8 @@ CommentListView.__tpl__ = (`
 <meta charset="utf-8">
 <title>CommentList</title>
 <style type="text/css">
+  ${CONSTANT.BASE_CSS_VARS}
+
   body {
     user-select: none;
     margin: 0;
@@ -631,7 +633,7 @@ CommentListView.__tpl__ = (`
 
 </style>
 <style id="listItemStyle">%CSS%</style>
-<body>
+<body class="zenzaRoot">
   <div class="itemDetailContainer">
     <div class="resNo"></div>
     <div class="vpos"></div>

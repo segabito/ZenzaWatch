@@ -499,12 +499,6 @@ _.assign(Storyboard.prototype, {
         $container: this._$container,
         enable: this._playerConfig.getValue('enableStoryboardBar')
       });
-      this._view.on('select', ms => {
-        this.emit('command', 'seek', ms / 1000);
-      });
-      this._view.on('command', (command, param) => {
-        this.emit('command', command, param);
-      });
     }
   },
   reset: function () {
@@ -586,10 +580,6 @@ _.assign(Storyboard.prototype, {
     if (this._view && this._model.isAvailable()) {
       this._view.setCurrentTime(sec, forceUpdate);
     }
-  },
-
-  _onStoryboardSelect: function (ms) {
-    this._emit('command', 'seek', ms / 100);
   },
 
   toggle: function () {
@@ -810,7 +800,7 @@ _.assign(StoryboardView.prototype, {
     return !!this._isEnable;
   },
   _initializeStoryboard: function () {
-    this._initializeStoryboard = _.noop;
+    if (this._$body) { return; }
     window.console.log('%cStoryboardView.initializeStoryboard', 'background: lightgreen;');
 
     this._$body = $('body');
@@ -886,18 +876,7 @@ _.assign(StoryboardView.prototype, {
       transform: 'translate(-999px, 0)'
     });
 
-    this.emit('select', ms);
-  },
-  _onCommandClick: function (e) {
-    let $command = $(e).closest('.command');
-    let command = $command.attr('data-command');
-    let param = $command.attr('data-param');
-    if (!command) {
-      return;
-    }
-    e.stopPropagation();
-    e.preventDefault();
-    this.emit('command', command, param);
+    util.dispatchCommand($view[0], 'seekTo', ms / 1000);
   },
   _onBoardMouseMove: function (e) {
     let $board = $(e.target).closest('.board'), offset = $board.offset();
@@ -945,9 +924,6 @@ _.assign(StoryboardView.prototype, {
     e.stopPropagation();
   },
   _onTouchEnd: function (e) {
-    //this._isHover = false;
-    //this._isMouseMoving = false;
-    //e.stopPropagation();
   },
   _onTouchMove: function (e) {
     e.stopPropagation();
@@ -1006,7 +982,6 @@ _.assign(StoryboardView.prototype, {
     let url = this._model.getUrl();
     let $view = this._$view;
     $view
-      .css('transform', `translate3d(0px, -${this._model.getHeight()}px, 0)`)
       .addClass('success');
 
     if (this._currentUrl !== url) {
@@ -1052,15 +1027,13 @@ _.assign(StoryboardView.prototype, {
     }
 
     if (this._scrollLeftChanged && !this._isHover) {
-      // let lastScrollLeft = this._inner.scrollLeft;
       this._inner.scrollLeft = this._scrollLeft;
       this._scrollLeftChanged = false;
-      // this._pointerLeft += this._scrollLeft - lastScrollLeft;
-      // this._pointerLeftChanged = true;
+      this._pointerLeftChanged = true;
     }
     if (this._pointerLeftChanged) {
       this._$pointer.css('transform',
-        `translate3d(${this._pointerLeft}px, 0, 0) translate(-50%, 0)`
+        `translate3d(${this._pointerLeft - this._inner.scrollLeft}px, 0, 0) translate(-50%, 0)`
       );
       this._pointerLeftChanged = false;
     }
@@ -1124,75 +1097,73 @@ _.assign(StoryboardView.prototype, {
 });
 
 
-StoryboardView.__tpl__ = [
-  '<div id="storyboardContainer" class="storyboardContainer">',
-  '<div class="storyboardHeader">',
-  '<div class="cursorTime"></div>',
-  '</div>',
+StoryboardView.__tpl__ = `
+  <div id="storyboardContainer" class="storyboardContainer">
+    <div class="storyboardHeader">
+      <div class="cursorTime"></div>
+    </div>
 
-  '<div class="storyboardInner">',
-  '<div class="storyboardPointer"></div>',
-  '</div>',
-  '<div class="failMessage">',
-  '</div>',
-  '</div>',
-  '',
-  ''].join('');
+    <div class="storyboardPointer"></div>
+    <div class="storyboardInner">
+    </div>
+    <div class="failMessage"></div>
+  </div>
+  `.trim();
 
 
 StoryboardView.__css__ = (`
   .storyboardContainer {
-    position: fixed;
-    top: calc(100vh + 500px);
+    position: absolute;
+    top: 0;
     opacity: 0;
     left: 0;
     right: 0;
-    width: 100%;
+    width: 100vw;
     box-sizing: border-box;
-    background-color: rgba(50, 50, 50, 0.5);
+    border-top: 2px solid #ccc;
     z-index: 9005;
     overflow: hidden;
-    box-shadow: 0 -2px 2px #666;
     pointer-events: none;
     transform: translateZ(0);
     display: none;
     contain: layout paint;
+    user-select: none;
+  }
+
+  .storyboardContainer.opening {
+    pointer-events: none !important;
   }
 
   .storyboardContainer.success {
     display: block;
-    transition:
-      bottom 0.5s ease-in-out,
-      top 0.5s ease-in-out,
-      transform 0.5s ease-in-out;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
   }
 
   .storyboardContainer * {
     box-sizing: border-box;
-    user-select: none;
   }
 
-  .dragging .storyboardContainer,
+  .is-dragging .storyboardContainer,
   .storyboardContainer.show {
-    top: 0px;
     z-index: 50;
     opacity: 1;
     pointer-events: auto;
+    transform: translate3d(0, -100%, 0) translateY(10px);
   }
 
-  .dragging .storyboardContainer {
+  .is-dragging .storyboardContainer {
     pointer-events: none;
   }
 
-
-  .fullScreen  .dragging .storyboardContainer,
-  .fullScreen            .storyboardContainer.show{
+  .fullScreen .is-dragging .storyboardContainer,
+  .fullScreen             .storyboardContainer.show {
+    position: fixed;
     top: calc(100% - 10px);
   }
 
   .storyboardContainer .storyboardInner {
     display: none;
-    position: relative;
     text-align: center;
     overflow: hidden;
     white-space: nowrap;
@@ -1241,10 +1212,6 @@ StoryboardView.__css__ = (`
     pointer-events: none;
   }
 
-  .storyboardContainer.opening .storyboardInner .boardList .board {
-    pointer-events: none;
-  }
-
   .storyboardContainer .boardList .board.loadFail {
     background-color: #c99;
   }
@@ -1254,8 +1221,6 @@ StoryboardView.__css__ = (`
   }
   .storyboardContainer .boardList .board .border {
     box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
     border-style: solid;
     border-color: #000 #333 #000 #999;
     border-width: 0     2px    0  2px;
@@ -1295,7 +1260,6 @@ StoryboardView.__css__ = (`
     z-index: 100;
     pointer-events: none;
     transform: translate3d(-50%, 0, 0);
-    /*box-shadow: 0 0 4px #333;*/
     background: #ff9;
     opacity: 0.5;
   }

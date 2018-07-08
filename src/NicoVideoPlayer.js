@@ -228,7 +228,7 @@ _.assign(NicoVideoPlayer.prototype, {
     if (!this._contextMenu.isOpen) {
       e.stopPropagation();
       e.preventDefault();
-      this._contextMenu.show(e.offsetX, e.offsetY);
+      this._contextMenu.show(e.clientX, e.clientY);
     }
   },
   setVideo: function (url) {
@@ -620,8 +620,6 @@ ContextMenu.__css__ = (`
       padding: 2px 14px;
       list-style-type: none;
       float: inherit;
-    }
-    .zenzaPlayerContextMenu ul li.selected {
     }
     .is-loop           .zenzaPlayerContextMenu li.toggleLoop:before,
     .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,

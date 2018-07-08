@@ -291,14 +291,15 @@ const VideoListItemView = (() => {
 
       .videoItem {
         position: relative;
-        display: list-item;
+        display: grid;
         width: 100%;
         height: ${ITEM_HEIGHT}px;
         overflow: hidden;
+        grid-template-columns: ${THUMBNAIL_WIDTH}px 1fr;
+        grid-template-rows: ${THUMBNAIL_HEIGHT}px 1fr;
+        padding: 2px;
         transition:
           transform 0.4s ease, box-shadow 0.4s ease;
-        /* なんか重たいなと思ったらこいつが原因だったので保留 */
-        /*backface-visibility: hidden;*/
       }
 
       .playlist .videoItem {
@@ -306,20 +307,20 @@ const VideoListItemView = (() => {
       }
 
       .playlist .videoItem::before {
-          content: counter(itemIndex);
-          counter-increment: itemIndex;
-          position: absolute;
-          right: 8px;
-          top: 80%;
-          color: #666;
-          font-family: Impact;
-          font-size: 45px;
-          pointer-events: none;
-          z-index: 1;
-          line-height: ${ITEM_HEIGHT}px;
-          opacity: 0.6;
+        content: counter(itemIndex);
+        counter-increment: itemIndex;
+        position: absolute;
+        right: 8px;
+        top: 80%;
+        color: #666;
+        font-family: Impact;
+        font-size: 45px;
+        pointer-events: none;
+        z-index: 1;
+        line-height: ${ITEM_HEIGHT}px;
+        opacity: 0.6;
 
-          transform: translate(0, -50%);
+        transform: translate(0, -50%);
       }
 
       .videoItem.is-updating {
@@ -350,7 +351,7 @@ const VideoListItemView = (() => {
       }
 
       .videoItem + .videoItem {
-        border-top: 1px dotted #888;
+        border-top: 1px dotted var(--item-border-color);
         margin-top: 4px;
         outline-offset: -8px;
       }
@@ -365,11 +366,8 @@ const VideoListItemView = (() => {
       }
 
       .thumbnailContainer {
-        position: absolute;
-        top: 4px;
-        left: 4px;
-        width:  ${THUMBNAIL_WIDTH}px;
-        height: ${THUMBNAIL_HEIGHT}px;
+        position: relative;
+        transform: translate(0, 2px);
         margin: 0;
         background-color: black;
         background-size: contain;
@@ -379,14 +377,14 @@ const VideoListItemView = (() => {
       
       .thumbnailContainer a {
         display: inline-block;
-        width:  ${THUMBNAIL_WIDTH}px;
-        height: ${THUMBNAIL_HEIGHT}px;
+        width:  100%;
+        height: 100%;
         transition: box-shaow 0.4s ease, transform 0.4s ease;
       }
 
       .thumbnailContainer a:active {
         box-shadow: 0 0 8px #f99;
-        transform: translate(0, 2px);
+        transform: translate(0, 4px);
         transition: none;
       }
 
@@ -485,10 +483,8 @@ const VideoListItemView = (() => {
       }
 
       .videoInfo {
-        posigion: absolute;
-        top: 0;
-        margin-left: 104px;
         height: 100%;
+        padding-left: 4px;
       }
 
       .postedAt {
@@ -557,9 +553,9 @@ const VideoListItemView = (() => {
         }
 
         .videoItem {
-          margin: 0 8px;
+          margin: 4px 8px 0;
           border-top: none !important;
-          border-bottom: 1px dotted #888;
+          border-bottom: 1px dotted var(--item-border-color);
         }
       }
 
@@ -770,6 +766,7 @@ VideoListView.__tpl__ = (`
 <title>VideoList</title>
 <style type="text/css">
 
+  ${CONSTANT.BASE_CSS_VARS}
   ${CONSTANT.SCROLLBAR_CSS}
 
   body {
@@ -833,7 +830,7 @@ VideoListView.__tpl__ = (`
 
 </style>
 <style id="listItemStyle">%CSS%</style>
-<body>
+<body class="zenzaRoot">
 <div id="listContainer">
   <div id="listContainerInner"></div>
 </div>

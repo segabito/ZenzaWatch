@@ -29,7 +29,25 @@ const CONSTANT = {
 
 };
 
+CONSTANT.BASE_CSS_VARS = (() => {
+  const vars = {
+    'base-bg-color': '#333',
+    'base-fore-color': '#ccc',
+    'light-text-color': '#fff',
+    'scrollbar-bg-color': '#222',
+    'scrollbar-thumb-color': '#666',
+    'item-border-color': '#888',
+    'hatsune-color': '#039393',
+    'enabled-button-color': '#9cf'
+};
+
+  return '#zenzaVideoPlayerDialog, .zenzaRoot {\n' +
+      Object.keys(vars).map(key => `--${key}: ${vars[key]};`).join('\n') +
+  '\n}';
+})();
 CONSTANT.COMMON_CSS = `
+      ${CONSTANT.BASE_CSS_VARS}
+
       .xDomainLoaderFrame {
         border: 0;
         position: fixed;
@@ -79,13 +97,12 @@ CONSTANT.COMMON_CSS = `
 
       .zenzaPopupMenu {
         position: absolute;
-        background: #333;
+        background: var(--base-bg-color);
         color: #fff;
         overflow: visible;
-        border: 1px solid #ccc;
+        border: 1px solid var(--base-fore-color);
         padding: 0;
         opacity: 0.99;
-        box-shadow: 2px 2px 4px #fff;
         box-sizing: border-box;
         transition: opacity 0.3s ease;
         z-index: ${CONSTANT.BASE_Z_INDEX + 50000};
@@ -93,8 +110,10 @@ CONSTANT.COMMON_CSS = `
       }
 
       .zenzaPopupMenu:not(.show) {
-        left: -9999px;
-        top: -9999px;
+        /*left: -9999px;
+        top: -9999px;*/
+        transition: none;
+        visibility: hidden;
         opacity: 0;
         pointer-events: none;
       }
@@ -113,7 +132,7 @@ CONSTANT.COMMON_CSS = `
         float: inherit;
       }
       .zenzaPopupMenu ul li + li {
-        border-top: 1px dotted #ccc;
+        border-top: 1px dotted var(--item-border-color);
       }
 
       .zenzaPopupMenu li.selected {
@@ -186,7 +205,7 @@ CONSTANT.SCROLLBAR_CSS = `
     #listContainer::-webkit-scrollbar,
     .zenzaCommentPreview::-webkit-scrollbar,
     .mylistSelectMenuInner::-webkit-scrollbar {
-      background: #222;
+      background: var(--scrollbar-bg-color);
     }
 
     .videoInfoTab::-webkit-scrollbar-thumb,
@@ -194,14 +213,13 @@ CONSTANT.SCROLLBAR_CSS = `
     .zenzaCommentPreview::-webkit-scrollbar-thumb,
     .mylistSelectMenuInner::-webkit-scrollbar-thumb {
       border-radius: 0;
-      background: #666;
+      background: var(--scrollbar-thumb-color);
     }
 
     .videoInfoTab::-webkit-scrollbar-button,
     #listContainer::-webkit-scrollbar-button,
     .zenzaCommentPreview::-webkit-scrollbar-button,
     .mylistSelectMenuInner::-webkit-scrollbar-button {
-      background: #666;
       display: none;
     }
 

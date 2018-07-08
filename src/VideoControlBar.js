@@ -20,9 +20,9 @@ import {Emitter} from './baselib';
   VideoControlBar.__css__ = (`
     .videoControlBar {
       position: fixed;
-      top:  calc(-50vh + 50% + 100vh);
-      left: calc(-50vw + 50%);
-      transform: translate3d(0, -100%, 0);
+      bottom: 0;
+      left: 0;
+      transform: translate3d(0, 0, 0);
       width: 100vw;
       height: ${VideoControlBar.BASE_HEIGHT}px;
       z-index: 150000;
@@ -35,28 +35,7 @@ import {Emitter} from './baselib';
     .zenzaScreenMode_sideView .videoControlBar,
     .zenzaScreenMode_wide     .videoControlBar,
     .fullScreen               .videoControlBar {
-      top: 100%;
-      left: 0;
       width: 100%; /* 100vwだと縦スクロールバーと被る */
-    }
-    /* 縦長モニター */
-    @media
-      screen and
-      (max-width: 991px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_normal .videoControlBar {
-        left: calc(-50vw + 50%);
-        top: calc(-50vh + 50% + 100vh - 60px);
-      }
-    }
-    @media
-      screen and
-      (max-width: 1215px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_big .videoControlBar {
-        left: calc(-50vw + 50%);
-        top: calc(-50vh + 50% + 100vh - 60px);
-      }
     }
 
     .videoControlBar * {
@@ -68,7 +47,6 @@ import {Emitter} from './baselib';
     .fullScreen           .videoControlBar {
       position: absolute; /* firefoxのバグ対策 */
       opacity: 0;
-      bottom: 0;
       background: none;
     }
 
@@ -133,7 +111,9 @@ import {Emitter} from './baselib';
       left: 50%;
       height: 40px;
       transform: translate(-50%, 0);
-      background: #222;
+      background:
+        linear-gradient(to bottom,
+        transparent, transparent 4px, #222 0, #222 30px, transparent 0, transparent);
       white-space: nowrap;
       overflow: visible;
       transition: transform 0.2s ease, left 0.2s ease;
@@ -188,10 +168,7 @@ import {Emitter} from './baselib';
       opacity: 0.8;
       margin-right: 8px;
       min-width: 32px;
-      vertical-align: middle;
-    }
-    .controlButton:hover .controlButtonInner {
-      text-shadow: 0 0 8px #ff9;
+      vertical-align: middle;      
     }
     .controlButton:hover {
       cursor: pointer;
@@ -286,8 +263,8 @@ import {Emitter} from './baselib';
       opacity: 0;
     }
     .togglePlay>.pause {
-      width: 28px;
-      height: 18px;
+      width: 24px;
+      height: 16px;
       background-image: linear-gradient(
         to right, 
         transparent 0, transparent 12.5%, 
@@ -440,6 +417,7 @@ import {Emitter} from './baselib';
       pointer-events: none;
       user-select: none;
     }
+    
     .videoControlBar .videoTime .currentTime,
     .videoControlBar .videoTime .duration {
       display: inline-block;
@@ -474,6 +452,13 @@ import {Emitter} from './baselib';
     .seekBarContainer:hover .tooltip {
       opacity: 0.8;
     }
+    
+    .resumePointer {
+      position: absolute;
+      mix-blend-mode: color-dodge;
+      top: 0;
+      z-index: 200;
+    }
 
     .zenzaHeatMap {
       position: absolute;
@@ -502,7 +487,7 @@ import {Emitter} from './baselib';
     }
 
     .is-loop .loopSwitch {
-      color: #9cf;
+      color: var(--enabled-button-color);
     }
     .loopSwitch .controlButtonInner {
       font-family: STIXGeneral;
@@ -647,33 +632,18 @@ import {Emitter} from './baselib';
 
     .videoControlBar .volumeControl {
       display: inline-block;
-      width: 80px;
-      position: relative;
-      vertical-align: middle;
-    }
-
-    .videoControlBar .volumeControl .volumeControlInner {
-      position: relative;
-      box-sizing: border-box;
       width: 64px;
       height: 8px;
-      background: #333;
-      cursor: pointer;
-      overflow: hidden;
+      position: relative;
+      vertical-align: middle;
+      margin-right: 16px;
+      --back-color: #333;
+      --fore-color: #ccc;
+      background-color: var(--back-color);
     }
-
-    .videoControlBar .volumeControl .volumeControlInner .slideBar {
-      position: absolute;
-      width: 50%;
-      height: 100%;
-      left: 0;
-      bottom: 0;
-      background: #ccc;
+    .is-mute .videoControlBar .volumeControl  {
       pointer-events: none;
-    }
-
-    .videoControlBar .volumeControl .volumeBarPointer {
-      display: none;
+      background-image: unset !important;
     }
 
     .videoControlBar .volumeControl .tooltip {
@@ -685,10 +655,9 @@ import {Emitter} from './baselib';
       font-size: 12px;
       line-height: 16px;
       padding: 2px 4px;
-      border: 1px solid !000;
+      border: 1px solid #000;
       background: #ffc;
       color: black;
-      box-shadow: 2px 2px 2px #fff;
       text-shadow: none;
       white-space: nowrap;
       z-index: 100;
@@ -697,12 +666,6 @@ import {Emitter} from './baselib';
       display: block;
     }
 
-    .is-mute .videoControlBar .volumeControlInner {
-      pointer-events: none;
-    }
-    .is-mute .videoControlBar .volumeControlInner >* {
-      display: none;
-    }
 
     .prevVideo.playControl,
     .nextVideo.playControl {
@@ -723,7 +686,6 @@ import {Emitter} from './baselib';
 
     .toggleStoryboard {
       visibility: hidden;
-      font-size: 14px;
       pointer-events: none;
     }
     .storyboardAvailable .toggleStoryboard {
@@ -731,11 +693,28 @@ import {Emitter} from './baselib';
       pointer-events: auto;
     }
     .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
-      color: #9cf;
+      color: var(--enabled-button-color);
     }
 
     .toggleStoryboard .controlButtonInner {
-      letter-spacing: -2px;
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: 50%;
+      left: 50%;
+      border-radius: 75% 16%;
+      border: 1px solid;
+      transform: translate(-50%, -50%) rotate(45deg);
+      pointer-events: none;
+      background: 
+        radial-gradient(
+          currentColor,
+          currentColor 6px, 
+          transparent 0
+        );
+    }
+    .toggleStoryboard:active .controlButtonInner {
+      transform: translate(-50%, -50%) scaleY(0.1) rotate(45deg);
     }
 
     .toggleStoryboard:active {
@@ -754,7 +733,10 @@ import {Emitter} from './baselib';
     }
     .videoServerTypeMenu.is-dmc-playing  {
       text-shadow:
-        0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
+        0px 0px 8px var(--enabled-button-color), 
+        0px 0px 6px var(--enabled-button-color), 
+        0px 0px 4px var(--enabled-button-color),
+        0px 0px 2px var(--enabled-button-color);
     }
     .is-mouseMoving .videoServerTypeMenu.is-dmc-playing {
       background: #336;
@@ -936,6 +918,8 @@ import {Emitter} from './baselib';
           <div class="bufferRange"></div>
           <div class="progressWave"></div>
         </div>
+        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た">
+        </zenza-seekbar-label>
       </div>
 
       <div class="controlItemContainer left">
@@ -946,7 +930,7 @@ import {Emitter} from './baselib';
       <div class="controlItemContainer center">
         <div class="scalingUI">
           <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
-            <div class="controlButtonInner">&lt;●&gt;</div>
+            <div class="controlButtonInner"></div>
             <div class="tooltip">シーンサーチ</div>
           </div>
 
@@ -961,7 +945,7 @@ import {Emitter} from './baselib';
           </div>
 
           <div class="togglePlay controlButton playControl" data-command="togglePlay">
-            <span class="pause"><!--&#10074; &#10074;--><!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
+            <span class="pause"></span>
             <span class="play">▶</span>
           </div>
 
@@ -972,21 +956,21 @@ import {Emitter} from './baselib';
               <div class="triangle"></div>
               <p class="caption">再生速度</p>
               <ul>
-                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="10"><span>10倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="5"  ><span>5倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="4"  ><span>4倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="3"  ><span>3倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="2"  ><span>2倍</span></li>
 
-                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
-                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="1.75"><span>1.75倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="1.5"><span>1.5倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="1.25"><span>1.25倍</span></li>
 
-                <li class="playbackRate" data-rate="1.0"><span>標準速度(x1)</span></li>
-                <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
-                <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-                <li class="playbackRate" data-rate="0.25"><span>0.25倍</span></li>
-                <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="1.0"><span>標準速度(x1)</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="0.75"><span>0.75倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="0.5"><span>0.5倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="0.25"><span>0.25倍</span></li>
+                <li class="playbackRate" data-command="playbackRate" data-param="0.1"><span>0.1倍</span></li>
               </ul>
             </div>
           </div>
@@ -1003,10 +987,6 @@ import {Emitter} from './baselib';
 
           <div class="volumeControl">
             <div class="tooltip">音量調整</div>
-            <div class="volumeControlInner">
-              <div class="slideBar"></div>
-              <div class="volumeBarPointer"></div>
-            </div>
           </div>
 
            <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
@@ -1039,23 +1019,23 @@ import {Emitter} from './baselib';
               <p class="caption">動画サーバー・画質</p>
               <ul>
 
-                <li class="serverType select-server-dmc exec-command" data-command="update-videoServerType" data-param="dmc">
+                <li class="serverType select-server-dmc" data-command="update-videoServerType" data-param="dmc">
                   <span>新システムを使用</span>
                   <p class="currentVideoQuality"></p>
                 </li>
 
 
-                <li class="dmcVideoQuality selected exec-command select-dmc-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-dmc-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-dmc-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-dmc-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-dmc-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
+                <li class="dmcVideoQuality selected select-dmc-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
+                <li class="dmcVideoQuality selected select-dmc-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
+                <li class="dmcVideoQuality selected select-dmc-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
+                <li class="dmcVideoQuality selected select-dmc-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
+                <li class="dmcVideoQuality selected select-dmc-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
 
-                <li class="serverType select-server-smile exec-command" data-command="update-videoServerType" data-param="smile">
+                <li class="serverType select-server-smile" data-command="update-videoServerType" data-param="smile">
                   <span>旧システムを使用</span>
                 </li>
-                <li class="smileVideoQuality select-smile-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
-                <li class="smileVideoQuality select-smile-economy exec-command" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
+                <li class="smileVideoQuality select-smile-default" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
+                <li class="smileVideoQuality select-smile-economy" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
              </ul>
             </div>
           </div>
@@ -1067,12 +1047,12 @@ import {Emitter} from './baselib';
               <div class="triangle"></div>
               <p class="caption">画面モード</p>
               <ul>
-                <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-                <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
-                <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
-                <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-                <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
-                <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
+                <li class="screenMode mode3D"   data-command="screenMode" data-param="3D"><span>3D</span></li>
+                <li class="screenMode small"    data-command="screenMode" data-param="small"><span>小</span></li>
+                <li class="screenMode sideView" data-command="screenMode" data-param="sideView"><span>横</span></li>
+                <li class="screenMode normal"   data-command="screenMode" data-param="normal"><span>中</span></li>
+                <li class="screenMode wide"     data-command="screenMode" data-param="wide"><span>WIDE</span></li>
+                <li class="screenMode big"      data-command="screenMode" data-param="big"><span>大</span></li>
               </ul>
             </div>
           </div>
@@ -1127,32 +1107,27 @@ import {Emitter} from './baselib';
       let $view = this._$view = $(VideoControlBar.__tpl__);
       let $container = this._$playerContainer;
       let config = this._playerConfig;
-      let onCommand = (command, param) => { this.emit('command', command, param); };
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
-      // this._seekBarPointer = $view.find('.seekBarPointer')[0];
       this._pointer         = new SmoothSeekBarPointer({
         pointer: $view.find('.seekBarPointer')[0],
         playerState: this._playerState
       });
       this._bufferRange    = $view.find('.bufferRange')[0];
-      this._$tooltip        = $view.find('.seekBarContainer .tooltip');
-      $view.on('click', e => {
-        e.stopPropagation();
-        ZenzaWatch.emitter.emitAsync('hideHover');
-      });
 
       this._$seekBar
         .on('mousedown', this._onSeekBarMouseDown.bind(this))
         .on('mousemove', this._onSeekBarMouseMove.bind(this))
         .on('mousemove', _.debounce(this._onSeekBarMouseMoveEnd.bind(this), 1000));
 
-      $view.find('.controlButton')
-        .on('click', this._onControlButton.bind(this));
+      $view.on('click', this._onClick.bind(this));
+      this._$view[0].addEventListener('command', this._onCommandEvent.bind(this));
 
       this._$currentTime = $view.find('.currentTime');
       this._$duration    = $view.find('.duration');
+
+      this._resumePointer = $view.find('zenza-seekbar-label')[0];
 
       this._heatMap = new HeatMap({
         $container: this._$seekBarContainer.find('.seekBar')
@@ -1169,18 +1144,14 @@ import {Emitter} from './baselib';
         $container: $view
       });
 
-      this._storyboard.on('command', onCommand);
-
       this._seekBarToolTip = new SeekBarToolTip({
         $container: this._$seekBarContainer,
         storyboard: this._storyboard
       });
-      this._seekBarToolTip.on('command', onCommand);
 
       this._commentPreview = new CommentPreview({
         $container: this._$seekBarContainer
       });
-      this._commentPreview.on('command', onCommand);
       let updateEnableCommentPreview = v => {
         this._$seekBarContainer.toggleClass('enableCommentPreview', v);
         this._commentPreview.setIsEnable(v);
@@ -1208,16 +1179,6 @@ import {Emitter} from './baselib';
       this._width = this._$seekBarContainer.innerWidth();
     },
     _initializeScreenModeSelectMenu: function() {
-      let $menu = this._$screenModeSelectMenu;
-
-      $menu.on('click', 'span', e =>  {
-        e.preventDefault();
-        e.stopPropagation();
-        let $target  = $(e.target).closest('.screenMode');
-        let mode     = $target.attr('data-screen-mode');
-
-        this.emit('command', 'screenMode', mode);
-      });
     },
     _initializePlaybackRateSelectMenu: function() {
       let config = this._playerConfig;
@@ -1225,20 +1186,12 @@ import {Emitter} from './baselib';
       let $label = $btn.find('.controlButtonInner');
       let $menu = this._$playbackRateSelectMenu;
 
-      $menu.on('click', '.playbackRate', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        let $target  = $(e.target).closest('.playbackRate');
-        let rate     = parseFloat($target.attr('data-rate'), 10);
-        this.emit('command', 'playbackRate', rate);
-      });
-
       let updatePlaybackRate =  rate => {
         $label.text(`x${rate}`);
         $menu.find('.selected').removeClass('selected');
         let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $menu.find('.playbackRate').each((i, item) => {
-          let r = parseFloat(item.getAttribute('data-rate'), 10);
+          let r = parseFloat(item.getAttribute('data-param'), 10);
           if (fr === r) {
             item.classList.add('selected');
           }
@@ -1252,33 +1205,30 @@ import {Emitter} from './baselib';
     _initializeVolumeControl: function() {
       let $container = this._$view.find('.volumeControl');
       let $tooltip = $container.find('.tooltip');
-      let $bar     = $container.find('.slideBar');
-      let $pointer = $container.find('.volumeBarPointer');
       let $body    = $('body');
       let $window  = $(window);
       let config   = this._playerConfig;
 
       let setVolumeBar = this._setVolumeBar = v => {
         let per = `${Math.round(v * 100)}%`;
-        $bar.css({ width: per });
-        $pointer.css({ left: per });
+        $container.css('background-image',
+          `linear-gradient(to right, var(--fore-color),  var(--fore-color) ${per},  var(--back-color) 0,  var(--back-color))`);
         $tooltip.text(`音量 (${per})`);
       };
 
-      let $inner = $container.find('.volumeControlInner');
       let posToVol = x => {
-        let width = $inner.outerWidth();
+        let width = $container.outerWidth();
         let vol = x / width;
         return Math.max(0, Math.min(vol, 1.0));
       };
 
       let onBodyMouseMove = e => {
-        let offset = $inner.offset();
+        let offset = $container.offset();
         let scale = Math.max(0.1, parseFloat(config.getValue('menuScale'), 10));
         let left = (e.clientX - offset.left) / scale;
         let vol = posToVol(left);
 
-        this.emit('command', 'volume', vol);
+        util.dispatchCommand(e.target, 'volume', vol);
       };
 
       let bindDragEvent = () => {
@@ -1309,11 +1259,11 @@ import {Emitter} from './baselib';
         e.stopPropagation();
 
         let vol = posToVol(e.offsetX);
-        this.emit('command', 'volume', vol);
+        util.dispatchCommand(e.target, 'volume', vol);
 
         beginMouseDrag();
       };
-      $inner.on('mousedown', onVolumeBarMouseDown);
+      $container.on('mousedown', onVolumeBarMouseDown);
 
       setVolumeBar(this._playerConfig.getValue('volume'));
       this._playerConfig.on('update-volume', setVolumeBar);
@@ -1323,22 +1273,6 @@ import {Emitter} from './baselib';
       const $button = this._$videoServerTypeMenu;
       const $select  = this._$videoServerTypeSelectMenu;
       const $current = $select.find('.currentVideoQuality');
-
-      $select.on('click', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        const $target  = $(e.target).closest('.exec-command');
-        if (!$target.length) { return; }
-        const command  = $target.attr('data-command');
-        if (!command) { return; }
-        let   param    = $target.attr('data-param');
-        const type     = $target.attr('data-type');
-        if (param && type === 'bool') {
-          param = JSON.parse(param);
-        }
-        this.toggleVideoServerTypeMenu(false);
-        this.emit('command', command, param);
-      });
 
       const updateSmileVideoQuality = value => {
         const $dq = $select.find('.smileVideoQuality');
@@ -1367,14 +1301,36 @@ import {Emitter} from './baselib';
 
       this._player.on('videoServerType', onVideoServerType);
     },
-    _onControlButton: function(e) {
-      e.preventDefault();
+    _onCommandEvent: function(e) {
+      const command = e.detail.command;
+      switch (command) {
+        case 'screenModeMenu':
+          this.toggleScreenModeMenu();
+          break;
+        case 'playbackRateMenu':
+          this.togglePlaybackRateMenu();
+          break;
+        case 'toggleStoryboard':
+          this._storyboard.toggle();
+          break;
+        case 'videoServerTypeMenu':
+          this.toggleVideoServerTypeMenu();
+          break;
+        default:
+          return;
+      }
       e.stopPropagation();
+    },
+    _onClick: function(e) {
+      e.preventDefault();
 
-      let $target = $(e.target).closest('.controlButton');
-      let command = $target.attr('data-command');
-      let param   = $target.attr('data-param');
-      let type    = $target.attr('data-type');
+      let target = e.target.closest('[data-command]');
+      if (!target) {
+        return;
+      }
+      let command = target.dataset.command;
+      let param   = target.dataset.param;
+      let type    = target.dataset.type;
       if (param && (type === 'bool' || type === 'json')) {
         param = JSON.parse(param);
       }
@@ -1392,9 +1348,10 @@ import {Emitter} from './baselib';
           this.toggleVideoServerTypeMenu();
           break;
         default:
-          this.emit('command', command, param);
+          util.dispatchCommand(target, command, param);
           break;
        }
+      e.stopPropagation();
     },
     _hideMenu: function() {
       [ 'toggleScreenModeMenu',
@@ -1502,7 +1459,7 @@ import {Emitter} from './baselib';
       let left = e.offsetX;
       let sec = this._posToTime(left);
 
-      this.emit('command', 'seek', sec);
+      util.dispatchCommand(e.target, 'seek', sec);
 
       this._beginMouseDrag();
     },
@@ -1534,7 +1491,7 @@ import {Emitter} from './baselib';
       let left = e.clientX - offset.left;
       let sec = this._posToTime(left);
 
-      this.emit('command', 'seek', sec);
+      util.dispatchCommand(this._$view[0], 'seek', sec);
       this._seekBarToolTip.update(sec, left);
       this._storyboard.setCurrentTime(sec, true);
     },
@@ -1580,6 +1537,9 @@ import {Emitter} from './baselib';
           this._$view[0].querySelector('.seekBar'), handler
         );
       }
+
+      this._resumePointer.setAttribute('duration', videoInfo.duration);
+      this._resumePointer.setAttribute('time', videoInfo.initialPlaybackTime);
     },
     setCurrentTime: function(sec) {
       if (this._currentTime === sec) { return; }
@@ -2015,6 +1975,9 @@ import {Emitter} from './baselib';
       right: 64px;
       width: 48px;
     }
+    .zenzaCommentPreviewInner .nicoChat .addFilter:active {
+      transform: translateY(2px);
+    }
 
   `;
 
@@ -2169,7 +2132,6 @@ import {Emitter} from './baselib';
       endIndex   =
         _.isNumber(endIndex) ? endIndex : Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5);
       let i;
-      //window.console.log(`index ${startIndex} 〜 ${endIndex}`);
 
       let newItems = [], inviewTable = this._inviewTable;
       let create = this._createDom;
@@ -2230,10 +2192,7 @@ import {Emitter} from './baselib';
         this._scrollTop = -1;
       }
 
-      $view
-        .css({
-        'transform': `translate3d(${this._left}px, 0, 0)`
-      });
+      $view.css('transform', `translate3d(${this._left}px, 0, 0)`);
     },
     hide: function() {
       this._isShowing = false;
@@ -2248,9 +2207,6 @@ import {Emitter} from './baselib';
       this._view = new CommentPreviewView({
         model:      this._model,
         $container: params.$container
-      });
-      this._view.on('command', (command, param) => {
-        this.emit('command', command, param);
       });
 
       this.reset();
@@ -2286,9 +2242,8 @@ import {Emitter} from './baselib';
     }
   }
 
-  class SeekBarToolTip extends Emitter {
+  class SeekBarToolTip {
     constructor(params) {
-      super();
       this._$container = params.$container;
       this._storyboard = params.storyboard;
       this._initializeDom(params.$container);
@@ -2453,14 +2408,17 @@ import {Emitter} from './baselib';
     },
     _onMouseDown: function(e) {
       e.stopPropagation();
-      let $target = $(e.target).closest('.controlButton');
-      let command = $target.attr('data-command');
+      let target = e.target.closest('[data-command]');
+      if (!target) {
+        return;
+      }
+      let command = target.dataset.command;
       if (!command) { return; }
 
-      let param   = $target.attr('data-param');
-      let repeat  = $target.attr('data-repeat') === 'on';
+      let param   = target.dataset.param;
+      let repeat  = target.dataset.repeat === 'on';
 
-      this.emit('command', command, param);
+      util.dispatchCommand(e.target, command, param);
       if (repeat) {
         this._beginRepeat(command, param);
       }
@@ -2495,7 +2453,7 @@ import {Emitter} from './baselib';
         this._endRepeat();
         return;
       }
-      this.emit('command', this._repeatCommand, this._repeatParam);
+      util.dispatchCommand(this._$view[0], this._repeatCommand, this._repeatParam);
     },
     update: function(sec, left) {
       let timeText = util.secToTime(sec);

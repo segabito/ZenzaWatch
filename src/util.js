@@ -125,79 +125,46 @@ const PopupMessage = (() => {
   const __view__ = `
         <div class="zenzaPopupMessage">
           <span>%MSG%</span>
-        </div><br>
+        </div>
       `.trim();
 
   const __css__ = `
         .zenzaPopupMessage {
+          --notify-color: #0c0;
+          --alert-color: #c00;
+          --shadow-color: #ccc;
+
           z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
           opacity: 0;
-          display: inline-block;
+          display: block;
+          min-width: 150px;
+          margin-bottom: 8px;
+          padding: 8px 16px;
           white-space: nowrap;
           font-weight: bolder;
-          transform: translate3d(0, -100px, 0);
           overflow-y: hidden;
-          box-sizing: border-box;
-          min-width: 150px;
           text-align: center;
-          box-shadow: 4px 4px 2px #ccc;
-          transition:
-            transform 2s linear,
-            opacity 2s ease,
-            z-index 1s ease,
-            box-shadow 1s ease,
-            background 5s ease;
 
+          color: rgba(255, 255, 255, 0.8);
+          box-shadow: 2px 2px 0 var(--shadow-color, #ccc);
+          border-radius: 4px;
           pointer-events: none;
-          background: #000;
           user-select: none;
-        }
 
-        .zenzaPopupMessage.show {
-          transform: translate3d(0, 0, 0);
-          opacity: 0.8;
-          max-height: 200px;
-          margin-bottom: 16px;
-          padding: 8px 16px;
-          box-shadow: 4px 4px 2px #ccc;
-          transition:
-            transform 0.5s linear,
-            opacity 1s ease,
-            box-shadow 0.5s ease,
-            background 0.5s ease;
-         }
-
-        .zenzaPopupMessage.show.removing {
-          transform: perspective(300px) rotateX(90deg);
-          opacity: 0;
-          max-height: 0;
-          padding: 0px 8px;
-          margin-bottom: 0px;
-          box-shadow: 4px 4px 2px rgba(192, 192, 192, 0);
-          background: rgba(255,255,255, 0.5);
-          transition:
-            transform     0.3s ease,
-            opacity       0.5s ease 0.5s,
-            max-height    0.3s ease 1s,
-            padding       0.3s ease 1s,
-            margin-bottom 0.3s ease 1s,
-            box-shadow    0.5s ease,
-            background    0.3s ease;
+          animation: zenza-popup-message-animation 5s;
+          animation-fill-mode: forwards;
         }
 
         .zenzaPopupMessage.notify {
-          background: #0c0;
-          color: #fff;
+          background: var(--notify-color, #0c0);
         }
 
         .zenzaPopupMessage.alert {
-          background: #c00;
-          color: #fff;
+          background: var(--alert-color, #0c0);
         }
 
         .zenzaPopupMessage.debug {
           background: #333;
-          color: #fff;
         }
 
         /* できれば広告に干渉したくないけど仕方なく */
@@ -205,34 +172,42 @@ const PopupMessage = (() => {
           position: static !important;
         }
 
+        @keyframes zenza-popup-message-animation {
+          0%  { transform: translate3d(0, -100px, 0); opacity: 0; }
+          10% { transform: translate3d(0, 0, 0); }
+          20% { opacity: 0.8; }
+          80% { opacity: 0.8; }
+          90% { opacity: 0; }
+        }
+
       `;
 
-  let initialize = function () {
-    initialize = _.noop;
+  let initialized = false;
+  let initialize = () => {
+    if (initialized) { return; }
+    initialized = true;
     util.addStyle(__css__);
   };
 
-  let show = function ($msg) {
-    initialize();
-    let $target = $('.popupMessageContainer');
-    if ($target.length < 1) {
-      $target = $('body');
-    }
-
-    $target.append($msg);
-
-    window.setTimeout(function () {
-      $msg.addClass('show');
-    }, 100);
-    window.setTimeout(function () {
-      $msg.addClass('removing');
-    }, 3000);
-    window.setTimeout(function () {
-      $msg.remove();
-    }, 8000);
+  let create = (html, className) => {
+    const d = document.createElement('div');
+    d.className = `zenzaPopupMessage ${className}`;
+    d.innerHTML = html;
+    d.addEventListener('animationend', () => d.remove(), {once: true});
+    return d;
   };
 
-  let notify = function (msg, allowHtml) {
+  let show = msg => {
+    initialize();
+    const target = document.querySelector('.popupMessageContainer');
+    if (!target) {
+      return;
+    }
+
+    target.insertAdjacentElement('afterbegin', msg);
+  };
+
+  let notify = (msg, allowHtml) => {
     if (msg === undefined) {
       msg = '不明なエラー';
       window.console.error('undefined message sent');
@@ -242,11 +217,10 @@ const PopupMessage = (() => {
     if (allowHtml !== true) {
       msg = util.escapeHtml(msg);
     }
-    let $msg = $(__view__.replace('%MSG%', msg)).addClass('notify');
-    show($msg);
+    show(create(msg, 'notify'));
   };
 
-  let alert = function (msg, allowHtml) {
+  let alert = (msg, allowHtml) => {
     if (msg === undefined) {
       msg = '不明なエラー';
       window.console.error('undefined message sent');
@@ -256,11 +230,10 @@ const PopupMessage = (() => {
     if (allowHtml !== true) {
       msg = util.escapeHtml(msg);
     }
-    let $msg = $(__view__.replace('%MSG%', msg)).addClass('alert');
-    show($msg);
+    show(create(msg, 'alert'));
   };
 
-  let debug = function (msg, allowHtml) {
+  let debug = (msg, allowHtml) => {
     if (msg === undefined) {
       msg = '不明なエラー';
       window.console.info('undefined message sent');
@@ -270,16 +243,11 @@ const PopupMessage = (() => {
     if (allowHtml !== true) {
       msg = util.escapeHtml(msg);
     }
-    let $msg = $(__view__.replace('%MSG%', msg)).addClass('debug');
-    show($msg);
+    show(create(msg, 'debug'));
   };
 
 
-  return {
-    notify: notify,
-    alert: alert,
-    debug: debug
-  };
+  return { notify, alert, debug };
 })();
 
 const PlayerSession = (function (storage) {
@@ -1055,9 +1023,7 @@ util.saveMymemory = function (player, videoInfo) {
   a.setAttribute('rel', 'noopener');
   document.body.appendChild(a);
   a.click();
-  window.setTimeout(() => {
-    a.remove();
-  }, 1000);
+  window.setTimeout(() => a.remove(), 1000);
 };
 
 util.speak = (() => {
@@ -1198,6 +1164,31 @@ util.createVideoElement = (...args) => {
   }
   return document.createElement('video');
 };
+
+util.dispatchCommand = (element, command, param, originalEvent = null) => {
+  return element.dispatchEvent(new CustomEvent('command',
+    {detail: {command, param, originalEvent}, bubbles: true, composed: true}
+  ));
+};
+
+util.bindCommandDispatcher = (element, command) => {
+  element.addEventListener(command, e => {
+    let target = e.target.closest('[data-command]');
+    if (!target) {
+      ZenzaWatch.emitter.emitAsync('hideHover');
+      return;
+    }
+    let command = target.dataset.command;
+    let param   = target.dataset.param;
+    let type    = target.dataset.type;
+    if (['number', 'boolean', 'json'].includes(type)) {
+      param = JSON.parse(param);
+    }
+    e.preventDefault();
+    return util.dispatchCommand(element, command, param, e);
+  });
+};
+
 
 util.$ = (() => {
 
@@ -1704,8 +1695,10 @@ const ShortcutKeyEmitter = (config => {
     }
   };
 
+  let initialized = false;
   let initialize = () => {
-    initialize = _.noop;
+    if (initialized) { return; }
+    initialized = true;
     document.body.addEventListener('keydown', onKeyDown);
     document.body.addEventListener('keyup', onKeyUp);
     ZenzaWatch.emitter.on('keydown', onKeyDown);
