@@ -62,6 +62,9 @@ let FullScreen = {
     }
     return false;
   },
+  element: function() {
+    return document.fullScreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || null;
+  },
   request: function (target) {
     this._handleEvents();
     let elm = typeof target === 'string' ? document.getElementById(target) : target;
@@ -742,19 +745,20 @@ util.dateToString = date => {
 };
 
 util.copyToClipBoard = text => {
+  if (navigator.clipboard) { // httpsじゃないと動かない
+    return navigator.clipboard.writeText(text);
+  }
   let clip = document.createElement('input');
   clip.type = 'text';
   clip.style.position = 'fixed';
   clip.style.left = '-9999px';
   clip.value = text;
-
-  document.body.appendChild(clip);
+  const node = FullScreen.element || document.body;
+  node.appendChild(clip);
   clip.select();
   document.execCommand('copy');
 
-  window.setTimeout(() => {
-    clip.remove();
-  }, 0);
+  window.setTimeout(() => clip.remove(), 0);
 };
 
 util.isValidJson = data => {
