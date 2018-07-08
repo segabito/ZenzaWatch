@@ -550,7 +550,7 @@ const WatchPageHistory = (({config, location, document, history}) => {
     }
     watchId = videoInfo.watchId;
     title = `${videoInfo.title} by ${videoInfo.owner.name} - ZenzaWatch`;
-    path = `watch/${watchId}`;
+    path = `/watch/${watchId}`;
 
     if (location.host !== 'www.nicovideo.jp') {
       if (NicoVideoApi && NicoVideoApi.postMessage) {
