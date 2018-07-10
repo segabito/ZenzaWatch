@@ -1260,6 +1260,7 @@ StoryboardView.__css__ = (`
     z-index: 100;
     pointer-events: none;
     transform: translate3d(-50%, 0, 0);
+    transition: transform 0.1s linear;
     background: #ff9;
     opacity: 0.5;
   }

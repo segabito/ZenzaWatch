@@ -3490,38 +3490,16 @@ class DynamicCss {
       return;
     }
 
-    if (!this._style) {
-      this._style = util.addStyle('');
-    }
-
+    document.documentElement.style.setProperty('--zenza-ui-scale', scale);
+    document.documentElement.style.setProperty('--zenza-comment-layer-opacity', commentLayerOpacity);
+    document.documentElement.style.setProperty('--zenza-control-bar-height',
+      ((VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
+      VideoControlBar.BASE_SEEKBAR_HEIGHT) + 'px');
     this._scale = scale;
     this._commentLayerOpacity = commentLayerOpacity;
-
-    let tpl = DynamicCss.__css__
-        .replace(/%SCALE%/g, scale)
-        .replace(/%CONTROL_BAR_HEIGHT%/g,
-          (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
-          VideoControlBar.BASE_SEEKBAR_HEIGHT
-        )
-        .replace(/%COMMENT_LAYER_OPACITY%/g, commentLayerOpacity)
-    ;
-    this._style.innerHTML = tpl;
   }
 
 }
-DynamicCss.__css__ = `
-    .scalingUI {
-      transform: scale(%SCALE%);
-    }
-    .videoControlBar {
-      height: %CONTROL_BAR_HEIGHT%px !important;
-    }
-
-    .zenzaPlayerContainer .commentLayerFrame {
-      opacity: %COMMENT_LAYER_OPACITY%;
-    }
-
-  `;
 
 //===END===
 //

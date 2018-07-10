@@ -110,8 +110,6 @@ CONSTANT.COMMON_CSS = `
       }
 
       .zenzaPopupMenu:not(.show) {
-        /*left: -9999px;
-        top: -9999px;*/
         transition: none;
         visibility: hidden;
         opacity: 0;
@@ -196,6 +194,10 @@ CONSTANT.COMMON_CSS = `
       }
       #zenzaVideoPlayerDialog.is-guest .forGuest {
         display: inherit;
+      }
+
+      .scalingUI {
+        transform: scale(var(--zenza-ui-scale, 1));
       }
 `.trim();
 

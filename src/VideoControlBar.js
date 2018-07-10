@@ -24,7 +24,7 @@ import {Emitter} from './baselib';
       left: 0;
       transform: translate3d(0, 0, 0);
       width: 100vw;
-      height: ${VideoControlBar.BASE_HEIGHT}px;
+      height: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
       z-index: 150000;
       background: #000;
       transition: opacity 0.3s ease, transform 0.3s ease;
@@ -1204,7 +1204,7 @@ import {Emitter} from './baselib';
     },
     _initializeVolumeControl: function() {
       let $container = this._$view.find('.volumeControl');
-      let $tooltip = $container.find('.tooltip');
+      let tooltip = $container.find('.tooltip').get(0);
       let $body    = $('body');
       let $window  = $(window);
       let config   = this._playerConfig;
@@ -1213,7 +1213,7 @@ import {Emitter} from './baselib';
         let per = `${Math.round(v * 100)}%`;
         $container.css('background-image',
           `linear-gradient(to right, var(--fore-color),  var(--fore-color) ${per},  var(--back-color) 0,  var(--back-color))`);
-        $tooltip.text(`音量 (${per})`);
+        tooltip.textContent = `音量 (${per})`;
       };
 
       let posToVol = x => {
