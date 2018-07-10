@@ -58,12 +58,14 @@ const {initialize} = (() => {
 
     // マイリストページの連続再生ボタン横に「シャッフル再生」を追加する
     if (window.Nico && window.Nico.onReady) {
-      window.Nico.onReady(function () {
-        let addShufflePlaylistLink = _.throttle(_.debounce(function () {
-          if ($('.zenzaPlaylistShuffleStart').length > 0) {
+      window.Nico.onReady(() => {
+        let shuffleButton;
+        let query = 'a[href*="playlist_type=mylist"],a[href*="playlist_type=deflist"]';
+        let addShufflePlaylistLink = () => {
+          if (shuffleButton) {
             return;
           }
-          let $a = $('a[href*="playlist_type=mylist"]:first,a[href*="playlist_type=deflist"]:first');
+          let $a = $(query);
           if ($a.length < 1) {
             return false;
           }
@@ -73,21 +75,28 @@ const {initialize} = (() => {
             'display': 'inline-block',
             'padding': '8px 6px'
           };
-          let $shuffle = $(a).clone().text('シャッフル再生');
-          $shuffle.addClass('zenzaPlaylistShuffleStart').attr(
-            'href', '//www.nicovideo.jp/watch/1470321133?' +
-            search + '&shuffle=1'
-          ).css(css);
+          let $shuffle = $(a).clone().text('シャッフル再生')
+            .addClass('zenzaPlaylistShuffleStart')
+            .attr('href', `//www.nicovideo.jp/watch/1470321133?${search}&shuffle=1`)
+            .css(css);
 
           $a.css(css).after($shuffle);
+          shuffleButton = $shuffle;
           return true;
-        }, 100), 1000);
-        if (!addShufflePlaylistLink()) {
-          // マイページのほうはボタンが遅延生成されるためやっかい
-          if (location.pathname.indexOf('/my/mylist') === 0) {
-            $('#myContBody').on('DOMNodeInserted.zenzawatch', addShufflePlaylistLink);
+        };
+        addShufflePlaylistLink();
+        const container = document.querySelector('#myContBody, #SYS_box_mylist_header');
+        if (!container) { return; }
+        new MutationObserver(records => {
+          for (let rec of records) {
+            let changed = [].concat(Array.from(rec.addedNodes),Array.from(rec.removedNodes));
+            if (changed.some(i => i.querySelector && i.querySelector(query))) {
+              shuffleButton = null;
+              addShufflePlaylistLink();
+              return;
+            }
           }
-        }
+        }).observe(container, {childList: true});
       });
     }
 
@@ -152,15 +161,6 @@ const {initialize} = (() => {
           $video.find('.more').after($a);
         }
       });
-    }
-
-
-    if (location.host === 'search.nicovideo.jp') {
-      const removeClick = function () {
-        $('a.click').removeClass('click');
-      };
-      removeClick();
-      $('#row-results').on('DOMNodeInserted.zenzawatch', removeClick);
     }
   };
 
@@ -429,32 +429,23 @@ const {initialize} = (() => {
     initialize: function (param) {
       this._playerConfig = param.playerConfig;
 
-      let $view = $([
-        '<div class="zenzaWatchHoverMenu scalingUI">',
-        '<span>Zen</span>',
-        '</div>'].join(''));
+      let $view = $('<div class="ZenButton scalingUI">Zen</div>');
       this._$view = $view;
-
-      $view.on('click', this._onClick.bind(this));
-      ZenzaWatch.emitter.on('hideHover', () => {
-        $view.removeClass('show');
-      });
-
-      let $body = $('body')
-        .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
-          this._onHover.bind(this))
-        .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
-          _.debounce(this._onHoverEnd.bind(this), 500))
-        .on('mouseout', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
-          this._onMouseout.bind(this))
-        .on('click', () => {
-          $view.removeClass('show');
-        });
 
       if (!util.isGinzaWatchUrl() &&
         this._playerConfig.getValue('overrideWatchLink')) {
         this._overrideGinzaLink();
       } else {
+        this._onHoverEnd = _.debounce(this._onHoverEnd.bind(this), 500);
+        $view.on('click', this._onClick.bind(this));
+        ZenzaWatch.emitter.on('hideHover', () => $view.removeClass('show'));
+        let $body = $('body')
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
+            this._onHover.bind(this))
+          .on('mouseover', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
+            this._onHoverEnd)
+          .on('mouseout', 'a[href*="watch/"],a[href*="nico.ms/"],.UadVideoItem-link',
+            this._onMouseout.bind(this));
         $body.append($view);
       }
     },
@@ -465,10 +456,10 @@ const {initialize} = (() => {
       }
     },
     _getPlayer: function () {
-      return new Promise((resolve) => {
-        if (this._player) {
-          return resolve(this._player);
-        }
+      if (this._player) {
+        return Promise.resolve(this._player);
+      }
+      return new Promise(resolve => {
         this._playerResolve = resolve;
       });
     },
@@ -493,7 +484,6 @@ const {initialize} = (() => {
         return;
       }
       this._query = util.parseQuery(($target[0].search || '').substr(1));
-
 
       if ($target.hasClass('noHoverMenu')) {
         return;
@@ -556,14 +546,10 @@ const {initialize} = (() => {
       });
     },
     _overrideGinzaLink: function () {
-      $('body').on('click', 'a[href*="watch/"]', e => {
+      $('body').on('click', 'a[href*="watch/"],a[href*="nico.ms/"]', e => {
         if (e.ctrlKey) {
           return;
         }
-        if (e.target !== this._hoverElement) {
-          return;
-        }
-
         let $target = $(e.target).closest('a');
         let href = $target.attr('data-href') || $target.attr('href');
         let watchId = util.getWatchId(href);
@@ -592,9 +578,7 @@ const {initialize} = (() => {
           this._open(watchId);
         }
 
-        window.setTimeout(() => {
-          ZenzaWatch.emitter.emit('hideHover');
-        }, 1500);
+        window.setTimeout(() => ZenzaWatch.emitter.emit('hideHover'), 1500);
 
       });
     }

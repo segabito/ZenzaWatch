@@ -59,7 +59,7 @@ CONSTANT.COMMON_CSS = `
         contain: paint;
       }
 
-      .zenzaWatchHoverMenu {
+      .ZenButton {
         display: none;
         opacity: 0.8;
         position: absolute;
@@ -74,24 +74,20 @@ CONSTANT.COMMON_CSS = `
         line-height: 26px;
         font-weight: bold;
         text-align: center;
-        transition: box-shadow 0.2s ease, opacity 0.4s ease, padding 0.2s ease;
-        box-shadow: 2px 2px 3px #000;
+        transition: box-shadow 0.2s ease, opacity 0.4s ease;
+        box-shadow: 2px 2px rgba(0, 0, 0, 0.8);
         user-select: none;
       }
-      .zenzaWatchHoverMenu:hover {
-        box-shadow: 4px 4px 5px #000;
-        font-weibht: bolder;
+      .ZenButton:hover {
         opacity: 1;
       }
-      .zenzaWatchHoverMenu:active {
-        box-shadow: none;
-        margin-left: 4px;
-        margin-right: 4px;
+      .ZenButton:active {
         border: inset 1px;
-        box-shadow: 0px 0px 8px #000;
+        transition: translate(2px, 2px);
+        box-shadow: 0 0 rgba(0, 0, 0, 0.8);
       }
 
-      .zenzaWatchHoverMenu.show {
+      .ZenButton.show {
         display: block;
       }
 

@@ -2795,7 +2795,7 @@ RelatedInfoMenu._shadow_ = (`
         <ul>
           <li class="ginzaMenu">
             <a class="ginzaLink command"
-              rel="noopener" data-command="watch-ginza">GINZAで視聴</a>
+              rel="noopener" data-command="watch-ginza">公式プレイヤーで開く</a>
           </li>
           <li class="uadMenu">
             <span class="uadLink command"

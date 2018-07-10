@@ -70,8 +70,11 @@ const RootDispatcher = (() => {
           config.setValue(command, param);
           break;
 
+        case 'nop':
+          break;
         default:
           ZenzaWatch.emitter.emit(`command-${command}`, command, param);
+          window.dispatchEvent(new CustomEvent(`${PRODUCT}-command`, {detail: {command, param}}));
       }
     }
 
