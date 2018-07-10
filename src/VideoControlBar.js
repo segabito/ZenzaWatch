@@ -909,7 +909,7 @@ import {Emitter} from './baselib';
   `).trim();
 
   VideoControlBar.__tpl__ = (`
-    <div class="videoControlBar">
+    <div class="videoControlBar" data-command="nop">
 
       <div class="seekBarContainer">
         <div class="seekBarShadow"></div>
@@ -1232,36 +1232,26 @@ import {Emitter} from './baselib';
       };
 
       let bindDragEvent = () => {
+        let unbindDragEvent = () => {
+          $body
+            .off('mousemove.ZenzaWatchVolumeBar')
+            .off('mouseup.ZenzaWatchVolumeBar');
+          $window.off('blur.ZenzaWatchVolumeBar');
+        };
+
         $body
           .on('mousemove.ZenzaWatchVolumeBar', onBodyMouseMove)
-          .on('mouseup.ZenzaWatchVolumeBar',   onBodyMouseUp);
-        $window.on('blur.ZenzaWatchVolumeBar', onWindowBlur);
+          .on('mouseup.ZenzaWatchVolumeBar',   unbindDragEvent);
+        $window.on('blur.ZenzaWatchVolumeBar', unbindDragEvent);
       };
-      let unbindDragEvent = () => {
-        $body
-          .off('mousemove.ZenzaWatchVolumeBar')
-          .off('mouseup.ZenzaWatchVolumeBar');
-        $window.off('blur.ZenzaWatchVolumeBar');
-      };
-      let beginMouseDrag = () => {
-        bindDragEvent();
-        $container.addClass('is-dragging');
-      };
-      let endMouseDrag = () => {
-        unbindDragEvent();
-        $container.removeClass('is-dragging');
-      };
-      let onBodyMouseUp = () => endMouseDrag();
-      let onWindowBlur = () => endMouseDrag();
 
       let onVolumeBarMouseDown = e => {
         e.preventDefault();
         e.stopPropagation();
 
-        let vol = posToVol(e.offsetX);
-        util.dispatchCommand(e.target, 'volume', vol);
+        util.dispatchCommand(e.target, 'volume', posToVol(e.offsetX));
 
-        beginMouseDrag();
+        bindDragEvent();
       };
       $container.on('mousedown', onVolumeBarMouseDown);
 
