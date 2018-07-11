@@ -1101,6 +1101,9 @@ VideoHeaderPanel.__css__ = (`
     .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-notFullscreen {
       width: calc(100% + ${CONSTANT.RIGHT_PANEL_WIDTH}px);
     }
+    .zenzaWatchVideoHeaderPanel.is-onscreen {
+      width: 100% !important;
+    }
     .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
     .zenzaWatchVideoHeaderPanel.is-fullscreen {
       z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
