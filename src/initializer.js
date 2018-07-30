@@ -501,6 +501,7 @@ const {initialize} = (() => {
         top: offset.top,
         left: offset.left - this._$view.outerWidth() / 2
       }).addClass('show');
+      document.body.addEventListener('click', () => this._$view.removeClass('show'), {once: true});
     },
     _onClick: function (e) {
       const watchId = this._watchId;
