@@ -1141,7 +1141,7 @@ import {Emitter} from './baselib';
       this._storyboard = new Storyboard({
         playerConfig: config,
         player: this._player,
-        $container: $view
+        container: $view[0]
       });
 
       this._seekBarToolTip = new SeekBarToolTip({

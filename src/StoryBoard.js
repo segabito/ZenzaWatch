@@ -479,7 +479,7 @@ _.assign(Storyboard.prototype, {
   initialize: function (params) {
 
     this._playerConfig = params.playerConfig;
-    this._$container = params.$container;
+    this._container = params.container;
     this._loader = params.loader || ZenzaWatch.api.StoryboardInfoLoader;
 
 
@@ -496,13 +496,13 @@ _.assign(Storyboard.prototype, {
     if (!this._view) {
       this._view = new StoryboardView({
         model: this._model,
-        $container: this._$container,
+        container: this._container,
         enable: this._playerConfig.getValue('enableStoryboardBar')
       });
     }
   },
   reset: function () {
-    this._$container.removeClass('storyboardAvailable');
+    this._container.classList.remove('storyboardAvailable');
     this._model.reset();
   },
 
@@ -554,7 +554,7 @@ _.assign(Storyboard.prototype, {
       return;
     } // video changed
     this._model.update(info, duration);
-    this._$container.toggleClass('storyboardAvailable', this._model.isAvailable());
+    this._container.classList.toggle('storyboardAvailable', this._model.isAvailable());
   },
   _onStoryboardInfoLoadFail: function (watchId, err) {
     //window.console.log('onStoryboardInfoFail', watchId, err);
@@ -562,7 +562,7 @@ _.assign(Storyboard.prototype, {
       return;
     } // video changed
     this._model.update(null);
-    this._$container.removeClass('storyboardAvailable');
+    this._container.classList.remove('storyboardAvailable');
   },
 
   getSeekBarThumbnail: function (params) {
@@ -592,62 +592,37 @@ _.assign(Storyboard.prototype, {
 
 
 class StoryboardBlock {
-  constructor(...args) {
-    this.initialize(...args);
-  }
-}
-_.assign(StoryboardBlock.prototype, {
-  initialize: function (option) {
+  static create(option) {
     let height = option.boardHeight;
 
-    this._backgroundPosition = '0 -' + height * option.row + 'px';
-    this._src = option.src;
-    this._page = option.page;
-    this._isLoaded = true;
+    this._backgroundPosition = `0 ${height * option.row * -1}px`;
 
-    let $view = $('<div class="board"/>')
-      .css({
-        width: option.pageWidth,
-        height: height,
-        'background-image': `url(${this.src})`,
-        'background-position': this._backgroundPosition,
-        //'background-size': '',
-      })
-      .attr({
-        'data-src': option.src,
-        'data-page': option.page,
-        'data-top': height * option.row + height / 2,
-        'data-backgroundPosition': this._backgroundPosition
-      })
-      .append(option.$inner);
+    let view = document.createElement('div');
+    view.className = 'board';
+    view.style.cssText = `
+      background-image: url(${option.src});
+      background-position: ${this._backgroundPosition}; 
+    `;
+    view.dataset.src = option.src;
+    view.dataset.page = option.page;
+    view.dataset.top = height * option.row + height / 2;
+    view.dataset.backgroundPosition = this._backgroundPosition;
 
-    this._isLoaded = true;
-    $view.css('background-image', 'url(' + option.src + ')');
-
-    this._$view = $view;
-  },
-  loadImage: function () {
-  },
-  getPage: function () {
-    return this._page;
-  },
-  getView: function () {
-    return this._$view;
+    return view;
   }
-});
+}
 
 class StoryboardBlockBorder {
-  constructor(width, height, cols) {
-    let $border = $('<div class="border"/>'.repeat(cols)).css({
-      width: width,
-      height: height
-    });
-    let $div = $('<div />');
-    $div.append($border);
-    this._$view = $div;
-  }
-  getView() {
-    return this._$view.clone();
+  static create(cols) {
+    const v = document.createDocumentFragment();
+    const items = [];
+    const tpl = document.createElement('div');
+    tpl.className = 'border';
+    for (let i = 0; i < cols; i++) {
+      items.push(tpl.cloneNode());
+    }
+    v.append(...items);
+    return v;
   }
 }
 
@@ -657,9 +632,8 @@ class StoryboardBlockList {
       this.create(storyboard);
     }
   }
-}
-_.assign(StoryboardBlockList.prototype, {
-  create: function (storyboard) {
+
+  create(storyboard) {
     let pages = storyboard.getPageCount();
     let pageWidth = storyboard.getPageWidth();
     let width = storyboard.getWidth();
@@ -669,51 +643,53 @@ _.assign(StoryboardBlockList.prototype, {
 
     let totalRows = storyboard.getTotalRows();
     let rowCnt = 0;
-    this._$innerBorder =
-      new StoryboardBlockBorder(width, height, cols);
-    let $view = $('<div class="boardList"/>')
-      .css({
-        width: storyboard.getCount() * width,
-        height: height
-      });
-    this._$view = $view;
+    this._innerBorder =StoryboardBlockBorder.create(cols);
+    let view = document.createElement('div');
+    view.className = 'boardList';
+    view.style.cssText = `
+      width: ${storyboard.getCount() * width}px; 
+      height: ${height}px`;
+    view.style.setProperty('--cell-width', `${width}px`);
+    view.style.setProperty('--cell-height', `${height}px`);
+    view.style.setProperty('--board-width', `${pageWidth}px`);
+    view.style.setProperty('--board-height', `${height}px`);
+    this._view = view;
     this._blocks = [];
 
-    for (let i = 0; i < pages; i++) {
-      let src = storyboard.getPageUrl(i);
-      for (let j = 0; j < rows; j++) {
+    for (let page = 0; page < pages; page++) {
+      let src = storyboard.getPageUrl(page);
+      for (let row = 0; row < rows; row++) {
         let option = {
-          width: width,
+          width,
           pageWidth: pageWidth,
           boardHeight: height,
-          page: i,
-          row: j,
-          src: src
+          page,
+          row,
+          src
         };
         this.appendBlock(option);
         rowCnt++;
         if (rowCnt >= totalRows) {
-          break;
+          return;
         }
       }
     }
-
-  },
-  appendBlock: function (option) {
-    option.$inner = this._$innerBorder.getView();
-    let block = new StoryboardBlock(option);
-    this._blocks.push(block);
-    this._$view.append(block.getView());
-  },
-  loadImage: function (pageNumber) {
-  },
-  clear: function () {
-    this._$view.remove();
-  },
-  getView: function () {
-    return this._$view;
   }
-});
+  appendBlock(option) {
+    let block = StoryboardBlock.create(option);
+    block.append(this._innerBorder.cloneNode(true));
+    this._blocks.push(block);
+    this._view.append(...this._blocks);
+  }
+  loadImage(pageNumber) {
+  }
+  clear() {
+    this._view.remove();
+  }
+  get view() {
+    return this._view;
+  }
+}
 
 
 class StoryboardView extends Emitter {
@@ -721,12 +697,10 @@ class StoryboardView extends Emitter {
     super();
     this.initialize(...args);
   }
-}
 
-_.assign(StoryboardView.prototype, {
-  initialize: function (params) {
+  initialize(params) {
     console.log('%c initialize StoryboardView', 'background: lightgreen;');
-    this._$container = params.$container;
+    this._container = params.container;
 
     let sb = this._model = params.model;
 
@@ -745,144 +719,117 @@ _.assign(StoryboardView.prototype, {
       this._onRequestAnimationFrame.bind(this), 1
     );
 
-    ZenzaWatch.emitter.on('DialogPlayerClose', () => {
-      frame.disable();
-    });
-
-  },
-  enable: function () {
+    ZenzaWatch.emitter.on('DialogPlayerClose', () => frame.disable());
+  }
+  enable() {
     this._isEnable = true;
-    if (this._$view && this._model.isAvailable()) {
+    if (this._view && this._model.isAvailable()) {
       this.open();
     }
-  },
-  open: function () {
-    if (!this._$view) {
+  }
+  open() {
+    if (!this._view) {
       return;
     }
-    this._$view.addClass('show');
-    this._$body.addClass('zenzaStoryboardOpen');
-    this._$container.addClass('zenzaStoryboardOpen');
+    this._view.classList.add('show');
+    this._body.classList.add('zenzaStoryboardOpen');
+    this._container.classList.add('zenzaStoryboardOpen');
     this._requestAnimationFrame.enable();
-  },
-  close: function () {
-    if (!this._$view) {
+  }
+  close() {
+    if (!this._view) {
       return;
     }
-    this._$view.removeClass('show');
-    this._$body.removeClass('zenzaStoryboardOpen');
-    this._$container.removeClass('zenzaStoryboardOpen');
+    this._view.classList.remove('show');
+    this._body.classList.remove('zenzaStoryboardOpen');
+    this._container.classList.remove('zenzaStoryboardOpen');
     this._requestAnimationFrame.disable();
-  },
-  disable: function () {
+  }
+  disable() {
     this._isEnable = false;
-    if (this._$view) {
-      this.close();
-    }
-  },
-  toggle: function (v) {
+    this.close();
+  }
+  toggle(v) {
     if (typeof v === 'boolean') {
-      if (v) {
-        this.enable();
-      }
-      else {
-        this.disable();
-      }
-      return;
+      this._isEnable = !v;
     }
     if (this._isEnable) {
       this.disable();
     } else {
       this.enable();
     }
-  },
-  isEnable: function () {
+  }
+  isEnable() {
     return !!this._isEnable;
-  },
-  _initializeStoryboard: function () {
-    if (this._$body) { return; }
+  }
+  _initializeStoryboard() {
+    if (this._body) { return; }
     window.console.log('%cStoryboardView.initializeStoryboard', 'background: lightgreen;');
 
-    this._$body = $('body');
+    this._body = document.body;
 
     util.addStyle(StoryboardView.__css__);
-    let $view = this._$view = $(StoryboardView.__tpl__);
+    let view = this._view = util.createDom(StoryboardView.__tpl__).firstElementChild;
 
-    let $inner = this._$inner = $view.find('.storyboardInner');
-    this._$failMessage = $view.find('.failMessage');
-    this._$cursorTime = $view.find('.cursorTime');
-    this._$pointer = $view.find('.storyboardPointer');
-    this._inner = $inner[0];
+    let inner = this._inner = view.querySelector('.storyboardInner');
+    this._failMessage = view.querySelector('.failMessage');
+    this._cursorTime = view.querySelector('.cursorTime');
+    this._pointer = view.querySelector('.storyboardPointer');
+    this._inner = inner;
 
-    $view
-      .toggleClass('webkit', util.isWebkit())
-      .on('click', '.board', this._onBoardClick.bind(this))
-      .on('mousemove', '.board', this._onBoardMouseMove.bind(this))
-      .on('mousemove', '.board', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
+     view.classList.toggle('webkit', util.isWebkit());
+     util.$(view)
+      .on('click', this._onBoardClick.bind(this))
+      .on('mousemove', this._onBoardMouseMove.bind(this))
+      .on('mousemove', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
       .on('wheel', this._onMouseWheel.bind(this))
       .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
 
+    let onHoverIn = () => this._isHover = true;
 
-    let hoverOutTimer;
-    let onHoverOutTimer = () => {
-      this._isHover = false;
-    };
+    let onHoverOut = () => this._isHover = false;
 
-    let onHoverIn = () => {
-      if (hoverOutTimer) {
-        window.clearTimeout(hoverOutTimer);
-      }
-      this._isHover = true;
-    };
-
-    let onHoverOut = () => {
-      if (hoverOutTimer) {
-        window.clearTimeout(hoverOutTimer);
-      }
-      hoverOutTimer = window.setTimeout(onHoverOutTimer, 1000);
-    };
-
-    $inner
-      .hover(onHoverIn, onHoverOut)
+    util.$(inner)
+      .on('mouseover', onHoverIn)
+      .on('mouseout',  _.debounce(onHoverOut, 1000))
       .on('touchstart', this._onTouchStart.bind(this))
-      //  .on('touchend',    this._onTouchEnd  .bind(this))
       .on('touchmove', this._onTouchMove.bind(this));
     this._bouncedOnToucheMoveEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
 
-    this._$container.append($view);
-    document.body.addEventListener('touchend', () => {
-      this._isHover = false;
-    }, {passive: true});
+    this._container.append(view);
+    document.body.addEventListener('touchend',
+      () => this._isHover = false, {passive: true});
 
     this._innerWidth = window.innerWidth;
-    window.addEventListener('resize', _.throttle(() => {
-      this._innerWidth = window.innerWidth;
-    }, 500), {passive: true});
-  },
-  _onBoardClick: function (e) {
-    let $board = $(e.target).closest('.board'), offset = $board.offset();
-    let y = $board.attr('data-top') * 1;
+    window.addEventListener('resize',
+      _.throttle(() => this._innerWidth = window.innerWidth, 500), {passive: true});
+  }
+  _onBoardClick(e) {
+    let board = e.target.closest('.board');
+    if (!board) { return; }
+    let offset = $(board).offset(); // TODO
+    let y = board.dataset.top * 1;
     let x = e.pageX - offset.left;
-    let page = $board.attr('data-page');
+    let page = board.dataset.page * 1;
     let ms = this._model.getPointMs(x, y, page);
     if (isNaN(ms)) {
       return;
     }
 
-    let $view = this._$view;
-    $view.addClass('clicked');
-    window.setTimeout(() => $view.removeClass('clicked'), 1000);
-    this._$cursorTime.css({
-      transform: 'translate(-999px, 0)'
-    });
+    let view = this._view;
+    view.classList.add('clicked');
+    window.setTimeout(() => view.classList.remove('clicked'), 1000);
+    this._cursorTime.style.transform = 'translate(-100vw, 0)';
 
-    util.dispatchCommand($view[0], 'seekTo', ms / 1000);
-  },
-  _onBoardMouseMove: function (e) {
-    let $board = $(e.target).closest('.board'), offset = $board.offset();
-    let y = $board.attr('data-top') * 1;
+    util.dispatchCommand(view, 'seekTo', ms / 1000);
+  }
+  _onBoardMouseMove(e) {
+    let board = e.target.closest('.board');
+    if (!board) { return; }
+    let offset = $(board).offset(); // TODO
+    let y = board.dataset.top * 1;
     let x = e.pageX - offset.left;
-    let page = $board.attr('data-page');
+    let page = board.dataset.page * 1;
     let ms = this._model.getPointMs(x, y, page);
     if (isNaN(ms)) {
       return;
@@ -890,21 +837,20 @@ _.assign(StoryboardView.prototype, {
     let sec = Math.floor(ms / 1000);
 
     let time = util.secToTime(sec);
-    this._$cursorTime.text(time).css({
-      transform: `translate3d(${e.pageX}px, 0, 0) translate(-50%, 0)`
-    });
+    this._cursorTime.textContent = time;
+    this._cursorTime.style.transform = `translate3d(${e.pageX}px, 0, 0) translate(-50%, 0)`;
 
     this._isHover = true;
     this._isMouseMoving = true;
-  },
-  _onBoardMouseMoveEnd: function (e) {
+  }
+  _onBoardMouseMoveEnd(e) {
     this._isMouseMoving = false;
-  },
-  _onMouseWheel: function (e) {
+  }
+  _onMouseWheel(e) {
     // 縦ホイールで左右スクロールできるようにする
     e.stopPropagation();
-    let deltaX = parseInt(e.originalEvent.deltaX, 10);
-    let delta = parseInt(e.originalEvent.deltaY, 10);
+    let deltaX = parseInt(e.deltaX, 10);
+    let delta = parseInt(e.deltaY, 10);
     if (Math.abs(deltaX) > Math.abs(delta)) {
       // 横ホイールがある環境ならなにもしない
       return;
@@ -914,31 +860,31 @@ _.assign(StoryboardView.prototype, {
     this._isMouseMoving = true;
     let left = this.scrollLeft();
     this.scrollLeft(left + delta * 5, true);
-  },
-  _onMouseWheelEnd: function (e, delta) {
+  }
+  _onMouseWheelEnd(e) {
     this._isMouseMoving = false;
-  },
-  _onTouchStart: function (e) {
+  }
+  _onTouchStart(e) {
     this._isHover = true;
     this._isMouseMoving = true;
     e.stopPropagation();
-  },
-  _onTouchEnd: function (e) {
-  },
-  _onTouchMove: function (e) {
+  }
+  _onTouchEnd(e) {
+  }
+  _onTouchMove(e) {
     e.stopPropagation();
     this._isHover = true;
     this._isMouseMoving = true;
     this._isTouchMoving = true;
     this._bouncedOnToucheMoveEnd();
-  },
-  _onTouchMoveEnd: function () {
+  }
+  _onTouchMoveEnd() {
     this._isTouchMoving = false;
     this._isMouseMoving = false;
-  },
-  _onTouchCancel: function (e) {
-  },
-  update: function () {
+  }
+  _onTouchCancel(e) {
+  }
+  update() {
     this._isHover = false;
     this._timerCount = 0;
     this._scrollLeft = 0;
@@ -946,14 +892,14 @@ _.assign(StoryboardView.prototype, {
     this._initializeStoryboard();
 
     this.close();
-    this._$view.removeClass('success fail');
+    this._view.classList.remove('success', 'fail');
     if (this._model.getStatus() === 'ok') {
       this._updateSuccess();
     } else {
       this._updateFail();
     }
-  },
-  scrollLeft: function (left, forceUpdate) {
+  }
+  scrollLeft(left, forceUpdate) {
     const inner = this._inner;
     if (!inner) {
       return 0;
@@ -971,58 +917,56 @@ _.assign(StoryboardView.prototype, {
         this._scrollLeftChanged = true;
       }
     }
-  },
-  scrollToNext: function () {
+  }
+  scrollToNext() {
     this.scrollLeft(this._model.getWidth());
-  },
-  scrollToPrev: function () {
+  }
+  scrollToPrev() {
     this.scrollLeft(-this._model.getWidth());
-  },
-  _updateSuccess: function () {
+  }
+  _updateSuccess() {
     let url = this._model.getUrl();
-    let $view = this._$view;
-    $view
-      .addClass('success');
+    let view = this._view;
+    view.classList.add('success');
 
     if (this._currentUrl !== url) {
       // 前と同じurl == 同じ動画なら再作成する必要なし
       this._currentUrl = url;
-      // 20ms前後かかってるけどもっと軽くできるはず・・・
       window.console.time('createStoryboardDOM');
       this._updateSuccessDom();
       window.console.timeEnd('createStoryboardDOM');
     }
 
     if (this._isEnable) {
-      $view.addClass('opening show');
+      view.classList.add('opening', 'show');
       this.scrollLeft(0);
       this.open();
-      window.setTimeout(() => $view.removeClass('opening'), 1000);
+      window.setTimeout(() => view.classList.remove('opening'), 1000);
     }
 
-  },
-  _updateSuccessDom: function () {
+  }
+  _updateSuccessDom() {
     let list = new StoryboardBlockList(this._model);
     this._storyboardBlockList = list;
-    this._$pointer.css({
-      width: this._model.getWidth(),
-      height: this._model.getHeight(),
-    });
-    this._$inner.empty().append(list.getView()).append(this._$pointer);
-  },
-  _updateFail: function () {
-    this._$view.removeClass('success').addClass('fail');
-  },
-  clear: function () {
-    if (this._$view) {
-      this._$inner.empty();
+    this._pointer.style.width = `${this._model.getWidth()}px`;
+    this._pointer.style.height = `${this._model.getHeight()}px`;
+    this.clear();
+    this._inner.append(list.view);
+  }
+  _updateFail() {
+    this._view.classList.remove('success');
+    this._view.classList.add('fail');
+  }
+  clear() {
+    if (this._inner) {
+      this._inner.textContent = '';
     }
-  },
-  _onRequestAnimationFrame: function () {
+  }
+  _onRequestAnimationFrame() {
     if (!this._model.isAvailable()) {
       return;
     }
-    if (!this._$view) {
+    if (!this._view) {
       return;
     }
 
@@ -1032,17 +976,17 @@ _.assign(StoryboardView.prototype, {
       this._pointerLeftChanged = true;
     }
     if (this._pointerLeftChanged) {
-      this._$pointer.css('transform',
-        `translate3d(${this._pointerLeft - this._inner.scrollLeft}px, 0, 0) translate(-50%, 0)`
-      );
+      this._pointer.style.transform =
+        `translate3d(${this._pointerLeft - this._inner.scrollLeft}px, 0, 0) translate(-50%, 0)`;
+
       this._pointerLeftChanged = false;
     }
-  },
-  setCurrentTime: function (sec, forceUpdate) {
+  }
+  setCurrentTime(sec, forceUpdate) {
     if (!this._model.isAvailable()) {
       return;
     }
-    if (!this._$view) {
+    if (!this._view) {
       return;
     }
     if (this._lastCurrentTime === sec) {
@@ -1071,31 +1015,21 @@ _.assign(StoryboardView.prototype, {
       }
       this.scrollLeft(targetLeft - this._innerWidth * per);
     }
-  },
-  _onScroll: function () {
-  },
-  _onDisableButtonClick: function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    let $button = this._$disableButton;
-    $button.addClass('clicked');
-    window.setTimeout(() => $button.removeClass('clicked'), 1000);
-
-    this.emit('disableStoryboard');
-  },
-  _onStoryboardUpdate: function () {
+  }
+  _onScroll() {
+  }
+  _onStoryboardUpdate() {
     this.update();
-  },
-  _onStoryboardReset: function () {
-    if (!this._$view) {
+  }
+  _onStoryboardReset() {
+    if (!this._view) {
       return;
     }
     this.close();
-    this._$view.removeClass('show fail');
+    this._view.classList.remove('show', 'fail');
   }
-});
 
+}
 
 StoryboardView.__tpl__ = `
   <div id="storyboardContainer" class="storyboardContainer">
@@ -1104,8 +1038,7 @@ StoryboardView.__tpl__ = `
     </div>
 
     <div class="storyboardPointer"></div>
-    <div class="storyboardInner">
-    </div>
+    <div class="storyboardInner"></div>
     <div class="failMessage"></div>
   </div>
   `.trim();
@@ -1205,6 +1138,8 @@ StoryboardView.__css__ = (`
     display: inline-block;
     cursor: pointer;
     background-color: #101010;
+    width: var(--board-width);
+    height: var(--board-height);
   }
 
   .storyboardContainer.clicked .storyboardInner * {
@@ -1226,6 +1161,8 @@ StoryboardView.__css__ = (`
     border-width: 0     2px    0  2px;
     display: inline-block;
     pointer-events: none;
+    width: var(--cell-width);
+    height: var(--cell-height);
   }
 
   .storyboardContainer .storyboardHeader {
