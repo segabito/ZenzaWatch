@@ -1845,6 +1845,39 @@ import {Emitter} from './baselib';
     </div>
   `).trim();
 
+
+  class CommentPreviewChatItem {
+    static get html() {
+      return `
+       <li class="nicoChat">
+         <span class="vposTime"></span>
+         <span class="text"></span>
+         <span class="addFilter addUserIdFilter"
+           data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+         <span class="addFilter addWordFilter"
+           data-command="addWordFilter" title="NGワード">NGword</span>
+       </li>
+      `.trim();
+    }
+
+    static get template() {
+      if (!this._template) {
+        const t = document.createElement('template');
+        t.id = `${this.name}_${Date.now()}`;
+        t.innerHTML = this.html;
+        let content = t.content;
+        document.body.appendChild(t);
+        this._template = {
+          clone: () => document.importNode(t.content, true),
+          chat: content.querySelector('.nicoChat'),
+          time: content.querySelector('.vposTime'),
+          text: t.content.querySelector('.text')
+        };
+      }
+      return this._template;
+    }
+  }
+
   CommentPreviewView.__css__ = `
     .zenzaCommentPreview {
       display: none;
@@ -2001,34 +2034,34 @@ import {Emitter} from './baselib';
     },
     _onClick: function(e) {
       e.stopPropagation();
+      let target = e.target.closest('[data-command]');
       let $view = this._$view;
-      let $target = $(e.target);
-      let command = $target.attr('data-command');
-      let $nicoChat = $target.closest('.nicoChat');
-      let uniqNo = parseInt($nicoChat.attr('data-nicochat-uniq-no'), 10);
+      let command = target ? target.dataset.command : '';
+      let nicoChatElement = e.target.closest('.nicoChat');
+      let uniqNo = parseInt(nicoChatElement.dataset.nicochatUniqNo, 10);
       let nicoChat  = this._model.getItemByUniqNo(uniqNo);
 
       if (command && nicoChat && !$view.hasClass('updating')) {
         $view.addClass('updating');
 
-        window.setTimeout(() => { $view.removeClass('updating'); }, 3000);
+        window.setTimeout(() => $view.removeClass('updating'), 3000);
 
         switch (command) {
           case 'addUserIdFilter':
-            this.emit('command', command, nicoChat.getUserId());
+            util.dispatchCommand(e.target, command, nicoChat.getUserId());
             break;
           case 'addWordFilter':
-            this.emit('command', command, nicoChat.getText());
+            util.dispatchCommand(e.target, command, nicoChat.getText());
             break;
           case 'addCommandFilter':
-            this.emit('command', command, nicoChat.getCmd());
+            util.dispatchCommand(e.target, command, nicoChat.getCmd());
             break;
         }
         return;
       }
-      let vpos = $nicoChat.attr('data-vpos');
+      let vpos = nicoChatElement.dataset.vpos;
       if (vpos !== undefined) {
-        this.emit('command', 'seek', vpos / 100);
+        util.dispatchCommand(e.target, 'seek', vpos / 100);
       }
     },
     _onUpdate: function() {
@@ -2052,10 +2085,10 @@ import {Emitter} from './baselib';
       this._refreshInviewElements();
     },
     _onReset: function() {
-      this._$inner.html('');
+      this._$inner.empty();
       this._inviewTable = {};
       this._scrollTop = 0;
-      this._$newItems = null;
+      this._newItemElements = null;
       this._chatList = [];
     },
     _updateView: function() {
@@ -2078,7 +2111,7 @@ import {Emitter} from './baselib';
     },
     _createDom: function(chat, idx) {
       let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      let text = util.escapeHtml(chat.getText());
+      let text = chat.getText();
       let date = (new Date(chat.getDate() * 1000)).toLocaleString();
       let vpos = chat.getVpos();
       let no = chat.getNo();
@@ -2089,22 +2122,17 @@ import {Emitter} from './baselib';
       let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
       let vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
-
-      return `<li class="nicoChat fork${chat.getFork()} ${oe}"
-            id="commentPreviewItem${idx}"
-            data-vpos="${vpos}"
-            data-nicochat-uniq-no="${uniqNo}"
-            style="top: ${idx * itemHeight}px;"
-            >
-            <span class="vposTime">${vposToTime(vpos)}: </span>
-            <span class="text" title="${title}" style="${shadow}">
-            ${text}
-            </span>
-            <span class="addFilter addUserIdFilter"
-              data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
-            <span class="addFilter addWordFilter"
-              data-command="addWordFilter" title="NGワード">NGword</span>
-        </li>`;
+      let t = CommentPreviewChatItem.template;
+      t.chat.className = `nicoChat fork${chat.getFork()} ${oe}`;
+      t.chat.id = `commentPreviewItem${idx}`;
+      t.chat.dataset.vpos = vpos;
+      t.chat.dataset.nicochatUniqNo = uniqNo;
+      t.chat.style.top = `${idx * itemHeight}px`;
+      t.time.textContent = `${vposToTime(vpos)}: `;
+      t.text.title = title;
+      t.text.style = shadow;
+      t.text.textContent = text;
+      return t.clone();
     },
     _refreshInviewElements: function(scrollTop, startIndex, endIndex) {
       if (!this._$inner) { return; }
@@ -2138,17 +2166,15 @@ import {Emitter} from './baselib';
         if (i >= startIndex && i <= endIndex) { return; }
         let item = document.getElementById('commentPreviewItem' + i);
         if (item) { item.remove(); }
-        else { window.console.log('not found ', 'commentPreviewItem' + i);}
+        else { console.log('not found ', 'commentPreviewItem' + i);}
         delete inviewTable[i];
       });
 
-
-      let $newItems = $(newItems.join(''));
-      if (this._$newItems) {
-        this._$newItems.append($newItems);
-      } else {
-        this._$newItems = $newItems;
+      if (!this._newItemElements) {
+        this._newItemElements = document.createDocumentFragment();
       }
+      //newItems.forEach(item => this._newItemElements.appendChild(item));
+      this._newItemElements.append(...newItems);
 
       this._applyView();
     },
@@ -2173,9 +2199,9 @@ import {Emitter} from './baselib';
     _applyView: function() {
       let $view = this._$view;
       if (!$view.hasClass('show')) { $view.addClass('show'); }
-      if (this._$newItems) {
-        this._$inner.append(this._$newItems);
-        this._$newItems = null;
+      if (this._newItemElements) {
+        this._$inner[0].appendChild(this._newItemElements);
+        this._newItemElements = null;
       }
       if (this._scrollTop > 0) {
         $view.scrollTop(this._scrollTop);
