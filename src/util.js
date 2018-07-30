@@ -1195,6 +1195,7 @@ util.bindCommandDispatcher = (element, command) => {
 util.$ = (() => {
 
   const elementEventsMap = new WeakMap();
+  const HAS_CSSTOM = (window.CSS && CSS.number) ? true : false;
   const toCamel = p => {
     return p.replace(/-./g, s => s.charAt(1).toUpperCase());
   };
@@ -1295,10 +1296,25 @@ util.$ = (() => {
     }
 
     _css(key, val) {
+     if (HAS_CSSTOM) {
+        if (/(width|height|top|left)$/i.test(key) && /^[0-9+.]+$/.test(val)) {
+          val = CSS.px(val);
+        }
+        try {
+          this.forEach(e => {
+            if (val === '') { e.attributeStyleMap.delete(key); }
+            else { e.attributeStyleMap.set(key, val); }
+          });
+        } catch (e) {
+          window.console.warn('invalid style prop', key, val, e);
+        }
+       return;
+      }
       const camelKey = toCamel(key);
-      if (/(width|height|top|left)$/i.test(camelKey) && isNaN(val)) {
+      if (/(width|height|top|left)$/i.test(key) && /^[0-9+.]+$/.test(val)) {
         val += 'px';
       }
+
       this.forEach(e => {
         e.style[camelKey] = val;
       });
