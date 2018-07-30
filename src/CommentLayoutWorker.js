@@ -228,12 +228,15 @@ let CommentLayoutWorker = (config => {
   };
 })(Config);
 
-util.createWebWorker = func => {
+util.createWebWorker = (func, type = '') => {
   let src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
 
   let blob = new Blob([src], {type: 'text/javascript'});
   let url = URL.createObjectURL(blob);
 
+  if (type === 'SharedWorker') {
+    return new SharedWorker(url);
+  }
   return new Worker(url);
 };
 
