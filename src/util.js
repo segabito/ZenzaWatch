@@ -62,7 +62,7 @@ let FullScreen = {
     }
     return false;
   },
-  element: function() {
+  get element() {
     return document.fullScreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || null;
   },
   request: function (target) {
@@ -78,7 +78,6 @@ let FullScreen = {
     } else if (elm.mozRequestFullScreen) {
       elm.mozRequestFullScreen();
     }
-    //$('body').addClass('fullScreen');
   },
   cancel: function () {
     if (!this.now()) {
@@ -92,7 +91,6 @@ let FullScreen = {
     } else if (document.mozCancelFullScreen) {
       document.mozCancelFullScreen();
     }
-    //$('body').removeClass('fullScreen');
   },
   _handleEvents: function () {
     this._handleEvnets = _.noop;
