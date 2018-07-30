@@ -288,6 +288,10 @@ VideoInfoPanel.__css__ = (`
       background: #446;
     }
 
+    .zenzaWatchVideoInfoPanel .videoDescription font[color] {
+      text-shadow: 1px 1px var(--base-description-color, #888);
+    }
+
     .zenzaWatchVideoInfoPanel .videoDescription .mylistLink {
       white-space: nowrap;
       display: inline-block;
