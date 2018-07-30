@@ -2,9 +2,23 @@ var srcDir = './src';
 var templateFile =  '_template.js';
 var outFile = 'dist/ZenzaWatch.user.js';
 
+var templates = [
+  { src: '_template.js', dist: 'dist/ZenzaWatch.user.js' },
+  { src: '_navi.js',    dist: 'dist/Navi.user.js' },
+  { src: '_yomi.js',    dist: 'dist/Yomi.user.js' }
+];
+
 const DEV_HEADER = {
-  name: '// @name           ZenzaWatch DEV版',
-  description: '// @description    ZenzaWatchの開発 先行バージョン'
+  '_template.js': {
+    name: '// @name           ZenzaWatch DEV版',
+    description: '// @description    ZenzaWatchの開発 先行バージョン'
+  },
+  '_navi.js': {
+
+  },
+  '_yomi.js': {
+
+  }
 };
 
 function writeIfModified(file, newData, callback) {
@@ -28,10 +42,13 @@ function writeIfModified(file, newData, callback) {
 
 function requireFile(srcDir, file, params) {
   var fs = require('fs');
+  var path = require('path');
   var lines = [];
   var begin = false;
   var trim = !params.dev && !/NicoTextParser\.js/.test(file);
-  fs.readFileSync(srcDir + '/' + file, 'utf-8').split('\n').some(function(line) {
+  var srcFile = path.join(srcDir, file);
+
+  fs.readFileSync(srcFile, 'utf-8').split('\n').some(function(line) {
     if (line.trim().indexOf('//===BEGIN===') === 0) {
       begin = true;
       return;
@@ -41,6 +58,15 @@ function requireFile(srcDir, file, params) {
       if (line.trim().indexOf('//===END===') === 0) {
         return true;
       }
+
+      if ((params.dev && line.match(/^\s*\/\/@dev-require (.+)$/)) ||
+          line.match(/^\s*\/\/@require (.+)$/)) {
+        var f = path.join(path.dirname(srcFile), RegExp.$1);
+        console.log('require ' + f);
+        lines.push(requireFile(path.dirname(f), path.basename(f), params));
+        return;
+      }
+
       if (!trim) {
         lines.push(line);
         return;
@@ -81,15 +107,16 @@ function deploy(srcFile) {
 
 function loadTemplateFile(srcDir, indexFile, outFile, params) {
   var fs = require('fs');
+  var path = require('path');
   var lines = [];
   var ver = null;
-  fs.readFileSync(srcDir + '/' + indexFile, 'utf-8').split('\n').some(function(line) {
+  fs.readFileSync(path.join(srcDir, indexFile), 'utf-8').split('\n').some(function(line) {
     if (params.dev) {
       if (line.match(/^\/\/\s*@([a-z0-9+]+)(.*)$/)) {
         let name = RegExp.$1;
         // console.log('header:', name, RegExp.$2);
-        if (DEV_HEADER[name]) {
-          line = DEV_HEADER[name].trim();
+        if (DEV_HEADER[indexFile][name]) {
+          line = DEV_HEADER[indexFile][name].trim();
         }
       }
     }
@@ -105,6 +132,9 @@ function loadTemplateFile(srcDir, indexFile, outFile, params) {
       } else {
         lines.push(RegExp.$1 + 'var VER = \'' + ver + '\';');
       }
+    } else if (params.dev && line.match(/^\s*\/\/@dev-require (.+)$/)) {
+      console.log('dev require ' + RegExp.$1);
+      lines.push(requireFile(srcDir, RegExp.$1, params));
     } else if (line.match(/^\s*\/\/@require (.+)$/)) {
       console.log('require ' + RegExp.$1);
       lines.push(requireFile(srcDir, RegExp.$1, params));
@@ -122,11 +152,17 @@ function loadTemplateFile(srcDir, indexFile, outFile, params) {
 }
 
 function build(params) {
-  if (params.dev && !/-dev\.user\.js$/.test(outFile)) {
-    outFile = outFile.replace(/\.user\.js$/, '-dev.user.js');
-  }
-  loadTemplateFile(srcDir, templateFile, outFile, params);
+  templates.forEach(t => {
+    var templateFile = t.src;
+    var outFile = t.dist;
+    if (params.dev && !/-dev\.user\.js$/.test(outFile)) {
+      outFile = outFile.replace(/\.user\.js$/, '-dev.user.js');
+    }
+    console.log('src: %s, dist: %s', templateFile, outFile);
+    loadTemplateFile(srcDir, templateFile, outFile, params);
+  });
 }
+
 
 function watch(srcDir, params) {
   var fs = require('fs');
@@ -135,7 +171,7 @@ function watch(srcDir, params) {
     try {
       build(params);
     } catch(e) {
-      console.log(e);
+      console.error('error: ', e);
     }
   });
 }
