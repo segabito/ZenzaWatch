@@ -771,7 +771,7 @@ util.isValidJson = data => {
 
 util.openTweetWindow = videoInfo => {
   let watchId = videoInfo.watchId;
-  let nicomsUrl = 'http://nico.ms/' + watchId;
+  let nicomsUrl = 'https://nico.ms/' + watchId;
   let watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
   let sec = videoInfo.duration;
