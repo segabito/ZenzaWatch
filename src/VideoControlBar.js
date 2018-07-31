@@ -2,7 +2,7 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {Storyboard} from './StoryBoard';
+import {SeekBarThumbnail, Storyboard} from './StoryBoard';
 import {util} from './util';
 import {Emitter} from './baselib';
 
@@ -2286,7 +2286,7 @@ import {Emitter} from './baselib';
       opacity: 0;
       border: 1px solid #666;
       border-radius: 8px;
-      padding: 4px 4px 10px 4px;
+      padding: 8px 4px 0;
       transform: translate3d(0, 0, 10px);
       transition: transform 0.1s steps(1, start) 0, opacity 0.2s ease 0.5s;
       pointer-events: none;
@@ -2296,31 +2296,25 @@ import {Emitter} from './baselib';
       bottom: 10px;
     }
 
-    .is-dragging                .seekBarToolTip {
-      opacity: 1;
-      pointer-events: none;
-    }
-
+    .is-dragging .seekBarToolTip,
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
       display: inline-block;
+    }
+
+    .seekBarToolTipInner {
+      padding-bottom: 10px;
       pointer-events: auto;
-    }
-
-    .fullScreen .seekBarContainer:not(:hover) .seekBarToolTip {
-      display: none;
-    }
-
-    .seekBarToolTip .seekBarToolTipInner {
-      font-size: 0 !important;
-    }
-
-    .seekBarToolTip .seekBarToolTipButtonContainer {
+      display: flex;
       text-align: center;
+      vertical-aligm: middle;
       width: 100%;
     }
+    .is-dragging .seekBarToolTipInner {
+      pointer-events: none;
+    }
 
-    .seekBarToolTip .seekBarToolTipButtonContainer>* {
+    .seekBarToolTipInner>* {
       flex: 1;
     }
 
@@ -2346,6 +2340,7 @@ import {Emitter} from './baselib';
       margin: 0;
       cursor: pointer;
     }
+
     .seekBarToolTip .controlButton * {
       cursor: pointer;
     }
@@ -2359,25 +2354,15 @@ import {Emitter} from './baselib';
       font-size: 16px;
     }
 
-    .seekBarToolTip .controlButton.enableCommentPreview {
+    .seekBarToolTip .controlButton.toggleCommentPreview {
       opacity: 0.5;
     }
 
-    .enableCommentPreview .seekBarToolTip .controlButton.enableCommentPreview {
+    .enableCommentPreview .seekBarToolTip .controlButton.toggleCommentPreview {
       opacity: 1;
       background: rgba(0,0,0,0.01);
     }
 
-    .seekBarToolTip .seekBarThumbnailContainer {
-      pointer-events: none;
-      position: absolute;
-      top: 0; left: 50%;
-      transform: translate(-50%, -100%);
-    }
-    .seekBarContainer:not(.enableCommentPreview) .seekBarToolTip.storyboard {
-      border-top: none;
-      border-radius: 0 0 8px 8px;
-    }
   `).trim();
 
   SeekBarToolTip.__tpl__ = (`
@@ -2391,7 +2376,7 @@ import {Emitter} from './baselib';
 
           <div class="currentTime"></div>
           
-          <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
+          <div class="controlButton toggleCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
             <div class="menuButtonInner">💬</div>
           </div>
           
@@ -2415,10 +2400,10 @@ import {Emitter} from './baselib';
         .on('mousedown',this._onMouseDown.bind(this))
         .on('click', e => { e.stopPropagation(); e.preventDefault(); });
 
-      this._seekBarThumbnail = this._storyboard.getSeekBarThumbnail({
-        $container: $view.find('.seekBarThumbnailContainer')
+      this._seekBarThumbnail = new SeekBarThumbnail({
+        storyboard: this._storyboard,
+        container: $view.find('.seekBarThumbnailContainer')[0]
       });
-      this._seekBarThumbnail.on('visible', v => $view.toggleClass('storyboard', v));
 
       $container.append($view);
     },

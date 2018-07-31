@@ -57,7 +57,7 @@ _.assign(PlayerConfig.prototype, {
     switch (this._mode) {
       case 'ginza':
         if (['autoPlay', 'screenMode'].includes(key)) {
-          return key + ':' + this._mode;
+          return `${key}:${this._mode}`;
         }
         return key;
       default:
@@ -217,17 +217,25 @@ NicoVideoPlayerDialogView.__css__ = `
       プレイヤーが動いてる間、裏の余計な物のマウスイベントを無効化
       多少軽量化が期待できる？
     */
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>.container,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>.container,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>.container,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container {
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>#js-app,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>#js-app,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>#js-app,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>#js-app {
       pointer-events: none;
+      user-select: none;
     }
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>.container *,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>.container *,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>.container *,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>.container  *{
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>#js-app *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>#js-app *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>#js-app *,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>#js-app  *{
       animation-play-state: paused !important;
+    }
+
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big .ZenButton,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal .ZenButton,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide .ZenButton,
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D  .ZenButton {
+      display: none;
     }
 
     body.showNicoVideoPlayerDialog .ads {
@@ -594,7 +602,6 @@ NicoVideoPlayerDialogView.__css__ = `
     {
       .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
         padding-bottom: 240px;
-        top: calc(50% + 60px);
         background: none;
       }
     }
@@ -605,7 +612,6 @@ NicoVideoPlayerDialogView.__css__ = `
     {
       .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
         padding-bottom: 240px;
-        top: calc(50% + 60px);
         background: none;
       }
     }

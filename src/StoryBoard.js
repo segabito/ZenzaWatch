@@ -22,18 +22,12 @@ import {Emitter} from './baselib';
 //===BEGIN===
 
 
-class StoryboardModel extends Emitter{
+class StoryboardModel extends Emitter {
   constructor(params) {
     super();
-    this.initialize(params);
-  }
-}
-
-_.assign(StoryboardModel.prototype, {
-  initialize: function (params) {
     this._isAvailable = false;
-  },
-  _createBlankData: function (info) {
+  }
+  _createBlankData(info) {
     info = info || {};
     Object.assign(info, {
       format: 'smile',
@@ -57,9 +51,8 @@ _.assign(StoryboardModel.prototype, {
       }]
     });
     return info;
-  },
-
-  update: function (info, duration) {
+  }
+  update(info, duration) {
     if (!info || info.status !== 'ok') {
       this._info = this._createBlankData();
       this._isAvailable = false;
@@ -76,104 +69,99 @@ _.assign(StoryboardModel.prototype, {
       });
     }
 
-    this.emitAsync('update');
-  },
+    this.emit('update');
+  }
 
-  reset: function () {
+  reset() {
     this._isAvailable = false;
-    this.emitAsync('reset');
-  },
+    this.emit('reset');
+  }
 
-  unload: function () {
+  unload() {
     this._isAvailable = false;
-    this.emitAsync('unload');
-  },
+    this.emit('unload');
+  }
 
-  isAvailable: function () {
+  isAvailable() {
     return !!this._isAvailable;
-  },
+  }
 
-  hasSubStoryboard: function () {
+  hasSubStoryboard() {
     return this._info.storyboard.length > 1;
-  },
+  }
 
-  getStatus: function () {
+  getStatus() {
     return this._info.status;
-  },
-  getMessage: function () {
+  }
+  getMessage() {
     return this._info.message;
-  },
-  getDuration: function () {
+  }
+  getDuration() {
     return parseInt(this._info.duration, 10);
-  },
-
-  isDmc: function () {
+  }
+  isDmc() {
     return this._info.format === 'dmc';
-  },
-  getUrl: function (i) {
+  }
+  getUrl(i) {
     if (!this.isDmc()) {
       return this._info.storyboard[i || 0].url;
     } else {
       return this._info.storyboard[i || 0].urls[0];
     }
-  },
-  getWidth:
-    function (i) {
-      return parseInt(this._info.storyboard[i || 0].thumbnail.width, 10);
-    },
-  getHeight:
-    function (i) {
-      return parseInt(this._info.storyboard[i || 0].thumbnail.height, 10);
-    },
-  getInterval:
-    function (i) {
-      return parseInt(this._info.storyboard[i || 0].thumbnail.interval, 10);
-    },
-  getCount: function (i) {
+  }
+  getWidth(i) {
+    return parseInt(this._info.storyboard[i || 0].thumbnail.width, 10);
+  }
+  getHeight(i) {
+    return parseInt(this._info.storyboard[i || 0].thumbnail.height, 10);
+  }
+  getInterval(i) {
+    return parseInt(this._info.storyboard[i || 0].thumbnail.interval, 10);
+  }
+  getCount(i) {
     return Math.max(
       Math.ceil(this.getDuration() / Math.max(0.01, this.getInterval())),
       parseInt(this._info.storyboard[i || 0].thumbnail.number, 10)
     );
-  },
-  getRows: function (i) {
+  }
+  getRows(i) {
     return parseInt(this._info.storyboard[i || 0].board.rows, 10);
-  },
-  getCols: function (i) {
+  }
+  getCols(i) {
     return parseInt(this._info.storyboard[i || 0].board.cols, 10);
-  },
-  getPageCount: function (i) {
+  }
+  getPageCount(i) {
     return parseInt(this._info.storyboard[i || 0].board.number, 10);
-  },
-  getTotalRows: function (i) {
+  }
+  getTotalRows(i) {
     return Math.ceil(this.getCount(i) / this.getCols(i));
-  },
-
-  getPageWidth: function (i) {
+  }
+  getPageWidth(i) {
     return this.getWidth(i) * this.getCols(i);
-  },
-  getPageHeight: function (i) {
+  }
+  getPageHeight(i) {
     return this.getHeight(i) * this.getRows(i);
-  },
-  getCountPerPage: function (i) {
+  }
+  getCountPerPage(i) {
     return this.getRows(i) * this.getCols(i);
-  },
+  }
 
   /**
    *  nページ目のURLを返す。 ゼロオリジン
    */
-  getPageUrl: function (page, storyboardIndex) {
+  getPageUrl(page, storyboardIndex) {
     if (!this.isDmc()) {
       page = Math.max(0, Math.min(this.getPageCount(storyboardIndex) - 1, page));
       return this.getUrl(storyboardIndex) + '&board=' + (page + 1);
     } else {
       return this._info.storyboard[storyboardIndex || 0].urls[page];
     }
-  },
+  }
 
   /**
    * msに相当するサムネは何番目か？を返す
    */
-  getIndex: function (ms, storyboardIndex) {
+  getIndex(ms, storyboardIndex) {
     // msec -> sec
     let v = Math.floor(ms / 1000);
     v = Math.max(0, Math.min(this.getDuration(), v));
@@ -183,21 +171,21 @@ _.assign(StoryboardModel.prototype, {
     let n = this.getCount(storyboardIndex) / Math.max(1, this.getDuration());
 
     return parseInt(Math.floor(v * n), 10);
-  },
+  }
 
   /**
    * Indexのサムネイルは何番目のページにあるか？を返す
    */
-  getPageIndex: function (thumbnailIndex, storyboardIndex) {
+  getPageIndex(thumbnailIndex, storyboardIndex) {
     let perPage = this.getCountPerPage(storyboardIndex);
     let pageIndex = parseInt(thumbnailIndex / perPage, 10);
     return Math.max(0, Math.min(this.getPageCount(storyboardIndex), pageIndex));
-  },
+  }
 
   /**
    *  msに相当するサムネは何ページの何番目にあるか？を返す
    */
-  getThumbnailPosition: function (ms, storyboardIndex) {
+  getThumbnailPosition(ms, storyboardIndex) {
     let thumbnailIndex = this.getIndex(ms, storyboardIndex);
     let pageIndex = this.getPageIndex(thumbnailIndex);
 
@@ -211,12 +199,12 @@ _.assign(StoryboardModel.prototype, {
       row: row,
       col: col
     };
-  },
+  }
 
   /**
    * nページ目のx, y座標をmsに変換して返す
    */
-  getPointMs: function (x, y, page, storyboardIndex) {
+  getPointMs(x, y, page, storyboardIndex) {
     let width = Math.max(1, this.getWidth(storyboardIndex));
     let height = Math.max(1, this.getHeight(storyboardIndex));
     let row = Math.floor(y / height);
@@ -238,22 +226,22 @@ _.assign(StoryboardModel.prototype, {
 
     // msは㍉秒単位なので1000倍
     return Math.floor(this.getDuration() * percent * 1000);
-  },
+  }
 
   /**
    * msは何ページ目に当たるか？を返す
    */
-  getmsPage: function (ms, storyboardIndex) {
+  getmsPage(ms, storyboardIndex) {
     let index = this._storyboard.getIndex(ms, storyboardIndex);
     let page = this._storyboard.getPageIndex(index, storyboardIndex);
 
     return page;
-  },
+  }
 
   /**
    * nページ目のCols, Rowsがsubではどこになるかを返す
    */
-  getPointPageColAndRowForSub: function (page, row, col) {
+  getPointPageColAndRowForSub(page, row, col) {
     let mainPageCount = this.getCountPerPage();
     let subPageCount = this.getCountPerPage(1);
     let mainCols = this.getCols();
@@ -272,14 +260,136 @@ _.assign(StoryboardModel.prototype, {
       col: subCol
     };
   }
+}
 
-});
 
 
-class SeekBarThumbnail extends Emitter {
-  constructor(...args) {
-    super();
-    this.initialize(...args);
+class SeekBarThumbnail {
+  constructor(params) {
+    this._container = params.container;
+    this._scale = _.isNumber(params.scale) ? params.scale : 1.0;
+
+    this._preload = _.debounce(this._preload.bind(this), 1000 * 5);
+    params.storyboard.on('reset', this._onStoryboardReset.bind(this));
+    params.storyboard.on('update', this._onStoryboardUpdate.bind(this));
+
+    ZenzaWatch.debug.seekBarThumbnail = this;
+  }
+  _onStoryboardUpdate(model) {
+    this._model = model;
+    if (!model.isAvailable()) {
+      this._isAvailable = false;
+      this.hide();
+      return;
+    }
+    this.initializeView();
+
+    this._isAvailable = true;
+    let width = this._colWidth = Math.max(1, model.getWidth());
+    let height = this._rowHeight = Math.max(1, model.getHeight());
+    let scale = Math.min(
+      SeekBarThumbnail.BASE_WIDTH / width,
+      SeekBarThumbnail.BASE_HEIGHT / height
+    );
+    Object.assign(this._image.style, {
+      width: `${width * this._scale}px`,
+      height: `${height * this._scale}px`,
+      transform: `scale(${scale})`,
+      backgroundSize:
+        `${model.getCols() * width * this._scale}px ${model.getRows() * height * this._scale}px`
+    });
+
+    this._preload(model);
+    this.show();
+  }
+  _onStoryboardReset() {
+    this.hide();
+    this._imageUrl = '';
+    if (this._image) {
+      this._image.style.backgroundImage = '';
+    }
+  }
+  _preload(model) {
+    if (!model.isAvailable()) {
+      return;
+    }
+      // セッションの有効期限が切れる前に全部の画像をロードしてキャッシュに収めておく
+    // やっておかないと、しばらく放置した時に読み込めない
+    let pages = model.getPageCount();
+    let v = document.createDocumentFragment();
+    for (let i = 0; i < pages; i++) {
+      let url = model.getPageUrl(i);
+      let img = document.createElement('img');
+      img.src = url;
+      img.decoding = 'async';
+      v.append(img);
+    }
+
+    this._preloadImageContainer.textContent = '';
+    this._preloadImageContainer.append(v);
+  }
+  get isVisible() {
+    return this._view ? this._view.classList.contains('is-visible') : false;
+  }
+  show() {
+    if (!this._view) {
+      return;
+    }
+    this._view.classList.add('is-visible');
+  }
+  hide() {
+    if (!this._view) {
+      return;
+    }
+    this._view.classList.remove('is-visible');
+  }
+  initializeView() {
+    this.initializeView = _.noop;
+
+    if (!SeekBarThumbnail.styleAdded) {
+      util.addStyle(SeekBarThumbnail.__css__);
+      SeekBarThumbnail.styleAdded = true;
+    }
+    let view = this._view = util.createDom(SeekBarThumbnail.__tpl__).firstElementChild;
+    this._image = view.querySelector('.zenzaSeekThumbnail-image');
+
+    this._preloadImageContainer =
+      util.createDom('<div class="preloadImageContainer" style="display: none !important;"></div>').firstElementChild;
+    document.body.append(this._preloadImageContainer);
+
+    if (this._container) {
+      this._container.append(view);
+    }
+  }
+  setCurrentTime(sec) {
+    if (!this._isAvailable || !this._image) {
+      return;
+    }
+
+    let ms = Math.floor(sec * 1000);
+    let model = this._model;
+    let pos = model.getThumbnailPosition(ms, 0);
+    let url = model.getPageUrl(pos.page);
+    let x = pos.col * this._colWidth * -1 * this._scale;
+    let y = pos.row * this._rowHeight * -1 * this._scale;
+    let css = {};
+    let updated = false;
+
+    if (this._imageUrl !== url) {
+      css.backgroundImage = `url(${url})`;
+      this._imageUrl = url;
+      updated = true;
+    }
+    if (this._imageX !== x || this._imageY !== y) {
+      css.backgroundPosition = `${x}px ${y}px`;
+      this._imageX = x;
+      this._imageY = y;
+      updated = true;
+    }
+
+    if (updated) {
+      Object.assign(this._image.style, css);
+    }
   }
 }
 SeekBarThumbnail.BASE_WIDTH = 160;
@@ -301,19 +411,17 @@ SeekBarThumbnail.__css__ = (`
         display: none;
         pointer-events: none;
       }
+      
+      .enableCommentPreview .zenzaSeekThumbnail {
+        display: none !important;
+      }
 
-      .seekBarContainer:not(.enableCommentPreview) .zenzaSeekThumbnail.show {
+      .zenzaSeekThumbnail.is-visible {
         display: block;
-        width: 180px;
-        height: 100px;
-        margin: auto;
         overflow: hidden;
         box-sizing: border-box;
-        border: 1px solid #666;
-        border-width: 1px 1px 0 1px;
         background: rgba(0, 0, 0, 0.3);
-        padding: 8px 4px;
-        border-radius: 8px 8px 0 0;
+        margin: 0 auto 4px;
         z-index: 100;
       }
 
@@ -328,146 +436,6 @@ SeekBarThumbnail.__css__ = (`
 
     `).trim();
 
-_.assign(SeekBarThumbnail.prototype, {
-  initialize: function (params) {
-    this._model = params.model;
-    this._$container = params.$container;
-    this._scale = _.isNumber(params.scale) ? params.scale : 1.0;
-
-    this._preloadImages =
-      _.debounce(this._preloadImages.bind(this), 60 * 1000 * 5);
-    this._model.on('reset', this._onModelReset.bind(this));
-    this._model.on('update', this._onModelUpdate.bind(this));
-
-    ZenzaWatch.debug.seekBarThumbnail = this;
-  },
-  _onModelUpdate: function () {
-    if (!this._model.isAvailable()) {
-      this._isAvailable = false;
-      this.hide();
-      return;
-    }
-    this.initializeView();
-
-    let model = this._model;
-    this._isAvailable = true;
-    let width = this._colWidth = Math.max(1, model.getWidth());
-    let height = this._rowHeight = Math.max(1, model.getHeight());
-    let scale = Math.min(
-      SeekBarThumbnail.BASE_WIDTH / width,
-      SeekBarThumbnail.BASE_HEIGHT / height
-    );
-
-    let css = {
-      width: this._colWidth * this._scale,
-      height: this._rowHeight * this._scale,
-      opacity: '',
-      'background-size':
-      (model.getCols() * this._colWidth * this._scale) + 'px ' +
-      (model.getRows() * this._rowHeight * this._scale) + 'px'
-    };
-    if (scale > 1.0) {
-      css.transform = `scale(${scale})`;
-    } else {
-      css.transform = '';
-    }
-
-    this._$image.css(css);
-
-    this._preloadImages();
-    this.show();
-  },
-  _onModelReset: function () {
-    this.hide();
-    this._imageUrl = '';
-    if (this._$image) {
-      this._$image.css('background-image', '');
-    }
-  },
-  _preloadImages: function () {
-    // セッションの有効期限が切れる前に全部の画像をロードしてキャッシュに収めておく
-    // やっておかないと、しばらく放置した時に読み込めない
-    let model = this._model;
-    if (!model.isAvailable()) {
-      return;
-    }
-    let pages = model.getPageCount();
-    let div = document.createElement('div');
-    for (let i = 0; i < pages; i++) {
-      let url = model.getPageUrl(i);
-      let img = document.createElement('img');
-      img.src = url;
-      div.appendChild(img);
-    }
-
-    this._$preloadImageContainer.empty().append(div);
-  },
-  show: function () {
-    if (!this._$view) {
-      return;
-    }
-    this._$view.addClass('show');
-    this.emit('visible', true);
-  },
-  hide: function () {
-    if (!this._$view) {
-      return;
-    }
-    this._$view.removeClass('show');
-    this.emit('visible', false);
-  },
-  initializeView: function () {
-    this.initializeView = _.noop;
-
-    if (!SeekBarThumbnail.styleAdded) {
-      util.addStyle(SeekBarThumbnail.__css__);
-      SeekBarThumbnail.styleAdded = true;
-    }
-    let $view = this._$view = $(SeekBarThumbnail.__tpl__);
-    this._$image = $view.find('.zenzaSeekThumbnail-image');
-
-    this._$preloadImageContainer =
-      $('<div class="preloadImageContaienr" style="display: none !important;"></div>');
-    $('body').append(this._$preloadImageContainer);
-
-    if (this._$container) {
-      this._$container.append($view);
-    }
-  },
-  setCurrentTime: function (sec) {
-    if (!this._isAvailable || !this._model.isAvailable() || !this._$image) {
-      return;
-    }
-
-    let ms = Math.floor(sec * 1000);
-    let model = this._model;
-    let pos = model.getThumbnailPosition(ms, 0);
-    let url = model.getPageUrl(pos.page);
-    let x = pos.col * this._colWidth * -1 * this._scale;
-    let y = pos.row * this._rowHeight * -1 * this._scale;
-    let css = {};
-    let updated = false;
-
-    if (this._imageUrl !== url) {
-      css.backgroundImage = `url(${url})`;
-      this._imageUrl = url;
-      updated = true;
-    }
-    if (this._imageX !== x || this._imageY !== y) {
-      css.backgroundPosition = x + 'px ' + y + 'px';
-      this._imageX = x;
-      this._imageY = y;
-      updated = true;
-    }
-
-    if (updated) {
-      this._updateImageCss(css);
-    }
-  },
-  _updateImageCss: function (css) {
-    this._$image.css(css);
-  }
-});
 
 class Storyboard extends Emitter {
   constructor(...args) {
@@ -504,6 +472,7 @@ _.assign(Storyboard.prototype, {
   reset: function () {
     this._container.classList.remove('storyboardAvailable');
     this._model.reset();
+    this.emit('reset', this._model);
   },
 
   onVideoCanPlay: function (watchId, videoInfo) {
@@ -542,38 +511,28 @@ _.assign(Storyboard.prototype, {
     const info = videoInfo.dmcStoryboardInfo;
     return (new StoryboardSession(info)).create().then(result => {
       if (result && result.data && result.data.session && result.data.session.content_uri) {
-        return result.data.session.content_uri;
+        return Promise.resolve(result.data.session.content_uri);
       } else {
         return Promise.reject('dmc storyboard api not exist');
       }
     });
   },
   _onStoryboardInfoLoad: function (watchId, duration, info) {
-    //window.console.log('onStoryboardInfoLoad', watchId, info);
     if (watchId !== this._watchId) {
       return;
     } // video changed
     this._model.update(info, duration);
+    this.emit('update', this._model);
     this._container.classList.toggle('storyboardAvailable', this._model.isAvailable());
   },
   _onStoryboardInfoLoadFail: function (watchId, err) {
-    //window.console.log('onStoryboardInfoFail', watchId, err);
+    // window.console.warn('onStoryboardInfoFail', watchId, err);
     if (watchId !== this._watchId) {
       return;
     } // video changed
     this._model.update(null);
+    this.emit('update', this._model);
     this._container.classList.remove('storyboardAvailable');
-  },
-
-  getSeekBarThumbnail: function (params) {
-    if (this._seekBarThumbnail) {
-      return this._seekBarThumbnail;
-    }
-    this._seekBarThumbnail = new SeekBarThumbnail({
-      model: this._model,
-      $container: params.$container
-    });
-    return this._seekBarThumbnail;
   },
 
   setCurrentTime: function (sec, forceUpdate) {
