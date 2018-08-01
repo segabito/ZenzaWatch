@@ -993,7 +993,11 @@ class VideoPlayer extends Emitter {
     if (this._isYouTube) {
       return;
     }
-    if (this._videoElement.src === CONSTANT.BLANK_VIDEO_URL || !this._videoElement.src || this._videoElement.src.match(/^https?:$/)) {
+    if (this._videoElement.src === CONSTANT.BLANK_VIDEO_URL ||
+      !this._videoElement.src ||
+      this._videoElement.src.match(/^https?:$/) ||
+      this._videoElement.src.match(/\/\//) // for Edge
+    ) {
       return;
     }
     window.console.error('error src', this._video.src);

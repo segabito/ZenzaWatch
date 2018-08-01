@@ -2598,7 +2598,7 @@ class RelatedInfoMenu extends BaseViewComponent {
     super({
       parentNode,
       name: 'RelatedInfoMenu',
-      template: '<div class="RelatedInfoMenu"></div>',
+      template: '<div class="RelatedInfoMenu" tabindex="-1"></div>',
       shadow: RelatedInfoMenu._shadow_,
       css: RelatedInfoMenu.__css__
     });
@@ -2614,6 +2614,7 @@ class RelatedInfoMenu extends BaseViewComponent {
   _initDom(...args) {
     super._initDom(...args);
 
+    this._view.classList.toggle('is-Edge', /edge/i.test(navigator.userAgent));
     const shadow = this._shadow || this._view;
     this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
     this._elm.summary = shadow.querySelector('summary');
@@ -2795,6 +2796,17 @@ RelatedInfoMenu._shadow_ = (`
         color: #222;
       }
 
+        /* for Edge */
+        .is-Edge .RelatedInfoMenuBody {
+          display: none;
+          color: #ccc;
+          background: rgba(80, 80, 80, 0.9);
+        }
+        .RelatedInfoMenu[open] .RelatedInfoMenuBody,
+        .RelatedInfoMenu:focus .RelatedInfoMenuBody,
+        .RelatedInfoMenuBody:hover {
+          display: block;
+        }
     </style>
     <details class="root RelatedInfoMenu">
       <summary class="RelatedInfoMenuSummary clickable">関連メニュー</summary>
