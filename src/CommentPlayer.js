@@ -1310,7 +1310,7 @@ class NicoChat {
 
 
   static parseCmd(cmd, isFork) {
-    let tmp = cmd.toLowerCase().split(/[\x20\u3000\t\u2003]+/);
+    let tmp = cmd.toLowerCase().split(/[\x20\xA0\u3000\t\u2003]+/);
     let result = {};
     tmp.forEach(c => {
       if (NicoChat.COLORS[c]) {
