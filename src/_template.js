@@ -28,7 +28,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.0.19beta
+// @version        2.0.24beta
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
 // @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
@@ -42,6 +42,7 @@
     let console = window.console;
     let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
     let TOKEN = 'r:' + (Math.random());
+    let CONFIG = null;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
     //@environment

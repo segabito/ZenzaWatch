@@ -36,10 +36,7 @@ class Sleep {
   }
 }
 
-util.sleep = async function sleep(time = 0) {
-  return new Sleep(time);
-};
-
+util.sleep = async ms => new Promise(rs => setTimeout(rs, ms), ms);
 
 const AsyncEmitter = (() => {
   // 過渡期の措置

@@ -228,10 +228,7 @@ class VideoListModel extends Emitter {
   }
 
   serialize() {
-    return this._items.reduce((result, item) => {
-      result.push(item.serialize());
-      return result;
-    }, []);
+    return this._items.map(item => item.serialize());
   }
 
   unserialize(itemDataList) {
@@ -270,9 +267,11 @@ class VideoListModel extends Emitter {
   }
 
   get totalDuration() {
-    return this._items.reduce((result, item) => {
-      return result + item.getDuration();
-    }, 0);
+    let total = 0;
+    this._items.forEach(item => {
+      total += item.getDuration();
+    });
+    return total;
   }
 }
 

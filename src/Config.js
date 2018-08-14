@@ -14,11 +14,14 @@ const Config = (() => {
   // 古いprototype.jsが使われているページの対処
   if (window.Prototype && Array.prototype.toJSON) {
     let _json_stringify = JSON.stringify;
-    JSON.stringify = value => {
-      let toj = Array.prototype.toJSON;
+    JSON.stringify = (...args) => {
+      let aj = Array.prototype.toJSON;
+      let sj = String.prototype.toJSON;
       delete Array.prototype.toJSON;
-      let r = _json_stringify(value);
-      Array.prototype.toJSON = toj;
+      delete String.prototype.toJSON;
+      let r = _json_stringify(...args);
+      Array.prototype.toJSON = aj;
+      String.prototype.toJSON = sj;
       return r;
     };
   }

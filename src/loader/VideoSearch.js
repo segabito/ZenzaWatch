@@ -347,14 +347,14 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
 
 
     class NicoSearchApiV2Loader {
-      static search(word, params) {
+      static async search(word, params) {
         initializeCrossDomainGate();
         const query = new NicoSearchApiV2Query(word, params);
         const url = API_BASE_URL + '?' + query.toString();
 
-        return gate.fetch(url).then((result) => {
+        return gate.fetch(url).then(result => {
           return result.text();
-        }).then((result) => {
+        }).then(result => {
           result = NicoSearchApiV2Loader.parseResult(result);
           if (typeof result !== 'number' && result.status === 'ok') {
             return Promise.resolve(result);
@@ -385,68 +385,39 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
       /**
        * 100件以上検索する用
        */
-      static searchMore(word, params, maxLimit = 300) {
+      static async searchMore(word, params, maxLimit = 300) {
 
         const ONCE_LIMIT = 100; // 一回で取れる件数
         const PER_PAGE = 25; // 検索ページで1ページあたりに表示される件数
         const MAX_PAGE = 64; // 25 * 64 = 1600
 
-        // 短い間隔で叩くと弾かれるらしい？のでスリープを入れる
-        const createSleep = function (ms) {
-          return () => {
-            return new Promise(res => {
-              console.log('search sleep: %sms', ms);
-              window.setTimeout(() => {
-                return res();
-              }, ms);
-            });
-          };
-        };
+        const result = await NicoSearchApiV2Loader.search(word, params);
 
-        const createSearchNext = function (word, params, page) {
-          return () => {
-            console.log('searchNext: "%s"', word, page, params);
-            return NicoSearchApiV2Loader.search(word, Object.assign(params, {page}));
-          };
-        };
+        const currentPage = params.page ? parseInt(params.page, 10) : 1;
+        const currentOffset = (currentPage - 1) * PER_PAGE;
 
-        return NicoSearchApiV2Loader.search(word, params).then(result => {
+        if (result.count <= ONCE_LIMIT) {
+          return result;
+        }
 
-          const currentPage = params.page ? parseInt(params.page, 10) : 1;
-          const currentOffset = (currentPage - 1) * PER_PAGE;
+        const searchCount = Math.min(
+          Math.ceil((result.count - currentOffset) / PER_PAGE) - 1,
+          Math.ceil((maxLimit - ONCE_LIMIT) / ONCE_LIMIT)
+        );
 
-          if (result.count <= ONCE_LIMIT) {
-            return result;
+        //// TODO: 途中で失敗したらそこまででもいいので返す？
+        for (let i = 1; i <= searchCount; i++) {
+          await util.sleep(300 * i);
+          let page = currentPage + i * (ONCE_LIMIT / PER_PAGE);
+          console.log('searchNext: "%s"', word, page, params);
+          let res = await NicoSearchApiV2Loader.search(word, Object.assign(params, {page}));
+          if (res && res.list && res.list.length) {
+            result.list = result.list.concat(res.list);
+          } else {
+            break;
           }
-
-          const searchCount = Math.min(
-            Math.ceil((result.count - currentOffset) / PER_PAGE) - 1,
-            Math.ceil((maxLimit - ONCE_LIMIT) / ONCE_LIMIT)
-          );
-
-          const promises = [];
-
-          for (let i = 1; i <= searchCount; i++) {
-            promises.push(createSleep(Math.min(300 * i, 2000)));
-
-            let nextPage = currentPage + i * (ONCE_LIMIT / PER_PAGE);
-            promises.push(createSearchNext(word, params, nextPage));
-            if (nextPage >= MAX_PAGE) {
-              break;
-            }
-          }
-
-          // TODO: 途中で失敗したらそこまででもいいので返す？
-          return promises.reduce((prev, current) => {
-            return prev.then(current).then(res => {
-              if (res && res.list && res.list.length) {
-                result.list = result.list.concat(res.list);
-              }
-              return result;
-            });
-          }, Promise.resolve());
-
-        });
+        }
+        return result;
       }
 
       static _jsonParse(result) {
