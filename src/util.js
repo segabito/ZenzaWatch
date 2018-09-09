@@ -1127,6 +1127,7 @@ util.watchResize = (target, callback) => {
     return;
   }
   const iframe = document.createElement('iframe');
+  iframe.lazyload = 'off';
   Object.assign(iframe.style, {
     width: '100%',
     height: '100%',
@@ -1781,6 +1782,7 @@ _.assign(FrameLayer.prototype, {
 
     let iframe = this._getIframe();
     iframe.className = params.className || '';
+    iframe.lazyload = 'off';
 
     let onload = () => {
       let win;
@@ -1823,6 +1825,7 @@ _.assign(FrameLayer.prototype, {
       iframe.style.left = '';
     } else {
       iframe = document.createElement('iframe');
+      iframe.lazyload = 'off';
     }
 
     try {

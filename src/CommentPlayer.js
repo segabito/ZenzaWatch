@@ -548,7 +548,6 @@ NicoComment.offScreenLayer = (() => {
     <style type="text/css" id="layoutCss">%LAYOUT_CSS%</style>
     <style type="text/css" id="optionCss">%OPTION_CSS%</style>
     <style type="text/css">
-
       .nicoChat { visibility: hidden; }
     </style>
     <body>
@@ -604,6 +603,7 @@ NicoComment.offScreenLayer = (() => {
   let initialize = resolve => {
     initialize = _.noop;
     let frame = document.createElement('iframe');
+    frame.lazyload = 'off';
     frame.className = 'offScreenLayer';
     frame.setAttribute('sandbox', 'allow-same-origin');
     document.body.appendChild(frame);
@@ -2555,6 +2555,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     this._commentLayer = null;
     this._view = null;
     let iframe = this._getIframe();
+    iframe.lazyload = 'off';
     iframe.setAttribute('sandbox', 'allow-same-origin');
 
     iframe.className = 'commentLayerFrame';

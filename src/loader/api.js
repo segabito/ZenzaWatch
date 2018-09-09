@@ -1407,6 +1407,7 @@ const {
       console.log('%c initialize ' + this._type, 'background: lightgreen;');
 
       let loaderFrame = document.createElement('iframe');
+      loaderFrame.lazyload = 'off';
       loaderFrame.name = this._type + 'Loader';
       loaderFrame.className = 'xDomainLoaderFrame ' + this._type;
       document.body.appendChild(loaderFrame);
