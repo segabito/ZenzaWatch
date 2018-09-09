@@ -788,7 +788,7 @@ ContextMenu.__tpl__ = (`
           <li class="command debug"
             data-command="toggle-debug">デバッグ</li>
           <li class="command mymemory"
-            data-command="saveMymemory">コメントの保存</a></li>
+            data-command="saveMymemory">コメントの保存</li>
         </ul>
       </div>
     </div>

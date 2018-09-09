@@ -2198,28 +2198,18 @@ class BaseViewComponent extends Emitter {
   }
 
   _onClick(e) {
-    const target = e.target.classList.contains('command') ?
-      e.target : e.target.closest('.command');
+    const target = e.target.closest('[data-command]');
 
     if (!target) {
       return;
     }
 
-    const command = target.getAttribute('data-command');
-    if (!command) {
-      return;
-    }
-    const type = target.getAttribute('data-type') || 'string';
-    let param = target.getAttribute('data-param');
+    const command = target.dataset.command;
+    const type = target.dataset.type || 'string';
+    let param = target.dataset.param;
     e.stopPropagation();
     e.preventDefault();
-    switch (type) {
-      case 'json':
-      case 'bool':
-      case 'number':
-        param = JSON.parse(param);
-        break;
-    }
+    if (type !== 'string') { param = JSON.parse(param); }
 
     this._onCommand(command, param);
   }
@@ -2233,7 +2223,13 @@ class BaseViewComponent extends Emitter {
   }
 
   _onCommand(command, param) {
-    this.emit('command', command, param);
+    this.dispatchCommand(command, param);
+  }
+
+  dispatchCommand(command, param) {
+    this._view.dispatchEvent(new CustomEvent('command',
+      {detail: {command, param}, bubbles: true, composed: true}
+    ));
   }
 
   toggleClass(className, v) {

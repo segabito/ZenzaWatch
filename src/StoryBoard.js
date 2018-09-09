@@ -749,8 +749,8 @@ class StoryboardView extends Emitter {
     let onHoverOut = () => this._isHover = false;
 
     util.$(inner)
-      .on('mouseover', onHoverIn)
-      .on('mouseout',  _.debounce(onHoverOut, 1000))
+      .on('mouseenter', onHoverIn)
+      .on('mouseleave',  _.debounce(onHoverOut, 1000))
       .on('touchstart', this._onTouchStart.bind(this))
       .on('touchmove', this._onTouchMove.bind(this));
     this._bouncedOnToucheMoveEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);

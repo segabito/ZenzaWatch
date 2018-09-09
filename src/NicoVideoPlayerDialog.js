@@ -217,12 +217,13 @@ NicoVideoPlayerDialogView.__css__ = `
       プレイヤーが動いてる間、裏の余計な物のマウスイベントを無効化
       多少軽量化が期待できる？
     */
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>#js-app,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>#js-app,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>#js-app,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>#js-app {
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_big >*:not(.zenzaVideoPlayerDialog),
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal >*:not(.zenzaVideoPlayerDialog),
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide >*:not(.zenzaVideoPlayerDialog),
+    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D >*:not(.zenzaVideoPlayerDialog) {
       pointer-events: none;
       user-select: none;
+      animation-play-state: paused !important;
     }
     body.showNicoVideoPlayerDialog.zenzaScreenMode_big>#js-app *,
     body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>#js-app *,
@@ -1313,7 +1314,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     nicoVideoPlayer.on('commentChange', this._onCommentChange.bind(this));
     nicoVideoPlayer.on('commentFilterChange', this._onCommentFilterChange.bind(this));
     nicoVideoPlayer.on('videoPlayerTypeChange', this._onVideoPlayerTypeChange.bind(this));
-    // nicoVideoPlayer.on('buffercomplete', e => {});
 
     nicoVideoPlayer.on('error', this._onVideoError.bind(this));
     nicoVideoPlayer.on('abort', this._onVideoAbort.bind(this));
@@ -1333,6 +1333,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     switch (command) {
       case 'volume':
         this.setVolume(param);
+        break;
+      case 'volumeBy':
+        this.setVolume(this._nicoVideoPlayer.getVolume() * param);
         break;
       case 'volumeUp':
         this._nicoVideoPlayer.volumeUp();
@@ -2247,9 +2250,24 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this._state.setPlaying();
     this.emit('playing');
   },
+  _onVideoSeeking: function () {
+    this._state.isSeeking = true;
+    this.emit('seeking');
+  },
+  _onVideoSeeked: function () {
+    this._state.isSeeking = false;
+    this.emit('seeked');
+  },
   _onVideoPause: function () {
-    this._savePlaybackPosition(this._watchId, this.getCurrentTime());
+    this._savePlaybackPosition(this._videoInfo.contextWatchId, this.getCurrentTime());
     this.emit('pause');
+  },
+  _onVideoStalled: function () {
+    this._state.isStalled = true;
+    this.emit('stalled');
+  },
+  _onVideoTimeUpdate: function () {
+    this._state.isStalled = false;
   },
   _onVideoProgress: function (range, currentTime) {
     this.emit('progress', range, currentTime);

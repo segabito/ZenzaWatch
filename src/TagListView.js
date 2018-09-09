@@ -1,6 +1,7 @@
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {BaseViewComponent, util} from './util';
 import {TagEditApi} from './loader/TagEditApi';
+import {Config} from './Config';
 
 
 //===BEGIN===
@@ -87,10 +88,31 @@ class TagListView extends BaseViewComponent {
         this._removeTag(param, data.tag);
         break;
       }
+      case 'tag-search':
+        this._onTagSearch(param);
+        break;
       default:
-        this.emit('command', command, param);
+        super._onCommand(command, param);
         break;
     }
+  }
+
+  _onTagSearch(word) {
+    const config = Config.namespace('videoSearch');
+
+    let option = {
+      searchType: config.getValue('mode'),
+      order: config.getValue('order'),
+      sort: config.getValue('sort') || 'playlist',
+      owner: config.getValue('ownerOnly')
+    };
+
+    if (option.sort === 'playlist') {
+      option.sort = 'f';
+      option.playlistSort = true;
+    }
+
+    super._onCommand('playlistSetSearchVideo', {word, option});
   }
 
   update({tagList = [], watchId = null, videoId = null, token = null, watchAuthKey = null}) {
@@ -254,8 +276,8 @@ class TagListView extends BaseViewComponent {
     let href = `//dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
     // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
     let src = hasDic ?
-      '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
-      '//live.nicovideo.jp/img/2012/watch/tag_icon003.png';
+      'https://live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
+      'https://live.nicovideo.jp/img/2012/watch/tag_icon003.png';
     let icon = `<img class="dicIcon" src="${src}">`;
     return `<a target="_blank" class="nicodic" href="${href}">${icon}</a>`;
   }
@@ -276,7 +298,7 @@ class TagListView extends BaseViewComponent {
     let title = 'プレイリストに追加';
     let command = 'tag-search';
     let param = util.escapeHtml(text);
-    return (`<zenza-playlist-append class="playlistAppend command" title="${title}" data-command="${command}" data-param="${param}">▶</zenza-playlist-append>`);
+    return (`<zenza-playlist-append class="playlistAppend" title="${title}" data-command="${command}" data-param="${param}">▶</zenza-playlist-append>`);
   }
 
   _createTag(tag) {
