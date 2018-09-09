@@ -26,7 +26,7 @@ const VideoSession = (() => {
       this._videoQuality = videoQuality || 'auto';
       this._useHLS = useHLS;
       this._useSSL = useSSL;
-      this._useWellKnownPort = useWellKnownPort;
+      this._useWellKnownPort = true; //useWellKnownPort;
     }
 
     toString() {
@@ -166,7 +166,7 @@ const VideoSession = (() => {
       this._heartBeatTimer = null;
 
       this._useSSL = !!params.useSSL;
-      this._useWellKnownPort = !!params.useWellKnownPort;
+      this._useWellKnownPort = true;
 
       this._onHeartBeatSuccess = this._onHeartBeatSuccess.bind(this);
       this._onHeartBeatFail = this._onHeartBeatFail.bind(this);
@@ -277,9 +277,7 @@ const VideoSession = (() => {
     _createSession(videoInfo) {
       let dmcInfo = videoInfo.dmcInfo;
       console.time('create DMC session');
-      const baseUrl = dmcInfo.urls.find(url => {
-        return url.is_well_known_port === this._useWellKnownPort;
-      }).url;
+      const baseUrl = (dmcInfo.urls.find(url => url.is_well_known_port === this._useWellKnownPort) || dmcInfo.urls[0]).url;
       return new Promise((resolve, reject) => {
         let url = `${baseUrl}?_format=json`;
 
@@ -287,7 +285,7 @@ const VideoSession = (() => {
         const postData = new DmcPostData(dmcInfo, this._videoQuality, {
           useHLS: this.useHLS,
           useSSL: url.startsWith('https://'),
-          useWellKnownPort: this._useWellKnownPort
+          useWellKnownPort: true
         });
         //console.log('dmc post', url); console.log(postData.toString());
 

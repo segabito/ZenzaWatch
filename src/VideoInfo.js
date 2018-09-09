@@ -209,7 +209,7 @@ class VideoInfoModel {
   }
 
   get videoUrl() {
-    return this._flvInfo.url || '';
+    return (this._flvInfo.url || '').replace(/^http:/, '');
   }
 
   get storyboardUrl() {

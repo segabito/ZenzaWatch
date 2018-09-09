@@ -3017,7 +3017,7 @@ VideoHoverMenu.__css__ = (`
         margin: -4px 4px 0 0;
         vertical-align: middle;
         margin-right: 15px;
-        background: url("//uni.res.nimg.jp/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
+        background: url("//nicovideo.cdn.nimg.jp/uni/img/zero_my/icon_folder_default.png") no-repeat scroll 0 0 transparent;
         transform: scale(1.5);
         transform-origin: 0 0 0;
         transition: transform 0.1s ease, box-shadow 0.1s ease;

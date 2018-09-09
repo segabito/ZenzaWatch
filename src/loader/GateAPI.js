@@ -63,13 +63,28 @@ const GateAPI = (() => {
     return /(^[a-z0-9.-]*\.nicovideo\.jp$|^[a-z0-9.-]*\.nico(|:[0-9]+)$)/.test(host);
   };
 
+  const isWhiteHost = url => {
+    if (isNicoServiceHost(url)) {
+      return true;
+    }
+    const u = parseUrl(url);
+    if (u.protocol !== 'https:') { return false; }
+    const host = u.hostname;
+    return [
+      'google.com',
+      'www.google.co.jp',
+      'twitter.com',
+      'friends.nico',
+    ].includes(host);
+  };
+
   let loadUrl = function (data, type, token) {
     let timeoutTimer = null, isTimeout = false;
 
     if (!data.url) {
       return;
     }
-    if (!isNicoServiceHost(data.url)) {
+    if (!isWhiteHost(data.url)) {
       return;
     }
 
@@ -108,7 +123,7 @@ const GateAPI = (() => {
       }
     });
 
-    timeoutTimer = window.setTimeout(function () {
+    timeoutTimer = window.setTimeout(() => {
       isTimeout = true;
       parentPostMessage(type, {
         sessionId: sessionId,
@@ -132,7 +147,7 @@ const GateAPI = (() => {
       url
     };
 
-    if (!isNicoServiceHost(url)) {
+    if (!isWhiteHost(url)) {
       return Promise.reject();
     }
 
@@ -177,7 +192,6 @@ const GateAPI = (() => {
     });
   };
 
-  const HOST_REG = /^[a-z0-9]*\.nicovideo\.jp$/;
 
   let thumbInfo = function () {
     if (window.name.indexOf('thumbInfoLoader') < 0) {
@@ -185,8 +199,7 @@ const GateAPI = (() => {
     }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    let parentHost = parseUrl(document.referrer).hostname;
-    if (!HOST_REG.test(parentHost)) {
+    if (!isWhiteHost(document.referrer)) {
       window.console.log('disable bridge');
       return;
     }
@@ -197,7 +210,8 @@ const GateAPI = (() => {
 
     window.addEventListener('message', function (event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
-      if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
+      if (!isWhiteHost(event.origin)) {
+      // if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
         return;
       }
       let data = JSON.parse(event.data), timeoutTimer = null, isTimeout = false;
@@ -266,7 +280,8 @@ const GateAPI = (() => {
 
     const parentHost = parseUrl(document.referrer).hostname;
     window.console.log('parentHost', parentHost);
-    if (!HOST_REG.test(parentHost) &&
+    //if (!HOST_REG.test(parentHost) &&
+    if (!isWhiteHost(document.referrer) &&
       localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
       window.console.log('disable bridge');
       return;
@@ -328,7 +343,8 @@ const GateAPI = (() => {
 
     window.addEventListener('message', event => {
       // window.console.log('nicovideoApiLoaderWindow.onMessage origin="%s"', event.origin, event.data);
-      if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
+      if (!isWhiteHost(event.origin)) {
+        // if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
         return;
       }
       const data = JSON.parse(event.data);
@@ -414,8 +430,8 @@ const GateAPI = (() => {
     }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    let parentHost = parseUrl(document.referrer).hostname;
-    if (!HOST_REG.test(parentHost)) {
+    // let parentHost = parseUrl(document.referrer).hostname;
+    if (!isWhiteHost(document.referrer)) {    // if (!HOST_REG.test(parentHost)) {
       window.console.log('disable bridge');
       return;
     }
@@ -465,7 +481,8 @@ const GateAPI = (() => {
 
     window.addEventListener('message', function (event) {
       const data = JSON.parse(event.data);
-      if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
+      if (!isWhiteHost(event.origin)) {
+        // if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
         return;
       }
 
@@ -501,8 +518,7 @@ const GateAPI = (() => {
     }
     console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name);
 
-    let parentHost = parseUrl(document.referrer).hostname;
-    if (!HOST_REG.test(parentHost)) {
+    if (!isWhiteHost(document.referrer)) {
       console.log('disable bridge');
       return;
     }
@@ -511,7 +527,8 @@ const GateAPI = (() => {
     const token = location.hash ? location.hash.substring(1) : null;
 
     window.addEventListener('message', (event) => {
-      if (!HOST_REG.test(parseUrl(event.origin).hostname)) {
+      if (!isWhiteHost(event.origin)) {
+        window.console.warn('not white host', event.origin);
         return;
       }
       const data = JSON.parse(event.data);

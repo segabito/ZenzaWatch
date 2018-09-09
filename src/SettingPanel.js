@@ -274,15 +274,6 @@ SettingPanel.__tpl__ = (`
             <small>(当然ながらdアニメニコニコチャンネル加入が必要)</small>
           </label>
         </div>
-        
-        <div class="enableNicosJumpVideo control toggle">
-          <label>
-            <input type="checkbox" class="checkbox" data-setting-name="useWellKnownPort"
-            data-command="toggle-useWellKnownPort">
-            DMCの通信ポートを固定<br>
-            <small>ファイアーウォール等の都合で再生できない場合のみ推奨</small>
-          </label>
-        </div>
 
         <div class="menuScaleControl control toggle">
           <label>
