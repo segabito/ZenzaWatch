@@ -2174,9 +2174,6 @@ class UaaView extends BaseViewComponent {
       data.title = data.message;
     }
 
-    // 連続アクセスを抑止
-    let sleepTime = 2000 * idx + 3000;
-
     df.setAttribute('data-index', idx);
     if (bgkeyframe && idx < 4) {
       const sec = parseFloat(bgkeyframe);

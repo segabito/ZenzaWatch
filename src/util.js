@@ -918,64 +918,70 @@ util.toRgba = (c, alpha = 1) => {
   return `rgba(${parseInt(c.substr(1, 2), 16)},${parseInt(c.substr(3, 2), 16)},${parseInt(c.substr(5, 2), 16)},${alpha})`;
 };
 
-util.videoCapture = (src, sec) => {
-  return new Promise((resolve, reject) => {
-    let resolved = false;
-    const v = util.createVideoElement('capture');
-    if (!v) {
-      return reject();
-    }
-    const css = {
-      width: '64px',
-      height: '36px',
-      position: 'fixed',
-      left: '-100px',
-      top: '-100px'
-    };
-    Object.keys(css).forEach(key => {
-      v.style[key] = css[key];
-    });
+util.videoCapture = function(src, sec) {
+  let func = () => {
+    return new Promise((resolve, reject) => {
+      let resolved = false;
+      const v = util.createVideoElement('capture');
+      if (!v) {
+        return reject();
+      }
+      Object.assign(v.style, {
+        width: '64px',
+        height: '36px',
+        position: 'fixed',
+        left: '-100px',
+        top: '-100px'
+      });
 
-    v.addEventListener('loadedmetadata', () => {
+      v.volume = 0;
+      v.autoplay = false;
+      v.controls = false;
+      v.addEventListener('loadedmetadata', () => v.currentTime = sec, {once: true});
+      v.addEventListener('error', err => { v.remove(); reject(err); }, {once: true});
+
+      const onSeeked = () => {
+        const c = document.createElement('canvas');
+        c.width = v.videoWidth;
+        c.height = v.videoHeight;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(v.drawableElement || v, 0, 0);
+        v.remove();
+
+        resolved = true;
+        return resolve(c);
+      };
+
+      v.addEventListener('seeked', onSeeked, {once: true});
+
+      setTimeout(() => {
+        if (resolved) {
+          return;
+        }
+        v.remove();
+        reject();
+      }, 30000);
+
+      document.body.appendChild(v);
+      v.src = src;
       v.currentTime = sec;
     });
-    v.addEventListener('error', (err) => {
-      v.remove();
-      reject(err);
-    });
+  };
 
-    const onSeeked = () => {
-      if (resolved) {
-        return;
-      }
-      const c = document.createElement('canvas');
-      c.width = v.videoWidth;
-      c.height = v.videoHeight;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(v.drawableElement || v, 0, 0);
-      v.remove();
+  let wait = (this.lastSrc === src && this.wait) ? this.wait : new Sleep(1000);
+  this.lastSrc = src;
+  // 連続アクセスでセッションがkillされないように
+  let waitTime = 1000;
+  waitTime += src.indexOf('dmc.nico') >= 0 ? 2000 : 0;
+  waitTime += src.indexOf('.m3u8')    >= 0 ? 2000 : 0;
 
-      resolved = true;
-      return resolve(c);
-    };
+  let resolve, reject;
+  this.wait = new Promise((...args) => [resolve, reject] = args)
+    .then(() => new Sleep(waitTime)).catch(() => new Sleep(waitTime * 2));
 
-    v.addEventListener('seeked', onSeeked);
-
-    setTimeout(() => {
-      if (resolved) {
-        return;
-      }
-      v.remove();
-      reject();
-    }, 30000);
-
-    document.body.appendChild(v);
-    v.volume = 0;
-    v.autoplay = false;
-    v.controls = false;
-    v.src = src;
-    v.currentTime = sec;
-  });
+  return wait.then(func)
+    .then(r => { resolve(r); return r; })
+    .catch(e => { reject(e); return e; });
 };
 
 util.capTube = function ({title, videoId, author}) {
