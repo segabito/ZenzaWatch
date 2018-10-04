@@ -17,896 +17,889 @@ import {Emitter} from './baselib';
   VideoControlBar.BASE_HEIGHT = CONSTANT.CONTROL_BAR_HEIGHT;
   VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
 
-  VideoControlBar.__css__ = (`
-    .videoControlBar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      transform: translate3d(0, 0, 0);
-      width: 100vw;
-      height: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
-      z-index: 150000;
-      background: #000;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      user-select: none;
-      content: layout;
-    }
-    .zenzaScreenMode_small    .videoControlBar,
-    .zenzaScreenMode_sideView .videoControlBar,
-    .zenzaScreenMode_wide     .videoControlBar,
-    .fullScreen               .videoControlBar {
-      width: 100%; /* 100vwだと縦スクロールバーと被る */
-    }
-
-    .videoControlBar * {
-      box-sizing: border-box;
-      user-select: none;
-    }
-
-    .zenzaScreenMode_wide .videoControlBar,
-    .fullScreen           .videoControlBar {
-      position: absolute; /* firefoxのバグ対策 */
-      opacity: 0;
-      background: none;
-    }
-
-    .zenzaScreenMode_wide .volumeChanging .videoControlBar,
-    .fullScreen           .volumeChanging .videoControlBar,
-    .zenzaScreenMode_wide .is-mouseMoving .videoControlBar,
-    .fullScreen           .is-mouseMoving .videoControlBar {
-      opacity: 0.7;
-      background: rgba(0, 0, 0, 0.5);
-    }
-    .zenzaScreenMode_wide .showVideoControlBar .videoControlBar,
-    .fullScreen           .showVideoControlBar .videoControlBar {
-      opacity: 1 !important;
-      background: #000 !important;
-    }
-
-
-    .zenzaScreenMode_wide .videoControlBar.is-dragging,
-    .fullScreen           .videoControlBar.is-dragging,
-    .zenzaScreenMode_wide .videoControlBar:hover,
-    .fullScreen           .videoControlBar:hover {
-      opacity: 1;
-      background: rgba(0, 0, 0, 0.9);
-    }
-
-    .controlItemContainer {
-      position: absolute;
-      top: 10px;
-      height: 40px;
-      z-index: 200;
-    }
-
-    .controlItemContainer:hover,
-    .videoControlBar.is-menuOpen .controlItemContainer {
-      z-index: 260;
-    }
-
-    .controlItemContainer.left {
-      left: 0;
-      height: 40px;
-      white-space: nowrap;
-      overflow: visible;
-      transition: transform 0.2s ease, left 0.2s ease;
-    }
-    .controlItemContainer.left .scalingUI {
-      padding: 0 8px 0;
-    }
-    .controlItemContainer.left .scalingUI:empty {
-      display: none;
-    }
-    .controlItemContainer.left .scalingUI>* {
-      background: #222;
-      display: inline-block;
-    }
-    .fullScreen .controlItemContainer.left {
-      top: auto;
-      transform-origin: top left;
-    }
-
-
-    .controlItemContainer.center {
-      left: 50%;
-      height: 40px;
-      transform: translate(-50%, 0);
-      background:
-        linear-gradient(to bottom,
-        transparent, transparent 4px, #222 0, #222 30px, transparent 0, transparent);
-      white-space: nowrap;
-      overflow: visible;
-      transition: transform 0.2s ease, left 0.2s ease;
-    }
-    .fullScreen .controlItemContainer.center {
-      top: auto;
-    }
-    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center {
-      background: transparent;
-    }
-
-
-
-    .controlItemContainer.center .scalingUI {
-      transform-origin: top center;
-    }
-
-    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
-      background: rgba(32, 32, 32, 0.5);
-    }
-    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
-      background: rgba(32, 32, 32, 0.8);
-    }
-
-    .controlItemContainer.right {
-      right: 0;
-    }
-    .fullScreen .controlItemContainer.right {
-      top: auto;
-    }
-
-    .is-mouseMoving .controlItemContainer.right .controlButton{
-      background: #333;
-    }
-    .controlItemContainer.right .scalingUI {
-      transform-origin: top right;
-    }
-
-
-    .controlButton {
-      position: relative;
-      display: inline-block;
-      transition: opacity 0.4s ease;
-      font-size: 20px;
-      width: 32px;
-      height: 32px;
-      line-height: 30px;
-      box-sizing: border-box;
-      text-align: center;
-      cursor: pointer;
-      color: #fff;
-      opacity: 0.8;
-      margin-right: 8px;
-      min-width: 32px;
-      vertical-align: middle;      
-    }
-    .controlButton:hover {
-      cursor: pointer;
-      opacity: 1;
-    }
-    .controlButton:active .controlButtonInner {
-      transform: translate(0, 2px);
-    }
-
-    .is-abort   .playControl,
-    .is-error   .playControl,
-    .is-loading .playControl {
-      opacity: 0.4 !important;
-      pointer-events: none;
-    }
-
-
-    .controlButton .tooltip {
-      display: none;
-      pointer-events: none;
-      position: absolute;
-      left: 16px;
-      top: -30px;
-      transform:  translate(-50%, 0);
-      font-size: 12px;
-      line-height: 16px;
-      padding: 2px 4px;
-      border: 1px solid #000;
-      background: #ffc;
-      color: #000;
-      text-shadow: none;
-      white-space: nowrap;
-      z-index: 100;
-      opacity: 0.8;
-    }
-    .is-mouseMoving .controlButton:hover .tooltip {
-      display: block;
-      opacity: 1;
-    }
-    .videoControlBar:hover .controlButton {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .settingPanelSwitch {
-      width: 32px;
-    }
-    .settingPanelSwitch:hover {
-      text-shadow: 0 0 8px #ff9;
-    }
-    .settingPanelSwitch .tooltip {
-      left: 0;
-    }
-
-
-    .controlButtonInner {
-      display: inline-block;
-    }
-
-
-    .seekTop {
-      left: 0px;
-      width: 32px;
-      transform: scale(1.1);
-    }
-
-    .togglePlay {
-      width: 36px;
-      transition: transform 0.2s ease;
-      transform: scale(1.1);
-    }
-    .togglePlay:active {
-      transform: scale(0.75);
-    }
-
-    .togglePlay .play,
-    .togglePlay .pause {
-      display: inline-block;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transition: transform 0.1s linear, opacity 0.1s linear;
-      user-select: none;
-      pointer-events: none;
-    }
-    .togglePlay .play {
-      width: 100%;
-      height: 100%;
-      transform: scale(1.2) translate(-50%, -50%) translate(10%, 10%);
-    }
-    .is-playing .togglePlay .play {
-      opacity: 0;
-    }
-    .togglePlay>.pause {
-      width: 24px;
-      height: 16px;
-      background-image: linear-gradient(
-        to right, 
-        transparent 0, transparent 12.5%, 
-        currentColor 0, currentColor 43.75%, 
-        transparent 0, transparent 56.25%, 
-        currentColor 0, currentColor 87.5%, 
-        transparent 0);
-      opacity: 0;
-      transform: scaleX(0);
-    }
-    .is-playing .togglePlay>.pause {
-      opacity: 1;
-      transform: translate(-50%, -50%);
-    }
-
-    .seekBarContainer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      cursor: pointer;
-      z-index: 250;
-    }
-    .fullScreen .seekBarContainer {
-      top: auto;
-      bottom: 0;
-      z-index: 300;
-    }
-
-    /* 見えないマウス判定 */
-    .seekBarContainer .seekBarShadow {
-      position: absolute;
-      background: transparent;
-      opacity: 0;
-      width: 100vw;
-      height: 8px;
-      top: -8px;
-    }
-    .is-mouseMoving .seekBarContainer:hover .seekBarShadow {
-      height: 48px;
-      top: -48px;
-    }
-
-    .fullScreen .seekBarContainer:hover .seekBarShadow {
-      height: 14px;
-      top: -12px;
-    }
-
-    .is-abort   .seekBarContainer,
-    .is-loading .seekBarContainer,
-    .is-error   .seekBarContainer {
-      pointer-events: none;
-    }
-    .is-abort   .seekBarContainer *,
-    .is-error   .seekBarContainer * {
-      display: none;
-    }
-
-    .seekBar {
-      position: relative;
-      width: 100%;
-      height: 10px;
-      margin: 2px 0 2px;
-      border-top:    1px solid #333;
-      border-bottom: 1px solid #333;
-      cursor: pointer;
-      transition: height 0.2s ease 1s, margin-top 0.2s ease 1s;
-    }
-
-    .seekBar:hover {
-      height: 24px;
-      margin-top: -14px;
-      transition: none;
-      background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .fullScreen .seekBar {
-      margin-top: 0px;
-      margin-bottom: -14px;
-      height: 24px;
-      transition: none;
-    }
-
-    .seekBarContainer .seekBar * {
-      pointer-events: none;
-    }
-
-    .bufferRange {
-      position: absolute;
-      width: 100%;
-      height: 110%;
-      left: 0px;
-      top: 0px;
-      box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
-      z-index: 190;
-      background: #ff9;
-      transform-origin: left;
-      transform: translate3d(0, 0, 0) scaleX(0);
-      transition: transform 0.2s;
-      mix-blend-mode: overlay;
-      opacity: 0.6;
-    }
-
-    .is-youTube .bufferRange {
-      width: 100% !important;
-      height: 110% !important;
-      background: #f99;
-      transition: transform 0.5s ease 1s;
-      transform: translate3d(0, 0, 0) scaleX(1) !important;
-    }
-
-    .seekBarPointer {
-      position: absolute;
-      display: inline-block;
-      top: 50%;
-      left: 0;
-      width: 12px;
-      background: rgba(255, 255, 255, 0.7);
-      height: calc(100% + 2px);
-      z-index: 200;
-      box-shadow: 0 0 4px #ffc inset;
-      pointer-events: none;
-      transform: translate3d(-6px, -50%, 0);
-      mix-blend-mode: lighten;
-    }
-
-    .is-loading .seekBarPointer {
-      display: none !important;
-    }
-    
-    .is-dragging .seekBarPointer.is-notSmooth {
-      transition: none;
-    }
-
-    @keyframes seekBarPointerMove {
-      0%   { transform: translate3d(-6px, -50%, 0) translate3d(0, 0, 0); }
-      100% { transform: translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0); }
-    }
-
-    .videoControlBar .videoTime {
-      display: inline-flex;
-      top: 0;
-      padding: 0;
-      color: #fff;
-      font-size: 12px;
-      white-space: nowrap;
-      vertical-align: middle;
-      background: rgba(33, 33, 33, 0.5);
-      border: 0;
-      pointer-events: none;
-      user-select: none;
-    }
-    
-    .videoControlBar .videoTime .currentTime,
-    .videoControlBar .videoTime .duration {
-      display: inline-block;
-      color: #fff;
-      text-align: center;
-      background: inherit;
-      border: 0;
-      width: 44px;
-      font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
-    }
-
-    .videoControlBar.is-loading .videoTime {
-      display: none;
-    }
-
-    .seekBarContainer .tooltip {
-      position: absolute;
-      padding: 1px;
-      bottom: 12px;
-      left: 0;
-      transform: translate(-50%, 0);
-      white-space: nowrap;
-      font-size: 10px;
-      opacity: 0;
-      border: 1px solid #000;
-      background: #fff;
-      color: #000;
-      z-index: 150;
-    }
-
-    .is-dragging .seekBarContainer .tooltip,
-    .seekBarContainer:hover .tooltip {
-      opacity: 0.8;
-    }
-    
-    .resumePointer {
-      position: absolute;
-      mix-blend-mode: color-dodge;
-      top: 0;
-      z-index: 200;
-    }
-
-    .zenzaHeatMap {
-      position: absolute;
-      pointer-events: none;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      transform-origin: 0 0 0;
-      transform: translateZ(0);
-      opacity: 0.5;
-      z-index: 110;
-    }
-    .noHeatMap .zenzaHeatMap {
-      display: none;
-    }
-
-    .loopSwitch {
-      width:  32px;
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
-      color: #888;
-    }
-    .loopSwitch:active {
-      font-size: 15px;
-    }
-
-    .is-loop .loopSwitch {
-      color: var(--enabled-button-color);
-    }
-    .loopSwitch .controlButtonInner {
-      font-family: STIXGeneral;
-    }
-
-    .playbackRateMenu {
-      bottom: 0;
-      width: auto;
-      min-width: 40px;
-      height:    32px;
-      line-height: 30px;
-      font-size: 18px;
-      white-space: nowrap;
-      margin-right: 0;
-    }
-
-    .playbackRateMenu:active .controlButtonInner {
-      transform: translate(0, 2px);
-    }
-    .playbackRateMenu.show {
-      background: #888;
-    }
-    .playbackRateMenu.show .tooltip {
-      display: none;
-    }
-
-
-    .playbackRateSelectMenu {
-      bottom: 44px;
-      left: 50%;
-      transform: translate(-50%, 0);
-      width: 180px;
-      text-align: left;
-      line-height: 20px;
-      font-size: 18px !important;
-    }
-
-    .playbackRateSelectMenu ul {
-      margin: 2px 8px;
-    }
-
-    .playbackRateSelectMenu .triangle {
-      transform: translate(-50%, 0) rotate(-45deg);
-      bottom: -9px;
-      left: 50%;
-    }
-
-    .playbackRateSelectMenu li {
-      padding: 3px 4px;
-    }
-
-    .screenModeMenu {
-      width:  32px;
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
-    }
-    .screenModeMenu:active {
-      font-size: 15px;
-    }
-
-
-    .screenModeMenu.show {
-      background: #888;
-    }
-    .screenModeMenu.show .tooltip {
-      display: none;
-    }
-
-    .screenModeMenu:active {
-      font-size: 10px;
-    }
-
-
-    .fullScreen .screenModeMenu {
-      display: none;
-    }
-
-    .screenModeSelectMenu {
-      left: 50%;
-      transform: translate(-50%, 0);
-      bottom: 44px;
-      width: 148px;
-      padding: 2px 4px;
-      font-size: 12px;
-      line-height: 15px;
-    }
-
-    .changeScreenMode .screenModeSelectMenu,
-    .fullScreen       .screenModeSelectMenu {
-      display: none;
-    }
-
-    .screenModeSelectMenu .triangle {
-      transform: translate(-50%, 0) rotate(-45deg);
-      bottom: -8.5px;
-      left: 50%;
-    }
-
-    .screenModeSelectMenu ul li {
-      display: inline-block;
-      text-align: center;
-      border-bottom: none;
-      margin: 0;
-      padding: 0;
-    }
-    .screenModeSelectMenu ul li span {
-      border: 1px solid #ccc;
-      width: 50px;
-      margin: 2px 8px;
-      padding: 4px 0;
-    }
-
-    .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
-    .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
-    .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
-    .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
-    .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
-    .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
-      color: #ff9;
-      border-color: #ff0;
-    }
-
-
-             .fullScreen  .fullScreenSwitch .controlButtonInner .toFull,
-    body:not(.fullScreen) .fullScreenSwitch .controlButtonInner .returnFull {
-      display: none;
-    }
-
-
-    .videoControlBar .muteSwitch {
-      margin-right: 0;
-    }
-    .videoControlBar .muteSwitch:active {
-      font-size: 15px;
-    }
-
-    .zenzaPlayerContainer:not(.is-mute) .muteSwitch .mute-on,
-                              .is-mute  .muteSwitch .mute-off {
-      display: none;
-    }
-
-    .videoControlBar .volumeControl {
-      display: inline-block;
-      width: 64px;
-      height: 8px;
-      position: relative;
-      vertical-align: middle;
-      margin-right: 16px;
-      --back-color: #333;
-      --fore-color: #ccc;
-      background-color: var(--back-color);
-    }
-    .is-mute .videoControlBar .volumeControl  {
-      pointer-events: none;
-      background-image: unset !important;
-    }
-
-    .videoControlBar .volumeControl .tooltip {
-      display: none;
-      pointer-events: none;
-      position: absolute;
-      left: 6px;
-      top: -24px;
-      font-size: 12px;
-      line-height: 16px;
-      padding: 2px 4px;
-      border: 1px solid #000;
-      background: #ffc;
-      color: black;
-      text-shadow: none;
-      white-space: nowrap;
-      z-index: 100;
-    }
-    .videoControlBar .volumeControl:hover .tooltip {
-      display: block;
-    }
-
-
-    .prevVideo.playControl,
-    .nextVideo.playControl {
-      display: none;
-    }
-    .is-playlistEnable .prevVideo.playControl,
-    .is-playlistEnable .nextVideo.playControl {
-      display: inline-block;
-    }
-
-    .prevVideo,
-    .nextVideo {
-      font-size: 23px;
-    }
-    .prevVideo .controlButtonInner {
-      transform: scaleX(-1);
-    }
-
-    .toggleStoryboard {
-      visibility: hidden;
-      pointer-events: none;
-    }
-    .storyboardAvailable .toggleStoryboard {
-      visibility: visible;
-      pointer-events: auto;
-    }
-    .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
-      color: var(--enabled-button-color);
-    }
-
-    .toggleStoryboard .controlButtonInner {
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      top: 50%;
-      left: 50%;
-      border-radius: 75% 16%;
-      border: 1px solid;
-      transform: translate(-50%, -50%) rotate(45deg);
-      pointer-events: none;
-      background: 
-        radial-gradient(
-          currentColor,
-          currentColor 6px, 
-          transparent 0
-        );
-    }
-    .toggleStoryboard:active .controlButtonInner {
-      transform: translate(-50%, -50%) scaleY(0.1) rotate(45deg);
-    }
-
-    .toggleStoryboard:active {
-      transform: scale(0.75);
-    }
-
-
-
-    .videoServerTypeMenu {
-      bottom: 0;
-      min-width: 40px;
-      height:    32px;
-      line-height: 30px;
-      font-size: 16px;
-      white-space: nowrap;
-    }
-    .videoServerTypeMenu.is-dmc-playing  {
-      text-shadow:
-        0px 0px 8px var(--enabled-button-color), 
-        0px 0px 6px var(--enabled-button-color), 
-        0px 0px 4px var(--enabled-button-color),
-        0px 0px 2px var(--enabled-button-color);
-    }
-    .is-mouseMoving .videoServerTypeMenu.is-dmc-playing {
-      background: #336;
-    }
-    .is-youTube .videoServerTypeMenu {
-      text-shadow:
-        0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
-    }
-    .is-youTube .videoServerTypeMenu:not(.forYouTube),
-    .videoServerTypeMenu.forYouTube {
-      display: none;
-    }
-    .is-youTube .videoServerTypeMenu.forYouTube {
-      display: inline-block;
-    }
-
-
-    .videoServerTypeMenu:active {
-      font-size: 13px;
-    }
-    .videoServerTypeMenu.show {
-      background: #888;
-    }
-    .videoServerTypeMenu.show .tooltip {
-      display: none;
-    }
-
-
-    .videoServerTypeSelectMenu  {
-      bottom: 44px;
-      left: 50%;
-      transform: translate(-50%, 0);
-      width: 180px;
-      text-align: left;
-      line-height: 20px;
-      font-size: 16px !important;
-      text-shadow: none !important;
-      cursor: default;
-    }
-
-    .videoServerTypeSelectMenu ul {
-      margin: 2px 8px;
-    }
-
-    .videoServerTypeSelectMenu .triangle {
-      transform: translate(-50%, 0) rotate(-45deg);
-      bottom: -9px;
-      left: 50%;
-    }
-
-    .videoServerTypeSelectMenu li {
-      padding: 3px 4px;
-    }
-
-    .videoServerTypeSelectMenu li.selected {
-      pointer-events: none;
-      text-shadow: 0 0 4px #99f, 0 0 8px #99f !important;
-    }
-
-    .videoServerTypeSelectMenu .smileVideoQuality,
-    .videoServerTypeSelectMenu .dmcVideoQuality {
-      font-size: 80%;
-      padding-left: 28px;
-    }
-
-    .videoServerTypeSelectMenu .currentVideoQuality {
-      color: #ccf;
-      font-size: 80%;
-      text-align: center;
-    }
-
-    .videoServerTypeSelectMenu .dmcVideoQuality.selected     span:before,
-    .videoServerTypeSelectMenu .smileVideoQuality.selected   span:before {
-      left: 22px;
-      font-size: 80%;
-    }
-
-    .videoServerTypeSelectMenu .currentVideoQuality.selected   span:before {
-      display: none;
-    }
-
-    /* dmcを使用不能の時はdmc選択とdmc画質選択を薄く */
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc,
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality,
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
-      opacity: 0.4;
-      pointer-events: none;
-      text-shadow: none !important;
-    }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
-      display: none;
-    }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc span:before,
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality       span:before{
-      display: none !important;
-    }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType {
-      pointer-events: none;
-    }
-
-
-    /* dmcを使用している時はsmileの画質選択を薄く */
-    .is-dmc-playing .smileVideoQuality {
-      display: none;
-     }
-
-    /* dmcを選択していない状態ではdmcの画質選択を隠す */
-    .is-smile-playing .currentVideoQuality,
-    .is-smile-playing .dmcVideoQuality {
-      display: none;
-    }
-
-
-
-    @media screen and (max-width: 864px) {
-      .controlItemContainer.center {
-        left: 0%;
-        transform: translate(0, 0);
-      }
-    }
-
-    .ZenzaWatchVer {
-      display: none;
-    }
-    .ZenzaWatchVer[data-env="DEV"] {
-      display: inline-block;
-      color: #999;
-      position: absolute;
-      right: 0;
-      background: transparent !important;
-      transform: translate(100%, 0);
-      font-size: 12px;
-      line-height: 32px;
-      pointer-events: none;
-    }
-    
-    .progressWave {
-      display: none;
-    }
-    .is-stalled .progressWave,
-    .is-loading .progressWave {
-      display: inline-block;
-      position: absolute;
-      left: 0;
-      top: 1px;
-      z-index: 400;
-      width: 40%;
-      height: calc(100% - 2px);
-      background: linear-gradient(
-        to right,
-        rgba(0,0,0,0),
-        ${util.toRgba('#ffffcc', 0.3)},
-        rgba(0,0,0)
+util.addStyle(`
+  .videoControlBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    transform: translate3d(0, 0, 0);
+    width: 100vw;
+    height: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
+    z-index: 150000;
+    background: #000;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    user-select: none;
+    content: layout;
+  }
+
+  .videoControlBar * {
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+
+  .controlItemContainer {
+    position: absolute;
+    top: 10px;
+    height: 40px;
+    z-index: 200;
+  }
+
+  .controlItemContainer:hover,
+  .videoControlBar.is-menuOpen .controlItemContainer {
+    z-index: 260;
+  }
+
+  .controlItemContainer.left {
+    left: 0;
+    height: 40px;
+    white-space: nowrap;
+    overflow: visible;
+    transition: transform 0.2s ease, left 0.2s ease;
+  }
+  .controlItemContainer.left .scalingUI {
+    padding: 0 8px 0;
+  }
+  .controlItemContainer.left .scalingUI:empty {
+    display: none;
+  }
+  .controlItemContainer.left .scalingUI>* {
+    background: #222;
+    display: inline-block;
+  }
+  .fullScreen .controlItemContainer.left {
+    top: auto;
+    transform-origin: top left;
+  }
+
+
+  .controlItemContainer.center {
+    left: 50%;
+    height: 40px;
+    transform: translate(-50%, 0);
+    background:
+      linear-gradient(to bottom,
+      transparent, transparent 4px, #222 0, #222 30px, transparent 0, transparent);
+    white-space: nowrap;
+    overflow: visible;
+    transition: transform 0.2s ease, left 0.2s ease;
+  }
+
+  .controlItemContainer.center .scalingUI {
+    transform-origin: top center;
+  }
+
+  .controlItemContainer.right {
+    right: 0;
+  }
+
+  .is-mouseMoving .controlItemContainer.right .controlButton{
+    background: #333;
+  }
+  .controlItemContainer.right .scalingUI {
+    transform-origin: top right;
+  }
+
+
+  .controlButton {
+    position: relative;
+    display: inline-block;
+    transition: opacity 0.4s ease;
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    line-height: 30px;
+    box-sizing: border-box;
+    text-align: center;
+    cursor: pointer;
+    color: #fff;
+    opacity: 0.8;
+    margin-right: 8px;
+    min-width: 32px;
+    vertical-align: middle;      
+  }
+  .controlButton:hover {
+    cursor: pointer;
+    opacity: 1;
+  }
+  .controlButton:active .controlButtonInner {
+    transform: translate(0, 2px);
+  }
+
+  .is-abort   .playControl,
+  .is-error   .playControl,
+  .is-loading .playControl {
+    opacity: 0.4 !important;
+    pointer-events: none;
+  }
+
+
+  .controlButton .tooltip {
+    display: none;
+    pointer-events: none;
+    position: absolute;
+    left: 16px;
+    top: -30px;
+    transform:  translate(-50%, 0);
+    font-size: 12px;
+    line-height: 16px;
+    padding: 2px 4px;
+    border: 1px solid #000;
+    background: #ffc;
+    color: #000;
+    text-shadow: none;
+    white-space: nowrap;
+    z-index: 100;
+    opacity: 0.8;
+  }
+  .is-mouseMoving .controlButton:hover .tooltip {
+    display: block;
+    opacity: 1;
+  }
+  .videoControlBar:hover .controlButton {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .settingPanelSwitch {
+    width: 32px;
+  }
+  .settingPanelSwitch:hover {
+    text-shadow: 0 0 8px #ff9;
+  }
+  .settingPanelSwitch .tooltip {
+    left: 0;
+  }
+
+
+  .controlButtonInner {
+    display: inline-block;
+  }
+
+
+  .seekTop {
+    left: 0px;
+    width: 32px;
+    transform: scale(1.1);
+  }
+
+  .togglePlay {
+    width: 36px;
+    transition: transform 0.2s ease;
+    transform: scale(1.1);
+  }
+  .togglePlay:active {
+    transform: scale(0.75);
+  }
+
+  .togglePlay .play,
+  .togglePlay .pause {
+    display: inline-block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transition: transform 0.1s linear, opacity 0.1s linear;
+    user-select: none;
+    pointer-events: none;
+  }
+  .togglePlay .play {
+    width: 100%;
+    height: 100%;
+    transform: scale(1.2) translate(-50%, -50%) translate(10%, 10%);
+  }
+  .is-playing .togglePlay .play {
+    opacity: 0;
+  }
+  .togglePlay>.pause {
+    width: 24px;
+    height: 16px;
+    background-image: linear-gradient(
+      to right, 
+      transparent 0, transparent 12.5%, 
+      currentColor 0, currentColor 43.75%, 
+      transparent 0, transparent 56.25%, 
+      currentColor 0, currentColor 87.5%, 
+      transparent 0);
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  .is-playing .togglePlay>.pause {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  .seekBarContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    cursor: pointer;
+    z-index: 250;
+  }
+  .fullScreen .seekBarContainer {
+    top: auto;
+    bottom: 0;
+    z-index: 300;
+  }
+
+  /* 見えないマウス判定 */
+  .seekBarContainer .seekBarShadow {
+    position: absolute;
+    background: transparent;
+    opacity: 0;
+    width: 100vw;
+    height: 8px;
+    top: -8px;
+  }
+  .is-mouseMoving .seekBarContainer:hover .seekBarShadow {
+    height: 48px;
+    top: -48px;
+  }
+
+  .fullScreen .seekBarContainer:hover .seekBarShadow {
+    height: 14px;
+    top: -12px;
+  }
+
+  .is-abort   .seekBarContainer,
+  .is-loading .seekBarContainer,
+  .is-error   .seekBarContainer {
+    pointer-events: none;
+  }
+  .is-abort   .seekBarContainer *,
+  .is-error   .seekBarContainer * {
+    display: none;
+  }
+
+  .seekBar {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    margin: 2px 0 2px;
+    border-top:    1px solid #333;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: height 0.2s ease 1s, margin-top 0.2s ease 1s;
+  }
+
+  .seekBar:hover {
+    height: 24px;
+    /* このmargin-topは見えないマウスオーバー判定を含む */
+    margin-top: -14px;
+    transition: none;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .fullScreen .seekBar {
+    margin-top: 0px;
+    margin-bottom: -14px;
+    height: 24px;
+    transition: none;
+  }
+
+  .seekBarContainer .seekBar * {
+    pointer-events: none;
+  }
+
+  .bufferRange {
+    position: absolute;
+    width: 100%;
+    height: 110%;
+    left: 0px;
+    top: 0px;
+    box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
+    z-index: 190;
+    background: #ff9;
+    transform-origin: left;
+    transform: translate3d(0, 0, 0) scaleX(0);
+    transition: transform 0.2s;
+    mix-blend-mode: overlay;
+    opacity: 0.6;
+  }
+
+  .is-youTube .bufferRange {
+    width: 100% !important;
+    height: 110% !important;
+    background: #f99;
+    transition: transform 0.5s ease 1s;
+    transform: translate3d(0, 0, 0) scaleX(1) !important;
+  }
+
+  .seekBarPointer {
+    position: absolute;
+    display: inline-block;
+    top: 50%;
+    left: 0;
+    width: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    height: calc(100% + 2px);
+    z-index: 200;
+    box-shadow: 0 0 4px #ffc inset;
+    pointer-events: none;
+    transform: translate3d(-6px, -50%, 0);
+    mix-blend-mode: lighten;
+  }
+
+  .is-loading .seekBarPointer {
+    display: none !important;
+  }
+  
+  .is-dragging .seekBarPointer.is-notSmooth {
+    transition: none;
+  }
+
+  @keyframes seekBarPointerMove {
+    0%   { transform: translate3d(-6px, -50%, 0) translate3d(0, 0, 0); }
+    100% { transform: translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0); }
+  }
+
+  .videoControlBar .videoTime {
+    display: inline-flex;
+    top: 0;
+    padding: 0;
+    color: #fff;
+    font-size: 12px;
+    white-space: nowrap;
+    vertical-align: middle;
+    background: rgba(33, 33, 33, 0.5);
+    border: 0;
+    pointer-events: none;
+    user-select: none;
+  }
+  
+  .videoControlBar .videoTime .currentTime,
+  .videoControlBar .videoTime .duration {
+    display: inline-block;
+    color: #fff;
+    text-align: center;
+    background: inherit;
+    border: 0;
+    width: 44px;
+    font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
+  }
+
+  .videoControlBar.is-loading .videoTime {
+    display: none;
+  }
+
+  .seekBarContainer .tooltip {
+    position: absolute;
+    padding: 1px;
+    bottom: 12px;
+    left: 0;
+    transform: translate(-50%, 0);
+    white-space: nowrap;
+    font-size: 10px;
+    opacity: 0;
+    border: 1px solid #000;
+    background: #fff;
+    color: #000;
+    z-index: 150;
+  }
+
+  .is-dragging .seekBarContainer .tooltip,
+  .seekBarContainer:hover .tooltip {
+    opacity: 0.8;
+  }
+  
+  .resumePointer {
+    position: absolute;
+    mix-blend-mode: color-dodge;
+    top: 0;
+    z-index: 200;
+  }
+
+  .zenzaHeatMap {
+    position: absolute;
+    pointer-events: none;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0 0;
+    transform: translateZ(0);
+    opacity: 0.5;
+    z-index: 110;
+  }
+  .noHeatMap .zenzaHeatMap {
+    display: none;
+  }
+
+  .loopSwitch {
+    width:  32px;
+    height: 32px;
+    line-height: 30px;
+    font-size: 20px;
+    color: #888;
+  }
+  .loopSwitch:active {
+    font-size: 15px;
+  }
+
+  .is-loop .loopSwitch {
+    color: var(--enabled-button-color);
+  }
+  .loopSwitch .controlButtonInner {
+    font-family: STIXGeneral;
+  }
+
+  .playbackRateMenu {
+    bottom: 0;
+    width: auto;
+    min-width: 40px;
+    height:    32px;
+    line-height: 30px;
+    font-size: 18px;
+    white-space: nowrap;
+    margin-right: 0;
+  }
+
+  .playbackRateMenu:active .controlButtonInner {
+    transform: translate(0, 2px);
+  }
+  .playbackRateMenu.show {
+    background: #888;
+  }
+  .playbackRateMenu.show .tooltip {
+    display: none;
+  }
+
+
+  .playbackRateSelectMenu {
+    bottom: 44px;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: 180px;
+    text-align: left;
+    line-height: 20px;
+    font-size: 18px !important;
+  }
+
+  .playbackRateSelectMenu ul {
+    margin: 2px 8px;
+  }
+
+  .playbackRateSelectMenu .triangle {
+    transform: translate(-50%, 0) rotate(-45deg);
+    bottom: -9px;
+    left: 50%;
+  }
+
+  .playbackRateSelectMenu li {
+    padding: 3px 4px;
+  }
+
+  .screenModeMenu {
+    width:  32px;
+    height: 32px;
+    line-height: 30px;
+    font-size: 20px;
+  }
+  .screenModeMenu:active {
+    font-size: 15px;
+  }
+
+
+  .screenModeMenu.show {
+    background: #888;
+  }
+  .screenModeMenu.show .tooltip {
+    display: none;
+  }
+
+  .screenModeMenu:active {
+    font-size: 10px;
+  }
+
+
+  .fullScreen .screenModeMenu {
+    display: none;
+  }
+
+  .screenModeSelectMenu {
+    left: 50%;
+    transform: translate(-50%, 0);
+    bottom: 44px;
+    width: 148px;
+    padding: 2px 4px;
+    font-size: 12px;
+    line-height: 15px;
+  }
+
+  .changeScreenMode .screenModeSelectMenu,
+  .fullScreen       .screenModeSelectMenu {
+    display: none;
+  }
+
+  .screenModeSelectMenu .triangle {
+    transform: translate(-50%, 0) rotate(-45deg);
+    bottom: -8.5px;
+    left: 50%;
+  }
+
+  .screenModeSelectMenu ul li {
+    display: inline-block;
+    text-align: center;
+    border-bottom: none;
+    margin: 0;
+    padding: 0;
+  }
+  .screenModeSelectMenu ul li span {
+    border: 1px solid #ccc;
+    width: 50px;
+    margin: 2px 8px;
+    padding: 4px 0;
+  }
+
+  .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
+  .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
+  .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
+  .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
+  .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
+  .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
+    color: #ff9;
+    border-color: #ff0;
+  }
+
+
+           .fullScreen  .fullScreenSwitch .controlButtonInner .toFull,
+  body:not(.fullScreen) .fullScreenSwitch .controlButtonInner .returnFull {
+    display: none;
+  }
+
+
+  .videoControlBar .muteSwitch {
+    margin-right: 0;
+  }
+  .videoControlBar .muteSwitch:active {
+    font-size: 15px;
+  }
+
+  .zenzaPlayerContainer:not(.is-mute) .muteSwitch .mute-on,
+                            .is-mute  .muteSwitch .mute-off {
+    display: none;
+  }
+
+  .videoControlBar .volumeControl {
+    display: inline-block;
+    width: 64px;
+    height: 8px;
+    position: relative;
+    vertical-align: middle;
+    margin-right: 16px;
+    --back-color: #333;
+    --fore-color: #ccc;
+    background-color: var(--back-color);
+  }
+  .is-mute .videoControlBar .volumeControl  {
+    pointer-events: none;
+    background-image: unset !important;
+  }
+
+  .videoControlBar .volumeControl .tooltip {
+    display: none;
+    pointer-events: none;
+    position: absolute;
+    left: 6px;
+    top: -24px;
+    font-size: 12px;
+    line-height: 16px;
+    padding: 2px 4px;
+    border: 1px solid #000;
+    background: #ffc;
+    color: black;
+    text-shadow: none;
+    white-space: nowrap;
+    z-index: 100;
+  }
+  .videoControlBar .volumeControl:hover .tooltip {
+    display: block;
+  }
+
+
+  .prevVideo.playControl,
+  .nextVideo.playControl {
+    display: none;
+  }
+  .is-playlistEnable .prevVideo.playControl,
+  .is-playlistEnable .nextVideo.playControl {
+    display: inline-block;
+  }
+
+  .prevVideo,
+  .nextVideo {
+    font-size: 23px;
+  }
+  .prevVideo .controlButtonInner {
+    transform: scaleX(-1);
+  }
+
+  .toggleStoryboard {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .storyboardAvailable .toggleStoryboard {
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
+    color: var(--enabled-button-color);
+  }
+
+  .toggleStoryboard .controlButtonInner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    border-radius: 75% 16%;
+    border: 1px solid;
+    transform: translate(-50%, -50%) rotate(45deg);
+    pointer-events: none;
+    background: 
+      radial-gradient(
+        currentColor,
+        currentColor 6px, 
+        transparent 0
       );
-      mix-blend-mode: lighten;
-      animation-name: progressWave;
-      animation-iteration-count: infinite;
-      animation-duration: 4s;
-      animation-timing-function: linear;
-      animation-delay: -1s;
-    }
-    @keyframes progressWave {
-      0%   { transform: translate3d(-100%, 0, 0) translate3d(-5vw, 0, 0); }
-      100% { transform: translate3d(100%, 0, 0) translate3d(150vw, 0, 0); }
-    }
-    .is-seeking .progressWave {
-      display: none;
-    }
+  }
+  .toggleStoryboard:active .controlButtonInner {
+    transform: translate(-50%, -50%) scaleY(0.1) rotate(45deg);
+  }
 
-  `).trim();
+  .toggleStoryboard:active {
+    transform: scale(0.75);
+  }
+
+  .videoServerTypeMenu {
+    bottom: 0;
+    min-width: 40px;
+    height:    32px;
+    line-height: 30px;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  .videoServerTypeMenu.is-dmc-playing  {
+    text-shadow:
+      0px 0px 8px var(--enabled-button-color), 
+      0px 0px 6px var(--enabled-button-color), 
+      0px 0px 4px var(--enabled-button-color),
+      0px 0px 2px var(--enabled-button-color);
+  }
+  .is-mouseMoving .videoServerTypeMenu.is-dmc-playing {
+    background: #336;
+  }
+  .is-youTube .videoServerTypeMenu {
+    text-shadow:
+      0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
+  }
+  .is-youTube .videoServerTypeMenu:not(.forYouTube),
+  .videoServerTypeMenu.forYouTube {
+    display: none;
+  }
+  .is-youTube .videoServerTypeMenu.forYouTube {
+    display: inline-block;
+  }
+
+
+  .videoServerTypeMenu:active {
+    font-size: 13px;
+  }
+  .videoServerTypeMenu.show {
+    background: #888;
+  }
+  .videoServerTypeMenu.show .tooltip {
+    display: none;
+  }
+
+
+  .videoServerTypeSelectMenu  {
+    bottom: 44px;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: 180px;
+    text-align: left;
+    line-height: 20px;
+    font-size: 16px !important;
+    text-shadow: none !important;
+    cursor: default;
+  }
+
+  .videoServerTypeSelectMenu ul {
+    margin: 2px 8px;
+  }
+
+  .videoServerTypeSelectMenu .triangle {
+    transform: translate(-50%, 0) rotate(-45deg);
+    bottom: -9px;
+    left: 50%;
+  }
+
+  .videoServerTypeSelectMenu li {
+    padding: 3px 4px;
+  }
+
+  .videoServerTypeSelectMenu li.selected {
+    pointer-events: none;
+    text-shadow: 0 0 4px #99f, 0 0 8px #99f !important;
+  }
+
+  .videoServerTypeSelectMenu .smileVideoQuality,
+  .videoServerTypeSelectMenu .dmcVideoQuality {
+    font-size: 80%;
+    padding-left: 28px;
+  }
+
+  .videoServerTypeSelectMenu .currentVideoQuality {
+    color: #ccf;
+    font-size: 80%;
+    text-align: center;
+  }
+
+  .videoServerTypeSelectMenu .dmcVideoQuality.selected     span:before,
+  .videoServerTypeSelectMenu .smileVideoQuality.selected   span:before {
+    left: 22px;
+    font-size: 80%;
+  }
+
+  .videoServerTypeSelectMenu .currentVideoQuality.selected   span:before {
+    display: none;
+  }
+
+  /* dmcを使用不能の時はdmc選択とdmc画質選択を薄く */
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc,
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality,
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
+    opacity: 0.4;
+    pointer-events: none;
+    text-shadow: none !important;
+  }
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
+    display: none;
+  }
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc span:before,
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality       span:before{
+    display: none !important;
+  }
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType {
+    pointer-events: none;
+  }
+
+
+  /* dmcを使用している時はsmileの画質選択を薄く */
+  .is-dmc-playing .smileVideoQuality {
+    display: none;
+   }
+
+  /* dmcを選択していない状態ではdmcの画質選択を隠す */
+  .is-smile-playing .currentVideoQuality,
+  .is-smile-playing .dmcVideoQuality {
+    display: none;
+  }
+
+
+
+  @media screen and (max-width: 864px) {
+    .controlItemContainer.center {
+      left: 0%;
+      transform: translate(0, 0);
+    }
+  }
+
+  .ZenzaWatchVer {
+    display: none;
+  }
+  .ZenzaWatchVer[data-env="DEV"] {
+    display: inline-block;
+    color: #999;
+    position: absolute;
+    right: 0;
+    background: transparent !important;
+    transform: translate(100%, 0);
+    font-size: 12px;
+    line-height: 32px;
+    pointer-events: none;
+  }
+  
+  .progressWave {
+    display: none;
+  }
+  .is-stalled .progressWave,
+  .is-loading .progressWave {
+    display: inline-block;
+    position: absolute;
+    left: 0;
+    top: 1px;
+    z-index: 400;
+    width: 40%;
+    height: calc(100% - 2px);
+    background: linear-gradient(
+      to right,
+      rgba(0,0,0,0),
+      ${util.toRgba('#ffffcc', 0.3)},
+      rgba(0,0,0)
+    );
+    mix-blend-mode: lighten;
+    animation-name: progressWave;
+    animation-iteration-count: infinite;
+    animation-duration: 4s;
+    animation-timing-function: linear;
+    animation-delay: -1s;
+  }
+  @keyframes progressWave {
+    0%   { transform: translate3d(-100%, 0, 0) translate3d(-5vw, 0, 0); }
+    100% { transform: translate3d(100%, 0, 0) translate3d(150vw, 0, 0); }
+  }
+  .is-seeking .progressWave {
+    display: none;
+  }
+
+
+`, {className: 'videoControlBar'});
+util.addStyle(`
+  .videoControlBar {
+    width: 100% !important; /* 100vwだと縦スクロールバーと被る */
+  }
+`, {className: 'screenMode for-popup videoControlBar', disabled: true});
+util.addStyle(`
+  body .videoControlBar {
+    position: absolute !important; /* firefoxのバグ対策 */
+    opacity: 0;
+    background: none;
+  }
+
+  .volumeChanging .videoControlBar,
+  .is-mouseMoving .videoControlBar {
+    opacity: 0.7;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .showVideoControlBar .videoControlBar {
+    opacity: 1 !important;
+    background: #000 !important;
+  }
+
+  .videoControlBar.is-dragging,
+  .videoControlBar:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.9);
+  }
+  
+  .fullScreen .controlItemContainer.center {
+    top: auto;
+  }
+  .fullScreen.zenzaStoryboardOpen .controlItemContainer.center {
+    background: transparent;
+  }
+  .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
+    background: rgba(32, 32, 32, 0.5);
+  }
+  .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
+    background: rgba(32, 32, 32, 0.8);
+  }
+  .fullScreen .controlItemContainer.right {
+    top: auto;
+  }
+
+`, {className: 'screenMode for-full videoControlBar', disabled: true});
 
   VideoControlBar.__tpl__ = (`
     <div class="videoControlBar" data-command="nop">
@@ -1103,7 +1096,6 @@ import {Emitter} from './baselib';
       ZenzaWatch.debug.videoControlBar = this;
     },
     _initializeDom: function() {
-      util.addStyle(VideoControlBar.__css__);
       let $view = this._$view = $(VideoControlBar.__tpl__);
       let $container = this._$playerContainer;
       let config = this._playerConfig;
