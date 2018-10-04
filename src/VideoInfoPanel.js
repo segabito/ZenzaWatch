@@ -825,7 +825,7 @@ _.assign(VideoInfoPanel.prototype, {
       $watchLink.append(buttons);
     };
     const seekTime = seek => {
-      let [min, sec] = (seek.dataset.seekTime || '0:0').split(':');
+      let [min, sec] = (seek.dataset.seektime || '0:0').split(':');
       Object.assign(seek.dataset, {command: 'seek', type: 'number', param: min * 60 + sec * 1});
     };
     const mylistLink = link => {
@@ -2196,7 +2196,7 @@ class UaaView extends BaseViewComponent {
       Object.assign(df.dataset, { command: 'seek', type: 'number', param: sec });
       contact.setAttribute('title', `${data.message}(${util.secToTime(sec)})`);
 
-      new Sleep(sleepTime).then(() => this._props.videoInfo.getCurrentVideo())
+      this._props.videoInfo.getCurrentVideo()
         .then(url => util.videoCapture(url, sec))
         .then(screenshot => {
         const cv = document.createElement('canvas');
