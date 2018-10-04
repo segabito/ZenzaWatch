@@ -211,385 +211,197 @@ class NicoVideoPlayerDialogView extends Emitter {
     this.initialize(...args);
   }
 }
-NicoVideoPlayerDialogView.__css__ = `
 
-    /*
-      プレイヤーが動いてる間、裏の余計な物のマウスイベントを無効化
-      多少軽量化が期待できる？
-    */
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_big >*:not(.zenzaVideoPlayerDialog),
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal >*:not(.zenzaVideoPlayerDialog),
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide >*:not(.zenzaVideoPlayerDialog),
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D >*:not(.zenzaVideoPlayerDialog) {
-      pointer-events: none;
-      user-select: none;
-      animation-play-state: paused !important;
-    }
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_big>#js-app *,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal>#js-app *,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide>#js-app *,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D>#js-app  *{
-      animation-play-state: paused !important;
-    }
+util.addStyle(`
+  .zenzaPlayerContainer {
+    left: 0 !important;
+    top:  0 !important;
+    width:  100vw !important;
+    height: 100vh !important;
+    contain: size layout;
+  }
 
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_big .ZenButton,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_normal .ZenButton,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_wide .ZenButton,
-    body.showNicoVideoPlayerDialog.zenzaScreenMode_3D  .ZenButton {
-      display: none;
-    }
+  .videoPlayer,
+  .commentLayerFrame {
+    top:  0 !important;
+    left: 0 !important;
+    width:  100vw !important;
+    height: 100vh !important;
+    right:  0 !important;
+    bottom: 0 !important;
+    border: 0 !important;
+    z-index: 100 !important;
+    contain: layout style size paint;
+  }
 
-    body.showNicoVideoPlayerDialog .ads {
-      display: none !important;
-      pointer-events: none;
-      animation-play-state: paused !important;
-    }
+  .commentLayerFrame {
+    transition:
+      width 0.5s linear steps(1, start) 0.5s,
+      height 0.5s linear steps(1, start) 0.5s;
+  }
+  
+  .is-open .videoPlayer>* {
+    cursor: none;
+  }
 
-    /* 大百科の奴 */
-    body.showNicoVideoPlayerDialog #scrollUp {
-      display: none !important;
-    }
+  .showVideoControlBar .videoPlayer,
+  .showVideoControlBar .commentLayerFrame {
+    top:  0 !important;
+    left: 0 !important;
+    width:  100% !important;
+    height: calc(100% - ${CONSTANT.CONTROL_BAR_HEIGHT}px) !important;
+    right:  0 !important;
+    bottom: ${CONSTANT.CONTROL_BAR_HEIGHT}px !important;
+    border: 0 !important;
+  }
 
-    .changeScreenMode {
-      pointer-events: none;
-    }
+  .zenzaStoryboardOpen .showVideoControlBar .videoPlayer,
+  .zenzaStoryboardOpen .showVideoControlBar .commentLayerFrame {
+    padding-bottom: 80px;
+  }
 
-    .zenzaVideoPlayerDialog {
-      display: none;
-      position: fixed;
-      background: rgba(0, 0, 0, 0.8);
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: ${CONSTANT.BASE_Z_INDEX};
-      font-size: 13px;
-      text-align: left;
-      box-sizing: border-box;
-      contain: layout;
-    }
+  .zenzaStoryboardOpen.fullScreen .showVideoControlBar .videoPlayer,
+  .zenzaStoryboardOpen.fullScreen .showVideoControlBar .commentLayerFrame {
+    padding-bottom: 50px;
+  }
 
-    .is-regularUser  .forPremium {
-      display: none !important;
-    }
+  .showVideoControlBar .videoPlayer {
+    z-index: 100 !important;
+  }
 
-    .forDmc {
-      display: none;
-    }
+  .showVideoControlBar .commentLayerFrame {
+    z-index: 101 !important;
+  }
 
-    .is-dmcPlaying .forDmc {
-      display: inherit;
-    }
+  .is-showComment.is-backComment .videoPlayer
+  {
+    top:  25% !important;
+    left: 25% !important;
+    width:  50% !important;
+    height: 50% !important;
+    right:  0 !important;
+    bottom: 0 !important;
+    border: 0 !important;
+    z-index: 102 !important;
+  }
 
-    .zenzaVideoPlayerDialog * {
-      box-sizing: border-box;
-    }
+  .zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
+    transform: perspective(700px) rotateX(10deg);
+    margin-top: -5%;
+  }
 
-    .zenzaVideoPlayerDialog.is-open {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
+  .zenzaScreenMode_3D   .zenzaPlayerContainer,
+  .zenzaScreenMode_wide .zenzaPlayerContainer {
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    box-shadow: none;
+  }
 
-    .zenzaVideoPlayerDialog li {
-      text-align: left;
-    }
+  .zenzaScreenMode_wide  .is-backComment .videoPlayer {
+    left: 25%;
+    top:  25%;
+    width:  50%;
+    height: 50%;
+    z-index: 102;
+  }
+  
+  .zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
+    transform: perspective(600px) rotateX(10deg);
+    height: 100%;
+  }
 
-    .zenzaScreenMode_3D       .zenzaVideoPlayerDialog,
-    .zenzaScreenMode_sideView .zenzaVideoPlayerDialog,
-    .zenzaScreenMode_small    .zenzaVideoPlayerDialog,
-    .fullScreen .zenzaVideoPlayerDialog {
-      transition: none !important;
-    }
+  .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
+    transform: translateZ(0) perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
+    opacity: 0.9;
+    height: 100%;
+    margin-left: 20%;
+  }
 
-    .zenzaVideoPlayerDialogInner {
-      background: #000;
-      box-sizing: border-box;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 1};
-      box-shadow: 4px 4px 4px #000;
-    }
-    .zenzaScreenMode_3D       .zenzaVideoPlayerDialogInner,
-    .zenzaScreenMode_sideView .zenzaVideoPlayerDialogInner,
-    .zenzaScreenMode_small    .zenzaVideoPlayerDialogInner,
-    .fullScreen .zenzaVideoPlayerDialogInner {
-      transition: none !important;
-    }
-
-    .noVideoInfoPanel .zenzaVideoPlayerDialogInner {
-      padding-right: 0 !important;
-      padding-bottom: 0 !important;
-    }
-
-    .zenzaPlayerContainer {
-      position: relative;
-      background: #000;
-      width: 672px;
-      height: 384px;
-      background-size: cover;
-      background-repeat: no-repeat;
-      background-position: center center;
-    }
-    .zenzaPlayerContainer.is-loading {
-      cursor: wait;
-    }
-    .zenzaPlayerContainer:not(.is-loading):not(.is-error) {
-      background-image: none !important;
-      background: #000 !important;
-    }
-    .zenzaPlayerContainer.is-loading .videoPlayer,
-    .zenzaPlayerContainer.is-loading .commentLayerFrame,
-    .zenzaPlayerContainer.is-error .videoPlayer,
-    .zenzaPlayerContainer.is-error .commentLayerFrame {
-      display: none;
-    }
-
-    .zenzaPlayerContainer .videoPlayer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      right: 0;
-      bottom: 0;
-      height: 100%;
-      border: 0;
-      z-index: 100;
-      background: #000;
-      will-change: transform, opacity;
-      user-select: none;
-      contain: paint;
-    }
-
-    .zenzaScreenMode_3D   .zenzaPlayerContainer:not(.is-mouseMoving) .videoPlayer>*,
-    .zenzaScreenMode_wide .zenzaPlayerContainer:not(.is-mouseMoving) .videoPlayer>*,
-    .fullScreen           .zenzaPlayerContainer:not(.is-mouseMoving) .videoPlayer>* {
-      cursor: none;
-    }
-
-    .zenzaPlayerContainer.is-loading .videoPlayer>* {
-      cursor: wait;
-    }
-
-    .is-mouseMoving .videoPlayer>* {
-      cursor: auto;
-    }
+`, {className: 'screenMode for-full', disabled: true});
 
 
-    .zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
-      transform: perspective(600px) rotateX(10deg);
-      height: 100%;
-    }
+util.addStyle(`
+  body #zenzaVideoPlayerDialog {
+    contain: style layout size;
+  }
+  body.zenzaScreenMode_sideView {
+    margin-left: ${CONSTANT.SIDE_PLAYER_WIDTH + 24}px;
+    margin-top: 76px;
 
-    .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
-      transform: translateZ(0) perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
-      opacity: 0.9;
-      height: 100%;
-      margin-left: 20%;
-    }
+    width: auto;
+  }
+  body.zenzaScreenMode_sideView.nofix:not(.fullScreen) {
+    margin-top: 40px;
+  }
+  body.zenzaScreenMode_sideView:not(.nofix) #siteHeader {
+    margin-left: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
+    width: auto;
+    top: 40px;
+  }
+  body.zenzaScreenMode_sideView:not(.nofix) #siteHeader #siteHeaderInner {
+    width: auto;
+  }
 
+ .zenzaScreenMode_sideView .zenzaVideoPlayerDialog.is-open,
+ .zenzaScreenMode_small .zenzaVideoPlayerDialog.is-open {
+    display: block;
+    top: 0; left: 0; right: 100%; bottom: 100%;
+  }
+    
+  .zenzaScreenMode_sideView .zenzaPlayerContainer,
+  .zenzaScreenMode_small .zenzaPlayerContainer {
+    width: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
+    height: ${CONSTANT.SIDE_PLAYER_HEIGHT}px;
+  }
 
-    .zenzaPlayerContainer .commentLayerFrame {
-      position: absolute;
-      border: 0;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 101;
-      pointer-events: none;
-      cursor: none;
-      user-select: none;
-      contain: paint;
-    }
+  .is-open .zenzaVideoPlayerDialog {
+    contain: layout style size;
+  }
 
-    .zenzaPlayerContainer.is-backComment .commentLayerFrame,
-    .zenzaPlayerContainer.is-backComment .commentLayerFrame,
-    .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-      position: fixed;
-      top:  0;
-      left: 0;
-      width:  100vw;
-      height: calc(100vh - 40px);
-      right: auto;
-      bottom: auto;
-      z-index: 1;
-    }
+  .zenzaVideoPlayerDialogInner {
+    top: 0;
+    left: 0;
+    transform: none;
+  }
+  
 
-    .fullScreen .videoPlayer,
-    .fullScreen .commentLayerFrame {
-      top:  0 !important;
-      left: 0 !important;
-      width:  100vw !important;
-      height: 100vh !important;
-      right:  0 !important;
-      bottom: 0 !important;
-      border: 0 !important;
-      z-index: 100 !important;
-    }
-
-    .zenzaScreenMode_3D   .showVideoControlBar .videoPlayer,
-    .zenzaScreenMode_3D   .showVideoControlBar .commentLayerFrame,
-    .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
-    .zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
-    .fullScreen           .showVideoControlBar .videoPlayer,
-    .fullScreen           .showVideoControlBar .commentLayerFrame {
-      top:  0 !important;
-      left: 0 !important;
-      width:  100% !important;
-      height: calc(100% - ${CONSTANT.CONTROL_BAR_HEIGHT}px) !important;
-      right:  0 !important;
-      bottom: ${CONSTANT.CONTROL_BAR_HEIGHT}px !important;
-      border: 0 !important;
-    }
-
-    .zenzaStoryboardOpen.fullScreen .showVideoControlBar .videoPlayer,
-    .zenzaStoryboardOpen.fullScreen .showVideoControlBar .commentLayerFrame {
-      padding-bottom: 50px;
-    }
-
-    .zenzaStoryboardOpen.zenzaScreenMode_3D .showVideoControlBar .videoPlayer,
-    .zenzaStoryboardOpen.zenzaScreenMode_3D .showVideoControlBar .commentLayerFrame,
-    .zenzaStoryboardOpen.zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
-    .zenzaStoryboardOpen.zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame{
-      padding-bottom: 80px;
-    }
-
-    .zenzaScreenMode_3D   .showVideoControlBar .videoPlayer,
-    .zenzaScreenMode_wide .showVideoControlBar .videoPlayer,
-    .fullScreen           .showVideoControlBar .videoPlayer {
-      z-index: 100 !important;
-    }
-    .zenzaScreenMode_3D   .showVideoControlBar .commentLayerFrame,
-    .zenzaScreenMode_wide .showVideoControlBar .commentLayerFrame,
-    .fullScreen           .showVideoControlBar .commentLayerFrame {
-      z-index: 101 !important;
-    }
-
-
-    .zenzaScreenMode_3D   .is-showComment.is-backComment .videoPlayer,
-    .zenzaScreenMode_wide .is-showComment.is-backComment .videoPlayer,
-    .fullScreen           .is-showComment.is-backComment .videoPlayer
-    {
-      top:  25% !important;
-      left: 25% !important;
-      width:  50% !important;
-      height: 50% !important;
-      right:  0 !important;
-      bottom: 0 !important;
-      border: 0 !important;
-      z-index: 102 !important;
-    }
-
-    .fullScreen .zenzaPlayerContainer {
-      left: 0 !important;
-      top:  0 !important;
-      width:  100vw !important;
-      height: 100vh !important;
-    }
-
-    .is-showComment.is-backComment .videoPlayer {
-      opacity: 0.90;
-    }
-
-    .is-showComment.is-backComment .videoPlayer:hover {
-      opacity: 1;
-    }
-
-
-    .fullScreen.zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
-      transform: perspective(700px) rotateX(10deg);
-      margin-top: -5%;
-    }
-
+  @media (min-width: 1432px)
+  {
     body.zenzaScreenMode_sideView {
-      margin-left: ${CONSTANT.SIDE_PLAYER_WIDTH + 24}px;
-      margin-top: 76px;
-
-      width: auto;
-    }
-    body.zenzaScreenMode_sideView.nofix:not(.fullScreen) {
-      margin-top: 40px;
+      margin-left: calc(100vw - 1024px);
     }
     body.zenzaScreenMode_sideView:not(.nofix) #siteHeader {
-      margin-left: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
-      width: auto;
-      top: 40px;
+      width: calc(100vw - (100vw - 1024px));
+      margin-left: calc(100vw - 1024px);
     }
-    body.zenzaScreenMode_sideView:not(.nofix) #siteHeader #siteHeaderInner {
-      width: auto;
-    }
-
-    body.zenzaScreenMode_normal,
-    body.zenzaScreenMode_big,
-    body.zenzaScreenMode_3D,
-    body.zenzaScreenMode_wide {
-      overflow: hidden !important;
-    }
-
-    .zenzaScreenMode_small .zenzaVideoPlayerDialog,
-    .zenzaScreenMode_sideView .zenzaVideoPlayerDialog {
-      display: block;
-      position: fixed;
-      top: 0; left: 0; right: 100%; bottom: 100%;
-    }
-
-    .zenzaScreenMode_small .zenzaPlayerContainer,
     .zenzaScreenMode_sideView .zenzaPlayerContainer {
-      width: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
-      height: ${CONSTANT.SIDE_PLAYER_HEIGHT}px;
+      width: calc(100vw - 1024px);
+      height: calc((100vw - 1024px) * 9 / 16);
     }
+  }
+`, {className: 'screenMode for-popup', disabled: true});
 
-    .zenzaScreenMode_small .zenzaVideoPlayerDialogInner,
-    .zenzaScreenMode_sideView .zenzaVideoPlayerDialogInner {
-      top: 0;
-      left: 0;
-      transform: none;
-    }
+util.addStyle(`
 
-
-    body:not(.fullScreen).zenzaScreenMode_normal .zenzaPlayerContainer .videoPlayer {
-      left: 2.38%;
-      width: 95.23%;
-    }
-
-    .zenzaScreenMode_big .zenzaPlayerContainer {
-      width: ${CONSTANT.BIG_PLAYER_WIDTH}px;
-      height: ${CONSTANT.BIG_PLAYER_HEIGHT}px;
-    }
-
-    .zenzaScreenMode_3D   .zenzaPlayerContainer,
-    .zenzaScreenMode_wide .zenzaPlayerContainer {
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      box-shadow: none;
-    }
-
-    .zenzaScreenMode_small .videoPlayer,
-    .zenzaScreenMode_3D    .videoPlayer,
-    .zenzaScreenMode_wide  .videoPlayer {
-      left: 0;
-      width: 100%;
-    }
-
-    .zenzaScreenMode_wide  .is-backComment .videoPlayer {
-      left: 25%;
-      top:  25%;
-      width:  50%;
-      height: 50%;
-      z-index: 102;
-    }
+  .zenzaScreenMode_normal .zenzaPlayerContainer .videoPlayer {
+    left: 2.38%;
+    width: 95.23%;
+  }
+  .zenzaScreenMode_big .zenzaPlayerContainer {
+    width: ${CONSTANT.BIG_PLAYER_WIDTH}px;
+    height: ${CONSTANT.BIG_PLAYER_HEIGHT}px;
+  }
 
     /* 右パネル分の幅がある時は右パネルを出す */
-    @media screen and (min-width: 992px) {
+    @media (min-width: 992px) {
       .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
         padding-right: ${CONSTANT.RIGHT_PANEL_WIDTH}px;
         background: none;
       }
     }
 
-    @media screen and (min-width: 1216px) {
+    @media (min-width: 1216px) {
       .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
         padding-right: ${CONSTANT.RIGHT_PANEL_WIDTH}px;
         background: none;
@@ -598,7 +410,6 @@ NicoVideoPlayerDialogView.__css__ = `
 
     /* 縦長モニター */
     @media
-      screen and
       (max-width: 991px) and (min-height: 700px)
     {
       .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
@@ -608,7 +419,6 @@ NicoVideoPlayerDialogView.__css__ = `
     }
 
     @media
-      screen and
       (max-width: 1215px) and (min-height: 700px)
     {
       .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
@@ -1008,9 +818,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     this.removeClass('volumeChanging');
   },
   _onScreenModeChange: function () {
-    this.addClass('changeScreenMode');
     this._applyScreenMode();
-    window.setTimeout(() => this.removeClass('changeScreenMode'), 1000);
   },
   _getStateClassNameTable: function () {
     return { // TODO: テーブルなくても対応できるようにcss名を整理
@@ -1101,6 +909,40 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     const body = this._$body;
     const modes = this._getScreenModeClassNameTable();
     modes.forEach(m => body.toggleClass(m, m === screenMode));
+    this._updateScreenModeStyle();
+  },
+  _updateScreenModeStyle: function() {
+    if (!this._state.isOpen) {
+      util.StyleSwitcher.update({off: 'style.screenMode'});
+      return;
+    }
+    if (FullScreen.now()) {
+      util.StyleSwitcher.update({
+        on: 'style.screenMode.for-full',
+        off: 'style.screenMode:not(.for-full)'
+      });
+      return;
+    }
+    let on, off;
+    switch (this._state.screenMode) {
+      case '3D':
+      case 'wide':
+        on = 'style.screenMode.for-full';
+        off = 'style.screenMode:not(.for-full)';
+        break;
+      default:
+      case 'normal':
+      case 'big':
+        on = 'style.screenMode.for-dialog, style.screenMode.for-big, style.screenMode.for-normal';
+        off = 'style.screenMode:not(.for-dialog):not(.for-big):not(.for-normal)';
+        break;
+      case 'small':
+      case 'sideView':
+        on = 'style.screenMode.for-popup, style.screenMode.for-sideView, .style.screenMode.for-small';
+        off = 'style.screenMode:not(.for-popup):not(.for-sideView):not(.for-small)';
+        break;
+    }
+    util.StyleSwitcher.update({on, off});
   },
   show: function () {
     this._$dialog.addClass('is-open');
@@ -1108,11 +950,14 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       document.body.classList.remove('fullScreen');
     }
     this._$body.addClass('showNicoVideoPlayerDialog');
+    util.StyleSwitcher.update({on: 'style.zenza-open'});
+    this._updateScreenModeStyle();
   },
   hide: function () {
     this._$dialog.removeClass('is-open');
     this._settingPanel.hide();
     this._$body.removeClass('showNicoVideoPlayerDialog');
+    util.StyleSwitcher.update({off: 'style.zenza-open, style.screenMode'});
     this._clearClass();
   },
   _clearClass: function () {
@@ -2621,18 +2466,6 @@ class VideoHoverMenu {
   }
 }
 VideoHoverMenu.__css__ = (`
-
-    /* マイページはなぜかhtmlにoverflow-y: scroll が指定されているので打ち消す */
-    html.showNicoVideoPlayerDialog.zenzaScreenMode_3D,
-    html.showNicoVideoPlayerDialog.zenzaScreenMode_normal,
-    html.showNicoVideoPlayerDialog.zenzaScreenMode_big,
-    html.showNicoVideoPlayerDialog.zenzaScreenMode_wide
-    {
-      overflow-x: hidden !important;
-      overflow-y: hidden !important;
-      overflow: hidden !important;
-    }
-
     .menuItemContainer {
       box-sizing: border-box;
       position: absolute;
@@ -3113,6 +2946,8 @@ VideoHoverMenu.__css__ = (`
       font-size: 21px;
       border: 1px solid black;
       background: rgba(192, 192, 192, 0.8);
+      width: auto;
+      height: auto;
     }
 
     .togglePlayMenu {

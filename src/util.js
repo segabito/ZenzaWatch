@@ -286,21 +286,23 @@ const PlayerSession = (function (storage) {
 
   return PlayerSession;
 })(sessionStorage);
-//ZenzaWatch.debug.PlayerSession = PlayerSession;
 
-util.addStyle = function (styles, id) {
+util.addStyle = function (styles, option, document = window.document) {
   let elm = document.createElement('style');
   elm.type = 'text/css';
-  if (id) {
-    elm.id = id;
+  if (typeof option === 'string') {
+    elm.id = option;
+  } else if (option) {
+    Object.assign(elm, option);
   }
+  elm.classList.add(PRODUCT);
 
   let text = styles.toString();
   text = document.createTextNode(text);
   elm.appendChild(text);
-  let head = document.getElementsByTagName('head');
-  head = head[0];
-  head.appendChild(elm);
+  (document.head || document).append(elm);
+  elm.disabled = option && option.disabled;
+  elm.dataset.switch = elm.disabled ? 'off' : 'on';
   return elm;
 };
 
@@ -2259,6 +2261,8 @@ class BaseViewComponent extends Emitter {
   }
 }
 
+//@require util/StyleSwitcher.js
+util.StyleSwitcher = StyleSwitcher;
 //===END===
 //
 

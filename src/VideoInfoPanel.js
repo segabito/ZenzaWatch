@@ -32,6 +32,154 @@ class VideoInfoPanel extends Emitter {
     }
   }
 }
+util.addStyle(`
+    .zenzaScreenMode_small .zenzaWatchVideoInfoPanel {
+      display: none;
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelectContainer {
+      width: calc(100% - 16px);
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect {
+      background: #ccc;
+      color: #888;
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect.activeTab {
+      background: #ddd;
+      color: black;
+      border: none;
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel {
+      top: 230px;
+      left: 0;
+      width: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
+      height: calc(100vh - 296px);
+      bottom: 48px;
+      padding: 8px;
+      box-shadow: none;
+      background: #f0f0f0;
+      color: #000;
+      border: 1px solid #333;
+      margin: 4px 2px;
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .publicStatus {
+      display: block;
+      text-align: center;
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a {
+      color: #006699;
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a:visited {
+      color: #666666;
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
+      display: block;
+      bottom: 48px;
+      width: 364px;
+      margin: 0 auto;
+      padding: 8px;
+      background: #ccc;
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch {
+      background: #ddd;
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch:hover {
+      background: #ddf;
+    }
+    
+    .zenzaScreenMode_sideView .videoInfoTab::-webkit-scrollbar {
+      background: #f0f0f0;
+    }
+
+    .zenzaScreenMode_sideView .videoInfoTab::-webkit-scrollbar-thumb {
+      border-radius: 0;
+      background: #ccc;
+    }
+`, {className: 'screenMode for-popup videoInfoPanel'});
+
+util.addStyle(`
+  .is-open .zenzaWatchVideoInfoPanel {
+    display: none;
+    left: calc(100%);
+    top: 0;
+  }
+
+  @media (min-width: 992px) {
+    .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
+      display: inherit;
+    }
+  }
+
+  @media (min-width: 1216px) {
+    .zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
+      display: inherit;
+    }
+  }
+
+  /* 縦長モニター */
+  @media
+    (max-width: 991px) and (min-height: 700px)
+  {
+    .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
+      display: inherit;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      height: ${CONSTANT.BOTTOM_PANEL_HEIGHT}px;
+      z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
+    }
+
+    .zenzaScreenMode_normal .ZenzaIchibaItemView {
+      margin: 8px 8px 96px;
+    }
+
+    .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+      display: table;
+    }
+    .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
+      display: table-cell;
+      text-align: left;
+    }
+    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel {
+      width: 100% !important;
+    }
+  }
+
+  @media
+    (max-width: 1215px) and (min-height: 700px)
+  {
+    .zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
+      display: inherit;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      height: ${CONSTANT.BOTTOM_PANEL_HEIGHT}px;
+      z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
+    }
+
+    .zenzaScreenMode_big .ZenzaIchibaItemView {
+      margin: 8px 8px 96px;
+    }
+
+    .zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+      display: table;
+    }
+    .zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
+      display: table-cell;
+      text-align: left;
+    }
+    
+    .zenzaScreenMode_big .zenzaWatchVideoHeaderPanel {
+      width: 100% !important;
+    }
+  }
+
+`, {className: 'screenMode for-dialog videoInfoPanel'});
+
 VideoInfoPanel.__css__ = (`
     .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
       display: none;
@@ -137,26 +285,6 @@ VideoInfoPanel.__css__ = (`
       overflow-x: hidden;
       overflow-y: hidden;
       transition: opacity 0.4s ease;
-    }
-
-    .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel.is-notFullscreen,
-    .zenzaScreenMode_big    .zenzaWatchVideoInfoPanel.is-notFullscreen
-    {
-      display: none;
-      left: calc(100%);
-      top: 0;
-    }
-
-    @media screen and (min-width: 992px) {
-      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel.is-notFullscreen {
-        display: inherit;
-      }
-     }
-
-    @media screen and (min-width: 1216px) {
-      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel.is-notFullscreen {
-        display: inherit;
-      }
     }
 
 
@@ -404,64 +532,6 @@ VideoInfoPanel.__css__ = (`
       padding: 0 8px;
     }
 
-    .zenzaScreenMode_small .zenzaWatchVideoInfoPanel.is-notFullscreen {
-      display: none;
-    }
-
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .tabSelectContainer {
-      width: calc(100% - 16px);
-    }
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .tabSelect {
-      background: #ccc;
-      color: #888;
-    }
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .tabSelect.activeTab {
-      background: #ddd;
-      color: black;
-      border: none;
-    }
-
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen {
-      top: 230px;
-      left: 0;
-      width: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
-      height: calc(100vh - 296px);
-      bottom: 48px;
-      padding: 8px;
-      box-shadow: none;
-      background: #f0f0f0;
-      color: #000;
-      border: 1px solid #333;
-      margin: 4px 2px;
-    }
-
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .publicStatus {
-      display: block;
-      text-align: center;
-    }
-
-
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .videoDescription a {
-      color: #006699;
-    }
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .videoDescription a:visited {
-      color: #666666;
-    }
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .videoTagsContainer {
-      display: block;
-      bottom: 48px;
-      width: 364px;
-      margin: 0 auto;
-      padding: 8px;
-      background: #ccc;
-    }
-
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .videoDescription .watch {
-      background: #ddd;
-    }
-    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .videoDescription .watch:hover {
-      background: #ddf;
-    }
 
     .zenzaScreenMode_3D     .is-backComment .zenzaWatchVideoInfoPanel.is-notFullscreen,
     .zenzaScreenMode_normal .is-backComment .zenzaWatchVideoInfoPanel.is-notFullscreen,
@@ -469,65 +539,6 @@ VideoInfoPanel.__css__ = (`
       opacity: 0.7;
     }
 
-    /* 縦長モニター */
-    @media
-      screen and
-      (max-width: 991px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel.is-notFullscreen {
-        display: inherit;
-        top: 100%;
-        left: 0;
-        width: 100%;
-        height: ${CONSTANT.BOTTOM_PANEL_HEIGHT}px;
-        z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
-      }
-
-      .zenzaScreenMode_normal .is-notFullscreen .ZenzaIchibaItemView {
-        margin: 8px 8px 96px;
-      }
-
-      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel.is-notFullscreen .videoOwnerInfoContainer {
-        display: table;
-      }
-      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel.is-notFullscreen .videoOwnerInfoContainer>* {
-        display: table-cell;
-        text-align: left;
-      }
-      .zenzaWatchVideoHeaderPanel {
-        width: 100% !important;
-      }
-    }
-
-    @media
-      screen and
-      (max-width: 1215px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel.is-notFullscreen {
-        display: inherit;
-        top: 100%;
-        left: 0;
-        width: 100%;
-        height: ${CONSTANT.BOTTOM_PANEL_HEIGHT}px;
-        z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
-      }
-
-      .zenzaScreenMode_big .is-notFullscreen .ZenzaIchibaItemView {
-        margin: 8px 8px 96px;
-      }
-
-      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel.is-notFullscreen .videoOwnerInfoContainer {
-        display: table;
-      }
-      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel.is-notFullscreen .videoOwnerInfoContainer>* {
-        display: table-cell;
-        text-align: left;
-      }
-      
-      .zenzaWatchVideoHeaderPanel {
-        width: 100% !important;
-      }
-    }
 
     .zenzaWatchVideoInfoPanel .relatedVideoTab .relatedVideoContainer {
       box-sizing: border-box;
@@ -596,16 +607,6 @@ VideoInfoPanel.__css__ = (`
     }
 
     ${CONSTANT.SCROLLBAR_CSS}
-
-    .zenzaScreenMode_sideView .is-notFullscreen .videoInfoTab::-webkit-scrollbar {
-      background: #f0f0f0;
-    }
-
-    .zenzaScreenMode_sideView .is-notFullscreen .videoInfoTab::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #ccc;
-    }
-
 
     .zenzaWatchVideoInfoPanel .zenzaWatchVideoInfoPanelInner {
       display: flex;
@@ -1032,6 +1033,127 @@ class VideoHeaderPanel extends Emitter {
     this._currentTimeGetter = params.currentTimeGetter;
   }
 }
+util.addStyle(`
+  .zenzaScreenMode_small .zenzaWatchVideoHeaderPanel {
+    display: none;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
+    top: 0;
+    left: 400px;
+    width: calc(100vw - 400px);
+    bottom: auto;
+    background: #272727;
+    opacity: 0.9;
+    height: 40px;
+  }
+  /* ヘッダ追従 */
+  body.zenzaScreenMode_sideView:not(.nofix)  .zenzaWatchVideoHeaderPanel {
+    top: 0;
+  }
+  /* ヘッダ固定 */
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+    margin: 0;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel .publicStatus,
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel .videoTagsContainer {
+    display: none;
+  }
+
+  @media screen and (min-width: 1432px)
+  {
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelectContainer {
+      width: calc(100% - 16px);
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel {
+      top: calc((100vw - 1024px) * 9 / 16 + 4px);
+      width: calc(100vw - 1024px);
+      height: calc(100vh - (100vw - 1024px) * 9 / 16 - 70px);
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
+      width: calc(100vw - 1024px - 26px);
+    }
+  
+    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
+      width: calc(100vw - (100vw - 1024px));
+      left:  calc(100vw - 1024px);
+    }
+  }
+
+`, {className: 'screenMode for-popup videoHeaderPanel', disabled: true});
+
+util.addStyle(`
+  body .is-open .zenzaWatchVideoHeaderPanel {
+    width: calc(100% + ${CONSTANT.RIGHT_PANEL_WIDTH}px);
+  }
+    .zenzaWatchVideoHeaderPanel.is-onscreen {
+      top: 0px;
+      bottom: auto;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      box-shadow: none;
+    }
+
+    .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen {
+      opacity: 0.6;
+      transition: 0.4s opacity;
+    }
+
+    .zenzaWatchVideoHeaderPanel.is-onscreen:hover {
+      opacity: 1;
+      transition: 0.5s opacity;
+    }
+
+    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer {
+      display: none;
+      width: calc(100% - 240px);
+    }
+
+    .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer {
+      display: block;
+    }
+    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer {
+      width: calc(100% - 180px);
+    }
+
+`, {className: 'screenMode for-dialog videoHeaderPanel', disabled: true});
+
+util.addStyle(`
+  .is-open .zenzaWatchVideoHeaderPanel {
+    position: absolute; /* fixedだとFirefoxのバグでおかしくなる */
+    top: 0px;
+    bottom: auto;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    box-shadow: none;
+  }
+
+  .is-open.is-loading .zenzaWatchVideoHeaderPanel,
+  .is-open.is-mouseMoving .zenzaWatchVideoHeaderPanel {
+    opacity: 0.6;
+    transition: 0.4s opacity;
+  }
+
+  .is-open .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
+  .is-open .zenzaWatchVideoHeaderPanel:hover {
+    opacity: 1;
+    transition: 0.5s opacity;
+  }
+
+  .is-open .videoTagsContainer {
+    display: none;
+    width: calc(100% - 240px);
+  }
+
+  .is-open .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer {
+    display: block;
+  }
+  
+  .is-open .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+    width: calc(100% - 180px);
+  }
+
+`, {className: 'screenMode for-full videoHeaderPanel', disabled: true});
 
 VideoHeaderPanel.__css__ = (`
     .zenzaWatchVideoHeaderPanel {
@@ -1047,10 +1169,6 @@ VideoHeaderPanel.__css__ = (`
       text-align: left;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
-    }
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-notFullscreen,
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-notFullscreen {
-      width: calc(100% + ${CONSTANT.RIGHT_PANEL_WIDTH}px);
     }
     .zenzaWatchVideoHeaderPanel.is-onscreen {
       width: 100% !important;
@@ -1084,82 +1202,6 @@ VideoHeaderPanel.__css__ = (`
       color: #ccc;
     }
 
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel,
-    .zenzaWatchVideoHeaderPanel.is-fullscreen {
-      position: absolute; /* fixedだとFirefoxのバグでおかしくなる */
-      top: 0px;
-      bottom: auto;
-      background: rgba(0, 0, 0, 0.5);
-      opacity: 0;
-      box-shadow: none;
-    }
-
-    .zenzaScreenMode_sideView              .zenzaWatchVideoHeaderPanel.is-notFullscreen {
-      top: 0;
-      left: 400px;
-      width: calc(100vw - 400px);
-      bottom: auto;
-      background: #272727;
-      opacity: 0.9;
-      height: 40px;
-    }
-    /* ヘッダ追従 */
-    body.zenzaScreenMode_sideView:not(.nofix)  .zenzaWatchVideoHeaderPanel.is-notFullscreen {
-      top: 0;
-    }
-    /* ヘッダ固定 */
-    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel.is-notFullscreen .videoTitleContainer {
-      margin: 0;
-    }
-    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel.is-notFullscreen .publicStatus,
-    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel.is-notFullscreen .videoTagsContainer {
-      display: none;
-    }
-
-    .zenzaScreenMode_normal .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_big    .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_3D     .is-loading .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide   .is-loading .zenzaWatchVideoHeaderPanel,
-    .is-loading .zenzaWatchVideoHeaderPanel.is-fullscreen,
-    .zenzaScreenMode_3D     .is-mouseMoving .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide   .is-mouseMoving .zenzaWatchVideoHeaderPanel,
-    .is-mouseMoving .zenzaWatchVideoHeaderPanel.is-fullscreen {
-      opacity: 0.6;
-      transition: 0.4s opacity;
-    }
-
-    .zenzaScreenMode_3D   .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
-    .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel.is-fullscreen,
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen:hover,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen:hover,
-    .zenzaScreenMode_3D     .zenzaWatchVideoHeaderPanel:hover,
-    .zenzaScreenMode_wide   .zenzaWatchVideoHeaderPanel:hover,
-    .zenzaWatchVideoHeaderPanel.is-fullscreen:hover {
-      opacity: 1;
-      transition: 0.5s opacity;
-    }
-
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel .videoTagsContainer,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTagsContainer,
-    .zenzaWatchVideoHeaderPanel.is-fullscreen .videoTagsContainer {
-      display: none;
-      width: calc(100% - 240px);
-    }
-
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
-    .zenzaWatchVideoHeaderPanel.is-fullscreen:hover .videoTagsContainer {
-      display: block;
-    }
-
     .zenzaWatchVideoHeaderPanel .videoTitle {
       font-size: 24px;
       color: #fff;
@@ -1168,13 +1210,6 @@ VideoHeaderPanel.__css__ = (`
       overflow: hidden;
       display: block;
       padding: 2px 0;
-    }
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel .videoTitleContainer,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTitleContainer,
-    .zenzaWatchVideoHeaderPanel.is-fullscreen .videoTitleContainer {
-      width: calc(100% - 180px);
     }
 
     .zenzaWatchVideoHeaderPanel .videoTitle::before {
@@ -1206,28 +1241,6 @@ VideoHeaderPanel.__css__ = (`
     .zenzaScreenMode_big    .is-backComment .zenzaWatchVideoHeaderPanel.is-notFullscreen {
       opacity: 0.7;
     }
-
-    @media screen and (min-width: 1432px)
-    {
-      .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .tabSelectContainer {
-        width: calc(100% - 16px);
-      }
-      .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen {
-        top: calc((100vw - 1024px) * 9 / 16 + 4px);
-        width: calc(100vw - 1024px);
-        height: calc(100vh - (100vw - 1024px) * 9 / 16 - 70px);
-      }
-
-      .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .videoTagsContainer {
-        width: calc(100vw - 1024px - 26px);
-      }
-    
-      .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel.is-notFullscreen {
-        width: calc(100vw - (100vw - 1024px));
-        left:  calc(100vw - 1024px);
-      }
-    }
-
 
     .zenzaWatchVideoHeaderPanel .relatedInfoMenuContainer {
       display: inline-block;
@@ -1530,6 +1543,13 @@ class VideoSearchForm extends Emitter {
   }
 }
 
+util.addStyle(`
+  .is-open .zenzaWatchVideoHeaderPanel .zenzaVideoSearchPanel {
+    top: 120px;
+    right: 32px;
+  }
+`, {className: 'screenMode for-popup videoSearchPanel', disabled: true});
+
 VideoSearchForm.__css__ = (`
     .zenzaVideoSearchPanel {
       pointer-events: auto;
@@ -1549,10 +1569,6 @@ VideoSearchForm.__css__ = (`
       top: 64px;
     }
 
-    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel.is-notFullscreen .zenzaVideoSearchPanel {
-      top: 80px;
-      right: 32px;
-    }
     .zenzaVideoSearchPanel:focus-within {
       background: rgba(50, 50, 50, 0.8);
     }
@@ -1918,6 +1934,12 @@ IchibaItemView.__tpl__ = (`
     </div>
     `).trim();
 
+util.addStyle(`
+  .ZenzaIchibaItemView .loadStartButton {
+    color: #000;
+  }
+`, {className: 'screenMode for-popup ichiba', disabled: true});
+
 IchibaItemView.__css__ = (`
     .ZenzaIchibaItemView {
       text-align: center;
@@ -2035,14 +2057,6 @@ IchibaItemView.__css__ = (`
       display: none;
     }
 
-
-    .zenzaScreenMode_sideView .ZenzaIchibaItemView .loadStartButton {
-      color: #000;
-    }
-
-    .zenzaScreenMode_sideView .is-fullscreen .ZenzaIchibaItemView .loadStartButton {
-      color: inherit;
-    }
     `).trim();
 
 
