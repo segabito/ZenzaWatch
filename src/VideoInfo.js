@@ -255,6 +255,10 @@ class VideoInfoModel {
     return this._videoDetail.id;
   }
 
+  get originalVideoId() {
+    return (this.isMymemory || this.isCommunityVideo) ? this.videoId : ''
+  }
+
   getWatchId() { // sm12345だったりスレッドIDだったり
     return this.watchId;
   }
@@ -351,9 +355,10 @@ class VideoInfoModel {
     if (this.isChannel) {
       let c = this._watchApiData.channelInfo || {};
       ownerInfo = {
-        icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+        icon: c.icon_url || 'https://nicovideo.cdn.nimg.jp/web/img/user/thumb/blank.jpg',
         url: '//ch.nicovideo.jp/ch' + c.id,
         id: c.id,
+        linkId: c.id ? `ch${c.id}` : '',
         name: c.name,
         favorite: c.is_favorited === 1, // こっちは01で
         type: 'channel'
@@ -363,9 +368,10 @@ class VideoInfoModel {
       let u = this._watchApiData.uploaderInfo || {};
       let f = this._flashvars || {};
       ownerInfo = {
-        icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
+        icon: u.icon_url || 'https://nicovideo.cdn.nimg.jp/web/img/user/thumb/blank.jpg',
         url: u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
         id: u.id || f.videoUserId || '',
+        linkId: u.id ? `user/${u.id}` : '',
         name: u.nickname || '(非公開ユーザー)',
         favorite: !!u.is_favorited, // こっちはbooleanという
         type: 'user',
