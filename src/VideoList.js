@@ -37,6 +37,7 @@ class VideoListModel extends Emitter {
 
     this.emit('update', this._items, true);
   }
+  
   clear() {
     this.setItem([]);
   }
@@ -127,10 +128,6 @@ class VideoListModel extends Emitter {
     this.emit('update', this._items);
   }
 
-  getLength() {
-    return this._items.length;
-  }
-
   _getItemByIndex(index) {
     return this._items[index];
   }
@@ -168,17 +165,6 @@ class VideoListModel extends Emitter {
     watchId = watchId + '';
     const item = this._items.find(item => {
       return item.watchId === watchId;
-    });
-    if (item && !this._boundSet.has(item)) {
-      this._boundSet.add(item);
-      item.on('update', this._boundOnItemUpdate);
-    }
-    return item;
-  }
-
-  findActiveItem() {
-    const item = this._items.find(item => {
-      return item.isActive;
     });
     if (item && !this._boundSet.has(item)) {
       this._boundSet.add(item);
@@ -266,6 +252,14 @@ class VideoListModel extends Emitter {
     this.emitAsync('update', this._items);
   }
 
+  get length() {
+    return this._items.length;
+  }
+
+  get activeIndex() {
+    return this._items.findIndex(i => i.isActive);
+  }
+  
   get totalDuration() {
     let total = 0;
     this._items.forEach(item => {
@@ -299,6 +293,7 @@ const VideoListItemView = (() => {
         padding: 2px;
         transition:
           transform 0.4s ease, box-shadow 0.4s ease;
+        contain: layout size;
       }
 
       .playlist .videoItem {
@@ -804,11 +799,11 @@ VideoListView.__tpl__ = (`
     animation-play-state: paused !important;
   }
 
-  .scrollToTop {
+  .scrollToTop, .scrollToActive {
     position: fixed;
     width: 32px;
     height: 32px;
-    right: 32px;
+    right: 48px;
     bottom: 8px;
     font-size: 24px;
     line-height: 32px;
@@ -820,6 +815,25 @@ VideoListView.__tpl__ = (`
     cursor: pointer;
     opacity: 0.3;
     transition: opacity 0.4s ease;
+  }
+  
+  .scrollToActive {
+    --progress: calc(var(--active-index) / var(--list-length) * 100%);
+    display: none;
+    top: var(--progress);
+    border-radius: 0;
+    bottom: auto;
+    right: 0;
+    transform: translateY(calc(var(--progress) * -1));
+    background: none;
+    opacity: 0.5;
+    color: #f99;
+  }
+  .playlist .scrollToActive {
+    display: block;
+  }
+  .playlist .scrollToActive:hover {
+    background: #ccc;
   }
 
   .scrollToTop:hover {
@@ -833,6 +847,8 @@ VideoListView.__tpl__ = (`
 <div id="listContainer">
   <div id="listContainerInner"></div>
 </div>
+<div class="scrollToActive command" title="いまここ" data-command="scrollToActiveItem">&#9658;</div>
+
 <div class="scrollToTop command" title="一番上にスクロール" data-command="scrollToTop">&#x2303;</div>
 </body>
 </html>
@@ -890,11 +906,11 @@ _.assign(VideoListView.prototype, {
       this._documentFragment = null;
     }
     doc.body.addEventListener('click', this._onClick.bind(this));
-    doc.body.addEventListener('dblclick', this._onDblclick.bind(this));
     doc.body.addEventListener('keydown', e => ZenzaWatch.emitter.emit('keydown', e));
     doc.body.addEventListener('keyup', e => ZenzaWatch.emitter.emit('keyup', e));
     w.addEventListener('focus', () => this._hasFocus = true);
     w.addEventListener('blur', () => this._hasFocus = false);
+    this._updateCSSVars();
 
     if (this._dragdrop) {
       doc.body.addEventListener('mousedown', this._onBodyMouseDown.bind(this), {passive: true});
@@ -1082,6 +1098,7 @@ _.assign(VideoListView.prototype, {
         itemViews.push(itemView);
       }
     });
+    this._updateCSSVars();
 
     this._itemViews = itemViews;
     if (itemViews.length < 1) {
@@ -1092,12 +1109,10 @@ _.assign(VideoListView.prototype, {
 
     window.setTimeout(() => {
       const f = document.createDocumentFragment();
-      itemViews.forEach(i => {
-        f.appendChild(i.getViewElement());
-      });
+      f.append(...itemViews.map(i => i.getViewElement()));
 
       if (this._list) {
-        this._list.innerHTML = '';
+        this._list.textContent = '';
         this._list.appendChild(f);
         this._documentFragment = null;
         this._setInviewObserver();
@@ -1115,6 +1130,7 @@ _.assign(VideoListView.prototype, {
     if (!itemView) {
       return;
     }
+    this._updateCSSVars();
     itemView.remove();
     this._itemViewCache.delete(item);
   },
@@ -1133,9 +1149,9 @@ _.assign(VideoListView.prototype, {
   },
   _onImageInview: function (entries) {
     const observer = this._intersectionObserver;
-    entries.forEach(entry => {
+    entries.filter(entry => entry.isIntersecting).forEach(entry => {
       const thumbnail = entry.target;
-      const src = thumbnail.getAttribute('data-src');
+      const src = thumbnail.dataset.src;
       thumbnail.classList.remove('lazy-load');
       observer.unobserve(thumbnail);
 
@@ -1168,11 +1184,21 @@ _.assign(VideoListView.prototype, {
 
     if (['active', 'updating', 'played'].includes(key)) {
       itemView.toggleClass(`is-${key}`, value);
-      if (key === 'active' && value && !this._hasFocus) {
-        this.scrollToItem(itemId);
+      if (key === 'active' && value) {
+        this._updateCSSVars();
+        if (!this._hasFocus) {
+          this.scrollToItem(itemId);
+        }
       }
     } else {
       itemView.rebuild(item);
+    }
+  },
+  _updateCSSVars: function() {
+    if (this._document) {
+      let body = this._document.body;
+      body.style.setProperty('--list-length', this._model.length);
+      body.style.setProperty('--active-index', this._model.activeIndex);
     }
   },
   _onClick: function (e) {
@@ -1208,15 +1234,6 @@ _.assign(VideoListView.prototype, {
         default:
           this.emit('command', command, param, itemId);
       }
-    }
-  },
-  _onDblclick: function (e) {
-    let $target = $(e.target).closest('.command');
-    let command = $target.attr('data-command');
-    if (!command) {
-      this.emit('dblclick', e);
-    } else {
-      e.stopPropagation();
     }
   },
   addClass: function (className) {
@@ -1358,10 +1375,12 @@ class VideoListItem extends Emitter {
     super();
     this._rawData = rawData;
     this._itemId = VideoListItem._itemId++;
-    this._isActive = false;
-    this._lastActivated = rawData.last_activated || 0;
-    this._isUpdating = false;
-    this._isPlayed = !!rawData.played;
+    this.state = {
+      isActive: false,
+      lastActivated: rawData.last_activated || 0,
+      isUpdating: false,
+      isPlayed: !!rawData.played
+    };
     this._uniq_id = rawData.uniqId || this.watchId;
     rawData.first_retrieve = util.dateToString(rawData.first_retrieve);
 
@@ -1448,35 +1467,35 @@ class VideoListItem extends Emitter {
     return this.postedAt;
   }
   get isActive() {
-    return this._isActive;
+    return this.state.isActive;
   }
   set isActive(v) {
     v = !!v;
-    if (this._isActive !== v) {
-      this._isActive = v;
+    if (this.isActive !== v) {
+      this.state.isActive = v;
       if (v) {
-        this._lastActivated = Date.now();
+        this.state.lastActivated = Date.now();
       }
       this.emit('update', this, 'active', v);
     }
   }
   get isUpdating() {
-    return this._isUpdating;
+    return this.state.isUpdating;
   }
   set isUpdating(v) {
     v = !!v;
-    if (this._isUpdating !== v) {
-      this._isUpdating = v;
+    if (this.isUpdating !== v) {
+      this.state.isUpdating = v;
       this.emit('update', this, 'updating', v);
     }
   }
   get isPlayed() {
-    return this._isPlayed;
+    return this.state.isPlayed;
   }
   set isPlayed(v) {
     v = !!v;
-    if (this._isPlayed !== v) {
-      this._isPlayed = v;
+    if (this.isPlayed !== v) {
+      this.state.isPlayed = v;
       this.emit('update', this, 'played', v);
     }
   }
@@ -1485,9 +1504,9 @@ class VideoListItem extends Emitter {
   }
   serialize() {
     return {
-      active: this._isActive,
-      last_activated: this._lastActivated || 0,
-      played: this._isPlayed,
+      active: this.isActive,
+      last_activated: this.state.lastActivated || 0,
+      played: this.isPlayed,
       uniq_id: this._uniq_id,
       id: this._rawData.id,
       title: this._rawData.title,
@@ -1656,6 +1675,161 @@ class PlaylistView extends Emitter {
   constructor(...args) {
     super(...args);
     this.initialize(...args);
+  }
+  initialize(params) {
+    this._container = params.container;
+    this._model = params.model;
+    this._playlist = params.playlist;
+
+    util.addStyle(PlaylistView.__css__);
+    let $view = this._$view = $(PlaylistView.__tpl__);
+    this._container.appendChild($view[0]);
+
+    this._$index = $view.find('.playlist-index');
+    this._$length = $view.find('.playlist-length');
+    let $menu = this._$menu = this._$view.find('.playlist-menu');
+    let $fileDrop = this._$fileDrop = $view.find('.playlist-file-drop');
+    let $fileSelect = $view.find('.playlist-import-file-select');
+
+    ZenzaWatch.debug.playlistView = this._$view;
+
+    let listView = this._listView = new VideoListView({
+      container: this._$view.find('.playlist-frame')[0],
+      model: this._model,
+      className: 'playlist',
+      dragdrop: true,
+      dropfile: true,
+      enablePocketWatch: false
+    });
+    listView.on('command', this._onCommand.bind(this));
+    listView.on('deflistAdd', this._onDeflistAdd.bind(this));
+    listView.on('moveItem', (src, dest) => this.emit('moveItem', src, dest));
+    listView.on('filedrop', data => this.emit('command', 'importFile', data));
+
+    this._playlist.on('update',
+      _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
+
+    this._$view.on('click', '.playlist-command', this._onPlaylistCommandClick.bind(this));
+    ZenzaWatch.emitter.on('hideHover', () => {
+      $menu.removeClass('show');
+      $fileDrop.removeClass('show');
+    });
+
+    $('.zenzaVideoPlayerDialog')
+      .on('dragover', this._onDragOverFile.bind(this))
+      .on('dragenter', this._onDragEnterFile.bind(this))
+      .on('dragleave', this._onDragLeaveFile.bind(this))
+      .on('drop', this._onDropFile.bind(this));
+
+    $fileSelect.on('change', this._onImportFileSelect.bind(this));
+
+    ['addClass',
+      'removeClass',
+      'scrollTop',
+      'scrollToItem',
+    ].forEach(func => this[func] = listView[func].bind(listView));
+  }
+  toggleClass(className, v) {
+    this._view.toggleClass(className, v);
+    this._$view.toggleClass(className, v);
+  }
+  _onCommand(command, param, itemId) {
+    switch (command) {
+      default:
+        this.emit('command', command, param, itemId);
+        break;
+    }
+  }
+  _onDeflistAdd(watchId, itemId) {
+    this.emit('deflistAdd', watchId, itemId);
+  }
+  _onPlaylistCommandClick(e) {
+    let $target = $(e.target).closest('.playlist-command');
+    let command = $target.attr('data-command');
+    let param = $target.attr('data-param');
+    e.stopPropagation();
+    if (!command) {
+      return;
+    }
+    switch (command) {
+      case 'importFileMenu':
+        this._$menu.removeClass('show');
+        this._$fileDrop.addClass('show');
+        return;
+      case 'toggleMenu':
+        e.stopPropagation();
+        e.preventDefault();
+        this._$menu.addClass('show');
+        return;
+      case 'shuffle':
+      case 'sortBy':
+        this._$view.addClass('shuffle');
+        window.setTimeout(() => this._$view.removeClass('shuffle'), 1000);
+        this.emit('command', command, param);
+        break;
+      default:
+        this.emit('command', command, param);
+    }
+    ZenzaWatch.emitter.emitAsync('hideHover');
+  }
+  _onPlaylistStatusUpdate() {
+    let playlist = this._playlist;
+    this._$view
+      .toggleClass('enable', playlist.isEnable)
+      .toggleClass('loop', playlist.isLoop)
+    ;
+    this._$index.text(playlist.getIndex() + 1);
+    this._$length.text(playlist.length);
+  }
+  _onDragOverFile(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this._$fileDrop.addClass('drag-over');
+  }
+  _onDragEnterFile(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this._$fileDrop.addClass('drag-over');
+  }
+  _onDragLeaveFile(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this._$fileDrop.removeClass('drag-over');
+  }
+  _onDropFile(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this._$fileDrop.removeClass('show drag-over');
+
+    let file = e.originalEvent.dataTransfer.files[0];
+    if (!/\.playlist\.json$/.test(file.name)) {
+      return;
+    }
+
+    let fileReader = new FileReader();
+    fileReader.onload = ev => {
+      window.console.log('file data: ', ev.target.result);
+      this.emit('command', 'importFile', ev.target.result);
+    };
+
+    fileReader.readAsText(file);
+  }
+  _onImportFileSelect(e) {
+    e.preventDefault();
+
+    let file = e.originalEvent.target.files[0];
+    if (!/\.playlist\.json$/.test(file.name)) {
+      return;
+    }
+
+    let fileReader = new FileReader();
+    fileReader.onload = ev => {
+      window.console.log('file data: ', ev.target.result);
+      this.emit('command', 'importFile', ev.target.result);
+    };
+
+    fileReader.readAsText(file);
+
   }
 
   get hasFocus() {
@@ -1878,170 +2052,11 @@ PlaylistView.__tpl__ = (`
   `).trim();
 
 _.assign(PlaylistView.prototype, {
-  initialize: function (params) {
-    this._container = params.container;
-    this._model = params.model;
-    this._playlist = params.playlist;
-
-    util.addStyle(PlaylistView.__css__);
-    let $view = this._$view = $(PlaylistView.__tpl__);
-    this._container.appendChild($view[0]);
-
-    this._$index = $view.find('.playlist-index');
-    this._$length = $view.find('.playlist-length');
-    let $menu = this._$menu = this._$view.find('.playlist-menu');
-    let $fileDrop = this._$fileDrop = $view.find('.playlist-file-drop');
-    let $fileSelect = $view.find('.playlist-import-file-select');
-
-    ZenzaWatch.debug.playlistView = this._$view;
-
-    let listView = this._listView = new VideoListView({
-      container: this._$view.find('.playlist-frame')[0],
-      model: this._model,
-      className: 'playlist',
-      dragdrop: true,
-      dropfile: true,
-      enablePocketWatch: false
-    });
-    listView.on('command', this._onCommand.bind(this));
-    listView.on('deflistAdd', this._onDeflistAdd.bind(this));
-    listView.on('moveItem', (src, dest) => this.emit('moveItem', src, dest));
-    listView.on('filedrop', data => this.emit('command', 'importFile', data));
-    listView.on('dblclick', this._onListDblclick.bind(this));
-
-    this._playlist.on('update',
-      _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
-
-    this._$view.on('click', '.playlist-command', this._onPlaylistCommandClick.bind(this));
-    ZenzaWatch.emitter.on('hideHover', () => {
-      $menu.removeClass('show');
-      $fileDrop.removeClass('show');
-    });
-
-    $('.zenzaVideoPlayerDialog')
-      .on('dragover', this._onDragOverFile.bind(this))
-      .on('dragenter', this._onDragEnterFile.bind(this))
-      .on('dragleave', this._onDragLeaveFile.bind(this))
-      .on('drop', this._onDropFile.bind(this));
-
-    $fileSelect.on('change', this._onImportFileSelect.bind(this));
-
-    ['addClass',
-      'removeClass',
-      'scrollTop',
-      'scrollToItem',
-    ].forEach(func => this[func] = listView[func].bind(listView));
-  },
-  toggleClass: function (className, v) {
-    this._view.toggleClass(className, v);
-    this._$view.toggleClass(className, v);
-  },
-  _onCommand: function (command, param, itemId) {
-    switch (command) {
-      default:
-        this.emit('command', command, param, itemId);
-        break;
-    }
-  },
-  _onDeflistAdd: function (watchId, itemId) {
-    this.emit('deflistAdd', watchId, itemId);
-  },
-  _onPlaylistCommandClick: function (e) {
-    let $target = $(e.target).closest('.playlist-command');
-    let command = $target.attr('data-command');
-    let param = $target.attr('data-param');
-    e.stopPropagation();
-    if (!command) {
-      return;
-    }
-    switch (command) {
-      case 'importFileMenu':
-        this._$menu.removeClass('show');
-        this._$fileDrop.addClass('show');
-        return;
-      case 'toggleMenu':
-        e.stopPropagation();
-        e.preventDefault();
-        this._$menu.addClass('show');
-        return;
-      case 'shuffle':
-      case 'sortBy':
-        this._$view.addClass('shuffle');
-        window.setTimeout(() => this._$view.removeClass('shuffle'), 1000);
-        this.emit('command', command, param);
-        break;
-      default:
-        this.emit('command', command, param);
-    }
-    ZenzaWatch.emitter.emitAsync('hideHover');
-  },
-  _onPlaylistStatusUpdate: function () {
-    let playlist = this._playlist;
-    this._$view
-      .toggleClass('enable', playlist.isEnable())
-      .toggleClass('loop', playlist.isLoop())
-    ;
-    this._$index.text(playlist.getIndex() + 1);
-    this._$length.text(playlist.getLength());
-  },
-  _onDragOverFile: function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    this._$fileDrop.addClass('drag-over');
-  },
-  _onDragEnterFile: function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    this._$fileDrop.addClass('drag-over');
-  },
-  _onDragLeaveFile: function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    this._$fileDrop.removeClass('drag-over');
-  },
-  _onDropFile: function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    this._$fileDrop.removeClass('show drag-over');
-
-    let file = e.originalEvent.dataTransfer.files[0];
-    if (!/\.playlist\.json$/.test(file.name)) {
-      return;
-    }
-
-    let fileReader = new FileReader();
-    fileReader.onload = ev => {
-      window.console.log('file data: ', ev.target.result);
-      this.emit('command', 'importFile', ev.target.result);
-    };
-
-    fileReader.readAsText(file);
-  },
-  _onImportFileSelect: function (e) {
-    e.preventDefault();
-
-    let file = e.originalEvent.target.files[0];
-    if (!/\.playlist\.json$/.test(file.name)) {
-      return;
-    }
-
-    let fileReader = new FileReader();
-    fileReader.onload = ev => {
-      window.console.log('file data: ', ev.target.result);
-      this.emit('command', 'importFile', ev.target.result);
-    };
-
-    fileReader.readAsText(file);
-
-  },
-  _onListDblclick: function (e) {
-    e.stopPropagation();
-    this.emit('command', 'scrollToActiveItem');
-  }
 });
 
 const PlaylistSession = (storage => {
   const KEY = 'ZenzaWatchPlaylist';
+  let lastJson = '';
 
   return {
     isExist: function () {
@@ -2057,7 +2072,19 @@ const PlaylistSession = (storage => {
       }
     },
     save: function (data) {
-      storage.setItem(KEY, JSON.stringify(data));
+      const json = JSON.stringify(data);
+      if (lastJson === json) { return; }
+      lastJson = json;
+      try {
+        storage.setItem(KEY, json);
+      } catch(e) {
+        window.console.error(e);
+        if (e.name === 'QuotaExceededError' ||
+          e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+          storage.clear();
+          storage.setItem(KEY, json);
+        }
+      }
     },
     restore: function () {
       let data = storage.getItem(KEY);
@@ -2065,6 +2092,7 @@ const PlaylistSession = (storage => {
         return null;
       }
       try {
+        lastJson = data;
         return JSON.parse(data);
       } catch (e) {
         return null;
@@ -2077,9 +2105,7 @@ class Playlist extends VideoList {
   constructor(...args) {
     super(...args);
   }
-}
-Object.assign(Playlist.prototype, {
-  initialize: function (params) {
+  initialize(params) {
     this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
     this._container = params.container;
 
@@ -2091,16 +2117,16 @@ Object.assign(Playlist.prototype, {
 
     ZenzaWatch.debug.playlist = this;
     this.on('update', _.debounce(() => PlaylistSession.save(this.serialize()), 3000));
-  },
-  serialize: function () {
+  }
+  serialize() {
     return {
       items: this._model.serialize(),
       index: this._index,
       enable: this._isEnable,
       loop: this._isLoop
     };
-  },
-  unserialize: function (data) {
+  }
+  unserialize(data) {
     if (!data) {
       return;
     }
@@ -2111,11 +2137,11 @@ Object.assign(Playlist.prototype, {
     this._isLoop = data.loop;
     this.emit('update');
     this.setIndex(data.index);
-  },
-  restoreFromSession: function () {
+  }
+  restoreFromSession() {
     this.unserialize(PlaylistSession.restore());
-  },
-  _initializeView: function () {
+  }
+  _initializeView() {
     if (this._view) {
       return;
     }
@@ -2127,8 +2153,8 @@ Object.assign(Playlist.prototype, {
     this._view.on('command', this._onCommand.bind(this));
     this._view.on('deflistAdd', this._onDeflistAdd.bind(this));
     this._view.on('moveItem', this._onMoveItem.bind(this));
-  },
-  _onCommand: function (command, param, itemId) {
+  }
+  _onCommand(command, param, itemId) {
     let item;
     switch (command) {
       case 'toggleEnable':
@@ -2180,8 +2206,8 @@ Object.assign(Playlist.prototype, {
       default:
         this.emit('command', command, param);
     }
-  },
-  _onExportFileCommand: function () {
+  }
+  _onExportFileCommand() {
     let dt = new Date();
     let title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます',
       util.dateToString(dt) + 'のプレイリスト');
@@ -2200,8 +2226,8 @@ Object.assign(Playlist.prototype, {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => a.remove(), 1000);
-  },
-  _onImportFileCommand: function (fileData) {
+  }
+  _onImportFileCommand(fileData) {
     if (!util.isValidJson(fileData)) {
       return;
     }
@@ -2218,8 +2244,8 @@ Object.assign(Playlist.prototype, {
         this.emit('command', 'openNow', item.watchId);
       }
     }, 2000);
-  },
-  _onMoveItem: function (srcItemId, destItemId) {
+  }
+  _onMoveItem(srcItemId, destItemId) {
     let srcItem = this._model.findByItemId(srcItemId);
     let destItem = this._model.findByItemId(destItemId);
     if (!srcItem || !destItem) {
@@ -2229,13 +2255,13 @@ Object.assign(Playlist.prototype, {
     this._model.removeItem(srcItem);
     this._model.insertItem(srcItem, destIndex);
     this._refreshIndex();
-  },
-  _setItemData: function (listData) {
+  }
+  _setItemData(listData) {
     const items = listData.map(itemData => new VideoListItem(itemData));
     this._model.setItem(items);
     this.setIndex(items.length > 0 ? 0 : -1);
-  },
-  _replaceAll: function (videoListItems, options) {
+  }
+  _replaceAll(videoListItems, options) {
     options = options || {};
     this._model.setItem(videoListItems);
     const item = this._model.findByWatchId(options.watchId);
@@ -2246,8 +2272,8 @@ Object.assign(Playlist.prototype, {
       setTimeout(() => this._view.scrollToItem(item), 1000);
     }
     this.setIndex(this._model.indexOf(item));
-  },
-  _appendAll: function (videoListItems, options) {
+  }
+  _appendAll(videoListItems, options) {
     options = options || {};
     this._model.appendItem(videoListItems);
     const item = this._model.findByWatchId(options.watchId);
@@ -2257,8 +2283,8 @@ Object.assign(Playlist.prototype, {
       this._refreshIndex(false);
     }
     setTimeout(() => this._view.scrollToItem(videoListItems[0]), 1000);
-  },
-  _insertAll: function (videoListItems, options) {
+  }
+  _insertAll(videoListItems, options) {
     options = options || {};
 
     this._model.insertItem(
@@ -2271,8 +2297,8 @@ Object.assign(Playlist.prototype, {
       this._refreshIndex(false);
     }
     setTimeout(() => this._view.scrollToItem(videoListItems[0]), 1000);
-  },
-  loadFromMylist: function (mylistId, options) {
+  }
+  loadFromMylist(mylistId, options) {
     this._initializeView();
 
     if (!this._mylistApiLoader) {
@@ -2331,8 +2357,8 @@ Object.assign(Playlist.prototype, {
               'マイリストの内容をプレイリストに読み込みしました'
         });
       });
-  },
-  loadUploadedVideo: function (userId, options) {
+  }
+  loadUploadedVideo(userId, options) {
     this._initializeView();
 
     if (!this._uploadedVideoApiLoader) {
@@ -2345,11 +2371,11 @@ Object.assign(Playlist.prototype, {
       .getUploadedVideos(userId, options).then(items => {
         window.console.timeEnd('loadUploadedVideos' + userId);
         let videoListItems = items.filter(item => {
-            return (item.item_data &&
-              parseInt(item.item_type, 10) === 0 && // video 以外を除外
-              parseInt(item.item_data.deleted, 10) === 0) ||
-              (item.thumbnail_url || '').indexOf('video_deleted') < 0;
-          }).map(item => VideoListItem.createByMylistItem(item));
+          return (item.item_data &&
+            parseInt(item.item_type, 10) === 0 && // video 以外を除外
+            parseInt(item.item_data.deleted, 10) === 0) ||
+            (item.thumbnail_url || '').indexOf('video_deleted') < 0;
+        }).map(item => VideoListItem.createByMylistItem(item));
 
         if (videoListItems.length < 1) {
           return Promise.reject({});
@@ -2378,8 +2404,8 @@ Object.assign(Playlist.prototype, {
               '投稿動画一覧をプレイリストに読み込みしました'
         });
       });
-  },
-  loadSearchVideo: function (word, options, limit = 300) {
+  }
+  loadSearchVideo(word, options, limit = 300) {
     this._initializeView();
 
     if (!this._searchApiLoader) {
@@ -2399,7 +2425,7 @@ Object.assign(Playlist.prototype, {
               parseInt(item.item_type, 10) === 0 && // video 以外を除外
               parseInt(item.item_data.deleted, 10) === 0) ||
               (item.thumbnail_url || '').indexOf('video_deleted') < 0;
-        }).map(item => VideoListItem.createByMylistItem(item));
+          }).map(item => VideoListItem.createByMylistItem(item));
 
         if (videoListItems.length < 1) {
           return Promise.reject({});
@@ -2433,8 +2459,8 @@ Object.assign(Playlist.prototype, {
               '検索結果をプレイリストに読み込みしました'
         });
       });
-  },
-  insert: function (watchId) {
+  }
+  insert(watchId) {
     this._initializeView();
     if (this._activeItem && this._activeItem.watchId === watchId) {
       return Promise.resolve();
@@ -2443,30 +2469,30 @@ Object.assign(Playlist.prototype, {
     const model = this._model;
     const index = this._index;
     return this._thumbInfoLoader.load(watchId).then(info => {
-        // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
-        // チャンネル動画はsoXXXXに統一したいのでvideoIdを使う. バッドノウハウ
-        info.id = info.isChannel ? info.id : watchId;
-        const item = VideoListItem.createByThumbInfo(info);
-        model.insertItem(item, index + 1);
-        this._refreshIndex(true);
+      // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
+      // チャンネル動画はsoXXXXに統一したいのでvideoIdを使う. バッドノウハウ
+      info.id = info.isChannel ? info.id : watchId;
+      const item = VideoListItem.createByThumbInfo(info);
+      model.insertItem(item, index + 1);
+      this._refreshIndex(true);
 
-        this.emit('update');
+      this.emit('update');
 
-        this.emit('command', 'notifyHtml',
-          `次に再生: <img src="${item.thumbnail}" style="width: 96px;">${util.escapeToZenkaku(item.title)}`
-        );
-      }).catch(result => {
-        const item = VideoListItem.createBlankInfo(watchId);
-        model.insertItem(item, index + 1);
-        this._refreshIndex(true);
+      this.emit('command', 'notifyHtml',
+        `次に再生: <img src="${item.thumbnail}" style="width: 96px;">${util.escapeToZenkaku(item.title)}`
+      );
+    }).catch(result => {
+      const item = VideoListItem.createBlankInfo(watchId);
+      model.insertItem(item, index + 1);
+      this._refreshIndex(true);
 
-        this.emit('update');
+      this.emit('update');
 
-        window.console.error(result);
-        this.emit('command', 'alert', `動画情報の取得に失敗: ${watchId}`);
-      });
-  },
-  insertCurrentVideo: function (videoInfo) {
+      window.console.error(result);
+      this.emit('command', 'alert', `動画情報の取得に失敗: ${watchId}`);
+    });
+  }
+  insertCurrentVideo(videoInfo) {
     this._initializeView();
 
     if (this._activeItem &&
@@ -2495,16 +2521,16 @@ Object.assign(Playlist.prototype, {
     this._model.insertItem(item, this._index + 1);
     this._activeItem = this._model.findByItemId(item.getItemId());
     this._refreshIndex(true);
-  },
-  removeItemByWatchId: function (watchId) {
+  }
+  removeItemByWatchId(watchId) {
     const item = this._model.findByWatchId(watchId);
     if (!item || item.isActive) {
       return;
     }
     this._model.removeItem(item);
     this._refreshIndex(true);
-  },
-  append: function (watchId) {
+  }
+  append(watchId) {
     this._initializeView();
     if (this._activeItem && this._activeItem.watchId === watchId) {
       return Promise.resolve();
@@ -2512,30 +2538,30 @@ Object.assign(Playlist.prototype, {
 
     const model = this._model;
     return this._thumbInfoLoader.load(watchId).then(info => {
-        // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
-        info.id = watchId;
-        const item = VideoListItem.createByThumbInfo(info);
-        //window.console.info(item, info);
-        model.appendItem(item);
-        this._refreshIndex();
-        this.emit('update');
-        this.emit('command', 'notifyHtml',
-          `リストの末尾に追加: <img src="${item.thumbnail}" style="width: 96px;">${util.escapeToZenkaku(item.title)}`
-        );
-      }).catch(result => {
-        const item = VideoListItem.createBlankInfo(watchId);
-        model.appendItem(item);
-        this._refreshIndex(true);
-        this._refreshIndex();
+      // APIにwatchIdを指定してもvideoIdが返るので上書きする. バッドノウハウ
+      info.id = watchId;
+      const item = VideoListItem.createByThumbInfo(info);
+      //window.console.info(item, info);
+      model.appendItem(item);
+      this._refreshIndex();
+      this.emit('update');
+      this.emit('command', 'notifyHtml',
+        `リストの末尾に追加: <img src="${item.thumbnail}" style="width: 96px;">${util.escapeToZenkaku(item.title)}`
+      );
+    }).catch(result => {
+      const item = VideoListItem.createBlankInfo(watchId);
+      model.appendItem(item);
+      this._refreshIndex(true);
+      this._refreshIndex();
 
-        window.console.error(result);
-        this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
-      });
-  },
-  getIndex: function () {
+      window.console.error(result);
+      this.emit('command', 'alert', '動画情報の取得に失敗: ' + watchId);
+    });
+  }
+  getIndex() {
     return this._activeItem ? this._index : -1;
-  },
-  setIndex: function (v, force) {
+  }
+  setIndex(v, force) {
     v = parseInt(v, 10);
     if (this._index !== v || force) {
       this._index = v;
@@ -2548,39 +2574,26 @@ Object.assign(Playlist.prototype, {
       }
       this.emit('update');
     }
-  },
-  _refreshIndex: function (scrollToActive) {
+  }
+  _refreshIndex(scrollToActive) {
     this.setIndex(this._model.indexOf(this._activeItem), true);
     if (scrollToActive) {
       setTimeout(() => this.scrollToActiveItem(true), 1000);
     }
-  },
-  _setIndexByItemId: function (itemId) {
+  }
+  _setIndexByItemId(itemId) {
     const item = this._model.findByItemId(itemId);
     if (item) {
       this._setIndexByItem(item);
     }
-  },
-  _setIndexByItem: function (item) {
+  }
+  _setIndexByItem(item) {
     const index = this._model.indexOf(item);
     if (index >= 0) {
       this.setIndex(index);
     }
-  },
-  getLength: function () {
-    return this._model.getLength();
-  },
-  hasNext: function () {
-    const len = this._model.getLength();
-    return len > 0 && (this.isLoop() || this._index < len - 1);
-  },
-  isEnable: function () {
-    return this._isEnable;
-  },
-  isLoop: function () {
-    return this._isLoop;
-  },
-  toggleEnable: function (v) {
+  }
+  toggleEnable(v) {
     if (!_.isBoolean(v)) {
       this._isEnable = !this._isEnable;
       this.emit('update');
@@ -2591,12 +2604,12 @@ Object.assign(Playlist.prototype, {
       this._isEnable = v;
       this.emit('update');
     }
-  },
-  toggleLoop: function () {
+  }
+  toggleLoop() {
     this._isLoop = !this._isLoop;
     this.emit('update');
-  },
-  shuffle: function () {
+  }
+  shuffle() {
     this._model.shuffle();
     if (this._activeItem) {
       this._model.removeItem(this._activeItem);
@@ -2606,32 +2619,32 @@ Object.assign(Playlist.prototype, {
       this.setIndex(-1);
     }
     this._view.scrollTop(0);
-  },
-  sortBy: function (key, isDesc) {
+  }
+  sortBy(key, isDesc) {
     this._model.sortBy(key, isDesc);
     this._refreshIndex(true);
     setTimeout(() => {
       this._view.scrollToItem(this._activeItem);
     }, 1000);
-  },
-  removePlayedItem: function () {
+  }
+  removePlayedItem() {
     this._model.removePlayedItem();
     this._refreshIndex(true);
     setTimeout(() => {
       this._view.scrollToItem(this._activeItem);
     }, 1000);
-  },
-  removeNonActiveItem: function () {
+  }
+  removeNonActiveItem() {
     this._model.removeNonActiveItem();
     this._refreshIndex(true);
     this.toggleEnable(false);
-  },
-  selectNext: function () {
-    if (!this.hasNext()) {
+  }
+  selectNext() {
+    if (!this.hasNext) {
       return null;
     }
     let index = this.getIndex();
-    let len = this.getLength();
+    let len = this.length;
     if (len < 1) {
       return null;
     }
@@ -2640,14 +2653,14 @@ Object.assign(Playlist.prototype, {
       this.setIndex(0);
     } else if (index + 1 < len) {
       this.setIndex(index + 1);
-    } else if (this.isLoop()) {
+    } else if (this.isLoop) {
       this.setIndex((index + 1) % len);
     }
     return this._activeItem ? this._activeItem.watchId : null;
-  },
-  selectPrevious: function () {
+  }
+  selectPrevious() {
     let index = this.getIndex();
-    let len = this.getLength();
+    let len = this.length;
     if (len < 1) {
       return null;
     }
@@ -2656,29 +2669,46 @@ Object.assign(Playlist.prototype, {
       this.setIndex(0);
     } else if (index > 0) {
       this.setIndex(index - 1);
-    } else if (this.isLoop()) {
+    } else if (this.isLoop) {
       this.setIndex((index + len - 1) % len);
     } else {
       return null;
     }
 
     return this._activeItem ? this._activeItem.watchId : null;
-  },
-  scrollToActiveItem: function (force) {
+  }
+  scrollToActiveItem(force) {
     if (this._activeItem && (force || !this._view.hasFocus)) {
       this._view.scrollToItem(this._activeItem, force);
     }
-  },
-  scrollToWatchId: function (watchId) {
+  }
+  scrollToWatchId(watchId) {
     const item = this._model.findByWatchId(watchId);
     if (item) {
       this._view.scrollToItem(item);
     }
-  },
-  findByWatchId: function (watchId) {
+  }
+  findByWatchId(watchId) {
     return this._model.findByWatchId(watchId);
   }
-});
+
+  get isEnable() {
+    return this._isEnable;
+  }
+  get isLoop() {
+    return this._isLoop;
+  }
+
+  get length() {
+    return this._model.length;
+  }
+
+  get hasNext() {
+    const len = this.length;
+    return len > 0 && (this.isLoop || this._index < len - 1);
+  }
+
+}
 
 //===END===
 
