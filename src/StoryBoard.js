@@ -553,19 +553,21 @@ _.assign(Storyboard.prototype, {
 class StoryboardBlock {
   static create(option) {
     let height = option.boardHeight;
-
-    this._backgroundPosition = `0 ${height * option.row * -1}px`;
+    let backgroundPosition = `0 ${height * option.row * -1}px`;
 
     let view = document.createElement('div');
     view.className = 'board';
     view.style.cssText = `
       background-image: url(${option.src});
-      background-position: ${this._backgroundPosition}; 
+      background-position: ${backgroundPosition};
+      left: ${(option.page * option.rows + option.row) * option.pageWidth}px;  
     `;
-    view.dataset.src = option.src;
-    view.dataset.page = option.page;
-    view.dataset.top = height * option.row + height / 2;
-    view.dataset.backgroundPosition = this._backgroundPosition;
+    Object.assign(view.dataset, {
+      src: option.src,
+      page: option.page,
+      top: height * option.row + height / 2,
+      backgroundPosition
+    });
 
     return view;
   }
@@ -607,11 +609,12 @@ class StoryboardBlockList {
     view.className = 'boardList';
     view.style.cssText = `
       width: ${storyboard.getCount() * width}px; 
-      height: ${height}px`;
-    view.style.setProperty('--cell-width', `${width}px`);
-    view.style.setProperty('--cell-height', `${height}px`);
-    view.style.setProperty('--board-width', `${pageWidth}px`);
-    view.style.setProperty('--board-height', `${height}px`);
+      height: ${height}px;
+      --cell-width: ${width}px;
+      --cell-height: ${height}px;
+      --board-width: ${pageWidth}px;
+      --board-height: ${height}px
+      `;
     this._view = view;
     this._blocks = [];
 
@@ -620,10 +623,11 @@ class StoryboardBlockList {
       for (let row = 0; row < rows; row++) {
         let option = {
           width,
-          pageWidth: pageWidth,
+          pageWidth,
           boardHeight: height,
           page,
           row,
+          rows,
           src
         };
         this.appendBlock(option);
@@ -675,7 +679,7 @@ class StoryboardView extends Emitter {
     sb.on('reset', this._onStoryboardReset.bind(this));
 
     let frame = this._requestAnimationFrame = new util.RequestAnimationFrame(
-      this._onRequestAnimationFrame.bind(this), 1
+      this._onRequestAnimationFrame.bind(this)
     );
 
     ZenzaWatch.emitter.on('DialogPlayerClose', () => frame.disable());
@@ -796,8 +800,11 @@ class StoryboardView extends Emitter {
     let sec = Math.floor(ms / 1000);
 
     let time = util.secToTime(sec);
-    this._cursorTime.textContent = time;
-    this._cursorTime.style.transform = `translate3d(${e.pageX}px, 0, 0) translate(-50%, 0)`;
+    if (this._cursorTime.textContent !== time) {
+      this._cursorTime.textContent = time;
+    }
+    this._cursorTime.style.transform = `translate3d(${e.pageX}px, 30px, 0) translate(-50%, -100%)`;
+
 
     this._isHover = true;
     this._isMouseMoving = true;
@@ -865,23 +872,16 @@ class StoryboardView extends Emitter {
     }
 
     if (left === undefined) {
-      return inner.scrollLeft;
-    } else if (left === 0 || Math.abs(this._scrollLeft - left) >= 1) {
-      if (left === 0 || forceUpdate) {
-        inner.scrollLeft = left;
-        this._scrollLeftChanged = false;
-      } else {
-        let sl = inner.scrollLeft;
-        this._scrollLeft = (left + sl) / 2;
-        this._scrollLeftChanged = true;
+      return this._scrollLeft;
+    } else {
+      if (Math.abs(this._scrollLeft - left) < 1) {
+        return;
       }
+
+      this._scrollLeft = left;
+      this._scrollLeftChanged = true;
+      this._scrollBehavior = 'unset';
     }
-  }
-  scrollToNext() {
-    this.scrollLeft(this._model.getWidth());
-  }
-  scrollToPrev() {
-    this.scrollLeft(-this._model.getWidth());
   }
   _updateSuccess() {
     let url = this._model.getUrl();
@@ -929,14 +929,15 @@ class StoryboardView extends Emitter {
       return;
     }
 
-    if (this._scrollLeftChanged && !this._isHover) {
+    if (this._scrollLeftChanged) {
+      this._inner.style.scrollBehavior = this._scrollBehavior;
       this._inner.scrollLeft = this._scrollLeft;
       this._scrollLeftChanged = false;
       this._pointerLeftChanged = true;
     }
     if (this._pointerLeftChanged) {
       this._pointer.style.transform =
-        `translate3d(${this._pointerLeft - this._inner.scrollLeft}px, 0, 0) translate(-50%, 0)`;
+        `translate3d(${this._pointerLeft - this._scrollLeft}px, 0, 0) translate(-50%, 0)`;
 
       this._pointerLeftChanged = false;
     }
@@ -992,9 +993,7 @@ class StoryboardView extends Emitter {
 
 StoryboardView.__tpl__ = `
   <div id="storyboardContainer" class="storyboardContainer">
-    <div class="storyboardHeader">
-      <div class="cursorTime"></div>
-    </div>
+    <div class="cursorTime"></div>
 
     <div class="storyboardPointer"></div>
     <div class="storyboardInner"></div>
@@ -1008,6 +1007,7 @@ StoryboardView.__css__ = (`
     position: absolute;
     top: 0;
     opacity: 0;
+    visibility: hidden;
     left: 0;
     right: 0;
     width: 100vw;
@@ -1018,8 +1018,9 @@ StoryboardView.__css__ = (`
     pointer-events: none;
     transform: translateZ(0);
     display: none;
-    contain: layout paint;
+    contain: layout paint style;
     user-select: none;
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0.2s;
   }
 
   .storyboardContainer.opening {
@@ -1029,17 +1030,18 @@ StoryboardView.__css__ = (`
   .storyboardContainer.success {
     display: block;
     opacity: 0;
-    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
   }
 
   .storyboardContainer * {
     box-sizing: border-box;
   }
 
-  .is-dragging .storyboardContainer,
-  .storyboardContainer.show {
+  .is-dragging .storyboardContainer.success,
+  .storyboardContainer.success.show {
     z-index: 50;
     opacity: 1;
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+    visibility: visible;
     pointer-events: auto;
     transform: translate3d(0, -100%, 0) translateY(10px);
   }
@@ -1061,8 +1063,11 @@ StoryboardView.__css__ = (`
     white-space: nowrap;
     background: #222;
     margin: 0;
+    contain: paint layout;
   }
-
+  .storyboardInner:hover {
+    scroll-behavior: unset !important;
+  }
   .storyboardContainer.webkit .storyboardInner,
   .storyboardContainer .storyboardInner:hover {
     overflow-x: auto;
@@ -1091,14 +1096,18 @@ StoryboardView.__css__ = (`
 
   .storyboardContainer .storyboardInner .boardList {
     overflow: hidden;
+    contain: paint layout style size;
   }
 
   .storyboardContainer .boardList .board {
+    position: absolute;
+    top: 0;
     display: inline-block;
     cursor: pointer;
     background-color: #101010;
     width: var(--board-width);
     height: var(--board-height);
+    contain: paint layout style size;
   }
 
   .storyboardContainer.clicked .storyboardInner * {
@@ -1123,17 +1132,12 @@ StoryboardView.__css__ = (`
     width: var(--cell-width);
     height: var(--cell-height);
   }
-
-  .storyboardContainer .storyboardHeader {
-    position: relative;
-    width: 100%;
-  }
-
   .storyboardContainer .cursorTime {
     display: none;
     position: absolute;
-    bottom: -30px;
+    top: 0;
     left: 0;
+    padding: 4px 8px;
     font-size: 10pt;
     border: 1px solid #000;
     z-index: 9010;
@@ -1141,6 +1145,7 @@ StoryboardView.__css__ = (`
     pointer-events: none;
   }
   .storyboardContainer:hover .cursorTime {
+    transition: transform 0.1s ease-out;
     display: block;
   }
 
@@ -1148,7 +1153,6 @@ StoryboardView.__css__ = (`
   .storyboardContainer.opening .cursorTime {
     display: none;
   }
-
 
   .storyboardPointer {
     position: absolute;
