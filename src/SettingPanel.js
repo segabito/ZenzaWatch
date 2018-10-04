@@ -327,6 +327,11 @@ SettingPanel.__tpl__ = (`
           <input type="text" class="textInput"
             data-setting-name="baseFontFamily">
 
+          <p>投稿者コメントの影の色</p>
+          <span class="info">※ リロード後に反映</span>
+          <input type="text" class="textInput" pattern="(#[0-9A-Fa-f]{3}|#[0-9A-Fa-f]{6}|^[a-zA-Z]+$)"
+            data-setting-name="commentLayer.ownerCommentShadowColor">
+
           <div class="baseChatScaleControl control toggle">
             <label>
             <select class="baseChatScale" data-setting-name="baseChatScale">
