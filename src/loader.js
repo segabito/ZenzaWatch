@@ -215,7 +215,7 @@ var ajax = function() {};
         cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
         const playlist = {playlist: []};
-        data.playlist.items.forEach(item => {
+        (data.playlist.items || []).forEach(item => {
           if (!item.hasData) { return; }
           playlist.playlist.push({
               _format:       'html5playlist',
@@ -985,7 +985,7 @@ var ajax = function() {};
         },
         _get: function(server, threadId, duration, threadKey, force184) {
           // nmsg.nicovideo.jpでググったら出てきた。
-          // http://favstar.fm/users/koizuka/status/23032783744012288
+          // https://favstar.fm/users/koizuka/status/23032783744012288
           // xmlじゃなくてもいいのかよ!
 
           var resCount = this.getRequestCountByDuration(duration);
@@ -2113,7 +2113,7 @@ var ajax = function() {};
       const load = (watchId) => {
         return new Promise((resolve, reject) => {
           const country = 'ja-jp';
-          const api = 'http://ichiba.nicovideo.jp/embed/zero/show_ichiba';
+          const api = 'https://ichiba.nicovideo.jp/embed/zero/show_ichiba';
           const sc = document.createElement('script');
 
           let timeoutTimer = null;
@@ -2154,7 +2154,7 @@ var ajax = function() {};
 
     const PlaybackPosition = (function() {
       const record = (watchId, playbackPosition, csrfToken) => {
-        const url = 'http://flapi.nicovideo.jp/api/record_current_playback_position';
+        const url = 'https://flapi.nicovideo.jp/api/record_current_playback_position';
         const body =
           `watch_id=${watchId}&playback_position=${playbackPosition}&csrf_token=${csrfToken}`;
         return util.fetch(url, {

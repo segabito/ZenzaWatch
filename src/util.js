@@ -1410,7 +1410,7 @@ class CrossDomainGate {}
 
     ZenzaWatch.util.openTweetWindow = function(videoInfo) {
       var watchId = videoInfo.watchId;
-      var nicomsUrl = 'http://nico.ms/' + watchId;
+      var nicomsUrl = 'https://nico.ms/' + watchId;
       var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
       var sec = videoInfo.duration;
@@ -2526,7 +2526,7 @@ class CrossDomainGate {}
     // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
     const htmlToSvg = function(html, width = 682, height = 384) {
       const data =
-        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
+        (`<svg xmlns='https://www.w3.org/2000/svg' width='${width}' height='${height}'>
           <foreignObject width='100%' height='100%'>${html}</foreignObject>
         </svg>`).trim();
       const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});

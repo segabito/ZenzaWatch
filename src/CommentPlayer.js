@@ -1696,7 +1696,7 @@ const util = {};
     _calculateHeight: function() {
       // ブラウザから取得したouterHeightを使うより、職人の実測値のほうが信頼できる
       // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
-      // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
+      // https://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
       var lc = this._htmlText.split('<br>').length;
       //if (this._nicoChat.getNo() === 427) { window.nnn = this._nicoChat; debugger; }
 
@@ -1779,7 +1779,7 @@ const util = {};
 
       var originalScale = this._scale;
       // 改行リサイズ
-      // 参考: http://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
+      // 参考: https://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
       // 画面の高さの1/3を超える場合は大きさを半分にする
       if (!isEnder && this._height > screenHeight / 3) {
         this._setScale(this._scale * 0.5);
@@ -3245,7 +3245,7 @@ spacer {
       let html = win.document.querySelector('html').outerHTML;
       body.classList.remove('in-capture');
       html = html
-        .replace('<html ', '<html xmlns="http://www.w3.org/1999/xhtml" ')
+        .replace('<html ', '<html xmlns="https://www.w3.org/1999/xhtml" ')
         .replace(/<meta.*?>/g, '')
         .replace(/data-meta=".*?"/g, '')
 //        .replace(/<(\/?)(span|group)/g, '<$1text')
@@ -3276,7 +3276,7 @@ spacer {
       const w = 682, h = 382;
       const head =
 (`<svg
-  xmlns="http://www.w3.org/2000/svg"
+  xmlns="https://www.w3.org/2000/svg"
   version="1.1">
 `);
       const defs = (`

@@ -14,7 +14,7 @@
     BOTTOM_PANEL_HEIGHT: 240,
 
     // video.src クリア用。
-    // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
+    // 空文字だとbase hrefと連結されて https://www.nicovideo.jp が参照されるという残念な理由で // を指定している
     BLANK_VIDEO_URL : '//',
 
     MEDIA_ERROR: {

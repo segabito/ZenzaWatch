@@ -6,7 +6,7 @@ var ZenzaWatch = {
 };
 /**
 
-参考: http://www37.atwiki.jp/commentart/pages/44.html
+参考: https://www37.atwiki.jp/commentart/pages/44.html
 https://www.w3.org/TR/css3-fonts/#font-kerning-prop
 
 MINCHO
@@ -400,9 +400,9 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
               return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
             })
         // 結合文字 前の文字と同じ幅になるらしい
-        // http://www.nicovideo.jp/watch/1376820446 このへんで見かけた
+        // https://www.nicovideo.jp/watch/1376820446 このへんで見かけた
           .replace(/(.)[\u0655]/g ,  '$1<span class="type0655">$1</span>')
-        //http://www.nicovideo.jp/watch/1236260707 で見かける謎スペース。よくわからない
+        // https://www.nicovideo.jp/watch/1236260707 で見かける謎スペース。よくわからない
           .replace(/([\u115a]+)/g ,  '<span class="zen_space type115A">$1</span>')
         // 推奨空白文字
         // なんか前後の文字によって書体(幅)が変わるらしい。 隣接セレクタでどうにかなるか？

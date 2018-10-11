@@ -17,8 +17,8 @@ const WindowMessageEmitter = {};
 
   const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
     (function() {
-      // 参考: http://site.nicovideo.jp/search-api-docs/search.html
-      // http://ch.nicovideo.jp/nico-lab/blomaga/ar930955
+      // 参考: https://site.nicovideo.jp/search-api-docs/search.html
+      // https://ch.nicovideo.jp/nico-lab/blomaga/ar930955
       const BASE_URL       = `${location.protocol}//api.search.nicovideo.jp/api/v2/`;
       const API_BASE_URL   = `${BASE_URL}/video/contents/search`;
       const MESSAGE_ORIGIN = `${location.protocol}//api.search.nicovideo.jp/`;

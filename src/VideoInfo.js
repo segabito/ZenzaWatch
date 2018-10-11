@@ -247,7 +247,7 @@ var ZenzaWatch = {
   }
 
   get watchUrl() {
-    return `http://www.nicovideo.jp/watch/${this.watchId}`;
+    return `https://www.nicovideo.jp/watch/${this.watchId}`;
   }
 
   get threadId() { // watchIdと同一とは限らない
@@ -331,7 +331,7 @@ var ZenzaWatch = {
       var c = this._watchApiData.channelInfo || {};
       ownerInfo = {
         icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
-        url: '//ch.nicovideo.jp/ch' + c.id,
+        url: 'https://ch.nicovideo.jp/ch' + c.id,
         id: c.id,
         name: c.name,
         favorite: c.is_favorited === 1, // こっちは01で

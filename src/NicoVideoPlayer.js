@@ -1356,7 +1356,7 @@ class YouTubeWrapper {}
 
       // removeAttribute('src')では動画がクリアされず、
       // 空文字を指定しても base hrefと連結されて
-      // http://www.nicovideo.jpへのアクセスが発生する. どないしろと.
+      // https://www.nicovideo.jpへのアクセスが発生する. どないしろと.
       this._videoElement.src = CONSTANT.BLANK_VIDEO_URL;
       //window.console.info('src', this._video.src, this._video.getAttribute('src'));
       if (this._videoYouTube) {

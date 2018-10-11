@@ -7,7 +7,7 @@ const ZenzaWatch = {
 };
 const util = {};
 const location = {
-  protocol: 'http:'
+  protocol: 'https:'
 };
 
 class CrossDomainGate {}
@@ -93,7 +93,7 @@ module.exports = {
 /**
 
 // タグ一覧取得
-http://www.nicovideo.jp/tag_edit/smXXXXXX/?res_type=json&cmd=tags
+https://www.nicovideo.jp/tag_edit/smXXXXXX/?res_type=json&cmd=tags
 
 { "is_owner": true,
   "is_uneditable_tag": false,
@@ -109,7 +109,7 @@ http://www.nicovideo.jp/tag_edit/smXXXXXX/?res_type=json&cmd=tags
 }
 
 // タグ追加 レスポンスは一覧取得と同じ
-// URL: http://www.nicovideo.jp/tag_edit/smXXXXXX/
+// URL: https://www.nicovideo.jp/tag_edit/smXXXXXX/
 // request POST
 res_type: json
 cmd: add
