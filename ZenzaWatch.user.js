@@ -103,7 +103,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     BOTTOM_PANEL_HEIGHT: 240,
 
     // video.src クリア用。
-    // 空文字だとbase hrefと連結されて http://www.nicovideo.jp が参照されるという残念な理由で // を指定している
+    // 空文字だとbase hrefと連結されて https://www.nicovideo.jp が参照されるという残念な理由で // を指定している
     BLANK_VIDEO_URL : '//',
 
     MEDIA_ERROR: {
@@ -526,7 +526,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       emitter.exportConfig = function() {
         var result = {};
         _.each(Object.keys(defaultConfig), function(key) {
-          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) { return; }
           var storageKey = prefix + key;
           if ((localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) &&
               defaultConfig[key] !== emitter.getValue(key)) {
@@ -539,7 +539,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       emitter.importConfig = function(data) {
         noEmit = true;
         _.each(Object.keys(data), function(key) {
-          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) { return; }
           window.console.log('import config: %s=%s', key, data[key]);
           try {
             emitter.setValue(key, data[key]);
@@ -551,7 +551,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       emitter.clearConfig = function() {
         noEmit = true;
         _.each(Object.keys(defaultConfig), function(key) {
-          if (_.contains(['message', 'lastPlayerId', 'lastWatchId', 'debug'], key)) { return; }
+          if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) { return; }
           var storageKey = prefix + key;
           try {
             if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
@@ -1492,7 +1492,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
     ZenzaWatch.util.openTweetWindow = function(videoInfo) {
       var watchId = videoInfo.watchId;
-      var nicomsUrl = 'http://nico.ms/' + watchId;
+      var nicomsUrl = 'https://nico.ms/' + watchId;
       var watchUrl = location.protocol + '//www.nicovideo.jp/watch/' + watchId;
 
       var sec = videoInfo.duration;
@@ -2608,7 +2608,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     // https://developer.mozilla.org/ja/docs/Web/HTML/Canvas/Drawing_DOM_objects_into_a_canvas
     const htmlToSvg = function(html, width = 682, height = 384) {
       const data =
-        (`<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'>
+        (`<svg xmlns='https://www.w3.org/2000/svg' width='${width}' height='${height}'>
           <foreignObject width='100%' height='100%'>${html}</foreignObject>
         </svg>`).trim();
       const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
@@ -3079,7 +3079,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         cacheStorage.setItem('csrfToken', csrfToken, 30 * 60 * 1000);
 
         const playlist = {playlist: []};
-        data.playlist.items.forEach(item => {
+        (data.playlist.items || []).forEach(item => {
           if (!item.hasData) { return; }
           playlist.playlist.push({
               _format:       'html5playlist',
@@ -3849,7 +3849,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
         },
         _get: function(server, threadId, duration, threadKey, force184) {
           // nmsg.nicovideo.jpでググったら出てきた。
-          // http://favstar.fm/users/koizuka/status/23032783744012288
+          // https://favstar.fm/users/koizuka/status/23032783744012288
           // xmlじゃなくてもいいのかよ!
 
           var resCount = this.getRequestCountByDuration(duration);
@@ -4977,7 +4977,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       const load = (watchId) => {
         return new Promise((resolve, reject) => {
           const country = 'ja-jp';
-          const api = 'http://ichiba.nicovideo.jp/embed/zero/show_ichiba';
+          const api = 'https://ichiba.nicovideo.jp/embed/zero/show_ichiba';
           const sc = document.createElement('script');
 
           let timeoutTimer = null;
@@ -5018,7 +5018,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
     const PlaybackPosition = (function() {
       const record = (watchId, playbackPosition, csrfToken) => {
-        const url = 'http://flapi.nicovideo.jp/api/record_current_playback_position';
+        const url = 'https://flapi.nicovideo.jp/api/record_current_playback_position';
         const body =
           `watch_id=${watchId}&playback_position=${playbackPosition}&csrf_token=${csrfToken}`;
         return util.fetch(url, {
@@ -5153,9 +5153,9 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
     }
 
     set ngTag(tag) {
-      tag = _.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
-      var list = [];
-      _.each(tag, function(t) {
+      tag = Array.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
+      const list = [];
+      tag.forEach(t => {
         list.push(t.toLowerCase().trim());
       });
       this._ngTag = list;
@@ -5167,7 +5167,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       let ngTag = this.ngTag;
       videoInfo.tagList.forEach(tag => {
         let text = (tag.tag || '').toLowerCase();
-        if (_.contains(ngTag, text)) {
+        if (ngTag.includes(text)) {
           isNg = true;
         }
       });
@@ -5175,7 +5175,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
       let owner = videoInfo.ownerInfo;
       let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
-      if (ownerId && _.contains(this.ngOwner, ownerId)) {
+      if (ownerId && this.ngOwner.includes(ownerId)) {
         isNg = true;
       }
 
@@ -5295,7 +5295,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
   }
 
   get watchUrl() {
-    return `http://www.nicovideo.jp/watch/${this.watchId}`;
+    return `https://www.nicovideo.jp/watch/${this.watchId}`;
   }
 
   get threadId() { // watchIdと同一とは限らない
@@ -5379,7 +5379,7 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
       var c = this._watchApiData.channelInfo || {};
       ownerInfo = {
         icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
-        url: '//ch.nicovideo.jp/ch' + c.id,
+        url: 'https://ch.nicovideo.jp/ch' + c.id,
         id: c.id,
         name: c.name,
         favorite: c.is_favorited === 1, // こっちは01で
@@ -5466,8 +5466,8 @@ const monkey = function(PRODUCT, START_PAGE_QUERY) {
 
   const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
     (function() {
-      // 参考: http://site.nicovideo.jp/search-api-docs/search.html
-      // http://ch.nicovideo.jp/nico-lab/blomaga/ar930955
+      // 参考: https://site.nicovideo.jp/search-api-docs/search.html
+      // https://ch.nicovideo.jp/nico-lab/blomaga/ar930955
       const BASE_URL       = `${location.protocol}//api.search.nicovideo.jp/api/v2/`;
       const API_BASE_URL   = `${BASE_URL}/video/contents/search`;
       const MESSAGE_ORIGIN = `${location.protocol}//api.search.nicovideo.jp/`;
@@ -6259,6 +6259,9 @@ class TagEditApi {
 
 
 const {YouTubeWrapper} = (() => {
+
+  const STATE_PLAYING = 1;
+
   class YouTubeWrapper extends AsyncEmitter {
     constructor({parentNode, autoplay = true, volume = 0.3, playbackRate = 1, loop = false}) {
       super();
@@ -6454,7 +6457,26 @@ const {YouTubeWrapper} = (() => {
     }
 
     get currentTime() {
-      return this._isSeeking ? this._seekTime : this._player.getCurrentTime();
+      const now = performance.now();
+      if (this._isSeeking) {
+        this._lastTime = now;
+        return this._seekTime;
+      }
+      const state = this._player.getPlayerState();
+      const currentTime = this._player.getCurrentTime();
+
+      if (state !== STATE_PLAYING || this._lastCurrentTime !== currentTime) {
+        this._lastCurrentTime = currentTime;
+        this._lastTime = now;
+        return currentTime;
+      }
+
+      // 本家watchページ上ではなぜかgetCurrentTimeの精度が落ちるため、
+      // status===PLAYINGにもかかわらずcurrentTimeが進んでいない時は、wrapper側で補完する。
+      // 精度が落ちると断続的なstalled判定になりコメントがカクカクする
+      const timeDiff = (now - this._lastTime) * this.playbackRate / 1000000;
+      this._lastCurrentTime = Math.min(currentTime, this.duration);
+      return currentTime + timeDiff;
     }
 
     get duration() {
@@ -7870,7 +7892,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
 
       // removeAttribute('src')では動画がクリアされず、
       // 空文字を指定しても base hrefと連結されて
-      // http://www.nicovideo.jpへのアクセスが発生する. どないしろと.
+      // https://www.nicovideo.jpへのアクセスが発生する. どないしろと.
       this._videoElement.src = CONSTANT.BLANK_VIDEO_URL;
       //window.console.info('src', this._video.src, this._video.getAttribute('src'));
       if (this._videoYouTube) {
@@ -8911,6 +8933,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
         this._$failMessage   = $view.find('.failMessage');
         this._$cursorTime    = $view.find('.cursorTime');
         this._$pointer       = $view.find('.storyboardPointer');
+        this._inner = $inner[0];
 
         $view
           .toggleClass('webkit', ZenzaWatch.util.isWebkit())
@@ -9052,17 +9075,17 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
         }
       },
       scrollLeft: function(left, forceUpdate) {
-        var $inner = this._$inner;
-        if (!$inner) { return 0; }
-      
+        const inner = this._inner;
+        if (!inner) { return 0; }
+
         if (left === undefined) {
-          return $inner.scrollLeft();
+          return inner.scrollLeft;
         } else if (left === 0 || Math.abs(this._scrollLeft - left) >= 1) {
           if (left === 0 || forceUpdate) {
-            $inner.scrollLeft(left);
+            inner.scrollLeft = left;
             this._scrollLeftChanged = false;
           } else {
-            var sl = $inner.scrollLeft();
+            var sl = inner.scrollLeft;
             this._scrollLeft = (left + sl) / 2;
             this._scrollLeftChanged = true;
           }
@@ -9263,7 +9286,6 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
         background: #222;
         margin: 0;
       }
-
 
       .storyboardContainer.webkit .storyboardInner,
       .storyboardContainer .storyboardInner:hover {
@@ -9636,7 +9658,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
     }
 
     .togglePlay {
-      font-size: 20px;
+      font-size: 22px;
       width: 32px;
       height: 32px;
       line-height: 30px;
@@ -9806,19 +9828,25 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
     .videoControlBar .videoTime {
       display: inline-block;
       top: 0;
-      padding: 0 16px;
+      padding: 0;
       color: #fff;
-      font-size: 10px;
+      font-size: 12px;
       white-space: nowrap;
       background: rgba(33, 33, 33, 0.5);
+      border: 0;
       border-radius: 4px;
-      text-align: center;
+      pointer-events: none;
+      user-select: none;
     }
     .videoControlBar .videoTime .currentTime,
     .videoControlBar .videoTime .duration {
       display: inline-block;
       color: #fff;
       text-align: center;
+      background: inherit;
+      border: 0;
+      width: 44px;
+      font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
     }
 
     .videoControlBar.is-loading .videoTime {
@@ -9884,6 +9912,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       line-height: 30px;
       font-size: 18px;
       white-space: nowrap;
+      margin-right: 0;
     }
 
     .playbackRateMenu:active {
@@ -10300,7 +10329,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       <div class="controlItemContainer center">
         <div class="scalingUI">
           <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
-            <div class="controlButtonInner">＜●＞</div>
+            <div class="controlButtonInner">&lt;●&gt;</div>
             <div class="tooltip">シーンサーチ</div>
           </div>
 
@@ -10350,8 +10379,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
           </div>
 
           <div class="videoTime">
-            <span class="currentTime"></span> /
-            <span class="duration"></span>
+            <input type="text" class="currentTime" value="00:00">/<input type="text" class="duration" value="00:00">
           </div>
 
           <div class="muteSwitch controlButton" data-command="toggleMute">
@@ -10966,7 +10994,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
         var currentTimeText = [m, s].join(':');
         if (this._currentTimeText !== currentTimeText) {
           this._currentTimeText = currentTimeText;
-          this._$currentTime.text(currentTimeText);
+          this._$currentTime[0].value = currentTimeText;
         }
         const per = Math.min(100, this._timeToPer(sec));
         this._$seekBarPointer[0].style.transform = `translate3d(${per}%, 0, 0)`;
@@ -10976,13 +11004,13 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
       if (sec !== this._duration) {
         this._duration = sec;
 
-        if (sec === 0) {
-          this._$duration.text('--:--');
+        if (sec === 0 || isNaN(sec)) {
+          this._$duration[0].value = '--:--';
         }
         var m = Math.floor(sec / 60);
         m = m < 10 ? ('0' + m) : m;
         var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-        this._$duration.text([m, s].join(':'));
+        this._$duration[0].value = [m, s].join(':');
         this.emit('durationChange');
       }
     },
@@ -11956,7 +11984,7 @@ ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
     // wikiの記述だと\u2588はstrongではないっぽいけど、そうじゃないと辻褄が合わないCAがいくつかある。
     // wikiが間違いなのか、まだ知らない法則があるのか・・・？
     //
-//    GOTHIC: /[ァ-ン゛・゜]/,
+//    GOTHIC: /[ｧ-ﾝﾞ･ﾟ]/,
     GOTHIC: /[\uFF67-\uFF9D\uFF9E\uFF65\uFF9F]/,
     MINCHO: /([\u02C9\u2105\u2109\u2196-\u2199\u220F\u2215\u2248\u2264\u2265\u2299\u2474-\u2482\u250D\u250E\u2511\u2512\u2515\u2516\u2519\u251A\u251E\u251F\u2521\u2522\u2526\u2527\u2529\u252A\u252D\u252E\u2531\u2532\u2535\u2536\u2539\u253A\u253D\u253E\u2540\u2541\u2543-\u254A\u2550-\u256C\u2584\u2588\u258C\u2593\u01CE\u0D00\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u0251\u0261\u02CA\u02CB\u2016\u2035\u216A\u216B\u2223\u2236\u2237\u224C\u226E\u226F\u2295\u2483-\u249B\u2504-\u250B\u256D-\u2573\u2581-\u2583\u2585-\u2586\u2589-\u258B\u258D-\u258F\u2594\u2595\u25E2-\u25E5\u2609\u3016\u3017\u301E\u3021-\u3029\u3105-\u3129\u3220-\u3229\u32A3\u33CE\u33D1\u33D2\u33D5\uE758-\uE864\uFA0C\uFA0D\uFE30\uFE31\uFE33-\uFE44\uFE49-\uFE52\uFE54-\uFE57\uFE59-\uFE66\uFE68-\uFE6B])/,
     GULIM: /([\u0126\u0127\u0132\u0133\u0138\u013F\u0140\u0149-\u014B\u0166\u0167\u02D0\u02DA\u2074\u207F\u2081-\u2084\u2113\u2153\u2154\u215C-\u215E\u2194-\u2195\u223C\u249C-\u24B5\u24D0-\u24E9\u2592\u25A3-\u25A9\u25B6\u25B7\u25C0\u25C1\u25C8\u25D0\u25D1\u260E\u260F\u261C\u261E\u2660\u2661\u2663-\u2665\u2667-\u2669\u266C\u3131-\u318E\u3200-\u321C\u3260-\u327B\u3380-\u3384\u3388-\u338D\u3390-\u339B\u339F\u33A0\u33A2-\u33CA\u33CF\u33D0\u33D3\u33D6\u33D8\u33DB-\u33DD\uF900-\uF928\uF92A-\uF994\uF996-\uFA0B\uFFE6])/,
@@ -12241,9 +12269,9 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
               return '<span class="invisible_code" data-code="' + e + '">' + g + '</span>';
             })
         // 結合文字 前の文字と同じ幅になるらしい
-        // http://www.nicovideo.jp/watch/1376820446 このへんで見かけた
+        // https://www.nicovideo.jp/watch/1376820446 このへんで見かけた
           .replace(/(.)[\u0655]/g ,  '$1<span class="type0655">$1</span>')
-        //http://www.nicovideo.jp/watch/1236260707 で見かける謎スペース。よくわからない
+        // https://www.nicovideo.jp/watch/1236260707 で見かける謎スペース。よくわからない
           .replace(/([\u115a]+)/g ,  '<span class="zen_space type115A">$1</span>')
         // 推奨空白文字
         // なんか前後の文字によって書体(幅)が変わるらしい。 隣接セレクタでどうにかなるか？
@@ -13702,7 +13730,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
       this._vpos = minv;
     },
     _parseCmd: function(cmd, isFork) {
-      var tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t]+/);
+      var tmp = cmd.toLowerCase().split(/[\x20|\u3000|\t|\u2003]+/);
       var result = {};
       tmp.forEach(c => {
         if (NicoChat.COLORS[c]) {
@@ -13995,7 +14023,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
     _calculateHeight: function() {
       // ブラウザから取得したouterHeightを使うより、職人の実測値のほうが信頼できる
       // http://tokeiyadiary.blog48.fc2.com/blog-entry-90.html
-      // http://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
+      // https://www37.atwiki.jp/commentart/pages/43.html#id_a759b2c2
       var lc = this._htmlText.split('<br>').length;
       //if (this._nicoChat.getNo() === 427) { window.nnn = this._nicoChat; debugger; }
 
@@ -14078,7 +14106,7 @@ ZenzaWatch.NicoTextParser = NicoTextParser;
 
       var originalScale = this._scale;
       // 改行リサイズ
-      // 参考: http://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
+      // 参考: https://ch.nicovideo.jp/meg_nakagami/blomaga/ar217381
       // 画面の高さの1/3を超える場合は大きさを半分にする
       if (!isEnder && this._height > screenHeight / 3) {
         this._setScale(this._scale * 0.5);
@@ -15544,7 +15572,7 @@ spacer {
       let html = win.document.querySelector('html').outerHTML;
       body.classList.remove('in-capture');
       html = html
-        .replace('<html ', '<html xmlns="http://www.w3.org/1999/xhtml" ')
+        .replace('<html ', '<html xmlns="https://www.w3.org/1999/xhtml" ')
         .replace(/<meta.*?>/g, '')
         .replace(/data-meta=".*?"/g, '')
 //        .replace(/<(\/?)(span|group)/g, '<$1text')
@@ -15575,7 +15603,7 @@ spacer {
       const w = 682, h = 382;
       const head =
 (`<svg
-  xmlns="http://www.w3.org/2000/svg"
+  xmlns="https://www.w3.org/2000/svg"
   version="1.1">
 `);
       const defs = (`
@@ -17324,7 +17352,7 @@ var SlotLayoutWorker = (function() {
       this.scrollTop(top);
     },
     setCurrentPoint: function(idx) {
-      if (!this._$window) { return; }
+      if (!this._$window || !this._itemViews) { return; }
       var innerHeight = this._$window.innerHeight();
       var itemViews = this._itemViews;
       var len  = itemViews.length;
@@ -21335,7 +21363,7 @@ const VideoSession = (function() {
       if (!this._mode) { return key; }
       switch (this._mode) {
         case 'ginza':
-          if (_.contains(['autoPlay', 'screenMode'], key)) {
+          if (['autoPlay', 'screenMode'].includes(key)) {
             return key + ':' + this._mode;
           }
           return key;
@@ -23055,7 +23083,7 @@ const VideoSession = (function() {
           break;
       }
       var screenMode = this._playerConfig.getValue('screenMode');
-      if (!_.contains(['small', 'sideView'], screenMode)) {
+      if (!['small', 'sideView'].includes(screenMode)) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -24024,7 +24052,7 @@ const VideoSession = (function() {
 
         if (errorCode === 3) {
           return _onTicketFail(err);
-        } else if (!_.contains([2, 4, 5], errorCode)) {
+        } else if (![2, 4, 5].includes(errorCode)) {
           return _onFailFinal(err);
         }
 
@@ -26044,7 +26072,7 @@ const VideoSession = (function() {
       });
 
       var onConfigUpdate = function(key, value) {
-        if (_.contains(['wordFilter', 'userIdFilter', 'commandFilter'], key)) {
+        if (['wordFilter', 'userIdFilter', 'commandFilter'].includes(key)) {
           map[key].val(value.join('\n'));
         }
       };
@@ -28474,7 +28502,7 @@ const VideoSession = (function() {
       const target = e.target.classList.contains('command') ?
         e.target : e.target.closest('.command');
 
-      if (!_.contains(['input', 'select'], tagName)) {
+      if (!['input', 'select'].includes(tagName)) {
         this._word.focus();
       }
 
