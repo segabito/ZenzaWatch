@@ -36,6 +36,8 @@ _.assign(PlayerConfig.prototype, {
     this._mode = params.mode || '';
     if (!this._mode && util.isGinzaWatchUrl()) {
       this._mode = 'ginza';
+    } else if (location && location.host.indexOf('.nicovideo.jp') < 0) {
+      this._mode = 'others';
     }
 
     if (!this._mode) {
@@ -57,6 +59,11 @@ _.assign(PlayerConfig.prototype, {
     switch (this._mode) {
       case 'ginza':
         if (['autoPlay', 'screenMode'].includes(key)) {
+          return `${key}:${this._mode}`;
+        }
+        return key;
+      case 'others':
+        if (['autoPlay', 'screenMode', 'overrideWatchLink'].includes(key)) {
           return `${key}:${this._mode}`;
         }
         return key;
@@ -381,6 +388,22 @@ util.addStyle(`
     }
   }
 `, {className: 'screenMode for-popup', disabled: true});
+
+util.addStyle(`
+  body.zenzaScreenMode_sideView .ZenButton,
+  body.zenzaScreenMode_sideView .mylistPocketHoverMenu.zen-family {
+    transform:
+      translate(calc(var(--sideView-left-margin) * -1), calc(var(--sideView-top-margin) * -1))
+      scale(var(--zenza-ui-scale, 1));
+  }
+`, {className: 'domain friends-nico', disabled: true});
+util.addStyle(`
+body.zenzaScreenMode_sideView,
+body.zenzaScreenMode_small {
+  border-bottom: 40px solid;
+  margin-top: 0;
+}
+`, {className: 'domain slack-com', disabled: true});
 
 util.addStyle(`
 

@@ -610,6 +610,7 @@ const {
         _format: 'thumbInfo',
         v: isChannel ? videoId : watchId,
         id: videoId,
+        originalVideoId: (!isChannel && watchId !== videoId) ? videoId : '',
         isChannel,
         title: val('title'),
         description: val('description'),
@@ -628,6 +629,7 @@ const {
         result.owner = {
           type: 'user',
           id: userId,
+          linkId: userId ? `user/${userId}` : '',
           name: val('user_nickname') || '(非公開ユーザー)',
           url: userId ? ('//www.nicovideo.jp/user/' + userId) : '#',
           icon: val('user_icon_url') || '//res.nimg.jp/img/user/thumb/blank.jpg'
@@ -638,6 +640,7 @@ const {
         result.owner = {
           type: 'channel',
           id: channelId,
+          linkId: channelId ? `ch${channelId}` : '',
           name: val('ch_name') || '(非公開ユーザー)',
           url: '//ch.nicovideo.jp/ch' + channelId,
           icon: val('ch_icon_url') || '//res.nimg.jp/img/user/thumb/blank.jpg'

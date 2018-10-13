@@ -37,7 +37,7 @@ const {ThreadLoader} = (() => {
     }
 
     getThreadKey(threadId, language = '', options = {}) {
-      let url = `http://flapi.nicovideo.jp/api/getthreadkey?thread=${threadId}`;
+      let url = `//flapi.nicovideo.jp/api/getthreadkey?thread=${threadId}`;
       let langCode = this.getLangCode(language);
       if (langCode) { url = `${url}&language_id=${langCode}`; }
 
@@ -60,7 +60,7 @@ const {ThreadLoader} = (() => {
     }
 
     getWaybackKey(threadId, language = '', options = {}) {
-      let url = `http://flapi.nicovideo.jp/api/getwaybackkey?thread=${threadId}`;
+      let url = `//flapi.nicovideo.jp/api/getwaybackkey?thread=${threadId}`;
       let langCode = this.getLangCode(language);
       if (langCode) { url = `${url}&language_id=${langCode}`; }
 
@@ -91,7 +91,7 @@ const {ThreadLoader} = (() => {
 
     getPostKey(threadId, blockNo, options = {}) {
       let url =
-        `http://flapi.nicovideo.jp/api/getpostkey?device=1&thread=${threadId}&block_no=${blockNo}&version=1&version_sub=2&yugi=`;
+        `//flapi.nicovideo.jp/api/getpostkey?device=1&thread=${threadId}&block_no=${blockNo}&version=1&version_sub=2&yugi=`;
 
       console.log('getPostkey url: ', url);
       let headers = options.cookie ? {Cookie: options.cookie} : {};
@@ -123,7 +123,7 @@ const {ThreadLoader} = (() => {
           thread: thread.id.toString(),
           user_id: msgInfo.userId > 0 ? msgInfo.userId.toString() : '', // 0の時は空文字
           language,
-          nicoru: 0,
+          nicoru: 1,
           scores: 1
         };
         if (thread.isThreadkeyRequired) {

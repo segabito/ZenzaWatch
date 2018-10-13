@@ -170,7 +170,8 @@ const {initialize} = (() => {
 
     util.dispatchCustomEvent(
       document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch);
-    util.addStyle(CONSTANT.COMMON_CSS);
+    util.addStyle(CONSTANT.COMMON_CSS, {className: 'common'});
+    initializeBySite();
 
     if (location.host === 'www.nicovideo.jp' && location.pathname === '/favicon.ico' && top === window) {
       util.addStyle(`
@@ -305,6 +306,13 @@ const {initialize} = (() => {
     $('body').trigger('ZenzaWatchReady', window.ZenzaWatch);
   };
 
+  let initializeBySite = () => {
+    let hostClass = location.host;
+    hostClass = hostClass.replace(/^.*\.slack\.com$/, 'slack.com');
+    hostClass = hostClass.replace(/\./g, '-');
+    document.body.dataset.domain = hostClass;
+    util.StyleSwitcher.update({on: `style.domain.${hostClass}`});
+  };
 
   let initializeDialogPlayer = function (config, offScreenLayer) {
     console.log('initializeDialog');
@@ -418,6 +426,16 @@ const {initialize} = (() => {
         return Array.from(document.querySelectorAll('.zenzaPlayerContainer iframe')).map(f => f.contentWindow.document.body);
       }
     });
+    if (ZenzaWatch !== window.ZenzaWatch) {
+      window.ZenzaWatch.external = {
+        open,
+        sendOrOpen,
+        playlist: {
+          add: playlistAdd,
+          insert: playlistInsert
+        }
+      };
+    }
   };
 
   class HoverMenu {
@@ -433,7 +451,8 @@ const {initialize} = (() => {
       this._$view = $view;
 
       if (!util.isGinzaWatchUrl() &&
-        this._playerConfig.getValue('overrideWatchLink')) {
+        this._playerConfig.getValue('overrideWatchLink') &&
+        location && location.host.indexOf('.nicovideo.jp') >= 0) {
         this._overrideGinzaLink();
       } else {
         this._onHoverEnd = _.debounce(this._onHoverEnd.bind(this), 500);
@@ -555,7 +574,7 @@ const {initialize} = (() => {
         let href = $target.attr('data-href') || $target.attr('href');
         let watchId = util.getWatchId(href);
         let host = $target[0].hostname;
-        if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') {
+        if (host !== 'www.nicovideo.jp' && host !== 'nico.ms' && host !== 'sp.nicovideo.jp') {
           return;
         }
         this._query = util.parseQuery(($target[0].search || '').substr(1));

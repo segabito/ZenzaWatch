@@ -5,9 +5,10 @@ const location = {host: 'www.nicovideo.jp'};
 const navigator = {};
 const window = {console: console};
 // let console = window.console;
+const CONFIG = null;
 
 //===BEGIN===
-const Config = (() => {
+const Config = ((CONFIG) => {
   const prefix = `${PRODUCT}_`;
   const emitter = new Emitter();
 
@@ -28,17 +29,19 @@ const Config = (() => {
 
   // 直接変更する時はコンソールで
   // ZenzaWatch.config.setValue('hogehoge' fugafuga);
-  const DEFAULT_CONFIG = {
+  const DEFAULT_CONFIG = CONFIG || {
     debug: false,
     volume: 0.3,
     forceEnable: false,
     showComment: true,
     autoPlay: true,
     'autoPlay:ginza': true,
+    'autoPlay:others': true,
     loop: false,
     mute: false,
     screenMode: 'normal',
     'screenMode:ginza': 'normal',
+    'screenMode:others': 'normal',
     autoFullScreen: false,
     autoCloseFullScreen: true, // 再生終了時に自動でフルスクリーン解除するかどうか
     continueNextPage: false,   // 動画再生中にリロードやページ切り替えしたら続きから開き直す
@@ -83,9 +86,10 @@ const Config = (() => {
     baseChatScale: 1.0,
     baseFontBolder: true,
 
-    allowOtherDomain: false, // 外部サイトでも実行するかどうか
+    allowOtherDomain: true,
 
     overrideWatchLink: false, // すべての動画リンクをZenzaWatchで開く
+    'overrideWatchLink:others': false, // すべての動画リンクをZenzaWatchで開く
 
     speakLark: false, // 一発ネタのコメント読み上げ機能. 飽きたら消す
     speakLarkVolume: 1.0, // 一発ネタのコメント読み上げ機能. 飽きたら消す
@@ -102,6 +106,7 @@ const Config = (() => {
     commentLayerOpacity: 1.0, //
     'commentLayer.textShadowType': '', // フォントの修飾タイプ
     'commentLayer.enableSlotLayoutEmulation': false,
+    'commentLayer.ownerCommentShadowColor': '#008800', // 投稿者コメントの影の色
 
     overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
     enableGinzaSlayer: false, // まだ実験中
@@ -116,7 +121,7 @@ const Config = (() => {
     autoDisableDmc: true, // smileのほうが高画質と思われる動画でdmcを無効にする
     dmcVideoQuality: 'auto',   // 優先する画質 auto, veryhigh, high, mid, low
     smileVideoQuality: 'default', // default eco
-    useWellKnownPort: false,
+    useWellKnownPort: false, // この機能なくなったぽい (常時true相当になった)
     'video.hls.enable': true,
     'video.hls.segmentDuration': 5000,
 
@@ -129,7 +134,7 @@ const Config = (() => {
 
     'uaa.enable': true,
 
-    'screenshot.prefix': '',
+    'screenshot.prefix': '', // スクリーンショットのファイル名の先頭につける文字
 
     'search.limit': 300, // 検索する最大件数(最大1600) 100件ごとにAPIを叩くので多くするほど遅くなる
 
@@ -152,7 +157,7 @@ const Config = (() => {
     KEY_SEEK_RIGHT: 39 + 0x1000, // SHIFT + RIGHT
     KEY_SEEK_LEFT2: 99999999, // カスタマイズ用
     KEY_SEEK_RIGHT2: 99999999, //
-    // 1/60秒戻る・進む  1コマに移動したいが動画のフレームレートを取得できないため
+    // 1/60秒戻る・進む  本当は1コマ単位の移動にしたいが動画のフレームレートを取得できないため
     KEY_SEEK_PREV_FRAME: 188, // ,
     KEY_SEEK_NEXT_FRAME: 190, // .
 
@@ -371,7 +376,7 @@ const Config = (() => {
   };
 
   return emitter;
-})();
+})(CONFIG);
 //===END===
 
 export {

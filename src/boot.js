@@ -36,7 +36,7 @@ const boot = ((monkey, PRODUCT, START_PAGE_QUERY) => {
         script.setAttribute('type', 'text/javascript');
         script.setAttribute('charset', 'UTF-8');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js';
-        document.body.appendChild(script);
+        document.head.append(script);
         let count = 0;
 
         let tm = setInterval(() => {
@@ -65,7 +65,7 @@ const boot = ((monkey, PRODUCT, START_PAGE_QUERY) => {
       script.setAttribute('charset', 'UTF-8');
       script.appendChild(
         document.createTextNode(`(${monkey})('${PRODUCT}', '${encodeURIComponent(START_PAGE_QUERY)}');`));
-      document.body.appendChild(script);
+      document.head.append(script);
     };
 
     const MIN_JQ = 10000600000;
@@ -96,7 +96,7 @@ const boot = ((monkey, PRODUCT, START_PAGE_QUERY) => {
         script.setAttribute('type', 'text/javascript');
         script.setAttribute('charset', 'UTF-8');
         script.src = 'https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js';
-        document.body.appendChild(script);
+        document.head.append(script);
         let count = 0;
 
         let tm = setInterval(() => {
