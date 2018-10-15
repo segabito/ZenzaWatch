@@ -1863,6 +1863,7 @@ PlaylistView.__css__ = (`
     }
 
     .playlist-menu-button {
+      display: inline-block;
       cursor: pointer;
       border: 1px solid #333;
       padding: 0px 4px;

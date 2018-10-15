@@ -220,6 +220,10 @@ class NicoVideoPlayerDialogView extends Emitter {
 }
 
 util.addStyle(`
+  #zenzaVideoPlayerDialog::before {
+    display: none;
+  }
+
   .zenzaPlayerContainer {
     left: 0 !important;
     top:  0 !important;
@@ -239,6 +243,7 @@ util.addStyle(`
     border: 0 !important;
     z-index: 100 !important;
     contain: layout style size paint;
+    will-change: transform opacity;
   }
 
   .commentLayerFrame {
@@ -292,20 +297,19 @@ util.addStyle(`
     z-index: 102 !important;
   }
 
-  .zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
+  body[data-screen-mode="3D"] .zenzaPlayerContainer .videoPlayer {
     transform: perspective(700px) rotateX(10deg);
     margin-top: -5%;
   }
 
-  .zenzaScreenMode_3D   .zenzaPlayerContainer,
-  .zenzaScreenMode_wide .zenzaPlayerContainer {
+  .zenzaPlayerContainer {
     left: 0;
     width: 100vw;
     height: 100vh;
     box-shadow: none;
   }
 
-  .zenzaScreenMode_wide  .is-backComment .videoPlayer {
+  .is-backComment .videoPlayer {
     left: 25%;
     top:  25%;
     width:  50%;
@@ -313,12 +317,12 @@ util.addStyle(`
     z-index: 102;
   }
   
-  .zenzaScreenMode_3D .zenzaPlayerContainer .videoPlayer {
+  body[data-screen-mode="3D"] .zenzaPlayerContainer .videoPlayer {
     transform: perspective(600px) rotateX(10deg);
     height: 100%;
   }
 
-  .zenzaScreenMode_3D .zenzaPlayerContainer .commentLayerFrame {
+  body[data-screen-mode="3D"] .zenzaPlayerContainer .commentLayerFrame {
     transform: translateZ(0) perspective(600px) rotateY(30deg) rotateZ(-15deg) rotateX(15deg);
     opacity: 0.9;
     height: 100%;
@@ -332,19 +336,25 @@ util.addStyle(`
   body #zenzaVideoPlayerDialog {
     contain: style layout size;
   }
+
+  #zenzaVideoPlayerDialog::before {
+    display: none;
+  }
+
   body.zenzaScreenMode_sideView {
-    margin-left: ${CONSTANT.SIDE_PLAYER_WIDTH + 24}px;
-    margin-top: 76px;
+    --sideView-left-margin: ${CONSTANT.SIDE_PLAYER_WIDTH + 24}px;
+    --sideView-top-margin: 76px;
+    margin-left: var(--sideView-left-margin);
+    margin-top: var(--sideView-top-margin);
 
     width: auto;
   }
-  body.zenzaScreenMode_sideView.nofix:not(.fullScreen) {
-    margin-top: 40px;
+  
+  body.zenzaScreenMode_sideView.nofix {
+    --sideView-top-margin: 40px;
   }
   body.zenzaScreenMode_sideView:not(.nofix) #siteHeader {
-    margin-left: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
     width: auto;
-    top: 40px;
   }
   body.zenzaScreenMode_sideView:not(.nofix) #siteHeader #siteHeaderInner {
     width: auto;
@@ -373,14 +383,13 @@ util.addStyle(`
   }
   
 
-  @media (min-width: 1432px)
+  @media screen and (min-width: 1432px)
   {
     body.zenzaScreenMode_sideView {
-      margin-left: calc(100vw - 1024px);
+      --sideView-left-margin: calc(100vw - 1024px);
     }
     body.zenzaScreenMode_sideView:not(.nofix) #siteHeader {
       width: calc(100vw - (100vw - 1024px));
-      margin-left: calc(100vw - 1024px);
     }
     .zenzaScreenMode_sideView .zenzaPlayerContainer {
       width: calc(100vw - 1024px);
@@ -415,91 +424,6 @@ util.addStyle(`
     width: ${CONSTANT.BIG_PLAYER_WIDTH}px;
     height: ${CONSTANT.BIG_PLAYER_HEIGHT}px;
   }
-
-    /* 右パネル分の幅がある時は右パネルを出す */
-    @media (min-width: 992px) {
-      .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
-        padding-right: ${CONSTANT.RIGHT_PANEL_WIDTH}px;
-        background: none;
-      }
-    }
-
-    @media (min-width: 1216px) {
-      .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
-        padding-right: ${CONSTANT.RIGHT_PANEL_WIDTH}px;
-        background: none;
-      }
-    }
-
-    /* 縦長モニター */
-    @media
-      (max-width: 991px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
-        padding-bottom: 240px;
-        background: none;
-      }
-    }
-
-    @media
-      (max-width: 1215px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
-        padding-bottom: 240px;
-        background: none;
-      }
-    }
-
-    /* 960x540 */
-    @media
-      (min-width: 1328px) and (max-width: 1663px) and
-      (min-height: 700px) and (min-height: 899px)
-    {
-      .zenzaScreenMode_big .zenzaPlayerContainer {
-        width: calc(960px * 1.05);
-        height: 540px;
-      }
-    }
-
-    /* 1152x648 */
-    @media
-      (min-width: 1530px) and (min-height: 900px)
-    {
-      .zenzaScreenMode_big .zenzaPlayerContainer {
-        width: calc(1152px * 1.05);
-        height: 648px;
-      }
-    }
-
-    /* 1280x720 */
-    @media
-      (min-width: 1664px) and (min-height: 900px)
-    {
-      .zenzaScreenMode_big .zenzaPlayerContainer {
-        width: calc(1280px * 1.05);
-        height: 720px;
-      }
-    }
-
-    /* 1920x1080 */
-    @media
-      (min-width: 2336px) and (min-height: 1200px)
-    {
-      .zenzaScreenMode_big .zenzaPlayerContainer {
-        width: calc(1920px * 1.05);
-        height: 1080px;
-      }
-    }
-
-    /* 2560x1440 */
-    @media
-      (min-width: 2976px) and (min-height: 1660px)
-    {
-      .zenzaScreenMode_big .zenzaPlayerContainer {
-        width: calc(2560px * 1.05);
-        height: 1440px;
-      }
-    }
 
 
 `, {className: 'screenMode for-dialog', disabled: true});
@@ -543,7 +467,7 @@ util.addStyle(`
     display: none;
   }
 
-  .ads, .banner {
+  .ads, .banner, iframe[name^="ads"] {
     visibility: hidden !important;
     pointer-events: none;
   }
@@ -559,7 +483,7 @@ NicoVideoPlayerDialogView.__css__ = `
   .zenzaVideoPlayerDialog {
     display: none;
     position: fixed;
-    background: rgba(0, 0, 0, 0.8);
+    /*background: rgba(0, 0, 0, 0.8);*/
     top: 0;
     left: 0;
     right: 0;
@@ -568,7 +492,18 @@ NicoVideoPlayerDialogView.__css__ = `
     font-size: 13px;
     text-align: left;
     box-sizing: border-box;
-    contain: strict;
+    contain: size style layout;
+  }
+
+  .zenzaVideoPlayerDialog::before {
+    content: ' ';
+    background: rgba(0, 0, 0, 0.8);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    will-change: transform;
   }
 
   .is-regularUser  .forPremium {
@@ -757,6 +692,95 @@ NicoVideoPlayerDialogView.__css__ = `
     transform: translateZ(0);
     user-select: none;
   }
+
+
+  @media screen {
+    /* 右パネル分の幅がある時は右パネルを出す */
+    @media (min-width: 992px) {
+      .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
+        padding-right: ${CONSTANT.RIGHT_PANEL_WIDTH}px;
+        background: none;
+      }
+    }
+
+    @media (min-width: 1216px) {
+      .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
+        padding-right: ${CONSTANT.RIGHT_PANEL_WIDTH}px;
+        background: none;
+      }
+    }
+
+    /* 縦長モニター */
+    @media
+      (max-width: 991px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_normal .zenzaVideoPlayerDialogInner {
+        padding-bottom: 240px;
+        background: none;
+      }
+    }
+
+    @media
+      (max-width: 1215px) and (min-height: 700px)
+    {
+      .zenzaScreenMode_big .zenzaVideoPlayerDialogInner {
+        padding-bottom: 240px;
+        background: none;
+      }
+    }
+
+    /* 960x540 */
+    @media
+      (min-width: 1328px) and (max-width: 1663px) and
+      (min-height: 700px) and (min-height: 899px)
+    {
+      .zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(960px * 1.05);
+        height: 540px;
+      }
+    }
+
+    /* 1152x648 */
+    @media
+      (min-width: 1530px) and (min-height: 900px)
+    {
+      .zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(1152px * 1.05);
+        height: 648px;
+      }
+    }
+
+    /* 1280x720 */
+    @media
+      (min-width: 1664px) and (min-height: 900px)
+    {
+      .zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(1280px * 1.05);
+        height: 720px;
+      }
+    }
+
+    /* 1920x1080 */
+    @media
+      (min-width: 2336px) and (min-height: 1200px)
+    {
+      .zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(1920px * 1.05);
+        height: 1080px;
+      }
+    }
+
+    /* 2560x1440 */
+    @media
+      (min-width: 2976px) and (min-height: 1660px)
+    {
+      .zenzaScreenMode_big .zenzaPlayerContainer {
+        width: calc(2560px * 1.05);
+        height: 1440px;
+      }
+    }
+  }
+
   `.trim();
 
 NicoVideoPlayerDialogView.__tpl__ = (`
@@ -2664,7 +2688,7 @@ class VideoHoverMenu {
     this.initialize(...args);
   }
 }
-VideoHoverMenu.__css__ = (`
+util.addStyle(`
     .menuItemContainer {
       box-sizing: border-box;
       position: absolute;
@@ -2738,30 +2762,12 @@ VideoHoverMenu.__css__ = (`
       bottom: 48px;
       transform-origin: left bottom;
     }
-      .zenzaScreenMode_wide .menuItemContainer.leftBottom,
-      .fullScreen           .menuItemContainer.leftBottom {
-        bottom: 64px;
-      }
-      .menuItemContainer.leftBottom .scalingUI {
-        transform-origin: left bottom;
-      }
-      .zenzaScreenMode_wide .menuItemContainer.leftBottom .scalingUI,
-      .fullScreen           .menuItemContainer.leftBottom .scalingUI {
-        height: 64px;
-      }
-
     .menuItemContainer.rightBottom {
       width: 120px;
       height: 80px;
       right:  0;
       bottom: 8px;
     }
-
-      .zenzaScreenMode_wide .menuItemContainer.rightBottom,
-      .fullScreen           .menuItemContainer.rightBottom {
-        bottom: 64px;
-      }
-
 
     .menuItemContainer.onErrorMenu {
       position: absolute;
@@ -2930,7 +2936,7 @@ VideoHoverMenu.__css__ = (`
         display: block;
       }
       .ngSettingMenu .menuButtonInner {
-        font-size: 18px;      
+        font-size: 18px;
       }
 
     .ngSettingSelectMenu {
@@ -2947,11 +2953,6 @@ VideoHoverMenu.__css__ = (`
         left: -8px;
         bottom: 3px;
       }
-      .zenzaScreenMode_wide .ngSettingSelectMenu,
-      .fullScreen           .ngSettingSelectMenu {
-        bottom: 0px;
-      }
-
       .ngSettingSelectMenu .sharedNgLevelSelect {
         display: none;
       }
@@ -3194,7 +3195,24 @@ VideoHoverMenu.__css__ = (`
     }
 
 
-  `).trim();
+  `, {className: 'videoHoverMenu'});
+util.addStyle(`
+  .menuItemContainer.leftBottom {
+    bottom: 64px;
+  }
+  .menuItemContainer.leftBottom .scalingUI {
+    transform-origin: left bottom;
+  }
+  .menuItemContainer.leftBottom .scalingUI {
+    height: 64px;
+  }
+  .menuItemContainer.rightBottom {
+    bottom: 64px;
+  }
+  .ngSettingSelectMenu {
+    bottom: 0px;
+  }
+  `, {className: 'videoHoverMenu screenMode for-full'});
 
 VideoHoverMenu.__tpl__ = (`
     <div class="hoverMenuContainer">
@@ -3317,7 +3335,7 @@ _.assign(VideoHoverMenu.prototype, {
     window.setTimeout(this._initializeMylistSelectMenu.bind(this), 0);
   },
   _initializeDom: function () {
-    util.addStyle(VideoHoverMenu.__css__);
+    //util.addStyle(VideoHoverMenu.__css__);
 
     let container = this._container;
     container.appendChild(util.createDom(VideoHoverMenu.__tpl__));

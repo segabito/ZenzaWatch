@@ -67,11 +67,6 @@ util.addStyle(`
     background: #222;
     display: inline-block;
   }
-  .fullScreen .controlItemContainer.left {
-    top: auto;
-    transform-origin: top left;
-  }
-
 
   .controlItemContainer.center {
     left: 50%;
@@ -236,12 +231,6 @@ util.addStyle(`
     cursor: pointer;
     z-index: 250;
   }
-  .fullScreen .seekBarContainer {
-    top: auto;
-    bottom: 0;
-    z-index: 300;
-  }
-
   /* 見えないマウス判定 */
   .seekBarContainer .seekBarShadow {
     position: absolute;
@@ -254,11 +243,6 @@ util.addStyle(`
   .is-mouseMoving .seekBarContainer:hover .seekBarShadow {
     height: 48px;
     top: -48px;
-  }
-
-  .fullScreen .seekBarContainer:hover .seekBarShadow {
-    height: 14px;
-    top: -12px;
   }
 
   .is-abort   .seekBarContainer,
@@ -288,13 +272,6 @@ util.addStyle(`
     margin-top: -14px;
     transition: none;
     background-color: rgba(0, 0, 0, 0.5);
-  }
-
-  .fullScreen .seekBar {
-    margin-top: 0px;
-    margin-bottom: -14px;
-    height: 24px;
-    transition: none;
   }
 
   .seekBarContainer .seekBar * {
@@ -511,10 +488,6 @@ util.addStyle(`
   }
 
 
-  .fullScreen .screenModeMenu {
-    display: none;
-  }
-
   .screenModeSelectMenu {
     left: 50%;
     transform: translate(-50%, 0);
@@ -525,7 +498,6 @@ util.addStyle(`
     line-height: 15px;
   }
 
-  .changeScreenMode .screenModeSelectMenu,
   .fullScreen       .screenModeSelectMenu {
     display: none;
   }
@@ -535,13 +507,18 @@ util.addStyle(`
     bottom: -8.5px;
     left: 50%;
   }
+  
+  .screenModeSelectMenu ul {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
 
   .screenModeSelectMenu ul li {
     display: inline-block;
     text-align: center;
-    border-bottom: none;
-    margin: 0;
-    padding: 0;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .screenModeSelectMenu ul li span {
     border: 1px solid #ccc;
@@ -550,22 +527,20 @@ util.addStyle(`
     padding: 4px 0;
   }
 
-  .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
-  .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
-  .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
-  .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
-  .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
-  .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
+  body[data-screen-mode="3D"]       .screenModeSelectMenu li.mode3D span,
+  body[data-screen-mode="sideView"] .screenModeSelectMenu li.sideView span,
+  body[data-screen-mode="small"]    .screenModeSelectMenu li.small span,
+  body[data-screen-mode="normal"]   .screenModeSelectMenu li.normal span,
+  body[data-screen-mode="big"]      .screenModeSelectMenu li.big span,
+  body[data-screen-mode="wide"]     .screenModeSelectMenu li.wide span {
     color: #ff9;
     border-color: #ff0;
   }
-
 
            .fullScreen  .fullScreenSwitch .controlButtonInner .toFull,
   body:not(.fullScreen) .fullScreenSwitch .controlButtonInner .returnFull {
     display: none;
   }
-
 
   .videoControlBar .muteSwitch {
     margin-right: 0;
@@ -882,17 +857,39 @@ util.addStyle(`
     opacity: 1;
     background: rgba(0, 0, 0, 0.9);
   }
-  
+
+  .fullScreen .controlItemContainer.left {
+    top: auto;
+    transform-origin: top left;
+  }
+  .fullScreen .seekBarContainer {
+    top: auto;
+    bottom: 0;
+    z-index: 300;
+  }
+  .fullScreen .seekBarContainer:hover .seekBarShadow {
+    height: 14px;
+    top: -12px;
+  }
+  .fullScreen .seekBar {
+    margin-top: 0px;
+    margin-bottom: -14px;
+    height: 24px;
+    transition: none;
+  }
+  .fullScreen .screenModeMenu {
+    display: none;
+  }
   .fullScreen .controlItemContainer.center {
     top: auto;
   }
-  .fullScreen.zenzaStoryboardOpen .controlItemContainer.center {
+  .fullScreen .zenzaStoryboardOpen .controlItemContainer.center {
     background: transparent;
   }
-  .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
+  .fullScreen .zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
     background: rgba(32, 32, 32, 0.5);
   }
-  .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
+  .fullScreen .zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
     background: rgba(32, 32, 32, 0.8);
   }
   .fullScreen .controlItemContainer.right {
@@ -1993,8 +1990,8 @@ util.addStyle(`
     }
     _applyView() {
       let view = this._view;
-      view.style.setProperty('--current-time', this._currentTime);
-      view.style.setProperty('--scroll-top', this._scrollTop);
+      view.style.setProperty('--current-time', CSS.number ? CSS.number(this._currentTime) : this._currentTime);
+      view.style.setProperty('--scroll-top', CSS.number ? CSS.number(this._scrollTop) : this._scrollTop);
       if (this._newListElements) {
         this._list.append(this._newListElements);
         this._newListElements = null;
@@ -2109,11 +2106,6 @@ util.addStyle(`
 `, {className: 'commentPreview'});
 
 util.addStyle(`
-  body:not(.fullScreen).zenzaScreenMode_sideView .zenzaCommentPreview,
-  body:not(.fullScreen).zenzaScreenMode_small .zenzaCommentPreview {
-    background: rgba(0, 0, 0, 0.9);
-  }
-
   .zenzaCommentPreview {
     border-bottom: 24px solid transparent;
     background: rgba(0, 0, 0, 0.4);
@@ -2227,6 +2219,10 @@ util.addStyle(`
     transform: translateY(2px);
   }
 
+  .zenzaScreenMode_sideView .zenzaCommentPreview,
+  .zenzaScreenMode_small .zenzaCommentPreview {
+    background: rgba(0, 0, 0, 0.9);
+  }
 `, {className: 'commentPreview list'});
 
 util.addStyle(`
@@ -2367,10 +2363,6 @@ util.addStyle(`
       pointer-events: none;
     }
 
-    .fullScreen .seekBarToolTip {
-      bottom: 10px;
-    }
-
     .is-dragging .seekBarToolTip,
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
@@ -2438,6 +2430,9 @@ util.addStyle(`
       background: rgba(0,0,0,0.01);
     }
 
+    .fullScreen .seekBarToolTip {
+      bottom: 10px;
+    }
   `).trim();
 
   SeekBarToolTip.__tpl__ = (`
