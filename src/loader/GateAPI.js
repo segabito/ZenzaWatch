@@ -301,6 +301,11 @@ const GateAPI = (() => {
       if (title) {
         document.title = title;
       }
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({
+          type: 'pushHistory', path, title
+        });
+      }
     };
 
     const PREFIX = 'ZenzaWatch';

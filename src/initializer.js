@@ -224,6 +224,12 @@ const {initialize} = (() => {
           return;
         } else if (type === 'sendCommand' && isLast && isOpen) {
           dialog.execCommand(packet.command, packet.params);
+        } else {
+          switch (type) {
+            case 'pushHistory':
+              WatchPageHistory.pushHistory(packet.path, packet.title);
+              break;
+          }
         }
 
         if (type !== 'openVideo') {

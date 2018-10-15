@@ -434,7 +434,7 @@ const broadcastEmitter = (() => {
       return pingResolve(packet);
     }
     console.log('%cmessage', 'background: cyan;', packet);
-    broadcastEmitter.emit('message', packet);
+    broadcastEmitter.emitAsync('message', packet);
   };
 
   broadcastEmitter.send = packet => {
@@ -539,10 +539,20 @@ const WatchPageHistory = (({config, location, document, history}) => {
   let title;
   let path;
   let restore = _.debounce(() => {
-    if (!isOpen) { return; }
     history.replaceState(null, null, originalUrl);
     document.title = originalTitle;
   }, 3000);
+
+  const pushHistory = (path, title) => {
+    history.replaceState(null, null, path);
+    document.title = title;
+
+    if (util.isGinzaWatchUrl(originalUrl)) {
+      return;
+    }
+
+    restore();
+  };
 
   const onVideoInfoLoad = _.debounce(videoInfo => {
     if (!videoInfo.watchId || !isOpen) {
@@ -553,20 +563,13 @@ const WatchPageHistory = (({config, location, document, history}) => {
     path = `/watch/${watchId}`;
 
     if (location.host !== 'www.nicovideo.jp') {
-      if (NicoVideoApi && NicoVideoApi.postMessage) {
-        NicoVideoApi.postMessage('pushHistory', {path, title});
+      if (NicoVideoApi && NicoVideoApi.pushHistory) {
+        NicoVideoApi.pushHistory(path, title);
       }
       return;
     }
 
-    history.replaceState(null, null, path);
-    document.title = title;
-
-    if (util.isGinzaWatchUrl(originalUrl)) {
-      return;
-    }
-
-    restore();
+    pushHistory(path, title);
   });
 
   const onDialogOpen = () => {
@@ -598,13 +601,19 @@ const WatchPageHistory = (({config, location, document, history}) => {
   };
 
   return {
-    initialize: initialize
+    initialize,
+    pushHistory
   };
 })({config: Config, location, document, history});
 
 util.getWatchId = url => {
-  /\/?watch\/([a-z0-9]+)/.test(url || location.pathname);
-  return RegExp.$1;
+  let m;
+  if (url && url.indexOf('nico.ms') >= 0) {
+    m = /\/\/nico\.ms\/([a-z0-9]+)/.exec(url);
+   } else {
+    m = /\/?watch\/([a-z0-9]+)/.exec(url || location.pathname);
+  }
+  return m ? m[1] : null;
 };
 
 util.isPremium = () => {
