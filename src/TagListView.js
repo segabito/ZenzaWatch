@@ -278,9 +278,16 @@ class TagListView extends BaseViewComponent {
     // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
     let src = hasDic ?
       '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
-      '//live.nicovideo.jp/img/2012/watch/tag_icon003.png';
+      '//live.nicovideo.jp/img/2012/watch/tag_icon003.png' ;
     let icon = `<img class="dicIcon" src="${src}">`;
-    return `<a target="_blank" class="nicodic" href="${href}">${icon}</a>`;
+    let hasNicodic = hasDic ? 1 : 0;
+    return (
+      `<zenza-tag-item-menu 
+        class="tagItemMenu" 
+        data-text="${encodeURIComponent(text)}" 
+        data-has-nicodic="${hasNicodic}"
+      ><a target="_blank" class="nicodic" href="${href}">${icon}</a></zenza-tag-item-menu>`
+    );
   }
 
   _createDeleteButton(id) {
@@ -522,6 +529,7 @@ TagListView.__shadow__ = (`
         vertical-align: middle;
       }
 
+      .TagListView.is-Editing .tagItemMenu,
       .TagListView.is-Editing .nicodic,
       .TagListView:not(.is-Editing) .deleteButton {
         display: none !important;
@@ -820,6 +828,133 @@ TagListView.__css__ = (`
 
   `).trim();
 
+
+class TagItemMenu extends HTMLElement {
+  static template({text}) {
+    let host = location.host;
+    return `
+      <style>
+        .root {
+          display: inline-block;
+          --icon-size: 16px;
+          margin-right: 4px;
+          outline: none;
+        }
+        
+        .icon {
+          position: relative;
+          display: inline-block;
+          vertical-align: middle;
+          box-sizing: border-box;
+          width: var(--icon-size);
+          height: var(--icon-size);
+          margin: 0;
+          padding: 0;
+          font-size: var(--icon-size);
+          line-height: calc(var(--icon-size));
+          text-align: center;
+          cursor: pointer;
+        }
+        
+        .nicodic, .toggle {
+          background: #888;
+          color: #ccc;
+          box-shadow: 0.1em 0.1em 0 #333;  
+        }
+        .has-nicodic .nicodic,.has-nicodic .toggle {
+          background: #900;
+        }
+        .toggle::after {
+          content: '？';
+          position: absolute;
+          width: var(--icon-size);
+          left: 0;
+          font-size: 0.8em;
+          font-weight: bolder;
+        }
+
+        .menu {
+          display: none;
+          position: fixed;
+          background: rgba(80, 80, 80, 0.95);
+          color: #000;
+          margin: 16px 0;
+          padding: 8px;
+          z-index: 100;
+          transform: translateY(-16px);
+        }
+        
+        :host-context(.zenzaWatchVideoInfoPanelFoot) .menu {
+          position: absolute;
+          bottom: 18px;
+          transform: translateY(16px);
+        }
+        
+        .root.menu:hover,
+        .root:focus-within:hover .menu {
+          display: inline-block;
+        }
+        
+        li {
+          list-style-type: none;
+          padding-left: 12px;
+        }
+        
+        li a {
+          display: inline-block;
+          white-space: nowrap;
+          text-decoration: none;
+          color: #ccc;
+        }
+        
+        li a:hover {
+          text-decoration: underline;
+        }
+        
+      </style>
+      <div class="root" tabindex="-1">
+        <div class="icon toggle"></div>
+        <ul class="menu">
+        
+          <li>
+            <a href="//dic.nicovideo.jp/a/${text}" 
+              ${host !== 'dic.nicovideo.jp' ? 'target="_blank"' : ''}>
+              大百科を見る
+            </a>
+          </li>
+          <li>
+            <a href="//ch.nicovideo.jp/search/${text}?type=video&mode=t" 
+              ${host !== 'ch.nicovideo.jp' ? 'target="_blank"' : ''}>
+              チャンネル検索
+            </a>
+          </li>
+          <li>
+            <a href="https://www.google.co.jp/search?q=${text}%20site:www.nicovideo.jp&num=100&tbm=vid" 
+              ${host !== 'www.google.co.jp' ? 'target="_blank"' : ''}>
+              Googleで検索
+            </a>          
+          </li>
+          <li>
+            <a href="https://www.bing.com/videos/search?q=${text}&qft=+filterui:msite-nicovideo.jp" 
+              ${host !== 'www.bing.com' ? 'target="_blank"' : ''}>Bingで検索
+            </a>          
+          </li>
+        </ul>
+      </div>
+    `;
+  }
+  constructor() {
+    super();
+    this.hasNicodic = parseInt(this.dataset.hasNicodic) !== 0;
+    this.text = util.escapeToZenkaku(this.dataset.text);
+    const shadow = this._shadow = this.attachShadow({mode: 'open'});
+    shadow.innerHTML = this.constructor.template({text: this.text});
+    shadow.querySelector('.root').classList.toggle('has-nicodic', this.hasNicodic);
+  }
+}
+if (window.customElements) {
+  window.customElements.define('zenza-tag-item-menu', TagItemMenu);
+}
 
 //===END===
 
