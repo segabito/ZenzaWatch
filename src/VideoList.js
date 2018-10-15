@@ -789,7 +789,8 @@ VideoListView.__tpl__ = (`
     width: 100vw;
     height: 100vh;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: scroll;
+    overscroll-behavior: contain;
     transition: 0.2s opacity;
     counter-reset: itemIndex;
   }

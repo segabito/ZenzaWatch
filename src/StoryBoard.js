@@ -1071,6 +1071,7 @@ StoryboardView.__css__ = (`
   .storyboardContainer.webkit .storyboardInner,
   .storyboardContainer .storyboardInner:hover {
     overflow-x: auto;
+    overscroll-behavior: contain;
   }
   /*.storyboardContainer .storyboardInner::-moz-scrollbar,*/
   .storyboardContainer .storyboardInner::-webkit-scrollbar {

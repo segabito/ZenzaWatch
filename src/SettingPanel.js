@@ -32,8 +32,9 @@ SettingPanel.__css__ = (`
       top: 50%;
       overflow-y: scroll;
       overflow-x: hidden;
+      overscroll-behavior: contain;
       background: rgba(0, 0, 0, 0.8);
-    }
+    }z
 
     .zenzaScreenMode_sideView .zenzaSettingPanel.show,
     .zenzaScreenMode_small    .zenzaSettingPanel.show {

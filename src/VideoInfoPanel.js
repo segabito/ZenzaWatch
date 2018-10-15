@@ -195,6 +195,7 @@ VideoInfoPanel.__css__ = (`
       height: calc(100% - 32px);
       overflow-x: hidden;
       overflow-y: visible;
+      overscroll-behavior: contain;
       text-align: left;
     }
     .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {

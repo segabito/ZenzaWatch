@@ -506,6 +506,7 @@ CommentListView.__tpl__ = (`
     width: 100vw;
     height: 100vh;
     overflow: auto;
+    overscroll-behavior: contain;
   }
   
   .is-debug #listContainerInner {
@@ -538,7 +539,8 @@ CommentListView.__tpl__ = (`
     line-height: normal;
     min-width: 280px;
     max-height: 100%;
-    overflow-y: auto;
+    overflow-y: scroll;
+    overscroll-behavior: contain;
     font-size: 14px;
     transform: translate(-50%, -50%);
     opacity: 0;
