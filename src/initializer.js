@@ -227,7 +227,7 @@ const {initialize} = (() => {
         } else {
           switch (type) {
             case 'pushHistory':
-              WatchPageHistory.pushHistory(packet.path, packet.title);
+              WatchPageHistory.pushHistoryAgency(packet.path, packet.title);
               break;
           }
         }

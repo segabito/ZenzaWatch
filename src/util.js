@@ -599,10 +599,30 @@ const WatchPageHistory = (({config, location, document, history}) => {
     dialog.on('open', onDialogOpen);
     dialog.on('loadVideoInfo', onVideoInfoLoad);
   };
+  // www.nicovideo.jp 以外で開いた時、
+  // www.nicovideo.jp 配下のタブがあったら代わりに既読リンクの色を変える
+  const pushHistoryAgency = async (path, title) => {
+    if (!navigator || !navigator.locks) {
+      return pushHistory(path, title);
+    }
+    let lastTitle = document.title;
+    let lastUrl = location.href;
+    // どれかひとつのタブで動けばいい
+    let result = await navigator.locks.request('pushHistoryAgency', {ifAvailable: true}, async (lock) => {
+      if (!lock) {
+        return;
+      }
+      history.replaceState(null, title, path);
+      await new Promise(r => setTimeout(r, 3000));
+      history.replaceState(null, lastTitle, lastUrl);
+      await new Promise(r => setTimeout(r, 5000));
+    });
+  };
 
   return {
     initialize,
-    pushHistory
+    pushHistory,
+    pushHistoryAgency
   };
 })({config: Config, location, document, history});
 
