@@ -42,9 +42,9 @@ var CONSTANT = {};
     .zenzaScreenMode_sideView .videoControlBar,
     .zenzaScreenMode_wide     .videoControlBar,
     .fullScreen               .videoControlBar {
-      top: 100%;
+      top: 100vh;
       left: 0;
-      width: 100%; /* 100vwだと縦スクロールバーと被る */
+      width: calc(100vw - 20px); /* 100vwだと縦スクロールバーと被る */
     }
     /* 縦長モニター */
     @media
