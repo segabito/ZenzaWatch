@@ -41,6 +41,9 @@ const RootDispatcher = (() => {
           config.setValue(param, !v);
           break;
         }
+        case 'picture-in-picture':
+          document.querySelector('.zenzaWatchVideoElement').requestPictureInPicture();
+          break;
         case 'toggle-comment':
         case 'toggle-showComment':
         case 'toggle-backComment':

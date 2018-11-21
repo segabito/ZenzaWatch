@@ -447,6 +447,7 @@ class ContextMenu extends BaseViewComponent {
     const onMouseDown = this._bound.onMouseDown = this._onMouseDown.bind(this);
     this._bound.onBodyMouseUp = this._onBodyMouseUp.bind(this);
     this._bound.onRepeat = this._onRepeat.bind(this);
+    this._view.classList.toggle('is-pictureInPictureEnabled', document.pictureInPictureEnabled);
     this._view.addEventListener('mousedown', onMouseDown);
     this._isFirstShow = true;
     this._view.addEventListener('contextmenu', (e) => {
@@ -588,6 +589,7 @@ ContextMenu.__css__ = (`
       min-width: 200px;
       z-index: 150000;
       user-select: none;
+      color: #000;
     }
     .zenzaPlayerContextMenu.is-Open {
       opacity: 0.5;
@@ -703,6 +705,13 @@ ContextMenu.__css__ = (`
       box-shadow: 0 0 0;
       border: 1px inset;
     }
+    
+    [data-command="picture-in-picture"] {
+      display: none;
+    }
+    .is-pictureInPictureEnabled [data-command="picture-in-picture"] {
+      display: block;
+    }
 
   `).trim();
 
@@ -779,6 +788,7 @@ ContextMenu.__tpl__ = (`
           <li class="command toggleLoop"        data-command="toggle-loop">リピート</li>
           <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
           <li class="command toggleShowComment" data-command="toggle-showComment">コメントを表示</li>
+          <li class="command" data-command="picture-in-picture">P in P</li>
 
           <hr class="separator">
           <li class="command"
