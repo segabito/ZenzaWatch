@@ -616,6 +616,7 @@ NicoComment.offScreenLayer = (() => {
     let layer;
     let onload = () => {
       frame.onload = null;
+      if (util.isChrome()) { frame.removeAttribute('srcdoc'); }
 
       console.log('%conOffScreenLayerLoad', 'background: lightgreen;');
       createTextField();
@@ -1280,7 +1281,9 @@ class NicoChat {
       hasDurationSet: false,
       isMine: false,
       isUpdating: false,
-      thread: 0
+      thread: 0,
+      nicoru: 0,
+      opacity: 1
     }, options);
   }
 
@@ -1310,7 +1313,7 @@ class NicoChat {
 
 
   static parseCmd(cmd, isFork) {
-    let tmp = cmd.toLowerCase().split(/[\x20\xA0\u3000\t\u2003]+/);
+    let tmp = cmd.toLowerCase().split(/[\x20\xA0\u3000\t\u2003\s]+/);
     let result = {};
     tmp.forEach(c => {
       if (NicoChat.COLORS[c]) {
@@ -1358,6 +1361,7 @@ class NicoChat {
     this._type = NicoChat.TYPE.NAKA;
     this._duration = NicoChatViewModel.DURATION.NAKA;
     this._commentVer = 'flash';
+    this._opacity = 1;
 
     if (this._fork > 0 && text.match(/^[/＠@]/)) {
       this._isNicoScript = true;
@@ -1419,6 +1423,10 @@ class NicoChat {
       } else if (pcmd.defont) {
         this._fontCommand = 'defont';
         this._commentVer = 'html5';
+      }
+
+      if (pcmd._live) {
+        this._opacity *= 0.5;
       }
 
     }
@@ -2235,6 +2243,7 @@ class NicoChatViewModel {
       color: this.getColor(),
       size: this.getSize(),
       duration: this.getDuration(),
+      opacity: this.opacity,
       // inView: this.isInView(),
 
       ender: this._nicoChat.isEnder(),
@@ -2352,6 +2361,10 @@ class NicoChatViewModel {
   }
 
 
+
+  get opacity() {
+    return this._nicoChat.opacity;
+  }
 }
 NicoChatViewModel.emitter = new Emitter();
 
@@ -2541,9 +2554,6 @@ class NicoCommentCss3PlayerView extends Emitter {
         _refresh();
       }
     });
-    // NicoChatViewModel.emitter.on('updateCommentSpeedRate', () => {
-    //   this.refresh();
-    // });
     ZenzaWatch.debug.css3Player = this;
 
   }
@@ -2570,6 +2580,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     const onload = () => {
       let win, doc;
       iframe.onload = null;
+      if (util.isChrome()) {iframe.removeAttribute('srcdoc');}
       try {
         win = iframe.contentWindow;
         doc = iframe.contentWindow.document;
@@ -3152,6 +3163,9 @@ body.in-capture .commentLayerOuter {
 body.in-capture .commentLayer {
   transform: none !important;
 }
+.mode-3d .commentLayer {
+  perspective: 50px;
+}
 
 .saved body {
   pointer-events: auto;
@@ -3162,34 +3176,42 @@ body.in-capture .commentLayer {
 .debug .mingLiu { background: rgba(0, 0, 128, 0.3); }
 
 @keyframes fixed {
-   0% {opacity: 1;}
-  95% {opacity: 1;}
- 100% {opacity: 0.5;}
+   0% { opacity: 1; visibility: visible; }
+  95% { opacity: 1; }
+ 100% { opacity: 0.5; visibility: hidden;}
 }
 
-@keyframes showhide {
-   0% { display: block;}
-  99% { display: block;}
- 100% { display: none; }
+@keyframes show-hide {
+ 0% { visibility: visible; }
+ 100% { visibility: hidden; }
 }
 
 @keyframes dokaben {
   0% {
-    opacity: 1;
-    transform: translate(-50%, 0) perspective(200px) rotateX(90deg);
+    visibility: visible;
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(90deg) scale(var(--dokaben-scale));
   }
   50% {
-    opacity: 1;
-    transform: translate(-50%, 0) perspective(200px) rotateX(0deg);
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(0deg) scale(var(--dokaben-scale));
   }
   90% {
-    opacity: 1;
-    transform: translate(-50%, 0) perspective(200px) rotateX(0deg);
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(0deg) scale(var(--dokaben-scale));
   }
   100% {
-    opacity: 0;
-    transform: translate(-50%, 0) perspective(200px) rotateX(90deg);
+    visibility: hidden;
+    transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(90deg) scale(var(--dokaben-scale));
   }
+}
+
+@keyframes idou-var {
+  0%   {
+    visibility: visible;
+    transform: var(--transform-start);
+  }
+  100% {
+    transform: var(--transform-end);
+  }
+
 }
 
 .commentLayerOuter {
@@ -3210,12 +3232,13 @@ body.in-capture .commentLayer {
 }
 
 .commentLayer {
-  position: absolute;
+  position: relative;
   width: 544px;
   height: 384px;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  contain: layout style size;
 }
 
 .subLayer {
@@ -3223,6 +3246,7 @@ body.in-capture .commentLayer {
   width: 100%;
   height: 100%;
   opacity: 0.7;
+  contain: layout style size;
 }
 
 .debug .commentLayer {
@@ -3232,12 +3256,19 @@ body.in-capture .commentLayer {
 
 .nicoChat {
   line-height: 1.235;
-  opacity: 0;
-  text-shadow: 1px 1px 0 #000;
+  visibility: hidden;
+  text-shadow: 1px 1px 0 ${textShadowColor};
   transform-origin: 0 0;
   animation-timing-function: linear;
+  animation-fill-mode: forwards;
   will-change: transform, opacity;
+  contain: layout style paint;
   color: #fff;
+
+  -webkit-font-smoothing: initial;
+  font-smooth: auto;
+  text-rendering: optimizeSpeed;
+  font-kerning: none;
 }
 
 .shadow-type2 .nicoChat {
@@ -3284,23 +3315,25 @@ body.in-capture .commentLayer {
 }
 .shadow-dokaben .nicoChat {
   text-shadow:
-     1px  1px 0px rgba(0, 0, 0, 0.5),
-    -1px  1px 0px rgba(0, 0, 0, 0.5),
-    -1px -1px 0px rgba(0, 0, 0, 0.5),
-     1px -1px 0px rgba(0, 0, 0, 0.5);
+     1px  1px 0 rgba(0, 0, 0, 0.5),
+    -1px  1px 0 rgba(0, 0, 0, 0.5),
+    -1px -1px 0 rgba(0, 0, 0, 0.5),
+     1px -1px 0 rgba(0, 0, 0, 0.5);
 }
 
 
-.nicoChat.ue,
-.nicoChat.shita {
+.nicoChat.ue, .nicoChat.shita {
   animation-name: fixed;
 }
 
-.nicoChat.black {
-  text-shadow: -1px -1px 0 #888, 1px  1px 0 #888;
+.nicoChat.ue.html5, .nicoChat.shita.html5 {
+  animation-name: show-hide;
 }
 
-.nicoChat.overflow {
+.nicoChat.black, .nicoChat.black.fork1 {
+  text-shadow:
+   -1px -1px 0 ${textShadowGray},
+   1px  1px 0 ${textShadowGray};
 }
 
 .nicoChat.ue,
@@ -3399,13 +3432,15 @@ body.in-capture .commentLayer {
 }
 
 .nicoChat.fork1 {
-  text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
+  text-shadow:
+   1px 1px 0 ${ownerShadowColor},
+   -1px -1px 0 ${ownerShadowColor};
   -webkit-text-stroke: unset;
 }
 .nicoChat.ue.fork1,
 .nicoChat.shita.fork1 {
   display: inline-block;
-  text-shadow: 0 0 3px #080 !important;
+  text-shadow: 0 0 3px ${ownerShadowColor};
   -webkit-text-stroke: unset;
 }
 
@@ -3527,9 +3562,7 @@ class NicoChatCss3View {
       className.push('updating');
     }
     let fork = chat.getFork();
-    if (fork) {
-      className.push(`fork${fork}`);
-    }
+    className.push(`fork${fork}`);
 
     // if (chat.isSubThread()) {
     //   className.push('subThread');
@@ -3566,7 +3599,6 @@ class NicoChatCss3View {
   }
 
   static _buildNakaCss (chat, type, currentTime, playbackRate) {
-    let result;
     let scaleCss;
     let id = chat.getId();
     let commentVer = chat.getCommentVer();
@@ -3597,6 +3629,8 @@ class NicoChatCss3View {
         (slot * 1000 + chat.getFork() * 1000000 + 1) :
         (1000 + beginL * 1000 + chat.getFork() * 1000000);
     zIndex = isSub ? zIndex: zIndex * 2;
+    // let time3d = '0';//`${delay * 10}px`; //${chat.time3dp * 100}px`;
+    let opacity = chat.opacity !== 1 ? `opacity: ${chat.opacity};` : '';
 
     // 4:3ベースに計算されたタイミングを16:9に補正する
     // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
@@ -3618,40 +3652,36 @@ class NicoChatCss3View {
         isAlignMiddle = true;
     }
     let top = isAlignMiddle ? '50%' : `${ypos}px`;
-    //let vAlign = isAlignMiddle ? '-middle' : '';
-    let transY = isAlignMiddle ? '-50%' : '0';
+    let transY = isAlignMiddle ? 'translateY(-50%)' : '';
 
-      result = `
-        #${id} {
-           z-index: ${zIndex};
-           top: ${top};
-           left: ${leftPos}px;
-           ${colorCss}
-           ${lineHeightCss}
-           font-size: ${fontSizePx}px;
-           animation-name: idou${id};
-           animation-duration: ${duration}s;
-           animation-delay: ${delay}s;
-           ${reverse}
+    let inline = `
+      z-index: ${zIndex};
+      top: ${top};
+      left: ${leftPos}px;
+      ${colorCss}
+      ${lineHeightCss}
+      ${opacity}
+      font-size: ${fontSizePx}px;
+      animation-name: idou-${id};
+      animation-duration: ${duration}s;
+      animation-delay: ${delay}s;
+      ${reverse}
+    `;
+
+    let keyframes = `
+      @keyframes idou-${id} {
+        0%   {
+          visibility: visible;
+          transform:
+            translate3d(0, 0, 0) ${scaleCss} ${transY};
         }
-
-        @keyframes idou${id} {
-          0%   {
-            opacity: 1;
-            transform: translate3d(0, 0, 0) ${scaleCss} translate3d(0, ${transY}, 0);
-          }
-          100% {
-            opacity: 1;
-            transform: translate3d(-${outerScreenWidth}px, 0, 0)
+        100% {
+          visibility: hidden;
+          transform:
+            translate3d(-${outerScreenWidth + chat.getWidth()*scale}px, 0, 0)
             ${scaleCss}
-            translate3d(-${chat.getWidth()}px, ${transY}, 0);
-          }
+            ${transY};
         }
-      `;
-    // メモ
-    // こう書けば個別に作らなくてもアニメーション定義を共通化できるが、vwや%などの変動しうる要素が入ったためかカクつきやすくなったので戻した
-    // translate3d(-${outerScreenWidth}px, ${transY}, 0) translate3d(-100%, 0, 0) ${scaleCss}
-    return `\n${result.trim().replace(/[ ]+/g, ' ')}\n`;
   }
 
   static _buildFixedCss (chat, type, currentTime, playbackRate) {
@@ -3682,12 +3712,14 @@ class NicoChatCss3View {
         (slot * 1000 + chat.getFork() * 1000000 + 1) :
         (1000 + beginL * 1000 + chat.getFork() * 1000000);
     zIndex = isSub ? zIndex: zIndex * 2;
+    let time3d = '0';//`${delay * 10}px`; //${chat.time3dp * 100}px`;
+    let opacity = chat.opacity !== 1 ? `opacity: ${chat.opacity};` : '';
 
     let top;
     let transY;
 
     // 画面高さに近い・超える時は上端または下端にぴったりつける
-    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2 || chat.isOverflow()) ||
+    if ((commentVer === 'html5' && height >= screenHeight - fontSizePx / 2 /*|| chat.isOverflow()*/) ||
         (commentVer !== 'html5' && height >= screenHeight * 0.7)) {
       top = `${type === NicoChat.TYPE.BOTTOM ? 100 : 0}%`;
       transY = `${type === NicoChat.TYPE.BOTTOM ? -100 : 0}%`;
@@ -3697,44 +3729,23 @@ class NicoChatCss3View {
     }
     scaleCss =
       scale === 1.0 ?
-        `transform: scale3d(1, ${scaleY}, 1) translate3d(-50%, ${transY}, 0);` :
-        `transform: scale3d(${scale}, ${scaleY}, 1) translate3d(-50%, ${transY}, 0);`;
+        `transform: scale3d(1, ${scaleY}, 1) translate3d(-50%, ${transY}, ${time3d});` :
+        `transform: scale3d(${scale}, ${scaleY}, 1) translate3d(-50%, ${transY}, ${time3d});`;
 
-    result = `
-      #${id} {
-         z-index: ${zIndex};
-         top: ${top};
-         left: 50%;
-         ${colorCss}
-         ${lineHeightCss}
-         font-size: ${fontSizePx}px;
-         ${scaleCss}
-         animation-duration: ${duration / 0.95}s;
-         animation-delay: ${delay}s;
-      }
-      
-      @keyframes dokaben${id} {
-        0% {
-          opacity: 1;
-          transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(90deg) scale3d(${scale}, ${scale}, 1);
-        }
-        50% {
-          transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(0deg)  scale3d(${scale}, ${scale}, 1);
-        }
-        90% {
-          transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(0deg)  scale3d(${scale}, ${scale}, 1);
-        }
-        100% {
-          opacity: 1;
-          transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(90deg) scale3d(${scale}, ${scale}, 1);
-        }
-      }
-      
-      .shadow-dokaben #${id} {
-        animation-name: dokaben${id} !important;
-      }
-    `;
-    return `\n${result.trim()}\n`;
+    let inline = `
+      z-index: ${zIndex};
+      top: ${top};
+      left: 50%;
+      ${colorCss}
+      ${lineHeightCss}
+      ${opacity}
+      font-size: ${fontSizePx}px;
+      ${scaleCss}
+      animation-duration: ${duration / 0.95}s;
+      animation-delay: ${delay}s;
+      --dokaben-scale: ${scale};
+    `.trim();
+    return {inline};
   }
 
 }
