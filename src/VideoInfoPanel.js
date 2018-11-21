@@ -5,7 +5,7 @@ import {CONSTANT} from './constant';
 import {util, Config, MylistPocketDetector, Sleep} from './util';
 import {IchibaLoader} from './loader/api';
 import {UaaLoader} from './loader/api';
-import {PlaylistLoader} from './loader/api';
+import {RecommendAPILoader} from './loader/api';
 import {RelatedVideoList} from './VideoList';
 import {TagListView} from './TagListView';
 import {BaseViewComponent} from './util';
@@ -879,34 +879,31 @@ _.assign(VideoInfoPanel.prototype, {
         this.emit('command', 'setVideo', this._zenTubeUrl);
       }, 100);
     }
-    let relatedVideo = videoInfo.relatedVideoItems;
-    if (relatedVideo.length) {
-      this._relatedVideoList.update(relatedVideo, watchId);
-    } else {
-      PlaylistLoader.load(watchId).then(data => {
-        const items = data.items || [];
-        (items || []).forEach(item => {
-          if (!item.hasData) {
-            return;
-          }
-          relatedVideo.push({
-            _format: 'playlistApi',
-            _data: item,
-            id: item.id,
-            title: item.title,
-            length_seconds: item.lengthSeconds,
-            num_res: item.numRes,
-            mylist_counter: item.mylistCounter,
-            view_counter: item.viewCounter,
-            thumbnail_url: item.thumbnailURL,
-            first_retrieve: item.firstRetrieve,
-            has_data: item.hasData,
-            is_translated: item.isTranslated
-          });
+    let relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
+    RecommendAPILoader.load({videoId: videoInfo.videoId}).then(data => {
+      const items = data.items || [];
+      (items || []).forEach(item => {
+        if (item.contentType !== 'video') {
+          return;
+        }
+        let content = item.content;
+        relatedVideo.push({
+          _format: 'recommendApi',
+          _data: item,
+          id: item.id,
+          title: content.title,
+          length_seconds: content.duration,
+          num_res: content.count.comment,
+          mylist_counter: content.count.mylist,
+          view_counter: content.count.view,
+          thumbnail_url: content.thumbnail.url,
+          first_retrieve: content.registeredAt,
+          has_data: true,
+          is_translated: false
         });
-        this._relatedVideoList.update(relatedVideo, watchId);
       });
-    }
+      this._relatedVideoList.update(relatedVideo, watchId);
+    });
 
   },
   _onVideoCountUpdate: function (...args) {

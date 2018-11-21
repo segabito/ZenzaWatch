@@ -1358,7 +1358,7 @@ class VideoListItem extends Emitter {
   static createByVideoInfoModel(info) {
     const count = info.count;
     return new VideoListItem({
-      _format: 'thumbInfo',
+      _format: 'videoInfo',
       id: info.watchId,
       uniq_id: info.contextWatchId,
       title: info.title,
@@ -1641,9 +1641,6 @@ class RelatedVideoList extends VideoList {
     this._watchId = watchId;
     let items = [];
     listData.forEach(itemData => {
-      if (!itemData.has_data) {
-        return;
-      }
       if (!itemData.id) {
         return;
       }

@@ -18,8 +18,9 @@ const {
   IchibaLoader,
   UaaLoader,
   PlaybackPosition,
-  PlaylistLoader,
-  NicoVideoApi
+  NicoVideoApi,
+  NicoRssLoader,
+  RecommendAPILoader
 } = (() => {
 
   let CacheStorage = (function () {
@@ -741,7 +742,7 @@ const {
       },
       getDeflistItems: function (options) {
         options = options || {};
-        let url = 'http://www.nicovideo.jp/api/deflist/list';
+        let url = '//www.nicovideo.jp/api/deflist/list';
         //var url = 'https://flapi.nicovideo.jp/api/watch/deflistvideo';
         let cacheKey = 'deflistItems';
         let sortItem = this.sortItem;
@@ -1299,7 +1300,7 @@ const {
         }
       },
       getUploadedVideos: function (userId/*, options*/) {
-        let url = 'https://flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
+        let url = '//flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=' + userId;
         let cacheKey = 'uploadedvideo: ' + userId;
 
         return new Promise(function (resolve, reject) {
@@ -1628,7 +1629,7 @@ const {
     const load = (watchId) => {
       return new Promise((resolve, reject) => {
         const country = 'ja-jp';
-        const api = 'http://ichiba.nicovideo.jp/embed/zero/show_ichiba';
+        const api = '//ichiba.nicovideo.jp/embed/zero/show_ichiba';
         const sc = document.createElement('script');
 
         let timeoutTimer = null;
@@ -1706,19 +1707,20 @@ const {
     };
   })();
 
-  const PlaylistLoader = (() => {
+  const RecommendAPILoader = (() => {
 
-    const load = (watchId) => {
-      const url = `//www.nicovideo.jp/api/watch/playlist?watch_id=${watchId}`;
+    const load = ({videoId}) => {
+      const recipe = btoa(JSON.stringify({
+        id: 'video_playlist_common', videoId
+      }));
+      const url = `https://nvapi.nicovideo.jp/v1/recommend?recipe=${recipe}&site=nicovideo&_frontendId=6&_frontendVersion=0`;
       return util
         .fetch(url, {credentials: 'include'})
+        .then(res => res.json())
         .then(res => {
-          return res.json();
-        })
-        .then(res => {
-          if (res.status !== 'ok') {
-            window.console.warn('load playlist fai', res);
-            throw new Error('load playlist fail');
+          if (!res.meta || res.meta.status !== 200) {
+            window.console.warn('load recommend fail', res);
+            throw new Error('load recommend fail');
           }
           return res.data;
         });
@@ -1740,8 +1742,9 @@ const {
     IchibaLoader,
     UaaLoader,
     PlaybackPosition,
-    PlaylistLoader,
-    NicoVideoApi
+    NicoVideoApi,
+    NicoRssLoader,
+    RecommendAPILoader
   };
 })();
 
@@ -1757,8 +1760,9 @@ export {
   IchibaLoader,
   UaaLoader,
   PlaybackPosition,
-  PlaylistLoader,
-  NicoVideoApi
+  NicoVideoApi,
+  NicoRssLoader,
+  RecommendAPILoader
 };
 
 
@@ -1800,7 +1804,7 @@ let MessageApiLoader = (function () {
       // memo:
       // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
       let url =
-        'https://flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
+        '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
       const langCode = this.getLangCode(language);
       if (langCode) {
         url += `&language_id=${langCode}`;
@@ -1829,7 +1833,7 @@ let MessageApiLoader = (function () {
     },
     getWaybackKey: function (threadId, language) {
       let url =
-        'https://flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
+        '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
       const langCode = this.getLangCode(language);
       if (langCode) {
         url += `&language_id=${langCode}`;
