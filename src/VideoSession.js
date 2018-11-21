@@ -10,7 +10,7 @@ const VideoSession = (() => {
   const CHECK_PAUSE_INTERVAL = 30 * 1000;
   const SESSION_CLOSE_PAUSE_COUNT = 10;
   const SESSION_CLOSE_FAIL_COUNT = 3;
-  const SESSION_CLOSE_TIME_MS = 12 * 60 * 1000; // 12min
+  const SESSION_CLOSE_TIME_MS = 60 * 60 * 60 * 1000;
 
   const VIDEO_QUALITY = {
     auto: /.*/,
@@ -414,28 +414,29 @@ const VideoSession = (() => {
     }
 
     _heartBeat() {
-      let url = this._videoInfo.watchUrl;
-      let query = [
-        'mode=normal',
-        'playlist_token=' + this._videoInfo.playlistToken,
-        'continue_watching=1'
-      ];
-      if (this._videoInfo.isEconomy) {
-        query.push('eco=1');
-      }
-
-      if (query.length > 0) {
-        url += '?' + query.join('&');
-      }
-
-      util.fetch(url, {
-        timeout: 10000,
-        credentials: 'include'
-      }).then(res => {
-        return res.json();
-      })
-        .then(this._onHeartBeatSuccess)
-        .catch(this._onHeartBeatFail);
+       let url = this._videoInfo.watchUrl;
+       let query = [
+         'mode=pc_html5',
+         'playlist_token=' + this._videoInfo.playlistToken,
+         'continue_watching=1',
+         'watch_harmful=2'
+       ];
+       if (this._videoInfo.isEconomy) {
+         query.push(this._videoInfo.isEconomy ? 'eco=1' : 'eco=0');
+       }
+      
+       if (query.length > 0) {
+         url += '?' + query.join('&');
+       }
+      
+       util.fetch(url, {
+         timeout: 10000,
+         credentials: 'include'
+       }).then(res => {
+         return res.json();
+       })
+         .then(this._onHeartBeatSuccess)
+         .catch(this._onHeartBeatFail);
     }
 
     _deleteSession() {

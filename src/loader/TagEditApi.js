@@ -80,7 +80,7 @@ export {
 /**
 
  // タグ一覧取得
- http://www.nicovideo.jp/tag_edit/smXXXXXX/?res_type=json&cmd=tags
+ //www.nicovideo.jp/tag_edit/smXXXXXX/?res_type=json&cmd=tags
 
  { "is_owner": true,
    "is_uneditable_tag": false,

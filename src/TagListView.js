@@ -277,8 +277,8 @@ class TagListView extends BaseViewComponent {
     let href = `//dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
     // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
     let src = hasDic ?
-      '//live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
-      '//live.nicovideo.jp/img/2012/watch/tag_icon003.png' ;
+      'https://live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
+      'https://live.nicovideo.jp/img/2012/watch/tag_icon003.png' ;
     let icon = `<img class="dicIcon" src="${src}">`;
     let hasNicodic = hasDic ? 1 : 0;
     return (

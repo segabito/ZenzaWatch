@@ -209,7 +209,7 @@ class VideoInfoModel {
   }
 
   get videoUrl() {
-    return (this._flvInfo.url || '').replace(/^http:/, '');
+    return (this._flvInfo.url || '');//.replace(/^http:/, '');
   }
 
   get storyboardUrl() {
@@ -275,7 +275,7 @@ class VideoInfoModel {
   }
 
   get watchUrl() {
-    return `http://www.nicovideo.jp/watch/${this.watchId}`;
+    return `//www.nicovideo.jp/watch/${this.watchId}`;
   }
 
   get threadId() { // watchIdと同一とは限らない
