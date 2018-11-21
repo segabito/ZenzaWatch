@@ -12,15 +12,15 @@ const boot = ((monkey, PRODUCT, START_PAGE_QUERY) => {
   let href = (location.href || '').replace(/#.*$/, '');
   let prot = location.protocol;
   if (href === prot + '//www.nicovideo.jp/favicon.ico' &&
-    window.name === 'nicovideoApiLoader') {
+    window.name.startsWith('nicovideoApiLoader')) {
     GateAPI.nicovideo();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {
     GateAPI.smile();
   } else if (host === 'api.search.nicovideo.jp' && window.name.startsWith('searchApiLoader')) {
     GateAPI.search();
-  } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('thumbInfoLoader') >= 0) {
+  } else if (host === 'ext.nicovideo.jp' && window.name.startsWith('thumbInfoLoader')) {
     GateAPI.thumbInfo();
-  } else if (host === 'ext.nicovideo.jp' && window.name.indexOf('videoInfoLoader') >= 0) {
+  } else if (host === 'ext.nicovideo.jp' && window.name.startsWith('videoInfoLoader')) {
     GateAPI.exApi();
   } else if (window === window.top) {
 

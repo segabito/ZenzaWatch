@@ -411,7 +411,7 @@ const broadcastEmitter = (() => {
     key = key.replace('ZenzaWatch_', '');
     let oldValue = e.oldValue;
     let newValue = e.newValue;
-    broadcastEmitter.emit('change', key, newValue, oldValue);
+    broadcastEmitter.emitAsync('change', key, newValue, oldValue);
 
     switch (key) {
       case 'message': {
@@ -421,7 +421,7 @@ const broadcastEmitter = (() => {
           return pingResolve(packet);
         }
         console.log('%cmessage', 'background: cyan;', newValue);
-        broadcastEmitter.emit('message', packet);
+        broadcastEmitter.emitAsync('message', packet);
         break;
       }
     }
@@ -440,10 +440,13 @@ const broadcastEmitter = (() => {
   broadcastEmitter.send = packet => {
     if (broadcastChannel) {
       broadcastChannel.postMessage(packet);
-    } else {
-      packet.__now = Date.now();
-      console.log('send Packet', packet);
-      Config.setValue('message', packet);
+    }
+    if (location.host !== 'www.nicovideo.jp' &&
+      NicoVideoApi && NicoVideoApi.sendCommandPacket) {
+      NicoVideoApi.sendCommandPacket(packet);
+      // packet.__now = Date.now();
+      // console.log('send Packet', packet);
+      // Config.setValue('message', packet);
     }
   };
 
@@ -465,7 +468,7 @@ const broadcastEmitter = (() => {
           pingReject = null;
           return pingResolve(packet);
         }
-        broadcastEmitter.emit('message', packet);
+        broadcastEmitter.emitAsync('message', packet);
         break;
       }
     }
@@ -493,7 +496,7 @@ const broadcastEmitter = (() => {
   broadcastEmitter.sendOpen = (watchId, params) => {
     broadcastEmitter.send(Object.assign({
       type: 'openVideo',
-      watchId: watchId,
+      watchId,
       eventType: 'click'
     }, params));
   };
@@ -518,8 +521,9 @@ const broadcastEmitter = (() => {
   if (location.host === 'www.nicovideo.jp') {
     if (broadcastChannel) {
       broadcastChannel.addEventListener('message', onBroadcastMessage);
+    } else {
+      window.addEventListener('storage', onStorage);
     }
-    window.addEventListener('storage', onStorage);
   }
 
   return broadcastEmitter;
@@ -868,9 +872,9 @@ util.ajax = params => {
   });
 };
 
-if (!location.host.match(/\.nicovideo\.jp$/)) {
-  util.ajax = util.fetch = () => {};
-}
+//if (!location.host.match(/\.nicovideo\.jp$/) && (true)) {
+//  util.ajax = util.fetch = () => {};
+//}
 
 util.openMylistWindow = watchId => {
   window.open(

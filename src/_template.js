@@ -18,6 +18,11 @@
 // @match          *://*.nicovideo.jp/smile*
 // @match          *://site.nicovideo.jp/*
 // @match          *://anime.nicovideo.jp/*
+// @match          https://www.google.co.jp/search*
+// @match          https://www.google.com/search*
+// @match          https://friends.nico/*
+// @match          https://*.slack.com/*
+// @match          https://*.bing.com/*
 // @exclude        *://ads.nicovideo.jp/*
 // @exclude        *://www.upload.nicovideo.jp/*
 // @exclude        *://www.nicovideo.jp/watch/*?edit=*
@@ -75,7 +80,7 @@
     if (location.host.match(/\.nicovideo\.jp$/)) {
       window.ZenzaWatch = ZenzaWatch;
     } else {
-      window.ZenzaWatch = {};
+      window.ZenzaWatch = {config: ZenzaWatch.config};
     }
     window.ZenzaWatch.emitter = ZenzaWatch.emitter = new Emitter();
     const debug = ZenzaWatch.debug;

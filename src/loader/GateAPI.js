@@ -8,8 +8,8 @@ const GateAPI = (() => {
       let method = options.method || options.type || 'GET';
       let xhrFields = options.xhrFields || {};
 
-      if (xhrFields.withCredentials === true) {
-        req.withCredentials = true;
+      if (typeof xhrFields.withCredentials === 'boolean') {
+        req.withCredentials = xhrFields.withCredentials;
       }
 
       req.onreadystatechange = function () {
@@ -31,16 +31,17 @@ const GateAPI = (() => {
     }
   };
 
-  let parentPostMessage = function (type, message, token) {
-    let origin = document.referrer;
+  let parentPostMessage = function (type, message, token, origin = null) {
+    origin = origin || document.referrer;
+    //window.console.info('origin', {type, message, token, origin});
     try {
       parent.postMessage(JSON.stringify({
           id: 'ZenzaWatch',
-          type: type, // '',
+          type, // '',
           body: {
-            token: token,
+            token,
             url: location.href,
-            message: message
+            message
           }
         }),
         origin);
@@ -53,6 +54,7 @@ const GateAPI = (() => {
   };
 
   const parseUrl = (url) => {
+    url = url || 'https://unknown.example.com/';
     const a = document.createElement('a');
     a.href = url;
     return a;
@@ -68,17 +70,27 @@ const GateAPI = (() => {
       return true;
     }
     const u = parseUrl(url);
-    if (u.protocol !== 'https:') { return false; }
     const host = u.hostname;
+    if (['localhost', '127.0.0.1'].includes(host)) { return true; }
+    if (localStorage.ZenzaWatch_whiteHost) {
+      if (localStorage.ZenzaWatch_whiteHost.split(',').includes(host)) {
+        return true;
+      }
+    }
+    if (u.protocol !== 'https:') { return false; }
     return [
       'google.com',
+      'www.google.com',
       'www.google.co.jp',
+      'www.bing.com',
       'twitter.com',
       'friends.nico',
-    ].includes(host);
+      'feedly.com',
+      'www.youtube.com',
+    ].includes(host) || host.endsWith('.slack.com');
   };
 
-  let loadUrl = function (data, type, token) {
+  let loadUrl = function (data, type, token, origin) {
     let timeoutTimer = null, isTimeout = false;
 
     if (!data.url) {
@@ -113,7 +125,7 @@ const GateAPI = (() => {
             command: data.command,
             url: data.url,
             body: resp.responseText
-          });
+          }, token, origin);
         } catch (e) {
           console.log(
             '%cError: parent.postMessage - ',
@@ -131,11 +143,11 @@ const GateAPI = (() => {
         token: token,
         command: 'loadUrl',
         url: data.url
-      });
+      }, token, origin);
     }, 30000);
   };
 
-  const loadUrlByFetch = function (data, type, token) {
+  const loadUrlByFetch = function (data, type, token, origin) {
     // let timeoutTimer = null, isTimeout = false;
     const url = data.url;
 
@@ -177,7 +189,7 @@ const GateAPI = (() => {
       parentPostMessage(type, Object.assign(result, {
         status: 'ok',
         body: text
-      }));
+      }), token, origin);
     }).catch(err => {
       if (err && err.name === 'timeout') {
         if (controller) {
@@ -188,7 +200,7 @@ const GateAPI = (() => {
       } else {
         result.status = 'fail';
       }
-      parentPostMessage(type, result);
+      parentPostMessage(type, result, token, origin);
     });
   };
 
@@ -206,7 +218,7 @@ const GateAPI = (() => {
 
     let type = 'thumbInfo';
     let token = location.hash ? location.hash.substring(1) : null;
-    location.hash = '';
+    window.history.replaceState(null, null, location.pathname);
 
     window.addEventListener('message', function (event) {
       //window.console.log('thumbInfoLoaderWindow.onMessage', event.data);
@@ -227,6 +239,9 @@ const GateAPI = (() => {
       let sessionId = data.sessionId;
       xmlHttp({
         url: data.url,
+        xhrFields: {
+          withCredentials: false
+        },
         onload: function (resp) {
 
           if (isTimeout) {
@@ -278,26 +293,24 @@ const GateAPI = (() => {
     }
     window.console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host);
 
-    const parentHost = parseUrl(document.referrer).hostname;
-    window.console.log('parentHost', parentHost);
-    //if (!HOST_REG.test(parentHost) &&
-    if (!isWhiteHost(document.referrer) &&
+    const referrer = document.referrer || window.name.split('#')[1];
+    // const noCredentials = !document.referrer;
+    if (!isWhiteHost(referrer) &&
       localStorage.ZenzaWatch_allowOtherDomain !== 'true') {
-      window.console.log('disable bridge');
+      window.console.log('disable bridge', referrer);
       return;
     }
-    window.console.log('enable bridge');
-
+    window.console.log('enable bridge', referrer);
 
     let isOk = false;
     const apiType = 'nicovideoApi';
     const token = location.hash ? location.hash.substring(1) : null;
-    location.hash = '';
+    window.history.replaceState(null, null, location.pathname);
 
     const pushHistory = (path, title = '') => {
       // ブラウザの既読リンクの色をつけるためにreplaceStateする
       // という目的だったのだが、iframeの中では効かないようだ。残念。
-      window.history.replaceState(null, null, path);
+      window.history.replaceState(null, title, path);
       if (title) {
         document.title = title;
       }
@@ -334,7 +347,7 @@ const GateAPI = (() => {
         token,
         command: data.command,
         body: config
-      });
+      }, token, referrer);
     };
 
     const saveConfig = data => {
@@ -356,7 +369,7 @@ const GateAPI = (() => {
       const command = data.command;
 
       if (data.token !== token) {
-        window.console.log('invalid token: ', data.token, token, command);
+        window.console.log('invalid token: ', event.origin, data.token, token, command, data);
         return;
       }
 
@@ -366,15 +379,17 @@ const GateAPI = (() => {
           isOk = true;
           break;
         case 'loadUrl':
-          return loadUrl(data, apiType, token);
+          return loadUrl(data, apiType, token, referrer);
         case 'fetch':
-          return loadUrlByFetch(data, apiType, token);
+          return loadUrlByFetch(data, apiType, token, referrer);
         case 'dumpConfig':
           return dumpConfig(data);
         case 'saveConfig':
           return saveConfig(data);
         case 'pushHistory':
           return pushHistory(data.path, data.title);
+        case 'commandPacket':
+          return onCommandPacket(data.packet);
       }
     });
 
@@ -399,13 +414,21 @@ const GateAPI = (() => {
         token: token,
         key: key,
         value: newValue
-      });
+      }, token, referrer);
 
       switch (key) {
         case 'message':
           //console.log('%cmessage', 'background: cyan;', newValue);
-          return parentPostMessage(apiType, {command: 'message', value: newValue, token: token});
+          return parentPostMessage(apiType, {command: 'message', value: newValue, token});
       }
+    };
+
+    const onCommandPacket = packet => {
+      // window.console.info('onCommandPacket', packet, isOk);
+      if (!isOk || !broadcastChannel) {
+        return;
+      }
+      broadcastChannel.postMessage(packet);
     };
 
 
@@ -415,17 +438,18 @@ const GateAPI = (() => {
         return;
       }
 
-      parentPostMessage(apiType, {command: 'message', value: JSON.stringify(packet), token: token});
+      parentPostMessage(apiType, {command: 'message', value: JSON.stringify(packet), token}, token, referrer);
     };
 
     const broadcastChannel =
       window.BroadcastChannel ? (new window.BroadcastChannel(PREFIX)) : null;
     if (broadcastChannel) {
       broadcastChannel.addEventListener('message', onBroadcastMessage);
+    } else {
+      window.addEventListener('storage', onStorage);
     }
-    window.addEventListener('storage', onStorage);
 
-    parentPostMessage(apiType, {status: 'initialized'});
+    parentPostMessage(apiType, {status: 'initialized'}, token, referrer);
   };
 
 
@@ -443,6 +467,7 @@ const GateAPI = (() => {
 
     const type = window.name.replace(/Loader$/, '');
     const token = location.hash ? location.hash.substring(1) : null;
+    window.history.replaceState(null, null, location.pathname);
 
     const videoCapture = function (src, sec) {
       return new Promise((resolve, reject) => {
@@ -530,6 +555,7 @@ const GateAPI = (() => {
 
     const type = window.name.replace(/Loader$/, '');
     const token = location.hash ? location.hash.substring(1) : null;
+    window.history.replaceState(null, null, location.pathname);
 
     window.addEventListener('message', (event) => {
       if (!isWhiteHost(event.origin)) {

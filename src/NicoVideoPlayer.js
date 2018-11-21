@@ -1182,7 +1182,7 @@ class VideoPlayer extends Emitter {
     }
 
     this._changePlayer('normal');
-    if (url.indexOf('dmc.nico') >= 0) {
+    if (url.indexOf('dmc.nico') >= 0 && location.host.indexOf('.nicovideo.jp') >= 0) {
       this._video.crossOrigin = 'use-credentials';
     } else if (this._video.crossOrigin) {
       this._video.crossOrigin = null;

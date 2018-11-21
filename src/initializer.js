@@ -413,7 +413,7 @@ const {initialize} = (() => {
     Object.assign(ZenzaWatch.external, {
       execCommand: command,
       sendCommand: sendCommand,
-      sendOrExecCommand: sendOrExecCommand,
+      sendOrExecCommand,
       open: open,
       send: send,
       sendOrOpen,
@@ -436,6 +436,7 @@ const {initialize} = (() => {
       window.ZenzaWatch.external = {
         open,
         sendOrOpen,
+        sendOrExecCommand,
         playlist: {
           add: playlistAdd,
           insert: playlistInsert
