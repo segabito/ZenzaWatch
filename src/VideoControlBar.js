@@ -29,7 +29,7 @@ util.addStyle(`
     background: #000;
     transition: opacity 0.3s ease, transform 0.3s ease;
     user-select: none;
-    content: layout;
+    contain: layout;
   }
 
   .videoControlBar * {
@@ -111,7 +111,8 @@ util.addStyle(`
     opacity: 0.8;
     margin-right: 8px;
     min-width: 32px;
-    vertical-align: middle;      
+    vertical-align: middle;
+    outline: none;      
   }
   .controlButton:hover {
     cursor: pointer;
@@ -154,6 +155,21 @@ util.addStyle(`
   .videoControlBar:hover .controlButton {
     opacity: 1;
     pointer-events: auto;
+  }
+  
+  .videoControlBar .controlButton:focus-within {
+    pointer-events: none;
+  }
+  .videoControlBar .controlButton:focus-within .zenzaPopupMenu,
+  .videoControlBar .controlButton              .zenzaPopupMenu:hover {
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 0.99;
+    pointer-events: auto;
+    transition: opacity 0.3s;
+  }
+  .videoControlBar .controlButton:focus-within .tooltip {
+    display: none;
   }
 
   .settingPanelSwitch {
@@ -430,16 +446,6 @@ util.addStyle(`
     margin-right: 0;
   }
 
-  .playbackRateMenu:active .controlButtonInner {
-    transform: translate(0, 2px);
-  }
-  .playbackRateMenu.show {
-    background: #888;
-  }
-  .playbackRateMenu.show .tooltip {
-    display: none;
-  }
-
 
   .playbackRateSelectMenu {
     bottom: 44px;
@@ -476,17 +482,16 @@ util.addStyle(`
   }
 
 
-  .screenModeMenu.show {
+  .screenModeMenu:focus-within {
     background: #888;
   }
-  .screenModeMenu.show .tooltip {
+  .screenModeMenu:focus-within .tooltip {
     display: none;
   }
 
   .screenModeMenu:active {
     font-size: 10px;
   }
-
 
   .screenModeSelectMenu {
     left: 50%;
@@ -679,13 +684,12 @@ util.addStyle(`
   .videoServerTypeMenu:active {
     font-size: 13px;
   }
-  .videoServerTypeMenu.show {
+  .videoServerTypeMenu:focus-within {
     background: #888;
   }
-  .videoServerTypeMenu.show .tooltip {
+  .videoServerTypeMenu:focus-within .tooltip {
     display: none;
   }
-
 
   .videoServerTypeSelectMenu  {
     bottom: 44px;
@@ -939,10 +943,10 @@ util.addStyle(`
             <span class="play">▶</span>
           </div>
 
-          <div class="playbackRateMenu controlButton" data-command="playbackRateMenu">
+          <div class="playbackRateMenu controlButton" tabindex="-1" data-has-submenu="1">
             <div class="controlButtonInner">x1</div>
             <div class="tooltip">再生速度</div>
-            <div class="playbackRateSelectMenu zenzaPopupMenu">
+            <div class="playbackRateSelectMenu zenzaPopupMenu zenzaSubMenu">
               <div class="triangle"></div>
               <p class="caption">再生速度</p>
               <ul>
@@ -1000,11 +1004,11 @@ util.addStyle(`
           <div class="videoServerTypeMenu controlButton forYouTube" data-command="reload" title="ZenTube解除">
             <div class="controlButtonInner">画</div>
           </div>
-          <div class="videoServerTypeMenu controlButton " data-command="videoServerTypeMenu">
+          <div class="videoServerTypeMenu controlButton" tabindex="-1" data-has-submenu="1">
             <div class="controlButtonInner">画</div>
 
             <div class="tooltip">動画サーバー・画質</div>
-            <div class="videoServerTypeSelectMenu zenzaPopupMenu">
+            <div class="videoServerTypeSelectMenu zenzaPopupMenu zenzaSubMenu">
               <div class="triangle"></div>
               <p class="caption">動画サーバー・画質</p>
               <ul>
@@ -1030,10 +1034,10 @@ util.addStyle(`
             </div>
           </div>
 
-          <div class="screenModeMenu controlButton" data-command="screenModeMenu">
+          <div class="screenModeMenu controlButton" tabindex="-1" data-has-submenu="1">
             <div class="tooltip">画面サイズ・モード変更</div>
             <div class="controlButtonInner">&#9114;</div>
-            <div class="screenModeSelectMenu zenzaPopupMenu">
+            <div class="screenModeSelectMenu zenzaPopupMenu zenzaSubMenu">
               <div class="triangle"></div>
               <p class="caption">画面モード</p>
               <ul>
@@ -1283,17 +1287,8 @@ util.addStyle(`
     _onCommandEvent: function(e) {
       const command = e.detail.command;
       switch (command) {
-        case 'screenModeMenu':
-          this.toggleScreenModeMenu();
-          break;
-        case 'playbackRateMenu':
-          this.togglePlaybackRateMenu();
-          break;
         case 'toggleStoryboard':
           this._storyboard.toggle();
-          break;
-        case 'videoServerTypeMenu':
-          this.toggleVideoServerTypeMenu();
           break;
         default:
           return;
@@ -1307,74 +1302,19 @@ util.addStyle(`
       if (!target) {
         return;
       }
-      let command = target.dataset.command;
-      let param   = target.dataset.param;
-      let type    = target.dataset.type;
+      let {command, param, type} = target.dataset;
       if (param && (type === 'bool' || type === 'json')) {
         param = JSON.parse(param);
       }
       switch (command) {
-        case 'screenModeMenu':
-          this.toggleScreenModeMenu();
-          break;
-        case 'playbackRateMenu':
-          this.togglePlaybackRateMenu();
-          break;
         case 'toggleStoryboard':
           this._storyboard.toggle();
-          break;
-        case 'videoServerTypeMenu':
-          this.toggleVideoServerTypeMenu();
           break;
         default:
           util.dispatchCommand(target, command, param);
           break;
        }
       e.stopPropagation();
-    },
-    _hideMenu: function() {
-      [ 'toggleScreenModeMenu',
-        'togglePlaybackRateMenu',
-        'toggleVideoServerTypeMenu'
-      ].forEach(func => this[func](false));
-    },
-    togglePlaybackRateMenu: function(v) {
-      let $btn  = this._$playbackRateMenu;
-      let $menu = this._$playbackRateSelectMenu;
-      this._toggleMenu('playbackRate', $btn, $menu, v);
-    },
-    toggleScreenModeMenu: function(v) {
-      let $btn  = this._$screenModeMenu;
-      let $menu = this._$screenModeSelectMenu;
-      this._toggleMenu('screenMode', $btn, $menu, v);
-    },
-    toggleVideoServerTypeMenu: function(v) {
-      let $btn  = this._$videoServerTypeMenu;
-      let $menu = this._$videoServerTypeSelectMenu;
-      this._toggleMenu('screenMode', $btn, $menu, v);
-    },
-    _toggleMenu: function(name, $btn, $menu, v) {
-      let $body = $('body');
-      let eventName = `click.ZenzaWatch_${name}Menu`;
-
-      $body.off(eventName);
-      $btn .toggleClass('show', v);
-      $menu.toggleClass('show', v);
-
-      let onBodyClick = () => {
-        $btn.removeClass('show');
-        $menu.removeClass('show');
-        $body.off(eventName);
-        ZenzaWatch.emitter.emitAsync('hideMenu');
-      };
-      if ($menu.hasClass('show')) {
-        this._hideMenu();
-        $btn .addClass('show');
-        $menu.addClass('show');
-        $body.on(eventName, onBodyClick);
-        ZenzaWatch.emitter.emitAsync('showMenu');
-      }
-      this._$view.toggleClass('is-menuOpen', $menu.hasClass('show'));
     },
     _posToTime: function(pos) {
       let width = this._$seekBar.innerWidth();
@@ -1573,6 +1513,9 @@ util.addStyle(`
       this._bufferStart = 0;
       this._bufferEnd = 0;
       this._bufferRange.style.transform = 'scaleX(0)';
+    },
+    _hideMenu: function() {
+      document.body.focus();
     }
   });
 

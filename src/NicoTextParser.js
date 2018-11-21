@@ -218,7 +218,10 @@ han_group { font-family: 'Arial'; }
   margin: 0;
   white-space: nowrap;
   font-weight: 600;
-  font-kerning: none;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  /* text-rendering: optimizeSpeed; */
+  /*font-kerning: none;*/
 }
 
   .nicoChat.big {

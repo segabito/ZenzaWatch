@@ -467,7 +467,7 @@ util.addStyle(`
     opacity: 0;
     box-shadow: none;
     transition: opacity 0.4s ease, transform 0.4s ease 1s;
-    will-change: opacity, transform, transform;
+    will-change: opacity, transform;
   }
 
   .is-mouseMoving  .zenzaWatchVideoInfoPanel {

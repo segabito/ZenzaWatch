@@ -876,28 +876,30 @@ class TagItemMenu extends HTMLElement {
         .menu {
           display: none;
           position: fixed;
-          background: rgba(80, 80, 80, 0.95);
-          color: #000;
-          margin: 16px 0;
-          padding: 8px;
+          background-clip: content-box;
+          border-style: solid;
+          border-width: 16px 0 16px 0;
+          border-color: transparent;
+          padding: 0;
           z-index: 100;
-          transform: translateY(-16px);
+          transform: translateY(-30px);
         }
         
         :host-context(.zenzaWatchVideoInfoPanelFoot) .menu {
           position: absolute;
-          bottom: 18px;
-          transform: translateY(16px);
+          bottom: 0;
+          transform: translateY(8x);
         }
         
-        .root.menu:hover,
-        .root:focus-within:hover .menu {
+        .root .menu:hover,
+        .root:focus-within .menu {
           display: inline-block;
         }
         
         li {
           list-style-type: none;
-          padding-left: 12px;
+          padding: 2px 8px 2px 20px;
+          background: rgba(80, 80, 80, 0.95);
         }
         
         li a {

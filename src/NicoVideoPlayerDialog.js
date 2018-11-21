@@ -243,13 +243,7 @@ util.addStyle(`
     border: 0 !important;
     z-index: 100 !important;
     contain: layout style size paint;
-    will-change: transform opacity;
-  }
-
-  .commentLayerFrame {
-    transition:
-      width 0.5s linear steps(1, start) 0.5s,
-      height 0.5s linear steps(1, start) 0.5s;
+    will-change: transform,opacity;
   }
   
   .is-open .videoPlayer>* {
@@ -334,7 +328,7 @@ util.addStyle(`
 
 util.addStyle(`
   body #zenzaVideoPlayerDialog {
-    contain: style layout size;
+    contain: style size;
   }
 
   #zenzaVideoPlayerDialog::before {
@@ -575,7 +569,6 @@ NicoVideoPlayerDialogView.__css__ = `
     background: #000;
     will-change: transform, opacity;
     user-select: none;
-    contain: paint;
   }
 
   .is-mouseMoving .videoPlayer>* {
@@ -599,7 +592,6 @@ NicoVideoPlayerDialogView.__css__ = `
     pointer-events: none;
     cursor: none;
     user-select: none;
-    contain: paint;
     opacity: var(--zenza-comment-layer-opacity, 1);
   }
 
@@ -2710,6 +2702,7 @@ util.addStyle(`
         white-space: nowrap;
         text-align: center;
         cursor: pointer;
+        outline: none;
       }
       .menuItemContainer:hover .menuButton {
         pointer-events: auto;
@@ -2830,6 +2823,7 @@ util.addStyle(`
       text-shadow: none;
       user-select: none;
     }
+      .menuButton:focus-within,
       .menuButton:hover {
         box-shadow: 0 2px 0 #000;
         cursor: pointer;
@@ -2870,9 +2864,20 @@ util.addStyle(`
       }
 
 
-      .menuButton:active .selectMenu {
+      .menuButton:active .zenzaPopupMenu {
         transform: translate(0, -2px);
         transition: none;
+      }
+      .hoverMenuContainer .menuButton:focus-within {
+        pointer-events: none;
+      }
+      .hoverMenuContainer .menuButton:focus-within .zenzaPopupMenu,
+      .hoverMenuContainer .menuButton              .zenzaPopupMenu:hover {
+        pointer-events: auto;
+        visibility: visible;
+        opacity: 0.99;
+        pointer-events: auto;
+        transition: opacity 0.3s;
       }
 
 
@@ -2943,10 +2948,10 @@ util.addStyle(`
       white-space: nowrap;
       bottom: 0px;
       left: 32px;
+      font-size: 18px;
     }
       .ngSettingMenu:active .ngSettingSelectMenu {
         transition: none;
-        font-size: 18px;
       }
       .ngSettingSelectMenu .triangle {
         transform: rotate(45deg);
@@ -3000,7 +3005,7 @@ util.addStyle(`
       display: none;
     }
 
-    .mylistButton.mylistAddMenu.show,
+    .mylistButton.mylistAddMenu:focus-within,
     .is-updatingMylist  .mylistButton.mylistAddMenu {
       pointer-events: none;
       opacity: 1 !important;
@@ -3008,7 +3013,7 @@ util.addStyle(`
       color: #000 !important;
       box-shadow: none !important;
     }
-    .mylistButton.mylistAddMenu.show{
+    .mylistButton.mylistAddMenu:focus-within {
       background: #888 !important;
     }
     .is-updatingMylist  .mylistButton.mylistAddMenu {
@@ -3022,13 +3027,18 @@ util.addStyle(`
 
     .mylistSelectMenu {
       top: 36px;
-      right: 80px;
+      right: -48px;
       padding: 8px 0;
+      font-size: 13px;
+    }
+    .is-updatingMylist .mylistSelectMenu {
+      display: none;
     }
       .mylistSelectMenu .mylistSelectMenuInner {
         overflow-y: auto;
         overflow-x: hidden;
         max-height: 50vh;
+        overscroll-behavior: contain;
       }
 
       .mylistSelectMenu .triangle {
@@ -3228,16 +3238,17 @@ VideoHoverMenu.__tpl__ = (`
             <div class="tooltip">ツイート</div>
             <div class="menuButtonInner">t</div>
           </div>
-          <div class="menuButton mylistButton mylistAddMenu forMember" data-command="mylistMenu">
+          <div class="menuButton mylistButton mylistAddMenu forMember"
+            data-command="nop" tabindex="-1" data-has-submenu="1">
             <div class="tooltip">マイリスト登録</div>
             <div class="menuButtonInner">My</div>
-          </div>
-
-          <div class="mylistSelectMenu selectMenu zenzaPopupMenu forMember">
-            <div class="triangle"></div>
-            <div class="mylistSelectMenuInner">
+            <div class="mylistSelectMenu selectMenu zenzaPopupMenu forMember">
+              <div class="triangle"></div>
+              <div class="mylistSelectMenuInner">
+              </div>
             </div>
           </div>
+
 
           <div class="menuButton mylistButton deflistAdd forMember" data-command="deflistAdd">
             <div class="tooltip">とりあえずマイリスト(T)</div>
@@ -3258,7 +3269,8 @@ VideoHoverMenu.__tpl__ = (`
             <div class="menuButtonInner">💬</div>
           </div>
 
-          <div class="ngSettingMenu menuButton" data-command="ngSettingMenu">
+          <div class="ngSettingMenu menuButton" data-command="nop"
+            data-has-submenu="1" tabindex="-1">
             <div class="tooltip">NG設定</div>
             <div class="menuButtonInner">NG</div>
 
@@ -3505,42 +3517,13 @@ _.assign(VideoHoverMenu.prototype, {
     }
   },
   _hideMenu: function () {
+    if (!this._view.contains(document.activeElement)) {
+      return;
+    }
     window.setTimeout(() => {
-      this.toggleMylistMenu(false);
-      this.toggleNgSettingMenu(false);
+      document.body.focus();
     }, 0);
   },
-  toggleMylistMenu: function (v) {
-    this._toggleMenu('mylistAddMenu mylistSelectMenu', v);
-  },
-  toggleNgSettingMenu: function (v) {
-    this._toggleMenu('ngSettingMenu ngSettingSelectMenu', v);
-  },
-  _toggleMenu: function (name, v) {
-    const body = this._body || util.$('body');
-    this._body = body;
-
-    body.off('click', this._bound.onBodyClick);
-
-    util.$('.selectMenu, .menuButton').forEach(item => {
-      if (util.$(item).hasClass(name)) {
-        item.classList.toggle('show', v);
-        v = item.classList.contains('show');
-      } else {
-        item.classList.remove('show');
-      }
-    });
-
-    if (v) {
-      body.on('click', this._bound.onBodyClick);
-      ZenzaWatch.emitter.emitAsync('showMenu');
-    }
-    return !!v;
-  },
-  _onBodyClick: function () {
-    this._hideMenu();
-    ZenzaWatch.emitter.emitAsync('hideMenu');
-  }
 });
 
 

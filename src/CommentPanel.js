@@ -750,6 +750,7 @@ const CommentListItemView = (() => {
         padding: 0;
         background: #222;
         z-index: 50;
+        contain: layout;
       }
 
       .active .commentListItem {
@@ -797,7 +798,8 @@ const CommentListItemView = (() => {
         color: #ccc;
         margin: 0;
         padding: 0 4px;
-        font-family: arial, 'Menlo';
+        font-family: '游ゴシック', 'Yu Gothic', 'YuGothic', arial, 'Menlo';
+        font-feature-settings: "palt" 1;
       }
 
       .active .commentListItem:hover {
@@ -1129,16 +1131,12 @@ class CommentPanelView extends Emitter {
 
     let $view = this._$view;
     let setUpdating = () => {
+      document.body.focus();
       $view.addClass('updating');
       window.setTimeout(() => $view.removeClass('updating'), 1000);
     };
 
     switch (command) {
-      case 'toggleMenu':
-        e.stopPropagation();
-        e.preventDefault();
-        this._$menu.addClass('show');
-        return;
       case 'sortBy':
         setUpdating();
         this.emit('command', command, param);
@@ -1185,6 +1183,7 @@ CommentPanelView.__css__ = `
     }
 
     .commentPanel-menu-button {
+      display: inline-block;
       cursor: pointer;
       border: 1px solid #333;
       padding: 0px 4px;
@@ -1227,6 +1226,17 @@ CommentPanelView.__css__ = `
       font-size: 14px;
       line-height: 32px;
       cursor: pointer;
+      outline: none;
+    }
+    .commentPanel-menu-toggle:focus-within {
+      pointer-events: none;
+    }
+    .commentPanel-menu-toggle:focus-within .zenzaPopupMenu {
+      pointer-events: auto;
+      visibility: visible;
+      opacity: 0.99;
+      pointer-events: auto;
+      transition: opacity 0.3s;
     }
 
     .commentPanel-menu {
@@ -1256,7 +1266,7 @@ CommentPanelView.__tpl__ = (`
         <label class="commentPanel-menu-button autoScroll commentPanel-command"
           data-command="toggleScroll"><icon class="commentPanel-menu-icon">⬇️</icon> 自動スクロール</label>
 
-        <div class="commentPanel-command commentPanel-menu-toggle" data-command="toggleMenu">
+        <div class="commentPanel-command commentPanel-menu-toggle" tabindex="-1">
           ▼ メニュー
           <div class="zenzaPopupMenu commentPanel-menu">
             <div class="listInner">
