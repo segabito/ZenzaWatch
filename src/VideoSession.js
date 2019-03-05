@@ -33,17 +33,20 @@ const VideoSession = (() => {
       let dmcInfo = this._dmcInfo;
 
       let videos = [];
+      let availableVideos =
+        dmcInfo.quality.videos.filter(v => v.available)
+          .sort((a, b) => b.level_index - a.level_index);
       let reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
       if (reg === VIDEO_QUALITY.auto) {
-        videos = dmcInfo.videos.concat();
+        videos = availableVideos.map(v => v.id);
       } else {
-        dmcInfo.videos.forEach(format => {
-          if (reg.test(format)) {
-            videos.push(format);
+        availableVideos.forEach(format => {
+          if (reg.test(format.id)) {
+            videos.push(format.id);
           }
         });
         if (videos.length < 1) {
-          videos[0] = dmcInfo.videos[0];
+          videos[0] = availableVideos[0].id;
         }
       }
 
@@ -62,6 +65,11 @@ const VideoSession = (() => {
       };
       if (this._useHLS) {
         parameters.segment_duration = Config.getValue('video.hls.segmentDuration');
+        if (dmcInfo.encryption){
+          parameters.encryption = dmcInfo.encryption;
+        }
+      } else if (!dmcInfo.protocols.includes('http')) {
+        throw new Error('HLSに未対応');
       }
       http_parameters.parameters = this._useHLS ?
         {hls_parameters: parameters} :
@@ -73,7 +81,7 @@ const VideoSession = (() => {
             player_id: dmcInfo.playerId
           },
           content_auth: {
-            auth_type: 'ht2',
+            auth_type: dmcInfo.authTypes[this._useHLS ? 'hls' : 'http'] || 'ht2',
             content_key_timeout: 600 * 1000,
             service_id: 'nicovideo',
             service_user_id: dmcInfo.serviceUserId,
@@ -424,11 +432,11 @@ const VideoSession = (() => {
        if (this._videoInfo.isEconomy) {
          query.push(this._videoInfo.isEconomy ? 'eco=1' : 'eco=0');
        }
-      
+
        if (query.length > 0) {
          url += '?' + query.join('&');
        }
-      
+
        util.fetch(url, {
          timeout: 10000,
          credentials: 'include'
@@ -457,6 +465,7 @@ const VideoSession = (() => {
       if (result && result.flashvars && result.flashvars.watchAuthKey) {
         this._videoInfo.watchAuthKey = result.flashvars.watchAuthKey;
       }
+
     }
 
     // smileには明確なセッション終了の概念がないため、

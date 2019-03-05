@@ -1050,8 +1050,8 @@ StoryboardView.__css__ = (`
     pointer-events: none;
   }
 
-  .fullScreen .is-dragging .storyboardContainer,
-  .fullScreen             .storyboardContainer.show {
+  .is-fullscreen .is-dragging .storyboardContainer,
+  .is-fullscreen             .storyboardContainer.show {
     position: fixed;
     top: calc(100% - 10px);
   }
@@ -1064,6 +1064,9 @@ StoryboardView.__css__ = (`
     background: #222;
     margin: 0;
     contain: paint layout;
+    will-change: transform;
+    scrollbar-width: 6px;
+    scrollbar-color: #f8f transparent;
   }
   .storyboardInner:hover {
     scroll-behavior: unset !important;
@@ -1073,20 +1076,20 @@ StoryboardView.__css__ = (`
     overflow-x: auto;
     overscroll-behavior: contain;
   }
-  /*.storyboardContainer .storyboardInner::-moz-scrollbar,*/
+  
   .storyboardContainer .storyboardInner::-webkit-scrollbar {
     width: 6px;
     height: 6px;
-    background: rgba(0, 0, 0, 0);
+    background: transparent;
+    contain: paint layout;
+    will-change: transform;
   }
 
-  /*.storyboardContainer .storyboardInner::-moz-scrollbar-thumb,*/
   .storyboardContainer .storyboardInner::-webkit-scrollbar-thumb {
     border-radius: 6px;
     background: #f8f;
   }
 
-  /*.storyboardContainer .storyboardInner::-moz-scrollbar-button,*/
   .storyboardContainer .storyboardInner::-webkit-scrollbar-button {
     display: none;
   }

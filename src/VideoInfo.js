@@ -25,6 +25,10 @@ class DmcInfo {
     return this._session.videos;
   }
 
+  get quality() {
+    return this._rawData.quality;
+  }
+
   get signature() {
     return this._session.signature;
   }
@@ -54,7 +58,7 @@ class DmcInfo {
   }
 
   get protocols() {
-    return this._session.protocols;
+    return this._session.protocols || [];
   }
 
   get contentKeyTimeout() {
@@ -66,7 +70,7 @@ class DmcInfo {
   }
 
   get authTypes() {
-    return this._session.authTypes;
+    return this._session.auth_types;
   }
 
   get videoFormatList() {
@@ -91,6 +95,14 @@ class DmcInfo {
 
   get importVersion() {
     return this._rawData.import_version || 0;
+  }
+
+  get trackingId() {
+    return this._rawData.tracking_id || '';
+  }
+
+  get encryption() {
+    return this._rawData.encryption || null;
   }
 }
 
@@ -275,7 +287,7 @@ class VideoInfoModel {
   }
 
   get watchUrl() {
-    return `//www.nicovideo.jp/watch/${this.watchId}`;
+    return `https://www.nicovideo.jp/watch/${this.watchId}`;
   }
 
   get threadId() { // watchIdと同一とは限らない

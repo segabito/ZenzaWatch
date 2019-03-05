@@ -2,8 +2,8 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {PlaybackPosition, VideoInfoLoader} from './loader/api';
-import {FullScreen, ShortcutKeyEmitter, util} from './util';
+import {PlaybackPosition, VideoInfoLoader, NVWatchCaller} from './loader/api';
+import {Fullscreen, ShortcutKeyEmitter, util} from './util';
 import {NicoVideoPlayer} from './NicoVideoPlayer';
 import {VideoFilter, VideoInfoModel} from './VideoInfo';
 import {CommentInputPanel} from './CommentInputPanel';
@@ -233,42 +233,43 @@ util.addStyle(`
   }
 
   .videoPlayer,
-  .commentLayerFrame {
+  .commentLayerFrame,
+  .resizeObserver {
     top:  0 !important;
     left: 0 !important;
     width:  100vw !important;
-    height: 100vh !important;
+    height: 100% !important;
     right:  0 !important;
-    bottom: 0 !important;
+    /*bottom: 0 !important;*/
     border: 0 !important;
     z-index: 100 !important;
     contain: layout style size paint;
     will-change: transform,opacity;
+  }
+  .resizeObserver {
+    z-index: -1;
+    opacity: 0;
+    pointer-events: none;
   }
   
   .is-open .videoPlayer>* {
     cursor: none;
   }
 
+  .showVideoControlBar {
+    --padding-bottom: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
+  } 
+  .zenzaStoryboardOpen .showVideoControlBar {
+    --padding-bottom: calc(var(--zenza-control-bar-height) + 80px);
+  }
+  .zenzaStoryboardOpen.is-fullscreen .showVideoControlBar {
+    --padding-bottom: calc(var(--zenza-control-bar-height) + 50px);
+  }
+  
   .showVideoControlBar .videoPlayer,
-  .showVideoControlBar .commentLayerFrame {
-    top:  0 !important;
-    left: 0 !important;
-    width:  100% !important;
-    height: calc(100% - ${CONSTANT.CONTROL_BAR_HEIGHT}px) !important;
-    right:  0 !important;
-    bottom: ${CONSTANT.CONTROL_BAR_HEIGHT}px !important;
-    border: 0 !important;
-  }
-
-  .zenzaStoryboardOpen .showVideoControlBar .videoPlayer,
-  .zenzaStoryboardOpen .showVideoControlBar .commentLayerFrame {
-    padding-bottom: 80px;
-  }
-
-  .zenzaStoryboardOpen.fullScreen .showVideoControlBar .videoPlayer,
-  .zenzaStoryboardOpen.fullScreen .showVideoControlBar .commentLayerFrame {
-    padding-bottom: 50px;
+  .showVideoControlBar .commentLayerFrame,
+  .showVideoControlBar .resizeObserver {
+    height: calc(100% - var(--padding-bottom)) !important;
   }
 
   .showVideoControlBar .videoPlayer {
@@ -448,7 +449,7 @@ util.addStyle(`
       
   body.zenzaScreenMode_3D >:not(.zen-family),
   body.zenzaScreenMode_wide >:not(.zen-family),
-  body.fullScreen >:not(.zen-family) {
+  body.is-fullscreen >:not(.zen-family) {
     visibility: hidden;
     pointer-events: none;
     user-select: none;
@@ -832,7 +833,10 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
 
     container.addEventListener('click', e => {
       ZenzaWatch.emitter.emitAsync('hideHover');
-      if (config.getValue('enableTogglePlayOnClick') && !classList.contains('menuOpen')) {
+      if (
+        e.target.classList.contains('touchWrapper') &&
+        config.getValue('enableTogglePlayOnClick') &&
+        !classList.contains('menuOpen')) {
         onCommand('togglePlay');
       }
       e.preventDefault();
@@ -843,6 +847,12 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       e.stopPropagation();
       e.preventDefault();
       this._onCommand(e.detail.command, e.detail.param);
+    });
+    container.addEventListener('focusin', e => {
+      let target = (e.path && e.path.length) ? e.path[0] : e.target;
+      if (target.dataset.hasSubmenu) {
+        classList.add('menuOpen');
+      }
     });
 
     this._applyState();
@@ -923,7 +933,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
 
     ZenzaWatch.emitter.on('showMenu', () => this.addClass('menuOpen'));
     ZenzaWatch.emitter.on('hideMenu', () => this.removeClass('menuOpen'));
-    ZenzaWatch.emitter.on('fullScreenStatusChange', () => this._updateScreenModeStyle());
+    ZenzaWatch.emitter.on('fullscreenStatusChange', () => this._applyScreenMode(true));
     document.body.appendChild($dialog[0]);
   },
   _initializeVideoInfoPanel: function () {
@@ -1045,7 +1055,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       isPlaying: 'is-playing',
       isSeeking: 'is-seeking',
       isPausing: 'is-pausing',
-      isStalled: 'is-stalled',
+//      isStalled: 'is-stalled',
       isChanging: 'is-changing',
       isUpdatingDeflist: 'is-updatingDeflist',
       isUpdatingMylist: 'is-updatingMylist',
@@ -1054,13 +1064,12 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       isRegularUser: 'is-regularUser',
       isWaybackMode: 'is-waybackMode',
       isNotPlayed: 'is-notPlayed',
-      isYouTube: 'is-youTube',
+      isYouTube: 'is-youTube'
     };
   },
   _onPlayerStateUpdate: function (changedState) {
-    Object.keys(changedState).forEach(key => {
-      this._onPlayerStateChange(key, changedState[key]);
-    });
+    Object.keys(changedState).forEach(key =>
+      this._onPlayerStateChange(key, changedState[key]));
   },
   _onPlayerStateChange: function (key, value) {
     switch (key) {
@@ -1111,13 +1120,16 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       'zenzaScreenMode_wide'
     ];
   },
-  _applyScreenMode: function () {
+  _applyScreenMode: function (force = false) {
     const screenMode = `zenzaScreenMode_${this._state.screenMode}`;
-    if (this._lastScreenMode === screenMode) { return; }
+    if (!force && this._lastScreenMode === screenMode) { return; }
     this._lastScreenMode = screenMode;
     const body = this._$body;
     const modes = this._getScreenModeClassNameTable();
-    modes.forEach(m => body.toggleClass(m, m === screenMode));
+    const isFull = util.fullscreen.now();
+    document.body.dataset.screenMode = this._state.screenMode;
+    document.body.dataset.fullscreen = isFull ? 'yes' : 'no';
+    modes.forEach(m => body.toggleClass(m, m === screenMode && !isFull));
     this._updateScreenModeStyle();
   },
   _updateScreenModeStyle: function() {
@@ -1125,10 +1137,10 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       util.StyleSwitcher.update({off: 'style.screenMode'});
       return;
     }
-    if (FullScreen.now()) {
+    if (Fullscreen.now()) {
       util.StyleSwitcher.update({
-        on: 'style.screenMode.for-full',
-        off: 'style.screenMode:not(.for-full)'
+        on: 'style.screenMode.for-full, style.screenMode.for-screen-full',
+        off: 'style.screenMode:not(.for-full):not(.for-screen-full)'
       });
       return;
     }
@@ -1136,8 +1148,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     switch (this._state.screenMode) {
       case '3D':
       case 'wide':
-        on = 'style.screenMode.for-full';
-        off = 'style.screenMode:not(.for-full)';
+        on = 'style.screenMode.for-full, style.screenMode.for-window-full';
+        off = 'style.screenMode:not(.for-full):not(.for-window-full)';
         break;
       default:
       case 'normal':
@@ -1155,8 +1167,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   },
   show: function () {
     this._$dialog.addClass('is-open');
-    if (!FullScreen.now()) {
-      document.body.classList.remove('fullScreen');
+    if (!Fullscreen.now()) {
+      document.body.classList.remove('fullscreen');
     }
     this._$body.addClass('showNicoVideoPlayerDialog');
     util.StyleSwitcher.update({on: 'style.zenza-open'});
@@ -1307,7 +1319,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
 
     this._savePlaybackPosition =
       _.throttle(this._savePlaybackPosition.bind(this), 1000, {trailing: false});
-    this._dynamicCss = new DynamicCss({playerConfig: this._playerConfig});
   },
   _initializeDom: function () {
     this._view = new NicoVideoPlayerDialogView({
@@ -1406,8 +1417,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       case 'play':
         this.play();
         break;
-      case 'fullScreen':
-      case 'toggle-fullScreen':
+      case 'fullscreen':
+      case 'toggle-fullscreen':
         this._nicoVideoPlayer.toggleFullScreen();
         break;
       case 'deflistAdd':
@@ -1613,11 +1624,12 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       'PAUSE': 'pause',
       'TOGGLE_PLAY': 'togglePlay',
       'SPACE': 'togglePlay',
-      'FULL': 'toggle-fullScreen',
+      'FULL': 'toggle-fullscreen',
       'TOGGLE_PLAYLIST': 'togglePlaylist',
       'DEFLIST': 'deflistAdd',
       'DEFLIST_REMOVE': 'deflistRemove',
       'VIEW_COMMENT': 'toggle-showComment',
+      'TOGGLE_LOOP': 'toggle-loop',
       'MUTE': 'toggle-mute',
       'VOL_UP': 'volumeUp',
       'VOL_DOWN': 'volumeDown',
@@ -1642,7 +1654,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
           break;
         }
         this._escBlockExpiredAt = Date.now() + 1000 * 2;
-        if (!FullScreen.now()) {
+        if (!Fullscreen.now()) {
           this.close();
         }
         break;
@@ -1978,7 +1990,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     );
 
     this.show();
-    if (this._playerConfig.getValue('autoFullScreen') && !util.fullScreen.now()) {
+    if (this._playerConfig.getValue('autoFullScreen') && !util.fullscreen.now()) {
       nicoVideoPlayer.requestFullScreen();
     }
     this.emit('open', watchId, options);
@@ -2092,7 +2104,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
 
     this.emit('loadVideoInfo', videoInfo);
 
-    if (FullScreen.now() || this._playerConfig.getValue('screenMode') === 'wide') {
+    if (Fullscreen.now() || this._playerConfig.getValue('screenMode') === 'wide') {
       this.execCommand('notifyHtml',
         '<img src="' + videoInfo.thumbnail + '" style="width: 96px;">' +
         util.escapeToZenkaku(videoInfo.title)
@@ -2387,8 +2399,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
         this._videoWatchOptions.isAutoCloseFullScreen() :
         this._playerConfig.getValue('autoCloseFullScreen');
-    if (FullScreen.now() && isAutoCloseFullScreen) {
-      FullScreen.cancel();
+    if (Fullscreen.now() && isAutoCloseFullScreen) {
+      Fullscreen.cancel();
     }
     ZenzaWatch.emitter.emitAsync('videoEnded');
   },
@@ -2429,8 +2441,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (this.isPlaying()) {
       this._savePlaybackPosition(this._watchId, this.getCurrentTime());
     }
-    if (FullScreen.now()) {
-      FullScreen.cancel();
+    if (Fullscreen.now()) {
+      Fullscreen.cancel();
     }
     this.pause();
     this.hide();
@@ -3337,7 +3349,7 @@ _.assign(VideoHoverMenu.prototype, {
     this._state = params.playerState;
 
     this._bound = {};
-    this._bound.onBodyClick = this._onBodyClick.bind(this);
+    // this._bound.onBodyClick = this._onBodyClick.bind(this);
     this._bound.emitClose =
       _.debounce(() => util.dispatchCommand(this._container, 'close'), 300);
 
@@ -3347,10 +3359,10 @@ _.assign(VideoHoverMenu.prototype, {
     window.setTimeout(this._initializeMylistSelectMenu.bind(this), 0);
   },
   _initializeDom: function () {
-    //util.addStyle(VideoHoverMenu.__css__);
 
     let container = this._container;
     container.appendChild(util.createDom(VideoHoverMenu.__tpl__));
+    this._view = container.querySelector('.hoverMenuContainer');
 
     let menuContainer = util.$(container.querySelectorAll('.menuItemContainer'));
     menuContainer.on('contextmenu',
@@ -3437,7 +3449,6 @@ _.assign(VideoHoverMenu.prototype, {
     state.on('update-sharedNgLevel', updateNgLevel);
   },
   _onMouseDown: function (e) {
-    e.preventDefault();
     e.stopPropagation();
     const target = e.target.closest('[data-command]');
     if (!target) {
@@ -3527,41 +3538,74 @@ _.assign(VideoHoverMenu.prototype, {
 });
 
 
-class DynamicCss {
-  constructor(params) {
-    let config = this._playerConfig = params.playerConfig;
+class VariablesMapper {
+  get nextState() {
+    return {
+      menuScale: parseFloat(this.config.getValue('menuScale'), 10),
+      commentLayerOpacity: parseFloat(this.config.getValue('commentLayerOpacity'), 10),
+      fullscreenControlBarMode: this.config.getValue('fullscreenControlBarMode')
+    };
+  }
 
-    this._scale = 1.0;
-    this._commentLayerOpacity = 1.0;
+  get videoControlBarHeight() {
+    return(
+      (VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) *
+        this.state.menuScale + VideoControlBar.BASE_SEEKBAR_HEIGHT);
+  }
 
-    let update = _.debounce(this._update.bind(this), 1000);
-    config.on('update-menuScale', update);
-    config.on('update-commentLayerOpacity', update);
+  constructor({config, element}){
+    this.config = config;
+
+    this.state = {
+      menuScale: 0,
+      commentLayerOpacity: 0,
+      fullscreenControlBarMode: 'auto'
+    };
+
+    this.element = element || document.body;
+    this.emitter = new Emitter();
+
+    let update = _.debounce(this.update.bind(this), 500);
+    Object.keys(this.state).forEach(key =>
+      config.on(`update-${key}`, () => update(key)));
     update();
   }
-  _update() {
-    let scale = parseFloat(this._playerConfig.getValue('menuScale'), 10);
-    let commentLayerOpacity =
-      parseFloat(this._playerConfig.getValue('commentLayerOpacity'), 10);
 
-    if (this._scale === scale &&
-      this._commentLayerOpacity === commentLayerOpacity) {
+  on(...args) {
+    this.emitter.on(...args);
+  }
+
+  shouldUpdate(state, nextState) {
+    return Object.keys(state).some(key => state[key] !== nextState[key]);
+  }
+
+  setVar(key, value) { this.element.style.setProperty(key, value); }
+
+  update(key, val) {
+    let state = this.state;
+    let nextState = this.nextState;
+
+    if (!this.shouldUpdate(state, nextState)) {
       return;
     }
 
-    document.documentElement.style.setProperty('--zenza-ui-scale', scale);
-    document.documentElement.style.setProperty('--zenza-comment-layer-opacity', commentLayerOpacity);
-    document.documentElement.style.setProperty('--zenza-control-bar-height',
-      ((VideoControlBar.BASE_HEIGHT - VideoControlBar.BASE_SEEKBAR_HEIGHT) * scale +
-      VideoControlBar.BASE_SEEKBAR_HEIGHT) + 'px');
-    this._scale = scale;
-    this._commentLayerOpacity = commentLayerOpacity;
+    let {menuScale, commentLayerOpacity, fullscreenControlBarMode} = nextState;
+
+    this.state = nextState;
+    Object.assign(this.element.dataset, {fullscreenControlBarMode});
+    if (state.scale !== menuScale) {
+      this.setVar('--zenza-ui-scale', menuScale);
+      this.setVar('--zenza-control-bar-height', `${this.videoControlBarHeight}px`);
+    }
+    if (state.commentLayerOpacity !== commentLayerOpacity) {
+      this.setVar('--zenza-comment-layer-opacity', commentLayerOpacity);
+    }
+    this.emitter.emit('update', nextState);
   }
 
 }
 
 //===END===
-//
 
 export {
   PlayerConfig,

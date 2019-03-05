@@ -793,6 +793,11 @@ VideoListView.__tpl__ = (`
     overscroll-behavior: contain;
     transition: 0.2s opacity;
     counter-reset: itemIndex;
+    will-change: transform;
+  }
+  
+  .playlist #listContainerInner {
+    margin-bottom: calc(100vh - 100px);
   }
   
   .is-scrolling #listContainerInner {
