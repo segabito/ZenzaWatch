@@ -95,7 +95,6 @@ util.addStyle(`
     transform-origin: top right;
   }
 
-
   .controlButton {
     position: relative;
     display: inline-block;
@@ -181,7 +180,18 @@ util.addStyle(`
   .settingPanelSwitch .tooltip {
     left: 0;
   }
-
+  .videoControlBar .zenzaSubMenu {
+    left: 50%;
+    transform: translate(-50%, 0);
+    bottom: 44px;
+    white-space: nowrap;
+  }
+  
+  .videoControlBar .triangle {
+    transform: translate(-50%, 0) rotate(-45deg);
+    bottom: -8.5px;
+    left: 50%;
+  }
 
   .controlButtonInner {
     display: inline-block;
@@ -448,9 +458,6 @@ util.addStyle(`
 
 
   .playbackRateSelectMenu {
-    bottom: 44px;
-    left: 50%;
-    transform: translate(-50%, 0);
     width: 180px;
     text-align: left;
     line-height: 20px;
@@ -459,12 +466,6 @@ util.addStyle(`
 
   .playbackRateSelectMenu ul {
     margin: 2px 8px;
-  }
-
-  .playbackRateSelectMenu .triangle {
-    transform: translate(-50%, 0) rotate(-45deg);
-    bottom: -9px;
-    left: 50%;
   }
 
   .playbackRateSelectMenu li {
@@ -494,23 +495,10 @@ util.addStyle(`
   }
 
   .screenModeSelectMenu {
-    left: 50%;
-    transform: translate(-50%, 0);
-    bottom: 44px;
     width: 148px;
     padding: 2px 4px;
     font-size: 12px;
     line-height: 15px;
-  }
-
-  .fullScreen       .screenModeSelectMenu {
-    display: none;
-  }
-
-  .screenModeSelectMenu .triangle {
-    transform: translate(-50%, 0) rotate(-45deg);
-    bottom: -8.5px;
-    left: 50%;
   }
   
   .screenModeSelectMenu ul {
@@ -541,9 +529,21 @@ util.addStyle(`
     color: #ff9;
     border-color: #ff0;
   }
+  
+  .fullscreenControlBarModeMenu {
+    display: none;
+  }
+  .fullscreenControlBarModeMenu .controlButtonInner {
+    filter: grayscale(100%);
+  }
+  .fullscreenControlBarModeMenu:focus-within .controlButtonInner,
+  .fullscreenControlBarModeMenu:hover .controlButtonInner {
+    filter: grayscale(50%);
+  }
 
-           .fullScreen  .fullScreenSwitch .controlButtonInner .toFull,
-  body:not(.fullScreen) .fullScreenSwitch .controlButtonInner .returnFull {
+
+           .is-fullscreen  .fullscreenSwitch .controlButtonInner .toFull,
+  body:not(.is-fullscreen) .fullscreenSwitch .controlButtonInner .returnFull {
     display: none;
   }
 
@@ -707,12 +707,6 @@ util.addStyle(`
     margin: 2px 8px;
   }
 
-  .videoServerTypeSelectMenu .triangle {
-    transform: translate(-50%, 0) rotate(-45deg);
-    bottom: -9px;
-    left: 50%;
-  }
-
   .videoServerTypeSelectMenu li {
     padding: 3px 4px;
   }
@@ -861,46 +855,85 @@ util.addStyle(`
     opacity: 1;
     background: rgba(0, 0, 0, 0.9);
   }
+  
+  .fullscreenControlBarModeMenu {
+    display: inline-block;
+  }
+  
+  .fullscreenControlBarModeSelectMenu {
+    padding: 2px 4px;
+    font-size: 12px;
+    line-height: 15px;
+    font-size: 16px !important;
+    text-shadow: none !important;
+  }
 
-  .fullScreen .controlItemContainer.left {
+  .fullscreenControlBarModeSelectMenu ul {
+    margin: 2px 8px;
+  }
+  
+  .fullscreenControlBarModeSelectMenu li {
+    padding: 3px 4px;
+  }
+
+  .videoServerTypeSelectMenu li.selected {
+    pointer-events: none;
+    text-shadow: 0 0 4px #99f, 0 0 8px #99f !important;
+  }
+
+  .fullscreenControlBarModeMenu li:focus-within,
+  body[data-fullscreen-control-bar-mode="auto"] .fullscreenControlBarModeMenu [data-param="auto"],
+  body[data-fullscreen-control-bar-mode="always-show"] .fullscreenControlBarModeMenu [data-param="always-show"],
+  body[data-fullscreen-control-bar-mode="always-hide"] .fullscreenControlBarModeMenu [data-param="always-hide"] {
+    color: #ff9;
+    outline: none;
+  }
+
+`, {className: 'screenMode for-full videoControlBar', disabled: true});
+util.addStyle(`
+  .screenModeSelectMenu {
+    display: none;
+  }
+
+  .controlItemContainer.left {
     top: auto;
     transform-origin: top left;
   }
-  .fullScreen .seekBarContainer {
+  .seekBarContainer {
     top: auto;
     bottom: 0;
     z-index: 300;
   }
-  .fullScreen .seekBarContainer:hover .seekBarShadow {
+  .seekBarContainer:hover .seekBarShadow {
     height: 14px;
     top: -12px;
   }
-  .fullScreen .seekBar {
+  .seekBar {
     margin-top: 0px;
     margin-bottom: -14px;
     height: 24px;
     transition: none;
   }
-  .fullScreen .screenModeMenu {
+  .screenModeMenu {
     display: none;
   }
-  .fullScreen .controlItemContainer.center {
+  .controlItemContainer.center {
     top: auto;
   }
-  .fullScreen .zenzaStoryboardOpen .controlItemContainer.center {
+  .zenzaStoryboardOpen .controlItemContainer.center {
     background: transparent;
   }
-  .fullScreen .zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
+  .zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
     background: rgba(32, 32, 32, 0.5);
   }
-  .fullScreen .zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
+  .zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
     background: rgba(32, 32, 32, 0.8);
   }
-  .fullScreen .controlItemContainer.right {
+  .controlItemContainer.right {
     top: auto;
   }
 
-`, {className: 'screenMode for-full videoControlBar', disabled: true});
+`, {className: 'screenMode for-screen-full videoControlBar', disabled: true});
 
   VideoControlBar.__tpl__ = (`
     <div class="videoControlBar" data-command="nop">
@@ -1050,8 +1083,22 @@ util.addStyle(`
               </ul>
             </div>
           </div>
+          
+          <div class="fullscreenControlBarModeMenu controlButton" tabindex="-1" data-has-submenu="1">
+            <div class="tooltip">ツールバーの表示</div>
+            <div class="controlButtonInner">&#128204;</div>
+            <div class="fullscreenControlBarModeSelectMenu zenzaPopupMenu zenzaSubMenu">
+              <div class="triangle"></div>
+              <p class="caption">ツールバーの表示</p>
+              <ul>
+                <li tabindex="-1" data-command="update-fullscreenControlBarMode" data-param="always-show"><span>常に固定</span></li>
+                <li tabindex="-1" data-command="update-fullscreenControlBarMode" data-param="always-hide"><span>常に隠す</span></li>
+                <li tabindex="-1" data-command="update-fullscreenControlBarMode" data-param="auto"><span>画面サイズ自動</span></li>
+              </ul>
+            </div>
+          </div>
 
-          <div class="fullScreenSwitch controlButton" data-command="fullScreen">
+          <div class="fullscreenSwitch controlButton" data-command="fullscreen">
             <div class="tooltip">フルスクリーン(F)</div>
             <div class="controlButtonInner">
               <!-- TODO: YouTubeと同じにする -->
@@ -2373,7 +2420,7 @@ util.addStyle(`
       background: rgba(0,0,0,0.01);
     }
 
-    .fullScreen .seekBarToolTip {
+    .is-fullscreen .seekBarToolTip {
       bottom: 10px;
     }
   `).trim();
