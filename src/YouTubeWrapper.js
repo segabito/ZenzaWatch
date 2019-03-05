@@ -18,6 +18,7 @@ const {YouTubeWrapper} = (() => {
       this._volume = volume;
       this._playbackRate = playbackRate;
       this._loop = loop;
+      this._startDiff = 0;
 
       this._isSeeking = false;
       this._seekTime = 0;
@@ -33,6 +34,9 @@ const {YouTubeWrapper} = (() => {
       this._seekTime = 0;
       const player = this._player;
       const isFirst = !!player ? false : true;
+      const urlParams = this._parseUrlParams(url);
+      this._startDiff = /[0-9]+s/.test(urlParams.t) ? parseInt(urlParams.t) : 0;
+      startSeconds += this._startDiff;
       if (isFirst && !url) {
         return Promise.resolve();
       }
@@ -85,6 +89,12 @@ const {YouTubeWrapper} = (() => {
       return videoId
         .replace(/[?[\]()"'@]/g, '')
         .replace(/<[a-z0-9]*>/, '');
+    }
+
+    _parseUrlParams(url) {
+      const a = document.createElement('a');
+      a.href= url;
+      return a.search.startsWith('?') ? util.parseQuery(a.search.substring(1)) : {};
     }
 
     _initPlayer(videoId, startSeconds = 0) {
@@ -220,7 +230,7 @@ const {YouTubeWrapper} = (() => {
 
     _onSeekEnd() {
       this._isSeeking = false;
-      this._player.seekTo(this._seekTime);
+      this._player.seekTo(this._seekTime + this._startDiff);
     }
 
     set currentTime(v) {
@@ -237,7 +247,7 @@ const {YouTubeWrapper} = (() => {
         return this._seekTime;
       }
       const state = this._player.getPlayerState();
-      const currentTime = this._player.getCurrentTime();
+      const currentTime = this._player.getCurrentTime() + this._startDiff;
 
       if (state !== STATE_PLAYING || this._lastCurrentTime !== currentTime) {
         this._lastCurrentTime = currentTime;
@@ -254,7 +264,7 @@ const {YouTubeWrapper} = (() => {
     }
 
     get duration() {
-      return this._player.getDuration();
+      return this._player.getDuration() - this._startDiff;
     }
 
     set muted(v) {
