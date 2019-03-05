@@ -5,6 +5,9 @@ import {Emitter} from './baselib';
 import {Config} from './Config';
 import {browser} from './browser';
 import {ZenzaWatch, PRODUCT} from './ZenzaWatchIndex';
+import {StyleSwitcher} from './util/StyleSwitcher';
+import {dimport} from './util/dimport';
+import {VideoItemObserver} from './util/VideoItemObserver';
 const {navigator, location} = browser.window;
 const $ = jQuery.default;
 const window = browser.window;
@@ -52,8 +55,9 @@ const AsyncEmitter = (() => {
 })();
 (ZenzaWatch ? ZenzaWatch.lib : {}).AsyncEmitter = AsyncEmitter;
 
-let FullScreen = {
+let Fullscreen = {
   now: function () {
+    // return matchMedia('(display-mode: fullscreen)').matches;
     if (document.fullScreenElement || document.mozFullScreen || document.webkitIsFullScreen) {
       return true;
     }
@@ -91,15 +95,14 @@ let FullScreen = {
   },
   _handleEvents: function () {
     this._handleEvnets = _.noop;
-    let self = this;
-    let handle = function () {
-      let isFullScreen = self.now();
-      if (isFullScreen) {
-        document.body.classList.add('fullScreen');
+    let handle = () => {
+      let isFullscreen = this.now();
+      if (isFullscreen) {
+        document.body.classList.add('is-fullscreen');
       } else {
-        document.body.classList.remove('fullScreen');
+        document.body.classList.remove('is-fullscreen');
       }
-      ZenzaWatch.emitter.emit('fullScreenStatusChange', isFullScreen);
+      ZenzaWatch.emitter.emit('fullscreenStatusChange', isFullscreen);
     };
     document.addEventListener('webkitfullscreenchange', handle, false);
     document.addEventListener('mozfullscreenchange', handle, false);
@@ -108,7 +111,7 @@ let FullScreen = {
   }
 };
 
-util.fullScreen = FullScreen;
+util.fullscreen = Fullscreen;
 
 
 const dummyConsole = {
@@ -398,7 +401,7 @@ util.getThumbnailUrlByVideoId = (() => {
     //const num = (fileId % 4) + 1;
     const large = util.hasLargeThumbnail(videoId) ? '.L' : '';
     //return '//tn-skr' + num + '.smilevideo.jp/smile?i=' + fileId + large;
-    return '//tn.smilevideo.jp/smile?i=' + fileId + large;
+    return 'https://tn.smilevideo.jp/smile?i=' + fileId + large;
   };
 })();
 
@@ -715,12 +718,20 @@ util.hasFlashPlayer = () => {
   return !!navigator.mimeTypes['application/x-shockwave-flash'];
 };
 
+util.isEdgePC = () => {
+  return navigator.userAgent.toLowerCase().indexOf('edge') >= 0;
+};
+
 util.isFirefox = () => {
   return navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 };
 
 util.isWebkit = () => {
-  return navigator.userAgent.toLowerCase().indexOf('webkit') >= 0;
+  return !util.isEdgePC() && navigator.userAgent.toLowerCase().indexOf('webkit') >= 0;
+};
+
+util.isChrome = () => {
+  return !util.isEdgePC() && navigator.userAgent.toLowerCase().indexOf('chrome') >= 0;
 };
 
 util.escapeHtml = text => {
@@ -811,6 +822,9 @@ util.dateToString = date => {
   } else if (typeof date === 'number') {
     date = new Date(date);
   }
+  if (!date || isNaN(date.getTime())) {
+    return '1970/01/01 00:00:00';
+  }
 
   let [yy, mm, dd, h, m, s] = [
       date.getFullYear(),
@@ -832,7 +846,7 @@ util.copyToClipBoard = text => {
   clip.style.position = 'fixed';
   clip.style.left = '-9999px';
   clip.value = text;
-  const node = FullScreen.element || document.body;
+  const node = Fullscreen.element || document.body;
   node.appendChild(clip);
   clip.select();
   document.execCommand('copy');
@@ -1066,7 +1080,7 @@ util.videoCapture = function(src, sec) {
   return wait.then(func)
     .then(r => { resolve(r); return r; })
     .catch(e => { reject(e); return e; });
-};
+}.bind({});
 
 util.capTube = function ({title, videoId, author}) {
   const iframe = document.querySelector(
@@ -1115,76 +1129,40 @@ util.saveMymemory = function (player, videoInfo) {
   window.setTimeout(() => a.remove(), 1000);
 };
 
-util.speak = (() => {
-  let speaking = false;
-  let msg = null;
-  //let initialized = false;
-  let resolve = null, reject = null;
+util.speak = (text, option = {}) => {
+  if (!window.speechSynthesis) {
+    return Promise.reject();
+  }
+  let msg = new window.SpeechSynthesisUtterance();
 
-  let initialize = () => {
-    // Chromeは使い回しできるけどFirefoxはできないっぽい?
-    //if (initialized) { return; }
-    //initialized = true;
+  if (option.volume) {
+    msg.volume = option.volume;
+  }
+  if (option.rate) {
+    msg.rate = option.rate;
+  }
+  if (option.lang) {
+    msg.lang = option.lang;
+  }
+  if (option.pitch) {
+    msg.pitch = option.pitch;
+  }
+  if (option.rate) {
+    msg.rate = option.rate;
+  }
 
-    msg = new window.SpeechSynthesisUtterance();
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+  }
 
-    msg.onend = () => {
-      speaking = false;
-      if (resolve) {
-        resolve(msg.text);
-      }
-      resolve = reject = null;
-    };
+  msg.text = text;
 
-    msg.onerror = () => {
-      speaking = false;
-      if (reject) {
-        reject(msg.text);
-      }
-      resolve = reject = null;
-    };
-
-  };
-
-  return function (text, option = {}) {
-    if (!window.speechSynthesis) {
-      return;
-    }
-    initialize();
-
-    if (option.volume) {
-      msg.volume = option.volume;
-    }
-    if (option.rate) {
-      msg.rate = option.rate;
-    }
-    if (option.lang) {
-      msg.lang = option.lang;
-    }
-    if (option.pitch) {
-      msg.pitch = option.pitch;
-    }
-    if (option.rate) {
-      msg.rate = option.rate;
-    }
-
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-      if (reject) {
-        reject(new Error('cancel'));
-      }
-      resolve = reject = null;
-    }
-
-    msg.text = text;
-
-    return new Promise((res, rej) => {
-      resolve = res;
-      reject = rej;
-      window.speechSynthesis.speak(msg);
-    });
-  };
-})();
+  return new Promise((res, rej) => {
+    msg.addEventListener('end', () => res, {once: true});
+    msg.addEventListener('error', () => rej, {once: true});
+    window.speechSynthesis.speak(msg);
+  });
+};
 
 util.createDom = template => {
   const tpl = document.createElement('template');
@@ -1218,6 +1196,7 @@ util.watchResize = (target, callback) => {
   }
   const iframe = document.createElement('iframe');
   iframe.lazyload = 'off';
+  iframe.className = 'resizeObserver';
   Object.assign(iframe.style, {
     width: '100%',
     height: '100%',
@@ -1227,7 +1206,7 @@ util.watchResize = (target, callback) => {
     //transform: 'translate3d(0, 0, 0)',
     opacity: 0
   });
-  target.appendChild(iframe);
+  target.parentElement.append(iframe);
   iframe.contentWindow.addEventListener('resize', () => {
     callback();
   });
@@ -1533,10 +1512,8 @@ util.$ = (() => {
         return this;
       }
       const node = this[0];
-      if (elm instanceof ($Elements) || elm.forEach) {
-        elm.forEach(e => {
-          node.appendChild(e);
-        });
+      if (elm instanceof ($Elements) || Array.isArray(elm)) {
+        node.append(...elm);
       } else if (elm instanceof NodeList || elm instanceof HTMLCollection) {
         for (let e of elm) {
           node.appendChild(e);
@@ -1603,6 +1580,7 @@ const ShortcutKeyEmitter = (config => {
     FULLSCREEN: 0,
     MUTE: 0,
     TOGGLE_COMMENT: 0,
+    TOGGLE_LOOP: 0,
     DEFLIST_ADD: 0,
     DEFLIST_REMOVE: 0,
     TOGGLE_PLAY: 0,
@@ -1707,6 +1685,9 @@ const ShortcutKeyEmitter = (config => {
         break;
       case map.TOGGLE_COMMENT:
         key = 'VIEW_COMMENT';
+        break;
+      case map.TOGGLE_LOOP:
+        key = 'TOGGLE_LOOP';
         break;
       case map.DEFLIST_ADD:
         key = 'DEFLIST';
@@ -1982,11 +1963,11 @@ const VideoCaptureUtil = (() => {
       return crossDomainGates[server];
     }
 
-    const baseUrl = '//' + server + '/smile?i=' + fileId;
+    const baseUrl = 'https://' + server + '/smile?i=' + fileId;
 
     crossDomainGates[server] = new CrossDomainGate({
       baseUrl: baseUrl,
-      origin: location.protocol + '//' + server + '/',
+      origin: 'https://' + server + '/',
       type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_'),
       messager: WindowMessageEmitter
     });
@@ -2345,6 +2326,12 @@ class BaseViewComponent extends Emitter {
 
 //@require util/StyleSwitcher.js
 util.StyleSwitcher = StyleSwitcher;
+
+//@require util/dimport.js
+util.dimport = dimport;
+
+//@require util/VideoItemObserver.js
+util.VideoItemObserver = VideoItemObserver;
 //===END===
 //
 
@@ -2352,7 +2339,7 @@ export {
   util,
   console,
   Config,
-  FullScreen,
+  Fullscreen,
   AsyncEmitter,
   ShortcutKeyEmitter,
   PopupMessage,
@@ -2367,6 +2354,6 @@ export {
   MylistPocketDetector,
   VideoCaptureUtil,
   BaseViewComponent,
-  Sleep
+  Sleep,
 };
 

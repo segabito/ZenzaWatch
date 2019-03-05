@@ -147,9 +147,10 @@ _.assign(VideoWatchOptions.prototype, {
   isPlaylistStartRequest: function () {
     let eventType = this.getEventType();
     let query = this.getQuery();
-    if (eventType === 'click' &&
-      query.continuous === '1' &&
-      ['mylist', 'deflist', 'tag', 'search'].includes(query.playlist_type) &&
+    if (eventType !== 'click' || query.continuous !== '1') {
+      return false;
+    }
+    if (['mylist', 'deflist', 'tag', 'search'].includes(query.playlist_type) &&
       (query.group_id || query.order)) {
       return true;
     }
@@ -3412,7 +3413,7 @@ _.assign(VideoHoverMenu.prototype, {
       link.className = 'mylistLink name command';
       link.textContent = mylist.name;
       util.$(link).attr({
-        href: `//www.nicovideo.jp/my/mylist/#/${mylist.id}`,
+        href: `https://www.nicovideo.jp/my/mylist/#/${mylist.id}`,
         'data-mylist-id': mylist.id,
         'data-mylist-name': mylist.name,
         'data-command': 'mylistAdd'
@@ -3476,7 +3477,7 @@ _.assign(VideoHoverMenu.prototype, {
       }
       case 'mylistOpen': {
         let mylistId = target.dataset.mylistId;
-        location.href = `//www.nicovideo.jp/my/mylist/#/${mylistId}`;
+        location.href = `https://www.nicovideo.jp/my/mylist/#/${mylistId}`;
         break;
       }
       case 'close':
@@ -3493,10 +3494,8 @@ _.assign(VideoHoverMenu.prototype, {
     if (!target) {
       return;
     }
-    const command = target.dataset.command;
+    let {command, type, param} = target.dataset;
 
-    const type = target.dataset.type || 'string';
-    let param = target.dataset.param;
     switch (type) {
       case 'json':
       case 'bool':
@@ -3515,12 +3514,9 @@ _.assign(VideoHoverMenu.prototype, {
       case 'mylistMenu':
         if (e.shiftKey) {
           util.dispatchCommand(target, 'mylistWindow');
-        } else {
-          this.toggleMylistMenu();
         }
         break;
-      case 'ngSettingMenu':
-        this.toggleNgSettingMenu();
+      case 'nop':
         break;
       default:
         this._hideMenu();

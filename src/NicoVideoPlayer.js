@@ -2,7 +2,7 @@ import _ from 'lodash';
 import $ from 'jQuery';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {NicoCommentPlayer} from './CommentPlayer';
-import {util, Config, FullScreen, VideoCaptureUtil, BaseViewComponent} from './util';
+import {util, Config, Fullscreen, VideoCaptureUtil, BaseViewComponent} from './util';
 import {YouTubeWrapper} from './YouTubeWrapper';
 import {CONSTANT} from './constant';
 import {Emitter} from './baselib';
@@ -26,7 +26,7 @@ _.assign(NicoVideoPlayer.prototype, {
   initialize: function (params) {
     let conf = this._playerConfig = params.playerConfig;
 
-    this._fullScreenNode = params.fullScreenNode;
+    this._fullscreenNode = params.fullscreenNode;
     this._state = params.playerState;
 
     this._state.on('update-videoInfo', this.setVideoInfo.bind(this));
@@ -168,12 +168,13 @@ _.assign(NicoVideoPlayer.prototype, {
   },
   volumeUp: function () {
     let v = Math.max(0.01, this._videoPlayer.getVolume());
-    let r = (v < 0.05) ? 1.3 : 1.1;
+    let r = v < 0.05 ? 1.3 : 1.1;
     this._videoPlayer.setVolume(v * r);
   },
   volumeDown: function () {
     let v = this._videoPlayer.getVolume();
-    this._videoPlayer.setVolume(v / 1.2);
+    let r = 1 / 1.2;
+    this._videoPlayer.setVolume(v * r);
   },
   _onTimer: function () {
     let currentTime = this._videoPlayer.getCurrentTime();
@@ -307,14 +308,14 @@ _.assign(NicoVideoPlayer.prototype, {
     this._commentPlayer.close();
   },
   toggleFullScreen: function () {
-    if (FullScreen.now()) {
-      FullScreen.cancel();
+    if (Fullscreen.now()) {
+      Fullscreen.cancel();
     } else {
       this.requestFullScreen();
     }
   },
   requestFullScreen: function () {
-    FullScreen.request(this._fullScreenNode || this._$parentNode[0]);
+    Fullscreen.request(this._fullscreenNode || this._$parentNode[0]);
   },
   canPlay: function () {
     return this._videoPlayer.canPlay();
@@ -597,7 +598,7 @@ ContextMenu.__css__ = (`
     .zenzaPlayerContextMenu.is-Open:hover {
       opacity: 1;
     }
-    .fullScreen .zenzaPlayerContextMenu {
+    .is-fullscreen .zenzaPlayerContextMenu {
       position: absolute;
     }
 
@@ -878,6 +879,7 @@ class VideoPlayer extends Emitter {
     body.id = 'ZenzaWatchVideoPlayerContainer';
     this._body = body;
     body.appendChild(video);
+    video.pause();
 
     this._video = video;
     this._video.className = 'zenzaWatchVideoElement';
@@ -953,7 +955,7 @@ class VideoPlayer extends Emitter {
       .on('click', eventBridge.bind(this, 'click'))
       .on('dblclick', this._onDoubleClick.bind(this))
       .on('contextmenu', eventBridge.bind(this, 'contextmenu'))
-      .on('wheel', this._onMouseWheel.bind(this))
+      .on('wheel', this._onMouseWheel.bind(this), {passive: true})
     ;
   }
 
@@ -1006,7 +1008,7 @@ class VideoPlayer extends Emitter {
     if (this._videoElement.src === CONSTANT.BLANK_VIDEO_URL ||
       !this._videoElement.src ||
       this._videoElement.src.match(/^https?:$/) ||
-      this._videoElement.src.match(/\/\//) // for Edge
+      this._videoElement.src === '//'
     ) {
       return;
     }
@@ -1108,7 +1110,7 @@ class VideoPlayer extends Emitter {
 
   _onMouseWheel(e) {
     console.log('%c_onMouseWheel:', 'background: cyan;', e);
-    e.preventDefault();
+    // e.preventDefault();
     e.stopPropagation();
     const delta = -parseInt(e.deltaY, 10);
     if (delta !== 0) {
@@ -1493,7 +1495,7 @@ class TouchWrapper extends Emitter {
     body.addEventListener('click', this._onClick.bind(this));
 
     body.addEventListener('touchstart', this._onTouchStart.bind(this), {passive: true});
-    body.addEventListener('touchmove', this._onTouchMove.bind(this));
+    body.addEventListener('touchmove', this._onTouchMove.bind(this), {passive: true});
     body.addEventListener('touchend', this._onTouchEnd.bind(this), {passive: true});
     body.addEventListener('touchcancel', this._onTouchCancel.bind(this), {passive: true});
 
