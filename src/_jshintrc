@@ -1,0 +1,49 @@
+{
+        "esversion": 6,
+        // "bitwise": true, // ビット演算子の使用を禁止
+        "camelcase": false, // 変数名はキャメルケースかアンダースコアの使用を強制
+        "curly": false, // ループブロックと条件ブロックを常に中括弧で囲うことを強制
+        "eqeqeq": true, // == 演算子と != 演算子の使用を禁止
+  //      "forin": true, // for inループ内で常にオブジェクトのプロパティが
+                       // prototypeを通じて継承されたものであるかどうかのチェックするように強制
+        "immed": true, // 括弧で囲まれていない関数の即時実行を禁止
+//        "indent": 2,  // タブ幅を指定します
+        "latedef": true, // 変数を定義する前に使うのを禁止
+        "newcap": false, // コンストラクタ関数の1文字目を大文字にすることを強制
+        "noarg": true, // arguments.caller と arguments.calleeの使用を禁止
+        "noempty": true, // 空のブロックがある場合に警告
+        "nonew": true, // 副作用のあるコンストラクタ関数の呼び出しを禁止
+        "plusplus": false, // ++と--の使用を禁止します
+        // "quotmark": true, // 引用符が統一されるようにします｡
+        "regexp": true, // 正規表現で安全でない . の使用を禁止
+        "undef": true,     //明示的に宣言されていない変数の使用を禁止
+        "unused": true,  // 変数が利用されていない場合に警告
+        "strict": false,  // EcmaScript5のstrict modeで実行可能なコードを強制
+        "trailing": false, // 行末の空白を禁止します
+        // "maxparams": 4,  //関数の引数の数を制限
+        // "maxdepth": 4, // ブロックのネストの深さを制限
+        // "maxstatements": 10, //関数ごとのステートメントの数を制限
+        "maxlen": 120000,  // 一行の最大長
+
+        //
+        // 制限を緩和するもの
+        //
+        "multistr": true, // 複数行の文字列を許可
+        "sub": true, // []表記に対する警告を出さないようにします person['name'] vs. person.name
+        "jquery": true,
+        // グローバル変数へのアクセスの管理
+        "browser" : true,  // ブラウザ用のやつは許可
+        // "dojo" :  true,  // dojo tool kit用のやつは許可
+        "devel" : true,  //  consoleやalertを許可
+        // "debug"    : true,  // debugger を許可
+        "globals": {
+            "jQuery": false, // jQuery というグローバル変数を許可するが上書きは禁止
+            "$": false,
+            "WatchApp": false,
+            "WatchJsApi": false,
+            "unsafeWindow": false,
+            "GM_setValue": false,
+            "GM_getValue": false,
+            "GM_xmlhttpRequest": false
+        }
+}

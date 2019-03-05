@@ -1,0 +1,15 @@
+// ==UserScript==
+// @name         %NAME%
+// @namespace    %NAMESPACE%
+// @version      %VER%
+// @description  %DESCRIPTION%
+// @author       %AUTHOR%
+// @match        %MATCH%
+// @grant        %GRANT%
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // Your code here...
+})();

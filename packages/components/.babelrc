@@ -1,0 +1,18 @@
+{
+  "env": {
+    "test": {
+      "presets": [
+        [
+          "es2015"
+        ]
+      ]
+    },
+    "development": {
+      "plugins": [
+        "dynamic-import-webpack"
+      ],
+      "presets": [
+      ]
+    }
+  }
+}

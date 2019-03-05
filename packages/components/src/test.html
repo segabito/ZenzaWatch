@@ -1,0 +1,72 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<!--<script type="module" src="https://unpkg.com/lit-html?module"></script>-->
+<script type="module">
+import * as lit from "https://cdn.jsdelivr.net/npm/lit-html@0.9.0/lit-html.min.js" ;//https://unpkg.com/lit-html?module";
+window.lit = lit;
+console.log('lit-html', window.lit);
+</script>
+<!--<script type="module" src="./test.js"></script>-->
+</head>
+<body>
+<script type="module">
+  import {VideoItemElement} from './element/VideoItemElement.js';
+
+  customElements.define('video-item-element', VideoItemElement);
+</script>
+<script type="module">
+  import {html, render} from 'https://cdn.jsdelivr.net/npm/lit-html@0.9.0/lit-html.min.js';
+
+  window.addEventListener('command', (e) => {
+    console.log('%ccommand', 'font-family: Arial;', e.detail, e.target, e);
+  });
+  let item = document.createElement('video-item-element');
+  document.body.append(item);
+  Object.assign(item.dataset, {
+    watchId: 'sm9',
+    videoId: 'sm9',
+    title: 'レッツゴー陰陽師',
+    duration: 123,
+    commentCount: 2525,
+    mylistCount: 11111,
+    viewCount: 30000,
+    thumbnail: 'https://tn.smilevideo.jp/smile?i=9',
+    postedAt: '2007/03/06 00:33',
+
+    description: 'レッツゴー！陰陽師（フルコーラスバージョン）',
+    isChannel: false,
+    isMymemory: false,
+    ownerId: 4,
+    ownerName: '中の'
+  });
+
+  let item2 = document.createElement('video-item-element');
+  document.body.append(item2);
+  Object.assign(item2.dataset, {
+    watchId: 'sm9',
+    videoId: 'sm9',
+    title: 'レッツゴー陰陽師',
+    // duration: 123,
+    // commentCount: 2525,
+    // mylistCount: 11111,
+    // viewCount: 30000,
+    thumbnail: 'https://tn.smilevideo.jp/smile?i=9',
+    postedAt: '2007/03/06 00:33',
+
+    description: 'レッツゴー！陰陽師（フルコーラスバージョン）',
+    isChannel: false,
+    isMymemory: false,
+    ownerId: 4,
+    ownerName: '中の'
+  });
+  let item3 = document.createElement('video-item-element');
+  document.body.append(item3);
+  item3.dataset.thumbInfo = '{"data":{"status":"ok","_format":"thumbInfo","v":"sm34130332","id":"sm34130332","title":"ぷりてぃんくるしすたぁ-音街ウナ for LamazeP","description":"土用の丑の日に投稿できました。　　　　　　　　　　　　　　　　　　　　　　　　　　　&amp;lt;br&amp;gt;『Una-Chance! feat.音街ウナ』 に収録してる描き下ろし曲です。&amp;lt;br&amp;gt;みんな、ウナちゃんのコンピを買おうね！　→　https://una-chance.extsm.com/　&amp;lt;br&amp;gt;　ようつべ →　https://youtu.be/t2AgXOwduTE&amp;lt;br&amp;gt;　&amp;lt;br&amp;gt;10ヶ月ぶりのうｐ主の投稿動画はこちらから　→　user/2523470","thumbnail":"http://tn.smilevideo.jp/smile?i=34130332","movieType":"mp4","lastResBody":"ミク「おっそうだな」 うなーうななうなうな ここゆるゆり かわいい Talk かわいすぎる うわああああああああ かわいいなぁ メガネ ここすき うなるーん うわああああああああ 八重歯よき... ","duration":233,"postedAt":"2018/11/5 21:00:00","mylistCount":1202,"viewCount":38829,"commentCount":1392,"tagList":[{"text":"VOCALOID","category":true,"lock":true},{"text":"音街ウナ","category":false,"lock":true},{"text":"ウナオリジナル曲","category":false,"lock":false},{"text":"ラマーズP","category":false,"lock":false},{"text":"Una-Chance!feat音街ウナ収録曲","category":false,"lock":false},{"text":"驚異的な中毒性","category":false,"lock":false},{"text":"ぷりてぃんくるしすたぁ","category":false,"lock":false},{"text":"王の帰還","category":false,"lock":false},{"text":"お前らの愛で見えない","category":false,"lock":false},{"text":"LamazeP","category":false,"lock":false},{"text":"お前じゃなかったらどうしようかと","category":false,"lock":false}],"owner":{"type":"user","id":"2523470","name":"名無し","url":"https://www.nicovideo.jp/user/2523470","icon":"https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/s/252/2523470.jpg?1256789949"},"fromCache":true},"watchId":"sm34130332"}';
+
+  let item4 = document.createElement('video-item-element');
+  document.body.append(item4);
+
+</script>
+</body>
+</html>
