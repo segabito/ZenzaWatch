@@ -11,6 +11,9 @@ import {TagListView} from './TagListView';
 import {BaseViewComponent} from './util';
 import {Emitter} from './baselib';
 import {WindowResizeObserver} from './baselib';
+const MylistPocketDetector = {
+  detect: () => { return Promise.resolve(); }
+};
 
 //===BEGIN===
 
@@ -210,6 +213,7 @@ util.addStyle(`
       background: #446;
     }
 
+    .zenzaWatchVideoInfoPanel .videoDescription span[style],
     .zenzaWatchVideoInfoPanel .videoDescription font[color] {
       text-shadow: 1px 1px var(--base-description-color, #888);
     }
@@ -733,8 +737,8 @@ _.assign(VideoInfoPanel.prototype, {
     view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
     $icon.on('load', () => $icon.removeClass('is-loading'));
 
-    view.classList.add(util.fullScreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
-    ZenzaWatch.emitter.on('fullScreenStatusChange', isFull => {
+    view.classList.add(util.fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    ZenzaWatch.emitter.on('fullscreenStatusChange', isFull => {
       view.classList.toggle('is-fullscreen', isFull);
       view.classList.toggle('is-notFullscreen', !isFull);
     });
@@ -745,6 +749,9 @@ _.assign(VideoInfoPanel.prototype, {
       this._pocket = pocket;
       view.classList.add('is-pocketReady');
     });
+    if (window.customElements) {
+      VideoItemObserver.observe({container: this._description});
+    }
   },
   update: function (videoInfo) {
     this._videoInfo = videoInfo;
@@ -798,13 +805,14 @@ _.assign(VideoInfoPanel.prototype, {
       watchLink.classList.add('noHoverMenu');
       Object.assign(watchLink.dataset, {command: 'open', param: videoId});
 
-      let $watchLink = util.$(watchLink);
-      let thumbnail = util.getThumbnailUrlByVideoId(videoId);
-      if (thumbnail) {
-        let $img = util.$('<img class="videoThumbnail">').attr('src', thumbnail);
-        $watchLink.append($img);
-      }
-      let buttons = util.$(`<zenza-playlist-append
+      if (!window.customElements) {
+        let $watchLink = util.$(watchLink);
+        let thumbnail = util.getThumbnailUrlByVideoId(videoId);
+        if (thumbnail) {
+          let $img = util.$('<img class="videoThumbnail">').attr('src', thumbnail);
+          $watchLink.append($img);
+        }
+        let buttons = util.$(`<zenza-playlist-append
           class="playlistAppend clickable-item" title="プレイリストで開く"
           data-command="playlistAppend" data-param="${videoId}"
         >▶</zenza-playlist-append><div
@@ -814,7 +822,14 @@ _.assign(VideoInfoPanel.prototype, {
         ><div class="pocket-info" title="動画情報"
           data-command="pocket-info" data-param="${videoId}"
         >？</div>`);
-      $watchLink.append(buttons);
+        $watchLink.append(buttons);
+      } else {
+        let vitem = document.createElement('zenza-video-item');
+        vitem.dataset.videoId = videoId;
+        watchLink.insertAdjacentElement('afterend', vitem);
+        watchLink.classList.remove('watch');
+        // vitem.append(watchLink);
+      }
     };
     const seekTime = seek => {
       let [min, sec] = (seek.dataset.seektime || '0:0').split(':');
@@ -1290,7 +1305,7 @@ _.assign(VideoHeaderPanel.prototype, {
       parentNode: view.querySelector('.videoMetaInfoContainer'),
     });
 
-    view.classList.add(util.fullScreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    view.classList.add(util.fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
     ZenzaWatch.emitter.on('fullScreenStatusChange', isFull => {
       view.classList.toggle('is-fullscreen', isFull);
       view.classList.toggle('is-notFullscreen', !isFull);

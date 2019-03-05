@@ -1782,7 +1782,7 @@ let MessageApiLoader = (function () {
   _.assign(MessageApiLoader.prototype, {
     initialize: function () {
       this._threadKeys = {};
-      this._waybackKeys = {};
+      // this._waybackKeys = {};
     },
     /**
      * 動画の長さに応じて取得するコメント数を変える
@@ -1831,34 +1831,34 @@ let MessageApiLoader = (function () {
         });
       });
     },
-    getWaybackKey: function (threadId, language) {
-      let url =
-        '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
-      const langCode = this.getLangCode(language);
-      if (langCode) {
-        url += `&language_id=${langCode}`;
-      }
-      return new Promise((resolve, reject) => {
-        util.ajax({
-          url: url,
-          contentType: 'text/plain',
-          crossDomain: true,
-          cache: false,
-          xhrFields: {
-            withCredentials: true
-          }
-        }).then((e) => {
-          let result = util.parseQuery(e);
-          this._waybackKeys[threadId] = result;
-          resolve(result);
-        }, (result) => {
-          reject({
-            result: result,
-            message: 'WaybackKeyの取得失敗 ' + threadId
-          });
-        });
-      });
-    },
+    // getWaybackKey: function (threadId, language) {
+    //   let url =
+    //     '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
+    //   const langCode = this.getLangCode(language);
+    //   if (langCode) {
+    //     url += `&language_id=${langCode}`;
+    //   }
+    //   return new Promise((resolve, reject) => {
+    //     util.ajax({
+    //       url: url,
+    //       contentType: 'text/plain',
+    //       crossDomain: true,
+    //       cache: false,
+    //       xhrFields: {
+    //         withCredentials: true
+    //       }
+    //     }).then((e) => {
+    //       let result = util.parseQuery(e);
+    //       this._waybackKeys[threadId] = result;
+    //       resolve(result);
+    //     }, (result) => {
+    //       reject({
+    //         result: result,
+    //         message: 'WaybackKeyの取得失敗 ' + threadId
+    //       });
+    //     });
+    //   });
+    // },
     getLangCode: function (language) {
       language = language.replace('-', '_').toLowerCase();
       if (LANG_CODE[language]) {
@@ -1911,7 +1911,7 @@ let MessageApiLoader = (function () {
         const force184 = params.force184;
         const version = params.version;
         const when = params.msgInfo.when;
-        const waybackKey = params.waybackKey;
+        // const waybackKey = params.waybackKey;
 
         const thread = document.createElement('thread');
         thread.setAttribute('thread', threadId);
@@ -1936,9 +1936,9 @@ let MessageApiLoader = (function () {
         if (params.useThreadKey && typeof force184 !== 'undefined') {
           thread.setAttribute('force_184', force184);
         }
-        if (waybackKey) {
-          thread.setAttribute('waybackkey', waybackKey);
-        }
+        // if (waybackKey) {
+        //   thread.setAttribute('waybackkey', waybackKey);
+        // }
         if (when) {
           thread.setAttribute('when', when);
         }
@@ -1964,7 +1964,7 @@ let MessageApiLoader = (function () {
         const threadKey = params.threadKey;
         const force184 = params.force184;
         const when = params.msgInfo.when;
-        const waybackKey = params.waybackKey;
+        // const waybackKey = params.waybackKey;
 
         const thread_leaves = document.createElement('thread_leaves');
         const resCount = this.getRequestCountByDuration(duration);
@@ -1983,9 +1983,9 @@ let MessageApiLoader = (function () {
         if (typeof force184 !== 'undefined') {
           thread_leaves.setAttribute('force_184', force184);
         }
-        if (waybackKey) {
-          thread_leaves.setAttribute('waybackkey', waybackKey);
-        }
+        // if (waybackKey) {
+        //   thread_leaves.setAttribute('waybackkey', waybackKey);
+        // }
         if (when) {
           thread_leaves.setAttribute('when', when);
         }
@@ -2002,7 +2002,7 @@ let MessageApiLoader = (function () {
         return thread_leaves;
       },
 
-    buildPacket: function (msgInfo, threadKey, force184, waybackKey) {
+    buildPacket: function (msgInfo, threadKey, force184) {
 
       const span = document.createElement('span');
       const packet = document.createElement('packet');
@@ -2020,7 +2020,7 @@ let MessageApiLoader = (function () {
             useUserKey: true,
             useThreadKey: false,
             isOptional: true,
-            waybackKey
+            // waybackKey
           })
         );
         packet.appendChild(
@@ -2030,7 +2030,7 @@ let MessageApiLoader = (function () {
             useUserKey: true,
             useThreadKey: false,
             isOptional: true,
-            waybackKey
+            // waybackKey
           })
         );
       } else {
@@ -2044,7 +2044,7 @@ let MessageApiLoader = (function () {
             useDuration: true,
             useThreadKey: false,
             useUserKey: false,
-            waybackKey
+            // waybackKey
           })
         );
       }
@@ -2057,7 +2057,7 @@ let MessageApiLoader = (function () {
           useDuration: false,
           useThreadKey: true,
           useUserKey: false,
-          waybackKey
+          // waybackKey
         })
       );
       packet.appendChild(
@@ -2068,7 +2068,7 @@ let MessageApiLoader = (function () {
           force184: force184,
           useThreadKey: true,
           useUserKey: false,
-          waybackKey
+          // waybackKey
         })
       );
 
@@ -2139,7 +2139,7 @@ let MessageApiLoader = (function () {
       });
     },
     _load: function (msgInfo) {
-      let packet, threadKey, waybackKey, force184;
+      let packet, threadKey, /*waybackKey,*/ force184;
 
       const loadThreadKey = () => {
         if (!msgInfo.isNeedKey) {
@@ -2151,19 +2151,19 @@ let MessageApiLoader = (function () {
           force184 = info.force_184;
         });
       };
-      const loadWaybackKey = () => {
-        if (!msgInfo.when) {
-          return Promise.resolve();
-        }
-        return this.getWaybackKey(msgInfo.threadId, msgInfo.language).then(info => {
-          window.console.log('waybackKey: ', info);
-          waybackKey = info.waybackkey;
-        });
-      };
+      // const loadWaybackKey = () => {
+      //   if (!msgInfo.when) {
+      //     return Promise.resolve();
+      //   }
+      //   return this.getWaybackKey(msgInfo.threadId, msgInfo.language).then(info => {
+      //     window.console.log('waybackKey: ', info);
+      //     waybackKey = info.waybackkey;
+      //   });
+      // };
 
-      return loadThreadKey().then(loadWaybackKey).then(() => {
+      return loadThreadKey()/*.then(loadWaybackKey)*/.then(() => {
         //console.log('build', msgInfo, threadKey, force184, waybackKey);
-        packet = this.buildPacket(msgInfo, threadKey, force184, waybackKey);
+        packet = this.buildPacket(msgInfo, threadKey, force184/*, waybackKey*/);
 
         console.log('post xml...', msgInfo.server, packet);
         return this._post(msgInfo.server, packet, msgInfo.threadId);

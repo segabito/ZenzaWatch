@@ -66,6 +66,7 @@ const RootDispatcher = (() => {
         case 'update-screenMode':
         case 'update-sharedNgLevel':
         case 'update-commentSpeedRate':
+        case 'update-fullscreenControlBarMode':
           command = command.replace(/^update-/, '');
           if (config.getValue(command) === param) {
             break;
