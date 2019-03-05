@@ -42,7 +42,7 @@ CommentInputPanel.__css__ = (`
       z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
     }
     .zenzaScreenMode_wide .commentInputPanel,
-    .fullScreen           .commentInputPanel {
+    .is-fullscreen           .commentInputPanel {
       position: absolute !important; /* fixedだとFirefoxのバグで消える */
       top:  auto !important;
       bottom: 120px !important;
@@ -199,7 +199,7 @@ CommentInputPanel.__css__ = (`
   `).trim();
 
 CommentInputPanel.__tpl__ = (`
-    <div class="commentInputPanel forMember">
+    <div class="commentInputPanel forMember" autocomplete="new-password">
       <form action="javascript: void(0);">
       <div class="commentInputOuter">
           <input
@@ -214,7 +214,7 @@ CommentInputPanel.__tpl__ = (`
           <input
             type="text"
             value=""
-            autocomplete="on"
+            autocomplete="off"
             name="chat"
             accesskey="c"
             placeholder="コメント入力(C)"
