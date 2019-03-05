@@ -37,7 +37,7 @@ class VideoListModel extends Emitter {
 
     this.emit('update', this._items, true);
   }
-  
+
   clear() {
     this.setItem([]);
   }
@@ -259,7 +259,7 @@ class VideoListModel extends Emitter {
   get activeIndex() {
     return this._items.findIndex(i => i.isActive);
   }
-  
+
   get totalDuration() {
     let total = 0;
     this._items.forEach(item => {
@@ -1712,7 +1712,6 @@ class PlaylistView extends Emitter {
       $menu.removeClass('show');
       $fileDrop.removeClass('show');
     });
-
     $('.zenzaVideoPlayerDialog')
       .on('dragover', this._onDragOverFile.bind(this))
       .on('dragenter', this._onDragEnterFile.bind(this))

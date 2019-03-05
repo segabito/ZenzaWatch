@@ -59,27 +59,27 @@ const {ThreadLoader} = (() => {
       });
     }
 
-    getWaybackKey(threadId, language = '', options = {}) {
-      let url = `//flapi.nicovideo.jp/api/getwaybackkey?thread=${threadId}`;
-      let langCode = this.getLangCode(language);
-      if (langCode) { url = `${url}&language_id=${langCode}`; }
-
-      let headers = options.cookie ? {Cookie: options.cookie} : {};
-      return util.fetch(url, {
-        method: 'post',
-        dataType: 'text',
-        headers,
-        credentials: 'include'
-      }).then(res => res.text()).then(e => {
-        let result = util.parseQuery(e);
-        return result;
-      }).catch(result => {
-        return Promise.reject({
-          result: result,
-          message: `WaybackKeyの取得失敗 ${threadId} `
-        });
-      });
-    }
+    // getWaybackKey(threadId, language = '', options = {}) {
+    //   let url = `//flapi.nicovideo.jp/api/getwaybackkey?thread=${threadId}`;
+    //   let langCode = this.getLangCode(language);
+    //   if (langCode) { url = `${url}&language_id=${langCode}`; }
+    //
+    //   let headers = options.cookie ? {Cookie: options.cookie} : {};
+    //   return util.fetch(url, {
+    //     method: 'post',
+    //     dataType: 'text',
+    //     headers,
+    //     credentials: 'include'
+    //   }).then(res => res.text()).then(e => {
+    //     let result = util.parseQuery(e);
+    //     return result;
+    //   }).catch(result => {
+    //     return Promise.reject({
+    //       result: result,
+    //       message: `WaybackKeyの取得失敗 ${threadId} `
+    //     });
+    //   });
+    // }
 
     getLangCode(language = '') {
       language = language.replace('-', '_').toLowerCase();
@@ -130,9 +130,9 @@ const {ThreadLoader} = (() => {
           t.threadkey = msgInfo.threadKey[thread.id].key;
           t.force_184 = msgInfo.threadKey[thread.id].force184 ? '1' : '0';
         }
-        if (msgInfo.when > 0 && msgInfo.waybackKey[thread.id]) {
-          t.waybackkey = msgInfo.waybackKey[thread.id].key || '';
-        }
+        // if (msgInfo.when > 0 && msgInfo.waybackKey[thread.id]) {
+        //   t.waybackkey = msgInfo.waybackKey[thread.id].key || '';
+        // }
         if (msgInfo.when > 0) {
           t.when = msgInfo.when;
         }
@@ -143,7 +143,7 @@ const {ThreadLoader} = (() => {
           t.res_from = options.resFrom;
         }
         // threadkeyかwaybackkeyがある場合にuserkeyをつけてしまうとエラー。いらないなら無視すりゃいいだろが
-        if (!t.threadkey && !t.waybackkey && msgInfo.userKey) {
+        if (!t.threadkey /*&& !t.waybackkey*/ && msgInfo.userKey) {
           t.userkey = msgInfo.userKey;
         }
         if (t.fork || thread.isLeafRequired === false) { // 投稿者コメントなど
@@ -208,7 +208,7 @@ const {ThreadLoader} = (() => {
       let packet;
       let language = msgInfo.language;
       msgInfo.threadKey = msgInfo.threadKey || {};
-      msgInfo.waybackKey = msgInfo.waybackKey || {};
+      // msgInfo.waybackKey = msgInfo.waybackKey || {};
       const loadThreadKey = threadId => {
         if (msgInfo.threadKey[threadId]) { return; }
         msgInfo.threadKey[threadId] = {};
@@ -222,23 +222,23 @@ const {ThreadLoader} = (() => {
         return Promise.all(msgInfo.threads.filter(t => t.isThreadkeyRequired).map(t => loadThreadKey(t.id)));
       };
 
-      const loadWaybackKey = threadId => {
-        if (msgInfo.waybackKey[threadId]) { return; }
-        msgInfo.waybackKey[threadId] = {};
-        return this.getWaybackKey(threadId, language, options).then(info => {
-          console.log('waybackKey: ', threadId, info);
-          msgInfo.waybackKey[threadId] = {key: info.waybackkey};
-        });
-      };
+      // const loadWaybackKey = threadId => {
+      //   if (msgInfo.waybackKey[threadId]) { return; }
+      //   msgInfo.waybackKey[threadId] = {};
+      //   return this.getWaybackKey(threadId, language, options).then(info => {
+      //     console.log('waybackKey: ', threadId, info);
+      //     msgInfo.waybackKey[threadId] = {key: info.waybackkey};
+      //   });
+      // };
 
-      const loadWaybackKeys = () => {
-        if (!msgInfo.when) {
-          return Promise.resolve();
-        }
-        return Promise.all(msgInfo.threads.map(t => loadWaybackKey(t.id)));
-      };
+      // const loadWaybackKeys = () => {
+      //   if (!msgInfo.when) {
+      //     return Promise.resolve();
+      //   }
+      //   return Promise.all(msgInfo.threads.map(t => loadWaybackKey(t.id)));
+      // };
 
-      return Promise.all([loadThreadKeys(), loadWaybackKeys()]).then(() => {
+      return Promise.all([loadThreadKeys()/*, loadWaybackKeys()*/]).then(() => {
         let format = options.format === 'xml' ? 'xml' : 'json';
         let server = format === 'json' ? msgInfo.server.replace('/api/', '/api.json/') : msgInfo.server;
         server = server.replace(/^http:/, '');
