@@ -1229,6 +1229,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   selectTab: function (name) {
     this._playerConfig.setValue('videoInfoPanelTab', name);
     this._videoInfoPanel.selectTab(name);
+    ZenzaWatch.emitter.emit('tabChange', name);
   },
   execCommand: function (command, param) {
     this.emit('command', command, param);

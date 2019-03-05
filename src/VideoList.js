@@ -2120,6 +2120,11 @@ class Playlist extends VideoList {
 
     ZenzaWatch.debug.playlist = this;
     this.on('update', _.debounce(() => PlaylistSession.save(this.serialize()), 3000));
+    ZenzaWatch.emitter.on('tabChange', tab => {
+      if (tab === 'playlist') {
+        this.scrollToActiveItem();
+      }
+    });
   }
   serialize() {
     return {
