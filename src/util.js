@@ -317,6 +317,55 @@ util.parseQuery = function (query = '') {
   return result;
 };
 
+util.parseWatchQuery = query => {
+  try {
+    const result = util.parseQuery(query);
+    const playlist = JSON.parse(util.decodeBase64(result.playlist));
+    if (playlist.searchQuery) {
+      const sq = playlist.searchQuery;
+      if (sq.type === 'tag') {
+        result.playlist_type = 'tag';
+        result.tag = sq.query;
+      } else {
+        result.playlist_type = 'search';
+        result.keyword = sq.query;
+      }
+      let [order, sort] = (sq.sort || '+f').split('');
+      result.order = order === '-' ? 'a' : 'd';
+      result.sort = sort;
+      if (sq.fRange) { result.f_range = sq.fRange; }
+      if (sq.lRange) { result.l_range = sq.lRange; }
+    } else if (playlist.mylistId) {
+      result.playlist_type = 'mylist';
+      result.group_id = playlist.mylistId;
+      result.order =
+        document.querySelector('select[name="sort"]') ?
+          document.querySelector('select[name="sort"]').value : '1';
+    } else if (playlist.id && playlist.id.includes('temporary_mylist')) {
+      result.playlist_type = 'deflist';
+      result.group_id = 'deflist';
+      result.order =
+        document.querySelector('select[name="sort"]') ?
+          document.querySelector('select[name="sort"]').value : '1';
+    }
+
+    return result;
+  } catch(e) {
+    return {};
+  }
+};
+
+util.decodeBase64 = str => {
+  try {
+    return decodeURIComponent(
+      escape(atob(
+        str.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(str.length / 4) * 4, '=')
+      )));
+  } catch(e) {
+    return '';
+  }
+};
+
 util.hasLargeThumbnail = function (videoId) {
   // 大サムネが存在する最初の動画ID。 ソースはちゆ12歳
   // ※この数字以降でもごく稀に例外はある。

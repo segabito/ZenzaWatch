@@ -59,6 +59,7 @@ const Config = ((CONFIG) => {
     enableStoryboard: true, // シークバーサムネイル関連
     enableStoryboardBar: false, // シーンサーチ
     videoInfoPanelTab: 'videoInfoTab',
+    fullscreenControlBarMode: 'auto', // 'always-show' 'always-hide'
 
 
     // forceEconomy: false,
@@ -168,6 +169,8 @@ const Config = ((CONFIG) => {
     KEY_FULLSCREEN: 70, // F
     KEY_MUTE: 77, // M
     KEY_TOGGLE_COMMENT: 86, // V
+
+    KEY_TOGGLE_LOOP: 82, // R 76, // L
 
     KEY_DEFLIST_ADD: 84,          // T
     KEY_DEFLIST_REMOVE: 84 + 0x1000, // SHIFT + T

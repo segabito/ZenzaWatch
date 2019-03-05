@@ -60,7 +60,7 @@ const {initialize} = (() => {
     if (window.Nico && window.Nico.onReady) {
       window.Nico.onReady(() => {
         let shuffleButton;
-        let query = 'a[href*="playlist_type=mylist"],a[href*="playlist_type=deflist"]';
+        let query = 'a[href*="continuous=1"]';
         let addShufflePlaylistLink = () => {
           if (shuffleButton) {
             return;
@@ -501,31 +501,31 @@ const {initialize} = (() => {
       if (this._hoverElement !== e.target) {
         return;
       }
-      let $target = $(e.target).closest('a');
-      let href = $target.attr('data-href') || $target.attr('href');
+      let target = e.target.closest('a');//$(e.target).closest('a');
+      if (!target || target.classList.contains('noHoverMenu')) {
+        return;
+      }
+      let href = target.dataset.href || target.href;
       let watchId = util.getWatchId(href);
-      let offset = $target.offset();
-      let host = $target[0].hostname;
-      if (host !== 'www.nicovideo.jp' && host !== 'nico.ms') {
+      let offset = target.getBoundingClientRect();//$target.offset();
+      let host = target.hostname;
+      if (host !== 'www.nicovideo.jp' && host !== 'nico.ms' && host !== 'sp.nicovideo.jp') {
         return;
       }
-      this._query = util.parseQuery(($target[0].search || '').substr(1));
+      this._query = util.parseWatchQuery((target.search || '').substr(1));
 
-      if ($target.hasClass('noHoverMenu')) {
-        return;
-      }
       if (!watchId.match(/^[a-z0-9]+$/)) {
         return;
       }
-      if (watchId.indexOf('lv') === 0) {
+      if (watchId.startsWith('lv')) {
         return;
       }
 
       this._watchId = watchId;
 
       this._$view.css({
-        top: offset.top,
-        left: offset.left - this._$view.outerWidth() / 2
+        top: offset.top + window.pageYOffset,
+        left: offset.left - this._$view.outerWidth() / 2 + window.pageXOffset
       }).addClass('show');
       document.body.addEventListener('click', () => this._$view.removeClass('show'), {once: true});
     },
@@ -584,7 +584,7 @@ const {initialize} = (() => {
         if (host !== 'www.nicovideo.jp' && host !== 'nico.ms' && host !== 'sp.nicovideo.jp') {
           return;
         }
-        this._query = util.parseQuery(($target[0].search || '').substr(1));
+        this._query = util.parseWatchQuery(($target[0].search || '').substr(1));
 
         if ($target.hasClass('noHoverMenu')) {
           return;
