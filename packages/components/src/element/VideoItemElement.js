@@ -294,21 +294,6 @@ const {VideoItemElement} = (() => {
         margin-left: 8px;
       }
 
-      /*
-      @media screen and (min-width: 600px)
-      {
-        #listContainerInner {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        }
-
-        .videoItem {
-          margin: 4px 8px 0;
-          border-top: none !important;
-          border-bottom: 1px dotted var(--item-border-color, #ccc);
-        }
-      }
-      */
 
       </style>
       <div class="videoItem">
@@ -335,7 +320,8 @@ const {VideoItemElement} = (() => {
 
     _applyThumbInfo(thumbInfo) {
       const data = thumbInfo.data;
-      const thumbnail = this.props.thumbnail.match(/smile\?i=/) || data.thumbnail;
+      const thumbnail = this.props.thumbnail.match(/smile\?i=/) ?
+        this.props.thumbnail : data.thumbnail;
       const isChannel = data.v.startsWith('so') || data.owner.type === 'channel';
       const watchId = isChannel ? data.id : data.v;
       Object.assign(this.dataset, {
