@@ -41,9 +41,9 @@ CONSTANT.BASE_CSS_VARS = (() => {
     'enabled-button-color': '#9cf'
   };
   let dt = new Date().toISOString();
-  if (/^\d{4}-(03-09|08-31)/.test(dt)) {
+  // if (/^\d{4}-(03-09|08-31)/.test(dt)) {
     vars['scrollbar-thumb-color'] = vars['hatsune-color'];
-  }
+  // }
 
   return '#zenzaVideoPlayerDialog, .zenzaRoot {\n' +
       Object.keys(vars).map(key => `--${key}: ${vars[key]};`).join('\n') +

@@ -954,6 +954,12 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       case 'settingPanel':
         this.toggleSettingPanel();
         break;
+      case 'toggle-flipH':
+        this.toggleClass('is-flipH');
+        break;
+      case 'toggle-flipV':
+        this.toggleClass('is-flipV');
+        break;
       default:
         this.emit('command', command, param);
     }
@@ -3044,6 +3050,7 @@ util.addStyle(`
       right: -48px;
       padding: 8px 0;
       font-size: 13px;
+      backface-visibility: hidden;
     }
     .is-updatingMylist .mylistSelectMenu {
       display: none;

@@ -627,6 +627,8 @@ ContextMenu.__css__ = (`
     .is-loop           .zenzaPlayerContextMenu li.toggleLoop:before,
     .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
     .is-showComment    .zenzaPlayerContextMenu li.toggleShowComment:before,
+    .is-flipV          .zenzaPlayerContextMenu li.toggle-flipV:before,
+    .is-flipH          .zenzaPlayerContextMenu li.toggle-flipH:before,
     .zenzaPlayerContextMenu ul                 li.selected:before {
       content: '✔';
       left: -10px;
@@ -790,8 +792,13 @@ ContextMenu.__tpl__ = (`
           <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
           <li class="command toggleShowComment" data-command="toggle-showComment">コメントを表示</li>
           <li class="command" data-command="picture-in-picture">P in P</li>
+          <hr class="separator">
+          
+          <li class="command forPremium toggle-flipH" data-command="toggle-flipH">左右反転</li>
+          <li class="command toggle-flipV" data-command="toggle-flipV">上下反転</li>
 
           <hr class="separator">
+          
           <li class="command"
             data-command="reload">動画のリロード</li>
           <li class="command"
@@ -1432,6 +1439,20 @@ VideoPlayer.__css__ = `
       width: 100%;
       height: 100%;
       z-index: 5;
+    }
+    .zenzaWatchVideoElement {
+      display: block;
+      transition: transform 0.4s ease;
+    }
+    
+    .is-flipH .zenzaWatchVideoElement {
+      transform: perspective(400px) rotateY(180deg);
+    }
+    .is-flipV .zenzaWatchVideoElement {
+      transform: perspective(400px) rotateX(180deg);
+    }
+    .is-flipV.is-flipH .zenzaWatchVideoElement {
+      transform: perspective(400px) rotateX(180deg) rotateY(180deg);
     }
 
     /* iOSだとvideo上でマウスイベントが発生しないのでカバーを掛ける */

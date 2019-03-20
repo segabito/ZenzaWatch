@@ -1170,9 +1170,9 @@ util.createDom = template => {
   return document.importNode(tpl.content, true);
 };
 
-util.dispatchCustomEvent = (elm, name, detail) => {
+util.dispatchCustomEvent = (elm, name, detail, options = {}) => {
   const ev = new CustomEvent(name, {
-    detail
+    detail //, options
   });
   elm.dispatchEvent(ev);
 };

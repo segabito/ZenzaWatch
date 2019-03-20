@@ -34,7 +34,14 @@ SettingPanel.__css__ = (`
       overflow-x: hidden;
       overscroll-behavior: contain;
       background: rgba(0, 0, 0, 0.8);
-    }z
+    }
+    .zenzaSettingPanel.show::-webkit-scrollbar {
+      width: 16px;
+      background: var(--scrollbar-bg-color);
+    }
+    .zenzaSettingPanel.show::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb-color);
+    }
 
     .zenzaScreenMode_sideView .zenzaSettingPanel.show,
     .zenzaScreenMode_small    .zenzaSettingPanel.show {

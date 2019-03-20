@@ -796,10 +796,6 @@ VideoListView.__tpl__ = (`
     will-change: transform;
   }
   
-  .playlist #listContainerInner {
-    margin-bottom: calc(100vh - 100px);
-  }
-  
   .is-scrolling #listContainerInner {
     pointer-events: none;
     animation-play-state: paused !important;

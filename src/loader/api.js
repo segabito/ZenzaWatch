@@ -1831,34 +1831,6 @@ let MessageApiLoader = (function () {
         });
       });
     },
-    // getWaybackKey: function (threadId, language) {
-    //   let url =
-    //     '//flapi.nicovideo.jp/api/getwaybackkey?thread=' + threadId;
-    //   const langCode = this.getLangCode(language);
-    //   if (langCode) {
-    //     url += `&language_id=${langCode}`;
-    //   }
-    //   return new Promise((resolve, reject) => {
-    //     util.ajax({
-    //       url: url,
-    //       contentType: 'text/plain',
-    //       crossDomain: true,
-    //       cache: false,
-    //       xhrFields: {
-    //         withCredentials: true
-    //       }
-    //     }).then((e) => {
-    //       let result = util.parseQuery(e);
-    //       this._waybackKeys[threadId] = result;
-    //       resolve(result);
-    //     }, (result) => {
-    //       reject({
-    //         result: result,
-    //         message: 'WaybackKeyの取得失敗 ' + threadId
-    //       });
-    //     });
-    //   });
-    // },
     getLangCode: function (language) {
       language = language.replace('-', '_').toLowerCase();
       if (LANG_CODE[language]) {
@@ -1925,8 +1897,6 @@ let MessageApiLoader = (function () {
           thread.setAttribute('res_from', '-1000');
           thread.setAttribute('fork', '1');
         }
-        //if (params.msgInfo.hasOwnerThread && !params.isOptional) {
-        //}
         if (typeof userId !== 'undefined') {
           thread.setAttribute('user_id', userId);
         }
@@ -1936,9 +1906,6 @@ let MessageApiLoader = (function () {
         if (params.useThreadKey && typeof force184 !== 'undefined') {
           thread.setAttribute('force_184', force184);
         }
-        // if (waybackKey) {
-        //   thread.setAttribute('waybackkey', waybackKey);
-        // }
         if (when) {
           thread.setAttribute('when', when);
         }
@@ -1954,7 +1921,6 @@ let MessageApiLoader = (function () {
         return thread;
       },
     _createThreadLeavesXml:
-    //function(threadId, version, userId, threadKey, force184, duration, userKey) {
       function (params) {//msgInfo, version, threadKey, force184, userKey) {
         const threadId =
           params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
@@ -1964,7 +1930,6 @@ let MessageApiLoader = (function () {
         const threadKey = params.threadKey;
         const force184 = params.force184;
         const when = params.msgInfo.when;
-        // const waybackKey = params.waybackKey;
 
         const thread_leaves = document.createElement('thread_leaves');
         const resCount = this.getRequestCountByDuration(duration);
@@ -1983,9 +1948,6 @@ let MessageApiLoader = (function () {
         if (typeof force184 !== 'undefined') {
           thread_leaves.setAttribute('force_184', force184);
         }
-        // if (waybackKey) {
-        //   thread_leaves.setAttribute('waybackkey', waybackKey);
-        // }
         if (when) {
           thread_leaves.setAttribute('when', when);
         }
@@ -2139,7 +2101,7 @@ let MessageApiLoader = (function () {
       });
     },
     _load: function (msgInfo) {
-      let packet, threadKey, /*waybackKey,*/ force184;
+      let packet, threadKey, force184;
 
       const loadThreadKey = () => {
         if (!msgInfo.isNeedKey) {
@@ -2151,19 +2113,9 @@ let MessageApiLoader = (function () {
           force184 = info.force_184;
         });
       };
-      // const loadWaybackKey = () => {
-      //   if (!msgInfo.when) {
-      //     return Promise.resolve();
-      //   }
-      //   return this.getWaybackKey(msgInfo.threadId, msgInfo.language).then(info => {
-      //     window.console.log('waybackKey: ', info);
-      //     waybackKey = info.waybackkey;
-      //   });
-      // };
 
-      return loadThreadKey()/*.then(loadWaybackKey)*/.then(() => {
-        //console.log('build', msgInfo, threadKey, force184, waybackKey);
-        packet = this.buildPacket(msgInfo, threadKey, force184/*, waybackKey*/);
+      return loadThreadKey().then(() => {
+        packet = this.buildPacket(msgInfo, threadKey, force184);
 
         console.log('post xml...', msgInfo.server, packet);
         return this._post(msgInfo.server, packet, msgInfo.threadId);
@@ -2218,20 +2170,16 @@ let MessageApiLoader = (function () {
             }
           });
 
-          //const tk = thread.getAttribute('ticket');
-          //if (tk && tk !== '0') { ticket = tk; }
           const lr = thread.getAttribute('last_res');
           if (!isNaN(lr)) {
             lastRes = Math.max(lastRes, lr);
           }
 
-          //resultCode = thread.getAttribute('resultcode');
           resultCode = (resultCodes.sort())[0];
         } catch (e) {
           console.error(e);
         }
 
-        //if (resultCode !== '0' && (!chats || chats.length < 1)) {
         console.log('resultCodes: ', resultCodes);
         if (resultCode !== 0) {
           reject({

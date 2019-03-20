@@ -360,6 +360,10 @@ util.addStyle(`
     display: inline-flex;
     top: 0;
     padding: 0;
+    width: 96px;
+    height: 18px;
+    line-height: 18px;
+    contain: strict;
     color: #fff;
     font-size: 12px;
     white-space: nowrap;

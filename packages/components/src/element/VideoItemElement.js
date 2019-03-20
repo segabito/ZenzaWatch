@@ -1,12 +1,12 @@
 import {BaseCommandElement} from './BaseCommandElement.js';
 import {util} from '../util/util.js';
-console.info('BaseCommandElement', BaseCommandElement);
+// console.info('BaseCommandElement', BaseCommandElement);
 
 //===BEGIN===
 
 
 
-const {VideoItemElement} = (() => {
+const {VideoItemElement, VideoItemProps} = (() => {
   const ITEM_HEIGHT = 100;
   const THUMBNAIL_WIDTH = 96;
   const THUMBNAIL_HEIGHT = 72;
