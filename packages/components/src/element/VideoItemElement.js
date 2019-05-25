@@ -32,7 +32,8 @@ const {VideoItemElement, VideoItemProps} = (() => {
     ownerName: '',
 
     thumbInfo: {},
-    hasInview: false
+    hasInview: false,
+    lazyload: false
   };
   const VideoItemAttributes = Object.keys(VideoItemProps).map(prop => BaseCommandElement.toAttributeName(prop));
 
@@ -48,7 +49,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
 
     static get observedAttributes() {
       return VideoItemAttributes;
-    };
+    }
 
     static get defaultState() {
       return {
@@ -58,13 +59,16 @@ const {VideoItemElement, VideoItemProps} = (() => {
     }
 
     static async getTemplate(state = {}, props = {}, events = {}) {
-      let {html} = await this.importLit();
+      const {html} = await this.importLit();
+      if (props.lazyload) {
+        return html`<div/>`;
+      }
 
       const watchId = props.watchId;
       const watchUrl = `https://www.nicovideo.jp/watch/${props.watchId}`;
       const title = props.title ? html`<span title="${props.title}">${props.title}<span>` : props.watchId;
       const duration = props.duration ? html`<span class="duration">${util.secToTime(props.duration)}</span>` : '';
-      const postedAt = props.postedAt ? `${new Date(props.postedAt).toLocaleString()}` : '';
+      const postedAt = props.postedAt ? `${util.dateToString(new Date(props.postedAt))}` : '';
       const counter =  (props.viewCount || props.commentCount || props.mylistCount) ? html`
         <div class="counter">
           <span class="count">再生: <span class="value viewCount">${props.viewCount}</span></span>
@@ -73,17 +77,19 @@ const {VideoItemElement, VideoItemProps} = (() => {
         </div>
         ` : '';
 
-      // console.log('props', props);
-      // console.log('state', state);
-      // console.log('events', events);
       return html`
     <div id="root" @click=${events.onClick}>
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       #root {
-        background-color: #666;
+        background-color: var(--list-bg-color, #666);
         box-sizing: border-box;
         user-select: none;
       }
+
       .videoItem {
         position: relative;
         display: grid;
@@ -93,31 +99,9 @@ const {VideoItemElement, VideoItemProps} = (() => {
         grid-template-columns: ${THUMBNAIL_WIDTH}px 1fr;
         grid-template-rows: ${THUMBNAIL_HEIGHT}px 1fr;
         padding: 2px;
-        transition:
-          transform 0.4s ease, box-shadow 0.4s ease;
         contain: layout size;
       }
 
-      .playlist .videoItem {
-        cursor: move;
-      }
-
-      .playlist .videoItem::before {
-        content: counter(itemIndex);
-        counter-increment: itemIndex;
-        position: absolute;
-        right: 8px;
-        top: 80%;
-        color: #666;
-        font-family: Impact, serif;
-        font-size: 45px;
-        pointer-events: none;
-        z-index: 1;
-        line-height: ${ITEM_HEIGHT}px;
-        opacity: 0.6;
-
-        transform: translate(0, -50%);
-      }
 
       :host-context(.is-fav-favorited) .videoItem .postedAt::after {
         content: ' ★';
@@ -147,7 +131,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
       .thumbnailContainer a {
         display: inline-block;
         width:  100%;
-        height: 100%;
+        height: 72px;
         transition: box-shaow 0.4s ease, transform 0.4s ease;
       }
 
@@ -244,7 +228,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
 
       .postedAt {
         font-size: 12px;
-        color: #ccc;
+        color: var(--list-text-color, #ccc);
       }
       .is-played .postedAt::after {
         content: ' ●';
@@ -259,21 +243,21 @@ const {VideoItemElement, VideoItemProps} = (() => {
       }
 
       .title {
-        height: 52px;
+        line-height: 20px;
+        height: 40px;
         overflow: hidden;
       }
 
       .videoLink {
         font-size: 14px;
-        color: #ff9;
+        color: var(--list-video-link-color, #ff9);
         transition: background 0.4s ease, color 0.4s ease;
       }
       .videoLink:visited {
-        color: #ffd;
+        color: var(--list-video-link-visited-color, #ffd);
       }
       .videoLink:active {
-        color: #fff;
-        background: #663;
+        color: var(--list-video-link-active-color, #fff);
         transition: none;
       }
 
@@ -282,7 +266,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
       }
       .counter {
         font-size: 12px;
-        color: #ccc;
+        color: var(--list-text-color, #ccc);
       }
       .counter .value {
         font-weight: bolder;
@@ -299,7 +283,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
       <div class="videoItem">
         <span class="playlistRemove" data-command="playlistRemove" title="プレイリストから削除">×</span>
         <div class="thumbnailContainer ${props.hasInview ? 'has-inview' : ''}">
-          <a class="command" data-command="open" href="${watchUrl}">
+          <a class="command" data-command="open" data-param="${watchId}" href="${watchUrl}">
             <img src="${props.thumbnail}" class="thumbnail" lazyload="on">
             ${duration}
           </a>
@@ -355,10 +339,10 @@ const {VideoItemElement, VideoItemProps} = (() => {
     }
   }
 
-  return {VideoItemElement};
+  return {VideoItemElement, VideoItemProps};
 })();
 
 
 //===END===
 
-export {VideoItemElement};
+export {VideoItemElement, VideoItemProps};

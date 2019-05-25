@@ -433,7 +433,7 @@ class CommentListView extends Emitter {
       return this._scrollTop;
     }
   }
-  setCurrentPoint(idx) {
+  setCurrentPoint(sec, idx) {
     if (!this._window || !this._itemViews) {
       return;
     }
@@ -450,6 +450,10 @@ class CommentListView extends Emitter {
       let top = view.getTop();
       this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
     }
+    // requestAnimationFrame(() => {
+    //   this._container.style.setProperty('--current-time', sec);
+    //   this._container.style.setProperty('--scroll-top', view.getTop());
+    // });
   }
   showItemDetail(item) {
     let $d = this._$itemDetail;
@@ -650,8 +654,8 @@ CommentListView.__tpl__ = (`
       <span class="menuButton itemDetailRequest"
         data-command="itemDetailRequest" title="詳細">？</span>
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
-      <span class="menuButton addUserIdFilter forMember"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
-      <span class="menuButton addWordFilter forMember"    data-command="addWordFilter" title="NGワード">NGword</span>
+      <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+      <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
 
     </div>
 
@@ -850,6 +854,41 @@ const CommentListItemView = (() => {
       .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
       .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
       
+      /*
+      .commentListItem .pointer {
+        position: absolute;
+        width: 100%;
+        height: 10px;
+        bottom: 0;
+        left: 0;
+        pointer-events: none;
+        background: #ffc;
+        transform-origin: left top;
+        transition: transform var(--duration) linear;
+        visibility: hidden;
+        opacity: 0.3;
+        animation-duration: calc(var(--duration) * 1s);
+        animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
+        animation-name: pointer-moving;
+        animation-timing-function: linear;
+        animation-fill-mode: forwards;
+        animation-play-state: paused !important;
+        contain: paint layout style size;
+      }
+      @keyframes pointer-moving {
+        0% {
+          visibility: visible;
+          transform: scaleX(1);
+        }
+        100% {
+          visibility: hidden;
+          transform: scaleX(0.01);
+        }
+      }
+     
+      */
+
+
 
     `).trim();
 
@@ -907,22 +946,29 @@ const CommentListItemView = (() => {
       const time3dp = Math.round(this._item.time3dp * 100);
 
       const formattedDate = item.getFormattedDate();
-      commentListItem.setAttribute('id', this.getDomId());
-      commentListItem.setAttribute('data-item-id', item.getItemId());
-      commentListItem.setAttribute('data-no', item.getNo());
-      commentListItem.setAttribute('data-uniq-no', item.getUniqNo());
-      commentListItem.setAttribute('data-vpos', item.getVpos());
-      commentListItem.setAttribute('data-top', this.getTop());
-      commentListItem.setAttribute('data-thread', item.getThreadId());
-      commentListItem.setAttribute('data-title',
-        `${item.getNo()}: ${formattedDate} ID:${item.getUserId()}\n${item.getText()}`
-      );
+      commentListItem.id = this.getDomId();
       const font = item.getFontCommand() || 'default';
       commentListItem.className =
         `commentListItem no${item.getNo()} item${this._id} ${oden} fork${item.getFork()} font-${font} ${item.isSubThread() ? 'subThread' : ''}`;
-      commentListItem.style.top = `${this.getTop()}px`;
+      commentListItem.style.cssText = `
+          top: ${this.getTop()}px;
+          --duration: ${item.duration};
+          --vpos: ${item.vpos}
+        `;
       // commentListItem.style.transform = `translateZ(${time3dp}px)`;
-      commentListItem.setAttribute('data-time-3dp', time3dp);
+      //commentListItem.setAttribute('data-time-3dp', time3dp);
+
+      Object.assign(commentListItem.dataset, {
+        itemId: item.getItemId(),
+        no: item.getNo(),
+        uniqNo: item.getUniqNo(),
+        vpos: item.getVpos(),
+        top: this.getTop(),
+        thread: item.getThreadId(),
+        title: `${item.getNo()}: ${formattedDate} ID:${item.getUserId()}\n${item.getText()}`,
+        time3dp,
+        nicoru: item.nicoru
+      });
 
       timepos.textContent = item.getTimePos();
       date.textContent = formattedDate;
@@ -1054,6 +1100,15 @@ class CommentListItem {
   get time3dp() {
     return this._nicoChat.time3dp;
   }
+  get nicoru() {
+    return this._nicoChat.nicoru;
+  }
+  get vpos() {
+    return this._nicoChat.getVpos();
+  }
+  get duration() {
+    return this._nicoChat.getDuration();
+  }
 }
 CommentListItem._itemId = 0;
 
@@ -1111,7 +1166,7 @@ class CommentPanelView extends Emitter {
     }
 
     this._lastCurrentTime = sec;
-    this._listView.setCurrentPoint(viewIndex);
+    this._listView.setCurrentPoint(sec, viewIndex);
   }
   _onCommand(command, param, itemId) {
     switch (command) {
@@ -1292,7 +1347,7 @@ CommentPanelView.__tpl__ = (`
             </div>
           </div>
         </div>
-      <div class="timeMachineContainer forMember"></div>
+      <div class="timeMachineContainer"></div>
       </div>
       <div class="commentPanel-frame"></div>
     </div>
@@ -1764,7 +1819,7 @@ TimeMachineView._shadow_ = (`
     </div>
   `).trim();
 
-TimeMachineView.__tpl__ = ('<div class="TimeMachineView forMember"></div>').trim();
+TimeMachineView.__tpl__ = ('<div class="TimeMachineView"></div>').trim();
 
 
 //===END===

@@ -4,6 +4,7 @@ import {util, Config, PopupMessage, WindowMessageEmitter} from '../util';
 import {browser} from '../browser';
 const {location, localStorage, sessionStorage} = browser.window;
 import {Emitter} from '../baselib';
+import {PRODUCT} from '../ZenzaWatchIndex';
 
 const TOKEN = Math.random();
 
@@ -20,81 +21,101 @@ const {
   PlaybackPosition,
   NicoVideoApi,
   NicoRssLoader,
-  RecommendAPILoader
+  RecommendAPILoader,
+  NVWatchCaller
 } = (() => {
 
-  let CacheStorage = (function () {
-    let PREFIX = 'ZenzaWatch_cache_';
+  let CacheStorage = (() => {
+    const PREFIX = `${PRODUCT}_cache_`;
 
-    function CacheStorage() {
-      this.initialize.apply(this, arguments);
-    }
-
-    _.assign(CacheStorage.prototype, {
-      initialize: function (storage) {
+    class CacheStorage {
+      constructor(storage) {
         this._storage = storage;
-      },
-      setItem: function (key, data, expireTime) {
+        this.gc = _.debounce(this.gc.bind(this), 100);
+      }
+
+      gc(now = NaN) {
+        const storage = this._storage;
+        now = isNaN(now) ? Date.now() : now;
+        Object.keys(storage).forEach(key => {
+          if (key.indexOf(PREFIX) === 0) {
+            let item;
+            try {
+              item = JSON.parse(this._storage[key]);
+            } catch(e) {
+              storage.removeItem(key);
+            }
+            if (item.expiredAt === '' || item.expiredAt > now) {
+              return;
+            }
+            storage.removeItem(key);
+          }
+        });
+      }
+
+      setItem(key, data, expireTime) {
         key = PREFIX + key;
-        let expiredAt =
+        const expiredAt =
           typeof expireTime === 'number' ? (Date.now() + expireTime) : '';
-        console.log('%ccacheStorage.setItem', 'background: cyan;', key, typeof data, data);
-        this._storage[key] = JSON.stringify({
+
+        const cacheData = {
           data: data,
           type: typeof data,
           expiredAt: expiredAt
-        });
-      },
-      getItem: function (key) {
+        };
+
+        try {
+          this._storage[key] = JSON.stringify(cacheData);
+          this.gc();
+        } catch (e) {
+          if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+            this.gc(0);
+          }
+        }
+      }
+
+      getItem(key) {
         key = PREFIX + key;
         if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
           return null;
         }
-        let item = null, data = null;
+        let item = null;
         try {
           item = JSON.parse(this._storage[key]);
-          if (item.type === 'string') {
-            data = item.data;
-          } else if (typeof item.data === 'string') {
-            data = JSON.parse(item.data);
-          } else {
-            data = item.data;
-          }
-        } catch (e) {
-          window.console.error('CacheStorage json parse error:', e);
-          window.console.log(this._storage[key]);
+        } catch(e) {
           this._storage.removeItem(key);
           return null;
         }
 
         if (item.expiredAt === '' || item.expiredAt > Date.now()) {
-          return data;
+          return item.data;
         }
         return null;
-      },
-      removeItem: function (key) {
-        key = PREFIX + key;
-        if (!(this._storage.hasOwnProperty(key) || this._storage[key] !== undefined)) {
-          return null;
-        }
+      }
 
-        this._storage.removeItem(key);
-      },
-      clear: function () {
-        let storage = this._storage;
-        _.each(Object.keys(storage), function (v) {
+      removeItem(key) {
+        key = PREFIX + key;
+        if (this._storage.hasOwnProperty(key) || this._storage[key] !== undefined) {
+          this._storage.removeItem(key);
+        }
+      }
+
+      clear() {
+        const storage = this._storage;
+        Object.keys(storage).forEach((v) => {
           if (v.indexOf(PREFIX) === 0) {
-            window.console.log('remove item', v, storage[v]);
             storage.removeItem(v);
           }
         });
       }
-    });
+    }
 
     return CacheStorage;
   })();
-  ZenzaWatch.api.CacheStorage = CacheStorage;
-  ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
+  if (ZenzaWatch) {
+    ZenzaWatch.api.CacheStorage = CacheStorage;
+    ZenzaWatch.debug.localCache = new CacheStorage(localStorage);
+  }
 
 
   const VideoInfoLoader = (function () {
@@ -596,9 +617,13 @@ const {
       let watchId = val('watch_url').split('/').reverse()[0];
       let postedAt = util.dateToString(new Date(val('first_retrieve')));
       let tags = (function () {
-        let result = [], t = xml.getElementsByTagName('tag');
-        _.each(t, function (tag) {
-          result.push(tag.innerHTML);
+        let t = Array.from(xml.getElementsByTagName('tag'));
+        let result = t.map(tag => {
+          return {
+            text: tag.innerHTML,
+            category: tag.hasAttribute('category'),
+            lock: tag.hasAttribute('lock')
+          };
         });
         return result;
       })();
@@ -649,13 +674,13 @@ const {
       }
       console.log('thumbinfo: ', watchId, result);
 
-      cacheStorage.setItem('thumbInfo_' + result.v, result);
+      cacheStorage.setItem('thumbInfo_' + result.v, result, 1000 * 60 * 10);
 
       return result;
     };
 
-    var initialize = function () {
-      initialize = _.noop;
+    let initialize = function () {
+      if (cacheStorage) { return; }
       cacheStorage = new CacheStorage(sessionStorage);
       gate = new CrossDomainGate({
         baseUrl: BASE_URL,
@@ -693,8 +718,9 @@ const {
       load: load
     };
   })();
-  ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
-// ZenzaWatch.api.ThumbInfoLoader.load('sm9').then(function() {console.log(true, arguments); }, function() { console.log(false, arguments)});
+  if (ZenzaWatch) {
+    ZenzaWatch.api.ThumbInfoLoader = ThumbInfoLoader;
+  }
 
 
 
@@ -715,12 +741,14 @@ const {
       this.initialize.apply(this, arguments);
     }
 
-    ZenzaWatch.emitter.on('csrfTokenUpdate', function (t) {
-      token = t;
-      if (cacheStorage) {
-        cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
-      }
-    });
+    if (ZenzaWatch) {
+      ZenzaWatch.emitter.on('csrfTokenUpdate', t => {
+        token = t;
+        if (cacheStorage) {
+          cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
+        }
+      });
+    }
 
     _.assign(MylistApiLoader.prototype, {
       initialize: function () {
@@ -830,6 +858,7 @@ const {
             }
 
             let data = result.list || result.mylistitem;
+            data.id = groupId;
             cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
             if (options.sort) {
               data = sortItem(data, options.sort, 'flapi');
@@ -1281,10 +1310,11 @@ const {
 
     return MylistApiLoader;
   })();
-  ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
-  ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
-//    window.mmm = ZenzaWatch.init.mylistApiLoader;
-//
+  if (ZenzaWatch) {
+    ZenzaWatch.api.MylistApiLoader = MylistApiLoader;
+    ZenzaWatch.init.mylistApiLoader = new MylistApiLoader();
+  }
+
   let UploadedVideoApiLoader = (function () {
     let CACHE_EXPIRE_TIME = Config.getValue('debug') ? 10000 : 5 * 60 * 1000;
     let cacheStorage = null;
@@ -1342,8 +1372,10 @@ const {
     });
     return UploadedVideoApiLoader;
   })();
-  ZenzaWatch.api.UploadedVideoApiLoader = UploadedVideoApiLoader;
-  ZenzaWatch.init.UploadedVideoApiLoader = new UploadedVideoApiLoader();
+  if (ZenzaWatch) {
+    ZenzaWatch.api.UploadedVideoApiLoader = UploadedVideoApiLoader;
+    ZenzaWatch.init.UploadedVideoApiLoader = new UploadedVideoApiLoader();
+  }
 
 
   class CrossDomainGate extends Emitter {
@@ -1357,6 +1389,7 @@ const {
       this._baseUrl = params.baseUrl;
       this._origin = params.origin || location.href;
       this._type = params.type;
+      this._suffix = params.suffix || '';
       this._messager = params.messager || WindowMessageEmitter;
 
       this._sessions = {};
@@ -1411,9 +1444,13 @@ const {
       console.log('%c initialize ' + this._type, 'background: lightgreen;');
 
       let loaderFrame = document.createElement('iframe');
+      loaderFrame.referrerPolicy = 'origin';
+      loaderFrame.sandbox = 'allow-scripts allow-same-origin';
       loaderFrame.lazyload = 'off';
-      loaderFrame.name = this._type + 'Loader';
+      loaderFrame.name = `${this._type}Loader${this._suffix ? `#${this._suffix}` : ''}`;
       loaderFrame.className = 'xDomainLoaderFrame ' + this._type;
+      loaderFrame.style.cssText = `
+        position: fixed; left: -100vw; pointer-events: none;user-select: none;`;
       document.body.appendChild(loaderFrame);
 
       this._loaderWindow = loaderFrame.contentWindow;
@@ -1569,12 +1606,15 @@ const {
     postMessage: function(...args) {
       return this._postMessage(...args);
     },
+    sendCommandPacket: function(packet) {
+      return this._postMessage({command: 'commandPacket', token: TOKEN, packet});
+    },
     _onDumpConfig: function (configData) {
       _.each(Object.keys(configData), (key) => {
         this._config.setValue(key, configData[key]);
       });
 
-      if (!location.host.match(/^[a-z0-9]*.nicovideo.jp$/) &&
+      if (!location.host.match(/^[a-z0-9]*\.nicovideo\.jp$/) &&
         !this._config.getValue('allowOtherDomain')) {
         window.console.log('allowOtherDomain', this._config.getValue('allowOtherDomain'));
         this._configBridgeReject();
@@ -1600,6 +1640,7 @@ const {
           this._loaderWindow.postMessage(JSON.stringify({
               sessionId: sessionId,
               command: 'pushHistory',
+              token: TOKEN,
               path: path,
               title: title || ''
             }),
@@ -1617,6 +1658,7 @@ const {
       baseUrl: location.protocol + '//www.nicovideo.jp/favicon.ico',
       origin: location.protocol + '//www.nicovideo.jp/',
       type: 'nicovideoApi',
+      suffix: location.href,
       messager: WindowMessageEmitter
     });
   }
@@ -1744,7 +1786,8 @@ const {
     PlaybackPosition,
     NicoVideoApi,
     NicoRssLoader,
-    RecommendAPILoader
+    RecommendAPILoader,
+    NVWatchCaller
   };
 })();
 
@@ -1762,539 +1805,7 @@ export {
   PlaybackPosition,
   NicoVideoApi,
   NicoRssLoader,
-  RecommendAPILoader
+  RecommendAPILoader,
+  NVWatchCaller
 };
 
-
-let MessageApiLoader = (function () {
-  let VERSION_OLD = '20061206';
-  let VERSION = '20090904';
-
-  const LANG_CODE = {
-    'en_us': 1,
-    'zh_tw': 2
-  };
-
-  let MessageApiLoader = function () {
-    this.initialize.apply(this, arguments);
-  };
-
-  _.assign(MessageApiLoader.prototype, {
-    initialize: function () {
-      this._threadKeys = {};
-      // this._waybackKeys = {};
-    },
-    /**
-     * 動画の長さに応じて取得するコメント数を変える
-     * 本家よりちょっと盛ってる
-     */
-    getRequestCountByDuration: function (duration) {
-      if (duration < 60) {
-        return 100;
-      }
-      if (duration < 240) {
-        return 200;
-      }
-      if (duration < 300) {
-        return 400;
-      }
-      return 1000;
-    },
-    getThreadKey: function (threadId, language) {
-      // memo:
-      // //flapi.nicovideo.jp/api/getthreadkey?thread={optionalじゃないほうのID}
-      let url =
-        '//flapi.nicovideo.jp/api/getthreadkey?thread=' + threadId;
-      const langCode = this.getLangCode(language);
-      if (langCode) {
-        url += `&language_id=${langCode}`;
-      }
-
-      return new Promise((resolve, reject) => {
-        util.ajax({
-          url: url,
-          contentType: 'text/plain',
-          crossDomain: true,
-          cache: false,
-          xhrFields: {
-            withCredentials: true
-          }
-        }).then((e) => {
-          let result = util.parseQuery(e);
-          this._threadKeys[threadId] = result;
-          resolve(result);
-        }, (result) => {
-          reject({
-            result: result,
-            message: 'ThreadKeyの取得失敗 ' + threadId
-          });
-        });
-      });
-    },
-    getLangCode: function (language) {
-      language = language.replace('-', '_').toLowerCase();
-      if (LANG_CODE[language]) {
-        return LANG_CODE[language];
-      }
-      return 0;
-    },
-    getPostKey: function (threadId, blockNo/*, language*/) {
-      // memo:
-      // //flapi.nicovideo.jp/api/getpostkey?thread={optionalじゃないほうのID}
-      //flapi.nicovideo.jp/api/getpostkey/?device=1&thread=1111&version=1&version_sub=2&block_no=0&yugi=
-      let url =
-        'https://flapi.nicovideo.jp/api/getpostkey?device=1&thread=' + threadId +
-        '&block_no=' + blockNo +
-        '&version=1&version_sub=2&yugi=' +
-        //          '&language_id=0';
-        '';
-      //const langCode = this.getLangCode(language);
-      //if (langCode) { url += `&language_id=${langCode}`; }
-
-      console.log('getPostkey url: ', url);
-      return new Promise((resolve, reject) => {
-        util.ajax({
-          url: url,
-          contentType: 'text/plain',
-          crossDomain: true,
-          cache: false,
-          xhrFields: {
-            withCredentials: true
-          }
-        }).then((e) => {
-          resolve(util.parseQuery(e));
-        }, (result) => {
-          //PopupMessage.alert('ThreadKeyの取得失敗 ' + threadId);
-          reject({
-            result: result,
-            message: 'PostKeyの取得失敗 ' + threadId
-          });
-        });
-      });
-    },
-    _createThreadXml:
-      function (params) { //msgInfo, version, threadKey, force184, duration, userKey) {
-        const threadId =
-          params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
-        // const duration = params.msgInfo.duration;
-        const userId = params.msgInfo.userId || ''; // 0 の時は空文字
-        const userKey = params.msgInfo.userKey;
-        const threadKey = params.threadKey;
-        const force184 = params.force184;
-        const version = params.version;
-        const when = params.msgInfo.when;
-        // const waybackKey = params.waybackKey;
-
-        const thread = document.createElement('thread');
-        thread.setAttribute('thread', threadId);
-        thread.setAttribute('version', version);
-        if (params.useUserKey) {
-          thread.setAttribute('userkey', userKey);
-        }
-        if (params.useDuration) {
-          //const resCount = this.getRequestCountByDuration(duration);
-          thread.setAttribute('click_revision', '-1');
-          thread.setAttribute('res_from', '-1000');
-          thread.setAttribute('fork', '1');
-        }
-        if (typeof userId !== 'undefined') {
-          thread.setAttribute('user_id', userId);
-        }
-        if (params.useThreadKey && typeof threadKey !== 'undefined') {
-          thread.setAttribute('threadkey', threadKey);
-        }
-        if (params.useThreadKey && typeof force184 !== 'undefined') {
-          thread.setAttribute('force_184', force184);
-        }
-        if (when) {
-          thread.setAttribute('when', when);
-        }
-        thread.setAttribute('scores', '1');
-        thread.setAttribute('nicoru', '1');
-        thread.setAttribute('with_global', '1');
-
-        const langCode = this.getLangCode(params.msgInfo.language);
-        if (langCode) {
-          thread.setAttribute('language', langCode);
-        }
-
-        return thread;
-      },
-    _createThreadLeavesXml:
-      function (params) {//msgInfo, version, threadKey, force184, userKey) {
-        const threadId =
-          params.isOptional ? params.msgInfo.optionalThreadId : params.msgInfo.threadId;
-        const duration = params.msgInfo.duration;
-        const userId = params.msgInfo.userId || '';
-        const userKey = params.msgInfo.userKey;
-        const threadKey = params.threadKey;
-        const force184 = params.force184;
-        const when = params.msgInfo.when;
-
-        const thread_leaves = document.createElement('thread_leaves');
-        const resCount = this.getRequestCountByDuration(duration);
-        const threadLeavesParam =
-          ['0-', (Math.floor(duration / 60) + 1), ':100,', resCount].join('');
-        thread_leaves.setAttribute('thread', threadId);
-        if (params.useUserKey) {
-          thread_leaves.setAttribute('userkey', userKey);
-        }
-        if (typeof userId !== 'undefined') {
-          thread_leaves.setAttribute('user_id', userId);
-        }
-        if (typeof threadKey !== 'undefined') {
-          thread_leaves.setAttribute('threadkey', threadKey);
-        }
-        if (typeof force184 !== 'undefined') {
-          thread_leaves.setAttribute('force_184', force184);
-        }
-        if (when) {
-          thread_leaves.setAttribute('when', when);
-        }
-        thread_leaves.setAttribute('scores', '1');
-        thread_leaves.setAttribute('nicoru', '1');
-
-        const langCode = this.getLangCode(params.msgInfo.language);
-        if (langCode) {
-          thread_leaves.setAttribute('language', langCode);
-        }
-
-        thread_leaves.innerHTML = threadLeavesParam;
-
-        return thread_leaves;
-      },
-
-    buildPacket: function (msgInfo, threadKey, force184) {
-
-      const span = document.createElement('span');
-      const packet = document.createElement('packet');
-
-      // リクエスト用のxml生成なのだが闇が深い
-      // 不要なところにdurationやuserKeyを渡すとコメントが取得できなくなったりする
-      // 不要なら無視してくれればいいのに
-      // 本当よくわからないので困る
-      if (msgInfo.optionalThreadId) {
-        packet.appendChild(
-          this._createThreadXml({
-            msgInfo: msgInfo,
-            version: VERSION,
-            useDuration: false,
-            useUserKey: true,
-            useThreadKey: false,
-            isOptional: true,
-            // waybackKey
-          })
-        );
-        packet.appendChild(
-          this._createThreadLeavesXml({
-            msgInfo: msgInfo,
-            version: VERSION,
-            useUserKey: true,
-            useThreadKey: false,
-            isOptional: true,
-            // waybackKey
-          })
-        );
-      } else {
-        // forkを取得するには必要っぽい
-        packet.appendChild(
-          this._createThreadXml({
-            msgInfo: msgInfo,
-            version: VERSION_OLD,
-            threadKey: threadKey,
-            force184: force184,
-            useDuration: true,
-            useThreadKey: false,
-            useUserKey: false,
-            // waybackKey
-          })
-        );
-      }
-      packet.appendChild(
-        this._createThreadXml({
-          msgInfo: msgInfo,
-          version: VERSION,
-          threadKey: threadKey,
-          force184: force184,
-          useDuration: false,
-          useThreadKey: true,
-          useUserKey: false,
-          // waybackKey
-        })
-      );
-      packet.appendChild(
-        this._createThreadLeavesXml({
-          msgInfo: msgInfo,
-          version: VERSION,
-          threadKey: threadKey,
-          force184: force184,
-          useThreadKey: true,
-          useUserKey: false,
-          // waybackKey
-        })
-      );
-
-
-      span.appendChild(packet);
-      return span.innerHTML;
-    },
-    _post: function (server, xml) {
-      // マイページのjQueryが古いためかおかしな挙動をするのでPromiseで囲う
-      return new Promise((resolve, reject) => {
-        util.ajax({
-          url: server,
-          data: xml,
-          timeout: 60000,
-          type: 'POST',
-          contentType: 'text/plain',
-          dataType: 'xml',
-          crossDomain: true,
-          cache: false
-        }).then((result) => {
-          //console.log('post success: ', result);
-          resolve(result);
-        }, (result) => {
-          //console.log('post fail: ', result);
-          reject({
-            result: result,
-            message: 'コメントの通信失敗 server: ' + server
-          });
-        });
-      });
-    },
-    _get: function (server, threadId, duration, threadKey, force184) {
-      // nmsg.nicovideo.jpでググったら出てきた。
-      // http://favstar.fm/users/koizuka/status/23032783744012288
-      // xmlじゃなくてもいいのかよ!
-
-      let resCount = this.getRequestCountByDuration(duration);
-
-      let url = server +
-        'thread?version=' + VERSION +
-        '&thread=' + threadId +
-        '&scores=1' +
-        '&res_from=-' + resCount;
-      if (threadKey) {
-        url += '&threadkey=' + threadKey;
-      }
-      if (force184) {
-        url += '&force_184=' + force184;
-      }
-
-      console.log('%cthread url:', 'background: cyan;', url);
-      return new Promise((resolve, reject) => {
-        util.ajax({
-          url: url,
-          timeout: 60000,
-          crossDomain: true,
-          cache: false
-        }).then(function (result) {
-          //console.log('post success: ', result);
-          resolve(result);
-        }, function (result) {
-          //console.log('post fail: ', result);
-          reject({
-            result: result,
-            message: 'コメントの取得失敗' + server
-          });
-        });
-      });
-    },
-    _load: function (msgInfo) {
-      let packet, threadKey, force184;
-
-      const loadThreadKey = () => {
-        if (!msgInfo.isNeedKey) {
-          return Promise.resolve();
-        }
-        return this.getThreadKey(msgInfo.threadId, msgInfo.language).then(info => {
-          console.log('threadKey: ', info);
-          threadKey = info.threadkey;
-          force184 = info.force_184;
-        });
-      };
-
-      return loadThreadKey().then(() => {
-        packet = this.buildPacket(msgInfo, threadKey, force184);
-
-        console.log('post xml...', msgInfo.server, packet);
-        return this._post(msgInfo.server, packet, msgInfo.threadId);
-      });
-
-    },
-    load: function (msgInfo) {
-      const server = msgInfo.server;
-      const threadId = msgInfo.threadId;
-      const userId = msgInfo.userId;
-
-      const timeKey = `loadComment server: ${server} thread: ${threadId}`;
-      window.console.time(timeKey);
-
-      let resolve, reject;
-      const onSuccess = result => {
-        window.console.timeEnd(timeKey);
-        ZenzaWatch.debug.lastMessageServerResult = result;
-
-        let thread, xml, ticket, lastRes = 0;
-        let resultCodes = [], resultCode = null;
-        try {
-          xml = result.documentElement;
-          let threads = xml.getElementsByTagName('thread');
-
-          thread = threads[0];
-
-          threads.forEach(t => {
-            let tid = t.getAttribute('thread');
-            if (parseInt(tid, 10) === parseInt(threadId, 10)) {
-              thread = t;
-              return false;
-            }
-          });
-          // どのthreadを参照すればいいのか仕様がわからない。
-          // しかたないので総当たり
-          threads.forEach(t => {
-
-            let rc = t.getAttribute('resultcode');
-            if (rc.length) {
-              resultCodes.push(parseInt(rc, 10));
-            }
-
-            let tid = t.getAttribute('thread');
-            //window.console.log(t, t.outerHTML);
-            if (parseInt(tid, 10) === parseInt(threadId, 10)) {
-              thread = t;
-              const tk = thread.getAttribute('ticket');
-              if (tk && tk !== '0') {
-                ticket = tk;
-              }
-            }
-          });
-
-          const lr = thread.getAttribute('last_res');
-          if (!isNaN(lr)) {
-            lastRes = Math.max(lastRes, lr);
-          }
-
-          resultCode = (resultCodes.sort())[0];
-        } catch (e) {
-          console.error(e);
-        }
-
-        console.log('resultCodes: ', resultCodes);
-        if (resultCode !== 0) {
-          reject({
-            message: `コメント取得失敗[${resultCodes.join(', ')}]`
-          });
-          return;
-        }
-
-        let threadInfo = {
-          server,
-          userId,
-          resultCode,
-          threadId,
-          thread: thread.getAttribute('thread'),
-          serverTime: thread.getAttribute('server_time'),
-          lastRes,
-          blockNo: Math.floor((lastRes + 1) / 100),
-          ticket,
-          revision: thread.getAttribute('revision'),
-          when: msgInfo.when,
-          isWaybackMode: !!msgInfo.when
-        };
-
-        if (this._threadKeys[threadId]) {
-          threadInfo.threadKey = this._threadKeys[threadId].threadkey;
-          threadInfo.force184 = this._threadKeys[threadId].force_184;
-        }
-
-        console.log('threadInfo: ', threadInfo);
-        resolve({
-          resultCode: resultCode,
-          threadInfo: threadInfo,
-          xml: xml
-        });
-      };
-
-      const onFailFinally = e => {
-        window.console.timeEnd(timeKey);
-        window.console.error('loadComment fail: ', e);
-        reject({
-          message: 'コメントサーバーの通信失敗: ' + server
-        });
-      };
-
-      const onFail1st = e => {
-        window.console.timeEnd(timeKey);
-        window.console.error('loadComment fail: ', e);
-        PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
-
-        window.setTimeout(() => {
-          this._load(msgInfo).then(onSuccess).catch(onFailFinally);
-        }, 3000);
-      };
-
-
-      return new Promise((res, rej) => {
-        resolve = res;
-        reject = rej;
-        this._load(msgInfo).then(onSuccess).catch(onFail1st);
-      });
-    },
-    _postChat: function (threadInfo, postKey, text, cmd, vpos) {
-      const div = document.createElement('div');
-      const chat = document.createElement('chat');
-      chat.setAttribute('premium', util.isPremium() ? '1' : '0');
-      chat.setAttribute('postkey', postKey);
-      chat.setAttribute('user_id', threadInfo.userId);
-      chat.setAttribute('ticket', threadInfo.ticket);
-      chat.setAttribute('thread', threadInfo.thread);
-      chat.setAttribute('mail', cmd);
-      chat.setAttribute('vpos', vpos);
-      chat.innerHTML = text;
-      div.appendChild(chat);
-      let xml = div.innerHTML;
-
-      window.console.log('post xml: ', xml);
-      return this._post(threadInfo.server, xml).then((result) => {
-        let status = null, chat_result, no = 0, blockNo = 0, xml;
-        try {
-          xml = result.documentElement;
-          chat_result = xml.getElementsByTagName('chat_result')[0];
-          status = chat_result.getAttribute('status');
-          no = parseInt(chat_result.getAttribute('no'), 10);
-          blockNo = Math.floor((no + 1) / 100);
-        } catch (e) {
-          console.error(e);
-        }
-
-        if (status !== '0') {
-          return Promise.reject({
-            status: 'fail',
-            no: no,
-            blockNo: blockNo,
-            code: status,
-            message: 'コメント投稿失敗 status: ' + status + ' server: ' + threadInfo.server
-          });
-        }
-
-        return Promise.resolve({
-          status: 'ok',
-          no: no,
-          blockNo: blockNo,
-          code: status,
-          message: 'コメント投稿成功'
-        });
-      });
-    },
-    postChat: function (threadInfo, text, cmd, vpos, language) {
-      return this.getPostKey(threadInfo.threadId, threadInfo.blockNo, language)
-        .then((result) => {
-          return this._postChat(threadInfo, result.postkey, text, cmd, vpos);
-        });
-    }
-  });
-
-  return MessageApiLoader;
-})();
-ZenzaWatch.api.MessageApiLoader = MessageApiLoader;

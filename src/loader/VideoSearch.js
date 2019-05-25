@@ -12,9 +12,9 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
   (function () {
     // 参考: http://site.nicovideo.jp/search-api-docs/search.html
     // http://ch.nicovideo.jp/nico-lab/blomaga/ar930955
-    const BASE_URL = `https://api.search.nicovideo.jp/api/v2/`;
+    const BASE_URL = 'https://api.search.nicovideo.jp/api/v2/';
     const API_BASE_URL = `${BASE_URL}/video/contents/search`;
-    const MESSAGE_ORIGIN = `https://api.search.nicovideo.jp/`;
+    const MESSAGE_ORIGIN = 'https://api.search.nicovideo.jp/';
     const SORT = {
       f: 'startTime',
       v: 'viewCounter',
@@ -137,9 +137,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
         this._fields = [
           'contentId', 'title', 'description', 'tags', 'categoryTags',
           'viewCounter', 'commentCounter', 'mylistCounter', 'lengthSeconds',
-          'startTime', 'thumbnailUrl',
-          // 公式ドキュメントからは消えてるけど指定できた
-          'lengthSeconds', 'lastResBody'
+          'startTime', 'thumbnailUrl'
         ];
         this._context = 'ZenzaWatch';
 
@@ -357,7 +355,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
         }).then(result => {
           result = NicoSearchApiV2Loader.parseResult(result);
           if (typeof result !== 'number' && result.status === 'ok') {
-            return Promise.resolve(result);
+            return Promise.resolve(Object.assign(result, {word, params}));
           } else {
             let description;
             switch (result) {
@@ -417,7 +415,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
             break;
           }
         }
-        return result;
+        return Object.assign(result, {word, params});
       }
 
       static _jsonParse(result) {

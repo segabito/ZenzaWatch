@@ -40,7 +40,7 @@ class BaseCommandElement extends HTMLElement {
   }
 
   static async getTemplate(state = {}, props = {}, events = {}) {
-    let {html} = await this.importLit();
+    let {html} = dll.lit || await this.importLit();
     return html`<div id="root" data-state="${JSON.stringify(state)}"
       data-props="${JSON.stringify(props)}" @click=${events.onClick}></div>`;
   }
@@ -52,6 +52,9 @@ class BaseCommandElement extends HTMLElement {
     this.state = Object.assign({}, this.constructor.defaultState);
     this._boundOnUIEvent = this.onUIEvent.bind(this);
     this._boundOnCommand = this.onCommand.bind(this);
+    this.events = {
+      onClick: this._boundOnUIEvent
+    };
 
     this._idleRenderCallback = async () => {
       this._idleCallbackId = null;
@@ -76,13 +79,19 @@ class BaseCommandElement extends HTMLElement {
     let {render} = await this.constructor.importLit();
     if (!this._shadow) {
       this._shadow = this.attachShadow({mode: 'open'});
-      render(await this.constructor.getTemplate(this.state, this.props, {onClick: this._boundOnUIEvent}), this._shadow);
-      this._root = this._shadow.querySelector('#root');
-      this._root.addEventListener('command', this._boundOnCommand);
+      render(await this.constructor.getTemplate(this.state, this.props, this.events), this._shadow);
     } else {
-      render(await this.constructor.getTemplate(this.state, this.props, {onClick: this._boundOnUIEvent}), this._shadow);
+      render(await this.constructor.getTemplate(this.state, this.props, this.events), this._shadow);
     }
-  }
+    if (!this._root) {
+      const root = this._shadow.querySelector('#root');
+      if (!root) {
+        return;
+      }
+      this._root = root;
+      this._root.addEventListener('command', this._boundOnCommand);
+    }
+}
 
   requestRender() {
     if (this._idleCallbackId) {
@@ -110,8 +119,9 @@ class BaseCommandElement extends HTMLElement {
 
   attributeChangedCallback(attr, oldValue, newValue) {
     attr = attr.startsWith('data-') ? this.constructor.toPropName(attr) : attr;
-    const type = this.constructor.defaultProps[attr];
-    if (['number', 'boolean', 'json'].includes(type)) {
+    // const defProp = this.constructor.defaultProps[attr];
+    const type = typeof this.constructor.propTypes[attr];
+    if (type !== 'string') {
       newValue = JSON.parse(newValue);
     }
     if (this.props[attr] === newValue) {
@@ -134,10 +144,15 @@ class BaseCommandElement extends HTMLElement {
   }
 
   _setState(key, value) {
+    if (typeof key !== 'string') { return this._setStates(key); }
     if (!this.state.hasOwnProperty(key)) { return false; }
     if (this.state[key] === value) { return false; }
     this.state[key] = value;
     return true;
+  }
+
+  _setStates(states) {
+    return Object.keys(states).filter(key => this._setState(key, states[key])).length > 0;
   }
 
   onUIEvent(e) {
@@ -151,11 +166,11 @@ class BaseCommandElement extends HTMLElement {
     }
     e.preventDefault();
     e.stopPropagation();
-    return this.dispatchCommand(command, param, e);
+    return this.dispatchCommand(command, param, e, target);
   }
 
-  dispatchCommand(command, param, originalEvent = null) {
-    this.dispatchEvent(new CustomEvent('command', {detail: {command, param, originalEvent}, bubbles: true, composed: true}));
+  dispatchCommand(command, param, originalEvent = null, target = null) {
+    (target || this).dispatchEvent(new CustomEvent('command', {detail: {command, param, originalEvent}, bubbles: true, composed: true}));
   }
 
   onCommand(e) {

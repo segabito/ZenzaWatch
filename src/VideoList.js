@@ -349,7 +349,7 @@ const VideoListItemView = (() => {
         margin-top: 4px;
         outline-offset: -8px;
       }
-      
+
       .videoItem.is-ng-rejected {
         display: none;
       }
@@ -368,7 +368,7 @@ const VideoListItemView = (() => {
         background-repeat: no-repeat;
         background-position: center;
       }
-      
+
       .thumbnailContainer a {
         display: inline-block;
         width:  100%;
@@ -773,13 +773,13 @@ VideoListView.__tpl__ = (`
     opacity: 0.5;
     pointer-events: none;
   }
-  
+
   .is-updating #listContainer {
     pointer-events: none;
     opacity: 0.5;
     transition: none;
   }
-  
+
   #listContainer {
     position: absolute;
     top: 0;
@@ -795,7 +795,7 @@ VideoListView.__tpl__ = (`
     counter-reset: itemIndex;
     will-change: transform;
   }
-  
+
   .is-scrolling #listContainerInner {
     pointer-events: none;
     animation-play-state: paused !important;
@@ -818,7 +818,7 @@ VideoListView.__tpl__ = (`
     opacity: 0.3;
     transition: opacity 0.4s ease;
   }
-  
+
   .scrollToActive {
     --progress: calc(var(--active-index) / var(--list-length) * 100%);
     display: none;
@@ -2025,7 +2025,7 @@ PlaylistView.__tpl__ = (`
 
               <hr class="separator">
               <li class="playlist-command" data-command="exportFile">ファイルに保存 &#x1F4BE;</li>
-              
+
               <li class="playlist-command" data-command="importFileMenu">
                 <input type="file" class="playlist-import-file-select" accept=".json">
                 ファイルから読み込む
@@ -2301,6 +2301,18 @@ class Playlist extends VideoList {
       this._refreshIndex(false);
     }
     setTimeout(() => this._view.scrollToItem(videoListItems[0]), 1000);
+  }
+  replaceItems(videoListItemsRawData, options) {
+    const items = videoListItemsRawData.map(raw => new VideoListItem(raw));
+    return this._replaceAll(items, options);
+  }
+  appendItems(videoListItemsRawData, options) {
+    const items = videoListItemsRawData.map(raw => new VideoListItem(raw));
+    return this._appendAll(items, options);
+  }
+  insertItems(videoListItemsRawData, options) {
+    const items = videoListItemsRawData.map(raw => new VideoListItem(raw));
+    return this._insertAll(items, options);
   }
   loadFromMylist(mylistId, options) {
     this._initializeView();

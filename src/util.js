@@ -1801,35 +1801,37 @@ const ShortcutKeyEmitter = (config => {
 util.ShortcutKeyEmitter = ShortcutKeyEmitter;
 
 
-let RequestAnimationFrame = function (callback, frameSkip) {
-  this.initialize(callback, frameSkip);
-};
-_.assign(RequestAnimationFrame.prototype, {
-  initialize: function (callback, frameSkip) {
+class RequestAnimationFrame {
+  constructor(callback, frameSkip) {
     this._frameSkip = Math.max(0, typeof frameSkip === 'number' ? frameSkip : 0);
     this._frameCount = 0;
     this._callback = callback;
     this._enable = false;
     this._onFrame = this._onFrame.bind(this);
-  },
-  _onFrame: function () {
+    this._isOnce = false;
+  }
+  _onFrame() {
     if (!this._enable) { return; }
     this._frameCount++;
     if (this._frameCount % (this._frameSkip + 1) === 0) {
       this._callback();
     }
+    if (this._isOnce) {
+      return this.disable();
+    }
     this._requestId = requestAnimationFrame(this._onFrame);
-  },
-  enable: function () {
+  }
+  enable() {
     if (this._enable) {
       return;
     }
     this._enable = true;
 
     this._requestId = requestAnimationFrame(this._onFrame);
-  },
-  disable: function () {
+  }
+  disable() {
     this._enable = false;
+    this._isOnce = false;
 
     if (!this._requestId) {
       return;
@@ -1837,7 +1839,15 @@ _.assign(RequestAnimationFrame.prototype, {
     cancelAnimationFrame(this._requestId);
     this._requestId = null;
   }
-});
+  execOnce() {
+    if (this._enable) {
+      return;
+    }
+    this._isOnce = true;
+    this.enable();
+  }
+}
+
 util.RequestAnimationFrame = RequestAnimationFrame;
 
 
@@ -1957,6 +1967,61 @@ const MylistPocketDetector = (() => {
 
 })();
 
+util.fetchByQuery = (query) => {
+  const [type, vars] = query.split('/');
+  let [id, p] = (vars || '').split('?');
+  let url;
+  id = decodeURIComponent(id || '');
+  const params = util.parseQuery(p || '');
+  const _query = {
+    url,
+    type,
+    id,
+    params,
+    title: params.title || ''
+  };
+  switch (type) {
+    case 'mylist':
+      url = `https://flapi.nicovideo.jp/api/watch/mylistvideo?id=${id}`;
+      break;
+    case 'user':
+      url = `https://flapi.nicovideo.jp/api/watch/uploadedvideo?user_id=${id}`;
+      break;
+    case 'mymylist':
+      url = `https://www.nicovideo.jp/api/mylist/list?group_id=${id}`;
+      break;
+    case 'deflist':
+      url = 'https://www.nicovideo.jp/api/deflist/list';
+      break;
+    case 'tag':
+    case 'search': {
+      const p = {
+        searchType: type,
+        order: (params.sort || '').chatAt(0) === '-' ? 'd' : 'a',
+        sort: (params.sort || '').substring(1),
+        userId: params.userId || null,
+        channelId: params.channelId || null,
+        dateFrom: params.start || null,
+        dateTo: params.end || null,
+        commentCount: params.commentCount,
+        f_range: params.f,
+        l_range: params.l
+      };
+      return NicoSearchApiV2Loader.search(id, p).then(result => {
+        result._query = _query;
+        return result;
+      });
+    }
+  }
+  if (url) {
+    _query.url = url;
+    return util.fetch(url).then(res => res.json()).then(json => {
+      json._query = _query;
+      return json;
+    });
+  }
+  return Promise.reject('unknown query');
+};
 
 const VideoCaptureUtil = (() => {
   const crossDomainGates = {};

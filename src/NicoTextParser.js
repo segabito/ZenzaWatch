@@ -235,7 +235,7 @@ han_group { font-family: 'Arial'; }
     }
 
   .nicoChat.medium {
-    line-height: 29px; 
+    line-height: 29px;
   }
     .nicoChat.medium.html5 {
       line-height: ${(384 - 4) / 13}px;
@@ -297,7 +297,7 @@ han_group { font-family: 'Arial'; }
 /*
 .type3000 > spacer::after { content: ' '; }
 .mincho > .type3000 > spacer::after, .gulim > .type3000 > spacer::after, .mincho > .type3000 > spacer::after {
-  content: '全'; 
+  content: '全';
 }
 */
 
@@ -353,12 +353,25 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 */
 .html5_zero_width { display: none; }
 
-.no-height { 
+.no-height {
   line-height: 0 !important;
   opacity: 0;
   display: block;
   visibility: hidden;
  }
+
+ .line53 {
+   display: inline-block;
+   line-height: 32px;
+ }
+ .line100 {
+   display: inline-block;
+   line-height: 23.5px;
+ }
+ /*.line70 {
+   display: inline-block;
+   line-height: 27px;
+ }*/
 
   `).trim();
 
@@ -530,12 +543,12 @@ NicoTextParser.likeHTML5 = function (text) {
   ;
 
   let sp = htmlText.split('<br>');
-  if (sp.length >= 100) {
-    htmlText = `${sp.slice(0, 100).join('<br>')}<span class="no-height">${sp.slice(100).join('<br>')}</span>`;
+  if (sp.length >= 101) {
+    htmlText = `<span class="line101">${sp.slice(0, 101).join('<br>')}</span><span class="no-height">${sp.slice(101).join('<br>')}</span>`;
   } else if (sp.length >= 70) {
-    htmlText = `${sp.slice(0, 70).join('<br>')}<span class="no-height">${sp.slice(70).join('<br>')}</span>`;
+    htmlText = `<span class="line70">${sp.slice(0, 70).join('<br>')}</span><span class="no-height">${sp.slice(70).join('<br>')}</span>`;
   } else if (sp.length >= 53) {
-    htmlText = `${sp.slice(0,53).join('<br>')}<span class="no-height">${sp.slice(53).join('<br>')}</span>`;
+    htmlText = `<span class="line53">${sp.slice(0,53).join('<br>')}</span><span class="no-height">${sp.slice(53).join('<br>')}</span>`;
   }
 
   return htmlText;
