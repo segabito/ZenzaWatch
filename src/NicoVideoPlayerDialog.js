@@ -1018,21 +1018,40 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
   },
   _initializeResponsive: function () {
     window.addEventListener('resize', _.debounce(this._updateResponsive.bind(this), 500));
+    this._varMapper = new VariablesMapper({config: this._playerConfig});
+    this._varMapper.on('update', () => this._updateResponsive());
   },
   _updateResponsive: function () {
+    if (!this._state.isOpen) {
+      return;
+    }
     let $container = this._$playerContainer;
-    let $bar = $container.find('.videoControlBar');
     let $header = $container.find('.zenzaWatchVideoHeaderPanel');
+    let config = this._playerConfig;
 
     // 画面の縦幅にシークバー分の余裕がある時は常時表示
     const update = () => {
       const w = window.innerWidth, h = window.innerHeight;
-      const videoControlBarHeight = $bar.outerHeight();
       const vMargin = h - w * this._aspectRatio;
 
-      this.toggleClass('showVideoControlBar', vMargin >= videoControlBarHeight);
-      this.toggleClass('showVideoHeaderPanel',
-        vMargin >= videoControlBarHeight + $header.outerHeight() * 2);
+      const controlBarMode = config.getValue('fullscreenControlBarMode');
+      if (controlBarMode === 'always-hide') {
+        this.toggleClass('showVideoControlBar', false);
+        return;
+      }
+      let videoControlBarHeight = this._varMapper.videoControlBarHeight;
+      let showVideoHeaderPanel = vMargin >= videoControlBarHeight + $header.outerHeight() * 2;
+      let showVideoControlBar;
+      switch (controlBarMode) {
+        case 'always-show':
+          showVideoControlBar = true;
+          break;
+        case 'auto':
+        default:
+          showVideoControlBar = vMargin >= videoControlBarHeight;
+      }
+      this.toggleClass('showVideoControlBar', showVideoControlBar);
+      this.toggleClass('showVideoHeaderPanel', showVideoHeaderPanel);
     };
 
     update();
