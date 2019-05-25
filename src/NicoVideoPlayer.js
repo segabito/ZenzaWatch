@@ -1453,7 +1453,7 @@ VideoPlayer.__css__ = `
       display: block;
       transition: transform 0.4s ease;
     }
-    
+
     .is-flipH .zenzaWatchVideoElement {
       transform: perspective(400px) rotateY(180deg);
     }
@@ -1474,6 +1474,7 @@ VideoPlayer.__css__ = `
       width: 100%;
       height: 100%;
       z-index: 10;
+      touch-action: none;
     }
     /* YouTubeのプレイヤーを触れる用にするための隙間 */
     .is-youtube .touchWrapper {
@@ -1511,7 +1512,7 @@ class TouchWrapper extends Emitter {
     this._config = ZenzaWatch.config.namespace('touch');
     this._isTouching = false;
     this._maxCount = 0;
-    this._currentTouches = [];
+    this._currentPointers = [];
 
     this._debouncedOnSwipe2Y = _.debounce(this._onSwipe2Y.bind(this), 400);
     this._debouncedOnSwipe3X = _.debounce(this._onSwipe3X.bind(this), 400);
@@ -1548,7 +1549,7 @@ class TouchWrapper extends Emitter {
 
   _onTouchStart(e) {
     let identifiers =
-      this._currentTouches.map(touch => {
+      this._currentPointers.map(touch => {
         return touch.identifier;
       });
     if (e.changedTouches.length > 1) {
@@ -1559,7 +1560,7 @@ class TouchWrapper extends Emitter {
       if (identifiers.includes(touch.identifier)) {
         return;
       }
-      this._currentTouches.push(touch);
+      this._currentPointers.push(touch);
     });
 
     this._maxCount = Math.max(this._maxCount, this.touchCount);
@@ -1664,11 +1665,11 @@ class TouchWrapper extends Emitter {
       });
     let currentTouches = [];
 
-    currentTouches = this._currentTouches.filter(touch => {
+    currentTouches = this._currentPointers.filter(touch => {
       return !identifiers.includes(touch.identifier);
     });
 
-    this._currentTouches = currentTouches;
+    this._currentPointers = currentTouches;
 
     //touchstartは複数タッチでも一回にまとまって飛んでくるが、
     //touchendは指の数だけ飛んでくるっぽい？
@@ -1708,15 +1709,15 @@ class TouchWrapper extends Emitter {
     let currentTouches = [];
 
     window.console.log('onTouchCancel', this._isMoved, e.changedTouches.length);
-    currentTouches = this._currentTouches.filter(touch => {
+    currentTouches = this._currentPointers.filter(touch => {
       return !identifiers.includes(touch.identifier);
     });
 
-    this._currentTouches = currentTouches;
+    this._currentPointers = currentTouches;
   }
 
   get touchCount() {
-    return this._currentTouches.length;
+    return this._currentPointers.length;
   }
 
   _getCenter(e) {
