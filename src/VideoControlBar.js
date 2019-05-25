@@ -3,7 +3,7 @@ import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
 import {SeekBarThumbnail, Storyboard} from './StoryBoard';
-import {util} from './util';
+import {util, BaseViewComponent} from './util';
 import {Emitter} from './baselib';
 
 //===BEGIN===
@@ -37,6 +37,10 @@ util.addStyle(`
     user-select: none;
   }
 
+  .videoControlBar.is-wheelSeeking {
+    pointer-events: none;
+  }
+
 
   .controlItemContainer {
     position: absolute;
@@ -46,6 +50,7 @@ util.addStyle(`
   }
 
   .controlItemContainer:hover,
+  .controlItemContainer:focus-within,
   .videoControlBar.is-menuOpen .controlItemContainer {
     z-index: 260;
   }
@@ -111,7 +116,7 @@ util.addStyle(`
     margin-right: 8px;
     min-width: 32px;
     vertical-align: middle;
-    outline: none;      
+    outline: none;
   }
   .controlButton:hover {
     cursor: pointer;
@@ -155,7 +160,7 @@ util.addStyle(`
     opacity: 1;
     pointer-events: auto;
   }
-  
+
   .videoControlBar .controlButton:focus-within {
     pointer-events: none;
   }
@@ -186,11 +191,20 @@ util.addStyle(`
     bottom: 44px;
     white-space: nowrap;
   }
-  
+
   .videoControlBar .triangle {
     transform: translate(-50%, 0) rotate(-45deg);
     bottom: -8.5px;
     left: 50%;
+  }
+
+  .videoControlBar .zenzaSubMenu::after {
+    content: '';
+    position: absolute;
+    display: block;
+    width: 110%;
+    height: 16px;
+    left: -5%;
   }
 
   .controlButtonInner {
@@ -235,11 +249,11 @@ util.addStyle(`
     width: 24px;
     height: 16px;
     background-image: linear-gradient(
-      to right, 
-      transparent 0, transparent 12.5%, 
-      currentColor 0, currentColor 43.75%, 
-      transparent 0, transparent 56.25%, 
-      currentColor 0, currentColor 87.5%, 
+      to right,
+      transparent 0, transparent 12.5%,
+      currentColor 0, currentColor 43.75%,
+      transparent 0, transparent 56.25%,
+      currentColor 0, currentColor 87.5%,
       transparent 0);
     opacity: 0;
     transform: scaleX(0);
@@ -346,9 +360,22 @@ util.addStyle(`
   .is-loading .seekBarPointer {
     display: none !important;
   }
-  
+
   .is-dragging .seekBarPointer.is-notSmooth {
     transition: none;
+  }
+  .is-dragging .seekBarPointer::after,
+  .is-wheelSeeking .seekBarPointer::after {
+    content: '';
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 100%;
+    box-shadow: 0 0 8px #ffc inset, 0 0 8px #ffc;
+    pointer-events: none;
   }
 
   @keyframes seekBarPointerMove {
@@ -373,7 +400,7 @@ util.addStyle(`
     pointer-events: none;
     user-select: none;
   }
-  
+
   .videoControlBar .videoTime .currentTime,
   .videoControlBar .videoTime .duration {
     display: inline-block;
@@ -408,7 +435,7 @@ util.addStyle(`
   .seekBarContainer:hover .tooltip {
     opacity: 0.8;
   }
-  
+
   .resumePointer {
     position: absolute;
     mix-blend-mode: color-dodge;
@@ -504,7 +531,7 @@ util.addStyle(`
     font-size: 12px;
     line-height: 15px;
   }
-  
+
   .screenModeSelectMenu ul {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -533,7 +560,7 @@ util.addStyle(`
     color: #ff9;
     border-color: #ff0;
   }
-  
+
   .fullscreenControlBarModeMenu {
     display: none;
   }
@@ -639,10 +666,10 @@ util.addStyle(`
     border: 1px solid;
     transform: translate(-50%, -50%) rotate(45deg);
     pointer-events: none;
-    background: 
+    background:
       radial-gradient(
         currentColor,
-        currentColor 6px, 
+        currentColor 6px,
         transparent 0
       );
   }
@@ -664,8 +691,8 @@ util.addStyle(`
   }
   .videoServerTypeMenu.is-dmc-playing  {
     text-shadow:
-      0px 0px 8px var(--enabled-button-color), 
-      0px 0px 6px var(--enabled-button-color), 
+      0px 0px 8px var(--enabled-button-color),
+      0px 0px 6px var(--enabled-button-color),
       0px 0px 4px var(--enabled-button-color),
       0px 0px 2px var(--enabled-button-color);
   }
@@ -796,7 +823,7 @@ util.addStyle(`
     line-height: 32px;
     pointer-events: none;
   }
-  
+
   .progressWave {
     display: none;
   }
@@ -859,11 +886,11 @@ util.addStyle(`
     opacity: 1;
     background: rgba(0, 0, 0, 0.9);
   }
-  
+
   .fullscreenControlBarModeMenu {
     display: inline-block;
   }
-  
+
   .fullscreenControlBarModeSelectMenu {
     padding: 2px 4px;
     font-size: 12px;
@@ -875,7 +902,7 @@ util.addStyle(`
   .fullscreenControlBarModeSelectMenu ul {
     margin: 2px 8px;
   }
-  
+
   .fullscreenControlBarModeSelectMenu li {
     padding: 3px 4px;
   }
@@ -1087,7 +1114,7 @@ util.addStyle(`
               </ul>
             </div>
           </div>
-          
+
           <div class="fullscreenControlBarModeMenu controlButton" tabindex="-1" data-has-submenu="1">
             <div class="tooltip">ツールバーの表示</div>
             <div class="controlButtonInner">&#128204;</div>
@@ -1138,8 +1165,8 @@ util.addStyle(`
       player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
 
+      this._isWheelSeeking = false;
       this._initializeDom();
-      this._initializeScreenModeSelectMenu();
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
       this._initializeVideoServerTypeSelectMenu();
@@ -1151,6 +1178,7 @@ util.addStyle(`
       let $view = this._$view = $(VideoControlBar.__tpl__);
       let $container = this._$playerContainer;
       let config = this._playerConfig;
+      this._view = $view[0];
 
       this._$seekBarContainer = $view.find('.seekBarContainer');
       this._$seekBar          = $view.find('.seekBar');
@@ -1198,14 +1226,11 @@ util.addStyle(`
       });
       let updateEnableCommentPreview = v => {
         this._$seekBarContainer.toggleClass('enableCommentPreview', v);
-        this._commentPreview.mode = v ? 'list' : 'hover';// setIsEnable(v);
+        this._commentPreview.mode = v ? 'list' : 'hover';
       };
 
       updateEnableCommentPreview(config.getValue('enableCommentPreview'));
       config.on('update-enableCommentPreview', updateEnableCommentPreview);
-
-      this._$screenModeMenu       = $view.find('.screenModeMenu');
-      this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
 
       this._$playbackRateMenu       = $view.find('.playbackRateMenu');
       this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
@@ -1213,6 +1238,28 @@ util.addStyle(`
       this._$videoServerTypeMenu       = $view.find('.videoServerTypeMenu');
       this._$videoServerTypeSelectMenu = $view.find('.videoServerTypeSelectMenu');
 
+      const watchElement = $container[0].closest('#zenzaVideoPlayerDialog');
+      this._wheelSeeker = new WheelSeeker({
+        parentNode: $view[0],
+        watchElement
+      });
+
+      watchElement.addEventListener('mousedown', e => {
+        if (['A', 'INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+          return;
+        }
+        if (e.buttons !== 3 && !(e.button === 0 && e.shiftKey)) {
+          return;
+        }
+        if (e.buttons === 3) {
+          watchElement.addEventListener('contextmenu', e => {
+            window.console.log('contextmenu', e);
+            e.preventDefault();
+            e.stopPropagation();
+          }, {once: true, capture: true});
+        }
+        this._onSeekBarMouseDown(e);
+      });
 
       ZenzaWatch.emitter.on('hideHover', () => {
         this._hideMenu();
@@ -1222,15 +1269,13 @@ util.addStyle(`
       $container.append($view);
       this._width = this._$seekBarContainer.innerWidth();
     },
-    _initializeScreenModeSelectMenu: function() {
-    },
     _initializePlaybackRateSelectMenu: function() {
       let config = this._playerConfig;
       let $btn  = this._$playbackRateMenu;
       let $label = $btn.find('.controlButtonInner');
       let $menu = this._$playbackRateSelectMenu;
 
-      let updatePlaybackRate =  rate => {
+      let updatePlaybackRate = rate => {
         $label.text(`x${rate}`);
         $menu.find('.selected').removeClass('selected');
         let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
@@ -1341,6 +1386,20 @@ util.addStyle(`
         case 'toggleStoryboard':
           this._storyboard.toggle();
           break;
+        case 'wheelSeek-start':
+          window.console.log('start-seek-start');
+          this._isWheelSeeking = true;
+          this._wheelSeeker.currentTime = this._player.getCurrentTime();
+          this._view.classList.add('is-wheelSeeking');
+          break;
+        case 'wheelSeek-end':
+          window.console.log('start-seek-end');
+          this._isWheelSeeking = false;
+          this._view.classList.remove('is-wheelSeeking');
+          break;
+        case 'wheelSeek':
+          this._onWheelSeek(e.detail.param);
+          break;
         default:
           return;
       }
@@ -1404,6 +1463,7 @@ util.addStyle(`
     },
     _onPlayerDurationChange: function() {
       this._pointer.duration = this._playerState.videoInfo.duration;
+      this._wheelSeeker.duration = this._playerState.videoInfo.duration;
       this._heatMap.setChatList(this._chatList);
     },
     _onPlayerClose: function() {
@@ -1448,6 +1508,21 @@ util.addStyle(`
     },
     _onSeekBarMouseMoveEnd: function(e) {
     },
+    _onWheelSeek: function(sec) {
+      if (!this._isWheelSeeking) {
+        return;
+      }
+      sec = sec * 1;
+      let dur = this._duration;
+      let left = sec / dur * window.innerWidth;
+      this._seekBarMouseX = left;
+
+      this._commentPreview.setCurrentTime(sec);
+      this._commentPreview.update(left);
+
+      this._seekBarToolTip.update(sec, left);
+      this._storyboard.setCurrentTime(sec, true);
+    },
     _beginMouseDrag: function() {
       this._bindDragEvent();
       this._$view.addClass('is-dragging');
@@ -1486,8 +1561,10 @@ util.addStyle(`
     },
     _onTimer: function() {
       this._timerCount++;
+
       let player = this._player;
-      let currentTime = player.getCurrentTime();
+      let currentTime = this._isWheelSeeking ?
+        this._wheelSeeker.currentTime : player.getCurrentTime();
       if (this._timerCount % 2 === 0) {
         this.setCurrentTime(currentTime);
       }
@@ -1526,6 +1603,7 @@ util.addStyle(`
       if (sec === this._duration) { return; }
       this._duration = sec;
       this._pointer.duration = sec;
+      this._wheelSeeker.duration = sec;
       this._pointer.currentTime = -1;
 
       if (sec === 0 || isNaN(sec)) {
@@ -1556,8 +1634,7 @@ util.addStyle(`
             }
             break;
           }
-        } catch (e) {
-        }
+        } catch (e) {}
       }
     },
     resetBufferedRange: function() {
@@ -2093,6 +2170,7 @@ util.addStyle(`
   .zenzaCommentPreview * {
     box-sizing: border-box;
   }
+  .is-wheelSeeking .zenzaCommentPreview,
   .seekBarContainer:hover .zenzaCommentPreview {
     display: block;
   }
@@ -2150,7 +2228,7 @@ util.addStyle(`
       color: #ffc;
     }
   }
-  
+
   .listContainer:hover .nicoChat.odd {
     background: #333;
   }
@@ -2259,9 +2337,9 @@ util.addStyle(`
   .listContainer .nicoChat .text {
     display: inline-block;
     text-shadow: 1px 1px 1px #fff;
-    
+
     transform: translateX(260px);
-    visibility: hidden;    
+    visibility: hidden;
     will-change: transform;
     animation-duration: calc(var(--duration) * 1s);
     animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
@@ -2274,7 +2352,7 @@ util.addStyle(`
   .listContainer .nicoChat .addFilter {
     display: none !important;
   }
-      
+
   @keyframes preview-text-moving {
     0% {
       visibility: visible;
@@ -2341,7 +2419,7 @@ util.addStyle(`
       z-index: 300;
       position: absolute;
       box-sizing: border-box;
-      bottom: 16px;
+      bottom: 24px;
       left: 0;
       width: 180px;
       white-space: nowrap;
@@ -2357,6 +2435,7 @@ util.addStyle(`
       pointer-events: none;
     }
 
+    .is-wheelSeeking .seekBarToolTip,
     .is-dragging .seekBarToolTip,
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
@@ -2371,6 +2450,7 @@ util.addStyle(`
       vertical-aligm: middle;
       width: 100%;
     }
+    .is-wheelSeeking .seekBarToolTipInner,
     .is-dragging .seekBarToolTipInner {
       pointer-events: none;
     }
@@ -2439,11 +2519,11 @@ util.addStyle(`
           </div>
 
           <div class="currentTime"></div>
-          
+
           <div class="controlButton toggleCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
             <div class="menuButtonInner">💬</div>
           </div>
-          
+
 
           <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む" data-repeat="on">
             <div class="controlButtonInner">⇨</div>
@@ -2635,6 +2715,235 @@ util.addStyle(`
       if (!this._isPausing) {
         this._animation.play();
       }
+    }
+  }
+
+
+  class WheelSeeker extends BaseViewComponent {
+    static get template() {
+      return `
+        <div class="root" style="display: none;">
+          <style>
+            .back {
+              content: '';
+              display: block;
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+              user-select: none;
+              will-change: transform;
+              z-index: 1000000;
+              pointer-events: auto;
+            }
+
+            .pointer {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              width: 100%;
+              height: 0;
+              background: transparent;
+              pointer-events: none;
+              user-select: none;
+              transition: transform 0.1s ease;
+              will-change: transform;
+              z-index: 1000000;
+              opacity: 0.5;
+            }
+
+            .pointer-core {
+              position: absolute;
+              bottom: 64px;
+              color: rgba(255, 0, 0, 0.5);
+              background: transparent;
+              font-size: 48px;
+              transform:
+                translateX(-50%)
+                perspective(500px)
+                scale(1, 1.5)
+                rotateX(20deg)
+                rotateY(70deg)
+                ;
+              animation-name: pointer-rotation;
+              animation-duration: 1s;
+              animation-iteration-count: infinite;
+              animation-timing-function: linear;
+            }
+
+            @keyframes pointer-rotation {
+              0% {
+              transform:
+                translateX(-50%)
+                perspective(500px)
+                scale(1, 1.5)
+                rotateX(20deg)
+                rotateY(0deg)
+                ;
+              }
+              100% {
+              transform:
+                translateX(-50%)
+                perspective(500px)
+                scale(1, 1.5)
+                rotateX(20deg)
+                rotateY(360deg)
+                ;
+              }
+            }
+
+          </style>
+          <div class="pointer">
+            <!--<div class="pointer-core">▼</div>-->
+          </div>
+          <div class="back"></div>
+          </div>
+      `;
+    }
+
+    constructor(params) {
+      super({
+        parentNode: params.parentNode,
+        name: 'WheelSeeker',
+        template: '<div class="WheelSeeker"></div>',
+        shadow: WheelSeeker.template
+      });
+      Object.assign(this._props, {
+        watchElement: params.watchElement,
+        isActive: false,
+        pos: 0,
+        ax: 0,
+        lastWheelTime: 0,
+        duration: 1
+      });
+      this._bound.onWheel = _.throttle(this.onWheel.bind(this), 50);
+      this._bound.onMouseUp = this.onMouseUp.bind(this);
+      this._bound.dispatchSeek =this.dispatchSeek.bind(this);
+
+      this._props.watchElement.addEventListener(
+        'wheel', this._bound.onWheel, {passive: false});
+    }
+
+    _initDom(...args) {
+      super._initDom(...args);
+
+      this._elm = Object.assign({}, this._elm, {
+        root: this._shadow || this._view,
+        pointer: (this._shadow || this._view).querySelector('.pointer')
+      });
+      this._shadow.addEventListener('contextmenu', e => {
+        e.stopPropagation();
+        e.preventDefault();
+      });
+      // this._shadow.addEventListener('mouseup', e => {
+      //   e.stopPropagation();
+      //   this.onMouseUp(e);
+      // });
+    }
+
+    enable() {
+      document.addEventListener(
+        'mouseup', this._bound.onMouseUp, {capture: true, once: true});
+      this.refresh();
+      this.dispatchCommand('wheelSeek-start');
+      this._elm.root.style.display = '';
+      this._props.isActive = true;
+      this._props.ax = 0;
+      this._props.lastWheelTime = performance.now();
+    }
+
+    disable() {
+      document.removeEventListener('mouseup', this._bound.onMouseUp);
+      this.dispatchCommand('wheelSeek-end');
+      this.dispatchCommand('seek', this.currentTime);
+      this._props.isActive = false;
+      setTimeout(() => {
+        this._elm.root.style.display = 'none';
+      }, 300);
+    }
+
+    onWheel(e) {
+      let {buttons, deltaY} = e;
+
+      if (!deltaY) { return; }
+      deltaY = Math.abs(deltaY) >= 100 ? deltaY / 50 : deltaY;
+      if (this.isActive) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!buttons && !e.shiftKey) {
+          return this.disable();
+        }
+        let pos = this._props.pos;
+        let ax = this._props.ax;
+        let deltaReversed = ax * deltaY < 0 ;//lastDelta * deltaY < 0;
+        let now = performance.now();
+        let seconds = ((now - this._props.lastWheelTime) / 1000);
+        this._props.lastWheelTime = now;
+        if (deltaReversed) {
+          ax = deltaY > 0 ? 0.5 : -0.5;
+        } else {
+          ax =
+            ax *
+            Math.pow(1.15, Math.abs(deltaY)) * // speedup
+            Math.pow(0.8, Math.floor(seconds/0.1)) // speeddown
+          ;
+          ax = Math.min(20, Math.abs(ax)) * (ax > 0 ? 1: -1);
+          pos += ax; // / 100;
+        }
+        pos = Math.min(100, Math.max(0, pos));
+
+        this._props.ax = ax;
+        this.pos = pos;
+        this._bound.dispatchSeek();
+      } else if (buttons || e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.enable();
+        this._props.ax = deltaY > 0 ? 0.5 : -0.5;
+      }
+    }
+
+    onMouseUp(e) {
+      if (this.isActive) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.disable();
+      }
+    }
+
+    dispatchSeek() {
+      this.dispatchCommand('wheelSeek', this.currentTime);
+    }
+
+    refresh() {
+      // window.console.log('refresh', `translateX(${this._props.pos}%)`);
+      this._elm.pointer.style.transform = `translateX(${this._props.pos}%)`;
+    }
+
+    get isActive() {
+      return this._props.isActive;
+    }
+    get duration() {
+      return this._props.duration;
+    }
+    set duration(v) {
+      this._props.duration = v;
+    }
+    get pos() {
+      return this._props.pos;
+    }
+    set pos(v) {
+      this._props.pos = v;
+      if (this.isActive) {
+        this.refresh();
+      }
+    }
+    get currentTime() {
+      return this.duration * this.pos / 100;
+    }
+    set currentTime(v) {
+      this.pos = v / this.duration * 100;
     }
   }
 

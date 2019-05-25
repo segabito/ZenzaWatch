@@ -871,6 +871,9 @@ class StoryboardView extends Emitter {
       return 0;
     }
 
+    if (forceUpdate) {
+      this._requestAnimationFrame.execOnce();
+    }
     if (left === undefined) {
       return this._scrollLeft;
     } else {
@@ -1036,6 +1039,7 @@ StoryboardView.__css__ = (`
     box-sizing: border-box;
   }
 
+  .is-wheelSeeking .storyboardContainer.success,
   .is-dragging .storyboardContainer.success,
   .storyboardContainer.success.show {
     z-index: 50;
@@ -1046,10 +1050,12 @@ StoryboardView.__css__ = (`
     transform: translate3d(0, -100%, 0) translateY(10px);
   }
 
+  .is-wheelSeeking .storyboardContainer,
   .is-dragging .storyboardContainer {
     pointer-events: none;
   }
 
+  .is-fullscreen .is-wheelSeeking .storyboardContainer,
   .is-fullscreen .is-dragging .storyboardContainer,
   .is-fullscreen             .storyboardContainer.show {
     position: fixed;
