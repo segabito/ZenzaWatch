@@ -596,12 +596,12 @@ const WatchPageHistory = (({config, location, document, history}) => {
   let path;
   let restore = _.debounce(() => {
     history.replaceState(null, null, originalUrl);
-    document.title = originalTitle;
-  }, 3000);
+    document.title = (isOpen ? '📺' : '') + originalTitle.replace(/^📺/, '');
+  }, 10000);
 
   const pushHistory = (path, title) => {
     history.replaceState(null, null, path);
-    document.title = title;
+    document.title = (isOpen ? '📺' : '') + title.replace(/^📺/, '');
 
     if (util.isGinzaWatchUrl(originalUrl)) {
       return;
