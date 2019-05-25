@@ -411,7 +411,7 @@ SeekBarThumbnail.__css__ = (`
         display: none;
         pointer-events: none;
       }
-      
+
       .enableCommentPreview .zenzaSeekThumbnail {
         display: none !important;
       }
@@ -560,7 +560,7 @@ class StoryboardBlock {
     view.style.cssText = `
       background-image: url(${option.src});
       background-position: ${backgroundPosition};
-      left: ${(option.page * option.rows + option.row) * option.pageWidth}px;  
+      left: ${(option.page * option.rows + option.row) * option.pageWidth}px;
     `;
     Object.assign(view.dataset, {
       src: option.src,
@@ -608,7 +608,7 @@ class StoryboardBlockList {
     let view = document.createElement('div');
     view.className = 'boardList';
     view.style.cssText = `
-      width: ${storyboard.getCount() * width}px; 
+      width: ${storyboard.getCount() * width}px;
       height: ${height}px;
       --cell-width: ${width}px;
       --cell-height: ${height}px;
@@ -1016,7 +1016,7 @@ StoryboardView.__css__ = (`
     z-index: 9005;
     overflow: hidden;
     pointer-events: none;
-    transform: translateZ(0);
+    will-change: tranform;
     display: none;
     contain: layout paint style;
     user-select: none;
@@ -1076,7 +1076,7 @@ StoryboardView.__css__ = (`
     overflow-x: auto;
     overscroll-behavior: contain;
   }
-  
+
   .storyboardContainer .storyboardInner::-webkit-scrollbar {
     width: 6px;
     height: 6px;

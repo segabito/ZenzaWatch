@@ -221,6 +221,10 @@ class NicoVideoPlayerDialogView extends Emitter {
 }
 
 util.addStyle(`
+  #zenzaVideoPlayerDialog {
+    touch-action: manipulation; /* for Safari */
+    touch-action: none;
+  }
   #zenzaVideoPlayerDialog::before {
     display: none;
   }
@@ -252,21 +256,21 @@ util.addStyle(`
     opacity: 0;
     pointer-events: none;
   }
-  
+
   .is-open .videoPlayer>* {
     cursor: none;
   }
 
   .showVideoControlBar {
     --padding-bottom: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
-  } 
+  }
   .zenzaStoryboardOpen .showVideoControlBar {
     --padding-bottom: calc(var(--zenza-control-bar-height) + 80px);
   }
   .zenzaStoryboardOpen.is-fullscreen .showVideoControlBar {
     --padding-bottom: calc(var(--zenza-control-bar-height) + 50px);
   }
-  
+
   .showVideoControlBar .videoPlayer,
   .showVideoControlBar .commentLayerFrame,
   .showVideoControlBar .resizeObserver {
@@ -312,7 +316,7 @@ util.addStyle(`
     height: 50%;
     z-index: 102;
   }
-  
+
   body[data-screen-mode="3D"] .zenzaPlayerContainer .videoPlayer {
     transform: perspective(600px) rotateX(10deg);
     height: 100%;
@@ -345,7 +349,7 @@ util.addStyle(`
 
     width: auto;
   }
-  
+
   body.zenzaScreenMode_sideView.nofix {
     --sideView-top-margin: 40px;
   }
@@ -361,7 +365,7 @@ util.addStyle(`
     display: block;
     top: 0; left: 0; right: 100%; bottom: 100%;
   }
-    
+
   .zenzaScreenMode_sideView .zenzaPlayerContainer,
   .zenzaScreenMode_small .zenzaPlayerContainer {
     width: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
@@ -377,7 +381,7 @@ util.addStyle(`
     left: 0;
     transform: none;
   }
-  
+
 
   @media screen and (min-width: 1432px)
   {
@@ -446,8 +450,9 @@ util.addStyle(`
     pointer-events: none;
     user-select: none;
     animation-play-state: paused !important;
+    contain: style layout paint;
   }
-      
+
   body.zenzaScreenMode_3D >:not(.zen-family),
   body.zenzaScreenMode_wide >:not(.zen-family),
   body.is-fullscreen >:not(.zen-family) {
@@ -455,7 +460,7 @@ util.addStyle(`
     pointer-events: none;
     user-select: none;
   }
-  
+
   body.zenzaScreenMode_big .ZenButton,
   body.zenzaScreenMode_normal .ZenButton,
   body.zenzaScreenMode_wide .ZenButton,
@@ -576,7 +581,7 @@ NicoVideoPlayerDialogView.__css__ = `
   .is-mouseMoving .videoPlayer>* {
     cursor: auto;
   }
-  
+
   .is-loading .videoPlayer>* {
     cursor: wait;
   }
@@ -1147,7 +1152,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     if (Fullscreen.now()) {
       util.StyleSwitcher.update({
         on: 'style.screenMode.for-full, style.screenMode.for-screen-full',
-        off: 'style.screenMode:not(.for-full):not(.for-screen-full)'
+        off: 'style.screenMode:not(.for-full):not(.for-screen-full), link[href*="watch.css"]'
       });
       return;
     }
@@ -1156,17 +1161,17 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
       case '3D':
       case 'wide':
         on = 'style.screenMode.for-full, style.screenMode.for-window-full';
-        off = 'style.screenMode:not(.for-full):not(.for-window-full)';
+        off = 'style.screenMode:not(.for-full):not(.for-window-full), link[href*="watch.css"]';
         break;
       default:
       case 'normal':
       case 'big':
-        on = 'style.screenMode.for-dialog, style.screenMode.for-big, style.screenMode.for-normal';
+        on = 'style.screenMode.for-dialog, style.screenMode.for-big, style.screenMode.for-normal, link[href*="watch.css"]';
         off = 'style.screenMode:not(.for-dialog):not(.for-big):not(.for-normal)';
         break;
       case 'small':
       case 'sideView':
-        on = 'style.screenMode.for-popup, style.screenMode.for-sideView, .style.screenMode.for-small';
+        on = 'style.screenMode.for-popup, style.screenMode.for-sideView, .style.screenMode.for-small, link[href*="watch.css"]';
         off = 'style.screenMode:not(.for-popup):not(.for-sideView):not(.for-small)';
         break;
     }
@@ -1185,7 +1190,7 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
     this._$dialog.removeClass('is-open');
     this._settingPanel.hide();
     this._$body.removeClass('showNicoVideoPlayerDialog');
-    util.StyleSwitcher.update({off: 'style.zenza-open, style.screenMode'});
+    util.StyleSwitcher.update({off: 'style.zenza-open, style.screenMode', on: 'link[href*="watch.css"]'});
     this._clearClass();
   },
   _clearClass: function () {
@@ -1488,6 +1493,9 @@ _.assign(NicoVideoPlayerDialog.prototype, {
         this.setCurrentTime(Math.min(Math.max(0, pos), dur));
         break;
       }
+      case 'seekToResumePoint':
+        this.setCurrentTime(this._videoInfo.initialPlaybackTime);
+        break;
       case 'addWordFilter':
         this._nicoVideoPlayer.addWordFilter(param);
         break;
@@ -3618,5 +3626,5 @@ export {
   NicoVideoPlayerDialog,
   NicoVideoPlayerDialogView,
   VideoHoverMenu,
-  DynamicCss
+  VariablesMapper
 };
