@@ -124,7 +124,7 @@ const Config = ((CONFIG) => {
     smileVideoQuality: 'default', // default eco
     useWellKnownPort: false, // この機能なくなったぽい (常時true相当になった)
     'video.hls.enable': true,
-    'video.hls.segmentDuration': 5000,
+    'video.hls.segmentDuration': 6000,
 
     enableNicosJumpVideo: true, // @ジャンプを有効にするかどうか
     'videoSearch.ownerOnly': true,
