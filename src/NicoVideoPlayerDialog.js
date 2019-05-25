@@ -190,21 +190,25 @@ _.assign(VideoWatchOptions.prototype, {
     delete this._options.economy;
     _.defaults(options, this._options);
     options.openNow = true;
-    options.isReload = false;
+    delete options.videoServerType;
+    options.isAutoZenTubeDisabled = false;
     options.currentTime = 0;
+    options.reloadCount = 0;
     options.query = {};
     return options;
   },
-  createOptionsForReload: function (options) {
+  createForReload: function (options) {
     options = options || {};
     delete this._options.economy;
+    options.isAutoZenTubeDisabled = typeof options.isAutoZenTubeDisabled === 'boolean' ?
+      options.isAutoZenTubeDisabled : true;
     _.defaults(options, this._options);
     options.openNow = true;
-    options.isReload = true;
+    options.reloadCount = options.reloadCount ? (options.reloadCount + 1) : 1;
     options.query = {};
     return options;
   },
-  createOptionsForSession: function (options) {
+  createForSession: function (options) {
     options = options || {};
     _.defaults(options, this._options);
     options.query = {};
@@ -2080,7 +2084,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     if (!this._nicoVideoPlayer) {
       return;
     }
-
+    sec = Math.max(0, sec);
     this._nicoVideoPlayer.setCurrentTime(sec);
     this._lastCurrentTime = sec;
   },
@@ -2143,11 +2147,16 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     }
 
     if (this._videoSession.isDmc) {
-      this._videoSession.connect().then(sessionInfo => {
+      NVWatchCaller.call(videoInfo.dmcInfo.trackingId)
+        .then(() => {
+          return this._videoSession.connect();
+        })
+        .then(sessionInfo => {
           this.setVideo(sessionInfo.url);
           videoInfo.setCurrentVideo(sessionInfo.url);
           this.emit('videoServerType', 'dmc', sessionInfo, videoInfo);
-        }).catch(this._onVideoSessionFail.bind(this));
+        })
+        .catch(this._onVideoSessionFail.bind(this));
     } else {
       if (this._playerConfig.getValue('enableVideoSession')) {
         this._videoSession.connect();
@@ -2216,7 +2225,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
   },
   _onVideoSessionFail: function (result) {
     window.console.error('dmc fail', result);
-    this._setErrorMessage('動画の読み込みに失敗しました(dmc.nico)', this._watchId);
+    this._setErrorMessage(
+      `動画の読み込みに失敗しました(dmc.nico) ${result && result.message || ''}`, this._watchId);
     this._state.setState({isError: true, isLoading: false});
     if (this.isPlaylistEnable()) {
       window.setTimeout(() => {
@@ -2404,37 +2414,59 @@ _.assign(NicoVideoPlayerDialog.prototype, {
     this.emit('progress', range, currentTime);
   },
   _onVideoError: function (e) {
-    this._playerState.setVideoErrorOccurred();
+    this._state.setVideoErrorOccurred();
     if (e.type === 'youtube') {
       return this._onYouTubeVideoError(e);
     }
-
-
-    if (this._playerState.isPausing) {
-      //this.reload();
-      this._setErrorMessage(`停止中に動画のセッションが切れました。(code:${code})`);
+    if (!this._videoInfo) {
+      this._setErrorMessage('動画の再生に失敗しました。');
       return;
     }
 
-      if (this._videoInfo && !isDmc &&
-        (!this._videoWatchOptions.isEconomy() && !this._videoInfo.isEconomy)
-      ) {
-        this._setErrorMessage('動画の再生に失敗しました。エコノミー回線に接続します。');
-        setTimeout(() => {
-          if (!this.isOpen()) {
-            return;
-          }
-          this.reload({economy: true});
-        }, 3000);
+    const retry = params => {
+      setTimeout(() => {
+        if (!this.isOpen()) {
+          return;
+        }
+        this.reload(params);
+      }, 3000);
+    };
+
+
+    const videoWatchOptions = this._videoWatchOptions;
+    const isDmcPlaying = this._videoSession.isDmc;
+    const code = (e && e.target && e.target.error && e.target.error.code) || 0;
+    window.console.error('VideoError!', code, e, (e.target && e.target.error), this._videoSession.isDeleted, this._videoSession.isAbnormallyClosed);
+
+    if (this._state.isPausing && this._videoSession.isDeleted) {
+      this._setErrorMessage(`停止中に動画のセッションが切断されました。(code:${code})`);
+    } else if (Date.now() - this._lastOpenAt > 3 * 60 * 1000 &&
+      this._videoSession.isDeleted && !this._videoSession.isAbnormallyClosed) {
+
+      if (videoWatchOptions.getReloadCount() < 5) {
+        retry();
       } else {
-        this._setErrorMessage('動画の再生に失敗しました。');
+        this._setErrorMessage('動画のセッションが切断されました。');
       }
+    } else if (!isDmcPlaying && this._videoInfo.isDmcAvailable) {
+      this._setErrorMessage('SMILE動画の再生に失敗しました。DMC動画に接続します。');
+      retry({economy: false, videoServerType: 'dmc'});
+    } else if (!isDmcPlaying && (!this._videoWatchOptions.isEconomySelected() && !this._videoInfo.isEconomy)) {
+      this._setErrorMessage('動画の再生に失敗しました。エコノミー動画に接続します。');
+      retry({economy: true, videoServerType: 'smile'});
+    } else {
+      this._setErrorMessage('動画の再生に失敗しました。');
     }
+
+    this.emit('error', e, code);
   },
   _onYouTubeVideoError: function (e) {
     window.console.error('onYouTubeVideoError!', e);
     this._setErrorMessage(e.description);
     this.emit('error', e);
+    if (e.fallback) {
+      setTimeout(() => this.reload({isAutoZenTubeDisabled: true}), 3000);
+    }
   },
   _onVideoAbort: function () {
     this.emit('abort');
@@ -2552,11 +2584,6 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       return;
     }
     let opt = this._videoWatchOptions.createForVideoChange(options);
-
-      this.emit('error', e);
-      const isDmc = this._playerConfig.getValue('enableDmc') && this._videoInfo.isDmc;
-      const code = (e && e.target && e.target.error && e.target.error.code) || 0;
-      window.console.error('VideoError!', code, e);
 
     let nextId = this._playlist.selectNext();
     if (nextId) {

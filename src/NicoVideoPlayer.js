@@ -187,6 +187,14 @@ _.assign(NicoVideoPlayer.prototype, {
   _onLoadedMetaData: function () {
     this.emit('loadedMetaData');
   },
+  _onVideoCanPlay: function () {
+    this.emit('canPlay');
+    if (this.autoplay && !this.paused) {
+      this._video.play().catch(err => {
+        if (err instanceof DOMException) {
+          // 他によくあるのはcode: 20 Aborted など
+          if (err.code === 35 /* NotAllowedError */) {
+            this.dispatchEvent(new CustomEvent('autoplay-rejected'));
           }
         }
       });
@@ -1044,6 +1052,7 @@ class VideoPlayer extends Emitter {
     window.console.error('%c_onError:', 'background: cyan; color: red;', e);
     this.addClass('is-error');
     this._canPlay = false;
+    let fallback = false;
 
     const code = e.data;
     const description = (() => {
@@ -1053,9 +1062,11 @@ class VideoPlayer extends Emitter {
         case 5:
           return 'YouTube Error: HTML5 関連エラー (5 HTML5 error)';
         case 100:
+          fallback = true;
           return 'YouTube Error: 動画が見つからないか、非公開 (100 video not found)';
         case 101:
         case 150:
+          fallback = true;
           return `YouTube Error: 外部での再生禁止 (${code} forbidden)`;
         default:
           return `YouTube Error: (code${code})`;
@@ -1065,6 +1076,7 @@ class VideoPlayer extends Emitter {
     this.emit('error', {
       code,
       description,
+      fallback,
       target: this._videoElement,
       type: 'youtube'
     });
@@ -1125,8 +1137,10 @@ class VideoPlayer extends Emitter {
   }
 
   _onMouseWheel(e) {
+    if (e.buttons || e.shiftKey) {
+      return;
+    }
     console.log('%c_onMouseWheel:', 'background: cyan;', e);
-    // e.preventDefault();
     e.stopPropagation();
     const delta = -parseInt(e.deltaY, 10);
     if (delta !== 0) {
