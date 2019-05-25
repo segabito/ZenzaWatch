@@ -563,6 +563,8 @@ class ContextMenu extends BaseViewComponent {
     });
     view.find('.debug')
       .toggleClass('selected', this._playerState.isDebug);
+    view.find('.seekToResumePoint')
+      .css('display', this._playerState.videoInfo.initialPlaybackTime > 0 ? '' : 'none');
     if (this._isFirstShow) {
       this._isFirstShow = false;
       const handler = (command, param) => {
@@ -708,7 +710,7 @@ ContextMenu.__css__ = (`
       box-shadow: 0 0 0;
       border: 1px inset;
     }
-    
+
     [data-command="picture-in-picture"] {
       display: none;
     }
@@ -760,6 +762,13 @@ ContextMenu.__tpl__ = (`
             &#128007;<div class="tooltip">2倍速</div>
           </div>
         </div>
+        <div class="controlButtonContainerFlex seekToResumePoint">
+          <div class="controlButton command"
+          data-command="seekToResumePoint"
+          >▼ここまで見た
+            <div class="tooltip">レジューム位置にジャンプ</div>
+          </div>
+        </div>
         <div class="controlButtonContainerFlex">
           <div class="controlButton command seek5s"
             data-command="seekBy" data-param="-5" data-type="number" data-repeat="on"
@@ -793,12 +802,12 @@ ContextMenu.__tpl__ = (`
           <li class="command toggleShowComment" data-command="toggle-showComment">コメントを表示</li>
           <li class="command" data-command="picture-in-picture">P in P</li>
           <hr class="separator">
-          
+
           <li class="command forPremium toggle-flipH" data-command="toggle-flipH">左右反転</li>
           <li class="command toggle-flipV" data-command="toggle-flipV">上下反転</li>
 
           <hr class="separator">
-          
+
           <li class="command"
             data-command="reload">動画のリロード</li>
           <li class="command"
