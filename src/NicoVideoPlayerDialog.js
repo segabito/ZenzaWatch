@@ -2151,6 +2151,8 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       isChannel: videoInfo.isChannel
     });
 
+    const useHLS = !!ZenzaWatch.debug.isHLSSupported ||
+      document.createElement('video').canPlayType('application/x-mpegURL') !== '';
     this._videoSession = VideoSession.createInstance({
       videoInfo,
       videoWatchOptions: this._videoWatchOptions,
@@ -2158,7 +2160,7 @@ _.assign(NicoVideoPlayerDialog.prototype, {
       serverType,
       isPlayingCallback: this.isPlaying.bind(this),
       useWellKnownPort: this._playerConfig.getValue('useWellKnownPort'),
-      useHLS: !!ZenzaWatch.debug.isHLSSupported
+      useHLS
     });
 
     if (this._videoFilter.isNgVideo(videoInfo)) {
