@@ -937,6 +937,8 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
 
     this.selectTab(this._state.currentTab);
 
+    document.documentElement.addEventListener('paste', this._onPaste.bind(this));
+
     ZenzaWatch.emitter.on('showMenu', () => this.addClass('menuOpen'));
     ZenzaWatch.emitter.on('hideMenu', () => this.removeClass('menuOpen'));
     ZenzaWatch.emitter.on('fullscreenStatusChange', () => this._applyScreenMode(true));
@@ -967,6 +969,47 @@ _.assign(NicoVideoPlayerDialogView.prototype, {
         break;
       default:
         this.emit('command', command, param);
+    }
+  },
+  _onPaste: async function(e) {
+    window.console.log('onPaste',
+      e, document.activeElement, e.target.tagName, document.activeElement.tagName);
+    const input = ['INPUT', 'TEXTAREA'];
+    if (
+      input.includes(document.activeElement.tagName) ||
+      input.includes(e.target.tagName)) {
+      return;
+    }
+    let text;
+    try { text = await navigator.clipboard.readText(); } catch(e) { window.console.warn(e); }
+    if (!text) {
+      return;
+    }
+
+    text = text.trim();
+    const isOpen = this._state.isOpen;
+    const watchIdReg = /((nm|sm|so)\d+)/.exec(text);
+    if (watchIdReg) {
+      return this._onCommand('open', watchIdReg[1]);
+    }
+    if (!isOpen) {
+      return;
+    }
+    const youtubeReg = /^https?:\/\/((www\.|)youtube\.com\/watch|youtu\.be)/.exec(text);
+    if (youtubeReg) {
+      return this._onCommand('setVideo', text);
+    }
+    const seekReg = /^(\d+):(\d+)$/.exec(text);
+    if (seekReg) {
+      return this._onCommand('seek', seekReg[1] * 60 + seekReg[2] * 1);
+    }
+    const mylistReg = /mylist(\/#\/|\/)(\d+)/.exec(text);
+    if (mylistReg) {
+      return this._onCommand('playlistSetMylist', mylistReg[2]);
+    }
+    const ownerReg = /user\/(\d+)/.exec(text);
+    if (ownerReg) {
+      return this._onCommand('playlistSetUploadedVideo', ownerReg[1]);
     }
   },
   _initializeResponsive: function () {
