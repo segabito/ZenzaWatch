@@ -657,21 +657,21 @@ const WatchPageHistory = (({config, location, document, history}) => {
   };
   // www.nicovideo.jp 以外で開いた時、
   // www.nicovideo.jp 配下のタブがあったら代わりに既読リンクの色を変える
-  const pushHistoryAgency = async (path, title) => {
+  const pushHistoryAgency = async function(path, title) {
     if (!navigator || !navigator.locks) {
       return pushHistory(path, title);
     }
     let lastTitle = document.title;
     let lastUrl = location.href;
     // どれかひとつのタブで動けばいい
-    let result = await navigator.locks.request('pushHistoryAgency', {ifAvailable: true}, async (lock) => {
+    let result = await navigator.locks.request('pushHistoryAgency', {ifAvailable: true}, async function(lock) {
       if (!lock) {
         return;
       }
       history.replaceState(null, title, path);
       await new Promise(r => setTimeout(r, 3000));
       history.replaceState(null, lastTitle, lastUrl);
-      await new Promise(r => setTimeout(r, 5000));
+      await new Promise(r => setTimeout(r, 10000));
     });
   };
 
@@ -1228,6 +1228,9 @@ util.sortedLastIndex = (arr, value) => {
 };
 
 util.createVideoElement = (...args) => {
+  if (window.ZenzaHLS && window.ZenzaHLS.createVideoElement) {
+    return window.ZenzaHLS.createVideoElement(...args);
+  } else
   if (ZenzaWatch.debug.createVideoElement) {
     return ZenzaWatch.debug.createVideoElement(...args);
   }
