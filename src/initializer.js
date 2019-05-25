@@ -169,7 +169,7 @@ const {initialize} = (() => {
     initialize = _.noop;
 
     util.dispatchCustomEvent(
-      document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, compoed: true});
+      document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});
     util.addStyle(CONSTANT.COMMON_CSS, {className: 'common'});
     initializeBySite();
 
@@ -307,7 +307,7 @@ const {initialize} = (() => {
     CustomElements.initialize();
     ZenzaWatch.emitter.emitAsync('ready');
     util.dispatchCustomEvent(
-      document.body, 'ZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, compoed: true});
+      document.body, 'ZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});
     // こっちは過去の互換用
     $('body').trigger('ZenzaWatchReady', window.ZenzaWatch);
   };

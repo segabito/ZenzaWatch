@@ -1491,7 +1491,7 @@ util.addStyle(`
 
       util.dispatchCommand(e.target, 'seek', sec);
 
-      this._beginMouseDrag();
+      this._beginMouseDrag(e);
     },
     _onSeekBarMouseMove: function(e) {
       if (!this._$view.hasClass('is-dragging')) {
@@ -1540,7 +1540,10 @@ util.addStyle(`
       this._seekBarToolTip.update(sec, left);
       this._storyboard.setCurrentTime(sec, true);
     },
-    _onBodyMouseUp: function() {
+    _onBodyMouseUp: function(e) {
+      if ((e.button === 0 && e.shiftKey)) {
+        return;
+      }
       this._endMouseDrag();
     },
     _onWindowBlur: function() {

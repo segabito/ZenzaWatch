@@ -20,7 +20,6 @@
 // @match          *://anime.nicovideo.jp/*
 // @match          https://www.google.co.jp/search*
 // @match          https://www.google.com/search*
-// @match          https://friends.nico/*
 // @match          https://*.slack.com/*
 // @match          https://*.bing.com/*
 // @exclude        *://ads.nicovideo.jp/*
@@ -33,9 +32,8 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.0.24beta
+// @version        2.2.11
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
-// @require        https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.1/fetch.js
 // ==/UserScript==
 
 
@@ -48,6 +46,7 @@
     let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
     let TOKEN = 'r:' + (Math.random());
     let CONFIG = null;
+    let dll = {};
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
     //@environment
@@ -74,7 +73,8 @@
       modules: {Emitter, Handler},
       config: Config,
       emitter: new Emitter(),
-      state: {}
+      state: {},
+      dll
     };
 
     if (location.host.match(/\.nicovideo\.jp$/)) {
@@ -92,6 +92,8 @@
 //@require constant.js
 
 //@require util.js
+
+//@require ../packages/components/src/index.js
 
 //@require State.js
 
