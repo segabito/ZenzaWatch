@@ -1,8 +1,7 @@
-import * as _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
-import {util} from './util';
-import {Emitter} from './baselib';
-
+// import * as _ from 'lodash';
+import {global} from '../../../../src/ZenzaWatchIndex';
+import {Emitter} from '../../../lib/src/Emitter';
+import {textUtil} from '../../../lib/src/text/textUtil';
 //===BEGIN===
 
 const {YouTubeWrapper} = (() => {
@@ -26,7 +25,7 @@ const {YouTubeWrapper} = (() => {
       this._onSeekEnd = _.debounce(this._onSeekEnd.bind(this), 500);
     }
 
-    setSrc(url, startSeconds = 0) {
+    async setSrc(url, startSeconds = 0) {
       this._src = url;
       this._videoId = this._parseVideoId(url);
       this._canPlay = false;
@@ -41,16 +40,16 @@ const {YouTubeWrapper} = (() => {
         return Promise.resolve();
       }
       if (isFirst) {
-        return this._initPlayer(this._videoId, startSeconds).then(({player}) => {
+        return this._initPlayer(this._videoId, startSeconds);//.then(({player}) => {
           // YouTube APIにはプレイリストのループしか存在しないため、
           // プレイリストにも同じ動画を入れる
           // player.loadPlaylist({list: [this._videoId]});
-        });
+        // });
       }
 
       if (!url) {
         player.stopVideo();
-        return Promise.resolve();
+        return;
       }
 
       player.loadVideoById({
@@ -58,7 +57,6 @@ const {YouTubeWrapper} = (() => {
         startSeconds: startSeconds
       });
       player.loadPlaylist({list: [this._videoId]});
-      return Promise.resolve();
     }
 
     set src(v) {
@@ -70,14 +68,12 @@ const {YouTubeWrapper} = (() => {
     }
 
     _parseVideoId(url) {
-      let videoId = (() => {
-        const a = document.createElement('a');
-        a.href = url;
+      const videoId = (() => {
+        const a = textUtil.parseUrl(url);
         if (a.hostname === 'youtu.be') {
           return a.pathname.substring(1);
         } else {
-          const query = util.parseQuery(a.search.substring(1));
-          return query.v;
+          return textUtil.parseQuery(a.search).v;
         }
       })();
       if (!videoId) {
@@ -92,77 +88,63 @@ const {YouTubeWrapper} = (() => {
     }
 
     _parseUrlParams(url) {
-      const a = document.createElement('a');
-      a.href= url;
-      return a.search.startsWith('?') ? util.parseQuery(a.search.substring(1)) : {};
+      const a = textUtil.parseUrl(url);
+      return a.search.startsWith('?') ? textUtil.parseQuery(a.search) : {};
     }
 
-    _initPlayer(videoId, startSeconds = 0) {
+    async _initPlayer(videoId, startSeconds = 0) {
       if (this._player) {
-        return Promise.resolve({player: this._player});
+        return {player: this._player};
       }
 
-      let resolved = false;
-      return this._initYT().then(YT => {
-        return new Promise(resolve => {
-          this._player = new YT.Player(
-            this._parentNode, {
-              videoId,
-              events: {
-                onReady: () => {
-                  setTimeout(() => {
-                    if (!resolved) {
-                      resolved = true;
-                      resolve({player: this._player});
-                    }
-                    this._onPlayerReady();
-                  }, 0);
-                },
-                onStateChange: this._onPlayerStateChange.bind(this),
-                onPlaybackQualityChange: e => {
-                  window.console.info('video quality: ', e.data);
-                },
-                onError: (e) => {
-                  this.emit('error', e);
-                }
-              },
-              playerVars: {
-                autoplay: this.autoplay ? 0 : 1,
-                volume: this._volume * 100,
-                start: startSeconds,
-                fs: 0,
-                loop: 0,
-                controls: 1,
-                disablekb: 1,
-                modestbranding: 0,
-                playsinline: 1,
-                rel: 0,
-                showInfo: 1,
-              }
-            });
-        });
+      const YT = await this._initYT();
+      const {player} = await new Promise(resolve => {
+        this._player = new YT.Player(
+          this._parentNode, {
+            videoId,
+            events: {
+              onReady: () => resolve({player: this._player}),
+              onStateChange: this._onPlayerStateChange.bind(this),
+              onPlaybackQualityChange: e => window.console.info('video quality: ', e.data),
+              onError: e => this.emit('error', e)
+            },
+            playerVars: {
+              autoplay: this.autoplay ? 0 : 1,
+              volume: this._volume * 100,
+              start: startSeconds,
+              fs: 0,
+              loop: 0,
+              controls: 1,
+              disablekb: 1,
+              modestbranding: 0,
+              playsinline: 1,
+              rel: 0,
+              showInfo: 1
+            }
+          });
       });
+      this._onPlayerReady();
     }
 
-    _initYT() {
+    async _initYT() {
       if (window.YT) {
-        return Promise.resolve(window.YT);
+        return window.YT;
       }
 
       return new Promise(resolve => {
-        if (window.onYouTubeIframeAPIReady) {
-          window.onYouTubeIframeAPIReady_ = window.onYouTubeIframeAPIReady;
-        }
-        window.onYouTubeIframeAPIReady = () => {
-          if (window.onYouTubeIframeAPIReady_) {
-            window.onYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady_;
-          }
-          resolve(window.YT);
-        };
+        // if (window.onYouTubeIframeAPIReady) {
+        //   window.onYouTubeIframeAPIReady_ = window.onYouTubeIframeAPIReady;
+        // }
+        // window.onYouTubeIframeAPIReady = () => {
+        //   if (window.onYouTubeIframeAPIReady_) {
+        //     window.onYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady_;
+        //   }
+        //   resolve(window.YT);
+        // };
         const tag = document.createElement('script');
         tag.src = 'https://www.youtube.com/iframe_api';
-        const firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        tag.onload = () => resolve(window.YT);
+        document.head.append(tag);
       });
     }
 
@@ -217,13 +199,10 @@ const {YouTubeWrapper} = (() => {
     }
 
     selectBestQuality() {
-      let levels = this._player.getAvailableQualityLevels();
-      let best = levels[0];
-      let current = this._player.getPlaybackQuality();
-      //let currentTime = this.currentTime();
+      const levels = this._player.getAvailableQualityLevels();
+      const best = levels[0];
       this._player.pauseVideo();
       this._player.setPlaybackQuality(best);
-      //this.currentTime = currentTime;
       this._player.playVideo();
       // window.console.info('bestQuality', levels, best, current);
     }
@@ -283,7 +262,7 @@ const {YouTubeWrapper} = (() => {
     set volume(v) {
       if (this._volume !== v) {
         this._volume = v;
-        this._player.setVolume(v * 100);
+        this._player.volume = v * 100;
         this.emit('volumeChange', v);
       }
     }
@@ -343,7 +322,7 @@ const {YouTubeWrapper} = (() => {
   return {YouTubeWrapper};
 })();
 
-ZenzaWatch.debug.YouTubeWrapper = YouTubeWrapper;
+global.debug.YouTubeWrapper = YouTubeWrapper;
 
 //===END===
 

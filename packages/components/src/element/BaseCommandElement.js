@@ -1,5 +1,7 @@
 // import {html, render} from 'lit-html';
-import * as lit from 'https://unpkg.com/lit-html?module'; //https://cdn.jsdelivr.net/npm/lit-html@0.9.0/lit-html.min.js';
+// import * as lit from 'https://unpkg.com/lit-html?module'; //https://cdn.jsdelivr.net/npm/lit-html@0.9.0/lit-html.min.js';
+import * as lit from '../../../../node_modules/lit-html/lit-html.js';
+// import * as lit from 'https://unpkg.com/lit-html?module'; //'https://cdn.jsdelivr.net/npm/lit-html@1.1.0/lit-html.min.js';
 // const {html, render} = lit;
 const dll = {lit};
 import {util} from '../util/util.js';
@@ -76,13 +78,12 @@ class BaseCommandElement extends HTMLElement {
     if (!this._isConnected) {
       return;
     }
-    let {render} = await this.constructor.importLit();
+    let {render} = dll.lit || await this.constructor.importLit();
     if (!this._shadow) {
       this._shadow = this.attachShadow({mode: 'open'});
-      render(await this.constructor.getTemplate(this.state, this.props, this.events), this._shadow);
-    } else {
-      render(await this.constructor.getTemplate(this.state, this.props, this.events), this._shadow);
     }
+    render(await this.constructor.getTemplate(this.state, this.props, this.events), this._shadow);
+
     if (!this._root) {
       const root = this._shadow.querySelector('#root');
       if (!root) {
@@ -91,13 +92,17 @@ class BaseCommandElement extends HTMLElement {
       this._root = root;
       this._root.addEventListener('command', this._boundOnCommand);
     }
-}
+  }
 
-  requestRender() {
+  requestRender(isImmediate = false) {
     if (this._idleCallbackId) {
       cancelIdleCallback(this._idleCallbackId);
     }
-    this._idleCallbackId = requestIdleCallback(this._idleRenderCallback, {});
+    if (isImmediate) {
+      this._idleRenderCallback();
+    } else {
+      this._idleCallbackId = requestIdleCallback(this._idleRenderCallback, {});
+    }
   }
 
   async connectedCallback() {
@@ -112,7 +117,7 @@ class BaseCommandElement extends HTMLElement {
       this._root.removeEventListener('command', this._boundOnCommand);
       this._root = null;
     }
-    let {render} = await this.constructor.importLit();
+    let {render} = dll.lit || await this.constructor.importLit();
     render('', this._shadow);
     this._shadow = null;
   }
@@ -175,6 +180,25 @@ class BaseCommandElement extends HTMLElement {
 
   onCommand(e) {
     //console.log('on-command', e.detail.command, e.detail.param);
+  }
+
+  get propset() {
+    return Object.assign({}, this.props);
+  }
+
+  set propset(props) {
+    const keys = Object.keys(props).filter(key => this.props.hasOwnProperty(key));
+    const changed = keys.filter(key => {
+      if (this.props[key] === props[key]) {
+        return false;
+      }
+      this.props[key] = props[key];
+      return true;
+    }).length > 0;
+
+    if (changed) {
+      this.requestRender();
+    }
   }
 }
 

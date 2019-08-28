@@ -1,8 +1,9 @@
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {ZenzaWatch, global} from './ZenzaWatchIndex';
 import {util, FrameLayer} from './util';
 import {CONSTANT} from './constant';
-import {NicoSearchApiV2Loader} from './loader/VideoSearch';
+import {NicoSearchApiV2Loader} from '../packages/lib/src/nico/VideoSearch';
 import {Emitter} from './baselib';
+import {RecommendAPILoader, UploadedVideoApiLoader} from './loader/api';
 
 const MylistPocketDetector = {
   detect: () => { return Promise.resolve(); }
@@ -263,7 +264,7 @@ class VideoListModel extends Emitter {
   get totalDuration() {
     let total = 0;
     this._items.forEach(item => {
-      total += item.getDuration();
+      total += item.duration;
     });
     return total;
   }
@@ -286,7 +287,7 @@ const VideoListItemView = (() => {
         position: relative;
         display: grid;
         width: 100%;
-        height: ${ITEM_HEIGHT}px;
+        height: 100%;
         overflow: hidden;
         grid-template-columns: ${THUMBNAIL_WIDTH}px 1fr;
         grid-template-rows: ${THUMBNAIL_HEIGHT}px 1fr;
@@ -593,9 +594,7 @@ const VideoListItemView = (() => {
         const tc = t.content;
         template = {
           t,
-          clone: () => {
-            return document.importNode(t.content, true).firstChild;
-          },
+          clone: () => document.importNode(t.content, true).firstChild,
           videoItem: tc.querySelector('.videoItem'),
           duration: tc.querySelector('.duration'),
           thumbnail: tc.querySelector('.thumbnailContainer'),

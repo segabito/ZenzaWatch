@@ -1,11 +1,13 @@
-import * as $ from 'jquery';
-import * as _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
+// import * as _ from 'lodash';
+import {ZenzaWatch, global} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
 import {SeekBarThumbnail, Storyboard} from './StoryBoard';
 import {util, BaseViewComponent} from './util';
 import {Emitter} from './baselib';
-
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {HeatMapWorker} from '../packages/zenza/src/heatMap/HeatMapWorker';
+import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
+import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 //===BEGIN===
 
   class VideoControlBar extends Emitter {

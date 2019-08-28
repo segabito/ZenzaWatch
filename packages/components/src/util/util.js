@@ -1,32 +1,52 @@
 const util = {};
+import {NicoQuery, ItemDataConverter} from '../../../lib/src/nico/NicoQuery';
+import {dimport} from '../../../lib/src/infra/dimport';
+import {defineElement} from '../../../lib/src/defineElement';
+import {textUtil} from '../../../lib/src/text/textUtil';
+import {uQuery} from '../../../lib/src/uQuery';
+// import * as _ from 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.core.min.js';
 //===BEGIN===
 
-
-Object.assign(util, {
+Object.assign(util, textUtil, {
+  $: uQuery,
+  createDom: uQuery.html,
+  isTL: uQuery.isTL,
+  NicoQuery,
+  ItemDataConverter,
+  defineElement,
   secToTime: sec => {
     let m = Math.floor(sec / 60).toString().padStart(2, '0');
     let s = (Math.floor(sec) % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   },
-  dimport: url => {
-    const now = Date.now();
-    const callbackName = `dimport_${now}`;
-    const loader = `
-      import * as module${now} from "${url}";
-      window.${callbackName}(module${now});
-      `.trim();
-    return new Promise((res) => {
-      const s = document.createElement('script');
-      s.type = 'module';
-      s.appendChild(document.createTextNode(loader));
-      s.dataset.import = url;
-      window[callbackName] = (module) => {
-        res(module);
-        delete window[callbackName];
-      };
-      document.documentElement.append(s);
+  parseQuery: (query = '') => {
+    const result = {};
+    query.split('&').forEach(item => {
+      const sp = item.split('=');
+      const key = decodeURIComponent(sp[0]);
+      const val = decodeURIComponent(sp.slice(1).join('='));
+      result[key] = val;
     });
+    return result;
   },
+  buildFetchQuery: (type, id, params) => {
+    const p = Object.keys(params)
+      .filter(key => !!params[key])
+      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`).join('&');
+    return `${type}/${encodeURIComponent(id)}?${p}`;
+  },
+  parseFetchQuery: query => {
+    const [type, vars] = query.split('/');
+    let [id, p] = (vars || '').split('?');
+    id = decodeURIComponent(id || '');
+    const params = util.parseQuery(p || '');
+    return {
+      type,
+      id,
+      params
+    };
+  },
+  dimport,
   dateToString: date => {
     if (typeof date === 'string') {
       const origDate = date;

@@ -1,7 +1,5 @@
-import {browser} from '../browser';
-import {CONSTANT} from '../constant';
-import {Sleep, util} from '../util';
-const window = browser.window;
+// import {browser} from '../browser';
+// const window = browser.window;
 
 //===BEGIN===
 
@@ -117,10 +115,10 @@ CustomElements.initialize = (() => {
   color: var(--color);
   border-style: solid;
   border-width: 8px;
-  border-color: 
-    var(--pointer-color) 
+  border-color:
+    var(--pointer-color)
     transparent
-    transparent 
+    transparent
     transparent;
 }
 

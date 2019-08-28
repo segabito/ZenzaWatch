@@ -2,19 +2,25 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {util, Config, MylistPocketDetector, Sleep} from './util';
+import {Config, MylistPocketDetector} from './util';
 import {IchibaLoader} from './loader/api';
 import {UaaLoader} from './loader/api';
 import {RecommendAPILoader} from './loader/api';
 import {RelatedVideoList} from './VideoList';
 import {TagListView} from './TagListView';
-import {BaseViewComponent} from './util';
-import {Emitter} from './baselib';
-import {WindowResizeObserver} from './baselib';
-const MylistPocketDetector = {
-  detect: () => { return Promise.resolve(); }
-};
+import {BaseViewComponent} from '../packages/zenza/src/parts/BaseViewComponent';
+import {Emitter} from '../packages/lib/src/Emitter';
+import {sleep} from '../packages/lib/src/infra/sleep';
+import {Fullscreen} from '../packages/lib/src/dom/Fullscreen';
+import {textUtil} from '../packages/lib/src/text/textUtil';
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
+import {css} from '../packages/lib/src/css/css';
+import {uq} from '../packages/lib/src/uQuery';
+import {domEvent} from '../packages/lib/src/dom/domEvent';
 
+const VideoItemObserver = {
+  observe: () => {}
+};
 //===BEGIN===
 
 class VideoInfoPanel extends Emitter {
@@ -28,15 +34,13 @@ class VideoInfoPanel extends Emitter {
     this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
     this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
 
-    // this._videoHeaderPanel.on('command', this._onCommand.bind(this));
-
     if (params.node) {
       this.appendTo(params.node);
     }
   }
 }
 
-util.addStyle(`
+css.addStyle(`
     .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
       display: none;
       pointer-events: none;
@@ -112,7 +116,7 @@ util.addStyle(`
 
     .zenzaWatchVideoInfoPanel.initializing {
     }
-    
+
     .zenzaWatchVideoInfoPanel>* {
       transition: opacity 0.4s ease;
       pointer-events: none;
@@ -143,7 +147,7 @@ util.addStyle(`
       overflow-y: hidden;
       transition: opacity 0.4s ease;
     }
-    
+
     .zenzaWatchVideoInfoPanel .ownerPageLink {
       display: block;
       margin: 0 auto 8px;
@@ -213,8 +217,7 @@ util.addStyle(`
       background: #446;
     }
 
-    .zenzaWatchVideoInfoPanel .videoDescription span[style],
-    .zenzaWatchVideoInfoPanel .videoDescription font[color] {
+    .videoDescription-font {
       text-shadow: 1px 1px var(--base-description-color, #888);
     }
 
@@ -446,9 +449,13 @@ util.addStyle(`
       text-align: left;
     }
 
+    .zenzaWatchVideoInfoPanel .seriesList {
+      padding: 0 8px;
+    }
+
   `, {className: 'videoInfoPanel'});
 
-util.addStyle(`
+css.addStyle(`
   .is-open .zenzaWatchVideoInfoPanel>* {
     display: none;
     pointer-events: none;
@@ -467,6 +474,7 @@ util.addStyle(`
     left: auto;
     width: 320px;
     height: 60%;
+    border: 1px solid transparent;
     background: none;
     opacity: 0;
     box-shadow: none;
@@ -475,8 +483,6 @@ util.addStyle(`
   }
 
   .is-mouseMoving  .zenzaWatchVideoInfoPanel {
-    height: 60%;
-    background: none;
     border: 1px solid #888;
     opacity: 0.5;
   }
@@ -493,7 +499,7 @@ util.addStyle(`
 
 `, {className: 'screenMode for-full videoInfoPanel'});
 
-util.addStyle(`
+css.addStyle(`
     .zenzaScreenMode_small .zenzaWatchVideoInfoPanel {
       display: none;
     }
@@ -551,7 +557,7 @@ util.addStyle(`
     .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch:hover {
       background: #ddf;
     }
-    
+
     .zenzaScreenMode_sideView .videoInfoTab::-webkit-scrollbar {
       background: #f0f0f0;
     }
@@ -575,13 +581,13 @@ util.addStyle(`
         display: inherit;
       }
     }
-  
+
     @media (min-width: 1216px) {
       .zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
         display: inherit;
       }
     }
-  
+
     /* 縦長モニター */
     @media
       (max-width: 991px) and (min-height: 700px)
@@ -594,11 +600,11 @@ util.addStyle(`
         height: ${CONSTANT.BOTTOM_PANEL_HEIGHT}px;
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
-  
+
       .zenzaScreenMode_normal .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
       }
-  
+
       .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
         display: table;
       }
@@ -610,7 +616,7 @@ util.addStyle(`
         width: 100% !important;
       }
     }
-  
+
     @media
       (max-width: 1215px) and (min-height: 700px) {
       .zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
@@ -621,11 +627,11 @@ util.addStyle(`
         height: ${CONSTANT.BOTTOM_PANEL_HEIGHT}px;
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
-  
+
       .zenzaScreenMode_big .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
       }
-  
+
       .zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
         display: table;
       }
@@ -633,7 +639,7 @@ util.addStyle(`
         display: table-cell;
         text-align: left;
       }
-      
+
       .zenzaScreenMode_big .zenzaWatchVideoHeaderPanel {
         width: 100% !important;
       }
@@ -642,11 +648,11 @@ util.addStyle(`
 
 `, {className: 'screenMode for-dialog videoInfoPanel'});
 
-util.addStyle(`
+css.addStyle(`
   .zenzaWatchVideoInfoPanel .comment {
     padding-left: 0;
   }
-`, {className: 'domain slack-com', disabled: true})
+`, {className: 'domain slack-com', disabled: true});
 
 VideoInfoPanel.__tpl__ = (`
     <div class="zenzaWatchVideoInfoPanel show initializing">
@@ -701,8 +707,7 @@ _.assign(VideoInfoPanel.prototype, {
     }
     this._isInitialized = true;
 
-    // util.addStyle(VideoInfoPanel.__css__);
-    let $view = this._$view = $(VideoInfoPanel.__tpl__);
+    let $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
     const view = this._view = $view[0];
 
     let $icon = this._$ownerIcon = $view.find('.ownerIcon');
@@ -737,7 +742,7 @@ _.assign(VideoInfoPanel.prototype, {
     view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
     $icon.on('load', () => $icon.removeClass('is-loading'));
 
-    view.classList.add(util.fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
     ZenzaWatch.emitter.on('fullscreenStatusChange', isFull => {
       view.classList.toggle('is-fullscreen', isFull);
       view.classList.toggle('is-notFullscreen', !isFull);
@@ -791,7 +796,7 @@ _.assign(VideoInfoPanel.prototype, {
   /**
    * 説明文中のurlの自動リンク等の処理
    */
-  _updateVideoDescription: function (html) {
+  _updateVideoDescription: async function (html) {
     this._description.textContent = '';
     this._zenTubeUrl = null;
     const watchLink = watchLink => {
@@ -806,13 +811,13 @@ _.assign(VideoInfoPanel.prototype, {
       Object.assign(watchLink.dataset, {command: 'open', param: videoId});
 
       if (!window.customElements) {
-        let $watchLink = util.$(watchLink);
-        let thumbnail = util.getThumbnailUrlByVideoId(videoId);
+        let $watchLink = uq(watchLink);
+        let thumbnail = nicoUtil.getThumbnailUrlByVideoId(videoId);
         if (thumbnail) {
-          let $img = util.$('<img class="videoThumbnail">').attr('src', thumbnail);
+          let $img = uq('<img class="videoThumbnail">').attr('src', thumbnail);
           $watchLink.append($img);
         }
-        let buttons = util.$(`<zenza-playlist-append
+        let buttons = uq(`<zenza-playlist-append
           class="playlistAppend clickable-item" title="プレイリストで開く"
           data-command="playlistAppend" data-param="${videoId}"
         >▶</zenza-playlist-append><div
@@ -828,7 +833,6 @@ _.assign(VideoInfoPanel.prototype, {
         vitem.dataset.videoId = videoId;
         watchLink.insertAdjacentElement('afterend', vitem);
         watchLink.classList.remove('watch');
-        // vitem.append(watchLink);
       }
     };
     const seekTime = seek => {
@@ -838,7 +842,7 @@ _.assign(VideoInfoPanel.prototype, {
     const mylistLink = link => {
       link.classList.add('mylistLink');
       let mylistId = link.textContent.split('/')[1];
-      let button = util.$(`<zenza-mylist-link data-mylist-id="${mylistId}">
+      let button = uq(`<zenza-mylist-link data-mylist-id="${mylistId}">
           ${link.outerHTML}
           <zenza-playlist-append
             class="playlistSetMylist clickable-item" title="プレイリストで開く"
@@ -848,36 +852,47 @@ _.assign(VideoInfoPanel.prototype, {
       link.replaceWith(button);
     };
     const youtube = link => {
-      const btn = document.createElement('zentube-button');
-      if (!this._zenTubeUrl) {
-        this._zenTubeUrl = link.href;
-      }
-      btn.className = 'zenzaTubeButton';
-      btn.innerHTML = '▷Zen<span>Tube</span>';
-      btn.title = 'ZenzaWatchで開く(実験中)';
-      btn.setAttribute('accesskey', 'z');
-      btn.setAttribute('data-command', 'setVideo');
-      btn.setAttribute('data-param', link.href);
+      const btn = uq(`<zentube-button
+        class="zenzaTubeButton"
+        title="ZenzaWatchで開く(実験中)"
+        accesskey="z"
+        data-command="setVideo;"
+        >▷Zen<span>Tube</span></zentube-button>`)[0];
+      Object.assign(btn.dataset, {
+        command: 'setVideo',
+        param: link.href
+      });
       link.parentNode.insertBefore(btn, link);
     };
 
-    Promise.resolve().then(() => {
-      const description = util.createDom(html);
-      Array.from(description.querySelectorAll('a')).forEach(a => {
-        a.classList.add('noHoverMenu');
-        let href = a.href;
-        if (a.classList.contains('watch')) {
-          watchLink(a);
-        } else if (a.classList.contains('seekTime')) {
-          seekTime(a);
-        } else if (/^mylist\//.test(a.textContent)) {
-          mylistLink(a);
-        } else if (/^https?:\/\/((www\.|)youtube\.com\/watch|youtu\.be)/.test(href)) {
-          youtube(a);
-        }
-      });
-      this._description.append(description);
-    });
+    await sleep.promise();
+
+    const $description = uq(`<zenza-video-description>${html}</zenza-video-description>`);
+    for (const a of $description.query('a')) {
+      a.classList.add('noHoverMenu');
+      let href = a.href;
+      if (a.classList.contains('watch')) {
+        watchLink(a);
+      } else if (a.classList.contains('seekTime')) {
+        seekTime(a);
+      } else if (/^mylist\//.test(a.textContent)) {
+        mylistLink(a);
+      } else if (/^https?:\/\/((www\.|)youtube\.com\/watch|youtu\.be)/.test(href)) {
+        youtube(a);
+      }
+    }
+    for (const e of
+      $description.query('[style*="color: #000000;"],[style*="color: black;"]')
+    ) {
+      e.dataset.originalCss = e.cssText;
+      e.style.color = '#FFF';
+    }
+    for (const e of $description.query('span')) {
+      e.classList.add('videoDescription-font');
+    }
+
+    this._description.append($description[0]);
+
   },
   _onVideoCanPlay: function (watchId, videoInfo, options) {
     // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
@@ -888,7 +903,7 @@ _.assign(VideoInfoPanel.prototype, {
       this._relatedVideoList.on('command', this._onCommand.bind(this));
     }
 
-    if (this._config.getValue('autoZenTube') && this._zenTubeUrl && !options.isAutoZenTubeDisabled()) {
+    if (this._config.props.autoZenTube && this._zenTubeUrl && !options.isAutoZenTubeDisabled) {
       window.setTimeout(() => {
         window.console.info('%cAuto ZenTube', this._zenTubeUrl);
         this.emit('command', 'setVideo', this._zenTubeUrl);
@@ -947,12 +962,12 @@ _.assign(VideoInfoPanel.prototype, {
       }
       e.preventDefault();
 
-      util.dispatchCommand(e.target, command, param);
+      domEvent.dispatchCommand(e.target, command, param);
   },
   _onCommand: function (command, param) {
     switch (command) {
       default:
-        util.dispatchCommand(this._view, command, param);
+        domEvent.dispatchCommand(this._view, command, param);
         break;
     }
   },
@@ -963,7 +978,7 @@ _.assign(VideoInfoPanel.prototype, {
         this._pocket.external.info(param);
         break;
       case 'ownerVideo':
-        util.dispatchCommand(this._view, 'playlistSetUploadedVideo', this._videoInfo.owner.id);
+        domEvent.dispatchCommand(this._view, 'playlistSetUploadedVideo', this._videoInfo.owner.id);
         break;
       default:
         return;
@@ -971,10 +986,9 @@ _.assign(VideoInfoPanel.prototype, {
     e.stopPropagation();
   },
   appendTo: function (node) {
-    let $node = $(node);
     this._initializeDom();
-    $node.append(this._$view);
-    this._videoHeaderPanel.appendTo($node);
+    this._$view.appendTo(node);
+    this._videoHeaderPanel.appendTo(node);
   },
   hide: function () {
     this._videoHeaderPanel.hide();
@@ -1002,22 +1016,19 @@ _.assign(VideoInfoPanel.prototype, {
       return;
     }
     $target.addClass('blink');
-    window.setTimeout(() => {
-      $target.removeClass('blink');
-    }, 50);
+    window.setTimeout(() => $target.removeClass('blink'), 50);
   },
   appendTab: function (tabName, title, content) {
     let $view = this._$view;
     let $select =
-      $('<div class="tabSelect"/>')
+      uq('<div class="tabSelect"/>')
         .addClass(tabName)
         .attr('data-command', 'selectTab')
         .attr('data-param', tabName)
         .text(title);
-    let $body = $('<div class="tabs"/>')
-      .addClass(tabName);
+    let $body = uq('<div class="tabs"/>').addClass(tabName);
     if (content) {
-      $body.append($(content));
+      $body.append(content);
     }
 
     $view.find('.tabSelectContainer').append($select);
@@ -1037,7 +1048,7 @@ class VideoHeaderPanel extends Emitter {
     this._currentTimeGetter = params.currentTimeGetter;
   }
 }
-util.addStyle(`
+css.addStyle(`
   .zenzaScreenMode_small .zenzaWatchVideoHeaderPanel {
     display: none;
   }
@@ -1077,7 +1088,7 @@ util.addStyle(`
     .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
       width: calc(100vw - 1024px - 26px);
     }
-  
+
     .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
       width: calc(100vw - (100vw - 1024px));
       left:  calc(100vw - 1024px);
@@ -1086,7 +1097,7 @@ util.addStyle(`
 
 `, {className: 'screenMode for-popup videoHeaderPanel', disabled: true});
 
-util.addStyle(`
+css.addStyle(`
   body .is-open .zenzaWatchVideoHeaderPanel {
     width: calc(100% + ${CONSTANT.RIGHT_PANEL_WIDTH}px);
   }
@@ -1120,9 +1131,13 @@ util.addStyle(`
       width: calc(100% - 180px);
     }
 
+    .zenzaWatchVideoInfoPanelFoot {
+      background: #222;
+    }
+
 `, {className: 'screenMode for-dialog videoHeaderPanel', disabled: true});
 
-util.addStyle(`
+css.addStyle(`
   .is-open .zenzaWatchVideoHeaderPanel {
     position: absolute; /* fixedだとFirefoxのバグでおかしくなる */
     top: 0px;
@@ -1132,8 +1147,8 @@ util.addStyle(`
     box-shadow: none;
   }
 
-  .is-open.is-loading .zenzaWatchVideoHeaderPanel,
-  .is-open.is-mouseMoving .zenzaWatchVideoHeaderPanel {
+  .is-loading .zenzaWatchVideoHeaderPanel,
+  .is-mouseMoving .zenzaWatchVideoHeaderPanel {
     opacity: 0.6;
     transition: 0.4s opacity;
   }
@@ -1152,7 +1167,7 @@ util.addStyle(`
   .is-open .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer {
     display: block;
   }
-  
+
   .is-open .zenzaWatchVideoHeaderPanel .videoTitleContainer {
     width: calc(100% - 180px);
   }
@@ -1173,6 +1188,7 @@ VideoHeaderPanel.__css__ = (`
       text-align: left;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
+      will-change: transform;
     }
     .zenzaWatchVideoHeaderPanel.is-onscreen {
       width: 100% !important;
@@ -1182,12 +1198,12 @@ VideoHeaderPanel.__css__ = (`
       z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
     }
 
-    .zenzaWatchVideoHeaderPanel>* {
+    .zenzaWatchVideoHeaderPanel {
       pointer-events: none;
     }
 
-    .is-mouseMoving .zenzaWatchVideoHeaderPanel>*,
-                 .zenzaWatchVideoHeaderPanel:hover>* {
+    .is-mouseMoving .zenzaWatchVideoHeaderPanel,
+                    .zenzaWatchVideoHeaderPanel:hover {
       pointer-events: auto;
     }
 
@@ -1279,16 +1295,17 @@ _.assign(VideoHeaderPanel.prototype, {
       return;
     }
     this._isInitialized = true;
-    util.addStyle(VideoHeaderPanel.__css__);
-    let $view = this._$view = $(VideoHeaderPanel.__tpl__);
+    css.addStyle(VideoHeaderPanel.__css__);
+    let $view = this._$view = uq.html(VideoHeaderPanel.__tpl__);
     let view = $view[0];
 
-    this._$videoTitle = $view.find('.videoTitle');
+    this._videoTitle = $view.find('.videoTitle')[0];
     this._searchForm = new VideoSearchForm({
       parentNode: view
     });
 
-    view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
+    $view.on('wheel', e => e.stopPropagation(), {passive: true});
+    this._seriesCover = view.querySelector('.series-thumbnail');
 
     this._tagListView = new TagListView({
       parentNode: view.querySelector('.videoTagsContainer')
@@ -1305,7 +1322,7 @@ _.assign(VideoHeaderPanel.prototype, {
       parentNode: view.querySelector('.videoMetaInfoContainer'),
     });
 
-    view.classList.add(util.fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
     ZenzaWatch.emitter.on('fullScreenStatusChange', isFull => {
       view.classList.toggle('is-fullscreen', isFull);
       view.classList.toggle('is-notFullscreen', !isFull);
@@ -1316,8 +1333,7 @@ _.assign(VideoHeaderPanel.prototype, {
   update: function (videoInfo) {
     this._videoInfo = videoInfo;
 
-    const videoTitle = util.unescapeHtml(videoInfo.title);
-    this._$videoTitle.text(videoTitle).attr('title', videoTitle);
+    this._videoTitle.title =  this._videoTitle.textContent = videoInfo.title;
 
     let watchId = videoInfo.watchId;
     this._videoMetaInfo.update(videoInfo);
@@ -1353,9 +1369,9 @@ _.assign(VideoHeaderPanel.prototype, {
     const top = isOnscreen ? (rect.top - height) : rect.top;
     view.classList.toggle('is-onscreen', top < -32);
   },
-  appendTo: function ($node) {
+  appendTo: function (node) {
     this._initializeDom();
-    $node.append(this._$view);
+    this._$view.appendTo(node);
   },
   hide: function () {
     if (!this._$view) {
@@ -1371,7 +1387,7 @@ _.assign(VideoHeaderPanel.prototype, {
     }
     this._$view.addClass('initializing');
 
-    this._$videoTitle.text('------');
+    this._videoTitle.textContent = '';
   },
   getPublicStatusDom: function () {
     return this._$view.find('.publicStatus').html();
@@ -1389,7 +1405,7 @@ class VideoSearchForm extends Emitter {
   _initDom({parentNode}) {
     let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
     if (!tpl) {
-      util.addStyle(VideoSearchForm.__css__);
+      css.addStyle(VideoSearchForm.__css__);
       tpl = document.createElement('template');
       tpl.innerHTML = VideoSearchForm.__tpl__;
       tpl.id = 'zenzaVideoSearchPanelTemplate';
@@ -1401,7 +1417,6 @@ class VideoSearchForm extends Emitter {
     this._form = view.querySelector('form');
     this._word = view.querySelector('.searchWordInput');
     this._sort = view.querySelector('.searchSortSelect');
-    // this._submit = view.querySelector('.searchSubmit');
     this._mode = view.querySelector('.searchMode') || 'tag';
 
     this._form.addEventListener('submit', this._onSubmit.bind(this));
@@ -1409,8 +1424,8 @@ class VideoSearchForm extends Emitter {
     const config = this._config;
     const form = this._form;
 
-    form['ownerOnly'].checked = config.getValue('ownerOnly');
-    let confMode = config.getValue('mode');
+    form['ownerOnly'].checked = config.props.ownerOnly;
+    let confMode = config.props.mode;
     if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
       form['mode'].value = confMode;
     } else if (typeof confMode === 'boolean') {
@@ -1418,27 +1433,28 @@ class VideoSearchForm extends Emitter {
     } else {
       form['mode'].value = 'tag';
     }
-    form['word'].value = config.getValue('word');
-    form['sort'].value = config.getValue('sort');
+    form['word'].value = config.props.word;
+    form['sort'].value = config.props.sort;
 
     this._view.addEventListener('click', this._onClick.bind(this));
+    view.addEventListener('paste', e => e.stopPropagation());
     const submit = _.debounce(this.submit.bind(this), 500);
     Array.from(view.querySelectorAll('input, select')).forEach(item => {
       if (item.type === 'checkbox') {
         item.addEventListener('change', () => {
           this._word.focus();
-          config.setValue(item.name, item.checked);
+          config.props[item.name] = item.checked;
           submit();
         });
       } else if (item.type === 'radio') {
         item.addEventListener('change', () => {
           this._word.focus();
-          config.setValue(item.name, this._form[item.name].value);
+          config.props[item.name] = this._form[item.name].value;
           submit();
         });
       } else {
         item.addEventListener('change', () => {
-          config.setValue(item.name, item.value);
+          config.props[item.name] = item.value;
           if (item.tagName === 'SELECT') {
             submit();
           }
@@ -1484,7 +1500,7 @@ class VideoSearchForm extends Emitter {
         this._word.value = '';
         break;
       default:
-        util.dispatchCommand(e.target, command, param);
+        domEvent.dispatchCommand(e.target, command, param);
     }
   }
 
@@ -1499,7 +1515,7 @@ class VideoSearchForm extends Emitter {
       return;
     }
 
-    util.dispatchCommand(this._view, 'playlistSetSearchVideo', {
+    domEvent.dispatchCommand(this._view, 'playlistSetSearchVideo', {
       word,
       option: {
         searchType: this.searchType,
@@ -1547,7 +1563,7 @@ class VideoSearchForm extends Emitter {
   }
 }
 
-util.addStyle(`
+css.addStyle(`
   .is-open .zenzaWatchVideoHeaderPanel .zenzaVideoSearchPanel {
     top: 120px;
     right: 32px;
@@ -1645,17 +1661,18 @@ VideoSearchForm.__css__ = (`
         border: 1px solid #ccc;
         opacity: 0;
         transition: opacity 0.2s ease;
+        will-change: opacity;
       }
 
       .zenzaVideoSearchPanel .searchWordInput:-webkit-autofill {
         background: transparent;
       }
 
-      .is-mouseMoving .zenzaVideoSearchPanel:not(:focus-within) .searchWordInput {
+      .is-mouseMoving .searchWordInput {
         opacity: 0.5;
       }
 
-      .is-mouseMoving .zenzaVideoSearchPanel:not(:focus-within) .searchWordInput:hover {
+      .is-mouseMoving .searchWordInput:hover {
         opacity: 0.8;
       }
 
@@ -1938,7 +1955,7 @@ IchibaItemView.__tpl__ = (`
     </div>
     `).trim();
 
-util.addStyle(`
+css.addStyle(`
   .ZenzaIchibaItemView .loadStartButton {
     color: #000;
   }
@@ -1947,7 +1964,7 @@ util.addStyle(`
 IchibaItemView.__css__ = (`
     .ZenzaIchibaItemView {
       text-align: center;
-      margin: 8px 8px 32px;
+      margin: 4px 8px 8px;
       color: #ccc;
     }
 
@@ -1968,7 +1985,7 @@ IchibaItemView.__css__ = (`
       .ZenzaIchibaItemView .loadStartButton:active::after {
         opacity: 0;
       }
-      
+
       .ZenzaIchibaItemView .loadStartButton:active {
         transform: translate(0, 2px);
       }
@@ -2099,7 +2116,7 @@ class UaaView extends BaseViewComponent {
   }
 
   update(videoInfo) {
-    if (!this._shadow || !this._config.getValue('enable')) {
+    if (!this._shadow || !this._config.props.enable) {
       return;
     }
     if (!this._elm.body) {
@@ -2195,13 +2212,13 @@ class UaaView extends BaseViewComponent {
     df.setAttribute('data-index', idx);
     if (bgkeyframe && idx < 4) {
       const sec = parseFloat(bgkeyframe);
-      df.setAttribute('data-time', util.secToTime(sec));
+      df.setAttribute('data-time', textUtil.secToTime(sec));
       df.classList.add('clickable', 'command', 'other');
       Object.assign(df.dataset, { command: 'seek', type: 'number', param: sec });
-      contact.setAttribute('title', `${data.message}(${util.secToTime(sec)})`);
+      contact.setAttribute('title', `${data.message}(${textUtil.secToTime(sec)})`);
 
       this._props.videoInfo.getCurrentVideo()
-        .then(url => util.videoCapture(url, sec))
+        .then(url => VideoCaptureUtil.capture(url, sec))
         .then(screenshot => {
         const cv = document.createElement('canvas');
         const ct = cv.getContext('2d');
@@ -2222,7 +2239,7 @@ class UaaView extends BaseViewComponent {
       const sec = parseFloat(bgkeyframe);
       df.classList.add('clickable', 'command', 'other');
       Object.assign(df.dataset, { command: 'seek', type: 'number', param: sec });
-      contact.setAttribute('title', `${data.message}(${util.secToTime(sec)})`);
+      contact.setAttribute('title', `${data.message}(${utextUil.secToTime(sec)})`);
     } else {
       df.classList.add('other');
     }
@@ -2277,8 +2294,7 @@ UaaView._shadow_ = (`
           display: block;
           pointer-events: auto;
           max-height: 800px;
-          margin: 8px;
-          padding: 8px 4px;
+          padding: 4px;
           opacity: 1;
           transition: opacity 0.4s linear 0.4s, max-height 1s ease-in, margin 0.4s ease-in;
         }
@@ -2370,7 +2386,7 @@ UaaView._shadow_ = (`
           min-height: inherit;
           text-align: left;
         }
-          
+
           .UaaDetails .item.is-speaking {
             text-decoration: underline;
           }
@@ -2730,9 +2746,7 @@ class VideoMetaInfo extends BaseViewComponent {
   }
 
   updateVideoCount({comment, view, mylist}) {
-    let addComma = m => {
-      return m.toLocaleString ? m.toLocaleString() : m;
-    };
+    const addComma = m => m.toLocaleString ? m.toLocaleString() : m;
     if (typeof comment === 'number') {
       this._elm.commentCount.textContent = addComma(comment);
     }

@@ -1,11 +1,10 @@
-import _ from 'lodash';
-import $ from 'jQuery';
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {global} from './ZenzaWatchIndex';
 import {NicoCommentPlayer} from './CommentPlayer';
 import {util, Config, Fullscreen, VideoCaptureUtil, BaseViewComponent} from './util';
-import {YouTubeWrapper} from './YouTubeWrapper';
+import {YouTubeWrapper} from '../packages/zenza/src/videoPlayer/YouTubeWrapper';
 import {CONSTANT} from './constant';
 import {Emitter} from './baselib';
+import {NicoChatFilter} from '../packages/zenza/src/commentLayer/NicoChatFilter';
 
 //===BEGIN===
 
@@ -21,41 +20,39 @@ class NicoVideoPlayer extends Emitter {
     super();
     this.initialize(params);
   }
-}
-_.assign(NicoVideoPlayer.prototype, {
-  initialize: function (params) {
+  initialize(params) {
     let conf = this._playerConfig = params.playerConfig;
 
     this._fullscreenNode = params.fullscreenNode;
     this._state = params.playerState;
 
-    this._state.on('update-videoInfo', this.setVideoInfo.bind(this));
+    this._state.onkey('videoInfo', this.setVideoInfo.bind(this));
 
-    const playbackRate = conf.getValue('playbackRate');
+    const playbackRate = conf.props.playbackRate;
 
     const onCommand = (command, param) => this.emit('command', command, param);
     this._videoPlayer = new VideoPlayer({
-      volume: conf.getValue('volume'),
-      loop: conf.getValue('loop'),
-      mute: conf.getValue('mute'),
-      autoPlay: conf.getValue('autoPlay'),
+      volume: conf.props.volume,
+      loop: conf.props.loop,
+      mute: conf.props.mute,
+      autoPlay: conf.props.autoPlay,
       playbackRate,
-      debug: conf.getValue('debug')
+      debug: conf.props.debug
     });
     this._videoPlayer.on('command', onCommand);
 
     this._commentPlayer = new NicoCommentPlayer({
-      offScreenLayer: params.offScreenLayer,
+      // offScreenLayer: params.offScreenLayer,
       enableFilter: params.enableFilter,
       wordFilter: params.wordFilter,
       wordRegFilter: params.wordRegFilter,
       wordRegFilterFlags: params.wordRegFilterFlags,
       userIdFilter: params.userIdFilter,
       commandFilter: params.commandFilter,
-      showComment: conf.getValue('showComment'),
-      debug: conf.getValue('debug'),
+      showComment: conf.props.showComment,
+      debug: conf.props.debug,
       playbackRate,
-      sharedNgLevel: conf.getValue('sharedNgLevel')
+      sharedNgLevel: conf.props.sharedNgLevel
     });
     this._commentPlayer.on('command', onCommand);
 
@@ -73,21 +70,21 @@ _.assign(NicoVideoPlayer.prototype, {
 
     this._beginTimer();
 
-    ZenzaWatch.debug.nicoVideoPlayer = this;
-  },
-  _beginTimer: function () {
+    global.debug.nicoVideoPlayer = this;
+  }
+  _beginTimer() {
     this._stopTimer();
     this._videoWatchTimer =
       window.setInterval(this._onTimer.bind(this), 100);
-  },
-  _stopTimer: function () {
+  }
+  _stopTimer() {
     if (!this._videoWatchTimer) {
       return;
     }
     window.clearInterval(this._videoWatchTimer);
     this._videoWatchTimer = null;
-  },
-  _initializeEvents: function () {
+  }
+  _initializeEvents() {
     const eventBridge = function(...args) {
       this.emit(...args);
     };
@@ -122,24 +119,24 @@ _.assign(NicoVideoPlayer.prototype, {
     this._commentPlayer.on('parsed', eventBridge.bind(this, 'commentParsed'));
     this._commentPlayer.on('change', eventBridge.bind(this, 'commentChange'));
     this._commentPlayer.on('filterChange', eventBridge.bind(this, 'commentFilterChange'));
-    this._state.on('change', this._onPlayerStateChange.bind(this));
-  },
-  _onVolumeChange: function (vol, mute) {
-    this._playerConfig.setValue('volume', vol);
-    this._playerConfig.setValue('mute', mute);
+    this._state.on('update', this._onPlayerStateUpdate.bind(this));
+  }
+  _onVolumeChange(vol, mute) {
+    this._playerConfig.props.volume = vol;
+    this._playerConfig.props.mute = mute;
     this.emit('volumeChange', vol, mute);
-  },
-  _onPlayerStateChange: function (key, value) {
+  }
+  _onPlayerStateUpdate(key, value) {
     switch (key) {
       case 'isLoop':
-        this._videoPlayer.setIsLoop(value);
+        this._videoPlayer.isLoop=value;
         break;
       case 'playbackRate':
-        this._videoPlayer.setPlaybackRate(value);
-        this._commentPlayer.setPlaybackRate(value);
+        this._videoPlayer.playbackRate=value;
+        this._commentPlayer.playbackRate=value;
         break;
       case 'isAutoPlay':
-        this._videoPlayer.setIsAutoPlay(value);
+        this._videoPlayer.isAutoPlay=value;
         break;
       case 'isShowComment':
         if (value) {
@@ -149,45 +146,44 @@ _.assign(NicoVideoPlayer.prototype, {
         }
         break;
       case 'isMute':
-        this._videoPlayer.setMute(value);
+        this._videoPlayer.muted = value;
         break;
       case 'sharedNgLevel':
-        this.setSharedNgLevel(value);
+        this.filter.sharedNgLevel = value;
         break;
       case 'currentSrc':
         this.setVideo(value);
         break;
     }
-  },
-  _onMouseWheel: function (e, delta) {
+  }
+  _onMouseWheel(e, delta) {
     if (delta > 0) { // up
       this.volumeUp();
     } else {         // down
       this.volumeDown();
     }
-  },
-  volumeUp: function () {
-    let v = Math.max(0.01, this._videoPlayer.getVolume());
+  }
+  volumeUp() {
+    let v = Math.max(0.01, this._videoPlayer.volume);
     let r = v < 0.05 ? 1.3 : 1.1;
-    this._videoPlayer.setVolume(v * r);
-  },
-  volumeDown: function () {
-    let v = this._videoPlayer.getVolume();
+    this._videoPlayer.volume = v * r;
+  }
+  volumeDown() {
+    let v = this._videoPlayer.volume;
     let r = 1 / 1.2;
-    this._videoPlayer.setVolume(v * r);
-  },
-  _onTimer: function () {
-    let currentTime = this._videoPlayer.getCurrentTime();
-    this._commentPlayer.setCurrentTime(currentTime);
-  },
-  _onAspectRatioFix: function (ratio) {
+    this._videoPlayer.volume = v * r;
+  }
+  _onTimer() {
+    this._commentPlayer.currentTime = this._videoPlayer.currentTime;
+  }
+  _onAspectRatioFix(ratio) {
     this._commentPlayer.setAspectRatio(ratio);
     this.emit('aspectRatioFix', ratio);
-  },
-  _onLoadedMetaData: function () {
+  }
+  _onLoadedMetaData() {
     this.emit('loadedMetaData');
-  },
-  _onVideoCanPlay: function () {
+  }
+  _onVideoCanPlay() {
     this.emit('canPlay');
     if (this.autoplay && !this.paused) {
       this._video.play().catch(err => {
@@ -199,51 +195,51 @@ _.assign(NicoVideoPlayer.prototype, {
         }
       });
     }
-  },
-  _onPlay: function () {
+  }
+  _onPlay() {
     this._isPlaying = true;
     this.emit('play');
-  },
-  _onPlaying: function () {
+  }
+  _onPlaying() {
     this._isPlaying = true;
     this.emit('playing');
-  },
-  _onSeeking: function () {
+  }
+  _onSeeking() {
     this._isSeeking = true;
     this.emit('seeking');
-  },
-  _onSeeked: function () {
+  }
+  _onSeeked() {
     this._isSeeking = false;
     this.emit('seeked');
-  },
-  _onPause: function () {
+  }
+  _onPause() {
     this._isPlaying = false;
     this.emit('pause');
-  },
-  _onEnded: function () {
+  }
+  _onEnded() {
     this._isPlaying = false;
     this._isEnded = true;
     this.emit('ended');
-  },
-  _onClick: function () {
+  }
+  _onClick() {
     this._contextMenu.hide();
-  },
-  _onDblClick: function () {
-    if (this._playerConfig.getValue('enableFullScreenOnDoubleClick')) {
+  }
+  _onDblClick() {
+    if (this._playerConfig.props.enableFullScreenOnDoubleClick) {
       this.toggleFullScreen();
     }
-  },
-  _onContextMenu: function (e) {
+  }
+  _onContextMenu(e) {
     if (!this._contextMenu.isOpen) {
       e.stopPropagation();
       e.preventDefault();
       this._contextMenu.show(e.clientX, e.clientY);
     }
-  },
-  setVideo: function (url) {
+  }
+  setVideo(url) {
     let e = {src: url, url: null, promise: null};
     // デバッグ用
-    ZenzaWatch.emitter.emit('beforeSetVideo', e);
+    global.emitter.emit('beforeSetVideo', e);
     if (e.url) {
       url = e.url;
     }
@@ -256,182 +252,125 @@ _.assign(NicoVideoPlayer.prototype, {
     this._videoPlayer.setSrc(url);
     this._isEnded = false;
     this._isSeeking = false;
-  },
-  setThumbnail: function (url) {
-    this._videoPlayer.setThumbnail(url);
-  },
-  play: function () {
+  }
+  setThumbnail(url) {
+    this._videoPlayer.thumbnail = url;
+  }
+  play() {
     return this._videoPlayer.play();
-  },
-  pause: function () {
+  }
+  pause() {
     this._videoPlayer.pause();
     return Promise.resolve();
-  },
-  togglePlay: function () {
+  }
+  togglePlay() {
     return this._videoPlayer.togglePlay();
-  },
-  setPlaybackRate: function (playbackRate) {
+  }
+  setPlaybackRate(playbackRate) {
     playbackRate = Math.max(0, Math.min(playbackRate, 10));
-    this._videoPlayer.setPlaybackRate(playbackRate);
+    this._videoPlayer.playbackRate = playbackRate;
     this._commentPlayer.setPlaybackRate(playbackRate);
-  },
-  setCurrentTime: function (t) {
-    this._videoPlayer.setCurrentTime(Math.max(0, t));
-  },
-  fastSeek: function (t) {
-    this._videoPlayer.fastSeek(Math.max(0, t));
-  },
-  getDuration: function () {
-    return this._videoPlayer.getDuration();
-  },
-  getCurrentTime: function () {
-    return this._videoPlayer.getCurrentTime();
-  },
-  getVpos: function () {
-    return Math.floor(this._videoPlayer.getCurrentTime() * 100);
-  },
-  setComment: function (xmlText, options) {
-    this._commentPlayer.setComment(xmlText, options);
-  },
-  getChatList: function () {
-    return this._commentPlayer.getChatList();
-  },
-  getNonFilteredChatList: function () {
-    return this._commentPlayer.getNonFilteredChatList();
-  },
-  setVolume: function (v) {
-    this._videoPlayer.setVolume(v);
-  },
-  appendTo: function (node) {
-    let $node = typeof node === 'string' ? $(node) : node;
-    this._$parentNode = node;
-    this._videoPlayer.appendTo($node[0]);
-    this._commentPlayer.appendTo($node);
-  },
-  close: function () {
+  }
+  fastSeek(t) {this._videoPlayer.fastSeek(Math.max(0, t));}
+  set currentTime(t) {this._videoPlayer.currentTime = Math.max(0, t);}
+  get currentTime() { return this._videoPlayer.currentTime;}
+  get duration() {return this._videoPlayer.duration;}
+  get chatList() {return this._commentPlayer.chatList;}
+  get nonFilteredChatList() {return this._commentPlayer.nonFilteredChatList;}
+  appendTo(node) {
+    node = util.$(node)[0];
+    this._parentNode = node;
+    this._videoPlayer.appendTo(node);
+    this._commentPlayer.appendTo(node);
+  }
+  close() {
     this._videoPlayer.close();
     this._commentPlayer.close();
-  },
-  closeCommentPlayer: function () {
+  }
+  closeCommentPlayer() {
     this._commentPlayer.close();
-  },
-  toggleFullScreen: function () {
+  }
+  toggleFullScreen() {
     if (Fullscreen.now()) {
       Fullscreen.cancel();
     } else {
       this.requestFullScreen();
     }
-  },
-  requestFullScreen: function () {
-    Fullscreen.request(this._fullscreenNode || this._$parentNode[0]);
-  },
-  canPlay: function () {
+  }
+  requestFullScreen() {
+    Fullscreen.request(this._fullscreenNode || this._parentNode);
+  }
+  canPlay() {
     return this._videoPlayer.canPlay();
-  },
-  isPlaying: function () {
+  }
+  get isPlaying() {
     return !!this._isPlaying;
-  },
-  isSeeking: function () {
+  }
+  get isSeeking() {
     return !!this._isSeeking;
-  },
-  getBufferedRange: function () {
-    return this._videoPlayer.getBufferedRange();
-  },
-  addChat: function (text, cmd, vpos, options) {
+  }
+  get bufferedRange() {return this._videoPlayer.bufferedRange;}
+  addChat(text, cmd, vpos, options) {
     if (!this._commentPlayer) {
       return;
     }
     let nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
     console.log('addChat:', text, cmd, vpos, options, nicoChat);
     return nicoChat;
-  },
-  setIsCommentFilterEnable: function (v) {
-    this._commentPlayer.setIsFilterEnable(v);
-  },
-  isCommentFilterEnable: function () {
-    return this._commentPlayer.isFilterEnable();
-  },
-  setSharedNgLevel: function (level) {
-    this._commentPlayer.setSharedNgLevel(level);
-  },
-  getSharedNgLevel: function () {
-    return this._commentPlayer.getSharedNgLevel();
-  },
-
-  addWordFilter: function (text) {
-    this._commentPlayer.addWordFilter(text);
-  },
-  setWordFilterList: function (list) {
-    this._commentPlayer.setWordFilterList(list);
-  },
-  getWordFilterList: function () {
-    return this._commentPlayer.getWordFilterList();
-  },
-
-  addUserIdFilter: function (text) {
-    this._commentPlayer.addUserIdFilter(text);
-  },
-  setUserIdFilterList: function (list) {
-    this._commentPlayer.setUserIdFilterList(list);
-  },
-  getUserIdFilterList: function () {
-    return this._commentPlayer.getUserIdFilterList();
-  },
-
-  getCommandFilterList: function () {
-    return this._commentPlayer.getCommandFilterList();
-  },
-  addCommandFilter: function (text) {
-    this._commentPlayer.addCommandFilter(text);
-  },
-  setCommandFilterList: function (list) {
-    this._commentPlayer.setCommandFilterList(list);
-  },
-  setVideoInfo: function (info) {
-    this._videoInfo = info;
-  },
-  getVideoInfo: function () {
-    return this._videoInfo;
-  },
-  getMymemory: function () {
-    return this._commentPlayer.getMymemory();
-  },
-  getScreenShot: function () {
+  }
+  /**
+   * @returns {NicoChatFilter}
+   */
+  get filter() {return this._commentPlayer.filter;}
+  /**
+   * @returns {VideoInfoModel}
+   */
+  get videoInfo() {return this._videoInfo;}
+  set videoInfo(info) {this._videoInfo = info;}
+  getMymemory() {return this._commentPlayer.getMymemory();}
+  getScreenShot() {
     window.console.time('screenShot');
 
     const fileName = this._getSaveFileName();
-    const video = this._videoPlayer.getVideoElement();
+    const video = this._videoPlayer.videoElement;
 
     return VideoCaptureUtil.videoToCanvas(video).then(({canvas}) => {
       VideoCaptureUtil.saveToFile(canvas, fileName);
       window.console.timeEnd('screenShot');
     });
-  },
-  getScreenShotWithComment: function () {
+  }
+  getScreenShotWithComment() {
     window.console.time('screenShotWithComment');
 
     const fileName = this._getSaveFileName({suffix: 'C'});
-    const video = this._videoPlayer.getVideoElement();
+    const video = this._videoPlayer.videoElement;
     const html = this._commentPlayer.getCurrentScreenHtml();
 
     return VideoCaptureUtil.nicoVideoToCanvas({video, html}).then(({canvas}) => {
       VideoCaptureUtil.saveToFile(canvas, fileName);
       window.console.timeEnd('screenShotWithComment');
     });
-  },
-  _getSaveFileName: function ({suffix = ''} = {}) {
+  }
+  _getSaveFileName({suffix = ''} = {}) {
     const title = this._videoInfo.title;
     const watchId = this._videoInfo.watchId;
-    const currentTime = this._videoPlayer.getCurrentTime();
+    const currentTime = this._videoPlayer.currentTime;
     const time = util.secToTime(currentTime).replace(':', '_');
-    const prefix = Config.getValue('screenshot.prefix') || '';
+    const prefix = Config.props['screenshot.prefix'] || '';
 
     return `${prefix}${title} - ${watchId}@${time}${suffix}.png`;
-  },
-  isCorsReady: function () {
-    return this._videoPlayer && this._videoPlayer.isCorsReady();
   }
-});
+  get isCorsReady() {return this._videoPlayer && this._videoPlayer.isCorsReady;}
+  getDuration() {return this._videoPlayer.duration;}
+  getChatList() {return this._commentPlayer.chatList;}
+  getVpos() {return Math.floor(this._videoPlayer.currentTime * 100);}
+  setComment(xmlText, options) {this._commentPlayer.setComment(xmlText, options);}
+  getNonFilteredChatList() {return this._commentPlayer.nonFilteredChatList;}
+  setVolume(v) {this._videoPlayer.volume=v;}
+  getBufferedRange() {return this._videoPlayer.bufferedRange;}
+  setVideoInfo(v) { this.videoInfo = v; }
+  getVideoInfo() { return this.videoInfo; }
+}
 
 
 class ContextMenu extends BaseViewComponent {
@@ -452,7 +391,7 @@ class ContextMenu extends BaseViewComponent {
 
   _initDom(...args) {
     super._initDom(...args);
-    ZenzaWatch.debug.contextMenu = this;
+    global.debug.contextMenu = this;
     const onMouseDown = this._bound.onMouseDown = this._onMouseDown.bind(this);
     this._bound.onBodyMouseUp = this._onBodyMouseUp.bind(this);
     this._bound.onRepeat = this._onRepeat.bind(this);
@@ -543,7 +482,7 @@ class ContextMenu extends BaseViewComponent {
     view.style.top =
       Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)) + 'px';
     this.setState({isOpen: true});
-    ZenzaWatch.emitter.emitAsync('showMenu');
+    global.emitter.emitAsync('showMenu');
   }
 
   hide() {
@@ -551,7 +490,7 @@ class ContextMenu extends BaseViewComponent {
     util.$(this._view).css({left: '', top: ''});
     this._endRepeat();
     this.setState({isOpen: false});
-    ZenzaWatch.emitter.emitAsync('hideMenu');
+    global.emitter.emitAsync('hideMenu');
   }
 
   get isOpen() {
@@ -569,8 +508,10 @@ class ContextMenu extends BaseViewComponent {
         elm.classList.add('selected');
       }
     });
-    view.find('.debug')
-      .toggleClass('selected', this._playerState.isDebug);
+    view.find('[data-config]').forEach(menu => {
+      const name = menu.dataset.config;
+      menu.classList.toggle('selected', !!global.config.props[name]);
+    });
     view.find('.seekToResumePoint')
       .css('display', this._playerState.videoInfo.initialPlaybackTime > 0 ? '' : 'none');
     if (this._isFirstShow) {
@@ -578,10 +519,10 @@ class ContextMenu extends BaseViewComponent {
       const handler = (command, param) => {
         this.emit('command', command, param);
       };
-      ZenzaWatch.emitter.emitAsync('videoContextMenu.addonMenuReady',
+      global.emitter.emitAsync('videoContextMenu.addonMenuReady',
         view.find('.empty-area-top'), handler
       );
-      ZenzaWatch.emitter.emitAsync('videoContextMenu.addonMenuReady.list',
+      global.emitter.emitAsync('videoContextMenu.addonMenuReady.list',
         view.find('.listInner ul'), handler
       );
     }
@@ -603,6 +544,7 @@ ContextMenu.__css__ = (`
       color: #000;
     }
     .zenzaPlayerContextMenu.is-Open {
+      display: block;
       opacity: 0.5;
     }
     .zenzaPlayerContextMenu.is-Open:hover {
@@ -613,9 +555,10 @@ ContextMenu.__css__ = (`
     }
 
     .zenzaPlayerContextMenu:not(.is-Open) {
-      left: -9999px;
+      display: none;
+      /*left: -9999px;
       top: -9999px;
-      opacity: 0;
+      opacity: 0;*/
     }
 
     .zenzaPlayerContextMenu ul {
@@ -634,9 +577,7 @@ ContextMenu.__css__ = (`
       list-style-type: none;
       float: inherit;
     }
-    .is-loop           .zenzaPlayerContextMenu li.toggleLoop:before,
     .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
-    .is-showComment    .zenzaPlayerContextMenu li.toggleShowComment:before,
     .is-flipV          .zenzaPlayerContextMenu li.toggle-flipV:before,
     .is-flipH          .zenzaPlayerContextMenu li.toggle-flipH:before,
     .zenzaPlayerContextMenu ul                 li.selected:before {
@@ -805,14 +746,14 @@ ContextMenu.__tpl__ = (`
           <li class="command" data-command="togglePlay">停止/再開</li>
           <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
           <hr class="separator">
-          <li class="command toggleLoop"        data-command="toggle-loop">リピート</li>
+          <li class="command toggleLoop"        data-config="loop" data-command="toggle-loop">リピート</li>
           <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
-          <li class="command toggleShowComment" data-command="toggle-showComment">コメントを表示</li>
+          <li class="command toggleShowComment" data-config="showComment" data-command="toggle-showComment">コメントを表示</li>
           <li class="command" data-command="picture-in-picture">P in P</li>
           <hr class="separator">
 
           <li class="command forPremium toggle-flipH" data-command="toggle-flipH">左右反転</li>
-          <li class="command toggle-flipV" data-command="toggle-flipV">上下反転</li>
+          <li class="command toggle-flipV"            data-command="toggle-flipV">上下反転</li>
 
           <hr class="separator">
 
@@ -820,7 +761,7 @@ ContextMenu.__tpl__ = (`
             data-command="reload">動画のリロード</li>
           <li class="command"
             data-command="copy-video-watch-url">動画URLをコピー</li>
-          <li class="command debug"
+          <li class="command debug" data-config="debug"
             data-command="toggle-debug">デバッグ</li>
           <li class="command mymemory"
             data-command="saveMymemory">コメントの保存</li>
@@ -855,11 +796,11 @@ class VideoPlayer extends Emitter {
   }
 
   addClass(className) {
-    this.toggleClass(className, true);
+    this._body.classList.add(...className.split(/\s/));
   }
 
   removeClass(className) {
-    this.toggleClass(className, false);
+    this._body.classList.remove(...className.split(/\s/));
   }
 
   toggleClass(className, v) {
@@ -902,7 +843,7 @@ class VideoPlayer extends Emitter {
       .attr(options);
     body.id = 'ZenzaWatchVideoPlayerContainer';
     this._body = body;
-    body.appendChild(video);
+    body.append(video);
     video.pause();
 
     this._video = video;
@@ -916,9 +857,9 @@ class VideoPlayer extends Emitter {
     this._isPlaying = false;
     this._canPlay = false;
 
-    this.setVolume(volume);
-    this.setMute(params.mute);
-    this.setPlaybackRate(playbackRate);
+    this.volume = volume;
+    this.muted = params.mute;
+    this.playbackRate=playbackRate;
 
     this._touchWrapper = new TouchWrapper({
       parentElement: body
@@ -933,12 +874,8 @@ class VideoPlayer extends Emitter {
 
     this._initializeEvents();
 
-    ZenzaWatch.debug.video = this._video;
-    Object.assign(ZenzaWatch.external, {
-      getVideoElement: () => {
-        return this._video;
-      }
-    });
+    global.debug.video = this._video;
+    Object.assign(global.external, {getVideoElement: () => this._video});
   }
 
   _initializeEvents() {
@@ -955,7 +892,7 @@ class VideoPlayer extends Emitter {
       .on('loadedmetadata', eventBridge.bind(this, 'loadedmetadata'))
       .on('ended', eventBridge.bind(this, 'ended'))
       .on('emptied', eventBridge.bind(this, 'emptied'))
-      .on('stalled', this._onStalled.bind(this))
+      // .on('stalled', this._onStalled.bind(this))
       .on('suspend', eventBridge.bind(this, 'suspend'))
       .on('waiting', eventBridge.bind(this, 'waiting'))
       .on('progress', this._onProgress.bind(this))
@@ -986,7 +923,7 @@ class VideoPlayer extends Emitter {
   _onCanPlay(...args) {
     console.log('%c_onCanPlay:', 'background: cyan; color: blue;', ...args);
 
-    this.setPlaybackRate(this.getPlaybackRate());
+    this.playbackRate= this.playbackRate;
     // リピート時にも飛んでくるっぽいので初回だけにする
     if (!this._canPlay) {
       this._canPlay = true;
@@ -999,7 +936,7 @@ class VideoPlayer extends Emitter {
         this.emit('aspectRatioFix',
           this._video.videoHeight / Math.max(1, this._video.videoWidth));
       }
-      if (this._isYouTube && Config.getValue('bestZenTube')) {
+      if (this._isYouTube && Config.props.bestZenTube) {
         this._videoYouTube.selectBestQuality();
       }
     }
@@ -1119,14 +1056,14 @@ class VideoPlayer extends Emitter {
     console.log('%c_onSeeked:', 'background: cyan;', arguments);
 
     // なぜかシークのたびにリセットされるので再設定 (Chromeだけ？)
-    this.setPlaybackRate(this.getPlaybackRate());
+    // this.playbackRate = this.playbackRate;
 
     this.emit('seeked', this._video.currentTime);
   }
 
   _onVolumeChange() {
     console.log('%c_onVolumeChange:', 'background: cyan;', arguments);
-    this.emit('volumeChange', this.getVolume(), this.isMuted());
+    this.emit('volumeChange', this.volume, this.muted);
   }
 
   _onDoubleClick(e) {
@@ -1157,19 +1094,13 @@ class VideoPlayer extends Emitter {
     return !!this._canPlay;
   }
 
-  play() {
-    if (this._currentVideo.currentTime === this.getDuration()) {
-      this.setCurrentTime(0);
+  async play() {
+    if (this._currentVideo.currentTime === this.duration) {
+      this.currentTime = 0;
     }
-    const p = this._video.play();
-    // video.play()がPromiseを返すかどうかはブラウザによって異なるっぽい。。。
-    if (p instanceof (Promise)) {
-      return p.then(() => {
-        this._isPlaying = true;
-      });
-    }
+    const p = await this._video.play();
     this._isPlaying = true;
-    return Promise.resolve();
+    return p;
   }
 
   pause() {
@@ -1178,19 +1109,22 @@ class VideoPlayer extends Emitter {
     return Promise.resolve();
   }
 
-  isPlaying() {
+  get isPlaying() {
     return !!this._isPlaying && !!this._canPlay;
   }
 
-  setThumbnail(url) {
+  set thumbnail(url) {
     console.log('%csetThumbnail: %s', 'background: cyan;', url);
 
     this._thumbnail = url;
     this._video.poster = url;
     //this.emit('setThumbnail', url);
   }
+  get thumbnail() {
+    return this._thumbnail;
+  }
 
-  setSrc(url) {
+  set src(url) {
     console.log('%csetSc: %s', 'background: cyan;', url);
 
     this._reset();
@@ -1221,12 +1155,10 @@ class VideoPlayer extends Emitter {
     }
 
     this._video.src = url;
-
   }
+  get src() {return this._src;}
 
-  get _isYouTube() {
-    return this._videoYouTube && this._currentVideo === this._videoYouTube;
-  }
+  get _isYouTube() {return this._videoYouTube && this._currentVideo === this._videoYouTube;}
 
   _initYouTube() {
     if (this._videoYouTube) {
@@ -1254,7 +1186,7 @@ class VideoPlayer extends Emitter {
     yt.on('volumechange', this._onVolumeChange.bind(this));
     yt.on('error', this._onYouTubeError.bind(this));
 
-    ZenzaWatch.debug.youtube = yt;
+    global.debug.youtube = yt;
     return Promise.resolve(this._videoYouTube);
   }
 
@@ -1289,34 +1221,27 @@ class VideoPlayer extends Emitter {
     }
   }
 
-  setVolume(vol) {
+  set volume(vol) {
     vol = Math.max(Math.min(1, vol), 0);
     this._video.volume = vol;
   }
-
-  getVolume() {
-    return parseFloat(this._video.volume);
-  }
-
-  setMute(v) {
+  get volume() {return parseFloat(this._video.volume);}
+  set muted(v) {
     v = !!v;
     if (this._video.muted !== v) {
       this._video.muted = v;
     }
   }
+  get muted() {return this._video.muted;}
 
-  isMuted() {
-    return this._video.muted;
-  }
-
-  getCurrentTime() {
+  get currentTime() {
     if (!this._canPlay) {
       return 0;
     }
     return this._video.currentTime;
   }
 
-  setCurrentTime(sec) {
+  set currentTime(sec) {
     let cur = this._video.currentTime;
     if (cur !== sec) {
       this._video.currentTime = sec;
@@ -1332,75 +1257,61 @@ class VideoPlayer extends Emitter {
    */
   fastSeek(sec) {
     if (typeof this._video.fastSeek !== 'function' || this._isYouTube) {
-      return this.setCurrentTime(sec);
+      return this.currentTime=sec;
     }
     // dmc動画はキーフレーム間隔が1秒とか意味不明な仕様なのでcurrentTimeでいい
     if (this._src.indexOf('dmc.nico') >= 0) {
-      return this.setCurrentTime(sec);
+      return this.currentTime=sec;
     }
     this._video.fastSeek(sec);
     this.emit('seek', this._video.currentTime);
   }
 
-  getDuration() {
-    return this._video.duration;
-  }
+  get duration() {return this._video.duration;}
+
 
   togglePlay() {
-    if (this.isPlaying()) {
+    if (this.isPlaying) {
       return this.pause();
     } else {
       return this.play();
     }
   }
 
-  getVpos() {
-    return this._video.currentTime * 100;
-  }
-
-  setVpos(vpos) {
-    this._video.currentTime = vpos / 100;
-  }
-
-  getIsLoop() {
-    return !!this._video.loop;
-  }
-
-  setIsLoop(v) {
-    this._video.loop = !!v;
-  }
-
-  setPlaybackRate(v) {
+  get vpos() {return this._video.currentTime * 100;}
+  set vpos(vpos) {this._video.currentTime = vpos / 100;}
+  get isLoop() {return !!this._video.loop;}
+  set isLoop(v) {this._video.loop = !!v; }
+  set playbackRate(v) {
     console.log('setPlaybackRate', v);
     //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
     // たまにリセットされたり反映されなかったりする？
     this._playbackRate = v;
     let video = this._video;
     video.playbackRate = 1;
-    window.setTimeout(function () {
-      video.playbackRate = parseFloat(v);
-    }, 100);
+    window.setTimeout(() => video.playbackRate = parseFloat(v), 100);
   }
+  get playbackRate() {return this._playbackRate;}
+  get bufferedRange() {return this._video.buffered;}
+  set isAutoPlay(v) {this._video.autoplay = v;}
+  get isAutoPlay() {return this._video.autoPlay;}
+  setSrc(url) { this.src = url;}
+  setVolume(v) { this.volume = v; }
+  getVolume() { return this.volume; }
+  setMute(v) { this.muted = v;}
+  isMuted() { return this.muted; }
+  getDuration() { return this.duration; }
+  getVpos() { return this.vpos; }
+  setVpos(v) { this.vpos = v; }
+  getIsLoop() {return this.isLoop;}
+  setIsLoop(v) {this.isLoop = !!v; }
+  setPlaybackRate(v) { this.playbackRate = v; }
+  getPlaybackRate() { return this.playbackRate; }
+  getBufferedRange() { return this.bufferedRange; }
+  setIsAutoPlay(v) {this.isAutoplay = v;}
+  getIsAutoPlay() {return this.isAutoPlay;}
 
-  getPlaybackRate() {
-    return this._playbackRate;
-  }
-
-  getBufferedRange() {
-    return this._video.buffered;
-  }
-
-  setIsAutoPlay(v) {
-    this._video.autoplay = v;
-  }
-
-  getIsAutoPlay() {
-    return this._video.autoPlay;
-  }
-
-  appendTo(node) {
-    node.appendChild(this._body);
-  }
+  appendTo(node) {node.append(this._body);}
 
   close() {
     this._video.pause();
@@ -1423,7 +1334,7 @@ class VideoPlayer extends Emitter {
    * CORSの制限があるので保存できない。
    */
   getScreenShot() {
-    if (!this.isCorsReady()) {
+    if (!this.isCorsReady) {
       return null;
     }
     const video = this._video;
@@ -1437,21 +1348,13 @@ class VideoPlayer extends Emitter {
     return canvas;
   }
 
-  isCorsReady() {
-    return this._video.crossOrigin === 'use-credentials';
-  }
+  get isCorsReady() {return this._video.crossOrigin === 'use-credentials';}
 
-  getVideoElement() {
-    return this._videoElement;
-  }
+  get videoElement() {return this._videoElement;}
 
-  get _video() {
-    return this._currentVideo;
-  }
+  get _video() {return this._currentVideo;}
 
-  set _video(v) {
-    this._currentVideo = v;
-  }
+  set _video(v) {this._currentVideo = v;}
 }
 
 VideoPlayer.__css__ = `
@@ -1523,7 +1426,7 @@ class TouchWrapper extends Emitter {
     super();
     this._parentElement = parentElement;
 
-    this._config = ZenzaWatch.config.namespace('touch');
+    this._config = global.config.namespace('touch');
     this._isTouching = false;
     this._maxCount = 0;
     this._currentPointers = [];
@@ -1550,7 +1453,7 @@ class TouchWrapper extends Emitter {
     if (this._parentElement) {
       this._parentElement.appendChild(body);
     }
-    ZenzaWatch.debug.touchWrapper = this;
+    global.debug.touchWrapper = this;
   }
 
   get body() {
@@ -1570,7 +1473,7 @@ class TouchWrapper extends Emitter {
       e.preventDefault();
     }
 
-    Array.from(e.changedTouches).forEach(touch => {
+    [...e.changedTouches].forEach(touch => {
       if (identifiers.includes(touch.identifier)) {
         return;
       }
@@ -1660,7 +1563,7 @@ class TouchWrapper extends Emitter {
   }
 
   _execCommand(command, param) {
-    if (!this._config.getValue('enable')) {
+    if (!this._config.props.enable) {
       return;
     }
     if (!command) {
@@ -1694,16 +1597,16 @@ class TouchWrapper extends Emitter {
       window.console.info('touchEnd', this._maxCount, this._isMoved);
       switch (this._maxCount) {
         case 2:
-          this._execCommand(config.getValue('tap2command'));
+          this._execCommand(config.props.tap2command);
           break;
         case 3:
-          this._execCommand(config.getValue('tap3command'));
+          this._execCommand(config.props.tap3command);
           break;
         case 4:
-          this._execCommand(config.getValue('tap4command'));
+          this._execCommand(config.props.tap4command);
           break;
         case 5:
-          this._execCommand(config.getValue('tap5command'));
+          this._execCommand(config.props.tap5command);
           break;
       }
       this._maxCount = 0;

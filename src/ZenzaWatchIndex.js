@@ -31,8 +31,22 @@ const ZenzaWatch = {
   version: '1.0.0',
   ENV: 'DEV'
 };
+const global = {
+  debug: ZenzaWatch.debug,
+  emitter: ZenzaWatch.emitter,
+  external: ZenzaWatch.external,
+  PRODUCT,
+  TOKEN,
+  config: Config,
+  api: ZenzaWatch.api
+};
+const Navi = Object.assign({}, ZenzaWatch);
+const TOKEN = Math.random();
 
 export {
   ZenzaWatch,
-  PRODUCT
+  Navi,
+  PRODUCT,
+  TOKEN,
+  global
 };
