@@ -1,11 +1,12 @@
 import {util} from '../util';
-import {ZenzaWatch} from '../ZenzaWatchIndex';
 import {PopupMessage} from '../util';
-import {Emitter} from '../baselib';
-import jsdom from 'jsdom';
-import {Sleep} from '../util';
+// import jsdom from 'jsdom';
+import {sleep} from '../../packages/lib/src/infra/sleep';
+import {netUtil} from '../../../lib/src/infra/netUtil';
+import {textUtil} from '../../../lib/src/text/textUtil';
 
-const JSDOM = jsdom.JSDOM;
+const JSDOM = {} ; //jsdom.JSDOM;
+const debug = {};
 
 //===BEGIN===
 
@@ -18,10 +19,9 @@ const {ThreadLoader} = (() => {
     'zh_tw': 2
   };
 
-  class ThreadLoader extends Emitter {
+  class ThreadLoader {
 
     constructor() {
-      super();
       this._threadKeys = {};
     }
 
@@ -41,14 +41,14 @@ const {ThreadLoader} = (() => {
       let langCode = this.getLangCode(language);
       if (langCode) { url = `${url}&language_id=${langCode}`; }
 
-      let headers = options.cookie ? {Cookie: options.cookie} : {};
-      return util.fetch(url, {
-        method: 'post',
+      const headers = options.cookie ? {Cookie: options.cookie} : {};
+      return netUtil.fetch(url, {
+        method: 'POST',
         dataType: 'text',
         headers,
         credentials: 'include'
       }).then(res => res.text()).then(e => {
-        let result = util.parseQuery(e);
+        const result = textUtil.parseQuery(e);
         this._threadKeys[threadId] = result;
         return result;
       }).catch(result => {
@@ -59,28 +59,6 @@ const {ThreadLoader} = (() => {
       });
     }
 
-    // getWaybackKey(threadId, language = '', options = {}) {
-    //   let url = `//flapi.nicovideo.jp/api/getwaybackkey?thread=${threadId}`;
-    //   let langCode = this.getLangCode(language);
-    //   if (langCode) { url = `${url}&language_id=${langCode}`; }
-    //
-    //   let headers = options.cookie ? {Cookie: options.cookie} : {};
-    //   return util.fetch(url, {
-    //     method: 'post',
-    //     dataType: 'text',
-    //     headers,
-    //     credentials: 'include'
-    //   }).then(res => res.text()).then(e => {
-    //     let result = util.parseQuery(e);
-    //     return result;
-    //   }).catch(result => {
-    //     return Promise.reject({
-    //       result: result,
-    //       message: `WaybackKeyの取得失敗 ${threadId} `
-    //     });
-    //   });
-    // }
-
     getLangCode(language = '') {
       language = language.replace('-', '_').toLowerCase();
       if (LANG_CODE[language]) {
@@ -90,19 +68,17 @@ const {ThreadLoader} = (() => {
     }
 
     getPostKey(threadId, blockNo, options = {}) {
-      let url =
+      const url =
         `//flapi.nicovideo.jp/api/getpostkey?device=1&thread=${threadId}&block_no=${blockNo}&version=1&version_sub=2&yugi=`;
 
       console.log('getPostkey url: ', url);
-      let headers = options.cookie ? {Cookie: options.cookie} : {};
-      return util.fetch(url, {
-        method: 'post',
+      const headers = options.cookie ? {Cookie: options.cookie} : {};
+      return netUtil.fetch(url, {
+        method: 'POST',
         dataType: 'text',
         headers,
         credentials: 'include'
-      }).then(res => res.text()).then(e => {
-        return util.parseQuery(e);
-      }).catch(result => {
+      }).then(res => res.text()).then(e => textUtil.parseQuery(e)).catch(result => {
         return Promise.reject({
           result,
           message: `PostKeyの取得失敗 ${threadId}`
@@ -111,7 +87,7 @@ const {ThreadLoader} = (() => {
     }
 
     buildPacketData(msgInfo, options = {}) {
-      let packets = [];
+      const packets = [];
       const resCount = this.getRequestCountByDuration(msgInfo.duration);
       const leafContent = `0-${Math.floor(msgInfo.duration / 60) + 1}:100,${resCount}`;
       const language = this.getLangCode(msgInfo.language);
@@ -119,7 +95,7 @@ const {ThreadLoader} = (() => {
       msgInfo.threads.forEach(thread => {
         if (!thread.isActive) { return; }
 
-        let t = {
+        const t = {
           thread: thread.id.toString(),
           user_id: msgInfo.userId > 0 ? msgInfo.userId.toString() : '', // 0の時は空文字
           language,
@@ -130,9 +106,6 @@ const {ThreadLoader} = (() => {
           t.threadkey = msgInfo.threadKey[thread.id].key;
           t.force_184 = msgInfo.threadKey[thread.id].force184 ? '1' : '0';
         }
-        // if (msgInfo.when > 0 && msgInfo.waybackKey[thread.id]) {
-        //   t.waybackkey = msgInfo.waybackKey[thread.id].key || '';
-        // }
         if (msgInfo.when > 0) {
           t.when = msgInfo.when;
         }
@@ -157,14 +130,14 @@ const {ThreadLoader} = (() => {
     }
 
     buildPacket(msgInfo, options = {}) {
-      let packet = document.createElement('packet');
-      let data = this.buildPacketData(msgInfo);
+      const data = this.buildPacketData(msgInfo);
       if (options.format !== 'xml') {
         return JSON.stringify(data);
       }
+      const packet = document.createElement('packet');
       data.forEach(d => {
-        let t = document.createElement(d.thread ? 'thread' : 'thread_leaves');
-        let thread = d.thread ? d.thread : d.thread_leaves;
+        const t = document.createElement(d.thread ? 'thread' : 'thread_leaves');
+        const thread = d.thread ? d.thread : d.thread_leaves;
         Object.keys(thread).forEach(attr => {
           if (attr === 'content') {
             t.textContent = thread[attr];
@@ -172,20 +145,18 @@ const {ThreadLoader} = (() => {
           }
           t.setAttribute(attr, thread[attr]);
         });
-        packet.appendChild(t);
+        packet.append(t);
       });
       return packet.outerHTML;
     }
 
     _post(server, body, options = {}) {
-      let url = server;
-      return util.fetch(url, {
+      const url = server;
+      return netUtil.fetch(url, {
         method: 'POST',
         dataType: 'text',
-        headers: {
-          'Content-Type': 'text/plain; charset=UTF-8'
-        },
-        body: body
+        headers: {'Content-Type': 'text/plain; charset=UTF-8'},
+        body
       }).then(res => {
         if (options.format !== 'xml') {
           return res.json();
@@ -206,9 +177,8 @@ const {ThreadLoader} = (() => {
 
     _load(msgInfo, options = {}) {
       let packet;
-      let language = msgInfo.language;
+      const language = msgInfo.language;
       msgInfo.threadKey = msgInfo.threadKey || {};
-      // msgInfo.waybackKey = msgInfo.waybackKey || {};
       const loadThreadKey = threadId => {
         if (msgInfo.threadKey[threadId]) { return; }
         msgInfo.threadKey[threadId] = {};
@@ -218,28 +188,11 @@ const {ThreadLoader} = (() => {
         });
       };
 
-      const loadThreadKeys = () => {
-        return Promise.all(msgInfo.threads.filter(t => t.isThreadkeyRequired).map(t => loadThreadKey(t.id)));
-      };
+      const loadThreadKeys = () =>
+        Promise.all(msgInfo.threads.filter(t => t.isThreadkeyRequired).map(t => loadThreadKey(t.id)));
 
-      // const loadWaybackKey = threadId => {
-      //   if (msgInfo.waybackKey[threadId]) { return; }
-      //   msgInfo.waybackKey[threadId] = {};
-      //   return this.getWaybackKey(threadId, language, options).then(info => {
-      //     console.log('waybackKey: ', threadId, info);
-      //     msgInfo.waybackKey[threadId] = {key: info.waybackkey};
-      //   });
-      // };
-
-      // const loadWaybackKeys = () => {
-      //   if (!msgInfo.when) {
-      //     return Promise.resolve();
-      //   }
-      //   return Promise.all(msgInfo.threads.map(t => loadWaybackKey(t.id)));
-      // };
-
-      return Promise.all([loadThreadKeys()/*, loadWaybackKeys()*/]).then(() => {
-        let format = options.format === 'xml' ? 'xml' : 'json';
+      return Promise.all([loadThreadKeys()]).then(() => {
+        const format = options.format === 'xml' ? 'xml' : 'json';
         let server = format === 'json' ? msgInfo.server.replace('/api/', '/api.json/') : msgInfo.server;
         server = server.replace(/^http:/, '');
         packet = this.buildPacket(msgInfo, format);
@@ -260,9 +213,9 @@ const {ThreadLoader} = (() => {
 
       const onSuccess = result => {
         console.timeEnd(timeKey);
-        ZenzaWatch.debug.lastMessageServerResult = result;
+        debug.lastMessageServerResult = result;
 
-        let format = 'array';
+        const format = 'array';
         let thread, totalResCount = 0;
         let resultCode = null;
         try {
@@ -295,8 +248,8 @@ const {ThreadLoader} = (() => {
           });
         }
 
-        let last_res = isNaN(thread.last_res) ? 0 : thread.last_res * 1;
-        let threadInfo = {
+        const last_res = isNaN(thread.last_res) ? 0 : thread.last_res * 1;
+        const threadInfo = {
           server,
           userId,
           resultCode,
@@ -333,61 +286,71 @@ const {ThreadLoader} = (() => {
         window.console.error('loadComment fail 1st: ', e);
         PopupMessage.alert('コメントの取得失敗: 3秒後にリトライ');
 
-        return new Sleep(3000).then(() => this._load(msgInfo, options).then(onSuccess).catch(onFailFinally));
+        return sleep(3000).then(() => this._load(msgInfo, options).then(onSuccess).catch(onFailFinally));
       };
 
       return this._load(msgInfo, options).then(onSuccess).catch(onFail1st);
     }
 
-    _postChat(threadInfo, postKey, text, cmd, vpos) {
-      let packet = JSON.stringify([{chat: {
+    async _postChat(threadInfo, postkey, text, cmd, vpos) {
+      const packet = JSON.stringify([{chat: {
         content: text,
         mail: cmd || '',
         vpos: vpos || 0,
         premium: util.isPremium() ? 1 : 0,
-        postkey: postKey,
+        postkey,
         user_id: threadInfo.userId.toString(),
         ticket: threadInfo.ticket,
         thread: threadInfo.threadId.toString()
       }}]);
       console.log('post packet: ', packet);
-      let server = threadInfo.server.replace('/api/', '/api.json/');
-      return this._post(server, packet, 'json').then(result => {
-        let status = null, chat_result, no = 0, blockNo = 0;
-        try {
-          chat_result = result.find(t => t.chat_result).chat_result;
-          status = chat_result.status;
-          no = parseInt(chat_result.no, 10);
-          blockNo = Math.floor((no + 1) / 100);
-        } catch (e) {
-          console.error(e);
-        }
+      const server = threadInfo.server.replace('/api/', '/api.json/');
+      const result = await this._post(server, packet, 'json');
 
-        if (parseInt(status) !== 0) {
-          return Promise.reject({
-            status: 'fail',
-            no,
-            blockNo,
-            code: status,
-            message: `コメント投稿失敗 status: ${status} server: ${threadInfo.server}`
-          });
-        }
-
-        return Promise.resolve({
+      let status = null, chat_result, no = 0, blockNo = 0;
+      try {
+        chat_result = result.find(t => t.chat_result).chat_result;
+        status = chat_result.status * 1;
+        no = parseInt(chat_result.no, 10);
+        blockNo = Math.floor((no + 1) / 100);
+      } catch (e) {
+        console.error(e);
+      }
+      if (status === 0) {
+        return {
           status: 'ok',
           no,
           blockNo,
           code: status,
           message: 'コメント投稿成功'
-        });
+        };
+      }
+      return Promise.reject({
+        status: 'fail',
+        no,
+        blockNo,
+        code: status,
+        message: `コメント投稿失敗 status: ${status} server: ${threadInfo.server}`
       });
     }
 
-    postChat(threadInfo, text, cmd, vpos, language) {
-      return this.getPostKey(threadInfo.threadId, threadInfo.blockNo, language)
-        .then(result => {
-          return this._postChat(threadInfo, result.postkey, text, cmd, vpos);
-        });
+    async postChat(msgInfo, text, cmd, vpos, lang) {
+      const threadInfo = msgInfo.threadInfo;
+      const tk = await this.getPostKey(threadInfo.threadId, threadInfo.blockNo, lang);
+      const postkey = tk.postkey;
+      let result = await this._postChat(threadInfo, postkey, text, cmd, vpos, lang).catch(r => r);
+      if (result.status === 'ok') {
+        return result;
+      }
+      const errorCode = parseInt(result.code, 10);
+      if (errorCode === 3) { // ticket fail
+        await this.load(msgInfo);
+      } else if (![2, 4, 5].includes(errorCode)) { // リカバー不能系
+        return Promise.reject(result);
+      }
+      await sleep(3000);
+      result = await this._postChat(threadInfo, postkey, text, cmd, vpos, lang).catch(r => r);
+      return result.status === 'ok' ? result : Promise.reject(result);
     }
 
   }

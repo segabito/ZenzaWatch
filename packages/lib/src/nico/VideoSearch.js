@@ -1,11 +1,7 @@
-// import {ZenzaWatch} from '../ZenzaWatchIndex';
-import {util} from '../util';
-import {CrossDomainGate} from './api';
-import {WindowMessageEmitter} from '../util';
-// const location = {
-//   protocol: 'http:'
-// };
-
+import {CrossDomainGate} from '../infra/CrossDomainGate';
+import {WindowMessageEmitter} from '../message/messageUtil';
+import {textUtil} from '../text/textUtil';
+import {sleep} from '../infra/sleep';
 //===BEGIN===
 
 const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
@@ -350,9 +346,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
         const query = new NicoSearchApiV2Query(word, params);
         const url = API_BASE_URL + '?' + query.toString();
 
-        return gate.fetch(url).then(result => {
-          return result.text();
-        }).then(result => {
+        return gate.fetch(url).then(res => res.text()).then(result => {
           result = NicoSearchApiV2Loader.parseResult(result);
           if (typeof result !== 'number' && result.status === 'ok') {
             return Promise.resolve(Object.assign(result, {word, params}));
@@ -405,7 +399,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
 
         //// TODO: 途中で失敗したらそこまででもいいので返す？
         for (let i = 1; i <= searchCount; i++) {
-          await util.sleep(300 * i);
+          await sleep(300 * i);
           let page = currentPage + i * (ONCE_LIMIT / PER_PAGE);
           console.log('searchNext: "%s"', word, page, params);
           let res = await NicoSearchApiV2Loader.search(word, Object.assign(params, {page}));
@@ -454,7 +448,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
               item.is_middle_thumbnail = true;
             }
           }
-          const dt = util.dateToString(new Date(item.startTime));
+          const dt = textUtil.dateToString(new Date(item.startTime));
 
           result.list.push({
             id: item.contentId,
@@ -482,7 +476,6 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
 
     return {NicoSearchApiV2Query, NicoSearchApiV2Loader};
   })();
-
 //===END===
 
 
