@@ -1,7 +1,8 @@
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {ZenzaWatch, PRODUCT} from './ZenzaWatchIndex';
 import {PopupMessage} from './util';
 import {PlayerConfig} from './NicoVideoPlayerDialog';
-import {util} from './util';
+import {Clipboard} from '../packages/lib/src/dom/Clipboard';
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 //===BEGIN===
 const RootDispatcher = (() => {
   let config;
@@ -16,29 +17,29 @@ const RootDispatcher = (() => {
       player.on('command', RootDispatcher.execCommand);
     }
 
-    static execCommand(command, param) {
+    static execCommand(command, params) {
+      let result = {status: 'ok'};
       switch(command) {
         case 'notifyHtml':
-          PopupMessage.notify(param, true);
+          PopupMessage.notify(params, true);
           break;
         case 'notify':
-          PopupMessage.notify(param);
+          PopupMessage.notify(params);
           break;
         case 'alert':
-          PopupMessage.alert(param);
+          PopupMessage.alert(params);
           break;
         case 'alertHtml':
-          PopupMessage.alert(param, true);
+          PopupMessage.alert(params, true);
           break;
         case 'copy-video-watch-url':
-          util.copyToClipBoard(playerState.videoInfo.watchUrl);
+          Clipboard.copyText(playerState.videoInfo.watchUrl);
           break;
         case 'tweet':
-          util.openTweetWindow(playerState.videoInfo);
+          nicoUtil.openTweetWindow(playerState.videoInfo);
           break;
         case 'toggleConfig': {
-          let v = config.getValue(param);
-          config.setValue(param, !v);
+          config.props[params] = config.props[params];
           break;
         }
         case 'picture-in-picture':
@@ -55,8 +56,9 @@ const RootDispatcher = (() => {
         case 'toggle-useWellKnownPort':
         case 'toggle-bestZenTube':
         case 'toggle-autoCommentSpeedRate':
+        case 'toggle-video.hls.enableOnlyRequired':
           command = command.replace(/^toggle-/, '');
-          config.setValue(command, !config.getValue(command));
+          config.props[command] = !config.props[command];
           break;
         case 'baseFontFamily':
         case 'baseChatScale':
@@ -68,18 +70,23 @@ const RootDispatcher = (() => {
         case 'update-commentSpeedRate':
         case 'update-fullscreenControlBarMode':
           command = command.replace(/^update-/, '');
-          if (config.getValue(command) === param) {
+          if (config.props[command] === params) {
             break;
           }
-          config.setValue(command, param);
+          config.props[command] = params;
           break;
 
         case 'nop':
           break;
+        case 'echo':
+          window.console.log('%cECHO', 'font-weight: bold;', {params});
+          PopupMessage.notify(`ECHO: 「${typeof params === 'string' ? params : JSON.stringify(params)}」`);
+          break;
         default:
-          ZenzaWatch.emitter.emit(`command-${command}`, command, param);
-          window.dispatchEvent(new CustomEvent(`${PRODUCT}-command`, {detail: {command, param}}));
+          ZenzaWatch.emitter.emit(`command-${command}`, command, params);
+          window.dispatchEvent(new CustomEvent(`${PRODUCT}-command`, {detail: {command, params, param: params}}));
       }
+      return result;
     }
 
     static onConfigUpdate(key, value) {

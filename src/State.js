@@ -1,7 +1,8 @@
 import {Emitter} from './baselib';
 import {ZenzaWatch} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 //===BEGIN===
 
 class BaseState extends Emitter {
@@ -11,6 +12,8 @@ class BaseState extends Emitter {
     this._name = '';
     this._state = {};
     this._props = {};
+    this._changed = new Map;
+    this._boundOnChange = bounce.time(this._onChange.bind(this));
   }
 
   _defineProperty() {
@@ -19,18 +22,34 @@ class BaseState extends Emitter {
         this,
         key, {
           get: () => this._state[key],
-          set: v => {
-            this._setState(key, v);
-          }
+          set: v => this._setState(key, v)
         });
     });
   }
 
+  onkey(key, func) {return this.on(`update-${key}`, func);}
+  offkey(key, func) {return this.off(`update-${key}`, func);}
+
+  _onChange() {
+    const changed = this._changed;
+    this.emit('change', changed, changed.size);
+    if (!changed.size) {
+      return;
+    }
+    for (const [key, val] of changed) {
+      this.emit('update', key, val);
+      this.emit(`update-${key}`, val);
+    }
+    this._changed.clear();
+  }
+
   setState(key, val) {
-    if (_.isString(key)) {
+    if (typeof key === 'string') {
       return this._setState(key, val);
     }
-    Object.keys(key).forEach(k => this._setState(k, key[k]));
+    for (const k of (key instanceof Map ? key : Object.keys(key))) {
+      this._setState(k, key[k]);
+    }
   }
 
   _setState(key, val) {
@@ -42,8 +61,8 @@ class BaseState extends Emitter {
       return;
     }
     this._state[key] = val;
-    this.emit('change', key, val);
-    this.emit(`update-${key}`, val);
+    this._changed.set(key, val);
+    this._boundOnChange();
   }
 }
 
@@ -56,48 +75,47 @@ class PlayerState extends BaseState {
   }
   constructor(config) {
     super();
-
     this._name = 'Player';
     this._state = {
       isAbort: false,
-      isBackComment: config.getValue('backComment'),
+      isBackComment: config.props.backComment,
       isChanging: false,
       isChannel: false,
-      isShowComment: config.getValue('showComment'),
+      isShowComment: config.props.showComment,
       isCommentReady: false,
       isCommentPosting: false,
       isCommunity: false,
       isWaybackMode: false,
-      isDebug: config.getValue('debug'),
+      isDebug: config.props.debug,
       isDmcAvailable: false,
       isDmcPlaying: false,
       isError: false,
       isLoading: false,
-      isLoop: config.getValue('loop'),
-      isMute: config.getValue('mute'),
+      isLoop: config.props.loop,
+      isMute: config.props.mute,
       isMymemory: false,
       isOpen: false,
       isPausing: false,
       isPlaylistEnable: false,
       isPlaying: false,
       isSeeking: false,
-      isRegularUser: !util.isPremium(),
+      isRegularUser: !nicoUtil.isPremium(),
       isStalled: false,
       isUpdatingDeflist: false,
       isUpdatingMylist: false,
       isNotPlayed: true,
       isYouTube: false,
 
-      isEnableFilter: config.getValue('enableFilter'),
-      sharedNgLevel: config.getValue('sharedNgLevel'),
+      isEnableFilter: config.props.enableFilter,
+      sharedNgLevel: config.props.sharedNgLevel,
 
       currentSrc: '',
-      currentTab: config.getValue('videoInfoPanelTab'),
+      currentTab: config.props.videoInfoPanelTab,
       // aspectRatio: 9/16,
 
       errorMessage: '',
-      screenMode: config.getValue('screenMode'),
-      playbackRate: config.getValue('playbackRate'),
+      screenMode: config.props.screenMode,
+      playbackRate: config.props.playbackRate,
       thumbnail: '',
       videoCount: {},
       videoSession: {}
@@ -120,6 +138,15 @@ class PlayerState extends BaseState {
 
   get videoInfo() {
     return this._videoInfo;
+  }
+
+  set chatList(chatList) {
+    this._chatList = chatList;
+    this.emit('update-chatList', this._chatList);
+  }
+
+  get chatList() {
+    return this._chatList;
   }
 
   resetVideoLoadingStatus() {
@@ -172,4 +199,4 @@ class PlayerState extends BaseState {
 export {
   BaseState,
   PlayerState
-}
+};

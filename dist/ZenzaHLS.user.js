@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name           ZenzaWatch HLS addon
+// @name           ZenzaWatch HLS Support
 // @namespace      https://github.com/segabito/
-// @description    Zenza HLS Support
+// @description    ZenzaWatchをHLSに対応させる
 // @match          *://www.nicovideo.jp/*
 // @match          *://blog.nicovideo.jp/*
 // @match          *://ch.nicovideo.jp/*
@@ -16,12 +16,14 @@
 // @exclude        *://ads.nicovideo.jp/*
 // @exclude        *://www.upload.nicovideo.jp/*
 // @exclude        *://www.nicovideo.jp/watch/*?edit=*
+// @exclude        *://www.nicovideo.jp/mylist/*
 // @exclude        *://ch.nicovideo.jp/tool/*
 // @exclude        *://flapi.nicovideo.jp/*
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.0.1
+// @version        0.0.2
+// @noframes
 // @run-at         document-start
 // ==/UserScript==
 
@@ -33,7 +35,6 @@ const MODULES = `
 const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 `;
 // hls.js@latest だと再生が始まらない動画がたまにある。 0.8.9ならok
-/////// @require        https://cdn.jsdelivr.net/npm/hls.js@0.8.9
 
 (() => {
   const PRODUCT = 'ZenzaWatchHLS';
@@ -54,6 +55,10 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
       use_native_hls: true,   // SafariなどブラウザがHLS対応だったらそっちを使う
       show_video_label: false, //
       autoAbrEwmaDefaultEstimate: true,
+      hls_js_ver: 'latest',
+
+      enable_db_cache: !true,
+      cache_expire_time: 6 * 60 * 60 * 1000,
 
       // 以下、 hls.js 関連
 
@@ -73,8 +78,8 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
       abrBandWidthFactor: 0.95, // used by abr-controller
       abrBandWidthUpFactor: 0.7, // used by abr-controller
       abrMaxWithRealBitrate: false, // used by abr-controller
-      manifestLoadingTimeOut: 10000, // used by playlist-loader
-      manifestLoadingMaxRetry: 1, // used by playlist-loader
+      manifestLoadingTimeOut: 30000, // used by playlist-loader
+      manifestLoadingMaxRetry: 3, // used by playlist-loader
       manifestLoadingRetryDelay: 3000, //1000, // used by playlist-loader
       manifestLoadingMaxRetryTimeout: 64000, // used by playlist-loader
       levelLoadingTimeOut: 10000, // used by playlist-loader
@@ -247,6 +252,369 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
     };
 
 
+    const StorageWorker = function(self) {
+      let Config = {
+        cache_expire_time: 6 * 60 * 60 * 1000
+      };
+
+      class IndexDBStorage {
+        static get name() { return 'zenza_hls'; }
+        static get ver() { return 4; }
+        static get storeNames() { return ['ts-data']; }
+
+        static get expireTime() {
+          return Config.cache_expire_time;
+        }
+
+        static getInstance() {
+          if (this._instance) {
+            return this._instance;
+          }
+          this._instance = new this();
+          return this._instance;
+        }
+
+        static async init() {
+          if (this.db) {
+            return Promise.resolve(this.db);
+          }
+          return new Promise((resolve, reject) => {
+            let req = indexedDB.open(this.name, this.ver);
+            req.onupgradeneeded = e => {
+              let db = e.target.result;
+
+              if(db.objectStoreNames.contains(this.name)) {
+                db.deleteObjectStore(this.name);
+              }
+
+              let [meta] = this.storeNames;
+              let store = db.createObjectStore(meta,
+                {keyPath: 'expiresAt', autoIncrement: false});
+              store.createIndex('hash', 'hash', {unique: true});
+              store.createIndex('videoId', 'videoId', {unique: false});
+            };
+
+            req.onsuccess = e => {
+              this.db = e.target.result;
+              resolve(this.db);
+              // this.db.close();
+            };
+
+            req.onerror = e => {
+              reject(e);
+            };
+
+          });
+        }
+
+        static close() {
+          if (!this.db) {
+            return;
+          }
+          this.db.close();
+          this.db = null;
+        }
+
+        async getStore({mode} = {mode: 'readwrite'}) {
+          return new Promise(async (resolve, reject) => {
+            let db = await this.constructor.init();
+            let [data] = this.constructor.storeNames;
+            // window.console.log('getStore', this.storeName, mode);
+            let tx = db.transaction(this.constructor.storeNames, mode);
+            tx.oncomplete = resolve;
+            tx.onerror = reject;
+            return resolve({
+              transaction: tx,
+              store: tx.objectStore(data)
+            });
+          });
+        }
+
+        async putRecord(store, record) {
+          return new Promise((resolve, reject) => {
+            let req = store.put(record);
+            req.onsuccess = e => {
+              resolve(e.target.result);
+            };
+            req.onerror = e => {
+              reject(null);
+            };
+          });
+        }
+
+        async getRecord(store, key, {index, timeout}) {
+          return new Promise((resolve, reject) => {
+            let req =
+              index ?
+                store.index(index).get(key) : store.get(key);
+            req.onsuccess = e => {
+              resolve(e.target.result);
+            };
+            req.onerror = e => {
+              reject(null);
+            };
+            if (timeout) {
+              setTimeout(() => {
+                reject(`timeout: key${key}`);
+              }, timeout);
+            }
+          });
+        }
+
+        async deleteRecord(store, key, {index}) {
+          return new Promise((resolve, reject) => {
+            let deleted = 0;
+            let range = IDBKeyRange.only(key);
+            let req =
+              index ?
+                store.index(index).openCursor(range) : store.openCursor(range);
+            req.onsuccess = e =>  {
+              let result = e.target.result;
+              if (!result) {
+                return resolve(deleted > 0);
+              }
+              result.delete();
+              deleted++;
+              result.continue();
+            };
+            req.onerror = e => {
+              reject(null);
+            };
+          });
+        }
+
+        async load({hash}) {
+          try {
+            let {store} =
+              await this.getStore({mode: 'readonly'});
+            let meta = await this.getRecord(store, hash,
+              {index: 'hash', timeout: 3000});
+            // this.constructor.close();
+            if (!meta) {
+              return null;
+            }
+            return meta;
+          } catch(e) {
+            console.warn('exeption', e);
+            return null;
+          }
+        }
+
+        async save({hash, videoId, meta}, buffer) {
+          let now = Date.now();
+          let expiresAt = now + this.constructor.expireTime;
+          let record = {
+            expiresAt,
+            hash,
+            videoId,
+            expireDate: new Date(expiresAt).toLocaleString(),
+            meta,
+            updatedAt: now,
+            buffer
+          };
+          // console.log('save', record);
+          let {transaction, store} = await this.getStore();
+          try {
+            await this.deleteRecord(store, hash, {index: 'hash', record});
+            let result = await this.putRecord(store, record);
+            this.constructor.close();
+            return result;
+          } catch (e) {
+            console.error('save fail', e);
+            transaction.abort();
+            return false;
+          }
+        }
+
+        async gc() {
+          if (this.isBusy) {
+            return;
+          }
+          let now = Date.now();
+          let {store} = await this.getStore();
+          this.isBusy = true;
+          let deleted = 0;
+          let timekey = `storage gc:${new Date().toLocaleString()}`;
+          console.time(timekey);
+          return new Promise((resolve, reject) => {
+            let range = IDBKeyRange.upperBound(now);
+            let req = store.delete(range);
+            req.onsuccess = e => {
+              this.isBusy = false;
+              this.constructor.close();
+              console.timeEnd(timekey);
+              resolve();
+            };
+            req.onerror = e => {
+              reject(e);
+              this.isBusy = false;
+            };
+          }).catch((e) => {
+            console.error('gc fail', e);
+            store.clear();
+          });
+        }
+
+        async clear() {
+          console.time('storage clear');
+          let {store} = await this.getStore();
+          return new Promise((resolve, reject) => {
+            let req = store.clear();
+            req.onsuccess = e => {
+              console.timeEnd('storage clear');
+              resolve();
+            };
+            req.onerror = e => {
+              console.timeEnd('storage clear');
+              reject(e);
+            };
+          });
+        }
+      }
+
+      const Storage = {
+        async save({hash, videoId, meta}, buffer) {
+          return IndexDBStorage.getInstance().save({hash, videoId, meta}, buffer);
+        },
+        async load(...args) {
+          try {
+            let result = await IndexDBStorage.getInstance().load(...args);
+            // console.log('Storage load result', result);
+            if (!result) {
+              return null;
+            }
+            let buffer = result.buffer;
+            return {meta: result.meta, buffer};
+          } catch(e) {
+            console.warn('Storage load fail', e);
+            return null;
+          }
+        },
+        async gc() {
+          if (navigator && navigator.locks) {
+            return await navigator.locks.request('ZenzaHLS_GC', {ifAvailable: true}, async (lock) => {
+              if (!lock) {
+                return;
+              }
+              await IndexDBStorage.getInstance().gc();
+              await new Promise(r => setTimeout(r, 5000));
+            });
+          } else {
+            return IndexDBStorage.getInstance().gc();
+          }
+        },
+        async clear() {
+          return IndexDBStorage.getInstance().clear();
+        }
+      };
+
+      self.onmessage = async (e) => {
+        let result;
+        let data = e.data.data;
+        let id = e.data.id;
+        let status = 'ok';
+        try {
+          switch (e.data.command) {
+            case 'config':
+              Object.assign(Config, e.data);
+              return self.postMessage({id, result: 'ok'});
+            case 'save':
+              // let {hash, videoId, meta} = data;
+              result = await Storage.save(data, e.data.buffer);
+              return self.postMessage({id, result});
+            case 'load':
+              result = await Storage.load(data);
+              if (!result) {
+                return self.postMessage({id, status, result: null}, []);
+              }
+              return self.postMessage({id, status, result: result.meta, buffer: result.buffer}, [result.buffer]);
+            case 'gc':
+              Storage.gc();
+              return self.postMessage({id, status, result: null});
+            case 'clear':
+              result = await Storage.clear();
+              return self.postMessage({id, status, result});
+          }
+        } catch (e) {
+          status = 'fail';
+          return self.postMessage({id, status, result: e});
+        }
+      };
+    };
+
+    const createWebWorker = (func, type = '') => {
+      let src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
+
+      let blob = new Blob([src], {type: 'text/javascript'});
+      let url = URL.createObjectURL(blob);
+
+      if (type === 'SharedWorker') {
+        return new SharedWorker(url);
+      }
+      return new Worker(url);
+    };
+
+    const Storage = {
+      request: {},
+      worker: null,
+      onMessage: function(e) {
+        let id = e.data.id;
+        let request = this.request[id];
+        if (!request) {
+          window.console.warn('unkwnown request id', id);
+          return;
+        }
+        delete this.request[id];
+        switch (request.command) {
+          case 'load':
+            if (e.data.result) {
+              return request.resolve([e.data.result, e.data.buffer]);
+            } else {
+              return request.resolve([null, null]);
+            }
+          default:
+            return request.resolve(e.data.result);
+        }
+      },
+      getId: function() {
+        return `id:${Math.random()}-${performance.now()}`;
+      },
+      sendRequest: async function(command, data, buffer = null) {
+        if (window.Prototype) {
+          return Promise.resolve(null);
+        }
+        let id = this.getId();
+        // window.console.info('sendrequest', command, data, buffer);
+        return new Promise(resolve => {
+          this.request[id] = {id, command, resolve};
+          if (buffer) {
+            this.worker.postMessage({id, command, data, buffer}, [buffer]);
+          } else {
+            this.worker.postMessage({id, command, data});
+          }
+        });
+      },
+      setConfig: async function(config) {
+        return this.sendRequest('config', config);
+      },
+      save: async function({hash, videoId, meta}, buffer) {
+        return this.sendRequest('save', {hash, videoId, meta}, buffer);
+      },
+      load: async function({hash}) {
+        return await this.sendRequest('load', {hash});
+      },
+      gc: function() {
+        return this.sendRequest('gc', {});
+      },
+      clear: async function() {
+        return this.sendRequest('clear', {});
+      }
+    };
+    Storage.worker = createWebWorker(StorageWorker);
+    Storage.worker.addEventListener('message', Storage.onMessage.bind(Storage));
+    Storage.setConfig({cache_expire_time: Config.get('cache_expire_time')});
+    Storage.gc = debounce(Storage.gc.bind(Storage), 10 * 1000);
+
 
     const ZenzaVideoElement = (({Hls, throttle}) => {
       // TODO: ニコニコ動画の仕様に依存する部分を切り離して、もう少し汎用的にする
@@ -275,40 +643,116 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             return t[name];
           }
         });
-        //Object.defineProperty(
-        //  event,
-        //  'target',
-        //  {value: target, writable: false}
-        //);
         return p;
       };
 
       let FragmentLoaderClass;
       const createFragmentLoader = (Hls) => {
-        if (FragmentLoaderClass) {
-          return FragmentLoaderClass;
-        }
+
+        const xhrSetup = function(xhr, url) {
+          //xhr.timeout = config.timeout + 1000;
+          //xhr.setRequestHeader('Cache-Control', 'force-cache');
+          xhr.ontimeout = () => {
+            window.console.log('xhr timeout', xhr, url);
+          };
+          xhr.open('GET', url, true);
+        };
+
 
         // hls.config.fLoader にはクラスのインスタンスではなく定義を渡す
         // loaderはexportされていないため、Hls.DefaultConfig.loader経由で継承する
         // @see https://github.com/video-dev/hls.js/blob/master/docs/API.md#loader
         let lastFragLoadingTime = 0;
-        let BLOCK_INTERVAL = 1000;
+        let BLOCK_INTERVAL = 3000;
         class FragmentLoader extends Hls.DefaultConfig.loader {
+
+          static frag2hash(fragment) {
+            const url = fragment.url;
+            const levels = this.levels;
+
+            let [path, videoId, level, sn] =
+                /\/nicovideo-([a-z0-9]+)_.*\/([\d]+)\/ts\/([\d]+)\.ts/.exec(url);
+            if (levels && levels[fragment.level]) {
+              let {width, height, bitrate, attrs} = levels[fragment.level];
+              let fps = attrs['FRAME-RATE'] ? `${attrs['FRAME-RATE']}fps` : '(unknown)fps';
+              return {hash: `${videoId}-${width}x${height}-${bitrate}bps-${fps}-${sn}`, videoId};
+            }
+            return {hash: `${videoId}-${fragment.level}-${sn}`, videoId};
+          }
 
           constructor(config) {
             super(config);
             this._config = config;
             this._isAborted = false;
             this._isDestroyed = false;
+            Storage.gc();
           }
 
-          load(context, config, callbacks) {
-            if (!context.frag) {
-              return super.load(context,config, callbacks);
+          /***
+           *
+           * @param {{url: string, frag: fragment, responseType: string, progressData: boolean}} context
+           * @param config
+           * @param {{onSuccess: function, onError: function, onTimout: function, onProgress: function}} callbacks
+           * @returns {*}
+           */
+          async load(context, config, callbacks) {
+            if (!context.frag || !/\.ts/.test(context.url)) {
+              window.console.info('unknown context', context.url, context);
+              return super.load(context, config, callbacks);
             }
 
-            const onError = callbacks.onError;
+            const frag = context.frag;
+            const level = frag.level;
+            const storage = this._storage;
+
+            const {hash, videoId} = this.constructor.frag2hash(frag);
+
+            const {onSuccess, onError} = callbacks;
+            if (!context.rangeStart && !context.rangeEnd) {
+
+              callbacks.onSuccess = async function(resp, stats, context, details = null) {
+                let blob = new Blob([resp.data]);
+                let buffer = resp.data.slice();
+                let status = details instanceof XMLHttpRequest ? details.status : 200;
+
+                if (status === 206
+               //     buffer.byteLength !== contentLength
+                ) {
+                  console.warn('CONTENT LENGTH MISMATCH!', buffer.byteLength, frag.loaded);//, contentLength);
+                } else if (Config.get('enable_db_cache') && !window.Prototype) {
+                  frag.hasCache = true;
+                  Storage.save({
+                    hash,
+                    videoId,
+                    meta: {
+                      contentLength: context.frag.loaded,
+                      sn: context.frag.sn,
+                      resp: {
+                        url: resp.url
+                      },
+                      level,
+                      total: context.frag.loaded,
+                      stats,
+                      url: context.url
+                    }
+                  }, buffer);
+                }
+
+                onSuccess(resp, stats, context, details);
+              };
+
+              // prototype.js のあるページでは動かないどころかブラクラ化する
+              if (Config.get('enable_db_cache') && !window.Prototype) {
+                // console.log('***load', hash, Config.get('enable_db_cache'),window.Prototype);
+                let [meta, buffer] = await Storage.load({hash});
+                // console.log('cache?', !!meta, hash);
+                if (meta) {
+                  return callbacks.onSuccess(
+                    {url: meta.url, data: buffer }, meta.stats, context, null);
+                }
+              }
+            }
+
             callbacks.onError = (resp /* = {code, text} */, context, xhr) => {
               if (this._isAborted) {
                 console.warn('error after aborted', resp, context);
@@ -317,6 +761,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               }
               onError(resp, context, xhr);
             };
+
             return this._load(context, config, callbacks, this._config.fragLoadingMaxRetry);
           }
 
@@ -354,17 +799,15 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             }
 
             lastFragLoadingTime = now;
-            super.load(context,config, callbacks);
+            super.load(context, config, callbacks);
           }
 
           abort() {
-            //console.info('FragmentLoader abort called');
             this._isAborted = true;
             super.abort();
           }
 
           destroy() {
-            //console.info('FragmentLoader destroy called');
             this._isDestroyed = true;
             this._isAborted = true;
             super.destroy();
@@ -402,7 +845,10 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
                 width: 100%; height: 100%;
                 display: contents;
               }
-              video { width: 100%; height: 100%; }
+              video {
+                width: 100%;
+                height: 100%;
+              }
               .label {
                 position: absolute;
                 z-index: 100;
@@ -515,7 +961,8 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             'getVideoPlaybackQuality',
             'pause',
             //'play',
-            'unload'
+            'unload',
+            'requestPictureInPicture'
           ]);
         }
 
@@ -570,6 +1017,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
         }
 
         isInBuffer(sec) {
+          if (sec < this.currentTime) { return true; }
           const range = this.buffered;
           if (!range || !range.length) {
             return false;
@@ -793,6 +1241,12 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           this._destroyHLSJS();
 
           if (!this._hls) {
+            //if (this.dataset.usecase !== 'capture') {
+            //if (Config.get('enable_db_cache') && !window.Prototype) {
+            //  Storage.gc();
+            //}
+              //setTimeout(() => {Storage.gc(); }, 30000);
+            //}
             this._fragmentLoader = createFragmentLoader(Hls);
             this._hlsConfig.fLoader = this._fragmentLoader;
             let hls = new Hls(this._hlsConfig);
@@ -800,6 +1254,8 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
             this._hls.on(Hls.Events.MANIFEST_PARSED,
               this._onHLSJSManifestParsed.bind(this));
+            this._hls.on(Hls.Events.LEVEL_LOADED,
+              this._onHLSJSLevelLoaded.bind(this));
             this._hls.on(Hls.Events.LEVEL_SWITCHED,
               this._onHLSJSLevelSwitched.bind(this));
             this._hls.on(Hls.Events.ERROR,
@@ -817,26 +1273,18 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           return this._hls;
         }
 
-        _onHLSJSManifestParsed() {
-          console.log('%cHls.Events.MANIFEST_PARSED', 'background: cyan;', this._src);
+        _onHLSJSManifestParsed(eventName, data) {
+          //console.log('%cHls.Events.MANIFEST_PARSED', 'background: cyan;', this._src);
+          this._manifest = data;
+          this._levelData = [];
+          this._fragmentLoader.levels = data.levels;
           this.dispatchEvent(new Event('loadedmetadata'));
           this.dispatchEvent(new Event('canplay'));
+        }
 
-          //if (this.autoplay && !this.paused) {
-          //  this._video.play().catch(err => {
-          //    if (err instanceof DOMException) {
-          //      // 再生開始を待っている間に動画変更などで中断された等
-          //      console.info('play() request was rejected code: %s. \n%s',
-          //        err.code,
-          //        err.message);
-          //      
-          //      if (err.code === 35 /* NotAllowedError */) {
-          //        this.dispatchEvent(new CustomEvent('autoplay-rejected'));
-          //      }
-          //    }
-          //    return Promise.reject(err);
-          //  });
-          //}
+        _onHLSJSLevelLoaded(eventName, data) {
+          //console.log('%cHls.Events.LEVEL_LOADED', 'background: cyan;', this._src);//, data);
+          this._levelData[data.level] = data.details;
         }
 
         _onHLSJSLevelSwitched()  {
@@ -882,7 +1330,8 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
           console.info('%cHls.Events.ERROR: WARN', 'background: cyan;',
             this._id,
-            data,
+            data.type,
+            // data,
             `isForbidden403: ${this._isForbidden403}, isStalledBy403: ${this._isStalledBy403}, isSeeking: ${this._isSeeking}`
           );
 
@@ -970,8 +1419,8 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
       }
       if (!Hls) {
         const s = document.createElement('script');
-        console.info('load hls.js from', s);//, document.querySelector('#HLSJSLoader'));
-        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@canary';
+        s.src = `https://cdn.jsdelivr.net/npm/hls.js@${Config.get('hls_js_ver')}`;
+        console.info('load hls.js from', s.src);
         s.onload = () => {
           Hls = window.Hls;
           console.info('hls.js loaded:', window.Hls.version);
@@ -1153,6 +1602,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               <input type="checkbox" name="${props.name}">
                 <span class="labelText">${props.name}<content></content></span>
               </label>
+              <slot></slot>
               <details class="details">
                 <summary class="summary">詳細</summary>
                 <div class="detailsText"></div>
@@ -1315,6 +1765,8 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
       class VideoDebugDialog extends HTMLElement {
         static get observedAttributes() {
           return [
+            'enable_db_cache',
+            'cache_expire_time',
             'debug',
             'startLevel',
             'capLevelOnFPSDrop',
@@ -1455,6 +1907,14 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             case 'reset':
               this.dispatchEvent(new CustomEvent('reset'));
               break;
+            case 'clear-cache':
+              if (target.classList.contains('is-busy')) {
+                break;
+              }
+              target.classList.add('is-busy');
+              Storage.clear();
+              setTimeout(() =>  target.classList.remove('is-busy'), 5000);
+              break;
             default:
               return;
           }
@@ -1528,6 +1988,15 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               padding: 8px;
               cursor: pointer;
               white-space: nowrap;
+            }
+            
+            button[data-command="clear-cache"] {
+              width: auto;
+            }
+            button[data-command="clear-cache"]:active,
+            button[data-command="clear-cache"].is-busy {
+              cursor: wait;
+              opacity: 0.5;
             }
 
             .video-debug-checkbox {
@@ -1617,6 +2086,16 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             ></video-debug-checkbox>
 
             <video-debug-checkbox
+              name="enable_db_cache"
+              text="IndexedDBに動画データをキャッシュする(実験中)"
+              details="画質ごとにキャッシュが作られるので、画質設定は「自動」以外を推奨"
+            >
+              <button type="button" data-command="clear-cache">
+                キャッシュのクリア
+              </button>
+            </video-debug-checkbox>
+
+            <video-debug-checkbox
               name="debug"
             ></video-debug-checkbox>
 
@@ -1689,57 +2168,67 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
     })();
 
     const initDebug = ({hlsConfig, html, render, ZenzaWatch}) => {
+      ZenzaWatch.emitter.once('videoControBar.addonMenuReady', (container, handler) => {
+        const div = html`<div class="command controlButton" data-command="toggleHLSDebug">
+            <div class="controlButtonInner">hls</div>
+          </div>`;
+        ZenzaWatch.util.addStyle(`
+          .controlButton[data-command=toggleHLSDebug] {
+            font-family: Avenir;
+          }`, {className: 'ZenzaHLS'});
+        container.append(div.getTemplateElement().content);
+      });
       ZenzaWatch.emitter.once('videoContextMenu.addonMenuReady.list', (menuContainer) => {
         const li = html`<li class="command" data-command="toggleHLSDebug">HLS設定</li>`;
         menuContainer.appendChild(li.getTemplateElement().content);
+      });
 
-        ZenzaWatch.emitter.once('command-toggleHLSDebug', () => {
-          initDebugElements(hlsConfig, {html, render});
-          const d = document.createElement('video-debug-dialog');
-          d.hlsConfig = hlsConfig;
-          d.addEventListener('change', e => {
-            if (e.detail.name === 'show_video_label') {
-              Config.set(e.detail.name, e.detail.value);
-              if (primaryVideo) {
-                primaryVideo.setAttribute('show-video-label',
-                  e.detail.value ? 'on' : 'off');
-              }
-            } else if (e.detail.name === 'autoAbrEwmaDefaultEstimate') {
-              Config.set(e.detail.name, e.detail.value);
-            }
-          });
-          d.addEventListener('save', e => {
-            const config = e.detail.config;
-            Object.keys(config).forEach(key => {
-              if (config[key] !== Config.get(key)) {
-                Config.set(key, config[key]);
-              }
-            });
+      ZenzaWatch.emitter.once('command-toggleHLSDebug', () => {
+        initDebugElements(hlsConfig, {html, render});
+        const d = document.createElement('video-debug-dialog');
+        d.className = 'zen-family';
+        d.hlsConfig = hlsConfig;
+        d.addEventListener('change', e => {
+          if (e.detail.name === 'show_video_label') {
+            Config.set(e.detail.name, e.detail.value);
             if (primaryVideo) {
-              primaryVideo.hlsConfig = config;
+              primaryVideo.setAttribute('show-video-label',
+                e.detail.value ? 'on' : 'off');
+            }
+          } else if (e.detail.name === 'autoAbrEwmaDefaultEstimate') {
+            Config.set(e.detail.name, e.detail.value);
+          }
+        });
+        d.addEventListener('save', e => {
+          const config = e.detail.config;
+          Object.keys(config).forEach(key => {
+            if (config[key] !== Config.get(key)) {
+              Config.set(key, config[key]);
             }
           });
-          d.addEventListener('reset', () => {
-            const config = Object.assign({}, DEFAULT_CONFIG);
-            d.reset(config);
-            if (primaryVideo) {
-              primaryVideo.hlsConfig = config;
-            }
-          });
-          Config.on('update-abrEwmaDefaultEstimate', value => {
-            if (typeof value !== 'number' || isNaN(value)) { return; }
-            d.setValue('abrEwmaDefaultEstimate', value);
-          });
-
-          ZenzaWatch.debug.hlsDebugDialog = d;
-          document.body.appendChild(d);
-          d.open();
-
-          ZenzaWatch.emitter.on('command-toggleHLSDebug', () => {
-            ZenzaWatch.debug.hlsDebugDialog.toggle();
-          });
+          if (primaryVideo) {
+            primaryVideo.hlsConfig = config;
+          }
+        });
+        d.addEventListener('reset', () => {
+          const config = Object.assign({}, DEFAULT_CONFIG);
+          d.reset(config);
+          if (primaryVideo) {
+            primaryVideo.hlsConfig = config;
+          }
+        });
+        Config.on('update-abrEwmaDefaultEstimate', value => {
+          if (typeof value !== 'number' || isNaN(value)) { return; }
+          d.setValue('abrEwmaDefaultEstimate', value);
         });
 
+        ZenzaWatch.debug.hlsDebugDialog = d;
+        document.body.appendChild(d);
+        d.open();
+
+        ZenzaWatch.emitter.on('command-toggleHLSDebug', () => {
+          ZenzaWatch.debug.hlsDebugDialog.toggle();
+        });
       });
     };
 
@@ -1770,14 +2259,14 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           }
           const video =  document.createElement('zenza-video');
           if (usecase === 'capture') {
-            return null;
+            //return null;
             // 静止画キャプチャ用なのにどんどんバッファするのは無駄なので抑える
-            video.setAttribute('use-case', 'capture');
+            video.setAttribute('data-usecase', 'capture');
             video.hlsConfig = {
               autoStartLoad: false,
-              maxBufferSize: 0,
-              maxBufferLength: 1,
-              maxMaxBufferLength: 1,
+              // maxBufferSize: 0,
+              // maxBufferLength: 5,
+              // maxMaxBufferLength: 5,
               manifestLoadingRetryDelay: 5000,
               levelLoadingRetryDelay: 5000,
               fragLoadingRetryDelay: 5000,

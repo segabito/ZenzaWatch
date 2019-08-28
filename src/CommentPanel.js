@@ -1,8 +1,14 @@
 import _ from 'lodash';
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {BaseViewComponent, FrameLayer, util} from './util';
+import {BaseViewComponent, FrameLayer} from './util';
 import {CONSTANT} from './constant';
 import {Emitter} from './baselib';
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {textUtil} from '../packages/lib/src/text/textUtil';
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
+import {css} from '../packages/lib/src/css/css';
+import {uq} from '../packages/lib/src/uQuery';
+import {Clipboard} from '../packages/lib/src/dom/Clipboard';
 
 //===BEGIN===
 
@@ -32,7 +38,7 @@ class CommentListModel extends Emitter {
     let positions = [];
     for (let i = 0, len = chatList.length; i < len; i++) {
       items.push(new CommentListItem(chatList[i]));
-      positions.push(parseFloat(chatList[i].getVpos(), 10) / 100);
+      positions.push(parseFloat(chatList[i].vpos, 10) / 100);
     }
     this._items = items;
     this._positions = positions.sort((a, b) => a - b);
@@ -67,7 +73,7 @@ class CommentListModel extends Emitter {
   }
   findByItemId(itemId) {
     itemId = parseInt(itemId, 10);
-    return this._items.find(item => item.getItemId() === itemId);
+    return this._items.find(item => item.itemId === itemId);
   }
   removeItem(item) {
     let beforeLen = this._items.length;
@@ -82,16 +88,16 @@ class CommentListModel extends Emitter {
   }
   sortBy(key, isDesc) {
     let table = {
-      vpos: 'getVpos',
-      date: 'getDate',
-      text: 'getText',
-      user: 'getUserId',
+      vpos: 'vpos',
+      date: 'date',
+      text: 'text',
+      user: 'userId',
     };
     let func = table[key];
     if (!func) {
       return;
     }
-    this._items = _.sortBy(this._items, item => item[func]());
+    this._items = _.sortBy(this._items, item => item[func]);
     if (isDesc) {
       this._items.reverse();
     }
@@ -109,9 +115,9 @@ class CommentListModel extends Emitter {
     this.emitAsync('update', this._items);
   }
   getInViewIndex(sec) {
-    return Math.max(0, util.sortedLastIndex(this._positions, sec + 1) - 1);
+    return Math.max(0, _.sortedLastIndex(this._positions, sec + 1) - 1);
   }
-  setCurrentTime(sec) {
+  set currentTime(sec) {
     if (this._currentTime !== sec && typeof sec === 'number') {
       this._currentTime = sec;
       if (this._currentSortKey === 'vpos') {
@@ -119,6 +125,7 @@ class CommentListModel extends Emitter {
       }
     }
   }
+  get currentTime() {return this._currentTime;}
 }
 
 /**
@@ -136,7 +143,7 @@ class CommentListView extends Emitter {
 
     this._cache = {};
     this._maxItems = 100000;
-    this._inviewItemList = {};
+    this._inviewItemList = new Map;
     this._scrollTop = 0;
 
     this._model = params.model;
@@ -144,27 +151,27 @@ class CommentListView extends Emitter {
       this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
     }
 
-    this.scrollTop = util.createDrawCallFunc(this.scrollTop.bind(this));
+    this.scrollTop = bounce.raf(this.scrollTop.bind(this));
     this._initializeView(params, 0);
   }
-  _initializeView(params) {
-    let html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
-    this._frame = new FrameLayer({
+  async _initializeView(params) {
+    const html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
+    const frame = new FrameLayer({
       container: params.container,
-      html: html,
+      html,
       className: 'commentListFrame'
     });
-    this._frame.on('load', this._onIframeLoad.bind(this));
+    // this._frame.on('load', this._onIframeLoad.bind(this));
+    this._onIframeLoad(await frame.promise('GetReady!'));
   }
   _onIframeLoad(w) {
-    let doc = this._document = w.document;
+    const doc = this._document = w.document;
     this._window = w;
-    let body = this._body = doc.body;
-    let $body = this._$body = $(body);
+    const body = this._body = doc.body;
+    const $body = this._$body = uq(body);
     if (this._className) {
       body.classList.add(this._className);
     }
-    // this._$container = $body.find('#listContainer');
     this._container = doc.querySelector('#listContainer');
     this._list = doc.getElementById('listContainerInner');
     if (this._html) {
@@ -179,7 +186,7 @@ class CommentListView extends Emitter {
       .on('dblclick', this._onDblClick.bind(this))
       .on('keydown', e => ZenzaWatch.emitter.emit('keydown', e))
       .on('keyup', e => ZenzaWatch.emitter.emit('keyup', e))
-      .toggleClass('is-guest', !util.isLogin());
+      .toggleClass('is-guest', !nicoUtil.isLogin());
 
     this._$menu.on('click', this._onMenuClick.bind(this));
     this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
@@ -193,15 +200,14 @@ class CommentListView extends Emitter {
     this._innerHeight = w.innerHeight;
 
     this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
-    //this._appendNewItems = util.createDrawCallFunc(this._appendNewItems.bind(this));
+    //this._appendNewItems = bounce.raf(this._appendNewItems.bind(this));
 
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 
     // 互換用
-    ZenzaWatch.debug.$commentList = $(this._list);
-    ZenzaWatch.debug.getCommentPanelItems = () => {
-      return Array.from(doc.querySelectorAll('.commentListItem'));
-    };
+    ZenzaWatch.debug.$commentList = uq(this._list);
+    ZenzaWatch.debug.getCommentPanelItems = () =>
+      Array.from(doc.querySelectorAll('.commentListItem'));
   }
   _onModelUpdate(itemList, replaceAll) {
     window.console.time('update commentlistView');
@@ -225,7 +231,7 @@ class CommentListView extends Emitter {
       this._list.textContent = '';
       this._list.style.height =
         `${CommentListView.ITEM_HEIGHT * itemViews.length + 100}px`;
-      this._inviewItemList = {};
+      this._inviewItemList.clear();
       this._$menu.removeClass('show');
       this._refreshInviewElements();
       this.hideItemDetail();
@@ -241,34 +247,31 @@ class CommentListView extends Emitter {
   _onClick(e) {
     e.stopPropagation();
     ZenzaWatch.emitter.emitAsync('hideHover');
-    let $item = $(e.target).closest('.commentListItem');
-    if ($item.length > 0) {
-      return this._debouncedOnItemClick($item);
+    let item = e.target.closest('.commentListItem');
+    if (item) {
+      return this._debouncedOnItemClick(item);
     }
   }
-  _onItemClick($item) {
+  _onItemClick(item) {
     this._$menu
       // .css('top', $item.attr('data-top') + 'px')
-      .css('transform', `translate3d(0, ${$item.attr('data-top')}px, 0)`)
+      .css('transform', `translate3d(0, ${item.dataset.top}px, 0)`)
         // $item.attr('data-time-3dp') + 'px) translateZ(-50px)')
-      .attr('data-item-id', $item.attr('data-item-id'))
+      .attr('data-item-id', item.dataset.itemId)
       .addClass('show');
   }
   _onMenuClick(e) {
-    let $target = $(e.target).closest('.menuButton');
+    let target = e.target.closest('.menuButton');
     this._$menu.removeClass('show');
-    if ($target.length < 1) {
+    if (!target) {
       return;
     }
-    let itemId = $target.closest('.listMenu').attr('data-item-id');
-    if ($target.length < 1) {
-      return;
-    }
+    let {itemId} = e.target.closest('.listMenu').dataset;
     if (!itemId) {
       return;
     }
 
-    let command = $target.attr('data-command');
+    let {command} = target.dataset;
 
     if (command === 'addUserIdFilter' || command === 'addWordFilter') {
       Array.from(this._list.querySelectorAll(`.item${itemId}`))
@@ -346,26 +349,26 @@ class CommentListView extends Emitter {
 
     const newItems = [], inviewItemList = this._inviewItemList;
     for (i = startIndex; i < endIndex; i++) {
-      if (inviewItemList[i] || !itemViews[i]) {
+      if (inviewItemList.has(i) || !itemViews[i]) {
         continue;
       }
       newItems.push(itemViews[i]);
-      inviewItemList[i] = itemViews[i];
+      inviewItemList.set(i, itemViews[i]);
     }
 
     if (newItems.length < 1) {
       return;
     }
 
-    Object.keys(inviewItemList).forEach(i => {
+    for (const i of inviewItemList.keys()) { // Object.keys(inviewItemList).forEach(i => {
       if (i >= startIndex && i <= endIndex) {
-        return;
+        continue;
       }
-      inviewItemList[i].remove();
-      delete inviewItemList[i];
-    });
+      inviewItemList.get(i).remove();
+      inviewItemList.delete(i);
+    }
 
-    this._inviewItemList = inviewItemList;
+    // this._inviewItemList = inviewItemList;
 
 
     this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
@@ -376,9 +379,10 @@ class CommentListView extends Emitter {
   _appendNewItems() {
     if (this._newItems) {
       const f = document.createDocumentFragment();
-      this._newItems.forEach(i => {
-        f.appendChild(i.getViewElement());
-      });
+      f.append(...this._newItems.map(i => i.viewElement));
+      // this._newItems.forEach(i => {
+      //   f.append(i.viewElement);
+      // });
       this._list.appendChild(f);
       // this._updatePerspective();
     }
@@ -387,13 +391,13 @@ class CommentListView extends Emitter {
   _updatePerspective() {
     let keys = Object.keys(this._inviewItemList);
     let avr = 0;
-    if (!keys.length) {
+    if (!this._inviewItemList.size) {
       avr = 50;
     } else {
       let min = 0xffff;
       let max = -0xffff;
       keys.forEach(key => {
-        let item = this._inviewItemList[key];
+        let item = this._inviewItemList.get(key);
         min = Math.min(min, item.time3dp);
         max = Math.max(max, item.time3dp);
         avr += item.time3dp;
@@ -447,23 +451,23 @@ class CommentListView extends Emitter {
 
     if (!this._isActive) {
       let itemHeight = CommentListView.ITEM_HEIGHT;
-      let top = view.getTop();
+      let top = view.top;
       this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
     }
     // requestAnimationFrame(() => {
     //   this._container.style.setProperty('--current-time', sec);
-    //   this._container.style.setProperty('--scroll-top', view.getTop());
+    //   this._container.style.setProperty('--scroll-top', view.top);
     // });
   }
   showItemDetail(item) {
-    let $d = this._$itemDetail;
-    $d.attr('data-item-id', item.getItemId());
-    $d.find('.resNo').text(item.getNo()).end()
-      .find('.vpos').text(item.getTimePos()).end()
-      .find('.time').text(item.getFormattedDate()).end()
-      .find('.userId').text(item.getUserId()).end()
-      .find('.cmd').text(item.getCmd()).end()
-      .find('.text').text(item.getText()).end()
+    const $d = this._$itemDetail;
+    $d.attr('data-item-id', item.itemId);
+    $d.find('.resNo').text(item.no).end()
+      .find('.vpos').text(item.timePos).end()
+      .find('.time').text(item.formattedDate).end()
+      .find('.userId').text(item.userId).end()
+      .find('.cmd').text(item.cmd).end()
+      .find('.text').text(item.text).end()
       .addClass('show');
     ZenzaWatch.debug.$itemDetail = $d;
   }
@@ -490,7 +494,7 @@ CommentListView.__tpl__ = (`
     padding: 0;
     overflow: hidden;
   }
-  
+
   body .is-debug {
     perspective: 100px;
     perspective-origin: left top;
@@ -512,7 +516,7 @@ CommentListView.__tpl__ = (`
     overflow: auto;
     overscroll-behavior: contain;
   }
-  
+
   .is-debug #listContainerInner {
     transform-style: preserve-3d;
     transform: translateZ(-50px);
@@ -853,7 +857,7 @@ const CommentListItemView = (() => {
       .font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
       .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
       .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-      
+
       /*
       .commentListItem .pointer {
         position: absolute;
@@ -885,7 +889,7 @@ const CommentListItemView = (() => {
           transform: scaleX(0.01);
         }
       }
-     
+
       */
 
 
@@ -945,13 +949,13 @@ const CommentListItemView = (() => {
       const oden = (this._index % 2 === 0) ? 'even' : 'odd';
       const time3dp = Math.round(this._item.time3dp * 100);
 
-      const formattedDate = item.getFormattedDate();
-      commentListItem.id = this.getDomId();
-      const font = item.getFontCommand() || 'default';
+      const formattedDate = item.formattedDate;
+      commentListItem.id = this.domId;
+      const font = item.fontCommand || 'default';
       commentListItem.className =
-        `commentListItem no${item.getNo()} item${this._id} ${oden} fork${item.getFork()} font-${font} ${item.isSubThread() ? 'subThread' : ''}`;
+        `commentListItem no${item.no} item${this._id} ${oden} fork${item.fork} font-${font} ${item.isSubThread ? 'subThread' : ''}`;
       commentListItem.style.cssText = `
-          top: ${this.getTop()}px;
+          top: ${this.top}px;
           --duration: ${item.duration};
           --vpos: ${item.vpos}
         `;
@@ -959,42 +963,42 @@ const CommentListItemView = (() => {
       //commentListItem.setAttribute('data-time-3dp', time3dp);
 
       Object.assign(commentListItem.dataset, {
-        itemId: item.getItemId(),
-        no: item.getNo(),
-        uniqNo: item.getUniqNo(),
-        vpos: item.getVpos(),
-        top: this.getTop(),
-        thread: item.getThreadId(),
-        title: `${item.getNo()}: ${formattedDate} ID:${item.getUserId()}\n${item.getText()}`,
+        itemId: item.itemId,
+        no: item.no,
+        uniqNo: item.uniqNo,
+        vpos: item.vpos,
+        top: this.top,
+        thread: item.threadId,
+        title: `${item.nno}: ${formattedDate} ID:${item.userId}\n${item.text}`,
         time3dp,
         nicoru: item.nicoru
       });
 
-      timepos.textContent = item.getTimePos();
+      timepos.textContent = item.timePos;
       date.textContent = formattedDate;
-      text.textContent = item.getText().trim();
+      text.textContent = item.text.trim();
 
-      const color = item.getColor();
+      const color = item.color;
       text.style.textShadow = color ? `0px 0px 2px ${color}` : '';
       this._view = template.clone();
     }
 
-    getViewElement() {
+    get viewElement() {
       if (!this._view) {
         this.build();
       }
       return this._view;
     }
 
-    getItemId() {
-      return this._item.getItemId();
+    get itemId() {
+      return this._item.itemId;
     }
 
-    getDomId() {
-      return `item${this._item.getItemId()}`;
+    get domId() {
+      return `item${this._item.itemId}`;
     }
 
-    getTop() {
+    get top() {
       return this._index * this._height;
     }
 
@@ -1006,7 +1010,7 @@ const CommentListItemView = (() => {
     }
 
     toString() {
-      return this.getViewElement().outerHTML;
+      return this.viewElement.outerHTML;
     }
 
     get time3dp() {
@@ -1027,88 +1031,42 @@ class CommentListItem {
   constructor(nicoChat) {
     this._nicoChat = nicoChat;
     this._itemId = CommentListItem._itemId++;
-    this._vpos = nicoChat.getVpos();
-    this._text = nicoChat.getText();
-    this._escapedText = util.escapeHtml(this._text);
-    this._userId = nicoChat.getUserId();
-    this._date = nicoChat.getDate();
-    this._fork = nicoChat.getFork();
-    this._no = nicoChat.getNo();
-    this._color = nicoChat.getColor();
-    this._fontCommand = nicoChat.getFontCommand();
-    this._isSubThread = nicoChat.isSubThread();
+    this._vpos = nicoChat.vpos;
+    this._text = nicoChat.text;
+    this._escapedText = textUtil.escapeHtml(this._text);
+    this._userId = nicoChat.userId;
+    this._date = nicoChat.date;
+    this._fork = nicoChat.fork;
+    this._no = nicoChat.no;
+    this._color = nicoChat.color;
+    this._fontCommand = nicoChat.fontCommand;
+    this._isSubThread = nicoChat.isSubThread;
 
-    this._formattedDate = util.dateToString(this._date * 1000);
+    this._formattedDate = textUtil.dateToString(this._date * 1000);
     let sec = this._vpos / 100;
-    this._timePos = util.secToTime(sec);
+    this._timePos = textUtil.secToTime(sec);
   }
-  getItemId() {
-    return this._itemId;
-  }
-  getVpos() {
-    return this._vpos;
-  }
-  getTimePos() {
-    return this._timePos;
-  }
-  getCmd() {
-    return this._nicoChat.getCmd();
-  }
-  getText() {
-    return this._text;
-  }
-  getEscapedText() {
-    return this._escapedText;
-  }
-  getUserId() {
-    return this._userId;
-  }
-  getColor() {
-    return this._color;
-  }
-  getDate() {
-    return this._date;
-  }
-  getTime() {
-    return this._date * 1000;
-  }
-  getFormattedDate() {
-    return this._formattedDate;
-  }
-  getFork() {
-    return this._fork;
-  }
-  getNo() {
-    return this._no;
-  }
-  getUniqNo() {
-    return this._nicoChat.getUniqNo();
-  }
-  getFontCommand() {
-    return this._fontCommand;
-  }
-  isSubThread() {
-    return this._isSubThread;
-  }
-  getThreadId() {
-    return this._nicoChat.getThreadId();
-  }
-
-  get time3d() {
-    return this._nicoChat.time3d;
-  }
-  get time3dp() {
-    return this._nicoChat.time3dp;
-  }
-  get nicoru() {
-    return this._nicoChat.nicoru;
-  }
-  get vpos() {
-    return this._nicoChat.getVpos();
-  }
-  get duration() {
-    return this._nicoChat.getDuration();
-  }
+  get itemId() {return this._itemId;}
+  get vpos() {return this._vpos;}
+  get timePos() {return this._timePos;}
+  get cmd() {return this._nicoChat.cmd;}
+  get text() {return this._text;}
+  get escapedText() {return this._escapedText;}
+  get userId() {return this._userId;}
+  get color() {return this._color;}
+  get date() {return this._date;}
+  get time() {return this._date * 1000;}
+  get formattedDate() {return this._formattedDate;}
+  get fork() {return this._fork;}
+  get no() {return this._no;}
+  get uniqNo() {return this._nicoChat.uniqNo;}
+  get fontCommand() {return this._fontCommand;}
+  get isSubThread() {return this._isSubThread;}
+  get threadId() {return this._nicoChat.threadId;}
+  get time3d() {return this._nicoChat.time3d;}
+  get time3dp() {return this._nicoChat.time3dp;}
+  get nicoru() {return this._nicoChat.nicoru;}
+  get duration() {return this._nicoChat.duration;}
 }
 CommentListItem._itemId = 0;
 
@@ -1120,8 +1078,8 @@ class CommentPanelView extends Emitter {
     this._model = params.model;
     this._commentPanel = params.commentPanel;
 
-    util.addStyle(CommentPanelView.__css__);
-    let $view = this._$view = $(CommentPanelView.__tpl__);
+    css.addStyle(CommentPanelView.__css__);
+    let $view = this._$view = uq.html(CommentPanelView.__tpl__);
     this._$container.append($view);
 
     let $menu = this._$menu = this._$view.find('.commentPanel-menu');
@@ -1400,7 +1358,7 @@ class CommentPanel extends Emitter {
   }
   _onTimer() {
     if (this._autoScroll) {
-      this.setCurrentTime(this._player.getCurrentTime());
+      this.currentTime=this._player.currentTime;
     }
   }
   _onCommand(command, param, itemId) {
@@ -1417,27 +1375,27 @@ class CommentPanel extends Emitter {
         this.sortBy(tmp[0], tmp[1] === 'desc');
         break;}
       case 'select':{
-        let vpos = item.getVpos();
+        let vpos = item.vpos;
         this.emit('command', 'seek', vpos / 100);
         // TODO: コメント強調
         break;}
       case 'clipBoard':
-        util.copyToClipBoard(item.getText());
+        Clipboard.copyText(item.text);
         this.emit('command', 'notify', 'クリップボードにコピーしました');
         break;
       case 'addUserIdFilter':
         this._model.removeItem(item);
-        this.emit('command', command, item.getUserId());
+        this.emit('command', command, item.userId);
         break;
       case 'addWordFilter':
         this._model.removeItem(item);
-        this.emit('command', command, item.getText());
+        this.emit('command', command, item.text);
         break;
       case 'reloadComment':
         if (item) {
           param = {};
-          let dt = new Date(item.getTime());
-          this.emit('command', 'notify', item.getFormattedDate() + '頃のログ');
+          let dt = new Date(item.time);
+          this.emit('command', 'notify', item.formattedDate + '頃のログ');
           param.when = Math.floor(dt.getTime() / 1000);
         }
         this.emit('command', command, param);
@@ -1455,13 +1413,13 @@ class CommentPanel extends Emitter {
   _onCommentParsed(language) {
     this.setLanguage(language);
     this._initializeView();
-    this.setChatList(this._player.getChatList());
+    this.setChatList(this._player.chatList);
     this.startTimer();
   }
   _onCommentChange(language) {
     this.setLanguage(language);
     this._initializeView();
-    this.setChatList(this._player.getChatList());
+    this.setChatList(this._player.chatList);
   }
   _onCommentReady(result, threadInfo) {
     this._threadInfo = threadInfo;
@@ -1519,14 +1477,17 @@ class CommentPanel extends Emitter {
       this.toggleScroll(false);
     }
   }
-  setCurrentTime(sec) {
+  set currentTime(sec) {
     if (!this._view) {
       return;
     }
     if (!this._autoScroll) {
       return;
     }
-    this._model.setCurrentTime(sec);
+    this._model.currentTime = sec;
+  }
+  get currentTime() {
+    return this._model.currentTime;
   }
 }
 

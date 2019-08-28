@@ -2,8 +2,8 @@
 // @name        ZenzaGamePad
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
-// @include     http://*.nicovideo.jp/*
-// @version     1.3.3
+// @include     *://*.nicovideo.jp/*
+// @version     1.3.9
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -28,21 +28,527 @@
       return;
     }
 
-    var _ = ZenzaWatch.lib._;
-    var $ = ZenzaWatch.lib.$;
+    const PRODUCT = 'ZenzaGamePad';
+    const CONSTANT = {
+      BASE_Z_INDEX: 150000
+    };
+    let _ = window._ || ZenzaWatch.lib._;
+    let $ = window.jQuery || ZenzaWatch.lib.$;
+    let util = ZenzaWatch.util;
+    let Emitter = ZenzaWatch.modules ? ZenzaWatch.modules.Emitter : ZenzaWatch.lib.AsyncEmitter;
 
-    var isZenzaWatchOpen = false;
+    let isZenzaWatchOpen = false;
 
-    var console;
-    var debugMode = !true;
+    let console;
+    let debugMode = !true;
 
-    var dummyConsole = {
+    let dummyConsole = {
       log: _.noop, error: _.noop, time: _.noop, timeEnd: _.noop, trace: _.noop
     };
     console = debugMode ? window.console : dummyConsole;
 
-    var isPauseButtonDown = false;
-    var isRate1ButtonDown = false;
+    let isPauseButtonDown = false;
+    let isRate1ButtonDown = false;
+
+    const Config = (() => {
+      const prefix = PRODUCT + '_config_';
+      const emitter = new Emitter();
+
+      const defaultConfig = {
+        debug: false,
+        enabled: true,
+        needFocus: false,
+        deviceIndex: 1
+       };
+
+      const config = {};
+
+      emitter.refresh = (emitChange = false) => {
+        Object.keys(defaultConfig).forEach(key => {
+          var storageKey = prefix + key;
+          if (localStorage.hasOwnProperty(storageKey)) {
+            try {
+              let lastValue = config[key];
+              let newValue = JSON.parse(localStorage.getItem(storageKey));
+              if (lastValue !== newValue) {
+                config[key] = newValue;
+                if (emitChange) {
+                  emitter.emit('key', newValue);
+                  emitter.emit('@update', {key, value: newValue});
+                }
+              }
+            } catch (e) {
+              window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
+              config[key] = defaultConfig[key];
+            }
+          } else {
+            config[key] = defaultConfig[key];
+          }
+        });
+      };
+      emitter.refresh();
+
+      emitter.get = function(key, refresh) {
+        if (refresh) {
+          emitter.refreshValue(key);
+        }
+        return config[key];
+      };
+
+      emitter.set = function(key, value) {
+        if (config[key] !== value && arguments.length >= 2) {
+          let storageKey = prefix + key;
+          localStorage.setItem(storageKey, JSON.stringify(value));
+          config[key] = value;
+          emitter.emit(key, value);
+          emitter.emit('@update', {key, value});
+        }
+      };
+
+      return emitter;
+    })();
+
+    class BaseViewComponent extends Emitter {
+      constructor({parentNode = null, name = '', template = '', shadow = '', css = ''}) {
+        super();
+
+        this._params = {parentNode, name, template, shadow, css};
+        this._bound = {};
+        this._state = {};
+        this._props = {};
+        this._elm = {};
+
+        this._initDom({
+          parentNode,
+          name,
+          template,
+          shadow,
+          css
+        });
+      }
+
+      _initDom({parentNode, name, template, css = '', shadow = ''}) {
+        let tplId = `${PRODUCT}${name}Template`;
+        let tpl = document.getElementById(tplId);
+        if (!tpl) {
+          if (css) { util.addStyle(css, `${name}Style`); }
+          tpl = document.createElement('template');
+          tpl.innerHTML = template;
+          tpl.id = tplId;
+          document.body.appendChild(tpl);
+        }
+        const onClick = this._bound.onClick = this._onClick.bind(this);
+
+        const view = document.importNode(tpl.content, true);
+        this._view = view.querySelector('*') || document.createDocumentFragment();
+        if (this._view) {
+          this._view.addEventListener('click', onClick);
+        }
+        this.appendTo(parentNode);
+
+        if (shadow) {
+          this._attachShadow({host: this._view, name, shadow});
+          if (!this._isDummyShadow) {
+            this._shadow.addEventListener('click', onClick);
+          }
+        }
+      }
+
+      _attachShadow ({host, shadow, name, mode = 'open'}) {
+        let tplId = `${PRODUCT}${name}Shadow`;
+        let tpl = document.getElementById(tplId);
+        if (!tpl) {
+          tpl = document.createElement('template');
+          tpl.innerHTML = shadow;
+          tpl.id = tplId;
+          document.body.appendChild(tpl);
+        }
+
+        if (!host.attachShadow && !host.createShadowRoot) {
+          return this._fallbackNoneShadowDom({host, tpl, name});
+        }
+
+        const root = host.attachShadow ?
+          host.attachShadow({mode}) : host.createShadowRoot();
+        const node = document.importNode(tpl.content, true);
+        root.appendChild(node);
+        this._shadowRoot = root;
+        this._shadow = root.querySelector('.root');
+        this._isDummyShadow = false;
+      }
+
+      _fallbackNoneShadowDom({host, tpl, name}) {
+        const node = document.importNode(tpl.content, true);
+        const style = node.querySelector('style');
+        style.remove();
+        util.addStyle(style.innerHTML, `${name}Shadow`);
+        host.appendChild(node);
+        this._shadow = this._shadowRoot = host.querySelector('.root');
+        this._isDummyShadow = true;
+      }
+
+      setState(key, val) {
+        if (typeof key === 'string') {
+          this._setState(key, val);
+        }
+        Object.keys(key).forEach(k => {
+          this._setState(k, key[k]);
+        });
+      }
+
+      _setState(key, val) {
+        if (this._state[key] !== val) {
+          this._state[key] = val;
+          if (/^is(.*)$/.test(key))  {
+            this.toggleClass(`is-${RegExp.$1}`, !!val);
+          }
+          this.emit('update', {key, val});
+        }
+      }
+
+      _onClick(e) {
+        const target = e.target.classList.contains('command') ?
+          e.target : e.target.closest('.command');
+
+        if (!target) { return; }
+
+        const command = target.getAttribute('data-command');
+        if (!command) { return; }
+        const type  = target.getAttribute('data-type') || 'string';
+        let param   = target.getAttribute('data-param');
+        e.stopPropagation();
+        e.preventDefault();
+        param = this._parseParam(param, type);
+        this._onCommand(command, param);
+      }
+
+      _parseParam(param, type) {
+        switch (type) {
+          case 'json':
+          case 'bool':
+          case 'number':
+            param = JSON.parse(param);
+            break;
+        }
+        return param;
+      }
+
+      appendTo(parentNode) {
+        if (!parentNode) { return; }
+        this._parentNode = parentNode;
+        parentNode.appendChild(this._view);
+      }
+
+      _onCommand(command, param) {
+        this.emit('command', command, param);
+      }
+
+      toggleClass(className, v) {
+        (className || '').split(/ +/).forEach((c) => {
+          if (this._view && this._view.classList) {
+            this._view.classList.toggle(c, v);
+          }
+          if (this._shadow && this._shadow.classList) {
+            this._shadow.classList.toggle(c, this._view.classList.contains(c));
+          }
+        });
+      }
+
+      addClass(name)    { this.toggleClass(name, true); }
+      removeClass(name) { this.toggleClass(name, false); }
+    }
+
+    class ConfigPanel extends BaseViewComponent {
+      constructor({parentNode}) {
+        super({
+          parentNode,
+          name: 'ZenzaGamePadConfigPanel',
+          shadow: ConfigPanel.__shadow__,
+          template: '<div class="ZenzaGamePadConfigPanelContainer zen-family"></div>',
+          css: ''
+        });
+        this._state = {
+          isOpen: false,
+          isVisible: false
+        };
+        Config.on('refresh', this._onBeforeShow.bind(this));
+      }
+
+      _initDom(...args) {
+        super._initDom(...args);
+        const v = this._shadow;
+
+        this._elm.enabled = v.querySelector('*[data-config-name="enabled"]');
+        this._elm.needFocus = v.querySelector('*[data-config-name="needFocus"]');
+
+        const onChange = e => {
+          const target = e.target, name = target.getAttribute('data-config-name');
+          switch (target.tagName) {
+            case 'INPUT':
+            case 'SELECT':
+              if (target.type === 'checkbox') {
+                Config.set(name, target.checked);
+              } else {
+                const type = target.getAttribute('data-type');
+                const value = this._parseParam(target.value, type);
+                Config.set(name, value);
+              }
+              break;
+            default:
+              //console.info('target', e, target, name, target.checked);
+              Config.set(name, !!target.checked);
+              break;
+          }
+        };
+
+        this._elm.enabled.addEventListener('change', onChange);
+        this._elm.needFocus.addEventListener('change', onChange);
+
+        v.querySelector('.closeButton')
+          .addEventListener('click', this.hide.bind(this));
+      }
+
+      _onClick(e) {
+        super._onClick(e);
+      }
+
+      _onMouseDown(e) {
+        this.hide();
+        this._onClick(e);
+      }
+
+      show() {
+        document.body.addEventListener('click', this._bound.onBodyClick);
+        this._onBeforeShow();
+
+        this.setState({isOpen: true});
+        if (this._shadow.showModal) {
+          this._shadow.showModal();
+        }
+        window.setTimeout(() => {
+          this.setState({isVisible: true});
+        }, 100);
+      }
+
+      hide() {
+        document.body.removeEventListener('click', this._bound.onBodyClick);
+        if (this._shadow.close) {
+          this._shadow.close();
+        }
+        this.setState({isVisible: false});
+        window.setTimeout(() => {
+          this.setState({isOpen: false});
+        }, 2100);
+      }
+
+      toggle() {
+        if (this._state.isOpen) {
+          this.hide();
+        } else {
+          this.show();
+        }
+      }
+
+      _onBeforeShow() {
+        this._elm.enabled.checked   = !!Config.get('enabled');
+        this._elm.needFocus.checked = !!Config.get('needFocus');
+      }
+    }
+
+    ConfigPanel.__shadow__ = (`
+      <style>
+        .ZenzaGamePadConfigPanel {
+          display: none;
+          position: fixed;
+          z-index: ${CONSTANT.BASE_Z_INDEX};
+          top: 50vh;
+          left: 50vw;
+          padding: 8px;
+          border: 2px outset;
+          box-shadow: 0 0 8px #000;
+          background: #ccc;
+          transform: translate(-50%, -50%);
+          transition: opacity 0.5s;
+          transform-origin: center bottom;
+          animation-timing-function: steps(10);
+          perspective-origin: center bottom;
+          user-select: none;
+          margin: 0;
+          pointer-events: auto !important;
+        }
+        .ZenzaGamePadConfigPanel[open] {
+          display: block;
+          opacity: 1;
+        }
+
+        .ZenzaGamePadConfigPanel.is-Open {
+          display: block;
+          opacity: 0;
+        }
+        
+        .ZenzaGamePadConfigPanel.is-Open.is-Visible {
+          opacity: 1;
+        }
+
+        .title {
+          margin: 0;
+          font-weight: bolder;
+          font-size: 120%;
+          font-family: 'arial black';
+          margin: 0 0 8px;
+          text-align: center;
+        }
+
+        .closeButton {
+          display: block;
+          text-align: center;
+        }
+
+        .closeButton {
+          display: block;
+          padding: 8px 16px;
+          cursor: pointer;
+          margin: auto;
+        }
+
+        label {
+          cursor: pointer;
+        }
+
+        input[type="number"] {
+          width: 50px;
+        }
+
+        input[type="checkbox"] {
+          transform: scale(2);
+          margin-right: 16px;
+        }
+
+        .ZenzaGamePadConfigPanel>div {
+          padding: 8px;
+        }
+      </style>
+      <dialog class="root ZenzaGamePadConfigPanel zen-family">
+        <p class="title">†ZenzaGamePad†</p>
+
+        <div class="enableSelect">
+          <label>
+            <input type="checkbox" data-config-name="enabled" data-type="bool">
+            ZenzaGamePadを有効にする
+          </label>
+        </div>
+
+        <div class="needFocusSelect">
+          <label>
+            <input type="checkbox" data-config-name="needFocus" data-type="bool">
+            ウィンドウフォーカスのあるときのみ有効
+          </label>
+        </div>
+
+
+        <div class="closeButtonContainer">
+          <button class="closeButton" type="button">
+           閉じる
+          </button>
+        </div>
+
+      </dialog>
+    `).trim();
+
+
+    class ToggleButton extends BaseViewComponent {
+      constructor({parentNode}) {
+        super({
+          parentNode,
+          name: 'ZenzaGamePadToggleButton',
+          shadow: ToggleButton.__shadow__,
+          template: '<div class="ZenzaGamePadToggleButtonContainer"></div>',
+          css: ''
+        });
+
+        this._state = {
+          isEnabled: undefined
+        };
+
+        Config.on('enabled', () => {
+          this.refresh();
+        });
+      }
+
+      refresh() {
+        this.setState({isEnabled: Config.get('enabled')});
+      }
+    }
+
+    
+
+    ToggleButton.__shadow__ = `
+      <style>
+        .controlButton {
+          position: relative;
+          display: inline-block;
+          transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
+          box-sizing: border-box;
+          text-align: center;
+          cursor: pointer;
+          color: #fff;
+          opacity: 0.8;
+          vertical-align: middle;
+        }
+        .controlButton:hover {
+          text-shadow: 0 0 8px #ff9;
+          cursor: pointer;
+          opacity: 1;
+        }
+        .heatSyncSwitch {
+          font-size: 16px;
+          width: 32px;
+          height: 32px;
+          line-height: 30px;
+          cursor: pointer;
+        }
+        .is-Enabled .controlButtonInner {
+          color: #aef;
+          text-shadow: 0 0 4px #fea, 0 0 8px orange;
+        }
+
+        .controlButton .tooltip {
+          display: none;
+          pointer-events: none;
+          position: absolute;
+          left: 16px;
+          top: -30px;
+          transform:  translate(-50%, 0);
+          font-size: 12px;
+          line-height: 16px;
+          padding: 2px 4px;
+          border: 1px solid !000;
+          background: #ffc;
+          color: #000;
+          text-shadow: none;
+          white-space: nowrap;
+          z-index: 100;
+          opacity: 0.8;
+        }
+
+        .controlButton:hover {
+          background: #222;
+        }
+
+        .controlButton:hover .tooltip {
+          display: block;
+          opacity: 1;
+        }
+
+      </style>
+      <div class="heatSyncSwitch controlButton root command" data-command="toggleZenzaGamePadConfig">
+        <div class="controlButtonInner" title="ZenzaGamePad">GP</div>
+        <div class="tooltip">ZenzaGamePad</div>
+      </div>
+    `.trim();
+
+
+
 
     var execCommand = function(command, param) {
       ZenzaWatch.external.execCommand(command, param);
@@ -139,10 +645,18 @@
           }
           break;
         case 14: // left
-          execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
+          if (isPauseButtonDown) {
+            execCommand('seekPrevFrame');
+          } else {
+            execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
+          }
           break;
         case 15: // right
-          execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
+          if (isPauseButtonDown) {
+            execCommand('seekNextFrame');
+          } else {
+            execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
+          }
           break;
       }
     };
@@ -382,10 +896,18 @@
           }
           break;
         case 14: // left
-          execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
+          if (isPauseButtonDown) {
+            execCommand('seekPrevFrame');
+          } else {
+            execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
+          }
           break;
         case 15: // right
-          execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
+          if (isPauseButtonDown) {
+            execCommand('seekNextFrame');
+          } else {
+            execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
+          }
           break;
       }
     };
@@ -528,17 +1050,18 @@
       return PollingTimer;
     })();
 
-    var GamePadModel = (function($, _, emitter) {
-      var GamePadModel = function(gamepadStatus) {
-        this._gamepadStatus = gamepadStatus;
-        this._buttons = [];
-        this._axes = [];
-        this._pov = '';
-        this._povRepeat = 0;
-        this.initialize(gamepadStatus);
-      };
-      _.extend(GamePadModel.prototype, emitter.prototype);
-
+    let GamePadModel = (function($, _, emitter) {
+      class GamePadModel extends emitter {
+        constructor(gamepadStatus) {
+          super();
+          this._gamepadStatus = gamepadStatus;
+          this._buttons = [];
+          this._axes = [];
+          this._pov = '';
+          this._povRepeat = 0;
+          this.initialize(gamepadStatus);
+        }
+      }
       _.assign(GamePadModel.prototype, {
         initialize: function(gamepadStatus) {
           this._buttons.length = gamepadStatus.buttons.length;
@@ -604,15 +1127,17 @@
               //  i, axis, 0, this._axes[i]);
               this.emit('onAxisChange', i, axis);
             }
-            if (Math.abs(axis) <= 0.1) {
+            if (Math.abs(axis) <= 0.1 && this._axes[i].repeat > 0) {
               this._axes[i].repeat = 0;
-              this.emit('onAxisRelease', i);
-            } else {
+              //this.emit('onAxisRelease', i);
+            } else if (Math.abs(axis) > 0.1) {
               this._axes[i].repeat++;
               //if (this._axes[i].repeat % 5 === 0) {
               //  //window.console.log('%caxisRepeat%s:%s', 'background: lightblue;', i, axis);
               //  this.emit('onAxisRepeat', i, axis);
               //}
+            } else {
+              this._axes[i].repeat = 0;
             }
             this._axes[i].value = axis;
             
@@ -693,12 +1218,13 @@
       });
 
       return GamePadModel;
-    })($, _, ZenzaWatch.lib.AsyncEmitter);
+    })($, _, Emitter);
 
     var ZenzaGamePad = (function ($, PollingTimer, GamePadModel) {
       var primaryGamepad = null;
       var pollingTimer = null;
-      var ZenzaGamePad = new ZenzaWatch.lib.AsyncEmitter();
+      var ZenzaGamePad = ZenzaWatch.modules ?
+        new ZenzaWatch.modules.Emitter() : new Emitter();
 
       const padIndex = localStorage['ZenzaGamePadpadIndex'] || 0;
 
@@ -789,7 +1315,13 @@
 
       var initializeTimer = function() {
         console.log('%cinitializeGamepadTimer', 'background: lightgreen;');
-        var onTimerInterval = function() {
+        let onTimerInterval = function() {
+          if (!Config.get('enabled')) {
+            return;
+          }
+          if (Config.get('needFocus') && !document.hasFocus()) {
+            return;
+          }
           if (!primaryGamepad) {
             detectGamepad();
             return;
@@ -915,6 +1447,7 @@
       ZenzaGamePad.on('onDeviceConnect', onDeviceConnect);
       //ZenzaGamePad.on('onDeviceDisConnect', onDeviceDisConnect);
       ZenzaGamePad.startDetect();
+      window.ZenzaWatch.ZenzaGamePad = ZenzaGamePad;
     };
 
     var onZenzaWatchOpen = function() {
@@ -929,9 +1462,20 @@
     };
 
 
-    var initialize = function() {
+    let initialize = function() {
       ZenzaWatch.emitter.on('DialogPlayerOpen',  onZenzaWatchOpen);
       ZenzaWatch.emitter.on('DialogPlayerClose', onZenzaWatchClose);
+
+      ZenzaWatch.emitter.on('videoControBar.addonMenuReady', (container, handler) => {
+        ZenzaGamePad.configPanel = new ConfigPanel({parentNode: document.querySelector('#zenzaVideoPlayerDialog')});
+        let toggleButton = new ToggleButton({parentNode: container});
+        toggleButton.on('command', handler);
+        toggleButton.refresh();
+      });
+      ZenzaWatch.emitter.on('command-toggleZenzaGamePadConfig', () => {
+        ZenzaGamePad.configPanel.toggle();
+      });
+
     };
 
     initialize();
@@ -955,7 +1499,7 @@
       //document.body.addEventListener('ZenzaWatchReady', function() {
         window.console.log('onZenzaWatchInitialize');
         loadMonkey();
-      });
+      }, {once: true});
     }
   };
   waitForZenzaWatch();

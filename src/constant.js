@@ -67,11 +67,8 @@ CONSTANT.COMMON_CSS = `
     display: none;
     opacity: 0.8;
     position: absolute;
-    background: #eee;
-    color: #000;
     z-index: ${CONSTANT.BASE_Z_INDEX + 100000};
     cursor: pointer;
-    border: outset 1px;
     font-size: 8pt;
     width: 32px;
     height: 26px;
@@ -80,23 +77,31 @@ CONSTANT.COMMON_CSS = `
     font-weight: bold;
     text-align: center;
     transition: box-shadow 0.2s ease, opacity 0.4s ease;
-    box-shadow: 2px 2px rgba(0, 0, 0, 0.8);
     user-select: none;
+    transform: translate(-50%, -50%);
+    contain: layout style;
   }
   .ZenButton:hover {
     opacity: 1;
   }
-  .ZenButton:active {
-    border: inset 1px;
-    transition: translate(2px, 2px);
-    box-shadow: 0 0 rgba(0, 0, 0, 0.8);
-  }
+    .ZenButtonInner {
+      background: #eee;
+      color: #000;
+      border: outset 1px;
+      box-shadow: 2px 2px rgba(0, 0, 0, 0.8);
+    }
+    .ZenButton:active .ZenButtonInner {
+      border: inset 1px;
+      transition: translate(2px, 2px);
+      box-shadow: 0 0 rgba(0, 0, 0, 0.8);
+    }
 
   .ZenButton.show {
-    display: block;
+    display: inline-block;
   }
 
   .zenzaPopupMenu {
+    display: block;
     position: absolute;
     background: var(--base-bg-color);
     color: #fff;

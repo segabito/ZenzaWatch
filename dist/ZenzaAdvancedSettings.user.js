@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name        ZenzaWatch 上級者用設定
 // @namespace   https://github.com/segabito/
-// @description ZenzaWatchの上級者向け設定。変更する時だけ有効にすればOK
-// @include     http://www.nicovideo.jp/my/*
-// @version     0.2.8
+// @description1 ZenzaWatchの上級者向け設定。変更する時だけ有効にすればOK
+// @include     *//www.nicovideo.jp/my/*
+// @version     0.2.12
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -34,8 +34,8 @@
       .userDetail .openZenzaAdvancedSettingPanel {
         display: inline-block;
         position: absolute;
-        top: 40px;
-        right: 8px;
+        top: 8px;
+        right: 148px;
         padding: 2px 8px;
         text-align: center;
         background: #fff;
@@ -52,7 +52,7 @@
         display: inline-block;
         width: 10px;
         height: 8px;
-        background: url(http://uni.res.nimg.jp/img/zero_my/icons.png) no-repeat;
+        background: url(https://nicovideo.cdn.nimg.jp/uni/img/zero_my/icons.png) no-repeat;
         background-position: -8px -141px;
       }
 
@@ -76,18 +76,16 @@
         width: 90vw;
         height: 90vh;
         color: #000;
-        background: rgba(192, 192, 192, 0.95);
+        background: rgba(192, 192, 192, 1);
         transition: top 0.4s ease;
         user-select: none;
         -webkit-user-select: none;
         -moz-user-select: none;
-        overflow-y: hidden;
+        overflow: hidden;
       }
       .zenzaAdvancedSettingPanel.show {
         opacity: 1;
         top: 50%;
-        overflow-y: scroll;
-        overflow-x: hidden;
       }
 
       .zenzaAdvancedSettingPanel.show {
@@ -98,8 +96,12 @@
 
       .zenzaAdvancedSettingPanel .settingPanelInner {
         box-sizing: border-box;
-        margin: 16px;
-        overflow: visible;
+        margin: 8px;
+        padding: 8px;
+        overflow: auto;
+        height: calc(100% - 86px);
+        overscroll-behavior: contain;
+        border: 1px inset;
       }
       .zenzaAdvancedSettingPanel .caption {
         background: #333;
@@ -190,9 +192,12 @@
        }
 
       .zenzaAdvancedSetting-close {
+        position: absolute;
         width: 50%;
+        left: 50%;
+        bottom: 8px;
+        transform: translate(-50%);
         z-index: 160000;
-        margin: 16px auto;
         padding: 8px 16px;
         cursor: pointer;
         box-sizing: border-box;
@@ -262,6 +267,7 @@
       <option value="toggle-enableFilter">NG設定 ON/OFF</option>
       <option value="screenShot">スクリーンショット</option>
       <option value="deflistAdd">とりあえずマイリスト</option>
+      <option value="picture-in-picture">picture-in-picture</option>
     `).trim();
 
     SettingPanel.__tpl__ = (`
@@ -306,10 +312,9 @@
           <div class="autoZenTube control toggle">
             <label>
               <input type="checkbox" class="checkbox" data-setting-name="autoZenTube">
-              自動ZenTube (ZenTubeから戻す時は動画を右クリックからリロード)
+              自動ZenTube (ZenTubeから戻す時は動画を右クリックからリロード または 右下の「画」)
             </label>
           </div>
-
 
           <div class="enableSlotLayoutEmulation control toggle">
             <label>
@@ -393,9 +398,8 @@
 
           </div>
 
-          <div class="zenzaAdvancedSetting-close">閉じる</div>
-
         </div>
+        <div class="zenzaAdvancedSetting-close">閉じる</div>
       </div>
     `).trim();
 
@@ -426,7 +430,7 @@
         });
 
         this._$rawData = $panel.find('.zenzaAdvancedSetting-rawData');
-        this._$rawData.val(JSON.stringify(config.exportConfig()));
+        this._$rawData.val(JSON.stringify(config.exportConfig(), null, 2));
         this._$rawData.on('change', function() {
           var val = this._$rawData.val();
           var data;
@@ -448,7 +452,7 @@
         }.bind(this));
 
         this._$playlistData = $panel.find('.zenzaAdvancedSetting-playlistData');
-        this._$playlistData.val(JSON.stringify(ZenzaWatch.external.playlist.export()));
+        this._$playlistData.val(JSON.stringify(ZenzaWatch.external.playlist.export(), null, 2));
         this._$playlistData.on('change', function() {
           var val = this._$playlistData.val();
           var data;
@@ -539,7 +543,7 @@
         this._update$rawData();
       },
       _update$rawData: function() {
-        this._$rawData.val(JSON.stringify(this._playerConfig.exportConfig()));
+        this._$rawData.val(JSON.stringify(this._playerConfig.exportConfig(), null, 2));
       },
       _onToggleItemChange: function(e) {
         var $target = $(e.target);
@@ -591,7 +595,7 @@
       _beforeShow: function() {
         if (this._$playlistData) {
           this._$playlistData.val(
-            JSON.stringify(ZenzaWatch.external.playlist.export())
+            JSON.stringify(ZenzaWatch.external.playlist.export(), null, 2)
           );
         }
       },
