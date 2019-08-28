@@ -61,6 +61,10 @@ class DmcInfo {
     return this._session.protocols || [];
   }
 
+  get isHLSRequired() {
+    return !this.protocols.includes('http');
+  }
+
   get contentKeyTimeout() {
     return this._session.content_key_timeout;
   }
@@ -103,6 +107,19 @@ class DmcInfo {
 
   get encryption() {
     return this._rawData.encryption || null;
+  }
+
+  getData() {
+    const data = {};
+    for (const prop of Object.getOwnPropertyNames(this.constructor.prototype)) {
+      if (typeof this[prop] === 'function') { continue; }
+      data[prop] = this[prop];
+    }
+    return data;
+  }
+
+  toJSON() {
+    return JSON.stringify(this.getData());
   }
 }
 
@@ -268,7 +285,7 @@ class VideoInfoModel {
   }
 
   get originalVideoId() {
-    return (this.isMymemory || this.isCommunityVideo) ? this.videoId : ''
+    return (this.isMymemory || this.isCommunityVideo) ? this.videoId : '';
   }
 
   getWatchId() { // sm12345だったりスレッドIDだったり
@@ -367,8 +384,8 @@ class VideoInfoModel {
     if (this.isChannel) {
       let c = this._watchApiData.channelInfo || {};
       ownerInfo = {
-        icon: c.icon_url || 'https://nicovideo.cdn.nimg.jp/web/img/user/thumb/blank.jpg',
-        url: '//ch.nicovideo.jp/ch' + c.id,
+        icon: c.icon_url || 'https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/defaults/blank.jpg',
+        url: `https://ch.nicovideo.jp/ch${c.id}`,
         id: c.id,
         linkId: c.id ? `ch${c.id}` : '',
         name: c.name,
@@ -380,8 +397,8 @@ class VideoInfoModel {
       let u = this._watchApiData.uploaderInfo || {};
       let f = this._flashvars || {};
       ownerInfo = {
-        icon: u.icon_url || 'https://nicovideo.cdn.nimg.jp/web/img/user/thumb/blank.jpg',
-        url: u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
+        icon: u.icon_url || 'https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/defaults/blank.jpg',
+        url: u.id ? `//www.nicovideo.jp/user/${u.id}` : '#',
         id: u.id || f.videoUserId || '',
         linkId: u.id ? `user/${u.id}` : '',
         name: u.nickname || '(非公開ユーザー)',
@@ -538,6 +555,14 @@ class VideoInfoModel {
     return 'dmc';
   }
 
+  getData() {
+    const data = {};
+    for (const prop of Object.getOwnPropertyNames(this.constructor.prototype)) {
+      if (typeof this[prop] === 'function') { continue; }
+      data[prop] = this[prop];
+    }
+    return data;
+  }
 }
 
 
