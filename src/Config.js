@@ -1,35 +1,18 @@
-import {Emitter} from './baselib';
-import {PRODUCT} from './ZenzaWatchIndex';
+// import {PRODUCT} from './ZenzaWatchIndex';
+const PRODUCT = 'ZenzaWatch';
+import { DataStorage } from '../packages/lib/src/infra/DataStorage';
 
 const location = {host: 'www.nicovideo.jp'};
 const navigator = {};
 const window = {console: console};
 // let console = window.console;
-const CONFIG = null;
 
 //===BEGIN===
-const Config = ((CONFIG) => {
-  const prefix = `${PRODUCT}_`;
-  const emitter = new Emitter();
-
-  // 古いprototype.jsが使われているページの対処
-  if (window.Prototype && Array.prototype.toJSON) {
-    let _json_stringify = JSON.stringify;
-    JSON.stringify = (...args) => {
-      let aj = Array.prototype.toJSON;
-      let sj = String.prototype.toJSON;
-      delete Array.prototype.toJSON;
-      delete String.prototype.toJSON;
-      let r = _json_stringify(...args);
-      Array.prototype.toJSON = aj;
-      String.prototype.toJSON = sj;
-      return r;
-    };
-  }
-
-  // 直接変更する時はコンソールで
-  // ZenzaWatch.config.setValue('hogehoge' fugafuga);
-  const DEFAULT_CONFIG = CONFIG || {
+//@require ../packages/lib/src/infra/StorageWriter.js
+//@require ../packages/lib/src/infra/objUtil.js
+//@require ../packages/lib/src/infra/DataStorage.js
+const Config = (() => {
+  const DEFAULT_CONFIG = {
     debug: false,
     volume: 0.3,
     forceEnable: false,
@@ -125,6 +108,7 @@ const Config = ((CONFIG) => {
     useWellKnownPort: false, // この機能なくなったぽい (常時true相当になった)
     'video.hls.enable': true,
     'video.hls.segmentDuration': 6000,
+    'video.hls.enableOnlyRequired': true, // hlsが必須の動画だけ有効化する
 
     enableNicosJumpVideo: true, // @ジャンプを有効にするかどうか
     'videoSearch.ownerOnly': true,
@@ -146,6 +130,11 @@ const Config = ((CONFIG) => {
     'touch.tap3command': 'toggle-mute',
     'touch.tap4command': 'toggle-showComment',
     'touch.tap5command': 'screenShot',
+
+    'navi.favorite': [],
+    'navi.playlistButtonMode': 'insert',
+    'navi.ownerFilter': false,
+    'navi.lastSearchQuery': '',
 
     autoZenTube: false,
     bestZenTube: false,
@@ -208,180 +197,22 @@ const Config = ((CONFIG) => {
     DEFAULT_CONFIG['uaa.enable'] = false;
   }
 
-  const config = {};
-  let noEmit = false;
-
-  Object.keys(DEFAULT_CONFIG).forEach(key => {
-    let storageKey = prefix + key;
-    if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
-      try {
-        config[key] = JSON.parse(localStorage.getItem(storageKey));
-      } catch (e) {
-        window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
-        config[key] = DEFAULT_CONFIG[key];
-      }
-    } else {
-      config[key] = DEFAULT_CONFIG[key];
+  return new DataStorage(
+    DEFAULT_CONFIG,
+    {
+      prefix: PRODUCT,
+      ignoreExportKeys: ['message', 'lastPlayerId', 'lastWatchId', 'debug'],
+      readonly: !location || location.host !== 'www.nicovideo.jp',
+      storage: localStorage
     }
-  });
+  );
+})();
+const NaviConfig = Config;
 
-  /**
-   * ローカルの設定値をlocalStorageから読み直す
-   * 他のウィンドウで書き換えられる可能性のある物を読む前に使う
-   */
-  emitter.refreshValue = (key) => { //function (key) {
-    let storageKey = prefix + key;
-    if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
-      try {
-        config[key] = JSON.parse(localStorage.getItem(storageKey));
-      } catch (e) {
-        window.console.error('config parse error key:"%s" value:"%s" ', key, localStorage.getItem(storageKey), e);
-      }
-    }
-  };
-
-  emitter.getValue = (key, refresh) => {
-    if (refresh) {
-      emitter.refreshValue(key);
-    }
-    return config[key];
-  };
-
-  emitter.setValue = function (key, value) {
-    if (config[key] !== value && arguments.length >= 2) {
-      let storageKey = prefix + key;
-      if (location.host === 'www.nicovideo.jp') {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(value));
-        } catch (e) {
-          window.console.error(e);
-        }
-      }
-      config[key] = value;
-
-      console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
-      if (!noEmit) {
-        this.emitAsync('update', key, value);
-        this.emitAsync('update-' + key, value);
-      }
-    }
-  };
-
-  /**
-   * イベントを投げないで設定変更だけする
-   * @deprecated
-   * @param {string} key
-   * @param value
-   */
-  emitter.setValueSilently = function (key, value) {
-    if (config[key] !== value && arguments.length >= 2) {
-      let storageKey = prefix + key;
-      if (location.host === 'www.nicovideo.jp') {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(value));
-        } catch (e) {
-          window.console.error(e);
-        }
-      }
-      config[key] = value;
-
-      console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
-    }
-  };
-
-  /**
-   * @deprecated
-   * localStorageに保存しないで、ページをリロードするまでの間だけ書き換え
-   */
-  emitter.setSessionValue = (key, value) => {
-    if (config[key] !== value) {
-      config[key] = value;
-      console.log('%cconfig update "%s" = "%s"', 'background: cyan', key, value);
-      this.emitAsync('update', key, value);
-      this.emitAsync('update-' + key, value);
-    }
-  };
-
-  emitter.exportConfig = () => {
-    let result = {};
-    Object.keys(DEFAULT_CONFIG).forEach(key => {
-      if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) {
-        return;
-      }
-      let storageKey = prefix + key;
-      if ((localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) &&
-        DEFAULT_CONFIG[key] !== emitter.getValue(key)) {
-        result[key] = emitter.getValue(key);
-      }
-    });
-    return result;
-  };
-
-  emitter.importConfig = (data) => {
-    noEmit = true;
-    Object.keys(data).forEach(key => {
-      if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) {
-        return;
-      }
-      window.console.log('import config: %s=%s', key, data[key]);
-      try {
-        emitter.setValue(key, data[key]);
-      } catch (e) {
-      }
-    });
-    noEmit = false;
-  };
-
-  emitter.clearConfig = () => {
-    noEmit = true;
-    Object.keys(DEFAULT_CONFIG).forEach(key => {
-      if (['message', 'lastPlayerId', 'lastWatchId', 'debug'].includes(key)) {
-        return;
-      }
-      let storageKey = prefix + key;
-      try {
-        if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
-          localStorage.removeItem(storageKey);
-        }
-        config[key] = DEFAULT_CONFIG[key];
-      } catch (e) {
-      }
-    });
-    noEmit = false;
-  };
-
-  emitter.getKeys = () => {
-    return Object.keys(DEFAULT_CONFIG);
-  };
-
-  emitter.namespace = name => {
-    return {
-      getValue: (key) => {
-        return emitter.getValue(name + '.' + key);
-      },
-      setValue: (key, value) => {
-        emitter.setValue(name + '.' + key, value);
-      },
-      on: (key, func) => {
-        if (key === 'update') {
-          emitter.on('update', (key, value) => {
-            const pre = name + '.';
-            if (key.startsWith(pre)) {
-              func(key.replace(pre, ''), value);
-            }
-          });
-        } else {
-          key = key.replace(/^update-/, '');
-          emitter.on('update-' + name + '.' + key, func);
-        }
-      }
-    };
-  };
-
-  return emitter;
-})(CONFIG);
 //===END===
 
+
 export {
-  Config
+  Config,
+  NaviConfig
 };
