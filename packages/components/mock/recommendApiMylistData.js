@@ -1,7 +1,7 @@
 // https://nvapi.nicovideo.jp/v1/recommend?recipe=eyJpZCI6InZpZGVvX3dhdGNoX3BsYXlsaXN0X215bGlzdCIsIm15bGlzdElkIjo2MzM1MzAxOCwibXlsaXN0TmFtZSI6Ik1NROOBiuOBmeOBmeOCgSgyKSJ9&site=nicovideo&_frontendId=6&_frontendVersion=0
 // -> "{"id":"video_watch_playlist_mylist","mylistId":63353018,"mylistName":"MMDおすすめ(2)"}"
 // https://www.nicovideo.jp/watch/sm29550154?mylist_sort=10&ref=my_mylist_s10_p1_n500&playlist=eyJpZCI6InZpZGVvX3dhdGNoX3BsYXlsaXN0X215bGlzdCIsIm15bGlzdElkIjo1NDc3MDQ1OCwibXlsaXN0TmFtZSI6IlZPQ0FMT0lEKDMpIn0
-const recommentApiMylistData = {
+const recommendApiMylistData = {
   'meta': {
     'status': 200
   },
