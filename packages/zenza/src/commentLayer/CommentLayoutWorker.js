@@ -1,30 +1,30 @@
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {ZenzaWatch} from '../../../../src/ZenzaWatchIndex';
+import {workerUtil} from '../../../lib/src/infra/workerUtil';
 
 const Config = ZenzaWatch.config;
-const util = ZenzaWatch.util;
 
 //===BEGIN===
 
-let CommentLayoutWorker = (config => {
-  let func = function (self) {
+const CommentLayoutWorker = (config => {
+  const func = function(self) {
 
     // 暫定設置
-    let TYPE = {
+    const TYPE = {
       TOP: 'ue',
       NAKA: 'naka',
       BOTTOM: 'shita'
     };
 
-    let SCREEN = {
+    const SCREEN = {
       WIDTH_INNER: 512,
-        WIDTH_FULL_INNER: 640,
-        WIDTH: 512 + 32,
-        WIDTH_FULL: 640 + 32,
-        HEIGHT: 384
+      WIDTH_FULL_INNER: 640,
+      WIDTH: 512 + 32,
+      WIDTH_FULL: 640 + 32,
+      HEIGHT: 384
     };
 
 
-    let isConflict = function (target, others) {
+    const isConflict = (target, others) => {
       // 一度はみ出した文字は当たり判定を持たない
       if (target.isOverflow || others.isOverflow || others.isInvisible) {
         return false;
@@ -35,8 +35,8 @@ let CommentLayoutWorker = (config => {
       }
 
       // Y座標が合わないなら絶対衝突しない
-      let othersY = others.ypos;
-      let targetY = target.ypos;
+      const othersY = others.ypos;
+      const targetY = target.ypos;
       if (othersY + others.height < targetY ||
         othersY > targetY + target.height) {
         return false;
@@ -77,37 +77,37 @@ let CommentLayoutWorker = (config => {
       return false;
     };
 
-    let moveToNextLine = function (target, others) {
-      let margin = 1;
-      let othersHeight = others.height + margin;
+    const moveToNextLine = (self, others) => {
+      const margin = 1;
+      const othersHeight = others.height + margin;
       // 本来はちょっとでもオーバーしたらランダムすべきだが、
       // 本家とまったく同じサイズ計算は難しいのでマージンを入れる
       // コメントアートの再現という点では有効な妥協案
-      let overflowMargin = 10;
-      let rnd = Math.max(0, SCREEN.HEIGHT - target.height);
-      let yMax = SCREEN.HEIGHT - target.height + overflowMargin;
-      let yMin = 0 - overflowMargin;
+      const overflowMargin = 10;
+      const rnd = Math.max(0, SCREEN.HEIGHT - self.height);
+      const yMax = SCREEN.HEIGHT - self.height + overflowMargin;
+      const yMin = 0 - overflowMargin;
 
-      let type = target.type;
-      let ypos = target.ypos;
+      const type = self.type;
+      let ypos = self.ypos;
 
       if (type !== TYPE.BOTTOM) {
         ypos += othersHeight;
         // 画面内に入りきらなかったらランダム配置
         if (ypos > yMax) {
-          target.isOverflow = true;
+          self.isOverflow = true;
         }
       } else {
         ypos -= othersHeight;
         // 画面内に入りきらなかったらランダム配置
         if (ypos < yMin) {
-          target.isOverflow = true;
+          self.isOverflow = true;
         }
       }
 
-      target.ypos = target.isOverflow ? Math.floor(Math.random() * rnd) : ypos;
+      self.ypos = self.isOverflow ? Math.floor(Math.random() * rnd) : ypos;
 
-      return target;
+      return self;
     };
 
 
@@ -115,15 +115,14 @@ let CommentLayoutWorker = (config => {
      * 最初に衝突が起こりうるindexを返す。
      * 処理効率化のための物
      */
-    let findCollisionStartIndex = function (target, members) {
-      let o;
-      let tl = target.beginLeft;
-      let tr = target.endRight;
-      let fork = target.fork;
+    const findCollisionStartIndex = (target, members) => {
+      const tl = target.beginLeft;
+      const tr = target.endRight;
+      const fork = target.fork;
       for (let i = 0, len = members.length; i < len; i++) {
-        o = members[i];
-        let ol = o.beginLeft;
-        let or = o.endRight;
+        const o = members[i];
+        const ol = o.beginLeft;
+        const or = o.endRight;
 
         // 自分よりうしろのメンバーには影響を受けないので処理不要
         if (o.id === target.id) {
@@ -142,11 +141,10 @@ let CommentLayoutWorker = (config => {
       return -1;
     };
 
-    let _checkCollision = function (target, members, collisionStartIndex) {
-      let o;
+    const _checkCollision = (target, members, collisionStartIndex) => {
       const beginLeft = target.beginLeft;
       for (let i = collisionStartIndex, len = members.length; i < len; i++) {
-        o = members[i];
+        const o = members[i];
 
         // 自分よりうしろのメンバーには影響を受けないので処理不要
         if (o.id === target.id) {
@@ -169,12 +167,12 @@ let CommentLayoutWorker = (config => {
       return target;
     };
 
-    let checkCollision = function (target, members) {
+    const checkCollision = (target, members) => {
       if (target.isInvisible) {
         return target;
       }
 
-      let collisionStartIndex = findCollisionStartIndex(target, members);
+      const collisionStartIndex = findCollisionStartIndex(target, members);
 
       if (collisionStartIndex < 0) {
         return target;
@@ -184,25 +182,20 @@ let CommentLayoutWorker = (config => {
     };
 
 
-    let groupCollision = function (members) {
+    const groupCollision = members => {
       for (let i = 0, len = members.length; i < len; i++) {
-        members[i] = checkCollision(members[i], members);
+        //members[i] =
+        checkCollision(members[i], members);
       }
       return members;
     };
 
-    self.onmessage = function (e) {
-      const data = {};
-      //console.log('CommentLayoutWorker.onmessage', e.data.type, e.data.members);
-      console.time('CommentLayoutWorker: ' + e.data.type);
-      data.result = groupCollision(e.data.members);
-      console.timeEnd('CommentLayoutWorker: ' + e.data.type);
-
-      data.lastUpdate = e.data.lastUpdate;
-      data.type = e.data.type;
-      data.requestId = e.data.requestId;
-      self.postMessage(data);
-      //self.close();
+    self.onmessage = ({command, params}) => {
+      const {type, members, lastUpdate} = params;
+      console.time('CommentLayoutWorker: ' + type);
+      groupCollision(members);
+      console.timeEnd('CommentLayoutWorker: ' + type);
+      return {type, members, lastUpdate};
     };
 
   };
@@ -210,40 +203,15 @@ let CommentLayoutWorker = (config => {
   let instance = null;
   return {
     _func: func,
-    create: function () {
-      // if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
-      //   return null;
-      // }
-      return util.createWebWorker(func);
-    },
-    getInstance: function () {
-      // if (!config.getValue('enableCommentLayoutWorker') || !util.isWebWorkerAvailable()) {
-      //   return null;
-      // }
+    create: () => workerUtil.createCrossMessageWorker(func, {name: 'CommentLayoutWorker'}),
+    getInstance() {
       if (!instance) {
-        instance = util.createWebWorker(func);
+        instance = this.create();
       }
       return instance;
     }
   };
 })(Config);
-
-util.createWebWorker = (func, type = '') => {
-  let src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
-
-  let blob = new Blob([src], {type: 'text/javascript'});
-  let url = URL.createObjectURL(blob);
-
-  if (type === 'SharedWorker') {
-    return new SharedWorker(url);
-  }
-  return new Worker(url);
-};
-
-util.isWebWorkerAvailable = () => {
-  return !!(window.Blob && window.Worker && window.URL);
-};
-
 
 //===END===
 

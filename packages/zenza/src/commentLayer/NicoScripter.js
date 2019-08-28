@@ -1,5 +1,5 @@
-import {util} from './util';
-import {Emitter} from './baselib';
+import {Emitter} from '../../../lib/src/Emitter';
+import {textUtil} from '../../../lib/src/text/textUtil';
 
 //===BEGIN===
 
@@ -14,19 +14,19 @@ class NicoScriptParser {
   static parseNiwango(lines) {
     // 構文はいったん無視して、対応できる命令だけ拾っていく。
     // ニワン語のフル実装は夢
-    let type, params;
+    let type, params, m;
     let result = [];
     for (let i = 0, len = lines.length; i < len; i++) {
       let text = lines[i];
       const id = NicoScriptParser.parseId;
-      if (text.match(/^\/?replace\((.*?)\)/)) {
+      if ((m = /^\/?replace\((.*?)\)/.exec(text)) !== null) {
         type = 'REPLACE';
-        params = NicoScriptParser.parseReplace(RegExp.$1);
+        params = NicoScriptParser.parseReplace(m[1]);
         result.push({id, type, params});
-      } else if (text.match(/^\/?commentColor\s*=\s*0x([0-9a-f]{6})/i)) {
-        result.push({id, type: 'COLOR', params: {color: '#' + RegExp.$1}});
-      } else if (text.match(/^\/?seek\((.*?)\)/i)) {
-        params = NicoScriptParser.parseSeek(RegExp.$1);
+      } else if ((m = /^\/?commentColor\s*=\s*0x([0-9a-f]{6})/i.exec(text)) !== null) {
+        result.push({id, type: 'COLOR', params: {color: '#' + m[1]}});
+      } else if ((m = /^\/?seek\((.*?)\)/i.exec(text)) !== null) {
+        params = NicoScriptParser.parseSeek(m[1]);
         result.push({id, type: 'SEEK', params});
       }
     }
@@ -326,15 +326,16 @@ class NicoScriptParser {
     let target = tmp[1] || '';
     let type = 'JUMP';
     let time = 0;
-    if (/^#(\d+):(\d+)$/.test(target)) {
+    let m;
+    if ((m = /^#(\d+):(\d+)$/.test(target)) !== null) {
       type = 'SEEK';
-      time = RegExp.$1 * 60 + RegExp.$2 * 1;
-    } else if (/^#(\d+):(\d+\.\d+)$/.test(target)) {
+      time = m[1] * 60 + m[2] * 1;
+    } else if ((m = /^#(\d+):(\d+\.\d+)$/.test(target)) !== null) {
       type = 'SEEK';
-      time = RegExp.$1 * 60 + RegExp.$2 * 1;
-    } else if (/^(#|＃)(.+)/.test(target)) {
+      time = m[1] * 60 + m[2] * 1;
+    } else if ((m = /^(#|＃)(.+)/.test(target)) !== null) {
       type = 'SEEK_MARKER';
-      time = RegExp.$2;
+      time = m[2];
     }
     return {target, type, time};
   }
@@ -399,11 +400,11 @@ class NicoScripter extends Emitter {
       return;
     }
     const list = this._list.concat().sort((a, b) => {
-      const av = a.getVpos(), bv = b.getVpos();
+      const av = a.vpos, bv = b.vpos;
       if (av !== bv) {
         return av - bv;
       } else {
-        return a.getNo() < b.getNo() ? -1 : 1;
+        return a.no < b.no ? -1 : 1;
       }
     });
     this._list = list;
@@ -413,8 +414,8 @@ class NicoScripter extends Emitter {
   _updateInviewEvents() {
     const ct = this._currentTime;
     this._eventScript.forEach(({p, nicos}) => {
-      const beginTime = nicos.getVpos() / 100;
-      const endTime = beginTime + nicos.getDuration();
+      const beginTime = nicos.vpos / 100;
+      const endTime = beginTime + nicos.duration;
       if (beginTime > ct || endTime < ct) {
         delete this._inviewEvents[p.id];
         return;
@@ -423,7 +424,7 @@ class NicoScripter extends Emitter {
         return;
       }
       this._inviewEvents[p.id] = true;
-      let diff = nicos.getVpos() / 100 - ct;
+      let diff = nicos.vpos / 100 - ct;
       diff = Math.min(1, Math.abs(diff)) * (diff / Math.abs(diff));
       switch (p.type) {
         case 'SEEK':
@@ -470,64 +471,64 @@ class NicoScripter extends Emitter {
       },
       'MARKER': (p, nicos) => {
         console.log('@ジャンプマーカー: ', p, nicos);
-        this._marker[p.params.name] = nicos.getVpos() / 100;
+        this._marker[p.params.name] = nicos.vpos / 100;
       }
     };
 
     const applyFunc = {
-      'DEFAULT': function (nicoChat, nicos) {
-        let nicosColor = nicos.getColor();
-        let hasColor = nicoChat.hasColorCommand();
+      DEFAULT(nicoChat, nicos) {
+        let nicosColor = nicos.color;
+        let hasColor = nicoChat.hasColorCommand;
         if (nicosColor && !hasColor) {
-          nicoChat.setColor(nicosColor);
+          nicoChat.color = nicosColor;
         }
 
-        let nicosSize = nicos.getSize();
-        let hasSize = nicoChat.hasSizeCommand();
+        let nicosSize = nicos.size;
+        let hasSize = nicoChat.hasSizeCommand;
         if (nicosSize && !hasSize) {
-          nicoChat.setSize(nicosSize);
+          nicoChat.size = nicosSize;
         }
 
-        let nicosType = nicos.getType();
-        let hasType = nicoChat.hasTypeCommand();
+        let nicosType = nicos.type;
+        let hasType = nicoChat.hasTypeCommand;
         if (nicosType && !hasType) {
-          nicoChat.setType(nicosType);
+          nicoChat.type = nicosType;
         }
 
       },
-      'COLOR': function (nicoChat, nicos, params) {
-        let hasColor = nicoChat.hasColorCommand();
+      COLOR(nicoChat, nicos, params) {
+        let hasColor = nicoChat.hasColorCommand;
         if (!hasColor) {
-          nicoChat.setColor(params.color);
+          nicoChat.color = params.color;
         }
       },
-      'REVERSE': function (nicoChat, nicos, params) {
+      REVERSE(nicoChat, nicos, params) {
         if (params.target === '全') {
-          nicoChat.setIsReverse(true);
+          nicoChat.isReverse = true;
         } else if (params.target === '投コメ') {
-          if (nicoChat.getFork() > 0) {
-            nicoChat.setIsReverse(true);
+          if (nicoChat.fork > 0) {
+            nicoChat.isReverse = true;
           }
         } else if (params.target === 'コメ') {
-          if (nicoChat.getFork() === 0) {
-            nicoChat.setIsReverse(true);
+          if (nicoChat.fork === 0) {
+            nicoChat.isReverse = true;
           }
         }
       },
-      'REPLACE': function (nicoChat, nicos, params) {
+      REPLACE(nicoChat, nicos, params) {
         if (!params) {
           return;
         }
         // if (nicoChat.isNicoScript()) { return; }
-        if (nicoChat.getFork() > 0 && (params.target || '').indexOf('owner') < 0) {
+        if (nicoChat.fork > 0 && (params.target || '').indexOf('owner') < 0) {
           return;
         }
-        if (nicoChat.getFork() < 1 && params.target === 'owner') {
+        if (nicoChat.fork < 1 && params.target === 'owner') {
           return;
         }
 
         let isMatch = false;
-        let text = nicoChat.getText();
+        let text = nicoChat.text;
 
         if (params.partial === true) {
           isMatch = text.indexOf(params.src) >= 0;
@@ -541,31 +542,31 @@ class NicoScripter extends Emitter {
         if (params.fill === true) {
           text = params.dest;
         } else {// ＠置換 "~" "\n" 単 全
-          let reg = new RegExp(util.escapeRegs(params.src), 'g');
+          let reg = new RegExp(textUtil.escapeRegs(params.src), 'g');
           text = text.replace(reg, params.dest);
         }
-        nicoChat.setText(text);
+        nicoChat.text = text;
 
-        let nicosColor = nicos.getColor();
-        let hasColor = nicoChat.hasColorCommand();
+        let nicosColor = nicos.clor;
+        let hasColor = nicoChat.hasColorCommand;
         if (nicosColor && !hasColor) {
-          nicoChat.setColor(nicosColor);
+          nicoChat.color = nicosColor;
         }
 
-        let nicosSize = nicos.getSize();
-        let hasSize = nicoChat.hasSizeCommand();
+        let nicosSize = nicos.size;
+        let hasSize = nicoChat.hasSizeCommand;
         if (nicosSize && !hasSize) {
-          nicoChat.setSize(nicosSize);
+          nicoChat.size = nicosSize;
         }
 
-        let nicosType = nicos.getType();
-        let hasType = nicoChat.hasTypeCommand();
+        let nicosType = nicos.type;
+        let hasType = nicoChat.hasTypeCommand;
         if (nicosType && !hasType) {
-          nicoChat.setType(nicosType);
+          nicoChat.type = nicosType;
         }
 
       },
-      'PIPE': function (nicoChat, nicos, lines) {
+      PIPE(nicoChat, nicos, lines) {
         lines.forEach(line => {
           let type = line.type;
           let f = applyFunc[type];
@@ -578,12 +579,12 @@ class NicoScripter extends Emitter {
 
 
     this._list.forEach(nicos => {
-      let p = NicoScriptParser.parseNicos(nicos.getText());
+      let p = NicoScriptParser.parseNicos(nicos.text);
       if (!p) {
         return;
       }
-      if (!nicos.hasDurationSet()) {
-        nicos.setDuration(99999);
+      if (!nicos.hasDurationSet) {
+        nicos.duration = 99999;
       }
 
       let ev = eventFunc[p.type];
@@ -606,14 +607,14 @@ class NicoScripter extends Emitter {
         return;
       }
 
-      let beginTime = nicos.getBeginTime();
-      let endTime = beginTime + nicos.getDuration();
+      let beginTime = nicos.beginTime;
+      let endTime = beginTime + nicos.duration;
 
-      (group.getMembers ? group.getMembers : group).forEach(nicoChat => {
-        if (nicoChat.isNicoScript()) {
+      (group.members ? group.members : group).forEach(nicoChat => {
+        if (nicoChat.isNicoScript) {
           return;
         }
-        let ct = nicoChat.getBeginTime();
+        let ct = nicoChat.beginTime;
 
         if (beginTime > ct || endTime < ct) {
           return;

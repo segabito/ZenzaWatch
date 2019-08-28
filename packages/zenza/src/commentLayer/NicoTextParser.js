@@ -1,5 +1,5 @@
-import {ZenzaWatch} from './ZenzaWatchIndex';
-import {util} from './util';
+import {ZenzaWatch} from '../../../../src/ZenzaWatchIndex';
+import {util} from '../../../../src/util';
 
 /**
 
@@ -157,9 +157,8 @@ import {util} from './util';
 
 */
 //===BEGIN===
-
-class NicoTextParser {
-}
+function NicoTextParserInitFunc() {
+class NicoTextParser {}
 NicoTextParser._FONT_REG = {
   // TODO: wikiにあるテーブルを正規表現に落とし込む
   // MING_LIUは昔どこかで拾ったのだけど出典がわからない
@@ -217,9 +216,9 @@ han_group { font-family: 'Arial'; }
   padding: 2px 0 2px;
   margin: 0;
   white-space: nowrap;
-  font-weight: 600;
+  /*font-weight: 600;
   -webkit-font-smoothing: none;
-  font-smooth: never;
+  font-smooth: never;*/
   /* text-rendering: optimizeSpeed; */
   /*font-kerning: none;*/
 }
@@ -258,8 +257,8 @@ han_group { font-family: 'Arial'; }
     font-family: Arial;
   }
   /* フォント変化のあったグループの下にいるということは、
-     半角文字に挟まれていないはずである。
-   */
+      半角文字に挟まれていないはずである。
+    */
     .gothic > .type2001 {
       font-family: 'ＭＳ Ｐゴシック', 'IPAMonaPGothic', sans-serif, Arial, 'Menlo';
     }
@@ -323,7 +322,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
 /*
 .fill_space {
   display: inline-block; overflow: hidden; margin: 0; padding: 0; letter-spacing: 0;
-           vertical-align: bottom; font-weight: normal;
+            vertical-align: bottom; font-weight: normal;
   white-space: nowrap;
 }
 .big    .fill_space { width: 40px; height: 40px; }
@@ -358,20 +357,20 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
   opacity: 0;
   display: block;
   visibility: hidden;
- }
+  }
 
- .line53 {
-   display: inline-block;
-   line-height: 32px;
- }
- .line100 {
-   display: inline-block;
-   line-height: 23.5px;
- }
- /*.line70 {
-   display: inline-block;
-   line-height: 27px;
- }*/
+/* .line53 {
+    display: inline-block;
+    line-height: 32px;
+  }
+  .line100 {
+    display: inline-block;
+    line-height: 23.5px;
+  }*/
+  /*.line70 {
+    display: inline-block;
+    line-height: 27px;
+  }*/
 
   `).trim();
 
@@ -390,7 +389,7 @@ spacer { display: inline-block; overflow: hidden; margin: 0; padding: 0; height:
  *  もし新規でニコニコ動画のようなシステムを作るのであれば、こんな複雑怪奇な物を実装する必要はない。
  *  ならどうしてやっているのかといえば、過去のコメントアートを再現したいからである。
  */
-NicoTextParser.likeXP = function (text) {
+NicoTextParser.likeXP = text => {
   let S = '<spacer> </spacer>';
   let ZS = '<spacer>全</spacer>';
   let htmlText =
@@ -515,7 +514,7 @@ NicoTextParser.likeXP = function (text) {
   return htmlText;
 };
 
-NicoTextParser.likeHTML5 = function (text) {
+NicoTextParser.likeHTML5 = text => {
   let htmlText =
     util.escapeHtml(text)
       .replace(/([\x20\xA0]+)/g, g => {
@@ -537,7 +536,7 @@ NicoTextParser.likeHTML5 = function (text) {
       .replace(NicoTextParser._FONT_REG.BLOCK, '<span class="html5_block_space">$1</span>')
       .replace(/([\u2588]+)/g, g => {
         return '<span class="html5_fill_space u2588">' + //g + '</span>';
-           '田'.repeat(g.length) + '</span>';
+            '田'.repeat(g.length) + '</span>';
       })
       .replace(/[\n]/g, '<br>')
   ;
@@ -553,8 +552,11 @@ NicoTextParser.likeHTML5 = function (text) {
 
   return htmlText;
 };
+return NicoTextParser;
+}
 
+const NicoTextParser = NicoTextParserInitFunc();
 ZenzaWatch.NicoTextParser = NicoTextParser;
 //===END===
 
-export {NicoTextParser};
+export {NicoTextParser, NicoTextParserInitFunc};
