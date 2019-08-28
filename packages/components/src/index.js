@@ -1,18 +1,25 @@
-import { BaseCommandElement } from './element/BaseCommandElement.js';
-import { VideoItemElement } from './element/VideoItemElement.js';
+import { BaseCommandElement } from './element/BaseCommandElement';
+import { VideoItemElement } from './element/VideoItemElement';
+import { VideoSeriesLabel } from './element/VideoSeriesLabel';
+import { RangeBarElement }  from './element/RangeBarElement';
 
 //===BEGIN===
 //@require ./element/BaseCommandElement.js
 //@require ./element/VideoItemElement.js
+//@require ./element/VideoSeriesLabel.js
+//@require ./element/NoWebComponent.js
+//@require ./element/RangeBarElement.js
 
 const components = (() => {
   if (window.customElements) {
-    window.customElements.define('zenza-video-item', VideoItemElement);
+    customElements.get('zenza-video-item') || customElements.define('zenza-video-item', VideoItemElement);
   }
 
   return {
     BaseCommandElement,
-    VideoItemElement
+    VideoItemElement,
+    VideoSeriesLabel,
+    RangeBarElement
   };
 })();
 

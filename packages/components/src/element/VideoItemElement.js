@@ -1,7 +1,8 @@
-import {BaseCommandElement} from './BaseCommandElement.js';
-import {util} from '../util/util.js';
+import { BaseCommandElement } from './BaseCommandElement.js';
+import {textUtil} from '../../../lib/src/text/textUtil';
+// import {util} from '../util/util.js';
 // console.info('BaseCommandElement', BaseCommandElement);
-
+const dll = {};
 //===BEGIN===
 
 
@@ -10,7 +11,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
   const ITEM_HEIGHT = 100;
   const THUMBNAIL_WIDTH = 96;
   const THUMBNAIL_HEIGHT = 72;
-  const DELETED_THUMBNAIL = 'https://nicovideo.cdn.nimg.jp/uni/img/common/video_deleted.jpg';
+  const BLANK_THUMBNAIL = 'https://nicovideo.cdn.nimg.jp/web/img/series/no_thumbnail.png';
 
   const VideoItemProps = {
     watchId: '',
@@ -21,7 +22,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
     commentCount: 0,
     mylistCount: 0,
     viewCount: 0,
-    thumbnail: DELETED_THUMBNAIL,
+    thumbnail: BLANK_THUMBNAIL,
     postedAt: '',
 
     description: '',
@@ -59,16 +60,14 @@ const {VideoItemElement, VideoItemProps} = (() => {
     }
 
     static async getTemplate(state = {}, props = {}, events = {}) {
-      const {html} = await this.importLit();
-      if (props.lazyload) {
-        return html`<div/>`;
-      }
+      const {html} = dll.list || await this.importLit();
 
       const watchId = props.watchId;
       const watchUrl = `https://www.nicovideo.jp/watch/${props.watchId}`;
       const title = props.title ? html`<span title="${props.title}">${props.title}<span>` : props.watchId;
-      const duration = props.duration ? html`<span class="duration">${util.secToTime(props.duration)}</span>` : '';
-      const postedAt = props.postedAt ? `${util.dateToString(new Date(props.postedAt))}` : '';
+      const duration = props.duration ? html`<span class="duration">${textUtil.secToTime(props.duration)}</span>` : '';
+      const postedAt = props.postedAt ? `${textUtil.dateToString(new Date(props.postedAt))}` : '';
+      const thumbnail = props.lazyload ? BLANK_THUMBNAIL : props.thumbnail;
       const counter =  (props.viewCount || props.commentCount || props.mylistCount) ? html`
         <div class="counter">
           <span class="count">再生: <span class="value viewCount">${props.viewCount}</span></span>
@@ -76,9 +75,11 @@ const {VideoItemElement, VideoItemProps} = (() => {
           <span class="count">マイ: <span class="value mylistCount">${props.mylistCount}</span></span>
         </div>
         ` : '';
+        const classes = [];
+        props.isChannel && classes.push('is-channel');
 
       return html`
-    <div id="root" @click=${events.onClick}>
+    <div id="root" @click=${events.onClick} class="${classes.join(' ')}">
     <style>
       * {
         box-sizing: border-box;
@@ -102,16 +103,9 @@ const {VideoItemElement, VideoItemProps} = (() => {
         contain: layout size;
       }
 
-
-      :host-context(.is-fav-favorited) .videoItem .postedAt::after {
-        content: ' ★';
-        color: #fea;
-        text-shadow: 2px 2px 2px #000;
-      }
-
       .thumbnailContainer {
         position: relative;
-        transform: translate(0, 2px);
+        /*transform: translate(0, 2px);*/
         margin: 0;
         background-color: black;
         background-size: contain;
@@ -247,6 +241,15 @@ const {VideoItemElement, VideoItemProps} = (() => {
         height: 40px;
         overflow: hidden;
       }
+      .is-channel .title::before {
+        content: '[CH]';
+        display: inline;
+        font-size: 12px;
+        background: #888;
+        color: #ccc;
+        padding: 0 2px;
+        margin: 0;
+      }
 
       .videoLink {
         font-size: 14px;
@@ -282,9 +285,9 @@ const {VideoItemElement, VideoItemProps} = (() => {
       </style>
       <div class="videoItem">
         <span class="playlistRemove" data-command="playlistRemove" title="プレイリストから削除">×</span>
-        <div class="thumbnailContainer ${props.hasInview ? 'has-inview' : ''}">
+        <div class="thumbnailContainer">
           <a class="command" data-command="open" data-param="${watchId}" href="${watchUrl}">
-            <img src="${props.thumbnail}" class="thumbnail" lazyload="on">
+            <img src="${thumbnail}" class="thumbnail" loading="lazy">
             ${duration}
           </a>
           <span class="playlistAppend" data-command="playlistAppend" data-param="${watchId}" title="プレイリストに追加">▶</span>
@@ -303,7 +306,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
     }
 
     _applyThumbInfo(thumbInfo) {
-      const data = thumbInfo.data;
+      const data = thumbInfo.data || thumbInfo; // legacy 互換のため
       const thumbnail = this.props.thumbnail.match(/smile\?i=/) ?
         this.props.thumbnail : data.thumbnail;
       const isChannel = data.v.startsWith('so') || data.owner.type === 'channel';
@@ -328,6 +331,10 @@ const {VideoItemElement, VideoItemProps} = (() => {
     }
 
     attributeChangedCallback(attr, oldValue, newValue) {
+      if (attr === 'data-lazyload') {
+        this.props.lazyload = newValue !== 'false';
+        return this.requestRender(true);
+      }
       if (attr !== 'data-thumb-info') {
         return super.attributeChangedCallback(attr, oldValue, newValue);
       }
@@ -345,4 +352,4 @@ const {VideoItemElement, VideoItemProps} = (() => {
 
 //===END===
 
-export {VideoItemElement, VideoItemProps};
+export { VideoItemElement, VideoItemProps };
