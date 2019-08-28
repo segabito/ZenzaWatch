@@ -1,7 +1,8 @@
 import {ZenzaWatch} from './ZenzaWatchIndex';
-import {BaseViewComponent, util} from './util';
-import {TagEditApi} from './loader/TagEditApi';
+import {BaseViewComponent} from '../packages/zenza/src/parts/BaseViewComponent';
+import {TagEditApi} from '../packages/lib/src/nico/TagEditApi';
 import {Config} from './Config';
+import {textUtil} from '../packages/lib/src/text/textUtil';
 
 
 //===BEGIN===
@@ -274,7 +275,7 @@ class TagListView extends BaseViewComponent {
   }
 
   _createDicIcon(text, hasDic) {
-    let href = `//dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
+    let href = `https://dic.nicovideo.jp/a/${encodeURIComponent(text)}`;
     // TODO: 本家がHTML5に完全移行したらこのアイコンも消えるかもしれないので代替を探す
     let src = hasDic ?
       'https://live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
@@ -282,9 +283,9 @@ class TagListView extends BaseViewComponent {
     let icon = `<img class="dicIcon" src="${src}">`;
     let hasNicodic = hasDic ? 1 : 0;
     return (
-      `<zenza-tag-item-menu 
-        class="tagItemMenu" 
-        data-text="${encodeURIComponent(text)}" 
+      `<zenza-tag-item-menu
+        class="tagItemMenu"
+        data-text="${encodeURIComponent(text)}"
         data-has-nicodic="${hasNicodic}"
       ><a target="_blank" class="nicodic" href="${href}">${icon}</a></zenza-tag-item-menu>`
     );
@@ -298,14 +299,14 @@ class TagListView extends BaseViewComponent {
     let href = `//www.nicovideo.jp/tag/${encodeURIComponent(text)}`;
     // タグはエスケープされた物が来るのでそのままでつっこんでいいはずだが、
     // 古いのはけっこういい加減なデータもあったりして信頼できない
-    text = util.escapeToZenkaku(util.unescapeHtml(text));
+    text = textUtil.escapeToZenkaku(textUtil.unescapeHtml(text));
     return `<a class="tagLink" href="${href}">${text}</a>`;
   }
 
   _createSearch(text) {
     let title = 'プレイリストに追加';
     let command = 'tag-search';
-    let param = util.escapeHtml(text);
+    let param = textUtil.escapeHtml(text);
     return (`<zenza-playlist-append class="playlistAppend" title="${title}" data-command="${command}" data-param="${param}">▶</zenza-playlist-append>`);
   }
 
@@ -315,7 +316,7 @@ class TagListView extends BaseViewComponent {
     let del = this._createDeleteButton(tag.id);
     let link = this._createLink(text);
     let search = this._createSearch(text);
-    let data = util.escapeHtml(JSON.stringify(tag));
+    let data = textUtil.escapeHtml(JSON.stringify(tag));
     // APIごとに形式が統一されてなくてひどい
     let className = (tag.lock || tag.owner_lock === 1 || tag.lck === '1') ? 'tagItem is-Locked' : 'tagItem';
     className = (tag.cat) ? `${className} is-Category` : className;
@@ -492,7 +493,7 @@ TagListView.__shadow__ = (`
         display: inline-block;
         padding: 0;
       }
-      
+
       .videoTagsInner {
         display: flex;
         flex-wrap: wrap;
@@ -840,7 +841,7 @@ class TagItemMenu extends HTMLElement {
           margin-right: 4px;
           outline: none;
         }
-        
+
         .icon {
           position: relative;
           display: inline-block;
@@ -855,11 +856,11 @@ class TagItemMenu extends HTMLElement {
           text-align: center;
           cursor: pointer;
         }
-        
+
         .nicodic, .toggle {
           background: #888;
           color: #ccc;
-          box-shadow: 0.1em 0.1em 0 #333;  
+          box-shadow: 0.1em 0.1em 0 #333;
         }
         .has-nicodic .nicodic,.has-nicodic .toggle {
           background: #900;
@@ -884,62 +885,68 @@ class TagItemMenu extends HTMLElement {
           z-index: 100;
           transform: translateY(-30px);
         }
-        
+
         :host-context(.zenzaWatchVideoInfoPanelFoot) .menu {
           position: absolute;
           bottom: 0;
           transform: translateY(8x);
         }
-        
+
         .root .menu:hover,
         .root:focus-within .menu {
           display: inline-block;
         }
-        
+
         li {
           list-style-type: none;
           padding: 2px 8px 2px 20px;
           background: rgba(80, 80, 80, 0.95);
         }
-        
+
         li a {
           display: inline-block;
           white-space: nowrap;
           text-decoration: none;
           color: #ccc;
         }
-        
+
         li a:hover {
           text-decoration: underline;
         }
-        
+
       </style>
       <div class="root" tabindex="-1">
         <div class="icon toggle"></div>
         <ul class="menu">
-        
+
           <li>
-            <a href="//dic.nicovideo.jp/a/${text}" 
+            <a href="//dic.nicovideo.jp/a/${text}"
               ${host !== 'dic.nicovideo.jp' ? 'target="_blank"' : ''}>
               大百科を見る
             </a>
           </li>
           <li>
-            <a href="//ch.nicovideo.jp/search/${text}?type=video&mode=t" 
+            <a href="//ch.nicovideo.jp/search/${text}?type=video&mode=t"
               ${host !== 'ch.nicovideo.jp' ? 'target="_blank"' : ''}>
               チャンネル検索
             </a>
           </li>
           <li>
-            <a href="https://www.google.co.jp/search?q=${text}%20site:www.nicovideo.jp&num=100&tbm=vid" 
+            <a href="https://www.google.co.jp/search?q=${text}%20site:www.nicovideo.jp&num=100&tbm=vid"
               ${host !== 'www.google.co.jp' ? 'target="_blank"' : ''}>
               Googleで検索
-            </a>          
+            </a>
           </li>
           <li>
-            <a href="https://www.bing.com/videos/search?q=${text}&qft=+filterui:msite-nicovideo.jp" 
+            <a href="https://www.bing.com/videos/search?q=${text}%20site:www.nicovideo.jp&qft=+filterui:msite-nicovideo.jp"
               ${host !== 'www.bing.com' ? 'target="_blank"' : ''}>Bingで検索
-            </a>          
+            </a>
+          </li>
+          <li>
+            <a href="https://www.google.co.jp/search?q=${text}%20site:www.nicovideo.jp/series&num=100"
+              ${host !== 'www.google.co.jp' ? 'target="_blank"' : ''}>
+              シリーズ検索
+            </a>
           </li>
         </ul>
       </div>
@@ -948,7 +955,7 @@ class TagItemMenu extends HTMLElement {
   constructor() {
     super();
     this.hasNicodic = parseInt(this.dataset.hasNicodic) !== 0;
-    this.text = util.escapeToZenkaku(this.dataset.text);
+    this.text = textUtil.escapeToZenkaku(this.dataset.text);
     const shadow = this._shadow = this.attachShadow({mode: 'open'});
     shadow.innerHTML = this.constructor.template({text: this.text});
     shadow.querySelector('.root').classList.toggle('has-nicodic', this.hasNicodic);
