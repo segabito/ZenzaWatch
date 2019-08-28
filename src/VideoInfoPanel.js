@@ -568,7 +568,93 @@ css.addStyle(`
     }
 `, {className: 'screenMode for-popup videoInfoPanel'});
 
-util.addStyle(`
+if (document.body.classList.contains('MatrixRanking-body')) {
+css.addStyle(`
+  body.zenzaScreenMode_sideView.MatrixRanking-body .RankingRowRank {
+    line-height: 48px;
+    height: 48px;
+    pointer-events: none;
+    user-select: none;
+  }
+  body.zenzaScreenMode_sideView.MatrixRanking-body .RankingRowRank {
+    position: sticky;
+    left: calc(var(--sideView-left-margin, 0) - 8px);
+    z-index: 100;
+    transform: none;
+    padding-right: 16px;
+    width: 64px;
+    overflow: visible;
+    text-align: right;
+    mix-blend-mode: difference;
+    text-shadow:
+      1px  1px 0 #fff,
+      1px -1px 0 #fff,
+      -1px  1px 0 #fff,
+      -1px -1px 0 #fff;
+  }
+  body.zenzaScreenMode_sideView.MatrixRanking-body .BaseLayout-block {
+    width: ${1024 + 64 * 2}px;
+  }
+  .RankingMainContainer-decorateChunk+.RankingMainContainer-decorateChunk,
+  .RankingMainContainer-decorateChunk>*+* {
+    margin-top: 0;
+  }
+  body.zenzaScreenMode_sideView .RankingMainContainer {
+    width: ${1024}px;
+  }
+  body.zenzaScreenMode_sideView.MatrixRanking-body .RankingMatrixVideosRow {
+    width: ${1024 + 64}px;
+    margin-left: ${-64}px;
+  }
+    .RankingGenreListContainer-categoryHelp {
+      position: static;
+    }
+    .RankingMatrixNicoadsRow>*+*,
+    .RankingMatrixVideosRow>:nth-child(n+3) {
+      margin-left: 13px;
+    }
+    .RankingBaseItem {
+      width: 160px;
+      height: 196px;
+    }
+      body.zenzaScreenMode_sideView .RankingBaseItem .Card-link {
+        grid-template-rows: 90px auto;
+      }
+      .VideoItem.RankingBaseItem .VideoThumbnail {
+        border-radius: 3px 3px 0 0;
+      }
+
+      [data-nicoad-grade] .Thumbnail.VideoThumbnail .Thumbnail-image {
+        margin: 3px;
+        background-size: calc(100% + 6px);
+      }
+      [data-nicoad-grade] .Thumbnail.VideoThumbnail:after {
+        width: 40px;
+        height: 40px;
+        background-size: 80px 80px;
+      }
+      .Thumbnail.VideoThumbnail .VideoLength {
+        bottom: 3px;
+        right: 3px;
+      }
+      .VideoThumbnailComment {
+        transform: scale(0.8333);
+      }
+      .RankingBaseItem-meta {
+        position: static;
+        padding: 0 4px 8px;
+      }
+      .VideoItem.RankingBaseItem .VideoItem-metaCount>.VideoMetaCount {
+        white-space: nowrap;
+      }
+  .RankingMainContainer .ToTopButton {
+    transform: translateX(calc(100vw / 2 - 100% - 36px));
+    user-select: none;
+  }
+`, {className: 'screenMode for-sideView MatrixRanking', disabled: true});
+}
+
+css.addStyle(`
   .is-open .zenzaWatchVideoInfoPanel {
     display: none;
     left: calc(100%);
@@ -681,6 +767,7 @@ VideoInfoPanel.__tpl__ = (`
               <div class="videoMetaInfoContainer"></div>
               <div class="relatedInfoMenuContainer"></div>
             </div>
+            <div class="seriesList"></div>
             <div class="videoDescription"></div>
           </div>
           <div class="zenzaWatchVideoInfoPanelFoot">
@@ -715,6 +802,7 @@ _.assign(VideoInfoPanel.prototype, {
     this._$ownerPageLink = $view.find('.ownerPageLink');
 
     this._description = view.querySelector('.videoDescription');
+    this._seriesList = view.querySelector('.seriesList');
 
     this._tagListView = new TagListView({
       parentNode: view.querySelector('.videoTagsContainer')
@@ -776,6 +864,12 @@ _.assign(VideoInfoPanel.prototype, {
       watchAuthKey: videoInfo.watchAuthKey
     });
 
+    this._seriesList.textContent = '';
+    if (videoInfo.series) {
+      const label = document.createElement('zenza-video-series-label');
+      Object.assign(label.dataset, videoInfo.series);
+      this._seriesList.append(label);
+    }
     this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
 
     this._$view
@@ -1273,6 +1367,33 @@ VideoHeaderPanel.__css__ = (`
     .zenzaWatchVideoHeaderPanel.is-relatedMenuOpen {
       z-index: ${CONSTANT.BASE_Z_INDEX + 50000};
     }
+
+    .zenzaWatchVideoHeaderPanel .series-thumbnail-cover {
+      position: absolute;
+      top: 0px;
+      right: 0px;
+      width: 50%;
+      height: 100%;
+      display: inline-block;
+      overflow: hidden;
+      contain: strict;
+      pointer-events: none;
+      user-select: none;
+    }
+    .zenzaWatchVideoHeaderPanel .series-thumbnail[style] {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      /*filter: sepia(50%) blur(4px);*/
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      will-change: transform;
+      -webkit-mask-image:
+        linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 100%);
+      mask-image:
+        linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 100%);
+    }
   `);
 
 VideoHeaderPanel.__tpl__ = (`
@@ -1286,6 +1407,7 @@ VideoHeaderPanel.__tpl__ = (`
       </p>
       <div class="videoTagsContainer videoHeader">
       </div>
+      <div class="series-thumbnail-cover"><div class="series-thumbnail"></div></div>
     </div>
   `).trim();
 
@@ -1355,6 +1477,12 @@ _.assign(VideoHeaderPanel.prototype, {
       .toggleClass('has-Parent', this._videoInfo.hasParentVideo)
       .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
       .css('display', '');
+
+    if (videoInfo.series && videoInfo.series.thumbnailUrl) {
+      this._seriesCover.style.backgroundImage = `url("${videoInfo.series.thumbnailUrl}")`;
+    } else {
+      this._seriesCover.removeAttribute('style');
+    }
 
     window.setTimeout(() => this._onResize(), 1000);
   },

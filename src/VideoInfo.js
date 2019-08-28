@@ -394,6 +394,15 @@ class VideoInfoModel {
     return ownerInfo;
   }
 
+  get series() {
+    if (!this._rawData.series || !this._rawData.series.id) {
+      return null;
+    }
+    const series = this._rawData.series;
+    const thumbnailUrl = series.thumbnailUrl || this.betterThumbnail;
+    return Object.assign({}, series, {thumbnailUrl});
+  }
+
   get relatedVideoItems() {
     return this._relatedVideo.playlist || [];
   }
@@ -498,9 +507,9 @@ class VideoInfoModel {
       return 'smile';
     }
 
-    if (importVersion > 0) {
-      return 'smile';
-    }
+    // if (importVersion > 0) {
+    //   return 'smile';
+    // }
 
     // smileのほうがdmcの下限以下を持っている ≒ 再エンコードされていない
     if (smileHeight < 360) {
