@@ -18,12 +18,11 @@
 // @match          *://*.nicovideo.jp/smile*
 // @match          *://site.nicovideo.jp/*
 // @match          *://anime.nicovideo.jp/*
+// @match          https://www.upload.nicovideo.jp/garage/*
 // @match          https://www.google.co.jp/search*
 // @match          https://www.google.com/search*
-// @match          https://*.slack.com/*
 // @match          https://*.bing.com/*
 // @exclude        *://ads.nicovideo.jp/*
-// @exclude        *://www.upload.nicovideo.jp/*
 // @exclude        *://www.nicovideo.jp/watch/*?edit=*
 // @exclude        *://ch.nicovideo.jp/tool/*
 // @exclude        *://flapi.nicovideo.jp/*
@@ -32,31 +31,97 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.2.11
-// @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js
+// @version        2.4.0
+// @run-at         document-body
+// @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
+// @require        https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // ==/UserScript==
-
+import {AntiPrototypeJs} from '../packages/lib/src/infra/AntiPrototype-js';
+import {Emitter} from '../packages/lib/src/Emitter';
+import {Config} from './Config';
+import {uQuery} from '../packages/lib/src/uQuery';
+import {util} from './util';
+import {components} from '../packages/components/src/index';
+import {State} from './State';
+import {api} from './loader/api';
+import {VideoInfoModel} from './VideoInfo';
+import {VideoSearch} from '../packages/lib/src/nico/VideoSearch';
+import {TagEditApi} from '../packages/lib/src/nico/TagEditApi';
+import {StoryboardInfoLoader} from '../packages/lib/src/nico/StoryboardInfoLoader';
+import {ThreadLoader} from '../packages/lib/src/nico/ThreadLoader';
+import {workerUtil} from '../packages/lib/src/infra/workerUtil';
+import {IndexedDbStorage} from '../packages/lib/src/infra/IndexedDbStorage';
+import {GateAPI} from '../packages/lib/src/nico/GateAPI';
+import {boot} from './boot';
+import {YouTubeWrapper} from '../packages/zenza/src/videoPlayer/YouTubeWrapper';
+import {NicoVideoPlayer} from './NicoVideoPlayer';
+import {StoryBoardModel} from './StoryBoard';
+import {VideoControlBar} from './VideoControlBar';
+import {NicoTextParser} from '../packages/zenza/src/commentLayer/NicoTextParser';
+import {CommentPlayer} from './CommentPlayer';
+import {CommentLayoutWorker} from '../packages/zenza/src/commentLayer/CommentLayoutWorker';
+import {SlotLayoutWorker} from '../packages/zenza/src/commentLayer/SlotLayoutWorker';
+import {NicoScripter} from '../packages/zenza/src/commentLayer/NicoScripter';
+import {CommentPanel} from './CommentPanel';
+import {VideoList} from './VideoList';
+import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
+import {NicoVideoPlayerDialog} from './NicoVideoPlayerDialog';
+import {RootDispatcher} from './RootDispatcher';
+import {CommentInputPanel} from './CommentInputPanel';
+import {SettingPanel} from './SettingPanel';
+import {TagListView} from './TagListView';
+import {VideoInfoPanel} from './VideoInfoPanel';
+import {GinzaSlayer} from './GinzaSlayer';
+import {initializer} from './initializer';
+import {CustomElements} from '../packages/zenza/src/parts/CustomElements';
+import {CONSTANT} from './constant';
+import {TextLabel} from '../packages/lib/src/ui/TextLabel';
+import {parseThumbInfo} from '../packages/lib/src/nico/parseThumbInfo';
+import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
+//@require AntiPrototypeJs
+AntiPrototypeJs();
+(() => {
+  try {
+    const $ = jQuery;
+    jQuery.noConflict(true);
+    if (window.top === window) {
+      window.ZenzaLib = { _, $ };
+      console.log('@require', JSON.stringify({jQuery: $.fn.jquery, lodash: _.VERSION}));
+    }
+    if (!window.$) {
+      window.$ = $;
+    }
+  } catch(e) {
+    window.top === window && console.warn('@require failed!', location, e);
+  }
+})();
 
 (function (window) {
+  'use strict';
   const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
   const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
-  const monkey = (PRODUCT, START_PAGE_QUERY) => {
+  const monkey = (PRODUCT, START_PAGE_QUERY) /*** (｀・ω・´)9m ***/ => {
+    const Array = window.PureArray ? window.PureArray : window.Array;
     let console = window.console;
-    let $ = window.ZenzaJQuery || window.jQuery, _ = window._;
+    let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
+    $ = null;
     let TOKEN = 'r:' + (Math.random());
     let CONFIG = null;
     let dll = {};
+    const util = {};
+    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
     //@environment
 
-    console.log(`%c${PRODUCT}@${ENV} v${VER}`, 'font-size: 200%;');
-    console.log('%cjQuery v%s, lodash v%s', 'font-size: 200%;', $.fn.jquery, _ && _.VERSION);
+    console.log(
+      `%c${PRODUCT}@${ENV} v${VER}`,
+      `font-family: "AppleMyungjo"; font-size: 200%; background: #039393; color: #ffc; padding: 8px; text-shadow: 2px 2px #888;`
+    );
 
-//@require baselib.js
-
-//@require Config.js
+//@require Config
+//@require uQuery
 
     const ZenzaWatch = {
       version: VER,
@@ -64,12 +129,9 @@
       debug: {},
       api: {},
       init: {},
-      lib: {
-        $: $,
-        _: _
-      },
+      lib: { $: window.ZenzaLib.$ || $, _ },
       external: {},
-      util: {},
+      util,
       modules: {Emitter, Handler},
       config: Config,
       emitter: new Emitter(),
@@ -77,79 +139,92 @@
       dll
     };
 
+    const Navi = {
+      version: VER,
+      env: ENV,
+      debug: {},
+      config: NaviConfig,
+      emitter: new Emitter(),
+      state: {}
+    };
+
     if (location.host.match(/\.nicovideo\.jp$/)) {
       window.ZenzaWatch = ZenzaWatch;
+      window.Navi = Navi;
     } else {
       window.ZenzaWatch = {config: ZenzaWatch.config};
+      window.Navi = {config: Navi.config};
     }
     window.ZenzaWatch.emitter = ZenzaWatch.emitter = new Emitter();
     const debug = ZenzaWatch.debug;
     const emitter = ZenzaWatch.emitter;
-    const util = ZenzaWatch.util;
+
     // const modules = ZenzaWatch.modules;
+//@require CONSTANT
+const global = {
+  emitter, debug,
+  external: ZenzaWatch.external, PRODUCT, TOKEN, CONSTANT,
+  notify: msg => ZenzaWatch.external.execCommand('notify', msg),
+  alert: msg => ZenzaWatch.external.execCommand('alert', msg),
+  config: Config, api: ZenzaWatch.api};
+//@require util
+workerUtil.env({netUtil, global});
+//@require components
+//@require State
+//@require api
+//@require VideoInfoModel
+//@require VideoSearch
+Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
+//@require TagEditApi
 
+//@require StoryboardInfoLoader
+// ZenzaWatch.api.DmcStoryboardInfoLoader = DmcStoryboardInfoLoader;
+ZenzaWatch.api.StoryboardInfoLoader = StoryboardInfoLoader;
 
-//@require constant.js
+//@require ThreadLoader
 
-//@require util.js
+//@require YouTubeWrapper
 
-//@require ../packages/components/src/index.js
+//@require NicoVideoPlayer
 
-//@require State.js
+//@require StoryBoardModel
 
-//@require loader/api.js
+//@require VideoControlBar
 
-//@require VideoInfo.js
+//@require CommentPlayer
 
-//@require loader/VideoSearch.js
+//@require CommentLayoutWorker
 
-//@require loader/TagEditApi.js
+//@require SlotLayoutWorker
 
-//@require loader/Storyboard.js
+//@require NicoScripter
 
-//@require loader/ThreadLoader.js
+//@require CommentPanel
 
-//@require YouTubeWrapper.js
+//@require VideoList
 
-//@require NicoVideoPlayer.js
+//@require VideoSessionWorker
 
-//@require StoryBoard.js
+//@require NicoVideoPlayerDialog
 
-//@require VideoControlBar.js
+//@require RootDispatcher
 
-//@require NicoTextParser.js
+//@require CommentInputPanel
 
-//@require CommentPlayer.js
+//@require SettingPanel
 
-//@require CommentLayoutWorker.js
+//@require TagListView
 
-//@require SlotLayoutWorker.js
+//@require VideoInfoPanel
 
-//@require NicoScripter.js
+//@require GinzaSlayer
 
-//@require CommentPanel.js
+//@require initializer
 
-//@require VideoList.js
+//@require CustomElements
 
-//@require VideoSession.js
-
-//@require NicoVideoPlayerDialog.js
-
-//@require RootDispatcher.js
-
-//@require CommentInputPanel.js
-
-//@require SettingPanel.js
-
-//@require TagListView.js
-
-//@require VideoInfoPanel.js
-
-//@require GinzaSlayer.js
-
-//@require initializer.js
-
-//@require parts/CustomElements.js
+//@require TextLabel
+ZenzaWatch.modules.TextLabel = TextLabel;
 
     if (window.name === 'commentLayerFrame') {
       return;
@@ -162,36 +237,42 @@
     NicoVideoApi.configBridge(Config).then(() => {
       window.console.log('%cZenzaWatch Bridge: %s', 'background: lightgreen;', location.host);
       if (document.getElementById('siteHeaderNotification')) {
-        initialize();
-        return;
+        return initialize();
       }
-      NicoVideoApi.ajax({url: '//www.nicovideo.jp/'})
+      NicoVideoApi.fetch('https://www.nicovideo.jp/',{credentials: 'include'})
+        .then(r => r.text())
         .then(result => {
-          let $dom = $('<div>' + result + '</div>');
+          let $dom = util.$(`<div>${result}</div>`);
           let isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
           let isPremium =
             $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
           window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
-          util.isLogin = () => {
-            return isLogin;
-          };
-          util.isPremium = () => {
-            return isPremium;
-          };
+          util.isLogin = () => isLogin;
+          util.isPremium = () => isPremium;
           initialize();
         });
-    }, () => {
-      window.console.log('ZenzaWatch Bridge disabled');
-    });
+    }, err => window.console.log('ZenzaWatch Bridge disabled', err));
 
 
   }; // end of monkey
+(() => {
+//@require Emitter
+//@require workerUtil
+//@require IndexedDbStorage
+//@require WatchInfoCacheDb
+//@require parseThumbInfo
 
+  window.ZenzaLib = Object.assign(window.ZenzaLib || {}, {
+    workerUtil,
+    IndexedDbStorage, WatchInfoCacheDb,
+    Handler, PromiseHandler, Emitter, EmitterInitFunc,
+    parseThumbInfo
+  });
+})();
 
-//@require loader/GateAPI.js
+//@require GateAPI
 
-//@require boot.js
-
+//@require boot
   boot(monkey, PRODUCT, START_PAGE_QUERY);
 
 })(window.unsafeWindow || window);

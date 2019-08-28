@@ -1,5 +1,5 @@
-import jsdom from 'jsdom';
-import * as $ from 'jquery';
+// import jsdom from 'jsdom';
+// import * as $ from 'jquery';
 // import {Emitter} from './baselib';
 
 const html = `
