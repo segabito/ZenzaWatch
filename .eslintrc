@@ -1,0 +1,26 @@
+{
+  "env": {
+    "browser": true,
+    "es6": true,
+    "moocha": true,
+    "node6": true
+  },
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": 2019
+  },
+  "globals": {
+    "jQuery": false,
+    "$": false,
+    "WatchApp": false,
+    "WatchJsApi": false,
+    "unsafeWindow": false,
+    "GM_setValue": false,
+    "GM_getValue": false,
+    "GM_xmlhttpRequest": false,
+    "self": true,
+    "PRODUCT": true,
+    "TOKEN": true,
+    "global": true
+  }
+}
