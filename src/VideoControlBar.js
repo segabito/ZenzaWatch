@@ -15,7 +15,488 @@ import {TextLabel} from '../packages/lib/src/ui/TextLabel';
       super();
       this.initialize(...args);
     }
+    initialize(params) {
+      this._playerConfig        = params.playerConfig;
+      this._$playerContainer    = params.$playerContainer;
+      this._playerState         = params.playerState;
+      let player = this._player = params.player;
+
+      player.on('open',           this._onPlayerOpen.bind(this));
+      player.on('canPlay',        this._onPlayerCanPlay.bind(this));
+      player.on('durationChange', this._onPlayerDurationChange.bind(this));
+      player.on('close',          this._onPlayerClose.bind(this));
+      player.on('progress',       this._onPlayerProgress.bind(this));
+      player.on('loadVideoInfo',  this._onLoadVideoInfo.bind(this));
+      player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
+      player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
+
+      this._isWheelSeeking = false;
+      this._initializeDom();
+      this._initializePlaybackRateSelectMenu();
+      this._initializeVolumeControl();
+      this._initializeVideoServerTypeSelectMenu();
+      this._isFirstVideoInitialized = false;
+
+      ZenzaWatch.debug.videoControlBar = this;
+    }
+    _initializeDom() {
+      let $view = this._$view = util.$.html(VideoControlBar.__tpl__);
+      let $container = this._$playerContainer;
+      let config = this._playerConfig;
+      this._view = $view[0];
+
+      const mq = $view.mapQuery({
+        _seekBarContainer: '.seekBarContainer',
+        _seekBar: '.seekBar',
+        _currentTime: '.currentTime',
+        _duration: '.duration',
+        _playbackRateMenu: '.playbackRateMenu',
+        _playbackRateSelectMenu: '.playbackRateSelectMenu',
+        _videoServerTypeMenu: '.videoServerTypeMenu',
+        _videoServerTypeSelectMenu: '.videoServerTypeSelectMenu',
+        _resumePointer: 'zenza-seekbar-label',
+        _bufferRange: '.bufferRange',
+        _seekRange: '.seekRange',
+        _seekBarPointer: '.seekBarPointer'
+      });
+      Object.assign(this, mq.e, {_currentTime: 0});
+      Object.assign(this, mq.$);
+      util.$(this._seekRange).on('input', this._onSeekRangeInput.bind(this));
+
+      this._pointer = new SmoothSeekBarPointer({
+        pointer: this._seekBarPointer,
+        playerState: this._playerState
+      });
+      const timeStyle = {
+        widthPx: 44,
+        heightPx: 18,
+        fontFamily: '\'Yu Gothic\', \'YuGothic\', \'Courier New\', Osaka-mono, \'ＭＳ ゴシック\', monospace',
+        fontWeight: '',
+        fontSizePx: 12,
+        color: '#fff'
+      };
+      TextLabel.create({
+        container: $view.find('.currentTimeLabel')[0],
+        name: 'currentTimeLabel',
+        text: '00:00',
+        style: timeStyle
+      }).then(label => this.currentTimeLabel = label);
+      TextLabel.create({
+        container: $view.find('.durationLabel')[0],
+        name: 'durationLabel',
+        text: '00:00',
+        style: timeStyle
+      }).then(label => this.durationLabel = label);
+
+      this._$seekBar
+        .on('mousedown', this._onSeekBarMouseDown.bind(this))
+        .on('mousemove', this._onSeekBarMouseMove.bind(this));
+
+      $view
+        .on('click', this._onClick.bind(this))
+        .on('command', this._onCommandEvent.bind(this));
+
+      HeatMapWorker.init({container: this._seekBar}).then(hm => this._heatMap = hm);
+      const updateHeatMapVisibility =
+        v => this._$seekBarContainer.toggleClass('noHeatMap', !v);
+      updateHeatMapVisibility(this._playerConfig.props.enableHeatMap);
+      this._playerConfig.onkey('enableHeatMap', updateHeatMapVisibility);
+      global.emitter.on('heatMapUpdate', heatMap => {
+        WatchInfoCacheDb.put(this._player.watchId, {heatMap});
+      });
+
+      this._storyboard = new Storyboard({
+        playerConfig: config,
+        player: this._player,
+        container: $view[0]
+      });
+
+      this._seekBarToolTip = new SeekBarToolTip({
+        $container: this._$seekBarContainer,
+        storyboard: this._storyboard
+      });
+
+      this._commentPreview = new CommentPreview({
+        $container: this._$seekBarContainer
+      });
+      let updateEnableCommentPreview = v => {
+        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
+        this._commentPreview.mode = v ? 'list' : 'hover';
+      };
+
+      updateEnableCommentPreview(config.props.enableCommentPreview);
+      config.onkey('enableCommentPreview', updateEnableCommentPreview);
+
+      const watchElement = $container[0].closest('#zenzaVideoPlayerDialog');
+      this._wheelSeeker = new WheelSeeker({
+        parentNode: $view[0],
+        watchElement
+      });
+
+      watchElement.addEventListener('mousedown', e => {
+        if (['A', 'INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+          return;
+        }
+        if (e.buttons !== 3 && !(e.button === 0 && e.shiftKey)) {
+          return;
+        }
+        if (e.buttons === 3) {
+          watchElement.addEventListener('contextmenu', e => {
+            window.console.log('contextmenu', e);
+            e.preventDefault();
+            e.stopPropagation();
+          }, {once: true, capture: true});
+        }
+        this._onSeekBarMouseDown(e);
+      });
+
+      ZenzaWatch.emitter.on('hideHover', () => {
+        this._hideMenu();
+        this._commentPreview.hide();
+      });
+
+      $container.append($view);
+      this._width = window.innerWidth;
+    }
+    _initializePlaybackRateSelectMenu() {
+      let config = this._playerConfig;
+      let $btn  = this._$playbackRateMenu;
+      let [label] = $btn.find('.controlButtonInner');
+      let $menu = this._$playbackRateSelectMenu;
+      const $rates = $menu.find('.playbackRate');
+
+      let updatePlaybackRate = rate => {
+        label.textContent = `x${rate}`;
+        $menu.find('.selected').removeClass('selected');
+        let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
+        $rates.forEach(item => {
+          let r = parseFloat(item.dataset.param, 10);
+          if (fr === r) {
+            item.classList.add('selected');
+          }
+        });
+        this._pointer.playbackRate = rate;
+      };
+
+      updatePlaybackRate(config.props.playbackRate);
+      config.onkey('playbackRate', updatePlaybackRate);
+    }
+    _initializeVolumeControl() {
+      const $vol = this._$view.find('zenza-range-bar input[type="range"]');
+      const [vol] = $vol;
+
+      const setVolumeBar = this._setVolumeBar = v => (vol.view || vol).value = v;
+      $vol.on('input', e => util.dispatchCommand(e.target, 'volume', e.target.value));
+      setVolumeBar(this._playerConfig.props.volume);
+      this._playerConfig.onkey('volume', setVolumeBar);
+    }
+    _initializeVideoServerTypeSelectMenu() {
+      const config = this._playerConfig;
+      const $button = this._$videoServerTypeMenu;
+      const $select  = this._$videoServerTypeSelectMenu;
+      const $current = $select.find('.currentVideoQuality');
+
+      const updateSmileVideoQuality = value => {
+        const $dq = $select.find('.smileVideoQuality');
+        $dq.removeClass('selected');
+        $select.find('.select-smile-' + (value === 'eco' ? 'economy' : 'default')).addClass('selected');
+      };
+
+      const updateDmcVideoQuality = value => {
+        const $dq = $select.find('.dmcVideoQuality');
+        $dq.removeClass('selected');
+        $select.find('.select-dmc-' + value).addClass('selected');
+      };
+
+      const onVideoServerType = (type, videoSessionInfo) => {
+        $button.removeClass('is-smile-playing is-dmc-playing')
+          .addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
+        $select.find('.serverType').removeClass('selected');
+        $select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
+        $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+      };
+
+      updateSmileVideoQuality(config.props.smileVideoQuality);
+      updateDmcVideoQuality(config.props.dmcVideoQuality);
+      config.onkey('forceEconomy',    updateSmileVideoQuality);
+      config.onkey('dmcVideoQuality', updateDmcVideoQuality);
+
+      this._player.on('videoServerType', onVideoServerType);
+    }
+    _onCommandEvent(e) {
+      const command = e.detail.command;
+      switch (command) {
+        case 'toggleStoryboard':
+          this._storyboard.toggle();
+          break;
+        case 'wheelSeek-start':
+          window.console.log('start-seek-start');
+          this._isWheelSeeking = true;
+          this._wheelSeeker.currentTime = this._player.currentTime;
+          this._view.classList.add('is-wheelSeeking');
+          break;
+        case 'wheelSeek-end':
+          window.console.log('start-seek-end');
+          this._isWheelSeeking = false;
+          this._view.classList.remove('is-wheelSeeking');
+          break;
+        case 'wheelSeek':
+          this._onWheelSeek(e.detail.param);
+          break;
+        default:
+          return;
+      }
+      e.stopPropagation();
+    }
+    _onClick(e) {
+      e.preventDefault();
+
+      let target = e.target.closest('[data-command]');
+      if (!target) {
+        return;
+      }
+      let {command, param, type} = target.dataset;
+      if (param && (type === 'bool' || type === 'json')) {
+        param = JSON.parse(param);
+      }
+      switch (command) {
+        case 'toggleStoryboard':
+          this._storyboard.toggle();
+          break;
+        default:
+          util.dispatchCommand(target, command, param);
+          break;
+       }
+      e.stopPropagation();
+    }
+    _posToTime(pos) {
+      let width = window.innerWidth;
+      return this._duration * (pos / Math.max(width, 1));
+    }
+    _timeToPos(time) {
+      return this._width * (time / Math.max(this._duration, 1));
+    }
+    _timeToPer(time) {
+      return (time / Math.max(this._duration, 1)) * 100;
+    }
+    _onPlayerOpen() {
+      this._startTimer();
+      this.duration = 0;
+      this.currentTime = 0;
+      this._heatMap && this._heatMap.reset();
+      this._storyboard.reset();
+      this.resetBufferedRange();
+    }
+    _onPlayerCanPlay(watchId, videoInfo) {
+      let duration = this._player.getDuration();
+      this.duration = duration;
+      this._storyboard.onVideoCanPlay(watchId, videoInfo);
+
+      this._heatMap && (this._heatMap.duration = duration);
+    }
+    _onCommentParsed() {
+      this._chatList = this._player.chatList;
+      this._heatMap && (this._heatMap.chatList = this._chatList);
+      this._commentPreview.chatList = this._chatList;
+    }
+    _onCommentChange() {
+      this._chatList = this._player.chatList;
+      this._heatMap && (this._heatMap.chatList = this._chatList);
+      this._commentPreview.chatList = this._chatList;
+    }
+    _onPlayerDurationChange() {
+      this._pointer.duration = this._playerState.videoInfo.duration;
+      this._wheelSeeker.duration = this._playerState.videoInfo.duration;
+      this._heatMap && (this._heatMap.chatList = this._chatList);
+    }
+    _onPlayerClose() {
+      this._stopTimer();
+    }
+    _onPlayerProgress(range, currentTime) {
+      this.setBufferedRange(range, currentTime);
+    }
+    _startTimer() {
+      this._timerCount = 0;
+      this._timer = window.setInterval(this._onTimer.bind(this), 100);
+    }
+    _stopTimer() {
+      if (this._timer) {
+        window.clearInterval(this._timer);
+        this._timer = null;
+      }
+    }
+    _onSeekRangeInput(e) {
+      const sec = e.target.value * 1;
+      const left = sec / (e.target.max * 1) * this._width;
+      util.dispatchCommand(e.target, 'seek', sec);
+      this._seekBarToolTip.update(sec, left);
+      this._storyboard.setCurrentTime(sec, true);
+    }
+    _onSeekBarMouseDown(e) {
+      // e.preventDefault();
+      e.stopPropagation();
+      this._beginMouseDrag(e);
+    }
+    _onSeekBarMouseMove(e) {
+      if (!this._isDragging) {
+        e.stopPropagation();
+      }
+      let left = e.offsetX;
+      let sec = this._posToTime(left);
+      this._seekBarMouseX = left;
+
+      this._commentPreview.currentTime = sec;
+      this._commentPreview.update(left);
+
+      this._seekBarToolTip.update(sec, left);
+    }
+    _onWheelSeek(sec) {
+      if (!this._isWheelSeeking) {
+        return;
+      }
+      sec = sec * 1;
+      let dur = this._duration;
+      let left = sec / dur * window.innerWidth;
+      this._seekBarMouseX = left;
+
+      this._commentPreview.currentTime = sec;
+      this._commentPreview.update(left);
+
+      this._seekBarToolTip.update(sec, left);
+      this._storyboard.setCurrentTime(sec, true);
+    }
+    _beginMouseDrag() {
+      this._bindDragEvent();
+      this._$view.addClass('is-dragging');
+      this._isDragging = true;
+    }
+    _endMouseDrag() {
+      this._unbindDragEvent();
+      this._$view.removeClass('is-dragging');
+      this._isDragging = false;
+    }
+    _onBodyMouseUp(e) {
+      if ((e.button === 0 && e.shiftKey)) {
+        return;
+      }
+      this._endMouseDrag();
+    }
+    _onWindowBlur() {
+      this._endMouseDrag();
+    }
+    _bindDragEvent() {
+      util.$('body')
+        .on('mouseup.ZenzaWatchSeekBar', this._onBodyMouseUp.bind(this));
+
+      util.$(window).on('blur.ZenzaWatchSeekBar', this._onWindowBlur.bind(this), {once: true});
+    }
+    _unbindDragEvent() {
+      util.$('body')
+        .off('mouseup.ZenzaWatchSeekBar');
+      util.$(window).off('blur.ZenzaWatchSeekBar');
+    }
+    _onTimer() {
+      this._timerCount++;
+
+      let player = this._player;
+      let currentTime = this._isWheelSeeking ?
+        this._wheelSeeker.currentTime : player.currentTime;
+      if (this._timerCount % 2 === 0) {
+        this.currentTime = currentTime;
+      }
+      this._storyboard.currentTime = currentTime;
+    }
+    _onLoadVideoInfo(videoInfo) {
+      this.duration = videoInfo.duration;
+
+      if (!this._isFirstVideoInitialized) {
+        this._isFirstVideoInitialized = true;
+        const handler = (command, param) => this.emit('command', command, param);
+
+        ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
+          this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
+        );
+        ZenzaWatch.emitter.emitAsync('seekBar.addonMenuReady',
+          this._$view[0].querySelector('.seekBar'), handler
+        );
+      }
+
+      this._resumePointer.setAttribute('duration', videoInfo.duration);
+      this._resumePointer.setAttribute('time', videoInfo.initialPlaybackTime);
+    }
+    get currentTime() {
+      return this._currentTime;
+    }
+    setCurrentTime(sec) {
+      this.currentTime = sec;
+    }
+    set currentTime(sec) {
+      if (this._currentTime === sec) { return; }
+      this._currentTime = sec;
+
+      const currentTimeText = util.secToTime(sec);
+      if (this._currentTimeText !== currentTimeText) {
+        this._currentTimeText = currentTimeText;
+        // this._$currentTime[0].value = currentTimeText;
+        this.currentTimeLabel.text = currentTimeText;
+      }
+      this._pointer.currentTime = sec;
+    }
+    get duration() {
+      return this._duration;
+    }
+    set duration(sec) {
+      if (sec === this._duration) { return; }
+      this._duration = sec;
+      this._pointer.duration = sec;
+      this._pointer.currentTime = -1;
+      this._wheelSeeker.duration = sec;
+      this._seekRange.max = sec;
+
+      if (sec === 0 || isNaN(sec)) {
+        // this._$duration[0].value = '--:--';
+        this.durationLabel.text = '--:--';
+      } else {
+        this.durationLabel.text = util.secToTime(sec);
+        // this._$duration[0].value = util.secToTime(sec);
+      }
+      this.emit('durationChange');
+    }
+    setBufferedRange(range, currentTime) {
+      const bufferRange = this._bufferRange;
+      if (!range || !range.length || !this._duration) {
+        return;
+      }
+      for (let i = 0, len = range.length; i < len; i++) {
+        try {
+          const start = range.start(i);
+          const end   = range.end(i);
+          const width = end - start;
+          if (start <= currentTime && end >= currentTime) {
+            if (this._bufferStart !== start ||
+                this._bufferEnd   !== end) {
+              const perLeft = (this._timeToPer(start) - 1);
+              const scaleX = (this._timeToPer(width) + 2) / 100;
+              bufferRange.style.transform =
+                `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`;
+              this._bufferStart = start;
+              this._bufferEnd   = end;
+            }
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+    resetBufferedRange() {
+      this._bufferStart = 0;
+      this._bufferEnd = 0;
+      this._bufferRange.style.transform = 'scaleX(0)';
+    }
+    _hideMenu() {
+      document.body.focus();
+    }
   }
+
   VideoControlBar.BASE_HEIGHT = CONSTANT.CONTROL_BAR_HEIGHT;
   VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
 
@@ -115,7 +596,6 @@ util.addStyle(`
     cursor: pointer;
     color: #fff;
     opacity: 0.8;
-    margin-right: 8px;
     min-width: 32px;
     vertical-align: middle;
     outline: none;
@@ -333,6 +813,7 @@ util.addStyle(`
     transform: translate3d(0, 0, 0) scaleX(0);
     transition: transform 0.2s;
     mix-blend-mode: overlay;
+    will-change: transform, opacity;
     opacity: 0.6;
   }
 
@@ -356,6 +837,7 @@ util.addStyle(`
     box-shadow: 0 0 4px #ffc inset;
     pointer-events: none;
     transform: translate3d(-6px, -50%, 0);
+    will-change: transform;
     mix-blend-mode: lighten;
   }
 
@@ -385,6 +867,25 @@ util.addStyle(`
     100% { transform: translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0); }
   }
 
+  .seekBarContainer .seekBar .seekRange {
+    -webkit-appearance: none;
+    position: absolute;
+    width: 100vw;
+    height: 100%;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: auto;
+  }
+  .seekRange::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 10px;
+    width: 2px;
+  }
+  .seekRange::-moz-range-thumb {
+    height: 10px;
+    width: 2px;
+  }
+
   .videoControlBar .videoTime {
     display: inline-flex;
     top: 0;
@@ -403,8 +904,10 @@ util.addStyle(`
     user-select: none;
   }
 
+  .videoControlBar .videoTime .currentTimeLabel,
   .videoControlBar .videoTime .currentTime,
   .videoControlBar .videoTime .duration {
+    position: relative;
     display: inline-block;
     color: #fff;
     text-align: center;
@@ -413,7 +916,6 @@ util.addStyle(`
     width: 44px;
     font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
   }
-
   .videoControlBar.is-loading .videoTime {
     display: none;
   }
@@ -452,7 +954,7 @@ util.addStyle(`
     width: 100%;
     height: 100%;
     transform-origin: 0 0 0;
-    transform: translateZ(0);
+    will-change: transform;
     opacity: 0.5;
     z-index: 110;
   }
@@ -594,40 +1096,19 @@ util.addStyle(`
 
   .videoControlBar .volumeControl {
     display: inline-block;
+  }
+  .videoControlBar .volumeRange {
     width: 64px;
     height: 8px;
     position: relative;
     vertical-align: middle;
-    margin-right: 16px;
     --back-color: #333;
     --fore-color: #ccc;
-    background-color: var(--back-color);
   }
-  .is-mute .videoControlBar .volumeControl  {
+  .is-mute .videoControlBar .volumeRange  {
+    --fore-color: var(--back-color);
     pointer-events: none;
-    background-image: unset !important;
   }
-
-  .videoControlBar .volumeControl .tooltip {
-    display: none;
-    pointer-events: none;
-    position: absolute;
-    left: 6px;
-    top: -24px;
-    font-size: 12px;
-    line-height: 16px;
-    padding: 2px 4px;
-    border: 1px solid #000;
-    background: #ffc;
-    color: black;
-    text-shadow: none;
-    white-space: nowrap;
-    z-index: 100;
-  }
-  .videoControlBar .volumeControl:hover .tooltip {
-    display: block;
-  }
-
 
   .prevVideo.playControl,
   .nextVideo.playControl {
@@ -804,7 +1285,7 @@ util.addStyle(`
 
 
 
-  @media screen and (max-width: 864px) {
+  @media screen and (max-width: 768px) {
     .controlItemContainer.center {
       left: 0%;
       transform: translate(0, 0);
@@ -977,6 +1458,8 @@ util.addStyle(`
           <div class="seekBarPointer"></div>
           <div class="bufferRange"></div>
           <div class="progressWave"></div>
+          <input type="range" class="seekRange" min="0" step="any">
+          <canvas width="200" height="10" class="heatMap zenzaHeatMap"></canvas>
         </div>
         <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た">
         </zenza-seekbar-label>
@@ -989,6 +1472,12 @@ util.addStyle(`
       </div>
       <div class="controlItemContainer center">
         <div class="scalingUI">
+
+          <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
+            <div class="controlButtonInner">&#x27A0;</div>
+            <div class="tooltip">前の動画</div>
+          </div>
+
           <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
             <div class="controlButtonInner"></div>
             <div class="tooltip">シーンサーチ</div>
@@ -1000,7 +1489,7 @@ util.addStyle(`
           </div>
 
            <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
-            <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
+            <div class="controlButtonInner">&#8676;</div>
             <div class="tooltip">先頭</div>
           </div>
 
@@ -1036,7 +1525,7 @@ util.addStyle(`
           </div>
 
           <div class="videoTime">
-            <input type="text" class="currentTime" value="00:00">/<input type="text" class="duration" value="00:00">
+            <span class="currentTimeLabel"></span>/<span class="durationLabel"></span>
           </div>
 
           <div class="muteSwitch controlButton" data-command="toggle-mute">
@@ -1046,19 +1535,13 @@ util.addStyle(`
           </div>
 
           <div class="volumeControl">
-            <div class="tooltip">音量調整</div>
+            <zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0" max="1" step="any"></zenza-range-bar>
           </div>
 
-           <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
-            <div class="controlButtonInner">&#x27A0;</div>
-            <div class="tooltip">前の動画</div>
-          </div>
-
-           <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
+          <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
             <div class="controlButtonInner">&#x27A0;</div>
             <div class="tooltip">次の動画</div>
           </div>
-
 
         </div>
       </div>
@@ -1151,775 +1634,103 @@ util.addStyle(`
     </div>
   `).trim();
 
-  _.assign(VideoControlBar.prototype, {
-    initialize: function(params) {
-      this._playerConfig        = params.playerConfig;
-      this._$playerContainer    = params.$playerContainer;
-      this._playerState         = params.playerState;
-      let player = this._player = params.player;
-
-      player.on('open',           this._onPlayerOpen.bind(this));
-      player.on('canPlay',        this._onPlayerCanPlay.bind(this));
-      player.on('durationChange', this._onPlayerDurationChange.bind(this));
-      player.on('close',          this._onPlayerClose.bind(this));
-      player.on('progress',       this._onPlayerProgress.bind(this));
-      player.on('loadVideoInfo',  this._onLoadVideoInfo.bind(this));
-      player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
-      player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
-
-      this._isWheelSeeking = false;
-      this._initializeDom();
-      this._initializePlaybackRateSelectMenu();
-      this._initializeVolumeControl();
-      this._initializeVideoServerTypeSelectMenu();
-      this._isFirstVideoInitialized = false;
-
-      ZenzaWatch.debug.videoControlBar = this;
-    },
-    _initializeDom: function() {
-      let $view = this._$view = $(VideoControlBar.__tpl__);
-      let $container = this._$playerContainer;
-      let config = this._playerConfig;
-      this._view = $view[0];
-
-      this._$seekBarContainer = $view.find('.seekBarContainer');
-      this._$seekBar          = $view.find('.seekBar');
-      this._pointer         = new SmoothSeekBarPointer({
-        pointer: $view.find('.seekBarPointer')[0],
-        playerState: this._playerState
-      });
-      this._bufferRange    = $view.find('.bufferRange')[0];
-
-      this._$seekBar
-        .on('mousedown', this._onSeekBarMouseDown.bind(this))
-        .on('mousemove', this._onSeekBarMouseMove.bind(this))
-        .on('mousemove', _.debounce(this._onSeekBarMouseMoveEnd.bind(this), 1000));
-
-      $view.on('click', this._onClick.bind(this));
-      this._$view[0].addEventListener('command', this._onCommandEvent.bind(this));
-
-      this._$currentTime = $view.find('.currentTime');
-      this._$duration    = $view.find('.duration');
-
-      this._resumePointer = $view.find('zenza-seekbar-label')[0];
-
-      this._heatMap = new HeatMap({
-        $container: this._$seekBarContainer.find('.seekBar')
-      });
-      let updateHeatMapVisibility = v => {
-        this._$seekBarContainer.toggleClass('noHeatMap', !v);
-      };
-      updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
-      this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
-
-      this._storyboard = new Storyboard({
-        playerConfig: config,
-        player: this._player,
-        container: $view[0]
-      });
-
-      this._seekBarToolTip = new SeekBarToolTip({
-        $container: this._$seekBarContainer,
-        storyboard: this._storyboard
-      });
-
-      this._commentPreview = new CommentPreview({
-        $container: this._$seekBarContainer
-      });
-      let updateEnableCommentPreview = v => {
-        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
-        this._commentPreview.mode = v ? 'list' : 'hover';
-      };
-
-      updateEnableCommentPreview(config.getValue('enableCommentPreview'));
-      config.on('update-enableCommentPreview', updateEnableCommentPreview);
-
-      this._$playbackRateMenu       = $view.find('.playbackRateMenu');
-      this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
-
-      this._$videoServerTypeMenu       = $view.find('.videoServerTypeMenu');
-      this._$videoServerTypeSelectMenu = $view.find('.videoServerTypeSelectMenu');
-
-      const watchElement = $container[0].closest('#zenzaVideoPlayerDialog');
-      this._wheelSeeker = new WheelSeeker({
-        parentNode: $view[0],
-        watchElement
-      });
-
-      watchElement.addEventListener('mousedown', e => {
-        if (['A', 'INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-          return;
-        }
-        if (e.buttons !== 3 && !(e.button === 0 && e.shiftKey)) {
-          return;
-        }
-        if (e.buttons === 3) {
-          watchElement.addEventListener('contextmenu', e => {
-            window.console.log('contextmenu', e);
-            e.preventDefault();
-            e.stopPropagation();
-          }, {once: true, capture: true});
-        }
-        this._onSeekBarMouseDown(e);
-      });
-
-      ZenzaWatch.emitter.on('hideHover', () => {
-        this._hideMenu();
-        this._commentPreview.hide();
-      });
-
-      $container.append($view);
-      this._width = this._$seekBarContainer.innerWidth();
-    },
-    _initializePlaybackRateSelectMenu: function() {
-      let config = this._playerConfig;
-      let $btn  = this._$playbackRateMenu;
-      let $label = $btn.find('.controlButtonInner');
-      let $menu = this._$playbackRateSelectMenu;
-
-      let updatePlaybackRate = rate => {
-        $label.text(`x${rate}`);
-        $menu.find('.selected').removeClass('selected');
-        let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
-        $menu.find('.playbackRate').each((i, item) => {
-          let r = parseFloat(item.getAttribute('data-param'), 10);
-          if (fr === r) {
-            item.classList.add('selected');
-          }
-        });
-        this._pointer.playbackRate = rate;
-      };
-
-      updatePlaybackRate(config.getValue('playbackRate'));
-      config.on('update-playbackRate', updatePlaybackRate);
-    },
-    _initializeVolumeControl: function() {
-      let $container = this._$view.find('.volumeControl');
-      let tooltip = $container.find('.tooltip').get(0);
-      let $body    = $('body');
-      let $window  = $(window);
-      let config   = this._playerConfig;
-
-      let setVolumeBar = this._setVolumeBar = v => {
-        let per = `${Math.round(v * 100)}%`;
-        $container.css('background-image',
-          `linear-gradient(to right, var(--fore-color),  var(--fore-color) ${per},  var(--back-color) 0,  var(--back-color))`);
-        tooltip.textContent = `音量 (${per})`;
-      };
-
-      let posToVol = x => {
-        let width = $container.outerWidth();
-        let vol = x / width;
-        return Math.max(0, Math.min(vol, 1.0));
-      };
-
-      let onBodyMouseMove = e => {
-        let offset = $container.offset();
-        let scale = Math.max(0.1, parseFloat(config.getValue('menuScale'), 10));
-        let left = (e.clientX - offset.left) / scale;
-        let vol = posToVol(left);
-
-        util.dispatchCommand(e.target, 'volume', vol);
-      };
-
-      let bindDragEvent = () => {
-        let unbindDragEvent = () => {
-          $body
-            .off('mousemove.ZenzaWatchVolumeBar')
-            .off('mouseup.ZenzaWatchVolumeBar');
-          $window.off('blur.ZenzaWatchVolumeBar');
-        };
-
-        $body
-          .on('mousemove.ZenzaWatchVolumeBar', onBodyMouseMove)
-          .on('mouseup.ZenzaWatchVolumeBar',   unbindDragEvent);
-        $window.on('blur.ZenzaWatchVolumeBar', unbindDragEvent);
-      };
-
-      let onVolumeBarMouseDown = e => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        util.dispatchCommand(e.target, 'volume', posToVol(e.offsetX));
-
-        bindDragEvent();
-      };
-      $container.on('mousedown', onVolumeBarMouseDown);
-
-      setVolumeBar(this._playerConfig.getValue('volume'));
-      this._playerConfig.on('update-volume', setVolumeBar);
-    },
-    _initializeVideoServerTypeSelectMenu: function() {
-      const config = this._playerConfig;
-      const $button = this._$videoServerTypeMenu;
-      const $select  = this._$videoServerTypeSelectMenu;
-      const $current = $select.find('.currentVideoQuality');
-
-      const updateSmileVideoQuality = value => {
-        const $dq = $select.find('.smileVideoQuality');
-        $dq.removeClass('selected');
-        $select.find('.select-smile-' + (value === 'eco' ? 'economy' : 'default')).addClass('selected');
-      };
-
-      const updateDmcVideoQuality = value => {
-        const $dq = $select.find('.dmcVideoQuality');
-        $dq.removeClass('selected');
-        $select.find('.select-dmc-' + value).addClass('selected');
-      };
-
-      const onVideoServerType = (type, videoSessionInfo) => {
-        $button.removeClass('is-smile-playing is-dmc-playing')
-          .addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
-        $select.find('.serverType').removeClass('selected');
-        $select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
-        $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
-      };
-
-      updateSmileVideoQuality(   config.getValue('smileVideoQuality'));
-      updateDmcVideoQuality(config.getValue('dmcVideoQuality'));
-      config.on('update-forceEconomy',    updateSmileVideoQuality);
-      config.on('update-dmcVideoQuality', updateDmcVideoQuality);
-
-      this._player.on('videoServerType', onVideoServerType);
-    },
-    _onCommandEvent: function(e) {
-      const command = e.detail.command;
-      switch (command) {
-        case 'toggleStoryboard':
-          this._storyboard.toggle();
-          break;
-        case 'wheelSeek-start':
-          window.console.log('start-seek-start');
-          this._isWheelSeeking = true;
-          this._wheelSeeker.currentTime = this._player.getCurrentTime();
-          this._view.classList.add('is-wheelSeeking');
-          break;
-        case 'wheelSeek-end':
-          window.console.log('start-seek-end');
-          this._isWheelSeeking = false;
-          this._view.classList.remove('is-wheelSeeking');
-          break;
-        case 'wheelSeek':
-          this._onWheelSeek(e.detail.param);
-          break;
-        default:
-          return;
-      }
-      e.stopPropagation();
-    },
-    _onClick: function(e) {
-      e.preventDefault();
-
-      let target = e.target.closest('[data-command]');
-      if (!target) {
-        return;
-      }
-      let {command, param, type} = target.dataset;
-      if (param && (type === 'bool' || type === 'json')) {
-        param = JSON.parse(param);
-      }
-      switch (command) {
-        case 'toggleStoryboard':
-          this._storyboard.toggle();
-          break;
-        default:
-          util.dispatchCommand(target, command, param);
-          break;
-       }
-      e.stopPropagation();
-    },
-    _posToTime: function(pos) {
-      let width = this._$seekBar.innerWidth();
-      return this._duration * (pos / Math.max(width, 1));
-    },
-    _timeToPos: function(time) {
-      return this._width * (time / Math.max(this._duration, 1));
-    },
-    _timeToPer: function(time) {
-      return (time / Math.max(this._duration, 1)) * 100;
-    },
-    _onPlayerOpen: function() {
-      this._startTimer();
-      this.setDuration(0);
-      this.setCurrentTime(0);
-      this._heatMap.reset();
-      this._storyboard.reset();
-      this.resetBufferedRange();
-    },
-    _onPlayerCanPlay: function(watchId, videoInfo) {
-      let duration = this._player.getDuration();
-      this.setDuration(duration);
-      this._storyboard.onVideoCanPlay(watchId, videoInfo);
-
-      this._heatMap.setDuration(duration);
-    },
-    _onCommentParsed: function() {
-      this._chatList = this._player.getChatList();
-      this._heatMap.setChatList(this._chatList);
-      this._commentPreview.setChatList(this._chatList);
-    },
-    _onCommentChange: function() {
-      this._chatList = this._player.getChatList();
-      this._heatMap.setChatList(this._chatList);
-      this._commentPreview.setChatList(this._chatList);
-    },
-    _onPlayerDurationChange: function() {
-      this._pointer.duration = this._playerState.videoInfo.duration;
-      this._wheelSeeker.duration = this._playerState.videoInfo.duration;
-      this._heatMap.setChatList(this._chatList);
-    },
-    _onPlayerClose: function() {
-      this._stopTimer();
-    },
-    _onPlayerProgress: function(range, currentTime) {
-      this.setBufferedRange(range, currentTime);
-    },
-    _startTimer: function() {
-      this._timerCount = 0;
-      this._timer = window.setInterval(this._onTimer.bind(this), 100);
-    },
-    _stopTimer: function() {
-      if (this._timer) {
-        window.clearInterval(this._timer);
-        this._timer = null;
-      }
-    },
-    _onSeekBarMouseDown: function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      let left = e.offsetX;
-      let sec = this._posToTime(left);
-
-      util.dispatchCommand(e.target, 'seek', sec);
-
-      this._beginMouseDrag(e);
-    },
-    _onSeekBarMouseMove: function(e) {
-      if (!this._$view.hasClass('is-dragging')) {
-        e.stopPropagation();
-      }
-      let left = e.offsetX;
-      let sec = this._posToTime(left);
-      this._seekBarMouseX = left;
-
-      this._commentPreview.setCurrentTime(sec);
-      this._commentPreview.update(left);
-
-      this._seekBarToolTip.update(sec, left);
-    },
-    _onSeekBarMouseMoveEnd: function(e) {
-    },
-    _onWheelSeek: function(sec) {
-      if (!this._isWheelSeeking) {
-        return;
-      }
-      sec = sec * 1;
-      let dur = this._duration;
-      let left = sec / dur * window.innerWidth;
-      this._seekBarMouseX = left;
-
-      this._commentPreview.setCurrentTime(sec);
-      this._commentPreview.update(left);
-
-      this._seekBarToolTip.update(sec, left);
-      this._storyboard.setCurrentTime(sec, true);
-    },
-    _beginMouseDrag: function() {
-      this._bindDragEvent();
-      this._$view.addClass('is-dragging');
-    },
-    _endMouseDrag: function() {
-      this._unbindDragEvent();
-      this._$view.removeClass('is-dragging');
-    },
-    _onBodyMouseMove: function(e) {
-      let offset = this._$seekBar.offset();
-      let left = e.clientX - offset.left;
-      let sec = this._posToTime(left);
-
-      util.dispatchCommand(this._$view[0], 'seek', sec);
-      this._seekBarToolTip.update(sec, left);
-      this._storyboard.setCurrentTime(sec, true);
-    },
-    _onBodyMouseUp: function(e) {
-      if ((e.button === 0 && e.shiftKey)) {
-        return;
-      }
-      this._endMouseDrag();
-    },
-    _onWindowBlur: function() {
-      this._endMouseDrag();
-    },
-    _bindDragEvent: function() {
-      $('body')
-        .on('mousemove.ZenzaWatchSeekBar', this._onBodyMouseMove.bind(this))
-        .on('mouseup.ZenzaWatchSeekBar',   this._onBodyMouseUp.bind(this));
-
-      $(window).on('blur.ZenzaWatchSeekBar', this._onWindowBlur.bind(this));
-    },
-    _unbindDragEvent: function() {
-      $('body')
-        .off('mousemove.ZenzaWatchSeekBar')
-        .off('mouseup.ZenzaWatchSeekBar');
-      $(window).off('blur.ZenzaWatchSeekBar');
-    },
-    _onTimer: function() {
-      this._timerCount++;
-
-      let player = this._player;
-      let currentTime = this._isWheelSeeking ?
-        this._wheelSeeker.currentTime : player.getCurrentTime();
-      if (this._timerCount % 2 === 0) {
-        this.setCurrentTime(currentTime);
-      }
-      this._storyboard.setCurrentTime(currentTime);
-    },
-    _onLoadVideoInfo: function(videoInfo) {
-      this.setDuration(videoInfo.duration);
-
-      if (!this._isFirstVideoInitialized) {
-        this._isFirstVideoInitialized = true;
-        const handler = (command, param) => this.emit('command', command, param);
-
-        ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
-          this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
-        );
-        ZenzaWatch.emitter.emitAsync('seekBar.addonMenuReady',
-          this._$view[0].querySelector('.seekBar'), handler
-        );
-      }
-
-      this._resumePointer.setAttribute('duration', videoInfo.duration);
-      this._resumePointer.setAttribute('time', videoInfo.initialPlaybackTime);
-    },
-    setCurrentTime: function(sec) {
-      if (this._currentTime === sec) { return; }
-      this._currentTime = sec;
-
-      let currentTimeText = util.secToTime(sec);
-      if (this._currentTimeText !== currentTimeText) {
-        this._currentTimeText = currentTimeText;
-        this._$currentTime[0].value = currentTimeText;
-      }
-      this._pointer.currentTime = sec;
-    },
-    setDuration: function(sec) {
-      if (sec === this._duration) { return; }
-      this._duration = sec;
-      this._pointer.duration = sec;
-      this._wheelSeeker.duration = sec;
-      this._pointer.currentTime = -1;
-
-      if (sec === 0 || isNaN(sec)) {
-        this._$duration[0].value = '--:--';
-      }
-      this._$duration[0].value = util.secToTime(sec);
-      this.emit('durationChange');
-    },
-    setBufferedRange: function(range, currentTime) {
-      let bufferRange = this._bufferRange;
-      if (!range || !range.length || !this._duration) {
-        return;
-      }
-      for (let i = 0, len = range.length; i < len; i++) {
-        try {
-          let start = range.start(i);
-          let end   = range.end(i);
-          let width = end - start;
-          if (start <= currentTime && end >= currentTime) {
-            if (this._bufferStart !== start ||
-                this._bufferEnd   !== end) {
-              const perLeft = (this._timeToPer(start) - 1);
-              const scaleX = (this._timeToPer(width) + 2) / 100;
-              bufferRange.style.transform =
-                `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`;
-              this._bufferStart = start;
-              this._bufferEnd   = end;
-            }
-            break;
-          }
-        } catch (e) {}
-      }
-    },
-    resetBufferedRange: function() {
-      this._bufferStart = 0;
-      this._bufferEnd = 0;
-      this._bufferRange.style.transform = 'scaleX(0)';
-    },
-    _hideMenu: function() {
-      document.body.focus();
-    }
-  });
-
-  class HeatMapModel extends Emitter {
-    constructor(params) {
-      super();
-      this._resolution = params.resolution || HeatMapModel.RESOLUTION;
-      this.reset();
-    }
-  }
-  HeatMapModel.RESOLUTION = 100;
-  _.assign(HeatMapModel.prototype, {
-    reset: function() {
-      this._duration = -1;
-      this._chatReady = false;
-      this.emit('reset');
-    },
-    setDuration: function(duration) {
-      if (this._duration === duration) { return; }
-      this._duration = duration;
-      this.update();
-    },
-    setChatList: function(comment) {
-      this._chat = comment;
-      this._chatReady = true;
-      this.update();
-    },
-    update: function() {
-      if (this._duration < 0 || !this._chatReady) {
-        return;
-      }
-      let map = this._getHeatMap();
-      this.emitAsync('update', map);
-      ZenzaWatch.emitter.emit('heatMapUpdate', {map, duration: this._duration});
-      // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
-      // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
-      // Firefoxはもうちょっとかかるかも
-      //this._isUpdated = true;
-    },
-    _getHeatMap: function() {
-      let chatList =
-        this._chat.top.concat(this._chat.naka, this._chat.bottom);
-      let duration = this._duration;
-      if (!duration) { return; }
-      let map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
-      let i = map.length;
-      while(i > 0) map[--i] = 0;
-
-      let ratio = duration > map.length ? (map.length / duration) : 1;
-
-      for (i = chatList.length - 1; i >= 0; i--) {
-        let nicoChat = chatList[i];
-        let pos = nicoChat.getVpos();
-        let mpos = Math.min(Math.floor(pos * ratio / 100), map.length -1);
-        map[mpos]++;
-      }
-
-      return map;
-    }
-  });
-
-  class HeatMapView {
-    constructor(params) {
-      this._model  = params.model;
-      this._$container = params.$container;
-      this._width  = params.width || 100;
-      this._height = params.height || 10;
-
-      this._model.on('update', this._onUpdate.bind(this));
-      this._model.on('reset',  this._onReset.bind(this));
-    }
-  }
-  _.assign(HeatMapView.prototype, {
-    _canvas:  null,
-    _palette: null,
-    _width: 100,
-    _height: 12,
-    _initializePalette: function() {
-      this._palette = [];
-      for (let c = 0; c < 256; c++) {
-        let
-          r = Math.floor((c > 127) ? (c / 2 + 128) : 0),
-          g = Math.floor((c > 127) ? (255 - (c - 128) * 2) : (c * 2)),
-          b = Math.floor((c > 127) ? 0 : (255  - c * 2));
-        this._palette.push(`rgb(${r}, ${g}, ${b})`);
-      }
-    },
-    _initializeCanvas: function() {
-      this._canvas           = document.createElement('canvas');
-      this._canvas.className = 'zenzaHeatMap';
-      this._canvas.width     = this._width;
-      this._canvas.height    = this._height;
-
-      this._$container.append(this._canvas);
-
-      this._context = this._canvas.getContext('2d');
-
-      this.reset();
-    },
-    _onUpdate: function(map) {
-      this.update(map);
-    },
-    _onReset: function() {
-      this.reset();
-    },
-    reset: function() {
-      if (!this._context) { return; }
-      this._context.fillStyle = this._palette[0];
-      this._context.beginPath();
-      this._context.fillRect(0, 0, this._width, this._height);
-    },
-    update: function(map) {
-      if (!this._isInitialized) {
-        this._isInitialized = true;
-        this._initializePalette();
-        this._initializeCanvas();
-        this.reset();
-      }
-      console.time('update HeatMap');
-
-      // 一番コメント密度が高い所を100%として相対的な比率にする
-      // 赤い所が常にピークになってわかりやすいが、
-      // コメントが一カ所に密集している場合はそれ以外が薄くなってしまうのが欠点
-      let max = 0, i;
-      // -4 してるのは、末尾にコメントがやたら集中してる事があるのを集計対象外にするため (ニコニ広告に付いてたコメントの名残？)
-      for (i = Math.max(map.length - 4, 0); i >= 0; i--) max = Math.max(map[i], max);
-
-      if (max > 0) {
-        let rate = 255 / max;
-        for (i = map.length - 1; i >= 0; i--) {
-          map[i] = Math.min(255, Math.floor(map[i] * rate));
-        }
-      } else {
-        console.timeEnd('update HeatMap');
-        return;
-      }
-
-      let
-        scale = map.length >= this._width ? 1 : (this._width / Math.max(map.length, 1)),
-        blockWidth = (this._width / map.length) * scale,
-        context = this._context;
-
-      for (i = map.length - 1; i >= 0; i--) {
-        context.fillStyle = this._palette[parseInt(map[i], 10)] || this._palette[0];
-        context.beginPath();
-        context.fillRect(i * scale, 0, blockWidth, this._height);
-      }
-      console.timeEnd('update HeatMap');
-    }
-  });
-
-  class HeatMap {
-    constructor(params) {
-      this._model = new HeatMapModel({});
-      this._view = new HeatMapView({
-        model: this._model,
-        $container: params.$container
-      });
-      this.reset();
-    }
-    reset() {
-      this._model.reset();
-    }
-    setDuration(duration) {
-      this._model.setDuration(duration);
-    }
-    setChatList(chatList) {
-      this._model.setChatList(chatList);
-    }
-  }
+//@require HeatMapWorker
 
   class CommentPreviewModel extends Emitter {
-    constructor() {
-      super();
-    }
-  }
-  _.assign(CommentPreviewModel.prototype, {
-    reset: function() {
+    reset() {
       this._chatReady = false;
       this._vpos = -1;
       this.emit('reset');
-    },
-    setChatList: function(chatList) {
+    }
+    set chatList(chatList) {
       let list = chatList.top.concat(chatList.naka, chatList.bottom);
       list.sort((a, b) => {
-        let av = a.getVpos(), bv = b.getVpos();
+        let av = a.vpos, bv = b.vpos;
         return av - bv;
       });
 
       this._chatList = list;
       this._chatReady = true;
       this.update();
-    },
-    getChatList: function() {
+    }
+    get chatList() {
       return this._chatList || [];
-    },
-    setCurrentTime: function(sec) {
-      this.setVpos(sec * 100);
-    },
-    setVpos: function(vpos) {
+    }
+    set currentTime(sec) {
+      this.vpos = sec * 100;
+    }
+    set vpos(vpos) {
       if (this._vpos !== vpos) {
         this._vpos = vpos;
         this.emit('vpos', vpos);
       }
-    },
-    getCurrentIndex: function() {
+    }
+    get currentIndex() {
       if (this._vpos < 0 || !this._chatReady) {
         return -1;
       }
       return this.getVposIndex(this._vpos);
-    },
-    getVposIndex: function(vpos) {
+    }
+    getVposIndex(vpos) {
       let list = this._chatList;
       for (let i = list.length - 1; i >= 0; i--) {
-        let chat = list[i], cv = chat.getVpos();
+        let chat = list[i], cv = chat.vpos;
         if (cv <= vpos - 400) {
           return i + 1;
         }
       }
       return -1;
-    },
-    getCurrentChatList: function() {
+    }
+    get currentChatList() {
       if (this._vpos < 0 || !this._chatReady) {
         return [];
       }
       return this.getItemByVpos(this._vpos);
-    },
-    getItemByVpos: function(vpos) {
+    }
+    getItemByVpos(vpos) {
       let list = this._chatList;
       let result = [];
       for (let i = 0, len = list.length; i < len; i++) {
-        let chat = list[i], cv = chat.getVpos(), diff = vpos - cv;
+        let chat = list[i], cv = chat.vpos, diff = vpos - cv;
         if (diff >= -100 && diff <= 400) {
           result.push(chat);
         }
       }
       return result;
-    },
-    getItemByUniqNo: function(uniqNo) {
-      return this._chatList.find(chat => chat.getUniqNo() === uniqNo);
-    },
-    update: function() {
+    }
+    getItemByUniqNo(uniqNo) {
+      return this._chatList.find(chat => chat.uniqNo === uniqNo);
+    }
+    update() {
       this.emit('update');
     }
-  });
+  }
 
   class CommentPreviewView {
     constructor(params) {
       let model = this._model = params.model;
       this._$parent = params.$container;
 
-      this._inviewTable = {};
+      this._inviewTable = new Map;
       this._chatList = [];
       this._initializeDom(this._$parent);
 
       model.on('reset',  this._onReset.bind(this));
       model.on('update', _.debounce(this._onUpdate.bind(this), 10));
-      // model.on('vpos',   _.throttle(this._onVpos  .bind(this), 100));
       model.on('vpos', this._onVpos.bind(this));
 
       this._mode = 'hover';
 
       this.update = _.throttle(this.update.bind(this), 200);
+      this._applyView = bounce.raf(this._applyView.bind(this));
     }
     _initializeDom($parent) {
-      let $view = $(CommentPreviewView.__tpl__);
+      let $view = util.$.html(CommentPreviewView.__tpl__);
       let view = this._view = $view[0];
       this._list = view.querySelector('.listContainer');
-      view.addEventListener('click', this._onClick.bind(this));
-      view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
-      view.addEventListener('scroll',
+      $view.on('click', this._onClick.bind(this))
+        .on('wheel', e => e.stopPropagation(), {passive: true})
+        .on('scroll',
         _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
       $parent.append($view);
@@ -1950,13 +1761,13 @@ util.addStyle(`
 
         switch (command) {
           case 'addUserIdFilter':
-            util.dispatchCommand(e.target, command, nicoChat.getUserId());
+            util.dispatchCommand(e.target, command, nicoChat.userId);
             break;
           case 'addWordFilter':
-            util.dispatchCommand(e.target, command, nicoChat.getText());
+            util.dispatchCommand(e.target, command, nicoChat.text);
             break;
           case 'addCommandFilter':
-            util.dispatchCommand(e.target, command, nicoChat.getCmd());
+            util.dispatchCommand(e.target, command, nicoChat.cmd);
             break;
         }
         return;
@@ -1971,7 +1782,7 @@ util.addStyle(`
     }
     _onVpos(vpos) {
       let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      let index = this._currentStartIndex = Math.max(0, this._model.getCurrentIndex());
+      let index = this._currentStartIndex = Math.max(0, this._model.currentIndex);
       this._currentEndIndex = Math.max(0, this._model.getVposIndex(vpos + 400));
       this._scrollTop = itemHeight * index;
       this._currentTime = vpos / 100;
@@ -1986,14 +1797,14 @@ util.addStyle(`
     }
     _onReset() {
       this._list.textContent = '';
-      this._inviewTable = {};
+      this._inviewTable.clear();
       this._scrollTop = 0;
       this._newListElements = null;
       this._chatList = [];
     }
     _updateList() {
-      let chatList = this._chatList = this._model.getChatList();
-      if (chatList.length < 1) {
+      let chatList = this._chatList = this._model.chatList;
+      if (!chatList.length) {
         // this.hide();
         this._isListUpdated = false;
         return;
@@ -2027,19 +1838,19 @@ util.addStyle(`
       let newItems = [], inviewTable = this._inviewTable;
       for (i = startIndex; i < endIndex; i++) {
         let chat = chatList[i];
-        if (inviewTable[i] || !chat) { continue; }
+        if (inviewTable.has(i) || !chat) { continue; }
         let listItem = CommentPreviewChatItem.create(chat, i);
         newItems.push(listItem);
-        inviewTable[i] = listItem;
+        inviewTable.set(i, listItem);
       }
 
       if (newItems.length < 1) { return; }
 
-      Object.keys(inviewTable).forEach(i => {
-        if (i >= startIndex && i <= endIndex) { return; }
-        inviewTable[i].remove();
-        delete inviewTable[i];
-      });
+      for (const i of inviewTable.keys()) {
+        if (i >= startIndex && i <= endIndex) { continue; }
+        inviewTable.get(i).remove();
+        inviewTable.delete(i);
+      }
 
       this._newListElements = this._newListElements || document.createDocumentFragment();
       this._newListElements.append(...newItems);
@@ -2062,7 +1873,7 @@ util.addStyle(`
 
       left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
       this._left = left;
-      requestAnimationFrame(() => this._applyView());
+      this._applyView();
     }
     _applyView() {
       let view = this._view;
@@ -2080,8 +1891,6 @@ util.addStyle(`
       view.style.transform = `translate3d(${this._left}px, 0, 0)`;
     }
     hide() {
-      // this._isShowing = false;
-      // this._$view.removeClass('show');
     }
   }
 
@@ -2106,7 +1915,7 @@ util.addStyle(`
         t.id = `${this.name}_${Date.now()}`;
         t.innerHTML = this.html;
         let content = t.content;
-        document.body.appendChild(t);
+        // document.body.append(t);
         this._template = {
           clone: () => document.importNode(t.content, true),
           chat: content.querySelector('.nicoChat'),
@@ -2117,21 +1926,24 @@ util.addStyle(`
       return this._template;
     }
 
+    /**
+     * @param {NicoChatViewModel} chat
+     */
     static create(chat, idx) {
       let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      let text = chat.getText();
-      let date = (new Date(chat.getDate() * 1000)).toLocaleString();
-      let vpos = chat.getVpos();
-      let no = chat.getNo();
-      let uniqNo = chat.getUniqNo();
+      let text = chat.text;
+      let date = (new Date(chat.date * 1000)).toLocaleString();
+      let vpos = chat.vpos;
+      let no = chat.no;
+      let uniqNo = chat.uniqNo;
       let oe = idx % 2 === 0 ? 'even' : 'odd';
-      let title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
-      let color = chat.getColor() || '#fff';
+      let title = `${no} : 投稿日 ${date}\nID:${chat.userId}\n${text}\n`;
+      let color = chat.color || '#fff';
       let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
       let vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
       let t = this.template;
-      t.chat.className = `nicoChat fork${chat.getFork()} ${oe}`;
+      t.chat.className = `nicoChat fork${chat.fork} ${oe}`;
       t.chat.id = `commentPreviewItem${idx}`;
       t.chat.dataset.vpos = vpos;
       t.chat.dataset.nicochatUniqNo = uniqNo;
@@ -2141,8 +1953,8 @@ util.addStyle(`
       t.text.textContent = text;
       t.chat.style.cssText = `
         top: ${idx * itemHeight}px;
-        --duration: ${chat.getDuration()};
-        --vpos: ${chat.getVpos()}
+        --duration: ${chat.duration};
+        --vpos: ${chat.vpos}
       `;
       return t.clone().firstElementChild;
     }
@@ -2385,11 +2197,11 @@ util.addStyle(`
       this._model.reset();
       this._view.hide();
     }
-    setChatList(chatList) {
-      this._model.setChatList(chatList);
+    set chatList(chatList) {
+      this._model.chatList = chatList;
     }
-    setCurrentTime(sec) {
-      this._model.setCurrentTime(sec);
+    set currentTime(sec) {
+      this._model.currentTime = sec;
     }
     update(left) {
       this._view.update(left);
@@ -2415,12 +2227,103 @@ util.addStyle(`
       this._boundOnRepeat = this._onRepeat.bind(this);
       this._boundOnMouseUp = this._onMouseUp.bind(this);
     }
+    _initializeDom($container) {
+      util.addStyle(SeekBarToolTip.__css__);
+      let $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
+
+      this._currentTime = $view.find('.currentTime')[0];
+      TextLabel.create({
+        container: this._currentTime,
+        name: 'currentTimeLabel',
+        text: '00:00',
+        style: {
+          widthPx: 50,
+          heightPx: 16,
+          fontFamily: 'monospace',
+          fontWeight: '',
+          fontSizePx: 12,
+          color: '#ccc'
+        }
+      }).then(label => this.currentTimeLabel = label);
+
+      $view
+        .on('mousedown',this._onMouseDown.bind(this))
+        .on('click', e => { e.stopPropagation(); e.preventDefault(); });
+
+      this._seekBarThumbnail = new SeekBarThumbnail({
+        storyboard: this._storyboard,
+        container: $view.find('.seekBarThumbnailContainer')[0]
+      });
+
+      $container.append($view);
+    }
+    _onMouseDown(e) {
+      e.stopPropagation();
+      let target = e.target.closest('[data-command]');
+      if (!target) {
+        return;
+      }
+      let command = target.dataset.command;
+      if (!command) { return; }
+
+      let param   = target.dataset.param;
+      let repeat  = target.dataset.repeat === 'on';
+
+      util.dispatchCommand(e.target, command, param);
+      if (repeat) {
+        this._beginRepeat(command, param);
+      }
+    }
+    _onMouseUp(e) {
+      e.preventDefault();
+      this._endRepeat();
+    }
+    _beginRepeat(command, param) {
+      this._repeatCommand = command;
+      this._repeatParam   = param;
+
+      util.$('body').on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
+      this._$view.on('mouseleave', this._boundOnMouseUp).on('mouseup', this._boundOnMouseUp);
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+      }
+      this._repeatTimer = window.setInterval(this._boundOnRepeat, 200);
+      this._isRepeating = true;
+    }
+    _endRepeat() {
+      this._isRepeating = false;
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+        this._repeatTimer = null;
+      }
+      util.$('body').off('mouseup.zenzaSeekbarToolTip');
+      this._$view.off('mouseleave').off('mouseup');
+    }
+    _onRepeat() {
+      if (!this._isRepeating) {
+        this._endRepeat();
+        return;
+      }
+      util.dispatchCommand(this._$view[0], this._repeatCommand, this._repeatParam);
+    }
+    update(sec, left) {
+      let timeText = util.secToTime(sec);
+      if (this._timeText === timeText) { return; }
+      this._timeText = timeText;
+      this.currentTimeLabel && (this.currentTimeLabel.text = timeText);
+      let w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
+      let vw = window.innerWidth;
+      left = Math.max(0, Math.min(left - w / 2, vw - w));
+      this._$view.css('transform', `translate3d(${left}px, 0, 10px)`);
+      this._seekBarThumbnail.currentTime=sec;
+    }
   }
 
   SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
       position: absolute;
-      display: none;
+      display: inline-block;
+      visibility: hidden;
       z-index: 300;
       position: absolute;
       box-sizing: border-box;
@@ -2444,7 +2347,7 @@ util.addStyle(`
     .is-dragging .seekBarToolTip,
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
-      display: inline-block;
+      visibility: visible;
     }
 
     .seekBarToolTipInner {
@@ -2468,12 +2371,12 @@ util.addStyle(`
       display: inline-block;
       height: 16px;
       margin: 4px 0;
-      padding: 0 8px;
-      color: #ccc;
+      /*padding: 0 8px;*/
+      /*color: #ccc;
       text-align: center;
       font-size: 12px;
-      line-height: 16px;
-      text-shadow: 0 0 2px #000;
+      line-height: 16px;*/
+      /*text-shadow: 0 0 2px #000;*/
     }
 
     .seekBarToolTip .controlButton {
@@ -2538,85 +2441,6 @@ util.addStyle(`
     </div>
   `).trim();
 
-  _.assign(SeekBarToolTip .prototype, {
-    _initializeDom: function($container) {
-      util.addStyle(SeekBarToolTip.__css__);
-      let $view = this._$view = $(SeekBarToolTip.__tpl__);
-
-      this._currentTime = $view.find('.currentTime')[0];
-
-      $view
-        .on('mousedown',this._onMouseDown.bind(this))
-        .on('click', e => { e.stopPropagation(); e.preventDefault(); });
-
-      this._seekBarThumbnail = new SeekBarThumbnail({
-        storyboard: this._storyboard,
-        container: $view.find('.seekBarThumbnailContainer')[0]
-      });
-
-      $container.append($view);
-    },
-    _onMouseDown: function(e) {
-      e.stopPropagation();
-      let target = e.target.closest('[data-command]');
-      if (!target) {
-        return;
-      }
-      let command = target.dataset.command;
-      if (!command) { return; }
-
-      let param   = target.dataset.param;
-      let repeat  = target.dataset.repeat === 'on';
-
-      util.dispatchCommand(e.target, command, param);
-      if (repeat) {
-        this._beginRepeat(command, param);
-      }
-    },
-    _onMouseUp: function(e) {
-      e.preventDefault();
-      this._endRepeat();
-    },
-    _beginRepeat(command, param) {
-      this._repeatCommand = command;
-      this._repeatParam   = param;
-
-      $('body').on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
-      this._$view.on('mouseleave mouseup', this._boundOnMouseUp);
-      if (this._repeatTimer) {
-        window.clearInterval(this._repeatTimer);
-      }
-      this._repeatTimer = window.setInterval(this._boundOnRepeat, 200);
-      this._isRepeating = true;
-    },
-    _endRepeat: function() {
-      this._isRepeating = false;
-      if (this._repeatTimer) {
-        window.clearInterval(this._repeatTimer);
-        this._repeatTimer = null;
-      }
-      $('body').off('mouseup.zenzaSeekbarToolTip');
-      this._$view.off('mouseleave mouseup');
-    },
-    _onRepeat: function() {
-      if (!this._isRepeating) {
-        this._endRepeat();
-        return;
-      }
-      util.dispatchCommand(this._$view[0], this._repeatCommand, this._repeatParam);
-    },
-    update: function(sec, left) {
-      let timeText = util.secToTime(sec);
-      if (this._timeText === timeText) { return; }
-      this._timeText = timeText;
-      this._currentTime.textContent = timeText;
-      let w  = this._$view.outerWidth();
-      let vw = this._$container.innerWidth();
-      left = Math.max(0, Math.min(left - w / 2, vw - w));
-      this._$view.css('transform', `translate3d(${left}px, 0, 10px)`);
-      this._seekBarThumbnail.setCurrentTime(sec);
-    }
-  });
 
   class SmoothSeekBarPointer {
     constructor(params) {
@@ -2632,9 +2456,9 @@ util.addStyle(`
         this._isSmoothMode = false;
       }
       this._pointer.classList.toggle('is-notSmooth', !this._isSmoothMode);
-      params.playerState.on('update-isPausing', v => this.isPausing = v);
-      params.playerState.on('update-isSeeking', v => this.isSeeking = v);
-      params.playerState.on('update-isStalled', v => this.isStalled = v);
+      params.playerState.onkey('isPausing', v => this.isPausing = v);
+      params.playerState.onkey('isSeeking', v => this.isSeeking = v);
+      params.playerState.onkey('isStalled', v => this.isStalled = v);
      }
     get currentTime() {
       return this._currentTime;
@@ -2956,9 +2780,7 @@ util.addStyle(`
 
 export {
   VideoControlBar,
-  HeatMapModel,
-  HeatMapView,
-  HeatMap,
+  HeatMapWorker,
   CommentPreviewModel,
   CommentPreviewView,
   CommentPreview,
