@@ -111,6 +111,12 @@ class StoryboardBlockList {
     return this._view;
   }
 }
+css.registerProps(
+  {name: '--cell-width',  syntax: '<number>', initialValue: 160,   inherits: true},
+  {name: '--cell-height', syntax: '<number>', initialValue: 90,    inherits: true},
+  {name: '--board-width',  syntax: '<number>', initialValue: 1600, inherits: true},
+  {name: '--board-height', syntax: '<number>', initialValue: 900,  inherits: true},
+);
 
 
 class StoryboardView extends Emitter {

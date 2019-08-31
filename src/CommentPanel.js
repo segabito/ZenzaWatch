@@ -9,6 +9,7 @@ import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {css} from '../packages/lib/src/css/css';
 import {uq} from '../packages/lib/src/uQuery';
 import {Clipboard} from '../packages/lib/src/dom/Clipboard';
+import {cssUtil} from '../packages/lib/src/css/css';
 
 //===BEGIN===
 
@@ -201,6 +202,11 @@ class CommentListView extends Emitter {
 
     this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
     //this._appendNewItems = bounce.raf(this._appendNewItems.bind(this));
+    cssUtil.registerProps(
+      {name: '--current-time', syntax: '<time>', initialValue: '0s', inherits: true, window: w},
+      {name: '--scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      // {name: '--zenza-comment-panel-header-height',   syntax: '<number>', initialValue: 64, inherits: true}
+    );
 
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 

@@ -25,6 +25,7 @@ import {bounce} from '../packages/lib/src/infra/bounce';
 import {MylistApiLoader} from '../packages/lib/src/nico/MylistApiLoader';
 import {ThumbInfoLoader} from '../packages/lib/src/nico/ThumbInfoLoader';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
+import {css} from '../packages/lib/src/css/css';
 
 //===BEGIN===
 //@require ClassListWrapper
@@ -3523,6 +3524,11 @@ class VariablesMapper {
 
   constructor({config, element}){
     this.config = config;
+    css.registerProps(
+      {name: '--zenza-ui-scale',              syntax: '<number>', initialValue: 1,  inherits: true},
+      // {name: '--zenza-control-bar-height',    syntax: '<number>', initialValue: 48, inherits: true},
+      {name: '--zenza-comment-layer-opacity', syntax: '<number>', initialValue: 1,  inherits: true}
+    );
 
     this.state = {
       menuScale: 0,
@@ -3563,7 +3569,7 @@ class VariablesMapper {
     Object.assign(this.element.dataset, {fullscreenControlBarMode});
     if (state.scale !== menuScale) {
       this.setVar('--zenza-ui-scale', menuScale);
-      this.setVar('--zenza-control-bar-height', `${this.videoControlBarHeight}px`);
+      this.setVar('--zenza-control-bar-height', css.px(this.videoControlBarHeight));
     }
     if (state.commentLayerOpacity !== commentLayerOpacity) {
       this.setVar('--zenza-comment-layer-opacity', commentLayerOpacity);

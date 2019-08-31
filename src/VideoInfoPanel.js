@@ -838,6 +838,10 @@ _.assign(VideoInfoPanel.prototype, {
 
     view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
     ZenzaWatch.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
+    css.registerProps(
+      {name: '--sideview-left-margin', syntax: '<length>', initialValue: '0', inherits: true},
+      {name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
+    );
     MylistPocketDetector.detect().then(pocket => {
       this._pocket = pocket;
       view.classList.add('is-pocketReady');

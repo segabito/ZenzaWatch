@@ -11,6 +11,7 @@ import {VideoCaptureUtil} from '../../../lib/src/dom/VideoCaptureUtil';
 import {NicoChatCss3View} from './NicoChatCss3View';
 import {NicoChatViewModel} from './NicoChatViewModel';
 import {watchResize} from '../../../lib/src/dom/watchResize';
+import {cssUtil} from '../../../lib/src/css/css';
 //===BEGIN===
 /**
  * ニコニコ動画のコメントをCSS3アニメーションだけで再現出来るよ
@@ -106,6 +107,11 @@ class NicoCommentCss3PlayerView extends Emitter {
 
       this._window = win;
       this._document = doc;
+      cssUtil.registerProps(
+        {name: '--dokaben-scale',   syntax: '<number>', initialValue: 1, inherits: true, window: win},
+        // {name: '--transform-start', syntax: '<transform-list>', initialValue: 'scale(1, 1)', inherits: true, window: win},
+        // {name: '--transform-end',   syntax: '<transform-list>', initialValue: 'scale(1, 1)', inherits: true, window: win},
+      );
       this._optionStyle = doc.getElementById('optionCss');
       this._style = doc.getElementById('nicoChatAnimationDefinition');
       this._keyframesContainer = doc.getElementById('keyframesContainer');

@@ -4,6 +4,7 @@ import {CONSTANT} from './constant';
 import {NicoSearchApiV2Loader} from '../packages/lib/src/nico/VideoSearch';
 import {Emitter} from './baselib';
 import {RecommendAPILoader, UploadedVideoApiLoader} from './loader/api';
+import {cssUtil} from '../packages/lib/src/css/css';
 
 const MylistPocketDetector = {
   detect: () => { return Promise.resolve(); }
@@ -781,6 +782,10 @@ class VideoListView extends Emitter {
     if (this._className) {
       doc.body.classList.add(this._className);
     }
+    cssUtil.registerProps(
+      {name: '--list-length',  syntax: '<integer>', initialValue: 1, inherits: true, window: w},
+      {name: '--active-index', syntax: '<integer>', initialValue: 1, inherits: true, window: w},
+    );
 
     const container = this._container = doc.querySelector('#listContainer');
     const list = this._list = doc.getElementById('listContainerInner');
@@ -1078,9 +1083,9 @@ class VideoListView extends Emitter {
   }
   _updateCSSVars() {
     if (this._document) {
-      let body = this._document.body;
-      body.style.setProperty('--list-length', this._model.length);
-      body.style.setProperty('--active-index', this._model.activeIndex);
+      const body = this._document.body;
+      body.style.setProperty('--list-length', cssUtil.number(this._model.length));
+      body.style.setProperty('--active-index', cssUtil.number(this._model.activeIndex));
     }
   }
   _onClick(e) {
@@ -2719,6 +2724,7 @@ class Playlist extends VideoList {
   }
 
 }
+cssUtil.registerProps({name: '--progress', syntax: '<number>', initialValue: 1, inherits: false});
 
 //===END===
 

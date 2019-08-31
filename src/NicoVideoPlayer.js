@@ -5,6 +5,7 @@ import {YouTubeWrapper} from '../packages/zenza/src/videoPlayer/YouTubeWrapper';
 import {CONSTANT} from './constant';
 import {Emitter} from './baselib';
 import {NicoChatFilter} from '../packages/zenza/src/commentLayer/NicoChatFilter';
+import {cssUtil} from '../packages/lib/src/css/css';
 
 //===BEGIN===
 
@@ -478,9 +479,9 @@ class ContextMenu extends BaseViewComponent {
     this._onBeforeShow(x, y);
 
     view.style.left =
-      Math.max(0, Math.min(x, window.innerWidth - view.offsetWidth)) + 'px';
+      cssUtil.px(Math.max(0, Math.min(x, window.innerWidth - view.offsetWidth)));
     view.style.top =
-      Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)) + 'px';
+      cssUtil.px(Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)));
     this.setState({isOpen: true});
     global.emitter.emitAsync('showMenu');
   }

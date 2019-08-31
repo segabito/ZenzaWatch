@@ -8,6 +8,8 @@ import {bounce} from '../packages/lib/src/infra/bounce';
 import {HeatMapWorker} from '../packages/zenza/src/heatMap/HeatMapWorker';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {TextLabel} from '../packages/lib/src/ui/TextLabel';
+import {cssUtil} from '../packages/lib/src/css/css';
+
 //===BEGIN===
 
   class VideoControlBar extends Emitter {
@@ -1733,6 +1735,12 @@ util.addStyle(`
         .on('scroll',
         _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
+      cssUtil.registerProps(
+        {name: '--current-time', syntax: '<time>',   initialValue: '1s', inherits: true},
+        {name: '--scroll-top',   syntax: '<number>', initialValue: 0,   inherits: true},
+        {name: '--vpos',         syntax: '<number>', initialValue: 0,   inherits: true},
+        {name: '--duration',     syntax: '<time>',   initialValue: '1s', inherits: true},
+      );
       $parent.append($view);
     }
     set mode(v) {
@@ -1877,8 +1885,8 @@ util.addStyle(`
     }
     _applyView() {
       let view = this._view;
-      view.style.setProperty('--current-time', CSS.number ? CSS.number(this._currentTime) : this._currentTime);
-      view.style.setProperty('--scroll-top', CSS.number ? CSS.number(this._scrollTop) : this._scrollTop);
+      view.style.setProperty('--current-time', cssUtil.s(this._currentTime));
+      view.style.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
       if (this._newListElements) {
         this._list.append(this._newListElements);
         this._newListElements = null;
