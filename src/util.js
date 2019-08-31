@@ -85,7 +85,6 @@ Config.onkey('debug', v => console = v ? window.console : dummyConsole);
 
 //@require css
 Object.assign(util, css);
-
 //@require textUtil
 Object.assign(util, textUtil);
 
