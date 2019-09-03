@@ -143,13 +143,13 @@ SettingPanel.__css__ = (`
     display: block;
     position: absolute;
     left: 50%;
-    top: -100vh;
-    pointer-events: none;
-    transform: translate(-50%, -50%);
+    top: 50%;
+    transform: translate(-50%, -100vh);
     z-index: 170000;
     color: #fff;
-    transition: top 0.4s ease;
+    transition: transform 0.4s ease;
     will-change: transform;
+    pointer-events: none;
     user-select: none;
     overflow-y: hidden;
     outline: none;
@@ -162,7 +162,8 @@ SettingPanel.__css__ = (`
     width: 500px;
     height: 400px;
     opacity: 1;
-    top: 50vh;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
     overflow-y: scroll;
     overflow-x: hidden;
     overscroll-behavior: contain;

@@ -9,15 +9,15 @@ class CommentInputPanel extends Emitter {
     super();
 
     this._$playerContainer = params.$playerContainer;
-    this._playerConfig = params.playerConfig;
+    this.config = params.playerConfig;
 
     this._initializeDom();
 
-    this._playerConfig.onkey('autoPauseCommentInput', this._onAutoPauseCommentInputChange.bind(this));
+    this.config.onkey('autoPauseCommentInput', this._onAutoPauseCommentInputChange.bind(this));
   }
   _initializeDom() {
     let $container = this._$playerContainer;
-    let config = this._playerConfig;
+    let config = this.config;
 
     css.addStyle(CommentInputPanel.__css__);
     $container.append(uq.html(CommentInputPanel.__tpl__));
@@ -34,7 +34,7 @@ class CommentInputPanel extends Emitter {
         e.preventDefault();
         e.stopPropagation();
         this.emit('esc');
-        $input[0].blur();
+        e.target.blur();
       }
     };
 
@@ -56,7 +56,7 @@ class CommentInputPanel extends Emitter {
   }
   _onFocus() {
     if (!this._hasFocus) {
-      this.emit('focus', this.isAutoPause());
+      this.emit('focus', this.isAutoPause);
     }
     this._hasFocus = true;
   }
@@ -64,7 +64,7 @@ class CommentInputPanel extends Emitter {
     if (this._$commandInput.hasFocus() || this._$commentInput.hasFocus()) {
       return;
     }
-    this.emit('blur', this.isAutoPause());
+    this.emit('blur', this.isAutoPause);
 
     this._hasFocus = false;
   }
@@ -72,7 +72,7 @@ class CommentInputPanel extends Emitter {
     this.submit();
   }
   _onSubmitButtonClick() {
-    this._$form.submit();
+    this.submit();
   }
   _onAutoPauseCommentInputChange(val) {
     this._$autoPause.prop('checked', !!val);
@@ -80,6 +80,7 @@ class CommentInputPanel extends Emitter {
   submit() {
     let chat = this._$commentInput.val().trim();
     let cmd = this._$commandInput.val().trim();
+    window.console.log('submit', {chat, cmd});
     if (!chat.length) {
       return;
     }
@@ -94,8 +95,8 @@ class CommentInputPanel extends Emitter {
         .catch(() => $view.removeClass('updating'));
     }, 0);
   }
-  isAutoPause() {
-    return !!this._$autoPause.prop('checked');
+  get isAutoPause() {
+    return this.config.props.autoPauseCommentInput;
   }
   focus() {
     this._$commentInput.focus();

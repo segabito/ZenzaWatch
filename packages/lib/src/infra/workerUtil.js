@@ -165,8 +165,8 @@ const workerUtil = (() => {
       return String.raw(q, ...strargs);
     },
     env: params => {
-      ({config, TOKEN, PRODUCT, netUtil, CONSTANT} =
-        Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT}, params));
+      ({config, TOKEN, PRODUCT, netUtil, CONSTANT, global} =
+        Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT, global}, params));
 
       if (global) { ({config, TOKEN, PRODUCT, netUtil, CONSTANT} = global); }
     },
@@ -217,7 +217,6 @@ const workerUtil = (() => {
       const onMessage = async function(self, e) {
         const {body, sessionId, status} = e.data;
         const {command, params} = body;
-        // console.log('onMessage', sessionId, {body, status});
         try {
           let result = 'ok';
           let transfer = null;

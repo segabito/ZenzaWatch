@@ -315,7 +315,7 @@ class NicoVideoPlayer extends Emitter {
     if (!this._commentPlayer) {
       return;
     }
-    let nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
+    const nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
     console.log('addChat:', text, cmd, vpos, options, nicoChat);
     return nicoChat;
   }

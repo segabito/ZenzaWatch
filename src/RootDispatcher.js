@@ -39,7 +39,7 @@ const RootDispatcher = (() => {
           nicoUtil.openTweetWindow(playerState.videoInfo);
           break;
         case 'toggleConfig': {
-          config.props[params] = config.props[params];
+          config.props[params] = !config.props[params];
           break;
         }
         case 'picture-in-picture':

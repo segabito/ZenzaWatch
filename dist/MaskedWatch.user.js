@@ -9,48 +9,58 @@
 // @match       *://sp.nicovideo.jp/watch/*
 // @exclude     *://ads*.nicovideo.jp/*
 // @exclude     *://www.nicovideo.jp/favicon.ico*
-// @version     0.2.2
+// @version     0.3.0
 // @grant       none
 // @author      名無しさん
 // @license     public domain
 // ==/UserScript==
 /* eslint-disable */
 
-
 // chrome://flags/#enable-experimental-web-platform-features
+
+
+/**
+ * @typedf BoundingBox
+ * @property {number} x
+ * @property {number} y
+ * @property {number} width
+ * @property {number} height
+ * @property {'face'|'text'} type
+ */
+
+
 (() => {
   const PRODUCT = 'MaskedWatch';
 
   const monkey = (PRODUCT) => {
     'use strict';
-    var VER = '0.2.2';
+    var VER = '0.3.0';
     const ENV = 'STABLE';
 
     let ZenzaWatch = null;
 
     const DEFAULT_CONFIG = {
-      interval: 30,
+      interval: 300,
       enabled: true,
       debug: false,
       faceDetection: true,
       textDetection: !navigator.userAgent.toLowerCase().includes('windows'),
       fastMode: true,
-      width: 160,
-      height: 90,
-      tmpWidth: 640,
-      tmpHeight: 360,
+      tmpWidth: 854,
+      tmpHeight: 480,
     };
     const config = new class extends Function {
       toString() {
         return `
 *** CONFIG MENU (設定はサービスごとに保存) ***
-enabled: true,       // 有効/無効
-debug: false,        // デバッグON/OFF
-faceDetection: true, // 顔検出ON/OFF
-textDetection: true, // テキスト検出ON/OFF
-fastMode: false,     // false 精度重視 true 速度重視
-width: 160,          // マスク用キャンバスの横解像度
-height: 90           // マスク用キャンバスの縦解像度
+enabled: ${config.enabled},       // 有効/無効
+debug: ${config.debug},        // デバッグON/OFF
+faceDetection: ${config.faceDetection}, // 顔検出ON/OFF
+textDetection: ${config.textDetection}, // テキスト検出ON/OFF
+fastMode: ${config.fastMode},     // false 精度重視 true 速度重視
+tmpWidth: ${config.tmpWidth},      // 検出処理用キャンバスの横解像度
+tmpHeight: ${config.tmpHeight}        // 検出処理用キャンバスの縦解像度
+interval: ${config.interval}        // マスクの更新間隔
 `;
       }
     }, def = {};
@@ -89,72 +99,86 @@ height: 90           // マスク用キャンバスの縦解像度
       const url = URL.createObjectURL(blob);
       return new Worker(url, options);
     };
+const css = {
+	addStyle: (styles, option, document = window.document) => {
+		const elm = document.createElement('style');
+		elm.type = 'text/css';
+		if (typeof option === 'string') {
+			elm.id = option;
+		} else if (option) {
+			Object.assign(elm, option);
+		}
+		elm.classList.add(PRODUCT);
+		elm.append(styles.toString());
+		(document.head || document.body || document.documentElement).append(elm);
+		elm.disabled = option && option.disabled;
+		elm.dataset.switch = elm.disabled ? 'off' : 'on';
+		return elm;
+	},
+	registerProps(...args) {
+		if (!CSS || !('registerProperty' in CSS)) {
+			return;
+		}
+		for (const definition of args) {
+			try {
+				(definition.window || window).CSS.registerProperty(definition);
+			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+		}
+	},
+	addModule: async function(func, options = {}) {
+		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
+			return;
+		}
+		this.set.add(func);
+		const src =
+		`(${func.toString()})(
+			this,
+			registerPaint,
+			${JSON.stringify(options.config || {}, null, 2)}
+			);`;
+		const blob = new Blob([src], {type: 'text/javascript'});
+		const url = URL.createObjectURL(blob);
+		await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
+		return true;
+	}.bind({set: new WeakSet}),
+	number:  value => CSS.number  ? CSS.number(value) : value,
+	s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
+	ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
+	pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
+	px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
+	percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
+	vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
+	vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
+};
+const cssUtil = css;
 
     const 業務 = function(self) {
-      let canvas, ctx, fastMode, faceDetection, textDetection, debug, enabled;
+      let fastMode, faceDetection, textDetection, debug, enabled;
       const init = params => {
-        ({canvas} = params);
-        ctx = canvas.getContext('2d');
         updateConfig({config: params.config});
       };
 
       const updateConfig = ({config}) => {
         ({fastMode, faceDetection, textDetection, debug, enabled} = config);
-        canvas.width = config.width;
-        canvas.height = config.height;
-        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
         faceDetector = new (self || window).FaceDetector({fastMode});
-        textDetector = new (self || window).TextDetector({fastMode});
+        textDetector = new (self || window).TextDetector();
       };
 
       let faceDetector;
       let textDetector;
       const detect = async ({bitmap}) => {
-        const bitmapArea = bitmap.width * bitmap.height;
-        const r = bitmap.width / canvas.width;
-
         // debug && console.time('detect');
         const tasks = [];
         faceDetection && (tasks.push(faceDetector.detect(bitmap).catch(() => [])));
         textDetection && (tasks.push(textDetector.detect(bitmap).catch(() => [])));
         const detected = (await Promise.all(tasks)).flat();
-        // debug && console.timeLog('detect', 'detector.detect');
 
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        for (const d of detected) {
-          let {x, y , width, height} = d.boundingBox;
-          const area = width * height;
-          const opacity = area / bitmapArea * 0.3;
-          ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-
-          x /= r; y /= r; width /= r; height /= r;
-          if (d.landmarks) { // face
-            ctx.clearRect(x - 5, y  - 8, width + 10, height + 16);
-            ctx.fillRect (x - 5, y  - 8, width + 10, height + 16);
-          } else {           // text
-            ctx.clearRect(x - 5, y  - 2, width + 10, height +  4);
-            ctx.fillRect (x - 5, y  - 2, width + 10, height +  4);
-          }
-          debug && d.rawValue && console.log('text: ', d.rawValue);
-        }
-        // debug && console.timeLog('detect', 'draw');
-
-        const dataURL = await toDataURL(canvas);
-        // debug && console.timeEnd('detect');
-        return dataURL;
-      };
-
-      const reader = new FileReader();
-      const toDataURL = async (canvas, type = 'image/png') => {
-        const blob = await canvas.convertToBlob({type});
-        return new Promise((ok, ng) => {
-          reader.onload = () => { ok(reader.result); };
-          reader.onerror = ng;
-          reader.readAsDataURL(blob);
+        const boxes = detected.map(d => {
+          const {x, y , width, height} = d.boundingBox;
+          return {x, y , width, height, type: d.landmarks ? 'face' : 'text'};
         });
+        // debug && console.timeEnd('detect');
+        return {boxes};
       };
 
       self.onmessage = async e => {
@@ -169,8 +193,8 @@ height: 90           // マスク用キャンバスの縦解像度
               updateConfig(params);
               break;
             case 'detect': {
-              const dataURL = await detect(params);
-              self.postMessage({body: {command: 'data', params: {dataURL}, status: 'ok'}});
+              const {dataURL, boxes} = await detect(params);
+              self.postMessage({body: {command: 'data', params: {dataURL, boxes}, status: 'ok'}});
             }
               break;
           }
@@ -180,37 +204,94 @@ height: 90           // マスク用キャンバスの縦解像度
       };
     };
 
-    const createDetector = ({video, layer, interval, type}) => {
-      const worker = createWorker(業務, {name: 'Facelook'});
-      const width = config.tmpWidth, height = config.tmpHeight;
-      const transferCanvas = new OffscreenCanvas(width, height);
-      const ctx = transferCanvas.getContext('2d', {alpha: false});
+    const 下請 = function(self, registerPaint, config) {
+      registerPaint('塗装', class {
+        static get inputProperties() {
+          return ['--json-args', '--config'];
+        }
+        paint(ctx, {width, height}, props) {
+          const args   = JSON.parse(props.get('--json-args').toString() || '{}');
+          const config = JSON.parse(props.get('--config').toString() || '{}');
 
-      const workCanvas = document.createElement('canvas');
+          ctx.beginPath();
+          ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+          ctx.fillRect(0, 0, width, height);
+          if (!args.history || !config.enabled) {
+            return;
+          }
+
+          const ratio = Math.min(width / config.tmpWidth, height / config.tmpHeight);
+          const transX = (width  - (config.tmpWidth  * ratio)) / 2;
+          const transY = (height - (config.tmpHeight * ratio)) / 2;
+          const tmpArea = (config.tmpWidth  * ratio) * (config.tmpHeight * ratio);
+
+
+          /** @type {(BoundingBox[])[]} */
+          const history = args.history;
+          for (const boxes of history) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            for (const box of boxes) {
+              let {x, y , width, height, type} = box;
+              const area = width * height;
+              const opacity = area / tmpArea * 0.3;
+              ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+
+              x = x * ratio + transX;
+              y = y * ratio + transY;
+              width  *= ratio;
+              height *= ratio;
+              if (type === 'face') {
+                const mx = 16 * ratio, my = 24 * ratio; // margin
+                ctx.clearRect(x - mx, y  - my, width + mx * 2, height + my * 2);
+                ctx.fillRect (x - mx, y  - my, width + mx * 2, height + my * 2);
+              } else {
+                const mx = 16 * ratio, my = 16 * ratio; // margin
+                ctx.clearRect(x - mx, y  - my, width + mx * 2, height + my * 2);
+                ctx.fillRect (x - mx, y  - my, width + mx * 2, height + my * 2);
+              }
+            }
+          }
+        }
+      });
+    };
+
+    const createDetector = async ({video, layer, interval, type}) => {
+      const worker = createWorker(業務, {name: 'Facelook'});
+      await css.addModule(下請, {config: {...config}});
+      const transferCanvas = new OffscreenCanvas(config.tmpWidth, config.tmpHeight);
+      const ctx = transferCanvas.getContext('2d', {alpha: false, desynchronized: true});
+      const debugLayer = document.createElement('div');
+      [layer, debugLayer].forEach(layer => {
+        layer.style.setProperty('--config', JSON.stringify({...config}));
+        layer.style.setProperty('--json-args', '{}');
+      });
+      'maskImage' in layer.style ?
+        (layer.style.maskImage = 'paint(塗装)') :
+        (layer.style.webkitMaskImage = 'paint(塗装)');
+
       // for debug
-      Object.assign(workCanvas.style, {
+      Object.assign(debugLayer.style, {
         border: '1px solid #888',
         left: 0,
         bottom: '48px',
         position: 'fixed',
         zIndex: '100000',
-        width: `${config.width}px`,
-        height: `${config.height}px`,
+        width: '160px',
+        height: '90px',
         opacity: 0.5,
         background: '#333',
         pointerEvents: 'none',
         userSelect: 'none'
       });
-      workCanvas.classList.add('zen-family');
-      workCanvas.dataset.type = type;
-      config.debug && document.body.append(workCanvas);
-      const offscreenCanvas = workCanvas.transferControlToOffscreen();
-      worker.postMessage({body:
-        {command: 'init', params: {canvas: offscreenCanvas, config: {...config}}}
-      }, [offscreenCanvas]);
-      let currentTime = video.currentTime;
+      debugLayer.classList.add('zen-family');
+      debugLayer.dataset.type = type;
+      debugLayer.style.backgroundImage = 'paint(塗装)';
+      config.debug && document.body.append(debugLayer);
+      worker.postMessage({body: {command: 'init', params: {config: {...config}}}});
 
-      let isBusy = true;
+      let isBusy = true, currentTime = video.currentTime, boxHistory = [];
       worker.addEventListener('message', e => {
         const {command, params} = e.data.body;
         switch (command) {
@@ -221,9 +302,16 @@ height: 90           // マスク用キャンバスの縦解像度
           case 'data': {
             isBusy = false;
             if (!config.enabled) { return; }
-            const url = `url('${params.dataURL}')`;
-            layer.style.maskImage = url;
-            layer.style.webkitMaskImage = url;
+            /** @type {BoundingBox[]} */
+            const boxes = params.boxes;
+            boxHistory.push(boxes);
+            while (boxHistory.length > 5) { boxHistory.shift(); }
+            const arg = JSON.stringify({
+              tmpWidth: config.tmpWidth, tmpHeight: config.tmpHeight,
+              history: boxHistory
+            });
+            layer.style.setProperty('--json-args', arg);
+            config.debug && debugLayer.style.setProperty('--json-args', arg);
           }
           break;
         }
@@ -238,10 +326,15 @@ height: 90           // マスク用キャンバスの縦解像度
 
         currentTime = video.currentTime;
         const vw = video.videoWidth, vh = video.videoHeight;
-        const ratio = Math.min(width / vw, height / vh);
+        const tmpWidth = config.tmpWidth, tmpHeight = config.tmpHeight;
+        const ratio = Math.min(tmpWidth / vw, tmpHeight / vh);
         const dw = vw * ratio, dh = vh * ratio;
-
-        ctx.drawImage(video, (width - dw) / 2, (height - dh) / 2, dw, dh);
+        ctx.beginPath();
+        ctx.drawImage(
+          video,
+          0, 0, vw, vh,
+          (tmpWidth - dw) / 2, (tmpHeight - dh) / 2, dw, dh
+        );
         const bitmap = transferCanvas.transferToImageBitmap();
         isBusy = true;
         worker.postMessage({body: {command: 'detect', params: {bitmap}}}, [bitmap]);
@@ -249,21 +342,19 @@ height: 90           // マスク用キャンバスの縦解像度
       let timer = setInterval(onTimer, interval);
 
       const start = () => timer = setInterval(onTimer, interval);
-      const stop = () => {
-        timer = clearInterval(timer);
-        layer.style.maskImage = '';
-        layer.style.webkitMaskImage = '';
-      };
+      const stop = () => timer = clearInterval(timer);
 
       window.addEventListener(`${PRODUCT}-config.update`, e => {
         worker.postMessage({body: {command: 'config', params: {config: {...config}}}});
         const {key, value} = e.detail;
+        layer.style.setProperty('--config', JSON.stringify({...config}));
+        debugLayer.style.setProperty('--config', JSON.stringify({...config}));
         switch (key) {
           case 'enabled':
             value ? start() : stop();
             break;
           case 'debug':
-            value ? document.body.append(workCanvas) : workCanvas.remove();
+            value ? document.body.append(debugLayer) : debugLayer.remove();
             break;
           case 'tmpWidth':
             transferCanvas.width = value;
@@ -602,6 +693,10 @@ height: 90           // マスク用キャンバスの縦解像度
     };
 
     const init = () => {
+      css.registerProps(
+        {name: '--json-args', syntax: '*', initialValue: '{}', inherits: false },
+        {name: '--config',    syntax: '*', initialValue: '{}', inherits: false }
+      );
       timer = setInterval(watch, 1000);
 
       document.body.append(dialog);

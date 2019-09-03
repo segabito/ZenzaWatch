@@ -47,19 +47,15 @@ class NicoCommentCss3PlayerView extends Emitter {
     this._initializeView(params, 0);
 
     this._config = Config.namespace('commentLayer');
-    this._gcFragment = document.createElement('div');
-    this._gcFragment.hidden = true;
 
-    let _refresh = this.refresh.bind(this);
-
-    this.fragment = document.createDocumentFragment();
     this._updateDom = bounce.raf(this._updateDom.bind(this));
 
     // ウィンドウが非表示の時にブラウザが描画をサボっているので、
     // 表示になったタイミングで粛正する
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        _refresh();
+      if (document.visibilityState === 'visible') {
+        this.refresh();
+        this.onResize();
       }
     });
     global.debug.css3Player = this;
@@ -69,15 +65,15 @@ class NicoCommentCss3PlayerView extends Emitter {
       window.console.time('initialize NicoCommentCss3PlayerView');
     }
     this._style = null;
-    this._commentLayer = null;
+    this.commentLayer = null;
     this._view = null;
-    let iframe = this._getIframe();
+    const iframe = this._getIframe();
     iframe.loading = 'eager';
     iframe.setAttribute('sandbox', 'allow-same-origin');
 
     iframe.className = 'commentLayerFrame';
 
-    let html =
+    const html =
       NicoCommentCss3PlayerView.__TPL__
         .replace('%CSS%', '').replace('%MSG%', '')
         .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
@@ -131,11 +127,11 @@ class NicoCommentCss3PlayerView extends Emitter {
       Config.onkey('debug', v => doc.body.classList.toggle('debug', v));
       // 手抜きその2
       this._optionStyle.innerHTML = NicoComment.offscreenLayer.optionCss;
-      ZenzaWatch.emitter.on('updateOptionCss', newCss => {
+      global.emitter.on('updateOptionCss', newCss => {
         this._optionStyle.innerHTML = newCss;
       });
 
-      ZenzaWatch.debug.getInViewElements = () => doc.getElementsByClassName('nicoChat');
+      global.debug.getInViewElements = () => doc.getElementsByClassName('nicoChat');
 
       const onResize = () => {
         const w = win.innerWidth, h = win.innerHeight;
@@ -153,16 +149,11 @@ class NicoCommentCss3PlayerView extends Emitter {
           window.setTimeout(chkSizeInit, 500);
         } else {
           watchResize(iframe, _.throttle(onResize, 100));
-          this._onResize = onResize;
+          this.onResize = onResize;
           onResize();
         }
       };
       ZenzaWatch.emitter.on('fullscreenStatusChange', _.debounce(onResize, 2000));
-      document.addEventListener('visibilitychange', _.debounce(() => {
-        if (!document.hidden) {
-          onResize();
-        }
-      }, 500));
       window.setTimeout(chkSizeInit, 100);
 
       if (this._isPaused) {
@@ -175,41 +166,6 @@ class NicoCommentCss3PlayerView extends Emitter {
       };
       updateTextShadow(this._config.getValue('textShadowType'));
       this._config.onkey('textShadowType', _.debounce(updateTextShadow, 100));
-
-      global.debug.nicoVideoCapture = () => {
-        const html = this.getCurrentScreenHtml();
-        const video = document.querySelector('video.nico');
-
-        return VideoCaptureUtil.nicoVideoToCanvas({video, html})
-          .then(({canvas, img}) => {
-            canvas.style.border = '2px solid blue';
-            canvas.className = 'debugCapture';
-            canvas.addEventListener('click', () => {
-              VideoCaptureUtil.saveToFile(canvas, 'sample.png');
-            });
-            document.body.append(canvas);
-            window.console.log('ok', canvas);
-            return Promise.resolve({canvas, img});
-          }, err => {
-            sessionStorage.lastCaptureErrorSrc = html;
-            window.console.error('!', err);
-            return Promise.reject(err);
-          });
-      };
-
-      global.debug.svgTest = () => {
-        const svg = this.getCurrentScreenSvg();
-        const blob = new Blob([svg], {'type': 'text/plain'});
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.setAttribute('download', 'test.svg');
-        a.setAttribute('target', '_blank');
-        a.setAttribute('rel', 'noopener');
-        a.setAttribute('href', url);
-        document.body.append(a);
-        a.click();
-        window.setTimeout(() => a.remove(), 1000);
-      };
 
       window.console.timeEnd('initialize NicoCommentCss3PlayerView');
     };
@@ -276,8 +232,8 @@ class NicoCommentCss3PlayerView extends Emitter {
     if (!this._view) {
       return;
     }
-    if (typeof this._onResize === 'function') {
-      return this._onResize();
+    if (typeof this.onResize === 'function') {
+      return this.onResize();
     }
   }
   getView () {
@@ -286,7 +242,7 @@ class NicoCommentCss3PlayerView extends Emitter {
   set playbackRate (playbackRate) {
     // let isSpeedUp = this._playbackRate < playbackRate;
     this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
-    if (!Config.getValue('autoCommentSpeedRate') || this._playbackRate <= 1) {
+    if (!Config.props.autoCommentSpeedRate || this._playbackRate <= 1) {
       this.refresh();
     }
   }
@@ -318,49 +274,48 @@ class NicoCommentCss3PlayerView extends Emitter {
     }
   }
   _addClass (name) {
-    if (!this._commentLayer) {
+    if (!this.commentLayer) {
       return;
     }
-    this._commentLayer.classList.add(name);
+    this.commentLayer.classList.add(name);
   }
   _removeClass (name) {
-    if (!this._commentLayer) {
+    if (!this.commentLayer) {
       return;
     }
-    this._commentLayer.classList.remove(name);
+    this.commentLayer.classList.remove(name);
   }
   _setStall (v) {
     if (v) {
       this._addClass('is-stalled');
-    }
-    else {
+    } else {
       this._removeClass('is-stalled');
     }
   }
   pause () {
-    if (this._commentLayer) {
+    if (this.commentLayer) {
       this._addClass('paused');
     }
     this._isPaused = true;
   }
   play () {
-    if (this._commentLayer) {
+    if (this.commentLayer) {
       this._removeClass('paused');
     }
     this._isPaused = false;
   }
   clear () {
-    if (this._commentLayer) {
-      this._commentLayer.textContent = '';
-      this._subLayer.textContent = '';
-      this._commentLayer.append(this._subLayer);
+    if (this.commentLayer) {
+      this.commentLayer.textContent = '';
+      this.subLayer.textContent = '';
+      this.commentLayer.append(this.subLayer);
       this._gcFragment.textContent = '';
       this._keyframesContainer.textContent = '';
+      this.fragment.textContent = '';
     }
     if (this._style) {
       this._style.textContent = '';
     }
-    this.fragment.textContent = '';
 
     this._inViewTable.clear();
     this._inSlotTable.clear();
@@ -371,7 +326,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     this._updateInviewElements();
   }
   _updateInviewElements () {
-    if (!this._commentLayer || !this._style || !this._isShow || document.hidden) {
+    if (!this.commentLayer || !this._style || !this._isShow || document.hidden) {
       return;
     }
 
@@ -383,17 +338,12 @@ class NicoCommentCss3PlayerView extends Emitter {
     ].flat();
 
     const css = [], dom = [], subDom = [];
-    // // 表示状態にあるchatを集める
-    // for (i = 0, len = groups.length; i < len; i++) {
-    //   let group = groups[i];
-    //   inView = inView.concat(group.inViewMembers);
-    // }
 
     const ct = this._currentTime;
     const newView = [];
     for (let i = 0, len = inView.length; i < len; i++) {
       const nicoChat = inView[i];
-      let domId = nicoChat.id;
+      const domId = nicoChat.id;
       if (this._inViewTable.has(domId)) {
         continue;
       }
@@ -411,12 +361,9 @@ class NicoCommentCss3PlayerView extends Emitter {
       const type = nicoChat.type;
       const size = nicoChat.size;
       const cssText = NicoChatCss3View.buildChatCss(nicoChat, type, ct, this._playbackRate);
-      const element = NicoChatCss3View.buildChatDom(nicoChat, type, size, cssText);
+      const element = NicoChatCss3View.buildChatDom(nicoChat, type, size, cssText, this.document);
       this._domTable.set(nicoChat.id, element);
       (nicoChat.isSubThread ? subDom : dom).push(element);
-      // if (cssText.keyframes) {
-      //   css.push(cssText.keyframes);
-      // }
     }
 
     // DOMへの追加
@@ -440,50 +387,47 @@ class NicoCommentCss3PlayerView extends Emitter {
     const fragment = this.fragment;
     if (dom.length) {
       fragment.append(...dom);
-      this._commentLayer.append(fragment);
+      this.commentLayer.append(fragment);
     }
     if (subDom.length) {
       fragment.append(...subDom);
-      this._subLayer.append(fragment);
+      this.subLayer.append(fragment);
     }
     this._removeOutviewElements(outViewIds);
     this._gcInviewElements();
   }
   /*
-     * アニメーションが終わっているはずの要素を除去
-     */
+  * アニメーションが終わっているはずの要素を除去
+  */
   _removeOutviewElements(outViewIds) {
-    if (!this._document || !outViewIds.length) {
+    if (!this.document || !outViewIds.length) {
       return;
     }
-    // const doc = this._document;
     const dt = this._domTable;
     const elements = [];
     for (const id of outViewIds) {
       const elm = dt.get(id);
       elm && (elements.push(elm));
     }
-    // let elements =
-    //   outViewIds.map(id => doc.getElementById(id)).filter(e => e);
     if (elements.length < 1) { return; }
     const fragment = this.fragment;
     fragment.append(...elements);
     this._gcFragment.append(fragment);
   }
   /*
-     * 古い順に要素を除去していく
-     */
+  * 古い順に要素を除去していく
+  */
   _gcInviewElements (/*outViewIds*/) {
-    if (!this._commentLayer || !this._style) {
+    if (!this.commentLayer || !this._style) {
       return;
     }
 
     const max = NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT;
 
-    const commentLayer = this._commentLayer;
+    const commentLayer = this.commentLayer;
     let inViewElements;
     const elements = [];
-    inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
+    inViewElements = this.window.Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
     for (let i = inViewElements.length - max - 1; i >= 0; i--) {
       elements.push(inViewElements[i]);
     }
@@ -508,23 +452,10 @@ class NicoCommentCss3PlayerView extends Emitter {
       vm.getGroup(NicoChat.TYPE.TOP).members
     ].flat();
 
-    // let groups = [
-    //   this._viewModel.getGroup(NicoChat.TYPE.NAKA),
-    //   this._viewModel.getGroup(NicoChat.TYPE.BOTTOM),
-    //   this._viewModel.getGroup(NicoChat.TYPE.TOP)
-    // ];
-
-    // let members = [];
-    // for (let i = 0; i < groups.length; i++) {
-    //   let group = groups[i];
-    //   members = members.concat(group.members);
-    // }
-
     members.sort(NicoChat.SORT_FUNCTION);
 
     const html = [];
     html.push(this._buildGroupHtml(members, currentTime));
-    // css.push(this._buildGroupCss(members, currentTime));
 
     const tpl = NicoCommentCss3PlayerView.__TPL__
       .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
@@ -536,16 +467,13 @@ class NicoCommentCss3PlayerView extends Emitter {
     return tpl;
   }
   _buildGroupHtml (m, currentTime = 0) {
-    let result = [];
+    const result = [];
 
     for (let i = 0, len = m.length; i < len; i++) {
       let chat = m[i];
       let type = chat.type;
       let cssText = NicoChatCss3View.buildChatCss(chat, type, currentTime);
-      let element = NicoChatCss3View.buildChatHtml(chat, type, cssText);
-      // if (cssText.keyframes) {
-      //   result.push(`<style>${cssText.keyframes}</style>`);
-      // }
+      let element = NicoChatCss3View.buildChatHtml(chat, type, cssText, this.document);
       result.push(element);
     }
     return result.join('\n');
@@ -589,7 +517,7 @@ class NicoCommentCss3PlayerView extends Emitter {
   }
 
   getCurrentScreenHtml () {
-    const win = this._window;
+    const win = this.window;
     if (!win) {
       return null;
     }
@@ -607,7 +535,7 @@ class NicoCommentCss3PlayerView extends Emitter {
   }
 
   getCurrentScreenSvg () {
-    const win = this._window;
+    const win = this.window;
     if (!win) {
       return null;
     }
@@ -755,6 +683,22 @@ body.in-capture .commentLayer {
   }
   100% {
     transform: var(--transform-end);
+  }
+}
+@keyframes idou-props {
+  0%   {
+    visibility: visible;
+    transform:
+      translate(0, 0)
+      scale(var(--chat-scale-x), var(--chat-scale-y))
+      translateY(var(--chat-trans-y));
+  }
+  100% {
+    visibility: hidden;
+    transform:
+      translateX(var(--chat-trans-x))
+      scale(var(--chat-scale-x), var(--chat-scale-y))
+      translateY(var(--chat-trans-y));
   }
 }
 

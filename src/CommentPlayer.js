@@ -105,7 +105,7 @@ class NicoCommentPlayer extends Emitter {
     if (typeof vpos !== 'number') {
       vpos = this.vpos;
     }
-    let nicoChat = NicoChat.create(Object.assign({text, cmd, vpos}, options));
+    const nicoChat = NicoChat.create(Object.assign({text, cmd, vpos}, options));
     this._model.addChat(nicoChat);
 
     return nicoChat;

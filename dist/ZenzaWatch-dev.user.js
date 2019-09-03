@@ -1230,9 +1230,9 @@ const uQuery = (() => {
 					continue;
 				}
 				if (v === undef) {
-					return elm.getAttribute('value');
+					return elm.value;
 				} else {
-					elm.setAttribute('value', v);
+					elm.value = v;
 				}
 			}
 			return v === undef ? '' : this;
@@ -1590,7 +1590,7 @@ CONSTANT.COMMON_CSS = `
 		display: inherit;
 	}
 	.scalingUI {
-		transform: scale(var(--zenza-ui-scale, 1));
+		transform: scale(var(--zenza-ui-scale));
 	}
 `.trim();
 CONSTANT.SCROLLBAR_CSS = `
@@ -1816,14 +1816,48 @@ const css = {
 			Object.assign(elm, option);
 		}
 		elm.classList.add(PRODUCT);
-		const text = document.createTextNode(styles.toString());
-		elm.appendChild(text);
+		elm.append(styles.toString());
 		(document.head || document.body || document.documentElement).append(elm);
 		elm.disabled = option && option.disabled;
 		elm.dataset.switch = elm.disabled ? 'off' : 'on';
 		return elm;
-	}
+	},
+	registerProps(...args) {
+		if (!CSS || !('registerProperty' in CSS)) {
+			return;
+		}
+		for (const definition of args) {
+			try {
+				(definition.window || window).CSS.registerProperty(definition);
+			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+		}
+	},
+	addModule: async function(func, options = {}) {
+		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
+			return;
+		}
+		this.set.add(func);
+		const src =
+		`(${func.toString()})(
+			this,
+			registerPaint,
+			${JSON.stringify(options.config || {}, null, 2)}
+			);`;
+		const blob = new Blob([src], {type: 'text/javascript'});
+		const url = URL.createObjectURL(blob);
+		await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
+		return true;
+	}.bind({set: new WeakSet}),
+	number:  value => CSS.number  ? CSS.number(value) : value,
+	s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
+	ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
+	pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
+	px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
+	percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
+	vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
+	vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
 };
+const cssUtil = css;
 Object.assign(util, css);
 const textUtil = {
 	secToTime: sec => {
@@ -4055,13 +4089,13 @@ const {VideoItemElement, VideoItemProps} = (() => {
 				position: absolute;
 				top: 0;
 				left: 0;
-				width: 100%;
-				height: 100%;
+				width: 96px;
+				height: 72px;
 				object-fit: contain;
 			}
 			.thumbnailContainer a {
 				display: inline-block;
-				width:  100%;
+				width:  96px;
 				height: 72px;
 				transition: box-shaow 0.4s ease, transform 0.4s ease;
 			}
@@ -4335,14 +4369,14 @@ const {VideoSeriesProps, VideoSeriesLabel} = (() => {
 			.thumbnailContainer {
 				position: relative;
 				background-color: black;
-				height: ${ITEM_HEIGHT - 8}px;
+				height: ${ITEM_HEIGHT - 16}px;
 			}
 			.thumbnail {
 				position: absolute;
 				top: 0;
 				left: 0;
-				width: 100%;
-				height: 100%;
+				width: ${THUMBNAIL_WIDTH}px;
+				height: ${ITEM_HEIGHT - 16}px;
 				object-fit: cover;
 				filter: sepia(100%);
 			}
@@ -7126,9 +7160,9 @@ const {ThreadLoader} = (() => {
 					t.userkey = msgInfo.userKey;
 				}
 				if (t.fork || thread.isLeafRequired === false) { // 投稿者コメントなど
-					packets.push({thread: Object.assign({with_blobal: 1, version: VERSION_OLD, res_from: -1000}, t)});
+					packets.push({thread: Object.assign({with_global: 1, version: VERSION_OLD, res_from: -1000}, t)});
 				} else {
-					packets.push({thread: Object.assign({with_blobal: 1, version: VERSION}, t)});
+					packets.push({thread: Object.assign({with_global: 1, version: VERSION}, t)});
 					packets.push({thread_leaves: Object.assign({content: leafContent}, t)});
 				}
 			});
@@ -7876,7 +7910,7 @@ class NicoVideoPlayer extends Emitter {
 		if (!this._commentPlayer) {
 			return;
 		}
-		let nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
+		const nicoChat = this._commentPlayer.addChat(text, cmd, vpos, options);
 		console.log('addChat:', text, cmd, vpos, options, nicoChat);
 		return nicoChat;
 	}
@@ -8012,9 +8046,9 @@ class ContextMenu extends BaseViewComponent {
 		const view = this._view;
 		this._onBeforeShow(x, y);
 		view.style.left =
-			Math.max(0, Math.min(x, window.innerWidth - view.offsetWidth)) + 'px';
+			cssUtil.px(Math.max(0, Math.min(x, window.innerWidth - view.offsetWidth)));
 		view.style.top =
-			Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)) + 'px';
+			cssUtil.px(Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)));
 		this.setState({isOpen: true});
 		global.emitter.emitAsync('showMenu');
 	}
@@ -9258,6 +9292,12 @@ class StoryboardBlockList {
 		return this._view;
 	}
 }
+css.registerProps(
+	{name: '--cell-width',  syntax: '<length>', initialValue: '160px',   inherits: true},
+	{name: '--cell-height', syntax: '<length>', initialValue: '90px',    inherits: true},
+	{name: '--board-width',  syntax: '<length>', initialValue: '1600px', inherits: true},
+	{name: '--board-height', syntax: '<length>', initialValue: '900px',  inherits: true},
+);
 class StoryboardView extends Emitter {
 	constructor(...args) {
 		super();
@@ -10005,7 +10045,7 @@ const StoryboardWorker = (() => {
 				this._currentTime = -1;
 				this._info = new StoryboardModel(info);
 				this.lastPos = {};
-				this.ctx = canvas.getContext('2d', {alpha: false});
+				this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
 				this.images = ImageCacheMap;
 				this.cls();
 			}
@@ -10647,8 +10687,8 @@ class Storyboard extends Emitter {
 		set duration(sec) {
 			if (sec === this._duration) { return; }
 			this._duration = sec;
-			this._pointer.duration = sec;
 			this._pointer.currentTime = -1;
+			this._pointer.duration = sec;
 			this._wheelSeeker.duration = sec;
 			this._seekRange.max = sec;
 			if (sec === 0 || isNaN(sec)) {
@@ -10673,8 +10713,8 @@ class Storyboard extends Emitter {
 								this._bufferEnd   !== end) {
 							const perLeft = (this._timeToPer(start) - 1);
 							const scaleX = (this._timeToPer(width) + 2) / 100;
-							bufferRange.style.transform =
-								`translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`;
+							bufferRange.style.setProperty('--buffer-range-left', cssUtil.percent(perLeft));
+							bufferRange.style.setProperty('--buffer-range-scale', scaleX);
 							this._bufferStart = start;
 							this._bufferEnd   = end;
 						}
@@ -10686,7 +10726,7 @@ class Storyboard extends Emitter {
 		resetBufferedRange() {
 			this._bufferStart = 0;
 			this._bufferEnd = 0;
-			this._bufferRange.style.transform = 'scaleX(0)';
+			this._bufferRange.style.setProperty('--buffer-range-scale', 0);
 		}
 		_hideMenu() {
 			document.body.focus();
@@ -10967,6 +11007,8 @@ util.addStyle(`
 	}
 	.bufferRange {
 		position: absolute;
+		--buffer-range-left: 0;
+		--buffer-range-scale: 0;
 		width: 100%;
 		height: 110%;
 		left: 0px;
@@ -10975,7 +11017,9 @@ util.addStyle(`
 		z-index: 190;
 		background: #ff9;
 		transform-origin: left;
-		transform: translate3d(0, 0, 0) scaleX(0);
+		transform:
+			translateX(var(--buffer-range-left))
+			scaleX(var(--buffer-range-scale));
 		transition: transform 0.2s;
 		mix-blend-mode: overlay;
 		will-change: transform, opacity;
@@ -11769,7 +11813,7 @@ class HeatMapView {
 		if (!this.canvas) {
 			this.canvas = this.container.querySelector('canvas.heatMap');
 		}
-		this.context = this.canvas.getContext('2d', {alpha: false});
+		this.context = this.canvas.getContext('2d', {alpha: false, desynchronized: true});
 		this.width = this.canvas.width;
 		this.height = this.canvas.height;
 		this.reset();
@@ -12047,6 +12091,14 @@ const HeatMap = HeatMapInitFunc({
 				.on('wheel', e => e.stopPropagation(), {passive: true})
 				.on('scroll',
 				_.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
+			cssUtil.registerProps(
+				{name: '--current-time', syntax: '<time>',   initialValue: '1s', inherits: true},
+				{name: '--scroll-top',   syntax: '<length>', initialValue: '0px',inherits: true},
+				{name: '--vpos-time',    syntax: '<time>',   initialValue: '1s', inherits: true},
+				{name: '--duration',     syntax: '<time>',   initialValue: '4s', inherits: true},
+				{name: '--buffer-range-left', syntax: '<percentage>', initialValue: '0%',inherits: false},
+				{name: '--buffer-range-scale', syntax: '<number>', initialValue: 0, inherits: false},
+			);
 			$parent.append($view);
 		}
 		set mode(v) {
@@ -12177,8 +12229,8 @@ const HeatMap = HeatMapInitFunc({
 		}
 		_applyView() {
 			let view = this._view;
-			view.style.setProperty('--current-time', CSS.number ? CSS.number(this._currentTime) : this._currentTime);
-			view.style.setProperty('--scroll-top', CSS.number ? CSS.number(this._scrollTop) : this._scrollTop);
+			view.style.setProperty('--current-time', cssUtil.s(this._currentTime));
+			view.style.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
 			if (this._newListElements) {
 				this._list.append(this._newListElements);
 				this._newListElements = null;
@@ -12243,8 +12295,8 @@ const HeatMap = HeatMapInitFunc({
 			t.text.textContent = text;
 			t.chat.style.cssText = `
 				top: ${idx * itemHeight}px;
-				--duration: ${chat.duration};
-				--vpos: ${chat.vpos}
+				--duration: ${chat.duration}s;
+				--vpos-time: ${chat.vpos / 100}s;
 			`;
 			return t.clone().firstElementChild;
 		}
@@ -12317,8 +12369,8 @@ util.addStyle(`
 		white-space: nowrap;
 		text-overflow: ellipsis;
 		overflow: hidden;
-		animation-duration: calc(var(--duration) * 1s);
-		animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
+		animation-duration: var(--duration);
+		animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
 		animation-name: preview-text-inview;
 		animation-timing-function: linear;
 		animation-play-state: paused !important;
@@ -12433,8 +12485,8 @@ util.addStyle(`
 		transform: translateX(260px);
 		visibility: hidden;
 		will-change: transform;
-		animation-duration: calc(var(--duration) * 1s);
-		animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
+		animation-duration: var(--duration);
+		animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
 		animation-play-state: paused !important;
 		animation-name: preview-text-moving;
 		animation-timing-function: linear;
@@ -12568,19 +12620,23 @@ util.addStyle(`
 			util.dispatchCommand(this._$view[0], this._repeatCommand, this._repeatParam);
 		}
 		update(sec, left) {
-			let timeText = util.secToTime(sec);
+			const timeText = util.secToTime(sec);
 			if (this._timeText === timeText) { return; }
 			this._timeText = timeText;
 			this.currentTimeLabel && (this.currentTimeLabel.text = timeText);
-			let w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
-			let vw = window.innerWidth;
+			const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
+			const vw = window.innerWidth;
 			left = Math.max(0, Math.min(left - w / 2, vw - w));
-			this._$view.css('transform', `translate3d(${left}px, 0, 10px)`);
+			this._$view[0].style.setProperty('--seekbar-tooltip-left', cssUtil.px(left));
 			this._seekBarThumbnail.currentTime=sec;
 		}
 	}
+	cssUtil.registerProps(
+		{name: '--seekbar-tooltip-left',   syntax: '<length>', initialValue: '0px', inherits: false}
+	);
 	SeekBarToolTip.__css__ = (`
 		.seekBarToolTip {
+			--seekbar-tooltip-left: 0px;
 			position: absolute;
 			display: inline-block;
 			visibility: hidden;
@@ -12598,8 +12654,8 @@ util.addStyle(`
 			border: 1px solid #666;
 			border-radius: 8px;
 			padding: 8px 4px 0;
-			transform: translate3d(0, 0, 10px);
-			transition: transform 0.1s steps(1, start) 0, opacity 0.2s ease 0.5s;
+			transform: translate3d(var(--seekbar-tooltip-left), 0, 10px);
+			transition: --seekbar-tooltip-left 0.1s, opacity 0.2s ease 0.5s;
 			pointer-events: none;
 		}
 		.is-wheelSeeking .seekBarToolTip,
@@ -12774,9 +12830,7 @@ util.addStyle(`
 			this._animation = this._pointer.animate([
 				{transform: 'translate3d(-6px, -50%, 0) translate3d(0, 0, 0)'},
 				{transform: 'translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0)'}
-			], {
-				duration: this._duration * 1000
-			});
+			], {duration: this._duration * 1000});
 			this._animation.currentTime = this._currentTime * 1000;
 			this._animation.playbackRate = this._playbackRate;
 			if (!this._isPausing) {
@@ -14184,10 +14238,10 @@ class HTML5NicoChatViewModel extends NicoChatViewModel {
 	}
 }
 class NicoChatCss3View {
-	static buildChatDom (chat, type, size, cssText) {
-		let span = document.createElement('span');
-		let ver = chat.commentVer;
-		let className = ['nicoChat', type, size];
+	static buildChatDom (chat, type, size, cssText, document = window.document) {
+		const span = document.createElement('span');
+		const ver = chat.commentVer;
+		const className = ['nicoChat', type, size];
 		if (ver === 'html5') {
 			className.push(ver);
 		}
@@ -14221,27 +14275,27 @@ class NicoChatCss3View {
 		span.id = chat.id;
 		span.dataset.meta = chat.meta;
 		if (!chat.isInvisible) {
-			span.innerHTML = chat.htmlText;
 			const {inline, keyframes} = cssText || {};
 			if (inline) {
 				span.style.cssText = inline;
 			}
+			span.innerHTML = chat.htmlText;
 			if (keyframes) {
 				const style = document.createElement('style');
-				style.append(document.createTextNode(keyframes));
+				style.append(keyframes);
 				span.append(style);
 			}
 		}
 		return span;
 	}
-	static buildStyleElement (cssText) {
-		let elm = document.createElement('style');
+	static buildStyleElement (cssText, document = window.document) {
+		const elm = document.createElement('style');
 		elm.type = 'text/css';
-		elm.appendChild(document.createTextNode(cssText));
+		elm.append(cssText);
 		return elm;
 	}
-	static buildChatHtml (chat, type, cssText) {
-		const result = NicoChatCss3View.buildChatDom(chat, type, chat.size, cssText);
+	static buildChatHtml (chat, type, cssText, document = window.document) {
+		const result = NicoChatCss3View.buildChatDom(chat, type, chat.size, cssText, document);
 		result.removeAttribute('data-meta');
 		return result.outerHTML;
 	}
@@ -14295,9 +14349,15 @@ class NicoChatCss3View {
 				isAlignMiddle = true;
 		}
 		let top = isAlignMiddle ? '50%' : `${ypos}px`;
-		let transY = isAlignMiddle ? 'translateY(-50%)' : '';
-		let inline = `
-			position: absolute; will-change: transform; contain: layout style paint;
+		const inline = `
+			--chat-trans-x: -${outerScreenWidth + chat.width*scale}px;
+			--chat-trans-y: ${isAlignMiddle ? '-50' : '0'}%;
+			--chat-scale-x: ${scale === 1.0 ? 1 : scale};
+			--chat-scale-y: ${scale === 1.0 ? 1 : scaleY};
+			position: absolute;
+			will-change: transform, opacity;
+			contain: layout style paint;
+			line-height: 1.235;
 			z-index: ${zIndex};
 			top: ${top};
 			left: ${leftPos}px;
@@ -14305,28 +14365,23 @@ class NicoChatCss3View {
 			${lineHeightCss}
 			${opacity}
 			font-size: ${fontSizePx}px;
-			animation-name: idou-${id};
+			animation-name: idou-props;
 			animation-duration: ${duration}s;
 			animation-delay: ${delay}s;
 			${reverse}
-		`;
-		let keyframes = `
-			@keyframes idou-${id} {
-				0%   {
-					visibility: visible;
-					transform:
-						translate3d(0, 0, 0) ${scaleCss} ${transY};
-				}
-				100% {
-					visibility: hidden;
-					transform:
-						translate3d(-${outerScreenWidth + chat.width*scale}px, 0, 0)
-						${scaleCss}
-						${transY};
-				}
+			${chat.isReverse ?
+				`transform:
+					translateX(var(--chat-trans-x))
+					scale(var(--chat-scale-x), var(--chat-scale-y))
+					translateY(var(--chat-trans-y));` :
+				`transform:
+					translate(0, 0)
+					scale(var(--chat-scale-x), var(--chat-scale-y))
+					translateY(var(--chat-trans-y));`
 			}
-		`.trim();
-		return {inline, keyframes};
+		`;
+		//   @keyframes idou-${id} {
+		return {inline, keyframes: ''};
 	}
 	static _buildFixedCss(chat, type, currentTime, playbackRate) {
 		let scaleCss;
@@ -14369,7 +14424,7 @@ class NicoChatCss3View {
 			scale === 1.0 ?
 				`transform: scale3d(1, ${scaleY}, 1) translate3d(-50%, ${transY}, ${time3d});` :
 				`transform: scale3d(${scale}, ${scaleY}, 1) translate3d(-50%, ${transY}, ${time3d});`;
-		let inline = `
+		const inline = `
 			z-index: ${zIndex};
 			top: ${top};
 			left: 50%;
@@ -14740,7 +14795,7 @@ class NicoCommentPlayer extends Emitter {
 		if (typeof vpos !== 'number') {
 			vpos = this.vpos;
 		}
-		let nicoChat = NicoChat.create(Object.assign({text, cmd, vpos}, options));
+		const nicoChat = NicoChat.create(Object.assign({text, cmd, vpos}, options));
 		this._model.addChat(nicoChat);
 		return nicoChat;
 	}
@@ -15603,14 +15658,11 @@ class NicoCommentCss3PlayerView extends Emitter {
 		console.log('NicoCommentCss3PlayerView playbackRate', this._playbackRate);
 		this._initializeView(params, 0);
 		this._config = Config.namespace('commentLayer');
-		this._gcFragment = document.createElement('div');
-		this._gcFragment.hidden = true;
-		let _refresh = this.refresh.bind(this);
-		this.fragment = document.createDocumentFragment();
 		this._updateDom = bounce.raf(this._updateDom.bind(this));
 		document.addEventListener('visibilitychange', () => {
-			if (!document.hidden) {
-				_refresh();
+			if (document.visibilityState === 'visible') {
+				this.refresh();
+				this.onResize();
 			}
 		});
 		global.debug.css3Player = this;
@@ -15620,13 +15672,13 @@ class NicoCommentCss3PlayerView extends Emitter {
 			window.console.time('initialize NicoCommentCss3PlayerView');
 		}
 		this._style = null;
-		this._commentLayer = null;
+		this.commentLayer = null;
 		this._view = null;
-		let iframe = this._getIframe();
+		const iframe = this._getIframe();
 		iframe.loading = 'eager';
 		iframe.setAttribute('sandbox', 'allow-same-origin');
 		iframe.className = 'commentLayerFrame';
-		let html =
+		const html =
 			NicoCommentCss3PlayerView.__TPL__
 				.replace('%CSS%', '').replace('%MSG%', '')
 				.replace('%LAYOUT_CSS%', NicoTextParser.__css__)
@@ -15651,22 +15703,32 @@ class NicoCommentCss3PlayerView extends Emitter {
 				}
 				return;
 			}
-			this._window = win;
-			this._document = doc;
+			cssUtil.registerProps(
+				{name: '--dokaben-scale',   syntax: '<number>', initialValue: 1, inherits: true, window: win},
+				{name: '--chat-trans-x', syntax: '<length>', initialValue: '0px', inherits: false, window: win},
+				{name: '--chat-trans-y', syntax: '<percentage>', initialValue: '-50%', inherits: false, window: win},
+				{name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
+				{name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win}
+			);
+			this.window = win;
+			this.document = doc;
+			this.fragment = doc.createDocumentFragment();
+			this._gcFragment = doc.createElement('div');
+			this._gcFragment.hidden = true;
 			this._optionStyle = doc.getElementById('optionCss');
 			this._style = doc.getElementById('nicoChatAnimationDefinition');
 			this._keyframesContainer = doc.getElementById('keyframesContainer');
-			const commentLayer = this._commentLayer = doc.getElementById('commentLayer');
-			const subLayer = this._subLayer = document.createElement('div');
+			const commentLayer = this.commentLayer = doc.getElementById('commentLayer');
+			const subLayer = this.subLayer = doc.createElement('div');
 			subLayer.className = 'subLayer';
 			commentLayer.append(subLayer);
 			doc.body.classList.toggle('debug', Config.props.debug);
 			Config.onkey('debug', v => doc.body.classList.toggle('debug', v));
 			this._optionStyle.innerHTML = NicoComment.offscreenLayer.optionCss;
-			ZenzaWatch.emitter.on('updateOptionCss', newCss => {
+			global.emitter.on('updateOptionCss', newCss => {
 				this._optionStyle.innerHTML = newCss;
 			});
-			ZenzaWatch.debug.getInViewElements = () => doc.getElementsByClassName('nicoChat');
+			global.debug.getInViewElements = () => doc.getElementsByClassName('nicoChat');
 			const onResize = () => {
 				const w = win.innerWidth, h = win.innerHeight;
 				if (!w || !h) { return; }
@@ -15681,16 +15743,11 @@ class NicoCommentCss3PlayerView extends Emitter {
 					window.setTimeout(chkSizeInit, 500);
 				} else {
 					watchResize(iframe, _.throttle(onResize, 100));
-					this._onResize = onResize;
+					this.onResize = onResize;
 					onResize();
 				}
 			};
 			ZenzaWatch.emitter.on('fullscreenStatusChange', _.debounce(onResize, 2000));
-			document.addEventListener('visibilitychange', _.debounce(() => {
-				if (!document.hidden) {
-					onResize();
-				}
-			}, 500));
 			window.setTimeout(chkSizeInit, 100);
 			if (this._isPaused) {
 				this.pause();
@@ -15701,38 +15758,6 @@ class NicoCommentCss3PlayerView extends Emitter {
 			};
 			updateTextShadow(this._config.getValue('textShadowType'));
 			this._config.onkey('textShadowType', _.debounce(updateTextShadow, 100));
-			global.debug.nicoVideoCapture = () => {
-				const html = this.getCurrentScreenHtml();
-				const video = document.querySelector('video.nico');
-				return VideoCaptureUtil.nicoVideoToCanvas({video, html})
-					.then(({canvas, img}) => {
-						canvas.style.border = '2px solid blue';
-						canvas.className = 'debugCapture';
-						canvas.addEventListener('click', () => {
-							VideoCaptureUtil.saveToFile(canvas, 'sample.png');
-						});
-						document.body.append(canvas);
-						window.console.log('ok', canvas);
-						return Promise.resolve({canvas, img});
-					}, err => {
-						sessionStorage.lastCaptureErrorSrc = html;
-						window.console.error('!', err);
-						return Promise.reject(err);
-					});
-			};
-			global.debug.svgTest = () => {
-				const svg = this.getCurrentScreenSvg();
-				const blob = new Blob([svg], {'type': 'text/plain'});
-				const url = window.URL.createObjectURL(blob);
-				const a = document.createElement('a');
-				a.setAttribute('download', 'test.svg');
-				a.setAttribute('target', '_blank');
-				a.setAttribute('rel', 'noopener');
-				a.setAttribute('href', url);
-				document.body.append(a);
-				a.click();
-				window.setTimeout(() => a.remove(), 1000);
-			};
 			window.console.timeEnd('initialize NicoCommentCss3PlayerView');
 		};
 		this._view = iframe;
@@ -15791,8 +15816,8 @@ class NicoCommentCss3PlayerView extends Emitter {
 		if (!this._view) {
 			return;
 		}
-		if (typeof this._onResize === 'function') {
-			return this._onResize();
+		if (typeof this.onResize === 'function') {
+			return this.onResize();
 		}
 	}
 	getView () {
@@ -15800,7 +15825,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 	}
 	set playbackRate (playbackRate) {
 		this._playbackRate = Math.min(Math.max(playbackRate, 0.01), 10);
-		if (!Config.getValue('autoCommentSpeedRate') || this._playbackRate <= 1) {
+		if (!Config.props.autoCommentSpeedRate || this._playbackRate <= 1) {
 			this.refresh();
 		}
 	}
@@ -15829,49 +15854,48 @@ class NicoCommentCss3PlayerView extends Emitter {
 		}
 	}
 	_addClass (name) {
-		if (!this._commentLayer) {
+		if (!this.commentLayer) {
 			return;
 		}
-		this._commentLayer.classList.add(name);
+		this.commentLayer.classList.add(name);
 	}
 	_removeClass (name) {
-		if (!this._commentLayer) {
+		if (!this.commentLayer) {
 			return;
 		}
-		this._commentLayer.classList.remove(name);
+		this.commentLayer.classList.remove(name);
 	}
 	_setStall (v) {
 		if (v) {
 			this._addClass('is-stalled');
-		}
-		else {
+		} else {
 			this._removeClass('is-stalled');
 		}
 	}
 	pause () {
-		if (this._commentLayer) {
+		if (this.commentLayer) {
 			this._addClass('paused');
 		}
 		this._isPaused = true;
 	}
 	play () {
-		if (this._commentLayer) {
+		if (this.commentLayer) {
 			this._removeClass('paused');
 		}
 		this._isPaused = false;
 	}
 	clear () {
-		if (this._commentLayer) {
-			this._commentLayer.textContent = '';
-			this._subLayer.textContent = '';
-			this._commentLayer.append(this._subLayer);
+		if (this.commentLayer) {
+			this.commentLayer.textContent = '';
+			this.subLayer.textContent = '';
+			this.commentLayer.append(this.subLayer);
 			this._gcFragment.textContent = '';
 			this._keyframesContainer.textContent = '';
+			this.fragment.textContent = '';
 		}
 		if (this._style) {
 			this._style.textContent = '';
 		}
-		this.fragment.textContent = '';
 		this._inViewTable.clear();
 		this._inSlotTable.clear();
 		this._domTable.clear();
@@ -15881,7 +15905,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 		this._updateInviewElements();
 	}
 	_updateInviewElements () {
-		if (!this._commentLayer || !this._style || !this._isShow || document.hidden) {
+		if (!this.commentLayer || !this._style || !this._isShow || document.hidden) {
 			return;
 		}
 		const vm = this._viewModel;
@@ -15895,7 +15919,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 		const newView = [];
 		for (let i = 0, len = inView.length; i < len; i++) {
 			const nicoChat = inView[i];
-			let domId = nicoChat.id;
+			const domId = nicoChat.id;
 			if (this._inViewTable.has(domId)) {
 				continue;
 			}
@@ -15911,7 +15935,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 			const type = nicoChat.type;
 			const size = nicoChat.size;
 			const cssText = NicoChatCss3View.buildChatCss(nicoChat, type, ct, this._playbackRate);
-			const element = NicoChatCss3View.buildChatDom(nicoChat, type, size, cssText);
+			const element = NicoChatCss3View.buildChatDom(nicoChat, type, size, cssText, this.document);
 			this._domTable.set(nicoChat.id, element);
 			(nicoChat.isSubThread ? subDom : dom).push(element);
 		}
@@ -15934,20 +15958,20 @@ class NicoCommentCss3PlayerView extends Emitter {
 		const fragment = this.fragment;
 		if (dom.length) {
 			fragment.append(...dom);
-			this._commentLayer.append(fragment);
+			this.commentLayer.append(fragment);
 		}
 		if (subDom.length) {
 			fragment.append(...subDom);
-			this._subLayer.append(fragment);
+			this.subLayer.append(fragment);
 		}
 		this._removeOutviewElements(outViewIds);
 		this._gcInviewElements();
 	}
 	/*
-		* アニメーションが終わっているはずの要素を除去
-		*/
+	* アニメーションが終わっているはずの要素を除去
+	*/
 	_removeOutviewElements(outViewIds) {
-		if (!this._document || !outViewIds.length) {
+		if (!this.document || !outViewIds.length) {
 			return;
 		}
 		const dt = this._domTable;
@@ -15962,17 +15986,17 @@ class NicoCommentCss3PlayerView extends Emitter {
 		this._gcFragment.append(fragment);
 	}
 	/*
-		* 古い順に要素を除去していく
-		*/
+	* 古い順に要素を除去していく
+	*/
 	_gcInviewElements (/*outViewIds*/) {
-		if (!this._commentLayer || !this._style) {
+		if (!this.commentLayer || !this._style) {
 			return;
 		}
 		const max = NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT;
-		const commentLayer = this._commentLayer;
+		const commentLayer = this.commentLayer;
 		let inViewElements;
 		const elements = [];
-		inViewElements = Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
+		inViewElements = this.window.Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
 		for (let i = inViewElements.length - max - 1; i >= 0; i--) {
 			elements.push(inViewElements[i]);
 		}
@@ -16002,12 +16026,12 @@ class NicoCommentCss3PlayerView extends Emitter {
 		return tpl;
 	}
 	_buildGroupHtml (m, currentTime = 0) {
-		let result = [];
+		const result = [];
 		for (let i = 0, len = m.length; i < len; i++) {
 			let chat = m[i];
 			let type = chat.type;
 			let cssText = NicoChatCss3View.buildChatCss(chat, type, currentTime);
-			let element = NicoChatCss3View.buildChatHtml(chat, type, cssText);
+			let element = NicoChatCss3View.buildChatHtml(chat, type, cssText, this.document);
 			result.push(element);
 		}
 		return result.join('\n');
@@ -16044,7 +16068,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 			.replace('<html', '<html class="saved"');
 	}
 	getCurrentScreenHtml () {
-		const win = this._window;
+		const win = this.window;
 		if (!win) {
 			return null;
 		}
@@ -16061,7 +16085,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 		return html;
 	}
 	getCurrentScreenSvg () {
-		const win = this._window;
+		const win = this.window;
 		if (!win) {
 			return null;
 		}
@@ -16192,6 +16216,22 @@ body.in-capture .commentLayer {
 	}
 	100% {
 		transform: var(--transform-end);
+	}
+}
+@keyframes idou-props {
+	0%   {
+		visibility: visible;
+		transform:
+			translate(0, 0)
+			scale(var(--chat-scale-x), var(--chat-scale-y))
+			translateY(var(--chat-trans-y));
+	}
+	100% {
+		visibility: hidden;
+		transform:
+			translateX(var(--chat-trans-x))
+			scale(var(--chat-scale-x), var(--chat-scale-y))
+			translateY(var(--chat-trans-y));
 	}
 }
 .commentLayerOuter {
@@ -17424,6 +17464,13 @@ class CommentListView extends Emitter {
 		w.addEventListener('resize', this._onResize.bind(this));
 		this._innerHeight = w.innerHeight;
 		this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
+		cssUtil.registerProps(
+			{name: '--current-time', syntax: '<time>', initialValue: '0s', inherits: true, window: w},
+			{name: '--duration', syntax: '<time>', initialValue: '4s', inherits: true, window: w},
+			{name: '--scroll-top',   syntax: '<length>', initialValue: '0px', inherits: true, window: w},
+			{name: '--vpos-time', syntax: '<time>', initialValue: '0s', inherits: true, window: w},
+			{name: '--zenza-comment-panel-header-height',   syntax: '<length>', initialValue: '64px', inherits: true}
+		);
 		this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 		ZenzaWatch.debug.$commentList = uq(this._list);
 		ZenzaWatch.debug.getCommentPanelItems = () =>
@@ -17643,9 +17690,9 @@ class CommentListView extends Emitter {
 			return;
 		}
 		if (!this._isActive) {
-			let itemHeight = CommentListView.ITEM_HEIGHT;
-			let top = view.top;
-			this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
+			const itemHeight = CommentListView.ITEM_HEIGHT;
+			const top = Math.max(0, view.top - innerHeight + itemHeight);
+			this.scrollTop(top);
 		}
 	}
 	showItemDetail(item) {
@@ -17698,6 +17745,7 @@ CommentListView.__tpl__ = (`
 		height: 100vh;
 		overflow: auto;
 		overscroll-behavior: contain;
+		/*transition: --current-time 0.2s linear;*/
 	}
 	.is-debug #listContainerInner {
 		transform-style: preserve-3d;
@@ -17999,21 +18047,22 @@ const CommentListItemView = (() => {
 			.font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
 			.font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
 			.font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-			/*
+/*
 			.commentListItem .pointer {
 				position: absolute;
 				width: 100%;
-				height: 10px;
+				height: 1px;
 				bottom: 0;
 				left: 0;
 				pointer-events: none;
 				background: #ffc;
+				will-change: transform, opacity;
 				transform-origin: left top;
 				transition: transform var(--duration) linear;
-				visibility: hidden;
+				visibility: visible;
 				opacity: 0.3;
-				animation-duration: calc(var(--duration) * 1s);
-				animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
+				animation-duration: var(--duration);
+				animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
 				animation-name: pointer-moving;
 				animation-timing-function: linear;
 				animation-fill-mode: forwards;
@@ -18023,14 +18072,16 @@ const CommentListItemView = (() => {
 			@keyframes pointer-moving {
 				0% {
 					visibility: visible;
-					transform: scaleX(1);
+					opacity: 0.3;
+					transform: translateX(0);
 				}
 				100% {
 					visibility: hidden;
-					transform: scaleX(0.01);
+					opacity: 1;
+					transform: translateX(-100%);
 				}
 			}
-			*/
+*/
 		`).trim();
 	const TPL = (`
 			<div class="commentListItem">
@@ -18038,6 +18089,7 @@ const CommentListItemView = (() => {
 					<span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
 				</p>
 				<p class="text"></p>
+				<!--span class="pointer"></span-->
 			</div>
 		`).trim();
 	let counter = 0;
@@ -18084,8 +18136,8 @@ const CommentListItemView = (() => {
 				`commentListItem no${item.no} item${this._id} ${oden} fork${item.fork} font-${font} ${item.isSubThread ? 'subThread' : ''}`;
 			commentListItem.style.cssText = `
 					top: ${this.top}px;
-					--duration: ${item.duration};
-					--vpos: ${item.vpos}
+					--duration: ${item.duration}s;
+					--vpos-time: ${item.vpos / 100}s;
 				`;
 			Object.assign(commentListItem.dataset, {
 				itemId: item.itemId,
@@ -19476,6 +19528,10 @@ class VideoListView extends Emitter {
 		if (this._className) {
 			doc.body.classList.add(this._className);
 		}
+		cssUtil.registerProps(
+			{name: '--list-length',  syntax: '<integer>', initialValue: 1, inherits: true, window: w},
+			{name: '--active-index', syntax: '<integer>', initialValue: 1, inherits: true, window: w},
+		);
 		const container = this._container = doc.querySelector('#listContainer');
 		const list = this._list = doc.getElementById('listContainerInner');
 		if (this._documentFragment instanceof Node) {
@@ -19748,9 +19804,9 @@ class VideoListView extends Emitter {
 	}
 	_updateCSSVars() {
 		if (this._document) {
-			let body = this._document.body;
-			body.style.setProperty('--list-length', this._model.length);
-			body.style.setProperty('--active-index', this._model.activeIndex);
+			const body = this._document.body;
+			body.style.setProperty('--list-length', cssUtil.number(this._model.length));
+			body.style.setProperty('--active-index', cssUtil.number(this._model.activeIndex));
 		}
 	}
 	_onClick(e) {
@@ -21233,6 +21289,7 @@ class Playlist extends VideoList {
 		return len > 0 && (this.isLoop || this._index < len - 1);
 	}
 }
+cssUtil.registerProps({name: '--progress', syntax: '<number>', initialValue: 1, inherits: false});
 
 const StoryboardCacheDb = (() => {
 	const WATCH_INFO = {
@@ -22655,7 +22712,8 @@ util.addStyle(`
 		cursor: none;
 	}
 	.showVideoControlBar {
-		--padding-bottom: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
+		--padding-bottom: ${VideoControlBar.BASE_HEIGHT}px;
+		--padding-bottom: var(--zenza-control-bar-height);
 	}
 	.zenzaStoryboardOpen .showVideoControlBar {
 		--padding-bottom: calc(var(--zenza-control-bar-height) + 80px);
@@ -22946,7 +23004,7 @@ NicoVideoPlayerDialogView.__css__ = `
 		pointer-events: none;
 		cursor: none;
 		user-select: none;
-		opacity: var(--zenza-comment-layer-opacity, 1);
+		opacity: var(--zenza-comment-layer-opacity);
 	}
 	.zenzaPlayerContainer.is-backComment .commentLayerFrame {
 		position: fixed;
@@ -25172,6 +25230,11 @@ class VariablesMapper {
 	}
 	constructor({config, element}){
 		this.config = config;
+		css.registerProps(
+			{name: '--zenza-ui-scale',              syntax: '<number>', initialValue: 1,  inherits: true},
+			{name: '--zenza-control-bar-height',    syntax: '<length>', initialValue: '48px', inherits: true},
+			{name: '--zenza-comment-layer-opacity', syntax: '<number>', initialValue: 1,  inherits: true}
+		);
 		this.state = {
 			menuScale: 0,
 			commentLayerOpacity: 0,
@@ -25202,7 +25265,7 @@ class VariablesMapper {
 		Object.assign(this.element.dataset, {fullscreenControlBarMode});
 		if (state.scale !== menuScale) {
 			this.setVar('--zenza-ui-scale', menuScale);
-			this.setVar('--zenza-control-bar-height', `${this.videoControlBarHeight}px`);
+			this.setVar('--zenza-control-bar-height', css.px(this.videoControlBarHeight));
 		}
 		if (state.commentLayerOpacity !== commentLayerOpacity) {
 			this.setVar('--zenza-comment-layer-opacity', commentLayerOpacity);
@@ -25245,7 +25308,7 @@ const RootDispatcher = (() => {
 					nicoUtil.openTweetWindow(playerState.videoInfo);
 					break;
 				case 'toggleConfig': {
-					config.props[params] = config.props[params];
+					config.props[params] = !config.props[params];
 					break;
 				}
 				case 'picture-in-picture':
@@ -25329,13 +25392,13 @@ class CommentInputPanel extends Emitter {
 	constructor(params) {
 		super();
 		this._$playerContainer = params.$playerContainer;
-		this._playerConfig = params.playerConfig;
+		this.config = params.playerConfig;
 		this._initializeDom();
-		this._playerConfig.onkey('autoPauseCommentInput', this._onAutoPauseCommentInputChange.bind(this));
+		this.config.onkey('autoPauseCommentInput', this._onAutoPauseCommentInputChange.bind(this));
 	}
 	_initializeDom() {
 		let $container = this._$playerContainer;
-		let config = this._playerConfig;
+		let config = this.config;
 		css.addStyle(CommentInputPanel.__css__);
 		$container.append(uq.html(CommentInputPanel.__tpl__));
 		let $view = this._$view = $container.find('.commentInputPanel');
@@ -25350,7 +25413,7 @@ class CommentInputPanel extends Emitter {
 				e.preventDefault();
 				e.stopPropagation();
 				this.emit('esc');
-				$input[0].blur();
+				e.target.blur();
 			}
 		};
 		$input
@@ -25370,7 +25433,7 @@ class CommentInputPanel extends Emitter {
 	}
 	_onFocus() {
 		if (!this._hasFocus) {
-			this.emit('focus', this.isAutoPause());
+			this.emit('focus', this.isAutoPause);
 		}
 		this._hasFocus = true;
 	}
@@ -25378,14 +25441,14 @@ class CommentInputPanel extends Emitter {
 		if (this._$commandInput.hasFocus() || this._$commentInput.hasFocus()) {
 			return;
 		}
-		this.emit('blur', this.isAutoPause());
+		this.emit('blur', this.isAutoPause);
 		this._hasFocus = false;
 	}
 	_onSubmit() {
 		this.submit();
 	}
 	_onSubmitButtonClick() {
-		this._$form.submit();
+		this.submit();
 	}
 	_onAutoPauseCommentInputChange(val) {
 		this._$autoPause.prop('checked', !!val);
@@ -25393,6 +25456,7 @@ class CommentInputPanel extends Emitter {
 	submit() {
 		let chat = this._$commentInput.val().trim();
 		let cmd = this._$commandInput.val().trim();
+		window.console.log('submit', {chat, cmd});
 		if (!chat.length) {
 			return;
 		}
@@ -25405,8 +25469,8 @@ class CommentInputPanel extends Emitter {
 				.catch(() => $view.removeClass('updating'));
 		}, 0);
 	}
-	isAutoPause() {
-		return !!this._$autoPause.prop('checked');
+	get isAutoPause() {
+		return this.config.props.autoPauseCommentInput;
 	}
 	focus() {
 		this._$commentInput.focus();
@@ -25734,13 +25798,13 @@ SettingPanel.__css__ = (`
 		display: block;
 		position: absolute;
 		left: 50%;
-		top: -100vh;
-		pointer-events: none;
-		transform: translate(-50%, -50%);
+		top: 50%;
+		transform: translate(-50%, -100vh);
 		z-index: 170000;
 		color: #fff;
-		transition: top 0.4s ease;
+		transition: transform 0.4s ease;
 		will-change: transform;
+		pointer-events: none;
 		user-select: none;
 		overflow-y: hidden;
 		outline: none;
@@ -25753,7 +25817,8 @@ SettingPanel.__css__ = (`
 		width: 500px;
 		height: 400px;
 		opacity: 1;
-		top: 50vh;
+		pointer-events: auto;
+		transform: translate(-50%, -50%);
 		overflow-y: scroll;
 		overflow-x: hidden;
 		overscroll-behavior: contain;
@@ -27459,7 +27524,7 @@ css.addStyle(`
 	}
 	body.zenzaScreenMode_sideView.MatrixRanking-body .RankingRowRank {
 		position: sticky;
-		left: calc(var(--sideView-left-margin, 0) - 8px);
+		left: calc(var(--sideView-left-margin) - 8px);
 		z-index: 100;
 		transform: none;
 		padding-right: 16px;
@@ -27687,6 +27752,10 @@ _.assign(VideoInfoPanel.prototype, {
 		});
 		view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
 		ZenzaWatch.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
+		css.registerProps(
+			{name: '--sideview-left-margin', syntax: '<length>', initialValue: '0px', inherits: true},
+			{name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
+		);
 		MylistPocketDetector.detect().then(pocket => {
 			this._pocket = pocket;
 			view.classList.add('is-pocketReady');
@@ -30226,7 +30295,9 @@ const TextLabel = (() => {
 		const getId = function() {return `id${this.id++}`;}.bind({id: 0});
 		const create = async ({canvas, style}) => {
 			const id = getId();
-			const ctx = canvas.getContext('2d');
+			const ctx = canvas.getContext('2d', {
+				desynchronized: true,
+			});
 			items[id] = {
 				canvas, style, ctx, text: ''
 			};
@@ -30250,20 +30321,19 @@ const TextLabel = (() => {
 			if (item.text === text) {
 				return;
 			}
-			requestAnimationFrame(() => {
-				ctx.font = `${style.fontWeight || ''} ${style.fontSizePx ? `${style.fontSizePx * style.ratio}px` : ''} ${style.fontFamily || ''}`.trim();
-				const measured = ctx.measureText(text);
-				let {width, height} = measured;
-				height = (height || style.fontSizePx) * style.ratio;
-				const left = (canvas.width - width) / 2;
-				const top = canvas.height - (canvas.height - height) / 2;
-				ctx.clearRect(0, 0, canvas.width, canvas.height);
-				ctx.fillStyle = style.color;
-				ctx.textAlign = style.textAlign;
-				ctx.textBaseline = 'bottom';
-				ctx.fillText(text, left, top);
-				ctx.commit && ctx.commit();
-			});
+			ctx.beginPath();
+			ctx.font = `${style.fontWeight || ''} ${style.fontSizePx ? `${style.fontSizePx * style.ratio}px` : ''} ${style.fontFamily || ''}`.trim();
+			const measured = ctx.measureText(text);
+			let {width, height} = measured;
+			height = (height || style.fontSizePx) * style.ratio;
+			const left = (canvas.width - width) / 2;
+			const top = canvas.height - (canvas.height - height) / 2;
+			ctx.fillStyle = style.color;
+			ctx.textAlign = style.textAlign;
+			ctx.textBaseline = 'bottom';
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.fillText(text, left, top);
+			ctx.commit && ctx.commit();
 			return {id, text};
 		};
 		const dispose = ({id}) => {
@@ -30767,8 +30837,8 @@ const workerUtil = (() => {
 			return String.raw(q, ...strargs);
 		},
 		env: params => {
-			({config, TOKEN, PRODUCT, netUtil, CONSTANT} =
-				Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT}, params));
+			({config, TOKEN, PRODUCT, netUtil, CONSTANT, global} =
+				Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT, global}, params));
 			if (global) { ({config, TOKEN, PRODUCT, netUtil, CONSTANT} = global); }
 		},
 		create: function(func, options = {}) {
@@ -31049,17 +31119,18 @@ const IndexedDbStorage = (() => {
 					};
 				});
 			},
-			async gc({name, storeName, data: {expireTime}}) {
+			async gc({name, storeName, data: {expireTime, index}}) {
+				index = index || 'updatedAt';
 				const {store, transaction} = await this.getStore({name, storeName, mode: 'readwrite'});
 				const now = Date.now(), ptime = performance.now();
-				const expiresAt = now - expireTime;
+				const expiresAt = (index !== 'expiresAt') ? (now - expireTime) : now;
 				const expireDateTime = new Date(expiresAt).toLocaleString();
-				const timekey = `GC [DELETE FROM ${name}.${storeName} WHERE updatedAt < '${expireDateTime}'] `;
+				const timekey = `GC [DELETE FROM ${name}.${storeName} WHERE ${index} < '${expireDateTime}'] `;
 				console.time(timekey);
 				let count = 0;
 				return new Promise((resolve, reject) => {
 					const range = IDBKeyRange.upperBound(expiresAt);
-					const idx = store.index('updatedAt');
+					const idx = store.index(index);
 					const req = idx.openCursor(range);
 					req.onsuccess = e => {
 						const cursor = e.target.result;
@@ -31149,7 +31220,7 @@ const IndexedDbStorage = (() => {
 					get: ({key, index, timeout}) => post('get', {key, index, timeout}, storeName),
 					updateTime: ({key, index, timeout}) => post('updateTime', {key, index, timeout}, storeName),
 					delete: ({key, index, timeout}) => post('delete', {key, index, timeout}, storeName),
-					gc: (expireTime = 30 * 24 * 60 * 60 * 1000) => post('gc', {expireTime}, storeName)
+					gc: (expireTime = 30 * 24 * 60 * 60 * 1000, index = 'updatedAt') => post('gc', {expireTime, index}, storeName)
 				};
 			})(storeName);
 		}
@@ -31217,7 +31288,7 @@ const WatchInfoCacheDb = (() => {
 					postedAt: cache && cache.postedAt ? cache.postedAt : postedAt,
 					updatedAt,
 					videoInfo: videoInfoRawData ? videoInfoRawData : cache.videoInfo,
-					threadInfo: (options.threadInfo ? options.threadInfo : cache.threadInfo) || null,
+					threadInfo: (options.threadInfo ? options.threadInfo : cache.threadInfo) || 0,
 					comment,
 					resume,
 					heatMap:    (options.heatMap    ? options.heatMap    : cache.heatMap) || null,
@@ -31765,7 +31836,7 @@ const ThumbInfoCacheDb = (() => {
 		});
 	};
 	const search = () => {
-		const {port, TOKEN} = init({prefix: `search${PRODUCT}`});
+		const {port, TOKEN} = init({prefix: `searchApi${PRODUCT}Loader`, type: 'searchApi'});
 		port.addEventListener('message', e => {
 			const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
 			const {body, sessionId, token} = data;

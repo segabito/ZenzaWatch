@@ -79,7 +79,7 @@ class HeatMapView {
       this.canvas = this.container.querySelector('canvas.heatMap');
     }
 
-    this.context = this.canvas.getContext('2d', {alpha: false});
+    this.context = this.canvas.getContext('2d', {alpha: false, desynchronized: true});
     this.width = this.canvas.width;
     this.height = this.canvas.height;
 

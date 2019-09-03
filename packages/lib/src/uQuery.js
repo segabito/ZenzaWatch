@@ -501,9 +501,9 @@ const uQuery = (() => {
           continue;
         }
         if (v === undef) {
-          return elm.getAttribute('value');
+          return elm.value;
         } else {
-          elm.setAttribute('value', v);
+          elm.value = v;
         }
       }
       return v === undef ? '' : this;

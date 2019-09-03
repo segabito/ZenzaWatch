@@ -1840,14 +1840,48 @@ const css = {
 			Object.assign(elm, option);
 		}
 		elm.classList.add(PRODUCT);
-		const text = document.createTextNode(styles.toString());
-		elm.appendChild(text);
+		elm.append(styles.toString());
 		(document.head || document.body || document.documentElement).append(elm);
 		elm.disabled = option && option.disabled;
 		elm.dataset.switch = elm.disabled ? 'off' : 'on';
 		return elm;
-	}
+	},
+	registerProps(...args) {
+		if (!CSS || !('registerProperty' in CSS)) {
+			return;
+		}
+		for (const definition of args) {
+			try {
+				(definition.window || window).CSS.registerProperty(definition);
+			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+		}
+	},
+	addModule: async function(func, options = {}) {
+		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
+			return;
+		}
+		this.set.add(func);
+		const src =
+		`(${func.toString()})(
+			this,
+			registerPaint,
+			${JSON.stringify(options.config || {}, null, 2)}
+			);`;
+		const blob = new Blob([src], {type: 'text/javascript'});
+		const url = URL.createObjectURL(blob);
+		await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
+		return true;
+	}.bind({set: new WeakSet}),
+	number:  value => CSS.number  ? CSS.number(value) : value,
+	s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
+	ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
+	pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
+	px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
+	percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
+	vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
+	vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
 };
+const cssUtil = css;
 Object.assign(util, css);
 Object.assign(util, workerUtil);
 const nicoUtil = {
@@ -5438,8 +5472,8 @@ const workerUtil = (() => {
 			return String.raw(q, ...strargs);
 		},
 		env: params => {
-			({config, TOKEN, PRODUCT, netUtil, CONSTANT} =
-				Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT}, params));
+			({config, TOKEN, PRODUCT, netUtil, CONSTANT, global} =
+				Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT, global}, params));
 			if (global) { ({config, TOKEN, PRODUCT, netUtil, CONSTANT} = global); }
 		},
 		create: function(func, options = {}) {
@@ -5720,17 +5754,18 @@ const IndexedDbStorage = (() => {
 					};
 				});
 			},
-			async gc({name, storeName, data: {expireTime}}) {
+			async gc({name, storeName, data: {expireTime, index}}) {
+				index = index || 'updatedAt';
 				const {store, transaction} = await this.getStore({name, storeName, mode: 'readwrite'});
 				const now = Date.now(), ptime = performance.now();
-				const expiresAt = now - expireTime;
+				const expiresAt = (index !== 'expiresAt') ? (now - expireTime) : now;
 				const expireDateTime = new Date(expiresAt).toLocaleString();
-				const timekey = `GC [DELETE FROM ${name}.${storeName} WHERE updatedAt < '${expireDateTime}'] `;
+				const timekey = `GC [DELETE FROM ${name}.${storeName} WHERE ${index} < '${expireDateTime}'] `;
 				console.time(timekey);
 				let count = 0;
 				return new Promise((resolve, reject) => {
 					const range = IDBKeyRange.upperBound(expiresAt);
-					const idx = store.index('updatedAt');
+					const idx = store.index(index);
 					const req = idx.openCursor(range);
 					req.onsuccess = e => {
 						const cursor = e.target.result;
@@ -5820,7 +5855,7 @@ const IndexedDbStorage = (() => {
 					get: ({key, index, timeout}) => post('get', {key, index, timeout}, storeName),
 					updateTime: ({key, index, timeout}) => post('updateTime', {key, index, timeout}, storeName),
 					delete: ({key, index, timeout}) => post('delete', {key, index, timeout}, storeName),
-					gc: (expireTime = 30 * 24 * 60 * 60 * 1000) => post('gc', {expireTime}, storeName)
+					gc: (expireTime = 30 * 24 * 60 * 60 * 1000, index = 'updatedAt') => post('gc', {expireTime, index}, storeName)
 				};
 			})(storeName);
 		}
