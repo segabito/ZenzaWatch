@@ -5,7 +5,7 @@ const TextLabel = (() => {
   const func = function(self) {
     const items = {};
 
-    const getId = function() {return `id${this.id++}`;}.bind({id: 0});
+    const getId = function() {return `id-${this.id++}`;}.bind({id: 0});
 
     const create = async ({canvas, style}) => {
       const id = getId();
@@ -21,7 +21,7 @@ const TextLabel = (() => {
 
     const setStyle = ({id, style, name}) => {
       const item = items[id];
-      if (!item) { throw new Error('known id', id); }
+      if (!item) { throw new Error('unknown id', id); }
       name = name || 'label';
       const {canvas, ctx} = item;
       item.text = '';
@@ -34,7 +34,7 @@ const TextLabel = (() => {
 
     const drawText = ({id, text}) => {
       const item = items[id];
-      if (!item) { throw new Error('known id', id); }
+      if (!item) { throw new Error('unknown id', id); }
       const {canvas, ctx, style} = item;
       if (item.text === text) {
         return;
@@ -124,12 +124,14 @@ const TextLabel = (() => {
     style.color      = style.color      || containerStyle.color;
 
     if (!isOffscreenCanvasAvailable) {
-      worker = worker || {
-        name: NAME,
-        onmessage: () => {},
-        post: ({command, params}) => worker.onmessage({command, params})
-      };
-      func(worker);
+      if (!worker) {
+        worker = {
+          name: NAME,
+          onmessage: () => {},
+          post: ({command, params}) => worker.onmessage({command, params})
+        };
+        func(worker);
+      }
     } else {
       worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
     }
