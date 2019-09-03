@@ -72,7 +72,7 @@ const WatchInfoCacheDb = (() => {
           postedAt: cache && cache.postedAt ? cache.postedAt : postedAt,
           updatedAt,
           videoInfo: videoInfoRawData ? videoInfoRawData : cache.videoInfo,
-          threadInfo: (options.threadInfo ? options.threadInfo : cache.threadInfo) || null,
+          threadInfo: (options.threadInfo ? options.threadInfo : cache.threadInfo) || 0,
           comment,
           resume,
           heatMap:    (options.heatMap    ? options.heatMap    : cache.heatMap) || null,

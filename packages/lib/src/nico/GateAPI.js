@@ -296,7 +296,7 @@ const GateAPI = (() => {
   };
 
   const search = () => {
-    const {port, TOKEN} = init({prefix: `search${PRODUCT}`});
+    const {port, TOKEN} = init({prefix: `searchApi${PRODUCT}Loader`, type: 'searchApi'});
     port.addEventListener('message', e => {
       const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
       const {body, sessionId, token} = data;

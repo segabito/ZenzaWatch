@@ -120,9 +120,9 @@ const {ThreadLoader} = (() => {
           t.userkey = msgInfo.userKey;
         }
         if (t.fork || thread.isLeafRequired === false) { // 投稿者コメントなど
-          packets.push({thread: Object.assign({with_blobal: 1, version: VERSION_OLD, res_from: -1000}, t)});
+          packets.push({thread: Object.assign({with_global: 1, version: VERSION_OLD, res_from: -1000}, t)});
         } else {
-          packets.push({thread: Object.assign({with_blobal: 1, version: VERSION}, t)});
+          packets.push({thread: Object.assign({with_global: 1, version: VERSION}, t)});
           packets.push({thread_leaves: Object.assign({content: leafContent}, t)});
         }
       });
