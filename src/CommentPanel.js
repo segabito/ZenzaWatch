@@ -269,17 +269,17 @@ class CommentListView extends Emitter {
       .addClass('show');
   }
   _onMenuClick(e) {
-    let target = e.target.closest('.menuButton');
+    const target = e.target.closest('.menuButton');
     this._$menu.removeClass('show');
     if (!target) {
       return;
     }
-    let {itemId} = e.target.closest('.listMenu').dataset;
+    const {itemId} = e.target.closest('.listMenu').dataset;
     if (!itemId) {
       return;
     }
 
-    let {command} = target.dataset;
+    const {command} = target.dataset;
 
     if (command === 'addUserIdFilter' || command === 'addWordFilter') {
       Array.from(this._list.querySelectorAll(`.item${itemId}`))
@@ -289,16 +289,15 @@ class CommentListView extends Emitter {
     this.emit('command', command, null, itemId);
   }
   _onItemDetailClick(e) {
-    let $target = $(e.target).closest('.command');
-    if ($target.length < 1) {
+    const target = e.target.closest('.command');
+    if (!target) {
       return;
     }
-    let itemId = this._$itemDetail.attr('data-item-id');
+    const itemId = this._$itemDetail.attr('data-item-id');
     if (!itemId) {
       return;
     }
-    let command = $target.attr('data-command');
-    let param = $target.attr('data-param');
+    const {command, param} = target.dataset;
     if (command === 'hideItemDetail') {
       return this.hideItemDetail();
     }
