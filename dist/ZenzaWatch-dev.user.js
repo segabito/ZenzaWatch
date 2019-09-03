@@ -7870,6 +7870,7 @@ class NicoVideoPlayer extends Emitter {
 	fastSeek(t) {this._videoPlayer.fastSeek(Math.max(0, t));}
 	set currentTime(t) {this._videoPlayer.currentTime = Math.max(0, t);}
 	get currentTime() { return this._videoPlayer.currentTime;}
+	get vpos() { return this.currentTime * 100; }
 	get duration() {return this._videoPlayer.duration;}
 	get chatList() {return this._commentPlayer.chatList;}
 	get nonFilteredChatList() {return this._commentPlayer.nonFilteredChatList;}
@@ -13483,7 +13484,8 @@ class NicoChat {
 			return a.uniqNo < b.uniqNo ? -1 : 1;
 		}
 	}
-	constructor(data, options = {videoDuration: 0x7FFFFF, mainThreadId: 0, format: ''}) {
+	constructor(data, options = {}) {
+		options = Object.assign({videoDuration: 0x7FFFFF, mainThreadId: 0, format: ''}, options);
 		const props = this.props = {};
 		props.id = `chat${NicoChat.id++}`;
 		props.currentTime = 0;
@@ -15541,7 +15543,7 @@ class NicoChatGroupViewModel {
 			}
 			if (o.checkCollision(target)) {
 				target.moveToNextLine(o);
-				if (!target.isOverflow()) {
+				if (!target.isOverflow) {
 					this.checkCollision(target);
 					return;
 				}
@@ -15704,7 +15706,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 				return;
 			}
 			cssUtil.registerProps(
-				{name: '--dokaben-scale',   syntax: '<number>', initialValue: 1, inherits: true, window: win},
+				{name: '--dokaben-scale', syntax: '<number>', initialValue: 1, inherits: true, window: win},
 				{name: '--chat-trans-x', syntax: '<length>', initialValue: '0px', inherits: false, window: win},
 				{name: '--chat-trans-y', syntax: '<percentage>', initialValue: '-50%', inherits: false, window: win},
 				{name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
@@ -17520,16 +17522,16 @@ class CommentListView extends Emitter {
 			.addClass('show');
 	}
 	_onMenuClick(e) {
-		let target = e.target.closest('.menuButton');
+		const target = e.target.closest('.menuButton');
 		this._$menu.removeClass('show');
 		if (!target) {
 			return;
 		}
-		let {itemId} = e.target.closest('.listMenu').dataset;
+		const {itemId} = e.target.closest('.listMenu').dataset;
 		if (!itemId) {
 			return;
 		}
-		let {command} = target.dataset;
+		const {command} = target.dataset;
 		if (command === 'addUserIdFilter' || command === 'addWordFilter') {
 			Array.from(this._list.querySelectorAll(`.item${itemId}`))
 				.forEach(e => e.remove());
@@ -17537,16 +17539,15 @@ class CommentListView extends Emitter {
 		this.emit('command', command, null, itemId);
 	}
 	_onItemDetailClick(e) {
-		let $target = $(e.target).closest('.command');
-		if ($target.length < 1) {
+		const target = e.target.closest('.command');
+		if (!target) {
 			return;
 		}
-		let itemId = this._$itemDetail.attr('data-item-id');
+		const itemId = this._$itemDetail.attr('data-item-id');
 		if (!itemId) {
 			return;
 		}
-		let command = $target.attr('data-command');
-		let param = $target.attr('data-param');
+		const {command, param} = target.dataset;
 		if (command === 'hideItemDetail') {
 			return this.hideItemDetail();
 		}
@@ -25456,7 +25457,6 @@ class CommentInputPanel extends Emitter {
 	submit() {
 		let chat = this._$commentInput.val().trim();
 		let cmd = this._$commandInput.val().trim();
-		window.console.log('submit', {chat, cmd});
 		if (!chat.length) {
 			return;
 		}
@@ -30292,7 +30292,7 @@ CustomElements.initialize = (() => {
 const TextLabel = (() => {
 	const func = function(self) {
 		const items = {};
-		const getId = function() {return `id${this.id++}`;}.bind({id: 0});
+		const getId = function() {return `id-${this.id++}`;}.bind({id: 0});
 		const create = async ({canvas, style}) => {
 			const id = getId();
 			const ctx = canvas.getContext('2d', {
@@ -30305,7 +30305,7 @@ const TextLabel = (() => {
 		};
 		const setStyle = ({id, style, name}) => {
 			const item = items[id];
-			if (!item) { throw new Error('known id', id); }
+			if (!item) { throw new Error('unknown id', id); }
 			name = name || 'label';
 			const {canvas, ctx} = item;
 			item.text = '';
@@ -30316,7 +30316,7 @@ const TextLabel = (() => {
 		};
 		const drawText = ({id, text}) => {
 			const item = items[id];
-			if (!item) { throw new Error('known id', id); }
+			if (!item) { throw new Error('unknown id', id); }
 			const {canvas, ctx, style} = item;
 			if (item.text === text) {
 				return;
@@ -30398,12 +30398,14 @@ const TextLabel = (() => {
 		style.fontWeight = style.fontWeight || containerStyle.fontWeight;
 		style.color      = style.color      || containerStyle.color;
 		if (!isOffscreenCanvasAvailable) {
-			worker = worker || {
-				name: NAME,
-				onmessage: () => {},
-				post: ({command, params}) => worker.onmessage({command, params})
-			};
-			func(worker);
+			if (!worker) {
+				worker = {
+					name: NAME,
+					onmessage: () => {},
+					post: ({command, params}) => worker.onmessage({command, params})
+				};
+				func(worker);
+			}
 		} else {
 			worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
 		}

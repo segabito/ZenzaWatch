@@ -4876,9 +4876,11 @@ class CrossDomainGate extends Emitter {
 
       if (!container) { return; }
       const mutationObserver = new MutationObserver(mutations => {
-        if (mutations
-            .some(mutation => mutation.addedNodes && mutation.addedNodes.length)) {
-          onUpdate();
+        for (const record of mutations) {
+          const container = record.target;
+          if (record.addedNodes && record.addedNodes.length) {
+            onUpdate(container);
+          }
         }
       });
 
