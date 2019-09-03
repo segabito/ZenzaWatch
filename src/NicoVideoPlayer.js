@@ -275,6 +275,7 @@ class NicoVideoPlayer extends Emitter {
   fastSeek(t) {this._videoPlayer.fastSeek(Math.max(0, t));}
   set currentTime(t) {this._videoPlayer.currentTime = Math.max(0, t);}
   get currentTime() { return this._videoPlayer.currentTime;}
+  get vpos() { return this.currentTime * 100; }
   get duration() {return this._videoPlayer.duration;}
   get chatList() {return this._commentPlayer.chatList;}
   get nonFilteredChatList() {return this._commentPlayer.nonFilteredChatList;}

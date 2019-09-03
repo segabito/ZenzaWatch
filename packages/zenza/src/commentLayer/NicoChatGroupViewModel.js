@@ -156,7 +156,7 @@ class NicoChatGroupViewModel {
         target.moveToNextLine(o);
 
         // ずらした後は再度全チェックするのを忘れずに(再帰)
-        if (!target.isOverflow()) {
+        if (!target.isOverflow) {
           this.checkCollision(target);
           return;
         }

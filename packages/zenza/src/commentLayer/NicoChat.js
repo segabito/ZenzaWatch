@@ -140,7 +140,8 @@ class NicoChat {
     }
   }
 
-  constructor(data, options = {videoDuration: 0x7FFFFF, mainThreadId: 0, format: ''}) {
+  constructor(data, options = {}) {
+    options = Object.assign({videoDuration: 0x7FFFFF, mainThreadId: 0, format: ''}, options);
     const props = this.props = {};
     props.id = `chat${NicoChat.id++}`;
     props.currentTime = 0;

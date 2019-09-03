@@ -80,7 +80,6 @@ class CommentInputPanel extends Emitter {
   submit() {
     let chat = this._$commentInput.val().trim();
     let cmd = this._$commandInput.val().trim();
-    window.console.log('submit', {chat, cmd});
     if (!chat.length) {
       return;
     }

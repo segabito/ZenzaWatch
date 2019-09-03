@@ -101,9 +101,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         return;
       }
       cssUtil.registerProps(
-        {name: '--dokaben-scale',   syntax: '<number>', initialValue: 1, inherits: true, window: win},
-        // {name: '--transform-start', syntax: '<transform-list>', initialValue: 'scale(1, 1)', inherits: true, window: win},
-        // {name: '--transform-end',   syntax: '<transform-list>', initialValue: 'scale(1, 1)', inherits: true, window: win},
+        {name: '--dokaben-scale', syntax: '<number>', initialValue: 1, inherits: true, window: win},
         {name: '--chat-trans-x', syntax: '<length>', initialValue: '0px', inherits: false, window: win},
         {name: '--chat-trans-y', syntax: '<percentage>', initialValue: '-50%', inherits: false, window: win},
         {name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
