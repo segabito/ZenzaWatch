@@ -117,14 +117,14 @@ const {VideoItemElement, VideoItemProps} = (() => {
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        width: 96px;
+        height: 72px;
         object-fit: contain;
       }
 
       .thumbnailContainer a {
         display: inline-block;
-        width:  100%;
+        width:  96px;
         height: 72px;
         transition: box-shaow 0.4s ease, transform 0.4s ease;
       }

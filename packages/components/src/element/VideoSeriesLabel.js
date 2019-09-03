@@ -88,15 +88,15 @@ const {VideoSeriesProps, VideoSeriesLabel} = (() => {
       .thumbnailContainer {
         position: relative;
         background-color: black;
-        height: ${ITEM_HEIGHT - 8}px;
+        height: ${ITEM_HEIGHT - 16}px;
       }
 
       .thumbnail {
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        width: ${THUMBNAIL_WIDTH}px;
+        height: ${ITEM_HEIGHT - 16}px;
         object-fit: cover;
         filter: sepia(100%);
       }
