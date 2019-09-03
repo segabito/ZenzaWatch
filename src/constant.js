@@ -203,7 +203,7 @@ CONSTANT.COMMON_CSS = `
   }
 
   .scalingUI {
-    transform: scale(var(--zenza-ui-scale, 1));
+    transform: scale(var(--zenza-ui-scale));
   }
 `.trim();
 

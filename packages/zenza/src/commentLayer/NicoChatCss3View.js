@@ -1,5 +1,6 @@
 import {NicoChat} from './NicoChat';
 import {CommentLayer} from './CommentLayer';
+import {cssUtil} from '../../../lib/src/css/css';
 //===BEGIN===
 class NicoChatCss3View {
   /**
@@ -10,10 +11,10 @@ class NicoChatCss3View {
    * @param {{inline: string, keyframes: string}} cssText
    * @return {HTMLElement}
    */
-  static buildChatDom (chat, type, size, cssText) {
-    let span = document.createElement('span');
-    let ver = chat.commentVer;
-    let className = ['nicoChat', type, size];
+  static buildChatDom (chat, type, size, cssText, document = window.document) {
+    const span = document.createElement('span');
+    const ver = chat.commentVer;
+    const className = ['nicoChat', type, size];
     if (ver === 'html5') {
       className.push(ver);
     }
@@ -57,29 +58,29 @@ class NicoChatCss3View {
     span.dataset.meta = chat.meta;
 
     if (!chat.isInvisible) {
-      span.innerHTML = chat.htmlText;
       const {inline, keyframes} = cssText || {};
       if (inline) {
         span.style.cssText = inline;
       }
+      span.innerHTML = chat.htmlText;
       if (keyframes) {
         const style = document.createElement('style');
-        style.append(document.createTextNode(keyframes));
+        style.append(keyframes);
         span.append(style);
       }
     }
     return span;
   }
 
-  static buildStyleElement (cssText) {
-    let elm = document.createElement('style');
+  static buildStyleElement (cssText, document = window.document) {
+    const elm = document.createElement('style');
     elm.type = 'text/css';
-    elm.appendChild(document.createTextNode(cssText));
+    elm.append(cssText);
     return elm;
   }
 
-  static buildChatHtml (chat, type, cssText) {
-    const result = NicoChatCss3View.buildChatDom(chat, type, chat.size, cssText);
+  static buildChatHtml (chat, type, cssText, document = window.document) {
+    const result = NicoChatCss3View.buildChatDom(chat, type, chat.size, cssText, document);
     result.removeAttribute('data-meta');
     return result.outerHTML;
   }
@@ -144,10 +145,17 @@ class NicoChatCss3View {
         isAlignMiddle = true;
     }
     let top = isAlignMiddle ? '50%' : `${ypos}px`;
-    let transY = isAlignMiddle ? 'translateY(-50%)' : '';
+    // let transY = isAlignMiddle ? 'translateY(-50%)' : '';
 
-    let inline = `
-      position: absolute; will-change: transform; contain: layout style paint;
+    const inline = `
+      --chat-trans-x: -${outerScreenWidth + chat.width*scale}px;
+      --chat-trans-y: ${isAlignMiddle ? '-50' : '0'}%;
+      --chat-scale-x: ${scale === 1.0 ? 1 : scale};
+      --chat-scale-y: ${scale === 1.0 ? 1 : scaleY};
+      position: absolute;
+      will-change: transform, opacity;
+      contain: layout style paint;
+      line-height: 1.235;
       z-index: ${zIndex};
       top: ${top};
       left: ${leftPos}px;
@@ -155,29 +163,39 @@ class NicoChatCss3View {
       ${lineHeightCss}
       ${opacity}
       font-size: ${fontSizePx}px;
-      animation-name: idou-${id};
+      animation-name: idou-props;
       animation-duration: ${duration}s;
       animation-delay: ${delay}s;
       ${reverse}
+      ${chat.isReverse ?
+        `transform:
+          translateX(var(--chat-trans-x))
+          scale(var(--chat-scale-x), var(--chat-scale-y))
+          translateY(var(--chat-trans-y));` :
+        `transform:
+          translate(0, 0)
+          scale(var(--chat-scale-x), var(--chat-scale-y))
+          translateY(var(--chat-trans-y));`
+      }
     `;
 
-    let keyframes = `
-      @keyframes idou-${id} {
-        0%   {
-          visibility: visible;
-          transform:
-            translate3d(0, 0, 0) ${scaleCss} ${transY};
-        }
-        100% {
-          visibility: hidden;
-          transform:
-            translate3d(-${outerScreenWidth + chat.width*scale}px, 0, 0)
-            ${scaleCss}
-            ${transY};
-        }
-      }
-    `.trim();
-    return {inline, keyframes};
+    // const keyframes = `
+    //   @keyframes idou-${id} {
+    //     0%   {
+    //       visibility: visible;
+    //       transform:
+    //         translate3d(0, 0, 0) ${scaleCss} ${transY};
+    //     }
+    //     100% {
+    //       visibility: hidden;
+    //       transform:
+    //         translate3d(-${outerScreenWidth + chat.width*scale}px, 0, 0)
+    //         ${scaleCss}
+    //         ${transY};
+    //     }
+    //   }
+    // `.trim();
+    return {inline, keyframes: ''};
   }
   /**
    * @param {NicoChatViewModel} chat
@@ -228,7 +246,7 @@ class NicoChatCss3View {
         `transform: scale3d(1, ${scaleY}, 1) translate3d(-50%, ${transY}, ${time3d});` :
         `transform: scale3d(${scale}, ${scaleY}, 1) translate3d(-50%, ${transY}, ${time3d});`;
 
-    let inline = `
+    const inline = `
       z-index: ${zIndex};
       top: ${top};
       left: 50%;

@@ -1,5 +1,6 @@
 import {Emitter, Handler} from './baselib';
 import {Config} from './Config';
+const TOKEN = Math.random();
 
 const PRODUCT = 'ZenzaWatch';
 const ZenzaWatch = {
@@ -41,7 +42,6 @@ const global = {
   api: ZenzaWatch.api
 };
 const Navi = Object.assign({}, ZenzaWatch);
-const TOKEN = Math.random();
 
 export {
   ZenzaWatch,

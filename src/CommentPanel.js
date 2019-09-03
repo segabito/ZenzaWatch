@@ -204,8 +204,10 @@ class CommentListView extends Emitter {
     //this._appendNewItems = bounce.raf(this._appendNewItems.bind(this));
     cssUtil.registerProps(
       {name: '--current-time', syntax: '<time>', initialValue: '0s', inherits: true, window: w},
-      {name: '--scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
-      // {name: '--zenza-comment-panel-header-height',   syntax: '<number>', initialValue: 64, inherits: true}
+      {name: '--duration', syntax: '<time>', initialValue: '4s', inherits: true, window: w},
+      {name: '--scroll-top',   syntax: '<length>', initialValue: '0px', inherits: true, window: w},
+      {name: '--vpos-time', syntax: '<time>', initialValue: '0s', inherits: true, window: w},
+      {name: '--zenza-comment-panel-header-height',   syntax: '<length>', initialValue: '64px', inherits: true}
     );
 
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
@@ -456,13 +458,13 @@ class CommentListView extends Emitter {
     }
 
     if (!this._isActive) {
-      let itemHeight = CommentListView.ITEM_HEIGHT;
-      let top = view.top;
-      this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
+      const itemHeight = CommentListView.ITEM_HEIGHT;
+      const top = Math.max(0, view.top - innerHeight + itemHeight);
+      this.scrollTop(top);
     }
     // requestAnimationFrame(() => {
-    //   this._container.style.setProperty('--current-time', sec);
-    //   this._container.style.setProperty('--scroll-top', view.top);
+    //   this._container.style.setProperty('--current-time', css.s(sec));
+    //   this._container.style.setProperty('--scroll-top', css.px(view.top));
     // });
   }
   showItemDetail(item) {
@@ -521,6 +523,7 @@ CommentListView.__tpl__ = (`
     height: 100vh;
     overflow: auto;
     overscroll-behavior: contain;
+    /*transition: --current-time 0.2s linear;*/
   }
 
   .is-debug #listContainerInner {
@@ -863,22 +866,22 @@ const CommentListItemView = (() => {
       .font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
       .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
       .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-
-      /*
+/*
       .commentListItem .pointer {
         position: absolute;
         width: 100%;
-        height: 10px;
+        height: 1px;
         bottom: 0;
         left: 0;
         pointer-events: none;
         background: #ffc;
+        will-change: transform, opacity;
         transform-origin: left top;
         transition: transform var(--duration) linear;
-        visibility: hidden;
+        visibility: visible;
         opacity: 0.3;
-        animation-duration: calc(var(--duration) * 1s);
-        animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
+        animation-duration: var(--duration);
+        animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
         animation-name: pointer-moving;
         animation-timing-function: linear;
         animation-fill-mode: forwards;
@@ -888,18 +891,16 @@ const CommentListItemView = (() => {
       @keyframes pointer-moving {
         0% {
           visibility: visible;
-          transform: scaleX(1);
+          opacity: 0.3;
+          transform: translateX(0);
         }
         100% {
           visibility: hidden;
-          transform: scaleX(0.01);
+          opacity: 1;
+          transform: translateX(-100%);
         }
       }
-
-      */
-
-
-
+*/
     `).trim();
 
 
@@ -909,6 +910,7 @@ const CommentListItemView = (() => {
           <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
         </p>
         <p class="text"></p>
+        <!--span class="pointer"></span-->
       </div>
     `).trim();
 
@@ -962,8 +964,8 @@ const CommentListItemView = (() => {
         `commentListItem no${item.no} item${this._id} ${oden} fork${item.fork} font-${font} ${item.isSubThread ? 'subThread' : ''}`;
       commentListItem.style.cssText = `
           top: ${this.top}px;
-          --duration: ${item.duration};
-          --vpos: ${item.vpos}
+          --duration: ${item.duration}s;
+          --vpos-time: ${item.vpos / 100}s;
         `;
       // commentListItem.style.transform = `translateZ(${time3dp}px)`;
       //commentListItem.setAttribute('data-time-3dp', time3dp);

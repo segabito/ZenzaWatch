@@ -439,7 +439,6 @@ import {cssUtil} from '../packages/lib/src/css/css';
       const currentTimeText = util.secToTime(sec);
       if (this._currentTimeText !== currentTimeText) {
         this._currentTimeText = currentTimeText;
-        // this._$currentTime[0].value = currentTimeText;
         this.currentTimeLabel.text = currentTimeText;
       }
       this._pointer.currentTime = sec;
@@ -450,17 +449,15 @@ import {cssUtil} from '../packages/lib/src/css/css';
     set duration(sec) {
       if (sec === this._duration) { return; }
       this._duration = sec;
-      this._pointer.duration = sec;
       this._pointer.currentTime = -1;
+      this._pointer.duration = sec;
       this._wheelSeeker.duration = sec;
       this._seekRange.max = sec;
 
       if (sec === 0 || isNaN(sec)) {
-        // this._$duration[0].value = '--:--';
         this.durationLabel.text = '--:--';
       } else {
         this.durationLabel.text = util.secToTime(sec);
-        // this._$duration[0].value = util.secToTime(sec);
       }
       this.emit('durationChange');
     }
@@ -479,8 +476,8 @@ import {cssUtil} from '../packages/lib/src/css/css';
                 this._bufferEnd   !== end) {
               const perLeft = (this._timeToPer(start) - 1);
               const scaleX = (this._timeToPer(width) + 2) / 100;
-              bufferRange.style.transform =
-                `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`;
+              bufferRange.style.setProperty('--buffer-range-left', cssUtil.percent(perLeft));
+              bufferRange.style.setProperty('--buffer-range-scale', scaleX);
               this._bufferStart = start;
               this._bufferEnd   = end;
             }
@@ -492,7 +489,7 @@ import {cssUtil} from '../packages/lib/src/css/css';
     resetBufferedRange() {
       this._bufferStart = 0;
       this._bufferEnd = 0;
-      this._bufferRange.style.transform = 'scaleX(0)';
+      this._bufferRange.style.setProperty('--buffer-range-scale', 0);
     }
     _hideMenu() {
       document.body.focus();
@@ -804,6 +801,8 @@ util.addStyle(`
 
   .bufferRange {
     position: absolute;
+    --buffer-range-left: 0;
+    --buffer-range-scale: 0;
     width: 100%;
     height: 110%;
     left: 0px;
@@ -812,7 +811,9 @@ util.addStyle(`
     z-index: 190;
     background: #ff9;
     transform-origin: left;
-    transform: translate3d(0, 0, 0) scaleX(0);
+    transform:
+      translateX(var(--buffer-range-left))
+      scaleX(var(--buffer-range-scale));
     transition: transform 0.2s;
     mix-blend-mode: overlay;
     will-change: transform, opacity;
@@ -1737,9 +1738,11 @@ util.addStyle(`
 
       cssUtil.registerProps(
         {name: '--current-time', syntax: '<time>',   initialValue: '1s', inherits: true},
-        {name: '--scroll-top',   syntax: '<number>', initialValue: 0,   inherits: true},
-        {name: '--vpos',         syntax: '<number>', initialValue: 0,   inherits: true},
-        {name: '--duration',     syntax: '<time>',   initialValue: '1s', inherits: true},
+        {name: '--scroll-top',   syntax: '<length>', initialValue: '0px',inherits: true},
+        {name: '--vpos-time',    syntax: '<time>',   initialValue: '1s', inherits: true},
+        {name: '--duration',     syntax: '<time>',   initialValue: '4s', inherits: true},
+        {name: '--buffer-range-left', syntax: '<percentage>', initialValue: '0%',inherits: false},
+        {name: '--buffer-range-scale', syntax: '<number>', initialValue: 0, inherits: false},
       );
       $parent.append($view);
     }
@@ -1961,8 +1964,8 @@ util.addStyle(`
       t.text.textContent = text;
       t.chat.style.cssText = `
         top: ${idx * itemHeight}px;
-        --duration: ${chat.duration};
-        --vpos: ${chat.vpos}
+        --duration: ${chat.duration}s;
+        --vpos-time: ${chat.vpos / 100}s;
       `;
       return t.clone().firstElementChild;
     }
@@ -2039,8 +2042,8 @@ util.addStyle(`
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-    animation-duration: calc(var(--duration) * 1s);
-    animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
+    animation-duration: var(--duration);
+    animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
     animation-name: preview-text-inview;
     animation-timing-function: linear;
     animation-play-state: paused !important;
@@ -2166,8 +2169,8 @@ util.addStyle(`
     transform: translateX(260px);
     visibility: hidden;
     will-change: transform;
-    animation-duration: calc(var(--duration) * 1s);
-    animation-delay: calc(((var(--vpos) / 100) - var(--current-time)) * 1s - 1s);
+    animation-duration: var(--duration);
+    animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
     animation-play-state: paused !important;
     animation-name: preview-text-moving;
     animation-timing-function: linear;
@@ -2315,20 +2318,25 @@ util.addStyle(`
       util.dispatchCommand(this._$view[0], this._repeatCommand, this._repeatParam);
     }
     update(sec, left) {
-      let timeText = util.secToTime(sec);
+      const timeText = util.secToTime(sec);
       if (this._timeText === timeText) { return; }
       this._timeText = timeText;
       this.currentTimeLabel && (this.currentTimeLabel.text = timeText);
-      let w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
-      let vw = window.innerWidth;
+      const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
+      const vw = window.innerWidth;
       left = Math.max(0, Math.min(left - w / 2, vw - w));
-      this._$view.css('transform', `translate3d(${left}px, 0, 10px)`);
+      this._$view[0].style.setProperty('--seekbar-tooltip-left', cssUtil.px(left));
       this._seekBarThumbnail.currentTime=sec;
     }
   }
+  cssUtil.registerProps(
+    {name: '--seekbar-tooltip-left',   syntax: '<length>', initialValue: '0px', inherits: false}
+  );
+
 
   SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
+      --seekbar-tooltip-left: 0px;
       position: absolute;
       display: inline-block;
       visibility: hidden;
@@ -2346,8 +2354,8 @@ util.addStyle(`
       border: 1px solid #666;
       border-radius: 8px;
       padding: 8px 4px 0;
-      transform: translate3d(0, 0, 10px);
-      transition: transform 0.1s steps(1, start) 0, opacity 0.2s ease 0.5s;
+      transform: translate3d(var(--seekbar-tooltip-left), 0, 10px);
+      transition: --seekbar-tooltip-left 0.1s, opacity 0.2s ease 0.5s;
       pointer-events: none;
     }
 
@@ -2544,9 +2552,7 @@ util.addStyle(`
       this._animation = this._pointer.animate([
         {transform: 'translate3d(-6px, -50%, 0) translate3d(0, 0, 0)'},
         {transform: 'translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0)'}
-      ], {
-        duration: this._duration * 1000
-      });
+      ], {duration: this._duration * 1000});
       this._animation.currentTime = this._currentTime * 1000;
       this._animation.playbackRate = this._playbackRate;
       if (!this._isPausing) {

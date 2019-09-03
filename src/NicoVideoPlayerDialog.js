@@ -737,7 +737,8 @@ util.addStyle(`
   }
 
   .showVideoControlBar {
-    --padding-bottom: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
+    --padding-bottom: ${VideoControlBar.BASE_HEIGHT}px;
+    --padding-bottom: var(--zenza-control-bar-height);
   }
   .zenzaStoryboardOpen .showVideoControlBar {
     --padding-bottom: calc(var(--zenza-control-bar-height) + 80px);
@@ -1078,7 +1079,7 @@ NicoVideoPlayerDialogView.__css__ = `
     pointer-events: none;
     cursor: none;
     user-select: none;
-    opacity: var(--zenza-comment-layer-opacity, 1);
+    opacity: var(--zenza-comment-layer-opacity);
   }
 
   .zenzaPlayerContainer.is-backComment .commentLayerFrame {
@@ -3526,7 +3527,7 @@ class VariablesMapper {
     this.config = config;
     css.registerProps(
       {name: '--zenza-ui-scale',              syntax: '<number>', initialValue: 1,  inherits: true},
-      // {name: '--zenza-control-bar-height',    syntax: '<number>', initialValue: 48, inherits: true},
+      {name: '--zenza-control-bar-height',    syntax: '<length>', initialValue: '48px', inherits: true},
       {name: '--zenza-comment-layer-opacity', syntax: '<number>', initialValue: 1,  inherits: true}
     );
 

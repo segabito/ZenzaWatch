@@ -104,19 +104,26 @@ class NicoCommentCss3PlayerView extends Emitter {
         }
         return;
       }
-
-      this._window = win;
-      this._document = doc;
       cssUtil.registerProps(
         {name: '--dokaben-scale',   syntax: '<number>', initialValue: 1, inherits: true, window: win},
         // {name: '--transform-start', syntax: '<transform-list>', initialValue: 'scale(1, 1)', inherits: true, window: win},
         // {name: '--transform-end',   syntax: '<transform-list>', initialValue: 'scale(1, 1)', inherits: true, window: win},
+        {name: '--chat-trans-x', syntax: '<length>', initialValue: '0px', inherits: false, window: win},
+        {name: '--chat-trans-y', syntax: '<percentage>', initialValue: '-50%', inherits: false, window: win},
+        {name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
+        {name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win}
       );
+
+      this.window = win;
+      this.document = doc;
+      this.fragment = doc.createDocumentFragment();
+      this._gcFragment = doc.createElement('div');
+      this._gcFragment.hidden = true;
       this._optionStyle = doc.getElementById('optionCss');
       this._style = doc.getElementById('nicoChatAnimationDefinition');
       this._keyframesContainer = doc.getElementById('keyframesContainer');
-      const commentLayer = this._commentLayer = doc.getElementById('commentLayer');
-      const subLayer = this._subLayer = document.createElement('div');
+      const commentLayer = this.commentLayer = doc.getElementById('commentLayer');
+      const subLayer = this.subLayer = doc.createElement('div');
       subLayer.className = 'subLayer';
       commentLayer.append(subLayer);
       // Config直接参照してるのは手抜き
