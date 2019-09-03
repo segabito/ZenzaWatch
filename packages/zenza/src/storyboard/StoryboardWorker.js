@@ -1,5 +1,4 @@
 import {workerUtil} from '../../../lib/src/infra/workerUtil';
-// import {storyboardApiData} from './StoryboardMockData';
 //===BEGIN===
 
 const StoryboardWorker = (() => {
@@ -20,7 +19,6 @@ const StoryboardWorker = (() => {
               new Image(url) :
               createImageBitmap(await fetch(url).then(r => r.blob()).catch(() => BLANK_IMG))
           };
-          // await cache.image.decode().catch(() => cache.image = BLANK_IMG);
           if (cache.image === BLANK_IMG) {
             return BLANK_IMG;
           }
@@ -197,7 +195,7 @@ const StoryboardWorker = (() => {
         this._currentTime = -1;
         this._info = new StoryboardModel(info);
         this.lastPos = {};
-        this.ctx = canvas.getContext('2d', {alpha: false});
+        this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
         this.images = ImageCacheMap;
         this.cls();
       }

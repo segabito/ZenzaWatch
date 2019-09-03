@@ -9,7 +9,10 @@ const TextLabel = (() => {
 
     const create = async ({canvas, style}) => {
       const id = getId();
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', {
+        desynchronized: true,
+        // preserveDrawingBuffer: true
+      });
       items[id] = {
         canvas, style, ctx, text: ''
       };
@@ -36,20 +39,19 @@ const TextLabel = (() => {
       if (item.text === text) {
         return;
       }
-      requestAnimationFrame(() => {
-        ctx.font = `${style.fontWeight || ''} ${style.fontSizePx ? `${style.fontSizePx * style.ratio}px` : ''} ${style.fontFamily || ''}`.trim();
-        const measured = ctx.measureText(text);
-        let {width, height} = measured;
-        height = (height || style.fontSizePx) * style.ratio;
-        const left = (canvas.width - width) / 2;
-        const top = canvas.height - (canvas.height - height) / 2;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = style.color;
-        ctx.textAlign = style.textAlign;
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(text, left, top);
-        ctx.commit && ctx.commit();
-      });
+      ctx.beginPath();
+      ctx.font = `${style.fontWeight || ''} ${style.fontSizePx ? `${style.fontSizePx * style.ratio}px` : ''} ${style.fontFamily || ''}`.trim();
+      const measured = ctx.measureText(text);
+      let {width, height} = measured;
+      height = (height || style.fontSizePx) * style.ratio;
+      const left = (canvas.width - width) / 2;
+      const top = canvas.height - (canvas.height - height) / 2;
+      ctx.fillStyle = style.color;
+      ctx.textAlign = style.textAlign;
+      ctx.textBaseline = 'bottom';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillText(text, left, top);
+      ctx.commit && ctx.commit();
       return {id, text};
     };
 
