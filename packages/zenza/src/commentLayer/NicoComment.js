@@ -92,12 +92,12 @@ class NicoComment extends Emitter {
     }
     nicoChats = []
       .concat(...
-        nicoChats.filter(c => c.isPatissier && c.fork < 1 && c.isSubThread)
+        nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork < 1 && c.isSubThread)
           .splice(maxCommentsByDuration))
       .concat(...
-        nicoChats.filter(c => c.isPatissier && c.fork < 1 && !c.isSubThread)
+        nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork < 1 && !c.isSubThread)
           .splice(maxCommentsByDuration))
-      .concat(...nicoChats.filter(c => !c.isPatissier || c.fork > 0));
+      .concat(...nicoChats.filter(c => !(c.isPatissier || c.isCA) || c.fork > 0));
       window.console.timeLog('コメントのパース処理', 'NicoChat created');
 
     if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {

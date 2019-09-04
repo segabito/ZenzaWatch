@@ -959,6 +959,16 @@ body.in-capture .commentLayer {
   animation-iteration-count: infinite;
   animation-duration: 10s;
 }
+.nicoChat.nicotta::before {
+  content: '☻';
+  opacity: 0.8;
+  color: #ff9;
+  display: inline-block;
+  text-align: center;
+  animation-name: spin;
+  animation-iteration-count: infinite;
+  animation-duration: 10s;
+}
 
 .nicoChat.updating::after {
   content: ' 通信中...';

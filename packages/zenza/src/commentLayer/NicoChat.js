@@ -29,6 +29,7 @@ class NicoChat {
       hasDurationSet: false,
       isMine: false,
       isUpdating: false,
+      isCA: false,
       thread: 0,
       nicoru: 0,
       opacity: 1
@@ -107,6 +108,9 @@ class NicoChat {
     if (cmd.pattisier) {
       props.isPatissier = true;
     }
+    if (cmd.ca) {
+      props.isCA = true;
+    }
 
     if (cmd.duration) {
       props.hasDurationSet = true;
@@ -167,6 +171,8 @@ class NicoChat {
     props.duration = NicoChat.DURATION.NAKA;
     props.commentVer = 'flash';
     props.nicoru = data.nicoru || 0;
+    props.valhalla = data.valhala;
+    props.lastNicoruDate = data.last_nicoru_date || null;
     props.opacity = 1;
 
     props.time3d = 0;
@@ -251,6 +257,8 @@ class NicoChat {
   get htmlText() {return this.props.htmlText || '';}
   set htmlText(v) { this.props.htmlText = v; }
   get date() {return this.props.date;}
+  get dateUsec() {return this.props.date_usec;}
+  get lastNicoruDate() {return this.props.lastNicoruDate;}
   get cmd() {return this.props.cmd;}
   get isPremium() {return !!this.props.isPremium;}
   get isEnder() {return !!this.props.isEnder;}
@@ -299,7 +307,11 @@ class NicoChat {
   get commentVer() {return this.props.commentVer;}
   get threadId() {return this.props.thread;}
   get nicoru() {return this.props.nicoru;}
+  set nicoru(v) {this.props.nicoru = v;}
+  get nicotta() { return !!this.props.nicotta;}
+  set nicotta(v) { this.props.nicotta = v; this.onChange(); }
   get opacity() {return this.props.opacity;}
+  get valhalla() {return this.props.valhalla || 0; }
 }
 NicoChat.id = 1000000;
 

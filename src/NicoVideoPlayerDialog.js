@@ -1351,7 +1351,7 @@ class NicoVideoPlayerDialog extends Emitter {
       userIdFilter: config.props.userIdFilter
     });
 
-    this._messageApiLoader = new ThreadLoader();
+    this.threadLoader = ThreadLoader;
 
     nicoVideoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
     nicoVideoPlayer.on('ended', this._onVideoEnded.bind(this));
@@ -1570,6 +1570,11 @@ class NicoVideoPlayerDialog extends Emitter {
         break;
       case 'selectTab':
         this._state.currentTab = param;
+        break;
+      case 'nicoru':
+        this.threadLoader.nicoru(this._videoInfo.msgInfo, param).catch(e => {
+          this.execCommand('alert', e.message || 'ニコれなかった＞＜');
+        });
         break;
       case 'update-smileVideoQuality':
         this._playerConfig.setValue('videoServerType', 'smile');
@@ -2131,7 +2136,7 @@ class NicoVideoPlayerDialog extends Emitter {
   }
   loadComment(msgInfo) {
     msgInfo.language = this._playerConfig.getValue('commentLanguage');
-    this._messageApiLoader.load(msgInfo).then(
+    this.threadLoader.load(msgInfo).then(
       this._onCommentLoadSuccess.bind(this, this._requestId),
       this._onCommentLoadFail.bind(this, this._requestId)
     );
@@ -2583,7 +2588,7 @@ class NicoVideoPlayerDialog extends Emitter {
   }
   async addChat(text, cmd, vpos = null, options = {}) {
     if (!this._nicoVideoPlayer ||
-      !this._messageApiLoader ||
+      !this.threadLoader ||
       !this._state.isCommentReady ||
       this._state.isCommentPosting) {
       return Promise.reject();
@@ -2632,7 +2637,7 @@ class NicoVideoPlayerDialog extends Emitter {
     };
 
     const msgInfo = this._videoInfo.msgInfo;
-    return this._messageApiLoader.postChat(msgInfo, text, cmd, vpos, lang)
+    return this.threadLoader.postChat(msgInfo, text, cmd, vpos, lang)
       .then(onSuccess).catch(onFail);
   }
   get duration() {

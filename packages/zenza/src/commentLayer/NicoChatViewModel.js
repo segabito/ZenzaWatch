@@ -429,6 +429,8 @@ class NicoChatViewModel {
   get uniqNo() {return this._nicoChat.uniqNo;}
   get layerId() {return this._nicoChat.layerId;}
   get fork() {return this._nicoChat.fork;}
+  get nicoru() { return this._nicoChat.nicoru; }
+  get nicotta() { return this._nicoChat.nicotta; }
   /**
    * second時の左端座標を返す
    */

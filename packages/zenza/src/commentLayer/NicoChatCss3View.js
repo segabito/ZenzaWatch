@@ -37,6 +37,9 @@ class NicoChatCss3View {
     if (chat.isUpdating) {
       className.push('updating');
     }
+    if (chat.nicotta) {
+      className.push('nicotta');
+    }
     let fork = chat.fork;
     className.push(`fork${fork}`);
 

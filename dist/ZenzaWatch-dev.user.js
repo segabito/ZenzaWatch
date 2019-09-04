@@ -1614,6 +1614,7 @@ CONSTANT.SCROLLBAR_CSS = `
 		display: none;
 	}
 `.trim();
+const NICORU = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAGh0lEQVRIS3VWeWxUxxn/zbxjvWuvvV4vXp9g43OddTB2EYEWnEuKgl3USqRHIpRIbVS7KapUmSbUIUpBBIjdtGpKHan9p0IkkQhNGtlUFaWFkGIi4WJq8BqMbQ4fuz7WV3bt3fdmXjWza8uozZOe3ryZb77fd/zm+4bgfx8VgCmmczN21HocoefiLFYfnI3VzBtBu5jP0HKWcjJtvbpiuzgd9Z6emL/076Sa1b0raska/WJMATBgp6/MM9o+MjO1y7QWV0W2Fmly/MVdY3VOJU4UZ607Ozhd0AJ8FgCgAOAALCG0AiC+4uUObXOT13mvYyQcFuv8t3sL2PbKdJrr0qnTpkj5xRizJubivHtgge87OSoU0mK3G6HFDc1R49p7SUMFgLUCIIRYul59yKENHQxGomj/fr6xd0e2lu3RAUIBzgEujUqYQhNbJ6fjOHlp0mj5YEzLSXUgapQcXoj3vZH0hAkpGTcbrWvKtA90BCMRs6ullO7akkW5YWEuwqSzKTpBio0mHQfiJgfnFuw2CqJSnL06wxva7vCc1FR1dqmyOcZ7hCdq0oOnfcXu6/0j4Sl0tpTyhq3rqBU3cerSFE6cC8KhEzzzqAs/3ZUPm41iaGwJv+oag6YAlBLs/2Yh8nId6Oqe5I3td2ixex1GwpuqgL8HJECZp7xzcPp2Q9v38o2WbxVq3OQyQ8c+foDXz0zIUHxnSzr++KMyONNVdPfPY/ubA6uJvnm8GlXr7TJ07Z+MGfs/HNPKPOVdg9O3G0luxpO104vXegw+y4MnNlNvlgZmchBQvNM5iv0fjktFP9jpwm9eKkFaqoqrtxaw5Y0AqrwU/SGOW21+lBc4pFwobCDnlWtco5nU49xcR/y5/rduTNw48O7eAuMnjfkaMxgoIbAsgl93jqIlCfByvQvvvPgwQE2+gt4xhoG2alQU2mEaFlSd4nedY8a+k6OaP9d/lFRkl1y+NTm07eqRKlZX5lRYjIOKXFoEh8/cx5sfB6VljZuceH9fuQzRlf55bFsTov63q+FbnwSwUfQMLrKvtfYrFdkl3cSl50fn4mP28RM1Vm6WTpgJECJYaOHcf+Zxvm8WCgX8hWnYs9UDTSeYmInj054wrCS7dte54XbqYJxBUalYt/Je6RW6l0SSra+X6PjrgWo4UxVwJgASfCeEgHHhDaAKMnMLMjvCAvGKheSXi7EFUAVYjDA8e7QP/xqKyyNjPVVpw6c/98ORokpuCwCx73zfPL4YXJTeVBWmoqE2CwolmF00cerzEJbiDAYDvrvNg5I8OxiDXI8um9j99g2cH4iBKMQTYda0I/RejZXt0gmXIbJkDg59dA+//CQkvXnpGxno+GEZUlIohsdjKPnZ9VWanjtQjqc3uWEaDKpGMDkXt7xNvUJ3lJS6vZfvhEPbAm3VrHK9Q3mIRV2jaPkgQdOWZz04+nwxVBvFg4llbGntQ1Ya0B/kuPB6Ber9GassGrgfZb79fUqp29tNavK9b/WOhQ6c+nGR8fzjXs2McZlU4cHac9D8pAut3y6CQ1cwMrWMHYcCyEkDhsMc/2ytwOPVSQAbxfsXQsYLv7+r1eR7jxKfZ0NtYPp+z/YSjf+ttZqmrcnDkT/fx8EziRCJx5+nSQovxS0MTsqWIZ9//KICTzyaATALX8Y4njnSxy8PGdTnWV8nS4XPm9oZCEUaTu/baOzZ6dWMZROaQvH5wByO/WUcMcPEcpzDYFx6JkB0lUBXKSrzHHhtdyHysjQQjeKjS1PGc+8Oaz5valcgFGmUAFl6ViVR5gLTSwz9xx/hvo3p1Fw2ZagiMY54XNQmskpfsUcCEQJ7CpHGKDYFgeEFXvXqTeqxK7CYyzcTnxlYLddFmY6mu7PRDkUhZuD4I7Rsg1NW1ITF4lxQIHk+Em1EeJM4BtBUDN5b5L5Xb3LGLLUo09F8dza6tlzLNseK3eqhkbB5UFh4/rVyo97v0hSdyNhaPEHdxAG0QETDUQhY3MLFG3PGU8duy35a7FYPj4TNhxqO3LPSMjdmak3jC0bHMgNe3uniL9bnsMoCB013UKqpiTZmmNxaiHI+MBrlf7oYVP7w2RxNUYC8dK15eNb4vy1zBUQ2/dw03edKZe2BENuV4AnBC485UZpjk393gjGcuiIuA4mS4vMqZ+ciSsvEl/GvbPqrlFtpoWLisQ1abYxbe649MJ8AsAmAvLYAWAJwfXOBesGmkNNX7hlfeW35LyB037N9NspNAAAAAElFTkSuQmCC';
 const global = {
   emitter, debug,
   external: ZenzaWatch.external, PRODUCT, TOKEN, CONSTANT,
@@ -4482,6 +4483,13 @@ class RangeBarElement extends HTMLElement {
 					--fore-color: #ccc;
 					--width: 64px;
 					--height: 8px;
+					--range-percent: 0%;
+				}
+				#root {
+					width: var(--width);
+					height: 100%;
+					display: flex;
+					align-items: center;
 				}
 				input, .meter {
 					width: var(--width);
@@ -4508,6 +4516,11 @@ class RangeBarElement extends HTMLElement {
 					display: inline-block;
 					vertical-align: middle;
 					background-color: var(--back-color);
+					background:
+						linear-gradient(to right,
+							var(--fore-color), var(--fore-color) var(--range-percent),
+							var(--back-color) 0, var(--back-color)
+						);
 					contain: style layout size;
 					pointer-events: none;
 				}
@@ -4550,6 +4563,7 @@ class RangeBarElement extends HTMLElement {
 	}
 	onChange() {
 		this.update();
+		domEvent.dispatchCustomEvent(this, 'input', {value: this.value}, {bubbles: true, composed: true});
 	}
 	update() {
 		if (!this.rangeInput) { return; }
@@ -4562,8 +4576,7 @@ class RangeBarElement extends HTMLElement {
 		}
 		this.lastValue = value;
 		const per = value / Math.abs(max - min) * 100;
-		this.meter.style.background =
-			`linear-gradient(to right, var(--fore-color), var(--fore-color) ${per}%, var(--back-color) 0, var(--back-color))`;
+		this.meter.style.setProperty('--range-percent', cssUtil.percent(per));
 		this.tooltip.textContent = `${Math.round(per)}%`;
 	}
 	initShadow() {
@@ -4599,6 +4612,9 @@ class RangeBarElement extends HTMLElement {
 		}
 	}
 }
+cssUtil.registerProps(
+	{name: '--range-percent', syntax: '<percentage>', initialValue: '0%', inherits: true}
+);
 if (window.customElements) {
 	customElements.get('zenza-range-bar') || window.customElements.define('zenza-range-bar', RangeBarElement);
 }
@@ -7070,6 +7086,8 @@ ZenzaWatch.api.StoryboardInfoLoader = StoryboardInfoLoader;
 const {ThreadLoader} = (() => {
 	const VERSION_OLD = '20061206';
 	const VERSION     = '20090904';
+	const FRONT_ID = '6';
+	const FRONT_VER = '0';
 	const LANG_CODE = {
 		'en_us': 1,
 		'zh_tw': 2
@@ -7132,7 +7150,7 @@ const {ThreadLoader} = (() => {
 		buildPacketData(msgInfo, options = {}) {
 			const packets = [];
 			const resCount = this.getRequestCountByDuration(msgInfo.duration);
-			const leafContent = `0-${Math.floor(msgInfo.duration / 60) + 1}:100,${resCount}`;
+			const leafContent = `0-${Math.floor(msgInfo.duration / 60) + 1}:100,${resCount},nicoru:100`;
 			const language = this.getLangCode(msgInfo.language);
 			msgInfo.threads.forEach(thread => {
 				if (!thread.isActive) { return; }
@@ -7140,7 +7158,7 @@ const {ThreadLoader} = (() => {
 					thread: thread.id.toString(),
 					user_id: msgInfo.userId > 0 ? msgInfo.userId.toString() : '', // 0の時は空文字
 					language,
-					nicoru: 1,
+					nicoru: 3,
 					scores: 1
 				};
 				if (thread.isThreadkeyRequired) {
@@ -7370,8 +7388,53 @@ const {ThreadLoader} = (() => {
 			result = await this._postChat(threadInfo, postkey, text, cmd, vpos, lang).catch(r => r);
 			return result.status === 'ok' ? result : Promise.reject(result);
 		}
+		getNicoruKey(threadId, options = {}) {
+			const url =
+				`https://nvapi.nicovideo.jp/v1/nicorukey?language=0&threadId=${threadId}`;
+			console.log('getNicorukey url: ', url);
+			const headers = options.cookie ? {Cookie: options.cookie} : {};
+			Object.assign(headers, {
+				'X-Frontend-Id': FRONT_ID,
+				});
+			return netUtil.fetch(url, {
+				headers,
+				credentials: 'include'
+			}).then(res => res.json())
+				.then(js => {
+					if (js.meta.status === 200) {
+						return js.data;
+					}
+					return Promise.reject({status: js.meta.status});
+				}).catch(result => {
+				return Promise.reject({
+					result,
+					message: `NicoruKeyの取得失敗 ${threadId}`
+				});
+			});
+		}
+		async nicoru(msgInfo, chat) {
+			const threadInfo = msgInfo.threadInfo;
+			const {nicorukey} = await this.getNicoruKey(threadInfo.threadId);
+			const server = threadInfo.server.replace('/api/', '/api.json/');
+			const body = JSON.stringify({nicoru:{
+				content: chat.text,
+				fork: chat.fork || 0,
+				id: chat.no.toString(),
+				language: 0,
+				nicorukey,
+				postdate: `${chat.date}.${chat.dateUsec}`,
+				premium: nicoUtil.isPremium() ? 1 : 0,
+				thread: threadInfo.threadId.toString(),
+				user_id: msgInfo.userId.toString()
+			}});
+			const result = await this._post(server, body);
+			if (result.status === 4) {
+				return Promise.reject({status: result.status, message: 'ニコり済み'});
+			}
+			return result;
+		}
 	}
-	return {ThreadLoader};
+	return {ThreadLoader: new ThreadLoader};
 })();
 
 const {YouTubeWrapper} = (() => {
@@ -9935,13 +9998,12 @@ const StoryboardWorker = (() => {
 				}
 			}
 			async gc() {
-				const MAX = 10;
+				const MAX = 8;
 				const map = this.map;
 				if (map.size < MAX) {
 					return;
 				}
 				const sorted = [...map].sort((a, b) => a[1].updated - b[1].updated);
-				console.log('sorted', sorted);
 				while (map.size >= MAX) {
 					const [url] = sorted.shift();
 					map.delete(url);
@@ -10037,6 +10099,100 @@ const StoryboardWorker = (() => {
 			getmsPage(ms) {
 				const index = this._storyboard.getIndex(ms);
 				return this._storyboard.getPageIndex(index);
+			}
+		}
+		class BoardView {
+			constructor({canvas, info, name}) {
+				this.canvas = canvas;
+				this.name = name;
+				this._currentTime = -1;
+				this._scrollLeft = 0;
+				this._info = new StoryboardModel(info);
+				this.lastPos = {};
+				this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+				this.images = ImageCacheMap;
+				this.boards = [];
+				this.cls();
+			}
+			get info() { return this._info; }
+			set info(info) { this.setInfo(info); }
+			async setInfo(info) {
+				this.info && this.info.imageUrls.forEach(url => this.images.release(url));
+				this.boards = [];
+				this._info.update(info);
+				this.boards = await Promise.all(this._info.imageUrls.forEach(async (url, idx) => {
+					const image = await this.images.get(url);
+					const rows = info.rows;
+					const pageWidth = info.pageWidth;
+					const boardWidth = pageWidth * rows;
+					const pageHeight = info.height;
+					const canvas = new OffscreenCanvas(boardWidth, pageHeight);
+					const ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+					ctx.beginPath();
+					for (let i = 0; i < rows; i++) {
+						const dx = i * pageWidth;
+						const sy = i * pageHeight;
+						ctx.drawImage(image,
+							0, sy, pageWidth, pageHeight,
+							dx, 0, pageWidth, pageHeight
+						);
+					}
+					const colWidth = info.width;
+					const totalCols = boardWidth / colWidth;
+					ctx.strokeStyle = 'rgb(128, 128, 128)';
+					for (let i = 0; i < totalCols; i++) {
+						const x = i * colWidth;
+						ctx.rect(x, 0, colWidth, pageHeight);
+					}
+					return {
+						image: canvas,
+						left: idx * boardWidth,
+						right: idx * boardWidth + boardWidth,
+						width: boardWidth
+					};
+				}));
+				this.height = info.height;
+				this._currentTime = -1;
+				this.cls();
+			}
+			get scrollLeft() {
+				return this._scrollLeft;
+			}
+			set scrollLeft(v) {
+				const left = this._scrollLeft = v;
+				const right = left + this.width;
+				const ctx = this.ctx;
+				ctx.beginPath();
+				ctx.clearRect(0, 0, this.width, this.height);
+				for (const board of this.boards) {
+					if (
+						(left <= board.left  && board.left <= right) ||
+						(left <= board.right && board.right <= right) ||
+						(board.left <= left  && right <= board.right)
+					) {
+						const dx = board.left - left;
+						ctx.drawImage(board.image,
+							0, 0, board.width, this.height,
+							dx, 0, board.width, this.height
+						);
+					}
+				}
+			}
+			cls() {
+				this.ctx.clearRect(0, 0, this.width, this.height);
+			}
+			get currentTime() { return this.currentTime; }
+			set currentTime(time) { this.setCurrentTime(time); }
+			get width() {return this.canvas.width;}
+			get height() {return this.canvas.height;}
+			set width(width) {this.canvas.width = width;}
+			set height(height) {this.canvas.height = height;}
+			async setCurrentTime(time) {
+			}
+			resize({width, height}) {
+				this.width = width;
+				this.height = height;
+				this.cls();
 			}
 		}
 		class ThumbnailView {
@@ -10171,12 +10327,14 @@ const StoryboardWorker = (() => {
 		}
 		canvas.dataset.name = name;
 		if (!isOffscreenCanvasAvailable) {
-			worker = worker || {
-				name: NAME,
-				onmessage: () => {},
-				post: ({command, params}) => worker.onmessage({command, params})
-			};
-			func(worker);
+			if (!worker) {
+				worker = {
+					name: NAME,
+					onmessage: () => {},
+					post: ({command, params}) => worker.onmessage({command, params})
+				};
+				func(worker);
+			}
 		} else {
 			worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
 		}
@@ -10786,7 +10944,9 @@ util.addStyle(`
 	}
 	.controlItemContainer.center {
 		left: 50%;
-		height: 40px;
+		height: 32px;
+		display: flex;
+		align-items: center;
 		transform: translate(-50%, 0);
 		background:
 			linear-gradient(to bottom,
@@ -10796,6 +10956,7 @@ util.addStyle(`
 		transition: transform 0.2s ease, left 0.2s ease;
 	}
 	.controlItemContainer.center .scalingUI {
+		display: contents;
 		transform-origin: top center;
 	}
 	.controlItemContainer.right {
@@ -13387,6 +13548,7 @@ class NicoChat {
 			hasDurationSet: false,
 			isMine: false,
 			isUpdating: false,
+			isCA: false,
 			thread: 0,
 			nicoru: 0,
 			opacity: 1
@@ -13457,6 +13619,9 @@ class NicoChat {
 		if (cmd.pattisier) {
 			props.isPatissier = true;
 		}
+		if (cmd.ca) {
+			props.isCA = true;
+		}
 		if (cmd.duration) {
 			props.hasDurationSet = true;
 			props.duration = Math.max(0.01, parseFloat(cmd.duration, 10));
@@ -13510,6 +13675,8 @@ class NicoChat {
 		props.duration = NicoChat.DURATION.NAKA;
 		props.commentVer = 'flash';
 		props.nicoru = data.nicoru || 0;
+		props.valhalla = data.valhala;
+		props.lastNicoruDate = data.last_nicoru_date || null;
 		props.opacity = 1;
 		props.time3d = 0;
 		props.time3dp = 0;
@@ -13587,6 +13754,8 @@ class NicoChat {
 	get htmlText() {return this.props.htmlText || '';}
 	set htmlText(v) { this.props.htmlText = v; }
 	get date() {return this.props.date;}
+	get dateUsec() {return this.props.date_usec;}
+	get lastNicoruDate() {return this.props.lastNicoruDate;}
 	get cmd() {return this.props.cmd;}
 	get isPremium() {return !!this.props.isPremium;}
 	get isEnder() {return !!this.props.isEnder;}
@@ -13635,7 +13804,11 @@ class NicoChat {
 	get commentVer() {return this.props.commentVer;}
 	get threadId() {return this.props.thread;}
 	get nicoru() {return this.props.nicoru;}
+	set nicoru(v) {this.props.nicoru = v;}
+	get nicotta() { return !!this.props.nicotta;}
+	set nicotta(v) { this.props.nicotta = v; this.onChange(); }
 	get opacity() {return this.props.opacity;}
+	get valhalla() {return this.props.valhalla || 0; }
 }
 NicoChat.id = 1000000;
 NicoChat.SIZE = {
@@ -14020,6 +14193,8 @@ class NicoChatViewModel {
 	get uniqNo() {return this._nicoChat.uniqNo;}
 	get layerId() {return this._nicoChat.layerId;}
 	get fork() {return this._nicoChat.fork;}
+	get nicoru() { return this._nicoChat.nicoru; }
+	get nicotta() { return this._nicoChat.nicotta; }
 	getXposBySecond(sec) {
 		if (this._isFixed) {
 			return (CommentLayer.SCREEN.WIDTH - this._width) / 2;
@@ -14263,6 +14438,9 @@ class NicoChatCss3View {
 		}
 		if (chat.isUpdating) {
 			className.push('updating');
+		}
+		if (chat.nicotta) {
+			className.push('nicotta');
 		}
 		let fork = chat.fork;
 		className.push(`fork${fork}`);
@@ -14906,12 +15084,12 @@ class NicoComment extends Emitter {
 		}
 		nicoChats = []
 			.concat(...
-				nicoChats.filter(c => c.isPatissier && c.fork < 1 && c.isSubThread)
+				nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork < 1 && c.isSubThread)
 					.splice(maxCommentsByDuration))
 			.concat(...
-				nicoChats.filter(c => c.isPatissier && c.fork < 1 && !c.isSubThread)
+				nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork < 1 && !c.isSubThread)
 					.splice(maxCommentsByDuration))
-			.concat(...nicoChats.filter(c => !c.isPatissier || c.fork > 0));
+			.concat(...nicoChats.filter(c => !(c.isPatissier || c.isCA) || c.fork > 0));
 			window.console.timeLog('コメントのパース処理', 'NicoChat created');
 		if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
 			window.console.time('コメント置換フィルタ適用');
@@ -16457,6 +16635,16 @@ body.in-capture .commentLayer {
 	animation-iteration-count: infinite;
 	animation-duration: 10s;
 }
+.nicoChat.nicotta::before {
+	content: '☻';
+	opacity: 0.8;
+	color: #ff9;
+	display: inline-block;
+	text-align: center;
+	animation-name: spin;
+	animation-iteration-count: infinite;
+	animation-duration: 10s;
+}
 .nicoChat.updating::after {
 	content: ' 通信中...';
 	font-size: 50%;
@@ -17454,8 +17642,8 @@ class CommentListView extends Emitter {
 		$body
 			.on('click', this._onClick.bind(this))
 			.on('dblclick', this._onDblClick.bind(this))
-			.on('keydown', e => ZenzaWatch.emitter.emit('keydown', e))
-			.on('keyup', e => ZenzaWatch.emitter.emit('keyup', e))
+			.on('keydown', e => global.emitter.emit('keydown', e))
+			.on('keyup', e => global.emitter.emit('keyup', e))
 			.toggleClass('is-guest', !nicoUtil.isLogin());
 		this._$menu.on('click', this._onMenuClick.bind(this));
 		this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
@@ -17474,8 +17662,8 @@ class CommentListView extends Emitter {
 			{name: '--zenza-comment-panel-header-height',   syntax: '<length>', initialValue: '64px', inherits: true}
 		);
 		this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
-		ZenzaWatch.debug.$commentList = uq(this._list);
-		ZenzaWatch.debug.getCommentPanelItems = () =>
+		global.debug.$commentList = uq(this._list);
+		global.debug.getCommentPanelItems = () =>
 			Array.from(doc.querySelectorAll('.commentListItem'));
 	}
 	_onModelUpdate(itemList, replaceAll) {
@@ -17509,13 +17697,19 @@ class CommentListView extends Emitter {
 	}
 	_onClick(e) {
 		e.stopPropagation();
-		ZenzaWatch.emitter.emitAsync('hideHover');
-		let item = e.target.closest('.commentListItem');
+		global.emitter.emitAsync('hideHover');
+		const item = e.target.closest('.commentListItem');
 		if (item) {
-			return this._debouncedOnItemClick(item);
+			return this._debouncedOnItemClick(e, item);
 		}
 	}
-	_onItemClick(item) {
+	_onItemClick(e, item) {
+		if (e.target.closest('.nicoru-icon')) {
+			item.classList.add('nicotta');
+			item.dataset.nicoru = item.dataset.nicoru ? (item.dataset.nicoru * 1 + 1) : 1;
+			this.emit('command', 'nicoru', item, item.dataset.itemId);
+			return;
+		}
 		this._$menu
 			.css('transform', `translate3d(0, ${item.dataset.top}px, 0)`)
 			.attr('data-item-id', item.dataset.itemId)
@@ -17613,7 +17807,7 @@ class CommentListView extends Emitter {
 		if (newItems.length < 1) {
 			return;
 		}
-		for (const i of inviewItemList.keys()) { // Object.keys(inviewItemList).forEach(i => {
+		for (const i of inviewItemList.keys()) {
 			if (i >= startIndex && i <= endIndex) {
 				continue;
 			}
@@ -17627,7 +17821,7 @@ class CommentListView extends Emitter {
 		if (this._newItems) {
 			const f = document.createDocumentFragment();
 			f.append(...this._newItems.map(i => i.viewElement));
-			this._list.appendChild(f);
+			this._list.append(f);
 		}
 		this._newItems = null;
 	}
@@ -17706,7 +17900,7 @@ class CommentListView extends Emitter {
 			.find('.cmd').text(item.cmd).end()
 			.find('.text').text(item.text).end()
 			.addClass('show');
-		ZenzaWatch.debug.$itemDetail = $d;
+		global.debug.$itemDetail = $d;
 	}
 	hideItemDetail() {
 		this._$itemDetail.removeClass('show');
@@ -17975,12 +18169,49 @@ const CommentListItemView = (() => {
 			.commentListItem.odd {
 				background: #333;
 			}
+			.commentListItem[data-nicoru] {
+				background: #332;
+			}
+			.commentListItem.odd[data-nicoru] {
+				background: #443;
+			}
+			.commentListItem.odd[data-nicoru]:hover::before {
+				position: absolute;
+				content: attr(data-nicoru);
+				color: #ccc;
+				font-size: 12px;
+				left: 80px;
+				/* font-family: cursive; */
+			}
+			.commentListItem .nicoru-icon {
+				position: absolute;
+				pointer-events: none;
+				cursor: pointer;
+				visibility: hidden;
+				transition: transform 0.2s linear, filter 0.2s;
+				transform-origin: center;
+				left: 50px;
+				top: -2px;
+				width: 24px;
+				height: 24px;
+			}
+			.commentListItem:hover .nicoru-icon {
+				display: inline-block;
+				pointer-events: auto;
+				visibility: visible;
+				transition: visibility 0.4s linear 0.2s, transform 0.2s linear, filter 0.2s;
+			}
+			.commentListItem.nicotta:hover .nicoru-icon {
+				transform: rotate(270deg);
+				filter: drop-shadow(0px 0px 6px gold);
+			}
 			.commentListItem.updating {
 				opacity: 0.5;
 				cursor: wait;
 			}
 			.commentListItem .info {
-				display: block;
+				display: flex;
+				justify-content: space-between;
 				width: 100%;
 				font-size: 14px;
 				height: 20px;
@@ -18086,6 +18317,7 @@ const CommentListItemView = (() => {
 		`).trim();
 	const TPL = (`
 			<div class="commentListItem">
+				<img src="${NICORU}" class="nicoru-icon" data-command="nicoru">
 				<p class="info">
 					<span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
 				</p>
@@ -18101,7 +18333,7 @@ const CommentListItemView = (() => {
 				const t = document.createElement('template');
 				t.id = 'CommentListItemView-template' + Date.now();
 				t.innerHTML = TPL;
-				document.body.appendChild(t);
+				document.body.append(t);
 				template = {
 					t,
 					clone: () => {
@@ -18135,6 +18367,7 @@ const CommentListItemView = (() => {
 			const font = item.fontCommand || 'default';
 			commentListItem.className =
 				`commentListItem no${item.no} item${this._id} ${oden} fork${item.fork} font-${font} ${item.isSubThread ? 'subThread' : ''}`;
+			commentListItem.classList.toggle('nicotta', item.nicotta);
 			commentListItem.style.cssText = `
 					top: ${this.top}px;
 					--duration: ${item.duration}s;
@@ -18147,10 +18380,13 @@ const CommentListItemView = (() => {
 				vpos: item.vpos,
 				top: this.top,
 				thread: item.threadId,
-				title: `${item.nno}: ${formattedDate} ID:${item.userId}\n${item.text}`,
+				title: `${item.no}: ${formattedDate} ID:${item.userId}\n${item.text}`,
 				time3dp,
-				nicoru: item.nicoru
+				valhalla: item.valhalla,
 			});
+			item.nicoru > 0 ?
+				(commentListItem.dataset.nicoru = item.nicoru) :
+				(delete commentListItem.dataset.nicoru);
 			timepos.textContent = item.timePos;
 			date.textContent = formattedDate;
 			text.textContent = item.text.trim();
@@ -18188,6 +18424,21 @@ const CommentListItemView = (() => {
 		get time3d() {
 			return this._item.time3d;
 		}
+		get nicotta() {
+			return this._item.nicotta;
+		}
+		set nicotta(v) {
+			this._item.nicotta = v;
+			this._view.classList.toggle('nicotta', v);
+		}
+		get nicoru() {
+			return this._item.nicoru;
+		}
+		set nicoru(v) {
+			this._item.nicoru = v;
+			v > 0 ?
+				(this._view.dataset.nicoru = v) : (delete this._view.dataset.nicoru);
+		}
 	}
 	CommentListItemView.TPL = TPL;
 	CommentListItemView.CSS = CSS;
@@ -18195,7 +18446,7 @@ const CommentListItemView = (() => {
 })();
 class CommentListItem {
 	constructor(nicoChat) {
-		this._nicoChat = nicoChat;
+		this.nicoChat = nicoChat;
 		this._itemId = CommentListItem._itemId++;
 		this._vpos = nicoChat.vpos;
 		this._text = nicoChat.text;
@@ -18208,13 +18459,12 @@ class CommentListItem {
 		this._fontCommand = nicoChat.fontCommand;
 		this._isSubThread = nicoChat.isSubThread;
 		this._formattedDate = textUtil.dateToString(this._date * 1000);
-		let sec = this._vpos / 100;
-		this._timePos = textUtil.secToTime(sec);
+		this._timePos = textUtil.secToTime(this._vpos / 100);
 	}
 	get itemId() {return this._itemId;}
 	get vpos() {return this._vpos;}
 	get timePos() {return this._timePos;}
-	get cmd() {return this._nicoChat.cmd;}
+	get cmd() {return this.nicoChat.cmd;}
 	get text() {return this._text;}
 	get escapedText() {return this._escapedText;}
 	get userId() {return this._userId;}
@@ -18224,14 +18474,18 @@ class CommentListItem {
 	get formattedDate() {return this._formattedDate;}
 	get fork() {return this._fork;}
 	get no() {return this._no;}
-	get uniqNo() {return this._nicoChat.uniqNo;}
+	get uniqNo() {return this.nicoChat.uniqNo;}
 	get fontCommand() {return this._fontCommand;}
 	get isSubThread() {return this._isSubThread;}
-	get threadId() {return this._nicoChat.threadId;}
-	get time3d() {return this._nicoChat.time3d;}
-	get time3dp() {return this._nicoChat.time3dp;}
-	get nicoru() {return this._nicoChat.nicoru;}
-	get duration() {return this._nicoChat.duration;}
+	get threadId() {return this.nicoChat.threadId;}
+	get time3d() {return this.nicoChat.time3d;}
+	get time3dp() {return this.nicoChat.time3dp;}
+	get nicoru() {return this.nicoChat.nicoru;}
+	set nicoru(v) { this.nicoChat.nicoru = v;}
+	get duration() {return this.nicoChat.duration;}
+	get valhalla() {return this.nicoChat.valhalla;}
+	get nicotta() { return this.nicoChat.nicotta;}
+	set nicotta(v) { this.nicoChat.nicotta = v; }
 }
 CommentListItem._itemId = 0;
 class CommentPanelView extends Emitter {
@@ -18244,7 +18498,7 @@ class CommentPanelView extends Emitter {
 		let $view = this._$view = uq.html(CommentPanelView.__tpl__);
 		this._$container.append($view);
 		let $menu = this._$menu = this._$view.find('.commentPanel-menu');
-		ZenzaWatch.debug.commentPanelView = this;
+		global.debug.commentPanelView = this;
 		let listView = this._listView = new CommentListView({
 			container: this._$view.find('.commentPanel-frame')[0],
 			model: this._model,
@@ -18266,7 +18520,7 @@ class CommentPanelView extends Emitter {
 		this._onCommentPanelStatusUpdate();
 		this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
 		this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
-		ZenzaWatch.emitter.on('hideHover', () => $menu.removeClass('show'));
+		global.emitter.on('hideHover', () => $menu.removeClass('show'));
 	}
 	toggleClass(className, v) {
 		this._view.toggleClass(className, v);
@@ -18281,21 +18535,24 @@ class CommentPanelView extends Emitter {
 	}
 	_onCommand(command, param, itemId) {
 		switch (command) {
+			case 'nicoru':
+				param.nicotta = true;
+				this.emit('command', command, param, itemId);
+				break;
 			default:
 				this.emit('command', command, param, itemId);
 				break;
 		}
 	}
 	_onCommentListCommandClick(e) {
-		let $target = $(e.target).closest('.commentPanel-command');
-		let command = $target.attr('data-command');
-		let param = $target.attr('data-param');
+		const target = e.target.closest('.commentPanel-command');
+		const {command, param} = target.dataset;
 		e.stopPropagation();
 		if (!command) {
 			return;
 		}
-		let $view = this._$view;
-		let setUpdating = () => {
+		const $view = this._$view;
+		const setUpdating = () => {
 			document.body.focus();
 			$view.addClass('updating');
 			window.setTimeout(() => $view.removeClass('updating'), 1000);
@@ -18312,7 +18569,7 @@ class CommentPanelView extends Emitter {
 			default:
 				this.emit('command', command, param);
 		}
-		ZenzaWatch.emitter.emitAsync('hideHover');
+		global.emitter.emitAsync('hideHover');
 	}
 	_onThreadInfo(threadInfo) {
 		this._timeMachineView.update(threadInfo);
@@ -18320,7 +18577,7 @@ class CommentPanelView extends Emitter {
 	_onCommentPanelStatusUpdate() {
 		let commentPanel = this._commentPanel;
 		const $view = this._$view
-			.toggleClass('autoScroll', commentPanel.isAutoScroll());
+			.toggleClass('autoScroll', commentPanel.isAutoScroll);
 		const langClass = `lang-${commentPanel.getLanguage()}`;
 		if (!$view.hasClass(langClass)) {
 			$view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
@@ -18448,7 +18705,7 @@ CommentPanelView.__tpl__ = (`
 class CommentPanel extends Emitter {
 	constructor(params) {
 		super();
-		this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
+		this._thumbInfoLoader = params.loader || global.api.ThumbInfoLoader;
 		this._$container = params.$container;
 		let player = this._player = params.player;
 		this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
@@ -18459,7 +18716,7 @@ class CommentPanel extends Emitter {
 		player.on('commentReady', _.debounce(this._onCommentReady.bind(this), 500));
 		player.on('open', this._onPlayerOpen.bind(this));
 		player.on('close', this._onPlayerClose.bind(this));
-		ZenzaWatch.debug.commentPanel = this;
+		global.debug.commentPanel = this;
 	}
 	_initializeView() {
 		if (this._view) {
@@ -18532,6 +18789,11 @@ class CommentPanel extends Emitter {
 					this.emit('itemDetailResp', item);
 				}
 				break;
+			case 'nicoru':
+				item.nicotta = true;
+				item.nicoru += 1;
+				this.emit('command', command, item.nicoChat);
+				break;
 			default:
 				this.emit('command', command, param);
 		}
@@ -18564,7 +18826,7 @@ class CommentPanel extends Emitter {
 		}
 		this._model.setChatList(chatList);
 	}
-	isAutoScroll() {
+	get isAutoScroll() {
 		return this._autoScroll;
 	}
 	getLanguage() {
@@ -18630,7 +18892,7 @@ class TimeMachineView extends BaseViewComponent {
 			isSelecting: false,
 		};
 		this._currentTimestamp = Date.now();
-		ZenzaWatch.debug.timeMachineView = this;
+		global.debug.timeMachineView = this;
 		window.setInterval(this._bound._onTimer, 3 * 1000);
 	}
 	_initDom(...args) {
@@ -23241,7 +23503,7 @@ class NicoVideoPlayerDialog extends Emitter {
 			commandFilter: config.props.commandFilter,
 			userIdFilter: config.props.userIdFilter
 		});
-		this._messageApiLoader = new ThreadLoader();
+		this.threadLoader = ThreadLoader;
 		nicoVideoPlayer.on('loadedMetaData', this._onLoadedMetaData.bind(this));
 		nicoVideoPlayer.on('ended', this._onVideoEnded.bind(this));
 		nicoVideoPlayer.on('canPlay', this._onVideoCanPlay.bind(this));
@@ -23456,6 +23718,11 @@ class NicoVideoPlayerDialog extends Emitter {
 				break;
 			case 'selectTab':
 				this._state.currentTab = param;
+				break;
+			case 'nicoru':
+				this.threadLoader.nicoru(this._videoInfo.msgInfo, param).catch(e => {
+					this.execCommand('alert', e.message || 'ニコれなかった＞＜');
+				});
 				break;
 			case 'update-smileVideoQuality':
 				this._playerConfig.setValue('videoServerType', 'smile');
@@ -23967,7 +24234,7 @@ class NicoVideoPlayerDialog extends Emitter {
 	}
 	loadComment(msgInfo) {
 		msgInfo.language = this._playerConfig.getValue('commentLanguage');
-		this._messageApiLoader.load(msgInfo).then(
+		this.threadLoader.load(msgInfo).then(
 			this._onCommentLoadSuccess.bind(this, this._requestId),
 			this._onCommentLoadFail.bind(this, this._requestId)
 		);
@@ -24382,7 +24649,7 @@ class NicoVideoPlayerDialog extends Emitter {
 	}
 	async addChat(text, cmd, vpos = null, options = {}) {
 		if (!this._nicoVideoPlayer ||
-			!this._messageApiLoader ||
+			!this.threadLoader ||
 			!this._state.isCommentReady ||
 			this._state.isCommentPosting) {
 			return Promise.reject();
@@ -24424,7 +24691,7 @@ class NicoVideoPlayerDialog extends Emitter {
 			return Promise.reject(err);
 		};
 		const msgInfo = this._videoInfo.msgInfo;
-		return this._messageApiLoader.postChat(msgInfo, text, cmd, vpos, lang)
+		return this.threadLoader.postChat(msgInfo, text, cmd, vpos, lang)
 			.then(onSuccess).catch(onFail);
 	}
 	get duration() {

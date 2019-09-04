@@ -4,6 +4,7 @@ import {PopupMessage} from '../util';
 import {sleep} from '../../packages/lib/src/infra/sleep';
 import {netUtil} from '../../../lib/src/infra/netUtil';
 import {textUtil} from '../../../lib/src/text/textUtil';
+import {nicoUtil} from '../../../lib/src/nico/nicoUtil';
 
 const JSDOM = {} ; //jsdom.JSDOM;
 const debug = {};
@@ -13,6 +14,8 @@ const debug = {};
 const {ThreadLoader} = (() => {
   const VERSION_OLD = '20061206';
   const VERSION     = '20090904';
+  const FRONT_ID = '6';
+  const FRONT_VER = '0';
 
   const LANG_CODE = {
     'en_us': 1,
@@ -89,7 +92,7 @@ const {ThreadLoader} = (() => {
     buildPacketData(msgInfo, options = {}) {
       const packets = [];
       const resCount = this.getRequestCountByDuration(msgInfo.duration);
-      const leafContent = `0-${Math.floor(msgInfo.duration / 60) + 1}:100,${resCount}`;
+      const leafContent = `0-${Math.floor(msgInfo.duration / 60) + 1}:100,${resCount},nicoru:100`;
       const language = this.getLangCode(msgInfo.language);
 
       msgInfo.threads.forEach(thread => {
@@ -99,7 +102,7 @@ const {ThreadLoader} = (() => {
           thread: thread.id.toString(),
           user_id: msgInfo.userId > 0 ? msgInfo.userId.toString() : '', // 0の時は空文字
           language,
-          nicoru: 1,
+          nicoru: 3,
           scores: 1
         };
         if (thread.isThreadkeyRequired) {
@@ -353,9 +356,59 @@ const {ThreadLoader} = (() => {
       return result.status === 'ok' ? result : Promise.reject(result);
     }
 
+
+    getNicoruKey(threadId, options = {}) {
+      const url =
+        `https://nvapi.nicovideo.jp/v1/nicorukey?language=0&threadId=${threadId}`;
+
+      console.log('getNicorukey url: ', url);
+      const headers = options.cookie ? {Cookie: options.cookie} : {};
+      Object.assign(headers, {
+        'X-Frontend-Id': FRONT_ID,
+          // 'X-Frontend-Version': FRONT_VER
+        });
+      return netUtil.fetch(url, {
+        headers,
+        credentials: 'include'
+      }).then(res => res.json())
+        .then(js => {
+          if (js.meta.status === 200) {
+            return js.data;
+          }
+          return Promise.reject({status: js.meta.status});
+        }).catch(result => {
+        return Promise.reject({
+          result,
+          message: `NicoruKeyの取得失敗 ${threadId}`
+        });
+      });
+    }
+
+    async nicoru(msgInfo, chat) {
+      const threadInfo = msgInfo.threadInfo;
+      const {nicorukey} = await this.getNicoruKey(threadInfo.threadId);
+      const server = threadInfo.server.replace('/api/', '/api.json/');
+      const body = JSON.stringify({nicoru:{
+        content: chat.text,
+        fork: chat.fork || 0,
+        id: chat.no.toString(),
+        language: 0,
+        nicorukey,
+        postdate: `${chat.date}.${chat.dateUsec}`,
+        premium: nicoUtil.isPremium() ? 1 : 0,
+        thread: threadInfo.threadId.toString(),
+        user_id: msgInfo.userId.toString()
+      }});
+      // window.console.log('post nicoru body', body);
+      const result = await this._post(server, body);
+      if (result.status === 4) {
+        return Promise.reject({status: result.status, message: 'ニコり済み'});
+      }
+      return result;
+    }
   }
 
-  return {ThreadLoader};
+  return {ThreadLoader: new ThreadLoader};
 })();
 
 

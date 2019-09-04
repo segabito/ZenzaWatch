@@ -557,7 +557,9 @@ util.addStyle(`
 
   .controlItemContainer.center {
     left: 50%;
-    height: 40px;
+    height: 32px;
+    display: flex;
+    align-items: center;
     transform: translate(-50%, 0);
     background:
       linear-gradient(to bottom,
@@ -568,6 +570,7 @@ util.addStyle(`
   }
 
   .controlItemContainer.center .scalingUI {
+    display: contents;
     transform-origin: top center;
   }
 

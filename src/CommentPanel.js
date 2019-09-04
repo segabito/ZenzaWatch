@@ -1,7 +1,7 @@
 import _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {global} from './ZenzaWatchIndex';
 import {BaseViewComponent, FrameLayer} from './util';
-import {CONSTANT} from './constant';
+import {CONSTANT, NICORU} from './constant';
 import {Emitter} from './baselib';
 import {bounce} from '../packages/lib/src/infra/bounce';
 import {textUtil} from '../packages/lib/src/text/textUtil';
@@ -185,8 +185,8 @@ class CommentListView extends Emitter {
     $body
       .on('click', this._onClick.bind(this))
       .on('dblclick', this._onDblClick.bind(this))
-      .on('keydown', e => ZenzaWatch.emitter.emit('keydown', e))
-      .on('keyup', e => ZenzaWatch.emitter.emit('keyup', e))
+      .on('keydown', e => global.emitter.emit('keydown', e))
+      .on('keyup', e => global.emitter.emit('keyup', e))
       .toggleClass('is-guest', !nicoUtil.isLogin());
 
     this._$menu.on('click', this._onMenuClick.bind(this));
@@ -213,8 +213,8 @@ class CommentListView extends Emitter {
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 
     // 互換用
-    ZenzaWatch.debug.$commentList = uq(this._list);
-    ZenzaWatch.debug.getCommentPanelItems = () =>
+    global.debug.$commentList = uq(this._list);
+    global.debug.getCommentPanelItems = () =>
       Array.from(doc.querySelectorAll('.commentListItem'));
   }
   _onModelUpdate(itemList, replaceAll) {
@@ -254,17 +254,21 @@ class CommentListView extends Emitter {
   }
   _onClick(e) {
     e.stopPropagation();
-    ZenzaWatch.emitter.emitAsync('hideHover');
-    let item = e.target.closest('.commentListItem');
+    global.emitter.emitAsync('hideHover');
+    const item = e.target.closest('.commentListItem');
     if (item) {
-      return this._debouncedOnItemClick(item);
+      return this._debouncedOnItemClick(e, item);
     }
   }
-  _onItemClick(item) {
+  _onItemClick(e, item) {
+    if (e.target.closest('.nicoru-icon')) {
+      item.classList.add('nicotta');
+      item.dataset.nicoru = item.dataset.nicoru ? (item.dataset.nicoru * 1 + 1) : 1;
+      this.emit('command', 'nicoru', item, item.dataset.itemId);
+      return;
+    }
     this._$menu
-      // .css('top', $item.attr('data-top') + 'px')
       .css('transform', `translate3d(0, ${item.dataset.top}px, 0)`)
-        // $item.attr('data-time-3dp') + 'px) translateZ(-50px)')
       .attr('data-item-id', item.dataset.itemId)
       .addClass('show');
   }
@@ -367,15 +371,13 @@ class CommentListView extends Emitter {
       return;
     }
 
-    for (const i of inviewItemList.keys()) { // Object.keys(inviewItemList).forEach(i => {
+    for (const i of inviewItemList.keys()) {
       if (i >= startIndex && i <= endIndex) {
         continue;
       }
       inviewItemList.get(i).remove();
       inviewItemList.delete(i);
     }
-
-    // this._inviewItemList = inviewItemList;
 
 
     this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
@@ -387,11 +389,7 @@ class CommentListView extends Emitter {
     if (this._newItems) {
       const f = document.createDocumentFragment();
       f.append(...this._newItems.map(i => i.viewElement));
-      // this._newItems.forEach(i => {
-      //   f.append(i.viewElement);
-      // });
-      this._list.appendChild(f);
-      // this._updatePerspective();
+      this._list.append(f);
     }
     this._newItems = null;
   }
@@ -476,7 +474,7 @@ class CommentListView extends Emitter {
       .find('.cmd').text(item.cmd).end()
       .find('.text').text(item.text).end()
       .addClass('show');
-    ZenzaWatch.debug.$itemDetail = $d;
+    global.debug.$itemDetail = $d;
   }
   hideItemDetail() {
     this._$itemDetail.removeClass('show');
@@ -780,6 +778,42 @@ const CommentListItemView = (() => {
       .commentListItem.odd {
         background: #333;
       }
+      .commentListItem[data-nicoru] {
+        background: #332;
+      }
+      .commentListItem.odd[data-nicoru] {
+        background: #443;
+      }
+      .commentListItem.odd[data-nicoru]:hover::before {
+        position: absolute;
+        content: attr(data-nicoru);
+        color: #ccc;
+        font-size: 12px;
+        left: 80px;
+        /* font-family: cursive; */
+      }
+      .commentListItem .nicoru-icon {
+        position: absolute;
+        pointer-events: none;
+        cursor: pointer;
+        visibility: hidden;
+        transition: transform 0.2s linear, filter 0.2s;
+        transform-origin: center;
+        left: 50px;
+        top: -2px;
+        width: 24px;
+        height: 24px;
+      }
+      .commentListItem:hover .nicoru-icon {
+        display: inline-block;
+        pointer-events: auto;
+        visibility: visible;
+        transition: visibility 0.4s linear 0.2s, transform 0.2s linear, filter 0.2s;
+      }
+      .commentListItem.nicotta:hover .nicoru-icon {
+        transform: rotate(270deg);
+        filter: drop-shadow(0px 0px 6px gold);
+      }
 
       .commentListItem.updating {
         opacity: 0.5;
@@ -787,7 +821,8 @@ const CommentListItemView = (() => {
       }
 
       .commentListItem .info {
-        display: block;
+        display: flex;
+        justify-content: space-between;
         width: 100%;
         font-size: 14px;
         height: 20px;
@@ -905,6 +940,7 @@ const CommentListItemView = (() => {
 
   const TPL = (`
       <div class="commentListItem">
+        <img src="${NICORU}" class="nicoru-icon" data-command="nicoru">
         <p class="info">
           <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
         </p>
@@ -922,7 +958,7 @@ const CommentListItemView = (() => {
         const t = document.createElement('template');
         t.id = 'CommentListItemView-template' + Date.now();
         t.innerHTML = TPL;
-        document.body.appendChild(t);
+        document.body.append(t);
         template = {
           t,
           clone: () => {
@@ -961,6 +997,7 @@ const CommentListItemView = (() => {
       const font = item.fontCommand || 'default';
       commentListItem.className =
         `commentListItem no${item.no} item${this._id} ${oden} fork${item.fork} font-${font} ${item.isSubThread ? 'subThread' : ''}`;
+      commentListItem.classList.toggle('nicotta', item.nicotta);
       commentListItem.style.cssText = `
           top: ${this.top}px;
           --duration: ${item.duration}s;
@@ -976,10 +1013,13 @@ const CommentListItemView = (() => {
         vpos: item.vpos,
         top: this.top,
         thread: item.threadId,
-        title: `${item.nno}: ${formattedDate} ID:${item.userId}\n${item.text}`,
+        title: `${item.no}: ${formattedDate} ID:${item.userId}\n${item.text}`,
         time3dp,
-        nicoru: item.nicoru
+        valhalla: item.valhalla,
       });
+      item.nicoru > 0 ?
+        (commentListItem.dataset.nicoru = item.nicoru) :
+        (delete commentListItem.dataset.nicoru);
 
       timepos.textContent = item.timePos;
       date.textContent = formattedDate;
@@ -1027,6 +1067,22 @@ const CommentListItemView = (() => {
     get time3d() {
       return this._item.time3d;
     }
+
+    get nicotta() {
+      return this._item.nicotta;
+    }
+    set nicotta(v) {
+      this._item.nicotta = v;
+      this._view.classList.toggle('nicotta', v);
+    }
+    get nicoru() {
+      return this._item.nicoru;
+    }
+    set nicoru(v) {
+      this._item.nicoru = v;
+      v > 0 ?
+        (this._view.dataset.nicoru = v) : (delete this._view.dataset.nicoru);
+    }
   }
 
   CommentListItemView.TPL = TPL;
@@ -1036,7 +1092,7 @@ const CommentListItemView = (() => {
 
 class CommentListItem {
   constructor(nicoChat) {
-    this._nicoChat = nicoChat;
+    this.nicoChat = nicoChat;
     this._itemId = CommentListItem._itemId++;
     this._vpos = nicoChat.vpos;
     this._text = nicoChat.text;
@@ -1050,13 +1106,12 @@ class CommentListItem {
     this._isSubThread = nicoChat.isSubThread;
 
     this._formattedDate = textUtil.dateToString(this._date * 1000);
-    let sec = this._vpos / 100;
-    this._timePos = textUtil.secToTime(sec);
+    this._timePos = textUtil.secToTime(this._vpos / 100);
   }
   get itemId() {return this._itemId;}
   get vpos() {return this._vpos;}
   get timePos() {return this._timePos;}
-  get cmd() {return this._nicoChat.cmd;}
+  get cmd() {return this.nicoChat.cmd;}
   get text() {return this._text;}
   get escapedText() {return this._escapedText;}
   get userId() {return this._userId;}
@@ -1066,14 +1121,18 @@ class CommentListItem {
   get formattedDate() {return this._formattedDate;}
   get fork() {return this._fork;}
   get no() {return this._no;}
-  get uniqNo() {return this._nicoChat.uniqNo;}
+  get uniqNo() {return this.nicoChat.uniqNo;}
   get fontCommand() {return this._fontCommand;}
   get isSubThread() {return this._isSubThread;}
-  get threadId() {return this._nicoChat.threadId;}
-  get time3d() {return this._nicoChat.time3d;}
-  get time3dp() {return this._nicoChat.time3dp;}
-  get nicoru() {return this._nicoChat.nicoru;}
-  get duration() {return this._nicoChat.duration;}
+  get threadId() {return this.nicoChat.threadId;}
+  get time3d() {return this.nicoChat.time3d;}
+  get time3dp() {return this.nicoChat.time3dp;}
+  get nicoru() {return this.nicoChat.nicoru;}
+  set nicoru(v) { this.nicoChat.nicoru = v;}
+  get duration() {return this.nicoChat.duration;}
+  get valhalla() {return this.nicoChat.valhalla;}
+  get nicotta() { return this.nicoChat.nicotta;}
+  set nicotta(v) { this.nicoChat.nicotta = v; }
 }
 CommentListItem._itemId = 0;
 
@@ -1091,7 +1150,7 @@ class CommentPanelView extends Emitter {
 
     let $menu = this._$menu = this._$view.find('.commentPanel-menu');
 
-    ZenzaWatch.debug.commentPanelView = this;
+    global.debug.commentPanelView = this;
 
     let listView = this._listView = new CommentListView({
       container: this._$view.find('.commentPanel-frame')[0],
@@ -1119,7 +1178,7 @@ class CommentPanelView extends Emitter {
 
     this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
 
-    ZenzaWatch.emitter.on('hideHover', () => $menu.removeClass('show'));
+    global.emitter.on('hideHover', () => $menu.removeClass('show'));
   }
   toggleClass(className, v) {
     this._view.toggleClass(className, v);
@@ -1135,22 +1194,25 @@ class CommentPanelView extends Emitter {
   }
   _onCommand(command, param, itemId) {
     switch (command) {
+      case 'nicoru':
+        param.nicotta = true;
+        this.emit('command', command, param, itemId);
+        break;
       default:
         this.emit('command', command, param, itemId);
         break;
     }
   }
   _onCommentListCommandClick(e) {
-    let $target = $(e.target).closest('.commentPanel-command');
-    let command = $target.attr('data-command');
-    let param = $target.attr('data-param');
+    const target = e.target.closest('.commentPanel-command');
+    const {command, param} = target.dataset;
     e.stopPropagation();
     if (!command) {
       return;
     }
 
-    let $view = this._$view;
-    let setUpdating = () => {
+    const $view = this._$view;
+    const setUpdating = () => {
       document.body.focus();
       $view.addClass('updating');
       window.setTimeout(() => $view.removeClass('updating'), 1000);
@@ -1168,7 +1230,7 @@ class CommentPanelView extends Emitter {
       default:
         this.emit('command', command, param);
     }
-    ZenzaWatch.emitter.emitAsync('hideHover');
+    global.emitter.emitAsync('hideHover');
   }
   _onThreadInfo(threadInfo) {
     this._timeMachineView.update(threadInfo);
@@ -1176,7 +1238,7 @@ class CommentPanelView extends Emitter {
   _onCommentPanelStatusUpdate() {
     let commentPanel = this._commentPanel;
     const $view = this._$view
-      .toggleClass('autoScroll', commentPanel.isAutoScroll());
+      .toggleClass('autoScroll', commentPanel.isAutoScroll);
 
     const langClass = `lang-${commentPanel.getLanguage()}`;
     if (!$view.hasClass(langClass)) {
@@ -1323,7 +1385,7 @@ CommentPanelView.__tpl__ = (`
 class CommentPanel extends Emitter {
   constructor(params) {
     super();
-    this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
+    this._thumbInfoLoader = params.loader || global.api.ThumbInfoLoader;
     this._$container = params.$container;
     let player = this._player = params.player;
 
@@ -1338,7 +1400,7 @@ class CommentPanel extends Emitter {
     player.on('open', this._onPlayerOpen.bind(this));
     player.on('close', this._onPlayerClose.bind(this));
 
-    ZenzaWatch.debug.commentPanel = this;
+    global.debug.commentPanel = this;
   }
   _initializeView() {
     if (this._view) {
@@ -1413,6 +1475,11 @@ class CommentPanel extends Emitter {
           this.emit('itemDetailResp', item);
         }
         break;
+      case 'nicoru':
+        item.nicotta = true;
+        item.nicoru += 1;
+        this.emit('command', command, item.nicoChat);
+        break;
       default:
         this.emit('command', command, param);
     }
@@ -1445,7 +1512,7 @@ class CommentPanel extends Emitter {
     }
     this._model.setChatList(chatList);
   }
-  isAutoScroll() {
+  get isAutoScroll() {
     return this._autoScroll;
   }
   getLanguage() {
@@ -1518,7 +1585,7 @@ class TimeMachineView extends BaseViewComponent {
 
     this._currentTimestamp = Date.now();
 
-    ZenzaWatch.debug.timeMachineView = this;
+    global.debug.timeMachineView = this;
 
     window.setInterval(this._bound._onTimer, 3 * 1000);
   }
