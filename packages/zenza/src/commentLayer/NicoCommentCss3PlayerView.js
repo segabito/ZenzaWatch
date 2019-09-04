@@ -909,10 +909,11 @@ body.in-capture .commentLayer {
   text-decoration: underline;
 }
 
-
-
 .nicoChat.mine {
   border: 1px solid yellow;
+}
+.nicoChat.nicotta {
+  border: 1px solid orange;
 }
 
 .nicoChat.updating {
@@ -953,16 +954,6 @@ body.in-capture .commentLayer {
   content: '❀';
   opacity: 0.8;
   color: #f99;
-  display: inline-block;
-  text-align: center;
-  animation-name: spin;
-  animation-iteration-count: infinite;
-  animation-duration: 10s;
-}
-.nicoChat.nicotta::before {
-  content: '☻';
-  opacity: 0.8;
-  color: #ff9;
   display: inline-block;
   text-align: center;
   animation-name: spin;

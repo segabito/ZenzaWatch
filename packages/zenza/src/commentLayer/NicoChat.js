@@ -309,7 +309,9 @@ class NicoChat {
   get nicoru() {return this.props.nicoru;}
   set nicoru(v) {this.props.nicoru = v;}
   get nicotta() { return !!this.props.nicotta;}
-  set nicotta(v) { this.props.nicotta = v; this.onChange(); }
+  set nicotta(v) { this.props.nicotta = v;
+    // this.onChange();
+  }
   get opacity() {return this.props.opacity;}
   get valhalla() {return this.props.valhalla || 0; }
 }

@@ -187,7 +187,8 @@ class CommentListView extends Emitter {
       .on('dblclick', this._onDblClick.bind(this))
       .on('keydown', e => global.emitter.emit('keydown', e))
       .on('keyup', e => global.emitter.emit('keyup', e))
-      .toggleClass('is-guest', !nicoUtil.isLogin());
+      .toggleClass('is-guest', !nicoUtil.isLogin())
+      .toggleClass('is-premium', nicoUtil.isPremium());
 
     this._$menu.on('click', this._onMenuClick.bind(this));
     this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
@@ -312,13 +313,13 @@ class CommentListView extends Emitter {
   }
   _onDblClick(e) {
     e.stopPropagation();
-    let $item = $(e.target).closest('.commentListItem');
-    if ($item.length < 0) {
+    const item = e.target.closest('.commentListItem');
+    if (!item) {
       return;
     }
     e.preventDefault();
 
-    let itemId = $item.attr('data-item-id');
+    const itemId = item.dataset.itemId;
     this.emit('command', 'select', null, itemId);
   }
   _onMouseMove() {
@@ -795,6 +796,7 @@ const CommentListItemView = (() => {
       .commentListItem .nicoru-icon {
         position: absolute;
         pointer-events: none;
+        display: inline-block;
         cursor: pointer;
         visibility: hidden;
         transition: transform 0.2s linear, filter 0.2s;
@@ -803,16 +805,17 @@ const CommentListItemView = (() => {
         top: -2px;
         width: 24px;
         height: 24px;
+        contain: strict;
       }
-      .commentListItem:hover .nicoru-icon {
-        display: inline-block;
+      .is-premium .commentListItem:hover .nicoru-icon {
         pointer-events: auto;
         visibility: visible;
-        transition: visibility 0.4s linear 0.2s, transform 0.2s linear, filter 0.2s;
       }
-      .commentListItem.nicotta:hover .nicoru-icon {
+      .commentListItem.nicotta .nicoru-icon {
+        visibility: visible;
         transform: rotate(270deg);
         filter: drop-shadow(0px 0px 6px gold);
+        pointer-events: none;
       }
 
       .commentListItem.updating {
@@ -1444,7 +1447,7 @@ class CommentPanel extends Emitter {
         this.sortBy(tmp[0], tmp[1] === 'desc');
         break;}
       case 'select':{
-        let vpos = item.vpos;
+        const vpos = item.vpos;
         this.emit('command', 'seek', vpos / 100);
         // TODO: コメント強調
         break;}
