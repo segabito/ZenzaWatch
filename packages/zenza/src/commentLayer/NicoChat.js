@@ -171,7 +171,7 @@ class NicoChat {
     props.duration = NicoChat.DURATION.NAKA;
     props.commentVer = 'flash';
     props.nicoru = data.nicoru || 0;
-    props.valhalla = data.valhala;
+    props.valhalla = data.valhalla;
     props.lastNicoruDate = data.last_nicoru_date || null;
     props.opacity = 1;
 

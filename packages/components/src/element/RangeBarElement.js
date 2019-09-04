@@ -1,5 +1,7 @@
 import {bounce} from '../../../lib/src/infra/bounce';
 import {uq} from '../../../lib/src/uQuery';
+import {cssUtil} from '../../../lib/src/css/css';
+import {domEvent} from '../../../lib/src/dom/domEvent';
 //===BEGIN===
 
 
@@ -15,6 +17,13 @@ class RangeBarElement extends HTMLElement {
           --fore-color: #ccc;
           --width: 64px;
           --height: 8px;
+          --range-percent: 0%;
+        }
+        #root {
+          width: var(--width);
+          height: 100%;
+          display: flex;
+          align-items: center;
         }
         input, .meter {
           width: var(--width);
@@ -41,6 +50,11 @@ class RangeBarElement extends HTMLElement {
           display: inline-block;
           vertical-align: middle;
           background-color: var(--back-color);
+          background:
+            linear-gradient(to right,
+              var(--fore-color), var(--fore-color) var(--range-percent),
+              var(--back-color) 0, var(--back-color)
+            );
           contain: style layout size;
           pointer-events: none;
         }
@@ -86,6 +100,7 @@ class RangeBarElement extends HTMLElement {
 
   onChange() {
     this.update();
+    domEvent.dispatchCustomEvent(this, 'input', {value: this.value}, {bubbles: true, composed: true});
   }
 
   update() {
@@ -99,8 +114,7 @@ class RangeBarElement extends HTMLElement {
     }
     this.lastValue = value;
     const per = value / Math.abs(max - min) * 100;
-    this.meter.style.background =
-      `linear-gradient(to right, var(--fore-color), var(--fore-color) ${per}%, var(--back-color) 0, var(--back-color))`;
+    this.meter.style.setProperty('--range-percent', cssUtil.percent(per));
     this.tooltip.textContent = `${Math.round(per)}%`;
   }
 
@@ -141,7 +155,9 @@ class RangeBarElement extends HTMLElement {
      }
   }
 }
-
+cssUtil.registerProps(
+  {name: '--range-percent', syntax: '<percentage>', initialValue: '0%', inherits: true}
+);
 if (window.customElements) {
   customElements.get('zenza-range-bar') || window.customElements.define('zenza-range-bar', RangeBarElement);
 }

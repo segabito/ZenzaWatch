@@ -399,10 +399,12 @@ const {ThreadLoader} = (() => {
         thread: threadInfo.threadId.toString(),
         user_id: msgInfo.userId.toString()
       }});
-      // window.console.log('post nicoru body', body);
       const result = await this._post(server, body);
-      if (result.status === 4) {
-        return Promise.reject({status: result.status, message: 'ニコり済み'});
+      const [{nicoru_result: {status}}] = result;
+      if (status === 4) {
+        return Promise.reject({status, message: 'ニコり済み'});
+      } else if (status !== 0) {
+        return Promise.reject({status, message: `ニコれなかった＞＜ (status:${status})`});
       }
       return result;
     }

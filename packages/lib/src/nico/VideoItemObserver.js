@@ -14,13 +14,10 @@ const VideoItemObserver = (() => {
     item.classList.remove('is-fetch-current');
     if (!result || result.status === 'fail' || result.code === 'DELETED') {
       if (result && result.code !== 'COMMUNITY') {
-        // console.error('empty data', watchId, result, result.data ? result.code : 'unknown');
       }
       item.classList.add('is-fetch-failed', (result) ? result.code : 'is-no-data');
     } else {
-      // watchId = (result.data.id || '').startsWith('so') ? result.data.id : watchId;
-      // item.dataset.watchId = watchId;
-      item.dataset.thumbInfo = JSON.stringify({data: result});
+      item.dataset.thumbInfo = JSON.stringify(result);
     }
   };
 

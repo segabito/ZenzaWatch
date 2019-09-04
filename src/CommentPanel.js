@@ -785,7 +785,7 @@ const CommentListItemView = (() => {
       .commentListItem.odd[data-nicoru] {
         background: #443;
       }
-      .commentListItem.odd[data-nicoru]:hover::before {
+      .commentListItem[data-nicoru]:hover::before {
         position: absolute;
         content: attr(data-nicoru);
         color: #ccc;
@@ -836,6 +836,9 @@ const CommentListItemView = (() => {
         margin: 0;
         padding: 0 4px;
       }
+      .commentListItem[data-valhalla="1"] .info {
+        color: #f88;
+      }
 
       .commentListItem .timepos {
         display: inline-block;
@@ -854,6 +857,10 @@ const CommentListItemView = (() => {
         padding: 0 4px;
         font-family: '游ゴシック', 'Yu Gothic', 'YuGothic', arial, 'Menlo';
         font-feature-settings: "palt" 1;
+      }
+      .commentListItem[data-valhalla="1"] .text {
+        color: red;
+        font-weight: bold;
       }
 
       .active .commentListItem:hover {
@@ -943,7 +950,7 @@ const CommentListItemView = (() => {
 
   const TPL = (`
       <div class="commentListItem">
-        <img src="${NICORU}" class="nicoru-icon" data-command="nicoru">
+        <img src="${NICORU}" class="nicoru-icon" data-command="nicoru" title="Nicorü">
         <p class="info">
           <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
         </p>

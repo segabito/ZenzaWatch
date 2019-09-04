@@ -3450,7 +3450,7 @@ const VideoItemObserver = (() => {
 			}
 			item.classList.add('is-fetch-failed', (result) ? result.code : 'is-no-data');
 		} else {
-			item.dataset.thumbInfo = JSON.stringify({data: result});
+			item.dataset.thumbInfo = JSON.stringify(result);
 		}
 	};
 	const initIntersectionObserver = onItemInview => {
@@ -4292,7 +4292,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
 				return super.attributeChangedCallback(attr, oldValue, newValue);
 			}
 			const info = JSON.parse(newValue);
-			if (!info.data || info.data.status !== 'ok') {
+			if (!info || info.status !== 'ok') {
 				return;
 			}
 			this._applyThumbInfo(info);
@@ -7428,8 +7428,11 @@ const {ThreadLoader} = (() => {
 				user_id: msgInfo.userId.toString()
 			}});
 			const result = await this._post(server, body);
-			if (result.status === 4) {
-				return Promise.reject({status: result.status, message: 'ニコり済み'});
+			const [{nicoru_result: {status}}] = result;
+			if (status === 4) {
+				return Promise.reject({status, message: 'ニコり済み'});
+			} else if (status !== 0) {
+				return Promise.reject({status, message: `ニコれなかった＞＜ (status:${status})`});
 			}
 			return result;
 		}
@@ -13675,7 +13678,7 @@ class NicoChat {
 		props.duration = NicoChat.DURATION.NAKA;
 		props.commentVer = 'flash';
 		props.nicoru = data.nicoru || 0;
-		props.valhalla = data.valhala;
+		props.valhalla = data.valhalla;
 		props.lastNicoruDate = data.last_nicoru_date || null;
 		props.opacity = 1;
 		props.time3d = 0;
@@ -13806,7 +13809,8 @@ class NicoChat {
 	get nicoru() {return this.props.nicoru;}
 	set nicoru(v) {this.props.nicoru = v;}
 	get nicotta() { return !!this.props.nicotta;}
-	set nicotta(v) { this.props.nicotta = v; this.onChange(); }
+	set nicotta(v) { this.props.nicotta = v;
+	}
 	get opacity() {return this.props.opacity;}
 	get valhalla() {return this.props.valhalla || 0; }
 }
@@ -16597,6 +16601,9 @@ body.in-capture .commentLayer {
 .nicoChat.mine {
 	border: 1px solid yellow;
 }
+.nicoChat.nicotta {
+	border: 1px solid orange;
+}
 .nicoChat.updating {
 	border: 1px dotted;
 }
@@ -16629,16 +16636,6 @@ body.in-capture .commentLayer {
 	content: '❀';
 	opacity: 0.8;
 	color: #f99;
-	display: inline-block;
-	text-align: center;
-	animation-name: spin;
-	animation-iteration-count: infinite;
-	animation-duration: 10s;
-}
-.nicoChat.nicotta::before {
-	content: '☻';
-	opacity: 0.8;
-	color: #ff9;
 	display: inline-block;
 	text-align: center;
 	animation-name: spin;
@@ -17644,7 +17641,8 @@ class CommentListView extends Emitter {
 			.on('dblclick', this._onDblClick.bind(this))
 			.on('keydown', e => global.emitter.emit('keydown', e))
 			.on('keyup', e => global.emitter.emit('keyup', e))
-			.toggleClass('is-guest', !nicoUtil.isLogin());
+			.toggleClass('is-guest', !nicoUtil.isLogin())
+			.toggleClass('is-premium', nicoUtil.isPremium());
 		this._$menu.on('click', this._onMenuClick.bind(this));
 		this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
 		this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
@@ -17752,12 +17750,12 @@ class CommentListView extends Emitter {
 	}
 	_onDblClick(e) {
 		e.stopPropagation();
-		let $item = $(e.target).closest('.commentListItem');
-		if ($item.length < 0) {
+		const item = e.target.closest('.commentListItem');
+		if (!item) {
 			return;
 		}
 		e.preventDefault();
-		let itemId = $item.attr('data-item-id');
+		const itemId = item.dataset.itemId;
 		this.emit('command', 'select', null, itemId);
 	}
 	_onMouseMove() {
@@ -18175,7 +18173,7 @@ const CommentListItemView = (() => {
 			.commentListItem.odd[data-nicoru] {
 				background: #443;
 			}
-			.commentListItem.odd[data-nicoru]:hover::before {
+			.commentListItem[data-nicoru]:hover::before {
 				position: absolute;
 				content: attr(data-nicoru);
 				color: #ccc;
@@ -18186,6 +18184,7 @@ const CommentListItemView = (() => {
 			.commentListItem .nicoru-icon {
 				position: absolute;
 				pointer-events: none;
+				display: inline-block;
 				cursor: pointer;
 				visibility: hidden;
 				transition: transform 0.2s linear, filter 0.2s;
@@ -18194,16 +18193,17 @@ const CommentListItemView = (() => {
 				top: -2px;
 				width: 24px;
 				height: 24px;
+				contain: strict;
 			}
-			.commentListItem:hover .nicoru-icon {
-				display: inline-block;
+			.is-premium .commentListItem:hover .nicoru-icon {
 				pointer-events: auto;
 				visibility: visible;
-				transition: visibility 0.4s linear 0.2s, transform 0.2s linear, filter 0.2s;
 			}
-			.commentListItem.nicotta:hover .nicoru-icon {
+			.commentListItem.nicotta .nicoru-icon {
+				visibility: visible;
 				transform: rotate(270deg);
 				filter: drop-shadow(0px 0px 6px gold);
+				pointer-events: none;
 			}
 			.commentListItem.updating {
 				opacity: 0.5;
@@ -18222,6 +18222,9 @@ const CommentListItemView = (() => {
 				margin: 0;
 				padding: 0 4px;
 			}
+			.commentListItem[data-valhalla="1"] .info {
+				color: #f88;
+			}
 			.commentListItem .timepos {
 				display: inline-block;
 				width: 100px;
@@ -18238,6 +18241,10 @@ const CommentListItemView = (() => {
 				padding: 0 4px;
 				font-family: '游ゴシック', 'Yu Gothic', 'YuGothic', arial, 'Menlo';
 				font-feature-settings: "palt" 1;
+			}
+			.commentListItem[data-valhalla="1"] .text {
+				color: red;
+				font-weight: bold;
 			}
 			.active .commentListItem:hover {
 				overflow-x: hidden;
@@ -18317,7 +18324,7 @@ const CommentListItemView = (() => {
 		`).trim();
 	const TPL = (`
 			<div class="commentListItem">
-				<img src="${NICORU}" class="nicoru-icon" data-command="nicoru">
+				<img src="${NICORU}" class="nicoru-icon" data-command="nicoru" title="Nicorü">
 				<p class="info">
 					<span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
 				</p>
@@ -18760,7 +18767,7 @@ class CommentPanel extends Emitter {
 				this.sortBy(tmp[0], tmp[1] === 'desc');
 				break;}
 			case 'select':{
-				let vpos = item.vpos;
+				const vpos = item.vpos;
 				this.emit('command', 'seek', vpos / 100);
 				break;}
 			case 'clipBoard':

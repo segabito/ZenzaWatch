@@ -339,7 +339,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
         return super.attributeChangedCallback(attr, oldValue, newValue);
       }
       const info = JSON.parse(newValue);
-      if (!info.data || info.data.status !== 'ok') {
+      if (!info || info.status !== 'ok') {
         return;
       }
       this._applyThumbInfo(info);
