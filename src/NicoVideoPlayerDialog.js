@@ -1332,10 +1332,11 @@ class NicoVideoPlayerDialog extends Emitter {
         .catch(() => e.reject());
     });
   }
-  _initializeNicoVideoPlayer() {
+  async _initializeNicoVideoPlayer() {
     if (this._nicoVideoPlayer) {
       return this._nicoVideoPlayer;
     }
+    await this._view.promise('dom-ready');
     const config = this._playerConfig;
     const nicoVideoPlayer = this._nicoVideoPlayer = new NicoVideoPlayer({
       node: this._$playerContainer,
@@ -1946,7 +1947,7 @@ class NicoVideoPlayerDialog extends Emitter {
   hide() {
     this._state.isOpen = false;
   }
-  open(watchId, options) {
+  async open(watchId, options) {
     if (!watchId) {
       return;
     }
@@ -1970,7 +1971,7 @@ class NicoVideoPlayerDialog extends Emitter {
 
     let nicoVideoPlayer = this._nicoVideoPlayer;
     if (!nicoVideoPlayer) {
-      nicoVideoPlayer = this._initializeNicoVideoPlayer();
+      nicoVideoPlayer = await this._initializeNicoVideoPlayer();
     } else {
       if (this._videoInfo) {
         this._savePlaybackPosition(this._videoInfo.contextWatchId, this.currentTime);

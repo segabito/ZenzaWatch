@@ -50,6 +50,7 @@ const {initialize} = (() => {
 
     const query = util.parseQuery(START_PAGE_QUERY);
 
+    await util.$.ready(); // DOMContentLoaded
     const isWatch = util.isGinzaWatchUrl() &&
       (!!document.getElementById('watchAPIDataContainer') ||
         !!document.getElementById('js-initial-watch-data'));
@@ -82,7 +83,6 @@ const {initialize} = (() => {
 
 
     CustomElements.initialize();
-    await util.$.ready(); // DOMContentLoaded
     window.ZenzaWatch.ready = true;
     global.emitter.emitAsync('ready');
     global.emitter.emitResolve('init');
