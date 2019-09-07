@@ -1,7 +1,7 @@
 import {Emitter} from '../../../lib/src/Emitter';
 import {util} from '../../../../src/util';
 import {NicoTextParser} from './NicoTextParser';
-import {NicoChatViewModel} from './NicoChatViewModel';
+// import {NicoChatViewModel} from './NicoChatViewModel';
 import {global} from '../../../../src/ZenzaWatchIndex';
 //===BEGIN===
 // フォントサイズ計算用の非表示レイヤーを取得
@@ -32,17 +32,17 @@ const OffscreenLayer = config => {
     </body></html>
       `).trim();
 
-  let emt = new Emitter();
+  const emt = new Emitter();
   let offScreenFrame;
   let offScreenLayer;
   let textField;
   let optionStyle;
 
-  let initializeOptionCss = optionStyle => {
-    let update = () => {
-      let tmp = [];
+  const initializeOptionCss = optionStyle => {
+    const update = () => {
+      const tmp = [];
       let baseFont = config.props.baseFontFamily;
-      let inner = optionStyle.innerHTML;
+      const inner = optionStyle.innerHTML;
       if (baseFont) {
         baseFont = baseFont.replace(/[;{}*/]/g, '');
         tmp.push(
@@ -52,11 +52,8 @@ const OffscreenLayer = config => {
           ].join('').replace(/%BASEFONT%/g, baseFont)
         );
       }
-      let bolder = config.props.baseFontBolder;
-      if (!bolder) {
-        tmp.push('.nicoChat { font-weight: normal !important; }');
-      }
-      let newCss = tmp.join('\n');
+      tmp.push(`.nicoChat { font-weight: ${config.props.baseFontBolder ? config.props.cssFontWeight : 'normal'} !important; }`);
+      const newCss = tmp.join('\n');
       if (inner !== newCss) {
         optionStyle.innerHTML = newCss;
         global.emitter.emit('updateOptionCss', newCss);
@@ -72,7 +69,7 @@ const OffscreenLayer = config => {
       return;
     }
     window.console.time('createOffscreenLayer');
-    let frame = document.createElement('iframe');
+    const frame = document.createElement('iframe');
     offScreenFrame = frame;
     frame.loading = 'eager';
     frame.className = 'offScreenLayer';
@@ -84,7 +81,7 @@ const OffscreenLayer = config => {
 
 
     let layer;
-    let onload = () => {
+    const onload = () => {
       frame.onload = null;
       if (util.isChrome()) { frame.removeAttribute('srcdoc'); }
 
@@ -103,14 +100,14 @@ const OffscreenLayer = config => {
         removeChild: elm => {
           layer.removeChild(elm);
         },
-        getOptionCss: () => optionStyle.innerHTML
+        get optionCss() { return optionStyle.innerHTML;}
       };
 
       window.console.timeEnd('createOffscreenLayer');
       emt.emitResolve('GetReady!', offScreenLayer);
     };
 
-    let html = __offscreen_tpl__
+    const html = __offscreen_tpl__
       .replace('%LAYOUT_CSS%', NicoTextParser.__css__)
       .replace('%OPTION_CSS%', '');
     if (typeof frame.srcdoc === 'string') {
@@ -132,13 +129,13 @@ const OffscreenLayer = config => {
     return emt.promise('GetReady!');
   };
 
-  let createTextField = () => {
-    let layer = offScreenFrame.contentWindow.document.getElementById('offScreenLayer');
+  const createTextField = () => {
+    const layer = offScreenFrame.contentWindow.document.getElementById('offScreenLayer');
 
-    let span = document.createElement('span');
+    const span = document.createElement('span');
     span.className = 'nicoChat';
-    let scale = NicoChatViewModel.BASE_SCALE;
-    config.on('baseChatScale', v => scale = v);
+    let scale = config.props.baseChatScale; //NicoChatViewModel.BASE_SCALE;
+    config.onkey('baseChatScale', v => scale = v);
 
     textField = {
       setText: text => {
@@ -164,7 +161,7 @@ const OffscreenLayer = config => {
 
   return {
     get: getLayer,
-    getOptionCss: () => optionStyle.innerHTML
+    get optionCss() { return optionStyle.innerHTML; }
   };
 };
 //===END===

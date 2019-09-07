@@ -124,7 +124,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       doc.body.classList.toggle('debug', Config.props.debug);
       Config.onkey('debug', v => doc.body.classList.toggle('debug', v));
       // 手抜きその2
-      this._optionStyle.innerHTML = NicoComment.offscreenLayer.optionCss;
+      NicoComment.offscreenLayer.get().then(layer => { this._optionStyle.innerHTML = layer.optionCss; });
       global.emitter.on('updateOptionCss', newCss => {
         this._optionStyle.innerHTML = newCss;
       });
@@ -151,7 +151,7 @@ class NicoCommentCss3PlayerView extends Emitter {
           onResize();
         }
       };
-      ZenzaWatch.emitter.on('fullscreenStatusChange', _.debounce(onResize, 2000));
+      global.emitter.on('fullscreenStatusChange', _.debounce(onResize, 2000));
       window.setTimeout(chkSizeInit, 100);
 
       if (this._isPaused) {
@@ -190,7 +190,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       window.setTimeout(onload, 0);
     }
 
-    ZenzaWatch.debug.commentLayer = iframe;
+    global.debug.commentLayer = iframe;
     if (!params.show) {
       this.hide();
     }
