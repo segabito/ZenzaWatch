@@ -31,11 +31,11 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.0
+// @version        2.4.5
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
-// @require        https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // ==/UserScript==
+////// @require        https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 import {AntiPrototypeJs} from '../packages/lib/src/infra/AntiPrototype-js';
 import {Emitter} from '../packages/lib/src/Emitter';
 import {Config} from './Config';
@@ -65,6 +65,7 @@ import {NicoScripter} from '../packages/zenza/src/commentLayer/NicoScripter';
 import {CommentPanel} from './CommentPanel';
 import {VideoList} from './VideoList';
 import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
+import {StoryboardCacheDb} from '../packages/lib/src/nico/StoryboardCacheDb';
 import {NicoVideoPlayerDialog} from './NicoVideoPlayerDialog';
 import {RootDispatcher} from './RootDispatcher';
 import {CommentInputPanel} from './CommentInputPanel';
@@ -82,14 +83,9 @@ import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 AntiPrototypeJs();
 (() => {
   try {
-    const $ = jQuery;
-    jQuery.noConflict(true);
     if (window.top === window) {
-      window.ZenzaLib = { _, $ };
-      console.log('@require', JSON.stringify({jQuery: $.fn.jquery, lodash: _.VERSION}));
-    }
-    if (!window.$) {
-      window.$ = $;
+      window.ZenzaLib = { _ };
+      console.log('@require', JSON.stringify({lodash: _.VERSION}));
     }
   } catch(e) {
     window.top === window && console.warn('@require failed!', location, e);
@@ -105,12 +101,11 @@ AntiPrototypeJs();
     const Array = window.PureArray ? window.PureArray : window.Array;
     let console = window.console;
     let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
-    $ = null;
     let TOKEN = 'r:' + (Math.random());
     let CONFIG = null;
     let dll = {};
     const util = {};
-    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb} = window.ZenzaLib;
+    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
     //@environment
@@ -166,8 +161,11 @@ const global = {
   external: ZenzaWatch.external, PRODUCT, TOKEN, CONSTANT,
   notify: msg => ZenzaWatch.external.execCommand('notify', msg),
   alert: msg => ZenzaWatch.external.execCommand('alert', msg),
-  config: Config, api: ZenzaWatch.api};
+  config: Config,
+  api: ZenzaWatch.api
+};
 //@require util
+ZenzaWatch.lib.$ = uQuery;
 workerUtil.env({netUtil, global});
 //@require components
 //@require State
@@ -176,6 +174,8 @@ workerUtil.env({netUtil, global});
 //@require VideoSearch
 Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
 //@require TagEditApi
+//@require StoryboardCacheDb
+global.api.StoryboardCacheDb = StoryboardCacheDb;
 
 //@require StoryboardInfoLoader
 // ZenzaWatch.api.DmcStoryboardInfoLoader = DmcStoryboardInfoLoader;
@@ -202,8 +202,6 @@ ZenzaWatch.api.StoryboardInfoLoader = StoryboardInfoLoader;
 //@require CommentPanel
 
 //@require VideoList
-
-//@require VideoSessionWorker
 
 //@require NicoVideoPlayerDialog
 
@@ -261,12 +259,13 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 //@require IndexedDbStorage
 //@require WatchInfoCacheDb
 //@require parseThumbInfo
+//@require VideoSessionWorker
 
   window.ZenzaLib = Object.assign(window.ZenzaLib || {}, {
     workerUtil,
     IndexedDbStorage, WatchInfoCacheDb,
     Handler, PromiseHandler, Emitter, EmitterInitFunc,
-    parseThumbInfo
+    parseThumbInfo, VideoSessionWorker
   });
 })();
 

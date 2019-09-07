@@ -69,6 +69,7 @@ const Config = (() => {
     baseFontFamily: '',
     baseChatScale: 1.0,
     baseFontBolder: true,
+    cssFontWeight: 'bold',
 
     allowOtherDomain: true,
 
@@ -207,6 +208,7 @@ const Config = (() => {
     }
   );
 })();
+Config.exportConfig = () => Config.export();
 const NaviConfig = Config;
 
 //===END===
