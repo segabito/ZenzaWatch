@@ -1,4 +1,5 @@
 import {workerUtil} from '../../../lib/src/infra/workerUtil';
+// import {WindowResizeObserver} from '../../../lib/src/infra/Observable';
 //===BEGIN===
 
 const StoryboardWorker = (() => {
@@ -187,6 +188,108 @@ const StoryboardWorker = (() => {
       }
     }
 
+    class BoardView {
+      constructor({canvas, info, name}) {
+        this.canvas = canvas;
+        this.name = name;
+        this._currentTime = -1;
+        this._scrollLeft = 0;
+        this._info = null;
+        this.lastPos = {};
+        this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+        this.images = ImageCacheMap;
+        this.boards = [];
+        this.cls();
+        info && this.setInfo(info);
+      }
+      get info() { return this._info; }
+
+      set info(infoRawData) { this.setInfo(infoRawData); }
+
+      async setInfo(infoRawData) {
+        this.info && this.info.imageUrls.forEach(url => this.images.release(url));
+        this.info ? this._info.update(infoRawData) : (this._info = new StoryboardModel(infoRawData));
+
+        const info = this.info;
+        this.boards = (await Promise.all(this._info.imageUrls.map(async (url, idx) => {
+          const image = await this.images.get(url);
+          const rows = info.rows;
+          const pageWidth = info.pageWidth;
+          const boardWidth = pageWidth * rows;
+          const pageHeight = info.height;
+          console.log('new offscreencanvas', {idx, rows, pageWidth, boardWidth, pageHeight, info: this._info});
+          const canvas = new OffscreenCanvas(boardWidth, pageHeight);
+          const ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+          ctx.beginPath();
+          for (let i = 0; i < rows; i++) {
+            const dx = i * pageWidth;
+            const sy = i * pageHeight;
+            // console.log('ctx.drawImage', {idx, dx, sy, i, pageWidth, pageHeight, boardWidth, rows, image});
+            ctx.drawImage(image,
+              0, sy, pageWidth, pageHeight,
+              dx, 0, pageWidth, pageHeight
+            );
+          }
+          const colWidth = info.width;
+          const totalCols = boardWidth / colWidth;
+          ctx.strokeStyle = 'rgb(128, 128, 128)';
+          for (let i = 0; i < totalCols; i++) {
+            const x = i * colWidth;
+            ctx.rect(x, 0, colWidth, pageHeight);
+          }
+          return {
+            image: canvas,
+            left: idx * boardWidth,
+            right: idx * boardWidth + boardWidth,
+            width: boardWidth
+          };
+        }))).flat();
+        this.height = info.height;
+        this._currentTime = -1;
+        this.cls();
+      }
+      get scrollLeft() {
+        return this._scrollLeft;
+      }
+      set scrollLeft(v) {
+        const left = this._scrollLeft = v;
+        const right = left + this.width;
+        const ctx = this.ctx;
+        ctx.beginPath();
+        ctx.clearRect(0, 0, this.width, this.height);
+        for (const board of this.boards) {
+          if (
+            (left <= board.left  && board.left <= right) ||
+            (left <= board.right && board.right <= right) ||
+            (board.left <= left  && right <= board.right)
+          ) {
+            const dx = board.left - left;
+            ctx.drawImage(board.image,
+              0, 0, board.width, this.height,
+              dx, 0, board.width, this.height
+            );
+          }
+        }
+      }
+
+      cls() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+      }
+      get currentTime() { return this.currentTime; }
+      set currentTime(time) { this.setCurrentTime(time); }
+      get width() {return this.canvas.width;}
+      get height() {return this.canvas.height;}
+      set width(width) {this.canvas.width = width;}
+      set height(height) {this.canvas.height = height;}
+      async setCurrentTime(time) {
+      }
+      resize({width, height}) {
+        this.width = width;
+        this.height = height;
+        this.cls();
+      }
+    }
+
     class ThumbnailView {
       constructor({canvas, info, name}) {
         this.canvas = canvas;
@@ -258,32 +361,39 @@ const StoryboardWorker = (() => {
 
     const getId = function() {return `Storyboard-${this.id++}`;}.bind({id: 0});
 
-
-
-    const createThumbnail = async ({canvas, info, name}) => {
+    const createView = async ({canvas, info, name}, type = 'thumbnail') => {
       const id = getId();
-      const view = new ThumbnailView({canvas, info, name});
+      const view = type === 'thumbnail' ?
+        new ThumbnailView({canvas, info, name}) :
+        new BoardView({canvas, info, name});
       items[id] = view;
       return {status: 'ok', id};
     };
 
     const info = ({id, info}) => {
       const item = items[id];
-      if (!item) { throw new Error('known id', id); }
+      if (!item) { throw new Error('unknown id', id); }
       item.info = info;
       return {status: 'ok'};
     };
 
     const currentTime = ({id, currentTime}) => {
       const item = items[id];
-      if (!item) { throw new Error('known id', id); }
+      if (!item) { throw new Error('unknown id', id); }
       item.setCurrentTime(currentTime);
+      return {status: 'ok'};
+    };
+
+    const scrollLeft = ({id, scrollLeft}) => {
+      const item = items[id];
+      if (!item) { throw new Error('unknown id', id); }
+      item.scrollLeft = scrollLeft;
       return {status: 'ok'};
     };
 
     const resize = (params) => {
       const item = items[params.id];
-      if (!item) { throw new Error('known id', params.id); }
+      if (!item) { throw new Error('unknown id', params.id); }
       item.resize(params);
       return {status: 'ok'};
     };
@@ -303,11 +413,15 @@ const StoryboardWorker = (() => {
       // console.log('onmessage', self.name, {command, params});
       switch (command) {
         case 'createThumbnail':
-          return createThumbnail(params);
+          return createView(params, 'thumbnail');
+        case 'createBoard':
+          return createView(params, 'board');
         case 'info':
           return info(params);
         case 'currentTime':
           return currentTime(params);
+        case 'scrollLeft':
+          return scrollLeft(params);
         case 'resize':
           return resize(params);
         case 'dispose':
@@ -321,7 +435,7 @@ const StoryboardWorker = (() => {
   const NAME = 'StoryboardWorker';
 
   let worker;
-  const createThumbnail = async ({container, canvas, info, ratio, name, style}) => {
+  const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
     style = style || {};
     ratio = ratio || window.devicePixelRatio || 1;
     name = name || 'StoryboardThumbnail';
@@ -352,25 +466,39 @@ const StoryboardWorker = (() => {
     const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
 
     const init = await worker.post(
-      {command: 'createThumbnail', params: {canvas: layer, info, style, name}},
+      {command:
+        type === 'thumbnail' ? 'createThumbnail' : 'createBoard',
+        params: {canvas: layer, info, style, name}},
       {transfer: [layer]}
     );
     const id = init.id;
-    let currentTime = -1;
+    let currentTime = -1, scrollLeft = -1;
 
     const result = {
       container,
       canvas,
       info(info) {
+        currentTime = -1;
+        scrollLeft = -1;
         return worker.post({command: 'info', params: {id, info}});
       },
       resize({width, height}) {
+        scrollLeft = -1;
         return worker.post({command: 'resize', params: {id, width, height}});
+      },
+      get scrollLeft() {
+        return scrollLeft;
+      },
+      set scrollLeft(left) {
+        if (scrollLeft === left) { return; }
+        scrollLeft = left;
+        worker.post({command: 'scrollLeft', params: {id, scrollLeft}});
       },
       get currentTime() {
         return currentTime;
       },
       set currentTime(time) {
+        if (currentTime === time) { return; }
         currentTime = time;
         worker.post({command: 'currentTime', params: {id, currentTime}});
       },
@@ -380,7 +508,10 @@ const StoryboardWorker = (() => {
     };
     return result;
   };
-  return {createThumbnail};
+  return {
+    createThumbnail: args => createView(args, 'thumbnail'),
+    createBoard:     args => createView(args, 'board')
+  };
 })();
 
 

@@ -8,6 +8,7 @@ import {textUtil} from '../../../lib/src/text/textUtil';
 import {uq} from '../../../lib/src/uQuery';
 import {domEvent} from '../../../lib/src/dom/domEvent';
 import {TextLabel} from '../../../lib/src/ui/TextLabel';
+import {StoryboardWorker} from './StoryboardWorker';
 
 // import {bounce} from '';
 //===BEGIN===
@@ -189,7 +190,7 @@ class StoryboardView extends Emitter {
   get isEnable() {
     return !!this._isEnable;
   }
-  _initializeStoryboard() {
+  _initializeStoryboard(model) {
     if (this._body) { return; }
     window.console.log('%cStoryboardView.initializeStoryboard', 'background: lightgreen;');
 
@@ -216,6 +217,16 @@ class StoryboardView extends Emitter {
         color: '#000'
       }
     }).then(label => this.cursorTimeLabel = label);
+
+    StoryboardWorker.createBoard({
+      container: view.querySelector('.storyboardCanvasContainer'),
+      canvas: view.querySelector('.storyboardCanvas'),
+      info: model.info,
+      name: 'StoryboardCanvasView'
+    }).then(v => {
+      this.canvas = v;
+      this.canvas.resize({width: window.innerWidth, height: 160});
+    });
 
      view.classList.toggle('webkit', env.isWebkit());
      uq(view)
@@ -332,7 +343,7 @@ class StoryboardView extends Emitter {
     this._timerCount = 0;
     this._scrollLeft = 0;
 
-    this._initializeStoryboard();
+    this._initializeStoryboard(this._model);
 
     this.close();
     this._view.classList.remove('success', 'fail');
@@ -348,6 +359,7 @@ class StoryboardView extends Emitter {
       return 0;
     }
 
+    this.canvas && (this.canvas.scrollLeft = left);
     if (forceUpdate) {
       this._requestAnimationFrame.execOnce();
     }
@@ -477,6 +489,7 @@ class StoryboardView extends Emitter {
 StoryboardView.__tpl__ = `
   <div id="storyboardContainer" class="storyboardContainer">
     <div class="cursorTime"></div>
+    <div class="storyboardCanvasContainer"><canvas class="storyboardCanvas" height="90"></canvas></div>
 
     <div class="storyboardPointer"></div>
     <div class="storyboardInner"></div>
@@ -505,7 +518,19 @@ StoryboardView.__css__ = (`
     user-select: none;
     transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0.2s;
   }
-
+  .storyboardCanvasContainer {
+    position: absolute;
+    transform: scale(1, 0.5);
+    pointer-events: none;
+    width: 100vw;
+    max-height: 90px;
+    background: green;
+    z-index: 100;
+  }
+  .storyboardCanvas {
+    width: 100%;
+    height: 100%;
+  }
   .storyboardContainer.opening {
     pointer-events: none !important;
   }
