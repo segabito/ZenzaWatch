@@ -27,12 +27,7 @@ const workerUtil = (() => {
           case 'commandResult':
             if (promises[sessionId]) {
               if (status === 'ok') {
-                if (params.command === 'fetch') {
-                  const {buffer, init} = params.result;
-                  promises[sessionId].resolve(new Response(buffer, init));
-                } else {
                   promises[sessionId].resolve(params.result);
-                }
               } else {
                 promises[sessionId].reject(params.result);
               }
@@ -149,12 +144,21 @@ const workerUtil = (() => {
      * @param {object} options
      * @returns {Promise}
      */
-    self.xFetch = (url, options = {}) => {
+    self.xFetch = async (url, options = {}) => {
       options = {...options, ...{signal: null}}; // remove AbortController
       if (url.startsWith(location.origin)) {
         return fetch(url, options);
       }
-      return self.post({command: 'fetch', params: {url, options}});
+      const result = await self.post({command: 'fetch', params: {url, options}});
+      const {buffer, init, headers} = result;
+      const _headers = new Headers();
+      (headers || []).forEach(a => _headers.append(...a));
+      const _init = {
+        status: init.status,
+        statusText: init.statusText || '',
+        headers: _headers
+      };
+      return new Response(buffer, _init);
     };
   };
 
@@ -168,7 +172,7 @@ const workerUtil = (() => {
       ({config, TOKEN, PRODUCT, netUtil, CONSTANT, global} =
         Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT, global}, params));
 
-      if (global) { ({config, TOKEN, PRODUCT, netUtil, CONSTANT} = global); }
+      if (global) { ({config, TOKEN, PRODUCT, CONSTANT} = global); }
     },
     create: function(func, options = {}) {
       let cache = this.urlMap.get(func);
@@ -240,8 +244,9 @@ const workerUtil = (() => {
               global && global.emitter.emitAsync(params.eventName, params.data);
               break;
             case 'fetch':
-              result = (netUtil || window).fetch(params.url,
+              result = await (netUtil || window).fetch(params.url,
                 Object.assign({}, params.options || {}, {_format: 'arraybuffer'}));
+              console.log('fetch result', result);
               transfer = [result.buffer];
               break;
             case 'notify':

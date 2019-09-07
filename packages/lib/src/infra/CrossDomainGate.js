@@ -138,7 +138,7 @@ class CrossDomainGate extends Emitter {
       headers: _headers
     };
     if (options._format === 'arraybuffer') {
-      return {buffer, init: _init};
+      return {buffer, init, headers};
     }
     return new Response(buffer, _init);
   }

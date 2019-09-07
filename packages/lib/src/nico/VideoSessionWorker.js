@@ -1,9 +1,6 @@
 import {workerUtil} from '../infra/workerUtil';
 import {StoryboardCacheDb} from './StoryboardCacheDb';
-import {global} from '../../../../src/ZenzaWatchIndex';
 //===BEGIN===
-//@require StoryboardCacheDb
-global.api.StoryboardCacheDb = StoryboardCacheDb;
 
 const VideoSessionWorker = (() => {
   const func = function(self) {
@@ -21,8 +18,10 @@ const VideoSessionWorker = (() => {
     };
 
     const util = {
-      fetch(url, params) {
-        params = params || {};
+      fetch(url, params = {}) {
+        if (!location.host.endsWith('.nicovideo.jp')) {
+          return self.xFetch(url, params);
+        }
         const racers = [];
         let timer;
 
@@ -506,7 +505,7 @@ const VideoSessionWorker = (() => {
 
 
       const load = url => {
-        return fetch(url, {credentials: 'include'}).then(res => res.json())
+        return util.fetch(url, {credentials: 'include'}).then(res => res.json())
           .then(info => {
             if (!info.meta || !info.meta.message || info.meta.message !== 'ok') {
               return Promise.reject('storyboard request fail');
@@ -655,7 +654,7 @@ const VideoSessionWorker = (() => {
     };
 
     const toDataURL = async url => {
-      return fetch(url)
+      return util.fetch(url)
         .then(res => res.blob())
         .then(blob => {
           return new Promise((res, rej) => {
