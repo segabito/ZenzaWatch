@@ -58,7 +58,7 @@ const IndexedDbStorage = (() => {
         return new Promise((resolve, reject) => {
           const req = store.put(data);
           req.onsuccess = e => {
-            transaction.commit();
+            transaction.commit && transaction.commit();
             resolve(e.target.result);
           };
           req.onerror = reject;
@@ -101,7 +101,7 @@ const IndexedDbStorage = (() => {
           req.onsuccess = e =>  {
             const result = e.target.result;
             if (!result) {
-              transaction.commit();
+              transaction.commit && transaction.commit();
               return resolve(remove > 0);
             }
             result.delete();
