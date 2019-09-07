@@ -19,7 +19,7 @@ const VideoSessionWorker = (() => {
 
     const util = {
       fetch(url, params = {}) {
-        if (!location.host.endsWith('.nicovideo.jp')) {
+        if (!location.origin.endsWith('.nicovideo.jp')) {
           return self.xFetch(url, params);
         }
         const racers = [];

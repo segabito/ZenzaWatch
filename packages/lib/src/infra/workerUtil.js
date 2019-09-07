@@ -246,7 +246,6 @@ const workerUtil = (() => {
             case 'fetch':
               result = await (netUtil || window).fetch(params.url,
                 Object.assign({}, params.options || {}, {_format: 'arraybuffer'}));
-              console.log('fetch result', result);
               transfer = [result.buffer];
               break;
             case 'notify':

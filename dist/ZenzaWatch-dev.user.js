@@ -30561,7 +30561,6 @@ const workerUtil = (() => {
 						case 'fetch':
 							result = await (netUtil || window).fetch(params.url,
 								Object.assign({}, params.options || {}, {_format: 'arraybuffer'}));
-							console.log('fetch result', result);
 							transfer = [result.buffer];
 							break;
 						case 'notify':
@@ -31072,7 +31071,7 @@ const VideoSessionWorker = (() => {
 		};
 		const util = {
 			fetch(url, params = {}) {
-				if (!location.host.endsWith('.nicovideo.jp')) {
+				if (!location.origin.endsWith('.nicovideo.jp')) {
 					return self.xFetch(url, params);
 				}
 				const racers = [];
