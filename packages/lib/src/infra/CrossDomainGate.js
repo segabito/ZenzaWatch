@@ -198,12 +198,28 @@ class CrossDomainGate extends Emitter {
     return this._postMessage({command: 'pushHistory', params: {path, title}}, false);
   }
   async bridgeDb({name, ver, stores}) {
-    await this._postMessage({command: 'bridge-db', params: {name, ver, stores}});
-    return (command, data, storeName, transfer) => {
-      const params = {data, name, storeName, transfer};
-      // console.log('bridge.post', {command, params});
-      return this._postMessage({command: 'bridge-db', params: {command, params}});
+    const worker = await this._postMessage(
+      {command: 'bridge-db', params: {command: 'open', params: {name, ver, stores}}}
+    );
+    const post = (command, data, storeName, transfer) => {
+      const params = {data, storeName, transfer, name};
+      return this._postMessage({command: 'bridge-db', params: {command, params, transfer}});
     };
+    const result = {worker};
+    for (const meta of stores) {
+      const storeName = meta.name;
+      result[storeName] = (storeName => {
+        return {
+          close: params => post('close', params, storeName),
+          put: (record, transfer) => post('put', record, storeName, transfer),
+          get: ({key, index, timeout}) => post('get', {key, index, timeout}, storeName),
+          updateTime: ({key, index, timeout}) => post('updateTime', {key, index, timeout}, storeName),
+          delete: ({key, index, timeout}) => post('delete', {key, index, timeout}, storeName),
+          gc: (expireTime = 30 * 24 * 60 * 60 * 1000, index = 'updatedAt') => post('gc', {expireTime, index}, storeName)
+        };
+      })(storeName);
+    }
+    return result;
   }
 }
 

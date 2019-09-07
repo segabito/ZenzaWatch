@@ -152,28 +152,35 @@ const GateAPI = (() => {
 
     const dbMap = {};
     const bridgeDb = async (params, sessionId) => {
-      const {command, name} = params;
+      const {command} = params;
       if (command === 'open') {
-        const {name, ver, stores} = params;
+        const {name, ver, stores} = params.params;
         const db = dbMap[name] || await IndexedDbStorage.open({name, ver, stores});
         dbMap[name] = db;
-        return post({status: 'ok', command: 'bridge-db-result', params: {name, ver}});
+        return post({status: 'ok', command: 'bridge-db-result', params: {name, ver}}, {sessionId});
       }
-      const db = dbMap[name];
-      const {record, transfer, key, index, timeout} = params;
+      const {name, storeName, transfer, data} = params.params;
+      const {key, index, timeout, expireTime} = data;
+      const db = dbMap[name][storeName];
       let result = 'ok';
       switch(command) {
         case 'close':
           await db.close();
           break;
         case 'put':
-          await db.put(record, transfer);
+          await db.put(data, transfer);
           break;
         case 'get':
           result = await db.get({key, index, timeout});
           break;
+        case 'updateTime':
+          result = await db.updateTime({key, index, timeout});
+          break;
         case 'delete':
           await db.delete({key, index, timeout});
+          break;
+        case 'gc':
+            await db.gc({expireTime, index, timeout});
           break;
       }
       return post({status: 'ok', command: 'bridge-db-result', params: result}, {sessionId});

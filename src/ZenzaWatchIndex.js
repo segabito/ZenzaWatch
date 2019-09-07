@@ -42,11 +42,15 @@ const global = {
   api: ZenzaWatch.api
 };
 const Navi = Object.assign({}, ZenzaWatch);
+const ENV = 'dev';
+const VER = '2.0.0';
 
 export {
   ZenzaWatch,
   Navi,
   PRODUCT,
   TOKEN,
-  global
+  global,
+  ENV,
+  VER
 };

@@ -1,9 +1,7 @@
 import {Emitter, PromiseHandler} from '../Emitter';
-const Config = {};
-const NicoVideoApi = {};
-const ZenzaWatch = {};
-const PRODUCT = 'ZenzaWatch';
-const TOKEN = Math.random();
+import {global, ZenzaWatch, PRODUCT, TOKEN} from '../../../../src/ZenzaWatchIndex';
+import {Config} from '../../../../src/Config';
+import {NicoVideoApi} from '../../../../src/loader/api';
 
 //===BEGIN===
 const messageUtil = {};
@@ -57,7 +55,10 @@ const WindowMessageEmitter = messageUtil.WindowMessageEmitter = ((safeOrigins = 
         return;
       }
       const message = body.params;
-      if (body.command !== 'message' || !body.params.command) {
+      if (type === 'blogParts') { // 互換のための対応
+        global.external.sendOrExecCommand(message.command, message.params.watchId);
+        return;
+      } else if (body.command !== 'message' || !body.params.command) {
         return;
       }
       emitter.emit('message', message, type, sessionId);

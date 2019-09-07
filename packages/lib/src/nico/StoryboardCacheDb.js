@@ -17,7 +17,7 @@ const StoryboardCacheDb = (() => {
     ]
   };
 
-  let db, instance;
+  let db, instance, NicoVideoApi;
   const init = async () => {
     if (location.host === 'www.nicovideo.jp') {
       db = db || await IndexedDbStorage.open(WATCH_INFO);
@@ -84,8 +84,9 @@ const StoryboardCacheDb = (() => {
   const del = watchId => open().then(db => db.delete(watchId));
   const close = () => open().then(db => db.close());
   const gc = (expireTime = 24 * 60 * 60 * 1000) => open().then(db => db.gc(expireTime));
+  const api = api => NicoVideoApi = api;
 
-  return {open, put, get, delete: del, close, gc, db};
+  return {open, put, get, delete: del, close, gc, db, api};
 })();
 //===END===
 export {StoryboardCacheDb};

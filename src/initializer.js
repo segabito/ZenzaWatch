@@ -171,7 +171,7 @@ const {initialize} = (() => {
 
       if (watchId && command === 'open') {
         if (config.props.enableSingleton) {
-          ZenzaWatch.external.sendOrOpen(watchId);
+          global.external.sendOrOpen(watchId);
         } else {
           player.open(watchId, {economy: Config.props.forceEconomy});
         }

@@ -41,13 +41,12 @@ const StoryboardWorker = (() => {
         }
       }
       async gc() {
-        const MAX = 10;
+        const MAX = 8;
         const map = this.map;
         if (map.size < MAX) {
           return;
         }
         const sorted = [...map].sort((a, b) => a[1].updated - b[1].updated);
-        console.log('sorted', sorted);
         while (map.size >= MAX) {
           const [url] = sorted.shift();
           map.delete(url);

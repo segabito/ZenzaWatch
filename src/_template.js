@@ -35,7 +35,6 @@
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
-////// @require        https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 import {AntiPrototypeJs} from '../packages/lib/src/infra/AntiPrototype-js';
 import {Emitter} from '../packages/lib/src/Emitter';
 import {Config} from './Config';
@@ -43,7 +42,7 @@ import {uQuery} from '../packages/lib/src/uQuery';
 import {util} from './util';
 import {components} from '../packages/components/src/index';
 import {State} from './State';
-import {api} from './loader/api';
+import {api, NicoVideoApi} from './loader/api';
 import {VideoInfoModel} from './VideoInfo';
 import {VideoSearch} from '../packages/lib/src/nico/VideoSearch';
 import {TagEditApi} from '../packages/lib/src/nico/TagEditApi';
@@ -79,6 +78,7 @@ import {CONSTANT} from './constant';
 import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 import {parseThumbInfo} from '../packages/lib/src/nico/parseThumbInfo';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
+import {ENV,VER} from './ZenzaWatchIndex';
 //@require AntiPrototypeJs
 AntiPrototypeJs();
 (() => {
@@ -103,7 +103,7 @@ AntiPrototypeJs();
     let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
     let TOKEN = 'r:' + (Math.random());
     let CONFIG = null;
-    let dll = {};
+    const dll = {};
     const util = {};
     let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
@@ -142,6 +142,7 @@ AntiPrototypeJs();
       emitter: new Emitter(),
       state: {}
     };
+    delete window.ZenzaLib;
 
     if (location.host.match(/\.nicovideo\.jp$/)) {
       window.ZenzaWatch = ZenzaWatch;
@@ -172,10 +173,12 @@ workerUtil.env({netUtil, global});
 //@require api
 //@require VideoInfoModel
 //@require VideoSearch
-Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
 //@require TagEditApi
 //@require StoryboardCacheDb
-global.api.StoryboardCacheDb = StoryboardCacheDb;
+Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
+// global.api.StoryboardCacheDb = StoryboardCacheDb;
+WatchInfoCacheDb.api(NicoVideoApi);
+StoryboardCacheDb.api(NicoVideoApi);
 
 //@require StoryboardInfoLoader
 // ZenzaWatch.api.DmcStoryboardInfoLoader = DmcStoryboardInfoLoader;

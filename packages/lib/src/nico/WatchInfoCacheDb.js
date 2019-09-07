@@ -1,6 +1,5 @@
 import {IndexedDbStorage} from '../infra/IndexedDbStorage';
 import {VideoInfoModel} from '../../../../src/VideoInfo';
-import {NicoVideoApi} from '../../../../src/loader/api';
 
 //===BEGIN===
 const WatchInfoCacheDb = (() => {
@@ -23,7 +22,7 @@ const WatchInfoCacheDb = (() => {
     ]
   };
 
-  let db, instance;
+  let db, instance, NicoVideoApi;
   const init = async () => {
     if (location.host === 'www.nicovideo.jp') {
       db = db || await IndexedDbStorage.open(WATCH_INFO);
@@ -92,8 +91,9 @@ const WatchInfoCacheDb = (() => {
   const del = watchId => open().then(db => db.delete(watchId));
   const close = () => open().then(db => db.close());
   const gc = (expireTime) => open().then(db => db.gc(expireTime));
+  const api = api => NicoVideoApi = api;
 
-  return {open, put, get, delete: del, close, gc};
+  return {open, put, get, delete: del, close, gc, api};
 })();
 //===END===
 export {WatchInfoCacheDb};

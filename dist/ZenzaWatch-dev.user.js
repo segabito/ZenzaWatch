@@ -36,7 +36,6 @@
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
 /* eslint-disable */
-////// @require        https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 const AntiPrototypeJs = function() {
 	if (this.promise || !window.Prototype || window.PureArray) {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
@@ -79,7 +78,7 @@ AntiPrototypeJs();
     let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
     let TOKEN = 'r:' + (Math.random());
     let CONFIG = null;
-    let dll = {};
+    const dll = {};
     const util = {};
     let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
@@ -1397,6 +1396,7 @@ const uq = uQuery;
       emitter: new Emitter(),
       state: {}
     };
+    delete window.ZenzaLib;
 
     if (location.host.match(/\.nicovideo\.jp$/)) {
       window.ZenzaWatch = ZenzaWatch;
@@ -2152,7 +2152,10 @@ const WindowMessageEmitter = messageUtil.WindowMessageEmitter = ((safeOrigins = 
 				return;
 			}
 			const message = body.params;
-			if (body.command !== 'message' || !body.params.command) {
+			if (type === 'blogParts') { // 互換のための対応
+				global.external.sendOrExecCommand(message.command, message.params.watchId);
+				return;
+			} else if (body.command !== 'message' || !body.params.command) {
 				return;
 			}
 			emitter.emit('message', message, type, sessionId);
@@ -6035,11 +6038,28 @@ class CrossDomainGate extends Emitter {
 		return this._postMessage({command: 'pushHistory', params: {path, title}}, false);
 	}
 	async bridgeDb({name, ver, stores}) {
-		await this._postMessage({command: 'bridge-db', params: {name, ver, stores}});
-		return (command, data, storeName, transfer) => {
-			const params = {data, name, storeName, transfer};
-			return this._postMessage({command: 'bridge-db', params: {command, params}});
+		const worker = await this._postMessage(
+			{command: 'bridge-db', params: {command: 'open', params: {name, ver, stores}}}
+		);
+		const post = (command, data, storeName, transfer) => {
+			const params = {data, storeName, transfer, name};
+			return this._postMessage({command: 'bridge-db', params: {command, params, transfer}});
 		};
+		const result = {worker};
+		for (const meta of stores) {
+			const storeName = meta.name;
+			result[storeName] = (storeName => {
+				return {
+					close: params => post('close', params, storeName),
+					put: (record, transfer) => post('put', record, storeName, transfer),
+					get: ({key, index, timeout}) => post('get', {key, index, timeout}, storeName),
+					updateTime: ({key, index, timeout}) => post('updateTime', {key, index, timeout}, storeName),
+					delete: ({key, index, timeout}) => post('delete', {key, index, timeout}, storeName),
+					gc: (expireTime = 30 * 24 * 60 * 60 * 1000, index = 'updatedAt') => post('gc', {expireTime, index}, storeName)
+				};
+			})(storeName);
+		}
+		return result;
 	}
 }
 let NicoVideoApi = {};
@@ -6922,7 +6942,6 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
 		}
 		return {NicoSearchApiV2Query, NicoSearchApiV2Loader};
 	})();
-Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
 class TagEditApi {
 	load(videoId) {
 		const url = `/tag_edit/${videoId}/?res_type=json&cmd=tags&_=${Date.now()}`;
@@ -6993,7 +7012,7 @@ const StoryboardCacheDb = (() => {
 			}
 		]
 	};
-	let db, instance;
+	let db, instance, NicoVideoApi;
 	const init = async () => {
 		if (location.host === 'www.nicovideo.jp') {
 			db = db || await IndexedDbStorage.open(WATCH_INFO);
@@ -7059,9 +7078,13 @@ const StoryboardCacheDb = (() => {
 	const del = watchId => open().then(db => db.delete(watchId));
 	const close = () => open().then(db => db.close());
 	const gc = (expireTime = 24 * 60 * 60 * 1000) => open().then(db => db.gc(expireTime));
-	return {open, put, get, delete: del, close, gc, db};
+	const api = api => NicoVideoApi = api;
+	return {open, put, get, delete: del, close, gc, db, api};
 })();
-global.api.StoryboardCacheDb = StoryboardCacheDb;
+Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
+// global.api.StoryboardCacheDb = StoryboardCacheDb;
+WatchInfoCacheDb.api(NicoVideoApi);
+StoryboardCacheDb.api(NicoVideoApi);
 
 const SmileStoryboardInfoLoader = (()=> {
 	let parseStoryboard = ($storyboard, url) => {
@@ -29622,7 +29645,7 @@ const replaceRedirectLinks = async () => {
 			const watchId = cmd.watchId || params.watchId; // 互換のため冗長
 			if (watchId && command === 'open') {
 				if (config.props.enableSingleton) {
-					ZenzaWatch.external.sendOrOpen(watchId);
+					global.external.sendOrOpen(watchId);
 				} else {
 					player.open(watchId, {economy: Config.props.forceEconomy});
 				}
@@ -30903,7 +30926,7 @@ const WatchInfoCacheDb = (() => {
 			}
 		]
 	};
-	let db, instance;
+	let db, instance, NicoVideoApi;
 	const init = async () => {
 		if (location.host === 'www.nicovideo.jp') {
 			db = db || await IndexedDbStorage.open(WATCH_INFO);
@@ -30964,7 +30987,8 @@ const WatchInfoCacheDb = (() => {
 	const del = watchId => open().then(db => db.delete(watchId));
 	const close = () => open().then(db => db.close());
 	const gc = (expireTime) => open().then(db => db.gc(expireTime));
-	return {open, put, get, delete: del, close, gc};
+	const api = api => NicoVideoApi = api;
+	return {open, put, get, delete: del, close, gc, api};
 })();
 function parseThumbInfo(xmlText) {
 	if (typeof xmlText !== 'string' || xmlText.status === 'ok') {
@@ -31996,28 +32020,35 @@ const ThumbInfoCacheDb = (() => {
 		};
 		const dbMap = {};
 		const bridgeDb = async (params, sessionId) => {
-			const {command, name} = params;
+			const {command} = params;
 			if (command === 'open') {
-				const {name, ver, stores} = params;
+				const {name, ver, stores} = params.params;
 				const db = dbMap[name] || await IndexedDbStorage.open({name, ver, stores});
 				dbMap[name] = db;
-				return post({status: 'ok', command: 'bridge-db-result', params: {name, ver}});
+				return post({status: 'ok', command: 'bridge-db-result', params: {name, ver}}, {sessionId});
 			}
-			const db = dbMap[name];
-			const {record, transfer, key, index, timeout} = params;
+			const {name, storeName, transfer, data} = params.params;
+			const {key, index, timeout, expireTime} = data;
+			const db = dbMap[name][storeName];
 			let result = 'ok';
 			switch(command) {
 				case 'close':
 					await db.close();
 					break;
 				case 'put':
-					await db.put(record, transfer);
+					await db.put(data, transfer);
 					break;
 				case 'get':
 					result = await db.get({key, index, timeout});
 					break;
+				case 'updateTime':
+					result = await db.updateTime({key, index, timeout});
+					break;
 				case 'delete':
 					await db.delete({key, index, timeout});
+					break;
+				case 'gc':
+						await db.gc({expireTime, index, timeout});
 					break;
 			}
 			return post({status: 'ok', command: 'bridge-db-result', params: result}, {sessionId});
