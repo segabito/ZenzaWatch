@@ -132,7 +132,7 @@ function requireFile(srcDir, file, params, parent = '') {
     REQMAP[fullpath].push(parent);
     console.warn('***WARN***\n"%s" has already required\n in\n %s', fullpath, REQMAP[fullpath].join('\n '));
     // notify('already required', srcFile, parent);
-    return `// already required ${fullpath}`;
+    return `// already required`;
   }
   REQMAP[fullpath] = REQMAP[fullpath] || [];
   REQMAP[fullpath].push(parent || 1);

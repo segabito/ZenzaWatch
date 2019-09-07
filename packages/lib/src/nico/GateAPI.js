@@ -76,7 +76,7 @@ const GateAPI = (() => {
       window.history.replaceState(null, title, path);
       if (broadcastChannel) {
         broadcastChannel.postMessage({body: {
-          command: 'pushHistory', params: {path, title}
+          command: 'message', params: {command: 'pushHistory', params: {path, title}}
         }});
       }
     };
@@ -180,7 +180,7 @@ const GateAPI = (() => {
           await db.delete({key, index, timeout});
           break;
         case 'gc':
-            await db.gc({expireTime, index, timeout});
+          await db.gc(expireTime, index);
           break;
       }
       return post({status: 'ok', command: 'bridge-db-result', params: result}, {sessionId});

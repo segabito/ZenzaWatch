@@ -150,8 +150,8 @@ const IndexedDbStorage = (() => {
             count && console.log('deleted %s records.', count);
           };
           req.onerror = reject;
-        }).catch((e) => {
-          console.error('gc fail', e);
+        }).catch(e => {
+          console.error('gc fail', {name, storeName, data: {expireTime, index}, timekey}, e);
           store.clear();
         });
       }
