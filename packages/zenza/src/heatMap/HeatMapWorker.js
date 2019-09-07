@@ -262,7 +262,9 @@ const HeatMapWorker = (() => {
   let worker;
   const init = async ({container, width, height}) => {
     if (!isOffscreenCanvasAvailable) {
-      const HeatMap = HeatMapInitFunc();
+      const HeatMap = HeatMapInitFunc({
+        emit: (...args) => global.emitter.emit(...args)
+      });
       return new HeatMap({container, width, height});
     }
     worker = worker || workerUtil.createCrossMessageWorker(func, {name: 'HeatMapWorker'});
