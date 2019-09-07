@@ -386,7 +386,7 @@ const {ThreadLoader} = (() => {
 
     async nicoru(msgInfo, chat) {
       const threadInfo = msgInfo.threadInfo;
-      const {nicorukey} = await this.getNicoruKey(threadInfo.threadId);
+      const {nicorukey} = await this.getNicoruKey(chat.threadId);
       const server = threadInfo.server.replace('/api/', '/api.json/');
       const body = JSON.stringify({nicoru:{
         content: chat.text,
@@ -396,7 +396,7 @@ const {ThreadLoader} = (() => {
         nicorukey,
         postdate: `${chat.date}.${chat.dateUsec}`,
         premium: nicoUtil.isPremium() ? 1 : 0,
-        thread: threadInfo.threadId.toString(),
+        thread: chat.threadId.toString(),
         user_id: msgInfo.userId.toString()
       }});
       const result = await this._post(server, body);
