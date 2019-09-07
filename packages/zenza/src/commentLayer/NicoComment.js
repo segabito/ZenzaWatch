@@ -261,7 +261,7 @@ class NicoComment extends Emitter {
   _onChange(e) {
     console.log('NicoComment.onChange: ', e);
     e = e || {};
-    let ev = {
+    const ev = {
       nicoComment: this,
       group: e.group,
       chat: e.chat

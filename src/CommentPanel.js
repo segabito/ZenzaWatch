@@ -807,9 +807,11 @@ const CommentListItemView = (() => {
         height: 24px;
         contain: strict;
       }
+      .commentListItem:hover .nicoru-icon {
+        visibility: visible;
+      }
       .is-premium .commentListItem:hover .nicoru-icon {
         pointer-events: auto;
-        visibility: visible;
       }
       .commentListItem.nicotta .nicoru-icon {
         visibility: visible;
