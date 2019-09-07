@@ -79,6 +79,7 @@ import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 import {parseThumbInfo} from '../packages/lib/src/nico/parseThumbInfo';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {ENV,VER} from './ZenzaWatchIndex';
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 //@require AntiPrototypeJs
 AntiPrototypeJs();
 (() => {
@@ -105,7 +106,7 @@ AntiPrototypeJs();
     let CONFIG = null;
     const dll = {};
     const util = {};
-    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, VideoSessionWorker} = window.ZenzaLib;
+    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
     //@environment
@@ -174,7 +175,6 @@ workerUtil.env({netUtil, global});
 //@require VideoInfoModel
 //@require VideoSearch
 //@require TagEditApi
-//@require StoryboardCacheDb
 Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
 // global.api.StoryboardCacheDb = StoryboardCacheDb;
 WatchInfoCacheDb.api(NicoVideoApi);
@@ -243,13 +243,13 @@ ZenzaWatch.modules.TextLabel = TextLabel;
       NicoVideoApi.fetch('https://www.nicovideo.jp/',{credentials: 'include'})
         .then(r => r.text())
         .then(result => {
-          let $dom = util.$(`<div>${result}</div>`);
-          let isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
-          let isPremium =
+          const $dom = util.$(`<div>${result}</div>`);
+          const isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
+          const isPremium =
             $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
           window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
-          util.isLogin = () => isLogin;
-          util.isPremium = () => isPremium;
+          nicoUtil.isLogin = () => isLogin;
+          nicoUtil.isPremium = util.isPremium = () => isPremium;
           initialize();
         });
     }, err => window.console.log('ZenzaWatch Bridge disabled', err));
@@ -262,13 +262,14 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 //@require IndexedDbStorage
 //@require WatchInfoCacheDb
 //@require parseThumbInfo
+//@require StoryboardCacheDb
 //@require VideoSessionWorker
 
   window.ZenzaLib = Object.assign(window.ZenzaLib || {}, {
     workerUtil,
     IndexedDbStorage, WatchInfoCacheDb,
     Handler, PromiseHandler, Emitter, EmitterInitFunc,
-    parseThumbInfo, VideoSessionWorker
+    parseThumbInfo, StoryboardCacheDb, VideoSessionWorker
   });
 })();
 

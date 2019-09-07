@@ -1794,7 +1794,7 @@ class NicoVideoPlayerDialog extends Emitter {
   _onCommentPanelStatusUpdate() {
     let commentPanel = this._commentPanel;
     this._playerConfig.setValue(
-      'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
+      'enableCommentPanelAutoScroll', commentPanel.isAutoScroll);
   }
   _onDeflistAdd(watchId) {
     if (this._state.isUpdatingDeflist || !util.isLogin()) {

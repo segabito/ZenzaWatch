@@ -80,7 +80,7 @@ AntiPrototypeJs();
     let CONFIG = null;
     const dll = {};
     const util = {};
-    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, VideoSessionWorker} = window.ZenzaLib;
+    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     var VER = '2.4.5';
     const ENV = 'DEV';
@@ -6998,89 +6998,6 @@ class TagEditApi {
 		});
 	}
 }
-const StoryboardCacheDb = (() => {
-	const WATCH_INFO = {
-		name: 'storyboard',
-		ver: 1,
-		stores: [
-			{
-				name: 'cache',
-				indexes: [
-					{name: 'updatedAt',  keyPath: 'updatedAt',  params: {unique: false}},
-				],
-				definition: {keyPath: 'watchId', autoIncrement: false}
-			}
-		]
-	};
-	let db, instance, NicoVideoApi;
-	const init = async () => {
-		if (location.host === 'www.nicovideo.jp') {
-			db = db || await IndexedDbStorage.open(WATCH_INFO);
-		} else {
-			db = db || await NicoVideoApi.bridgeDb(WATCH_INFO);
-		}
-		return db;
-	};
-	const open = async () => {
-		if (instance) { return instance; }
-		await init();
-		const cacheDb = db['cache'];
-		instance = {
-			async put(watchId, sbInfo = {}) {
-				const dataUrls = [];
-				if (sbInfo.status !== 'ok') {
-					console.warn('invalid sbInfo', watchId, sbInfo);
-					return;
-				}
-				sbInfo = {...sbInfo};
-				sbInfo.storyboard = (sbInfo.storyboard || []).concat().map(sb => {
-					sb = {...sb};
-					sb.urls = sb.urls.map(url => {
-						if (!url.startsWith('data:')) { return url; }
-						dataUrls.push(url);
-						return dataUrls.length - 1;
-					});
-					return sb;
-				});
-				if (!dataUrls.length) {
-					return;
-				}
-				const record = {
-					watchId,
-					updatedAt: Date.now(),
-					sbInfo,
-					dataUrls
-				};
-				cacheDb.put(record);
-				return record;
-			},
-			async get(watchId) {
-				const record = await cacheDb.updateTime({key: watchId});
-				if (!record) { return null; }
-				const {sbInfo, dataUrls} = record;
-				(sbInfo.storyboard || []).forEach(sb => {
-					sb.urls = sb.urls.map(url => {
-						if (typeof url === 'string') { return url; }
-						return dataUrls[url];
-					});
-				});
-				return sbInfo;
-			},
-			delete(watchId) { return cacheDb.delete({key: watchId}); },
-			close() { return cacheDb.close(); },
-			gc(expireTime) { return cacheDb.gc(expireTime); }
-		};
-		instance.gc(7 * 24 * 60 * 60 * 1000);
-		return instance;
-	};
-	const put = (watchId, sbInfo = {}) => open().then(db => db.put(watchId, sbInfo));
-	const get = watchId => open().then(db => db.get(watchId));
-	const del = watchId => open().then(db => db.delete(watchId));
-	const close = () => open().then(db => db.close());
-	const gc = (expireTime = 24 * 60 * 60 * 1000) => open().then(db => db.gc(expireTime));
-	const api = api => NicoVideoApi = api;
-	return {open, put, get, delete: del, close, gc, db, api};
-})();
 Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
 // global.api.StoryboardCacheDb = StoryboardCacheDb;
 WatchInfoCacheDb.api(NicoVideoApi);
@@ -7493,9 +7410,9 @@ const {ThreadLoader} = (() => {
 			result = await this._postChat(threadInfo, postkey, text, cmd, vpos, lang).catch(r => r);
 			return result.status === 'ok' ? result : Promise.reject(result);
 		}
-		getNicoruKey(threadId, options = {}) {
+		getNicoruKey(threadId, langCode = 0, options = {}) {
 			const url =
-				`https://nvapi.nicovideo.jp/v1/nicorukey?language=0&threadId=${threadId}`;
+				`https://nvapi.nicovideo.jp/v1/nicorukey?language=${langCode}&threadId=${threadId}`;
 			console.log('getNicorukey url: ', url);
 			const headers = options.cookie ? {Cookie: options.cookie} : {};
 			Object.assign(headers, {
@@ -7519,13 +7436,14 @@ const {ThreadLoader} = (() => {
 		}
 		async nicoru(msgInfo, chat) {
 			const threadInfo = msgInfo.threadInfo;
-			const {nicorukey} = await this.getNicoruKey(chat.threadId);
+			const language = this.getLangCode(msgInfo.language);
+			const {nicorukey} = await this.getNicoruKey(chat.threadId, language);
 			const server = threadInfo.server.replace('/api/', '/api.json/');
 			const body = JSON.stringify({nicoru:{
 				content: chat.text,
 				fork: chat.fork || 0,
 				id: chat.no.toString(),
-				language: 0,
+				language,
 				nicorukey,
 				postdate: `${chat.date}.${chat.dateUsec}`,
 				premium: nicoUtil.isPremium() ? 1 : 0,
@@ -7535,7 +7453,7 @@ const {ThreadLoader} = (() => {
 			const result = await this._post(server, body);
 			const [{nicoru_result: {status}}] = result;
 			if (status === 4) {
-				return Promise.reject({status, message: 'ニコり済み'});
+				return Promise.reject({status, message: 'ニコり済みだった'});
 			} else if (status !== 0) {
 				return Promise.reject({status, message: `ニコれなかった＞＜ (status:${status})`});
 			}
@@ -17662,11 +17580,12 @@ class CommentListModel extends Emitter {
 		this.emit('itemUpdate', item, key, value);
 	}
 	sortBy(key, isDesc) {
-		let table = {
+		const table = {
 			vpos: 'vpos',
 			date: 'date',
 			text: 'text',
 			user: 'userId',
+			nicoru: 'nicoru'
 		};
 		let func = table[key];
 		if (!func) {
@@ -18614,7 +18533,7 @@ class CommentPanelView extends Emitter {
 		css.addStyle(CommentPanelView.__css__);
 		let $view = this._$view = uq.html(CommentPanelView.__tpl__);
 		this._$container.append($view);
-		let $menu = this._$menu = this._$view.find('.commentPanel-menu');
+		const $menu = this._$menu = this._$view.find('.commentPanel-menu');
 		global.debug.commentPanelView = this;
 		let listView = this._listView = new CommentListView({
 			container: this._$view.find('.commentPanel-frame')[0],
@@ -18636,7 +18555,7 @@ class CommentPanelView extends Emitter {
 			_.debounce(item => listView.showItemDetail(item), 100));
 		this._onCommentPanelStatusUpdate();
 		this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
-		this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
+		this._$view.on('click', this._onCommentListCommandClick.bind(this));
 		global.emitter.on('hideHover', () => $menu.removeClass('show'));
 	}
 	toggleClass(className, v) {
@@ -18662,7 +18581,8 @@ class CommentPanelView extends Emitter {
 		}
 	}
 	_onCommentListCommandClick(e) {
-		const target = e.target.closest('.commentPanel-command');
+		const target = e.target.closest('[data-command]');
+		if (!target) { return; }
 		const {command, param} = target.dataset;
 		e.stopPropagation();
 		if (!command) {
@@ -18670,7 +18590,7 @@ class CommentPanelView extends Emitter {
 		}
 		const $view = this._$view;
 		const setUpdating = () => {
-			document.body.focus();
+			document.activeElement.blur();
 			$view.addClass('updating');
 			window.setTimeout(() => $view.removeClass('updating'), 1000);
 		};
@@ -18800,6 +18720,9 @@ CommentPanelView.__tpl__ = (`
 							<li class="commentPanel-command" data-command="sortBy" data-param="date:desc">
 								コメントの新しい順に並べる
 							</li>
+							<li class="commentPanel-command" data-command="sortBy" data-param="nicoru:desc">
+								ニコる数で並べる
+							</li>
 							<hr class="separator">
 							<li class="commentPanel-command" data-command="update-commentLanguage" data-param="ja_JP">
 								日本語
@@ -18824,7 +18747,7 @@ class CommentPanel extends Emitter {
 		super();
 		this._thumbInfoLoader = params.loader || global.api.ThumbInfoLoader;
 		this._$container = params.$container;
-		let player = this._player = params.player;
+		const player = this._player = params.player;
 		this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
 		this._model = new CommentListModel({});
 		this._language = params.language || 'ja_JP';
@@ -18873,7 +18796,7 @@ class CommentPanel extends Emitter {
 				this.toggleScroll();
 				break;
 			case 'sortBy': {
-				let tmp = param.split(':');
+				const tmp = param.split(':');
 				this.sortBy(tmp[0], tmp[1] === 'desc');
 				break;}
 			case 'select':{
@@ -23330,7 +23253,7 @@ class NicoVideoPlayerDialog extends Emitter {
 	_onCommentPanelStatusUpdate() {
 		let commentPanel = this._commentPanel;
 		this._playerConfig.setValue(
-			'enableCommentPanelAutoScroll', commentPanel.isAutoScroll());
+			'enableCommentPanelAutoScroll', commentPanel.isAutoScroll);
 	}
 	_onDeflistAdd(watchId) {
 		if (this._state.isUpdatingDeflist || !util.isLogin()) {
@@ -30130,13 +30053,13 @@ ZenzaWatch.modules.TextLabel = TextLabel;
       NicoVideoApi.fetch('https://www.nicovideo.jp/',{credentials: 'include'})
         .then(r => r.text())
         .then(result => {
-          let $dom = util.$(`<div>${result}</div>`);
-          let isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
-          let isPremium =
+          const $dom = util.$(`<div>${result}</div>`);
+          const isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
+          const isPremium =
             $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
           window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
-          util.isLogin = () => isLogin;
-          util.isPremium = () => isPremium;
+          nicoUtil.isLogin = () => isLogin;
+          nicoUtil.isPremium = util.isPremium = () => isPremium;
           initialize();
         });
     }, err => window.console.log('ZenzaWatch Bridge disabled', err));
@@ -30823,8 +30746,8 @@ const IndexedDbStorage = (() => {
 						count && console.log('deleted %s records.', count);
 					};
 					req.onerror = reject;
-				}).catch((e) => {
-					console.error('gc fail', e);
+				}).catch(e => {
+					console.error('gc fail', {name, storeName, data: {expireTime, index}, timekey}, e);
 					store.clear();
 				});
 			}
@@ -31081,6 +31004,89 @@ function parseThumbInfo(xmlText) {
 	}
 	return result;
 }
+const StoryboardCacheDb = (() => {
+	const WATCH_INFO = {
+		name: 'storyboard',
+		ver: 1,
+		stores: [
+			{
+				name: 'cache',
+				indexes: [
+					{name: 'updatedAt',  keyPath: 'updatedAt',  params: {unique: false}},
+				],
+				definition: {keyPath: 'watchId', autoIncrement: false}
+			}
+		]
+	};
+	let db, instance, NicoVideoApi;
+	const init = async () => {
+		if (location.host === 'www.nicovideo.jp') {
+			db = db || await IndexedDbStorage.open(WATCH_INFO);
+		} else {
+			db = db || await NicoVideoApi.bridgeDb(WATCH_INFO);
+		}
+		return db;
+	};
+	const open = async () => {
+		if (instance) { return instance; }
+		await init();
+		const cacheDb = db['cache'];
+		instance = {
+			async put(watchId, sbInfo = {}) {
+				const dataUrls = [];
+				if (sbInfo.status !== 'ok') {
+					console.warn('invalid sbInfo', watchId, sbInfo);
+					return;
+				}
+				sbInfo = {...sbInfo};
+				sbInfo.storyboard = (sbInfo.storyboard || []).concat().map(sb => {
+					sb = {...sb};
+					sb.urls = sb.urls.map(url => {
+						if (!url.startsWith('data:')) { return url; }
+						dataUrls.push(url);
+						return dataUrls.length - 1;
+					});
+					return sb;
+				});
+				if (!dataUrls.length) {
+					return;
+				}
+				const record = {
+					watchId,
+					updatedAt: Date.now(),
+					sbInfo,
+					dataUrls
+				};
+				cacheDb.put(record);
+				return record;
+			},
+			async get(watchId) {
+				const record = await cacheDb.updateTime({key: watchId});
+				if (!record) { return null; }
+				const {sbInfo, dataUrls} = record;
+				(sbInfo.storyboard || []).forEach(sb => {
+					sb.urls = sb.urls.map(url => {
+						if (typeof url === 'string') { return url; }
+						return dataUrls[url];
+					});
+				});
+				return sbInfo;
+			},
+			delete(watchId) { return cacheDb.delete({key: watchId}); },
+			close() { return cacheDb.close(); },
+			gc(expireTime) { return cacheDb.gc(expireTime); }
+		};
+		instance.gc(7 * 24 * 60 * 60 * 1000);
+		return instance;
+	};
+	const put = (watchId, sbInfo = {}) => open().then(db => db.put(watchId, sbInfo));
+	const get = watchId => open().then(db => db.get(watchId));
+	const del = watchId => open().then(db => db.delete(watchId));
+	const close = () => open().then(db => db.close());
+	const gc = (expireTime = 24 * 60 * 60 * 1000) => open().then(db => db.gc(expireTime));
+	const api = api => NicoVideoApi = api;
+	return {open, put, get, delete: del, close, gc, db, api};
+})();
 const VideoSessionWorker = (() => {
 	const func = function(self) {
 		const SMILE_HEART_BEAT_INTERVAL_MS = 10 * 60 * 1000; // 10min
@@ -31716,7 +31722,7 @@ const VideoSessionWorker = (() => {
     workerUtil,
     IndexedDbStorage, WatchInfoCacheDb,
     Handler, PromiseHandler, Emitter, EmitterInitFunc,
-    parseThumbInfo, VideoSessionWorker
+    parseThumbInfo, StoryboardCacheDb, VideoSessionWorker
   });
 })();
 
@@ -31952,7 +31958,7 @@ const ThumbInfoCacheDb = (() => {
 			window.history.replaceState(null, title, path);
 			if (broadcastChannel) {
 				broadcastChannel.postMessage({body: {
-					command: 'pushHistory', params: {path, title}
+					command: 'message', params: {command: 'pushHistory', params: {path, title}}
 				}});
 			}
 		};
@@ -32048,7 +32054,7 @@ const ThumbInfoCacheDb = (() => {
 					await db.delete({key, index, timeout});
 					break;
 				case 'gc':
-						await db.gc({expireTime, index, timeout});
+					await db.gc(expireTime, index);
 					break;
 			}
 			return post({status: 'ok', command: 'bridge-db-result', params: result}, {sessionId});

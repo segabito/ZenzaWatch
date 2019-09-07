@@ -88,11 +88,12 @@ class CommentListModel extends Emitter {
     this.emit('itemUpdate', item, key, value);
   }
   sortBy(key, isDesc) {
-    let table = {
+    const table = {
       vpos: 'vpos',
       date: 'date',
       text: 'text',
       user: 'userId',
+      nicoru: 'nicoru'
     };
     let func = table[key];
     if (!func) {
@@ -1160,7 +1161,7 @@ class CommentPanelView extends Emitter {
     let $view = this._$view = uq.html(CommentPanelView.__tpl__);
     this._$container.append($view);
 
-    let $menu = this._$menu = this._$view.find('.commentPanel-menu');
+    const $menu = this._$menu = this._$view.find('.commentPanel-menu');
 
     global.debug.commentPanelView = this;
 
@@ -1188,7 +1189,7 @@ class CommentPanelView extends Emitter {
 
     this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
 
-    this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
+    this._$view.on('click', this._onCommentListCommandClick.bind(this));
 
     global.emitter.on('hideHover', () => $menu.removeClass('show'));
   }
@@ -1216,7 +1217,8 @@ class CommentPanelView extends Emitter {
     }
   }
   _onCommentListCommandClick(e) {
-    const target = e.target.closest('.commentPanel-command');
+    const target = e.target.closest('[data-command]');
+    if (!target) { return; }
     const {command, param} = target.dataset;
     e.stopPropagation();
     if (!command) {
@@ -1225,7 +1227,7 @@ class CommentPanelView extends Emitter {
 
     const $view = this._$view;
     const setUpdating = () => {
-      document.body.focus();
+      document.activeElement.blur();
       $view.addClass('updating');
       window.setTimeout(() => $view.removeClass('updating'), 1000);
     };
@@ -1371,6 +1373,9 @@ CommentPanelView.__tpl__ = (`
               <li class="commentPanel-command" data-command="sortBy" data-param="date:desc">
                 コメントの新しい順に並べる
               </li>
+              <li class="commentPanel-command" data-command="sortBy" data-param="nicoru:desc">
+                ニコる数で並べる
+              </li>
 
               <hr class="separator">
               <li class="commentPanel-command" data-command="update-commentLanguage" data-param="ja_JP">
@@ -1399,7 +1404,7 @@ class CommentPanel extends Emitter {
     super();
     this._thumbInfoLoader = params.loader || global.api.ThumbInfoLoader;
     this._$container = params.$container;
-    let player = this._player = params.player;
+    const player = this._player = params.player;
 
     this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
 
@@ -1452,7 +1457,7 @@ class CommentPanel extends Emitter {
         this.toggleScroll();
         break;
       case 'sortBy': {
-        let tmp = param.split(':');
+        const tmp = param.split(':');
         this.sortBy(tmp[0], tmp[1] === 'desc');
         break;}
       case 'select':{

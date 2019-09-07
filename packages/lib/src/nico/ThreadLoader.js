@@ -357,9 +357,9 @@ const {ThreadLoader} = (() => {
     }
 
 
-    getNicoruKey(threadId, options = {}) {
+    getNicoruKey(threadId, langCode = 0, options = {}) {
       const url =
-        `https://nvapi.nicovideo.jp/v1/nicorukey?language=0&threadId=${threadId}`;
+        `https://nvapi.nicovideo.jp/v1/nicorukey?language=${langCode}&threadId=${threadId}`;
 
       console.log('getNicorukey url: ', url);
       const headers = options.cookie ? {Cookie: options.cookie} : {};
@@ -386,13 +386,14 @@ const {ThreadLoader} = (() => {
 
     async nicoru(msgInfo, chat) {
       const threadInfo = msgInfo.threadInfo;
-      const {nicorukey} = await this.getNicoruKey(chat.threadId);
+      const language = this.getLangCode(msgInfo.language);
+      const {nicorukey} = await this.getNicoruKey(chat.threadId, language);
       const server = threadInfo.server.replace('/api/', '/api.json/');
       const body = JSON.stringify({nicoru:{
         content: chat.text,
         fork: chat.fork || 0,
         id: chat.no.toString(),
-        language: 0,
+        language,
         nicorukey,
         postdate: `${chat.date}.${chat.dateUsec}`,
         premium: nicoUtil.isPremium() ? 1 : 0,
@@ -402,7 +403,7 @@ const {ThreadLoader} = (() => {
       const result = await this._post(server, body);
       const [{nicoru_result: {status}}] = result;
       if (status === 4) {
-        return Promise.reject({status, message: 'ニコり済み'});
+        return Promise.reject({status, message: 'ニコり済みだった'});
       } else if (status !== 0) {
         return Promise.reject({status, message: `ニコれなかった＞＜ (status:${status})`});
       }
