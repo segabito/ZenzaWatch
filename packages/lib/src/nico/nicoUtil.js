@@ -111,7 +111,7 @@ const nicoUtil = {
   },
   isGinzaWatchUrl: url => /^https?:\/\/www\.nicovideo\.jp\/watch\//.test(url || location.href),
   getPlayerVer: () => {
-    if (!document.getElementById('js-initial-watch-data')) {
+    if (document.getElementById('js-initial-watch-data')) {
       return 'html5';
     }
     if (document.getElementById('watchAPIDataContainer')) {
