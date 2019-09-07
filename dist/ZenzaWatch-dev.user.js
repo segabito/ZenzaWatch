@@ -31,7 +31,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.5
+// @version        2.4.6
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -82,7 +82,7 @@ AntiPrototypeJs();
     const util = {};
     let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.4.5';
+    var VER = '2.4.6';
     const ENV = 'DEV';
 
 
@@ -7569,9 +7569,17 @@ const {YouTubeWrapper} = (() => {
 				return window.YT;
 			}
 			return new Promise(resolve => {
+				if (window.onYouTubeIframeAPIReady) {
+					window.onYouTubeIframeAPIReady_ = window.onYouTubeIframeAPIReady;
+				}
+				window.onYouTubeIframeAPIReady = () => {
+					if (window.onYouTubeIframeAPIReady_) {
+						window.onYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady_;
+					}
+					resolve(window.YT);
+				};
 				const tag = document.createElement('script');
 				tag.src = 'https://www.youtube.com/iframe_api';
-				tag.onload = () => resolve(window.YT);
 				document.head.append(tag);
 			});
 		}

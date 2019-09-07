@@ -132,18 +132,18 @@ const {YouTubeWrapper} = (() => {
       }
 
       return new Promise(resolve => {
-        // if (window.onYouTubeIframeAPIReady) {
-        //   window.onYouTubeIframeAPIReady_ = window.onYouTubeIframeAPIReady;
-        // }
-        // window.onYouTubeIframeAPIReady = () => {
-        //   if (window.onYouTubeIframeAPIReady_) {
-        //     window.onYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady_;
-        //   }
-        //   resolve(window.YT);
-        // };
+        if (window.onYouTubeIframeAPIReady) {
+          window.onYouTubeIframeAPIReady_ = window.onYouTubeIframeAPIReady;
+        }
+        window.onYouTubeIframeAPIReady = () => {
+          if (window.onYouTubeIframeAPIReady_) {
+            window.onYouTubeIframeAPIReady = window.onYouTubeIframeAPIReady_;
+          }
+          resolve(window.YT);
+        };
         const tag = document.createElement('script');
         tag.src = 'https://www.youtube.com/iframe_api';
-        tag.onload = () => resolve(window.YT);
+        // tag.onload = () => resolve(window.YT);
         document.head.append(tag);
       });
     }

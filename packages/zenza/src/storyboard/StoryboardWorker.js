@@ -338,12 +338,14 @@ const StoryboardWorker = (() => {
     canvas.dataset.name = name;
 
     if (!isOffscreenCanvasAvailable) {
-      worker = worker || {
-        name: NAME,
-        onmessage: () => {},
-        post: ({command, params}) => worker.onmessage({command, params})
-      };
-      func(worker);
+      if (!worker) {
+        worker = {
+          name: NAME,
+          onmessage: () => {},
+          post: ({command, params}) => worker.onmessage({command, params})
+        };
+        func(worker);
+      }
     } else {
       worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
     }

@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.3
+// @version     0.5.5
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -1987,7 +1987,7 @@ const nicoUtil = {
 	},
 	isGinzaWatchUrl: url => /^https?:\/\/www\.nicovideo\.jp\/watch\//.test(url || location.href),
 	getPlayerVer: () => {
-		if (!document.getElementById('js-initial-watch-data')) {
+		if (document.getElementById('js-initial-watch-data')) {
 			return 'html5';
 		}
 		if (document.getElementById('watchAPIDataContainer')) {
@@ -2810,7 +2810,7 @@ class DataStorage {
 		return observable.subscribe(subscriber);
 	}
 }
-// already required /Users/kunio/Dropbox/github/ZenzaWatch/packages/lib/src/infra/bounce.js
+// already required
 
     const config = (() => {
       const DEFAULT_CONFIG = {
@@ -3142,7 +3142,7 @@ class CrossDomainGate extends Emitter {
 			headers: _headers
 		};
 		if (options._format === 'arraybuffer') {
-			return {buffer, init: _init};
+			return {buffer, init, headers};
 		}
 		return new Response(buffer, _init);
 	}
@@ -3196,11 +3196,28 @@ class CrossDomainGate extends Emitter {
 		return this._postMessage({command: 'pushHistory', params: {path, title}}, false);
 	}
 	async bridgeDb({name, ver, stores}) {
-		await this._postMessage({command: 'bridge-db', params: {name, ver, stores}});
-		return (command, data, storeName, transfer) => {
-			const params = {data, name, storeName, transfer};
-			return this._postMessage({command: 'bridge-db', params: {command, params}});
+		const worker = await this._postMessage(
+			{command: 'bridge-db', params: {command: 'open', params: {name, ver, stores}}}
+		);
+		const post = (command, data, storeName, transfer) => {
+			const params = {data, storeName, transfer, name};
+			return this._postMessage({command: 'bridge-db', params: {command, params, transfer}});
 		};
+		const result = {worker};
+		for (const meta of stores) {
+			const storeName = meta.name;
+			result[storeName] = (storeName => {
+				return {
+					close: params => post('close', params, storeName),
+					put: (record, transfer) => post('put', record, storeName, transfer),
+					get: ({key, index, timeout}) => post('get', {key, index, timeout}, storeName),
+					updateTime: ({key, index, timeout}) => post('updateTime', {key, index, timeout}, storeName),
+					delete: ({key, index, timeout}) => post('delete', {key, index, timeout}, storeName),
+					gc: (expireTime = 30 * 24 * 60 * 60 * 1000, index = 'updatedAt') => post('gc', {expireTime, index}, storeName)
+				};
+			})(storeName);
+		}
+		return result;
 	}
 }
 
@@ -5348,12 +5365,7 @@ const workerUtil = (() => {
 					case 'commandResult':
 						if (promises[sessionId]) {
 							if (status === 'ok') {
-								if (params.command === 'fetch') {
-									const {buffer, init} = params.result;
-									promises[sessionId].resolve(new Response(buffer, init));
-								} else {
 									promises[sessionId].resolve(params.result);
-								}
 							} else {
 								promises[sessionId].reject(params.result);
 							}
@@ -5459,12 +5471,21 @@ const workerUtil = (() => {
 			return self;
 		};
 		bindFunc(self);
-		self.xFetch = (url, options = {}) => {
+		self.xFetch = async (url, options = {}) => {
 			options = {...options, ...{signal: null}}; // remove AbortController
 			if (url.startsWith(location.origin)) {
 				return fetch(url, options);
 			}
-			return self.post({command: 'fetch', params: {url, options}});
+			const result = await self.post({command: 'fetch', params: {url, options}});
+			const {buffer, init, headers} = result;
+			const _headers = new Headers();
+			(headers || []).forEach(a => _headers.append(...a));
+			const _init = {
+				status: init.status,
+				statusText: init.statusText || '',
+				headers: _headers
+			};
+			return new Response(buffer, _init);
 		};
 	};
 	const workerUtil = {
@@ -5476,7 +5497,7 @@ const workerUtil = (() => {
 		env: params => {
 			({config, TOKEN, PRODUCT, netUtil, CONSTANT, global} =
 				Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT, global}, params));
-			if (global) { ({config, TOKEN, PRODUCT, netUtil, CONSTANT} = global); }
+			if (global) { ({config, TOKEN, PRODUCT, CONSTANT} = global); }
 		},
 		create: function(func, options = {}) {
 			let cache = this.urlMap.get(func);
@@ -5540,7 +5561,7 @@ const workerUtil = (() => {
 							global && global.emitter.emitAsync(params.eventName, params.data);
 							break;
 						case 'fetch':
-							result = (netUtil || window).fetch(params.url,
+							result = await (netUtil || window).fetch(params.url,
 								Object.assign({}, params.options || {}, {_format: 'arraybuffer'}));
 							transfer = [result.buffer];
 							break;
@@ -5691,7 +5712,7 @@ const IndexedDbStorage = (() => {
 				return new Promise((resolve, reject) => {
 					const req = store.put(data);
 					req.onsuccess = e => {
-						transaction.commit();
+						transaction.commit && transaction.commit();
 						resolve(e.target.result);
 					};
 					req.onerror = reject;
@@ -5732,7 +5753,7 @@ const IndexedDbStorage = (() => {
 					req.onsuccess = e =>  {
 						const result = e.target.result;
 						if (!result) {
-							transaction.commit();
+							transaction.commit && transaction.commit();
 							return resolve(remove > 0);
 						}
 						result.delete();
@@ -5781,8 +5802,8 @@ const IndexedDbStorage = (() => {
 						count && console.log('deleted %s records.', count);
 					};
 					req.onerror = reject;
-				}).catch((e) => {
-					console.error('gc fail', e);
+				}).catch(e => {
+					console.error('gc fail', {name, storeName, data: {expireTime, index}, timekey}, e);
 					store.clear();
 				});
 			}
