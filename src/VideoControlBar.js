@@ -39,7 +39,7 @@ import {cssUtil} from '../packages/lib/src/css/css';
       this._initializeVideoServerTypeSelectMenu();
       this._isFirstVideoInitialized = false;
 
-      ZenzaWatch.debug.videoControlBar = this;
+      global.debug.videoControlBar = this;
     }
     _initializeDom() {
       let $view = this._$view = util.$.html(VideoControlBar.__tpl__);
@@ -152,7 +152,7 @@ import {cssUtil} from '../packages/lib/src/css/css';
         this._onSeekBarMouseDown(e);
       });
 
-      ZenzaWatch.emitter.on('hideHover', () => {
+      global.emitter.on('hideHover', () => {
         this._hideMenu();
         this._commentPreview.hide();
       });
@@ -415,10 +415,10 @@ import {cssUtil} from '../packages/lib/src/css/css';
         this._isFirstVideoInitialized = true;
         const handler = (command, param) => this.emit('command', command, param);
 
-        ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
+        global.emitter.emitAsync('videoControBar.addonMenuReady',
           this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
         );
-        ZenzaWatch.emitter.emitAsync('seekBar.addonMenuReady',
+        global.emitter.emitAsync('seekBar.addonMenuReady',
           this._$view[0].querySelector('.seekBar'), handler
         );
       }
@@ -439,7 +439,7 @@ import {cssUtil} from '../packages/lib/src/css/css';
       const currentTimeText = util.secToTime(sec);
       if (this._currentTimeText !== currentTimeText) {
         this._currentTimeText = currentTimeText;
-        this.currentTimeLabel.text = currentTimeText;
+        this.currentTimeLabel && (this.currentTimeLabel.text = currentTimeText);
       }
       this._pointer.currentTime = sec;
     }
@@ -455,9 +455,9 @@ import {cssUtil} from '../packages/lib/src/css/css';
       this._seekRange.max = sec;
 
       if (sec === 0 || isNaN(sec)) {
-        this.durationLabel.text = '--:--';
+        this.durationLabel && (this.durationLabel.text = '--:--');
       } else {
-        this.durationLabel.text = util.secToTime(sec);
+        this.durationLabel && (this.durationLabel.text = util.secToTime(sec));
       }
       this.emit('durationChange');
     }
@@ -557,9 +557,7 @@ util.addStyle(`
 
   .controlItemContainer.center {
     left: 50%;
-    height: 32px;
-    display: flex;
-    align-items: center;
+    height: 40px;
     transform: translate(-50%, 0);
     background:
       linear-gradient(to bottom,
@@ -570,8 +568,12 @@ util.addStyle(`
   }
 
   .controlItemContainer.center .scalingUI {
-    display: contents;
     transform-origin: top center;
+  }
+  .controlItemContainer.center .scalingUI > div{
+    display: flex;
+    align-items: center;
+    height: 32px;
   }
 
   .controlItemContainer.right {
@@ -1478,77 +1480,78 @@ util.addStyle(`
       </div>
       <div class="controlItemContainer center">
         <div class="scalingUI">
-
-          <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
-            <div class="controlButtonInner">&#x27A0;</div>
-            <div class="tooltip">前の動画</div>
-          </div>
-
-          <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
-            <div class="controlButtonInner"></div>
-            <div class="tooltip">シーンサーチ</div>
-          </div>
-
-          <div class="loopSwitch controlButton playControl" data-command="toggle-loop">
-            <div class="controlButtonInner">&#8635;</div>
-            <div class="tooltip">リピート</div>
-          </div>
-
-           <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
-            <div class="controlButtonInner">&#8676;</div>
-            <div class="tooltip">先頭</div>
-          </div>
-
-          <div class="togglePlay controlButton playControl" data-command="togglePlay">
-            <span class="pause"></span>
-            <span class="play">▶</span>
-          </div>
-
-          <div class="playbackRateMenu controlButton" tabindex="-1" data-has-submenu="1">
-            <div class="controlButtonInner">x1</div>
-            <div class="tooltip">再生速度</div>
-            <div class="playbackRateSelectMenu zenzaPopupMenu zenzaSubMenu">
-              <div class="triangle"></div>
-              <p class="caption">再生速度</p>
-              <ul>
-                <li class="playbackRate" data-command="playbackRate" data-param="10"><span>10倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="5"  ><span>5倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="4"  ><span>4倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="3"  ><span>3倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="2"  ><span>2倍</span></li>
-
-                <li class="playbackRate" data-command="playbackRate" data-param="1.75"><span>1.75倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="1.25"><span>1.25倍</span></li>
-
-                <li class="playbackRate" data-command="playbackRate" data-param="1.0"><span>標準速度(x1)</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="0.75"><span>0.75倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="0.5"><span>0.5倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="0.25"><span>0.25倍</span></li>
-                <li class="playbackRate" data-command="playbackRate" data-param="0.1"><span>0.1倍</span></li>
-              </ul>
+          <div class="seekBarContainer-mainControl">
+            <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
+              <div class="controlButtonInner">&#x27A0;</div>
+              <div class="tooltip">前の動画</div>
             </div>
-          </div>
 
-          <div class="videoTime">
-            <span class="currentTimeLabel"></span>/<span class="durationLabel"></span>
-          </div>
+            <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
+              <div class="controlButtonInner"></div>
+              <div class="tooltip">シーンサーチ</div>
+            </div>
 
-          <div class="muteSwitch controlButton" data-command="toggle-mute">
-            <div class="tooltip">ミュート(M)</div>
-            <div class="menuButtonInner mute-off">&#x1F50A;</div>
-            <div class="menuButtonInner mute-on">&#x1F507;</div>
-          </div>
+            <div class="loopSwitch controlButton playControl" data-command="toggle-loop">
+              <div class="controlButtonInner">&#8635;</div>
+              <div class="tooltip">リピート</div>
+            </div>
 
-          <div class="volumeControl">
-            <zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0" max="1" step="any"></zenza-range-bar>
-          </div>
+            <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
+              <div class="controlButtonInner">&#8676;</div>
+              <div class="tooltip">先頭</div>
+            </div>
 
-          <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
-            <div class="controlButtonInner">&#x27A0;</div>
-            <div class="tooltip">次の動画</div>
-          </div>
+            <div class="togglePlay controlButton playControl" data-command="togglePlay">
+              <span class="pause"></span>
+              <span class="play">▶</span>
+            </div>
 
+            <div class="playbackRateMenu controlButton" tabindex="-1" data-has-submenu="1">
+              <div class="controlButtonInner">x1</div>
+              <div class="tooltip">再生速度</div>
+              <div class="playbackRateSelectMenu zenzaPopupMenu zenzaSubMenu">
+                <div class="triangle"></div>
+                <p class="caption">再生速度</p>
+                <ul>
+                  <li class="playbackRate" data-command="playbackRate" data-param="10"><span>10倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="5"  ><span>5倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="4"  ><span>4倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="3"  ><span>3倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="2"  ><span>2倍</span></li>
+
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.75"><span>1.75倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.5"><span>1.5倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.25"><span>1.25倍</span></li>
+
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.0"><span>標準速度(x1)</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.75"><span>0.75倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.5"><span>0.5倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.25"><span>0.25倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.1"><span>0.1倍</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="videoTime">
+              <span class="currentTimeLabel"></span>/<span class="durationLabel"></span>
+            </div>
+
+            <div class="muteSwitch controlButton" data-command="toggle-mute">
+              <div class="tooltip">ミュート(M)</div>
+              <div class="menuButtonInner mute-off">&#x1F50A;</div>
+              <div class="menuButtonInner mute-on">&#x1F507;</div>
+            </div>
+
+            <div class="volumeControl">
+              <zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0" max="1" step="any"></zenza-range-bar>
+            </div>
+
+            <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
+              <div class="controlButtonInner">&#x27A0;</div>
+              <div class="tooltip">次の動画</div>
+            </div>
+
+          </div>
         </div>
       </div>
 
