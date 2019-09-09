@@ -1,9 +1,8 @@
 import {Emitter} from '../../../lib/src/Emitter';
-import {StoryboardModel} from './StoryboardModel';
-import {ZenzaWatch, global} from '../../../../src/ZenzaWatchIndex';
+import {StoryboardInfoModel} from './StoryboardInfoModel';
+import {global} from '../../../../src/ZenzaWatchIndex';
 import {RequestAnimationFrame} from '../../../lib/src/infra/RequestAnimationFrame';
-import {css} from '../../../lib/src/css/css';
-import {env} from '../../../lib/src/infra/env';
+import {css, cssUtil} from '../../../lib/src/css/css';
 import {textUtil} from '../../../lib/src/text/textUtil';
 import {uq} from '../../../lib/src/uQuery';
 import {domEvent} from '../../../lib/src/dom/domEvent';
@@ -12,112 +11,6 @@ import {StoryboardWorker} from './StoryboardWorker';
 
 // import {bounce} from '';
 //===BEGIN===
-class StoryboardBlockList {
-  static createBlock(option) {
-    const height = option.boardHeight;
-    const backgroundPosition = `0 ${height * option.row * -1}px`;
-
-    const view = document.createElement('div');
-    view.className = 'board';
-    view.style.cssText = `
-      background-image: url(${option.src});
-      background-position: ${backgroundPosition};
-    `;
-    Object.assign(view.dataset, {
-      src: option.src,
-      page: option.page,
-      top: height * option.row + height / 2,
-      backgroundPosition
-    });
-
-    return view;
-  }
-  static createBorder(cols) {
-    const v = document.createDocumentFragment();
-    const items = [];
-    const tpl = document.createElement('div');
-    tpl.className = 'border';
-    for (let i = 0; i < cols; i++) {
-      items.push(tpl.cloneNode());
-    }
-    v.append(...items);
-    return v;
-  }
-
-  constructor(storyboard) {
-    if (storyboard) {
-      this.create(storyboard);
-    }
-  }
-
-  /**
-   * @params {StoryboardModel} storyboard
-   */
-  create(storyboard) {
-    let pages = storyboard.getPageCount();
-    let pageWidth = storyboard.getPageWidth();
-    let width = storyboard.getWidth();
-    let height = storyboard.getHeight();
-    let rows = storyboard.getRows();
-    let cols = storyboard.getCols();
-
-    let totalRows = storyboard.getTotalRows();
-    let rowCnt = 0;
-    this._innerBorder = StoryboardBlockList.createBorder(cols);
-    let view = document.createElement('div');
-    view.className = 'boardList';
-    view.style.cssText = `
-      width: ${storyboard.getCount() * width}px;
-      height: ${height}px;
-      --cell-width: ${width}px;
-      --cell-height: ${height}px;
-      --board-width: ${pageWidth}px;
-      --board-height: ${height}px
-      `;
-    this._view = view;
-    this._blocks = [];
-
-    for (let page = 0; page < pages; page++) {
-      let src = storyboard.getPageUrl(page);
-      for (let row = 0; row < rows; row++) {
-        let option = {
-          width,
-          pageWidth,
-          boardHeight: height,
-          page,
-          row,
-          rows,
-          src
-        };
-        this.appendBlock(option);
-        rowCnt++;
-        if (rowCnt >= totalRows) {
-          return;
-        }
-      }
-    }
-  }
-  appendBlock(option) {
-    const block = StoryboardBlockList.createBlock(option);
-    block.append(this._innerBorder.cloneNode(true));
-    this._blocks.push(block);
-    this._view.append(...this._blocks);
-  }
-  loadImage() {
-  }
-  clear() {
-    this._view.remove();
-  }
-  get view() {
-    return this._view;
-  }
-}
-css.registerProps(
-  {name: '--cell-width',  syntax: '<length>', initialValue: '160px',   inherits: true},
-  {name: '--cell-height', syntax: '<length>', initialValue: '90px',    inherits: true},
-  {name: '--board-width',  syntax: '<length>', initialValue: '1600px', inherits: true},
-  {name: '--board-height', syntax: '<length>', initialValue: '900px',  inherits: true},
-);
 
 
 class StoryboardView extends Emitter {
@@ -130,9 +23,10 @@ class StoryboardView extends Emitter {
     console.log('%c initialize StoryboardView', 'background: lightgreen;');
     this._container = params.container;
 
-    let sb = this._model = params.model;
+    /** @type {StoryboardInfoModel} */
+    const sb = this._model = params.model;
 
-    this._isHover = false;
+    this.isHover = false;
     this._currentUrl = '';
     this._lastPage = -1;
     this._lastMs = -1;
@@ -144,7 +38,7 @@ class StoryboardView extends Emitter {
     sb.on('reset', this._onStoryboardReset.bind(this));
 
     const frame = this._requestAnimationFrame = new RequestAnimationFrame(
-      this._onRequestAnimationFrame.bind(this)
+      this._onRequestAnimationFrame.bind(this), 3
     );
 
     global.emitter.on('DialogPlayerClose', () => frame.disable());
@@ -159,7 +53,7 @@ class StoryboardView extends Emitter {
     if (!this._view) {
       return;
     }
-    this._view.classList.add('show');
+    this._view.classList.add('is-open');
     this._body.classList.add('zenzaStoryboardOpen');
     this._container.classList.add('zenzaStoryboardOpen');
     this._requestAnimationFrame.enable();
@@ -168,7 +62,7 @@ class StoryboardView extends Emitter {
     if (!this._view) {
       return;
     }
-    this._view.classList.remove('show');
+    this._view.classList.remove('is-open');
     this._body.classList.remove('zenzaStoryboardOpen');
     this._container.classList.remove('zenzaStoryboardOpen');
     this._requestAnimationFrame.disable();
@@ -190,16 +84,17 @@ class StoryboardView extends Emitter {
   get isEnable() {
     return !!this._isEnable;
   }
-  _initializeStoryboard(model) {
+  _initializeStoryboard() {
     if (this._body) { return; }
     window.console.log('%cStoryboardView.initializeStoryboard', 'background: lightgreen;');
 
     this._body = document.body;
 
     css.addStyle(StoryboardView.__css__);
-    let view = this._view = uq.html(StoryboardView.__tpl__)[0];
+    const view = this._view = uq.html(StoryboardView.__tpl__)[0];
 
-    let inner = this._inner = view.querySelector('.storyboardInner');
+    const inner = this._inner = view.querySelector('.storyboardInner');
+    this._bone = view.querySelector('.storyboardInner-bone');
     this._failMessage = view.querySelector('.failMessage');
     this._cursorTime = view.querySelector('.cursorTime');
     this._pointer = view.querySelector('.storyboardPointer');
@@ -218,27 +113,16 @@ class StoryboardView extends Emitter {
       }
     }).then(label => this.cursorTimeLabel = label);
 
-    StoryboardWorker.createBoard({
-      container: view.querySelector('.storyboardCanvasContainer'),
-      canvas: view.querySelector('.storyboardCanvas'),
-      info: model.info,
-      name: 'StoryboardCanvasView'
-    }).then(v => {
-      this.canvas = v;
-      this.canvas.resize({width: window.innerWidth, height: 160});
-    });
-
-     view.classList.toggle('webkit', env.isWebkit());
-     uq(view)
+     uq(inner)
       .on('click', this._onBoardClick.bind(this))
       .on('mousemove', this._onBoardMouseMove.bind(this))
       .on('mousemove', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
       .on('wheel', this._onMouseWheel.bind(this))
       .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
 
-    let onHoverIn = () => this._isHover = true;
+    const onHoverIn = () => this.isHover = true;
 
-    let onHoverOut = () => this._isHover = false;
+    const onHoverOut = () => this.isHover = false;
 
     uq(inner)
       .on('mouseenter', onHoverIn)
@@ -248,53 +132,44 @@ class StoryboardView extends Emitter {
     this._bouncedOnToucheMoveEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
 
     this._container.append(view);
-    document.body.addEventListener('touchend',
-      () => this._isHover = false, {passive: true});
+    view.closest('.zen-root')
+      .addEventListener('touchend', () => this.isHover = false, {passive: true});
 
     this._innerWidth = window.innerWidth;
     window.addEventListener('resize',
-      _.throttle(() => this._innerWidth = window.innerWidth, 500), {passive: true});
+      _.throttle(() => {
+        const width = this._innerWidth = window.innerWidth;
+        if (this.canvas) {
+          this.canvas.resize({width, height: this._model.cellHeight});
+        }
+      }, 500), {passive: true});
   }
   _onBoardClick(e) {
-    const board = e.target.closest('.board');
-    if (!board) { return; }
-    const rect = board.getBoundingClientRect();
-    const y = board.dataset.top * 1;
-    const x = e.pageX - rect.left;
-    const page = board.dataset.page * 1;
-    const ms = this._model.getPointMs(x, y, page);
-    if (isNaN(ms)) {
-      return;
-    }
+    const model = this._model;
+    const innerWidth = model.cellCount * model.cellWidth;
+    const x = e.clientX + this._scrollLeft;
+    const duration = model.duration;
+    const sec = x / innerWidth * duration;
 
     const view = this._view;
-    view.classList.add('clicked');
-    window.setTimeout(() => view.classList.remove('clicked'), 1000);
-    this._cursorTime.style.transform = 'translate(-100vw, 0)';
+    this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(-1000));
 
-    domEvent.dispatchCommand(view, 'seekTo', ms / 1000);
+    domEvent.dispatchCommand(view, 'seekTo', sec);
   }
   _onBoardMouseMove(e) {
-    const board = e.target.closest('.board');
-    if (!board) { return; }
-    const rect = board.getBoundingClientRect();
-    const y = board.dataset.top * 1;
-    const x = e.pageX - rect.left;
-    const page = board.dataset.page * 1;
-    const ms = this._model.getPointMs(x, y, page);
-    if (isNaN(ms)) {
-      return;
-    }
-    const sec = Math.floor(ms / 1000);
+    const model = this._model;
+    const innerWidth = model.cellCount * model.cellWidth;
+    const x = e.clientX + this._scrollLeft;
+    const duration = model.duration;
+    const sec = x / innerWidth * duration;
 
     const time = textUtil.secToTime(sec);
     if (this.cursorTimeLabel && this.cursorTimeLabel.text !== time) {
       this.cursorTimeLabel.text = time;
     }
-    this._cursorTime.style.transform = `translate3d(${e.pageX}px, 30px, 0) translate(-50%, -100%)`;
+    this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(e.x));
 
-
-    this._isHover = true;
+    this.isHover = true;
     this._isMouseMoving = true;
   }
   _onBoardMouseMoveEnd(e) {
@@ -303,23 +178,23 @@ class StoryboardView extends Emitter {
   _onMouseWheel(e) {
     // 縦ホイールで左右スクロールできるようにする
     e.stopPropagation();
-    let deltaX = parseInt(e.deltaX, 10);
-    let delta = parseInt(e.deltaY, 10);
+    const deltaX = parseInt(e.deltaX, 10);
+    const delta = parseInt(e.deltaY, 10);
     if (Math.abs(deltaX) > Math.abs(delta)) {
       // 横ホイールがある環境ならなにもしない
       return;
     }
     e.preventDefault();
-    this._isHover = true;
+    this.isHover = true;
     this._isMouseMoving = true;
-    let left = this.scrollLeft();
+    const left = this.scrollLeft();
     this.scrollLeft(left + delta * 5, true);
   }
   _onMouseWheelEnd(e) {
     this._isMouseMoving = false;
   }
   _onTouchStart(e) {
-    this._isHover = true;
+    this.isHover = true;
     this._isMouseMoving = true;
     e.stopPropagation();
   }
@@ -327,7 +202,7 @@ class StoryboardView extends Emitter {
   }
   _onTouchMove(e) {
     e.stopPropagation();
-    this._isHover = true;
+    this.isHover = true;
     this._isMouseMoving = true;
     this._isTouchMoving = true;
     this._bouncedOnToucheMoveEnd();
@@ -339,14 +214,14 @@ class StoryboardView extends Emitter {
   _onTouchCancel(e) {
   }
   update() {
-    this._isHover = false;
+    this.isHover = false;
     this._timerCount = 0;
     this._scrollLeft = 0;
 
     this._initializeStoryboard(this._model);
 
     this.close();
-    this._view.classList.remove('success', 'fail');
+    this._view.classList.remove('is-success', 'is-fail');
     if (this._model.status === 'ok') {
       this._updateSuccess();
     } else {
@@ -359,7 +234,6 @@ class StoryboardView extends Emitter {
       return 0;
     }
 
-    this.canvas && (this.canvas.scrollLeft = left);
     if (forceUpdate) {
       this._requestAnimationFrame.execOnce();
     }
@@ -369,27 +243,22 @@ class StoryboardView extends Emitter {
       if (Math.abs(this._scrollLeft - left) < 1) {
         return;
       }
+      this.canvas && (this.canvas.scrollLeft = left);
 
       this._scrollLeft = left;
       this._scrollLeftChanged = true;
-      this._scrollBehavior = 'unset';
     }
   }
   _updateSuccess() {
-    let url = this._model.getUrl();
-    let view = this._view;
-    view.classList.add('success');
+    const view = this._view;
+    view.classList.add('is-success');
 
-    if (this._currentUrl !== url) {
-      // 前と同じurl == 同じ動画なら再作成する必要なし
-      this._currentUrl = url;
-      window.console.time('createStoryboardDOM');
-      this._updateSuccessDom();
-      window.console.timeEnd('createStoryboardDOM');
-    }
+    window.console.time('createStoryboardDOM');
+    this._updateSuccessDom();
+    window.console.timeEnd('createStoryboardDOM');
 
     if (this._isEnable) {
-      view.classList.add('opening', 'show');
+      view.classList.add('opening', 'is-open');
       this.scrollLeft(0);
       this.open();
       window.setTimeout(() => view.classList.remove('opening'), 1000);
@@ -397,62 +266,66 @@ class StoryboardView extends Emitter {
 
   }
   _updateSuccessDom() {
-    let list = new StoryboardBlockList(this._model);
-    this._storyboardBlockList = list;
-    this._pointer.style.width = `${this._model.getWidth()}px`;
-    this._pointer.style.height = `${this._model.getHeight()}px`;
-    this.clear();
-    this._inner.append(list.view);
+    const model = this._model;
+    const infoRawData = model.rawData;
+    if (!this.canvas) {
+      StoryboardWorker.createBoard({
+        container: this._view.querySelector('.storyboardCanvasContainer'),
+        canvas: this._view.querySelector('.storyboardCanvas'),
+        info: infoRawData,
+        name: 'StoryboardCanvasView'
+      }).then(v => {
+        this.canvas = v;
+        this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+      });
+    } else {
+      this.canvas.setInfo(infoRawData);
+      this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+    }
+
+    this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
+    this._bone.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
+
+    this._pointer.style.setProperty('--width-pp', cssUtil.px(model.cellWidth));
+    this._pointer.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
   }
   _updateFail() {
-    this._view.classList.remove('success');
-    this._view.classList.add('fail');
+    this._view.classList.remove('is-uccess');
+    this._view.classList.add('is-fail');
   }
   clear() {
-    if (this._inner) {
-      this._inner.textContent = '';
-    }
   }
   _onRequestAnimationFrame() {
-    if (!this._model.isAvailable) {
-      return;
-    }
-    if (!this._view) {
+    if (!this._view || !this._model.isAvailable) {
       return;
     }
 
     if (this._scrollLeftChanged) {
-      this._inner.style.scrollBehavior = this._scrollBehavior;
       this._inner.scrollLeft = this._scrollLeft;
       this._scrollLeftChanged = false;
       this._pointerLeftChanged = true;
     }
     if (this._pointerLeftChanged) {
-      this._pointer.style.transform =
-        `translate3d(${this._pointerLeft - this._scrollLeft}px, 0, 0) translate(-50%, 0)`;
-
+      this._pointer.style.setProperty('--trans-x-pp', cssUtil.px(this._pointerLeft - this._scrollLeft));
       this._pointerLeftChanged = false;
     }
   }
   setCurrentTime(sec, forceUpdate) {
-    if (!this._model.isAvailable) {
+    const model = this._model;
+    if (!this._view || !model.isAvailable) {
       return;
     }
-    if (!this._view) {
-      return;
-    }
-    if (this._lastCurrentTime === sec) {
+    if (this._currentTime === sec) {
       return;
     }
 
-    this._lastCurrentTime = sec;
-    let ms = sec * 1000;
-    let storyboard = this._model;
-    let duration = Math.max(1, storyboard.duration);
-    let per = ms / (duration * 1000);
-    let width = storyboard.getWidth();
-    let boardWidth = storyboard.getCount() * width;
-    let targetLeft = boardWidth * per;
+    this._currentTime = sec;
+    const ms = sec * 1000;
+    const duration = Math.max(1, model.duration);
+    const per = ms / (duration * 1000);
+    const width = model.cellWidth;
+    const totalWidth = model.cellCount * width;
+    const targetLeft = totalWidth * per;
 
     if (this._pointerLeft !== targetLeft) {
       this._pointerLeft = targetLeft;
@@ -462,11 +335,14 @@ class StoryboardView extends Emitter {
     if (forceUpdate) {
       this.scrollLeft(targetLeft - this._innerWidth * per, true);
     } else {
-      if (this._isHover) {
+      if (this.isHover) {
         return;
       }
       this.scrollLeft(targetLeft - this._innerWidth * per);
     }
+  }
+  get currentTime() {
+    return this._currentTime;
   }
   set currentTime(sec) {
     this.setCurrentTime(sec);
@@ -481,7 +357,7 @@ class StoryboardView extends Emitter {
       return;
     }
     this.close();
-    this._view.classList.remove('show', 'fail');
+    this._view.classList.remove('is-open', 'is-fail');
   }
 
 }
@@ -490,9 +366,8 @@ StoryboardView.__tpl__ = `
   <div id="storyboardContainer" class="storyboardContainer">
     <div class="cursorTime"></div>
     <div class="storyboardCanvasContainer"><canvas class="storyboardCanvas" height="90"></canvas></div>
-
     <div class="storyboardPointer"></div>
-    <div class="storyboardInner"></div>
+    <div class="storyboardInner"><div class="storyboardInner-bone"></div></div>
     <div class="failMessage"></div>
   </div>
   `.trim();
@@ -509,6 +384,7 @@ StoryboardView.__css__ = (`
     width: 100vw;
     box-sizing: border-box;
     border-top: 2px solid #ccc;
+    background: #222;
     z-index: 9005;
     overflow: hidden;
     pointer-events: none;
@@ -518,24 +394,12 @@ StoryboardView.__css__ = (`
     user-select: none;
     transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0.2s;
   }
-  .storyboardCanvasContainer {
-    position: absolute;
-    transform: scale(1, 0.5);
-    pointer-events: none;
-    width: 100vw;
-    max-height: 90px;
-    background: green;
-    z-index: 100;
-  }
-  .storyboardCanvas {
-    width: 100%;
-    height: 100%;
-  }
+
   .storyboardContainer.opening {
     pointer-events: none !important;
   }
 
-  .storyboardContainer.success {
+  .storyboardContainer.is-success {
     display: block;
     opacity: 0;
   }
@@ -544,9 +408,9 @@ StoryboardView.__css__ = (`
     box-sizing: border-box;
   }
 
-  .is-wheelSeeking .storyboardContainer.success,
-  .is-dragging .storyboardContainer.success,
-  .storyboardContainer.success.show {
+  .is-wheelSeeking .storyboardContainer.is-success,
+  .is-dragging .storyboardContainer.is-success,
+  .storyboardContainer.is-success.is-open {
     z-index: 50;
     opacity: 1;
     transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
@@ -556,99 +420,50 @@ StoryboardView.__css__ = (`
   }
 
   .is-wheelSeeking .storyboardContainer,
-  .is-dragging .storyboardContainer {
+  .is-dragging     .storyboardContainer {
     pointer-events: none;
   }
 
   .is-fullscreen .is-wheelSeeking .storyboardContainer,
-  .is-fullscreen .is-dragging .storyboardContainer,
-  .is-fullscreen             .storyboardContainer.show {
+  .is-fullscreen .is-dragging     .storyboardContainer,
+  .is-fullscreen                  .storyboardContainer.is-open {
     position: fixed;
     top: calc(100% - 10px);
   }
 
+  .storyboardCanvasContainer {
+    position: absolute;
+    pointer-events: none;
+    width: 100vw;
+    z-index: 90;
+    contain: layout size style;
+  }
+  .storyboardCanvas {
+    width: 100%;
+    height: 100%;
+  }
+
   .storyboardContainer .storyboardInner {
     display: none;
-    text-align: center;
     overflow: hidden;
-    white-space: nowrap;
-    background: #222;
+    background: rgba(32, 32, 32, 0.5);
     margin: 0;
-    contain: paint layout;
+    contain: paint layout style;
     will-change: transform;
-    scrollbar-width: 6px;
-    scrollbar-color: #f8f transparent;
-  }
-  .storyboardInner:hover {
-    scroll-behavior: unset !important;
-  }
-  .storyboardContainer.webkit .storyboardInner,
-  .storyboardContainer .storyboardInner:hover {
-    overflow-x: auto;
     overscroll-behavior: contain;
+    padding-bottom: 8px;
   }
-
-  .storyboardContainer .storyboardInner::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-    background: transparent;
-    contain: paint layout;
-    will-change: transform;
-  }
-
-  .storyboardContainer .storyboardInner::-webkit-scrollbar-thumb {
-    border-radius: 6px;
-    background: #f8f;
-  }
-
-  .storyboardContainer .storyboardInner::-webkit-scrollbar-button {
-    display: none;
-  }
-
-  .storyboardContainer.success .storyboardInner {
+  .storyboardContainer.is-success .storyboardInner {
     display: block;
   }
-
-  .storyboardContainer .storyboardInner .boardList {
-    overflow: hidden;
-    contain: paint layout style size;
-    display: grid;
-    grid-auto-columns: var(--board-width);
-    grid-auto-flow: column;
-  }
-
-  .storyboardContainer .boardList .board {
-    /*position: absolute;*/
-    top: 0;
-    display: grid;
-    grid-auto-columns: var(--cell-width);
-    grid-auto-flow: column;
-    cursor: pointer;
-    background-color: #101010;
-    width: var(--board-width);
-    height: var(--board-height);
-    contain: paint layout style size;
-  }
-
-  .storyboardContainer.clicked .storyboardInner * {
-    opacity: 0.3;
+  .storyboardInner-bone {
+    contain: strict;
     pointer-events: none;
+    width:  var(--width-pp);
+    height: var(--height-pp);
+    visibility: hidden;
   }
 
-  .storyboardContainer .boardList .board.loadFail {
-    background-color: #c99;
-  }
-
-  .storyboardContainer .boardList .board .border {
-    box-sizing: border-box;
-    border-style: solid;
-    border-color: #000 #333 #000 #999;
-    border-width: 0     2px    0  2px;
-    display: inline-block;
-    pointer-events: none;
-    width: var(--cell-width);
-    height: var(--cell-height);
-  }
   .storyboardContainer .cursorTime {
     display: none;
     position: absolute;
@@ -657,13 +472,15 @@ StoryboardView.__css__ = (`
     z-index: 9010;
     background: #ffc;
     pointer-events: none;
+    padding: 0;
+    transform: translate3d(var(--trans-x-pp), 30px, 0) translate(-50%, -100%);
   }
   .storyboardContainer:hover .cursorTime {
-    transition: transform 0.1s ease-out;
+    transition: --trans-x-pp 0.1s ease-out;
     display: block;
   }
 
-  .storyboardContainer.clicked .cursorTime,
+  .storyboardContainer:active  .cursorTime,
   .storyboardContainer.opening .cursorTime {
     display: none;
   }
@@ -673,15 +490,19 @@ StoryboardView.__css__ = (`
     top: 0;
     z-index: 100;
     pointer-events: none;
-    transform: translate3d(-50%, 0, 0);
-    transition: transform 0.1s linear;
+    --width-pp: 160px;
+    --height-pp: 90px;
+    --trans-x-pp: -100%;
+    width: var(--width-pp);
+    height: var(--height-pp);
+    transform: translate3d(calc( var(--trans-x-pp) - var(--width-pp) / 2), 0, 0);
+    transition: --trans-x-pp 0.1s linear;
     background: #ff9;
     opacity: 0.5;
   }
 
   .storyboardContainer:hover .storyboardPointer {
-    box-shadow: 0 0 8px #ccc;
-    transition: transform 0.4s ease-out;
+    transition: --trans-x-pp 0.4s ease-out;
   }
 
     `).trim();

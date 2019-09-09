@@ -1,4 +1,4 @@
-import {StoryboardModel} from '../packages/zenza/src/storyboard/StoryboardModel';
+import {StoryboardInfoModel} from '../packages/zenza/src/storyboard/StoryboardInfoModel';
 import {Storyboard} from '../packages/zenza/src/storyboard/Storyboard';
 import {StoryboardView} from '../packages/zenza/src/storyboard/StoryboardView';
 import {SeekBarThumbnail} from '../packages/zenza/src/storyboard/SeekBarThumbnail';
@@ -23,7 +23,7 @@ import {StoryboardWorker} from '../packages/zenza/src/storyboard/StoryboardWorke
 
 
 export {
-  StoryboardModel,
+  StoryboardInfoModel as StoryboardModel,
   SeekBarThumbnail,
   Storyboard,
   StoryboardView,

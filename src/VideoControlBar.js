@@ -9,6 +9,7 @@ import {HeatMapWorker} from '../packages/zenza/src/heatMap/HeatMapWorker';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 import {cssUtil} from '../packages/lib/src/css/css';
+import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationFrame';
 
 //===BEGIN===
 
@@ -319,13 +320,16 @@ import {cssUtil} from '../packages/lib/src/css/css';
     }
     _startTimer() {
       this._timerCount = 0;
-      this._timer = window.setInterval(this._onTimer.bind(this), 100);
+      this._raf = this.raf || new RequestAnimationFrame(this._onTimer.bind(this));
+      this._raf.enable();
+      // this._timer = window.setInterval(this._onTimer.bind(this), 100);
     }
     _stopTimer() {
-      if (this._timer) {
-        window.clearInterval(this._timer);
-        this._timer = null;
-      }
+      this._raf && this._raf.disable();
+      // if (this._timer) {
+      //   window.clearInterval(this._timer);
+      //   this._timer = null;
+      // }
     }
     _onSeekRangeInput(e) {
       const sec = e.target.value * 1;
@@ -400,10 +404,10 @@ import {cssUtil} from '../packages/lib/src/css/css';
     _onTimer() {
       this._timerCount++;
 
-      let player = this._player;
-      let currentTime = this._isWheelSeeking ?
+      const player = this._player;
+      const currentTime = this._isWheelSeeking ?
         this._wheelSeeker.currentTime : player.currentTime;
-      if (this._timerCount % 2 === 0) {
+      if (this._timerCount % 5 === 0) {
         this.currentTime = currentTime;
       }
       this._storyboard.currentTime = currentTime;
@@ -1543,7 +1547,7 @@ util.addStyle(`
             </div>
 
             <div class="volumeControl">
-              <zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0" max="1" step="any"></zenza-range-bar>
+              <zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0.01" max="1" step="any"></zenza-range-bar>
             </div>
 
             <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">

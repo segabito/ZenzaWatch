@@ -7859,14 +7859,14 @@ class NicoVideoPlayer extends Emitter {
 		}
 	}
 	volumeUp() {
-		let v = Math.max(0.01, this._videoPlayer.volume);
-		let r = v < 0.05 ? 1.3 : 1.1;
-		this._videoPlayer.volume = v * r;
+		const v = Math.max(0.01, this._videoPlayer.volume);
+		const r = v < 0.05 ? 1.3 : 1.1;
+		this._videoPlayer.volume = Math.max(0.01, v * r);
 	}
 	volumeDown() {
-		let v = this._videoPlayer.volume;
-		let r = 1 / 1.2;
-		this._videoPlayer.volume = v * r;
+		const v = this._videoPlayer.volume;
+		const r = 1 / 1.2;
+		this._videoPlayer.volume =  Math.max(0.01, v * r);
 	}
 	_onTimer() {
 		this._commentPlayer.currentTime = this._videoPlayer.currentTime;
@@ -8790,10 +8790,10 @@ class VideoPlayer extends Emitter {
 		}
 	}
 	set volume(vol) {
-		vol = Math.max(Math.min(1, vol), 0);
+		vol = Math.max(Math.min(1, vol), 0.01);
 		this._video.volume = vol;
 	}
-	get volume() {return parseFloat(this._video.volume);}
+	get volume() {return Math.max(0.01, this._video.volume);}
 	set muted(v) {
 		v = !!v;
 		if (this._video.muted !== v) {
@@ -8808,7 +8808,7 @@ class VideoPlayer extends Emitter {
 		return this._video.currentTime;
 	}
 	set currentTime(sec) {
-		let cur = this._video.currentTime;
+		const cur = this._video.currentTime;
 		if (cur !== sec) {
 			this._video.currentTime = sec;
 			this.emit('seek', this._video.currentTime);
@@ -8819,7 +8819,7 @@ class VideoPlayer extends Emitter {
 			return this.currentTime=sec;
 		}
 		if (this._src.indexOf('dmc.nico') >= 0) {
-			return this.currentTime=sec;
+			return this.currentTime = sec;
 		}
 		this._video.fastSeek(sec);
 		this.emit('seek', this._video.currentTime);
@@ -9134,21 +9134,20 @@ class TouchWrapper extends Emitter {
 	}
 }
 
-class StoryboardModel extends Emitter {
-	static createBlankData(info = {}) {
-		Object.assign(info, {
-			format: 'smile',
+class StoryboardInfoModel extends Emitter {
+	static get blankData() {
+		return {
+			format: 'dmc',
 			status: 'fail',
 			duration: 1,
-			url: '',
 			storyboard: [{
 				id: 1,
-				url: '',
+				urls: ['https://example.com'],
 				thumbnail: {
-					width: 1,
-					height: 1,
+					width: 160,
+					height: 90,
 					number: 1,
-					interval: 1
+					interval: 1000
 				},
 				board: {
 					rows: 1,
@@ -9156,246 +9155,58 @@ class StoryboardModel extends Emitter {
 					number: 1
 				}
 			}]
-		});
-		return info;
+		};
 	}
-	constructor() {
+	constructor(rawData) {
 		super();
-		this._isAvailable = false;
+		this.update(rawData);
 	}
-	update(info) {
-		if (!info || info.status !== 'ok') {
-			this._info = StoryboardModel.createBlankData();
-			this._isAvailable = false;
+	update(rawData) {
+		if (!rawData || rawData.status !== 'ok') {
+			this._rawData = this.constructor.blankData;
 		} else {
-			this._info = info;
-			this._isAvailable = true;
+			this._rawData = rawData;
 		}
-		this.emit('update');
-	}
-	get info() {
-		if (!this._info) {
-			return StoryboardModel.createBlankData();
-		} else {
-			return this._info;
-		}
+		this.primary = this._rawData.storyboard[0];
+		this.emit('update', this);
+		return this;
 	}
 	reset() {
-		this._isAvailable = false;
+		this._rawData = this.constructor.blankData;
 		this.emit('reset');
 	}
-	unload() {
-		this._isAvailable = false;
-		this.emit('unload');
+	get rawData() {
+		return this._rawData || this.constructor.blankData;
 	}
-	get isAvailable() {return !!this._isAvailable;}
-	get hasSubStoryboard() {return this._info.storyboard.length > 1;}
-	get status() {return this._info.status;}
-	get message() {return this._info.message;}
-	get duration() {return parseInt(this._info.duration, 10);}
-	get isDmc() {return this._info.format === 'dmc';}
-	getUrl(i = 0) {
-		if (!this.isDmc) {
-			return this._info.storyboard[i].url;
-		} else {
-			return this._info.storyboard[i].urls[0];
-		}
+	get isAvailable() {return this._rawData.status === 'ok';}
+	get hasSubStoryboard() { return false; }
+	get status() {return this._rawData.status;}
+	get message() {return this._rawData.message;}
+	get duration() {return this._rawData.duration * 1;}
+	get isDmc() {return this._rawData.format === 'dmc';}
+	get url() {
+		return this.isDmc ? this.primary.urls[0] : this.primary.url;
 	}
-	get url() { return this.getUrl(); }
-	getWidth(i = 0) {return parseInt(this._info.storyboard[i].thumbnail.width, 10);}
-	get width() { return this.getWidth(); }
-	getHeight(i = 0) {return parseInt(this._info.storyboard[i].thumbnail.height, 10);}
-	get height() { return this.getHeight(); }
-	getInterval(i = 0) {return parseInt(this._info.storyboard[i].thumbnail.interval, 10);}
-	get interval() { return this.getInterval(); }
-	getCount(i = 0) {
+	get imageUrls() {
+		return [...Array(this.pageCount)].map((a, i) => this.getPageUrl(i));
+	}
+	get cellWidth() { return this.primary.thumbnail.width * 1; }
+	get cellHeight() { return this.primary.thumbnail.height * 1; }
+	get cellIntervalMs() { return this.primary.thumbnail.interval * 1; }
+	get cellCount() {
 		return Math.max(
-			Math.ceil(this.duration / Math.max(0.01, this.getInterval())),
-			parseInt(this._info.storyboard[i].thumbnail.number, 10)
+			Math.ceil(this.duration / Math.max(0.01, this.cellIntervalMs)),
+			this.primary.thumbnail.number * 1
 		);
 	}
-	get count() { return this.getCount(); }
-	getRows(i = 0) {return parseInt(this._info.storyboard[i].board.rows, 10);}
-	get rows() { return this.getRows(); }
-	getCols(i = 0) {return parseInt(this._info.storyboard[i].board.cols, 10);}
-	get cols() { return this.getCols(); }
-	getPageCount(i = 0) {return parseInt(this._info.storyboard[i].board.number, 10);}
-	get pageCount() { return this.getPageCount(); }
-	getTotalRows(i = 0) {return Math.ceil(this.getCount(i) / this.getCols(i));}
-	get totalRows() { return this.getTotalRows(); }
-	getPageWidth(i = 0) {return this.getWidth(i) * this.getCols(i);}
-	get pageWidth() { return this.getPageWidth(); }
-	getPageHeight(i = 0) {return this.getHeight(i) * this.getRows(i);}
-	get pageHeight() { return this.getPageHeight(); }
-	getCountPerPage(i = 0) {return this.getRows(i) * this.getCols(i);}
-	get countPerPage() { return this.getCountPerPage(); }
-	getPageUrl(page, storyboardIndex) {
-		if (!this.isDmc) {
-			page = Math.max(0, Math.min(this.getPageCount(storyboardIndex) - 1, page));
-			return this.getUrl(storyboardIndex) + '&board=' + (page + 1);
-		} else {
-			return this._info.storyboard[storyboardIndex || 0].urls[page];
-		}
-	}
-	getIndex(ms, storyboardIndex) {
-		let v = Math.floor(ms / 1000);
-		v = Math.max(0, Math.min(this.duration, v));
-		let n = this.getCount(storyboardIndex) / Math.max(1, this.duration);
-		return parseInt(Math.floor(v * n), 10);
-	}
-	getPageIndex(thumbnailIndex, storyboardIndex) {
-		let perPage = this.getCountPerPage(storyboardIndex);
-		let pageIndex = parseInt(thumbnailIndex / perPage, 10);
-		return Math.max(0, Math.min(this.getPageCount(storyboardIndex), pageIndex));
-	}
-	getThumbnailPosition(ms, storyboardIndex) {
-		let thumbnailIndex = this.getIndex(ms, storyboardIndex);
-		let pageIndex = this.getPageIndex(thumbnailIndex);
-		let mod = thumbnailIndex % this.getCountPerPage(storyboardIndex);
-		let row = Math.floor(mod / Math.max(1, this.getCols()));
-		let col = mod % this.getRows(storyboardIndex);
-		return {
-			page: pageIndex,
-			index: thumbnailIndex,
-			row: row,
-			col: col
-		};
-	}
-	getPointMs(x, y, page, storyboardIndex) {
-		let width = Math.max(1, this.getWidth(storyboardIndex));
-		let height = Math.max(1, this.getHeight(storyboardIndex));
-		let row = Math.floor(y / height);
-		let col = Math.floor(x / width);
-		let mod = x % width;
-		let point =
-			page * this.getCountPerPage(storyboardIndex) +
-			row * this.getCols(storyboardIndex) +
-			col +
-			(mod / width) // 小数点以下は、n番目の左端から何%あたりか
-		;
-		let percent = point / Math.max(1, this.getCount(storyboardIndex));
-		percent = Math.max(0, Math.min(100, percent));
-		return Math.floor(this.duration * percent * 1000);
-	}
-	getmsPage(ms, storyboardIndex) {
-		let index = this._storyboard.getIndex(ms, storyboardIndex);
-		let page = this._storyboard.getPageIndex(index, storyboardIndex);
-		return page;
-	}
-	getPointPageColAndRowForSub(page, row, col) {
-		let mainPageCount = this.getCountPerPage();
-		let subPageCount = this.getCountPerPage(1);
-		let mainCols = this.getCols();
-		let subCols = this.getCols(1);
-		let mainIndex = mainPageCount * page + mainCols * row + col;
-		let subOffset = mainIndex % subPageCount;
-		let subPage = Math.floor(mainIndex / subPageCount);
-		let subRow = Math.floor(subOffset / subCols);
-		let subCol = subOffset % subCols;
-		return {
-			page: subPage,
-			row: subRow,
-			col: subCol
-		};
-	}
+	get rows() { return this.primary.board.rows * 1; }
+	get cols() { return this.primary.board.cols * 1; }
+	get pageCount() { return this.primary.board.number * 1; }
+	get totalRows() { return Math.ceil(this.cellCount / this.cols); }
+	get pageWidth() { return this.cellWidth * this.cols; }
+	get pageHeight() { return this.cellHeight * this.rows; }
+	get countPerPage() { return this.rows * this.cols; }
 }
-class StoryboardBlockList {
-	static createBlock(option) {
-		const height = option.boardHeight;
-		const backgroundPosition = `0 ${height * option.row * -1}px`;
-		const view = document.createElement('div');
-		view.className = 'board';
-		view.style.cssText = `
-			background-image: url(${option.src});
-			background-position: ${backgroundPosition};
-		`;
-		Object.assign(view.dataset, {
-			src: option.src,
-			page: option.page,
-			top: height * option.row + height / 2,
-			backgroundPosition
-		});
-		return view;
-	}
-	static createBorder(cols) {
-		const v = document.createDocumentFragment();
-		const items = [];
-		const tpl = document.createElement('div');
-		tpl.className = 'border';
-		for (let i = 0; i < cols; i++) {
-			items.push(tpl.cloneNode());
-		}
-		v.append(...items);
-		return v;
-	}
-	constructor(storyboard) {
-		if (storyboard) {
-			this.create(storyboard);
-		}
-	}
-	create(storyboard) {
-		let pages = storyboard.getPageCount();
-		let pageWidth = storyboard.getPageWidth();
-		let width = storyboard.getWidth();
-		let height = storyboard.getHeight();
-		let rows = storyboard.getRows();
-		let cols = storyboard.getCols();
-		let totalRows = storyboard.getTotalRows();
-		let rowCnt = 0;
-		this._innerBorder = StoryboardBlockList.createBorder(cols);
-		let view = document.createElement('div');
-		view.className = 'boardList';
-		view.style.cssText = `
-			width: ${storyboard.getCount() * width}px;
-			height: ${height}px;
-			--cell-width: ${width}px;
-			--cell-height: ${height}px;
-			--board-width: ${pageWidth}px;
-			--board-height: ${height}px
-			`;
-		this._view = view;
-		this._blocks = [];
-		for (let page = 0; page < pages; page++) {
-			let src = storyboard.getPageUrl(page);
-			for (let row = 0; row < rows; row++) {
-				let option = {
-					width,
-					pageWidth,
-					boardHeight: height,
-					page,
-					row,
-					rows,
-					src
-				};
-				this.appendBlock(option);
-				rowCnt++;
-				if (rowCnt >= totalRows) {
-					return;
-				}
-			}
-		}
-	}
-	appendBlock(option) {
-		const block = StoryboardBlockList.createBlock(option);
-		block.append(this._innerBorder.cloneNode(true));
-		this._blocks.push(block);
-		this._view.append(...this._blocks);
-	}
-	loadImage() {
-	}
-	clear() {
-		this._view.remove();
-	}
-	get view() {
-		return this._view;
-	}
-}
-css.registerProps(
-	{name: '--cell-width',  syntax: '<length>', initialValue: '160px',   inherits: true},
-	{name: '--cell-height', syntax: '<length>', initialValue: '90px',    inherits: true},
-	{name: '--board-width',  syntax: '<length>', initialValue: '1600px', inherits: true},
-	{name: '--board-height', syntax: '<length>', initialValue: '900px',  inherits: true},
-);
 class StoryboardView extends Emitter {
 	constructor(...args) {
 		super();
@@ -9404,8 +9215,8 @@ class StoryboardView extends Emitter {
 	initialize(params) {
 		console.log('%c initialize StoryboardView', 'background: lightgreen;');
 		this._container = params.container;
-		let sb = this._model = params.model;
-		this._isHover = false;
+		const sb = this._model = params.model;
+		this.isHover = false;
 		this._currentUrl = '';
 		this._lastPage = -1;
 		this._lastMs = -1;
@@ -9415,7 +9226,7 @@ class StoryboardView extends Emitter {
 		sb.on('update', this._onStoryboardUpdate.bind(this));
 		sb.on('reset', this._onStoryboardReset.bind(this));
 		const frame = this._requestAnimationFrame = new RequestAnimationFrame(
-			this._onRequestAnimationFrame.bind(this)
+			this._onRequestAnimationFrame.bind(this), 3
 		);
 		global.emitter.on('DialogPlayerClose', () => frame.disable());
 	}
@@ -9429,7 +9240,7 @@ class StoryboardView extends Emitter {
 		if (!this._view) {
 			return;
 		}
-		this._view.classList.add('show');
+		this._view.classList.add('is-open');
 		this._body.classList.add('zenzaStoryboardOpen');
 		this._container.classList.add('zenzaStoryboardOpen');
 		this._requestAnimationFrame.enable();
@@ -9438,7 +9249,7 @@ class StoryboardView extends Emitter {
 		if (!this._view) {
 			return;
 		}
-		this._view.classList.remove('show');
+		this._view.classList.remove('is-open');
 		this._body.classList.remove('zenzaStoryboardOpen');
 		this._container.classList.remove('zenzaStoryboardOpen');
 		this._requestAnimationFrame.disable();
@@ -9465,8 +9276,9 @@ class StoryboardView extends Emitter {
 		window.console.log('%cStoryboardView.initializeStoryboard', 'background: lightgreen;');
 		this._body = document.body;
 		css.addStyle(StoryboardView.__css__);
-		let view = this._view = uq.html(StoryboardView.__tpl__)[0];
-		let inner = this._inner = view.querySelector('.storyboardInner');
+		const view = this._view = uq.html(StoryboardView.__tpl__)[0];
+		const inner = this._inner = view.querySelector('.storyboardInner');
+		this._bone = view.querySelector('.storyboardInner-bone');
 		this._failMessage = view.querySelector('.failMessage');
 		this._cursorTime = view.querySelector('.cursorTime');
 		this._pointer = view.querySelector('.storyboardPointer');
@@ -9484,15 +9296,14 @@ class StoryboardView extends Emitter {
 				color: '#000'
 			}
 		}).then(label => this.cursorTimeLabel = label);
-		view.classList.toggle('webkit', env.isWebkit());
-		uq(view)
+		uq(inner)
 			.on('click', this._onBoardClick.bind(this))
 			.on('mousemove', this._onBoardMouseMove.bind(this))
 			.on('mousemove', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
 			.on('wheel', this._onMouseWheel.bind(this))
 			.on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
-		let onHoverIn = () => this._isHover = true;
-		let onHoverOut = () => this._isHover = false;
+		const onHoverIn = () => this.isHover = true;
+		const onHoverOut = () => this.isHover = false;
 		uq(inner)
 			.on('mouseenter', onHoverIn)
 			.on('mouseleave',  _.debounce(onHoverOut, 1000))
@@ -9500,47 +9311,39 @@ class StoryboardView extends Emitter {
 			.on('touchmove', this._onTouchMove.bind(this));
 		this._bouncedOnToucheMoveEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
 		this._container.append(view);
-		document.body.addEventListener('touchend',
-			() => this._isHover = false, {passive: true});
+		view.closest('.zen-root')
+			.addEventListener('touchend', () => this.isHover = false, {passive: true});
 		this._innerWidth = window.innerWidth;
 		window.addEventListener('resize',
-			_.throttle(() => this._innerWidth = window.innerWidth, 500), {passive: true});
+			_.throttle(() => {
+				const width = this._innerWidth = window.innerWidth;
+				if (this.canvas) {
+					this.canvas.resize({width, height: this._model.cellHeight});
+				}
+			}, 500), {passive: true});
 	}
 	_onBoardClick(e) {
-		const board = e.target.closest('.board');
-		if (!board) { return; }
-		const rect = board.getBoundingClientRect();
-		const y = board.dataset.top * 1;
-		const x = e.pageX - rect.left;
-		const page = board.dataset.page * 1;
-		const ms = this._model.getPointMs(x, y, page);
-		if (isNaN(ms)) {
-			return;
-		}
+		const model = this._model;
+		const innerWidth = model.cellCount * model.cellWidth;
+		const x = e.clientX + this._scrollLeft;
+		const duration = model.duration;
+		const sec = x / innerWidth * duration;
 		const view = this._view;
-		view.classList.add('clicked');
-		window.setTimeout(() => view.classList.remove('clicked'), 1000);
-		this._cursorTime.style.transform = 'translate(-100vw, 0)';
-		domEvent.dispatchCommand(view, 'seekTo', ms / 1000);
+		this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(-1000));
+		domEvent.dispatchCommand(view, 'seekTo', sec);
 	}
 	_onBoardMouseMove(e) {
-		const board = e.target.closest('.board');
-		if (!board) { return; }
-		const rect = board.getBoundingClientRect();
-		const y = board.dataset.top * 1;
-		const x = e.pageX - rect.left;
-		const page = board.dataset.page * 1;
-		const ms = this._model.getPointMs(x, y, page);
-		if (isNaN(ms)) {
-			return;
-		}
-		const sec = Math.floor(ms / 1000);
+		const model = this._model;
+		const innerWidth = model.cellCount * model.cellWidth;
+		const x = e.clientX + this._scrollLeft;
+		const duration = model.duration;
+		const sec = x / innerWidth * duration;
 		const time = textUtil.secToTime(sec);
 		if (this.cursorTimeLabel && this.cursorTimeLabel.text !== time) {
 			this.cursorTimeLabel.text = time;
 		}
-		this._cursorTime.style.transform = `translate3d(${e.pageX}px, 30px, 0) translate(-50%, -100%)`;
-		this._isHover = true;
+		this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(e.x));
+		this.isHover = true;
 		this._isMouseMoving = true;
 	}
 	_onBoardMouseMoveEnd(e) {
@@ -9548,22 +9351,22 @@ class StoryboardView extends Emitter {
 	}
 	_onMouseWheel(e) {
 		e.stopPropagation();
-		let deltaX = parseInt(e.deltaX, 10);
-		let delta = parseInt(e.deltaY, 10);
+		const deltaX = parseInt(e.deltaX, 10);
+		const delta = parseInt(e.deltaY, 10);
 		if (Math.abs(deltaX) > Math.abs(delta)) {
 			return;
 		}
 		e.preventDefault();
-		this._isHover = true;
+		this.isHover = true;
 		this._isMouseMoving = true;
-		let left = this.scrollLeft();
+		const left = this.scrollLeft();
 		this.scrollLeft(left + delta * 5, true);
 	}
 	_onMouseWheelEnd(e) {
 		this._isMouseMoving = false;
 	}
 	_onTouchStart(e) {
-		this._isHover = true;
+		this.isHover = true;
 		this._isMouseMoving = true;
 		e.stopPropagation();
 	}
@@ -9571,7 +9374,7 @@ class StoryboardView extends Emitter {
 	}
 	_onTouchMove(e) {
 		e.stopPropagation();
-		this._isHover = true;
+		this.isHover = true;
 		this._isMouseMoving = true;
 		this._isTouchMoving = true;
 		this._bouncedOnToucheMoveEnd();
@@ -9583,12 +9386,12 @@ class StoryboardView extends Emitter {
 	_onTouchCancel(e) {
 	}
 	update() {
-		this._isHover = false;
+		this.isHover = false;
 		this._timerCount = 0;
 		this._scrollLeft = 0;
-		this._initializeStoryboard();
+		this._initializeStoryboard(this._model);
 		this.close();
-		this._view.classList.remove('success', 'fail');
+		this._view.classList.remove('is-success', 'is-fail');
 		if (this._model.status === 'ok') {
 			this._updateSuccess();
 		} else {
@@ -9609,82 +9412,81 @@ class StoryboardView extends Emitter {
 			if (Math.abs(this._scrollLeft - left) < 1) {
 				return;
 			}
+			this.canvas && (this.canvas.scrollLeft = left);
 			this._scrollLeft = left;
 			this._scrollLeftChanged = true;
-			this._scrollBehavior = 'unset';
 		}
 	}
 	_updateSuccess() {
-		let url = this._model.getUrl();
-		let view = this._view;
-		view.classList.add('success');
-		if (this._currentUrl !== url) {
-			this._currentUrl = url;
-			window.console.time('createStoryboardDOM');
-			this._updateSuccessDom();
-			window.console.timeEnd('createStoryboardDOM');
-		}
+		const view = this._view;
+		view.classList.add('is-success');
+		window.console.time('createStoryboardDOM');
+		this._updateSuccessDom();
+		window.console.timeEnd('createStoryboardDOM');
 		if (this._isEnable) {
-			view.classList.add('opening', 'show');
+			view.classList.add('opening', 'is-open');
 			this.scrollLeft(0);
 			this.open();
 			window.setTimeout(() => view.classList.remove('opening'), 1000);
 		}
 	}
 	_updateSuccessDom() {
-		let list = new StoryboardBlockList(this._model);
-		this._storyboardBlockList = list;
-		this._pointer.style.width = `${this._model.getWidth()}px`;
-		this._pointer.style.height = `${this._model.getHeight()}px`;
-		this.clear();
-		this._inner.append(list.view);
+		const model = this._model;
+		const infoRawData = model.rawData;
+		if (!this.canvas) {
+			StoryboardWorker.createBoard({
+				container: this._view.querySelector('.storyboardCanvasContainer'),
+				canvas: this._view.querySelector('.storyboardCanvas'),
+				info: infoRawData,
+				name: 'StoryboardCanvasView'
+			}).then(v => {
+				this.canvas = v;
+				this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+			});
+		} else {
+			this.canvas.setInfo(infoRawData);
+			this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+		}
+		this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
+		this._bone.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
+		this._pointer.style.setProperty('--width-pp', cssUtil.px(model.cellWidth));
+		this._pointer.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
 	}
 	_updateFail() {
-		this._view.classList.remove('success');
-		this._view.classList.add('fail');
+		this._view.classList.remove('is-uccess');
+		this._view.classList.add('is-fail');
 	}
 	clear() {
-		if (this._inner) {
-			this._inner.textContent = '';
-		}
 	}
 	_onRequestAnimationFrame() {
-		if (!this._model.isAvailable) {
-			return;
-		}
-		if (!this._view) {
+		if (!this._view || !this._model.isAvailable) {
 			return;
 		}
 		if (this._scrollLeftChanged) {
-			this._inner.style.scrollBehavior = this._scrollBehavior;
 			this._inner.scrollLeft = this._scrollLeft;
 			this._scrollLeftChanged = false;
 			this._pointerLeftChanged = true;
 		}
 		if (this._pointerLeftChanged) {
-			this._pointer.style.transform =
-				`translate3d(${this._pointerLeft - this._scrollLeft}px, 0, 0) translate(-50%, 0)`;
+			this._pointer.style.setProperty('--trans-x-pp', cssUtil.px(this._pointerLeft - this._scrollLeft));
 			this._pointerLeftChanged = false;
 		}
 	}
 	setCurrentTime(sec, forceUpdate) {
-		if (!this._model.isAvailable) {
+		const model = this._model;
+		if (!this._view || !model.isAvailable) {
 			return;
 		}
-		if (!this._view) {
+		if (this._currentTime === sec) {
 			return;
 		}
-		if (this._lastCurrentTime === sec) {
-			return;
-		}
-		this._lastCurrentTime = sec;
-		let ms = sec * 1000;
-		let storyboard = this._model;
-		let duration = Math.max(1, storyboard.duration);
-		let per = ms / (duration * 1000);
-		let width = storyboard.getWidth();
-		let boardWidth = storyboard.getCount() * width;
-		let targetLeft = boardWidth * per;
+		this._currentTime = sec;
+		const ms = sec * 1000;
+		const duration = Math.max(1, model.duration);
+		const per = ms / (duration * 1000);
+		const width = model.cellWidth;
+		const totalWidth = model.cellCount * width;
+		const targetLeft = totalWidth * per;
 		if (this._pointerLeft !== targetLeft) {
 			this._pointerLeft = targetLeft;
 			this._pointerLeftChanged = true;
@@ -9692,11 +9494,14 @@ class StoryboardView extends Emitter {
 		if (forceUpdate) {
 			this.scrollLeft(targetLeft - this._innerWidth * per, true);
 		} else {
-			if (this._isHover) {
+			if (this.isHover) {
 				return;
 			}
 			this.scrollLeft(targetLeft - this._innerWidth * per);
 		}
+	}
+	get currentTime() {
+		return this._currentTime;
 	}
 	set currentTime(sec) {
 		this.setCurrentTime(sec);
@@ -9711,14 +9516,15 @@ class StoryboardView extends Emitter {
 			return;
 		}
 		this.close();
-		this._view.classList.remove('show', 'fail');
+		this._view.classList.remove('is-open', 'is-fail');
 	}
 }
 StoryboardView.__tpl__ = `
 	<div id="storyboardContainer" class="storyboardContainer">
 		<div class="cursorTime"></div>
+		<div class="storyboardCanvasContainer"><canvas class="storyboardCanvas" height="90"></canvas></div>
 		<div class="storyboardPointer"></div>
-		<div class="storyboardInner"></div>
+		<div class="storyboardInner"><div class="storyboardInner-bone"></div></div>
 		<div class="failMessage"></div>
 	</div>
 	`.trim();
@@ -9733,6 +9539,7 @@ StoryboardView.__css__ = (`
 		width: 100vw;
 		box-sizing: border-box;
 		border-top: 2px solid #ccc;
+		background: #222;
 		z-index: 9005;
 		overflow: hidden;
 		pointer-events: none;
@@ -9745,16 +9552,16 @@ StoryboardView.__css__ = (`
 	.storyboardContainer.opening {
 		pointer-events: none !important;
 	}
-	.storyboardContainer.success {
+	.storyboardContainer.is-success {
 		display: block;
 		opacity: 0;
 	}
 	.storyboardContainer * {
 		box-sizing: border-box;
 	}
-	.is-wheelSeeking .storyboardContainer.success,
-	.is-dragging .storyboardContainer.success,
-	.storyboardContainer.success.show {
+	.is-wheelSeeking .storyboardContainer.is-success,
+	.is-dragging .storyboardContainer.is-success,
+	.storyboardContainer.is-success.is-open {
 		z-index: 50;
 		opacity: 1;
 		transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
@@ -9763,87 +9570,45 @@ StoryboardView.__css__ = (`
 		transform: translate3d(0, -100%, 0) translateY(10px);
 	}
 	.is-wheelSeeking .storyboardContainer,
-	.is-dragging .storyboardContainer {
+	.is-dragging     .storyboardContainer {
 		pointer-events: none;
 	}
 	.is-fullscreen .is-wheelSeeking .storyboardContainer,
-	.is-fullscreen .is-dragging .storyboardContainer,
-	.is-fullscreen             .storyboardContainer.show {
+	.is-fullscreen .is-dragging     .storyboardContainer,
+	.is-fullscreen                  .storyboardContainer.is-open {
 		position: fixed;
 		top: calc(100% - 10px);
 	}
+	.storyboardCanvasContainer {
+		position: absolute;
+		pointer-events: none;
+		width: 100vw;
+		z-index: 90;
+		contain: layout size style;
+	}
+	.storyboardCanvas {
+		width: 100%;
+		height: 100%;
+	}
 	.storyboardContainer .storyboardInner {
 		display: none;
-		text-align: center;
 		overflow: hidden;
-		white-space: nowrap;
-		background: #222;
+		background: rgba(32, 32, 32, 0.5);
 		margin: 0;
-		contain: paint layout;
+		contain: paint layout style;
 		will-change: transform;
-		scrollbar-width: 6px;
-		scrollbar-color: #f8f transparent;
-	}
-	.storyboardInner:hover {
-		scroll-behavior: unset !important;
-	}
-	.storyboardContainer.webkit .storyboardInner,
-	.storyboardContainer .storyboardInner:hover {
-		overflow-x: auto;
 		overscroll-behavior: contain;
+		padding-bottom: 8px;
 	}
-	.storyboardContainer .storyboardInner::-webkit-scrollbar {
-		width: 6px;
-		height: 6px;
-		background: transparent;
-		contain: paint layout;
-		will-change: transform;
-	}
-	.storyboardContainer .storyboardInner::-webkit-scrollbar-thumb {
-		border-radius: 6px;
-		background: #f8f;
-	}
-	.storyboardContainer .storyboardInner::-webkit-scrollbar-button {
-		display: none;
-	}
-	.storyboardContainer.success .storyboardInner {
+	.storyboardContainer.is-success .storyboardInner {
 		display: block;
 	}
-	.storyboardContainer .storyboardInner .boardList {
-		overflow: hidden;
-		contain: paint layout style size;
-		display: grid;
-		grid-auto-columns: var(--board-width);
-		grid-auto-flow: column;
-	}
-	.storyboardContainer .boardList .board {
-		/*position: absolute;*/
-		top: 0;
-		display: grid;
-		grid-auto-columns: var(--cell-width);
-		grid-auto-flow: column;
-		cursor: pointer;
-		background-color: #101010;
-		width: var(--board-width);
-		height: var(--board-height);
-		contain: paint layout style size;
-	}
-	.storyboardContainer.clicked .storyboardInner * {
-		opacity: 0.3;
+	.storyboardInner-bone {
+		contain: strict;
 		pointer-events: none;
-	}
-	.storyboardContainer .boardList .board.loadFail {
-		background-color: #c99;
-	}
-	.storyboardContainer .boardList .board .border {
-		box-sizing: border-box;
-		border-style: solid;
-		border-color: #000 #333 #000 #999;
-		border-width: 0     2px    0  2px;
-		display: inline-block;
-		pointer-events: none;
-		width: var(--cell-width);
-		height: var(--cell-height);
+		width:  var(--width-pp);
+		height: var(--height-pp);
+		visibility: hidden;
 	}
 	.storyboardContainer .cursorTime {
 		display: none;
@@ -9853,12 +9618,14 @@ StoryboardView.__css__ = (`
 		z-index: 9010;
 		background: #ffc;
 		pointer-events: none;
+		padding: 0;
+		transform: translate3d(var(--trans-x-pp), 30px, 0) translate(-50%, -100%);
 	}
 	.storyboardContainer:hover .cursorTime {
-		transition: transform 0.1s ease-out;
+		transition: --trans-x-pp 0.1s ease-out;
 		display: block;
 	}
-	.storyboardContainer.clicked .cursorTime,
+	.storyboardContainer:active  .cursorTime,
 	.storyboardContainer.opening .cursorTime {
 		display: none;
 	}
@@ -9867,14 +9634,18 @@ StoryboardView.__css__ = (`
 		top: 0;
 		z-index: 100;
 		pointer-events: none;
-		transform: translate3d(-50%, 0, 0);
-		transition: transform 0.1s linear;
+		--width-pp: 160px;
+		--height-pp: 90px;
+		--trans-x-pp: -100%;
+		width: var(--width-pp);
+		height: var(--height-pp);
+		transform: translate3d(calc( var(--trans-x-pp) - var(--width-pp) / 2), 0, 0);
+		transition: --trans-x-pp 0.1s linear;
 		background: #ff9;
 		opacity: 0.5;
 	}
 	.storyboardContainer:hover .storyboardPointer {
-		box-shadow: 0 0 8px #ccc;
-		transition: transform 0.4s ease-out;
+		transition: --trans-x-pp 0.4s ease-out;
 	}
 		`).trim();
 class SeekBarThumbnail {
@@ -9893,7 +9664,7 @@ class SeekBarThumbnail {
 			this.hide();
 			return;
 		}
-		this.thumbnail ? this.thumbnail.info(model.info) : this.initializeView(model);
+		this.thumbnail ? this.thumbnail.setInfo(model.rawData) : this.initializeView(model);
 		this.isAvailable = true;
 		this.show();
 	}
@@ -9925,7 +9696,7 @@ class SeekBarThumbnail {
 		StoryboardWorker.createThumbnail({
 			container: view.querySelector('.zenzaSeekThumbnail-image'),
 			canvas: view.querySelector('.zenzaSeekThumbnail-thumbnail'),
-			info: model.info,
+			info: model.rawData,
 			name: 'StoryboardThumbnail'
 		}).then(thumbnail => {
 			this.thumbnail = thumbnail;
@@ -9994,9 +9765,19 @@ SeekBarThumbnail.__css__ = (`
 `).trim();
 const StoryboardWorker = (() => {
 	const func = function(self) {
+		const SCROLL_BAR_WIDTH = 8;
 		const BLANK_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAE0lEQVQoU2NkYGD4z4AHMI4MBQCFZAgB+jxHYAAAAABJRU5ErkJggg==';
 		let BLANK_IMG = self.Image ? new Image(BLANK_SRC) : null;
 		const items = {};
+		const getCanvas = (width, height) => {
+			if (OffscreenCanvas) {
+				return new OffscreenCanvas(width, height);
+			}
+			const canvas = document.createElement('canvas');
+			canvas.width = width;
+			canvas.height = height;
+			return canvas;
+		};
 		const ImageCacheMap = new class {
 			constructor() {
 				this.map = new Map();
@@ -10044,42 +9825,71 @@ const StoryboardWorker = (() => {
 				}
 			}
 		};
-		class StoryboardModel {
-			constructor(info) {
-				this.update(info);
+		class StoryboardInfoModel {
+			static get blankData() {
+				return {
+					format: 'dmc',
+					status: 'fail',
+					duration: 1,
+					storyboard: [{
+						id: 1,
+						urls: ['https://example.com'],
+						thumbnail: {
+							width: 160,
+							height: 90,
+							number: 1,
+							interval: 1000
+						},
+						board: {
+							rows: 1,
+							cols: 1,
+							number: 1
+						}
+					}]
+				};
 			}
-			update(info) {
-				this._info = info;
-				this.primary = info.storyboard[0];
+			constructor(rawData) {
+				this.update(rawData);
+			}
+			update(rawData) {
+				if (!rawData || rawData.status !== 'ok') {
+					this._rawData = this.constructor.blankData;
+				} else {
+					this._rawData = rawData;
+				}
+				this.primary = this._rawData.storyboard[0];
 				return this;
 			}
-			get isAvailable() {return !!this.isAvailable;}
-			get hasSubStoryboard() {return false; }
-			get status() {return this._info.status;}
-			get message() {return this._info.message;}
-			get duration() {return this._info.duration * 1;}
-			get isDmc() {return this._info.format === 'dmc';}
+			get rawData() {
+				return this._rawData || this.constructor.blankData;
+			}
+			get isAvailable() {return this._rawData.status === 'ok';}
+			get hasSubStoryboard() { return false; }
+			get status() {return this._rawData.status;}
+			get message() {return this._rawData.message;}
+			get duration() {return this._rawData.duration * 1;}
+			get isDmc() {return this._rawData.format === 'dmc';}
 			get url() {
 				return this.isDmc ? this.primary.urls[0] : this.primary.url;
 			}
 			get imageUrls() {
 				return [...Array(this.pageCount)].map((a, i) => this.getPageUrl(i));
 			}
-			get width() { return this.primary.thumbnail.width * 1; }
-			get height() { return this.primary.thumbnail.height * 1; }
-			get interval() { return this.primary.thumbnail.interval * 1; }
-			get count() {
+			get cellWidth() { return this.primary.thumbnail.width * 1; }
+			get cellHeight() { return this.primary.thumbnail.height * 1; }
+			get cellIntervalMs() { return this.primary.thumbnail.interval * 1; }
+			get cellCount() {
 				return Math.max(
-					Math.ceil(this.duration / Math.max(0.01, this.interval)),
+					Math.ceil(this.duration / Math.max(0.01, this.cellIntervalMs)),
 					this.primary.thumbnail.number * 1
 				);
 			}
 			get rows() { return this.primary.board.rows * 1; }
 			get cols() { return this.primary.board.cols * 1; }
 			get pageCount() { return this.primary.board.number * 1; }
-			get totalRows() { return Math.ceil(this.count / this.cols); }
-			get pageWidth() { return this.width * this.cols; }
-			get pageHeight() { return this.height * this.rows; }
+			get totalRows() { return Math.ceil(this.cellCount / this.cols); }
+			get pageWidth() { return this.cellWidth * this.cols; }
+			get pageHeight() { return this.cellHeight * this.rows; }
 			get countPerPage() { return this.rows * this.cols; }
 			getPageUrl(page) {
 				if (!this.isDmc) {
@@ -10092,7 +9902,7 @@ const StoryboardWorker = (() => {
 			getIndex(ms) {
 				let v = Math.floor(ms / 1000);
 				v = Math.max(0, Math.min(this.duration, v));
-				const n = this.count / Math.max(1, this.duration);
+				const n = this.cellCount / Math.max(1, this.duration);
 				return parseInt(Math.floor(v * n), 10);
 			}
 			getPageIndex(thumbnailIndex) {
@@ -10101,38 +9911,18 @@ const StoryboardWorker = (() => {
 				return Math.max(0, Math.min(this.pageCount, pageIndex));
 			}
 			getThumbnailPosition(ms) {
-				const thumbnailIndex = this.getIndex(ms);
-				const pageIndex = this.getPageIndex(thumbnailIndex);
-				const mod = thumbnailIndex % this.countPerPage;
+				const index = this.getIndex(ms);
+				const page = this.getPageIndex(index);
+				const mod = index % this.countPerPage;
 				const row = Math.floor(mod / Math.max(1, this.cols));
 				const col = mod % this.rows;
 				return {
-					page: pageIndex,
-					url: this.getPageUrl(pageIndex),
-					index: thumbnailIndex,
+					page,
+					url: this.getPageUrl(page),
+					index,
 					row,
 					col
 				};
-			}
-			getPointMs(x, y, page) {
-				const width = Math.max(1, this.width);
-				const height = Math.max(1, this.height);
-				const row = Math.floor(y / height);
-				const col = Math.floor(x / width);
-				const mod = x % width;
-				const point =
-					page * this.countPerPage +
-					row * this.cols +
-					col +
-					(mod / width) // 小数点以下は、n番目の左端から何%あたりか
-				;
-				let percent = point / Math.max(1, this.count);
-				percent = Math.max(0, Math.min(100, percent));
-				return Math.floor(this.duration * percent * 1000);
-			}
-			getmsPage(ms) {
-				const index = this._storyboard.getIndex(ms);
-				return this._storyboard.getPageIndex(index);
 			}
 		}
 		class BoardView {
@@ -10141,63 +9931,88 @@ const StoryboardWorker = (() => {
 				this.name = name;
 				this._currentTime = -1;
 				this._scrollLeft = 0;
-				this._info = new StoryboardModel(info);
+				this._info = null;
 				this.lastPos = {};
 				this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+				this.bufferCanvas = getCanvas(canvas.width, canvas.height);
+				this.bufferCtx = this.bufferCanvas.getContext('2d', {alpha: false, desynchronized: true});
 				this.images = ImageCacheMap;
+				this.totalWidth = 0;
+				this.isReady = false;
 				this.boards = [];
 				this.cls();
+				info && this.setInfo(info);
 			}
 			get info() { return this._info; }
-			set info(info) { this.setInfo(info); }
-			async setInfo(info) {
-				this.info && this.info.imageUrls.forEach(url => this.images.release(url));
-				this.boards = [];
-				this._info.update(info);
-				this.boards = await Promise.all(this._info.imageUrls.forEach(async (url, idx) => {
+			set info(infoRawData) { this.setInfo(infoRawData); }
+			async setInfo(infoRawData) {
+				this.isReady = false;
+				this.info ? this._info.update(infoRawData) : (this._info = new StoryboardInfoModel(infoRawData));
+				const info = this.info;
+				if (!info.isAvailable) {
+					return this.cls();
+				}
+				const cols = info.cols;
+				const rows = info.rows;
+				const pageWidth  = info.pageWidth;
+				const boardWidth = pageWidth * rows;
+				const cellWidth  = info.cellWidth;
+				const cellHeight = info.cellHeight;
+				this.height = cellHeight;
+				this.totalWidth = info.cellCount * info.cellWidth;
+				this.boards = (await Promise.all(this._info.imageUrls.map(async (url, idx) => {
 					const image = await this.images.get(url);
-					const rows = info.rows;
-					const pageWidth = info.pageWidth;
-					const boardWidth = pageWidth * rows;
-					const pageHeight = info.height;
-					const canvas = new OffscreenCanvas(boardWidth, pageHeight);
-					const ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
-					ctx.beginPath();
-					for (let i = 0; i < rows; i++) {
-						const dx = i * pageWidth;
-						const sy = i * pageHeight;
+					const boards = [];
+					for (let row = 0; row < rows; row++) {
+						const canvas = getCanvas(pageWidth, cellHeight);
+						const ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+						ctx.beginPath();
+						const sy = row * cellHeight;
 						ctx.drawImage(image,
-							0, sy, pageWidth, pageHeight,
-							dx, 0, pageWidth, pageHeight
+							0, sy, pageWidth, cellHeight,
+							0,  0, pageWidth, cellHeight
 						);
+						ctx.strokeStyle = 'rgb(128, 128, 128)';
+						ctx.shadowColor = 'rgb(192, 192, 192)';
+						ctx.shadowOffsetX = -1;
+						for (let col = 0; col < cols; col++) {
+							const x = col * cellWidth;
+							ctx.strokeRect(x, 1, cellWidth - 1 , cellHeight + 2);
+						}
+						boards.push({
+							image: canvas,
+							left:  idx * boardWidth + row * pageWidth,
+							right: idx * boardWidth + row * pageWidth + pageWidth,
+							width: pageWidth
+						});
 					}
-					const colWidth = info.width;
-					const totalCols = boardWidth / colWidth;
-					ctx.strokeStyle = 'rgb(128, 128, 128)';
-					for (let i = 0; i < totalCols; i++) {
-						const x = i * colWidth;
-						ctx.rect(x, 0, colWidth, pageHeight);
-					}
-					return {
-						image: canvas,
-						left: idx * boardWidth,
-						right: idx * boardWidth + boardWidth,
-						width: boardWidth
-					};
-				}));
-				this.height = info.height;
+					this.images.release(url);
+					return boards;
+				}))).flat();
+				this.height = info.cellHeight;
 				this._currentTime = -1;
 				this.cls();
+				this.isReady = true;
 			}
 			get scrollLeft() {
 				return this._scrollLeft;
 			}
-			set scrollLeft(v) {
-				const left = this._scrollLeft = v;
-				const right = left + this.width;
-				const ctx = this.ctx;
-				ctx.beginPath();
-				ctx.clearRect(0, 0, this.width, this.height);
+			set scrollLeft(left) {
+				if (!this.info || !this.info.isAvailable || !this.isReady) {
+					return;
+				}
+				const width =  this.width;
+				const height = this.height;
+				const totalWidth = this.totalWidth;
+				left = Math.max(-width / 2, Math.min(totalWidth - width / 2, left));
+				const right = left + width;
+				const isOutrange = (left < 0 || left > totalWidth - width);
+				const bctx = this.bufferCtx;
+				bctx.beginPath();
+				if (isOutrange) {
+					bctx.fillStyle = 'rgb(32, 32, 32)';
+					bctx.fillRect(0, 0, width, height);
+				}
 				for (const board of this.boards) {
 					if (
 						(left <= board.left  && board.left <= right) ||
@@ -10205,27 +10020,53 @@ const StoryboardWorker = (() => {
 						(board.left <= left  && right <= board.right)
 					) {
 						const dx = board.left - left;
-						ctx.drawImage(board.image,
-							0, 0, board.width, this.height,
-							dx, 0, board.width, this.height
+						bctx.drawImage(board.image,
+							0,  0, board.width, height,
+							dx, 0, board.width, height
 						);
 					}
 				}
+				const scrollBarLength = width / totalWidth * width;
+				if (scrollBarLength < width) {
+					const scrollBarLeft = left / totalWidth * width;
+					bctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
+					bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
+				}
+				requestAnimationFrame(() => {
+					this.ctx.beginPath();
+					this.ctx.drawImage(this.bufferCanvas,
+						0, 0, width, height,
+						0, 0, width, height
+					);
+				});
 			}
 			cls() {
+				this.bufferCtx.clearRect(0, 0, this.width, this.height);
 				this.ctx.clearRect(0, 0, this.width, this.height);
 			}
-			get currentTime() { return this.currentTime; }
+			get currentTime() {
+				const center = this._scrollLeft + this.width / 2;
+				return this.duration * (center / this.totalWidth);
+			}
 			set currentTime(time) { this.setCurrentTime(time); }
 			get width() {return this.canvas.width;}
 			get height() {return this.canvas.height;}
-			set width(width) {this.canvas.width = width;}
-			set height(height) {this.canvas.height = height;}
+			set width(width) {
+				this.canvas.width = width;
+				this.bufferCanvas.width = width;
+			}
+			set height(height) {
+				this.canvas.height = height;
+				this.bufferCanvas.height = height;
+			}
 			async setCurrentTime(time) {
+				const r = time / Math.max(this.info.duration, 1);
+				const left = this.totalWidth * r - this.width / 2;
+				this.scrollLeft = left;
 			}
 			resize({width, height}) {
-				this.width = width;
-				this.height = height;
+				width && (this.width = width);
+				height && (this.height = height);
 				this.cls();
 			}
 		}
@@ -10234,7 +10075,7 @@ const StoryboardWorker = (() => {
 				this.canvas = canvas;
 				this.name = name;
 				this._currentTime = -1;
-				this._info = new StoryboardModel(info);
+				this._info = new StoryboardInfoModel(info);
 				this.lastPos = {};
 				this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
 				this.images = ImageCacheMap;
@@ -10267,19 +10108,19 @@ const StoryboardWorker = (() => {
 				this.lastPos = pos;
 				this._currentTime = time;
 				const {url, row, col} = pos;
-				const width = this.info.width;
-				const height = this.info.height;
+				const width = this.info.cellWidth;
+				const height = this.info.cellHeight;
 				const image = await this.images.get(url);
 				const imageLeft = col * width;
 				const imageTop = row * height;
-				const ratio = Math.min(this.width / width, this.height / height);
+				const scale = Math.min(this.width / width, this.height / height);
 				this.cls();
 				this.ctx.drawImage(
 					image,
 					imageLeft, imageTop, width, height,
-					(this.width  - width * ratio) / 2,
-					(this.height - height * ratio) / 2,
-					width * ratio, height * ratio
+					(this.width  - width * scale) / 2,
+					(this.height - height * scale) / 2,
+					width * scale, height * scale
 				);
 			}
 			resize({width, height}) {
@@ -10293,28 +10134,42 @@ const StoryboardWorker = (() => {
 			}
 		}
 		const getId = function() {return `Storyboard-${this.id++}`;}.bind({id: 0});
-		const createThumbnail = async ({canvas, info, name}) => {
+		const createView = async ({canvas, info, name}, type = 'thumbnail') => {
 			const id = getId();
-			const view = new ThumbnailView({canvas, info, name});
+			const view = type === 'thumbnail' ?
+				new ThumbnailView({canvas, info, name}) :
+				new BoardView({canvas, info, name});
 			items[id] = view;
 			return {status: 'ok', id};
 		};
 		const info = ({id, info}) => {
 			const item = items[id];
-			if (!item) { throw new Error('known id', id); }
+			if (!item) { throw new Error('unknown id', id); }
 			item.info = info;
 			return {status: 'ok'};
 		};
 		const currentTime = ({id, currentTime}) => {
 			const item = items[id];
-			if (!item) { throw new Error('known id', id); }
+			if (!item) { throw new Error('unknown id', id); }
 			item.setCurrentTime(currentTime);
+			return {status: 'ok'};
+		};
+		const scrollLeft = ({id, scrollLeft}) => {
+			const item = items[id];
+			if (!item) { throw new Error('unknown id', id); }
+			item.scrollLeft = scrollLeft;
 			return {status: 'ok'};
 		};
 		const resize = (params) => {
 			const item = items[params.id];
-			if (!item) { throw new Error('known id', params.id); }
+			if (!item) { throw new Error('unknown id', params.id); }
 			item.resize(params);
+			return {status: 'ok'};
+		};
+		const cls = (params) => {
+			const item = items[params.id];
+			if (!item) { throw new Error('unknown id', params.id); }
+			item.cls();
 			return {status: 'ok'};
 		};
 		const dispose = ({id}) => {
@@ -10330,13 +10185,19 @@ const StoryboardWorker = (() => {
 			}
 			switch (command) {
 				case 'createThumbnail':
-					return createThumbnail(params);
+					return createView(params, 'thumbnail');
+				case 'createBoard':
+					return createView(params, 'board');
 				case 'info':
 					return info(params);
 				case 'currentTime':
 					return currentTime(params);
+				case 'scrollLeft':
+					return scrollLeft(params);
 				case 'resize':
 					return resize(params);
+				case 'cls':
+					return cls(params);
 				case 'dispose':
 					return dispose(params);
 			}
@@ -10345,7 +10206,7 @@ const StoryboardWorker = (() => {
 	const isOffscreenCanvasAvailable = !!HTMLCanvasElement.prototype.transferControlToOffscreen;
 	const NAME = 'StoryboardWorker';
 	let worker;
-	const createThumbnail = async ({container, canvas, info, ratio, name, style}) => {
+	const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
 		style = style || {};
 		ratio = ratio || window.devicePixelRatio || 1;
 		name = name || 'StoryboardThumbnail';
@@ -10374,24 +10235,38 @@ const StoryboardWorker = (() => {
 		}
 		const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
 		const init = await worker.post(
-			{command: 'createThumbnail', params: {canvas: layer, info, style, name}},
+			{command:
+				type === 'thumbnail' ? 'createThumbnail' : 'createBoard',
+				params: {canvas: layer, info, style, name}},
 			{transfer: [layer]}
 		);
 		const id = init.id;
-		let currentTime = -1;
+		let currentTime = -1, scrollLeft = -1;
 		const result = {
 			container,
 			canvas,
-			info(info) {
+			setInfo(info) {
+				currentTime = -1;
+				scrollLeft = -1;
 				return worker.post({command: 'info', params: {id, info}});
 			},
 			resize({width, height}) {
+				scrollLeft = -1;
 				return worker.post({command: 'resize', params: {id, width, height}});
+			},
+			get scrollLeft() {
+				return scrollLeft;
+			},
+			set scrollLeft(left) {
+				if (scrollLeft === left) { return; }
+				scrollLeft = left;
+				worker.post({command: 'scrollLeft', params: {id, scrollLeft}});
 			},
 			get currentTime() {
 				return currentTime;
 			},
 			set currentTime(time) {
+				if (currentTime === time) { return; }
 				currentTime = time;
 				worker.post({command: 'currentTime', params: {id, currentTime}});
 			},
@@ -10401,7 +10276,10 @@ const StoryboardWorker = (() => {
 		};
 		return result;
 	};
-	return {createThumbnail};
+	return {
+		createThumbnail: args => createView(args, 'thumbnail'),
+		createBoard:     args => createView(args, 'board')
+	};
 })();
 class Storyboard extends Emitter {
 	constructor(...args) {
@@ -10412,13 +10290,11 @@ class Storyboard extends Emitter {
 		this._playerConfig = params.playerConfig;
 		this._container = params.container;
 		this._loader = params.loader || StoryboardInfoLoader;
+		this._model = new StoryboardInfoModel({});
 		global.debug.storyboard = this;
 	}
 	_initializeStoryboard() {
 		this._initializeStoryboard = _.noop;
-		if (!this._model) {
-			this._model = new StoryboardModel({});
-		}
 		if (!this._view) {
 			this._view = new StoryboardView({
 				model: this._model,
@@ -10452,9 +10328,9 @@ class Storyboard extends Emitter {
 			.catch(this._onStoryboardInfoLoadFail.bind(this, resuestId));
 		this._initializeStoryboard();
 	}
-	_onStoryboardInfoLoad(resuestId, info) {
+	_onStoryboardInfoLoad(resuestId, rawData) {
 		if (resuestId !== this._requestId) {return;} // video changed
-		this._model.update(info);
+		this._model.update(rawData);
 		this.emit('update', this._model);
 		this._container.classList.toggle('storyboardAvailable', this._model.isAvailable);
 	}
@@ -10761,13 +10637,11 @@ class Storyboard extends Emitter {
 		}
 		_startTimer() {
 			this._timerCount = 0;
-			this._timer = window.setInterval(this._onTimer.bind(this), 100);
+			this._raf = this.raf || new RequestAnimationFrame(this._onTimer.bind(this));
+			this._raf.enable();
 		}
 		_stopTimer() {
-			if (this._timer) {
-				window.clearInterval(this._timer);
-				this._timer = null;
-			}
+			this._raf && this._raf.disable();
 		}
 		_onSeekRangeInput(e) {
 			const sec = e.target.value * 1;
@@ -10835,10 +10709,10 @@ class Storyboard extends Emitter {
 		}
 		_onTimer() {
 			this._timerCount++;
-			let player = this._player;
-			let currentTime = this._isWheelSeeking ?
+			const player = this._player;
+			const currentTime = this._isWheelSeeking ?
 				this._wheelSeeker.currentTime : player.currentTime;
-			if (this._timerCount % 2 === 0) {
+			if (this._timerCount % 5 === 0) {
 				this.currentTime = currentTime;
 			}
 			this._storyboard.currentTime = currentTime;
@@ -11858,7 +11732,7 @@ util.addStyle(`
 							<div class="menuButtonInner mute-on">&#x1F507;</div>
 						</div>
 						<div class="volumeControl">
-							<zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0" max="1" step="any"></zenza-range-bar>
+							<zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0.01" max="1" step="any"></zenza-range-bar>
 						</div>
 						<div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
 							<div class="controlButtonInner">&#x27A0;</div>
@@ -15926,7 +15800,8 @@ class NicoCommentCss3PlayerView extends Emitter {
 				{name: '--chat-trans-x', syntax: '<length>', initialValue: '0px', inherits: false, window: win},
 				{name: '--chat-trans-y', syntax: '<percentage>', initialValue: '-50%', inherits: false, window: win},
 				{name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
-				{name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win}
+				{name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win},
+				{name: '--layer-scale',  syntax: '<number>', initialValue: 1, inherits: false, window: win}
 			);
 			this.window = win;
 			this.document = doc;
@@ -15953,7 +15828,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 				const aspectRatio = Math.max(this._aspectRatio, 9 / 16);
 				const targetHeight = Math.min(h, w * aspectRatio);
 				const scale = targetHeight / 384;
-				commentLayer.style.transform = `scale3d(${scale}, ${scale}, 1)`;
+				commentLayer.style.setProperty('--layer-scale', scale);
 			};
 			const chkSizeInit = () => {
 				const h = win.innerHeight;
@@ -16475,6 +16350,7 @@ body.in-capture .commentLayer {
 	padding: 0;
 	box-sizing: border-box;
 	contain: layout style size;
+	transform: scale(var(--layer-scale));
 }
 .subLayer {
 	position: absolute;
@@ -22766,7 +22642,7 @@ NicoVideoPlayerDialogView.__css__ = `
 	}
 	`.trim();
 NicoVideoPlayerDialogView.__tpl__ = (`
-		<div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog zen-family">
+		<div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog zen-family zen-root">
 			<div class="zenzaVideoPlayerDialogInner">
 				<div class="menuContainer"></div>
 				<div class="zenzaPlayerContainer">
@@ -22831,7 +22707,7 @@ class NicoVideoPlayerDialog extends Emitter {
 			node: this._$playerContainer,
 			playerConfig: config,
 			playerState: this._state,
-			volume: config.props.volume,
+			volume: Math.max(config.props.volume, 0.01),
 			loop: config.props.loop,
 			enableFilter: config.props.enableFilter,
 			wordFilter: config.props.wordFilter,
@@ -23978,11 +23854,11 @@ class NicoVideoPlayerDialog extends Emitter {
 	}
 	set volume(v) {
 		if (this._nicoVideoPlayer) {
-			this._nicoVideoPlayer.volume = v;
+			this._nicoVideoPlayer.volume = Math.max(0.01, v);
 		}
 	}
 	get volume() {
-		return this._playerConfig.props.volume;
+		return Math.max(0.01, this._playerConfig.props.volume);
 	}
 	async addChat(text, cmd, vpos = null, options = {}) {
 		if (!this._nicoVideoPlayer ||
@@ -29478,6 +29354,12 @@ const replaceRedirectLinks = async () => {
 };
 	const initialize = async function (){
 		window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
+		cssUtil.registerProps(
+			{name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+			{name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+			{name: '--width-pp',  syntax: '<length-percentage>', initialValue: '0px',    inherits: true},
+			{name: '--height-pp', syntax: '<length-percentage>', initialValue: '0px',    inherits: true}
+		);
 		util.dispatchCustomEvent(
 			document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});
 		util.addStyle(CONSTANT.COMMON_CSS, {className: 'common'});

@@ -22,7 +22,7 @@ class SeekBarThumbnail {
       return;
     }
 
-    this.thumbnail ? this.thumbnail.info(model.info) : this.initializeView(model);
+    this.thumbnail ? this.thumbnail.setInfo(model.rawData) : this.initializeView(model);
 
     this.isAvailable = true;
     this.show();
@@ -57,7 +57,7 @@ class SeekBarThumbnail {
     StoryboardWorker.createThumbnail({
       container: view.querySelector('.zenzaSeekThumbnail-image'),
       canvas: view.querySelector('.zenzaSeekThumbnail-thumbnail'),
-      info: model.info,
+      info: model.rawData,
       name: 'StoryboardThumbnail'
     }).then(thumbnail => {
       this.thumbnail = thumbnail;

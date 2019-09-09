@@ -4,9 +4,19 @@ import {workerUtil} from '../../../lib/src/infra/workerUtil';
 
 const StoryboardWorker = (() => {
   const func = function(self) {
+    const SCROLL_BAR_WIDTH = 8;
     const BLANK_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAE0lEQVQoU2NkYGD4z4AHMI4MBQCFZAgB+jxHYAAAAABJRU5ErkJggg==';
     let BLANK_IMG = self.Image ? new Image(BLANK_SRC) : null;
     const items = {};
+    const getCanvas = (width, height) => {
+      if (OffscreenCanvas) {
+        return new OffscreenCanvas(width, height);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      return canvas;
+    };
     const ImageCacheMap = new class {
       constructor() {
         this.map = new Map();
@@ -55,46 +65,76 @@ const StoryboardWorker = (() => {
       }
     };
 
-    class StoryboardModel {
-      constructor(info) {
-        this.update(info);
+    class StoryboardInfoModel {
+      static get blankData() {
+        return {
+          format: 'dmc',
+          status: 'fail',
+          duration: 1,
+          storyboard: [{
+            id: 1,
+            urls: ['https://example.com'],
+            thumbnail: {
+              width: 160,
+              height: 90,
+              number: 1,
+              interval: 1000
+            },
+            board: {
+              rows: 1,
+              cols: 1,
+              number: 1
+            }
+          }]
+        };
       }
 
-      update(info) {
-        this._info = info;
-        this.primary = info.storyboard[0];
+      constructor(rawData) {
+        this.update(rawData);
+      }
+
+      update(rawData) {
+        if (!rawData || rawData.status !== 'ok') {
+          this._rawData = this.constructor.blankData;
+        } else {
+          this._rawData = rawData;
+        }
+        this.primary = this._rawData.storyboard[0];
         return this;
       }
+      get rawData() {
+        return this._rawData || this.constructor.blankData;
+      }
 
-      get isAvailable() {return !!this.isAvailable;}
+      get isAvailable() {return this._rawData.status === 'ok';}
 
-      get hasSubStoryboard() {return false; }
+      get hasSubStoryboard() { return false; }
 
-      get status() {return this._info.status;}
-      get message() {return this._info.message;}
-      get duration() {return this._info.duration * 1;}
-      get isDmc() {return this._info.format === 'dmc';}
+      get status() {return this._rawData.status;}
+      get message() {return this._rawData.message;}
+      get duration() {return this._rawData.duration * 1;}
+      get isDmc() {return this._rawData.format === 'dmc';}
       get url() {
         return this.isDmc ? this.primary.urls[0] : this.primary.url;
       }
       get imageUrls() {
         return [...Array(this.pageCount)].map((a, i) => this.getPageUrl(i));
       }
-      get width() { return this.primary.thumbnail.width * 1; }
-      get height() { return this.primary.thumbnail.height * 1; }
-      get interval() { return this.primary.thumbnail.interval * 1; }
-      get count() {
+      get cellWidth() { return this.primary.thumbnail.width * 1; }
+      get cellHeight() { return this.primary.thumbnail.height * 1; }
+      get cellIntervalMs() { return this.primary.thumbnail.interval * 1; }
+      get cellCount() {
         return Math.max(
-          Math.ceil(this.duration / Math.max(0.01, this.interval)),
+          Math.ceil(this.duration / Math.max(0.01, this.cellIntervalMs)),
           this.primary.thumbnail.number * 1
         );
       }
       get rows() { return this.primary.board.rows * 1; }
       get cols() { return this.primary.board.cols * 1; }
       get pageCount() { return this.primary.board.number * 1; }
-      get totalRows() { return Math.ceil(this.count / this.cols); }
-      get pageWidth() { return this.width * this.cols; }
-      get pageHeight() { return this.height * this.rows; }
+      get totalRows() { return Math.ceil(this.cellCount / this.cols); }
+      get pageWidth() { return this.cellWidth * this.cols; }
+      get pageHeight() { return this.cellHeight * this.rows; }
       get countPerPage() { return this.rows * this.cols; }
 
       /**
@@ -119,7 +159,7 @@ const StoryboardWorker = (() => {
 
         // サムネの総数 ÷ 秒数
         // Math.maxはゼロ除算対策
-        const n = this.count / Math.max(1, this.duration);
+        const n = this.cellCount / Math.max(1, this.duration);
 
         return parseInt(Math.floor(v * n), 10);
       }
@@ -137,55 +177,21 @@ const StoryboardWorker = (() => {
        *  msに相当するサムネは何ページの何番目にあるか？を返す
        */
       getThumbnailPosition(ms) {
-        const thumbnailIndex = this.getIndex(ms);
-        const pageIndex = this.getPageIndex(thumbnailIndex);
+        const index = this.getIndex(ms);
+        const page = this.getPageIndex(index);
 
-        const mod = thumbnailIndex % this.countPerPage;
+        const mod = index % this.countPerPage;
         const row = Math.floor(mod / Math.max(1, this.cols));
         const col = mod % this.rows;
         return {
-          page: pageIndex,
-          url: this.getPageUrl(pageIndex),
-          index: thumbnailIndex,
+          page,
+          url: this.getPageUrl(page),
+          index,
           row,
           col
         };
       }
 
-      /**
-       * nページ目のx, y座標をmsに変換して返す
-       */
-      getPointMs(x, y, page) {
-        const width = Math.max(1, this.width);
-        const height = Math.max(1, this.height);
-        const row = Math.floor(y / height);
-        const col = Math.floor(x / width);
-        const mod = x % width;
-
-
-        // 何番目のサムネに相当するか？
-        const point =
-          page * this.countPerPage +
-          row * this.cols +
-          col +
-          (mod / width) // 小数点以下は、n番目の左端から何%あたりか
-        ;
-
-        // 全体の何%あたり？
-        let percent = point / Math.max(1, this.count);
-        percent = Math.max(0, Math.min(100, percent));
-
-        // msは㍉秒単位なので1000倍
-        return Math.floor(this.duration * percent * 1000);
-      }
-
-      /**
-       * msは何ページ目に当たるか？を返す
-       */
-      getmsPage(ms) {
-        const index = this._storyboard.getIndex(ms);
-        return this._storyboard.getPageIndex(index);
-      }
     }
 
     class BoardView {
@@ -197,7 +203,11 @@ const StoryboardWorker = (() => {
         this._info = null;
         this.lastPos = {};
         this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+        this.bufferCanvas = getCanvas(canvas.width, canvas.height);
+        this.bufferCtx = this.bufferCanvas.getContext('2d', {alpha: false, desynchronized: true});
         this.images = ImageCacheMap;
+        this.totalWidth = 0;
+        this.isReady = false;
         this.boards = [];
         this.cls();
         info && this.setInfo(info);
@@ -207,56 +217,80 @@ const StoryboardWorker = (() => {
       set info(infoRawData) { this.setInfo(infoRawData); }
 
       async setInfo(infoRawData) {
-        this.info && this.info.imageUrls.forEach(url => this.images.release(url));
-        this.info ? this._info.update(infoRawData) : (this._info = new StoryboardModel(infoRawData));
+        this.isReady = false;
+        this.info ? this._info.update(infoRawData) : (this._info = new StoryboardInfoModel(infoRawData));
 
         const info = this.info;
+        if (!info.isAvailable) {
+          return this.cls();
+        }
+        const cols = info.cols;
+        const rows = info.rows;
+        const pageWidth  = info.pageWidth;
+        const boardWidth = pageWidth * rows;
+        const cellWidth  = info.cellWidth;
+        const cellHeight = info.cellHeight;
+
+        this.height = cellHeight;
+        this.totalWidth = info.cellCount * info.cellWidth;
+
         this.boards = (await Promise.all(this._info.imageUrls.map(async (url, idx) => {
           const image = await this.images.get(url);
-          const rows = info.rows;
-          const pageWidth = info.pageWidth;
-          const boardWidth = pageWidth * rows;
-          const pageHeight = info.height;
-          console.log('new offscreencanvas', {idx, rows, pageWidth, boardWidth, pageHeight, info: this._info});
-          const canvas = new OffscreenCanvas(boardWidth, pageHeight);
-          const ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
-          ctx.beginPath();
-          for (let i = 0; i < rows; i++) {
-            const dx = i * pageWidth;
-            const sy = i * pageHeight;
-            // console.log('ctx.drawImage', {idx, dx, sy, i, pageWidth, pageHeight, boardWidth, rows, image});
+          const boards = [];
+          for (let row = 0; row < rows; row++) {
+            const canvas = getCanvas(pageWidth, cellHeight);
+            const ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+            ctx.beginPath();
+            const sy = row * cellHeight;
             ctx.drawImage(image,
-              0, sy, pageWidth, pageHeight,
-              dx, 0, pageWidth, pageHeight
+              0, sy, pageWidth, cellHeight,
+              0,  0, pageWidth, cellHeight
             );
+            ctx.strokeStyle = 'rgb(128, 128, 128)';
+            ctx.shadowColor = 'rgb(192, 192, 192)';
+            ctx.shadowOffsetX = -1;
+            for (let col = 0; col < cols; col++) {
+              const x = col * cellWidth;
+              ctx.strokeRect(x, 1, cellWidth - 1 , cellHeight + 2);
+            }
+
+            boards.push({
+              image: canvas,
+              left:  idx * boardWidth + row * pageWidth,
+              right: idx * boardWidth + row * pageWidth + pageWidth,
+              width: pageWidth
+            });
           }
-          const colWidth = info.width;
-          const totalCols = boardWidth / colWidth;
-          ctx.strokeStyle = 'rgb(128, 128, 128)';
-          for (let i = 0; i < totalCols; i++) {
-            const x = i * colWidth;
-            ctx.rect(x, 0, colWidth, pageHeight);
-          }
-          return {
-            image: canvas,
-            left: idx * boardWidth,
-            right: idx * boardWidth + boardWidth,
-            width: boardWidth
-          };
+          this.images.release(url);
+          return boards;
         }))).flat();
-        this.height = info.height;
+
+        this.height = info.cellHeight;
         this._currentTime = -1;
         this.cls();
+        this.isReady = true;
       }
       get scrollLeft() {
         return this._scrollLeft;
       }
-      set scrollLeft(v) {
-        const left = this._scrollLeft = v;
-        const right = left + this.width;
-        const ctx = this.ctx;
-        ctx.beginPath();
-        ctx.clearRect(0, 0, this.width, this.height);
+      set scrollLeft(left) {
+        if (!this.info || !this.info.isAvailable || !this.isReady) {
+          return;
+        }
+
+        const width =  this.width;
+        const height = this.height;
+        const totalWidth = this.totalWidth;
+        left = Math.max(-width / 2, Math.min(totalWidth - width / 2, left));
+        const right = left + width;
+        const isOutrange = (left < 0 || left > totalWidth - width);
+
+        const bctx = this.bufferCtx;
+        bctx.beginPath();
+        if (isOutrange) {
+          bctx.fillStyle = 'rgb(32, 32, 32)';
+          bctx.fillRect(0, 0, width, height);
+        }
         for (const board of this.boards) {
           if (
             (left <= board.left  && board.left <= right) ||
@@ -264,28 +298,55 @@ const StoryboardWorker = (() => {
             (board.left <= left  && right <= board.right)
           ) {
             const dx = board.left - left;
-            ctx.drawImage(board.image,
-              0, 0, board.width, this.height,
-              dx, 0, board.width, this.height
+            bctx.drawImage(board.image,
+              0,  0, board.width, height,
+              dx, 0, board.width, height
             );
           }
         }
+        const scrollBarLength = width / totalWidth * width;
+        if (scrollBarLength < width) {
+          const scrollBarLeft = left / totalWidth * width;
+          bctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
+          bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
+        }
+
+        requestAnimationFrame(() => {
+          this.ctx.beginPath();
+          this.ctx.drawImage(this.bufferCanvas,
+             0, 0, width, height,
+             0, 0, width, height
+          );
+        });
       }
 
       cls() {
+        this.bufferCtx.clearRect(0, 0, this.width, this.height);
         this.ctx.clearRect(0, 0, this.width, this.height);
       }
-      get currentTime() { return this.currentTime; }
+      get currentTime() {
+        const center = this._scrollLeft + this.width / 2;
+        return this.duration * (center / this.totalWidth);
+      }
       set currentTime(time) { this.setCurrentTime(time); }
       get width() {return this.canvas.width;}
       get height() {return this.canvas.height;}
-      set width(width) {this.canvas.width = width;}
-      set height(height) {this.canvas.height = height;}
+      set width(width) {
+        this.canvas.width = width;
+        this.bufferCanvas.width = width;
+      }
+      set height(height) {
+        this.canvas.height = height;
+        this.bufferCanvas.height = height;
+      }
       async setCurrentTime(time) {
+        const r = time / Math.max(this.info.duration, 1);
+        const left = this.totalWidth * r - this.width / 2;
+        this.scrollLeft = left;
       }
       resize({width, height}) {
-        this.width = width;
-        this.height = height;
+        width && (this.width = width);
+        height && (this.height = height);
         this.cls();
       }
     }
@@ -295,7 +356,7 @@ const StoryboardWorker = (() => {
         this.canvas = canvas;
         this.name = name;
         this._currentTime = -1;
-        this._info = new StoryboardModel(info);
+        this._info = new StoryboardInfoModel(info);
         this.lastPos = {};
         this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
         this.images = ImageCacheMap;
@@ -330,19 +391,19 @@ const StoryboardWorker = (() => {
         this.lastPos = pos;
         this._currentTime = time;
         const {url, row, col} = pos;
-        const width = this.info.width;
-        const height = this.info.height;
+        const width = this.info.cellWidth;
+        const height = this.info.cellHeight;
         const image = await this.images.get(url);
         const imageLeft = col * width;
         const imageTop = row * height;
-        const ratio = Math.min(this.width / width, this.height / height);
+        const scale = Math.min(this.width / width, this.height / height);
         this.cls();
         this.ctx.drawImage(
           image,
           imageLeft, imageTop, width, height,
-          (this.width  - width * ratio) / 2,
-          (this.height - height * ratio) / 2,
-          width * ratio, height * ratio
+          (this.width  - width * scale) / 2,
+          (this.height - height * scale) / 2,
+          width * scale, height * scale
         );
 
       }
@@ -398,6 +459,13 @@ const StoryboardWorker = (() => {
       return {status: 'ok'};
     };
 
+    const cls = (params) => {
+      const item = items[params.id];
+      if (!item) { throw new Error('unknown id', params.id); }
+      item.cls();
+      return {status: 'ok'};
+    };
+
     const dispose = ({id}) => {
       const item = items[id];
       if (!item) { return; }
@@ -424,6 +492,8 @@ const StoryboardWorker = (() => {
           return scrollLeft(params);
         case 'resize':
           return resize(params);
+        case 'cls':
+          return cls(params);
         case 'dispose':
           return dispose(params);
       }
@@ -477,7 +547,7 @@ const StoryboardWorker = (() => {
     const result = {
       container,
       canvas,
-      info(info) {
+      setInfo(info) {
         currentTime = -1;
         scrollLeft = -1;
         return worker.post({command: 'info', params: {id, info}});

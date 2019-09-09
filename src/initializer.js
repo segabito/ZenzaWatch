@@ -16,6 +16,7 @@ import {BroadcastEmitter} from '../packages/lib/src/message/messageUtil';
 import {HoverMenu} from '../packages/zenza/src/menu/HoverMenu';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {replaceRedirectLinks} from '../packages/zenza/src/init/replaceRedirectLinks';
+import {cssUtil} from '../packages/lib/src/css/css';
 const START_PAGE_QUERY = 'hoge=fuga';
 
 //===BEGIN===
@@ -41,6 +42,12 @@ const {initialize} = (() => {
 
   const initialize = async function (){
     window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
+    cssUtil.registerProps(
+      {name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+      {name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+      {name: '--width-pp',  syntax: '<length-percentage>', initialValue: '0px',    inherits: true},
+      {name: '--height-pp', syntax: '<length-percentage>', initialValue: '0px',    inherits: true}
+    );
 
     util.dispatchCustomEvent(
       document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});

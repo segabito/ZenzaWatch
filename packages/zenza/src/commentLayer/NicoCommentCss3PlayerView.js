@@ -105,7 +105,8 @@ class NicoCommentCss3PlayerView extends Emitter {
         {name: '--chat-trans-x', syntax: '<length>', initialValue: '0px', inherits: false, window: win},
         {name: '--chat-trans-y', syntax: '<percentage>', initialValue: '-50%', inherits: false, window: win},
         {name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
-        {name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win}
+        {name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win},
+        {name: '--layer-scale',  syntax: '<number>', initialValue: 1, inherits: false, window: win}
       );
 
       this.window = win;
@@ -138,7 +139,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         const aspectRatio = Math.max(this._aspectRatio, 9 / 16);
         const targetHeight = Math.min(h, w * aspectRatio);
         const scale = targetHeight / 384;
-        commentLayer.style.transform = `scale3d(${scale}, ${scale}, 1)`;
+        commentLayer.style.setProperty('--layer-scale', scale);
       };
 
       const chkSizeInit = () => {
@@ -725,6 +726,7 @@ body.in-capture .commentLayer {
   padding: 0;
   box-sizing: border-box;
   contain: layout style size;
+  transform: scale(var(--layer-scale));
 }
 
 .subLayer {

@@ -1263,7 +1263,7 @@ NicoVideoPlayerDialogView.__css__ = `
   `.trim();
 
 NicoVideoPlayerDialogView.__tpl__ = (`
-    <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog zen-family">
+    <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog zen-family zen-root">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
         <div class="zenzaPlayerContainer">
@@ -1342,7 +1342,7 @@ class NicoVideoPlayerDialog extends Emitter {
       node: this._$playerContainer,
       playerConfig: config,
       playerState: this._state,
-      volume: config.props.volume,
+      volume: Math.max(config.props.volume, 0.01),
       loop: config.props.loop,
       enableFilter: config.props.enableFilter,
       wordFilter: config.props.wordFilter,
@@ -2581,11 +2581,11 @@ class NicoVideoPlayerDialog extends Emitter {
   }
   set volume(v) {
     if (this._nicoVideoPlayer) {
-      this._nicoVideoPlayer.volume = v;
+      this._nicoVideoPlayer.volume = Math.max(0.01, v);
     }
   }
   get volume() {
-    return this._playerConfig.props.volume;
+    return Math.max(0.01, this._playerConfig.props.volume);
   }
   async addChat(text, cmd, vpos = null, options = {}) {
     if (!this._nicoVideoPlayer ||

@@ -1,7 +1,7 @@
 import {Emitter} from '../../../lib/src/Emitter';
 import {StoryboardInfoLoader} from '../../../lib/src/nico/StoryboardInfoLoader';
 import {StoryboardView} from './StoryboardView';
-import {StoryboardModel} from './StoryboardModel';
+import {StoryboardInfoModel} from './StoryboardInfoModel';
 import {SeekBarThumbnail} from './SeekBarThumbnail';
 import {StoryboardWorker} from './StoryboardWorker';
 import {global} from '../../../../src/ZenzaWatchIndex';
@@ -9,7 +9,7 @@ import {nicoUtil} from '../../../lib/src/nico/nicoUtil';
 
 
 //===BEGIN===
-//@require StoryboardModel
+//@require StoryboardInfoModel
 //@require StoryboardView
 //@require SeekBarThumbnail
 //@require StoryboardWorker
@@ -23,14 +23,13 @@ class Storyboard extends Emitter {
     this._playerConfig = params.playerConfig;
     this._container = params.container;
     this._loader = params.loader || StoryboardInfoLoader;
+    /** @type {StoryboardInfoModel} */
+    this._model = new StoryboardInfoModel({});
     global.debug.storyboard = this;
   }
   _initializeStoryboard() {
     this._initializeStoryboard = _.noop;
 
-    if (!this._model) {
-      this._model = new StoryboardModel({});
-    }
     if (!this._view) {
       this._view = new StoryboardView({
         model: this._model,
@@ -67,9 +66,9 @@ class Storyboard extends Emitter {
 
     this._initializeStoryboard();
   }
-  _onStoryboardInfoLoad(resuestId, info) {
+  _onStoryboardInfoLoad(resuestId, rawData) {
     if (resuestId !== this._requestId) {return;} // video changed
-    this._model.update(info);
+    this._model.update(rawData);
     this.emit('update', this._model);
 
     this._container.classList.toggle('storyboardAvailable', this._model.isAvailable);
