@@ -958,7 +958,7 @@ class VideoPlayer extends Emitter {
     if (this._isYouTube) {
       return;
     } // TODO: YouTube側のエラーハンドリング
-    console.warn('%c_onAbort:', 'background: cyan; color: red;');
+    // console.warn('%c_onAbort:', 'background: cyan; color: red;');
     this._isPlaying = false;
     this.addClass('is-abort');
     this.emit('abort');

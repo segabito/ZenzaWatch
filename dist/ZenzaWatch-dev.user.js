@@ -8567,7 +8567,6 @@ class VideoPlayer extends Emitter {
 		if (this._isYouTube) {
 			return;
 		} // TODO: YouTube側のエラーハンドリング
-		console.warn('%c_onAbort:', 'background: cyan; color: red;');
 		this._isPlaying = false;
 		this.addClass('is-abort');
 		this.emit('abort');
@@ -9412,7 +9411,7 @@ class StoryboardView extends Emitter {
 			if (Math.abs(this._scrollLeft - left) < 1) {
 				return;
 			}
-			this.canvas && (this.canvas.scrollLeft = left);
+			this.isEnable && this.canvas && (this.canvas.scrollLeft = left);
 			this._scrollLeft = left;
 			this._scrollLeftChanged = true;
 		}
@@ -9449,6 +9448,7 @@ class StoryboardView extends Emitter {
 		}
 		this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
 		this._bone.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
+		this._inner.style.height = cssUtil.px(model.cellHeight + 8);
 		this._pointer.style.setProperty('--width-pp', cssUtil.px(model.cellWidth));
 		this._pointer.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
 	}
@@ -9595,7 +9595,8 @@ StoryboardView.__css__ = (`
 		overflow: hidden;
 		background: rgba(32, 32, 32, 0.5);
 		margin: 0;
-		contain: paint layout style;
+		contain: strict;
+		width: 100vw;
 		will-change: transform;
 		overscroll-behavior: contain;
 		padding-bottom: 8px;
@@ -9778,6 +9779,32 @@ const StoryboardWorker = (() => {
 			canvas.height = height;
 			return canvas;
 		};
+		const a2d = async (arrayBuffer, type = 'image/jpeg') => {
+			return new Promise((ok, ng) => {
+				const reader = new FileReader();
+				reader.onload = () => ok(reader.result);
+				reader.onerror = ng;
+				reader.readAsDataURL(new Blob([arrayBuffer], {type}));
+			});
+		};
+		const loadImage = async src => {
+			try {
+				if (self.createImageBitmap) {
+					return createImageBitmap(
+						src instanceof ArrayBuffer ?
+							new Blob([src], {type: 'image/jpeg'}) :
+							(await fetch(src).then(r => r.blob()))
+						);
+				} else {
+					const img = new Image(src instanceof ArrayBuffer ? (await a2d(src)) : src);
+					await img.decode;
+					return img;
+				}
+			} catch(e) {
+				console.warn('load image fail', e);
+				return BLANK_IMG;
+			}
+		};
 		const ImageCacheMap = new class {
 			constructor() {
 				this.map = new Map();
@@ -9787,13 +9814,8 @@ const StoryboardWorker = (() => {
 				if (!cache) {
 					cache = {
 						ref: 0,
-						image: self.Image ?
-							new Image(url) :
-							createImageBitmap(await fetch(url).then(r => r.blob()).catch(() => BLANK_IMG))
+						image: await loadImage(url)
 					};
-					if (cache.image === BLANK_IMG) {
-						return BLANK_IMG;
-					}
 				}
 				cache.ref++;
 				cache.updated = Date.now();
@@ -9808,7 +9830,7 @@ const StoryboardWorker = (() => {
 				}
 				cache.ref--;
 				if (cache.ref <= 0) {
-					cache.image.src = BLANK_SRC;
+					cache.image.close && cache.image.close();
 					this.map.delete(url);
 				}
 			}
@@ -9821,6 +9843,8 @@ const StoryboardWorker = (() => {
 				const sorted = [...map].sort((a, b) => a[1].updated - b[1].updated);
 				while (map.size >= MAX) {
 					const [url] = sorted.shift();
+					const cache = map.get(url);
+					cache && cache.image && cache.image.close && cache.image.close();
 					map.delete(url);
 				}
 			}
@@ -9980,7 +10004,7 @@ const StoryboardWorker = (() => {
 							ctx.strokeRect(x, 1, cellWidth - 1 , cellHeight + 2);
 						}
 						boards.push({
-							image: canvas,
+							image: canvas, //.transferToImageBitmap(), // ImageBitmapじゃないほうが速い？気のせい？
 							left:  idx * boardWidth + row * pageWidth,
 							right: idx * boardWidth + row * pageWidth + pageWidth,
 							width: pageWidth
@@ -10032,13 +10056,16 @@ const StoryboardWorker = (() => {
 					bctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
 					bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
 				}
-				requestAnimationFrame(() => {
+				if (this.bufferCanvas.transferToImageBitmap && this.canvas.transferFromImageBitmap) {
+					this.canvas.transferFromImageBitmap(this.bufferCanvas.transferToImageBitmap());
+				} else {
 					this.ctx.beginPath();
 					this.ctx.drawImage(this.bufferCanvas,
 						0, 0, width, height,
 						0, 0, width, height
 					);
-				});
+					this.ctx.commit && this.ctx.commit();
+				}
 			}
 			cls() {
 				this.bufferCtx.clearRect(0, 0, this.width, this.height);
@@ -10226,7 +10253,7 @@ const StoryboardWorker = (() => {
 				worker = {
 					name: NAME,
 					onmessage: () => {},
-					post: ({command, params}) => worker.onmessage({command, params})
+					post: ({command, params}) => setTimeout(() => worker.onmessage({command, params}), 0)
 				};
 				func(worker);
 			}
@@ -10712,7 +10739,7 @@ class Storyboard extends Emitter {
 			const player = this._player;
 			const currentTime = this._isWheelSeeking ?
 				this._wheelSeeker.currentTime : player.currentTime;
-			if (this._timerCount % 5 === 0) {
+			if (this._timerCount % 6 === 0) {
 				this.currentTime = currentTime;
 			}
 			this._storyboard.currentTime = currentTime;

@@ -243,7 +243,7 @@ class StoryboardView extends Emitter {
       if (Math.abs(this._scrollLeft - left) < 1) {
         return;
       }
-      this.canvas && (this.canvas.scrollLeft = left);
+      this.isEnable && this.canvas && (this.canvas.scrollLeft = left);
 
       this._scrollLeft = left;
       this._scrollLeftChanged = true;
@@ -285,6 +285,7 @@ class StoryboardView extends Emitter {
 
     this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
     this._bone.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
+    this._inner.style.height = cssUtil.px(model.cellHeight + 8);
 
     this._pointer.style.setProperty('--width-pp', cssUtil.px(model.cellWidth));
     this._pointer.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
@@ -448,7 +449,8 @@ StoryboardView.__css__ = (`
     overflow: hidden;
     background: rgba(32, 32, 32, 0.5);
     margin: 0;
-    contain: paint layout style;
+    contain: strict;
+    width: 100vw;
     will-change: transform;
     overscroll-behavior: contain;
     padding-bottom: 8px;

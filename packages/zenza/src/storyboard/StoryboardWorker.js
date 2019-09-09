@@ -17,6 +17,32 @@ const StoryboardWorker = (() => {
       canvas.height = height;
       return canvas;
     };
+    const a2d = async (arrayBuffer, type = 'image/jpeg') => {
+      return new Promise((ok, ng) => {
+        const reader = new FileReader();
+        reader.onload = () => ok(reader.result);
+        reader.onerror = ng;
+        reader.readAsDataURL(new Blob([arrayBuffer], {type}));
+      });
+    };
+    const loadImage = async src => {
+      try {
+        if (self.createImageBitmap) {
+          return createImageBitmap(
+            src instanceof ArrayBuffer ?
+              new Blob([src], {type: 'image/jpeg'}) :
+              (await fetch(src).then(r => r.blob()))
+            );
+        } else {
+          const img = new Image(src instanceof ArrayBuffer ? (await a2d(src)) : src);
+          await img.decode;
+          return img;
+        }
+      } catch(e) {
+        console.warn('load image fail', e);
+        return BLANK_IMG;
+      }
+    };
     const ImageCacheMap = new class {
       constructor() {
         this.map = new Map();
@@ -26,13 +52,8 @@ const StoryboardWorker = (() => {
         if (!cache) {
           cache = {
             ref: 0,
-            image: self.Image ?
-              new Image(url) :
-              createImageBitmap(await fetch(url).then(r => r.blob()).catch(() => BLANK_IMG))
+            image: await loadImage(url)
           };
-          if (cache.image === BLANK_IMG) {
-            return BLANK_IMG;
-          }
         }
         cache.ref++;
         cache.updated = Date.now();
@@ -47,7 +68,7 @@ const StoryboardWorker = (() => {
         }
         cache.ref--;
         if (cache.ref <= 0) {
-          cache.image.src = BLANK_SRC;
+          cache.image.close && cache.image.close();
           this.map.delete(url);
         }
       }
@@ -60,6 +81,8 @@ const StoryboardWorker = (() => {
         const sorted = [...map].sort((a, b) => a[1].updated - b[1].updated);
         while (map.size >= MAX) {
           const [url] = sorted.shift();
+          const cache = map.get(url);
+          cache && cache.image && cache.image.close && cache.image.close();
           map.delete(url);
         }
       }
@@ -233,7 +256,7 @@ const StoryboardWorker = (() => {
 
         this.height = cellHeight;
         this.totalWidth = info.cellCount * info.cellWidth;
-
+        // this.boards.forEach(board => board.image && board.image.close && board.image.close());
         this.boards = (await Promise.all(this._info.imageUrls.map(async (url, idx) => {
           const image = await this.images.get(url);
           const boards = [];
@@ -255,7 +278,7 @@ const StoryboardWorker = (() => {
             }
 
             boards.push({
-              image: canvas,
+              image: canvas, //.transferToImageBitmap(), // ImageBitmapじゃないほうが速い？気のせい？
               left:  idx * boardWidth + row * pageWidth,
               right: idx * boardWidth + row * pageWidth + pageWidth,
               width: pageWidth
@@ -311,13 +334,18 @@ const StoryboardWorker = (() => {
           bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
         }
 
-        requestAnimationFrame(() => {
+        // requestAnimationFrame(() => {
+        if (this.bufferCanvas.transferToImageBitmap && this.canvas.transferFromImageBitmap) {
+          this.canvas.transferFromImageBitmap(this.bufferCanvas.transferToImageBitmap());
+        } else {
           this.ctx.beginPath();
           this.ctx.drawImage(this.bufferCanvas,
              0, 0, width, height,
              0, 0, width, height
           );
-        });
+          this.ctx.commit && this.ctx.commit();
+        }
+        // });
       }
 
       cls() {
@@ -526,7 +554,7 @@ const StoryboardWorker = (() => {
         worker = {
           name: NAME,
           onmessage: () => {},
-          post: ({command, params}) => worker.onmessage({command, params})
+          post: ({command, params}) => setTimeout(() => worker.onmessage({command, params}), 0)
         };
         func(worker);
       }

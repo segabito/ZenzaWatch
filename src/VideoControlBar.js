@@ -407,7 +407,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       const player = this._player;
       const currentTime = this._isWheelSeeking ?
         this._wheelSeeker.currentTime : player.currentTime;
-      if (this._timerCount % 5 === 0) {
+      if (this._timerCount % 6 === 0) {
         this.currentTime = currentTime;
       }
       this._storyboard.currentTime = currentTime;
