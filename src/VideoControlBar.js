@@ -320,7 +320,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
     }
     _startTimer() {
       this._timerCount = 0;
-      this._raf = this.raf || new RequestAnimationFrame(this._onTimer.bind(this));
+      this._raf = this._raf || new RequestAnimationFrame(this._onTimer.bind(this));
       this._raf.enable();
       // this._timer = window.setInterval(this._onTimer.bind(this), 100);
     }

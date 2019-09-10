@@ -31,7 +31,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.7
+// @version        2.4.8
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -82,7 +82,7 @@ AntiPrototypeJs();
     const util = {};
     let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.4.7';
+    var VER = '2.4.8';
     const ENV = 'DEV';
 
 
@@ -10670,7 +10670,7 @@ class Storyboard extends Emitter {
 		}
 		_startTimer() {
 			this._timerCount = 0;
-			this._raf = this.raf || new RequestAnimationFrame(this._onTimer.bind(this));
+			this._raf = this._raf || new RequestAnimationFrame(this._onTimer.bind(this));
 			this._raf.enable();
 		}
 		_stopTimer() {
