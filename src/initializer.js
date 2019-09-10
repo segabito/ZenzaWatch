@@ -17,7 +17,7 @@ import {HoverMenu} from '../packages/zenza/src/menu/HoverMenu';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {replaceRedirectLinks} from '../packages/zenza/src/init/replaceRedirectLinks';
 import {cssUtil} from '../packages/lib/src/css/css';
-// import {ThumbInfoLoader} from '../packages/lib/src/nico/ThumbInfoLoader';
+import {ThumbInfoLoader} from '../packages/lib/src/nico/ThumbInfoLoader';
 import {StoryboardWorker} from '../packages/zenza/src/storyboard/StoryboardWorker';
 import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
 import {StoryboardCacheDb} from '../packages/lib/src/nico/StoryboardCacheDb';
@@ -48,6 +48,7 @@ const {initialize} = (() => {
     // 動画ロード直後に初期化するとつっかかる原因になるのでWorkerだけ作っておく
     if (!location.host.endsWith('.nicovideo.jp')) { return; }
     CommentLayoutWorker.getInstance();
+    ThumbInfoLoader.load('sm9');
     window.console.time('init Workers');
     return Promise.all([
       StoryboardWorker.initWorker(),

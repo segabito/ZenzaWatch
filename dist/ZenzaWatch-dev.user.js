@@ -9769,10 +9769,10 @@ const StoryboardWorker = (() => {
 	const func = function(self) {
 		const SCROLL_BAR_WIDTH = 8;
 		const BLANK_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAE0lEQVQoU2NkYGD4z4AHMI4MBQCFZAgB+jxHYAAAAABJRU5ErkJggg==';
-		let BLANK_IMG = self.Image ? new Image(BLANK_SRC) : null;
+		let BLANK_IMG;
 		const items = {};
 		const getCanvas = (width, height) => {
-			if (OffscreenCanvas) {
+			if (self.OffscreenCanvas) {
 				return new OffscreenCanvas(width, height);
 			}
 			const canvas = document.createElement('canvas');
@@ -9780,7 +9780,7 @@ const StoryboardWorker = (() => {
 			canvas.height = height;
 			return canvas;
 		};
-		const a2d = async (arrayBuffer, type = 'image/jpeg') => {
+		const a2d = (arrayBuffer, type = 'image/jpeg') => {
 			return new Promise((ok, ng) => {
 				const reader = new FileReader();
 				reader.onload = () => ok(reader.result);
@@ -9797,8 +9797,9 @@ const StoryboardWorker = (() => {
 							(await fetch(src).then(r => r.blob()))
 						);
 				} else {
-					const img = new Image(src instanceof ArrayBuffer ? (await a2d(src)) : src);
-					await img.decode;
+					const img = new Image();
+					img.src = src instanceof ArrayBuffer ? (await a2d(src)) : src;
+					await img.decode();
 					return img;
 				}
 			} catch(e) {
@@ -9806,6 +9807,7 @@ const StoryboardWorker = (() => {
 				return BLANK_IMG;
 			}
 		};
+		loadImage(BLANK_SRC).then(img => BLANK_IMG = img);
 		const ImageCacheMap = new class {
 			constructor() {
 				this.map = new Map();
@@ -10162,7 +10164,7 @@ const StoryboardWorker = (() => {
 			}
 		}
 		const getId = function() {return `Storyboard-${this.id++}`;}.bind({id: 0});
-		const createView = async ({canvas, info, name}, type = 'thumbnail') => {
+		const createView = ({canvas, info, name}, type = 'thumbnail') => {
 			const id = getId();
 			const view = type === 'thumbnail' ?
 				new ThumbnailView({canvas, info, name}) :
@@ -10172,31 +10174,31 @@ const StoryboardWorker = (() => {
 		};
 		const info = ({id, info}) => {
 			const item = items[id];
-			if (!item) { throw new Error('unknown id', id); }
+			if (!item) { throw new Error(`unknown id:${id}`); }
 			item.info = info;
 			return {status: 'ok'};
 		};
 		const currentTime = ({id, currentTime}) => {
 			const item = items[id];
-			if (!item) { throw new Error('unknown id', id); }
+			if (!item) { throw new Error(`unknown id:${id}`); }
 			item.setCurrentTime(currentTime);
 			return {status: 'ok'};
 		};
 		const scrollLeft = ({id, scrollLeft}) => {
 			const item = items[id];
-			if (!item) { throw new Error('unknown id', id); }
+			if (!item) { throw new Error(`unknown id:${id}`); }
 			item.scrollLeft = scrollLeft;
 			return {status: 'ok'};
 		};
 		const resize = (params) => {
 			const item = items[params.id];
-			if (!item) { throw new Error('unknown id', params.id); }
+			if (!item) { throw new Error(`unknown id:${params.id}`); }
 			item.resize(params);
 			return {status: 'ok'};
 		};
 		const cls = (params) => {
 			const item = items[params.id];
-			if (!item) { throw new Error('unknown id', params.id); }
+			if (!item) { throw new Error(`unknown id:${params.id}`); }
 			item.cls();
 			return {status: 'ok'};
 		};
@@ -10208,9 +10210,6 @@ const StoryboardWorker = (() => {
 			return {status: 'ok'};
 		};
 		self.onmessage = async ({command, params}) => {
-			if (!BLANK_IMG) {
-				BLANK_IMG = createImageBitmap( await fetch(BLANK_SRC).then(res => res.blob() ));
-			}
 			switch (command) {
 				case 'createThumbnail':
 					return createView(params, 'thumbnail');
@@ -10241,7 +10240,7 @@ const StoryboardWorker = (() => {
 				worker = {
 					name: NAME,
 					onmessage: () => {},
-					post: ({command, params}) => setTimeout(() => worker.onmessage({command, params}), 0)
+					post: ({command, params}) => worker.onmessage({command, params})
 				};
 				func(worker);
 			}
@@ -29280,6 +29279,7 @@ class HoverMenu {
 	const initWorker = () => {
 		if (!location.host.endsWith('.nicovideo.jp')) { return; }
 		CommentLayoutWorker.getInstance();
+		ThumbInfoLoader.load('sm9');
 		window.console.time('init Workers');
 		return Promise.all([
 			StoryboardWorker.initWorker(),
