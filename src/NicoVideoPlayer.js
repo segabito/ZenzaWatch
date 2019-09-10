@@ -363,12 +363,13 @@ class NicoVideoPlayer extends Emitter {
     return `${prefix}${title} - ${watchId}@${time}${suffix}.png`;
   }
   get isCorsReady() {return this._videoPlayer && this._videoPlayer.isCorsReady;}
+  get volume() { return this._videoPlayer.volume;}
+  set volume(v) {this._videoPlayer.volume = v;}
   getDuration() {return this._videoPlayer.duration;}
   getChatList() {return this._commentPlayer.chatList;}
   getVpos() {return Math.floor(this._videoPlayer.currentTime * 100);}
   setComment(xmlText, options) {this._commentPlayer.setComment(xmlText, options);}
   getNonFilteredChatList() {return this._commentPlayer.nonFilteredChatList;}
-  setVolume(v) {this._videoPlayer.volume=v;}
   getBufferedRange() {return this._videoPlayer.bufferedRange;}
   setVideoInfo(v) { this.videoInfo = v; }
   getVideoInfo() { return this.videoInfo; }
