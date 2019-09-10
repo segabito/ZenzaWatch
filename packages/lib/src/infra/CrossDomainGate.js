@@ -19,7 +19,6 @@ class CrossDomainGate extends Emitter {
     this._type = params.type;
     this._suffix = params.suffix || '';
     this.name = params.name || params.type;
-
     this._sessions = {};
     this._initializeStatus = 'none';
   }
@@ -40,6 +39,7 @@ class CrossDomainGate extends Emitter {
     return this.promise('initialize');
   }
   _initializeCrossDomainGate() {
+    window.console.time(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
     const loaderFrame = document.createElement('iframe');
     loaderFrame.referrerPolicy = 'origin';
     loaderFrame.sandbox = 'allow-scripts allow-same-origin';
@@ -65,7 +65,7 @@ class CrossDomainGate extends Emitter {
     const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
     const {id, type, token, sessionId, body} = data;
     if (id !== PRODUCT || type !== this._type || token !== TOKEN) {
-      window.console.warn('invalid token:',
+      console.warn('invalid token:',
         {id, PRODUCT, type, _type: this._type, token, TOKEN});
       return;
     }
@@ -84,6 +84,7 @@ class CrossDomainGate extends Emitter {
         if (this._initializeStatus !== 'done') {
           this._initializeStatus = 'done';
           const originalBody = params;
+          window.console.timeEnd(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
           const result = this._onCommand(originalBody, sessionId);
           this.emitResolve('initialize', {status: 'ok'});
           return result;

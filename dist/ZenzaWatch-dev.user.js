@@ -31,7 +31,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.6
+// @version        2.4.7
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -82,7 +82,7 @@ AntiPrototypeJs();
     const util = {};
     let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.4.6';
+    var VER = '2.4.7';
     const ENV = 'DEV';
 
 
@@ -1797,6 +1797,7 @@ const Fullscreen = {
 };
 util.fullscreen = Fullscreen;
 const dummyConsole = {};
+window.console.timeLog || (window.console.timeLog = () => {});
 for (const k of Object.keys(window.console)) {
 	if (typeof window.console[k] !== 'function') {continue;}
 	dummyConsole[k] = _.noop;
@@ -5299,8 +5300,8 @@ const ThumbInfoLoader = (() => {
 	const BASE_URL = 'https://ext.nicovideo.jp/';
 	const MESSAGE_ORIGIN = 'https://ext.nicovideo.jp/';
 	let gate = null;
-	const initialize = () => {
-		if (gate) { return; }
+	const initGate = () => {
+		if (gate) { return gate; }
 		gate = new CrossDomainGate({
 			baseUrl: BASE_URL,
 			origin: MESSAGE_ORIGIN,
@@ -5308,10 +5309,8 @@ const ThumbInfoLoader = (() => {
 		});
 	};
 	const load = async watchId =>  {
-		initialize();
-		const thumbInfo = await gate
-			.fetch(
-				`${BASE_URL}api/getthumbinfo/${watchId}`,
+		initGate();
+		const thumbInfo = await gate.fetch(`${BASE_URL}api/getthumbinfo/${watchId}`,
 				{_format: 'text', expireTime: 24 * 60 * 60 * 1000})
 				.catch(e => { return {status: 'fail', message: e.message || `gate.fetch('${watchId}') failed` }; });
 		if (thumbInfo.status !== 'ok') {
@@ -5319,7 +5318,7 @@ const ThumbInfoLoader = (() => {
 		}
 		return thumbInfo;
 	};
-	return {load};
+	return {initGate, load};
 })();
 const MylistApiLoader = (() => {
 	const CACHE_EXPIRE_TIME = 5 * 60 * 1000;
@@ -5895,6 +5894,7 @@ class CrossDomainGate extends Emitter {
 		return this.promise('initialize');
 	}
 	_initializeCrossDomainGate() {
+		window.console.time(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
 		const loaderFrame = document.createElement('iframe');
 		loaderFrame.referrerPolicy = 'origin';
 		loaderFrame.sandbox = 'allow-scripts allow-same-origin';
@@ -5919,7 +5919,7 @@ class CrossDomainGate extends Emitter {
 		const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 		const {id, type, token, sessionId, body} = data;
 		if (id !== PRODUCT || type !== this._type || token !== TOKEN) {
-			window.console.warn('invalid token:',
+			console.warn('invalid token:',
 				{id, PRODUCT, type, _type: this._type, token, TOKEN});
 			return;
 		}
@@ -5937,6 +5937,7 @@ class CrossDomainGate extends Emitter {
 				if (this._initializeStatus !== 'done') {
 					this._initializeStatus = 'done';
 					const originalBody = params;
+					window.console.timeEnd(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
 					const result = this._onCommand(originalBody, sessionId);
 					this.emitResolve('initialize', {status: 'ok'});
 					return result;
@@ -9809,29 +9810,29 @@ const StoryboardWorker = (() => {
 			constructor() {
 				this.map = new Map();
 			}
-			async get(url) {
-				let cache = this.map.get(url);
+			async get(src) {
+				let cache = this.map.get(src);
 				if (!cache) {
 					cache = {
 						ref: 0,
-						image: await loadImage(url)
+						image: await loadImage(src)
 					};
 				}
 				cache.ref++;
 				cache.updated = Date.now();
-				this.map.set(url, cache);
+				this.map.set(src, cache);
 				this.gc();
 				return cache.image;
 			}
-			release(url) {
-				const cache = this.map.get(url);
+			release(src) {
+				const cache = this.map.get(src);
 				if (!cache) {
 					return;
 				}
 				cache.ref--;
 				if (cache.ref <= 0) {
 					cache.image.close && cache.image.close();
-					this.map.delete(url);
+					this.map.delete(src);
 				}
 			}
 			async gc() {
@@ -9842,10 +9843,10 @@ const StoryboardWorker = (() => {
 				}
 				const sorted = [...map].sort((a, b) => a[1].updated - b[1].updated);
 				while (map.size >= MAX) {
-					const [url] = sorted.shift();
-					const cache = map.get(url);
+					const [src] = sorted.shift();
+					const cache = map.get(src);
 					cache && cache.image && cache.image.close && cache.image.close();
-					map.delete(url);
+					map.delete(src);
 				}
 			}
 		};
@@ -10233,21 +10234,8 @@ const StoryboardWorker = (() => {
 	const isOffscreenCanvasAvailable = !!HTMLCanvasElement.prototype.transferControlToOffscreen;
 	const NAME = 'StoryboardWorker';
 	let worker;
-	const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
-		style = style || {};
-		ratio = ratio || window.devicePixelRatio || 1;
-		name = name || 'StoryboardThumbnail';
-		if (!canvas) {
-			canvas = document.createElement('canvas');
-			Object.assign(canvas.style, {
-				width: '100%',
-				height: '100%'
-			});
-			container && container.append(canvas);
-			style.widthPx &&  (canvas.width = Math.max(style.widthPx));
-			style.heightPx && (canvas.height = Math.max(style.heightPx));
-		}
-		canvas.dataset.name = name;
+	const initWorker = async () => {
+		if (worker) { return worker; }
 		if (!isOffscreenCanvasAvailable) {
 			if (!worker) {
 				worker = {
@@ -10260,6 +10248,24 @@ const StoryboardWorker = (() => {
 		} else {
 			worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
 		}
+		return worker;
+	};
+	const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
+		style = style || {};
+		ratio = ratio || window.devicePixelRatio || 1;
+		name = name || 'Storyboard';
+		if (!canvas) {
+			canvas = document.createElement('canvas');
+			Object.assign(canvas.style, {
+				width: '100%',
+				height: '100%'
+			});
+			container && container.append(canvas);
+			style.widthPx &&  (canvas.width = Math.max(style.widthPx));
+			style.heightPx && (canvas.height = Math.max(style.heightPx));
+		}
+		canvas.dataset.name = name;
+		const worker = await initWorker();
 		const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
 		const init = await worker.post(
 			{command:
@@ -10304,6 +10310,7 @@ const StoryboardWorker = (() => {
 		return result;
 	};
 	return {
+		initWorker,
 		createThumbnail: args => createView(args, 'thumbnail'),
 		createBoard:     args => createView(args, 'board')
 	};
@@ -29270,6 +29277,25 @@ class HoverMenu {
 		}
 		return false;
 	};
+	const initWorker = () => {
+		if (!location.host.endsWith('.nicovideo.jp')) { return; }
+		CommentLayoutWorker.getInstance();
+		window.console.time('init Workers');
+		return Promise.all([
+			StoryboardWorker.initWorker(),
+			VideoSessionWorker.initWorker(),
+			StoryboardCacheDb.initWorker(),
+			WatchInfoCacheDb.initWorker()
+		]).then(() => window.console.timeEnd('init Workers'));
+	};
+	const initCssProps = () => {
+		cssUtil.registerProps(
+			{name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+			{name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+			{name: '--width-pp',   syntax: '<length-percentage>', initialValue: '0px', inherits: true},
+			{name: '--height-pp',  syntax: '<length-percentage>', initialValue: '0px', inherits: true}
+		);
+	};
 const replaceRedirectLinks = async () => {
 	await uq.ready();
 	uq('a[href*="www.flog.jp/j.php/http://"]').forEach(a => {
@@ -29381,12 +29407,7 @@ const replaceRedirectLinks = async () => {
 };
 	const initialize = async function (){
 		window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
-		cssUtil.registerProps(
-			{name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
-			{name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
-			{name: '--width-pp',  syntax: '<length-percentage>', initialValue: '0px',    inherits: true},
-			{name: '--height-pp', syntax: '<length-percentage>', initialValue: '0px',    inherits: true}
-		);
+		initCssProps();
 		util.dispatchCustomEvent(
 			document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});
 		util.addStyle(CONSTANT.COMMON_CSS, {className: 'common'});
@@ -29398,7 +29419,7 @@ const replaceRedirectLinks = async () => {
 			(!!document.getElementById('watchAPIDataContainer') ||
 				!!document.getElementById('js-initial-watch-data'));
 		const hoverMenu = global.debug.hoverMenu = new HoverMenu({playerConfig: Config});
-		await NicoComment.offscreenLayer.get(Config);
+		await Promise.all([NicoComment.offscreenLayer.get(Config), initWorker()]);
 		const dialog = initializeDialogPlayer(Config);
 		hoverMenu.setPlayer(dialog);
 		if (isWatch) {
@@ -30507,7 +30528,6 @@ const workerUtil = (() => {
 				return name;
 			};
 			self.ping()
-				.then(result => window.console.log('OK'))
 				.catch(result => console.warn('FAIL', result));
 			return self;
 		}.bind({
@@ -30669,36 +30689,17 @@ const IndexedDbStorage = (() => {
 				});
 			}
 		};
-		const d2a = async dataUrl => fetch(dataUrl).then(r => r.arrayBuffer());
-		const a2d = async (arrayBuffer, type = 'image/jpeg') => {
-			return new Promise((ok, ng) => {
-				const reader = new FileReader();
-				reader.onload = () => ok(reader.result);
-				reader.onerror = ng;
-				reader.readAsDataURL(new Blob([arrayBuffer], {type}));
-			});
-		};
 		self.onmessage = async ({command, params}) => {
 			try {
 			switch (command) {
 				case 'init':
 					await controller[command](params);
 					return 'ok';
-				case 'put': {
-					const {name, storeName, data} = params;
-					if (data.dataUrls) { // dataURLのままだと肥大化するのでArrayBufferにする
-						data.dataUrls = await Promise.all(data.dataUrls.map(url => d2a(url)));
-					}
-					return controller.put({name, storeName, data});
-				}
+				case 'put':
+					return controller.put(params);
 				case 'updateTime':
-				case 'get': {
-					const data = await controller[command](params);
-					if (data && data.dataUrls) {
-						data.dataUrls = await Promise.all(data.dataUrls.map(url => a2d(url)));
-					}
-					return data;
-				}
+				case 'get':
+					return controller[command](params);
 				default:
 					return controller[command](params) || 'ok';
 				}
@@ -30767,7 +30768,8 @@ const WatchInfoCacheDb = (() => {
 		]
 	};
 	let db, instance, NicoVideoApi;
-	const init = async () => {
+	const initWorker = async () => {
+		if (db) { return db; }
 		if (location.host === 'www.nicovideo.jp') {
 			db = db || await IndexedDbStorage.open(WATCH_INFO);
 		} else {
@@ -30777,7 +30779,7 @@ const WatchInfoCacheDb = (() => {
 	};
 	const open = async () => {
 		if (instance) { return instance; }
-		await init();
+		await initWorker();
 		const cacheDb = db['cache'];
 		return instance = {
 			async put(watchId, options = {}) {
@@ -30828,7 +30830,7 @@ const WatchInfoCacheDb = (() => {
 	const close = () => open().then(db => db.close());
 	const gc = (expireTime) => open().then(db => db.gc(expireTime));
 	const api = api => NicoVideoApi = api;
-	return {open, put, get, delete: del, close, gc, api};
+	return {initWorker, open, put, get, delete: del, close, gc, api};
 })();
 function parseThumbInfo(xmlText) {
 	if (typeof xmlText !== 'string' || xmlText.status === 'ok') {
@@ -30924,7 +30926,7 @@ function parseThumbInfo(xmlText) {
 const StoryboardCacheDb = (() => {
 	const WATCH_INFO = {
 		name: 'storyboard',
-		ver: 1,
+		ver: 2,
 		stores: [
 			{
 				name: 'cache',
@@ -30936,7 +30938,8 @@ const StoryboardCacheDb = (() => {
 		]
 	};
 	let db, instance, NicoVideoApi;
-	const init = async () => {
+	const initWorker = async () => {
+		if (db) { return db; }
 		if (location.host === 'www.nicovideo.jp') {
 			db = db || await IndexedDbStorage.open(WATCH_INFO);
 		} else {
@@ -30946,33 +30949,18 @@ const StoryboardCacheDb = (() => {
 	};
 	const open = async () => {
 		if (instance) { return instance; }
-		await init();
+		await initWorker();
 		const cacheDb = db['cache'];
 		instance = {
 			async put(watchId, sbInfo = {}) {
-				const dataUrls = [];
 				if (sbInfo.status !== 'ok') {
 					console.warn('invalid sbInfo', watchId, sbInfo);
-					return;
-				}
-				sbInfo = {...sbInfo};
-				sbInfo.storyboard = (sbInfo.storyboard || []).concat().map(sb => {
-					sb = {...sb};
-					sb.urls = sb.urls.map(url => {
-						if (!url.startsWith('data:')) { return url; }
-						dataUrls.push(url);
-						return dataUrls.length - 1;
-					});
-					return sb;
-				});
-				if (!dataUrls.length) {
 					return;
 				}
 				const record = {
 					watchId,
 					updatedAt: Date.now(),
-					sbInfo,
-					dataUrls
+					sbInfo
 				};
 				cacheDb.put(record);
 				return record;
@@ -30980,14 +30968,7 @@ const StoryboardCacheDb = (() => {
 			async get(watchId) {
 				const record = await cacheDb.updateTime({key: watchId});
 				if (!record) { return null; }
-				const {sbInfo, dataUrls} = record;
-				(sbInfo.storyboard || []).forEach(sb => {
-					sb.urls = sb.urls.map(url => {
-						if (typeof url === 'string') { return url; }
-						return dataUrls[url];
-					});
-				});
-				return sbInfo;
+				return record.sbInfo;
 			},
 			delete(watchId) { return cacheDb.delete({key: watchId}); },
 			close() { return cacheDb.close(); },
@@ -31002,7 +30983,7 @@ const StoryboardCacheDb = (() => {
 	const close = () => open().then(db => db.close());
 	const gc = (expireTime = 24 * 60 * 60 * 1000) => open().then(db => db.gc(expireTime));
 	const api = api => NicoVideoApi = api;
-	return {open, put, get, delete: del, close, gc, db, api};
+	return {initWorker, open, put, get, delete: del, close, gc, db, api};
 })();
 const VideoSessionWorker = (() => {
 	const func = function(self) {
@@ -31559,19 +31540,6 @@ const VideoSessionWorker = (() => {
 			current && current.close();
 			current = null;
 		};
-		const toDataURL = async url => {
-			return util.fetch(url)
-				.then(res => res.blob())
-				.then(blob => {
-					return new Promise((res, rej) => {
-						const reader = new FileReader();
-						reader.onload = () => res(reader.result);
-						reader.onerror = e => rej(e);
-						reader.readAsDataURL(blob);
-					});
-				})
-				.catch(() => url);
-		};
 		const storyboard = async ({info, duration}) => {
 			const result = await new StoryboardSession(info).create();
 			if (!result || !result.data || !result.data.session || !result.data.session.content_uri) {
@@ -31581,7 +31549,9 @@ const VideoSessionWorker = (() => {
 			const sbInfo = await DmcStoryboardInfoLoader.load(uri);
 			for (let board of sbInfo.storyboard) {
 				board.thumbnail.number = Math.floor(duration * 1000 / board.thumbnail.interval);
-				board.urls = await Promise.all(board.urls.map(url => toDataURL(url)));
+				board.urls = await Promise.all(
+					board.urls.map(url => fetch(url).then(r => r.arrayBuffer()).catch(() => url)
+				));
 				break; // 二番目以降は低画質
 			}
 			sbInfo.duration = duration;
@@ -31603,8 +31573,12 @@ const VideoSessionWorker = (() => {
 		};
 	};
 	let worker;
-	const create = async ({videoInfo, videoQuality, serverType, useHLS}) => {
+	const initWorker = () => {
+		if (worker) { return worker; }
 		worker = worker || workerUtil.createCrossMessageWorker(func, {name: 'VideoSessionWorker'});
+	};
+	const create = async ({videoInfo, videoQuality, serverType, useHLS}) => {
+		await initWorker();
 		const params = {
 			videoInfo: videoInfo.getData(),
 			dmcInfo: videoInfo.dmcInfo ? videoInfo.dmcInfo.getData() : null,
@@ -31632,7 +31606,7 @@ const VideoSessionWorker = (() => {
 		StoryboardCacheDb.put(watchId, sbInfo);
 		return sbInfo;
 	};
-	return {create, storyboard};
+	return {initWorker, create, storyboard};
 })();
 
   window.ZenzaLib = Object.assign(window.ZenzaLib || {}, {

@@ -1,5 +1,4 @@
 import {workerUtil} from '../../../lib/src/infra/workerUtil';
-// import {WindowResizeObserver} from '../../../lib/src/infra/Observable';
 //===BEGIN===
 
 const StoryboardWorker = (() => {
@@ -17,6 +16,7 @@ const StoryboardWorker = (() => {
       canvas.height = height;
       return canvas;
     };
+    // ArrayBuffer -> DataURL
     const a2d = async (arrayBuffer, type = 'image/jpeg') => {
       return new Promise((ok, ng) => {
         const reader = new FileReader();
@@ -25,6 +25,9 @@ const StoryboardWorker = (() => {
         reader.readAsDataURL(new Blob([arrayBuffer], {type}));
       });
     };
+    /**
+     * @param {ArrayBuffer|string} src
+     */
     const loadImage = async src => {
       try {
         if (self.createImageBitmap) {
@@ -43,33 +46,34 @@ const StoryboardWorker = (() => {
         return BLANK_IMG;
       }
     };
+
     const ImageCacheMap = new class {
       constructor() {
         this.map = new Map();
       }
-      async get(url) {
-        let cache = this.map.get(url);
+      async get(src) {
+        let cache = this.map.get(src);
         if (!cache) {
           cache = {
             ref: 0,
-            image: await loadImage(url)
+            image: await loadImage(src)
           };
         }
         cache.ref++;
         cache.updated = Date.now();
-        this.map.set(url, cache);
+        this.map.set(src, cache);
         this.gc();
         return cache.image;
       }
-      release(url) {
-        const cache = this.map.get(url);
+      release(src) {
+        const cache = this.map.get(src);
         if (!cache) {
           return;
         }
         cache.ref--;
         if (cache.ref <= 0) {
           cache.image.close && cache.image.close();
-          this.map.delete(url);
+          this.map.delete(src);
         }
       }
       async gc() {
@@ -80,10 +84,10 @@ const StoryboardWorker = (() => {
         }
         const sorted = [...map].sort((a, b) => a[1].updated - b[1].updated);
         while (map.size >= MAX) {
-          const [url] = sorted.shift();
-          const cache = map.get(url);
+          const [src] = sorted.shift();
+          const cache = map.get(src);
           cache && cache.image && cache.image.close && cache.image.close();
-          map.delete(url);
+          map.delete(src);
         }
       }
     };
@@ -214,7 +218,6 @@ const StoryboardWorker = (() => {
           col
         };
       }
-
     }
 
     class BoardView {
@@ -533,22 +536,8 @@ const StoryboardWorker = (() => {
   const NAME = 'StoryboardWorker';
 
   let worker;
-  const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
-    style = style || {};
-    ratio = ratio || window.devicePixelRatio || 1;
-    name = name || 'StoryboardThumbnail';
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      Object.assign(canvas.style, {
-        width: '100%',
-        height: '100%'
-      });
-      container && container.append(canvas);
-      style.widthPx &&  (canvas.width = Math.max(style.widthPx));
-      style.heightPx && (canvas.height = Math.max(style.heightPx));
-    }
-    canvas.dataset.name = name;
-
+  const initWorker = async () => {
+    if (worker) { return worker; }
     if (!isOffscreenCanvasAvailable) {
       if (!worker) {
         worker = {
@@ -561,6 +550,27 @@ const StoryboardWorker = (() => {
     } else {
       worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
     }
+    return worker;
+  };
+
+  const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
+    style = style || {};
+    ratio = ratio || window.devicePixelRatio || 1;
+    name = name || 'Storyboard';
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      Object.assign(canvas.style, {
+        width: '100%',
+        height: '100%'
+      });
+      container && container.append(canvas);
+      style.widthPx &&  (canvas.width = Math.max(style.widthPx));
+      style.heightPx && (canvas.height = Math.max(style.heightPx));
+    }
+    canvas.dataset.name = name;
+
+    const worker = await initWorker();
+
     const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
 
     const init = await worker.post(
@@ -607,44 +617,11 @@ const StoryboardWorker = (() => {
     return result;
   };
   return {
+    initWorker,
     createThumbnail: args => createView(args, 'thumbnail'),
     createBoard:     args => createView(args, 'board')
   };
 })();
 
-
 //===END===
 export {StoryboardWorker};
-//@require storyboardApiData
-// (() => {
-//   const ddd = document.createElement('div');
-//   const ccc = document.createElement('canvas');
-//   ddd.id = 'AAAAAAAAAAAAAAAA';
-//   Object.assign(ddd.style, {
-//     display: 'inline-block',
-//     position: 'fixed', left: 0, top: 0, zIndex: 10000, background: '#666',
-//     width: '160px', height: '120px', opacity: 0.8
-//   });
-//   Object.assign(ccc.style, {
-//     width: '100%', height: '100%'
-//   });
-//   const ratio = window.devicePixelRatio;
-//   ccc.width = 160 * ratio;
-//   ccc.height = 120 * ratio;
-//   ddd.append(ccc);
-//   document.body.append(ddd);
-//   StoryboardWorker.createThumbnail({
-//     container: ddd,
-//     canvas: ccc,
-//     info: storyboardApiData,
-//     name: 'StoryboardThumbnail',
-//     style: {
-//     }
-//   }).then(thumbnail => {
-//     thumbnail.currentTime = Math.random() * storyboardApiData.duration;
-//     ccc.addEventListener('click', () => {
-//       thumbnail.currentTime = Math.random() * storyboardApiData.duration;
-//     });
-//   });
-
-// })();

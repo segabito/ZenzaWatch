@@ -71,6 +71,7 @@ util.fullscreen = Fullscreen;
 
 
 const dummyConsole = {};
+window.console.timeLog || (window.console.timeLog = () => {});
 for (const k of Object.keys(window.console)) {
   if (typeof window.console[k] !== 'function') {continue;}
   dummyConsole[k] = _.noop;

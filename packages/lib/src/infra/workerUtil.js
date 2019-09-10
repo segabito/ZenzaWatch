@@ -340,7 +340,6 @@ const workerUtil = (() => {
       };
 
       self.ping()
-        .then(result => window.console.log('OK'))
         .catch(result => console.warn('FAIL', result));
 
       return self;

@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.5
+// @version     0.5.6
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -3053,6 +3053,7 @@ class CrossDomainGate extends Emitter {
 		return this.promise('initialize');
 	}
 	_initializeCrossDomainGate() {
+		window.console.time(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
 		const loaderFrame = document.createElement('iframe');
 		loaderFrame.referrerPolicy = 'origin';
 		loaderFrame.sandbox = 'allow-scripts allow-same-origin';
@@ -3077,7 +3078,7 @@ class CrossDomainGate extends Emitter {
 		const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 		const {id, type, token, sessionId, body} = data;
 		if (id !== PRODUCT || type !== this._type || token !== TOKEN) {
-			window.console.warn('invalid token:',
+			console.warn('invalid token:',
 				{id, PRODUCT, type, _type: this._type, token, TOKEN});
 			return;
 		}
@@ -3095,6 +3096,7 @@ class CrossDomainGate extends Emitter {
 				if (this._initializeStatus !== 'done') {
 					this._initializeStatus = 'done';
 					const originalBody = params;
+					window.console.timeEnd(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
 					const result = this._onCommand(originalBody, sessionId);
 					this.emitResolve('initialize', {status: 'ok'});
 					return result;
@@ -5646,7 +5648,6 @@ const workerUtil = (() => {
 				return name;
 			};
 			self.ping()
-				.then(result => window.console.log('OK'))
 				.catch(result => console.warn('FAIL', result));
 			return self;
 		}.bind({
@@ -5808,36 +5809,17 @@ const IndexedDbStorage = (() => {
 				});
 			}
 		};
-		const d2a = async dataUrl => fetch(dataUrl).then(r => r.arrayBuffer());
-		const a2d = async (arrayBuffer, type = 'image/jpeg') => {
-			return new Promise((ok, ng) => {
-				const reader = new FileReader();
-				reader.onload = () => ok(reader.result);
-				reader.onerror = ng;
-				reader.readAsDataURL(new Blob([arrayBuffer], {type}));
-			});
-		};
 		self.onmessage = async ({command, params}) => {
 			try {
 			switch (command) {
 				case 'init':
 					await controller[command](params);
 					return 'ok';
-				case 'put': {
-					const {name, storeName, data} = params;
-					if (data.dataUrls) { // dataURLのままだと肥大化するのでArrayBufferにする
-						data.dataUrls = await Promise.all(data.dataUrls.map(url => d2a(url)));
-					}
-					return controller.put({name, storeName, data});
-				}
+				case 'put':
+					return controller.put(params);
 				case 'updateTime':
-				case 'get': {
-					const data = await controller[command](params);
-					if (data && data.dataUrls) {
-						data.dataUrls = await Promise.all(data.dataUrls.map(url => a2d(url)));
-					}
-					return data;
-				}
+				case 'get':
+					return controller[command](params);
 				default:
 					return controller[command](params) || 'ok';
 				}

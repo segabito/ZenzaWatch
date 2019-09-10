@@ -1,7 +1,4 @@
-import {textUtil} from '../text/textUtil';
 import {CrossDomainGate} from '../infra/CrossDomainGate';
-import {WindowMessageEmitter} from '../message/messageUtil';
-import {CacheStorage} from '../infra/CacheStorage';
 import {parseThumbInfo} from './parseThumbInfo';
 //===BEGIN===
 const ThumbInfoLoader = (() => {
@@ -9,8 +6,8 @@ const ThumbInfoLoader = (() => {
   const MESSAGE_ORIGIN = 'https://ext.nicovideo.jp/';
   let gate = null;
 
-  const initialize = () => {
-    if (gate) { return; }
+  const initGate = () => {
+    if (gate) { return gate; }
     gate = new CrossDomainGate({
       baseUrl: BASE_URL,
       origin: MESSAGE_ORIGIN,
@@ -19,11 +16,9 @@ const ThumbInfoLoader = (() => {
   };
 
   const load = async watchId =>  {
-    initialize();
+    initGate();
 
-    const thumbInfo = await gate
-      .fetch(
-        `${BASE_URL}api/getthumbinfo/${watchId}`,
+    const thumbInfo = await gate.fetch(`${BASE_URL}api/getthumbinfo/${watchId}`,
         {_format: 'text', expireTime: 24 * 60 * 60 * 1000})
         .catch(e => { return {status: 'fail', message: e.message || `gate.fetch('${watchId}') failed` }; });
 
@@ -33,7 +28,7 @@ const ThumbInfoLoader = (() => {
     return thumbInfo;
   };
 
-  return {load};
+  return {initGate, load};
 })();
 
 //===END===

@@ -17,6 +17,12 @@ import {HoverMenu} from '../packages/zenza/src/menu/HoverMenu';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {replaceRedirectLinks} from '../packages/zenza/src/init/replaceRedirectLinks';
 import {cssUtil} from '../packages/lib/src/css/css';
+// import {ThumbInfoLoader} from '../packages/lib/src/nico/ThumbInfoLoader';
+import {StoryboardWorker} from '../packages/zenza/src/storyboard/StoryboardWorker';
+import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
+import {StoryboardCacheDb} from '../packages/lib/src/nico/StoryboardCacheDb';
+import {CommentLayoutWorker} from '../packages/zenza/src/commentLayer/CommentLayoutWorker';
+import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 const START_PAGE_QUERY = 'hoge=fuga';
 
 //===BEGIN===
@@ -38,16 +44,33 @@ const {initialize} = (() => {
     return false;
   };
 
+  const initWorker = () => {
+    // 動画ロード直後に初期化するとつっかかる原因になるのでWorkerだけ作っておく
+    if (!location.host.endsWith('.nicovideo.jp')) { return; }
+    CommentLayoutWorker.getInstance();
+    window.console.time('init Workers');
+    return Promise.all([
+      StoryboardWorker.initWorker(),
+      VideoSessionWorker.initWorker(),
+      StoryboardCacheDb.initWorker(),
+      WatchInfoCacheDb.initWorker()
+    ]).then(() => window.console.timeEnd('init Workers'));
+  };
+
+  const initCssProps = () => {
+    cssUtil.registerProps(
+      {name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+      {name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
+      {name: '--width-pp',   syntax: '<length-percentage>', initialValue: '0px', inherits: true},
+      {name: '--height-pp',  syntax: '<length-percentage>', initialValue: '0px', inherits: true}
+    );
+  };
+
 //@require replaceRedirectLinks
 
   const initialize = async function (){
     window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
-    cssUtil.registerProps(
-      {name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
-      {name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
-      {name: '--width-pp',  syntax: '<length-percentage>', initialValue: '0px',    inherits: true},
-      {name: '--height-pp', syntax: '<length-percentage>', initialValue: '0px',    inherits: true}
-    );
+    initCssProps();
 
     util.dispatchCustomEvent(
       document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});
@@ -64,7 +87,7 @@ const {initialize} = (() => {
 
     const hoverMenu = global.debug.hoverMenu = new HoverMenu({playerConfig: Config});
 
-    await NicoComment.offscreenLayer.get(Config);
+    await Promise.all([NicoComment.offscreenLayer.get(Config), initWorker()]);
 
     const dialog = initializeDialogPlayer(Config);
     hoverMenu.setPlayer(dialog);

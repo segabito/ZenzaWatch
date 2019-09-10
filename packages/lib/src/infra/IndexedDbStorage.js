@@ -157,17 +157,6 @@ const IndexedDbStorage = (() => {
       }
 
     };
-    // dataURL -> ArrayBuffer
-    const d2a = async dataUrl => fetch(dataUrl).then(r => r.arrayBuffer());
-    // ArrayBuffer -> dataURL
-    const a2d = async (arrayBuffer, type = 'image/jpeg') => {
-      return new Promise((ok, ng) => {
-        const reader = new FileReader();
-        reader.onload = () => ok(reader.result);
-        reader.onerror = ng;
-        reader.readAsDataURL(new Blob([arrayBuffer], {type}));
-      });
-    };
 
     self.onmessage = async ({command, params}) => {
       try {
@@ -175,21 +164,11 @@ const IndexedDbStorage = (() => {
         case 'init':
           await controller[command](params);
           return 'ok';
-        case 'put': {
-          const {name, storeName, data} = params;
-          if (data.dataUrls) { // dataURLのままだと肥大化するのでArrayBufferにする
-            data.dataUrls = await Promise.all(data.dataUrls.map(url => d2a(url)));
-          }
-          return controller.put({name, storeName, data});
-        }
+        case 'put':
+          return controller.put(params);
         case 'updateTime':
-        case 'get': {
-          const data = await controller[command](params);
-          if (data && data.dataUrls) {
-            data.dataUrls = await Promise.all(data.dataUrls.map(url => a2d(url)));
-          }
-          return data;
-        }
+        case 'get':
+          return controller[command](params);
         default:
           return controller[command](params) || 'ok';
         }

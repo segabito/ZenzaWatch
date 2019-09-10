@@ -23,7 +23,8 @@ const WatchInfoCacheDb = (() => {
   };
 
   let db, instance, NicoVideoApi;
-  const init = async () => {
+  const initWorker = async () => {
+    if (db) { return db; }
     if (location.host === 'www.nicovideo.jp') {
       db = db || await IndexedDbStorage.open(WATCH_INFO);
     } else {
@@ -34,7 +35,7 @@ const WatchInfoCacheDb = (() => {
 
   const open = async () => {
     if (instance) { return instance; }
-    await init();
+    await initWorker();
     const cacheDb = db['cache'];
     return instance = {
       async put(watchId, options = {}) {
@@ -93,7 +94,7 @@ const WatchInfoCacheDb = (() => {
   const gc = (expireTime) => open().then(db => db.gc(expireTime));
   const api = api => NicoVideoApi = api;
 
-  return {open, put, get, delete: del, close, gc, api};
+  return {initWorker, open, put, get, delete: del, close, gc, api};
 })();
 //===END===
 export {WatchInfoCacheDb};

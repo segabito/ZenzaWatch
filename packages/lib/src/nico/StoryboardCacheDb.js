@@ -5,7 +5,7 @@ import {NicoVideoApi} from '../../../../src/loader/api';
 const StoryboardCacheDb = (() => {
   const WATCH_INFO = {
     name: 'storyboard',
-    ver: 1,
+    ver: 2,
     stores: [
       {
         name: 'cache',
@@ -18,7 +18,8 @@ const StoryboardCacheDb = (() => {
   };
 
   let db, instance, NicoVideoApi;
-  const init = async () => {
+  const initWorker = async () => {
+    if (db) { return db; }
     if (location.host === 'www.nicovideo.jp') {
       db = db || await IndexedDbStorage.open(WATCH_INFO);
     } else {
@@ -29,33 +30,18 @@ const StoryboardCacheDb = (() => {
 
   const open = async () => {
     if (instance) { return instance; }
-    await init();
+    await initWorker();
     const cacheDb = db['cache'];
     instance = {
       async put(watchId, sbInfo = {}) {
-        const dataUrls = [];
         if (sbInfo.status !== 'ok') {
           console.warn('invalid sbInfo', watchId, sbInfo);
-          return;
-        }
-        sbInfo = {...sbInfo};
-        sbInfo.storyboard = (sbInfo.storyboard || []).concat().map(sb => {
-          sb = {...sb};
-          sb.urls = sb.urls.map(url => {
-            if (!url.startsWith('data:')) { return url; }
-            dataUrls.push(url);
-            return dataUrls.length - 1;
-          });
-          return sb;
-        });
-        if (!dataUrls.length) {
           return;
         }
         const record = {
           watchId,
           updatedAt: Date.now(),
-          sbInfo,
-          dataUrls
+          sbInfo
         };
         cacheDb.put(record);
         return record;
@@ -63,14 +49,7 @@ const StoryboardCacheDb = (() => {
       async get(watchId) {
         const record = await cacheDb.updateTime({key: watchId});
         if (!record) { return null; }
-        const {sbInfo, dataUrls} = record;
-        (sbInfo.storyboard || []).forEach(sb => {
-          sb.urls = sb.urls.map(url => {
-            if (typeof url === 'string') { return url; }
-            return dataUrls[url];
-          });
-        });
-        return sbInfo;
+        return record.sbInfo;
       },
       delete(watchId) { return cacheDb.delete({key: watchId}); },
       close() { return cacheDb.close(); },
@@ -86,7 +65,7 @@ const StoryboardCacheDb = (() => {
   const gc = (expireTime = 24 * 60 * 60 * 1000) => open().then(db => db.gc(expireTime));
   const api = api => NicoVideoApi = api;
 
-  return {open, put, get, delete: del, close, gc, db, api};
+  return {initWorker, open, put, get, delete: del, close, gc, db, api};
 })();
 //===END===
 export {StoryboardCacheDb};

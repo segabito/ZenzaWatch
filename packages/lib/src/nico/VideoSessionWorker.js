@@ -653,20 +653,6 @@ const VideoSessionWorker = (() => {
       current = null;
     };
 
-    const toDataURL = async url => {
-      return util.fetch(url)
-        .then(res => res.blob())
-        .then(blob => {
-          return new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onload = () => res(reader.result);
-            reader.onerror = e => rej(e);
-            reader.readAsDataURL(blob);
-          });
-        })
-        .catch(() => url);
-    };
-
     const storyboard = async ({info, duration}) => {
       const result = await new StoryboardSession(info).create();
       if (!result || !result.data || !result.data.session || !result.data.session.content_uri) {
@@ -676,7 +662,9 @@ const VideoSessionWorker = (() => {
       const sbInfo = await DmcStoryboardInfoLoader.load(uri);
       for (let board of sbInfo.storyboard) {
         board.thumbnail.number = Math.floor(duration * 1000 / board.thumbnail.interval);
-        board.urls = await Promise.all(board.urls.map(url => toDataURL(url)));
+        board.urls = await Promise.all(
+          board.urls.map(url => fetch(url).then(r => r.arrayBuffer()).catch(() => url)
+        ));
         break; // 二番目以降は低画質
       }
       sbInfo.duration = duration;
@@ -700,9 +688,12 @@ const VideoSessionWorker = (() => {
   };
 
   let worker;
-
-  const create = async ({videoInfo, videoQuality, serverType, useHLS}) => {
+  const initWorker = () => {
+    if (worker) { return worker; }
     worker = worker || workerUtil.createCrossMessageWorker(func, {name: 'VideoSessionWorker'});
+  };
+  const create = async ({videoInfo, videoQuality, serverType, useHLS}) => {
+    await initWorker();
     const params = {
       videoInfo: videoInfo.getData(),
       dmcInfo: videoInfo.dmcInfo ? videoInfo.dmcInfo.getData() : null,
@@ -732,7 +723,7 @@ const VideoSessionWorker = (() => {
     return sbInfo;
   };
 
-  return {create, storyboard};
+  return {initWorker, create, storyboard};
 })();
 
 //===END===
