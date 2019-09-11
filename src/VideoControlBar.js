@@ -122,7 +122,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._commentPreview = new CommentPreview({
         $container: this._$seekBarContainer
       });
-      let updateEnableCommentPreview = v => {
+      const updateEnableCommentPreview = v => {
         this._$seekBarContainer.toggleClass('enableCommentPreview', v);
         this._commentPreview.mode = v ? 'list' : 'hover';
       };
@@ -162,13 +162,13 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._width = window.innerWidth;
     }
     _initializePlaybackRateSelectMenu() {
-      let config = this._playerConfig;
-      let $btn  = this._$playbackRateMenu;
-      let [label] = $btn.find('.controlButtonInner');
-      let $menu = this._$playbackRateSelectMenu;
+      const config = this._playerConfig;
+      const $btn  = this._$playbackRateMenu;
+      const [label] = $btn.find('.controlButtonInner');
+      const $menu = this._$playbackRateSelectMenu;
       const $rates = $menu.find('.playbackRate');
 
-      let updatePlaybackRate = rate => {
+      const updatePlaybackRate = rate => {
         label.textContent = `x${rate}`;
         $menu.find('.selected').removeClass('selected');
         let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
@@ -254,7 +254,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
     _onClick(e) {
       e.preventDefault();
 
-      let target = e.target.closest('[data-command]');
+      const target = e.target.closest('[data-command]');
       if (!target) {
         return;
       }
@@ -291,7 +291,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this.resetBufferedRange();
     }
     _onPlayerCanPlay(watchId, videoInfo) {
-      let duration = this._player.getDuration();
+      const duration = this._player.duration;
       this.duration = duration;
       this._storyboard.onVideoCanPlay(watchId, videoInfo);
 
@@ -322,14 +322,9 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._timerCount = 0;
       this._raf = this._raf || new RequestAnimationFrame(this._onTimer.bind(this));
       this._raf.enable();
-      // this._timer = window.setInterval(this._onTimer.bind(this), 100);
     }
     _stopTimer() {
       this._raf && this._raf.disable();
-      // if (this._timer) {
-      //   window.clearInterval(this._timer);
-      //   this._timer = null;
-      // }
     }
     _onSeekRangeInput(e) {
       const sec = e.target.value * 1;
@@ -361,8 +356,8 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
         return;
       }
       sec = sec * 1;
-      let dur = this._duration;
-      let left = sec / dur * window.innerWidth;
+      const dur = this._duration;
+      const left = sec / dur * window.innerWidth;
       this._seekBarMouseX = left;
 
       this._commentPreview.currentTime = sec;
@@ -1656,11 +1651,10 @@ util.addStyle(`
       this.emit('reset');
     }
     set chatList(chatList) {
-      let list = chatList.top.concat(chatList.naka, chatList.bottom);
-      list.sort((a, b) => {
-        let av = a.vpos, bv = b.vpos;
-        return av - bv;
-      });
+      const list = chatList
+        .top
+        .concat(chatList.naka, chatList.bottom)
+        .sort((a, b) => a.vpos - b.vpos);
 
       this._chatList = list;
       this._chatReady = true;
@@ -1685,9 +1679,10 @@ util.addStyle(`
       return this.getVposIndex(this._vpos);
     }
     getVposIndex(vpos) {
-      let list = this._chatList;
+      const list = this._chatList;
+      if (!list) { return -1; }
       for (let i = list.length - 1; i >= 0; i--) {
-        let chat = list[i], cv = chat.vpos;
+        const chat = list[i], cv = chat.vpos;
         if (cv <= vpos - 400) {
           return i + 1;
         }
@@ -1701,10 +1696,10 @@ util.addStyle(`
       return this.getItemByVpos(this._vpos);
     }
     getItemByVpos(vpos) {
-      let list = this._chatList;
-      let result = [];
+      const list = this._chatList;
+      const result = [];
       for (let i = 0, len = list.length; i < len; i++) {
-        let chat = list[i], cv = chat.vpos, diff = vpos - cv;
+        const chat = list[i], cv = chat.vpos, diff = vpos - cv;
         if (diff >= -100 && diff <= 400) {
           result.push(chat);
         }
@@ -1721,7 +1716,7 @@ util.addStyle(`
 
   class CommentPreviewView {
     constructor(params) {
-      let model = this._model = params.model;
+      const model = this._model = params.model;
       this._$parent = params.$container;
 
       this._inviewTable = new Map;
@@ -1734,12 +1729,13 @@ util.addStyle(`
 
       this._mode = 'hover';
 
+      this._left = 0;
       this.update = _.throttle(this.update.bind(this), 200);
-      this._applyView = bounce.raf(this._applyView.bind(this));
+      this.applyView = bounce.raf(this.applyView.bind(this));
     }
     _initializeDom($parent) {
-      let $view = util.$.html(CommentPreviewView.__tpl__);
-      let view = this._view = $view[0];
+      const $view = util.$.html(CommentPreviewView.__tpl__);
+      const view = this._view = $view[0];
       this._list = view.querySelector('.listContainer');
       $view.on('click', this._onClick.bind(this))
         .on('wheel', e => e.stopPropagation(), {passive: true})
@@ -1747,10 +1743,6 @@ util.addStyle(`
         _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
       cssUtil.registerProps(
-        {name: '--current-time', syntax: '<time>',   initialValue: '1s', inherits: true},
-        {name: '--scroll-top',   syntax: '<length>', initialValue: '0px',inherits: true},
-        {name: '--vpos-time',    syntax: '<time>',   initialValue: '1s', inherits: true},
-        {name: '--duration',     syntax: '<time>',   initialValue: '4s', inherits: true},
         {name: '--buffer-range-left', syntax: '<percentage>', initialValue: '0%',inherits: false},
         {name: '--buffer-range-scale', syntax: '<number>', initialValue: 0, inherits: false},
       );
@@ -1768,12 +1760,12 @@ util.addStyle(`
     }
     _onClick(e) {
       e.stopPropagation();
-      let target = e.target.closest('[data-command]');
-      let view = this._view;
-      let command = target ? target.dataset.command : '';
-      let nicoChatElement = e.target.closest('.nicoChat');
-      let uniqNo = parseInt(nicoChatElement.dataset.nicochatUniqNo, 10);
-      let nicoChat  = this._model.getItemByUniqNo(uniqNo);
+      const target = e.target.closest('[data-command]');
+      const view = this._view;
+      const command = target ? target.dataset.command : '';
+      const nicoChatElement = e.target.closest('.nicoChat');
+      const uniqNo = parseInt(nicoChatElement.dataset.nicochatUniqNo, 10);
+      const nicoChat  = this._model.getItemByUniqNo(uniqNo);
 
       if (command && nicoChat) {
         view.classList.add('is-updating');
@@ -1793,17 +1785,17 @@ util.addStyle(`
         }
         return;
       }
-      let vpos = nicoChatElement.dataset.vpos;
+      const vpos = nicoChatElement.dataset.vpos;
       if (vpos !== undefined) {
         util.dispatchCommand(e.target, 'seek', vpos / 100);
       }
     }
     _onUpdate() {
-      this._updateList();
+      this.updateList();
     }
     _onVpos(vpos) {
-      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      let index = this._currentStartIndex = Math.max(0, this._model.currentIndex);
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      const index = this._currentStartIndex = Math.max(0, this._model.currentIndex);
       this._currentEndIndex = Math.max(0, this._model.getVposIndex(vpos + 400));
       this._scrollTop = itemHeight * index;
       this._currentTime = vpos / 100;
@@ -1823,44 +1815,42 @@ util.addStyle(`
       this._newListElements = null;
       this._chatList = [];
     }
-    _updateList() {
-      let chatList = this._chatList = this._model.chatList;
+    updateList() {
+      const chatList = this._chatList = this._model.chatList;
       if (!chatList.length) {
-        // this.hide();
         this._isListUpdated = false;
         return;
       }
 
-      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
       this._list.style.height = `${(chatList.length + 2) * itemHeight}px`;
       this._isListUpdated = false;
     }
     _refreshInviewElements(scrollTop) {
       if (!this._view) { return; }
-      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
       scrollTop = _.isNumber(scrollTop) ? scrollTop : this._view.scrollTop;
 
-      let viewHeight = CommentPreviewView.MAX_HEIGHT;
-      let viewBottom = scrollTop + viewHeight;
-      let chatList = this._chatList;
+      const viewHeight = CommentPreviewView.MAX_HEIGHT;
+      const viewBottom = scrollTop + viewHeight;
+      const chatList = this._chatList;
       if (!chatList || chatList.length < 1) { return; }
-      let startIndex =
+      const startIndex =
         this._mode === 'list' ?
           Math.max(0, Math.floor(scrollTop / itemHeight) - 5) :
           this._currentStartIndex;
-      let endIndex   =
+          const endIndex   =
         this._mode === 'list' ?
           Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5) :
           Math.min(this._currentEndIndex, this._currentStartIndex + 15);
-      let i;
 
-      let newItems = [], inviewTable = this._inviewTable;
-      for (i = startIndex; i < endIndex; i++) {
-        let chat = chatList[i];
+      const newItems = [], inviewTable = this._inviewTable;
+      for (let i = startIndex; i < endIndex; i++) {
+        const chat = chatList[i];
         if (inviewTable.has(i) || !chat) { continue; }
-        let listItem = CommentPreviewChatItem.create(chat, i);
+        const listItem = CommentPreviewChatItem.create(chat, i);
         newItems.push(listItem);
         inviewTable.set(i, listItem);
       }
@@ -1876,40 +1866,40 @@ util.addStyle(`
       this._newListElements = this._newListElements || document.createDocumentFragment();
       this._newListElements.append(...newItems);
 
-      this._applyView();
+      this.applyView();
     }
-    _isEmpty() {
+    get isEmpty() {
       return this._chatList.length < 1;
     }
     update(left) {
       if (this._isListUpdated) {
-        this._updateList();
+        this.updateList();
       }
-      if (this._isEmpty()) {
+      if (this.isEmpty) {
         return;
       }
-      let width = this._mode === 'list' ?
+      const width = this._mode === 'list' ?
         CommentPreviewView.WIDTH : CommentPreviewView.HOVER_WIDTH;
-      let containerWidth = window.innerWidth;
+      const containerWidth = window.innerWidth;
 
       left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
       this._left = left;
-      this._applyView();
+      this.applyView();
     }
-    _applyView() {
-      let view = this._view;
-      view.style.setProperty('--current-time', cssUtil.s(this._currentTime));
-      view.style.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
-      if (this._newListElements) {
+    applyView() {
+      const view = this._view;
+      const vs = view.style;
+      vs.setProperty('--current-time', cssUtil.s(this._currentTime));
+      vs.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
+      vs.setProperty('--trans-x-pp', cssUtil.px(this._left));
+      if (this._newListElements && this._newListElements.childElementCount) {
         this._list.append(this._newListElements);
-        this._newListElements = null;
       }
       if (this._scrollTop > 0 && this._mode === 'list') {
         this._view.scrollTop = this._scrollTop;
         this._scrollTop = -1;
       }
 
-      view.style.transform = `translate3d(${this._left}px, 0, 0)`;
     }
     hide() {
     }
@@ -1935,8 +1925,7 @@ util.addStyle(`
         const t = document.createElement('template');
         t.id = `${this.name}_${Date.now()}`;
         t.innerHTML = this.html;
-        let content = t.content;
-        // document.body.append(t);
+        const content = t.content;
         this._template = {
           clone: () => document.importNode(t.content, true),
           chat: content.querySelector('.nicoChat'),
@@ -1951,19 +1940,19 @@ util.addStyle(`
      * @param {NicoChatViewModel} chat
      */
     static create(chat, idx) {
-      let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      let text = chat.text;
-      let date = (new Date(chat.date * 1000)).toLocaleString();
-      let vpos = chat.vpos;
-      let no = chat.no;
-      let uniqNo = chat.uniqNo;
-      let oe = idx % 2 === 0 ? 'even' : 'odd';
-      let title = `${no} : 投稿日 ${date}\nID:${chat.userId}\n${text}\n`;
-      let color = chat.color || '#fff';
-      let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      const text = chat.text;
+      const date = (new Date(chat.date * 1000)).toLocaleString();
+      const vpos = chat.vpos;
+      const no = chat.no;
+      const uniqNo = chat.uniqNo;
+      const oe = idx % 2 === 0 ? 'even' : 'odd';
+      const title = `${no} : 投稿日 ${date}\nID:${chat.userId}\n${text}\n`;
+      const color = chat.color || '#fff';
+      const shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
 
-      let vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
-      let t = this.template;
+      const vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
+      const t = this.template;
       t.chat.className = `nicoChat fork${chat.fork} ${oe}`;
       t.chat.id = `commentPreviewItem${idx}`;
       t.chat.dataset.vpos = vpos;
@@ -2002,8 +1991,9 @@ util.addStyle(`
     box-sizing: border-box;
     color: #ccc;
     overflow: hidden;
-    transform: translate3d(0, 0, 0);
-    transition: transform 0.2s;
+    transform: translate(var(--trans-x-pp), 0);
+    transition: --trans-x-pp 0.2s;
+    will-change: transform;
   }
   .zenzaCommentPreview * {
     box-sizing: border-box;
@@ -2250,7 +2240,7 @@ util.addStyle(`
     }
     _initializeDom($container) {
       util.addStyle(SeekBarToolTip.__css__);
-      let $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
+      const $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
 
       this._currentTime = $view.find('.currentTime')[0];
       TextLabel.create({
@@ -2280,18 +2270,15 @@ util.addStyle(`
     }
     _onMouseDown(e) {
       e.stopPropagation();
-      let target = e.target.closest('[data-command]');
+      const target = e.target.closest('[data-command]');
       if (!target) {
         return;
       }
-      let command = target.dataset.command;
+      const {command, param, repeat} = target.dataset;
       if (!command) { return; }
 
-      let param   = target.dataset.param;
-      let repeat  = target.dataset.repeat === 'on';
-
       util.dispatchCommand(e.target, command, param);
-      if (repeat) {
+      if (repeat === 'on') {
         this._beginRepeat(command, param);
       }
     }
@@ -2303,8 +2290,11 @@ util.addStyle(`
       this._repeatCommand = command;
       this._repeatParam   = param;
 
-      util.$('body').on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
-      this._$view.on('mouseleave', this._boundOnMouseUp).on('mouseup', this._boundOnMouseUp);
+      util.$('body')
+        .on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
+      this._$view
+        .on('mouseleave', this._boundOnMouseUp)
+        .on('mouseup', this._boundOnMouseUp);
       if (this._repeatTimer) {
         window.clearInterval(this._repeatTimer);
       }
@@ -2335,18 +2325,14 @@ util.addStyle(`
       const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
       const vw = window.innerWidth;
       left = Math.max(0, Math.min(left - w / 2, vw - w));
-      this._$view[0].style.setProperty('--seekbar-tooltip-left', cssUtil.px(left));
-      this._seekBarThumbnail.currentTime=sec;
+      this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
+      this._seekBarThumbnail.currentTime = sec;
     }
   }
-  cssUtil.registerProps(
-    {name: '--seekbar-tooltip-left',   syntax: '<length>', initialValue: '0px', inherits: false}
-  );
 
 
   SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
-      --seekbar-tooltip-left: 0px;
       position: absolute;
       display: inline-block;
       visibility: hidden;
@@ -2364,8 +2350,8 @@ util.addStyle(`
       border: 1px solid #666;
       border-radius: 8px;
       padding: 8px 4px 0;
-      transform: translate3d(var(--seekbar-tooltip-left), 0, 10px);
-      transition: --seekbar-tooltip-left 0.1s, opacity 0.2s ease 0.5s;
+      transform: translate3d(var(--trans-x-pp), 0, 10px);
+      transition: --trans-x-pp 0.1s, opacity 0.2s ease 0.5s;
       pointer-events: none;
     }
 
@@ -2397,12 +2383,6 @@ util.addStyle(`
       display: inline-block;
       height: 16px;
       margin: 4px 0;
-      /*padding: 0 8px;*/
-      /*color: #ccc;
-      text-align: center;
-      font-size: 12px;
-      line-height: 16px;*/
-      /*text-shadow: 0 0 2px #000;*/
     }
 
     .seekBarToolTip .controlButton {
@@ -2495,6 +2475,17 @@ util.addStyle(`
         this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
       }
       if (document.hidden) { return; }
+      if (this._currentTime === v) {
+        if (this.isPlaying) {
+          this._animation.currentTime = v;
+          this.isStalled = true;
+          return;
+        }
+      } else {
+        if (this.isStalled) {
+          this.isStalled = false;
+        }
+      }
       this._currentTime = v;
 
       // 誤差が一定以上になったときのみ補正する
@@ -2502,7 +2493,6 @@ util.addStyle(`
       if (this._animation &&
         Math.abs(v * 1000 - this._animation.currentTime) > 500) {
         this._animation.currentTime = v * 1000;
-        // window.console.info('refreshed!', v*1000, this._animation.currentTime);
       }
     }
     _timeToPer(time) {
@@ -2560,9 +2550,9 @@ util.addStyle(`
         this._animation.finish();
       }
       this._animation = this._pointer.animate([
-        {transform: 'translate3d(-6px, -50%, 0) translate3d(0, 0, 0)'},
-        {transform: 'translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0)'}
-      ], {duration: this._duration * 1000});
+        {transform: 'translate(-6px, -50%)'},
+        {transform: 'translate(-6px, -50%) translate(100vw, 0)'}
+      ], {duration: this._duration * 1000, fill: 'backwards'});
       this._animation.currentTime = this._currentTime * 1000;
       this._animation.playbackRate = this._playbackRate;
       if (!this._isPausing) {
@@ -2576,82 +2566,7 @@ util.addStyle(`
     static get template() {
       return `
         <div class="root" style="display: none;">
-          <style>
-            .back {
-              content: '';
-              display: block;
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              width: 100vw;
-              height: 100vh;
-              user-select: none;
-              will-change: transform;
-              z-index: 1000000;
-              pointer-events: auto;
-            }
-
-            .pointer {
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              width: 100%;
-              height: 0;
-              background: transparent;
-              pointer-events: none;
-              user-select: none;
-              transition: transform 0.1s ease;
-              will-change: transform;
-              z-index: 1000000;
-              opacity: 0.5;
-            }
-
-            .pointer-core {
-              position: absolute;
-              bottom: 64px;
-              color: rgba(255, 0, 0, 0.5);
-              background: transparent;
-              font-size: 48px;
-              transform:
-                translateX(-50%)
-                perspective(500px)
-                scale(1, 1.5)
-                rotateX(20deg)
-                rotateY(70deg)
-                ;
-              animation-name: pointer-rotation;
-              animation-duration: 1s;
-              animation-iteration-count: infinite;
-              animation-timing-function: linear;
-            }
-
-            @keyframes pointer-rotation {
-              0% {
-              transform:
-                translateX(-50%)
-                perspective(500px)
-                scale(1, 1.5)
-                rotateX(20deg)
-                rotateY(0deg)
-                ;
-              }
-              100% {
-              transform:
-                translateX(-50%)
-                perspective(500px)
-                scale(1, 1.5)
-                rotateX(20deg)
-                rotateY(360deg)
-                ;
-              }
-            }
-
-          </style>
-          <div class="pointer">
-            <!--<div class="pointer-core">▼</div>-->
-          </div>
-          <div class="back"></div>
-          </div>
+        </div>
       `;
     }
 
@@ -2683,16 +2598,12 @@ util.addStyle(`
 
       this._elm = Object.assign({}, this._elm, {
         root: this._shadow || this._view,
-        pointer: (this._shadow || this._view).querySelector('.pointer')
+        // pointer: (this._shadow || this._view).querySelector('.pointer')
       });
       this._shadow.addEventListener('contextmenu', e => {
         e.stopPropagation();
         e.preventDefault();
       });
-      // this._shadow.addEventListener('mouseup', e => {
-      //   e.stopPropagation();
-      //   this.onMouseUp(e);
-      // });
     }
 
     enable() {
@@ -2729,9 +2640,9 @@ util.addStyle(`
         }
         let pos = this._props.pos;
         let ax = this._props.ax;
-        let deltaReversed = ax * deltaY < 0 ;//lastDelta * deltaY < 0;
-        let now = performance.now();
-        let seconds = ((now - this._props.lastWheelTime) / 1000);
+        const deltaReversed = ax * deltaY < 0 ;//lastDelta * deltaY < 0;
+        const now = performance.now();
+        const seconds = ((now - this._props.lastWheelTime) / 1000);
         this._props.lastWheelTime = now;
         if (deltaReversed) {
           ax = deltaY > 0 ? 0.5 : -0.5;
@@ -2758,11 +2669,10 @@ util.addStyle(`
     }
 
     onMouseUp(e) {
-      if (this.isActive) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.disable();
-      }
+      if (!this.isActive) { return; }
+      e.preventDefault();
+      e.stopPropagation();
+      this.disable();
     }
 
     dispatchSeek() {
@@ -2770,8 +2680,7 @@ util.addStyle(`
     }
 
     refresh() {
-      // window.console.log('refresh', `translateX(${this._props.pos}%)`);
-      this._elm.pointer.style.transform = `translateX(${this._props.pos}%)`;
+      // this._elm.pointer.style.transform = `translateX(${this._props.pos}%)`;
     }
 
     get isActive() {

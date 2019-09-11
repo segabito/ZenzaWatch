@@ -293,7 +293,7 @@ const VideoListItemView = (() => {
         padding: 2px;
         transition:
           transform 0.4s ease, box-shadow 0.4s ease;
-        contain: layout size;
+        contain: layout size paint;
       }
 
       .playlist .videoItem {

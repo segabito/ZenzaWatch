@@ -681,7 +681,8 @@ class NicoVideoPlayerDialogView extends Emitter {
     return this._videoInfoPanel.appendTab(name, title);
   }
   selectTab(name) {
-    this._playerConfig.setValue('videoInfoPanelTab', name);
+    this._playerConfig.props.videoInfoPanelTab = name;
+    this._state.currentTab = name;
     this._videoInfoPanel.selectTab(name);
     global.emitter.emit('tabChange', name);
   }
@@ -2350,6 +2351,7 @@ class NicoVideoPlayerDialog extends Emitter {
     this.emit('seeked');
   }
   _onVideoPause() {
+    this._state.setPausing();
     this._savePlaybackPosition(this._videoInfo.contextWatchId, this.currentTime);
     this.emit('pause');
   }
@@ -2388,9 +2390,7 @@ class NicoVideoPlayerDialog extends Emitter {
     const code = (e && e.target && e.target.error && e.target.error.code) || 0;
     window.console.error('VideoError!', code, e, (e.target && e.target.error), {isDeleted, isAbnormallyClosed});
 
-    if (this._state.isPausing && isDeleted) {
-      this._setErrorMessage(`停止中に動画のセッションが切断されました。(code:${code})`);
-    } else if (Date.now() - this._lastOpenAt > 3 * 60 * 1000 && isDeleted && !isAbnormallyClosed) {
+    if (Date.now() - this._lastOpenAt > 3 * 60 * 1000 && isDeleted && !isAbnormallyClosed) {
 
       if (videoWatchOptions.reloadCount < 5) {
         retry();
@@ -2458,7 +2458,7 @@ class NicoVideoPlayerDialog extends Emitter {
     if (!vi) {
       return;
     }
-    const dr = this.getDuration();
+    const dr = this.duration;
     console.info('%csave PlaybackPosition:', 'background: cyan', ct, dr, vi.csrfToken);
     if (vi.contextWatchId !== contextWatchId) {
       return;
@@ -2516,7 +2516,7 @@ class NicoVideoPlayerDialog extends Emitter {
     if (this._commentPanel) {
       return;
     }
-    let $container = this._view.appendTab('comment', 'コメント');
+    const $container = this._view.appendTab('comment', 'コメント');
     this._commentPanel = new CommentPanel({
       player: this,
       $container: $container,
@@ -2566,6 +2566,9 @@ class NicoVideoPlayerDialog extends Emitter {
   }
   get isPlaying() {
     return this._state.isPlaying;
+  }
+  get isPaused() {
+    return this._nicoVideoPlayer ? this._nicoVideoPlayer.isPaused : true;
   }
   togglePlay() {
     if (!this._state.isError && this._nicoVideoPlayer) {
@@ -2672,6 +2675,9 @@ class NicoVideoPlayerDialog extends Emitter {
   get watchId() {
     return this._watchId;
   }
+  get currentTab() {
+    return this._state.currentTab;
+  }
   getId() { return this.id; }
   getDuration() { return this.duration; }
   getBufferedRange() { return this.bufferedRange; }
@@ -2765,7 +2771,7 @@ class VideoHoverMenu {
     const enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
     const updateEnableFilter = v => {
       enableFilterItems.forEach(item => {
-        const p = JSON.parse(item.getAttribute('data-param'));
+        const p = JSON.parse(item.dataset.param);
         item.classList.toggle('selected', v === p);
       });
       menu.classList.toggle('is-enableFilter', v);
@@ -2800,14 +2806,13 @@ class VideoHoverMenu {
         break;
       case 'mylistAdd': {
         command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
-        let mylistId = target.dataset.mylistId;
-        let mylistName = target.dataset.mylistName;
+        const {mylistId, mylistName} = target.dataset;
         this._hideMenu();
         util.dispatchCommand(target, command, {mylistId, mylistName});
         break;
       }
       case 'mylistOpen': {
-        let mylistId = target.dataset.mylistId;
+        const mylistId = target.dataset.mylistId;
         location.href = `https://www.nicovideo.jp/my/mylist/#/${mylistId}`;
         break;
       }

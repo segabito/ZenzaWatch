@@ -166,7 +166,7 @@ class PlayerState extends BaseState {
 
   setVideoCanPlay() {
     this.setState({
-      isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true, isError: false, isSeeking: false
+      isStalled: false, isLoading: false, isPausing: true, isNotPlayed: true, isError: false, isSeeking: false
     });
   }
 
@@ -186,11 +186,11 @@ class PlayerState extends BaseState {
   }
 
   setVideoEnded() {
-    this.setState({isPlaying: false, isPausing: false, isSeeking: false});
+    this.setState({isPlaying: false, isPausing: true, isSeeking: false});
   }
 
   setVideoErrorOccurred() {
-    this.setState({isError: true, isPlaying: false, isLoading: false, isSeeking: false});
+    this.setState({isError: true, isPlaying: false, isPausing: true, isLoading: false, isSeeking: false});
   }
 }
 

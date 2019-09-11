@@ -448,10 +448,10 @@ class CommentListView extends Emitter {
     if (!this._window || !this._itemViews) {
       return;
     }
-    let innerHeight = this._innerHeight;
-    let itemViews = this._itemViews;
-    let len = itemViews.length;
-    let view = itemViews[idx];
+    const innerHeight = this._innerHeight;
+    const itemViews = this._itemViews;
+    const len = itemViews.length;
+    const view = itemViews[idx];
     if (len < 1 || !view) {
       return;
     }
@@ -461,10 +461,10 @@ class CommentListView extends Emitter {
       const top = Math.max(0, view.top - innerHeight + itemHeight);
       this.scrollTop(top);
     }
-    // requestAnimationFrame(() => {
-    //   this._container.style.setProperty('--current-time', css.s(sec));
-    //   this._container.style.setProperty('--scroll-top', css.px(view.top));
-    // });
+    requestAnimationFrame(() => {
+      this._container.style.setProperty('--current-time', css.s(sec));
+      this._container.style.setProperty('--scroll-top', css.px(view.top));
+    });
   }
   showItemDetail(item) {
     const $d = this._$itemDetail;
@@ -522,6 +522,7 @@ CommentListView.__tpl__ = (`
     height: 100vh;
     overflow: auto;
     overscroll-behavior: contain;
+    will-change: transform;
     /*transition: --current-time 0.2s linear;*/
   }
 
@@ -723,12 +724,12 @@ const CommentListItemView = (() => {
         text-align: center;
       }
 
-      .listMenu  .menuButton:hover {
+      .listMenu .menuButton:hover {
         border: 1px solid #ccc;
         box-shadow: 2px 2px 2px #333;
       }
 
-      .listMenu  .menuButton:active {
+      .listMenu .menuButton:active {
         box-shadow: none;
         transform: translate(0, 1px);
       }
@@ -766,7 +767,7 @@ const CommentListItemView = (() => {
         padding: 0;
         background: #222;
         z-index: 50;
-        contain: layout;
+        contain: layout style paint;
       }
 
       .active .commentListItem {
@@ -837,12 +838,11 @@ const CommentListItemView = (() => {
         text-overflow: ellipsis;
         color: #888;
         margin: 0;
-        padding: 0 4px;
+        padding: 0 8px 0 4px;
       }
       .commentListItem[data-valhalla="1"] .info {
         color: #f88;
       }
-
       .commentListItem .timepos {
         display: inline-block;
         width: 100px;
@@ -913,19 +913,19 @@ const CommentListItemView = (() => {
       .font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
       .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
       .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-/*
+
       .commentListItem .pointer {
         position: absolute;
-        width: 100%;
-        height: 1px;
+        width: 4px;
+        height: 100%;
         bottom: 0;
-        left: 0;
+        right: 0;
         pointer-events: none;
-        background: #ffc;
+        background: #fff;
         will-change: transform, opacity;
         transform-origin: left top;
         transition: transform var(--duration) linear;
-        visibility: visible;
+        visibility: hidden;
         opacity: 0.3;
         animation-duration: var(--duration);
         animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
@@ -938,16 +938,12 @@ const CommentListItemView = (() => {
       @keyframes pointer-moving {
         0% {
           visibility: visible;
-          opacity: 0.3;
-          transform: translateX(0);
         }
         100% {
           visibility: hidden;
-          opacity: 1;
-          transform: translateX(-100%);
         }
       }
-*/
+
     `).trim();
 
 
@@ -958,7 +954,7 @@ const CommentListItemView = (() => {
           <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
         </p>
         <p class="text"></p>
-        <!--span class="pointer"></span-->
+        <span class="pointer"></span>
       </div>
     `).trim();
 
@@ -1480,7 +1476,7 @@ class CommentPanel extends Emitter {
       case 'reloadComment':
         if (item) {
           param = {};
-          let dt = new Date(item.time);
+          const dt = new Date(item.time);
           this.emit('command', 'notify', item.formattedDate + '頃のログ');
           param.when = Math.floor(dt.getTime() / 1000);
         }
@@ -1569,10 +1565,7 @@ class CommentPanel extends Emitter {
     }
   }
   set currentTime(sec) {
-    if (!this._view) {
-      return;
-    }
-    if (!this._autoScroll) {
+    if (!this._view || !this._autoScroll || this._player.currentTab !== 'comment') {
       return;
     }
     this._model.currentTime = sec;

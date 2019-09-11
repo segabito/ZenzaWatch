@@ -155,6 +155,7 @@ const {YouTubeWrapper} = (() => {
 
     _onPlayerStateChange(e) {
       const state = e.data;
+      this.playerState = state;
       const YT = window.YT;
       switch (state) {
         case YT.PlayerState.ENDED:
@@ -196,6 +197,11 @@ const {YouTubeWrapper} = (() => {
 
     pause() {
       this._player.pauseVideo();
+    }
+
+    get isPaused() {
+      return window.YT ?
+        this.playerState !== window.YT.PlayerState.PLAYING : true;
     }
 
     selectBestQuality() {

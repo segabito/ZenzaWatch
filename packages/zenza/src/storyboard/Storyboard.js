@@ -6,7 +6,6 @@ import {SeekBarThumbnail} from './SeekBarThumbnail';
 import {StoryboardWorker} from './StoryboardWorker';
 import {global} from '../../../../src/ZenzaWatchIndex';
 import {nicoUtil} from '../../../lib/src/nico/nicoUtil';
-import {StoryboardCacheDb} from '../../../lib/src/nico/StoryboardCacheDb';
 
 //===BEGIN===
 //@require StoryboardInfoModel

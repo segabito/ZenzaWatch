@@ -29,6 +29,13 @@ class DataStorage {
     this.restore();
 
     this.props = this._makeProps(defaultData);
+
+    this.logger = (self || window).console;
+    this.consoleSubscriber = {
+      next: (v, ...args) => this.logger.log('next', v, ...args),
+      error: (e, ...args) => this.logger.warn('error', e, ...args),
+      complete: (c, ...args) => this.logger.log('complete', c, ...args)
+    };
   }
 
   _makeProps(defaultData = {}, namespace = '') {
@@ -252,19 +259,28 @@ class DataStorage {
   }
 
   subscribe(subscriber) {
-    subscriber = subscriber || {
-      next: (...args) => window.console.log('next', ...args),
-      error: (...args) => window.console.warn('error', ...args),
-      complete: (...args) => window.console.log('complete', ...args)
-    };
+    subscriber = subscriber || this.consoleSubscriber;
     const observable = new Observable(o => {
       const onChange = changed => o.next(changed);
       this.on('change', onChange);
-      return () => this.off(onChange);
+      return () => this.off('change', onChange);
     });
     return observable.subscribe(subscriber);
   }
+
+  // for debug
+  watch() {
+    if (this.consoleSubscription) { return; }
+    return this.consoleSubscription = this.subscribe();
+  }
+  unwatch() {
+    this.consoleSubscription && this.consoleSubscription.unsubscribe();
+    this.consoleSubscription = null;
+  }
+
 }
+
+
 //===END===
 
 export {DataStorage};

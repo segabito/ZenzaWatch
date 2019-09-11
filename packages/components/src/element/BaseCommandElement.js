@@ -96,12 +96,12 @@ class BaseCommandElement extends HTMLElement {
 
   requestRender(isImmediate = false) {
     if (this._idleCallbackId) {
-      cancelIdleCallback(this._idleCallbackId);
+      clearTimeout(this._idleCallbackId);
     }
     if (isImmediate) {
       this._idleRenderCallback();
     } else {
-      this._idleCallbackId = requestIdleCallback(this._idleRenderCallback, {});
+      this._idleCallbackId = setTimeout(this._idleRenderCallback, 0);
     }
   }
 

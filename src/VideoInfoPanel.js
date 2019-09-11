@@ -1,6 +1,6 @@
 import * as $ from 'jquery';
 import * as _ from 'lodash';
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {ZenzaWatch, global} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
 import {Config, MylistPocketDetector} from './util';
 import {IchibaLoader} from './loader/api';
@@ -788,16 +788,16 @@ VideoInfoPanel.__tpl__ = (`
   `).trim();
 
 _.assign(VideoInfoPanel.prototype, {
-  _initializeDom: function () {
+  _initializeDom() {
     if (this._isInitialized) {
       return;
     }
     this._isInitialized = true;
 
-    let $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
+    const $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
     const view = this._view = $view[0];
 
-    let $icon = this._$ownerIcon = $view.find('.ownerIcon');
+    const $icon = this._$ownerIcon = $view.find('.ownerIcon');
     this._$ownerName = $view.find('.ownerName');
     this._$ownerPageLink = $view.find('.ownerPageLink');
 
@@ -831,13 +831,13 @@ _.assign(VideoInfoPanel.prototype, {
     $icon.on('load', () => $icon.removeClass('is-loading'));
 
     view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
-    ZenzaWatch.emitter.on('fullscreenStatusChange', isFull => {
+    global.emitter.on('fullscreenStatusChange', isFull => {
       view.classList.toggle('is-fullscreen', isFull);
       view.classList.toggle('is-notFullscreen', !isFull);
     });
 
     view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
-    ZenzaWatch.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
+    global.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
     css.registerProps(
       {name: '--sideview-left-margin', syntax: '<length>', initialValue: '0px', inherits: true},
       {name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
@@ -850,7 +850,7 @@ _.assign(VideoInfoPanel.prototype, {
       VideoItemObserver.observe({container: this._description});
     }
   },
-  update: function (videoInfo) {
+  update(videoInfo) {
     this._videoInfo = videoInfo;
     this._videoHeaderPanel.update(videoInfo);
 
@@ -894,7 +894,7 @@ _.assign(VideoInfoPanel.prototype, {
   /**
    * 説明文中のurlの自動リンク等の処理
    */
-  _updateVideoDescription: async function (html) {
+  async _updateVideoDescription(html) {
     this._description.textContent = '';
     this._zenTubeUrl = null;
     const watchLink = watchLink => {
@@ -992,7 +992,7 @@ _.assign(VideoInfoPanel.prototype, {
     this._description.append($description[0]);
 
   },
-  _onVideoCanPlay: function (watchId, videoInfo, options) {
+  _onVideoCanPlay(watchId, videoInfo, options) {
     // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
     if (!this._relatedVideoList) {
       this._relatedVideoList = new RelatedVideoList({
@@ -1007,14 +1007,14 @@ _.assign(VideoInfoPanel.prototype, {
         this.emit('command', 'setVideo', this._zenTubeUrl);
       }, 100);
     }
-    let relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
+    const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
     RecommendAPILoader.load({videoId: videoInfo.videoId}).then(data => {
       const items = data.items || [];
       (items || []).forEach(item => {
         if (item.contentType !== 'video') {
           return;
         }
-        let content = item.content;
+        const content = item.content;
         relatedVideo.push({
           _format: 'recommendApi',
           _data: item,
@@ -1034,14 +1034,14 @@ _.assign(VideoInfoPanel.prototype, {
     });
 
   },
-  _onVideoCountUpdate: function (...args) {
+  _onVideoCountUpdate(...args) {
     if (!this._videoHeaderPanel) {
       return;
     }
     this._videoMetaInfo.updateVideoCount(...args);
     this._videoHeaderPanel.updateVideoCount(...args);
   },
-  _onClick: function(e) {
+  _onClick(e) {
       e.stopPropagation();
       if (
         (e.button !== 0 || e.metaKey || e.shiftKey || e.altKey || e.ctrlKey)) {
@@ -1062,14 +1062,14 @@ _.assign(VideoInfoPanel.prototype, {
 
       domEvent.dispatchCommand(e.target, command, param);
   },
-  _onCommand: function (command, param) {
+  _onCommand(command, param) {
     switch (command) {
       default:
         domEvent.dispatchCommand(this._view, command, param);
         break;
     }
   },
-  _onCommandEvent: function(e) {
+  _onCommandEvent(e) {
     const {command, param} = e.detail;
     switch (command) {
       case 'pocket-info':
@@ -1083,48 +1083,48 @@ _.assign(VideoInfoPanel.prototype, {
     }
     e.stopPropagation();
   },
-  appendTo: function (node) {
+  appendTo(node) {
     this._initializeDom();
     this._$view.appendTo(node);
     this._videoHeaderPanel.appendTo(node);
   },
-  hide: function () {
+  hide() {
     this._videoHeaderPanel.hide();
   },
-  close: function () {
+  close() {
     this._videoHeaderPanel.close();
   },
-  clear: function () {
+  clear() {
     this._videoHeaderPanel.clear();
     this._$view.addClass('initializing');
     this._$ownerIcon.addClass('is-loading');
     this._description.textContent = '';
   },
-  selectTab: function (tabName) {
-    let $view = this._$view;
-    let $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
+  selectTab(tabName) {
+    const $view = this._$view;
+    const $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
     this._activeTabName = tabName;
     $view.find('.activeTab').removeClass('activeTab');
     $target.addClass('activeTab');
   },
-  blinkTab: function (tabName) {
-    let $view = this._$view;
-    let $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
+  blinkTab(tabName) {
+    const $view = this._$view;
+    const $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
     if (!$target.length) {
       return;
     }
     $target.addClass('blink');
     window.setTimeout(() => $target.removeClass('blink'), 50);
   },
-  appendTab: function (tabName, title, content) {
-    let $view = this._$view;
-    let $select =
+  appendTab(tabName, title, content) {
+    const $view = this._$view;
+    const $select =
       uq('<div class="tabSelect"/>')
         .addClass(tabName)
         .attr('data-command', 'selectTab')
         .attr('data-param', tabName)
         .text(title);
-    let $body = uq('<div class="tabs"/>').addClass(tabName);
+    const $body = uq('<div class="tabs"/>').addClass(tabName);
     if (content) {
       $body.append(content);
     }
@@ -2371,7 +2371,7 @@ class UaaView extends BaseViewComponent {
       const sec = parseFloat(bgkeyframe);
       df.classList.add('clickable', 'command', 'other');
       Object.assign(df.dataset, { command: 'seek', type: 'number', param: sec });
-      contact.setAttribute('title', `${data.message}(${utextUil.secToTime(sec)})`);
+      contact.setAttribute('title', `${data.message}(${textUtil.secToTime(sec)})`);
     } else {
       df.classList.add('other');
     }

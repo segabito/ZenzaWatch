@@ -427,6 +427,12 @@ class DataStorage {
 		objUtil.bridge(this, new Emitter());
 		this.restore();
 		this.props = this._makeProps(defaultData);
+		this.logger = (self || window).console;
+		this.consoleSubscriber = {
+			next: (v, ...args) => this.logger.log('next', v, ...args),
+			error: (e, ...args) => this.logger.warn('error', e, ...args),
+			complete: (c, ...args) => this.logger.log('complete', c, ...args)
+		};
 	}
 	_makeProps(defaultData = {}, namespace = '') {
 		namespace = namespace ? `${namespace}.` : '';
@@ -626,17 +632,21 @@ class DataStorage {
 		return result;
 	}
 	subscribe(subscriber) {
-		subscriber = subscriber || {
-			next: (...args) => window.console.log('next', ...args),
-			error: (...args) => window.console.warn('error', ...args),
-			complete: (...args) => window.console.log('complete', ...args)
-		};
+		subscriber = subscriber || this.consoleSubscriber;
 		const observable = new Observable(o => {
 			const onChange = changed => o.next(changed);
 			this.on('change', onChange);
-			return () => this.off(onChange);
+			return () => this.off('change', onChange);
 		});
 		return observable.subscribe(subscriber);
+	}
+	watch() {
+		if (this.consoleSubscription) { return; }
+		return this.consoleSubscription = this.subscribe();
+	}
+	unwatch() {
+		this.consoleSubscription && this.consoleSubscription.unsubscribe();
+		this.consoleSubscription = null;
 	}
 }
 const Config = (() => {
@@ -3908,12 +3918,12 @@ class BaseCommandElement extends HTMLElement {
 	}
 	requestRender(isImmediate = false) {
 		if (this._idleCallbackId) {
-			cancelIdleCallback(this._idleCallbackId);
+			clearTimeout(this._idleCallbackId);
 		}
 		if (isImmediate) {
 			this._idleRenderCallback();
 		} else {
-			this._idleCallbackId = requestIdleCallback(this._idleRenderCallback, {});
+			this._idleCallbackId = setTimeout(this._idleRenderCallback, 0);
 		}
 	}
 	async connectedCallback() {
@@ -4775,7 +4785,7 @@ class PlayerState extends BaseState {
 	}
 	setVideoCanPlay() {
 		this.setState({
-			isStalled: false, isLoading: false, isPausing: false, isNotPlayed: true, isError: false, isSeeking: false
+			isStalled: false, isLoading: false, isPausing: true, isNotPlayed: true, isError: false, isSeeking: false
 		});
 	}
 	setPlaying() {
@@ -4792,10 +4802,10 @@ class PlayerState extends BaseState {
 		this.setState({isPlaying: false, isPausing: true});
 	}
 	setVideoEnded() {
-		this.setState({isPlaying: false, isPausing: false, isSeeking: false});
+		this.setState({isPlaying: false, isPausing: true, isSeeking: false});
 	}
 	setVideoErrorOccurred() {
-		this.setState({isError: true, isPlaying: false, isLoading: false, isSeeking: false});
+		this.setState({isError: true, isPlaying: false, isPausing: true, isLoading: false, isSeeking: false});
 	}
 }
 const CacheStorage = (() => {
@@ -7589,6 +7599,7 @@ const {YouTubeWrapper} = (() => {
 		}
 		_onPlayerStateChange(e) {
 			const state = e.data;
+			this.playerState = state;
 			const YT = window.YT;
 			switch (state) {
 				case YT.PlayerState.ENDED:
@@ -7627,6 +7638,10 @@ const {YouTubeWrapper} = (() => {
 		}
 		pause() {
 			this._player.pauseVideo();
+		}
+		get isPaused() {
+			return window.YT ?
+				this.playerState !== window.YT.PlayerState.PLAYING : true;
 		}
 		selectBestQuality() {
 			const levels = this._player.getAvailableQualityLevels();
@@ -8000,6 +8015,9 @@ class NicoVideoPlayer extends Emitter {
 	}
 	get isPlaying() {
 		return !!this._isPlaying;
+	}
+	get isPaused() {
+		return this._videoPlayer.paused;
 	}
 	get isSeeking() {
 		return !!this._isSeeking;
@@ -8698,6 +8716,9 @@ class VideoPlayer extends Emitter {
 	}
 	get isPlaying() {
 		return !!this._isPlaying && !!this._canPlay;
+	}
+	get isPaused() {
+		return this._video.paused;
 	}
 	set thumbnail(url) {
 		console.log('%csetThumbnail: %s', 'background: cyan;', url);
@@ -10488,7 +10509,7 @@ class Storyboard extends Emitter {
 			this._commentPreview = new CommentPreview({
 				$container: this._$seekBarContainer
 			});
-			let updateEnableCommentPreview = v => {
+			const updateEnableCommentPreview = v => {
 				this._$seekBarContainer.toggleClass('enableCommentPreview', v);
 				this._commentPreview.mode = v ? 'list' : 'hover';
 			};
@@ -10523,12 +10544,12 @@ class Storyboard extends Emitter {
 			this._width = window.innerWidth;
 		}
 		_initializePlaybackRateSelectMenu() {
-			let config = this._playerConfig;
-			let $btn  = this._$playbackRateMenu;
-			let [label] = $btn.find('.controlButtonInner');
-			let $menu = this._$playbackRateSelectMenu;
+			const config = this._playerConfig;
+			const $btn  = this._$playbackRateMenu;
+			const [label] = $btn.find('.controlButtonInner');
+			const $menu = this._$playbackRateSelectMenu;
 			const $rates = $menu.find('.playbackRate');
-			let updatePlaybackRate = rate => {
+			const updatePlaybackRate = rate => {
 				label.textContent = `x${rate}`;
 				$menu.find('.selected').removeClass('selected');
 				let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
@@ -10606,7 +10627,7 @@ class Storyboard extends Emitter {
 		}
 		_onClick(e) {
 			e.preventDefault();
-			let target = e.target.closest('[data-command]');
+			const target = e.target.closest('[data-command]');
 			if (!target) {
 				return;
 			}
@@ -10643,7 +10664,7 @@ class Storyboard extends Emitter {
 			this.resetBufferedRange();
 		}
 		_onPlayerCanPlay(watchId, videoInfo) {
-			let duration = this._player.getDuration();
+			const duration = this._player.duration;
 			this.duration = duration;
 			this._storyboard.onVideoCanPlay(watchId, videoInfo);
 			this._heatMap && (this._heatMap.duration = duration);
@@ -10704,8 +10725,8 @@ class Storyboard extends Emitter {
 				return;
 			}
 			sec = sec * 1;
-			let dur = this._duration;
-			let left = sec / dur * window.innerWidth;
+			const dur = this._duration;
+			const left = sec / dur * window.innerWidth;
 			this._seekBarMouseX = left;
 			this._commentPreview.currentTime = sec;
 			this._commentPreview.update(left);
@@ -12118,11 +12139,10 @@ const HeatMap = HeatMapInitFunc({
 			this.emit('reset');
 		}
 		set chatList(chatList) {
-			let list = chatList.top.concat(chatList.naka, chatList.bottom);
-			list.sort((a, b) => {
-				let av = a.vpos, bv = b.vpos;
-				return av - bv;
-			});
+			const list = chatList
+				.top
+				.concat(chatList.naka, chatList.bottom)
+				.sort((a, b) => a.vpos - b.vpos);
 			this._chatList = list;
 			this._chatReady = true;
 			this.update();
@@ -12146,9 +12166,10 @@ const HeatMap = HeatMapInitFunc({
 			return this.getVposIndex(this._vpos);
 		}
 		getVposIndex(vpos) {
-			let list = this._chatList;
+			const list = this._chatList;
+			if (!list) { return -1; }
 			for (let i = list.length - 1; i >= 0; i--) {
-				let chat = list[i], cv = chat.vpos;
+				const chat = list[i], cv = chat.vpos;
 				if (cv <= vpos - 400) {
 					return i + 1;
 				}
@@ -12162,10 +12183,10 @@ const HeatMap = HeatMapInitFunc({
 			return this.getItemByVpos(this._vpos);
 		}
 		getItemByVpos(vpos) {
-			let list = this._chatList;
-			let result = [];
+			const list = this._chatList;
+			const result = [];
 			for (let i = 0, len = list.length; i < len; i++) {
-				let chat = list[i], cv = chat.vpos, diff = vpos - cv;
+				const chat = list[i], cv = chat.vpos, diff = vpos - cv;
 				if (diff >= -100 && diff <= 400) {
 					result.push(chat);
 				}
@@ -12181,7 +12202,7 @@ const HeatMap = HeatMapInitFunc({
 	}
 	class CommentPreviewView {
 		constructor(params) {
-			let model = this._model = params.model;
+			const model = this._model = params.model;
 			this._$parent = params.$container;
 			this._inviewTable = new Map;
 			this._chatList = [];
@@ -12190,22 +12211,19 @@ const HeatMap = HeatMapInitFunc({
 			model.on('update', _.debounce(this._onUpdate.bind(this), 10));
 			model.on('vpos', this._onVpos.bind(this));
 			this._mode = 'hover';
+			this._left = 0;
 			this.update = _.throttle(this.update.bind(this), 200);
-			this._applyView = bounce.raf(this._applyView.bind(this));
+			this.applyView = bounce.raf(this.applyView.bind(this));
 		}
 		_initializeDom($parent) {
-			let $view = util.$.html(CommentPreviewView.__tpl__);
-			let view = this._view = $view[0];
+			const $view = util.$.html(CommentPreviewView.__tpl__);
+			const view = this._view = $view[0];
 			this._list = view.querySelector('.listContainer');
 			$view.on('click', this._onClick.bind(this))
 				.on('wheel', e => e.stopPropagation(), {passive: true})
 				.on('scroll',
 				_.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 			cssUtil.registerProps(
-				{name: '--current-time', syntax: '<time>',   initialValue: '1s', inherits: true},
-				{name: '--scroll-top',   syntax: '<length>', initialValue: '0px',inherits: true},
-				{name: '--vpos-time',    syntax: '<time>',   initialValue: '1s', inherits: true},
-				{name: '--duration',     syntax: '<time>',   initialValue: '4s', inherits: true},
 				{name: '--buffer-range-left', syntax: '<percentage>', initialValue: '0%',inherits: false},
 				{name: '--buffer-range-scale', syntax: '<number>', initialValue: 0, inherits: false},
 			);
@@ -12223,12 +12241,12 @@ const HeatMap = HeatMapInitFunc({
 		}
 		_onClick(e) {
 			e.stopPropagation();
-			let target = e.target.closest('[data-command]');
-			let view = this._view;
-			let command = target ? target.dataset.command : '';
-			let nicoChatElement = e.target.closest('.nicoChat');
-			let uniqNo = parseInt(nicoChatElement.dataset.nicochatUniqNo, 10);
-			let nicoChat  = this._model.getItemByUniqNo(uniqNo);
+			const target = e.target.closest('[data-command]');
+			const view = this._view;
+			const command = target ? target.dataset.command : '';
+			const nicoChatElement = e.target.closest('.nicoChat');
+			const uniqNo = parseInt(nicoChatElement.dataset.nicochatUniqNo, 10);
+			const nicoChat  = this._model.getItemByUniqNo(uniqNo);
 			if (command && nicoChat) {
 				view.classList.add('is-updating');
 				window.setTimeout(() => view.classList.remove('is-updating'), 3000);
@@ -12245,17 +12263,17 @@ const HeatMap = HeatMapInitFunc({
 				}
 				return;
 			}
-			let vpos = nicoChatElement.dataset.vpos;
+			const vpos = nicoChatElement.dataset.vpos;
 			if (vpos !== undefined) {
 				util.dispatchCommand(e.target, 'seek', vpos / 100);
 			}
 		}
 		_onUpdate() {
-			this._updateList();
+			this.updateList();
 		}
 		_onVpos(vpos) {
-			let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-			let index = this._currentStartIndex = Math.max(0, this._model.currentIndex);
+			const itemHeight = CommentPreviewView.ITEM_HEIGHT;
+			const index = this._currentStartIndex = Math.max(0, this._model.currentIndex);
 			this._currentEndIndex = Math.max(0, this._model.getVposIndex(vpos + 400));
 			this._scrollTop = itemHeight * index;
 			this._currentTime = vpos / 100;
@@ -12275,38 +12293,37 @@ const HeatMap = HeatMapInitFunc({
 			this._newListElements = null;
 			this._chatList = [];
 		}
-		_updateList() {
-			let chatList = this._chatList = this._model.chatList;
+		updateList() {
+			const chatList = this._chatList = this._model.chatList;
 			if (!chatList.length) {
 				this._isListUpdated = false;
 				return;
 			}
-			let itemHeight = CommentPreviewView.ITEM_HEIGHT;
+			const itemHeight = CommentPreviewView.ITEM_HEIGHT;
 			this._list.style.height = `${(chatList.length + 2) * itemHeight}px`;
 			this._isListUpdated = false;
 		}
 		_refreshInviewElements(scrollTop) {
 			if (!this._view) { return; }
-			let itemHeight = CommentPreviewView.ITEM_HEIGHT;
+			const itemHeight = CommentPreviewView.ITEM_HEIGHT;
 			scrollTop = _.isNumber(scrollTop) ? scrollTop : this._view.scrollTop;
-			let viewHeight = CommentPreviewView.MAX_HEIGHT;
-			let viewBottom = scrollTop + viewHeight;
-			let chatList = this._chatList;
+			const viewHeight = CommentPreviewView.MAX_HEIGHT;
+			const viewBottom = scrollTop + viewHeight;
+			const chatList = this._chatList;
 			if (!chatList || chatList.length < 1) { return; }
-			let startIndex =
+			const startIndex =
 				this._mode === 'list' ?
 					Math.max(0, Math.floor(scrollTop / itemHeight) - 5) :
 					this._currentStartIndex;
-			let endIndex   =
+					const endIndex   =
 				this._mode === 'list' ?
 					Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5) :
 					Math.min(this._currentEndIndex, this._currentStartIndex + 15);
-			let i;
-			let newItems = [], inviewTable = this._inviewTable;
-			for (i = startIndex; i < endIndex; i++) {
-				let chat = chatList[i];
+			const newItems = [], inviewTable = this._inviewTable;
+			for (let i = startIndex; i < endIndex; i++) {
+				const chat = chatList[i];
 				if (inviewTable.has(i) || !chat) { continue; }
-				let listItem = CommentPreviewChatItem.create(chat, i);
+				const listItem = CommentPreviewChatItem.create(chat, i);
 				newItems.push(listItem);
 				inviewTable.set(i, listItem);
 			}
@@ -12318,38 +12335,38 @@ const HeatMap = HeatMapInitFunc({
 			}
 			this._newListElements = this._newListElements || document.createDocumentFragment();
 			this._newListElements.append(...newItems);
-			this._applyView();
+			this.applyView();
 		}
-		_isEmpty() {
+		get isEmpty() {
 			return this._chatList.length < 1;
 		}
 		update(left) {
 			if (this._isListUpdated) {
-				this._updateList();
+				this.updateList();
 			}
-			if (this._isEmpty()) {
+			if (this.isEmpty) {
 				return;
 			}
-			let width = this._mode === 'list' ?
+			const width = this._mode === 'list' ?
 				CommentPreviewView.WIDTH : CommentPreviewView.HOVER_WIDTH;
-			let containerWidth = window.innerWidth;
+			const containerWidth = window.innerWidth;
 			left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
 			this._left = left;
-			this._applyView();
+			this.applyView();
 		}
-		_applyView() {
-			let view = this._view;
-			view.style.setProperty('--current-time', cssUtil.s(this._currentTime));
-			view.style.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
-			if (this._newListElements) {
+		applyView() {
+			const view = this._view;
+			const vs = view.style;
+			vs.setProperty('--current-time', cssUtil.s(this._currentTime));
+			vs.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
+			vs.setProperty('--trans-x-pp', cssUtil.px(this._left));
+			if (this._newListElements && this._newListElements.childElementCount) {
 				this._list.append(this._newListElements);
-				this._newListElements = null;
 			}
 			if (this._scrollTop > 0 && this._mode === 'list') {
 				this._view.scrollTop = this._scrollTop;
 				this._scrollTop = -1;
 			}
-			view.style.transform = `translate3d(${this._left}px, 0, 0)`;
 		}
 		hide() {
 		}
@@ -12372,7 +12389,7 @@ const HeatMap = HeatMapInitFunc({
 				const t = document.createElement('template');
 				t.id = `${this.name}_${Date.now()}`;
 				t.innerHTML = this.html;
-				let content = t.content;
+				const content = t.content;
 				this._template = {
 					clone: () => document.importNode(t.content, true),
 					chat: content.querySelector('.nicoChat'),
@@ -12383,18 +12400,18 @@ const HeatMap = HeatMapInitFunc({
 			return this._template;
 		}
 		static create(chat, idx) {
-			let itemHeight = CommentPreviewView.ITEM_HEIGHT;
-			let text = chat.text;
-			let date = (new Date(chat.date * 1000)).toLocaleString();
-			let vpos = chat.vpos;
-			let no = chat.no;
-			let uniqNo = chat.uniqNo;
-			let oe = idx % 2 === 0 ? 'even' : 'odd';
-			let title = `${no} : 投稿日 ${date}\nID:${chat.userId}\n${text}\n`;
-			let color = chat.color || '#fff';
-			let shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
-			let vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
-			let t = this.template;
+			const itemHeight = CommentPreviewView.ITEM_HEIGHT;
+			const text = chat.text;
+			const date = (new Date(chat.date * 1000)).toLocaleString();
+			const vpos = chat.vpos;
+			const no = chat.no;
+			const uniqNo = chat.uniqNo;
+			const oe = idx % 2 === 0 ? 'even' : 'odd';
+			const title = `${no} : 投稿日 ${date}\nID:${chat.userId}\n${text}\n`;
+			const color = chat.color || '#fff';
+			const shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
+			const vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
+			const t = this.template;
 			t.chat.className = `nicoChat fork${chat.fork} ${oe}`;
 			t.chat.id = `commentPreviewItem${idx}`;
 			t.chat.dataset.vpos = vpos;
@@ -12431,8 +12448,9 @@ util.addStyle(`
 		box-sizing: border-box;
 		color: #ccc;
 		overflow: hidden;
-		transform: translate3d(0, 0, 0);
-		transition: transform 0.2s;
+		transform: translate(var(--trans-x-pp), 0);
+		transition: --trans-x-pp 0.2s;
+		will-change: transform;
 	}
 	.zenzaCommentPreview * {
 		box-sizing: border-box;
@@ -12659,7 +12677,7 @@ util.addStyle(`
 		}
 		_initializeDom($container) {
 			util.addStyle(SeekBarToolTip.__css__);
-			let $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
+			const $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
 			this._currentTime = $view.find('.currentTime')[0];
 			TextLabel.create({
 				container: this._currentTime,
@@ -12685,16 +12703,14 @@ util.addStyle(`
 		}
 		_onMouseDown(e) {
 			e.stopPropagation();
-			let target = e.target.closest('[data-command]');
+			const target = e.target.closest('[data-command]');
 			if (!target) {
 				return;
 			}
-			let command = target.dataset.command;
+			const {command, param, repeat} = target.dataset;
 			if (!command) { return; }
-			let param   = target.dataset.param;
-			let repeat  = target.dataset.repeat === 'on';
 			util.dispatchCommand(e.target, command, param);
-			if (repeat) {
+			if (repeat === 'on') {
 				this._beginRepeat(command, param);
 			}
 		}
@@ -12705,8 +12721,11 @@ util.addStyle(`
 		_beginRepeat(command, param) {
 			this._repeatCommand = command;
 			this._repeatParam   = param;
-			util.$('body').on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
-			this._$view.on('mouseleave', this._boundOnMouseUp).on('mouseup', this._boundOnMouseUp);
+			util.$('body')
+				.on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
+			this._$view
+				.on('mouseleave', this._boundOnMouseUp)
+				.on('mouseup', this._boundOnMouseUp);
 			if (this._repeatTimer) {
 				window.clearInterval(this._repeatTimer);
 			}
@@ -12737,16 +12756,12 @@ util.addStyle(`
 			const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
 			const vw = window.innerWidth;
 			left = Math.max(0, Math.min(left - w / 2, vw - w));
-			this._$view[0].style.setProperty('--seekbar-tooltip-left', cssUtil.px(left));
-			this._seekBarThumbnail.currentTime=sec;
+			this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
+			this._seekBarThumbnail.currentTime = sec;
 		}
 	}
-	cssUtil.registerProps(
-		{name: '--seekbar-tooltip-left',   syntax: '<length>', initialValue: '0px', inherits: false}
-	);
 	SeekBarToolTip.__css__ = (`
 		.seekBarToolTip {
-			--seekbar-tooltip-left: 0px;
 			position: absolute;
 			display: inline-block;
 			visibility: hidden;
@@ -12764,8 +12779,8 @@ util.addStyle(`
 			border: 1px solid #666;
 			border-radius: 8px;
 			padding: 8px 4px 0;
-			transform: translate3d(var(--seekbar-tooltip-left), 0, 10px);
-			transition: --seekbar-tooltip-left 0.1s, opacity 0.2s ease 0.5s;
+			transform: translate3d(var(--trans-x-pp), 0, 10px);
+			transition: --trans-x-pp 0.1s, opacity 0.2s ease 0.5s;
 			pointer-events: none;
 		}
 		.is-wheelSeeking .seekBarToolTip,
@@ -12793,12 +12808,6 @@ util.addStyle(`
 			display: inline-block;
 			height: 16px;
 			margin: 4px 0;
-			/*padding: 0 8px;*/
-			/*color: #ccc;
-			text-align: center;
-			font-size: 12px;
-			line-height: 16px;*/
-			/*text-shadow: 0 0 2px #000;*/
 		}
 		.seekBarToolTip .controlButton {
 			display: inline-block;
@@ -12877,6 +12886,17 @@ util.addStyle(`
 				this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
 			}
 			if (document.hidden) { return; }
+			if (this._currentTime === v) {
+				if (this.isPlaying) {
+					this._animation.currentTime = v;
+					this.isStalled = true;
+					return;
+				}
+			} else {
+				if (this.isStalled) {
+					this.isStalled = false;
+				}
+			}
 			this._currentTime = v;
 			if (this._animation &&
 				Math.abs(v * 1000 - this._animation.currentTime) > 500) {
@@ -12938,9 +12958,9 @@ util.addStyle(`
 				this._animation.finish();
 			}
 			this._animation = this._pointer.animate([
-				{transform: 'translate3d(-6px, -50%, 0) translate3d(0, 0, 0)'},
-				{transform: 'translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0)'}
-			], {duration: this._duration * 1000});
+				{transform: 'translate(-6px, -50%)'},
+				{transform: 'translate(-6px, -50%) translate(100vw, 0)'}
+			], {duration: this._duration * 1000, fill: 'backwards'});
 			this._animation.currentTime = this._currentTime * 1000;
 			this._animation.playbackRate = this._playbackRate;
 			if (!this._isPausing) {
@@ -12952,78 +12972,7 @@ util.addStyle(`
 		static get template() {
 			return `
 				<div class="root" style="display: none;">
-					<style>
-						.back {
-							content: '';
-							display: block;
-							position: fixed;
-							bottom: 0;
-							left: 0;
-							width: 100vw;
-							height: 100vh;
-							user-select: none;
-							will-change: transform;
-							z-index: 1000000;
-							pointer-events: auto;
-						}
-						.pointer {
-							position: fixed;
-							bottom: 0;
-							left: 0;
-							width: 100%;
-							height: 0;
-							background: transparent;
-							pointer-events: none;
-							user-select: none;
-							transition: transform 0.1s ease;
-							will-change: transform;
-							z-index: 1000000;
-							opacity: 0.5;
-						}
-						.pointer-core {
-							position: absolute;
-							bottom: 64px;
-							color: rgba(255, 0, 0, 0.5);
-							background: transparent;
-							font-size: 48px;
-							transform:
-								translateX(-50%)
-								perspective(500px)
-								scale(1, 1.5)
-								rotateX(20deg)
-								rotateY(70deg)
-								;
-							animation-name: pointer-rotation;
-							animation-duration: 1s;
-							animation-iteration-count: infinite;
-							animation-timing-function: linear;
-						}
-						@keyframes pointer-rotation {
-							0% {
-							transform:
-								translateX(-50%)
-								perspective(500px)
-								scale(1, 1.5)
-								rotateX(20deg)
-								rotateY(0deg)
-								;
-							}
-							100% {
-							transform:
-								translateX(-50%)
-								perspective(500px)
-								scale(1, 1.5)
-								rotateX(20deg)
-								rotateY(360deg)
-								;
-							}
-						}
-					</style>
-					<div class="pointer">
-						<!--<div class="pointer-core">▼</div>-->
-					</div>
-					<div class="back"></div>
-					</div>
+				</div>
 			`;
 		}
 		constructor(params) {
@@ -13051,7 +13000,6 @@ util.addStyle(`
 			super._initDom(...args);
 			this._elm = Object.assign({}, this._elm, {
 				root: this._shadow || this._view,
-				pointer: (this._shadow || this._view).querySelector('.pointer')
 			});
 			this._shadow.addEventListener('contextmenu', e => {
 				e.stopPropagation();
@@ -13089,9 +13037,9 @@ util.addStyle(`
 				}
 				let pos = this._props.pos;
 				let ax = this._props.ax;
-				let deltaReversed = ax * deltaY < 0 ;//lastDelta * deltaY < 0;
-				let now = performance.now();
-				let seconds = ((now - this._props.lastWheelTime) / 1000);
+				const deltaReversed = ax * deltaY < 0 ;//lastDelta * deltaY < 0;
+				const now = performance.now();
+				const seconds = ((now - this._props.lastWheelTime) / 1000);
 				this._props.lastWheelTime = now;
 				if (deltaReversed) {
 					ax = deltaY > 0 ? 0.5 : -0.5;
@@ -13116,17 +13064,15 @@ util.addStyle(`
 			}
 		}
 		onMouseUp(e) {
-			if (this.isActive) {
-				e.preventDefault();
-				e.stopPropagation();
-				this.disable();
-			}
+			if (!this.isActive) { return; }
+			e.preventDefault();
+			e.stopPropagation();
+			this.disable();
 		}
 		dispatchSeek() {
 			this.dispatchCommand('wheelSeek', this.currentTime);
 		}
 		refresh() {
-			this._elm.pointer.style.transform = `translateX(${this._props.pos}%)`;
 		}
 		get isActive() {
 			return this._props.isActive;
@@ -17820,10 +17766,10 @@ class CommentListView extends Emitter {
 		if (!this._window || !this._itemViews) {
 			return;
 		}
-		let innerHeight = this._innerHeight;
-		let itemViews = this._itemViews;
-		let len = itemViews.length;
-		let view = itemViews[idx];
+		const innerHeight = this._innerHeight;
+		const itemViews = this._itemViews;
+		const len = itemViews.length;
+		const view = itemViews[idx];
 		if (len < 1 || !view) {
 			return;
 		}
@@ -17832,6 +17778,10 @@ class CommentListView extends Emitter {
 			const top = Math.max(0, view.top - innerHeight + itemHeight);
 			this.scrollTop(top);
 		}
+		requestAnimationFrame(() => {
+			this._container.style.setProperty('--current-time', css.s(sec));
+			this._container.style.setProperty('--scroll-top', css.px(view.top));
+		});
 	}
 	showItemDetail(item) {
 		const $d = this._$itemDetail;
@@ -17883,6 +17833,7 @@ CommentListView.__tpl__ = (`
 		height: 100vh;
 		overflow: auto;
 		overscroll-behavior: contain;
+		will-change: transform;
 		/*transition: --current-time 0.2s linear;*/
 	}
 	.is-debug #listContainerInner {
@@ -18064,11 +18015,11 @@ const CommentListItemView = (() => {
 				top: 0;
 				text-align: center;
 			}
-			.listMenu  .menuButton:hover {
+			.listMenu .menuButton:hover {
 				border: 1px solid #ccc;
 				box-shadow: 2px 2px 2px #333;
 			}
-			.listMenu  .menuButton:active {
+			.listMenu .menuButton:active {
 				box-shadow: none;
 				transform: translate(0, 1px);
 			}
@@ -18101,7 +18052,7 @@ const CommentListItemView = (() => {
 				padding: 0;
 				background: #222;
 				z-index: 50;
-				contain: layout;
+				contain: layout style paint;
 			}
 			.active .commentListItem {
 				pointer-events: auto;
@@ -18167,7 +18118,7 @@ const CommentListItemView = (() => {
 				text-overflow: ellipsis;
 				color: #888;
 				margin: 0;
-				padding: 0 4px;
+				padding: 0 8px 0 4px;
 			}
 			.commentListItem[data-valhalla="1"] .info {
 				color: #f88;
@@ -18233,19 +18184,18 @@ const CommentListItemView = (() => {
 			.font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
 			.font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
 			.font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-/*
 			.commentListItem .pointer {
 				position: absolute;
-				width: 100%;
-				height: 1px;
+				width: 4px;
+				height: 100%;
 				bottom: 0;
-				left: 0;
+				right: 0;
 				pointer-events: none;
-				background: #ffc;
+				background: #fff;
 				will-change: transform, opacity;
 				transform-origin: left top;
 				transition: transform var(--duration) linear;
-				visibility: visible;
+				visibility: hidden;
 				opacity: 0.3;
 				animation-duration: var(--duration);
 				animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
@@ -18258,16 +18208,11 @@ const CommentListItemView = (() => {
 			@keyframes pointer-moving {
 				0% {
 					visibility: visible;
-					opacity: 0.3;
-					transform: translateX(0);
 				}
 				100% {
 					visibility: hidden;
-					opacity: 1;
-					transform: translateX(-100%);
 				}
 			}
-*/
 		`).trim();
 	const TPL = (`
 			<div class="commentListItem">
@@ -18276,7 +18221,7 @@ const CommentListItemView = (() => {
 					<span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
 				</p>
 				<p class="text"></p>
-				<!--span class="pointer"></span-->
+				<span class="pointer"></span>
 			</div>
 		`).trim();
 	let counter = 0;
@@ -18736,7 +18681,7 @@ class CommentPanel extends Emitter {
 			case 'reloadComment':
 				if (item) {
 					param = {};
-					let dt = new Date(item.time);
+					const dt = new Date(item.time);
 					this.emit('command', 'notify', item.formattedDate + '頃のログ');
 					param.when = Math.floor(dt.getTime() / 1000);
 				}
@@ -18823,10 +18768,7 @@ class CommentPanel extends Emitter {
 		}
 	}
 	set currentTime(sec) {
-		if (!this._view) {
-			return;
-		}
-		if (!this._autoScroll) {
+		if (!this._view || !this._autoScroll || this._player.currentTab !== 'comment') {
 			return;
 		}
 		this._model.currentTime = sec;
@@ -19328,7 +19270,7 @@ const VideoListItemView = (() => {
 				padding: 2px;
 				transition:
 					transform 0.4s ease, box-shadow 0.4s ease;
-				contain: layout size;
+				contain: layout size paint;
 			}
 			.playlist .videoItem {
 				cursor: move;
@@ -22170,7 +22112,8 @@ class NicoVideoPlayerDialogView extends Emitter {
 		return this._videoInfoPanel.appendTab(name, title);
 	}
 	selectTab(name) {
-		this._playerConfig.setValue('videoInfoPanelTab', name);
+		this._playerConfig.props.videoInfoPanelTab = name;
+		this._state.currentTab = name;
 		this._videoInfoPanel.selectTab(name);
 		global.emitter.emit('tabChange', name);
 	}
@@ -23667,6 +23610,7 @@ class NicoVideoPlayerDialog extends Emitter {
 		this.emit('seeked');
 	}
 	_onVideoPause() {
+		this._state.setPausing();
 		this._savePlaybackPosition(this._videoInfo.contextWatchId, this.currentTime);
 		this.emit('pause');
 	}
@@ -23702,9 +23646,7 @@ class NicoVideoPlayerDialog extends Emitter {
 		const videoWatchOptions = this._videoWatchOptions;
 		const code = (e && e.target && e.target.error && e.target.error.code) || 0;
 		window.console.error('VideoError!', code, e, (e.target && e.target.error), {isDeleted, isAbnormallyClosed});
-		if (this._state.isPausing && isDeleted) {
-			this._setErrorMessage(`停止中に動画のセッションが切断されました。(code:${code})`);
-		} else if (Date.now() - this._lastOpenAt > 3 * 60 * 1000 && isDeleted && !isAbnormallyClosed) {
+		if (Date.now() - this._lastOpenAt > 3 * 60 * 1000 && isDeleted && !isAbnormallyClosed) {
 			if (videoWatchOptions.reloadCount < 5) {
 				retry();
 			} else {
@@ -23768,7 +23710,7 @@ class NicoVideoPlayerDialog extends Emitter {
 		if (!vi) {
 			return;
 		}
-		const dr = this.getDuration();
+		const dr = this.duration;
 		console.info('%csave PlaybackPosition:', 'background: cyan', ct, dr, vi.csrfToken);
 		if (vi.contextWatchId !== contextWatchId) {
 			return;
@@ -23826,7 +23768,7 @@ class NicoVideoPlayerDialog extends Emitter {
 		if (this._commentPanel) {
 			return;
 		}
-		let $container = this._view.appendTab('comment', 'コメント');
+		const $container = this._view.appendTab('comment', 'コメント');
 		this._commentPanel = new CommentPanel({
 			player: this,
 			$container: $container,
@@ -23874,6 +23816,9 @@ class NicoVideoPlayerDialog extends Emitter {
 	}
 	get isPlaying() {
 		return this._state.isPlaying;
+	}
+	get isPaused() {
+		return this._nicoVideoPlayer ? this._nicoVideoPlayer.isPaused : true;
 	}
 	togglePlay() {
 		if (!this._state.isError && this._nicoVideoPlayer) {
@@ -23969,6 +23914,9 @@ class NicoVideoPlayerDialog extends Emitter {
 	get watchId() {
 		return this._watchId;
 	}
+	get currentTab() {
+		return this._state.currentTab;
+	}
 	getId() { return this.id; }
 	getDuration() { return this.duration; }
 	getBufferedRange() { return this.bufferedRange; }
@@ -24051,7 +23999,7 @@ class VideoHoverMenu {
 		const enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
 		const updateEnableFilter = v => {
 			enableFilterItems.forEach(item => {
-				const p = JSON.parse(item.getAttribute('data-param'));
+				const p = JSON.parse(item.dataset.param);
 				item.classList.toggle('selected', v === p);
 			});
 			menu.classList.toggle('is-enableFilter', v);
@@ -24085,14 +24033,13 @@ class VideoHoverMenu {
 				break;
 			case 'mylistAdd': {
 				command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
-				let mylistId = target.dataset.mylistId;
-				let mylistName = target.dataset.mylistName;
+				const {mylistId, mylistName} = target.dataset;
 				this._hideMenu();
 				util.dispatchCommand(target, command, {mylistId, mylistName});
 				break;
 			}
 			case 'mylistOpen': {
-				let mylistId = target.dataset.mylistId;
+				const mylistId = target.dataset.mylistId;
 				location.href = `https://www.nicovideo.jp/my/mylist/#/${mylistId}`;
 				break;
 			}
@@ -27227,14 +27174,14 @@ VideoInfoPanel.__tpl__ = (`
 		</div>
 	`).trim();
 _.assign(VideoInfoPanel.prototype, {
-	_initializeDom: function () {
+	_initializeDom() {
 		if (this._isInitialized) {
 			return;
 		}
 		this._isInitialized = true;
-		let $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
+		const $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
 		const view = this._view = $view[0];
-		let $icon = this._$ownerIcon = $view.find('.ownerIcon');
+		const $icon = this._$ownerIcon = $view.find('.ownerIcon');
 		this._$ownerName = $view.find('.ownerName');
 		this._$ownerPageLink = $view.find('.ownerPageLink');
 		this._description = view.querySelector('.videoDescription');
@@ -27260,12 +27207,12 @@ _.assign(VideoInfoPanel.prototype, {
 		view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
 		$icon.on('load', () => $icon.removeClass('is-loading'));
 		view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
-		ZenzaWatch.emitter.on('fullscreenStatusChange', isFull => {
+		global.emitter.on('fullscreenStatusChange', isFull => {
 			view.classList.toggle('is-fullscreen', isFull);
 			view.classList.toggle('is-notFullscreen', !isFull);
 		});
 		view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
-		ZenzaWatch.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
+		global.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
 		css.registerProps(
 			{name: '--sideview-left-margin', syntax: '<length>', initialValue: '0px', inherits: true},
 			{name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
@@ -27278,7 +27225,7 @@ _.assign(VideoInfoPanel.prototype, {
 			VideoItemObserver.observe({container: this._description});
 		}
 	},
-	update: function (videoInfo) {
+	update(videoInfo) {
 		this._videoInfo = videoInfo;
 		this._videoHeaderPanel.update(videoInfo);
 		let owner = videoInfo.owner;
@@ -27311,7 +27258,7 @@ _.assign(VideoInfoPanel.prototype, {
 		this._uaaView.update(videoInfo);
 		this._relatedInfoMenu.update(videoInfo);
 	},
-	_updateVideoDescription: async function (html) {
+	async _updateVideoDescription(html) {
 		this._description.textContent = '';
 		this._zenTubeUrl = null;
 		const watchLink = watchLink => {
@@ -27403,7 +27350,7 @@ _.assign(VideoInfoPanel.prototype, {
 		}
 		this._description.append($description[0]);
 	},
-	_onVideoCanPlay: function (watchId, videoInfo, options) {
+	_onVideoCanPlay(watchId, videoInfo, options) {
 		if (!this._relatedVideoList) {
 			this._relatedVideoList = new RelatedVideoList({
 				container: this._$view.find('.relatedVideoContainer')[0]
@@ -27416,14 +27363,14 @@ _.assign(VideoInfoPanel.prototype, {
 				this.emit('command', 'setVideo', this._zenTubeUrl);
 			}, 100);
 		}
-		let relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
+		const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
 		RecommendAPILoader.load({videoId: videoInfo.videoId}).then(data => {
 			const items = data.items || [];
 			(items || []).forEach(item => {
 				if (item.contentType !== 'video') {
 					return;
 				}
-				let content = item.content;
+				const content = item.content;
 				relatedVideo.push({
 					_format: 'recommendApi',
 					_data: item,
@@ -27442,14 +27389,14 @@ _.assign(VideoInfoPanel.prototype, {
 			this._relatedVideoList.update(relatedVideo, watchId);
 		});
 	},
-	_onVideoCountUpdate: function (...args) {
+	_onVideoCountUpdate(...args) {
 		if (!this._videoHeaderPanel) {
 			return;
 		}
 		this._videoMetaInfo.updateVideoCount(...args);
 		this._videoHeaderPanel.updateVideoCount(...args);
 	},
-	_onClick: function(e) {
+	_onClick(e) {
 			e.stopPropagation();
 			if (
 				(e.button !== 0 || e.metaKey || e.shiftKey || e.altKey || e.ctrlKey)) {
@@ -27469,14 +27416,14 @@ _.assign(VideoInfoPanel.prototype, {
 			e.preventDefault();
 			domEvent.dispatchCommand(e.target, command, param);
 	},
-	_onCommand: function (command, param) {
+	_onCommand(command, param) {
 		switch (command) {
 			default:
 				domEvent.dispatchCommand(this._view, command, param);
 				break;
 		}
 	},
-	_onCommandEvent: function(e) {
+	_onCommandEvent(e) {
 		const {command, param} = e.detail;
 		switch (command) {
 			case 'pocket-info':
@@ -27490,48 +27437,48 @@ _.assign(VideoInfoPanel.prototype, {
 		}
 		e.stopPropagation();
 	},
-	appendTo: function (node) {
+	appendTo(node) {
 		this._initializeDom();
 		this._$view.appendTo(node);
 		this._videoHeaderPanel.appendTo(node);
 	},
-	hide: function () {
+	hide() {
 		this._videoHeaderPanel.hide();
 	},
-	close: function () {
+	close() {
 		this._videoHeaderPanel.close();
 	},
-	clear: function () {
+	clear() {
 		this._videoHeaderPanel.clear();
 		this._$view.addClass('initializing');
 		this._$ownerIcon.addClass('is-loading');
 		this._description.textContent = '';
 	},
-	selectTab: function (tabName) {
-		let $view = this._$view;
-		let $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
+	selectTab(tabName) {
+		const $view = this._$view;
+		const $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
 		this._activeTabName = tabName;
 		$view.find('.activeTab').removeClass('activeTab');
 		$target.addClass('activeTab');
 	},
-	blinkTab: function (tabName) {
-		let $view = this._$view;
-		let $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
+	blinkTab(tabName) {
+		const $view = this._$view;
+		const $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
 		if (!$target.length) {
 			return;
 		}
 		$target.addClass('blink');
 		window.setTimeout(() => $target.removeClass('blink'), 50);
 	},
-	appendTab: function (tabName, title, content) {
-		let $view = this._$view;
-		let $select =
+	appendTab(tabName, title, content) {
+		const $view = this._$view;
+		const $select =
 			uq('<div class="tabSelect"/>')
 				.addClass(tabName)
 				.attr('data-command', 'selectTab')
 				.attr('data-param', tabName)
 				.text(title);
-		let $body = uq('<div class="tabs"/>').addClass(tabName);
+		const $body = uq('<div class="tabs"/>').addClass(tabName);
 		if (content) {
 			$body.append(content);
 		}
@@ -28605,7 +28552,7 @@ class UaaView extends BaseViewComponent {
 			const sec = parseFloat(bgkeyframe);
 			df.classList.add('clickable', 'command', 'other');
 			Object.assign(df.dataset, { command: 'seek', type: 'number', param: sec });
-			contact.setAttribute('title', `${data.message}(${utextUil.secToTime(sec)})`);
+			contact.setAttribute('title', `${data.message}(${textUtil.secToTime(sec)})`);
 		} else {
 			df.classList.add('other');
 		}
@@ -29291,6 +29238,10 @@ class HoverMenu {
 	};
 	const initCssProps = () => {
 		cssUtil.registerProps(
+			{name: '--current-time', syntax: '<time>',   initialValue: '1s', inherits: true},
+			{name: '--scroll-top',   syntax: '<length>', initialValue: '0px',inherits: true},
+			{name: '--vpos-time',    syntax: '<time>',   initialValue: '1s', inherits: true},
+			{name: '--duration',     syntax: '<time>',   initialValue: '4s', inherits: true},
 			{name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
 			{name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
 			{name: '--width-pp',   syntax: '<length-percentage>', initialValue: '0px', inherits: true},

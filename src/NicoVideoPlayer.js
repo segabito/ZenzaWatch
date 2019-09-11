@@ -308,6 +308,9 @@ class NicoVideoPlayer extends Emitter {
   get isPlaying() {
     return !!this._isPlaying;
   }
+  get isPaused() {
+    return this._videoPlayer.paused;
+  }
   get isSeeking() {
     return !!this._isSeeking;
   }
@@ -1115,7 +1118,9 @@ class VideoPlayer extends Emitter {
   get isPlaying() {
     return !!this._isPlaying && !!this._canPlay;
   }
-
+  get isPaused() {
+    return this._video.paused;
+  }
   set thumbnail(url) {
     console.log('%csetThumbnail: %s', 'background: cyan;', url);
 
