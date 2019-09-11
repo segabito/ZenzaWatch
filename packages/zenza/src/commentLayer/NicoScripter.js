@@ -15,9 +15,9 @@ class NicoScriptParser {
     // 構文はいったん無視して、対応できる命令だけ拾っていく。
     // ニワン語のフル実装は夢
     let type, params, m;
-    let result = [];
+    const result = [];
     for (let i = 0, len = lines.length; i < len; i++) {
-      let text = lines[i];
+      const text = lines[i];
       const id = NicoScriptParser.parseId;
       if ((m = /^\/?replace\((.*?)\)/.exec(text)) !== null) {
         type = 'REPLACE';
@@ -173,7 +173,7 @@ class NicoScriptParser {
 
   static parseNicos(text) {
     text = text.trim();
-    let text1 = (text || '').split(/[ 　:：]+/)[0]; // eslint-disable-line
+    const text1 = (text || '').split(/[ 　:：]+/)[0]; // eslint-disable-line
     let params;
     let type;
     switch (text1) {
@@ -259,7 +259,7 @@ class NicoScriptParser {
 
 
   static parseReplace(str) {
-    let result = NicoScriptParser.parseParams(str);
+    const result = NicoScriptParser.parseParams(str);
 
     if (!result) {
       return null;
@@ -275,7 +275,7 @@ class NicoScriptParser {
 
 
   static parseSeek(str) {
-    let result = NicoScriptParser.parseParams(str);
+    const result = NicoScriptParser.parseParams(str);
     if (!result) {
       return null;
     }
@@ -286,7 +286,7 @@ class NicoScriptParser {
 
 
   static parse置換(str) {
-    let tmp = NicoScriptParser.parseNicosParams(str);
+    const tmp = NicoScriptParser.parseNicosParams(str);
     //＠置換 キーワード 置換後 置換範囲 投コメ 一致条件
     //＠置換 "И"       "██" 単       投コメ
 
@@ -308,11 +308,11 @@ class NicoScriptParser {
 
 
   static parse逆(str) {
-    let tmp = NicoScriptParser.parseNicosParams(str);
+    const tmp = NicoScriptParser.parseNicosParams(str);
     /* eslint-disable */
     //＠逆　投コメ
     /* eslint-enable */
-    let target = (tmp[1] || '').trim();
+    const target = (tmp[1] || '').trim();
     //＠置換キーワード置換後置換範囲投コメ一致条件
     return {
       target: (target === 'コメ' || target === '投コメ') ? target : '全',
@@ -322,18 +322,18 @@ class NicoScriptParser {
 
   static parseジャンプ(str) {
     //＠ジャンプ ジャンプ先 メッセージ 再生開始位置 戻り秒数 戻りメッセージ
-    let tmp = NicoScriptParser.parseNicosParams(str);
-    let target = tmp[1] || '';
+    const tmp = NicoScriptParser.parseNicosParams(str);
+    const target = tmp[1] || '';
     let type = 'JUMP';
     let time = 0;
     let m;
-    if ((m = /^#(\d+):(\d+)$/.test(target)) !== null) {
+    if ((m = /^#(\d+):(\d+)$/.exec(target)) !== null) {
       type = 'SEEK';
       time = m[1] * 60 + m[2] * 1;
-    } else if ((m = /^#(\d+):(\d+\.\d+)$/.test(target)) !== null) {
+    } else if ((m = /^#(\d+):(\d+\.\d+)$/.exec(target)) !== null) {
       type = 'SEEK';
       time = m[1] * 60 + m[2] * 1;
-    } else if ((m = /^(#|＃)(.+)/.test(target)) !== null) {
+    } else if ((m = /^(#|＃)(.+)/.exec(target)) !== null) {
       type = 'SEEK_MARKER';
       time = m[2];
     }
@@ -342,8 +342,8 @@ class NicoScriptParser {
 
 
   static parseジャンプマーカー(str) {
-    let tmp = NicoScriptParser.parseNicosParams(str);
-    let name = tmp[0].split(/[:： 　]/)[1]; // eslint-disable-line
+    const tmp = NicoScriptParser.parseNicosParams(str);
+    const name = tmp[0].split(/[:： 　]/)[1]; // eslint-disable-line
     return {name};
   }
 
@@ -372,8 +372,8 @@ class NicoScripter extends Emitter {
     this._list.push(nicoChat);
   }
 
-  get isExist() {
-    return this._list.length > 0;
+  get isEmpty() {
+    return this._list.length === 0;
   }
 
   getNextVideo() {
@@ -477,27 +477,27 @@ class NicoScripter extends Emitter {
 
     const applyFunc = {
       DEFAULT(nicoChat, nicos) {
-        let nicosColor = nicos.color;
-        let hasColor = nicoChat.hasColorCommand;
+        const nicosColor = nicos.color;
+        const hasColor = nicoChat.hasColorCommand;
         if (nicosColor && !hasColor) {
           nicoChat.color = nicosColor;
         }
 
-        let nicosSize = nicos.size;
-        let hasSize = nicoChat.hasSizeCommand;
+        const nicosSize = nicos.size;
+        const hasSize = nicoChat.hasSizeCommand;
         if (nicosSize && !hasSize) {
           nicoChat.size = nicosSize;
         }
 
-        let nicosType = nicos.type;
-        let hasType = nicoChat.hasTypeCommand;
+        const nicosType = nicos.type;
+        const hasType = nicoChat.hasTypeCommand;
         if (nicosType && !hasType) {
           nicoChat.type = nicosType;
         }
 
       },
       COLOR(nicoChat, nicos, params) {
-        let hasColor = nicoChat.hasColorCommand;
+        const hasColor = nicoChat.hasColorCommand;
         if (!hasColor) {
           nicoChat.color = params.color;
         }
@@ -542,25 +542,25 @@ class NicoScripter extends Emitter {
         if (params.fill === true) {
           text = params.dest;
         } else {// ＠置換 "~" "\n" 単 全
-          let reg = new RegExp(textUtil.escapeRegs(params.src), 'g');
+          const reg = new RegExp(textUtil.escapeRegs(params.src), 'g');
           text = text.replace(reg, params.dest);
         }
         nicoChat.text = text;
 
-        let nicosColor = nicos.clor;
-        let hasColor = nicoChat.hasColorCommand;
+        const nicosColor = nicos.clor;
+        const hasColor = nicoChat.hasColorCommand;
         if (nicosColor && !hasColor) {
           nicoChat.color = nicosColor;
         }
 
-        let nicosSize = nicos.size;
-        let hasSize = nicoChat.hasSizeCommand;
+        const nicosSize = nicos.size;
+        const hasSize = nicoChat.hasSizeCommand;
         if (nicosSize && !hasSize) {
           nicoChat.size = nicosSize;
         }
 
-        let nicosType = nicos.type;
-        let hasType = nicoChat.hasTypeCommand;
+        const nicosType = nicos.type;
+        const hasType = nicoChat.hasTypeCommand;
         if (nicosType && !hasType) {
           nicoChat.type = nicosType;
         }
@@ -568,8 +568,8 @@ class NicoScripter extends Emitter {
       },
       PIPE(nicoChat, nicos, lines) {
         lines.forEach(line => {
-          let type = line.type;
-          let f = applyFunc[type];
+          const type = line.type;
+          const f = applyFunc[type];
           if (f) {
             f(nicoChat, nicos, line.params);
           }
@@ -579,7 +579,7 @@ class NicoScripter extends Emitter {
 
 
     this._list.forEach(nicos => {
-      let p = NicoScriptParser.parseNicos(nicos.text);
+      const p = NicoScriptParser.parseNicos(nicos.text);
       if (!p) {
         return;
       }
@@ -587,14 +587,14 @@ class NicoScripter extends Emitter {
         nicos.duration = 99999;
       }
 
-      let ev = eventFunc[p.type];
+      const ev = eventFunc[p.type];
       if (ev) {
         return ev(p, nicos);
       }
       else if (p.type === 'PIPE') {
         p.params.forEach(line => {
-          let type = line.type;
-          let ev = eventFunc[type];
+          const type = line.type;
+          const ev = eventFunc[type];
           if (ev) {
             return ev(line, nicos);
           }
@@ -602,19 +602,19 @@ class NicoScripter extends Emitter {
       }
 
 
-      let func = applyFunc[p.type];
+      const func = applyFunc[p.type];
       if (!func) {
         return;
       }
 
-      let beginTime = nicos.beginTime;
-      let endTime = beginTime + nicos.duration;
+      const beginTime = nicos.beginTime;
+      const endTime = beginTime + nicos.duration;
 
       (group.members ? group.members : group).forEach(nicoChat => {
         if (nicoChat.isNicoScript) {
           return;
         }
-        let ct = nicoChat.beginTime;
+        const ct = nicoChat.beginTime;
 
         if (beginTime > ct || endTime < ct) {
           return;

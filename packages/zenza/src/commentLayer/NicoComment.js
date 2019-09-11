@@ -63,7 +63,7 @@ class NicoComment extends Emitter {
     this._options = options;
 
     window.console.time('コメントのパース処理');
-    let nicoScripter = this.nicoScripter;
+    const nicoScripter = this.nicoScripter;
     if (!options.append) {
       this.topGroup.reset();
       this.nakaGroup.reset();
@@ -127,7 +127,7 @@ class NicoComment extends Emitter {
       c.time3dp = c.time3d / timeDepth;
     }
 
-    if (nicoScripter.isExist) {
+    if (!nicoScripter.isEmpty) {
       window.console.time('ニコスクリプト適用');
       nicoScripter.apply(nicoChats);
       window.console.timeEnd('ニコスクリプト適用');
@@ -232,7 +232,7 @@ class NicoComment extends Emitter {
       nicoChat.text = this._wordReplacer(nicoChat.text);
     }
 
-    if (this.nicoScripter.isExist) {
+    if (!this.nicoScripter.isEmpty) {
       window.console.time('ニコスクリプト適用');
       this.nicoScripter.apply([nicoChat]);
       window.console.timeEnd('ニコスクリプト適用');
