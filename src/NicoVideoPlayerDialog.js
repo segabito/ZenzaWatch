@@ -1351,7 +1351,7 @@ class NicoVideoPlayerDialog extends Emitter {
       node: this._$playerContainer,
       playerConfig: config,
       playerState: this._state,
-      volume: Math.max(config.props.volume, 0.01),
+      volume: Math.max(config.props.volume, 0),
       loop: config.props.loop,
       enableFilter: config.props.enableFilter,
       wordFilter: config.props.wordFilter,
@@ -2592,11 +2592,11 @@ class NicoVideoPlayerDialog extends Emitter {
   }
   set volume(v) {
     if (this._nicoVideoPlayer) {
-      this._nicoVideoPlayer.volume = Math.max(0.01, v);
+      this._nicoVideoPlayer.volume = v;
     }
   }
   get volume() {
-    return Math.max(0.01, this._playerConfig.props.volume);
+    return this._playerConfig.props.volume;
   }
   async addChat(text, cmd, vpos = null, options = {}) {
     if (!this._nicoVideoPlayer ||

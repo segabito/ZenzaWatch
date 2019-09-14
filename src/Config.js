@@ -209,6 +209,7 @@ const Config = (() => {
   );
 })();
 Config.exportConfig = () => Config.export();
+Config.importConfig = v => Config.import(v);
 const NaviConfig = Config;
 
 //===END===

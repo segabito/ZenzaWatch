@@ -167,12 +167,12 @@ class NicoVideoPlayer extends Emitter {
   volumeUp() {
     const v = Math.max(0.01, this._videoPlayer.volume);
     const r = v < 0.05 ? 1.3 : 1.1;
-    this._videoPlayer.volume = Math.max(0.01, v * r);
+    this._videoPlayer.volume = Math.max(0, v * r);
   }
   volumeDown() {
     const v = this._videoPlayer.volume;
     const r = 1 / 1.2;
-    this._videoPlayer.volume =  Math.max(0.01, v * r);
+    this._videoPlayer.volume =  v * r;
   }
   _onTimer() {
     this._commentPlayer.currentTime = this._videoPlayer.currentTime;
@@ -1230,10 +1230,10 @@ class VideoPlayer extends Emitter {
   }
 
   set volume(vol) {
-    vol = Math.max(Math.min(1, vol), 0.01);
+    vol = Math.max(Math.min(1, vol), 0);
     this._video.volume = vol;
   }
-  get volume() {return Math.max(0.01, this._video.volume);}
+  get volume() {return Math.max(0, this._video.volume);}
   set muted(v) {
     v = !!v;
     if (this._video.muted !== v) {

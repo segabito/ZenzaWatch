@@ -1,5 +1,5 @@
 import {Emitter} from './baselib';
-import {ZenzaWatch} from './ZenzaWatchIndex';
+import {global} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
 import {bounce} from '../packages/lib/src/infra/bounce';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
@@ -95,7 +95,7 @@ class PlayerState extends BaseState {
       isMute: config.props.mute,
       isMymemory: false,
       isOpen: false,
-      isPausing: false,
+      isPausing: true,
       isPlaylistEnable: false,
       isPlaying: false,
       isSeeking: false,
@@ -130,7 +130,7 @@ class PlayerState extends BaseState {
     } else {
       this._videoInfo = videoInfo;
     }
-    ZenzaWatch.debug.videoInfo = videoInfo;
+    global.debug.videoInfo = videoInfo;
     this.videoCount = videoInfo.count;
     this.thumbnail = videoInfo.betterThumbnail;
     this.emit('update-videoInfo', videoInfo);
@@ -153,6 +153,7 @@ class PlayerState extends BaseState {
     this.setState({
       isLoading: true,
       isPlaying: false,
+      isPausing: true,
       isSeeking: false,
       isStalled: false,
       isError: false,
