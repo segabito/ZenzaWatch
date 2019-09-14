@@ -1,488 +1,1032 @@
-const $ = require('jquery');
-const _ = require('lodash');
-const ZenzaWatch = {
-  util:{},
-  debug: {}
-};
-const util = {};
-const Config = {};
-const RelatedVideoList = function() {};
-const AsyncEmitter = function() {};
-const CONSTANT = {};
-const MylistPocketDetector = {};
-const IchibaLoader = {};
-const UaaLoader = {};
-const PRODUCT = 'ZenzaWatch';
-const TagEditApi = function() {};
+import * as $ from 'jquery';
+import * as _ from 'lodash';
+import {ZenzaWatch, global} from './ZenzaWatchIndex';
+import {CONSTANT} from './constant';
+import {Config, MylistPocketDetector} from './util';
+import {IchibaLoader} from './loader/api';
+import {UaaLoader} from './loader/api';
+import {RecommendAPILoader} from './loader/api';
+import {RelatedVideoList} from './VideoList';
+import {TagListView} from './TagListView';
+import {BaseViewComponent} from '../packages/zenza/src/parts/BaseViewComponent';
+import {Emitter} from '../packages/lib/src/Emitter';
+import {sleep} from '../packages/lib/src/infra/sleep';
+import {Fullscreen} from '../packages/lib/src/dom/Fullscreen';
+import {textUtil} from '../packages/lib/src/text/textUtil';
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
+import {css} from '../packages/lib/src/css/css';
+import {uq} from '../packages/lib/src/uQuery';
+import {domEvent} from '../packages/lib/src/dom/domEvent';
 
+const VideoItemObserver = {
+  observe: () => {}
+};
 //===BEGIN===
 
-  var VideoInfoPanel = function() { this.initialize.apply(this, arguments); };
-  _.extend(VideoInfoPanel.prototype, AsyncEmitter.prototype);
+class VideoInfoPanel extends Emitter {
+  constructor(params) {
+    super();
+    this._videoHeaderPanel = new VideoHeaderPanel(params);
+    this._dialog = params.dialog;
+    this._config = Config;
 
-  VideoInfoPanel.__css__ = (`
-    .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
-      display: none;
-      pointer-events: none;
-      overflow: hidden;
+    this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
+    this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
+
+    if (params.node) {
+      this.appendTo(params.node);
+    }
+  }
+  _initializeDom() {
+    if (this._isInitialized) {
+      return;
+    }
+    this._isInitialized = true;
+
+    const $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
+    const view = this._view = $view[0];
+
+    const $icon = this._$ownerIcon = $view.find('.ownerIcon');
+    this._$ownerName = $view.find('.ownerName');
+    this._$ownerPageLink = $view.find('.ownerPageLink');
+
+    this._description = view.querySelector('.videoDescription');
+    this._seriesList = view.querySelector('.seriesList');
+
+    this._tagListView = new TagListView({
+      parentNode: view.querySelector('.videoTagsContainer')
+    });
+
+    this._relatedInfoMenu = new RelatedInfoMenu({
+      parentNode: view.querySelector('.relatedInfoMenuContainer')
+    });
+
+    this._videoMetaInfo = new VideoMetaInfo({
+      parentNode: view.querySelector('.videoMetaInfoContainer')
+    });
+
+    this._uaaContainer = view.querySelector('.uaaContainer');
+    this._uaaView = new UaaView(
+      {parentNode: this._uaaContainer});
+
+    this._ichibaContainer = view.querySelector('.ichibaContainer');
+    this._ichibaItemView = new IchibaItemView(
+      {parentNode: this._ichibaContainer});
+
+    view.addEventListener('mousemove', e => e.stopPropagation());
+    view.addEventListener('command', this._onCommandEvent.bind(this));
+    view.addEventListener('click', this._onClick.bind(this));
+    view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
+    $icon.on('load', () => $icon.removeClass('is-loading'));
+
+    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    global.emitter.on('fullscreenStatusChange', isFull => {
+      view.classList.toggle('is-fullscreen', isFull);
+      view.classList.toggle('is-notFullscreen', !isFull);
+    });
+
+    view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
+    global.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
+    css.registerProps(
+      {name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
+    );
+    MylistPocketDetector.detect().then(pocket => {
+      this._pocket = pocket;
+      view.classList.add('is-pocketReady');
+    });
+    if (window.customElements) {
+      VideoItemObserver.observe({container: this._description});
+    }
+  }
+  update(videoInfo) {
+    this._videoInfo = videoInfo;
+    this._videoHeaderPanel.update(videoInfo);
+
+    const owner = videoInfo.owner;
+    this._$ownerIcon.attr('src', owner.icon);
+    this._$ownerPageLink.attr('href', owner.url);
+    this._$ownerName.text(owner.name);
+
+    this._videoMetaInfo.update(videoInfo);
+    this._tagListView.update({
+      tagList: videoInfo.tagList,
+      watchId: videoInfo.watchId,
+      videoId: videoInfo.videoId,
+      token: videoInfo.csrfToken,
+      watchAuthKey: videoInfo.watchAuthKey
+    });
+
+    this._seriesList.textContent = '';
+    if (videoInfo.series) {
+      const label = document.createElement('zenza-video-series-label');
+      Object.assign(label.dataset, videoInfo.series);
+      this._seriesList.append(label);
+    }
+    this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
+
+    this._$view
+      .removeClass('userVideo channelVideo initializing')
+      .toggleClass('is-community', this._videoInfo.isCommunityVideo)
+      .toggleClass('is-mymemory', this._videoInfo.isMymemory)
+      .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
+
+    this._ichibaItemView.clear();
+    this._ichibaItemView.videoId = videoInfo.videoId;
+
+    this._uaaView.clear();
+    this._uaaView.update(videoInfo);
+
+    this._relatedInfoMenu.update(videoInfo);
+
+  }
+  /**
+   * 説明文中のurlの自動リンク等の処理
+   */
+  async _updateVideoDescription(html) {
+    this._description.textContent = '';
+    this._zenTubeUrl = null;
+    const watchLink = watchLink => {
+      let videoId = watchLink.textContent.replace('watch/', '');
+
+      if (
+        !/^(sm|nm|so|)[0-9]+$/.test(videoId) ||
+        !['www.nicovideo.jp'].includes(watchLink.hostname) || !watchLink.pathname.startsWith('/watch/')) {
+        return;
+      }
+      watchLink.classList.add('noHoverMenu');
+      Object.assign(watchLink.dataset, {command: 'open', param: videoId});
+
+      if (!window.customElements) {
+        const $watchLink = uq(watchLink);
+        const thumbnail = nicoUtil.getThumbnailUrlByVideoId(videoId);
+        if (thumbnail) {
+          const $img = uq('<img class="videoThumbnail">').attr('src', thumbnail);
+          $watchLink.append($img);
+        }
+        const buttons = uq(`<zenza-playlist-append
+          class="playlistAppend clickable-item" title="プレイリストで開く"
+          data-command="playlistAppend" data-param="${videoId}"
+        >▶</zenza-playlist-append><div
+          class="deflistAdd" title="とりあえずマイリスト"
+          data-command="deflistAdd" data-param="${videoId}"
+        >&#x271A;</div
+        ><div class="pocket-info" title="動画情報"
+          data-command="pocket-info" data-param="${videoId}"
+        >？</div>`);
+        $watchLink.append(buttons);
+      } else {
+        const vitem = document.createElement('zenza-video-item');
+        vitem.dataset.videoId = videoId;
+        watchLink.insertAdjacentElement('afterend', vitem);
+        watchLink.classList.remove('watch');
+      }
+    };
+    const seekTime = seek => {
+      const [min, sec] = (seek.dataset.seektime || '0:0').split(':');
+      Object.assign(seek.dataset, {command: 'seek', type: 'number', param: min * 60 + sec * 1});
+    };
+    const mylistLink = link => {
+      link.classList.add('mylistLink');
+      const mylistId = link.textContent.split('/')[1];
+      const button = uq(`<zenza-mylist-link data-mylist-id="${mylistId}">
+          ${link.outerHTML}
+          <zenza-playlist-append
+            class="playlistSetMylist clickable-item" title="プレイリストで開く"
+            data-command="playlistSetMylist" data-param="${mylistId}"
+          >▶</zenza-playlist-append>
+        </zenza-mylist-link>`)[0];
+      link.replaceWith(button);
+    };
+    const youtube = link => {
+      const btn = uq(`<zentube-button
+        class="zenzaTubeButton"
+        title="ZenzaWatchで開く(実験中)"
+        accesskey="z"
+        data-command="setVideo;"
+        >▷Zen<span>Tube</span></zentube-button>`)[0];
+      Object.assign(btn.dataset, {
+        command: 'setVideo',
+        param: link.href
+      });
+      link.parentNode.insertBefore(btn, link);
+    };
+
+    await sleep.promise();
+
+    const $description = uq(`<zenza-video-description>${html}</zenza-video-description>`);
+    for (const a of $description.query('a')) {
+      a.classList.add('noHoverMenu');
+      let href = a.href;
+      if (a.classList.contains('watch')) {
+        watchLink(a);
+      } else if (a.classList.contains('seekTime')) {
+        seekTime(a);
+      } else if (/^mylist\//.test(a.textContent)) {
+        mylistLink(a);
+      } else if (/^https?:\/\/((www\.|)youtube\.com\/watch|youtu\.be)/.test(href)) {
+        youtube(a);
+      }
+    }
+    for (const e of
+      $description.query('[style*="color: #000000;"],[style*="color: black;"]')
+    ) {
+      e.dataset.originalCss = e.cssText;
+      e.style.color = '#FFF';
+    }
+    for (const e of $description.query('span')) {
+      e.classList.add('videoDescription-font');
     }
 
-    .zenzaWatchVideoInfoPanel .tabs.activeTab {
-      margin-top: 32px;
-      box-sizing: border-box;
-      position: relative;
-      width: 100%;
-      height: calc(100% - 32px);
-      overflow-x: hidden;
-      overflow-y: visible;
-      text-align: left;
-    }
-    .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {
-      overflow: hidden;
+    this._description.append($description[0]);
+
+  }
+  _onVideoCanPlay(watchId, videoInfo, options) {
+    // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
+    if (!this._relatedVideoList) {
+      this._relatedVideoList = new RelatedVideoList({
+        container: this._$view.find('.relatedVideoContainer')[0]
+      });
+      this._relatedVideoList.on('command', this._onCommand.bind(this));
     }
 
-    .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
-      display: none !important;
-      pointer-events: none;
-      opacity: 0;
+    if (this._config.props.autoZenTube && this._zenTubeUrl && !options.isAutoZenTubeDisabled) {
+      window.setTimeout(() => {
+        window.console.info('%cAuto ZenTube', this._zenTubeUrl);
+        this.emit('command', 'setVideo', this._zenTubeUrl);
+      }, 100);
+    }
+    const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
+    RecommendAPILoader.load({videoId: videoInfo.videoId}).then(data => {
+      const items = data.items || [];
+      (items || []).forEach(item => {
+        if (item.contentType !== 'video') {
+          return;
+        }
+        const content = item.content;
+        relatedVideo.push({
+          _format: 'recommendApi',
+          _data: item,
+          id: item.id,
+          title: content.title,
+          length_seconds: content.duration,
+          num_res: content.count.comment,
+          mylist_counter: content.count.mylist,
+          view_counter: content.count.view,
+          thumbnail_url: content.thumbnail.url,
+          first_retrieve: content.registeredAt,
+          has_data: true,
+          is_translated: false
+        });
+      });
+      this._relatedVideoList.update(relatedVideo, watchId);
+    });
+
+  }
+  _onVideoCountUpdate(...args) {
+    if (!this._videoHeaderPanel) {
+      return;
+    }
+    this._videoMetaInfo.updateVideoCount(...args);
+    this._videoHeaderPanel.updateVideoCount(...args);
+  }
+  _onClick(e) {
+    e.stopPropagation();
+    if (
+      (e.button !== 0 || e.metaKey || e.shiftKey || e.altKey || e.ctrlKey)) {
+      return true;
+    }
+    const target = e.target.closest('[data-command]');
+    if (!target) {
+      global.emitter.emitAsync('hideHover'); // 手抜き
+      return;
+    }
+    let {command, param, type} = target.dataset;
+    if (param && (type === 'bool' || type === 'json')) {
+      param = JSON.parse(param);
+    }
+    e.preventDefault();
+
+    domEvent.dispatchCommand(e.target, command, param);
+  }
+  _onCommand(command, param) {
+    switch (command) {
+      default:
+        domEvent.dispatchCommand(this._view, command, param);
+        break;
+    }
+  }
+  _onCommandEvent(e) {
+    const {command, param} = e.detail;
+    switch (command) {
+      case 'pocket-info':
+        this._pocket.external.info(param);
+        break;
+      case 'ownerVideo':
+        domEvent.dispatchCommand(this._view, 'playlistSetUploadedVideo', this._videoInfo.owner.id);
+        break;
+      default:
+        return;
+    }
+    e.stopPropagation();
+  }
+  appendTo(node) {
+    this._initializeDom();
+    this._$view.appendTo(node);
+    this._videoHeaderPanel.appendTo(node);
+  }
+  hide() {
+    this._videoHeaderPanel.hide();
+  }
+  close() {
+    this._videoHeaderPanel.close();
+  }
+  clear() {
+    this._videoHeaderPanel.clear();
+    this._$view.addClass('initializing');
+    this._$ownerIcon.addClass('is-loading');
+    this._description.textContent = '';
+  }
+  selectTab(tabName) {
+    const $view = this._$view;
+    const $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
+    this._activeTabName = tabName;
+    $view.find('.activeTab').removeClass('activeTab');
+    $target.addClass('activeTab');
+  }
+  blinkTab(tabName) {
+    const $view = this._$view;
+    const $target = $view.find(`.tabs.${tabName}, .tabSelect.${tabName}`);
+    if (!$target.length) {
+      return;
+    }
+    $target.addClass('blink');
+    window.setTimeout(() => $target.removeClass('blink'), 50);
+  }
+  appendTab(tabName, title, content) {
+    const $view = this._$view;
+    const $select =
+      uq('<div class="tabSelect"/>')
+        .addClass(tabName)
+        .attr('data-command', 'selectTab')
+        .attr('data-param', tabName)
+        .text(title);
+    const $body = uq('<div class="tabs"/>').addClass(tabName);
+    if (content) {
+      $body.append(content);
     }
 
-    .zenzaWatchVideoInfoPanel .tabSelectContainer {
-      position: absolute;
-      display: flex;
-      height: 32px;
-      z-index: 100;
-      width: 100%;
-      white-space: nowrap;
-    }
+    $view.find('.tabSelectContainer').append($select);
+    $view.append($body);
 
-    .zenzaWatchVideoInfoPanel .tabSelect {
+    if (this._activeTabName === tabName) {
+      $select.addClass('activeTab');
+      $body.addClass('activeTab');
+    }
+    return $body;
+  }
+}
+
+css.addStyle(`
+  .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
+    display: none;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .zenzaWatchVideoInfoPanel .tabs.activeTab {
+    margin-top: 32px;
+    box-sizing: border-box;
+    position: relative;
+    width: 100%;
+    height: calc(100% - 32px);
+    overflow-x: hidden;
+    overflow-y: visible;
+    overscroll-behavior: contain;
+    text-align: left;
+  }
+  .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {
+    overflow: hidden;
+  }
+
+  .zenzaWatchVideoInfoPanel .tabs:not(.activeTab) {
+    display: none !important;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .zenzaWatchVideoInfoPanel .tabSelectContainer {
+    position: absolute;
+    display: flex;
+    height: 32px;
+    z-index: 100;
+    width: 100%;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .zenzaWatchVideoInfoPanel .tabSelect {
+    flex: 1;
+    box-sizing: border-box;
+    display: inline-block;
+    height: 32px;
+    font-size: 12px;
+    letter-spacing: 0;
+    line-height: 32px;
+    color: #666;
+    background: #222;
+    cursor: pointer;
+    text-align: center;
+    transition: text-shadow 0.2s ease, color 0.2s ease;
+  }
+  .zenzaWatchVideoInfoPanel .tabSelect.activeTab {
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    color: #ccc;
+    background: #333;
+  }
+
+  .zenzaWatchVideoInfoPanel .tabSelect.blink:not(.activeTab) {
+    color: #fff;
+    text-shadow: 0 0 4px #ff9;
+    transition: none;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel.is-notFullscreen .tabSelect.blink:not(.activeTab) {
+    color: #fff;
+    text-shadow: 0 0 4px #006;
+    transition: none;
+  }
+
+  .zenzaWatchVideoInfoPanel .tabSelect:not(.activeTab):hover {
+    background: #888;
+  }
+
+  .zenzaWatchVideoInfoPanel.initializing {
+  }
+
+  .zenzaWatchVideoInfoPanel>* {
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+
+  .is-mouseMoving .zenzaWatchVideoInfoPanel>*,
+                .zenzaWatchVideoInfoPanel:hover>* {
+    pointer-events: auto;
+  }
+
+
+  .zenzaWatchVideoInfoPanel.initializing>* {
+    opacity: 0;
+    color: #333;
+    transition: none;
+  }
+
+  .zenzaWatchVideoInfoPanel {
+    position: absolute;
+    top: 0;
+    width: 320px;
+    height: 100%;
+    box-sizing: border-box;
+    z-index: ${CONSTANT.BASE_Z_INDEX + 25000};
+    background: #333;
+    color: #ccc;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    transition: opacity 0.4s ease;
+  }
+
+  .zenzaWatchVideoInfoPanel .ownerPageLink {
+    display: block;
+    margin: 0 auto 8px;
+    width: 104px;
+  }
+
+  .zenzaWatchVideoInfoPanel .ownerIcon {
+    width: 96px;
+    height: 96px;
+    border: none;
+    border-radius: 4px;
+    transition: opacity 1s ease;
+    vertical-align: middle;
+  }
+  .zenzaWatchVideoInfoPanel .ownerIcon.is-loading {
+    opacity: 0;
+  }
+
+  .zenzaWatchVideoInfoPanel .ownerName {
+    font-size: 20px;
+    word-break: break-all;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+    padding: 16px;
+    display: table;
+    width: 100%;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>*{
+    display: block;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoDescription {
+    padding: 8px 8px 8px;
+    margin: 4px 0px;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoDescription a {
+    display: inline-block;
+    font-weight: bold;
+    text-decoration: none;
+    color: #ff9;
+    padding: 2px;
+  }
+  .zenzaWatchVideoInfoPanel .videoDescription a:visited {
+    color: #ffd;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoDescription .watch {
+    display: block;
+    position: relative;
+    line-height: 60px;
+    box-sizing: border-box;
+    padding: 4px 16px;;
+    min-height: 60px;
+    width: 272px;
+    margin: 8px 10px;
+    background: #444;
+    border-radius: 4px;
+  }
+  .zenzaWatchVideoInfoPanel .videoDescription .watch:hover {
+    background: #446;
+  }
+
+  .videoDescription-font {
+    text-shadow: 1px 1px var(--base-description-color, #888);
+  }
+
+  .zenzaWatchVideoInfoPanel .videoDescription .mylistLink {
+    white-space: nowrap;
+    display: inline-block;
+  }
+
+  .zenzaWatchVideoInfoPanel:not(.is-pocketReady) .pocket-info {
+    display: none !important;
+  }
+  .pocket-info {
+    font-family: Menlo;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo {
+    display: inline-block;
+    font-size: 16px;
+    line-height: 20px;
+    width: 24px;
+    height: 24px;
+    background: #666;
+    color: #ccc !important;
+    background: #666;
+    text-decoration: none;
+    border: 1px outset;
+    cursor: pointer;
+    text-align: center;
+    user-select: none;
+    margin-left: 8px;
+  }
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
+    display: none;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoInfoTab .owner:hover .playlistAppend,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .playlistAppend,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .pocket-info,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .deflistAdd {
+    display: inline-block;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend {
+    position: absolute;
+    bottom: 4px;
+    left: 16px;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info {
+    position: absolute;
+    bottom: 4px;
+    left: 48px;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
+    position: absolute;
+    bottom: 4px;
+    left: 80px;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:hover,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:hover,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:hover,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:hover,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:hover {
+    transform: scale(1.5);
+  }
+  .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:active,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:active,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:active,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:active,
+  .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:active {
+    transform: scale(1.2);
+    border: 1px inset;
+  }
+
+
+  .zenzaWatchVideoInfoPanel .videoDescription .watch .videoThumbnail {
+    position: absolute;
+    right: 16px;
+    height: 60px;
+    pointer-events: none;
+  }
+  .zenzaWatchVideoInfoPanel .videoDescription:hover .watch .videoThumbnail {
+    filter: none;
+  }
+
+
+
+  .zenzaWatchVideoInfoPanel .publicStatus,
+  .zenzaWatchVideoInfoPanel .videoTagsContainer {
+    display: none;
+  }
+
+  .zenzaWatchVideoInfoPanel .publicStatus {
+    display: none;
+    position: relative;
+    margin: 8px 0;
+    padding: 8px;
+    line-height: 150%;
+    text-align; center;
+    color: #333;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoMetaInfoContainer {
+    display: inline-block;
+    padding: 0 8px;
+  }
+
+  .zenzaScreenMode_normal .is-backComment .zenzaWatchVideoInfoPanel,
+  .zenzaScreenMode_big    .is-backComment .zenzaWatchVideoInfoPanel {
+    opacity: 0.7;
+  }
+
+
+  .zenzaWatchVideoInfoPanel .relatedVideoTab .relatedVideoContainer {
+    box-sizing: border-box;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    user-select: none;
+  }
+
+  .zenzaWatchVideoInfoPanel .videoListFrame,
+  .zenzaWatchVideoInfoPanel .commentListFrame {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border: 0;
+    background: #333;
+  }
+
+  .zenzaWatchVideoInfoPanel .nowLoading {
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .zenzaWatchVideoInfoPanel.initializing .nowLoading {
+    display: block !important;
+    opacity: 1 !important;
+    color: #888;
+  }
+  .zenzaWatchVideoInfoPanel .nowLoading {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+  .zenzaWatchVideoInfoPanel .kurukuru {
+    position: absolute;
+    display: inline-block;
+    font-size: 96px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  @keyframes loadingRolling {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(1800deg); }
+  }
+  .zenzaWatchVideoInfoPanel.initializing .kurukuruInner {
+    display: inline-block;
+    pointer-events: none;
+    text-align: center;
+    text-shadow: 0 0 4px #888;
+    animation-name: loadingRolling;
+    animation-iteration-count: infinite;
+    animation-duration: 4s;
+  }
+  .zenzaWatchVideoInfoPanel .nowLoading .loadingMessage {
+    position: absolute;
+    display: inline-block;
+    font-family: Impact;
+    font-size: 32px;
+    text-align: center;
+    top: calc(50% + 48px);
+    left: 0;
+    width: 100%;
+  }
+
+  ${CONSTANT.SCROLLBAR_CSS}
+
+  .zenzaWatchVideoInfoPanel .zenzaWatchVideoInfoPanelInner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+    .zenzaWatchVideoInfoPanelContent {
       flex: 1;
-      box-sizing: border-box;
-      display: inline-block;
-      height: 32px;
-      font-size: 12px;
-      letter-spacing: 0;
-      line-height: 32px;
-      color: #666;
-      background: #222;
-      cursor: pointer;
-      text-align: center;
-      transition: text-shadow 0.2s ease, color 0.2s ease;
-    }
-    .zenzaWatchVideoInfoPanel .tabSelect.activeTab {
-      font-size: 14px;
-      letter-spacing: 0.1em;
-      color: #ccc;
-      background: #333;
     }
 
-    .zenzaWatchVideoInfoPanel .tabSelect.blink:not(.activeTab) {
-      color: #fff;
-      text-shadow: 0 0 4px #ff9;
-      transition: none;
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect.blink:not(.activeTab) {
-      color: #fff;
-      text-shadow: 0 0 4px #006;
-      transition: none;
-    }
-
-
-    .zenzaWatchVideoInfoPanel .tabSelect:not(.activeTab):hover {
-      background: #888;
-    }
-
-    .zenzaWatchVideoInfoPanel.initializing {
-    }
-    
-    .zenzaWatchVideoInfoPanel>* {
-      transition: opacity 0.4s ease;
+  .zenzaTubeButton {
+    display: inline-block;
+    padding: 4px 8px;
+    cursor: pointer;
+    background: #666;
+    color: #ccc;
+    border-radius: 4px;
+    border: 1px outset;
+    margin: 0 8px;
+  }
+  .zenzaTubeButton:hover {
+    box-shadow: 0 0 8px #fff, 0 0 4px #ccc;
+  }
+    .zenzaTubeButton span {
       pointer-events: none;
-    }
-
-    .is-mouseMoving .zenzaWatchVideoInfoPanel>*,
-                 .zenzaWatchVideoInfoPanel:hover>* {
-      pointer-events: auto;
-    }
-
-
-    .zenzaWatchVideoInfoPanel.initializing>* {
-      opacity: 0;
+      display: inline-block;
+      background: #ccc;
       color: #333;
-      transition: none;
-    }
-
-    .zenzaWatchVideoInfoPanel {
-      position: absolute;
-      top: 0;
-      width: 320px;
-      height: 100%;
-      box-sizing: border-box;
-      z-index: ${CONSTANT.BASE_Z_INDEX + 25000};
-      background: #333;
-      color: #ccc;
-      overflow-x: hidden;
-      overflow-y: hidden;
-      transition: opacity 0.4s ease;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel,
-    body:not(.fullScreen).zenzaScreenMode_big    .zenzaWatchVideoInfoPanel
-    {
-      display: none;
-      left: calc(100%);
-      top: 0;
-    }
-
-    @media screen and (min-width: 992px) {
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
-        display: inherit;
-      }
-      .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50%);
-        left: calc(-50vw + 50% + 160px);
-        width:  100vw;
-        height: calc(100vh - 40px);
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
-
-     }
-
-    @media screen and (min-width: 1216px) {
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
-        display: inherit;
-      }
-
-      .zenzaScreenMode_big .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50%);
-        left: calc(-50vw + 50% + 160px);
-        width:  100vw;
-        height: calc(100vh - 40px);
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
-    }
-
-
-    .zenzaScreenMode_3D    .zenzaWatchVideoInfoPanel>*,
-    .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel>*,
-    .fullScreen            .zenzaWatchVideoInfoPanel>* {
-      display: none;
-      pointer-events: none;
-    }
-
-    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover>*,
-    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover>*,
-    .fullScreen           .zenzaWatchVideoInfoPanel:hover>* {
-      display: inherit;
-      pointer-events: auto;
-    }
-
-    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover .tabSelectContainer,
-    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover .tabSelectContainer,
-    .fullScreen           .zenzaWatchVideoInfoPanel:hover .tabSelectContainer {
-      display: flex;
-    }
-
-
-    .zenzaScreenMode_3D    .zenzaWatchVideoInfoPanel,
-    .zenzaScreenMode_wide  .zenzaWatchVideoInfoPanel,
-    .fullScreen            .zenzaWatchVideoInfoPanel {
-      top: 20%;
-      right: calc(32px - 320px);
-      left: auto;
-      width: 320px;
-      height: 60%;
-      background: none;
-      opacity: 0;
-      box-shadow: none;
-      transition: opacity 0.4s ease, transform 0.4s ease 1s;
-      will-change: opacity, transform, transform;
-    }
-
-    .zenzaScreenMode_3D   .is-mouseMoving  .zenzaWatchVideoInfoPanel,
-    .zenzaScreenMode_wide .is-mouseMoving  .zenzaWatchVideoInfoPanel,
-    .fullScreen           .is-mouseMoving  .zenzaWatchVideoInfoPanel {
-      height: 60%;
-      background: none;
-      border: 1px solid #888;
-      opacity: 0.5;
-    }
-
-    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel.is-slideOpen,
-    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel.is-slideOpen,
-    .fullScreen           .zenzaWatchVideoInfoPanel.is-slideOpen,
-    .zenzaScreenMode_3D   .zenzaWatchVideoInfoPanel:hover,
-    .zenzaScreenMode_wide .zenzaWatchVideoInfoPanel:hover,
-    .fullScreen           .zenzaWatchVideoInfoPanel:hover {
-      /*right: 0;*/
-      background: #333;
-      box-shadow: 4px 4px 4px #000;
-      border: none;
-      opacity: 0.9;
-      transform: translate3d(-288px, 0, 0);
-      transition: opacity 0.4s ease, transform 0.4s ease 1s;
-    }
-
-    .zenzaWatchVideoInfoPanel .ownerPageLink {
-      display: block;
-      margin: 0 auto 8px;
-      width: 104px;
-    }
-
-    .zenzaWatchVideoInfoPanel .ownerIcon {
-      width: 96px;
-      height: 96px;
-      border: none;
-      border-radius: 4px;
-      /*margin-right: 8px;*/
-      /*box-shadow: 2px 2px 2px #666;*/
-      transition: opacity 1s ease;
-      vertical-align: middle;
-    }
-    .zenzaWatchVideoInfoPanel .ownerIcon.is-loading {
-      opacity: 0;
-    }
-
-    .zenzaWatchVideoInfoPanel .ownerName {
-      font-size: 20px;
-      word-break: break-all;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
-      padding: 16px;
-      display: table;
-      /*width: calc(100% - 16px);*/
-      width: 100%;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>*{
-      display: block;
-      vertical-align: middle;
-      text-align: center;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoDescription {
-      padding: 8px 8px 8px;
-      margin: 4px 0px;
-      word-break: break-all;
-      line-height: 1.5;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoDescription a {
-      display: inline-block;
-      font-weight: bold;
-      text-decoration: none;
-      color: #ff9;
-      padding: 2px;
-    }
-    .zenzaWatchVideoInfoPanel .videoDescription a:visited {
-      color: #ffd;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoDescription .watch {
-      display: block;
-      position: relative;
-      line-height: 60px;
-      box-sizing: border-box;
-      padding: 4px 16px;;
-      min-height: 60px;
-      width: 272px;
-      margin: 8px 10px;
-      background: #444;
       border-radius: 4px;
     }
-    .zenzaWatchVideoInfoPanel .videoDescription .watch:hover {
-      background: #446;
+    .zenzaTubeButton:hover span {
+      background: #f33;
+      color: #ccc;
+    }
+  .zenzaTubeButton:active {
+    box-shadow:  0 0 2px #ccc, 0 0 4px #000 inset;
+    border: 1px inset;
+  }
+
+  .zenzaWatchVideoInfoPanel .relatedInfoMenuContainer {
+    text-align: left;
+  }
+
+  .zenzaWatchVideoInfoPanel .seriesList {
+    padding: 0 8px;
+  }
+
+  `, {className: 'videoInfoPanel'});
+
+css.addStyle(`
+  .is-open .zenzaWatchVideoInfoPanel>* {
+    display: none;
+    pointer-events: none;
+  }
+  .zenzaWatchVideoInfoPanel:hover>* {
+    display: inherit;
+    pointer-events: auto;
+  }
+  .zenzaWatchVideoInfoPanel:hover .tabSelectContainer {
+    display: flex;
+  }
+
+  .zenzaWatchVideoInfoPanel {
+    top: 20%;
+    right: calc(32px - 320px);
+    left: auto;
+    width: 320px;
+    height: 60%;
+    border: 1px solid transparent;
+    background: none;
+    opacity: 0;
+    box-shadow: none;
+    transition: opacity 0.4s ease, transform 0.4s ease 1s;
+    will-change: opacity, transform;
+  }
+
+  .is-mouseMoving  .zenzaWatchVideoInfoPanel {
+    border: 1px solid #888;
+    opacity: 0.5;
+  }
+
+  .zenzaWatchVideoInfoPanel.is-slideOpen,
+  .zenzaWatchVideoInfoPanel:hover {
+    background: #333;
+    box-shadow: 4px 4px 4px #000;
+    border: none;
+    opacity: 0.9;
+    transform: translate3d(-288px, 0, 0);
+    transition: opacity 0.4s ease, transform 0.4s ease 1s;
+  }
+
+`, {className: 'screenMode for-full videoInfoPanel'});
+
+css.addStyle(`
+  .zenzaScreenMode_small .zenzaWatchVideoInfoPanel {
+    display: none;
+  }
+
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelectContainer {
+    width: calc(100% - 16px);
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect {
+    background: #ccc;
+    color: #888;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect.activeTab {
+    background: #ddd;
+    color: black;
+    border: none;
+  }
+
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel {
+    top: 230px;
+    left: 0;
+    width: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
+    height: calc(100vh - 296px);
+    bottom: 48px;
+    padding: 8px;
+    box-shadow: none;
+    background: #f0f0f0;
+    color: #000;
+    border: 1px solid #333;
+    margin: 4px 2px;
+  }
+
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .publicStatus {
+    display: block;
+    text-align: center;
+  }
+
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a {
+    color: #006699;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a:visited {
+    color: #666666;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
+    display: block;
+    bottom: 48px;
+    width: 364px;
+    margin: 0 auto;
+    padding: 8px;
+    background: #ccc;
+  }
+
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch {
+    background: #ddd;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch:hover {
+    background: #ddf;
+  }
+
+  .zenzaScreenMode_sideView .videoInfoTab::-webkit-scrollbar {
+    background: #f0f0f0;
+  }
+
+  .zenzaScreenMode_sideView .videoInfoTab::-webkit-scrollbar-thumb {
+    border-radius: 0;
+    background: #ccc;
+  }
+`, {className: 'screenMode for-popup videoInfoPanel'});
+
+uq.ready().then(() => {
+  if (document.body.classList.contains('MatrixRanking-body')) {
+    css.addStyle(`
+      body.zenzaScreenMode_sideView.MatrixRanking-body .RankingRowRank {
+        line-height: 48px;
+        height: 48px;
+        pointer-events: none;
+        user-select: none;
+      }
+      body.zenzaScreenMode_sideView.MatrixRanking-body .RankingRowRank {
+        position: sticky;
+        left: calc(var(--sideView-left-margin) - 8px);
+        z-index: 100;
+        transform: none;
+        padding-right: 16px;
+        width: 64px;
+        overflow: visible;
+        text-align: right;
+        mix-blend-mode: difference;
+        text-shadow:
+          1px  1px 0 #fff,
+          1px -1px 0 #fff,
+          -1px  1px 0 #fff,
+          -1px -1px 0 #fff;
+      }
+      body.zenzaScreenMode_sideView.MatrixRanking-body .BaseLayout-block {
+        width: ${1024 + 64 * 2}px;
+      }
+      .RankingMainContainer-decorateChunk+.RankingMainContainer-decorateChunk,
+      .RankingMainContainer-decorateChunk>*+* {
+        margin-top: 0;
+      }
+      body.zenzaScreenMode_sideView .RankingMainContainer {
+        width: ${1024}px;
+      }
+      body.zenzaScreenMode_sideView.MatrixRanking-body .RankingMatrixVideosRow {
+        width: ${1024 + 64}px;
+        margin-left: ${-64}px;
+      }
+        .RankingGenreListContainer-categoryHelp {
+          position: static;
+        }
+        .RankingMatrixNicoadsRow>*+*,
+        .RankingMatrixVideosRow>:nth-child(n+3) {
+          margin-left: 13px;
+        }
+        .RankingBaseItem {
+          width: 160px;
+          height: 196px;
+        }
+          body.zenzaScreenMode_sideView .RankingBaseItem .Card-link {
+            grid-template-rows: 90px auto;
+          }
+          .VideoItem.RankingBaseItem .VideoThumbnail {
+            border-radius: 3px 3px 0 0;
+          }
+
+          [data-nicoad-grade] .Thumbnail.VideoThumbnail .Thumbnail-image {
+            margin: 3px;
+            background-size: calc(100% + 6px);
+          }
+          [data-nicoad-grade] .Thumbnail.VideoThumbnail:after {
+            width: 40px;
+            height: 40px;
+            background-size: 80px 80px;
+          }
+          .Thumbnail.VideoThumbnail .VideoLength {
+            bottom: 3px;
+            right: 3px;
+          }
+          .VideoThumbnailComment {
+            transform: scale(0.8333);
+          }
+          .RankingBaseItem-meta {
+            position: static;
+            padding: 0 4px 8px;
+          }
+          .VideoItem.RankingBaseItem .VideoItem-metaCount>.VideoMetaCount {
+            white-space: nowrap;
+          }
+      .RankingMainContainer .ToTopButton {
+        transform: translateX(calc(100vw / 2 - 100% - 36px));
+        user-select: none;
+      }
+    `, {className: 'screenMode for-sideView MatrixRanking', disabled: true});
+    }
+});
+
+css.addStyle(`
+  .is-open .zenzaWatchVideoInfoPanel {
+    display: none;
+    left: calc(100%);
+    top: 0;
+  }
+
+  @media screen {
+    @media (min-width: 992px) {
+      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
+        display: inherit;
+      }
     }
 
-    .zenzaWatchVideoInfoPanel .videoDescription .mylistLink {
-      white-space: nowrap;
-      display: inline-block;
-    }
-
-    .zenzaWatchVideoInfoPanel:not(.is-pocketReady) .pocket-info {
-      display: none !important;
-    }
-    .pocket-info {
-      font-family: Menlo;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo {
-      display: inline-block;
-      font-size: 16px;
-      line-height: 20px;
-      width: 24px;
-      height: 24px;
-      background: #666;
-      color: #ccc !important;
-      background: #666;
-      text-decoration: none;
-      border: 1px outset;
-      transition: transform 0.2s ease;
-      cursor: pointer;
-      text-align: center;
-      user-select: none;
-      margin-left: 8px;
-    }
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
-      display: none;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab .owner:hover .playlistAppend,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .playlistAppend,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .pocket-info,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .watch:hover .deflistAdd {
-      display: inline-block;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend {
-      position: absolute;
-      bottom: 4px;
-      left: 16px;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info {
-      position: absolute;
-      bottom: 4px;
-      left: 48px;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd {
-      position: absolute;
-      bottom: 4px;
-      left: 80px;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:hover,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:hover,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:hover,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:hover,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:hover {
-      transform: scale(1.5);
-    }
-    .zenzaWatchVideoInfoPanel .videoInfoTab .pocket-info:active,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistAppend:active,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .deflistAdd:active,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetMylist:active,
-    .zenzaWatchVideoInfoPanel .videoInfoTab .playlistSetUploadedVideo:active {
-      transform: scale(1.2);
-      border: 1px inset;
-    }
-
-
-    .zenzaWatchVideoInfoPanel .videoDescription .watch .videoThumbnail {
-      position: absolute;
-      right: 16px;
-      height: 60px;
-      pointer-events: none;
-    }
-    .zenzaWatchVideoInfoPanel .videoDescription:hover .watch .videoThumbnail {
-      filter: none;
-    }
-
-
-
-    .zenzaWatchVideoInfoPanel .publicStatus,
-    .zenzaWatchVideoInfoPanel .videoTagsContainer {
-      display: none;
-    }
-
-    .zenzaWatchVideoInfoPanel .publicStatus {
-      display: none;
-      position: relative;
-      margin: 8px 0;
-      padding: 8px;
-      line-height: 150%;
-      text-align; center;
-      color: #333;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoMetaInfoContainer {
-      display: inline-block;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_small .zenzaWatchVideoInfoPanel {
-      display: none;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelectContainer {
-      width: calc(100% - 16px);
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect{
-      background: #ccc;
-      color: #888;
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelect.activeTab{
-      background: #ddd;
-      color: black;
-      border: none;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel {
-      top: 230px;
-      left: 0;
-      width: ${CONSTANT.SIDE_PLAYER_WIDTH}px;
-      height: calc(100vh - 296px);
-      bottom: 48px;
-      padding: 8px;
-      box-shadow: none;
-      background: #f0f0f0;
-      color: #000;
-      border: 1px solid #333;
-      margin: 4px 2px;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .publicStatus {
-      display: block;
-      text-align: center;
-    }
-
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a {
-      color: #006699;
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription a:visited {
-      color: #666666;
-    }
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
-      display: block;
-      bottom: 48px;
-      width: 364px;
-      margin: 0 auto;
-      padding: 8px;
-      background: #ccc;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch {
-      background: #ddd;
-    }
-         body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoDescription .watch:hover {
-      background: #ddf;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_3D     .is-backComment .zenzaWatchVideoInfoPanel,
-    body:not(.fullScreen).zenzaScreenMode_normal .is-backComment .zenzaWatchVideoInfoPanel,
-    body:not(.fullScreen).zenzaScreenMode_big    .is-backComment .zenzaWatchVideoInfoPanel {
-      opacity: 0.7;
+    @media (min-width: 1216px) {
+      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
+        display: inherit;
+      }
     }
 
     /* 縦長モニター */
     @media
-      screen and
       (max-width: 991px) and (min-height: 700px)
     {
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
+      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel {
         display: inherit;
         top: 100%;
         left: 0;
@@ -491,34 +1035,25 @@ const TagEditApi = function() {};
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
 
-      .zenzaScreenMode_normal .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50% + 120px);
-        left: calc(-50vw + 50%);
-        width:  100vw;
-        height: 100vh;
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
-
-      body:not(.fullScreen).zenzaScreenMode_normal .ZenzaIchibaItemView {
+      .zenzaScreenMode_normal .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
       }
 
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
         display: table;
       }
-      body:not(.fullScreen).zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
+      .zenzaScreenMode_normal .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
         display: table-cell;
         text-align: left;
+      }
+      .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel {
+        width: 100% !important;
       }
     }
 
     @media
-      screen and
-      (max-width: 1215px) and (min-height: 700px)
-    {
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
+      (max-width: 1215px) and (min-height: 700px) {
+      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel {
         display: inherit;
         top: 100%;
         left: 0;
@@ -527,224 +1062,40 @@ const TagEditApi = function() {};
         z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
       }
 
-      .zenzaScreenMode_big .zenzaPlayerContainer.is-backComment .commentLayerFrame {
-        top:  calc(-50vh + 50% + 120px);
-        left: calc(-50vw + 50%);
-        width:  100vw;
-        height: 100vh;
-        right: auto;
-        bottom: auto;
-        z-index: 1;
-      }
-
-      body:not(.fullScreen).zenzaScreenMode_big .ZenzaIchibaItemView {
+      .zenzaScreenMode_big .ZenzaIchibaItemView {
         margin: 8px 8px 96px;
       }
 
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
+      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer {
         display: table;
       }
-      body:not(.fullScreen).zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
+      .zenzaScreenMode_big .zenzaWatchVideoInfoPanel .videoOwnerInfoContainer>* {
         display: table-cell;
         text-align: left;
       }
-    }
 
-    .zenzaWatchVideoInfoPanel .relatedVideoTab .relatedVideoContainer {
-      box-sizing: border-box;
-      position: relative;
-      width: 100%;
-      height: 100%;
-      margin: 0;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoListFrame,
-    .zenzaWatchVideoInfoPanel .commentListFrame {
-      width: 100%;
-      height: 100%;
-      box-sizing: border-box;
-      border: 0;
-      background: #333;
-    }
-
-    .zenzaWatchVideoInfoPanel .nowLoading {
-      display: none;
-      opacity: 0;
-      pointer-events: none;
-    }
-    .zenzaWatchVideoInfoPanel.initializing .nowLoading {
-      display: block !important;
-      opacity: 1 !important;
-      color: #888;
-    }
-    .zenzaWatchVideoInfoPanel .nowLoading {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-    }
-    .zenzaWatchVideoInfoPanel .kurukuru {
-      position: absolute;
-      display: inline-block;
-      font-size: 96px;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    @keyframes loadingRolling {
-      0%   { transform: rotate(0deg); }
-      100% { transform: rotate(1800deg); }
-    }
-    .zenzaWatchVideoInfoPanel.initializing .kurukuruInner {
-      display: inline-block;
-      pointer-events: none;
-      text-align: center;
-      text-shadow: 0 0 4px #888;
-      animation-name: loadingRolling;
-      animation-iteration-count: infinite;
-      animation-duration: 4s;
-      animation-timing-function: linear;
-    }
-    .zenzaWatchVideoInfoPanel .nowLoading .loadingMessage {
-      position: absolute;
-      display: inline-block;
-      font-family: Impact;
-      font-size: 32px;
-      text-align: center;
-      top: calc(50% + 48px);
-      left: 0;
-      width: 100%;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar {
-      background: #222;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #666;
-    }
-
-    .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-button {
-      background: #666;
-      display: none;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar {
-      background: #f0f0f0;
-    }
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoInfoTab::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #ccc;
-    }
-
-
-    .zenzaWatchVideoInfoPanel .zenzaWatchVideoInfoPanelInner {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-      .zenzaWatchVideoInfoPanelContent {
-        flex: 1;
+      .zenzaScreenMode_big .zenzaWatchVideoHeaderPanel {
+        width: 100% !important;
       }
+    }
+  }
 
-    .zenzaWatchVideoInfoPanel .resumePlay {
-      display: none;
-      width: calc(100% - 16px);
-      font-size: 14px;
-      padding: 8px 4px;
-      cursor: pointer;
-      border-radius: 4px;
-      border: 1px solid #666;
-      margin: 0 8px 8px;
-      background: transparent;
-      color: inherit;
-      outline: none;
-      line-height: 20px;
-      user-select: none;
-      text-align: center;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -webkit-appearance: inherit;
-      -moz-appearance: inherit;
-      -ms-appearance: inherit;
-    }
-    .zenzaWatchVideoInfoPanel .resumePlay.is-resumePlayable {
-      display: block;
-    }
-    .zenzaWatchVideoInfoPanel .resumePlay:hover {
-      transform: translate(0, -4px);
-      box-shadow: 0 4px 2px #000;
-      transition:
-        0.2s transform ease,
-        0.2s box-shadow ease
-        ;
-    }
+`, {className: 'screenMode for-dialog videoInfoPanel'});
 
-    .zenzaWatchVideoInfoPanel .resumePlay:active {
-      transform: translate(0, 4px);
-      box-shadow: none;
-      transition: none;
-    }
+css.addStyle(`
+  .zenzaWatchVideoInfoPanel .comment {
+    padding-left: 0;
+  }
+`, {className: 'domain slack-com', disabled: true});
 
-    .zenzaWatchVideoInfoPanel .resumeThumbnailContainer {
-      display: inline-block;
-      vertical-align: middle;
-      width: 128px;
-      min-height: 72px;
-      background: #333;
-      pointer-events: none;
-    }
-
-    .zenzaWatchVideoInfoPanel .resumeThumbnail {
-      max-width: 128px;
-      max-height: 96px;
-    }
-
-    .zenzaTubeButton {
-      display: inline-block;
-      padding: 4px 8px;
-      cursor: pointer;
-      background: #666;
-      color: #ccc;
-      border-radius: 4px;
-      border: 1px outset;
-      margin: 0 8px;
-    }
-    .zenzaTubeButton:hover {
-      box-shadow: 0 0 8px #fff, 0 0 4px #ccc;
-    }
-      .zenzaTubeButton span {
-        pointer-events: none;
-        display: inline-block;
-        background: #ccc;
-        color: #333;
-        border-radius: 4px;
-      }
-      .zenzaTubeButton:hover span {
-        background: #f33;
-        color: #ccc;
-      }
-    .zenzaTubeButton:active {
-      box-shadow:  0 0 2px #ccc, 0 0 4px #000 inset;
-      border: 1px inset;
-    }
-
-    .zenzaWatchVideoInfoPanel .relatedInfoMenuContainer {
-      text-align: left;
-    }
-
-  `).trim();
-
-  VideoInfoPanel.__tpl__ = (`
+VideoInfoPanel.__tpl__ = (`
     <div class="zenzaWatchVideoInfoPanel show initializing">
       <div class="nowLoading">
         <div class="kurukuru"><span class="kurukuruInner">&#x262F;</span></div>
         <div class="loadingMessage">Loading...</div>
       </div>
 
-      <div class="tabSelectContainer"><div class="tabSelect videoInfoTab activeTab" data-tab="videoInfoTab">動画情報</div><div class="tabSelect relatedVideoTab" data-tab="relatedVideoTab">関連動画</div></div>
+      <div class="tabSelectContainer"><div class="tabSelect videoInfoTab activeTab" data-command="selectTab" data-param="videoInfoTab">動画情報</div><div class="tabSelect relatedVideoTab" data-command="selectTab" data-param="relatedVideoTab">関連動画</div></div>
 
       <div class="tabs videoInfoTab activeTab">
         <div class="zenzaWatchVideoInfoPanelInner">
@@ -755,20 +1106,17 @@ const TagEditApi = function() {};
               </a>
               <span class="owner">
                 <span class="ownerName"></span>
-                <a class="playlistSetUploadedVideo userVideo"
-                  data-command="playlistSetUploadedVideo"
-                  title="投稿動画一覧をプレイリストで開く">▶</a>
+                <zenza-playlist-append class="playlistSetUploadedVideo userVideo"
+                  data-command="ownerVideo"
+                  title="投稿動画一覧をプレイリストで開く">▶</zenza-playlist-append>
               </span>
             </div>
             <div class="publicStatus">
               <div class="videoMetaInfoContainer"></div>
               <div class="relatedInfoMenuContainer"></div>
             </div>
+            <div class="seriesList"></div>
             <div class="videoDescription"></div>
-            <div class="resumePlay" data-command="seek" data-param="0" type="button">
-              続きから再生 (<span class="resumePlayPoint">00:00</span>)
-              <div class="resumeThumbnailContainer"></div>
-            </div>
           </div>
           <div class="zenzaWatchVideoInfoPanelFoot">
             <div class="uaaContainer"></div>
@@ -787,405 +1135,251 @@ const TagEditApi = function() {};
     </div>
   `).trim();
 
-  _.assign(VideoInfoPanel.prototype, {
-    initialize: function(params) {
-      this._videoHeaderPanel = new VideoHeaderPanel(params);
-      this._dialog = params.dialog;
-      this._config = Config;
-      this._currentTimeGetter = params.currentTimeGetter;
 
-      this._dialog.on('canplay', this._onVideoCanPlay.bind(this));
-      this._dialog.on('videoCount', this._onVideoCountUpdate.bind(this));
-
-      this._videoHeaderPanel.on('command', this._onCommand.bind(this));
-
-      if (params.node) {
-        this.appendTo(params.node);
-      }
-
-    },
-    _initializeDom: function() {
-      if (this._isInitialized) {
-        return;
-      }
-      this._isInitialized = true;
-
-      util.addStyle(VideoInfoPanel.__css__);
-      var $view = this._$view = $(VideoInfoPanel.__tpl__);
-      const view = this._view = $view[0];
-      let onCommand = this._onCommand.bind(this);
-
-      this._$ownerContainer = $view.find('.videoOwnerInfoContainer');
-      var $icon = this._$ownerIcon = $view.find('.ownerIcon');
-      this._$ownerName = $view.find('.ownerName');
-      this._$ownerPageLink = $view.find('.ownerPageLink');
-
-      this._$description = $view.find('.videoDescription');
-      this._$description.on('click', this._onDescriptionClick.bind(this));
-
-      this._tagListView = new TagListView({
-        parentNode: view.querySelector('.videoTagsContainer')
-      });
-      this._tagListView.on('command', onCommand);
-
-      this._relatedInfoMenu = new RelatedInfoMenu({
-        parentNode: view.querySelector('.relatedInfoMenuContainer')
-      });
-      this._relatedInfoMenu.on('command', onCommand);
-
-      this._videoMetaInfo = new VideoMetaInfo({
-        parentNode: view.querySelector('.videoMetaInfoContainer')
-      });
-
-      this._uaaContainer = view.querySelector('.uaaContainer');
-      this._uaaView = new UaaView(
-        {parentNode: this._uaaContainer});
-      this._uaaView.on('command', onCommand);
-
-      this._ichibaContainer = view.querySelector('.ichibaContainer');
-      this._ichibaItemView = new IchibaItemView(
-        {parentNode: this._ichibaContainer});
-
-      this._resumePlayButton = view.querySelector('.resumePlay');
-      this._resumePlayPoint  = view.querySelector('.resumePlayPoint');
-      this._resumePlayButton.addEventListener('click', () => {
-        this._onCommand(
-          'command', 'seek', this._resumePlayButton.getAttribute('data-param'));
-      });
-
-      this._$tabSelect = $view.find('.tabSelect');
-      $view.on('click', '.tabSelect', (e) => {
-        var $target = $(e.target).closest('.tabSelect');
-        var tabName = $target.attr('data-tab');
-        this._onCommand('selectTab', tabName);
-      });
-
-      $view.on('click', (e) => {
-        e.stopPropagation();
-        ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-        var $target = $(e.target);
-        var command = $target.attr('data-command');
-        var param   = $target.attr('data-param') || '';
-        if (command) {
-          this._onCommand(command, param);
-        }
-      }).on('wheel', (e) => {
-        e.stopPropagation();
-      });
-      $icon.on('load', () => { $icon.removeClass('is-loading'); });
-
-      $view.on('touchenter', () => {
-        $view.addClass('is-slideOpen');
-      });
-      ZenzaWatch.emitter.on('hideHover', () => {
-        $view.removeClass('is-slideOpen');
-      });
-      MylistPocketDetector.detect().then((pocket) => {
-        this._pocket = pocket;
-        $view.addClass('is-pocketReady');
-      });
-    },
-    update: function(videoInfo) {
-      this._videoInfo = videoInfo;
-      this._videoHeaderPanel.update(videoInfo);
-
-      var owner = videoInfo.ownerInfo;
-      this._$ownerIcon.attr('src', owner.icon);
-      this._$ownerPageLink.attr('href', owner.url);
-      this._$ownerName.text(owner.name);
-      this._$ownerContainer.toggleClass('favorite', owner.favorite);
-
-      this._videoMetaInfo.update(videoInfo);
-      this._tagListView.update({
-        tagList: videoInfo.tagList,
-        watchId: videoInfo.watchId,
-        videoId: videoInfo.videoId,
-        token: videoInfo.csrfToken,
-        watchAuthKey: videoInfo.watchAuthKey
-      });
-
-      this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
-
-      this._$view
-        .removeClass('userVideo channelVideo initializing')
-        .toggleClass('is-community', this._videoInfo.isCommunityVideo)
-        .toggleClass('is-mymemory',  this._videoInfo.isMymemory)
-        .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
-
-      this._ichibaItemView.clear();
-      this._ichibaItemView.videoId = videoInfo.videoId;
-
-      this._uaaView.clear();
-      this._uaaView.update(videoInfo);
-
-      this._relatedInfoMenu.update(videoInfo);
-
-      this._updateResumePoint(videoInfo);
-    },
-    _updateResumePoint(videoInfo) {
-      const pt = videoInfo.initialPlaybackTime;
-      this._resumePlayPoint.textContent = util.secToTime(pt);
-      this._resumePlayButton.classList.toggle('is-resumePlayable', pt > 0);
-      this._resumePlayButton.setAttribute('data-param', pt);
-
-      const thumbnailContainer = this._resumeThumbnailContainer =
-        this._resumeThumbnailContainer ||
-        this._resumePlayButton.querySelector('.resumeThumbnailContainer');
-      thumbnailContainer.innerHTML = '';
-
-      if (pt > 0) {
-        videoInfo.getCurrentVideo().then(url => {
-          return util.videoCapture(url, pt);
-        }).then(canvas => {
-          canvas.className = 'resumeThumbnail';
-          thumbnailContainer.appendChild(canvas);
-        });
-      }
-    },
-    /**
-     * 説明文中のurlの自動リンク等の処理
-     */
-    _updateVideoDescription: function(html, isChannel) {
-      if (!isChannel) {
-        // urlの自動リンク処理
-        // チャンネル動画は自前でリンク貼れるので何もしない
-
-        var linkmatch = /<a.*?<\/a>/, links = [], n;
-        html = html.split('<br />').join(' <br /> ');
-        while ((n = linkmatch.exec(html)) !== null) {
-          links.push(n);
-          html = html.replace(n, ' <!----> ');
-        }
-
-        html = html.replace(/\((https?:\/\/[\x21-\x3b\x3d-\x7e]+)\)/gi, '( $1 )');
-        html = html.replace(/(https?:\/\/[\x21-\x3b\x3d-\x7e]+)/gi, '<a href="$1" rel="noopener" target="_blank" class="otherSite">$1</a>');
-        for (var i = 0, len = links.length; i < len; i++) {
-          html = html.replace(' <!----> ', links[i]);
-        }
-
-        html = html.split(' <br /> ').join('<br />');
-      }
-
-      this._$description.html(html)
-        .find('a').addClass('noHoverMenu').end()
-        .find('a[href*="/mylist/"]').addClass('mylistLink')
-        ;
-      this._zenTubeUrl = null;
-
-      window.setTimeout(() => {
-        this._$description.find('.watch').each((i, watchLink) => {
-          var $watchLink = $(watchLink);
-          var videoId = $watchLink.text().replace('watch/', '');
-          if (!/^(sm|so|nm)/.test(videoId)) { return; }
-          var thumbnail = util.getThumbnailUrlByVideoId(videoId);
-          if (thumbnail) {
-            var $img = $('<img class="videoThumbnail" />').attr('src', thumbnail);
-            $watchLink.addClass('popupThumbnail').append($img);
-          }
-          var $playlistAppend =
-            $('<a class="playlistAppend" title="プレイリストで開く">▶</a>')
-              .attr('data-watch-id', videoId);
-          var $deflistAdd =
-            $('<a class="deflistAdd" title="とりあえずマイリスト">&#x271A;</a>')
-              .attr('data-watch-id', videoId);
-          var $pocketInfo =
-            $('<a class="pocket-info" title="動画情報">？</a>')
-              .attr('data-watch-id', videoId);
-          $watchLink.append($playlistAppend);
-          $watchLink.append($deflistAdd);
-          $watchLink.append($pocketInfo);
-        });
-        this._$description.find('.mylistLink').each((i, mylistLink) => {
-          var $mylistLink = $(mylistLink);
-          var mylistId = $mylistLink.text().split('/')[1];
-          var $playlistAppend =
-            $('<a class="playlistSetMylist" title="プレイリストで開く">▶</a>')
-            .attr('data-mylist-id', mylistId)
-            ;
-          $mylistLink.append($playlistAppend);
-        });
-        this._$description.find('a[href*="youtube.com/watch"], a[href*="youtu.be"]').each((i, link) => {
-          const btn = document.createElement('div');
-          if (!this._zenTubeUrl) {
-            this._zenTubeUrl = link.href;
-          }
-          btn.className = 'zenzaTubeButton';
-          btn.innerHTML = '▷Zen<span>Tube</span>';
-          btn.title = 'ZenzaWatchで開く(実験中)';
-          btn.setAttribute('accesskey', 'z');
-          btn.setAttribute('data-command', 'setVideo');
-          btn.setAttribute('data-param', link.href);
-          link.parentNode.insertBefore(btn, link);
-        });
-      }, 0);
-    },
-    _onDescriptionClick: function(e) {
-      if (e.button !== 0 || e.metaKey || e.shiftKey || e.altKey || e.ctrlKey) return true;
-      if (e.target.tagName !== 'A') return;
-
-      var watchId;
-      var $target = $(e.target), text = $target.text();
-      var href = $target.attr('href') || '';
-      if (href.match(/watch\/([a-z0-9]+)/)) {
-        e.preventDefault();
-        this.emit('command', 'open', RegExp.$1);
-        //dialog.open(RegExp.$1);
-      } else if (text.match(/^mylist\/(\d+)/)) {
-        return;
-      } else if ($target.hasClass('playlistAppend')) {
-        watchId = $target.attr('data-watch-id');
-        e.preventDefault(); e.stopPropagation();
-        if (watchId) {
-          this.emit('command', 'playlistAppend', watchId);
-        }
-      } else if ($target.hasClass('deflistAdd')) {
-        watchId = $target.attr('data-watch-id');
-        e.preventDefault(); e.stopPropagation();
-        if (watchId) {
-          this.emit('command', 'deflistAdd', watchId);
-        }
-      } else if ($target.hasClass('pocket-info')) {
-        watchId = $target.attr('data-watch-id');
-        e.preventDefault(); e.stopPropagation();
-        if (watchId) {
-          this._pocket.external.info(watchId);
-        }
-      } else if ($target.hasClass('playlistSetMylist')) {
-        var mylistId = $target.attr('data-mylist-id');
-        if (!isNaN(mylistId)) {
-          e.preventDefault(); e.stopPropagation();
-          this.emit('command', 'playlistSetMylist', mylistId);
-        }
-      } else if ($target.hasClass('seekTime')) {
-        e.preventDefault(); e.stopPropagation();
-        var data = $target.attr('data-seekTime').split(":");
-        var sec = data[0] * 60 + parseInt(data[1], 10);
-        this.emit('command', 'seek', sec);
-      }
-    },
-    _onVideoCanPlay: function(watchId, videoInfo, options) {
-      // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
-      if (!this._relatedVideoList) {
-        this._relatedVideoList = new RelatedVideoList({
-          $container: this._$view.find('.relatedVideoContainer')
-        });
-        this._relatedVideoList.on('command', this._onCommand.bind(this));
-      }
-
-      if (this._config.getValue('autoZenTube') && this._zenTubeUrl && !options.isReload()) {
-        window.setTimeout(() => {
-          window.console.info('%cAuto ZenTube', this._zenTubeUrl);
-          this.emit('command', 'setVideo', this._zenTubeUrl);
-        }, 100);
-      }
-      var relatedVideo = videoInfo.relatedVideoItems;
-      this._relatedVideoList.update(relatedVideo, watchId);
-    },
-    _onVideoCountUpdate: function(...args) {
-      if (!this._videoHeaderPanel) { return; }
-      this._videoMetaInfo.updateVideoCount(...args);
-      this._videoHeaderPanel.updateVideoCount(...args);
-    },
-    _onCommand: function(command, param) {
-      switch (command) {
-        case 'tag-search':
-          this._onTagSearch(param);
-          break;
-        case 'playlistSetUploadedVideo':
-          var owner = this._videoInfo.ownerInfo;
-          this.emit('command', 'playlistSetUploadedVideo', owner.id);
-          break;
-        default:
-          this.emit('command', command, param);
-        break;
-      }
-    },
-    _onTagSearch: function(word) {
-      const config = Config.namespace('videoSearch');
-
-      let option = {
-        searchType: 'tag',
-        order: config.getValue('order'),
-        sort:  config.getValue('sort') || 'playlist',
-        owner: config.getValue('ownerOnly')
-      };
-
-      if (option.sort === 'playlist') {
-        option.sort = 'f';
-        option.playlistSort = true;
-      }
-
-      this.emit('command', 'playlistSetSearchVideo', {word, option});
-    },
-    appendTo: function(node) {
-      var $node = $(node);
-      this._initializeDom();
-      $node.append(this._$view);
-      this._videoHeaderPanel.appendTo($node);
-    },
-    hide: function() {
-      this._videoHeaderPanel.hide();
-    },
-    close: function() {
-      this._videoHeaderPanel.close();
-    },
-    clear: function() {
-      this._videoHeaderPanel.clear();
-      this._$view.addClass('initializing');
-      this._$ownerIcon.addClass('is-loading');
-      this._$description.empty();
-    },
-    selectTab: function(tabName) {
-      var $view = this._$view;
-      var $target = $view.find('.tabs.' + tabName + ', .tabSelect.' + tabName);
-      this._activeTabName = tabName;
-      $view.find('.activeTab').removeClass('activeTab');
-      $target.addClass('activeTab');
-    },
-    blinkTab: function(tabName) {
-      var $view = this._$view;
-      var $target = $view.find('.tabs.' + tabName + ', .tabSelect.' + tabName);
-      if ($target.length < 1) { return; }
-      $target.addClass('blink');
-      window.setTimeout(function() {
-        $target.removeClass('blink');
-      }, 50);
-    },
-    appendTab: function(tabName, title, content) {
-      var $view = this._$view;
-      var $select =
-        $('<div class="tabSelect"/>')
-          .addClass(tabName)
-          .attr('data-tab', tabName)
-          .text(title);
-      var $body = $('<div class="tabs"/>')
-          .addClass(tabName);
-      if (content) {
-        $body.append($(content));
-      }
-
-      $view.find('.tabSelectContainer').append($select);
-      $view.append($body);
-
-      if (this._activeTabName === tabName) {
-        $select.addClass('activeTab');
-        $body.addClass('activeTab');
-      }
-      return $body;
-    },
-    removeTab: function(tabName) {
-      this._$view.find('.tabSelect.' + tabName).remove();
-      this._$view.find('.tabs.' + tabName).detach();
+class VideoHeaderPanel extends Emitter {
+  constructor(params) {
+    super();
+  }
+  _initializeDom() {
+    if (this._isInitialized) {
+      return;
     }
-  });
+    this._isInitialized = true;
+    css.addStyle(VideoHeaderPanel.__css__);
+    const $view = this._$view = uq.html(VideoHeaderPanel.__tpl__);
+    const view = $view[0];
 
-  var VideoHeaderPanel = function() { this.initialize.apply(this, arguments); };
-  _.extend(VideoHeaderPanel.prototype, AsyncEmitter.prototype);
+    this._videoTitle = $view.find('.videoTitle')[0];
+    this._searchForm = new VideoSearchForm({
+      parentNode: view
+    });
 
-  VideoHeaderPanel.__css__ = (`
+    $view.on('wheel', e => e.stopPropagation(), {passive: true});
+    this._seriesCover = view.querySelector('.series-thumbnail');
+
+    this._tagListView = new TagListView({
+      parentNode: view.querySelector('.videoTagsContainer')
+    });
+
+    this._relatedInfoMenu = new RelatedInfoMenu({
+      parentNode: view.querySelector('.relatedInfoMenuContainer'),
+      isHeader: true
+    });
+    this._relatedInfoMenu.on('open', () => $view.addClass('is-relatedMenuOpen'));
+    this._relatedInfoMenu.on('close', () => $view.removeClass('is-relatedMenuOpen'));
+
+    this._videoMetaInfo = new VideoMetaInfo({
+      parentNode: view.querySelector('.videoMetaInfoContainer'),
+    });
+
+    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    global.emitter.on('fullScreenStatusChange', isFull => {
+      view.classList.toggle('is-fullscreen', isFull);
+      view.classList.toggle('is-notFullscreen', !isFull);
+    });
+
+    window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
+  }
+  update(videoInfo) {
+    this._videoInfo = videoInfo;
+
+    this._videoTitle.title =  this._videoTitle.textContent = videoInfo.title;
+
+    const watchId = videoInfo.watchId;
+    this._videoMetaInfo.update(videoInfo);
+
+    this._tagListView.update({
+      tagList: videoInfo.tagList,
+      watchId,
+      videoId: videoInfo.videoId,
+      token: videoInfo.csrfToken,
+      watchAuthKey: videoInfo.watchAuthKey
+    });
+
+    this._relatedInfoMenu.update(videoInfo);
+
+    this._$view
+      .removeClass('userVideo channelVideo initializing')
+      .toggleClass('is-community', this._videoInfo.isCommunityVideo)
+      .toggleClass('is-mymemory', this._videoInfo.isMymemory)
+      .toggleClass('has-Parent', this._videoInfo.hasParentVideo)
+      .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
+      .css('display', '');
+
+    if (videoInfo.series && videoInfo.series.thumbnailUrl) {
+      this._seriesCover.style.backgroundImage = `url("${videoInfo.series.thumbnailUrl}")`;
+    } else {
+      this._seriesCover.removeAttribute('style');
+    }
+
+    window.setTimeout(() => this._onResize(), 1000);
+  }
+  updateVideoCount(...args) {
+    this._videoMetaInfo.updateVideoCount(...args);
+  }
+  _onResize() {
+    const view = this._$view[0];
+    const rect = view.getBoundingClientRect();
+    const isOnscreen = view.classList.contains('is-onscreen');
+    const height = rect.bottom - rect.top;
+    const top = isOnscreen ? (rect.top - height) : rect.top;
+    view.classList.toggle('is-onscreen', top < -32);
+  }
+  appendTo(node) {
+    this._initializeDom();
+    this._$view.appendTo(node);
+  }
+  hide() {
+    if (!this._$view) {
+      return;
+    }
+    this._$view.removeClass('show');
+  }
+  close() {
+  }
+  clear() {
+    if (!this._$view) {
+      return;
+    }
+    this._$view.addClass('initializing');
+
+    this._videoTitle.textContent = '';
+  }
+  getPublicStatusDom() {
+    return this._$view.find('.publicStatus').html();
+  }
+}
+
+css.addStyle(`
+  .zenzaScreenMode_small .zenzaWatchVideoHeaderPanel {
+    display: none;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
+    top: 0;
+    left: 400px;
+    width: calc(100vw - 400px);
+    bottom: auto;
+    background: #272727;
+    opacity: 0.9;
+    height: 40px;
+  }
+  /* ヘッダ追従 */
+  body.zenzaScreenMode_sideView:not(.nofix)  .zenzaWatchVideoHeaderPanel {
+    top: 0;
+  }
+  /* ヘッダ固定 */
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+    margin: 0;
+  }
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel .publicStatus,
+  .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel .videoTagsContainer {
+    display: none;
+  }
+
+  @media screen and (min-width: 1432px)
+  {
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelectContainer {
+      width: calc(100% - 16px);
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel {
+      top: calc((100vw - 1024px) * 9 / 16 + 4px);
+      width: calc(100vw - 1024px);
+      height: calc(100vh - (100vw - 1024px) * 9 / 16 - 70px);
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
+      width: calc(100vw - 1024px - 26px);
+    }
+
+    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel {
+      width: calc(100vw - (100vw - 1024px));
+      left:  calc(100vw - 1024px);
+    }
+  }
+
+`, {className: 'screenMode for-popup videoHeaderPanel', disabled: true});
+
+css.addStyle(`
+  body .is-open .zenzaWatchVideoHeaderPanel {
+    width: calc(100% + ${CONSTANT.RIGHT_PANEL_WIDTH}px);
+  }
+    .zenzaWatchVideoHeaderPanel.is-onscreen {
+      top: 0px;
+      bottom: auto;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      box-shadow: none;
+    }
+
+    .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen {
+      opacity: 0.6;
+      transition: 0.4s opacity;
+    }
+
+    .zenzaWatchVideoHeaderPanel.is-onscreen:hover {
+      opacity: 1;
+      transition: 0.5s opacity;
+    }
+
+    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer {
+      display: none;
+      width: calc(100% - 240px);
+    }
+
+    .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer {
+      display: block;
+    }
+    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer {
+      width: calc(100% - 180px);
+    }
+
+    .zenzaWatchVideoInfoPanelFoot {
+      background: #222;
+    }
+
+`, {className: 'screenMode for-dialog videoHeaderPanel', disabled: true});
+
+css.addStyle(`
+  .is-open .zenzaWatchVideoHeaderPanel {
+    position: absolute; /* fixedだとFirefoxのバグでおかしくなる */
+    top: 0px;
+    bottom: auto;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    box-shadow: none;
+  }
+
+  .is-loading .zenzaWatchVideoHeaderPanel,
+  .is-mouseMoving .zenzaWatchVideoHeaderPanel {
+    opacity: 0.6;
+    transition: 0.4s opacity;
+  }
+
+  .is-open .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
+  .is-open .zenzaWatchVideoHeaderPanel:hover {
+    opacity: 1;
+    transition: 0.5s opacity;
+  }
+
+  .is-open .videoTagsContainer {
+    display: none;
+    width: calc(100% - 240px);
+  }
+
+  .is-open .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer {
+    display: block;
+  }
+
+  .is-open .zenzaWatchVideoHeaderPanel .videoTitleContainer {
+    width: calc(100% - 180px);
+  }
+
+`, {className: 'screenMode for-full videoHeaderPanel', disabled: true});
+
+VideoHeaderPanel.__css__ = (`
     .zenzaWatchVideoHeaderPanel {
-      position: fixed;
-      width: 100%;
+      position: absolute;
+      width: calc(100%);
       z-index: ${CONSTANT.BASE_Z_INDEX + 30000};
       box-sizing: border-box;
       padding: 8px 8px 0;
@@ -1196,18 +1390,22 @@ const TagEditApi = function() {};
       text-align: left;
       box-shadow: 4px 4px 4px #000;
       transition: opacity 0.4s ease;
+      will-change: transform;
     }
-    body.zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
-    body.fullScreen .zenzaWatchVideoHeaderPanel {
+    .zenzaWatchVideoHeaderPanel.is-onscreen {
+      width: 100% !important;
+    }
+    .zenzaScreenMode_sideView .zenzaWatchVideoHeaderPanel,
+    .zenzaWatchVideoHeaderPanel.is-fullscreen {
       z-index: ${CONSTANT.BASE_Z_INDEX + 20000};
     }
 
-    .zenzaWatchVideoHeaderPanel>* {
+    .zenzaWatchVideoHeaderPanel {
       pointer-events: none;
     }
 
-    .is-mouseMoving .zenzaWatchVideoHeaderPanel>*,
-                 .zenzaWatchVideoHeaderPanel:hover>* {
+    .is-mouseMoving .zenzaWatchVideoHeaderPanel,
+                    .zenzaWatchVideoHeaderPanel:hover {
       pointer-events: auto;
     }
 
@@ -1226,85 +1424,6 @@ const TagEditApi = function() {};
       color: #ccc;
     }
 
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel,
-    .fullScreen           .zenzaWatchVideoHeaderPanel {
-      position: absolute; /* fixedだとFirefoxのバグでおかしくなる */
-      top: 0px;
-      bottom: auto;
-      background: rgba(0, 0, 0, 0.5);
-      opacity: 0;
-      box-shadow: none;
-    }
-
-    body.zenzaScreenMode_sideView:not(.fullScreen)              .zenzaWatchVideoHeaderPanel {
-      top: 0;
-      left: 400px;
-      width: calc(100vw - 400px);
-      bottom: auto;
-      background: #272727;
-      opacity: 0.9;
-      height: 40px;
-    }
-    /* ヘッダ追従 */
-    body.zenzaScreenMode_sideView:not(.nofix):not(.fullScreen)  .zenzaWatchVideoHeaderPanel {
-      top: 0;
-    }
-    /* ヘッダ固定 */
-    body.zenzaScreenMode_sideView.nofix:not(.fullScreen)        .zenzaWatchVideoHeaderPanel {
-    }
-    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .videoTitleContainer {
-      margin: 0;
-    }
-    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .publicStatus,
-    body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel .videoTagsContainer
-    {
-      display: none;
-    }
-
-    .zenzaScreenMode_normal .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_big    .is-loading .zenzaWatchVideoHeaderPanel.is-onscreen,
-    .zenzaScreenMode_3D     .is-loading .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide   .is-loading .zenzaWatchVideoHeaderPanel,
-    .fullScreen             .is-loading .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_3D     .is-mouseMoving .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide   .is-mouseMoving .zenzaWatchVideoHeaderPanel,
-    .fullScreen             .is-mouseMoving .zenzaWatchVideoHeaderPanel {
-      opacity: 0.6;
-      transition: 0.4s opacity;
-    }
-
-    .zenzaScreenMode_3D   .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_wide .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
-    .fullScreen           .showVideoHeaderPanel .zenzaWatchVideoHeaderPanel,
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen:hover,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen:hover,
-    .zenzaScreenMode_3D     .zenzaWatchVideoHeaderPanel:hover,
-    .zenzaScreenMode_wide   .zenzaWatchVideoHeaderPanel:hover,
-    .fullScreen             .zenzaWatchVideoHeaderPanel:hover {
-      opacity: 1;
-      transition: 0.5s opacity;
-    }
-
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTagsContainer,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel .videoTagsContainer,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTagsContainer,
-    .fullScreen           .zenzaWatchVideoHeaderPanel .videoTagsContainer {
-      display: none;
-      width: calc(100% - 240px);
-    }
-
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen:hover .videoTagsContainer,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer,
-    .fullScreen           .zenzaWatchVideoHeaderPanel:hover .videoTagsContainer {
-      display: block;
-    }
-
     .zenzaWatchVideoHeaderPanel .videoTitle {
       font-size: 24px;
       color: #fff;
@@ -1313,13 +1432,6 @@ const TagEditApi = function() {};
       overflow: hidden;
       display: block;
       padding: 2px 0;
-    }
-    .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer,
-    .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .videoTitleContainer,
-    .zenzaScreenMode_3D   .zenzaWatchVideoHeaderPanel .videoTitleContainer,
-    .zenzaScreenMode_wide .zenzaWatchVideoHeaderPanel .videoTitleContainer,
-    .fullScreen           .zenzaWatchVideoHeaderPanel .videoTitleContainer {
-      width: calc(100% - 180px);
     }
 
     .zenzaWatchVideoHeaderPanel .videoTitle::before {
@@ -1346,33 +1458,10 @@ const TagEditApi = function() {};
       display: inline-block;
     }
 
-    body:not(.fullScreen).zenzaScreenMode_3D     .is-backComment .zenzaWatchVideoHeaderPanel,
-    body:not(.fullScreen).zenzaScreenMode_normal .is-backComment .zenzaWatchVideoHeaderPanel,
-    body:not(.fullScreen).zenzaScreenMode_big    .is-backComment .zenzaWatchVideoHeaderPanel {
+    .zenzaScreenMode_normal .is-backComment .zenzaWatchVideoHeaderPanel,
+    .zenzaScreenMode_big    .is-backComment .zenzaWatchVideoHeaderPanel {
       opacity: 0.7;
     }
-
-    @media screen and (min-width: 1432px)
-    {
-      body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .tabSelectContainer {
-        width: calc(100% - 16px);
-      }
-      body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel {
-        top: calc((100vw - 1024px) * 9 / 16 + 4px);
-        width: calc(100vw - 1024px);
-        height: calc(100vh - (100vw - 1024px) * 9 / 16 - 70px);
-      }
-
-      body:not(.fullScreen).zenzaScreenMode_sideView .zenzaWatchVideoInfoPanel .videoTagsContainer {
-        width: calc(100vw - 1024px - 26px);
-      }
-    
-      body.zenzaScreenMode_sideView:not(.fullScreen) .zenzaWatchVideoHeaderPanel {
-        width: calc(100vw - (100vw - 1024px));
-        left:  calc(100vw - 1024px);
-      }
-    }
-
 
     .zenzaWatchVideoHeaderPanel .relatedInfoMenuContainer {
       display: inline-block;
@@ -1382,9 +1471,40 @@ const TagEditApi = function() {};
       z-index: 1000;
     }
 
+    .zenzaWatchVideoHeaderPanel:focus-within,
+    .zenzaWatchVideoHeaderPanel.is-relatedMenuOpen {
+      z-index: ${CONSTANT.BASE_Z_INDEX + 50000};
+    }
+
+    .zenzaWatchVideoHeaderPanel .series-thumbnail-cover {
+      position: absolute;
+      top: 0px;
+      right: 0px;
+      width: 50%;
+      height: 100%;
+      display: inline-block;
+      overflow: hidden;
+      contain: strict;
+      pointer-events: none;
+      user-select: none;
+    }
+    .zenzaWatchVideoHeaderPanel .series-thumbnail[style] {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      /*filter: sepia(50%) blur(4px);*/
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      will-change: transform;
+      -webkit-mask-image:
+        linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 100%);
+      mask-image:
+        linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 100%);
+    }
   `);
 
-  VideoHeaderPanel.__tpl__ = (`
+VideoHeaderPanel.__tpl__ = (`
     <div class="zenzaWatchVideoHeaderPanel show initializing" style="display: none;">
       <h2 class="videoTitleContainer">
         <span class="videoTitle"></span>
@@ -1395,311 +1515,187 @@ const TagEditApi = function() {};
       </p>
       <div class="videoTagsContainer videoHeader">
       </div>
+      <div class="series-thumbnail-cover"><div class="series-thumbnail"></div></div>
     </div>
   `).trim();
 
-  _.assign(VideoHeaderPanel.prototype, {
-    initialize: function(params) {
-      this._currentTimeGetter = params.currentTimeGetter;
-    },
-    _initializeDom: function() {
-      if (this._isInitialized) {
-        return;
-      }
-      this._isInitialized = true;
-      util.addStyle(VideoHeaderPanel.__css__);
-      let $view = this._$view = $(VideoHeaderPanel.__tpl__);
-      let view = $view[0];
-      let onCommand = this._onCommand.bind(this);
 
-      this._$videoTitle = $view.find('.videoTitle');
-      this._searchForm = new VideoSearchForm({
-        parentNode: view
-      });
-      this._searchForm.on('command', onCommand);
+class VideoSearchForm extends Emitter {
+  constructor(...args) {
+    super();
+    this._config = Config.namespace('videoSearch');
+    this._initDom(...args);
+  }
 
-      $view.on('click', (e) => {
-        e.stopPropagation();
-        ZenzaWatch.emitter.emitAsync('hideHover'); // 手抜き
-
-        var $target = $(e.target);
-        var command = $target.attr('data-command');
-        var param   = $target.attr('data-param') || '';
-        if (command) {
-          this.emit('command', command, param);
-        }
-      }).on('wheel', (e) => {
-        e.stopPropagation();
-      });
-
-      this._tagListView = new TagListView({
-        parentNode: view.querySelector('.videoTagsContainer')
-      });
-      this._tagListView.on('command', onCommand);
-
-      this._relatedInfoMenu = new RelatedInfoMenu({
-        parentNode: view.querySelector('.relatedInfoMenuContainer'),
-        isHeader: true
-      });
-      this._relatedInfoMenu.on('command', onCommand);
-
-      this._videoMetaInfo = new VideoMetaInfo({
-        parentNode: view.querySelector('.videoMetaInfoContainer'),
-      });
-
-      window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
-    },
-    update: function(videoInfo) {
-      this._videoInfo = videoInfo;
-
-      const videoTitle = util.unescapeHtml(videoInfo.title);
-      this._$videoTitle.text(videoTitle).attr('title', videoTitle);
-
-      var watchId = videoInfo.watchId;
-      this._videoMetaInfo.update(videoInfo);
-
-      this._tagListView.update({
-        tagList: videoInfo.tagList,
-        watchId,
-        videoId: videoInfo.videoId,
-        token: videoInfo.csrfToken,
-        watchAuthKey: videoInfo.watchAuthKey
-      });
-
-      this._relatedInfoMenu.update(videoInfo);
-
-      this._$view
-        .removeClass('userVideo channelVideo initializing')
-        .toggleClass('is-community', this._videoInfo.isCommunityVideo)
-        .toggleClass('is-mymemory',  this._videoInfo.isMymemory)
-        .toggleClass('has-Parent', this._videoInfo.hasParentVideo)
-        .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
-        .css('display', '');
-
-      window.setTimeout(() => { this._onResize(); }, 1000);
-    },
-    updateVideoCount: function(...args) {
-      this._videoMetaInfo.updateVideoCount(...args);
-    },
-    _onResize: function() {
-      const view = this._$view[0];
-      const rect = view.getBoundingClientRect();
-      let isOnscreen = view.classList.contains('is-onscreen');
-      const height = rect.bottom - rect.top;
-      const top = isOnscreen ? (rect.top - height) : rect.top;
-      view.classList.toggle('is-onscreen', top < -32);
-    },
-    appendTo: function($node) {
-      this._initializeDom();
-      $node.append(this._$view);
-    },
-    hide: function() {
-      if (!this._$view) { return; }
-      this._$view.removeClass('show');
-    },
-    close: function() {
-    },
-    clear: function() {
-      if (!this._$view) { return; }
-      this._$view.addClass('initializing');
-
-      this._$videoTitle.text('------');
-    },
-    getPublicStatusDom: function() {
-      return this._$view.find('.publicStatus').html();
-    },
-    getVideoTagsDom: function() {
-      return this._$tagList.html();
-    },
-    _onCommand: function(command, param) {
-      switch (command, param) {
-        default:
-          this.emit('command', command, param);
-          break;
-      }
+  _initDom({parentNode}) {
+    let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
+    if (!tpl) {
+      css.addStyle(VideoSearchForm.__css__);
+      tpl = document.createElement('template');
+      tpl.innerHTML = VideoSearchForm.__tpl__;
+      tpl.id = 'zenzaVideoSearchPanelTemplate';
+      document.body.appendChild(tpl);
     }
-  });
+    const view = document.importNode(tpl.content, true);
 
+    this._view = view.querySelector('*');
+    this._form = view.querySelector('form');
+    this._word = view.querySelector('.searchWordInput');
+    this._sort = view.querySelector('.searchSortSelect');
+    this._mode = view.querySelector('.searchMode') || 'tag';
 
+    this._form.addEventListener('submit', this._onSubmit.bind(this));
 
+    const config = this._config;
+    const form = this._form;
 
-  class VideoSearchForm extends AsyncEmitter {
-    constructor(...args) {
-      super();
-      this._config = Config.namespace('videoSearch');
-      this._initDom(...args);
+    form['ownerOnly'].checked = config.props.ownerOnly;
+    let confMode = config.props.mode;
+    if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
+      form['mode'].value = confMode;
+    } else if (typeof confMode === 'boolean') {
+      form['mode'].value = confMode ? 'tag' : 'keyword';
+    } else {
+      form['mode'].value = 'tag';
     }
+    form['word'].value = config.props.word;
+    form['sort'].value = config.props.sort;
 
-    _initDom({parentNode}) {
-      let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
-      if (!tpl) {
-        util.addStyle(VideoSearchForm.__css__);
-        tpl = document.createElement('template');
-        tpl.innerHTML = VideoSearchForm.__tpl__;
-        tpl.id = 'zenzaVideoSearchPanelTemplate';
-        document.body.appendChild(tpl);
-      }
-      const view = document.importNode(tpl.content, true);
-
-      this._view   = view.querySelector('*');
-      this._form   = view.querySelector('form');
-      this._word   = view.querySelector('.searchWordInput');
-      this._sort   = view.querySelector('.searchSortSelect');
-      this._submit = view.querySelector('.searchSubmit');
-      this._mode   = view.querySelector('.searchMode') || 'tag';
-    
-      this._form.addEventListener('submit', this._onSubmit.bind(this));
-
-      const config = this._config;
-      const form = this._form;
-
-      form['ownerOnly'].checked = config.getValue('ownerOnly');
-      let confMode = config.getValue('mode');
-      if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
-        form['mode'].value = confMode;
-      } else if (typeof confMode === 'boolean') {
-        form['mode'].value = confMode ? 'tag' : 'keyword';
+    this._view.addEventListener('click', this._onClick.bind(this));
+    view.addEventListener('paste', e => e.stopPropagation());
+    const submit = _.debounce(this.submit.bind(this), 500);
+    Array.from(view.querySelectorAll('input, select')).forEach(item => {
+      if (item.type === 'checkbox') {
+        item.addEventListener('change', () => {
+          this._word.focus();
+          config.props[item.name] = item.checked;
+          submit();
+        });
+      } else if (item.type === 'radio') {
+        item.addEventListener('change', () => {
+          this._word.focus();
+          config.props[item.name] = this._form[item.name].value;
+          submit();
+        });
       } else {
-        form['mode'].value = 'tag';
-      }
-      form['word'].value        = config.getValue('word');
-      form['sort'].value        = config.getValue('sort');
-
-      this._view.addEventListener('click', this._onClick.bind(this));
-      const updateFocus = this._updateFocus.bind(this);
-      const updateFocusD =  _.debounce(updateFocus, 1000);
-      const submit = _.debounce(this.submit.bind(this), 500);
-      Array.prototype.forEach.call(view.querySelectorAll('input, select'), (item) => {
-        item.addEventListener('focus', updateFocus);
-        item.addEventListener('blur',  updateFocusD);
-        if (item.type === 'checkbox') {
-          item.addEventListener('change', () => {
-            this._word.focus();
-            config.setValue(item.name, item.checked);
+        item.addEventListener('change', () => {
+          config.props[item.name] = item.value;
+          if (item.tagName === 'SELECT') {
             submit();
-          });
-        } else if (item.type === 'radio') {
-          item.addEventListener('change', () => {
-            this._word.focus();
-            config.setValue(item.name, this._form[item.name].value);
-            submit();
-          });
-        } else {
-          item.addEventListener('change', () => {
-            config.setValue(item.name, item.value);
-            if (item.tagName === 'SELECT') { submit(); }
-          });
-        }
-      });
-
-      ZenzaWatch.emitter.on('searchVideo',
-        ({word}) => { form['word'].value = word; }
-      );
-
-      if (parentNode) {
-        parentNode.appendChild(view);
+          }
+        });
       }
+    });
 
-      ZenzaWatch.debug.searchForm = this;
+    global.emitter.on('searchVideo', ({word}) => {
+      form['word'].value = word;
+    });
+
+    if (parentNode) {
+      parentNode.appendChild(view);
     }
 
-    _onClick(e) {
-      const tagName = (e.target.tagName || '').toLowerCase();
-      const target = e.target.classList.contains('command') ?
-        e.target : e.target.closest('.command');
+    global.debug.searchForm = this;
+  }
 
-      if (!['input', 'select'].includes(tagName)) {
-        this._word.focus();
-      }
+  _onClick(e) {
+    e.stopPropagation();
+    const tagName = (e.target.tagName || '').toLowerCase();
+    const target = e.target.closest('.command');
 
-      if (!target) { return; }
-
-      const command = target.getAttribute('data-command');
-      if (!command) { return; }
-      const type  = target.getAttribute('data-type') || 'string';
-      let param   = target.getAttribute('data-param');
-      e.stopPropagation();
-      e.preventDefault();
-      switch (type) {
-        case 'json':
-        case 'bool':
-        case 'number':
-          param = JSON.parse(param);
-          break;
-      }
-
-      switch (command) {
-        case 'clear':
-          this._word.value = '';
-          break;
-        default:
-          this.emit('command', command, param);
-      }
+    if (!['input', 'select'].includes(tagName)) {
+      this._word.focus();
     }
 
-    _onSubmit(e) {
-      this.submit();
-      e.stopPropagation();
+    if (!target) {
+      return;
     }
 
-    submit() {
-      const word = this.word;
-      if (!word) { return; }
-
-      this.emit('command', 'playlistSetSearchVideo', {
-        word,
-        option: {
-          searchType: this.searchType,
-          sort: this.sort,
-          order: this.order,
-          owner: this.isOwnerOnly,
-          playlistSort: this.isPlaylistSort
-        }
-      });
+    const command = target.dataset.command;
+    if (!command) {
+      return;
     }
+    e.preventDefault();
+    const type = target.getAttribute('data-type') || 'string';
+    let param = target.getAttribute('data-param');
+    if (type !== 'string') { param = JSON.parse(param); }
 
-    _hasFocus() {
-      return !!document.activeElement.closest('#zenzaVideoSearchPanel');
-    }
-
-    _updateFocus() {
-      if (this._hasFocus()) {
-        this._view.classList.add('is-active');
-      } else {
-        this._view.classList.remove('is-active');
-      }
-    }
-
-    get word() {
-      return (this._word.value || '').trim();
-    }
-
-    get searchType() {
-      return this._form.mode.value;
-    }
-
-    get sort() {
-      const sortTmp = (this._sort.value || '').split(',');
-      const playlistSort = sortTmp[0] === 'playlist';
-      return playlistSort ? 'f' : sortTmp[0];
-    }
-
-    get order() {
-      const sortTmp = (this._sort.value || '').split(',');
-      return sortTmp[1] || 'd';
-    }
-
-    get isPlaylistSort() {
-      const sortTmp = (this._sort.value || '').split(',');
-      return sortTmp[0] === 'playlist';
-    }
-
-    get isOwnerOnly() {
-      return this._form['ownerOnly'].checked;
+    switch (command) {
+      case 'clear':
+        this._word.value = '';
+        break;
+      default:
+        domEvent.dispatchCommand(e.target, command, param);
     }
   }
 
-  VideoSearchForm.__css__ = (`
+  _onSubmit(e) {
+    this.submit();
+    e.stopPropagation();
+  }
+
+  submit() {
+    const word = this.word;
+    if (!word) {
+      return;
+    }
+
+    domEvent.dispatchCommand(this._view, 'playlistSetSearchVideo', {
+      word,
+      option: {
+        searchType: this.searchType,
+        sort: this.sort,
+        order: this.order,
+        owner: this.isOwnerOnly,
+        playlistSort: this.isPlaylistSort
+      }
+    });
+  }
+
+  _hasFocus() {
+    return !!document.activeElement.closest('#zenzaVideoSearchPanel');
+  }
+
+  _updateFocus() {
+  }
+
+  get word() {
+    return (this._word.value || '').trim();
+  }
+
+  get searchType() {
+    return this._form.mode.value;
+  }
+
+  get sort() {
+    const sortTmp = (this._sort.value || '').split(',');
+    const playlistSort = sortTmp[0] === 'playlist';
+    return playlistSort ? 'f' : sortTmp[0];
+  }
+
+  get order() {
+    const sortTmp = (this._sort.value || '').split(',');
+    return sortTmp[1] || 'd';
+  }
+
+  get isPlaylistSort() {
+    const sortTmp = (this._sort.value || '').split(',');
+    return sortTmp[0] === 'playlist';
+  }
+
+  get isOwnerOnly() {
+    return this._form['ownerOnly'].checked;
+  }
+}
+
+css.addStyle(`
+  .is-open .zenzaWatchVideoHeaderPanel .zenzaVideoSearchPanel {
+    top: 120px;
+    right: 32px;
+  }
+`, {className: 'screenMode for-popup videoSearchPanel', disabled: true});
+
+VideoSearchForm.__css__ = (`
     .zenzaVideoSearchPanel {
       pointer-events: auto;
       position: absolute;
@@ -1710,26 +1706,19 @@ const TagEditApi = function() {};
       z-index: 1000;
     }
 
-    .zenzaVideoSearchPanel.is-active {
-    }
-
     .zenzaScreenMode_normal .zenzaWatchVideoHeaderPanel.is-onscreen .zenzaVideoSearchPanel,
     .zenzaScreenMode_big    .zenzaWatchVideoHeaderPanel.is-onscreen .zenzaVideoSearchPanel,
     .zenzaScreenMode_3D    .zenzaVideoSearchPanel,
     .zenzaScreenMode_wide  .zenzaVideoSearchPanel,
-    .fullScreen            .zenzaVideoSearchPanel {
+    .zenzaWatchVideoHeaderPanel.is-fullscreen .zenzaVideoSearchPanel {
       top: 64px;
     }
 
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaVideoSearchPanel {
-      top: 80px;
-      right: 32px;
-    }
-    .zenzaVideoSearchPanel.is-active {
+    .zenzaVideoSearchPanel:focus-within {
       background: rgba(50, 50, 50, 0.8);
     }
 
-    .zenzaVideoSearchPanel:not(.is-active) .focusOnly {
+    .zenzaVideoSearchPanel:not(:focus-within) .focusOnly {
       display: none;
     }
 
@@ -1741,12 +1730,12 @@ const TagEditApi = function() {};
       transition: transform 0.2s ease, opacity 0.2s ease;
     }
     .zenzaVideoSearchPanel .searchInputHead:hover,
-    .zenzaVideoSearchPanel.is-active .searchInputHead {
+    .zenzaVideoSearchPanel:focus-within .searchInputHead {
       background: rgba(50, 50, 50, 0.8);
     }
 
     .zenzaVideoSearchPanel           .searchInputHead:hover,
-    .zenzaVideoSearchPanel.is-active .searchInputHead {
+    .zenzaVideoSearchPanel:focus-within .searchInputHead {
       pointer-events: auto;
       opacity: 1;
       transform: translate3d(0, -100%, 0);
@@ -1797,21 +1786,22 @@ const TagEditApi = function() {};
         border: 1px solid #ccc;
         opacity: 0;
         transition: opacity 0.2s ease;
+        will-change: opacity;
       }
 
       .zenzaVideoSearchPanel .searchWordInput:-webkit-autofill {
         background: transparent;
       }
 
-      .is-mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput {
+      .is-mouseMoving .searchWordInput {
         opacity: 0.5;
       }
 
-      .is-mouseMoving .zenzaVideoSearchPanel:not(.is-active) .searchWordInput:hover {
+      .is-mouseMoving .searchWordInput:hover {
         opacity: 0.8;
       }
 
-      .zenzaVideoSearchPanel.is-active .searchWordInput {
+      .zenzaVideoSearchPanel:focus-within .searchWordInput {
         opacity: 1 !important;
       }
 
@@ -1831,17 +1821,17 @@ const TagEditApi = function() {};
         transition: opacity 0.2s ease, transform 0.2s ease;
       }
 
-      .zenzaVideoSearchPanel.is-active .searchSubmit {
+      .zenzaVideoSearchPanel:focus-within .searchSubmit {
         pointer-events: auto;
         opacity: 1;
         transform: translate3d(0, 0, 0);
       }
 
-      .zenzaVideoSearchPanel.is-active .searchSubmit:hover {
+      .zenzaVideoSearchPanel:focus-within .searchSubmit:hover {
         transform: scale(1.5);
       }
 
-      .zenzaVideoSearchPanel.is-active .searchSubmit:active {
+      .zenzaVideoSearchPanel:focus-within .searchSubmit:active {
         transform: scale(1.2);
         border-style: inset;
       }
@@ -1864,17 +1854,17 @@ const TagEditApi = function() {};
         transition: opacity 0.2s ease, transform 0.2s ease;
       }
 
-      .zenzaVideoSearchPanel.is-active .searchClear {
+      .zenzaVideoSearchPanel:focus-within .searchClear {
         pointer-events: auto;
         opacity: 1;
         transform: translate3d(0, 0, 0);
       }
 
-      .zenzaVideoSearchPanel.is-active .searchClear:hover {
+      .zenzaVideoSearchPanel:focus-within .searchClear:hover {
         transform: scale(1.5);
       }
 
-      .zenzaVideoSearchPanel.is-active .searchClear:active {
+      .zenzaVideoSearchPanel:focus-within .searchClear:active {
         transform: scale(1.2);
       }
 
@@ -1891,7 +1881,7 @@ const TagEditApi = function() {};
     }
 
     .zenzaVideoSearchPanel .searchInputFoot:hover,
-    .zenzaVideoSearchPanel.is-active .searchInputFoot {
+    .zenzaVideoSearchPanel:focus-within .searchInputFoot {
       pointer-events: auto;
       opacity: 1;
       background: rgba(50, 50, 50, 0.8);
@@ -1908,25 +1898,14 @@ const TagEditApi = function() {};
         cursor: pointer;
       }
 
-      .zenzaVideoSearchPanel .autoPauseLabel input {
-
-      }
-
       .zenzaVideoSearchPanel .autoPauseLabel input + span {
         display: inline-block;
         pointer-events: none;
       }
 
-      .zenzaVideoSearchPanel .autoPauseLabel input:checked + span {
-      }
+  `).trim();
 
-
-
-
-
-  `).toString();
-
-  VideoSearchForm.__tpl__ = (`
+VideoSearchForm.__tpl__ = (`
     <div class="zenzaVideoSearchPanel" id="zenzaVideoSearchPanel">
       <form action="javascript: void(0);">
 
@@ -1988,100 +1967,101 @@ const TagEditApi = function() {};
   `).toString();
 
 
-  class IchibaItemView extends BaseViewComponent {
-    constructor({parentNode}) {
-      super({
-        parentNode,
-        name:     'IchibaItemView',
-        template: IchibaItemView.__tpl__,
-        css:      IchibaItemView.__css__,
-      });
+class IchibaItemView extends BaseViewComponent {
+  constructor({parentNode}) {
+    super({
+      parentNode,
+      name: 'IchibaItemView',
+      template: IchibaItemView.__tpl__,
+      css: IchibaItemView.__css__,
+    });
 
-      ZenzaWatch.debug.ichiba = this;
-    }
+    ZenzaWatch.debug.ichiba = this;
+  }
 
-    _initDom(...args) {
-      super._initDom(...args);
+  _initDom(...args) {
+    super._initDom(...args);
 
-      this._listContainer =
-        this._view.querySelector('.ichibaItemListContainer .ichibaItemListInner');
-      this._listContainerDetails =
-        this._view.querySelector('.ichibaItemListContainer .ichibaItemListDetails');
-    }
+    this._listContainer =
+      this._view.querySelector('.ichibaItemListContainer .ichibaItemListInner');
+    this._listContainerDetails =
+      this._view.querySelector('.ichibaItemListContainer .ichibaItemListDetails');
+  }
 
-    _onCommand(command, param) {
-      switch(command) {
-        case 'load':
-          this.load(this._videoId);
-          break;
-        default:
-          super._onCommand(command, param);
-      }
-    }
-
-    load(videoId) {
-      if (this._isLoading) { return; }
-      videoId = videoId || this._videoId;
-      this._isLoading = true;
-      this.addClass('is-loading');
-      return IchibaLoader.load(videoId)
-        .then(this._onIchibaLoad.bind(this))
-        .catch(this._onIchibaLoadFail.bind(this));
-    }
-
-    clear() {
-      this.removeClass('is-loading');
-      this.removeClass('is-success');
-      this.removeClass('is-fail');
-      this.removeClass('is-empty');
-      this._listContainer.innerHTML = '';
-    }
-
-    _onIchibaLoad(data) {
-      this.removeClass('is-loading');
-      const div = document.createElement('div');
-      div.innerHTML = data.main;
-
-      Array.prototype.forEach.call(
-        div.querySelectorAll('[id]'),
-        (elm) => { elm.classList.add('ichiba-' + elm.id); elm.removeAttribute('id'); }
-      );
-      Array.prototype.forEach.call(
-        div.querySelectorAll('[style]'),
-        (elm) => { elm.removeAttribute('style'); }
-      );
-      const items = div.querySelectorAll('.ichiba_mainitem');
-
-      if (!items || items.length < 1) {
-        this.addClass('is-empty');
-        this._listContainer.innerHTML = '<h2>貼られている商品はありません</h2>';
-      } else {
-        this._listContainer.innerHTML = div.innerHTML;
-      }
-      this.addClass('is-success');
-
-      this._listContainerDetails.setAttribute('open', 'open');
-
-      this._isLoading = false;
-    }
-
-    _onIchibaLoadFail() {
-      this.removeClass('is-loading');
-      this.addClass('is-fail');
-      this._isLoading = false;
-    }
-
-    get videoId() {
-      return this._videoId;
-    }
-
-    set videoId(v) {
-      this._videoId = v;
+  _onCommand(command, param) {
+    switch (command) {
+      case 'load':
+        this.load(this._videoId);
+        break;
+      default:
+        super._onCommand(command, param);
     }
   }
 
+  load(videoId) {
+    if (this._isLoading) {
+      return;
+    }
+    videoId = videoId || this._videoId;
+    this._isLoading = true;
+    this.addClass('is-loading');
+    return IchibaLoader.load(videoId)
+      .then(this._onIchibaLoad.bind(this))
+      .catch(this._onIchibaLoadFail.bind(this));
+  }
 
-  IchibaItemView.__tpl__ = (`
+  clear() {
+    this.removeClass('is-loading');
+    this.removeClass('is-success');
+    this.removeClass('is-fail');
+    this.removeClass('is-empty');
+    this._listContainer.innerHTML = '';
+  }
+
+  _onIchibaLoad(data) {
+    this.removeClass('is-loading');
+    const div = document.createElement('div');
+    div.innerHTML = data.main;
+
+    Array.from(div.querySelectorAll('[id]')).forEach(elm => {
+      elm.classList.add(`ichiba-${elm.id}`);
+      elm.removeAttribute('id');
+    });
+    Array.from(div.querySelectorAll('[style]'))
+      .forEach(elm => elm.removeAttribute('style'));
+
+    const items = div.querySelectorAll('.ichiba_mainitem');
+
+    if (!items || items.length < 1) {
+      this.addClass('is-empty');
+      this._listContainer.innerHTML = '<h2>貼られている商品はありません</h2>';
+    } else {
+      this._listContainer.innerHTML = div.innerHTML;
+    }
+    this.addClass('is-success');
+
+    this._listContainerDetails.setAttribute('open', 'open');
+
+    this._isLoading = false;
+  }
+
+  _onIchibaLoadFail() {
+    this.removeClass('is-loading');
+    this.addClass('is-fail');
+    this._isLoading = false;
+  }
+
+  get videoId() {
+    return this._videoId;
+  }
+
+  set videoId(v) {
+    this._videoId = v;
+  }
+}
+
+
+IchibaItemView.__tpl__ = (`
     <div class="ZenzaIchibaItemView">
       <div class="loadStart">
         <div class="loadStartButton command" data-command="load">ニコニコ市場</div>
@@ -2100,49 +2080,40 @@ const TagEditApi = function() {};
     </div>
     `).trim();
 
-  IchibaItemView.__css__ = (`
+css.addStyle(`
+  .ZenzaIchibaItemView .loadStartButton {
+    color: #000;
+  }
+`, {className: 'screenMode for-popup ichiba', disabled: true});
+
+IchibaItemView.__css__ = (`
     .ZenzaIchibaItemView {
       text-align: center;
-      margin: 8px 8px 32px;
+      margin: 4px 8px 8px;
       color: #ccc;
     }
 
       .ZenzaIchibaItemView .loadStartButton {
-         /*width: 200px;*/
          font-size: 24px;
          padding: 8px 8px;
          margin: 8px;
          background: inherit;
          color: inherit;
          border: 1px solid #ccc;
-         /*border: none;*/
          outline: none;
          line-height: 20px;
-         /*text-shadow: 1px 1px #000;*/
          border-radius: 8px;
          cursor: pointer;
          user-select: none;
-         -webkit-user-select: none;
-         -moz-user-select: none;
-      }
-      .ZenzaIchibaItemView .loadStartButton:hover {
-        transform: translate(0, -4px);
-        box-shadow: 0 4px 4px #000;
-        transition:
-          0.2s transform ease,
-          0.2s box-shadow ease
-          ;
       }
 
-      .ZenzaIchibaItemView .loadStartButton:active {
-        transform: none;
-        box-shadow: none;
-        transition: none;
-      }
       .ZenzaIchibaItemView .loadStartButton:active::after {
         opacity: 0;
       }
 
+      .ZenzaIchibaItemView .loadStartButton:active {
+        transform: translate(0, 2px);
+      }
 
       .ZenzaIchibaItemView .ichibaLoadingView,
       .ZenzaIchibaItemView .ichibaItemListContainer {
@@ -2182,8 +2153,6 @@ const TagEditApi = function() {};
       }
 
 
-    .ZenzaIchibaItemView.is-fail {
-    }
       .ZenzaIchibaItemView.is-fail .ichibaLoadingView,
       .ZenzaIchibaItemView.is-fail .loadStartButton {
         display: none;
@@ -2211,7 +2180,6 @@ const TagEditApi = function() {};
       .ZenzaIchibaItemView .buy,
       .ZenzaIchibaItemView .click {
         font-weight: bold;
-        /*color: #fcc;*/
       }
 
 
@@ -2235,223 +2203,192 @@ const TagEditApi = function() {};
       display: none;
     }
 
-
-    body.zenzaScreenMode_sideView .ZenzaIchibaItemView .loadStartButton {
-      color: #000;
-    }
-
-    body.fullScreen.zenzaScreenMode_sideView  .ZenzaIchibaItemView .loadStartButton {
-      color: inherit;
-    }
-
-
     `).trim();
 
 
-  // typoじゃなくてブロック回避のため名前を変えてる
-  class UaaView extends BaseViewComponent {
-    constructor({parentNode}) {
-      super({
-        parentNode,
-        name: 'UaaView',
-        template: UaaView.__tpl__,
-        shadow: UaaView._shadow_,
-        css: UaaView.__css__
-      });
+// typoじゃなくてブロック回避のため名前を変えてる
+class UaaView extends BaseViewComponent {
+  constructor({parentNode}) {
+    super({
+      parentNode,
+      name: 'UaaView',
+      template: UaaView.__tpl__,
+      shadow: UaaView._shadow_,
+      css: UaaView.__css__
+    });
 
-      this._state = {
-        isUpdating: false,
-        isExist: false,
-        isSpeaking: false
-      };
+    this._state = {
+      isUpdating: false,
+      isExist: false,
+      isSpeaking: false
+    };
 
-      this._config = Config.namespace('uaa');
+    this._config = Config.namespace('uaa');
 
-      this._bound.load   = this.load.bind(this);
-      this._bound.update = this.update.bind(this);
+    this._bound.load = this.load.bind(this);
+    this._bound.update = this.update.bind(this);
+  }
+
+  _initDom(...args) {
+    super._initDom(...args);
+    ZenzaWatch.debug.uaa = this;
+
+    if (!this._shadow) {
+      return;
+    } // ShadowDOM使えなかったらバイバイ
+    const shadow = this._shadow || this._view;
+    this._elm.body = shadow.querySelector('.UaaDetailBody');
+  }
+
+  update(videoInfo) {
+    if (!this._shadow || !this._config.props.enable) {
+      return;
+    }
+    if (!this._elm.body) {
+      return;
     }
 
-    _initDom(...args) {
-      super._initDom(...args);
-      ZenzaWatch.debug.uaa = this;
+    if (this._state.isUpdating) {
+      return;
+    }
+    this.setState({isUpdating: true});
+    this._props.videoInfo = videoInfo;
+    this._props.videoId = videoInfo.videoId;
 
-      if (!this._shadow) { return; } // ShadowDOM使えなかったらバイバイ
-      const shadow = this._shadow || this._view;
-      this._elm.body = shadow.querySelector('.UaaDetailBody');
+    window.setTimeout(() => {
+      this.load(videoInfo);
+    }, 5000);
+  }
+
+  load(videoInfo) {
+    const videoId = videoInfo.videoId;
+
+    return UaaLoader.load(videoId, {limit: 50})
+      .then(this._onLoad.bind(this, videoId))
+      .catch(this._onFail.bind(this, videoId));
+  }
+
+  clear() {
+    this.setState({isUpdating: false, isExist: false, isSpeaking: false});
+    if (!this._elm.body) {
+      return;
+    }
+    this._elm.body.innerHTML = '';
+  }
+
+  _onLoad(videoId, result) {
+    if (this._props.videoId !== videoId) {
+      return;
+    }
+    this.setState({isUpdating: false});
+    const data = result ? result.data : null;
+    if (!data || data.sponsors.length < 1) {
+      return;
     }
 
-    update(videoInfo) {
-      if (!this._shadow || !this._config.getValue('enable')) { return; }
-      if (!this._elm.body) { return; }
-
-      if (this._state.isUpdating) { return; }
-      this.setState({isUpdating: true});
-      this._props.videoInfo = videoInfo;
-      this._props.videoId   = videoInfo.videoId;
-
-      window.setTimeout(() => { this.load(videoInfo); }, 5000);
-    }
-
-    load(videoInfo) {
-      const videoId = videoInfo.videoId;
-
-      return UaaLoader.load(videoId, {limit: 50})
-        .then(this._onLoad.bind(this, videoId))
-        .catch(this._onFail.bind(this, videoId));
-    }
-
-    clear() {
-      this.setState({isUpdating: false, isExist: false, isSpeaking: false});
-      if (!this._elm.body) { return; }
-      this._elm.body.innerHTML = '';
-    }
-
-    _onLoad(videoId, result) {
-      if (this._props.videoId !== videoId) { return; }
-      this.setState({isUpdating: false});
-      const data = result ? result.data : null;
-      if (!data || data.sponsors.length < 1) { return; }
-
-      const df = document.createDocumentFragment();
-      const div = document.createElement('div');
-      div.className = 'screenshots';
-      let idx = 0, screenshots = 0;
-      data.sponsors.forEach(u => {
-        if (!u.auxiliary.bgVideoPosition || idx >= 4) { return; }
-        u.added = true;
-        div.append(this._createItem(u, idx++));
-        screenshots++;
-      });
-      div.setAttribute('data-screenshot-count', screenshots);
-      df.append(div);
-
-      data.sponsors.forEach(u => {
-        if (!u.auxiliary.bgVideoPosition || u.added) { return; }
-        u.added = true;
-        df.append(this._createItem(u, idx++));
-      });
-      data.sponsors.forEach(u => {
-        if (u.added) { return; }
-        u.added = true;
-        df.append(this._createItem(u, idx++));
-      });
-
-      this._elm.body.innerHTML = '';
-      this._elm.body.appendChild(df);
-
-      this.setState({isExist: true});
-    }
-
-    _createItem(data, idx) {
-      const df = document.createElement('div');
-      const contact = document.createElement('span');
-      contact.textContent = data.advertiserName;
-      contact.className = 'contact';
-      df.className = 'item';
-      const aux = data.auxiliary;
-      const bgkeyframe = aux.bgVideoPosition || 0;
-      if (data.message) {
-        data.title = data.message;
+    const df = document.createDocumentFragment();
+    const div = document.createElement('div');
+    div.className = 'screenshots';
+    let idx = 0, screenshots = 0;
+    data.sponsors.forEach(u => {
+      if (!u.auxiliary.bgVideoPosition || idx >= 4) {
+        return;
       }
+      u.added = true;
+      div.append(this._createItem(u, idx++));
+      screenshots++;
+    });
+    div.setAttribute('data-screenshot-count', screenshots);
+    df.append(div);
 
-      df.setAttribute('data-index', idx);
-      if (bgkeyframe && idx < 4) {
-        const sec = parseFloat(bgkeyframe);
+    data.sponsors.forEach(u => {
+      if (!u.auxiliary.bgVideoPosition || u.added) {
+        return;
+      }
+      u.added = true;
+      df.append(this._createItem(u, idx++));
+    });
+    data.sponsors.forEach(u => {
+      if (u.added) {
+        return;
+      }
+      u.added = true;
+      df.append(this._createItem(u, idx++));
+    });
+
+    this._elm.body.innerHTML = '';
+    this._elm.body.appendChild(df);
+
+    this.setState({isExist: true});
+  }
+
+  _createItem(data, idx) {
+    const df = document.createElement('div');
+    const contact = document.createElement('span');
+    contact.textContent = data.advertiserName;
+    contact.className = 'contact';
+    df.className = 'item';
+    const aux = data.auxiliary;
+    const bgkeyframe = aux.bgVideoPosition || 0;
+    if (data.message) {
+      data.title = data.message;
+    }
+
+    df.setAttribute('data-index', idx);
+    if (bgkeyframe && idx < 4) {
+      const sec = parseFloat(bgkeyframe);
+      df.setAttribute('data-time', textUtil.secToTime(sec));
+      df.classList.add('clickable', 'command', 'other');
+      Object.assign(df.dataset, { command: 'seek', type: 'number', param: sec });
+      contact.setAttribute('title', `${data.message}(${textUtil.secToTime(sec)})`);
+
+      this._props.videoInfo.getCurrentVideo()
+        .then(url => VideoCaptureUtil.capture(url, sec))
+        .then(screenshot => {
         const cv = document.createElement('canvas');
         const ct = cv.getContext('2d');
-        cv.className = 'screenshot command clickable';
-        cv.setAttribute('data-command', 'seek');
-        cv.setAttribute('data-type', 'number');
-        cv.setAttribute('data-param', sec);
-        df.setAttribute('data-time', util.secToTime(sec));
-        cv.width = 128;
-        cv.height = 72;
+        cv.width = screenshot.width;
+        cv.height = screenshot.height;
 
+        cv.className = 'screenshot command clickable';
+        Object.assign(cv.dataset, { command: 'seek', type: 'number', param: sec });
         ct.fillStyle = 'rgb(32, 32, 32)';
         ct.fillRect(0, 0, cv.width, cv.height);
-        df.appendChild(cv);
+        ct.drawImage(screenshot, 0, 0);
         df.classList.add('has-screenshot');
+        df.classList.remove('clickable', 'other');
 
-        this._props.videoInfo.getCurrentVideo().then(url=> {
-          return util.videoCapture(url, sec);
-        }).then(screenshot => {
-          cv.width = screenshot.width;
-          cv.height = screenshot.height;
-          ct.drawImage(screenshot, 0, 0);
-        });
-      } else if (bgkeyframe) {
-        const sec = parseFloat(bgkeyframe);
-        df.classList.add('clickable');
-        df.classList.add('command');
-        df.classList.add('other');
-        df.setAttribute('data-command', 'seek');
-        df.setAttribute('data-type', 'number');
-        df.setAttribute('data-param', sec);
-        contact.setAttribute('title', `${data.message}(${util.secToTime(sec)})`);
-      } else {
-        df.classList.add('other');
-      }
-      df.appendChild(contact);
-      return df;
+        df.appendChild(cv);
+      }).catch(() => {});
+    } else if (bgkeyframe) {
+      const sec = parseFloat(bgkeyframe);
+      df.classList.add('clickable', 'command', 'other');
+      Object.assign(df.dataset, { command: 'seek', type: 'number', param: sec });
+      contact.setAttribute('title', `${data.message}(${textUtil.secToTime(sec)})`);
+    } else {
+      df.classList.add('other');
     }
+    df.appendChild(contact);
+    return df;
+  }
 
-    _onFail(videoId) {
-      if (this._props.videoId !== videoId) { return; }
-      this.setState({isUpdating: false});
+  _onFail(videoId) {
+    if (this._props.videoId !== videoId) {
+      return;
     }
+    this.setState({isUpdating: false});
+  }
 
-    _onCommand(command, param) {
-      switch(command) {
-        case 'speak':
-          this.speak();
-          break;
-        default:
-          super._onCommand(command, param);
-      }
-    }
-
-    speak() {
-      const items = Array.from(this._shadow.querySelectorAll('.item'));
-      const volume = 0.5;
-      const speakEnd = () => {
-        return util.speak('が、応援しています', {volume, pitch: 1.5, rate: 1.5}).then(() => {
-          this.setState({isSpeaking: true});
-        });
-      };
-
-      let index = 0;
-      const speakNext = () => {
-        const item = items[index];
-        if (!item) { return speakEnd(); }
-
-        index++;
-        const sama = '様';
-
-        const params = {
-          volume,
-          pitch: 1.5, //Math.random() * 2,
-          rate:  1.5  //Math.random() * 0.8 + 0.8
-        };
-
-        item.classList.add('is-speaking');
-        return util.speak(`「${item.textContent}」${sama}`, params).then(() => {
-          item.classList.remove('is-speaking');
-          return speakNext();
-        });
-      };
-
-      this.setState({isSpeaking: true});
-      util.speak('この動画は、', {volume, pitch: 1.5, rate: 1.5}).then(() => {
-        return speakNext();
-      }).catch(() => {
-        Array.from(this._shadow.querySelectorAll('.is-speaking')).forEach(s => {
-          s.classList.remove('is-speaking');
-        });
-      });
+  _onCommand(command, param) {
+    switch (command) {
+      default:
+        super._onCommand(command, param);
     }
   }
 
-  UaaView._shadow_ = (`
+}
+
+UaaView._shadow_ = (`
     <style>
       .UaaDetails,
       .UaaDetails * {
@@ -2461,15 +2398,10 @@ const TagEditApi = function() {};
 
       .UaaDetails .clickable {
         cursor: pointer;
-        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
       }
-        .UaaDetails .clickable:hover {
-          transform: translate(0, -4px);
-          box-shadow: 0 4px 4px #000;
-        }
+
         .UaaDetails .clickable:active {
-          transition: none;
-          transform: translate(0, 0);
+          transform: translate(0, 2px);
           box-shadow: none;
         }
 
@@ -2477,10 +2409,9 @@ const TagEditApi = function() {};
         opacity: 0;
         pointer-events: none;
         max-height: 0;
-        margin: 0 8px 0px;
+        margin: 0 8px 0;
         color: #ccc;
         overflow: hidden;
-        /*width: 208px;*/
         text-align: center;
         word-break: break-all;
       }
@@ -2488,8 +2419,7 @@ const TagEditApi = function() {};
           display: block;
           pointer-events: auto;
           max-height: 800px;
-          margin: 8px;
-          padding: 8px 4px;
+          padding: 4px;
           opacity: 1;
           transition: opacity 0.4s linear 0.4s, max-height 1s ease-in, margin 0.4s ease-in;
         }
@@ -2500,7 +2430,6 @@ const TagEditApi = function() {};
         }
 
       .UaaDetails .uaaSummary {
-        /*width: 200px;*/
         height: 38px;
         margin: 4px 4px 8px;
         color: inherit;
@@ -2524,10 +2453,6 @@ const TagEditApi = function() {};
         margin: 0 4px 0 0;
       }
 
-
-        .UaaDetails .item:not(.has-screenshot):hover {
-        }
-
         .UaaDetails .item.has-screenshot {
           position: relative;
           display:inline-block;
@@ -2538,7 +2463,7 @@ const TagEditApi = function() {};
           position: absolute;
           right: 0;
           bottom: 0;
-          pading: 2px 4px;
+          padding: 2px 4px;
           background: #000;
           color: #ccc;
           font-size: 12px;
@@ -2567,8 +2492,8 @@ const TagEditApi = function() {};
           transform: translate(-50%, -50%);
           color: #fff;
           text-shadow: 1px 1px 1px #000;
-          text-stroke: #000 1px;
-          -webkit-text-stroke: #000 1px;
+          text-stroke: 1px #000;
+          -webkit-text-stroke: 1px #000;
           pointer-events: none;
           font-size: 16px;
         }
@@ -2586,7 +2511,7 @@ const TagEditApi = function() {};
           min-height: inherit;
           text-align: left;
         }
-          
+
           .UaaDetails .item.is-speaking {
             text-decoration: underline;
           }
@@ -2635,45 +2560,23 @@ const TagEditApi = function() {};
         width: 192px;
       }
 
-      .UaaDetails .speak {
-        display: block;
-        width: 64px;
-        margin: auto;
-        cursor: pointer;
-        font-size: 16px;
-        line-height: 28px;
-        border: 1px solid #666;
-        background: transparent;
-        outline: none;
-        color: #ccc;
-        border-radius: 16px;
-      }
-
-      body.zenzaScreenMode_sideView .UaaDetails {
+      .zenzaScreenMode_sideView .is-notFullscreen .UaaDetails {
         color: #000;
       }
-      :host-context(body.zenzaScreenMode_sideView) .UaaDetails {
+      :host-context(.zenzaScreenMode_sideView .is-notFullscreen) .UaaDetails {
         color: #000;
-      }
-
-      body.fullScreen.zenzaScreenMode_sideView .UaaDetails {
-        color: inherit;
-      }
-      :host-context(body.fullScreen.zenzaScreenMode_sideView) .UaaDetails {
-        color: inherit;
       }
 
     </style>
     <details class="root UaaDetails">
       <summary class="uaaSummary clickable">提供</summary>
       <div class="UaaDetailBody"></div>
-      <button class="speak command clickable" data-command="speak">&#x1F50A;</button>
     </details>
   `).trim();
 
-  UaaView.__tpl__ = (`<div class="uaaView"></div>`).trim();
+UaaView.__tpl__ = ('<div class="uaaView"></div>').trim();
 
-  UaaView.__css__ = (`
+UaaView.__css__ = (`
     uaaView {
       display: none;
     }
@@ -2683,108 +2586,114 @@ const TagEditApi = function() {};
   `).trim();
 
 
-  class RelatedInfoMenu extends BaseViewComponent {
-    constructor({parentNode, isHeader}) {
-      super({
-        parentNode,
-        name: 'RelatedInfoMenu',
-        template: '<div class="RelatedInfoMenu"></div>',
-        shadow: RelatedInfoMenu._shadow_,
-        css: RelatedInfoMenu.__css__
-      });
+class RelatedInfoMenu extends BaseViewComponent {
+  constructor({parentNode, isHeader}) {
+    super({
+      parentNode,
+      name: 'RelatedInfoMenu',
+      template: '<div class="RelatedInfoMenu" tabindex="-1"></div>',
+      shadow: RelatedInfoMenu._shadow_,
+      css: RelatedInfoMenu.__css__
+    });
 
-      this._state = {
-      };
+    this._state = {};
 
-      this._bound.update = this.update.bind(this);
-      this._bound._onBodyClick = _.debounce(this._onBodyClick.bind(this), 0);
-      this.setState({isHeader});
-
-    }
-
-    _initDom(...args) {
-      super._initDom(...args);
-
-      const shadow = this._shadow || this._view;
-      this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
-      this._elm.summary = shadow.querySelector('summary');
-      this._elm.summary.addEventListener('click', _.debounce(() => {
-        if (shadow.open) {
-          document.body.addEventListener('mouseup', this._bound._onBodyClick);
-        }
-      }, 100));
-
-      this._ginzaLink = shadow.querySelector('.ginzaLink');
-      this._originalLink = shadow.querySelector('.originalLink');
-      this._twitterLink = shadow.querySelector('.twitterHashLink');
-      this._parentVideoLink = shadow.querySelector('.parentVideoLink');
-    }
-
-    _onBodyClick() {
-      const shadow = this._shadow || this._view;
-      shadow.open = false;
-      document.body.removeEventListener('mouseup', this._bound._onBodyClick);
-    }
-
-    update(videoInfo) {
-      const shadow = this._shadow || this._view;
-      shadow.open = false;
-
-      this._currentWatchId = videoInfo.watchId;
-      this._currentVideoId = videoInfo.videoId;
-      this.setState({
-        'isParentVideoExist': videoInfo.hasParentVideo,
-        'isCommunity': videoInfo.isCommunityVideo,
-        'isMymemory': videoInfo.isMymemory
-      });
-
-      this._ginzaLink.setAttribute('href', `//${location.host}/watch/${this._currentWatchId}`);
-      this._originalLink.setAttribute('href', `//${location.host}/watch/${this._currentVideoId}`);
-      this._twitterLink.setAttribute('href', `https://twitter.com/hashtag/${this._currentVideoId}`);
-      this._parentVideoLink.setAttribute('href', `//commons.nicovideo.jp/tree/${this._currentVideoId}`);
-    }
-
-    _onCommand(command, param) {
-      let url;
-      const shadow = this._shadow || this._view;
-      shadow.open = false;
-
-      switch(command) {
-        case 'watch-ginza':
-          url = `//www.nicovideo.jp/watch/${this._currentWatchId}`;
-          window.open(url, 'watchGinza');
-          super._onCommand('pause');
-          break;
-        case 'open-uad':
-          url = `//uad.nicovideo.jp/ads/?vid=${this._currentWatchId}`;
-          window.open(url, '', 'width=428, height=600, toolbar=no, scrollbars=1');
-          break;
-        case 'open-twitter-hash':
-          url = `https://twitter.com/hashtag/${this._currentVideoId}`;
-          window.open(url);
-          break;
-        case 'open-parent-video':
-          url = `//commons.nicovideo.jp/tree/${this._currentVideoId}`;
-          window.open(url);
-          break;
-        case 'copy-video-watch-url':
-          super._onCommand(command, param);
-          super._onCommand('notify', 'コピーしました');
-          break;
-        case 'open-original-video':
-          super._onCommand('openNow', this._currentVideoId);
-          break;
-        default:
-          super._onCommand(command, param);
-      }
-    }
-
+    this._bound.update = this.update.bind(this);
+    this._bound._onBodyClick = _.debounce(this._onBodyClick.bind(this), 0);
+    this.setState({isHeader});
 
   }
 
-  RelatedInfoMenu._css_ = (``).trim();
+  _initDom(...args) {
+    super._initDom(...args);
 
-  RelatedInfoMenu._shadow_ = (`
+    this._view.classList.toggle('is-Edge', /edge/i.test(navigator.userAgent));
+    const shadow = this._shadow || this._view;
+    this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
+    this._elm.summary = shadow.querySelector('summary');
+    shadow.addEventListener('click', e => {
+      e.stopPropagation();
+    });
+    this._elm.summary.addEventListener('click', _.debounce(() => {
+      if (shadow.open) {
+        document.body.addEventListener('mouseup', this._bound._onBodyClick, {once: true});
+        this.emit('open');
+      }
+    }, 100));
+
+    this._ginzaLink = shadow.querySelector('.ginzaLink');
+    this._originalLink = shadow.querySelector('.originalLink');
+    this._twitterLink = shadow.querySelector('.twitterHashLink');
+    this._parentVideoLink = shadow.querySelector('.parentVideoLink');
+  }
+
+  _onBodyClick() {
+    const shadow = this._shadow || this._view;
+    shadow.open = false;
+    document.body.removeEventListener('mouseup', this._bound._onBodyClick);
+    this.emit('close');
+  }
+
+  update(videoInfo) {
+    const shadow = this._shadow || this._view;
+    shadow.open = false;
+
+    this._currentWatchId = videoInfo.watchId;
+    this._currentVideoId = videoInfo.videoId;
+    this.setState({
+      isParentVideoExist: videoInfo.hasParentVideo,
+      isCommunity: videoInfo.isCommunityVideo,
+      isMymemory: videoInfo.isMymemory
+    });
+
+    const vid = this._currentVideoId;
+    const wid = this._currentWatchId;
+    this._ginzaLink.setAttribute('href', `//www.nicovideo.jp/watch/${wid}`);
+    this._originalLink.setAttribute('href', `//www.nicovideo.jp/watch/${vid}`);
+    this._twitterLink.setAttribute('href', `https://twitter.com/hashtag/${vid}`);
+    this._parentVideoLink.setAttribute('href', `//commons.nicovideo.jp/tree/${vid}`);
+    this.emit('close');
+  }
+
+  _onCommand(command, param) {
+    let url;
+    const shadow = this._shadow || this._view;
+    shadow.open = false;
+
+    switch (command) {
+      case 'watch-ginza':
+        window.open(this._ginzaLink.href, 'watchGinza');
+        super._onCommand('pause');
+        break;
+      case 'open-uad':
+        url = `//nicoad.nicovideo.jp/video/publish/${this._currentWatchId}?frontend_id=6&frontend_version=0&zenza_watch`;
+        window.open(url, '', 'width=428, height=600, toolbar=no, scrollbars=1');
+        break;
+      case 'open-twitter-hash':
+        window.open(this._twitterLink.href);
+        break;
+      case 'open-parent-video':
+        window.open(this._parentVideoLink.href);
+        break;
+      case 'copy-video-watch-url':
+        super._onCommand(command, param);
+        super._onCommand('notify', 'コピーしました');
+        break;
+      case 'open-original-video':
+        super._onCommand('openNow', this._currentVideoId);
+        break;
+      default:
+        super._onCommand(command, param);
+    }
+    this.emit('close');
+  }
+
+
+}
+
+RelatedInfoMenu._css_ = ('').trim();
+
+RelatedInfoMenu._shadow_ = (`
     <style>
       .RelatedInfoMenu,
       .RelatedInfoMenu * {
@@ -2807,9 +2716,6 @@ const TagEditApi = function() {};
         border-radius: 4px;
         outline: none;
         border: 1px solid #ccc;
-      }
-
-      .RelatedInfoMenuBody {
       }
 
       .RelatedInfoMenu ul {
@@ -2838,8 +2744,6 @@ const TagEditApi = function() {};
       }
 
 
-      .RelatedInfoMenu[open] {
-      }
         .RelatedInfoMenu .originalLinkMenu,
         .RelatedInfoMenu .parentVideoMenu {
           display: none;
@@ -2852,11 +2756,11 @@ const TagEditApi = function() {};
         }
 
 
-      body.fullScreen.zenzaScreenMode_sideView .RelatedInfoMenu summary{
+      .zenzaScreenMode_sideView .is-fullscreen .RelatedInfoMenu summary{
         background: #888;
       }
 
-      :host-context(body.fullScreen.zenzaScreenMode_sideView) .RelatedInfoMenu summary {
+      :host-context(.zenzaScreenMode_sideView .is-fullscreen) .RelatedInfoMenu summary {
         background: #888;
       }
 
@@ -2887,6 +2791,17 @@ const TagEditApi = function() {};
         color: #222;
       }
 
+        /* for Edge */
+        .is-Edge .RelatedInfoMenuBody {
+          display: none;
+          color: #ccc;
+          background: rgba(80, 80, 80, 0.9);
+        }
+        .RelatedInfoMenu[open] .RelatedInfoMenuBody,
+        .RelatedInfoMenu:focus .RelatedInfoMenuBody,
+        .RelatedInfoMenuBody:hover {
+          display: block;
+        }
     </style>
     <details class="root RelatedInfoMenu">
       <summary class="RelatedInfoMenuSummary clickable">関連メニュー</summary>
@@ -2894,7 +2809,7 @@ const TagEditApi = function() {};
         <ul>
           <li class="ginzaMenu">
             <a class="ginzaLink command"
-              rel="noopener" data-command="watch-ginza">GINZAで視聴</a>
+              rel="noopener" data-command="watch-ginza">公式プレイヤーで開く</a>
           </li>
           <li class="uadMenu">
             <span class="uadLink command"
@@ -2921,56 +2836,57 @@ const TagEditApi = function() {};
     </details>
   `).trim();
 
-  class VideoMetaInfo extends BaseViewComponent {
-    constructor({parentNode}) {
-      super({
-        parentNode,
-        name: 'VideoMetaInfo',
-        template: '<div class="VideoMetaInfo"></div>',
-        shadow: VideoMetaInfo._shadow_,
-        css: VideoMetaInfo.__css__
-      });
+class VideoMetaInfo extends BaseViewComponent {
+  constructor({parentNode}) {
+    super({
+      parentNode,
+      name: 'VideoMetaInfo',
+      template: '<div class="VideoMetaInfo"></div>',
+      shadow: VideoMetaInfo._shadow_,
+      css: VideoMetaInfo.__css__
+    });
 
-      this._state = {};
+    this._state = {};
 
-      this._bound.update = this.update.bind(this);
+    this._bound.update = this.update.bind(this);
+  }
+
+  _initDom(...args) {
+    super._initDom(...args);
+
+    const shadow = this._shadow || this._view;
+    this._elm = Object.assign({}, this._elm, {
+      postedAt: shadow.querySelector('.postedAt'),
+      body: shadow.querySelector('.videoMetaInfo'),
+      viewCount: shadow.querySelector('.viewCount'),
+      commentCount: shadow.querySelector('.commentCount'),
+      mylistCount: shadow.querySelector('.mylistCount')
+    });
+  }
+
+  update(videoInfo) {
+    this._elm.postedAt.textContent = videoInfo.postedAt;
+    const count = videoInfo.count;
+    this.updateVideoCount(count);
+  }
+
+  updateVideoCount({comment, view, mylist}) {
+    const addComma = m => m.toLocaleString ? m.toLocaleString() : m;
+    if (typeof comment === 'number') {
+      this._elm.commentCount.textContent = addComma(comment);
     }
-
-    _initDom(...args) {
-      super._initDom(...args);
-
-      const shadow = this._shadow || this._view;
-      this._elm = Object.assign({}, this._elm, {
-        postedAt:     shadow.querySelector('.postedAt'),
-        body:         shadow.querySelector('.videoMetaInfo'),
-        viewCount:    shadow.querySelector('.viewCount'),
-        commentCount: shadow.querySelector('.commentCount'),
-        mylistCount:  shadow.querySelector('.mylistCount')
-      });
+    if (typeof view === 'number') {
+      this._elm.viewCount.textContent = addComma(view);
     }
-
-    update(videoInfo) {
-      this._elm.postedAt.textContent = videoInfo.postedAt;
-      const count = videoInfo.count;
-      this.updateVideoCount(count);
-    }
-
-    updateVideoCount({comment, view, mylist}) {
-      let addComma = m => { return m.toLocaleString ? m.toLocaleString() : m; };
-      if (typeof comment === 'number') {
-        this._elm.commentCount.textContent = addComma(comment);
-      }
-      if (typeof view    === 'number') {
-        this._elm.viewCount   .textContent = addComma(view);
-      }
-      if (typeof mylist  === 'number') {
-        this._elm.mylistCount .textContent = addComma(mylist);
-      }
+    if (typeof mylist === 'number') {
+      this._elm.mylistCount.textContent = addComma(mylist);
     }
   }
-  VideoMetaInfo._css_ = (``).trim();
+}
 
-  VideoMetaInfo._shadow_ = (`
+VideoMetaInfo._css_ = ('').trim();
+
+VideoMetaInfo._shadow_ = (`
     <style>
       .VideoMetaInfo .postedAtOuter {
         display: inline-block;
@@ -3023,3 +2939,12 @@ const TagEditApi = function() {};
 
 //===END===
 
+export {
+  VideoInfoPanel,
+  VideoHeaderPanel,
+  VideoSearchForm,
+  IchibaItemView,
+  UaaView,
+  RelatedInfoMenu,
+  VideoMetaInfo
+};

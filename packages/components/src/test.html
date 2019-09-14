@@ -1,0 +1,214 @@
+<html>
+<head>
+<title>Web Components</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
+<script type="module">
+import {ZenzaDetector, MylistPocketDetector} from './util/ZenzaDetector.js';
+import {VideoItemElement} from './element/VideoItemElement.js';
+
+customElements.get('zenza-video-item') || customElements.define('zenza-video-item', VideoItemElement);
+
+
+let ZenzaWatch = window.ZenzaWatch || null;
+// window.lit = lit;
+// console.log('lit-html', window.lit);
+
+const NaviDispatcher = {
+  videoInfo: null,
+  init: function(ZenzaWatch) {
+    console.log('init Navi', this);
+
+    const navi = document.createElement('navi-container');
+    navi.classList.add('zen-family');
+    document.documentElement.append(navi);
+    this.container = navi;
+
+    window.addEventListener('command', this.onCommand.bind(this));
+    navi.addEventListener('command', this.onCommand.bind(this));
+    ZenzaWatch.emitter.on('loadVideoInnfo', v => {
+      this.videoInfo = v;
+    });
+    ZenzaWatch.emitter.on('fullScreenStatusChange', isFull => {
+      if (isFull) {
+        document.querySelector('.zenzaPlayerContainer').append(navi);
+      } else {
+        document.documentElement.append(navi);
+      }
+    });
+
+  },
+  onCommand: function(e) {
+    console.log('%ccommand', 'font-family: Arial;', e.detail, e.target.tagName);//, e.target, e);
+    const {command, param} = e.detail;
+    switch (command) {
+      case 'fetch-by-query': {
+        const target = param.target || document.querySelector('.videolist');
+        util.NicoQuery.fetch(param.query).then(result => {
+          console.log('result', result);
+          target.dataset.apiResponse = JSON.stringify(result);
+        });
+      }
+        break;
+      case 'pocket-info':
+        window.MylistPocket.external.info(param);
+        break;
+      case 'open':
+        ZenzaWatch.external.sendOrExecCommand(command, param);
+        break;
+      default:
+        ZenzaWatch.external.execCommand(command, param);
+        break;
+    }
+    e.stopPropagation();
+  }
+};
+
+ZenzaDetector.detect().then(Zen => {
+  console.log('ZenzaWatch found', Zen);
+  ZenzaWatch = Zen;
+  NaviDispatcher.init(Zen);
+
+  window.util = ZenzaWatch.util;
+});
+MylistPocketDetector.detect().then(() => {
+  document.body.classList.add('is-pocketReady');
+});
+
+window.NaviDispatcher = NaviDispatcher;
+
+</script>
+<style>
+  .container {
+    display: inline-block;
+    margin: 4px;
+    padding: 4px;
+    border: 1px inset;
+    overflow: hidden;
+  }
+
+  .videoListContainer {
+    width: 320px;
+    height: 60vh;
+  }
+  .itemContainer {
+    width: 320px;
+  }
+  .searchContainer {
+    width: 320px;
+  }
+</style>
+</head>
+
+<div class="searchContainer container">
+  <button onclick="document.querySelector('.videoList').dataset.apiResponse=JSON.stringify(flapiMylistData);">mylist</button>
+  <button onclick="document.querySelector('.videoList').dataset.apiResponse=JSON.stringify(uploadedVideoData);">user</button>
+  <button onclick="document.querySelector('.videoList').dataset.apiResponse=JSON.stringify(deflistData);">deflist</button>
+  <button onclick="document.querySelector('.videoList').dataset.apiResponse=JSON.stringify(videoSearchData);">search</button>
+</div>
+<div class="videoListContainer container"></div>
+<div class="itemContainer container"></div>
+
+<script src="../mock/flapiMylistData.js"></script>
+<script src="../mock/uploadedVideoData.js"></script>
+<script src="../mock/deflistData.js"></script>
+<script src="../mock/videoSearchData.js"></script>
+
+<script type="module">
+  import {VideoListElement} from './element/VideoListElement.js';
+  import {util} from './util/util.js';
+  window.util = util;
+  util.queryByFetch = query => {
+    const {type, id, params} = util.parseFetchQuery(query);
+    let url;
+    const _req = {
+      query,
+      type,
+      id,
+      params,
+      title: params.title || ''
+    };
+    // const [type] = query.split('/');
+    switch (type) {
+      case 'mylist':
+        return Promise.resolve(flapiMylistData).then(result => {
+          result._req = Object.assign({}, result._req, _req);
+          return Promise.resolve(result);
+        });
+      case 'user':
+        return Promise.resolve(uploadedVideoData).then(result => {
+          result._req = Object.assign({}, result._req, _req);
+          return Promise.resolve(result);
+        });
+      case 'deflist':
+       return Promise.resolve(deflistData).then(result => {
+        result._req = Object.assign({}, result._req, _req);
+          return Promise.resolve(result);
+        });
+      case 'mymylist':
+        return Promise.resolve(mymylistData).then(result => {
+          result._req = Object.assign({}, result._req, _req);
+          return Promise.resolve(result);
+        });
+      case 'search':
+        return Promise.resolve(videoSearchData).then(result => {
+          result._req = Object.assign({}, result._req, _req);
+          return Promise.resolve(result);
+        });
+      case 'tag':
+        return Promise.resolve(videoSearchData).then(result => {
+          result._req = Object.assign({}, result._req, _req);
+          result._req.type = 'tag';
+          result._req.query = result._req.query.replace('search/', 'tag/');
+          return Promise.resolve(result);
+        });
+    }
+    console.warn('unknown type!!!', type);
+  };
+  customElements.get('zenza-video-list') ||
+  customElements.define('zenza-video-list', VideoListElement);
+
+</script>
+
+<script type="module">
+  let list = document.createElement('zenza-video-list');
+  list.classList.add('videolist');
+  list.innerHTML = `
+    <div slot="head-buttons">
+      <button data-command="111">111</button>
+    </div>
+    <div slot="foot-buttons">
+      <button data-command="hoge">hoge</button>
+      <button data-command="fuga">fuga</button>
+      <button data-command="foo">foo</button>
+    </div>
+  `;
+  document.querySelector('.videoListContainer').append(list);
+  list.dataset.apiResponse = JSON.stringify(flapiMylistData);
+
+  import {VideoSearchFormElement} from './element/VideoSearchFormElement.js';
+  const form = document.createElement('zenza-video-search-form');
+  document.querySelector('.searchContainer').append(form);
+  form.dataset.query = `tag/fugafuga?word=${encodeURIComponent('VOCALOID殿堂入り')}&type=tag&sort=-f`;
+
+  import {VideoSeriesLabel} from './element/VideoSeriesLabel.js';
+  const label = document.createElement('zenza-video-series-label');
+  Object.assign(label.dataset, {
+    'id': 16189,
+    'title': 'オリとくらやみの森',
+    'thumbnailUrl': 'https://dcdn.cdn.nimg.jp/nicovideo/series/tmb/0/1472081/16189.1560497466',
+    'createdAt': '2019-06-14T16:27:59+09:00',
+    'updatedAt': '2019-06-14T16:31:20+09:00'
+  });
+  document.querySelector('.searchContainer').append(label);
+
+  import {RangeBarElement} from './element/RangeBarElement';
+</script>
+<zenza-range-bar>
+  <input type="range" value="0.5" min="0" max="1" step="any">
+</zenza-range-bar>
+
+</body>
+</html>

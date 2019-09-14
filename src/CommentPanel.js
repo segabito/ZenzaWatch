@@ -1,170 +1,528 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {}
-};
-var AsyncEmitter = function() {};
-var FrameLayer = function() {};
-var PopupMessage = {};
-var CONSTANT = {};
-class BaseViewComponent {}
+import _ from 'lodash';
+import {global} from './ZenzaWatchIndex';
+import {BaseViewComponent, FrameLayer} from './util';
+import {CONSTANT, NICORU} from './constant';
+import {Emitter} from './baselib';
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {textUtil} from '../packages/lib/src/text/textUtil';
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
+import {css} from '../packages/lib/src/css/css';
+import {uq} from '../packages/lib/src/uQuery';
+import {Clipboard} from '../packages/lib/src/dom/Clipboard';
+import {cssUtil} from '../packages/lib/src/css/css';
 
 //===BEGIN===
 
-  var CommentListModel = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentListModel.prototype, AsyncEmitter.prototype);
-  _.assign(CommentListModel.prototype, {
-    initialize: function(params) {
-      //this._$container = params.$container;
-      this._isUniq = params.uniq;
-      this._items = [];
-      this._positions = [];
-      this._maxItems = params.maxItems || 100;
-      this._currentSortKey = 'vpos';
-      this._isDesc = false;
-      this._currentTime = 0;
-    },
-    setItem: function(itemList) {
-      itemList = _.isArray(itemList) ? itemList: [itemList];
+class CommentListModel extends Emitter {
+  constructor(params) {
+    super();
+    this._isUniq = params.uniq;
+    this._items = [];
+    this._positions = [];
+    this._maxItems = params.maxItems || 100;
+    this._currentSortKey = 'vpos';
+    this._isDesc = false;
+    this._currentTime = 0;
+  }
+  setItem(itemList) {
+    this._items = Array.isArray(itemList) ? itemList : [itemList];
+  }
+  clear() {
+    this._items = [];
+    this._positions = [];
+    this._currentTime = 0;
+    this.emit('update', [], true);
+  }
+  setChatList(chatList) {
+    chatList = chatList.top.concat(chatList.naka, chatList.bottom);
+    let items = [];
+    let positions = [];
+    for (let i = 0, len = chatList.length; i < len; i++) {
+      items.push(new CommentListItem(chatList[i]));
+      positions.push(parseFloat(chatList[i].vpos, 10) / 100);
+    }
+    this._items = items;
+    this._positions = positions.sort((a, b) => a - b);
+    this._currentTime = 0;
 
-      this._items = itemList;
-    },
-    clear: function() {
-      this._items = [];
-      this._positions = [];
-      this._currentTime = 0;
-      this.emit('update', [], true);
-    },
-    setChatList: function(chatList) {
-      chatList = chatList.top.concat(chatList.naka, chatList.bottom);
-      var items = [];
-      var positions = [];
-      for (var i = 0, len = chatList.length; i < len; i++) {
-        items.push(new CommentListItem(chatList[i]));
-        positions.push(parseFloat(chatList[i].getVpos(), 10) / 100);
-      }
-      this._items = items;
-      this._positions = positions.sort(function(a, b) { return a - b; });
-      this._currentTime = 0;
-
-      //window.console.log(this._positions);
-      this.sort();
-      this.emit('update', this._items, true);
-
-    },
-    removeItemByIndex: function(index) {
-      var target = this._getItemByIndex(index);
-      if (!target) { return; }
-      this._items = _.reject(this._items, function(item) { return item === target; });
-    },
-    getLength: function() {
-      return this._items.length;
-    },
-    _getItemByIndex: function(index) {
-      var item = this._items[index];
-      return item;
-    },
-    indexOf: function(item) {
-      return _.indexOf(this._items, item);
-    },
-    getItemByIndex: function(index) {
-      var item = this._getItemByIndex(index);
-      if (!item) { return null; }
-      if (!item.hasBind) {
-        item.hasBind = true;
-        item.on('update', this._onItemUpdate.bind(this, item));
-      }
-      return item;
-    },
-    findByItemId: function(itemId) {
-      itemId = parseInt(itemId, 10);
-      return _.find(this._items, (item) => {
-        if (item.getItemId() === itemId) {
-          if (!item.hasBind) {
-            item.hasBind = true;
-            item.on('update', this._onItemUpdate.bind(this, item));
-          }
-          return true;
-        }
-      });
-    },
-    removeItem: function(item) {
-      var beforeLen = this._items.length;
-      _.pull(this._items, item);
-      var afterLen = this._items.length;
-      if (beforeLen !== afterLen) {
-        this.emit('update', this._items);
-      }
-    },
-    _onItemUpdate: function(item, key, value) {
-      this.emit('itemUpdate', item, key, value);
-    },
-    sortBy: function(key, isDesc) {
-      var table = {
-        vpos: 'getVpos',
-        date: 'getDate',
-        text: 'getText',
-        user: 'getUserId',
-      };
-      var func = table[key];
-      if (!func) { return; }
-      this._items = _.sortBy(this._items, function(item) { return item[func](); });
-      if (isDesc) {
-        this._items.reverse();
-      }
-      this._currentSortKey = key;
-      this._isDesc = isDesc;
-      this.onUpdate();
-    },
-    sort: function() {
-      this.sortBy(this._currentSortKey, this._isDesc);
-    },
-    getCurrentSortKey: function() {
-      return this._currentSortKey;
-    },
-    onUpdate: function() {
-      this.emitAsync('update', this._items);
-    },
-    getInViewIndex: function(sec) {
-      return Math.max(0, _.sortedLastIndex(this._positions, sec + 1) - 1);
-    },
-    setCurrentTime: function(sec) {
-      if (this._currentTime !== sec && _.isNumber(sec)) {
-        this._currentTime = sec;
-        if (this._currentSortKey === 'vpos') {
-          this.emit('currentTimeUpdate', sec, this.getInViewIndex(sec));
-        }// else { window.console.log('sort: ', this._currentSortKey); }
+    this.sort();
+    this.emit('update', this._items, true);
+  }
+  removeItemByIndex(index) {
+    let target = this._getItemByIndex(index);
+    if (!target) {
+      return;
+    }
+    this._items = _.reject(this._items, item => item === target);
+  }
+  getLength() {
+    return this._items.length;
+  }
+  _getItemByIndex(index) {
+    let item = this._items[index];
+    return item;
+  }
+  indexOf(item) {
+    return (this._items || []).indexOf(item);
+  }
+  getItemByIndex(index) {
+    let item = this._getItemByIndex(index);
+    if (!item) {
+      return null;
+    }
+    return item;
+  }
+  findByItemId(itemId) {
+    itemId = parseInt(itemId, 10);
+    return this._items.find(item => item.itemId === itemId);
+  }
+  removeItem(item) {
+    let beforeLen = this._items.length;
+    _.pull(this._items, item);
+    let afterLen = this._items.length;
+    if (beforeLen !== afterLen) {
+      this.emit('update', this._items);
+    }
+  }
+  _onItemUpdate(item, key, value) {
+    this.emit('itemUpdate', item, key, value);
+  }
+  sortBy(key, isDesc) {
+    const table = {
+      vpos: 'vpos',
+      date: 'date',
+      text: 'text',
+      user: 'userId',
+      nicoru: 'nicoru'
+    };
+    let func = table[key];
+    if (!func) {
+      return;
+    }
+    this._items = _.sortBy(this._items, item => item[func]);
+    if (isDesc) {
+      this._items.reverse();
+    }
+    this._currentSortKey = key;
+    this._isDesc = isDesc;
+    this.onUpdate(true);
+  }
+  sort() {
+    this.sortBy(this._currentSortKey, this._isDesc);
+  }
+  getCurrentSortKey() {
+    return this._currentSortKey;
+  }
+  onUpdate(replaceAll = false) {
+    this.emitAsync('update', this._items, replaceAll);
+  }
+  getInViewIndex(sec) {
+    return Math.max(0, _.sortedLastIndex(this._positions, sec + 1) - 1);
+  }
+  set currentTime(sec) {
+    if (this._currentTime !== sec && typeof sec === 'number') {
+      this._currentTime = sec;
+      if (this._currentSortKey === 'vpos') {
+        this.emit('currentTimeUpdate', sec, this.getInViewIndex(sec));
       }
     }
-  });
+  }
+  get currentTime() {return this._currentTime;}
+}
 
 /**
  * DOM的に隔離したiframeの中に生成する。
  * かなり実験要素が多いのでまだまだ変わる。
  */
-  var CommentListView = function() { this.initialize.apply(this, arguments); };
-  CommentListView.ITEM_HEIGHT = 40;
+class CommentListView extends Emitter {
+  constructor(params) {
+    super();
+    this._ItemView = CommentListItemView;
+    this._itemCss = CommentListItemView.CSS;
+    this._className = params.className || 'commentList';
 
-  _.extend(CommentListView.prototype, AsyncEmitter.prototype);
-  CommentListView.__css__ = '';
+    this._retryGetIframeCount = 0;
 
-  CommentListView.__tpl__ = (`
+    this._cache = {};
+    this._maxItems = 100000;
+    this._inviewItemList = new Map;
+    this._scrollTop = 0;
+
+    this._model = params.model;
+    if (this._model) {
+      this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
+    }
+
+    this.scrollTop = bounce.raf(this.scrollTop.bind(this));
+    this._initializeView(params, 0);
+  }
+  async _initializeView(params) {
+    const html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
+    const frame = new FrameLayer({
+      container: params.container,
+      html,
+      className: 'commentListFrame'
+    });
+    // this._frame.on('load', this._onIframeLoad.bind(this));
+    this._onIframeLoad(await frame.promise('GetReady!'));
+  }
+  _onIframeLoad(w) {
+    const doc = this._document = w.document;
+    this._window = w;
+    const body = this._body = doc.body;
+    const $body = this._$body = uq(body);
+    if (this._className) {
+      body.classList.add(this._className);
+    }
+    this._container = doc.querySelector('#listContainer');
+    this._list = doc.getElementById('listContainerInner');
+    if (this._html) {
+      this._list.innerHTML = this._html;
+    }
+    this._$menu = $body.find('.listMenu');
+
+    this._$itemDetail = $body.find('.itemDetailContainer');
+
+    $body
+      .on('click', this._onClick.bind(this))
+      .on('dblclick', this._onDblClick.bind(this))
+      .on('keydown', e => global.emitter.emit('keydown', e))
+      .on('keyup', e => global.emitter.emit('keyup', e))
+      .toggleClass('is-guest', !nicoUtil.isLogin())
+      .toggleClass('is-premium', nicoUtil.isPremium());
+
+    this._$menu.on('click', this._onMenuClick.bind(this));
+    this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
+
+    this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
+    this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
+    this._container.addEventListener('wheel', this._onWheel.bind(this), {passive: true});
+    this._container.addEventListener('scroll', this._onScroll.bind(this), {passive: true});
+    this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
+
+    w.addEventListener('resize', this._onResize.bind(this));
+    this._innerHeight = w.innerHeight;
+
+    this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
+    this._appendNewItems = bounce.raf(this._appendNewItems.bind(this));
+    cssUtil.registerProps(
+      {name: '--current-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w},
+      {name: '--duration', syntax: '<time>', initialValue: cssUtil.s(4), inherits: true, window: w},
+      {name: '--scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--time-scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--inner-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--list-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--height-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
+      {name: '--trans-y-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
+      {name: '--vpos-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w}
+    );
+    body.style.setProperty('--inner-height', this._innerHeight);
+    this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
+
+    // 互換用
+    global.debug.$commentList = uq(this._list);
+    global.debug.getCommentPanelItems = () =>
+      Array.from(doc.querySelectorAll('.commentListItem'));
+  }
+  _onModelUpdate(itemList, replaceAll) {
+    window.console.time('update commentlistView');
+    this.addClass('updating');
+    itemList = Array.isArray(itemList) ? itemList : [itemList];
+    this.isActive = false;
+
+    if (replaceAll) {
+      this._scrollTop = 0;
+    }
+
+    const itemViews = itemList.map((item, i) =>
+      new this._ItemView({item: item, index: i, height: CommentListView.ITEM_HEIGHT})
+    );
+
+    this._itemViews = itemViews;
+
+    window.setTimeout(() => {
+      if (!this._list) { return; }
+      this._list.textContent = '';
+      this._body.style.setProperty('--list-height',
+          Math.max(CommentListView.ITEM_HEIGHT * itemViews.length + 100,
+          this._innerHeight)
+        );
+      this._inviewItemList.clear();
+      this._$menu.removeClass('show');
+      this._refreshInviewElements();
+      this.hideItemDetail();
+    }, 0);
+
+    window.setTimeout(() => {
+      this.removeClass('updating');
+      this.emit('update');
+    }, 100);
+
+    window.console.timeEnd('update commentlistView');
+  }
+  _onClick(e) {
+    e.stopPropagation();
+    global.emitter.emitAsync('hideHover');
+    const item = e.target.closest('.commentListItem');
+    if (item) {
+      return this._debouncedOnItemClick(e, item);
+    }
+  }
+  _onItemClick(e, item) {
+    if (e.target.closest('.nicoru-icon')) {
+      item.classList.add('nicotta');
+      item.dataset.nicoru = item.dataset.nicoru ? (item.dataset.nicoru * 1 + 1) : 1;
+      this.emit('command', 'nicoru', item, item.dataset.itemId);
+      return;
+    }
+    this._$menu
+      .css('transform', `translate(0, ${item.dataset.top}px)`)
+      .attr('data-item-id', item.dataset.itemId)
+      .addClass('show');
+  }
+  _onMenuClick(e) {
+    const target = e.target.closest('.menuButton');
+    this._$menu.removeClass('show');
+    if (!target) {
+      return;
+    }
+    const {itemId} = e.target.closest('.listMenu').dataset;
+    if (!itemId) {
+      return;
+    }
+
+    const {command} = target.dataset;
+
+    if (command === 'addUserIdFilter' || command === 'addWordFilter') {
+      Array.from(this._list.querySelectorAll(`.item${itemId}`))
+        .forEach(e => e.remove());
+    }
+
+    this.emit('command', command, null, itemId);
+  }
+  _onItemDetailClick(e) {
+    const target = e.target.closest('.command');
+    if (!target) {
+      return;
+    }
+    const itemId = this._$itemDetail.attr('data-item-id');
+    if (!itemId) {
+      return;
+    }
+    const {command, param} = target.dataset;
+    if (command === 'hideItemDetail') {
+      return this.hideItemDetail();
+    }
+    if (command === 'reloadComment') {
+      this.hideItemDetail();
+    }
+    this.emit('command', command, param, itemId);
+  }
+  _onDblClick(e) {
+    e.stopPropagation();
+    const item = e.target.closest('.commentListItem');
+    if (!item) {
+      return;
+    }
+    e.preventDefault();
+
+    const itemId = item.dataset.itemId;
+    this.emit('command', 'select', null, itemId);
+  }
+  _onMouseMove() {
+    this.isActive = true;
+    this.addClass('is-active');
+  }
+  _onMouseOver() {
+    this.isActive = true;
+    this.addClass('is-active');
+  }
+  _onWheel() {
+    this.isActive = true;
+    this.addClass('is-active');
+  }
+  _onMouseOut() {
+    this.isActive = false;
+    this.removeClass('is-active');
+  }
+  _onResize() {
+    this._innerHeight = this._window.innerHeight;
+    this._body.style.setProperty('--inner-height', this._innerHeight);
+    this._refreshInviewElements();
+  }
+  _onScroll() {
+    if (!this.hasClass('is-scrolling')) {
+      this.addClass('is-scrolling');
+    }
+    this._refreshInviewElements();
+    this._debouncedOnScrollEnd();
+  }
+  _onScrollEnd() {
+    this.removeClass('is-scrolling');
+  }
+  _refreshInviewElements() {
+    if (!this._list) {
+      return;
+    }
+    const itemHeight = CommentListView.ITEM_HEIGHT;
+    const scrollTop = this._container.scrollTop;
+    const innerHeight = this._innerHeight;
+    const windowBottom = scrollTop + innerHeight;
+    const itemViews = this._itemViews;
+    const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
+    const endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
+
+    const newItems = [], inviewItemList = this._inviewItemList;
+    for (let i = startIndex; i < endIndex; i++) {
+      if (inviewItemList.has(i) || !itemViews[i]) {
+        continue;
+      }
+      newItems.push(itemViews[i]);
+      inviewItemList.set(i, itemViews[i]);
+    }
+
+    if (!newItems.length) {
+      return;
+    }
+
+    for (const i of inviewItemList.keys()) {
+      if (i >= startIndex && i <= endIndex) {
+        continue;
+      }
+      inviewItemList.get(i).remove();
+      inviewItemList.delete(i);
+    }
+
+
+    this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
+
+
+    this._appendNewItems();
+  }
+  _appendNewItems() {
+    if (this._newItems) {
+      const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
+      f.append(...this._newItems.map(i => i.viewElement));
+      this._list.append(f);
+    }
+    this._newItems = null;
+  }
+  _updatePerspective() {
+    const keys = Object.keys(this._inviewItemList);
+    let avr = 0;
+    if (!this._inviewItemList.size) {
+      avr = 50;
+    } else {
+      let min = 0xffff;
+      let max = -0xffff;
+      keys.forEach(key => {
+        let item = this._inviewItemList.get(key);
+        min = Math.min(min, item.time3dp);
+        max = Math.max(max, item.time3dp);
+        avr += item.time3dp;
+      });
+      avr = avr / keys.length * 100 + 50; //max * 100; //(min + max) / 2 + 10; //50 + avr / keys.length;
+    }
+    this._list.style.transform = `translateZ(-${avr}px)`;
+  }
+  addClass(className) {
+    this.toggleClass(className, true);
+  }
+  removeClass(className) {
+    this.toggleClass(className, false);
+  }
+  toggleClass(className, v) {
+    if (!this._body) {
+      return;
+    }
+    this._body.classList.toggle(className, v);
+  }
+  hasClass(className) {
+    return this._body.classList.contains(className);
+  }
+  find(query) {
+    return this._document.querySelectorAll(query);
+  }
+  scrollTop(v) {
+    if (!this._window) {
+      return 0;
+    }
+
+    if (typeof v === 'number') {
+      this._scrollTop = v;
+      this._container.scrollTop = v;
+      this._body.style.setProperty('--scroll-top', v);
+    } else {
+      this._scrollTop = this._container.scrollTop;
+      this._body.style.setProperty('--scroll-top', this._scrollTop);
+      return this._scrollTop;
+    }
+  }
+  setCurrentPoint(sec, idx) {
+    if (!this._window || !this._itemViews) {
+      return;
+    }
+    const innerHeight = this._innerHeight;
+    const itemViews = this._itemViews;
+    const len = itemViews.length;
+    const view = itemViews[idx];
+    if (len < 1 || !view) {
+      return;
+    }
+
+    const itemHeight = CommentListView.ITEM_HEIGHT;
+    const top = Math.max(0, view.top - innerHeight + itemHeight);
+    this._body.style.setProperty('--time-scroll-top', top);
+    if (!this.isActive) {
+        this.scrollTop(top);
+    }
+    requestAnimationFrame(() => {
+      this._body.style.setProperty('--current-time', css.s(sec));
+    });
+  }
+  showItemDetail(item) {
+    const $d = this._$itemDetail;
+    $d.attr('data-item-id', item.itemId);
+    $d.find('.resNo').text(item.no).end()
+      .find('.vpos').text(item.timePos).end()
+      .find('.time').text(item.formattedDate).end()
+      .find('.userId').text(item.userId).end()
+      .find('.cmd').text(item.cmd).end()
+      .find('.text').text(item.text).end()
+      .addClass('show');
+    global.debug.$itemDetail = $d;
+  }
+  hideItemDetail() {
+    this._$itemDetail.removeClass('show');
+  }
+}
+CommentListView.ITEM_HEIGHT = 40;
+
+CommentListView.__css__ = '';
+
+CommentListView.__tpl__ = (`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <title>CommentList</title>
 <style type="text/css">
+  ${CONSTANT.BASE_CSS_VARS}
+
   body {
-    -webkit-user-select: none;
-    -moz-user-select: none;
+    user-select: none;
     margin: 0;
     padding: 0;
     overflow: hidden;
   }
 
-  body.scrolling #listContainerInner *{
+  body .is-debug {
+    perspective: 100px;
+    perspective-origin: left top;
+    transition: perspective 0.2s ease;
+  }
+
+  body.is-scrolling #listContainerInner *{
     pointer-events: none;
   }
 
@@ -177,11 +535,176 @@ class BaseViewComponent {}
     width: 100vw;
     height: 100vh;
     overflow: auto;
+    overscroll-behavior: contain;
+    will-change: transform;
+    scrollbar-width: 16px;
+  }
+  #listContainerInner {
+    height: calc(var(--list-height) * 1px);
+    min-height: calc(100vh + 100px);
+  }
+
+  .is-debug #listContainerInner {
+    transform-style: preserve-3d;
+    transform: translateZ(-50px);
+    transition: transform 0.2s;
+  }
+
+  #listContainerInner:empty::after {
+    content: 'コメントは空です';
+    color: #666;
+    display: inline-block;
+    text-align: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .is-guest .forMember {
+    display: none !important;
+  }
+
+  .itemDetailContainer {
+    position: fixed;
+    display: block;
+    top: 50%;
+    left: 50%;
+    line-height: normal;
+    min-width: 280px;
+    max-height: 100%;
+    overflow-y: scroll;
+    overscroll-behavior: contain;
+    font-size: 14px;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 100;
+    border: 2px solid #fc9;
+    background-color: rgba(255, 255, 232, 0.9);
+    box-shadow: 4px 4px 0 rgba(99, 99, 66, 0.8);
+    transition: opacity 0.2s;
+  }
+
+  .itemDetailContainer.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .itemDetailContainer>* {
+  }
+  .itemDetailContainer * {
+    word-break: break-all;
+  }
+  .itemDetailContainer .reloadComment {
+    display: inline-block;
+    padding: 0 4px;
+    cursor: pointer;
+    transform: scale(1.4);
+    transition: transform 0.1s;
+  }
+  .itemDetailContainer .reloadComment:hover {
+    transform: scale(1.8);
+  }
+  .itemDetailContainer .reloadComment:active {
+    transform: scale(1.2);
+    transition: none;
+  }
+  .itemDetailContainer .resNo,
+  .itemDetailContainer .vpos,
+  .itemDetailContainer .time,
+  .itemDetailContainer .userId,
+  .itemDetailContainer .cmd {
+    font-size: 12px;
+  }
+  .itemDetailContainer .time {
+    cursor: pointer;
+    color: #339;
+  }
+  .itemDetailContainer .time:hover {
+    text-decoration: underline;
+  }
+  .itemDetailContainer .time:hover:after {
+    position: absolute;
+    content: '${'\\00231A'} 過去ログ';
+    right: 16px;
+    text-decoration: none;
+    transform: scale(1.4);
+  }
+  .itemDetailContainer .resNo:before,
+  .itemDetailContainer .vpos:before,
+  .itemDetailContainer .time:before,
+  .itemDetailContainer .userId:before,
+  .itemDetailContainer .cmd:before {
+    display: inline-block;
+    min-width: 50px;
+  }
+  .itemDetailContainer .resNo:before {
+    content: 'no';
+  }
+  .itemDetailContainer .vpos:before {
+    content: 'pos';
+  }
+  .itemDetailContainer .time:before {
+    content: 'date';
+  }
+  .itemDetailContainer .userId:before {
+    content: 'user';
+  }
+  .itemDetailContainer .cmd:before {
+    content: 'cmd';
+  }
+  .itemDetailContainer .text {
+    border: 1px inset #ccc;
+    padding: 8px;
+    margin: 4px 8px;
+  }
+  .itemDetailContainer .close {
+    border: 2px solid #666;
+    width: 50%;
+    cursor: pointer;
+    text-align: center;
+    margin: auto;
+    user-select: none;
+  }
+
+  .timeBar {
+    position: fixed;
+    visibility: hidden;
+    z-index: 100;
+    right: 0;
+    top: 1px;
+    width: 14px;
+    --height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
+    --trans-y-pp: calc( 1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height) - 2px);
+    height: var(--height-pp);
+    min-height: 16px;
+    max-height: 100vh;
+    transform: translateY(var(--trans-y-pp));
+    transition: transform 0.2s;
+    pointer-events: none;
+    will-change: transform;
+    border: 1px solid #e12885;/*#FC6c6c;*/
+  }
+  .timeBar::after {
+    width: calc(100% + 6px);
+    height: calc(100% + 6px);
+    left: -3px;
+    top: -3px;
+    content: '';
+    position: absolute;
+    border: 2px solid #2b2b2b;
+    outline: 2px solid #2b2b2b;
+    outline-offset: -5px;
+    box-sizing: border-box;
+  }
+  body:hover .timeBar {
+    visibility: visible;
   }
 
 </style>
 <style id="listItemStyle">%CSS%</style>
-<body>
+<body class="zenzaRoot">
   <div class="itemDetailContainer">
     <div class="resNo"></div>
     <div class="vpos"></div>
@@ -191,18 +714,15 @@ class BaseViewComponent {}
     <div class="text"></div>
     <div class="command close" data-command="hideItemDetail">O K</div>
   </div>
+  <div class="timeBar"></div>
   <div id="listContainer">
     <div class="listMenu">
-      <span class="menuButton itemDetailRequest" data-command="itemDetailRequest">?</span>
-
       <span class="menuButton itemDetailRequest"
         data-command="itemDetailRequest" title="詳細">？</span>
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
       <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
       <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
-
     </div>
-
     <div id="listContainerInner"></div>
   </div>
 </body>
@@ -210,797 +730,579 @@ class BaseViewComponent {}
 
   `).trim();
 
-  _.extend(CommentListView.prototype, AsyncEmitter.prototype);
-  _.assign(CommentListView.prototype, {
-    initialize: function(params) {
-      this._ItemBuilder = params.builder || CommentListItemView;
-      this._itemCss     = params.itemCss || CommentListItemView.__css__;
-      this._className   = params.className || 'commentList';
-      this._$container  = params.$container;
 
-      this._retryGetIframeCount = 0;
-
-      this._cache = {};
-      this._maxItems = 100000;
-      this._scrollTop = 0;
-
-      this._model = params.model;
-      if (this._model) {
-        this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
-      }
-
-      this.scrollTop = ZenzaWatch.util.createDrawCallFunc(this.scrollTop.bind(this));
-      this._initializeView(params, 0);
-    },
-    _initializeView: function(params) {
-      var html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
-      this._frame = new FrameLayer({
-        $container: params.$container,
-        html: html,
-        className: 'commentListFrame'
-      });
-      this._frame.on('load', this._onIframeLoad.bind(this));
-    },
-    _onIframeLoad: function(w) {
-      var doc = this._document = w.document;
-      var $win  = this._$window = $(w);
-      var body = this._body = doc.body;
-      var $body = this._$body = $(body);
-      if (this._className) {
-        body.classList.add(this._className);
-      }
-      this._$container = $body.find('#listContainer');
-      var $list = this._$list = $(doc.getElementById('listContainerInner'));
-      if (this._html) {
-        $list.html(this._html);
-        this._$items = this._$body.find('.commentListItem');
-      }
-      this._$menu = $body.find('.listMenu');
-
-      this._$itemDetail = $body.find('.itemDetailContainer');
-
-      $body
-        .on('click',     this._onClick    .bind(this))
-        .on('dblclick',  this._onDblClick .bind(this))
-//        .on('mousemove', _.debounce(this._onMouseMove.bind(this), 100))
-        .on('keydown', function(e) { ZenzaWatch.emitter.emit('keydown', e); })
-        .on('keyup', function(e)   { ZenzaWatch.emitter.emit('keyup', e); });
-
-      this._$menu.on('click', this._onMenuClick.bind(this));
-      this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
-
-      this._$container
-        .on('mouseover', this._onMouseOver.bind(this))
-        .on('mouseleave', this._onMouseOut .bind(this));
-      //  .on('scroll', this._onScroll.bind(this))
-      //  .on('scroll', _.debounce(this._onScrollEnd.bind(this), 500));
-      this._$container[0].addEventListener('scroll',
-        this._onScroll.bind(this), {passive: true});
-      this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
-
-      $win
-        .on('resize', this._onResize.bind(this));
-
-      this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
-      this._appendNewItems = ZenzaWatch.util.createDrawCallFunc(this._appendNewItems.bind(this));
-
-      this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
-      this._$begin = $('<span class="begin"/>');
-      this._$end   = $('<span class="end"/>');
-      ZenzaWatch.debug.$commentList = $list;
-    },
-    _onModelUpdate: function(itemList, replaceAll) {
-      window.console.time('update commentlistView');
-      this.addClass('updating');
-      itemList = _.isArray(itemList) ? itemList: [itemList];
-      var itemViews = [], Builder = this._ItemBuilder;
-      this._lastEndPoint = null;
-      this._isActive = false;
-      this._$items = null;
-
-      if (replaceAll) {
-        this._scrollTop = 0;
-      }
-
-      itemList.forEach((item, i) => {
-        itemViews.push(new Builder({item: item, index: i, height: CommentListView.ITEM_HEIGHT}));
-      });
-
-      this._itemViews = itemViews;
-      this._inviewItemList = {};
-      this._$newItems = null;
-
-      window.setTimeout(() => {
-        if (this._$list) {
-          this._$list.html('');
-          this._$list.css({'height': CommentListView.ITEM_HEIGHT * itemViews.length + 100});
-          this._$items = this._$body.find('.commentListItem');
-          this._$menu.removeClass('show');
-          this._refreshInviewElements();
-          this.hideItemDetail();
-        }
-      }, 0);
-
-      window.setTimeout(() => {
-        this.removeClass('updating');
-        this.emit('update');
-      }, 100);
-
-
-      window.console.timeEnd('update commentlistView');
-    },
-    _onClick: function(e) {
-      e.stopPropagation();
-      ZenzaWatch.emitter.emitAsync('hideHover');
-      var $item = $(e.target).closest('.commentListItem');
-      if ($item.length > 0) { return this._debouncedOnItemClick($item); }
-    },
-    _onItemClick: function($item) {
-      //var offset = $item.offset();
-      this._$menu
-        .css('top', $item.attr('data-top') + 'px')
-        .attr('data-item-id', $item.attr('data-item-id'))
-        .addClass('show');
-    },
-    _onMenuClick: function(e) {
-      var $target = $(e.target).closest('.menuButton');
-      this._$menu.removeClass('show');
-      if ($target.length < 1) { return; }
-      var itemId = $target.closest('.listMenu').attr('data-item-id');
-      if ($target.length < 1) { return; }
-      if (!itemId) { return; }
-
-      var command = $target.attr('data-command');
-
-      if (command === 'addUserIdFilter' || command === 'addWordFilter') {
-        this._$list.find('.item' + itemId).hide();
-      }
-
-      this.emit('command', command, null, itemId);
-    },
-    _onItemDetailClick: function(e) {
-      let $target = $(e.target).closest('.command');
-      if ($target.length < 1) { return; }
-      let itemId = this._$itemDetail.attr('data-item-id');
-      if (!itemId) { return; }
-      let command = $target.attr('data-command');
-      let param   = $target.attr('data-param');
-      if (command === 'hideItemDetail') { return this.hideItemDetail(); }
-      if (command === 'reloadComment') { this.hideItemDetail(); }
-      this.emit('command', command, param, itemId);
-    },
-    _onDblClick: function(e) {
-      e.stopPropagation();
-      var $item = $(e.target).closest('.commentListItem');
-      if ($item.length < 0) { return; }
-      e.preventDefault();
-
-      var itemId = $item.attr('data-item-id');
-      this.emit('command', 'select', null, itemId);
-    },
-    _onMouseMove: function() {
-    },
-    _onMouseOver: function() {
-      //window.console.info('Active!');
-      this._isActive = true;
-      this.addClass('active');
-    },
-    _onMouseOut: function() {
-      //window.console.info('Blur!');
-      this._isActive = false;
-      this.removeClass('active');
-    },
-    _onResize: function() {
-      this._refreshInviewElements();
-    },
-    _onScroll: function() {
-      if (!this.hasClass('scrolling')) { this.addClass('scrolling'); }
-      this._refreshInviewElements();
-      this._debouncedOnScrollEnd();
-    },
-    _onScrollEnd: function() {
-      this.removeClass('scrolling');
-    },
-    _refreshInviewElements: function() {
-      if (!this._$list) { return; }
-      var itemHeight = CommentListView.ITEM_HEIGHT;
-      var $win = this._$window;
-      var $container = this._$container;
-      var scrollTop   = $container.scrollTop();
-      var innerHeight = $win.innerHeight();
-      if (innerHeight > window.innerHeight) { return; }
-      var windowBottom = scrollTop + innerHeight;
-      var itemViews = this._itemViews;
-      var startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
-      var endIndex   = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
-      var i;
-
-      var newItems = [], inviewItemList = this._inviewItemList;
-      for (i = startIndex; i < endIndex; i++) {
-        if (inviewItemList[i] || !itemViews[i]) { continue; }
-        newItems.push(itemViews[i].toString());
-        inviewItemList[i] = itemViews[i].getDomId();
-      }
-
-      if (newItems.length < 1) { return; }
-
-      // 見えないitemを除去。 見えない場所なのでrequestAnimationFrame不要
-      var doc = this._document;
-      _.each(Object.keys(inviewItemList), function(i) {
-        if (i >= startIndex && i <= endIndex) { return; }
-        //$list.find('#' + inviewItemList[i]).remove();
-        doc.getElementById(inviewItemList[i]).remove();
-        delete inviewItemList[i];
-      });
-
-      this._inviewItemList = inviewItemList;
-
-
-      var $newItems = $(newItems.join(''));
-      if (this._$newItems) {
-        this._$newItems.append($newItems);
-      } else {
-        this._$newItems = $newItems;
-      }
-
-      this._appendNewItems();
-    },
-    _appendNewItems: function() {
-      if (this._$newItems) {
-        this._$list.append(this._$newItems);
-      }
-      this._$newItems = null;
-    },
-    addClass: function(className) {
-      this.toggleClass(className, true);
-    },
-    removeClass: function(className) {
-      this.toggleClass(className, false);
-    },
-    toggleClass: function(className, v) {
-      if (!this._body) { return; }
-      this._body.classList.toggle(className, v);
-    },
-    hasClass: function(className) {
-      return this._body.classList.contains(className);
-    },
-    find: function(query) {
-      return this._document.querySelectorAll(query);
-    },
-    scrollTop: function(v) {
-      if (!this._$window) { return 0; }
-
-      if (typeof v === 'number') {
-        this._scrollTop = v;
-        //this._$container.scrollTop(v);
-        this._$container[0].scrollTop = v;
-      } else {
-        this._scrollTop = this._$container[0].scrollTop;
-        return this._scrollTop;
-      }
-    },
-    scrollToItem: function(itemId) {
-      if (!this._$body) { return; }
-      if (_.isFunction(itemId.getItemId)) { itemId = itemId.getItemId(); }
-      var $target = this._$body.find('.item' + itemId);
-      if ($target.length < 1) { return; }
-      var top = $target.offset().top;
-      this.scrollTop(top);
-    },
-    setCurrentPoint: function(idx) {
-      if (!this._$window || !this._itemViews) { return; }
-      var innerHeight = this._$window.innerHeight();
-      var itemViews = this._itemViews;
-      var len  = itemViews.length;
-      var view = itemViews[idx];
-      if (len < 1 || !view) { return; }
-
-      if (!this._isActive) {
-        var itemHeight = CommentListView.ITEM_HEIGHT;
-        var top = view.getTop();
-        this.scrollTop(Math.max(0, top - innerHeight + itemHeight));
-      }
-    },
-    showItemDetail: function(item) {
-      let $d = this._$itemDetail;
-      $d.attr('data-item-id', item.getItemId());
-      //window.console.log('showItemDetail', item);
-      $d.find('.resNo')  .text(item.getNo()).end()
-        .find('.vpos')   .text(item.getTimePos()).end()
-        .find('.time')   .text(item.getFormattedDate()).end()
-        .find('.userId') .text(item.getUserId()).end()
-        .find('.cmd')    .text(item.getCmd()).end()
-        .find('.text')   .text(item.getText()).end()
-        .addClass('show');
-      ZenzaWatch.debug.$itemDetail = $d;
-    },
-    hideItemDetail: function() {
-      this._$itemDetail.removeClass('show');
-    }
-  });
-
+const CommentListItemView = (() => {
   // なんか汎用性を持たせようとして失敗してる奴
-  var CommentListItemView = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentListItemView.prototype, AsyncEmitter.prototype);
 
   // ここはDOM的に隔離されてるので外部要因との干渉を考えなくてよい
-  CommentListItemView.__css__ = (`
-    * {
-      box-sizing: border-box;
-    }
+  const CSS = (`
+      * {
+        box-sizing: border-box;
+      }
 
-    body {
-      background: #000;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      line-height: 0;
-    }
+      body {
+        background: #000;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        line-height: 0;
+      }
 
-    #listContainer::-webkit-scrollbar {
-      background: #222;
-    }
+      ${CONSTANT.SCROLLBAR_CSS}
 
-    #listContainer::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #666;
-    }
+      .listMenu {
+        position: absolute;
+        display: block;
+      }
 
-    #listContainer::-webkit-scrollbar-button {
-      background: #666;
-      display: none;
-    }
+      .listMenu.show {
+        display: block;
+        width: 100%;
+        left: 0;
+        z-index: 100;
+      }
 
+      .listMenu  .menuButton {
+        display: inline-block;
+        position: absolute;
+        font-size: 13px;
+        line-height: 20px;
+        border: 1px solid #666;
+        color: #fff;
+        background: #666;
+        cursor: pointer;
+        top: 0;
+        text-align: center;
+      }
 
-    .listMenu {
-      position: absolute;
-      display: block;
-    }
+      .listMenu .menuButton:hover {
+        border: 1px solid #ccc;
+        box-shadow: 2px 2px 2px #333;
+      }
 
-    .listMenu.show {
-      display: block;
-      width: 100%;
-      left: 0;
-      z-index: 100;
-    }
+      .listMenu .menuButton:active {
+        box-shadow: none;
+        transform: translate(0, 1px);
+      }
 
-    .listMenu  .menuButton {
-      display: inline-block;
-      position: absolute;
-      font-size: 13px;
-      line-height: 20px;
-      color: #fff;
-      background: #666;
-      cursor: pointer;
-      top: 0;
-      text-align: center;
-    }
+      .listMenu .itemDetailRequest {
+        right: 176px;
+        width: auto;
+        padding: 0 8px;
+      }
 
-    .listMenu  .menuButton:hover {
-      border: 1px solid #ccc;
-      box-shadow: 2px 2px 2px #333;
-    }
+      .listMenu .clipBoard {
+        right: 120px;
+        width: 48px;
+      }
 
-    .listMenu  .menuButton:active {
-      box-shadow: none;
-      transform: translate(4px, 4px);
-    }
+      .listMenu .addWordFilter {
+        right: 64px;
+        width: 48px;
+      }
 
-    .listMenu .itemDetailRequest {
-      right: 176px;
-      width: auto;
-      padding: 0 4px;
-    }
+      .listMenu .addUserIdFilter {
+        right: 8px;
+        width: 48px;
+      }
 
-    .listMenu .clipBoard {
-      right: 120px;
-      width: 48px;
-    }
+      .commentListItem {
+        position: absolute;
+        display: inline-block;
+        width: 100%;
+        height: 40px;
+        line-height: 20px;
+        font-size: 20px;
+        white-space: nowrap;
+        margin: 0;
+        padding: 0;
+        background: #222;
+        z-index: 50;
+        contain: layout style paint;
+      }
 
-    .listMenu .addWordFilter {
-      right: 64px;
-      width: 48px;
-    }
+      .is-active .commentListItem {
+        pointer-events: auto;
+      }
 
-    .listMenu .addUserIdFilter {
-      right: 8px;
-      width: 48px;
-    }
+      .commentListItem * {
+        cursor: default;
+      }
 
-    .itemDetailContainer {
-      position: fixed;
-      display: block;
-      top: 50%;
-      left: 50%;
-      line-height: normal;
-      min-width: 280px;
-      max-height: 100%;
-      overflow-h: auto;
-      font-size: 14px;
-      transform: translate(-50%, -50%);
-      opacity: 0;
-      pointer-events: none;
-      z-index: 100;
-      border: 2px solid #fc9;
-      background-color: rgba(255, 255, 232, 0.9);
-      box-shadow: 4px 4px 0 rgba(99, 99, 66, 0.8);
-      transition: 0.2s opacity;
-    }
+      .commentListItem.odd {
+        background: #333;
+      }
+      .commentListItem[data-nicoru] {
+        background: #332;
+      }
+      .commentListItem.odd[data-nicoru] {
+        background: #443;
+      }
+      .commentListItem[data-nicoru]:hover::before {
+        position: absolute;
+        content: attr(data-nicoru);
+        color: #ccc;
+        font-size: 12px;
+        left: 80px;
+        /* font-family: cursive; */
+      }
+      .commentListItem .nicoru-icon {
+        position: absolute;
+        pointer-events: none;
+        display: inline-block;
+        cursor: pointer;
+        visibility: hidden;
+        transition: transform 0.2s linear, filter 0.2s;
+        transform-origin: center;
+        left: 50px;
+        top: -2px;
+        width: 24px;
+        height: 24px;
+        contain: strict;
+      }
+      .commentListItem:hover .nicoru-icon {
+        visibility: visible;
+      }
+      .is-premium .commentListItem:hover .nicoru-icon {
+        pointer-events: auto;
+      }
+      .commentListItem.nicotta .nicoru-icon {
+        visibility: visible;
+        transform: rotate(270deg);
+        filter: drop-shadow(0px 0px 6px gold);
+        pointer-events: none;
+      }
 
-    .itemDetailContainer.show {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .itemDetailContainer>* {
-    }
-    .itemDetailContainer * {
-      word-break: break-all;
-    }
-    .itemDetailContainer .reloadComment {
-      display: inline-block;
-      padding: 0 4px;
-      cursor: pointer;
-      transform: scale(1.4);
-      transition: transform 0.1s;
-    }
-    .itemDetailContainer .reloadComment:hover {
-      transform: scale(1.8);
-    }
-    .itemDetailContainer .reloadComment:active {
-      transform: scale(1.2);
-      transition: none;
-    }
-    .itemDetailContainer .resNo,
-    .itemDetailContainer .vpos,
-    .itemDetailContainer .time,
-    .itemDetailContainer .userId,
-    .itemDetailContainer .cmd {
-      font-size: 12px;
-    }
-    .itemDetailContainer .time {
-      cursor: pointer;
-      color: #339;
-    }
-    .itemDetailContainer .time:hover {
-      text-decoration: underline;
-    }
-    .itemDetailContainer .time:hover:after {
-      position: absolute;
-      content: '${'\\00231A'} 過去ログ';
-      right: 16px;
-      text-decoration: none;
-      transform: scale(1.4);
-    }
-    .itemDetailContainer .resNo:before,
-    .itemDetailContainer .vpos:before,
-    .itemDetailContainer .time:before,
-    .itemDetailContainer .userId:before,
-    .itemDetailContainer .cmd:before {
-      display: inline-block;
-      min-width: 50px;
-    }
-    .itemDetailContainer .resNo:before {
-      content: 'no';
-    }
-    .itemDetailContainer .vpos:before {
-      content: 'pos';
-    }
-    .itemDetailContainer .time:before {
-      content: 'date';
-    }
-    .itemDetailContainer .userId:before {
-      content: 'user';
-    }
-    .itemDetailContainer .cmd:before {
-      content: 'cmd';
-    }
-    .itemDetailContainer .text {
-      border: 1px inset #ccc;
-      padding: 8px;
-      margin: 4px 8px;
-    }
-    .itemDetailContainer .close {
-      border: 2px solid #666;
-      width: 50%;
-      cursor: pointer;
-      text-align: center;
-      margin: auto;
-      user-select: none;
-    }
+      .commentListItem.updating {
+        opacity: 0.5;
+        cursor: wait;
+      }
 
-    .commentListItem {
-      position: absolute;
-      display: inline-block;
-      width: 100%;
-      height: 40px;
-      line-height: 20px;
-      font-size: 20px;
-      white-space: nowrap;
-      margin: 0;
-      padding: 0;
-      background: #222;
-      z-index: 50;
-    }
+      .commentListItem .info {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        font-size: 14px;
+        height: 20px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: #888;
+        margin: 0;
+        padding: 0 8px 0;
+      }
+      .commentListItem[data-valhalla="1"] .info {
+        color: #f88;
+      }
+      .commentListItem .timepos {
+        display: inline-block;
+        width: 100px;
+      }
 
-    .active .commentListItem {
-      pointer-events: auto;
-    }
+      .commentListItem .text {
+        display: block;
+        font-size: 16px;
+        height: 20px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: #ccc;
+        margin: 0;
+        padding: 0 8px;
+        font-family: '游ゴシック', 'Yu Gothic', 'YuGothic', arial, 'Menlo';
+        font-feature-settings: "palt" 1;
+      }
+      .commentListItem[data-valhalla="1"] .text {
+        color: red;
+        font-weight: bold;
+      }
 
-    .commentListItem * {
-      cursor: default;
-    }
+      .is-active .commentListItem:hover {
+        overflow-x: hidden;
+        overflow-y: visible;
+        z-index: 60;
+        height: auto;
+        box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
+      }
 
-    .commentListItem.odd {
-      background: #333;
-    }
+      .is-active .commentListItem:hover .text {
+        white-space: normal;
+        word-break: break-all;
+        height: auto;
+      }
 
-    .commentListItem.updating {
-      opacity: 0.5;
-      cursor: wait;
-    }
+      .commentListItem.fork1 .timepos {
+        text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
+      }
+      .commentListItem.fork2 .timepos {
+        text-shadow: 1px 1px 0 #880000, -1px -1px 0 #880000 !important;
+      }
+      .commentListItem.fork2 .text,
+      .commentListItem.fork1 .text {
+        font-weight: bolder;
+      }
 
-    .commentListItem .info {
-      display: block;
-      width: 100%;
-      font-size: 14px;
-      height: 20px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      color: #888;
-      margin: 0;
-      padding: 0 4px;
-    }
+      .begin ~ .commentListItem .text {
+        color: #ffe;
+        font-weight: bolder;
+      }
 
-    .commentListItem .timepos {
-      display: inline-block;
-      width: 100px;
-    }
+      .end ~ .commentListItem .text {
+        color: #ccc;
+        font-weight: normal;
+      }
 
-    .commentListItem .text {
-      display: block;
-      font-size: 16px;
-      height: 20px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      color: #ccc;
-      margin: 0;
-      padding: 0 4px;
-      font-family: arial, 'Menlo';
-    }
+      .commentListItem.subThread {
+        opacity: 0.6;
+      }
 
-    .active .commentListItem:hover {
-      overflow-x: hidden;
-      overflow-y: visible;
-      z-index: 60;
-      height: auto;
-      box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
-    }
+      .commentListItem.is-active {
+        outline: dashed 2px #ff8;
+        outline-offset: 4px;
+      }
 
-    .active .commentListItem:hover .text {
-      white-space: normal;
-      word-break: break-all;
-      /*overflow-x: hidden;
-      overflow-y: visible;*/
-      height: auto;
-    }
+      .font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
+      .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
+      .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
 
-    .commentListItem.fork1 .timepos {
-      text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
-    }
-    .commentListItem.fork2 .timepos {
-      text-shadow: 1px 1px 0 #880000, -1px -1px 0 #880000 !important;
-    }
-    .commentListItem.fork2 .text,
-    .commentListItem.fork1 .text {
-      font-weight: bolder;
-    }
+      .commentListItem .progress-negi {
+        position: absolute;
+        width: 2px;
+        height: 100%;
+        bottom: 0;
+        right: 0;
+        pointer-events: none;
+        background: #888;
+        will-change: transform;
+        transition: transform var(--duration) linear;
+        animation-duration: var(--duration);
+        animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
+        animation-name: negi-moving;
+        animation-timing-function: linear;
+        animation-fill-mode: forwards;
+        animation-play-state: paused !important;
+        contain: paint layout style size;
+      }
+      @keyframes negi-moving {
+        0% { background: #ebe194;}
+        50% { background: #fff; }
+        80% { background: #fff; }
+        100% { background: #039393; }
+      }
+
+    `).trim();
 
 
-    .commentListItem + .commentListItem {
+  const TPL = (`
+      <div class="commentListItem" style="position: absolute;">
+        <img src="${NICORU}" class="nicoru-icon" data-command="nicoru" title="Nicorü">
+        <p class="info">
+          <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
+        </p>
+        <p class="text"></p>
+        <span class="progress-negi" style="position: absolute; will-change: transform; contain: paint layout style size;"></span>
+      </div>
+    `).trim();
+
+  let counter = 0;
+  let template;
+
+  class CommentListItemView {
+    static get template() {
+      if (!template) {
+        const t = document.createElement('template');
+        t.id = 'CommentListItemView-template' + Date.now();
+        t.innerHTML = TPL;
+        document.body.append(t);
+        template = {
+          t,
+          clone: () => {
+            return document.importNode(t.content, true).firstChild;
+          },
+          commentListItem: t.content.querySelector('.commentListItem'),
+          timepos: t.content.querySelector('.timepos'),
+          date: t.content.querySelector('.date'),
+          text: t.content.querySelector('.text')
+        };
+      }
+      return template;
     }
 
-
-    .begin ~ .commentListItem .text {
-      color: #ffe;
-      font-weight: bolder;
+    constructor(params) {
+      this.initialize(params);
     }
 
-    .end ~ .commentListItem .text {
-      color: #ccc;
-      font-weight: normal;
-    }
-
-
-    .commentListItem.active {
-      outline: dashed 2px #ff8;
-      outline-offset: 4px;
-    }
-
-
-  `).trim();
-
-  CommentListItemView.__tpl__ = (`
-    <div id="item%itemId%" class="commentListItem no%no% item%itemId% %updating% fork%fork% %odd-even%"
-      data-item-id="%itemId%"
-      data-no="%no%" data-vpos"%vpos%"
-        style="top: %top%px;" data-top="%top%"
-data-title="%no%: %date% ID:%userId%
-  %text%"
-      >
-      <p class="info">
-        <span class="timepos">%timepos%</span>&nbsp;&nbsp;<span class="date">%date%</span>
-      </p>
-      <p class="text" style="%shadow%">%trimText%</p>
-    </div>
-  `).trim();
-
-  _.assign(CommentListItemView.prototype, {
-    initialize: function(params) {
-      this._item   = params.item;
-      this._index  = params.index;
+    initialize(params) {
+      this._item = params.item;
+      this._index = params.index;
       this._height = params.height;
 
-      this._id = CommentListItemView.counter++;
-    },
-    build: function() {
-      var tpl = CommentListItemView.__tpl__;
-      var item = this._item;
+      this._id = counter++;
+    }
 
-      var text = item.getEscapedText();
-      var trimText = text.trim();
+    build() {
+      const template = this.constructor.template;
+      const {commentListItem, timepos, date, text} = template;
+      const item = this._item;
+      const oden = (this._index % 2 === 0) ? 'even' : 'odd';
+      const time3dp = Math.round(this._item.time3dp * 100);
 
-      tpl = tpl
-        .replace(/%domId%/g,    'item' + this._id)
-        .replace(/%no%/g,       item.getNo())
-        .replace(/%vpos%/g,     item.getVpos())
-        .replace(/%fork%/g,     item.getFork())
-        .replace(/%timepos%/g,  item.getTimePos())
-        .replace(/%itemId%/g,   item.getItemId())
-        .replace(/%userId%/g,   item.getUserId())
-        .replace(/%date%/g,     item.getFormattedDate())
-        .replace(/%text%/g,     text)
-        .replace(/%trimText%/g, trimText)
-        .replace(/%odd-even%/g, (this._index % 2 === 0) ? 'even' : 'odd')
-        .replace(/%top%/g,      this._index * this._height)
-        ;
-      var color = item.getColor();
-      if (color) {
-        tpl = tpl.replace('%shadow%', 'text-shadow: 0px 0px 2px ' + color + ';');
-      } else {
-        tpl = tpl.replace('%shadow%', '');
+      const formattedDate = item.formattedDate;
+      commentListItem.id = this.domId;
+      const font = item.fontCommand || 'default';
+      commentListItem.className =
+        `commentListItem no${item.no} item${this._id} ${oden} fork${item.fork} font-${font} ${item.isSubThread ? 'subThread' : ''}`;
+      commentListItem.classList.toggle('nicotta', item.nicotta);
+      commentListItem.style.cssText = `
+          top: ${this.top}px;
+          --duration: ${item.duration}s;
+          --vpos-time: ${item.vpos / 100}s;
+        `;
+      // commentListItem.style.transform = `translateZ(${time3dp}px)`;
+      //commentListItem.setAttribute('data-time-3dp', time3dp);
+
+      Object.assign(commentListItem.dataset, {
+        itemId: item.itemId,
+        no: item.no,
+        uniqNo: item.uniqNo,
+        vpos: item.vpos,
+        top: this.top,
+        thread: item.threadId,
+        title: `${item.no}: ${formattedDate} ID:${item.userId}\n${item.text}`,
+        time3dp,
+        valhalla: item.valhalla,
+      });
+      item.nicoru > 0 ?
+        (commentListItem.dataset.nicoru = item.nicoru) :
+        (delete commentListItem.dataset.nicoru);
+
+      timepos.textContent = item.timePos;
+      date.textContent = formattedDate;
+      text.textContent = item.text.trim();
+
+      const color = item.color;
+      text.style.textShadow = color ? `0px 0px 2px ${color}` : '';
+      this._view = template.clone();
+    }
+
+    get viewElement() {
+      if (!this._view) {
+        this.build();
       }
-      return tpl;
-    },
-    getItemId: function() {
-      return this._item.getItemId();
-    },
-    getDomId: function() {
-      return 'item' + this._item.getItemId();
-    },
-    getTop: function() {
+      return this._view;
+    }
+
+    get itemId() {
+      return this._item.itemId;
+    }
+
+    get domId() {
+      return `item${this._item.itemId}`;
+    }
+
+    get top() {
       return this._index * this._height;
-    },
-    toString: function() {
-      return this.build();
     }
-  });
 
-  var CommentListItem = function() { this.initialize.apply(this, arguments); };
-  CommentListItem._itemId = 0;
-
-  _.extend(CommentListItem.prototype, AsyncEmitter.prototype);
-  _.assign(CommentListItem.prototype, {
-    initialize: function(nicoChat) {
-      this._nicoChat = nicoChat;
-      this._itemId = CommentListItem._itemId++;
-      this._vpos = nicoChat.getVpos();
-      this._text = nicoChat.getText();
-      this._escapedText = ZenzaWatch.util.escapeHtml(this._text);
-      this._userId = nicoChat.getUserId();
-      this._date = nicoChat.getDate();
-      this._fork = nicoChat.getFork();
-      this._no = nicoChat.getNo();
-      this._color = nicoChat.getColor();
-
-      var dt = new Date(this._date * 1000);
-      this._formattedDate =
-        dt.getFullYear() + '/' +
-        ('0' + (dt.getMonth() + 1)).slice(-2) + '/' +
-        ('0' + dt.getDate())       .slice(-2) + ' ' +
-        ('0' + dt.getHours())      .slice(-2) + ':' +
-        ('0' + dt.getMinutes())    .slice(-2);
-
-      var sec = this._vpos / 100;
-      var m = (Math.floor(sec / 60) + 100).toString().substr(1);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      this._timePos = m + ':' + s;
-    },
-    getItemId: function() {
-      return this._itemId;
-    },
-    getVpos: function() {
-      return this._vpos;
-    },
-    getTimePos: function() {
-      return this._timePos;
-    },
-    getCmd: function() {
-      return this._nicoChat.getCmd();
-    },
-    getText: function() {
-      return this._text;
-    },
-    getEscapedText: function() {
-      return this._escapedText;
-    },
-    getUserId: function() {
-      return this._userId;
-    },
-    getColor: function() {
-      return this._color;
-    },
-    getDate: function() {
-      return this._date;
-    },
-    getTime: function() {
-      return this._date * 1000;
-    },
-    getFormattedDate: function() {
-      return this._formattedDate;
-    },
-    getFork: function() {
-      return this._fork;
-    },
-    getNo: function() {
-      return this._no;
+    remove() {
+      if (!this._view) {
+        return;
+      }
+      this._view.remove();
     }
-  });
 
-  var CommentList = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentList.prototype, AsyncEmitter.prototype);
-  _.assign(CommentList.prototype, {
-    initialize: function(params) {
-      this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
-      this._$container = params.$container;
-
-      this._model = new CommentListModel({
-        uniq: true,
-        maxItem: 100
-      });
-
-      this._initializeView();
-    },
-    _initializeView: function() {
-      if (this._view) { return; }
-      this._view = new CommentListView({
-        $container: this._$container,
-        model: this._model,
-        builder: CommentListItemView,
-        itemCss: CommentListItemView.__css__
-      });
-      this._view.on('command', this._onCommand.bind(this));
-    },
-    update: function(listData, watchId) {
-      if (!this._view) { this._initializeView(); }
-      this._watchId = watchId;
-      var items = [];
-      _.each(listData, function(itemData) {
-        items.push(new CommentListItem(itemData));
-      });
-      if (items.length < 1) { return; }
-      this._view.insertItem(items);
-    },
-    _onCommand: function(command, param, itemId) {
-      this.emit('command', command, param, itemId);
+    toString() {
+      return this.viewElement.outerHTML;
     }
-  });
+
+    get time3dp() {
+      return this._item.time3dp;
+    }
+
+    get time3d() {
+      return this._item.time3d;
+    }
+
+    get nicotta() {
+      return this._item.nicotta;
+    }
+    set nicotta(v) {
+      this._item.nicotta = v;
+      this._view.classList.toggle('nicotta', v);
+    }
+    get nicoru() {
+      return this._item.nicoru;
+    }
+    set nicoru(v) {
+      this._item.nicoru = v;
+      v > 0 ?
+        (this._view.dataset.nicoru = v) : (delete this._view.dataset.nicoru);
+    }
+  }
+
+  CommentListItemView.TPL = TPL;
+  CommentListItemView.CSS = CSS;
+  return CommentListItemView;
+})();
+
+class CommentListItem {
+  constructor(nicoChat) {
+    this.nicoChat = nicoChat;
+    this._itemId = CommentListItem._itemId++;
+    this._vpos = nicoChat.vpos;
+    this._text = nicoChat.text;
+    this._escapedText = textUtil.escapeHtml(this._text);
+    this._userId = nicoChat.userId;
+    this._date = nicoChat.date;
+    this._fork = nicoChat.fork;
+    this._no = nicoChat.no;
+    this._color = nicoChat.color;
+    this._fontCommand = nicoChat.fontCommand;
+    this._isSubThread = nicoChat.isSubThread;
+
+    this._formattedDate = textUtil.dateToString(this._date * 1000);
+    this._timePos = textUtil.secToTime(this._vpos / 100);
+  }
+  get itemId() {return this._itemId;}
+  get vpos() {return this._vpos;}
+  get timePos() {return this._timePos;}
+  get cmd() {return this.nicoChat.cmd;}
+  get text() {return this._text;}
+  get escapedText() {return this._escapedText;}
+  get userId() {return this._userId;}
+  get color() {return this._color;}
+  get date() {return this._date;}
+  get time() {return this._date * 1000;}
+  get formattedDate() {return this._formattedDate;}
+  get fork() {return this._fork;}
+  get no() {return this._no;}
+  get uniqNo() {return this.nicoChat.uniqNo;}
+  get fontCommand() {return this._fontCommand;}
+  get isSubThread() {return this._isSubThread;}
+  get threadId() {return this.nicoChat.threadId;}
+  get time3d() {return this.nicoChat.time3d;}
+  get time3dp() {return this.nicoChat.time3dp;}
+  get nicoru() {return this.nicoChat.nicoru;}
+  set nicoru(v) { this.nicoChat.nicoru = v;}
+  get duration() {return this.nicoChat.duration;}
+  get valhalla() {return this.nicoChat.valhalla;}
+  get nicotta() { return this.nicoChat.nicotta;}
+  set nicotta(v) { this.nicoChat.nicotta = v; }
+}
+CommentListItem._itemId = 0;
 
 
-  var CommentPanelView = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentPanelView.prototype, AsyncEmitter.prototype);
-  CommentPanelView.__css__ = (`
+class CommentPanelView extends Emitter {
+  constructor(params) {
+    super();
+    this._$container = params.$container;
+    this._model = params.model;
+    this._commentPanel = params.commentPanel;
+
+    css.addStyle(CommentPanelView.__css__);
+    let $view = this._$view = uq.html(CommentPanelView.__tpl__);
+    this._$container.append($view);
+
+    const $menu = this._$menu = this._$view.find('.commentPanel-menu');
+
+    global.debug.commentPanelView = this;
+
+    let listView = this._listView = new CommentListView({
+      container: this._$view.find('.commentPanel-frame')[0],
+      model: this._model,
+      className: 'commentList',
+      builder: CommentListItemView,
+      itemCss: CommentListItemView.__css__
+    });
+    listView.on('command', this._onCommand.bind(this));
+
+    this._timeMachineView = new TimeMachineView({
+      parentNode: document.querySelector('.timeMachineContainer')
+    });
+    this._timeMachineView.on('command', this._onCommand.bind(this));
+
+    this._commentPanel.on('threadInfo',
+      _.debounce(this._onThreadInfo.bind(this), 100));
+    this._commentPanel.on('update',
+      _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
+    this._commentPanel.on('itemDetailResp',
+      _.debounce(item => listView.showItemDetail(item), 100));
+    this._onCommentPanelStatusUpdate();
+
+    this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
+
+    this._$view.on('click', this._onCommentListCommandClick.bind(this));
+
+    global.emitter.on('hideHover', () => $menu.removeClass('show'));
+  }
+  toggleClass(className, v) {
+    this._view.toggleClass(className, v);
+    this._$view.toggleClass(className, v);
+  }
+  _onModelCurrentTimeUpdate(sec, viewIndex) {
+    if (!this._$view){ //} || !this._$view.is(':visible')) {
+      return;
+    }
+
+    this._lastCurrentTime = sec;
+    this._listView.setCurrentPoint(sec, viewIndex);
+  }
+  _onCommand(command, param, itemId) {
+    switch (command) {
+      case 'nicoru':
+        param.nicotta = true;
+        this.emit('command', command, param, itemId);
+        break;
+      default:
+        this.emit('command', command, param, itemId);
+        break;
+    }
+  }
+  _onCommentListCommandClick(e) {
+    const target = e.target.closest('[data-command]');
+    if (!target) { return; }
+    const {command, param} = target.dataset;
+    e.stopPropagation();
+    if (!command) {
+      return;
+    }
+
+    const $view = this._$view;
+    const setUpdating = () => {
+      document.activeElement.blur();
+      $view.addClass('updating');
+      window.setTimeout(() => $view.removeClass('updating'), 1000);
+    };
+
+    switch (command) {
+      case 'sortBy':
+        setUpdating();
+        this.emit('command', command, param);
+        break;
+      case 'reloadComment':
+        setUpdating();
+        this.emit('command', command, param);
+        break;
+      default:
+        this.emit('command', command, param);
+    }
+    global.emitter.emitAsync('hideHover');
+  }
+  _onThreadInfo(threadInfo) {
+    this._timeMachineView.update(threadInfo);
+  }
+  _onCommentPanelStatusUpdate() {
+    const commentPanel = this._commentPanel;
+    const $view = this._$view
+      .toggleClass('autoScroll', commentPanel.isAutoScroll);
+
+    const langClass = `lang-${commentPanel.getLanguage()}`;
+    if (!$view.hasClass(langClass)) {
+      $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
+    }
+  }
+}
+CommentPanelView.__css__ = `
     :root {
       --zenza-comment-panel-header-height: 64px;
     }
@@ -1008,6 +1310,7 @@ data-title="%no%: %date% ID:%userId%
     .commentPanel-container {
       height: 100%;
       overflow: hidden;
+      user-select: none;
     }
 
     .commentPanel-header {
@@ -1018,6 +1321,7 @@ data-title="%no%: %date% ID:%userId%
     }
 
     .commentPanel-menu-button {
+      display: inline-block;
       cursor: pointer;
       border: 1px solid #333;
       padding: 0px 4px;
@@ -1060,6 +1364,17 @@ data-title="%no%: %date% ID:%userId%
       font-size: 14px;
       line-height: 32px;
       cursor: pointer;
+      outline: none;
+    }
+    .commentPanel-menu-toggle:focus-within {
+      pointer-events: none;
+    }
+    .commentPanel-menu-toggle:focus-within .zenzaPopupMenu {
+      pointer-events: auto;
+      visibility: visible;
+      opacity: 0.99;
+      pointer-events: auto;
+      transition: opacity 0.3s;
     }
 
     .commentPanel-menu {
@@ -1079,15 +1394,17 @@ data-title="%no%: %date% ID:%userId%
       font-weight: bolder;
       color: #ff9;
     }
-  `).trim();
 
-  CommentPanelView.__tpl__ = (`
+
+  `.trim();
+
+CommentPanelView.__tpl__ = (`
     <div class="commentPanel-container">
       <div class="commentPanel-header">
-        <lavel class="commentPanel-menu-button autoScroll commentPanel-command"
-          data-command="toggleScroll"><icon class="commentPanel-menu-icon">⬇️</icon> 自動スクロール</lavel>
+        <label class="commentPanel-menu-button autoScroll commentPanel-command"
+          data-command="toggleScroll"><icon class="commentPanel-menu-icon">⬇️</icon> 自動スクロール</label>
 
-        <div class="commentPanel-command commentPanel-menu-toggle" data-command="toggleMenu">
+        <div class="commentPanel-command commentPanel-menu-toggle" tabindex="-1">
           ▼ メニュー
           <div class="zenzaPopupMenu commentPanel-menu">
             <div class="listInner">
@@ -1097,6 +1414,9 @@ data-title="%no%: %date% ID:%userId%
               </li>
               <li class="commentPanel-command" data-command="sortBy" data-param="date:desc">
                 コメントの新しい順に並べる
+              </li>
+              <li class="commentPanel-command" data-command="sortBy" data-param="nicoru:desc">
+                ニコる数で並べる
               </li>
 
               <hr class="separator">
@@ -1119,435 +1439,340 @@ data-title="%no%: %date% ID:%userId%
     </div>
   `).trim();
 
-  _.assign(CommentPanelView.prototype, {
-    initialize: function(params) {
-      this._$container = params.$container;
-      this._model = params.model;
-      this._commentPanel = params.commentPanel;
 
 
-      ZenzaWatch.util.addStyle(CommentPanelView.__css__);
-      var $view = this._$view = $(CommentPanelView.__tpl__);
-      this._$container.append($view);
+class CommentPanel extends Emitter {
+  constructor(params) {
+    super();
+    this._thumbInfoLoader = params.loader || global.api.ThumbInfoLoader;
+    this._$container = params.$container;
+    const player = this._player = params.player;
 
-      var $menu = this._$menu = this._$view.find('.commentPanel-menu');
+    this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
 
-      ZenzaWatch.debug.commentPanelView = this;
+    this._model = new CommentListModel({});
+    this._language = params.language || 'ja_JP';
 
-      var listView = this._listView = new CommentListView({
-        $container: this._$view.find('.commentPanel-frame'),
-        model: this._model,
-        className: 'commentList',
-        builder: CommentListItemView,
-        itemCss: CommentListItemView.__css__
-      });
-      listView.on('command', this._onCommand.bind(this));
+    player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
+    player.on('commentChange', _.debounce(this._onCommentChange.bind(this), 500));
+    player.on('commentReady', _.debounce(this._onCommentReady.bind(this), 500));
+    player.on('open', this._onPlayerOpen.bind(this));
+    player.on('close', this._onPlayerClose.bind(this));
 
-      this._timeMachineView = new TimeMachineView({
-        parentNode: document.querySelector('.timeMachineContainer')});
-      this._timeMachineView.on('command', this._onCommand.bind(this));
-
-      this._commentPanel.on('threadInfo',
-        _.debounce(this._onThreadInfo.bind(this), 100));
-      this._commentPanel.on('update',
-        _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
-      this._commentPanel.on('itemDetailResp',
-        _.debounce((item) => { listView.showItemDetail(item); }, 100));
-      this._onCommentPanelStatusUpdate();
-
-      this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
-
-      this._$view.on('click', '.commentPanel-command', this._onCommentListCommandClick.bind(this));
-
-
-      ZenzaWatch.emitter.on('hideHover', () => { $menu.removeClass('show'); });
-
-    },
-    toggleClass: function(className, v) {
-      this._view.toggleClass(className, v);
-      this._$view.toggleClass(className, v);
-    },
-    _onModelCurrentTimeUpdate: function(sec, viewIndex) {
-      if (!this._$view || !this._$view.is(':visible')) { return; }
-
-      this._lastCurrentTime = sec;
-      this._listView.setCurrentPoint(viewIndex);
-    },
-    _onCommand: function(command, param, itemId) {
-      switch (command) {
-        default:
-          this.emit('command', command, param, itemId);
-          break;
-      }
-    },
-    _onCommentListCommandClick: function(e) {
-      var $target = $(e.target).closest('.commentPanel-command');
-      var command = $target.attr('data-command');
-      var param   = $target.attr('data-param');
-      e.stopPropagation();
-      if (!command) { return; }
-
-      var $view = this._$view;
-      var setUpdating = function() {
-        $view.addClass('updating');
-        window.setTimeout(function() {
-          $view.removeClass('updating');
-        }, 1000);
-      };
-
-      switch (command) {
-        case 'toggleMenu':
-          e.stopPropagation();
-          e.preventDefault();
-          this._$menu.addClass('show');
-          return;
-        case 'sortBy':
-          setUpdating();
-          this.emit('command', command, param);
-          break;
-        case 'reloadComment':
-          setUpdating();
-          this.emit('command', command, param);
-          break;
-        default:
-          this.emit('command', command, param);
-      }
-      ZenzaWatch.emitter.emitAsync('hideHover');
-    },
-    _onThreadInfo(threadInfo) {
-      this._timeMachineView.update(threadInfo);
-    },
-    _onCommentPanelStatusUpdate: function() {
-      let commentPanel = this._commentPanel;
-      const $view = this._$view
-        .toggleClass('autoScroll', commentPanel.isAutoScroll());
-
-      //let threadInfo = commentPanel.getThreadInfo();
-      //if (threadInfo) {
-      //  this._timeMachineView.update(threadInfo);
-      //}
-      const langClass = 'lang-' + commentPanel.getLanguage();
-      if (!$view.hasClass(langClass)) {
-        $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
-      }
+    global.debug.commentPanel = this;
+  }
+  _initializeView() {
+    if (this._view) {
+      return;
     }
-  });
+    this._view = new CommentPanelView({
+      $container: this._$container,
+      model: this._model,
+      commentPanel: this,
+      builder: CommentListItemView,
+      itemCss: CommentListItemView.__css__
+    });
+    this._view.on('command', this._onCommand.bind(this));
+  }
+  startTimer() {
+    this.stopTimer();
+    this._timer = window.setInterval(this._onTimer.bind(this), 200);
+  }
+  stopTimer() {
+    if (this._timer) {
+      window.clearInterval(this._timer);
+      this._timer = null;
+    }
+  }
+  _onTimer() {
+    if (this._autoScroll) {
+      this.currentTime=this._player.currentTime;
+    }
+  }
+  _onCommand(command, param, itemId) {
+    let item;
+    if (itemId) {
+      item = this._model.findByItemId(itemId);
+    }
+    switch (command) {
+      case 'toggleScroll':
+        this.toggleScroll();
+        break;
+      case 'sortBy': {
+        const tmp = param.split(':');
+        this.sortBy(tmp[0], tmp[1] === 'desc');
+        break;}
+      case 'select':{
+        const vpos = item.vpos;
+        this.emit('command', 'seek', vpos / 100);
+        // TODO: コメント強調
+        break;}
+      case 'clipBoard':
+        Clipboard.copyText(item.text);
+        this.emit('command', 'notify', 'クリップボードにコピーしました');
+        break;
+      case 'addUserIdFilter':
+        this._model.removeItem(item);
+        this.emit('command', command, item.userId);
+        break;
+      case 'addWordFilter':
+        this._model.removeItem(item);
+        this.emit('command', command, item.text);
+        break;
+      case 'reloadComment':
+        if (item) {
+          param = {};
+          const dt = new Date(item.time);
+          this.emit('command', 'notify', item.formattedDate + '頃のログ');
+          param.when = Math.floor(dt.getTime() / 1000);
+        }
+        this.emit('command', command, param);
 
-
-  var CommentPanel = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentPanel.prototype, AsyncEmitter.prototype);
-  _.assign(CommentPanel.prototype, {
-    initialize: function(params) {
-      this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
-      this._$container = params.$container;
-      var player = this._player = params.player;
-
-      this._autoScroll = _.isBoolean(params.autoScroll) ? params.autoScroll : true;
-
-      this._model = new CommentListModel({});
-      this._language = params.language || 'ja_JP';
-
-      player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
-      player.on('commentChange', _.debounce(this._onCommentChange.bind(this), 500));
-      player.on('commentReady',  _.debounce(this._onCommentReady.bind(this), 500));
-      player.on('open',  this._onPlayerOpen.bind(this));
-      player.on('close', this._onPlayerClose.bind(this));
-
-      ZenzaWatch.debug.commentPanel = this;
-    },
-    _initializeView: function() {
-      if (this._view) { return; }
-      this._view = new CommentPanelView({
-        $container: this._$container,
-        model: this._model,
-        commentPanel: this,
-        builder: CommentListItemView,
-        itemCss: CommentListItemView.__css__
-      });
-      this._view.on('command', this._onCommand.bind(this));
-    },
-    startTimer: function() {
-      this.stopTimer();
-      this._timer = window.setInterval(this._onTimer.bind(this), 200);
-    },
-    stopTimer: function() {
-      if (this._timer) {
-        window.clearInterval(this._timer);
-        this._timer = null;
-      }
-    },
-    _onTimer: function() {
+        break;
+      case 'itemDetailRequest':
+        if (item) {
+          this.emit('itemDetailResp', item);
+        }
+        break;
+      case 'nicoru':
+        item.nicotta = true;
+        item.nicoru += 1;
+        this.emit('command', command, item.nicoChat);
+        break;
+      default:
+        this.emit('command', command, param);
+    }
+  }
+  _onCommentParsed(language) {
+    this.setLanguage(language);
+    this._initializeView();
+    this.setChatList(this._player.chatList);
+    this.startTimer();
+  }
+  _onCommentChange(language) {
+    this.setLanguage(language);
+    this._initializeView();
+    this.setChatList(this._player.chatList);
+  }
+  _onCommentReady(result, threadInfo) {
+    this._threadInfo = threadInfo;
+    this.emit('threadInfo', threadInfo);
+  }
+  _onPlayerOpen() {
+    this._model.clear();
+  }
+  _onPlayerClose() {
+    this._model.clear();
+    this.stopTimer();
+  }
+  setChatList(chatList) {
+    if (!this._model) {
+      return;
+    }
+    this._model.setChatList(chatList);
+  }
+  get isAutoScroll() {
+    return this._autoScroll;
+  }
+  getLanguage() {
+    return this._language || 'ja_JP';
+  }
+  getThreadInfo() {
+    return this._threadInfo;
+  }
+  setLanguage(lang) {
+    if (lang !== this._language) {
+      this._language = lang;
+      this.emit('update');
+    }
+  }
+  toggleScroll(v) {
+    if (!_.isBoolean(v)) {
+      this._autoScroll = !this._autoScroll;
       if (this._autoScroll) {
-        this.setCurrentTime(this._player.getCurrentTime());
+        this._model.sortBy('vpos');
       }
-    },
-    _onCommand: function(command, param, itemId) {
-      //window.console.log('CommentPanel.onCommand: ', command, param, itemId);
-      var item;
-      if (itemId) {
-        item = this._model.findByItemId(itemId);
-      }
-      switch (command) {
-        case 'toggleScroll':
-          this.toggleScroll();
-          break;
-        case 'sortBy':
-          var tmp = param.split(':');
-          this.sortBy(tmp[0], tmp[1] === 'desc');
-          break;
-        case 'select':
-          var vpos = item.getVpos();
-          this.emit('command', 'seek', vpos / 100);
-          // TODO: コメント強調
-          break;
-        case 'clipBoard':
-          ZenzaWatch.util.copyToClipBoard(item.getText());
-          this.emit('command', 'notify', 'クリップボードにコピーしました');
-          break;
-        case 'addUserIdFilter':
-          this._model.removeItem(item);
-          this.emit('command', command, item.getUserId());
-          break;
-        case 'addWordFilter':
-          this._model.removeItem(item);
-          this.emit('command', command, item.getText());
-          break;
-        case 'reloadComment':
-          if (item) {
-            param = {};
-            let dt = new Date(item.getTime());
-            this.emit('command', 'notify', item.getFormattedDate() + '頃のログ');
-            //window.console.log('when!', dt.getTime(), item);
-            param.when = Math.floor(dt.getTime() / 1000);
-          }
-          this.emit('command', command, param);
-          
-          break;
-        case 'itemDetailRequest':
-          if (item) {
-            this.emit('itemDetailResp', item);
-          }
-          break;
-        default:
-          this.emit('command', command, param);
-      }
-    },
-    _onCommentParsed: function(language) {
-      this.setLanguage(language);
-      this._initializeView();
-      this.setChatList(this._player.getChatList());
-      this.startTimer();
-    },
-    _onCommentChange: function(language) {
-      this.setLanguage(language);
-      this._initializeView();
-      this.setChatList(this._player.getChatList());
-    },
-    _onCommentReady: function(result, threadInfo) {
-      this._threadInfo = threadInfo;
-      this.emit('threadInfo', threadInfo);
-    },
-    _onPlayerOpen: function() {
-      this._model.clear();
-    },
-    _onPlayerClose: function() {
-      this._model.clear();
-      this.stopTimer();
-    },
-    setChatList: function(chatList) {
-      if (!this._model) { return; }
-      this._model.setChatList(chatList);
-    },
-    isAutoScroll: function() {
-      return this._autoScroll;
-    },
-    getLanguage: function() {
-      return this._language || 'ja_JP';
-    },
-    getThreadInfo: function() {
-      return this._threadInfo;
-    },
-    setLanguage: function(lang) {
-      if (lang !== this._language) {
-        this._language = lang;
-        this.emit('update');
-      }
-    },
-    toggleScroll: function(v) {
-      if (!_.isBoolean(v)) {
-        this._autoScroll = !this._autoScroll;
-        if (this._autoScroll) {
-          this._model.sortBy('vpos');
-        }
-        this.emit('update');
-        return;
-      }
-
-      if (this._autoScroll !== v) {
-        this._autoScroll = v;
-        if (this._autoScroll) {
-          this._model.sortBy('vpos');
-        }
-        this.emit('update');
-      }
-    },
-    sortBy: function(key, isDesc) {
-      this._model.sortBy(key, isDesc);
-      if (key !== 'vpos') {
-        this.toggleScroll(false);
-      }
-    },
-    setCurrentTime: function(sec) {
-      if (!this._view) {
-        return;
-      }
-      if (!this._autoScroll) {
-        return;
-      }
-      this._model.setCurrentTime(sec);
+      this.emit('update');
+      return;
     }
-  });
 
-  class TimeMachineView extends BaseViewComponent {
-    constructor({parentNode}) {
-      super({
-        parentNode,
-        name: 'TimeMachineView',
-        template: '<div class="TimeMachineView"></div>',
-        shadow: TimeMachineView._shadow_,
-        css: ''
-      });
+    if (this._autoScroll !== v) {
+      this._autoScroll = v;
+      if (this._autoScroll) {
+        this._model.sortBy('vpos');
+      }
+      this.emit('update');
+    }
+  }
+  sortBy(key, isDesc) {
+    this._model.sortBy(key, isDesc);
+    if (key !== 'vpos') {
+      this.toggleScroll(false);
+    }
+  }
+  set currentTime(sec) {
+    if (!this._view || !this._autoScroll || this._player.currentTab !== 'comment') {
+      return;
+    }
+    this._model.currentTime = sec;
+  }
+  get currentTime() {
+    return this._model.currentTime;
+  }
+}
+
+class TimeMachineView extends BaseViewComponent {
+  constructor({parentNode}) {
+    super({
+      parentNode,
+      name: 'TimeMachineView',
+      template: '<div class="TimeMachineView"></div>',
+      shadow: TimeMachineView._shadow_,
+      css: ''
+    });
 
 
-      this._bound._onTimer = this._onTimer.bind(this);
+    this._bound._onTimer = this._onTimer.bind(this);
 
-      this._state = {
-        isWaybackMode: false,
-        isSelecting: false,
-      };
+    this._state = {
+      isWaybackMode: false,
+      isSelecting: false,
+    };
 
+    this._currentTimestamp = Date.now();
+
+    global.debug.timeMachineView = this;
+
+    window.setInterval(this._bound._onTimer, 3 * 1000);
+  }
+
+  _initDom(...args) {
+    super._initDom(...args);
+
+    const v = this._shadow || this._view;
+    Object.assign(this._elm, {
+      time: v.querySelector('.dateTime'),
+      back: v.querySelector('.backToTheFuture'),
+      input: v.querySelector('.dateTimeInput'),
+      submit: v.querySelector('.dateTimeSubmit'),
+      cancel: v.querySelector('.dateTimeCancel')
+    });
+
+    this._updateTimestamp();
+    this._elm.time.addEventListener('click', this._toggle.bind(this));
+    this._elm.back.addEventListener('mousedown', _.debounce(this._onBack.bind(this), 300));
+    this._elm.submit.addEventListener('click', this._onSubmit.bind(this));
+    this._elm.cancel.addEventListener('click', this._onCancel.bind(this));
+  }
+
+  update(threadInfo) {
+    //window.console.info('TimeMachineView update', threadInfo);
+    this._videoPostTime = threadInfo.threadId * 1000;
+    const isWaybackMode = threadInfo.isWaybackMode;
+    this.setState({isWaybackMode, isSelecting: false});
+
+    if (isWaybackMode) {
+      this._currentTimestamp = threadInfo.when * 1000;
+    } else {
       this._currentTimestamp = Date.now();
-
-      ZenzaWatch.debug.timeMachineView = this;
-
-      window.setInterval(this._bound._onTimer, 3 * 1000);
     }
+    this._updateTimestamp();
+  }
 
-    _initDom(...args) {
-      super._initDom(...args);
-
-      const v = this._shadow || this._view;
-      Object.assign(this._elm, {
-        time:   v.querySelector('.dateTime'),
-        back:   v.querySelector('.backToTheFuture'),
-        input:  v.querySelector('.dateTimeInput'),
-        submit: v.querySelector('.dateTimeSubmit'),
-        cancel: v.querySelector('.dateTimeCancel')
-      });
-
-      this._updateTimestamp();
-      this._elm.time.addEventListener('click', this._toggle.bind(this));
-      this._elm.back.addEventListener('mousedown', _.debounce(this._onBack.bind(this), 300));
-      this._elm.submit.addEventListener('click', this._onSubmit.bind(this));
-      this._elm.cancel.addEventListener('click', this._onCancel.bind(this));
+  _updateTimestamp() {
+    if (isNaN(this._currentTimestamp)) {
+      return;
     }
+    this._elm.time.textContent = this._currentTime = this._toDate(this._currentTimestamp);
+  }
 
-    update(threadInfo) {
-      //window.console.info('TimeMachineView update', threadInfo);
-      this._videoPostTime = threadInfo.threadId * 1000;
-      const isWaybackMode = threadInfo.isWaybackMode;
-      this.setState({isWaybackMode, isSelecting: false});
+  openSelect() {
+    const input = this._elm.input;
+    const now = this._toTDate(Date.now());
+    input.setAttribute('max', now);
+    input.setAttribute('value', this._toTDate(this._currentTimestamp));
+    input.setAttribute('min', this._toTDate(this._videoPostTime));
+    this.setState({isSelecting: true});
+    window.setTimeout(() => {
+      input.focus();
+    }, 0);
+  }
 
-      if (isWaybackMode) {
-        this._currentTimestamp = threadInfo.when * 1000;
-      } else {
-        this._currentTimestamp = Date.now();
-      }
-      this._updateTimestamp();
-    }
+  closeSelect() {
+    this.setState({isSelecting: false});
+  }
 
-    _updateTimestamp() {
-      if (isNaN(this._currentTimestamp)) { return; }
-      this._elm.time.textContent = this._currentTime = this._toDate(this._currentTimestamp);
-    }
-
-    openSelect() {
-      const input = this._elm.input;
-      const now = this._toTDate(Date.now());
-      input.setAttribute('max', now);
-      input.setAttribute('value', this._toTDate(this._currentTimestamp));
-      input.setAttribute('min', this._toTDate(this._videoPostTime));
-      this.setState({isSelecting: true});
-      window.setTimeout(() => { input.focus(); }, 0);
-    }
-
-    closeSelect() {
-      this.setState({isSelecting: false});
-    }
-
-    _toggle() {
-      if (this._state.isSelecting) {
-        this.closeSelect();
-      } else {
-        this.openSelect();
-      }
-    }
-
-    _onTimer() {
-      if (this._state.isWaybackMode) { return; }
-      let now = Date.now();
-      let str = this._toDate(now);
-
-      if (this._currentTime === str) { return; }
-      this._currentTimestamp = now;
-      this._updateTimestamp();
-    }
-
-    _padTime(time) {
-      let pad = (v) => { return (v * 1 + 100).toString().substr(1); };
-      let dt   = new Date(time);
-      return {
-        yyyy: dt.getFullYear(),
-        mm:   pad(dt.getMonth() + 1),
-        dd:   pad(dt.getDate()),
-        h:    pad(dt.getHours()),
-        m:    pad(dt.getMinutes()),
-        s:    pad(dt.getSeconds())
-      };
-    }
-
-    _toDate(time) {
-      let {yyyy, mm, dd, h, m} =  this._padTime(time);
-      return `${yyyy}/${mm}/${dd} ${h}:${m}`;
-    }
-
-    _toTDate(time) {
-      let {yyyy, mm, dd, h, m, s} =  this._padTime(time);
-      return `${yyyy}-${mm}-${dd}T${h}:${m}:${s}`;
-    }
-
-    _onSubmit() {
-      const val = this._elm.input.value;
-      if (!val || !/^\d\d\d\d-\d\d-\d\dT\d\d:\d\d(|:\d\d)$/.test(val)) { return; }
-      const dt = new Date(val);
-      const when =
-        Math.floor(Math.max(dt.getTime(), this._videoPostTime) / 1000);
-      this.emit('command', 'reloadComment', {when});
+  _toggle() {
+    if (this._state.isSelecting) {
       this.closeSelect();
-    }
-
-    _onCancel() {
-      this.closeSelect();
-    }
-
-    _onBack() {
-      this.setState({isWaybackMode: false});
-      this.closeSelect();
-      this.emit('command', 'reloadComment', {when: 0});
+    } else {
+      this.openSelect();
     }
   }
 
-  TimeMachineView._shadow_ = (`
+  _onTimer() {
+    if (this._state.isWaybackMode) {
+      return;
+    }
+    let now = Date.now();
+    let str = this._toDate(now);
+
+    if (this._currentTime === str) {
+      return;
+    }
+    this._currentTimestamp = now;
+    this._updateTimestamp();
+  }
+
+  _padTime(time) {
+    let pad = v => {
+      return v.toString().padStart(2, '0');
+    };
+    let dt = new Date(time);
+    return {
+      yyyy: dt.getFullYear(),
+      mm: pad(dt.getMonth() + 1),
+      dd: pad(dt.getDate()),
+      h: pad(dt.getHours()),
+      m: pad(dt.getMinutes()),
+      s: pad(dt.getSeconds())
+    };
+  }
+
+  _toDate(time) {
+    let {yyyy, mm, dd, h, m} = this._padTime(time);
+    return `${yyyy}/${mm}/${dd} ${h}:${m}`;
+  }
+
+  _toTDate(time) {
+    let {yyyy, mm, dd, h, m, s} = this._padTime(time);
+    return `${yyyy}-${mm}-${dd}T${h}:${m}:${s}`;
+  }
+
+  _onSubmit() {
+    const val = this._elm.input.value;
+    if (!val || !/^\d\d\d\d-\d\d-\d\dT\d\d:\d\d(|:\d\d)$/.test(val)) {
+      return;
+    }
+    const dt = new Date(val);
+    const when =
+      Math.floor(Math.max(dt.getTime(), this._videoPostTime) / 1000);
+    this.emit('command', 'reloadComment', {when});
+    this.closeSelect();
+  }
+
+  _onCancel() {
+    this.closeSelect();
+  }
+
+  _onBack() {
+    this.setState({isWaybackMode: false});
+    this.closeSelect();
+    this.emit('command', 'reloadComment', {when: 0});
+  }
+}
+
+TimeMachineView._shadow_ = (`
     <style>
       .dateTime {
         display: inline-block;
@@ -1576,6 +1801,7 @@ data-title="%no%: %date% ID:%userId%
         user-select: none;
         transition: transform 0.1s;
       }
+
       .is-WaybackMode .reloadButton {
         display: none;
       }
@@ -1584,6 +1810,8 @@ data-title="%no%: %date% ID:%userId%
           transform: rotate(90deg) scale(1.3);
           transition: transform 1s, color 0.2s, text-shadow 0.2s;
           text-shadow: none;
+          font-family: 'STIXGeneral';
+          margin-right: 8px;
         }
         .reloadButton:hover {
           text-decoration: underline;
@@ -1636,6 +1864,7 @@ data-title="%no%: %date% ID:%userId%
         .dateTimeInput {
           display: block;
           font-size: 16px;
+          min-width: 256px;
         }
         .submitContainer {
           text-align: right;
@@ -1682,7 +1911,12 @@ data-title="%no%: %date% ID:%userId%
     </div>
   `).trim();
 
-  TimeMachineView.__tpl__ = (`<div class="TimeMachineView"></div>`).trim();
+TimeMachineView.__tpl__ = ('<div class="TimeMachineView"></div>').trim();
 
 
 //===END===
+
+// tb = ZenzaWatch.debug.getFrameBodies().find(b => b.classList.contains('commentList')).querySelector('.timeBar');[...tb.computedStyleMap().entries()].filter(([key, vars]) => key.startsWith('--')).forEach(([key, vars]) => console.log(key, ...vars))
+export {
+  CommentPanel
+};

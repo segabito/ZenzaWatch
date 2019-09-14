@@ -1,162 +1,211 @@
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {}
-};
+import * as _ from 'lodash';
+import {util} from './util';
 
 //===BEGIN===
 //
-  class DmcInfo {
-    constructor(rawData) {
-      this._rawData = rawData;
-      this._session = rawData.session_api;
-    }
-
-    get apiUrl() {
-      return this._session.urls[0].url;
-    }
-
-    get audios() {
-      return this._session.audios;
-    }
-
-    get videos() {
-      return this._session.videos;
-    }
-
-    get signature() {
-      return this._session.signature;
-    }
-
-    get token() {
-      return this._session.token;
-    }
-
-    get serviceUserId() {
-      return this._session.service_user_id;
-    }
-
-    get contentId() {
-      return this._session.content_id;
-    }
-
-    get playerId() {
-      return this._session.player_id;
-    }
-
-    get recipeId() {
-      return this._session.recipe_id;
-    }
-
-    get heartBeatLifeTimeMs() {
-      return this._session.heartbeat_lifetime;
-    }
-
-    get protocols() {
-      return this._session.protocols;
-    }
-
-    get contentKeyTimeout() {
-      return this._session.content_key_timeout;
-    }
-
-    get priority() {
-      return this._session.priority;
-    }
-
-    get authTypes() {
-      return this._session.authTypes;
-    }
-
-    get videoFormatList() {
-      return (this.videos || []).concat();
-    }
-
-    get hasStoryboard() {
-      return !!this._rawData.storyboard_session_api;
-    }
-
-    get storyboardInfo() {
-      return this._rawData.storyboard_session_api;
-    }
- }
-
-  class VideoFilter {
-    constructor(ngOwner, ngTag) {
-      this.ngOwner = ngOwner;
-      this.ngTag   = ngTag;
-    }
-
-    get ngOwner() {
-      return this._ngOwner || [];
-    }
-
-    set ngOwner(owner) {
-      owner = _.isArray(owner) ? owner : owner.toString().split(/[\r\n]/);
-      var list = [];
-      _.each(owner, function(o) {
-        list.push(o.replace(/#.*$/, '').trim());
-      });
-      this._ngOwner = list;
-    }
-
-    get ngTag() {
-      return this._ngTag || [];
-    }
-
-    set ngTag(tag) {
-      tag = Array.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
-      const list = [];
-      tag.forEach(t => {
-        list.push(t.toLowerCase().trim());
-      });
-      this._ngTag = list;
-    }
-
-    isNgVideo(videoInfo) {
-      let isNg = false;
-      let isChannel = videoInfo.isChannel;
-      let ngTag = this.ngTag;
-      videoInfo.tagList.forEach(tag => {
-        let text = (tag.tag || '').toLowerCase();
-        if (ngTag.includes(text)) {
-          isNg = true;
-        }
-      });
-      if (isNg) { return true; }
-
-      let owner = videoInfo.ownerInfo;
-      let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
-      if (ownerId && this.ngOwner.includes(ownerId)) {
-        isNg = true;
-      }
-
-      return isNg;
-    }
+class DmcInfo {
+  constructor(rawData) {
+    this._rawData = rawData;
+    this._session = rawData.session_api;
   }
 
-  class VideoInfoModel {
-    constructor(info) {
-      this._rawData = info;
-      this._watchApiData = info.watchApiData;
-      this._videoDetail  = info.watchApiData.videoDetail;
-      this._flashvars    = info.watchApiData.flashvars;   // flashに渡す情報
-      this._viewerInfo   = info.viewerInfo;               // 閲覧者(＝おまいら)の情報
-      this._flvInfo      = info.flvInfo;
-      this._msgInfo      = info.msgInfo;
-      this._dmcInfo      = (info.dmcInfo && info.dmcInfo.session_api) ? new DmcInfo(info.dmcInfo) : null;
-      this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
-      this._playlistToken = info.playlistToken;
-      this._watchAuthKey = info.watchAuthKey;
-      this._seekToken    = info.seekToken;
-      this._resumeInfo   = info.resumeInfo || {};
+  get apiUrl() {
+    return this._session.urls[0].url;
+  }
 
-      this._isDmcDisable = false;
-      this._currentVideoPromise = [];
+  get urls() {
+    return this._session.urls;
+  }
 
-      if (!ZenzaWatch.debug.videoInfo) { ZenzaWatch.debug.videoInfo = {}; }
-      ZenzaWatch.debug.videoInfo[this.getWatchId()] = this;
+  get audios() {
+    return this._session.audios;
+  }
+
+  get videos() {
+    return this._session.videos;
+  }
+
+  get quality() {
+    return this._rawData.quality;
+  }
+
+  get signature() {
+    return this._session.signature;
+  }
+
+  get token() {
+    return this._session.token;
+  }
+
+  get serviceUserId() {
+    return this._session.service_user_id;
+  }
+
+  get contentId() {
+    return this._session.content_id;
+  }
+
+  get playerId() {
+    return this._session.player_id;
+  }
+
+  get recipeId() {
+    return this._session.recipe_id;
+  }
+
+  get heartBeatLifeTimeMs() {
+    return this._session.heartbeat_lifetime;
+  }
+
+  get protocols() {
+    return this._session.protocols || [];
+  }
+
+  get isHLSRequired() {
+    return !this.protocols.includes('http');
+  }
+
+  get contentKeyTimeout() {
+    return this._session.content_key_timeout;
+  }
+
+  get priority() {
+    return this._session.priority;
+  }
+
+  get authTypes() {
+    return this._session.auth_types;
+  }
+
+  get videoFormatList() {
+    return (this.videos || []).concat();
+  }
+
+  get hasStoryboard() {
+    return !!this._rawData.storyboard_session_api;
+  }
+
+  get storyboardInfo() {
+    return this._rawData.storyboard_session_api;
+  }
+
+  get transferPreset() {
+    return (this._session.transfer_presets || [''])[0] || '';
+  }
+
+  get heartbeatLifeTime() {
+    return this._session.heartbeat_lifetime || 120 * 1000;
+  }
+
+  get importVersion() {
+    return this._rawData.import_version || 0;
+  }
+
+  get trackingId() {
+    return this._rawData.tracking_id || '';
+  }
+
+  get encryption() {
+    return this._rawData.encryption || null;
+  }
+
+  getData() {
+    const data = {};
+    for (const prop of Object.getOwnPropertyNames(this.constructor.prototype)) {
+      if (typeof this[prop] === 'function') { continue; }
+      data[prop] = this[prop];
     }
+    return data;
+  }
+
+  toJSON() {
+    return JSON.stringify(this.getData());
+  }
+}
+
+class VideoFilter {
+  constructor(ngOwner, ngTag) {
+    this.ngOwner = ngOwner;
+    this.ngTag = ngTag;
+  }
+
+  get ngOwner() {
+    return this._ngOwner || [];
+  }
+
+  set ngOwner(owner) {
+    owner = _.isArray(owner) ? owner : owner.toString().split(/[\r\n]/);
+    let list = [];
+    owner.forEach(o => {
+      list.push(o.replace(/#.*$/, '').trim());
+    });
+    this._ngOwner = list;
+  }
+
+  get ngTag() {
+    return this._ngTag || [];
+  }
+
+  set ngTag(tag) {
+    tag = Array.isArray(tag) ? tag : tag.toString().split(/[\r\n]/);
+    const list = [];
+    tag.forEach(t => {
+      list.push(t.toLowerCase().trim());
+    });
+    this._ngTag = list;
+  }
+
+  isNgVideo(videoInfo) {
+    let isNg = false;
+    let isChannel = videoInfo.isChannel;
+    let ngTag = this.ngTag;
+    videoInfo.tagList.forEach(tag => {
+      let text = (tag.tag || '').toLowerCase();
+      if (ngTag.includes(text)) {
+        isNg = true;
+      }
+    });
+    if (isNg) {
+      return true;
+    }
+
+    let owner = videoInfo.owner;
+    let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
+    if (ownerId && this.ngOwner.includes(ownerId)) {
+      isNg = true;
+    }
+
+    return isNg;
+  }
+}
+
+class VideoInfoModel {
+  constructor(videoInfoData) {
+    this._update(videoInfoData);
+    this._currentVideoPromise = [];
+  }
+
+  update(videoInfoModel) {
+    this._update(videoInfoModel._rawData);
+    return true;
+  }
+
+  _update(info) {
+    this._rawData = info;
+    this._watchApiData = info.watchApiData;
+    this._videoDetail = info.watchApiData.videoDetail;
+    this._flashvars = info.watchApiData.flashvars;   // flashに渡す情報
+    this._viewerInfo = info.viewerInfo;               // 閲覧者(＝おまいら)の情報
+    this._flvInfo = info.flvInfo;
+    this._msgInfo = info.msgInfo;
+    this._dmcInfo = (info.dmcInfo && info.dmcInfo.session_api) ? new DmcInfo(info.dmcInfo) : null;
+    this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
+    this._playlistToken = info.playlistToken;
+    this._watchAuthKey = info.watchAuthKey;
+    this._seekToken = info.seekToken;
+    this._resumeInfo = info.resumeInfo || {};
+    return true;
+  }
 
   get title() {
     return this._videoDetail.title_original || this._videoDetail.title;
@@ -189,7 +238,7 @@ var ZenzaWatch = {
   }
 
   get videoUrl() {
-    return this._flvInfo.url;
+    return (this._flvInfo.url || '');//.replace(/^http:/, '');
   }
 
   get storyboardUrl() {
@@ -235,6 +284,10 @@ var ZenzaWatch = {
     return this._videoDetail.id;
   }
 
+  get originalVideoId() {
+    return (this.isMymemory || this.isCommunityVideo) ? this.videoId : '';
+  }
+
   getWatchId() { // sm12345だったりスレッドIDだったり
     return this.watchId;
   }
@@ -246,8 +299,12 @@ var ZenzaWatch = {
     return this._videoDetail.v;
   }
 
+  get contextWatchId() {
+    return this._videoDetail.v;
+  }
+
   get watchUrl() {
-    return `http://www.nicovideo.jp/watch/${this.watchId}`;
+    return `https://www.nicovideo.jp/watch/${this.watchId}`;
   }
 
   get threadId() { // watchIdと同一とは限らない
@@ -256,7 +313,7 @@ var ZenzaWatch = {
 
   get videoSize() {
     return {
-      width:  this._videoDetail.width,
+      width: this._videoDetail.width,
       height: this._videoDetail.height
     };
   }
@@ -277,6 +334,7 @@ var ZenzaWatch = {
   get isChannel() {
     return !!this._videoDetail.channelId;
   }
+
   get isMymemory() {
     return !!this._videoDetail.isMymemory;
   }
@@ -290,7 +348,11 @@ var ZenzaWatch = {
   }
 
   get isDmc() {
-    return this.isDmcOnly || (this._rawData.isDmc && !this._isDmcDisable);
+    return this.isDmcOnly || (this._rawData.isDmc);
+  }
+
+  get isDmcAvailable() {
+    return this._rawData.isDmc;
   }
 
   get dmcInfo() {
@@ -301,16 +363,8 @@ var ZenzaWatch = {
     return this._msgInfo;
   }
 
-  get isDmcDisable() {
-    return this.isDmcOnly && this._isDmcDisable;
-  }
-
-  set isDmcDisable(v) {
-    this._isDmcDisable = v;
-  }
-
   get isDmcOnly() {
-    return !!this._rawData.isDmcOnly;
+    return !!this._rawData.isDmcOnly || !this.videoUrl;
   }
 
   get hasDmcStoryboard() {
@@ -324,27 +378,29 @@ var ZenzaWatch = {
   /**
    * 投稿者の情報
    * チャンネル動画かどうかで分岐
-  */
-  get ownerInfo() {
-    var ownerInfo;
+   */
+  get owner() {
+    let ownerInfo;
     if (this.isChannel) {
-      var c = this._watchApiData.channelInfo || {};
+      let c = this._watchApiData.channelInfo || {};
       ownerInfo = {
-        icon: c.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
-        url: '//ch.nicovideo.jp/ch' + c.id,
+        icon: c.icon_url || 'https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/defaults/blank.jpg',
+        url: `https://ch.nicovideo.jp/ch${c.id}`,
         id: c.id,
+        linkId: c.id ? `ch${c.id}` : '',
         name: c.name,
         favorite: c.is_favorited === 1, // こっちは01で
         type: 'channel'
       };
     } else {
       // 退会しているユーザーだと空になっている
-      var u = this._watchApiData.uploaderInfo || {};
-      var f = this._flashvars || {};
+      let u = this._watchApiData.uploaderInfo || {};
+      let f = this._flashvars || {};
       ownerInfo = {
-        icon: u.icon_url || '//res.nimg.jp/img/user/thumb/blank.jpg',
-        url:  u.id ? ('//www.nicovideo.jp/user/' + u.id) : '#',
-        id:   u.id || f.videoUserId || '',
+        icon: u.icon_url || 'https://secure-dcdn.cdn.nimg.jp/nicoaccount/usericon/defaults/blank.jpg',
+        url: u.id ? `//www.nicovideo.jp/user/${u.id}` : '#',
+        id: u.id || f.videoUserId || '',
+        linkId: u.id ? `user/${u.id}` : '',
         name: u.nickname || '(非公開ユーザー)',
         favorite: !!u.is_favorited, // こっちはbooleanという
         type: 'user',
@@ -355,13 +411,24 @@ var ZenzaWatch = {
     return ownerInfo;
   }
 
+  get series() {
+    if (!this._rawData.series || !this._rawData.series.id) {
+      return null;
+    }
+    const series = this._rawData.series;
+    const thumbnailUrl = series.thumbnailUrl || this.betterThumbnail;
+    return Object.assign({}, series, {thumbnailUrl});
+  }
+
   get relatedVideoItems() {
     return this._relatedVideo.playlist || [];
   }
 
   get replacementWords() {
-    if (!this._flvInfo.ng_up) { return null; }
-    return ZenzaWatch.util.parseQuery(
+    if (!this._flvInfo.ng_up || this._flvInfo.ng_up === '') {
+      return null;
+    }
+    return util.parseQuery(
       this._flvInfo.ng_up || ''
     );
   }
@@ -395,7 +462,9 @@ var ZenzaWatch = {
   }
 
   get initialPlaybackTime() {
-    if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) { return 0; }
+    if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) {
+      return 0;
+    }
     return parseFloat(this._resumeInfo.initialPlaybackPosition, 10);
   }
 
@@ -404,16 +473,101 @@ var ZenzaWatch = {
   }
 
   get extension() {
-    if (this.isDmc) { return 'mp4'; }
+    if (this.isDmc) {
+      return 'mp4';
+    }
     const url = this.videoUrl;
-    if (url.match(/smile\?m=/)) { return 'mp4'; }
-    if (url.match(/smile\?v=/)) { return 'flv'; }
-    if (url.match(/smile\?s=/)) { return 'swf'; }
+    if (url.match(/smile\?m=/)) {
+      return 'mp4';
+    }
+    if (url.match(/smile\?v=/)) {
+      return 'flv';
+    }
+    if (url.match(/smile\?s=/)) {
+      return 'swf';
+    }
     return 'unknown';
   }
+
+  get community() {
+    return this._rawData.community || null;
   }
+
+  get maybeBetterQualityServerType() {
+    if (this.isDmcOnly) {
+      return 'dmc';
+    }
+    if (this.isEconomy) {
+      return 'dmc';
+    }
+    let dmcInfo = this.dmcInfo;
+    if (!dmcInfo) {
+      return 'smile';
+    }
+    if (/smile\?[sv]=/.test(this.videoUrl)) {
+      return 'dmc';
+    }
+
+    let smileWidth = this.width;
+    let smileHeight = this.height;
+    let dmcVideos = dmcInfo.videos;
+    let importVersion = dmcInfo.importVersion;
+
+    // ぜんぜんわからん 時はdmc
+    if (isNaN(smileWidth) || isNaN(smileHeight)) {
+      return 'dmc';
+    }
+
+    // smile側に 1280w 720h を上回る動画がある場合は再エンコードされていない
+    // smile側の再エンコードでは1280x720以下の動画しか生成されないため
+    if (smileWidth > 1280 || smileHeight > 720) {
+      return 'smile';
+    }
+
+    // if (importVersion > 0) {
+    //   return 'smile';
+    // }
+
+    // smileのほうがdmcの下限以下を持っている ≒ 再エンコードされていない
+    if (smileHeight < 360) {
+      return 'smile';
+    }
+
+    const highestDmc = Math.max(...dmcVideos.map(v => {
+      return (/_([0-9]+)p$/.exec(v)[1] || '') * 1;
+    }));
+
+    if (highestDmc >= 720) {
+      return 'dmc';
+    }
+
+    // 864x486 648x486 640x384 512x384 旧プレイヤーぴったい合わせの解像度
+    if (smileHeight === 486 || smileHeight === 384) {
+      return 'smile';
+    }
+
+    // DMCのほうが高解像度を持っているなら恐らくDMC側が高画質
+    if (highestDmc >= smileHeight) {
+      return 'dmc';
+    }
+
+    // それ以外はsmile...と行きたいが判断保留は dmc
+    return 'dmc';
+  }
+
+  getData() {
+    const data = {};
+    for (const prop of Object.getOwnPropertyNames(this.constructor.prototype)) {
+      if (typeof this[prop] === 'function') { continue; }
+      data[prop] = this[prop];
+    }
+    return data;
+  }
+}
 
 
 //===END===
 
-
+export {
+  DmcInfo, VideoInfoModel, VideoFilter
+};

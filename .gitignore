@@ -3,6 +3,7 @@ setting.json
 .jshintrc
 *.swp
 *.bk
+*.lnk
 ./test.js
 ZenzaWatch.user\ *.js
 .DS_Store
@@ -10,3 +11,7 @@ ZenzaWatch.user\ *.js
 node_modules/
 .gitkeep
 session/*
+.idea/*
+./lib/*
+./botsu/*
+package-lock.json

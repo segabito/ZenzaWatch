@@ -1,0 +1,28 @@
+{
+  "name": "@zenza/components",
+  "version": "1.0.0",
+  "description": "Custom Elements",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "cross-env NODE_ENV=development webpack",
+    "build:production": "cross-env NODE_ENV=production webpack",
+    "watch": "cross-env NODE_ENV=development webpack --watch",
+    "start": "cross-env NODE_ENV=development webpack-dev-server"
+  },
+  "author": "guest",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.2.0",
+    "@babel/preset-env": "^7.2.0",
+    "babel-loader": "^8.0.4",
+    "cross-env": "^5.2.0",
+    "dynamic-cdn-webpack-plugin": "^4.0.0",
+    "lit-html": "^0.14.0",
+    "module-to-cdn": "^3.1.2",
+    "uglify-save-license": "^0.4.1",
+    "webpack": "^4.27.1",
+    "webpack-cli": "^3.1.2",
+    "webpack-dev-server": "^3.1.10"
+  }
+}

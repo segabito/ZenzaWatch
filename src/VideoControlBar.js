@@ -1,1025 +1,1554 @@
-var $ = require('jquery');
-var _ = require('lodash');
-var ZenzaWatch = {
-  util:{},
-  debug: {}
-};
-var AsyncEmitter = function() {};
-var Storyboard = function() {};
-var CONSTANT = {};
+// import * as _ from 'lodash';
+import {ZenzaWatch, global} from './ZenzaWatchIndex';
+import {CONSTANT} from './constant';
+import {SeekBarThumbnail, Storyboard} from './StoryBoard';
+import {util, BaseViewComponent} from './util';
+import {Emitter} from './baselib';
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {HeatMapWorker} from '../packages/zenza/src/heatMap/HeatMapWorker';
+import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
+import {TextLabel} from '../packages/lib/src/ui/TextLabel';
+import {cssUtil} from '../packages/lib/src/css/css';
+import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationFrame';
 
 //===BEGIN===
 
+  class VideoControlBar extends Emitter {
+    constructor(...args) {
+      super();
+      this.initialize(...args);
+    }
+    initialize(params) {
+      this._playerConfig        = params.playerConfig;
+      this._$playerContainer    = params.$playerContainer;
+      this._playerState         = params.playerState;
+      this._currentTimeGetter   = params.currentTimeGetter;
+      const player = this._player = params.player;
 
-  var VideoControlBar = function() { this.initialize.apply(this, arguments); };
-  _.extend(VideoControlBar.prototype, AsyncEmitter.prototype);
+      player.on('open',           this._onPlayerOpen.bind(this));
+      player.on('canPlay',        this._onPlayerCanPlay.bind(this));
+      player.on('durationChange', this._onPlayerDurationChange.bind(this));
+      player.on('close',          this._onPlayerClose.bind(this));
+      player.on('progress',       this._onPlayerProgress.bind(this));
+      player.on('loadVideoInfo',  this._onLoadVideoInfo.bind(this));
+      player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
+      player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
+
+      this._isWheelSeeking = false;
+      this._initializeDom();
+      this._initializePlaybackRateSelectMenu();
+      this._initializeVolumeControl();
+      this._initializeVideoServerTypeSelectMenu();
+      this._isFirstVideoInitialized = false;
+
+      global.debug.videoControlBar = this;
+    }
+    _initializeDom() {
+      const $view = this._$view = util.$.html(VideoControlBar.__tpl__);
+      const $container = this._$playerContainer;
+      const config = this._playerConfig;
+      this._view = $view[0];
+
+      const mq = $view.mapQuery({
+        _seekBarContainer: '.seekBarContainer',
+        _seekBar: '.seekBar',
+        _currentTime: '.currentTime',
+        _duration: '.duration',
+        _playbackRateMenu: '.playbackRateMenu',
+        _playbackRateSelectMenu: '.playbackRateSelectMenu',
+        _videoServerTypeMenu: '.videoServerTypeMenu',
+        _videoServerTypeSelectMenu: '.videoServerTypeSelectMenu',
+        _resumePointer: 'zenza-seekbar-label',
+        _bufferRange: '.bufferRange',
+        _seekRange: '.seekRange',
+        _seekBarPointer: '.seekBarPointer'
+      });
+      Object.assign(this, mq.e, {_currentTime: 0});
+      Object.assign(this, mq.$);
+      util.$(this._seekRange).on('input', this._onSeekRangeInput.bind(this));
+
+      this._pointer = new SmoothSeekBarPointer({
+        pointer: this._seekBarPointer,
+        playerState: this._playerState
+      });
+      const timeStyle = {
+        widthPx: 44,
+        heightPx: 18,
+        fontFamily: '\'Yu Gothic\', \'YuGothic\', \'Courier New\', Osaka-mono, \'ＭＳ ゴシック\', monospace',
+        fontWeight: '',
+        fontSizePx: 12,
+        color: '#fff'
+      };
+      TextLabel.create({
+        container: $view.find('.currentTimeLabel')[0],
+        name: 'currentTimeLabel',
+        text: '00:00',
+        style: timeStyle
+      }).then(label => this.currentTimeLabel = label);
+      TextLabel.create({
+        container: $view.find('.durationLabel')[0],
+        name: 'durationLabel',
+        text: '00:00',
+        style: timeStyle
+      }).then(label => this.durationLabel = label);
+
+      this._$seekBar
+        .on('mousedown', this._onSeekBarMouseDown.bind(this))
+        .on('mousemove', this._onSeekBarMouseMove.bind(this));
+
+      $view
+        .on('click', this._onClick.bind(this))
+        .on('command', this._onCommandEvent.bind(this));
+
+      HeatMapWorker.init({container: this._seekBar}).then(hm => this._heatMap = hm);
+      const updateHeatMapVisibility =
+        v => this._$seekBarContainer.toggleClass('noHeatMap', !v);
+      updateHeatMapVisibility(this._playerConfig.props.enableHeatMap);
+      this._playerConfig.onkey('enableHeatMap', updateHeatMapVisibility);
+      global.emitter.on('heatMapUpdate', heatMap => {
+        WatchInfoCacheDb.put(this._player.watchId, {heatMap});
+      });
+
+      this._storyboard = new Storyboard({
+        playerConfig: config,
+        player: this._player,
+        container: $view[0]
+      });
+
+      this._seekBarToolTip = new SeekBarToolTip({
+        $container: this._$seekBarContainer,
+        storyboard: this._storyboard
+      });
+
+      this._commentPreview = new CommentPreview({
+        $container: this._$seekBarContainer
+      });
+      const updateEnableCommentPreview = v => {
+        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
+        this._commentPreview.mode = v ? 'list' : 'hover';
+      };
+
+      updateEnableCommentPreview(config.props.enableCommentPreview);
+      config.onkey('enableCommentPreview', updateEnableCommentPreview);
+
+      const watchElement = $container[0].closest('#zenzaVideoPlayerDialog');
+      this._wheelSeeker = new WheelSeeker({
+        parentNode: $view[0],
+        watchElement
+      });
+
+      watchElement.addEventListener('mousedown', e => {
+        if (['A', 'INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+          return;
+        }
+        if (e.buttons !== 3 && !(e.button === 0 && e.shiftKey)) {
+          return;
+        }
+        if (e.buttons === 3) {
+          watchElement.addEventListener('contextmenu', e => {
+            window.console.log('contextmenu', e);
+            e.preventDefault();
+            e.stopPropagation();
+          }, {once: true, capture: true});
+        }
+        this._onSeekBarMouseDown(e);
+      });
+
+      global.emitter.on('hideHover', () => {
+        this._hideMenu();
+        this._commentPreview.hide();
+      });
+
+      $container.append($view);
+      this._width = window.innerWidth;
+    }
+    _initializePlaybackRateSelectMenu() {
+      const config = this._playerConfig;
+      const $btn  = this._$playbackRateMenu;
+      const [label] = $btn.find('.controlButtonInner');
+      const $menu = this._$playbackRateSelectMenu;
+      const $rates = $menu.find('.playbackRate');
+
+      const updatePlaybackRate = rate => {
+        label.textContent = `x${rate}`;
+        $menu.find('.selected').removeClass('selected');
+        let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
+        $rates.forEach(item => {
+          let r = parseFloat(item.dataset.param, 10);
+          if (fr === r) {
+            item.classList.add('selected');
+          }
+        });
+        this._pointer.playbackRate = rate;
+      };
+
+      updatePlaybackRate(config.props.playbackRate);
+      config.onkey('playbackRate', updatePlaybackRate);
+    }
+    _initializeVolumeControl() {
+      const $vol = this._$view.find('zenza-range-bar input[type="range"]');
+      const [vol] = $vol;
+
+      const setVolumeBar = this._setVolumeBar = v => (vol.view || vol).value = v;
+      $vol.on('input', e => util.dispatchCommand(e.target, 'volume', e.target.value));
+      setVolumeBar(this._playerConfig.props.volume);
+      this._playerConfig.onkey('volume', setVolumeBar);
+    }
+    _initializeVideoServerTypeSelectMenu() {
+      const config = this._playerConfig;
+      const $button = this._$videoServerTypeMenu;
+      const $select  = this._$videoServerTypeSelectMenu;
+      const $current = $select.find('.currentVideoQuality');
+
+      const updateSmileVideoQuality = value => {
+        const $dq = $select.find('.smileVideoQuality');
+        $dq.removeClass('selected');
+        $select.find('.select-smile-' + (value === 'eco' ? 'economy' : 'default')).addClass('selected');
+      };
+
+      const updateDmcVideoQuality = value => {
+        const $dq = $select.find('.dmcVideoQuality');
+        $dq.removeClass('selected');
+        $select.find('.select-dmc-' + value).addClass('selected');
+      };
+
+      const onVideoServerType = (type, videoSessionInfo) => {
+        $button.removeClass('is-smile-playing is-dmc-playing')
+          .addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
+        $select.find('.serverType').removeClass('selected');
+        $select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
+        $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+      };
+
+      updateSmileVideoQuality(config.props.smileVideoQuality);
+      updateDmcVideoQuality(config.props.dmcVideoQuality);
+      config.onkey('forceEconomy',    updateSmileVideoQuality);
+      config.onkey('dmcVideoQuality', updateDmcVideoQuality);
+
+      this._player.on('videoServerType', onVideoServerType);
+    }
+    _onCommandEvent(e) {
+      const command = e.detail.command;
+      switch (command) {
+        case 'toggleStoryboard':
+          this._storyboard.toggle();
+          break;
+        case 'wheelSeek-start':
+          window.console.log('start-seek-start');
+          this._isWheelSeeking = true;
+          this._wheelSeeker.currentTime = this._player.currentTime;
+          this._view.classList.add('is-wheelSeeking');
+          break;
+        case 'wheelSeek-end':
+          window.console.log('start-seek-end');
+          this._isWheelSeeking = false;
+          this._view.classList.remove('is-wheelSeeking');
+          break;
+        case 'wheelSeek':
+          this._onWheelSeek(e.detail.param);
+          break;
+        default:
+          return;
+      }
+      e.stopPropagation();
+    }
+    _onClick(e) {
+      e.preventDefault();
+
+      const target = e.target.closest('[data-command]');
+      if (!target) {
+        return;
+      }
+      let {command, param, type} = target.dataset;
+      if (param && (type === 'bool' || type === 'json')) {
+        param = JSON.parse(param);
+      }
+      switch (command) {
+        case 'toggleStoryboard':
+          this._storyboard.toggle();
+          break;
+        default:
+          util.dispatchCommand(target, command, param);
+          break;
+       }
+      e.stopPropagation();
+    }
+    _posToTime(pos) {
+      const width = this._innerWidth = this._innerWidth || window.innerWidth;
+      return this._duration * (pos / Math.max(width, 1));
+    }
+    _timeToPos(time) {
+      return this._width * (time / Math.max(this._duration, 1));
+    }
+    _timeToPer(time) {
+      return (time / Math.max(this._duration, 1)) * 100;
+    }
+    _onPlayerOpen() {
+      this._startTimer();
+      this.duration = 0;
+      this.currentTime = 0;
+      this._heatMap && this._heatMap.reset();
+      this._storyboard.reset();
+      this.resetBufferedRange();
+    }
+    _onPlayerCanPlay(watchId, videoInfo) {
+      const duration = this._player.duration;
+      this.duration = duration;
+      this._storyboard.onVideoCanPlay(watchId, videoInfo);
+
+      this._heatMap && (this._heatMap.duration = duration);
+    }
+    _onCommentParsed() {
+      this._chatList = this._player.chatList;
+      this._heatMap && (this._heatMap.chatList = this._chatList);
+      this._commentPreview.chatList = this._chatList;
+    }
+    _onCommentChange() {
+      this._chatList = this._player.chatList;
+      this._heatMap && (this._heatMap.chatList = this._chatList);
+      this._commentPreview.chatList = this._chatList;
+    }
+    _onPlayerDurationChange() {
+      this._pointer.duration = this._playerState.videoInfo.duration;
+      this._wheelSeeker.duration = this._playerState.videoInfo.duration;
+      this._heatMap && (this._heatMap.chatList = this._chatList);
+    }
+    _onPlayerClose() {
+      this._stopTimer();
+    }
+    _onPlayerProgress(range, currentTime) {
+      this.setBufferedRange(range, currentTime);
+    }
+    _startTimer() {
+      this._timerCount = 0;
+      this._raf = this._raf || new RequestAnimationFrame(this._onTimer.bind(this));
+      this._raf.enable();
+    }
+    _stopTimer() {
+      this._raf && this._raf.disable();
+    }
+    _onSeekRangeInput(e) {
+      const sec = e.target.value * 1;
+      const left = sec / (e.target.max * 1) * this._width;
+      util.dispatchCommand(e.target, 'seek', sec);
+      this._seekBarToolTip.update(sec, left);
+      this._storyboard.setCurrentTime(sec, true);
+    }
+    _onSeekBarMouseDown(e) {
+      // e.preventDefault();
+      e.stopPropagation();
+      this._beginMouseDrag(e);
+    }
+    _onSeekBarMouseMove(e) {
+      if (!this._isDragging) {
+        e.stopPropagation();
+      }
+      let left = e.offsetX;
+      let sec = this._posToTime(left);
+      this._seekBarMouseX = left;
+
+      this._commentPreview.currentTime = sec;
+      this._commentPreview.update(left);
+
+      this._seekBarToolTip.update(sec, left);
+    }
+    _onWheelSeek(sec) {
+      if (!this._isWheelSeeking) {
+        return;
+      }
+      sec = sec * 1;
+      const dur = this._duration;
+      const left = sec / dur * window.innerWidth;
+      this._seekBarMouseX = left;
+
+      this._commentPreview.currentTime = sec;
+      this._commentPreview.update(left);
+
+      this._seekBarToolTip.update(sec, left);
+      this._storyboard.setCurrentTime(sec, true);
+    }
+    _beginMouseDrag() {
+      this._bindDragEvent();
+      this._$view.addClass('is-dragging');
+      this._isDragging = true;
+    }
+    _endMouseDrag() {
+      this._unbindDragEvent();
+      this._$view.removeClass('is-dragging');
+      this._isDragging = false;
+    }
+    _onBodyMouseUp(e) {
+      if ((e.button === 0 && e.shiftKey)) {
+        return;
+      }
+      this._endMouseDrag();
+    }
+    _onWindowBlur() {
+      this._endMouseDrag();
+    }
+    _bindDragEvent() {
+      util.$('body')
+        .on('mouseup.ZenzaWatchSeekBar', this._onBodyMouseUp.bind(this));
+
+      util.$(window).on('blur.ZenzaWatchSeekBar', this._onWindowBlur.bind(this), {once: true});
+    }
+    _unbindDragEvent() {
+      util.$('body')
+        .off('mouseup.ZenzaWatchSeekBar');
+      util.$(window).off('blur.ZenzaWatchSeekBar');
+    }
+    _onTimer() {
+      this._timerCount++;
+
+      const player = this._player;
+      const currentTime = this._isWheelSeeking ?
+        this._wheelSeeker.currentTime : player.currentTime;
+      if (this._timerCount % 6 === 0) {
+        this.currentTime = currentTime;
+      }
+      this._storyboard.currentTime = currentTime;
+    }
+    _onLoadVideoInfo(videoInfo) {
+      this.duration = videoInfo.duration;
+
+      if (!this._isFirstVideoInitialized) {
+        this._isFirstVideoInitialized = true;
+        const handler = (command, param) => this.emit('command', command, param);
+
+        global.emitter.emitAsync('videoControBar.addonMenuReady',
+          this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
+        );
+        global.emitter.emitAsync('seekBar.addonMenuReady',
+          this._$view[0].querySelector('.seekBar'), handler
+        );
+      }
+
+      this._resumePointer.setAttribute('duration', videoInfo.duration);
+      this._resumePointer.setAttribute('time', videoInfo.initialPlaybackTime);
+    }
+    get currentTime() {
+      return this._currentTime;
+    }
+    setCurrentTime(sec) {
+      this.currentTime = sec;
+    }
+    set currentTime(sec) {
+      if (this._currentTime === sec) { return; }
+      this._currentTime = sec;
+
+      const currentTimeText = util.secToTime(sec);
+      if (this._currentTimeText !== currentTimeText) {
+        this._currentTimeText = currentTimeText;
+        this.currentTimeLabel && (this.currentTimeLabel.text = currentTimeText);
+      }
+      this._pointer.currentTime = sec;
+    }
+    get duration() {
+      return this._duration;
+    }
+    set duration(sec) {
+      if (sec === this._duration) { return; }
+      this._duration = sec;
+      this._pointer.currentTime = -1;
+      this._pointer.duration = sec;
+      this._wheelSeeker.duration = sec;
+      this._seekRange.max = sec;
+
+      if (sec === 0 || isNaN(sec)) {
+        this.durationLabel && (this.durationLabel.text = '--:--');
+      } else {
+        this.durationLabel && (this.durationLabel.text = util.secToTime(sec));
+      }
+      this.emit('durationChange');
+    }
+    setBufferedRange(range, currentTime) {
+      const bufferRange = this._bufferRange;
+      if (!range || !range.length || !this._duration) {
+        return;
+      }
+      for (let i = 0, len = range.length; i < len; i++) {
+        try {
+          const start = range.start(i);
+          const end   = range.end(i);
+          const width = end - start;
+          if (start <= currentTime && end >= currentTime) {
+            if (this._bufferStart !== start ||
+                this._bufferEnd   !== end) {
+              const perLeft = (this._timeToPer(start) - 1);
+              const scaleX = (this._timeToPer(width) + 2) / 100;
+              bufferRange.style.setProperty('--buffer-range-left', cssUtil.percent(perLeft));
+              bufferRange.style.setProperty('--buffer-range-scale', scaleX);
+              this._bufferStart = start;
+              this._bufferEnd   = end;
+            }
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+    resetBufferedRange() {
+      this._bufferStart = 0;
+      this._bufferEnd = 0;
+      this._bufferRange.style.setProperty('--buffer-range-scale', 0);
+    }
+    _hideMenu() {
+      document.body.focus();
+    }
+  }
+
   VideoControlBar.BASE_HEIGHT = CONSTANT.CONTROL_BAR_HEIGHT;
   VideoControlBar.BASE_SEEKBAR_HEIGHT = 10;
 
-  VideoControlBar.__css__ = (`
-    .videoControlBar {
-      position: fixed;
-      top:  calc(-50vh + 50% + 100vh);
-      left: calc(-50vw + 50%);
-      transform: translate3d(0, -100%, 0);
-      width: 100vw;
-      height: ${VideoControlBar.BASE_HEIGHT}px;
-      z-index: 150000;
-      background: #000;
-      transition: opacity 0.3s ease, transform 0.3s ease;
+util.addStyle(`
+  .videoControlBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    transform: translate3d(0, 0, 0);
+    width: 100vw;
+    height: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
+    z-index: 150000;
+    background: #000;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    user-select: none;
+    contain: layout;
+  }
 
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      content: layout;
-    }
-    .changeScreenMode .videoControlBar {
-      opacity: 0;
-      transform: translate3d(0, 0, 0);
-      transition: none;
-    }
-    .zenzaScreenMode_small    .videoControlBar,
-    .zenzaScreenMode_sideView .videoControlBar,
-    .zenzaScreenMode_wide     .videoControlBar,
-    .fullScreen               .videoControlBar {
-      top: 100%;
-      left: 0;
-      width: 100%; /* 100vwだと縦スクロールバーと被る */
-    }
-    /* 縦長モニター */
-    @media
-      screen and
-      (max-width: 991px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_normal .videoControlBar {
-        left: calc(-50vw + 50%);
-        top: calc(-50vh + 50% + 100vh - 60px);
-      }
-    }
-    @media
-      screen and
-      (max-width: 1215px) and (min-height: 700px)
-    {
-      .zenzaScreenMode_big .videoControlBar {
-        left: calc(-50vw + 50%);
-        top: calc(-50vh + 50% + 100vh - 60px);
-      }
-    }
+  .videoControlBar * {
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  .videoControlBar.is-wheelSeeking {
+    pointer-events: none;
+  }
 
 
+  .controlItemContainer {
+    position: absolute;
+    top: 10px;
+    height: 40px;
+    z-index: 200;
+  }
+
+  .controlItemContainer:hover,
+  .controlItemContainer:focus-within,
+  .videoControlBar.is-menuOpen .controlItemContainer {
+    z-index: 260;
+  }
+
+  .controlItemContainer.left {
+    left: 0;
+    height: 40px;
+    white-space: nowrap;
+    overflow: visible;
+    transition: transform 0.2s ease, left 0.2s ease;
+  }
+  .controlItemContainer.left .scalingUI {
+    padding: 0 8px 0;
+  }
+  .controlItemContainer.left .scalingUI:empty {
+    display: none;
+  }
+  .controlItemContainer.left .scalingUI>* {
+    background: #222;
+    display: inline-block;
+  }
+
+  .controlItemContainer.center {
+    left: 50%;
+    height: 40px;
+    transform: translate(-50%, 0);
+    background:
+      linear-gradient(to bottom,
+      transparent, transparent 4px, #222 0, #222 30px, transparent 0, transparent);
+    white-space: nowrap;
+    overflow: visible;
+    transition: transform 0.2s ease, left 0.2s ease;
+  }
+
+  .controlItemContainer.center .scalingUI {
+    transform-origin: top center;
+  }
+  .controlItemContainer.center .scalingUI > div{
+    display: flex;
+    align-items: center;
+    height: 32px;
+  }
+
+  .controlItemContainer.right {
+    right: 0;
+  }
+
+  .is-mouseMoving .controlItemContainer.right .controlButton{
+    background: #333;
+  }
+  .controlItemContainer.right .scalingUI {
+    transform-origin: top right;
+  }
+
+  .controlButton {
+    position: relative;
+    display: inline-block;
+    transition: opacity 0.4s ease;
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    line-height: 30px;
+    box-sizing: border-box;
+    text-align: center;
+    cursor: pointer;
+    color: #fff;
+    opacity: 0.8;
+    min-width: 32px;
+    vertical-align: middle;
+    outline: none;
+  }
+  .controlButton:hover {
+    cursor: pointer;
+    opacity: 1;
+  }
+  .controlButton:active .controlButtonInner {
+    transform: translate(0, 2px);
+  }
+
+  .is-abort   .playControl,
+  .is-error   .playControl,
+  .is-loading .playControl {
+    opacity: 0.4 !important;
+    pointer-events: none;
+  }
 
 
-    .videoControlBar * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-    }
+  .controlButton .tooltip {
+    display: none;
+    pointer-events: none;
+    position: absolute;
+    left: 16px;
+    top: -30px;
+    transform:  translate(-50%, 0);
+    font-size: 12px;
+    line-height: 16px;
+    padding: 2px 4px;
+    border: 1px solid #000;
+    background: #ffc;
+    color: #000;
+    text-shadow: none;
+    white-space: nowrap;
+    z-index: 100;
+    opacity: 0.8;
+  }
+  .is-mouseMoving .controlButton:hover .tooltip {
+    display: block;
+    opacity: 1;
+  }
+  .videoControlBar:hover .controlButton {
+    opacity: 1;
+    pointer-events: auto;
+  }
 
-    .zenzaScreenMode_wide .videoControlBar,
-    .fullScreen           .videoControlBar {
-      position: absolute; /* firefoxのバグ対策 */
-      opacity: 0;
-      bottom: 0;
-      background: none;
-    }
+  .videoControlBar .controlButton:focus-within {
+    pointer-events: none;
+  }
+  .videoControlBar .controlButton:focus-within .zenzaPopupMenu,
+  .videoControlBar .controlButton              .zenzaPopupMenu:hover {
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 0.99;
+    pointer-events: auto;
+    transition: opacity 0.3s;
+  }
+  .videoControlBar .controlButton:focus-within .tooltip {
+    display: none;
+  }
 
-    .zenzaScreenMode_wide .volumeChanging .videoControlBar,
-    .fullScreen           .volumeChanging .videoControlBar,
-    .zenzaScreenMode_wide .is-mouseMoving    .videoControlBar,
-    .fullScreen           .is-mouseMoving    .videoControlBar {
-      opacity: 0.7;
-      background: rgba(0, 0, 0, 0.5);
-    }
-    .zenzaScreenMode_wide .showVideoControlBar .videoControlBar,
-    .fullScreen           .showVideoControlBar .videoControlBar {
-      opacity: 1 !important;
-      background: #000 !important;
-    }
+  .settingPanelSwitch {
+    width: 32px;
+  }
+  .settingPanelSwitch:hover {
+    text-shadow: 0 0 8px #ff9;
+  }
+  .settingPanelSwitch .tooltip {
+    left: 0;
+  }
+  .videoControlBar .zenzaSubMenu {
+    left: 50%;
+    transform: translate(-50%, 0);
+    bottom: 44px;
+    white-space: nowrap;
+  }
 
+  .videoControlBar .triangle {
+    transform: translate(-50%, 0) rotate(-45deg);
+    bottom: -8.5px;
+    left: 50%;
+  }
 
-    .zenzaScreenMode_wide .videoControlBar.dragging,
-    .fullScreen           .videoControlBar.dragging,
-    .zenzaScreenMode_wide .videoControlBar:hover,
-    .fullScreen           .videoControlBar:hover {
-      opacity: 1;
-      background: rgba(0, 0, 0, 0.9);
-    }
+  .videoControlBar .zenzaSubMenu::after {
+    content: '';
+    position: absolute;
+    display: block;
+    width: 110%;
+    height: 16px;
+    left: -5%;
+  }
 
-    .controlItemContainer {
-      position: absolute;
-      top: 10px;
-      height: 40px;
-      z-index: 200;
-    }
-
-    .controlItemContainer.left {
-      left: 0;
-      height: 40px;
-      white-space: nowrap;
-      overflow: visible;
-      transition: transform 0.2s ease, left 0.2s ease;
-    }
-    .controlItemContainer.left .scalingUI {
-      padding: 0 8px 0;
-    }
-    .controlItemContainer.left .scalingUI:empty{
-      display: none;
-    }
-    .is-mouseMoving .controlItemContainer.left .scalingUI>* {
-      background: #222;
-    }
-    .fullScreen .controlItemContainer.left {
-      top: auto;
-    }
+  .controlButtonInner {
+    display: inline-block;
+  }
 
 
+  .seekTop {
+    left: 0px;
+    width: 32px;
+    transform: scale(1.1);
+  }
+
+  .togglePlay {
+    width: 36px;
+    transition: transform 0.2s ease;
+    transform: scale(1.1);
+  }
+  .togglePlay:active {
+    transform: scale(0.75);
+  }
+
+  .togglePlay .play,
+  .togglePlay .pause {
+    display: inline-block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transition: transform 0.1s linear, opacity 0.1s linear;
+    user-select: none;
+    pointer-events: none;
+  }
+  .togglePlay .play {
+    width: 100%;
+    height: 100%;
+    transform: scale(1.2) translate(-50%, -50%) translate(10%, 10%);
+  }
+  .is-playing .togglePlay .play {
+    opacity: 0;
+  }
+  .togglePlay>.pause {
+    width: 24px;
+    height: 16px;
+    background-image: linear-gradient(
+      to right,
+      transparent 0, transparent 12.5%,
+      currentColor 0, currentColor 43.75%,
+      transparent 0, transparent 56.25%,
+      currentColor 0, currentColor 87.5%,
+      transparent 0);
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  .is-playing .togglePlay>.pause {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  .seekBarContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    cursor: pointer;
+    z-index: 250;
+  }
+  /* 見えないマウス判定 */
+  .seekBarContainer .seekBarShadow {
+    position: absolute;
+    background: transparent;
+    opacity: 0;
+    width: 100vw;
+    height: 8px;
+    top: -8px;
+  }
+  .is-mouseMoving .seekBarContainer:hover .seekBarShadow {
+    height: 48px;
+    top: -48px;
+  }
+
+  .is-abort   .seekBarContainer,
+  .is-loading .seekBarContainer,
+  .is-error   .seekBarContainer {
+    pointer-events: none;
+  }
+  .is-abort   .seekBarContainer *,
+  .is-error   .seekBarContainer * {
+    display: none;
+  }
+
+  .seekBar {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    margin: 2px 0 2px;
+    border-top:    1px solid #333;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: height 0.2s ease 1s, margin-top 0.2s ease 1s;
+  }
+
+  .seekBar:hover {
+    height: 24px;
+    /* このmargin-topは見えないマウスオーバー判定を含む */
+    margin-top: -14px;
+    transition: none;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .seekBarContainer .seekBar * {
+    pointer-events: none;
+  }
+
+  .bufferRange {
+    position: absolute;
+    --buffer-range-left: 0;
+    --buffer-range-scale: 0;
+    width: 100%;
+    height: 110%;
+    left: 0px;
+    top: 0px;
+    box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
+    z-index: 190;
+    background: #ff9;
+    transform-origin: left;
+    transform:
+      translateX(var(--buffer-range-left))
+      scaleX(var(--buffer-range-scale));
+    transition: transform 0.2s;
+    mix-blend-mode: overlay;
+    will-change: transform, opacity;
+    opacity: 0.6;
+  }
+
+  .is-youTube .bufferRange {
+    width: 100% !important;
+    height: 110% !important;
+    background: #f99;
+    transition: transform 0.5s ease 1s;
+    transform: translate3d(0, 0, 0) scaleX(1) !important;
+  }
+
+  .seekBarPointer {
+    --width-pp: 12px;
+    --trans-x-pp: 0;
+    position: absolute;
+    display: inline-block;
+    top: 50%;
+    left: 0;
+    width: var(--width-pp);
+    background: rgba(255, 255, 255, 0.7);
+    height: calc(100% + 2px);
+    z-index: 200;
+    box-shadow: 0 0 4px #ffc inset;
+    pointer-events: none;
+    transform: translate(calc(var(--trans-x-pp) - var(--width-pp) / 2), -50%);
+    will-change: transform;
+    mix-blend-mode: lighten;
+  }
+
+  .is-loading .seekBarPointer {
+    display: none !important;
+  }
+
+  .is-dragging .seekBarPointer.is-notSmooth {
+    transition: none;
+  }
+  .is-dragging .seekBarPointer::after,
+  .is-wheelSeeking .seekBarPointer::after {
+    content: '';
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 100%;
+    box-shadow: 0 0 8px #ffc inset, 0 0 8px #ffc;
+    pointer-events: none;
+  }
+
+  .seekBarContainer .seekBar .seekRange {
+    -webkit-appearance: none;
+    position: absolute;
+    width: 100vw;
+    height: 100%;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: auto;
+  }
+  .seekRange::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 10px;
+    width: 2px;
+  }
+  .seekRange::-moz-range-thumb {
+    height: 10px;
+    width: 2px;
+  }
+
+  .videoControlBar .videoTime {
+    display: inline-flex;
+    top: 0;
+    padding: 0;
+    width: 96px;
+    height: 18px;
+    line-height: 18px;
+    contain: strict;
+    color: #fff;
+    font-size: 12px;
+    white-space: nowrap;
+    vertical-align: middle;
+    background: rgba(33, 33, 33, 0.5);
+    border: 0;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .videoControlBar .videoTime .currentTimeLabel,
+  .videoControlBar .videoTime .currentTime,
+  .videoControlBar .videoTime .duration {
+    position: relative;
+    display: inline-block;
+    color: #fff;
+    text-align: center;
+    background: inherit;
+    border: 0;
+    width: 44px;
+    font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
+  }
+  .videoControlBar.is-loading .videoTime {
+    display: none;
+  }
+
+  .seekBarContainer .tooltip {
+    position: absolute;
+    padding: 1px;
+    bottom: 12px;
+    left: 0;
+    transform: translate(-50%, 0);
+    white-space: nowrap;
+    font-size: 10px;
+    opacity: 0;
+    border: 1px solid #000;
+    background: #fff;
+    color: #000;
+    z-index: 150;
+  }
+
+  .is-dragging .seekBarContainer .tooltip,
+  .seekBarContainer:hover .tooltip {
+    opacity: 0.8;
+  }
+
+  .resumePointer {
+    position: absolute;
+    mix-blend-mode: color-dodge;
+    top: 0;
+    z-index: 200;
+  }
+
+  .zenzaHeatMap {
+    position: absolute;
+    pointer-events: none;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0 0;
+    will-change: transform;
+    opacity: 0.5;
+    z-index: 110;
+  }
+  .noHeatMap .zenzaHeatMap {
+    display: none;
+  }
+
+  .loopSwitch {
+    width:  32px;
+    height: 32px;
+    line-height: 30px;
+    font-size: 20px;
+    color: #888;
+  }
+  .loopSwitch:active {
+    font-size: 15px;
+  }
+
+  .is-loop .loopSwitch {
+    color: var(--enabled-button-color);
+  }
+  .loopSwitch .controlButtonInner {
+    font-family: STIXGeneral;
+  }
+
+  .playbackRateMenu {
+    bottom: 0;
+    width: auto;
+    min-width: 40px;
+    height:    32px;
+    line-height: 30px;
+    font-size: 18px;
+    white-space: nowrap;
+    margin-right: 0;
+  }
+
+
+  .playbackRateSelectMenu {
+    width: 180px;
+    text-align: left;
+    line-height: 20px;
+    font-size: 18px !important;
+  }
+
+  .playbackRateSelectMenu ul {
+    margin: 2px 8px;
+  }
+
+  .playbackRateSelectMenu li {
+    padding: 3px 4px;
+  }
+
+  .screenModeMenu {
+    width:  32px;
+    height: 32px;
+    line-height: 30px;
+    font-size: 20px;
+  }
+  .screenModeMenu:active {
+    font-size: 15px;
+  }
+
+
+  .screenModeMenu:focus-within {
+    background: #888;
+  }
+  .screenModeMenu:focus-within .tooltip {
+    display: none;
+  }
+
+  .screenModeMenu:active {
+    font-size: 10px;
+  }
+
+  .screenModeSelectMenu {
+    width: 148px;
+    padding: 2px 4px;
+    font-size: 12px;
+    line-height: 15px;
+  }
+
+  .screenModeSelectMenu ul {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .screenModeSelectMenu ul li {
+    display: inline-block;
+    text-align: center;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .screenModeSelectMenu ul li span {
+    border: 1px solid #ccc;
+    width: 50px;
+    margin: 2px 8px;
+    padding: 4px 0;
+  }
+
+  body[data-screen-mode="3D"]       .screenModeSelectMenu li.mode3D span,
+  body[data-screen-mode="sideView"] .screenModeSelectMenu li.sideView span,
+  body[data-screen-mode="small"]    .screenModeSelectMenu li.small span,
+  body[data-screen-mode="normal"]   .screenModeSelectMenu li.normal span,
+  body[data-screen-mode="big"]      .screenModeSelectMenu li.big span,
+  body[data-screen-mode="wide"]     .screenModeSelectMenu li.wide span {
+    color: #ff9;
+    border-color: #ff0;
+  }
+
+  .fullscreenControlBarModeMenu {
+    display: none;
+  }
+  .fullscreenControlBarModeMenu .controlButtonInner {
+    filter: grayscale(100%);
+  }
+  .fullscreenControlBarModeMenu:focus-within .controlButtonInner,
+  .fullscreenControlBarModeMenu:hover .controlButtonInner {
+    filter: grayscale(50%);
+  }
+
+
+           .is-fullscreen  .fullscreenSwitch .controlButtonInner .toFull,
+  body:not(.is-fullscreen) .fullscreenSwitch .controlButtonInner .returnFull {
+    display: none;
+  }
+
+  .videoControlBar .muteSwitch {
+    margin-right: 0;
+  }
+  .videoControlBar .muteSwitch:active {
+    font-size: 15px;
+  }
+
+  .zenzaPlayerContainer:not(.is-mute) .muteSwitch .mute-on,
+                            .is-mute  .muteSwitch .mute-off {
+    display: none;
+  }
+
+  .videoControlBar .volumeControl {
+    display: inline-block;
+  }
+  .videoControlBar .volumeRange {
+    width: 64px;
+    height: 8px;
+    position: relative;
+    vertical-align: middle;
+    --back-color: #333;
+    --fore-color: #ccc;
+  }
+  .is-mute .videoControlBar .volumeRange  {
+    --fore-color: var(--back-color);
+    pointer-events: none;
+  }
+
+  .prevVideo.playControl,
+  .nextVideo.playControl {
+    display: none;
+  }
+  .is-playlistEnable .prevVideo.playControl,
+  .is-playlistEnable .nextVideo.playControl {
+    display: inline-block;
+  }
+
+  .prevVideo,
+  .nextVideo {
+    font-size: 23px;
+  }
+  .prevVideo .controlButtonInner {
+    transform: scaleX(-1);
+  }
+
+  .toggleStoryboard {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .storyboardAvailable .toggleStoryboard {
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
+    color: var(--enabled-button-color);
+  }
+
+  .toggleStoryboard .controlButtonInner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    border-radius: 75% 16%;
+    border: 1px solid;
+    transform: translate(-50%, -50%) rotate(45deg);
+    pointer-events: none;
+    background:
+      radial-gradient(
+        currentColor,
+        currentColor 6px,
+        transparent 0
+      );
+  }
+  .toggleStoryboard:active .controlButtonInner {
+    transform: translate(-50%, -50%) scaleY(0.1) rotate(45deg);
+  }
+
+  .toggleStoryboard:active {
+    transform: scale(0.75);
+  }
+
+  .videoServerTypeMenu {
+    bottom: 0;
+    min-width: 40px;
+    height:    32px;
+    line-height: 30px;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  .videoServerTypeMenu.is-dmc-playing  {
+    text-shadow:
+      0px 0px 8px var(--enabled-button-color),
+      0px 0px 6px var(--enabled-button-color),
+      0px 0px 4px var(--enabled-button-color),
+      0px 0px 2px var(--enabled-button-color);
+  }
+  .is-mouseMoving .videoServerTypeMenu.is-dmc-playing {
+    background: #336;
+  }
+  .is-youTube .videoServerTypeMenu {
+    text-shadow:
+      0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
+  }
+  .is-youTube .videoServerTypeMenu:not(.forYouTube),
+  .videoServerTypeMenu.forYouTube {
+    display: none;
+  }
+  .is-youTube .videoServerTypeMenu.forYouTube {
+    display: inline-block;
+  }
+
+
+  .videoServerTypeMenu:active {
+    font-size: 13px;
+  }
+  .videoServerTypeMenu:focus-within {
+    background: #888;
+  }
+  .videoServerTypeMenu:focus-within .tooltip {
+    display: none;
+  }
+
+  .videoServerTypeSelectMenu  {
+    bottom: 44px;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: 180px;
+    text-align: left;
+    line-height: 20px;
+    font-size: 16px !important;
+    text-shadow: none !important;
+    cursor: default;
+  }
+
+  .videoServerTypeSelectMenu ul {
+    margin: 2px 8px;
+  }
+
+  .videoServerTypeSelectMenu li {
+    padding: 3px 4px;
+  }
+
+  .videoServerTypeSelectMenu li.selected {
+    pointer-events: none;
+    text-shadow: 0 0 4px #99f, 0 0 8px #99f !important;
+  }
+
+  .videoServerTypeSelectMenu .smileVideoQuality,
+  .videoServerTypeSelectMenu .dmcVideoQuality {
+    font-size: 80%;
+    padding-left: 28px;
+  }
+
+  .videoServerTypeSelectMenu .currentVideoQuality {
+    color: #ccf;
+    font-size: 80%;
+    text-align: center;
+  }
+
+  .videoServerTypeSelectMenu .dmcVideoQuality.selected     span:before,
+  .videoServerTypeSelectMenu .smileVideoQuality.selected   span:before {
+    left: 22px;
+    font-size: 80%;
+  }
+
+  .videoServerTypeSelectMenu .currentVideoQuality.selected   span:before {
+    display: none;
+  }
+
+  /* dmcを使用不能の時はdmc選択とdmc画質選択を薄く */
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc,
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality,
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
+    opacity: 0.4;
+    pointer-events: none;
+    text-shadow: none !important;
+  }
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
+    display: none;
+  }
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-server-dmc span:before,
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality       span:before{
+    display: none !important;
+  }
+  .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType {
+    pointer-events: none;
+  }
+
+
+  /* dmcを使用している時はsmileの画質選択を薄く */
+  .is-dmc-playing .smileVideoQuality {
+    display: none;
+   }
+
+  /* dmcを選択していない状態ではdmcの画質選択を隠す */
+  .is-smile-playing .currentVideoQuality,
+  .is-smile-playing .dmcVideoQuality {
+    display: none;
+  }
+
+
+
+  @media screen and (max-width: 768px) {
     .controlItemContainer.center {
-      left: 50%;
-      height: 40px;
-      transform: translate(-50%, 0);
-      background: #222;
-      white-space: nowrap;
-      overflow: visible;
-      transition: transform 0.2s ease, left 0.2s ease;
-    }
-    .fullScreen .controlItemContainer.center {
-      top: auto;
-    }
-    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center {
-      background: transparent;
-    }
-
-
-
-    .controlItemContainer.center .scalingUI {
-      background: #222;
-      transform-origin: top center;
-    }
-
-    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
-      background: rgba(32, 32, 32, 0.5);
-    }
-    .fullScreen.zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
-      background: rgba(32, 32, 32, 0.8);
-    }
-
-    .controlItemContainer.right {
-      right: 0;
-    }
-    .fullScreen .controlItemContainer.right {
-      top: auto;
-    }
-
-    .is-mouseMoving .controlItemContainer.right {
-    }
-    .is-mouseMoving .controlItemContainer.right .controlButton{
-      background: #333;
-    }
-    .controlItemContainer.right .scalingUI {
-      transform-origin: top right;
-    }
-
-
-    .controlButton {
-      position: relative;
-      display: inline-block;
-      transition: opacity 0.4s ease, margin-left 0.2s ease, margin-top 0.2s ease;
-      box-sizing: border-box;
-      text-align: center;
-      cursor: pointer;
-      color: #fff;
-      opacity: 0.8;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-    .controlButton:hover {
-      text-shadow: 0 0 8px #ff9;
-      cursor: pointer;
-      opacity: 1;
-    }
-    .is-abort   .playControl,
-    .is-error   .playControl,
-    .is-loading .playControl {
-      opacity: 0.4 !important;
-      pointer-events: none;
-    }
-
-
-    .controlButton .tooltip {
-      display: none;
-      pointer-events: none;
-      position: absolute;
-      left: 16px;
-      top: -30px;
-      transform:  translate(-50%, 0);
-      font-size: 12px;
-      line-height: 16px;
-      padding: 2px 4px;
-      border: 1px solid !000;
-      background: #ffc;
-      color: #000;
-      text-shadow: none;
-      white-space: nowrap;
-      z-index: 100;
-      opacity: 0.8;
-    }
-    .is-mouseMoving .controlButton:hover .tooltip {
-      display: block;
-      opacity: 1;
-    }
-    .videoControlBar:hover .controlButton {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .settingPanelSwitch {
-      font-size: 20px;
-      line-height: 30px;
-      width: 32px;
-      height: 32px;
-      transition: font-size 0.2s ease;
-    }
-    .settingPanelSwitch:hover {
-      text-shadow: 0 0 8px #ff9;
-    }
-    .controlButton:active {
-      font-size: 15px;
-    }
-    .settingPanelSwitch .tooltip {
-      left: 0;
-    }
-
-
-    .controlButtonInner {
-      display: inline-block;
-    }
-
-
-    .seekTop {
-      left: 0px;
-      font-size: 23px;
-      width: 32px;
-      height: 32px;
-      margin-top: -2px;
-      line-height: 30px;
-    }
-    .seekTop .controlButtonInner{
-    }
-    .seekTop:active {
-      font-size: 18px;
-    }
-
-    .togglePlay {
-      font-size: 22px;
-      width: 32px;
-      height: 32px;
-      line-height: 30px;
-      box-sizing: border-box;
-      transition: font-size 0.2s ease;
-    }
-    .togglePlay:active {
-      font-size: 15px;
-    }
-
-    .togglePlay .pause,
-    .is-playing .togglePlay .play {
-      display: none;
-    }
-
-    .togglePlay>.pause {
-      letter-spacing: -10px;
-    }
-
-    .is-playing .togglePlay .pause {
-      display: block;
-    }
-
-    .seekBarContainer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      cursor: pointer;
-      z-index: 150;
-    }
-    .fullScreen .seekBarContainer {
-      top: auto;
-      bottom: 0;
-      z-index: 300;
-    }
-
-    /* 見えないマウス判定 */
-    .seekBarContainer .seekBarShadow {
-      position: absolute;
-      background: transparent;
-      opacity: 0;
-      width: 100vw;
-      height: 8px;
-      top: -8px;
-    }
-    .is-mouseMoving .seekBarContainer:hover .seekBarShadow {
-      height: 48px;
-      top: -48px;
-    }
-
-    .fullScreen .seekBarContainer:hover .seekBarShadow {
-      height: 14px;
-      top: -12px;
-    }
-
-    .is-abort   .seekBarContainer,
-    .is-loading .seekBarContainer,
-    .is-error   .seekBarContainer {
-      pointer-events: none;
-      webkit-filter: grayscale();
-      moz-filter: grayscale();
-      filter: grayscale();
-    }
-    .is-abort   .seekBarContainer *,
-    .is-loading .seekBarContainer *,
-    .is-error   .seekBarContainer * {
-      display: none;
-    }
-
-    .seekBar {
-      position: relative;
-      width: 100%;
-      height: 10px;
-      margin: px 0 2px;
-      border-top:    1px solid #333;
-      border-bottom: 1px solid #333;
-      cursor: pointer;
-      transition: height 0.2s ease 1s, margin-top 0.2s ease 1s;
-    }
-
-    .seekBar:hover {
-      height: 24px;
-      margin-top: -14px;
-      transition: none;
-    }
-
-    .fullScreen .seekBar {
-      margin-top: 0px;
-      margin-bottom: -14px;
-      height: 24px;
-      transition: none;
-    }
-
-
-    .is-mouseMoving .seekBar {
-      background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .seekBarContainer .seekBar * {
-      pointer-events: none;
-    }
-
-    .bufferRange {
-      position: absolute;
-      width: 100%;
-      height: 110%;
-      left: 0px;
-      top: 0px;
-      box-shadow: 0 0 6px #ff9 inset, 0 0 4px #ff9;
-      border-radius: 4px;
-      z-index: 100;
-      background: #663;
-      transform-origin: left;
-      transform: translate3d(0, 0, 0) scaleX(0);
-      transition: transform 0.2s;
-    }
-
-    .is-youTube .bufferRange {
-      width: 100% !important;
-      height: 110% !important;
-      box-shadow: 0 0 6px #f96 inset, 0 0 4px #ff9;
-      transition: transform 0.8s ease 0.4s;
-      transform: translate3d(0, 0, 0) scaleX(1) !important;
-    }
-
-    .zenzaStoryboardOpen .bufferRange {
-      background: #ff9;
-      mix-blend-mode: lighten;
-      opacity: 0.5;
-    }
-
-    .noHeatMap .bufferRange {
-      background: #666;
-    }
-
-
-    .seekBar .seekBarPointer {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      z-index: 200;
-      pointer-events: none;
-      transform: translate3d(0, 0, 0);
-      transform-origin: left middle;
-      transition: none;
-    }
-
-      .seekBar .seekBarPointerCore {
-        position: absolute;
-        top: 50%;
-        width: 12px;
-        height: 140%;
-        background: rgba(255, 255, 255, 0.6);
-        border-radius: 2px;
-        transform: translate3d(-50%, -50%, 0);
-        box-shadow: 0 0 4px #ffc, 0 0 8px #ff9, 0 0 4px #ffc inset;
-      }
-
-    .is-loading  .seekBar .seekBarPointer,
-    .dragging .seekBar .seekBarPointer {
-      transition: none;
-    }
-
-    .videoControlBar .videoTime {
-      display: inline-block;
-      top: 0;
-      padding: 0;
-      color: #fff;
-      font-size: 12px;
-      white-space: nowrap;
-      background: rgba(33, 33, 33, 0.5);
-      border: 0;
-      border-radius: 4px;
-      pointer-events: none;
-      user-select: none;
-    }
-    .videoControlBar .videoTime .currentTime,
-    .videoControlBar .videoTime .duration {
-      display: inline-block;
-      color: #fff;
-      text-align: center;
-      background: inherit;
-      border: 0;
-      width: 44px;
-      font-family: 'Yu Gothic', 'YuGothic', 'Courier New', Osaka-mono, 'ＭＳ ゴシック', monospace;
-    }
-
-    .videoControlBar.is-loading .videoTime {
-      display: none;
-    }
-
-    .seekBarContainer .tooltip {
-      position: absolute;
-      padding: 1px;
-      bottom: 12px;
-      left: 0;
-      transform: translate(-50%, 0);
-      white-space: nowrap;
-      font-size: 10px;
-      opacity: 0;
-      border: 1px solid #000;
-      background: #fff;
-      color: #000;
-      z-index: 150;
-    }
-
-    .dragging .seekBarContainer .tooltip,
-    .seekBarContainer:hover .tooltip {
-      opacity: 0.8;
-    }
-
-    .zenzaHeatMap {
-      position: absolute;
-      pointer-events: none;
-      top: 2px; left: 0;
-      width: 100%;
-      height: calc(100% - 2px);
-      transform-origin: 0 0 0;
-      transform: translateZ(0);
-      opacity: 0.5;
-      z-index: 110;
-    }
-    .noHeatMap .zenzaHeatMap {
-      display: none;
-    }
-
-
-    .loopSwitch {
-      width:  32px;
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
-      color: #888;
-    }
-    .loopSwitch:active {
-      font-size: 15px;
-    }
-
-    .is-loop .loopSwitch {
-      text-shadow: 0px 0px 2px #9cf;
-      color: #9cf;
-    }
-
-    .playbackRateMenu {
-      bottom: 0;
-      min-width: 40px;
-      height:    32px;
-      line-height: 30px;
-      font-size: 18px;
-      white-space: nowrap;
-      margin-right: 0;
-    }
-
-    .playbackRateMenu:active {
-      font-size: 13px;
-    }
-    .playbackRateMenu.show {
-      background: #888;
-    }
-    .playbackRateMenu.show .tooltip {
-      display: none;
-    }
-
-
-    .playbackRateSelectMenu  {
-      bottom: 44px;
-      left: 50%;
-      transform: translate(-50%, 0);
-      width: 180px;
-      text-align: left;
-      line-height: 20px;
-      font-size: 18px !important;
-    }
-
-    .playbackRateSelectMenu ul {
-      margin: 2px 8px;
-    }
-
-    .playbackRateSelectMenu .triangle {
-      transform: translate(-50%, 0) rotate(-45deg);
-      bottom: -9px;
-      left: 50%;
-    }
-
-    .playbackRateSelectMenu li {
-      padding: 3px 4px;
-    }
-
-    .screenModeMenu {
-      width:  32px;
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
-    }
-    .screenModeMenu:active {
-      font-size: 15px;
-    }
-
-
-    .screenModeMenu.show {
-      background: #888;
-    }
-    .screenModeMenu.show .tooltip {
-      display: none;
-    }
-
-    .screenModeMenu:active {
-      font-size: 10px;
-    }
-
-
-    .fullScreen .screenModeMenu {
-      display: none;
-    }
-
-    .screenModeSelectMenu {
-      left: 50%;
-      transform: translate(-50%, 0);
-      bottom: 44px;
-      width: 148px;
-      padding: 2px 4px;
-      font-size: 12px;
-      line-height: 15px;
-    }
-
-    .changeScreenMode .screenModeSelectMenu,
-    .fullScreen       .screenModeSelectMenu {
-      display: none;
-    }
-
-    .screenModeSelectMenu .triangle {
-      transform: translate(-50%, 0) rotate(-45deg);
-      bottom: -8.5px;
-      left: 50%;
-    }
-
-    .screenModeSelectMenu ul li {
-      display: inline-block;
-      text-align: center;
-      border-bottom: none;
-      margin: 0;
-      padding: 0;
-    }
-    .screenModeSelectMenu ul li span {
-      border: 1px solid #ccc;
-      width: 50px;
-      margin: 2px 8px;
-      padding: 4px 0;
-    }
-
-    .zenzaScreenMode_3D       .screenModeSelectMenu li.mode3D span,
-    .zenzaScreenMode_sideView .screenModeSelectMenu li.sideView span,
-    .zenzaScreenMode_small    .screenModeSelectMenu li.small span,
-    .zenzaScreenMode_normal   .screenModeSelectMenu li.normal span,
-    .zenzaScreenMode_big      .screenModeSelectMenu li.big span,
-    .zenzaScreenMode_wide     .screenModeSelectMenu li.wide span {
-      color: #ff9;
-      border-color: #ff0;
-    }
-
-
-    .fullScreenSwitch {
-      width:  32px;
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
-    }
-    .fullScreenSwitch:active {
-      font-size: 15px;
-    }
-
-             .fullScreen  .fullScreenSwitch .controlButtonInner .toFull,
-    body:not(.fullScreen) .fullScreenSwitch .controlButtonInner .returnFull {
-      display: none;
-    }
-
-
-    .videoControlBar .muteSwitch {
-      height: 32px;
-      line-height: 30px;
-      font-size: 20px;
-      margin-right: 0;
-    }
-    .is-mute .videoControlBar .muteSwitch {
-      color: #888;
-    }
-    .videoControlBar .muteSwitch:active {
-      font-size: 15px;
-    }
-
-    .zenzaPlayerContainer:not(.is-mute) .muteSwitch .mute-on,
-                              .is-mute  .muteSwitch .mute-off {
-      display: none;
-    }
-
-    .videoControlBar .volumeControl {
-      display: inline-block;
-      width: 80px;
-      position: relative;
-      vertical-align: middle;
-    }
-
-    .videoControlBar .volumeControl .volumeControlInner {
-      position: relative;
-      box-sizing: border-box;
-      width: 64px;
-      height: 8px;
-      border: 1px solid #888;
-      border-radius: 4px;
-      cursor: pointer;
-      overflow: hidden;
-    }
-
-    .videoControlBar .volumeControl .volumeControlInner .slideBar {
-      position: absolute;
-      width: 50%;
-      height: 100%;
-      left: 0;
-      bottom: 0;
-      background: #ccc;
-      pointer-events: none;
-
-    }
-
-    .videoControlBar .volumeControl .volumeBarPointer {
-      display: none;
-               /*
-      position: absolute;
-      top: 50%;
-      width: 6px;
-      height: 10px;
-      background: #ccc;
-      transform: translate(-50%, -50%);
-      z-index: 200;
-      pointer-events: none;
-      */
-    }
-
-    .videoControlBar .volumeControl .tooltip {
-      display: none;
-      pointer-events: none;
-      position: absolute;
-      left: 6px;
-      top: -24px;
-      font-size: 12px;
-      line-height: 16px;
-      padding: 2px 4px;
-      border: 1px solid !000;
-      background: #ffc;
-      color: black;
-      box-shadow: 2px 2px 2px #fff;
-      text-shadow: none;
-      white-space: nowrap;
-      z-index: 100;
-    }
-    .videoControlBar .volumeControl:hover .tooltip {
-      display: block;
-    }
-
-    .is-mute .videoControlBar .volumeControlInner {
-      pointer-events: none;
-    }
-    .is-mute .videoControlBar .volumeControlInner >* {
-      display: none;
-    }
-
-    .prevVideo.playControl,
-    .nextVideo.playControl {
-      display: none;
-    }
-    .is-playlistEnable .prevVideo.playControl,
-    .is-playlistEnable .nextVideo.playControl {
-      display: inline-block;
-    }
-
-    .prevVideo,
-    .nextVideo {
-      font-size: 23px;
-      width: 32px;
-      height: 32px;
-      margin-top: -2px;
-      line-height: 30px;
-    }
-    .prevVideo .controlButtonInner {
-      transform: scaleX(-1);
-    }
-
-    .prevVideo:active {
-      font-size: 18px;
-    }
-
-    .toggleStoryboard {
-      visibility: hidden;
-      font-size: 13px;
-      /*width: 32px;*/
-      height: 32px;
-      margin-top: -2px;
-      line-height: 36px;
-      pointer-events: none;
-    }
-    .storyboardAvailable .toggleStoryboard {
-      visibility: visible;
-      pointer-events: auto;
-    }
-    .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
-      text-shadow: 0px 0px 2px #9cf;
-      color: #9cf;
-    }
-
-    .toggleStoryboard .controlButtonInner {
-      transform: scaleX(-1);
-    }
-
-    .toggleStoryboard:active {
-      font-size: 10px;
-    }
-
-
-
-    .videoServerTypeMenu {
-      bottom: 0;
-      min-width: 40px;
-      height:    32px;
-      line-height: 30px;
-      font-size: 16px;
-      white-space: nowrap;
-    }
-    .is-dmcAvailable .videoServerTypeMenu  {
-      text-shadow:
-        0px 0px 8px #9cf, 0px 0px 6px #9cf, 0px 0px 4px #9cf, 0px 0px 2px #9cf;
-    }
-    .is-mouseMoving.is-dmcPlaying .videoServerTypeMenu  {
-      background: #336;
-    }
-    .is-youTube .videoServerTypeMenu {
-      text-shadow:
-        0px 0px 8px #fc9, 0px 0px 6px #fc9, 0px 0px 4px #fc9, 0px 0px 2px #fc9 !important;
-      pointer-events: none !important;
-    }
-
-
-    .videoServerTypeMenu:active {
-      font-size: 13px;
-    }
-    .videoServerTypeMenu.show {
-      background: #888;
-    }
-    .videoServerTypeMenu.show .tooltip {
-      display: none;
-    }
-
-
-    .videoServerTypeSelectMenu  {
-      bottom: 44px;
-      left: 50%;
-      transform: translate(-50%, 0);
-      width: 180px;
-      text-align: left;
-      line-height: 20px;
-      font-size: 16px !important;
-      text-shadow: none !important;
-      cursor: default;
-    }
-
-    .videoServerTypeSelectMenu ul {
-      margin: 2px 8px;
-    }
-
-    .videoServerTypeSelectMenu .triangle {
-      transform: translate(-50%, 0) rotate(-45deg);
-      bottom: -9px;
-      left: 50%;
-    }
-
-    .videoServerTypeSelectMenu li {
-      padding: 3px 4px;
-    }
-
-    .videoServerTypeSelectMenu li.selected {
-      pointer-events: none;
-      text-shadow: 0 0 4px #99f, 0 0 8px #99f !important;
-    }
-
-    .videoServerTypeSelectMenu .smileVideoQuality,
-    .videoServerTypeSelectMenu .dmcVideoQuality {
-      font-size: 80%;
-      padding-left: 28px;
-    }
-
-    .videoServerTypeSelectMenu .currentVideoQuality {
-      color: #ccf;
-      font-size: 80%;
-      text-align: center;
-    }
-
-    .videoServerTypeSelectMenu .dmcVideoQuality.selected     span:before,
-    .videoServerTypeSelectMenu .smileVideoQuality.selected   span:before {
-      left: 22px;
-      font-size: 80%;
-    }
-
-    .videoServerTypeSelectMenu .currentVideoQuality.selected   span:before {
-      display: none;
-    }
-
-    /* dmcを使用不能の時はdmc選択とdmc画質選択を薄く */
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc,
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality,
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
-      opacity: 0.4;
-      pointer-events: none;
-      text-shadow: none !important;
-    }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .currentVideoQuality {
-      display: none;
-    }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType.select-dmc span:before,
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .dmcVideoQuality       span:before{
-      display: none !important;
-    }
-    .zenzaPlayerContainer:not(.is-dmcAvailable) .serverType {
-      pointer-events: none;
-    }
-
-
-    /* dmcを使用している時はsmileの画質選択を薄く */
-    .zenzaPlayerContainer.is-dmcPlaying .smileVideoQuality {
-      opacity: 0.4;
-      pointer-events: none;
-    }
-
-    /* dmcを選択していない状態ではdmcの画質選択を隠す */
-    .videoServerTypeSelectMenu:not(.is-dmcEnable) .currentVideoQuality,
-    .videoServerTypeSelectMenu:not(.is-dmcEnable) .dmcVideoQuality {
-      display: none;
-    }
-
-
-
-    @media screen and (max-width: 864px) {
-      .controlItemContainer.center {
-        left: 0%;
-        transform: translate(0, 0);
-      }
-    }
-
-  `).trim();
+      left: 0%;
+      transform: translate(0, 0);
+    }
+  }
+
+  .ZenzaWatchVer {
+    display: none;
+  }
+  .ZenzaWatchVer[data-env="DEV"] {
+    display: inline-block;
+    color: #999;
+    position: absolute;
+    right: 0;
+    background: transparent !important;
+    transform: translate(100%, 0);
+    font-size: 12px;
+    line-height: 32px;
+    pointer-events: none;
+  }
+
+  .progressWave {
+    display: none;
+  }
+  .is-stalled .progressWave,
+  .is-loading .progressWave {
+    display: inline-block;
+    position: absolute;
+    left: 0;
+    top: 1px;
+    z-index: 400;
+    width: 40%;
+    height: calc(100% - 2px);
+    background: linear-gradient(
+      to right,
+      rgba(0,0,0,0),
+      ${util.toRgba('#ffffcc', 0.3)},
+      rgba(0,0,0)
+    );
+    mix-blend-mode: lighten;
+    animation-name: progressWave;
+    animation-iteration-count: infinite;
+    animation-duration: 4s;
+    animation-timing-function: linear;
+    animation-delay: -1s;
+  }
+  @keyframes progressWave {
+    0%   { transform: translate3d(-100%, 0, 0) translate3d(-5vw, 0, 0); }
+    100% { transform: translate3d(100%, 0, 0) translate3d(150vw, 0, 0); }
+  }
+  .is-seeking .progressWave {
+    display: none;
+  }
+
+
+`, {className: 'videoControlBar'});
+util.addStyle(`
+  .videoControlBar {
+    width: 100% !important; /* 100vwだと縦スクロールバーと被る */
+  }
+`, {className: 'screenMode for-popup videoControlBar', disabled: true});
+util.addStyle(`
+  body .videoControlBar {
+    position: absolute !important; /* firefoxのバグ対策 */
+    opacity: 0;
+    background: none;
+  }
+
+  .volumeChanging .videoControlBar,
+  .is-mouseMoving .videoControlBar {
+    opacity: 0.7;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .showVideoControlBar .videoControlBar {
+    opacity: 1 !important;
+    background: #000 !important;
+  }
+
+  .videoControlBar.is-dragging,
+  .videoControlBar:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.9);
+  }
+
+  .fullscreenControlBarModeMenu {
+    display: inline-block;
+  }
+
+  .fullscreenControlBarModeSelectMenu {
+    padding: 2px 4px;
+    font-size: 12px;
+    line-height: 15px;
+    font-size: 16px !important;
+    text-shadow: none !important;
+  }
+
+  .fullscreenControlBarModeSelectMenu ul {
+    margin: 2px 8px;
+  }
+
+  .fullscreenControlBarModeSelectMenu li {
+    padding: 3px 4px;
+  }
+
+  .videoServerTypeSelectMenu li.selected {
+    pointer-events: none;
+    text-shadow: 0 0 4px #99f, 0 0 8px #99f !important;
+  }
+
+  .fullscreenControlBarModeMenu li:focus-within,
+  body[data-fullscreen-control-bar-mode="auto"] .fullscreenControlBarModeMenu [data-param="auto"],
+  body[data-fullscreen-control-bar-mode="always-show"] .fullscreenControlBarModeMenu [data-param="always-show"],
+  body[data-fullscreen-control-bar-mode="always-hide"] .fullscreenControlBarModeMenu [data-param="always-hide"] {
+    color: #ff9;
+    outline: none;
+  }
+
+`, {className: 'screenMode for-full videoControlBar', disabled: true});
+util.addStyle(`
+  .screenModeSelectMenu {
+    display: none;
+  }
+
+  .controlItemContainer.left {
+    top: auto;
+    transform-origin: top left;
+  }
+  .seekBarContainer {
+    top: auto;
+    bottom: 0;
+    z-index: 300;
+  }
+  .seekBarContainer:hover .seekBarShadow {
+    height: 14px;
+    top: -12px;
+  }
+  .seekBar {
+    margin-top: 0px;
+    margin-bottom: -14px;
+    height: 24px;
+    transition: none;
+  }
+  .screenModeMenu {
+    display: none;
+  }
+  .controlItemContainer.center {
+    top: auto;
+  }
+  .zenzaStoryboardOpen .controlItemContainer.center {
+    background: transparent;
+  }
+  .zenzaStoryboardOpen .controlItemContainer.center .scalingUI {
+    background: rgba(32, 32, 32, 0.5);
+  }
+  .zenzaStoryboardOpen .controlItemContainer.center .scalingUI:hover {
+    background: rgba(32, 32, 32, 0.8);
+  }
+  .controlItemContainer.right {
+    top: auto;
+  }
+
+`, {className: 'screenMode for-screen-full videoControlBar', disabled: true});
 
   VideoControlBar.__tpl__ = (`
-    <div class="videoControlBar">
+    <div class="videoControlBar" data-command="nop">
 
       <div class="seekBarContainer">
         <div class="seekBarShadow"></div>
         <div class="seekBar">
-          <div class="seekBarPointer">
-            <div class="seekBarPointerCore"></div>
-          </div>
+          <div class="seekBarPointer"></div>
           <div class="bufferRange"></div>
+          <div class="progressWave"></div>
+          <input type="range" class="seekRange" min="0" step="any">
+          <canvas width="200" height="10" class="heatMap zenzaHeatMap"></canvas>
         </div>
+        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た">
+        </zenza-seekbar-label>
       </div>
 
       <div class="controlItemContainer left">
-        <div class="scalingUI"></div>
+        <div class="scalingUI">
+          <div class="ZenzaWatchVer" data-env="${ZenzaWatch.env}">ver ${ZenzaWatch.version}${ZenzaWatch.env === 'DEV' ? '(Dev)' : ''}</div>
+        </div>
       </div>
       <div class="controlItemContainer center">
         <div class="scalingUI">
-          <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
-            <div class="controlButtonInner">&lt;●&gt;</div>
-            <div class="tooltip">シーンサーチ</div>
-          </div>
-
-          <div class="loopSwitch controlButton playControl" data-command="toggleLoop">
-            <div class="controlButtonInner">&#8635;</div>
-            <div class="tooltip">リピート</div>
-          </div>
-
-           <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
-            <div class="controlButtonInner">&#8676;<!-- &#x23EE; --><!--&#9475;&#9666;&#9666;--></div>
-            <div class="tooltip">先頭</div>
-          </div>
-
-          <div class="togglePlay controlButton playControl" data-command="togglePlay">
-            <span class="play">▶</span>
-            <span class="pause">&#10073; &#10073;<!--&#x2590;&#x2590;--><!-- &#x23F8; --> <!--&#12307; --></span>
-            <div class="tooltip">
-              <span class="play">再生</span>
-              <span class="pause">一時停止</span>
+          <div class="seekBarContainer-mainControl">
+            <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
+              <div class="controlButtonInner">&#x27A0;</div>
+              <div class="tooltip">前の動画</div>
             </div>
-          </div>
 
-          <div class="playbackRateMenu controlButton " data-command="playbackRateMenu">
-            <div class="controlButtonInner">x1</div>
-            <div class="tooltip">再生速度</div>
-            <div class="playbackRateSelectMenu zenzaPopupMenu">
-              <div class="triangle"></div>
-              <p class="caption">再生速度</p>
-              <ul>
-                <li class="playbackRate" data-rate="10" ><span>10倍</span></li>
-                <li class="playbackRate" data-rate="5"  ><span>5倍</span></li>
-                <li class="playbackRate" data-rate="4"  ><span>4倍</span></li>
-                <li class="playbackRate" data-rate="3"  ><span>3倍</span></li>
-                <li class="playbackRate" data-rate="2"  ><span>2倍</span></li>
-
-                <li class="playbackRate" data-rate="1.75"><span>1.75倍</span></li>
-                <li class="playbackRate" data-rate="1.5"><span>1.5倍</span></li>
-                <li class="playbackRate" data-rate="1.25"><span>1.25倍</span></li>
-
-                <li class="playbackRate" data-rate="1.0"><span>標準速度(x1)</span></li>
-                <li class="playbackRate" data-rate="0.75"><span>0.75倍</span></li>
-                <li class="playbackRate" data-rate="0.5"><span>0.5倍</span></li>
-                <li class="playbackRate" data-rate="0.25"><span>0.25倍</span></li>
-                <li class="playbackRate" data-rate="0.1"><span>0.1倍</span></li>
-              </ul>
+            <div class="toggleStoryboard controlButton playControl forPremium" data-command="toggleStoryboard">
+              <div class="controlButtonInner"></div>
+              <div class="tooltip">シーンサーチ</div>
             </div>
-          </div>
 
-          <div class="videoTime">
-            <input type="text" class="currentTime" value="00:00">/<input type="text" class="duration" value="00:00">
-          </div>
-
-          <div class="muteSwitch controlButton" data-command="toggleMute">
-            <div class="tooltip">ミュート(M)</div>
-            <div class="menuButtonInner mute-off">&#x1F50A;</div>
-            <div class="menuButtonInner mute-on">&#x1F507;</div>
-          </div>
-
-          <div class="volumeControl">
-            <div class="tooltip">音量調整</div>
-            <div class="volumeControlInner">
-              <div class="slideBar"></div>
-              <div class="volumeBarPointer"></div>
+            <div class="loopSwitch controlButton playControl" data-command="toggle-loop">
+              <div class="controlButtonInner">&#8635;</div>
+              <div class="tooltip">リピート</div>
             </div>
+
+            <div class="seekTop controlButton playControl" data-command="seek" data-param="0">
+              <div class="controlButtonInner">&#8676;</div>
+              <div class="tooltip">先頭</div>
+            </div>
+
+            <div class="togglePlay controlButton playControl" data-command="togglePlay">
+              <span class="pause"></span>
+              <span class="play">▶</span>
+            </div>
+
+            <div class="playbackRateMenu controlButton" tabindex="-1" data-has-submenu="1">
+              <div class="controlButtonInner">x1</div>
+              <div class="tooltip">再生速度</div>
+              <div class="playbackRateSelectMenu zenzaPopupMenu zenzaSubMenu">
+                <div class="triangle"></div>
+                <p class="caption">再生速度</p>
+                <ul>
+                  <li class="playbackRate" data-command="playbackRate" data-param="10"><span>10倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="5"  ><span>5倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="4"  ><span>4倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="3"  ><span>3倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="2"  ><span>2倍</span></li>
+
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.75"><span>1.75倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.5"><span>1.5倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.25"><span>1.25倍</span></li>
+
+                  <li class="playbackRate" data-command="playbackRate" data-param="1.0"><span>標準速度(x1)</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.75"><span>0.75倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.5"><span>0.5倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.25"><span>0.25倍</span></li>
+                  <li class="playbackRate" data-command="playbackRate" data-param="0.1"><span>0.1倍</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="videoTime">
+              <span class="currentTimeLabel"></span>/<span class="durationLabel"></span>
+            </div>
+
+            <div class="muteSwitch controlButton" data-command="toggle-mute">
+              <div class="tooltip">ミュート(M)</div>
+              <div class="menuButtonInner mute-off">&#x1F50A;</div>
+              <div class="menuButtonInner mute-on">&#x1F507;</div>
+            </div>
+
+            <div class="volumeControl">
+              <zenza-range-bar><input class="volumeRange" type="range" value="0.5" min="0.01" max="1" step="any"></zenza-range-bar>
+            </div>
+
+            <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
+              <div class="controlButtonInner">&#x27A0;</div>
+              <div class="tooltip">次の動画</div>
+            </div>
+
           </div>
-
-           <div class="prevVideo controlButton playControl" data-command="playPreviousVideo" data-param="0">
-            <div class="controlButtonInner">&#x27A0;</div>
-            <div class="tooltip">前の動画</div>
-          </div>
-
-           <div class="nextVideo controlButton playControl" data-command="playNextVideo" data-param="0">
-            <div class="controlButtonInner">&#x27A0;</div>
-            <div class="tooltip">次の動画</div>
-          </div>
-
-
         </div>
       </div>
 
@@ -1027,51 +1556,71 @@ var CONSTANT = {};
 
         <div class="scalingUI">
 
-          <div class="videoServerTypeMenu controlButton" data-command="videoServerTypeMenu">
+          <div class="videoServerTypeMenu controlButton forYouTube" data-command="reload" title="ZenTube解除">
             <div class="controlButtonInner">画</div>
+          </div>
+          <div class="videoServerTypeMenu controlButton" tabindex="-1" data-has-submenu="1">
+            <div class="controlButtonInner">画</div>
+
             <div class="tooltip">動画サーバー・画質</div>
-            <div class="videoServerTypeSelectMenu zenzaPopupMenu">
+            <div class="videoServerTypeSelectMenu zenzaPopupMenu zenzaSubMenu">
               <div class="triangle"></div>
               <p class="caption">動画サーバー・画質</p>
               <ul>
 
-                <li class="serverType select-dmc   exec-command" data-command="update-enableDmc" data-param="true"  data-type="bool">
+                <li class="serverType select-server-dmc" data-command="update-videoServerType" data-param="dmc">
                   <span>新システムを使用</span>
                   <p class="currentVideoQuality"></p>
                 </li>
 
 
-                <li class="dmcVideoQuality selected exec-command select-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
-                <li class="dmcVideoQuality selected exec-command select-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
-                <li class="dmcVideoQuality selected exec-command select-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
+                <li class="dmcVideoQuality selected select-dmc-auto" data-command="update-dmcVideoQuality" data-param="auto"><span>自動(auto)</span></li>
+                <li class="dmcVideoQuality selected select-dmc-veryhigh" data-command="update-dmcVideoQuality" data-param="veryhigh"><span>超(1080) 優先</span></li>
+                <li class="dmcVideoQuality selected select-dmc-high" data-command="update-dmcVideoQuality" data-param="high"><span>高(720) 優先</span></li>
+                <li class="dmcVideoQuality selected select-dmc-mid"  data-command="update-dmcVideoQuality" data-param="mid"><span>中(480-540)</span></li>
+                <li class="dmcVideoQuality selected select-dmc-low"  data-command="update-dmcVideoQuality" data-param="low"><span>低(360)</span></li>
 
-                <li class="serverType select-smile exec-command" data-command="update-enableDmc" data-param="false" data-type="bool"><span>旧システムを使用</span></li>
-                <li class="smileVideoQuality select-default exec-command" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
-                <li class="smileVideoQuality select-economy exec-command" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
+                <li class="serverType select-server-smile" data-command="update-videoServerType" data-param="smile">
+                  <span>旧システムを使用</span>
+                </li>
+                <li class="smileVideoQuality select-smile-default" data-command="update-forceEconomy" data-param="false" data-type="bool"><span>自動</span></li>
+                <li class="smileVideoQuality select-smile-economy" data-command="update-forceEconomy" data-param="true"  data-type="bool"><span>エコノミー固定</span></li>
              </ul>
             </div>
           </div>
 
-          <div class="screenModeMenu controlButton" data-command="screenModeMenu">
+          <div class="screenModeMenu controlButton" tabindex="-1" data-has-submenu="1">
             <div class="tooltip">画面サイズ・モード変更</div>
             <div class="controlButtonInner">&#9114;</div>
-            <div class="screenModeSelectMenu zenzaPopupMenu">
+            <div class="screenModeSelectMenu zenzaPopupMenu zenzaSubMenu">
               <div class="triangle"></div>
               <p class="caption">画面モード</p>
               <ul>
-                <li class="screenMode mode3D"   data-command="screenMode" data-screen-mode="3D"><span>3D</span></li>
-                <li class="screenMode small"    data-command="screenMode" data-screen-mode="small"><span>小</span></li>
-                <li class="screenMode sideView" data-command="screenMode" data-screen-mode="sideView"><span>横</span></li>
-                <li class="screenMode normal"   data-command="screenMode" data-screen-mode="normal"><span>中</span></li>
-                <li class="screenMode wide"     data-command="screenMode" data-screen-mode="wide"><span>WIDE</span></li>
-                <li class="screenMode big"      data-command="screenMode" data-screen-mode="big"><span>大</span></li>
+                <li class="screenMode mode3D"   data-command="screenMode" data-param="3D"><span>3D</span></li>
+                <li class="screenMode small"    data-command="screenMode" data-param="small"><span>小</span></li>
+                <li class="screenMode sideView" data-command="screenMode" data-param="sideView"><span>横</span></li>
+                <li class="screenMode normal"   data-command="screenMode" data-param="normal"><span>中</span></li>
+                <li class="screenMode wide"     data-command="screenMode" data-param="wide"><span>WIDE</span></li>
+                <li class="screenMode big"      data-command="screenMode" data-param="big"><span>大</span></li>
               </ul>
             </div>
           </div>
 
-          <div class="fullScreenSwitch controlButton" data-command="fullScreen">
+          <div class="fullscreenControlBarModeMenu controlButton" tabindex="-1" data-has-submenu="1">
+            <div class="tooltip">ツールバーの表示</div>
+            <div class="controlButtonInner">&#128204;</div>
+            <div class="fullscreenControlBarModeSelectMenu zenzaPopupMenu zenzaSubMenu">
+              <div class="triangle"></div>
+              <p class="caption">ツールバーの表示</p>
+              <ul>
+                <li tabindex="-1" data-command="update-fullscreenControlBarMode" data-param="always-show"><span>常に固定</span></li>
+                <li tabindex="-1" data-command="update-fullscreenControlBarMode" data-param="always-hide"><span>常に隠す</span></li>
+                <li tabindex="-1" data-command="update-fullscreenControlBarMode" data-param="auto"><span>画面サイズ自動</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="fullscreenSwitch controlButton" data-command="fullscreen">
             <div class="tooltip">フルスクリーン(F)</div>
             <div class="controlButtonInner">
               <!-- TODO: YouTubeと同じにする -->
@@ -1091,1324 +1640,740 @@ var CONSTANT = {};
     </div>
   `).trim();
 
-  _.assign(VideoControlBar.prototype, {
-    initialize: function(params) {
-      this._playerConfig        = params.playerConfig;
-      this._$playerContainer    = params.$playerContainer;
-      var player = this._player = params.player;
+//@require HeatMapWorker
 
-      player.on('open',           this._onPlayerOpen.bind(this));
-      player.on('canPlay',        this._onPlayerCanPlay.bind(this));
-      player.on('durationChange', this._onPlayerDurationChange.bind(this));
-      player.on('close',          this._onPlayerClose.bind(this));
-      player.on('progress',       this._onPlayerProgress.bind(this));
-      player.on('loadVideoInfo',  this._onLoadVideoInfo.bind(this));
-      player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
-      player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
-
-      this._initializeDom();
-      this._initializeScreenModeSelectMenu();
-      this._initializePlaybackRateSelectMenu();
-      this._initializeVolumeControl();
-      this._initializeVideoServerTypeSelectMenu();
-      this._isFirstVideoInitialized = false;
-
-      ZenzaWatch.debug.videoControlBar = this;
-    },
-    _initializeDom: function() {
-      util.addStyle(VideoControlBar.__css__);
-      var $view = this._$view = $(VideoControlBar.__tpl__);
-      var $container = this._$playerContainer;
-      var config = this._playerConfig;
-      var onCommand = (command, param) => { this.emit('command', command, param); };
-
-      this._$seekBarContainer = $view.find('.seekBarContainer');
-      this._$seekBar          = $view.find('.seekBar');
-      this._$seekBarPointer = $view.find('.seekBarPointer');
-      this._$bufferRange    = $view.find('.bufferRange');
-      this._$tooltip        = $view.find('.seekBarContainer .tooltip');
-      $view.on('click', (e) => {
-        e.stopPropagation();
-        ZenzaWatch.emitter.emitAsync('hideHover');
-      });
-
-      this._$seekBar
-        .on('mousedown', this._onSeekBarMouseDown.bind(this))
-        .on('mousemove', this._onSeekBarMouseMove.bind(this))
-        .on('mousemove', _.debounce(this._onSeekBarMouseMoveEnd.bind(this), 1000));
-
-      $view.find('.controlButton')
-        .on('click', this._onControlButton.bind(this));
-
-      this._$currentTime = $view.find('.currentTime');
-      this._$duration    = $view.find('.duration');
-
-      this._heatMap = new HeatMap({
-        $container: this._$seekBarContainer.find('.seekBar')
-      });
-      var updateHeatMapVisibility = (v) => {
-        this._$seekBarContainer.toggleClass('noHeatMap', !v);
-      };
-      updateHeatMapVisibility(this._playerConfig.getValue('enableHeatMap'));
-      this._playerConfig.on('update-enableHeatMap', updateHeatMapVisibility);
-
-      this._storyboard = new Storyboard({
-        playerConfig: config,
-        player: this._player,
-        $container: $view
-      });
-
-      this._storyboard.on('command', onCommand);
-
-      this._seekBarToolTip = new SeekBarToolTip({
-        $container: this._$seekBarContainer,
-        storyboard: this._storyboard
-      });
-      this._seekBarToolTip.on('command', onCommand);
-
-      this._commentPreview = new CommentPreview({
-        $container: this._$seekBarContainer
-      });
-      this._commentPreview.on('command', onCommand);
-      var updateEnableCommentPreview = (v) => {
-        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
-        this._commentPreview.setIsEnable(v);
-      };
-
-      updateEnableCommentPreview(config.getValue('enableCommentPreview'));
-      config.on('update-enableCommentPreview', updateEnableCommentPreview);
-
-      this._$screenModeMenu       = $view.find('.screenModeMenu');
-      this._$screenModeSelectMenu = $view.find('.screenModeSelectMenu');
-
-      this._$playbackRateMenu       = $view.find('.playbackRateMenu');
-      this._$playbackRateSelectMenu = $view.find('.playbackRateSelectMenu');
-
-      this._$videoServerTypeMenu       = $view.find('.videoServerTypeMenu');
-      this._$videoServerTypeSelectMenu = $view.find('.videoServerTypeSelectMenu');
-
-
-      ZenzaWatch.emitter.on('hideHover', () => {
-        this._hideMenu();
-        this._commentPreview.hide();
-      });
-
-      $container.append($view);
-      this._width = this._$seekBarContainer.innerWidth();
-    },
-    _initializeScreenModeSelectMenu: function() {
-      var self = this;
-      var $menu = this._$screenModeSelectMenu;
-
-      $menu.on('click', 'span', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target).closest('.screenMode');
-        var mode     = $target.attr('data-screen-mode');
-
-        self.emit('command', 'screenMode', mode);
-      });
-
-    },
-    _initializePlaybackRateSelectMenu: function() {
-      var self = this;
-      var config = this._playerConfig;
-      var $btn  = this._$playbackRateMenu;
-      var $label = $btn.find('.controlButtonInner');
-      var $menu = this._$playbackRateSelectMenu;
-
-      $menu.on('click', '.playbackRate', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var $target  = $(e.target).closest('.playbackRate');
-        var rate     = parseFloat($target.attr('data-rate'), 10);
-        self.emit('command', 'playbackRate', rate);
-      });
-
-      var updatePlaybackRate = function(rate) {
-        $label.text('x' + rate);
-        $menu.find('.selected').removeClass('selected');
-        var fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
-        $menu.find('.playbackRate').each(function(i, item) {
-          var $item = $(item);
-          var r = parseFloat($item.attr('data-rate'), 10);
-          if (fr === r) {
-            $item.addClass('selected');
-          }
-        });
-      };
-
-      updatePlaybackRate(config.getValue('playbackRate'));
-      config.on('update-playbackRate', updatePlaybackRate);
-    },
-    _initializeVolumeControl: function() {
-      var $container = this._$view.find('.volumeControl');
-      var $tooltip = $container.find('.tooltip');
-      var $bar     = $container.find('.slideBar');
-      var $pointer = $container.find('.volumeBarPointer');
-      var $body    = $('body');
-      var $window  = $(window);
-      var config   = this._playerConfig;
-      var self = this;
-
-      var setVolumeBar = this._setVolumeBar = function(v) {
-        var per = Math.round(v * 100);
-        $bar.css({ width: per + '%'});
-        $pointer.css({ left: per + '%'});
-        $tooltip.text('音量 (' + per + '%)');
-      };
-
-      var $inner = $container.find('.volumeControlInner');
-      var posToVol = function(x) {
-        var width = $inner.outerWidth();
-        var vol = x / width;
-        return Math.max(0, Math.min(vol, 1.0));
-      };
-
-      var onBodyMouseMove = function(e) {
-        var offset = $inner.offset();
-        var scale = Math.max(0.1, parseFloat(config.getValue('menuScale'), 10));
-        var left = (e.clientX - offset.left) / scale;
-        var vol = posToVol(left);
-
-        self.emit('command', 'volume', vol);
-      };
-
-      var bindDragEvent = function() {
-        $body
-          .on('mousemove.ZenzaWatchVolumeBar', onBodyMouseMove)
-          .on('mouseup.ZenzaWatchVolumeBar',   onBodyMouseUp);
-        $window.on('blur.ZenzaWatchVolumeBar', onWindowBlur);
-      };
-      var unbindDragEvent = function() {
-        $body
-          .off('mousemove.ZenzaWatchVolumeBar')
-          .off('mouseup.ZenzaWatchVolumeBar');
-        $window.off('blur.ZenzaWatchVolumeBar');
-      };
-      var beginMouseDrag = function() {
-        bindDragEvent();
-        $container.addClass('dragging');
-      };
-      var endMouseDrag = function() {
-        unbindDragEvent();
-        $container.removeClass('dragging');
-      };
-      var onBodyMouseUp = function() {
-        endMouseDrag();
-      };
-      var onWindowBlur = function() {
-        endMouseDrag();
-      };
-
-      var onVolumeBarMouseDown = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        var vol = posToVol(e.offsetX);
-        self.emit('command', 'volume', vol);
-
-        beginMouseDrag();
-      };
-      $inner.on('mousedown', onVolumeBarMouseDown);
-
-      setVolumeBar(this._playerConfig.getValue('volume'));
-      this._playerConfig.on('update-volume', setVolumeBar);
-    },
-    _initializeVideoServerTypeSelectMenu: function() {
-      const config = this._playerConfig;
-      //const $btn   = this._$videoServerTypeMenu;
-      //const $label = $btn.find('.controlButtonInner');
-      const $menu  = this._$videoServerTypeSelectMenu;
-      const $current = $menu.find('.currentVideoQuality');
-
-      $menu.on('click', '.exec-command', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const $target  = $(e.target).closest('.exec-command');
-        const command  = $target.attr('data-command');
-        if (!command) { return; }
-        var   param    = $target.attr('data-param');
-        const type     = $target.attr('data-type');
-        if (param && type === 'bool') {
-          param = JSON.parse(param);
-        }
-        this.toggleVideoServerTypeMenu(false);
-        //$menu.removeClass('show');
-        this.emit('command', command, param);
-      });
-
-      const updateEnableDmc = function(value) {
-        $menu.toggleClass('is-dmcEnable', value);
-        const $d = $menu.find('.serverType');
-        $d.removeClass('selected');
-        $menu.find('.select-' + (value ? 'dmc' : 'smile')).addClass('selected');
-      };
-
-      const updateForceEconomy = function(value) {
-        const $dq = $menu.find('.smileVideoQuality');
-        $dq.removeClass('selected');
-        $menu.find('.select-' + (value ? 'economy' : 'default')).addClass('selected');
-      };
-
-      const updateDmcVideoQuality = function(value) {
-        const $dq = $menu.find('.dmcVideoQuality');
-        $dq.removeClass('selected');
-        $menu.find('.select-' + value).addClass('selected');
-      };
-
-      const onVideoServerType = function(type, videoSessionInfo) {
-        if (type !== 'dmc') {
-          if (config.getValue('autoDisableDmc')) {
-            $current.text('----');
-          } else {
-            $current.text('----');
-          }
-          return;
-        }
-        $current.text(videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
-      };
-
-      updateEnableDmc(      config.getValue('enableDmc'));
-      updateForceEconomy(   config.getValue('forceEconomy'));
-      updateDmcVideoQuality(config.getValue('dmcVideoQuality'));
-      config.on('update-enableDmc',       updateEnableDmc);
-      config.on('update-forceEconomy',    updateForceEconomy);
-      config.on('update-dmcVideoQuality', updateDmcVideoQuality);
-
-      this._player.on('videoServerType', onVideoServerType);
-    },
-    _onControlButton: function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      var $target = $(e.target).closest('.controlButton');
-      var command = $target.attr('data-command');
-      var param   = $target.attr('data-param');
-      var type    = $target.attr('data-type');
-      if (param && (type === 'bool' || type === 'json')) {
-        param = JSON.parse(param);
-      }
-      switch (command) {
-        case 'screenModeMenu':
-          this.toggleScreenModeMenu();
-          break;
-        case 'playbackRateMenu':
-          this.togglePlaybackRateMenu();
-          break;
-        case 'toggleStoryboard':
-          this._storyboard.toggle();
-          break;
-        case 'videoServerTypeMenu':
-          this.toggleVideoServerTypeMenu();
-          break;
-        default:
-          this.emit('command', command, param);
-          break;
-       }
-    },
-    _hideMenu: function() {
-      var self = this;
-      $([
-        'toggleScreenModeMenu',
-        'togglePlaybackRateMenu',
-        'toggleVideoServerTypeMenu'
-      ]).each(function(i, func) {
-        (self[func])(false);
-      });
-    },
-    togglePlaybackRateMenu: function(v) {
-      var $btn  = this._$playbackRateMenu;
-      var $menu = this._$playbackRateSelectMenu;
-      this._toggleMenu('playbackRate', $btn, $menu, v);
-    },
-    toggleScreenModeMenu: function(v) {
-      var $btn  = this._$screenModeMenu;
-      var $menu = this._$screenModeSelectMenu;
-      this._toggleMenu('screenMode', $btn, $menu, v);
-    },
-    toggleVideoServerTypeMenu: function(v) {
-      var $btn  = this._$videoServerTypeMenu;
-      var $menu = this._$videoServerTypeSelectMenu;
-      this._toggleMenu('screenMode', $btn, $menu, v);
-    },
-    _toggleMenu: function(name, $btn, $menu, v) {
-      var $body = $('body');
-      var eventName = 'click.ZenzaWatch_' + name + 'Menu';
-
-      $body.off(eventName);
-      $btn .toggleClass('show', v);
-      $menu.toggleClass('show', v);
-
-      var onBodyClick = function() {
-        $btn.removeClass('show');
-        $menu.removeClass('show');
-        $body.off(eventName);
-        ZenzaWatch.emitter.emitAsync('hideMenu');
-      };
-      if ($menu.hasClass('show')) {
-        this._hideMenu();
-        $btn .addClass('show');
-        $menu.addClass('show');
-        $body.on(eventName, onBodyClick);
-        ZenzaWatch.emitter.emitAsync('showMenu');
-      }
-    },
-    _posToTime: function(pos) {
-      var width = this._$seekBar.innerWidth();
-      return this._duration * (pos / Math.max(width, 1));
-    },
-    _timeToPos: function(time) {
-      return this._width * (time / Math.max(this._duration, 1));
-    },
-    _timeToPer: function(time) {
-      return (time / Math.max(this._duration, 1)) * 100;
-    },
-    _onPlayerOpen: function() {
-      this._startTimer();
-      this.setDuration(0);
-      this.setCurrentTime(0);
-      this._heatMap.reset();
-      this._storyboard.reset();
-      this.resetBufferedRange();
-    },
-    _onPlayerCanPlay: function(watchId, videoInfo) {
-      var duration = this._player.getDuration();
-      this.setDuration(duration);
-      this._storyboard.onVideoCanPlay(watchId, videoInfo);
-
-      this._heatMap.setDuration(duration);
-    },
-    _onCommentParsed: function() {
-      this._chatList = this._player.getChatList();
-      this._heatMap.setChatList(this._chatList);
-      this._commentPreview.setChatList(this._chatList);
-    },
-    _onCommentChange: function() {
-      this._chatList = this._player.getChatList();
-      this._heatMap.setChatList(this._chatList);
-      this._commentPreview.setChatList(this._chatList);
-    },
-    _onPlayerDurationChange: function() {
-      // TODO: 動画のメタデータ解析後に動画長情報が変わることがあるので、
-      // そこで情報を更新する
-    },
-    _onPlayerClose: function() {
-      this._stopTimer();
-    },
-    _onPlayerProgress: function(range, currentTime) {
-      this.setBufferedRange(range, currentTime);
-    },
-    _startTimer: function() {
-      this._timerCount = 0;
-      this._timer = window.setInterval(this._onTimer.bind(this), 10);
-    },
-    _stopTimer: function() {
-      if (this._timer) {
-        window.clearInterval(this._timer);
-        this._timer = null;
-      }
-    },
-    _onSeekBarMouseDown: function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      var left = e.offsetX;
-      var sec = this._posToTime(left);
-
-      this.emit('command', 'seek', sec);
-
-      this._beginMouseDrag();
-    },
-    _onSeekBarMouseMove: function(e) {
-      if (!this._$view.hasClass('dragging')) {
-        e.stopPropagation();
-      }
-      var left = e.offsetX;
-      var sec = this._posToTime(left);
-      this._seekBarMouseX = left;
-
-      this._commentPreview.setCurrentTime(sec);
-      this._commentPreview.show(left);
-
-      this._seekBarToolTip.update(sec, left);
-    },
-    _onSeekBarMouseMoveEnd: function(e) {
-    },
-    _beginMouseDrag: function() {
-      this._bindDragEvent();
-      this._$view.addClass('dragging');
-    },
-    _endMouseDrag: function() {
-      this._unbindDragEvent();
-      this._$view.removeClass('dragging');
-    },
-    _onBodyMouseMove: function(e) {
-      var offset = this._$seekBar.offset();
-      var left = e.clientX - offset.left;
-      var sec = this._posToTime(left);
-
-      this.emit('command', 'seek', sec);
-      this._seekBarToolTip.update(sec, left);
-      this._storyboard.setCurrentTime(sec, true);
-    },
-    _onBodyMouseUp: function() {
-      this._endMouseDrag();
-    },
-    _onWindowBlur: function() {
-      this._endMouseDrag();
-    },
-    _bindDragEvent: function() {
-      $('body')
-        .on('mousemove.ZenzaWatchSeekBar', _.bind(this._onBodyMouseMove, this))
-        .on('mouseup.ZenzaWatchSeekBar',   _.bind(this._onBodyMouseUp, this));
-
-      $(window).on('blur.ZenzaWatchSeekBar', _.bind(this._onWindowBlur, this));
-    },
-    _unbindDragEvent: function() {
-      $('body')
-        .off('mousemove.ZenzaWatchSeekBar')
-        .off('mouseup.ZenzaWatchSeekBar');
-      $(window).off('blur.ZenzaWatchSeekBar');
-    },
-    _onTimer: function() {
-      this._timerCount++;
-      var player = this._player;
-      var currentTime = player.getCurrentTime();
-      if (this._timerCount % 15 === 0) {
-        this.setCurrentTime(currentTime);
-      }
-      this._storyboard.setCurrentTime(currentTime);
-    },
-    _onLoadVideoInfo: function(videoInfo) {
-      this.setDuration(videoInfo.duration);
-
-      if (!this._isFirstVideoInitialized) {
-        this._isFirstVideoInitialized = true;
-        const handler = (command, param) => {
-          this.emit('command', command, param);
-        };
-
-        ZenzaWatch.emitter.emitAsync('videoControBar.addonMenuReady',
-          this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
-        );
-        ZenzaWatch.emitter.emitAsync('seekBar.addonMenuReady',
-          this._$view[0].querySelector('.seekBar'), handler
-        );
-      }
-    },
-    setCurrentTime: function(sec) {
-      if (this._currentTime !== sec) {
-        this._currentTime = sec;
-
-        var m = Math.floor(sec / 60);
-        m = m < 10 ? ('0' + m) : m;
-        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-        var currentTimeText = [m, s].join(':');
-        if (this._currentTimeText !== currentTimeText) {
-          this._currentTimeText = currentTimeText;
-          this._$currentTime[0].value = currentTimeText;
-        }
-        const per = Math.min(100, this._timeToPer(sec));
-        this._$seekBarPointer[0].style.transform = `translate3d(${per}%, 0, 0)`;
-      }
-    },
-    setDuration: function(sec) {
-      if (sec !== this._duration) {
-        this._duration = sec;
-
-        if (sec === 0 || isNaN(sec)) {
-          this._$duration[0].value = '--:--';
-        }
-        var m = Math.floor(sec / 60);
-        m = m < 10 ? ('0' + m) : m;
-        var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-        this._$duration[0].value = [m, s].join(':');
-        this.emit('durationChange');
-      }
-    },
-    setBufferedRange: function(range, currentTime) {
-      var $range = this._$bufferRange;
-      if (!range || !range.length || !this._duration) {
-        return;
-      }
-      for (var i = 0, len = range.length; i < len; i++) {
-        try {
-          var start = range.start(i);
-          var end   = range.end(i);
-          var width = end - start;
-          if (start <= currentTime && end >= currentTime) {
-            if (this._bufferStart !== start ||
-                this._bufferEnd   !== end) {
-              const perLeft = (this._timeToPer(start) - 1);
-              const scaleX = (this._timeToPer(width) + 2) / 100;
-              $range.css('transform', `translate3d(${perLeft}%, 0, 0) scaleX(${scaleX})`);
-              this._bufferStart = start;
-              this._bufferEnd   = end;
-            }
-            break;
-          }
-        } catch (e) {
-        }
-      }
-    },
-    resetBufferedRange: function() {
-      this._buffferStart = 0;
-      this._buffferEnd = 0;
-      this._$bufferRange.css({transform: 'scaleX(0)'});
-    }
-  });
-
-  var HeatMapModel = function() { this.initialize.apply(this, arguments); };
-  HeatMapModel.RESOLUTION = 100;
-  _.extend(HeatMapModel.prototype, AsyncEmitter.prototype);
-  _.assign(HeatMapModel.prototype, {
-    initialize: function(params) {
-      this._resolution = params.resolution || HeatMapModel.RESOLUTION;
-      this.reset();
-    },
-    reset: function() {
-      this._duration = -1;
-      this._chatReady = false;
-      //this._isUpdated = false;
-      this.emit('reset');
-    },
-    setDuration: function(duration) {
-      if (this._duration !== duration) {
-        this._duration = duration;
-        this.update();
-      }
-    },
-    setChatList: function(comment) {
-      this._chat = comment;
-      this._chatReady = true;
-      this.update();
-    },
-    update: function() {
-      if (this._duration < 0 || !this._chatReady /* || this._isUpdated */) {
-        return;
-      }
-      var map = this._getHeatMap();
-      this.emitAsync('update', map);
-      ZenzaWatch.emitter.emit('heatMapUpdate', {map, duration: this._duration});
-      // 無駄な処理を避けるため同じ動画では2回作らないようにしようかと思ったけど、
-      // CoreMのマシンでも数ミリ秒程度なので気にしない事にした。
-      // Firefoxはもうちょっとかかるかも
-      //this._isUpdated = true;
-    },
-    _getHeatMap: function() {
-      //console.time('update HeatMapModel');
-      var chatList =
-        this._chat.top.concat(this._chat.naka, this._chat.bottom);
-      var duration = this._duration;
-      if (!duration) { return; }
-      var map = new Array(Math.max(Math.min(this._resolution, Math.floor(duration)), 1));
-      var i = map.length;
-      while(i > 0) map[--i] = 0;
-
-      var ratio = duration > map.length ? (map.length / duration) : 1;
-
-      for (i = chatList.length - 1; i >= 0; i--) {
-        var nicoChat = chatList[i];
-        var pos = nicoChat.getVpos();
-        var mpos = Math.min(Math.floor(pos * ratio / 100), map.length -1);
-        map[mpos]++;
-      }
-
-      //console.timeEnd('update HeatMapModel');
-      return map;
-    }
-  });
-
-  var HeatMapView = function() { this.initialize.apply(this, arguments); };
-  _.assign(HeatMapView.prototype, {
-    _canvas:  null,
-    _palette: null,
-    _width: 100,
-    _height: 12,
-    initialize: function(params) {
-      this._model  = params.model;
-      this._$container = params.$container;
-      this._width  = params.width || 100;
-      this._height = params.height || 10;
-
-      this._model.on('update', _.bind(this._onUpdate, this));
-      this._model.on('reset',  _.bind(this._onReset, this));
-    },
-    _initializePalette: function() {
-      this._palette = [];
-      // NicoHeatMaoより控え目な配色にしたい
-      for (var c = 0; c < 256; c++) {
-        var
-          r = Math.floor((c > 127) ? (c / 2 + 128) : 0),
-          g = Math.floor((c > 127) ? (255 - (c - 128) * 2) : (c * 2)),
-          b = Math.floor((c > 127) ? 0 : (255  - c * 2));
-        this._palette.push('rgb(' + r + ', ' + g + ', ' + b + ')');
-      }
-    },
-    _initializeCanvas: function() {
-      this._canvas           = document.createElement('canvas');
-      this._canvas.className = 'zenzaHeatMap';
-      this._canvas.width     = this._width;
-      this._canvas.height    = this._height;
-
-      this._$container.append(this._canvas);
-
-      this._context = this._canvas.getContext('2d');
-
-      this.reset();
-    },
-    _onUpdate: function(map) {
-      this.update(map);
-    },
-    _onReset: function() {
-      this.reset();
-    },
-    reset: function() {
-      if (this._context) {
-        this._context.fillStyle = this._palette[0];
-        this._context.beginPath();
-        this._context.fillRect(0, 0, this._width, this._height);
-      }
-    },
-    update: function(map) {
-      if (!this._isInitialized) {
-        this._isInitialized = true;
-        this._initializePalette();
-        this._initializeCanvas();
-        this.reset();
-      }
-      console.time('update HeatMap');
-
-      // 一番コメント密度が高い所を100%として相対的な比率にする
-      // 赤い所が常にピークになってわかりやすいが、
-      // コメントが一カ所に密集している場合はそれ以外が薄くなってしまうのが欠点
-      var max = 0, i;
-      // -4 してるのは、末尾にコメントがやたら集中してる事があるのを集計対象外にするため (ニコニ広告に付いてたコメントの名残？)
-      for (i = Math.max(map.length - 4, 0); i >= 0; i--) max = Math.max(map[i], max);
-
-      if (max > 0) {
-        var rate = 255 / max;
-        for (i = map.length - 1; i >= 0; i--) {
-          map[i] = Math.min(255, Math.floor(map[i] * rate));
-        }
-      } else {
-        console.timeEnd('update HeatMap');
-        return;
-      }
-
-      var
-        scale = map.length >= this._width ? 1 : (this._width / Math.max(map.length, 1)),
-        blockWidth = (this._width / map.length) * scale,
-        context = this._context;
-
-      for (i = map.length - 1; i >= 0; i--) {
-        context.fillStyle = this._palette[parseInt(map[i], 10)] || this._palette[0];
-        context.beginPath();
-        context.fillRect(i * scale, 0, blockWidth, this._height);
-      }
-      console.timeEnd('update HeatMap');
-    }
-  });
-
-  var HeatMap = function() { this.initialize.apply(this, arguments); };
-  //_.extend(HeatMap.prototype, AsyncEmitter.prototype);
-  _.assign(HeatMap.prototype, {
-    initialize: function(params) {
-      this._model = new HeatMapModel({
-      });
-      this._view = new HeatMapView({
-        model: this._model,
-        $container: params.$container
-      });
-      this.reset();
-    },
-    reset: function() {
-      this._model.reset();
-    },
-    setDuration: function(duration) {
-      this._model.setDuration(duration);
-    },
-    setChatList: function(chatList) {
-      this._model.setChatList(chatList);
-    }
-  });
-
-
-  var CommentPreviewModel = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentPreviewModel.prototype, AsyncEmitter.prototype);
-  _.assign(CommentPreviewModel.prototype, {
-    initialize: function() {
-    },
-    reset: function() {
+  class CommentPreviewModel extends Emitter {
+    reset() {
       this._chatReady = false;
       this._vpos = -1;
       this.emit('reset');
-    },
-    setChatList: function(chatList) {
-      var list = chatList.top.concat(chatList.naka, chatList.bottom);
-      list.sort(function(a, b) {
-        var av = a.getVpos(), bv = b.getVpos();
-        return av - bv;
-      });
+    }
+    set chatList(chatList) {
+      const list = chatList
+        .top
+        .concat(chatList.naka, chatList.bottom)
+        .sort((a, b) => a.vpos - b.vpos);
 
       this._chatList = list;
       this._chatReady = true;
       this.update();
-    },
-    getChatList: function() {
+    }
+    get chatList() {
       return this._chatList || [];
-    },
-    setCurrentTime: function(sec) {
-      this.setVpos(sec * 100);
-    },
-    setVpos: function(vpos) {
+    }
+    set currentTime(sec) {
+      this.vpos = sec * 100;
+    }
+    set vpos(vpos) {
       if (this._vpos !== vpos) {
         this._vpos = vpos;
-        this.emit('vpos');
+        this.emit('vpos', vpos);
       }
-    },
-    getCurrentIndex: function() {
+    }
+    get currentIndex() {
       if (this._vpos < 0 || !this._chatReady) {
         return -1;
       }
       return this.getVposIndex(this._vpos);
-    },
-    getVposIndex: function(vpos) {
-      var list = this._chatList;
-      for (var i = list.length - 1; i >= 0; i--) {
-        var chat = list[i], cv = chat.getVpos();
+    }
+    getVposIndex(vpos) {
+      const list = this._chatList;
+      if (!list) { return -1; }
+      for (let i = list.length - 1; i >= 0; i--) {
+        const chat = list[i], cv = chat.vpos;
         if (cv <= vpos - 400) {
           return i + 1;
         }
       }
       return -1;
-    },
-    getCurrentChatList: function() {
+    }
+    get currentChatList() {
       if (this._vpos < 0 || !this._chatReady) {
         return [];
       }
       return this.getItemByVpos(this._vpos);
-    },
-    getItemByVpos: function(vpos) {
-      var list = this._chatList;
-      var result = [];
-      for (var i = 0, len = list.length; i < len; i++) {
-        var chat = list[i], cv = chat.getVpos(), diff = vpos - cv;
+    }
+    getItemByVpos(vpos) {
+      const list = this._chatList;
+      const result = [];
+      for (let i = 0, len = list.length; i < len; i++) {
+        const chat = list[i], cv = chat.vpos, diff = vpos - cv;
         if (diff >= -100 && diff <= 400) {
           result.push(chat);
         }
       }
       return result;
-    },
-    getItemByNo: function(no) {
-      var list = this._chatList;
-      for (var i = 0, len = list.length; i < len; i++) {
-        var nicoChat = list[i];
-        if (nicoChat.getNo() === no) {
-          return nicoChat;
-        }
-      }
-      return null;
-    },
-    update: function() {
+    }
+    getItemByUniqNo(uniqNo) {
+      return this._chatList.find(chat => chat.uniqNo === uniqNo);
+    }
+    update() {
       this.emit('update');
     }
-  });
+  }
 
-  var CommentPreviewView = function() { this.initialize.apply(this, arguments); };
-  CommentPreviewView.MAX_HEIGHT = '200px';
-  CommentPreviewView.ITEM_HEIGHT = 20;
-  _.extend(CommentPreviewView.prototype, AsyncEmitter.prototype);
-  CommentPreviewView.__tpl__ = (`
-    <div class="zenzaCommentPreview">
-      <div class="zenzaCommentPreviewInner">
-      </div>
-    </div>
-  `).trim();
+  class CommentPreviewView {
+    constructor(params) {
+      const model = this._model = params.model;
+      this._$parent = params.$container;
 
-  CommentPreviewView.__css__ = `
-    .zenzaCommentPreview {
-      display: none;
-      position: absolute;
-      bottom: 16px;
-      opacity: 0.8;
-      max-height: ${CommentPreviewView.MAX_HEIGHT};
-      width: 350px;
-      box-sizing: border-box;
-      background: rgba(0, 0, 0, 0.4);
-      color: #ccc;
-      z-index: 100;
-      overflow: hidden;
-      /*box-shadow: 0 0 4px #666;*/
-      border-bottom: 24px solid transparent;
-      transform: translate3d(0, 0, 0);
-      transition: transform 0.2s;
-    }
-
-    .zenzaCommentPreview::-webkit-scrollbar {
-      background: #222;
-    }
-
-    .zenzaCommentPreview::-webkit-scrollbar-thumb {
-      border-radius: 0;
-      background: #666;
-    }
-
-    .zenzaCommentPreview::-webkit-scrollbar-button {
-      background: #666;
-      display: none;
-    }
-
-
-    .zenzaCommentPreview.updating {
-      transition: opacity 0.2s ease;
-      opacity: 0.3;
-      cursor: wait;
-    }
-    .zenzaCommentPreview.updating *{
-      pointer-evnets: none;
-    }
-
-
-    body:not(.fullScreen).zenzaScreenMode_sideView .zenzaCommentPreview,
-    body:not(.fullScreen).zenzaScreenMode_small .zenzaCommentPreview {
-      background: rgba(0, 0, 0, 0.9);
-    }
-
-    .seekBarContainer.enableCommentPreview:hover .zenzaCommentPreview.show {
-      display: block;
-    }
-    .zenzaCommentPreview.show:hover {
-      background: black;
-      overflow: auto;
-    }
-
-    .zenzaCommentPreview * {
-      box-sizing: border-box;
-    }
-
-    .zenzaCommentPreviewInner {
-      padding: 4px;
-      pointer-events: none;
-    }
-    .zenzaCommentPreview:hover .zenzaCommentPreviewInner {
-      pointer-events: auto;
-    }
-
-    .zenzaCommentPreviewInner .nicoChat {
-      position: absolute;
-      left: 0;
-      display: block;
-      width: 100%;
-      height: ${CommentPreviewView.ITEM_HEIGHT}px;
-      padding: 2px 4px;
-      cursor: pointer;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
-                /*border-top: 1px dotted transparent;*/
-    }
-    .zenzaCommentPreview:hover      .nicoChat + .nicoChat {
-      /*border-top: 1px dotted #888;*/
-    }
-    .zenzaCommentPreviewInner:hover .nicoChat.odd {
-      background: #333;
-    }
-    .zenzaCommentPreviewInner .nicoChat.fork1 .vposTime{
-      color: #6f6;
-    }
-    .zenzaCommentPreviewInner .nicoChat.fork2 .vposTime{
-      color: #66f;
-    }
-
-
-
-    .zenzaCommentPreviewInner .nicoChat .no,
-    .zenzaCommentPreviewInner .nicoChat .date,
-    .zenzaCommentPreviewInner .nicoChat .userId {
-      display: none;
-    }
-
-    .zenzaCommentPreviewInner .nicoChat:hover .no,
-    .zenzaCommentPreviewInner .nicoChat:hover .date,
-    .zenzaCommentPreviewInner .nicoChat:hover .userId {
-      display: inline-block;
-      white-space: nowrap;
-    }
-
-    .zenzaCommentPreviewInner .nicoChat .vposTime {
-    }
-    .zenzaCommentPreviewInner .nicoChat:hover .text {
-      color: #fff !important;
-    }
-    .zenzaCommentPreviewInner       .nicoChat .text:hover {
-      text-decoration: underline;
-    }
-
-    .zenzaCommentPreviewInner .nicoChat .addFilter {
-      display: none;
-      position: absolute;
-      font-size: 10px;
-      color: #fff;
-      background: #666;
-      cursor: pointer;
-      top: 0;
-    }
-
-    .zenzaCommentPreviewInner .nicoChat:hover .addFilter {
-      display: inline-block;
-      border: 1px solid #ccc;
-      box-shadow: 2px 2px 2px #333;
-    }
-
-    .zenzaCommentPreviewInner .nicoChat .addFilter.addUserIdFilter {
-      right: 8px;
-      width: 48px;
-    }
-    .zenzaCommentPreviewInner .nicoChat .addFilter.addWordFilter {
-      right: 64px;
-      width: 48px;
-    }
-
-  `;
-
-  _.assign(CommentPreviewView.prototype, {
-    initialize: function(params) {
-      var model = this._model = params.model;
-      this._$container = params.$container;
-
-      this._showing = false;
-      this._inviewTable = {};
-      this._$newItems = '';
+      this._inviewTable = new Map;
       this._chatList = [];
-      this._initializeDom(this._$container);
+      this._initializeDom(this._$parent);
 
       model.on('reset',  this._onReset.bind(this));
       model.on('update', _.debounce(this._onUpdate.bind(this), 10));
-      model.on('vpos',   _.throttle(this._onVpos  .bind(this), 100));
+      model.on('vpos', this._onVpos.bind(this));
 
-      this.show = _.throttle(_.bind(this.show, this), 200);
-      //this._applyView = ZenzaWatch.util.createDrawCallFunc(this._applyView.bind(this));
-    },
-    _initializeDom: function($container) {
-      ZenzaWatch.util.addStyle(CommentPreviewView.__css__);
-      var $view = this._$view = $(CommentPreviewView.__tpl__);
-      this._$inner = $view.find('.zenzaCommentPreviewInner');
+      this._mode = 'hover';
 
-      $view
-        .on('click', this._onClick.bind(this))
-        .on('mousewheel', function(e) { e.stopPropagation(); })
-        .on('scroll', _.throttle(this._onScroll.bind(this), 50, {trailing: false}));
-      //  .on('resize', _.throttle(this._onResize.bind(this), 50));
+      this._left = 0;
+      this.update = _.throttle(this.update.bind(this), 200);
+      this.applyView = bounce.raf(this.applyView.bind(this));
+    }
+    _initializeDom($parent) {
+      cssUtil.registerProps(
+        {name: '--buffer-range-left', syntax: '<percentage>', initialValue: '0%',inherits: false},
+        {name: '--buffer-range-scale', syntax: '<number>', initialValue: 0, inherits: false},
+      );
+      const $view = util.$.html(CommentPreviewView.__tpl__);
+      const view = this._view = $view[0];
+      this._list = view.querySelector('.listContainer');
+      $view.on('click', this._onClick.bind(this))
+        .on('wheel', e => e.stopPropagation(), {passive: true})
+        .on('scroll',
+        _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
-      $container.on('mouseleave', this.hide.bind(this));
-      $container.append($view);
-    },
-    _onClick: function(e) {
+      $parent.append($view);
+    }
+    set mode(v) {
+      if (v === 'list') {
+        util.StyleSwitcher.update({
+          on: '.commentPreview.list', off: '.commentPreview.hover'});
+      } else {
+        util.StyleSwitcher.update({
+          on: '.commentPreview.hover', off: '.commentPreview.list'});
+      }
+      this._mode = v;
+    }
+    _onClick(e) {
       e.stopPropagation();
-      var $view = this._$view;
-      var $target = $(e.target);
-      var command = $target.attr('data-command');
-      var $nicoChat = $target.closest('.nicoChat');
-      var no = parseInt($nicoChat.attr('data-nicochat-no'), 10);
-      var nicoChat  = this._model.getItemByNo(no);
+      const target = e.target.closest('[data-command]');
+      const view = this._view;
+      const command = target ? target.dataset.command : '';
+      const nicoChatElement = e.target.closest('.nicoChat');
+      const uniqNo = parseInt(nicoChatElement.dataset.nicochatUniqNo, 10);
+      const nicoChat  = this._model.getItemByUniqNo(uniqNo);
 
-      if (command && nicoChat && !$view.hasClass('updating')) {
-        $view.addClass('updating');
+      if (command && nicoChat) {
+        view.classList.add('is-updating');
 
-        window.setTimeout(function() { $view.removeClass('updating'); }, 3000);
+        window.setTimeout(() => view.classList.remove('is-updating'), 3000);
 
         switch (command) {
           case 'addUserIdFilter':
-            this.emit('command', command, nicoChat.getUserId());
+            util.dispatchCommand(e.target, command, nicoChat.userId);
             break;
           case 'addWordFilter':
-            this.emit('command', command, nicoChat.getText());
+            util.dispatchCommand(e.target, command, nicoChat.text);
             break;
           case 'addCommandFilter':
-            this.emit('command', command, nicoChat.getCmd());
+            util.dispatchCommand(e.target, command, nicoChat.cmd);
             break;
         }
         return;
       }
-      var vpos = $nicoChat.attr('data-vpos');
+      const vpos = nicoChatElement.dataset.vpos;
       if (vpos !== undefined) {
-        this.emit('command', 'seek', vpos / 100);
+        util.dispatchCommand(e.target, 'seek', vpos / 100);
       }
-    },
-    _onUpdate: function() {
-      if (this._isShowing) {
-        this._updateView();
-      } else {
-        this._updated = true;
-      }
-    },
-    _onVpos: function() {
-      var index = Math.max(0, this._model.getCurrentIndex());
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      this._inviewIndex = index;
+    }
+    _onUpdate() {
+      this.updateList();
+    }
+    _onVpos(vpos) {
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      const index = this._currentStartIndex = Math.max(0, this._model.currentIndex);
+      this._currentEndIndex = Math.max(0, this._model.getVposIndex(vpos + 400));
       this._scrollTop = itemHeight * index;
+      this._currentTime = vpos / 100;
       this._refreshInviewElements(this._scrollTop);
-    },
-    _onResize: function() {
+    }
+    _onResize() {
       this._refreshInviewElements();
-    },
-    _onScroll: function() {
+    }
+    _onScroll() {
       this._scrollTop = -1;
       this._refreshInviewElements();
-    },
-    _onReset: function() {
-      this._$inner.html('');
-      this._inviewTable = {};
-      this._inviewIndex = 0;
+    }
+    _onReset() {
+      this._list.textContent = '';
+      this._inviewTable.clear();
       this._scrollTop = 0;
-      this._$newItems = null;
+      this._newListElements = null;
       this._chatList = [];
-    },
-    _updateView: function() {
-      var chatList = this._chatList = this._model.getChatList();
-      if (chatList.length < 1) {
-        this.hide();
-        this._updated = false;
+    }
+    updateList() {
+      const chatList = this._chatList = this._model.chatList;
+      if (!chatList.length) {
+        this._isListUpdated = false;
         return;
       }
 
-      window.console.time('updateCommentPreviewView');
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
-      this._$inner.css({
-        height:
-        (chatList.length + 2) * itemHeight
-        //`calc(${chatList.length * itemHeight}px + ${CommentPreviewView.MAX_HEIGHT})`
-      });
-      this._updated = false;
-      window.console.timeEnd('updateCommentPreviewView');
-    },
-    _createDom: function(chat, idx) {
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
-      var text = ZenzaWatch.util.escapeHtml(chat.getText());
-      var date = (new Date(chat.getDate() * 1000)).toLocaleString();
-      var vpos = chat.getVpos();
-      var no = chat.getNo();
-      var oe = idx % 2 === 0 ? 'even' : 'odd';
-      var title = `${no} : 投稿日 ${date}\nID:${chat.getUserId()}\n${text}\n`;
-      var color = chat.getColor() || '#fff';
-      var shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
+      this._list.style.height = `${(chatList.length + 2) * itemHeight}px`;
+      this._isListUpdated = false;
+    }
+    _refreshInviewElements(scrollTop) {
+      if (!this._view) { return; }
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
 
-      var vposToTime = function(vpos) {
-        var sec = Math.floor(vpos / 100);
-        var m = Math.floor(sec / 60);
-        var s = (100 + (sec % 60)).toString().substr(1);
-        return [m, s].join(':');
-      };
+      scrollTop = _.isNumber(scrollTop) ? scrollTop : this._view.scrollTop;
 
-      return `<li class="nicoChat fork${chat.getFork()} ${oe}"
-            id="commentPreviewItem${idx}"
-            data-vpos="${vpos}"
-            data-nicochat-no="${no}"
-            style="top: ${idx * itemHeight}px;"
-            >
-            <span class="vposTime">${vposToTime(vpos)}: </span>
-            <span class="text" title="${title}" style="${shadow}">
-            ${text}
-            </span>
-            <span class="addFilter addUserIdFilter"
-              data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
-            <span class="addFilter addWordFilter"
-              data-command="addWordFilter" title="NGワード">NGword</span>
-        </li>`;
-    },
-    _refreshInviewElements: function(scrollTop, startIndex, endIndex) {
-      if (!this._$inner) { return; }
-      var itemHeight = CommentPreviewView.ITEM_HEIGHT;
-
-      var $view = this._$view;
-      scrollTop = _.isNumber(scrollTop) ? scrollTop : $view.scrollTop();
-
-      var viewHeight = $view.innerHeight();
-      var viewBottom = scrollTop + viewHeight;
-      var chatList = this._chatList;
+      const viewHeight = CommentPreviewView.MAX_HEIGHT;
+      const viewBottom = scrollTop + viewHeight;
+      const chatList = this._chatList;
       if (!chatList || chatList.length < 1) { return; }
-      startIndex =
-        _.isNumber(startIndex) ? startIndex : Math.max(0, Math.floor(scrollTop / itemHeight) - 5);
-      endIndex   =
-        _.isNumber(endIndex) ? endIndex : Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5);
-      var i;
-      //window.console.log(`index ${startIndex} 〜 ${endIndex}`);
+      const startIndex =
+        this._mode === 'list' ?
+          Math.max(0, Math.floor(scrollTop / itemHeight) - 5) :
+          this._currentStartIndex;
+          const endIndex   =
+        this._mode === 'list' ?
+          Math.min(chatList.length, Math.floor(viewBottom / itemHeight) + 5) :
+          Math.min(this._currentEndIndex, this._currentStartIndex + 15);
 
-      var newItems = [], inviewTable = this._inviewTable;
-      var create = this._createDom;
-      for (i = startIndex; i < endIndex; i++) {
-        var chat = chatList[i];
-        if (inviewTable[i] || !chat) { continue; }
-        newItems.push(create(chat, i));
-        inviewTable[i] = true;
+      const newItems = [], inviewTable = this._inviewTable;
+      for (let i = startIndex; i < endIndex; i++) {
+        const chat = chatList[i];
+        if (inviewTable.has(i) || !chat) { continue; }
+        const listItem = CommentPreviewChatItem.create(chat, i);
+        newItems.push(listItem);
+        inviewTable.set(i, listItem);
       }
 
       if (newItems.length < 1) { return; }
 
-      _.each(Object.keys(inviewTable), function(i) {
-        if (i >= startIndex && i <= endIndex) { return; }
-        var item = document.getElementById('commentPreviewItem' + i);
-        if (item) { item.remove(); }
-        else { window.console.log('not found ', 'commentPreviewItem' + i);}
-        delete inviewTable[i];
-      });
-
-
-      var $newItems = $(newItems.join(''));
-      if (this._$newItems) {
-        this._$newItems.append($newItems);
-      } else {
-        this._$newItems = $newItems;
+      for (const i of inviewTable.keys()) {
+        if (i >= startIndex && i <= endIndex) { continue; }
+        inviewTable.get(i).remove();
+        inviewTable.delete(i);
       }
 
-      this._applyView();
-    },
-    _isEmpty: function() {
+      this._newListElements = this._newListElements || document.createDocumentFragment();
+      this._newListElements.append(...newItems);
+
+      this.applyView();
+    }
+    get isEmpty() {
       return this._chatList.length < 1;
-    },
-    show: function(left) {
-      this._isShowing = true;
-      if (this._updated) {
-        this._updateView();
+    }
+    update(left) {
+      if (this._isListUpdated) {
+        this.updateList();
       }
-      if (this._isEmpty()) {
+      if (this.isEmpty) {
         return;
       }
-      var $view = this._$view, width = $view.outerWidth();
-      var containerWidth = this._$container.innerWidth();
+      const width = this._mode === 'list' ?
+        CommentPreviewView.WIDTH : CommentPreviewView.HOVER_WIDTH;
+      const containerWidth = window.innerWidth;
 
-      left = Math.min(Math.max(0, left - width / 2), containerWidth - width);
+      left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
       this._left = left;
-      this._applyView();
-    },
-    _applyView: function() {
-      var $view = this._$view;
-      if (!$view.hasClass('show')) { $view.addClass('show'); }
-      if (this._$newItems) {
-        this._$inner.append(this._$newItems);
-        this._$newItems = null;
+      this.applyView();
+    }
+    applyView() {
+      const view = this._view;
+      const vs = view.style;
+      vs.setProperty('--current-time', cssUtil.s(this._currentTime));
+      vs.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
+      vs.setProperty('--trans-x-pp', cssUtil.px(this._left));
+      if (this._newListElements && this._newListElements.childElementCount) {
+        this._list.append(this._newListElements);
       }
-      if (this._scrollTop > 0) {
-        $view.scrollTop(this._scrollTop);
+      if (this._scrollTop > 0 && this._mode === 'list') {
+        this._view.scrollTop = this._scrollTop;
         this._scrollTop = -1;
       }
 
-      $view
-        .css({
-        'transform': 'translate3d(' + this._left + 'px, 0, 0)'
-      });
-    },
-    hide: function() {
-      this._isShowing = false;
-      this._$view.removeClass('show');
     }
-  });
+    hide() {
+    }
+  }
 
-  var CommentPreview = function() { this.initialize.apply(this, arguments); };
-  _.extend(CommentPreview.prototype, AsyncEmitter.prototype);
-  _.assign(CommentPreview .prototype, {
-    initialize: function(param) {
-      this._model = new CommentPreviewModel({
-      });
+
+  class CommentPreviewChatItem {
+    static get html() {
+      return `
+       <li class="nicoChat">
+         <span class="vposTime"></span>
+         <span class="text"></span>
+         <span class="addFilter addUserIdFilter"
+           data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
+         <span class="addFilter addWordFilter"
+           data-command="addWordFilter" title="NGワード">NGword</span>
+       </li>
+      `.trim();
+    }
+
+    static get template() {
+      if (!this._template) {
+        const t = document.createElement('template');
+        t.id = `${this.name}_${Date.now()}`;
+        t.innerHTML = this.html;
+        const content = t.content;
+        this._template = {
+          clone: () => document.importNode(t.content, true),
+          chat: content.querySelector('.nicoChat'),
+          time: content.querySelector('.vposTime'),
+          text: t.content.querySelector('.text')
+        };
+      }
+      return this._template;
+    }
+
+    /**
+     * @param {NicoChatViewModel} chat
+     */
+    static create(chat, idx) {
+      const itemHeight = CommentPreviewView.ITEM_HEIGHT;
+      const text = chat.text;
+      const date = (new Date(chat.date * 1000)).toLocaleString();
+      const vpos = chat.vpos;
+      const no = chat.no;
+      const uniqNo = chat.uniqNo;
+      const oe = idx % 2 === 0 ? 'even' : 'odd';
+      const title = `${no} : 投稿日 ${date}\nID:${chat.userId}\n${text}\n`;
+      const color = chat.color || '#fff';
+      const shadow = color === '#fff' ? '' : `text-shadow: 0 0 1px ${color};`;
+
+      const vposToTime = vpos => util.secToTime(Math.floor(vpos / 100));
+      const t = this.template;
+      t.chat.className = `nicoChat fork${chat.fork} ${oe}`;
+      t.chat.id = `commentPreviewItem${idx}`;
+      t.chat.dataset.vpos = vpos;
+      t.chat.dataset.nicochatUniqNo = uniqNo;
+      t.time.textContent = `${vposToTime(vpos)}: `;
+      t.text.title = title;
+      t.text.style = shadow;
+      t.text.textContent = text;
+      t.chat.style.cssText = `
+        top: ${idx * itemHeight}px;
+        --duration: ${chat.duration}s;
+        --vpos-time: ${chat.vpos / 100}s;
+      `;
+      return t.clone().firstElementChild;
+    }
+  }
+
+CommentPreviewView.MAX_HEIGHT = 200;
+CommentPreviewView.WIDTH = 350;
+CommentPreviewView.HOVER_WIDTH = 180;
+CommentPreviewView.ITEM_HEIGHT = 20;
+CommentPreviewView.__tpl__ = (`
+  <div class="zenzaCommentPreview">
+    <div class="listContainer"></div>
+  </div>
+  `).trim();
+
+util.addStyle(`
+  .zenzaCommentPreview {
+    display: none;
+    position: absolute;
+    bottom: 16px;
+    opacity: 0.8;
+    max-height: ${CommentPreviewView.MAX_HEIGHT}px;
+    width: ${CommentPreviewView.WIDTH}px;
+    box-sizing: border-box;
+    color: #ccc;
+    overflow: hidden;
+    transform: translate(var(--trans-x-pp), 0);
+    transition: --trans-x-pp 0.2s;
+    will-change: transform;
+  }
+  .zenzaCommentPreview * {
+    box-sizing: border-box;
+  }
+  .is-wheelSeeking .zenzaCommentPreview,
+  .seekBarContainer:hover .zenzaCommentPreview {
+    display: block;
+  }
+
+`, {className: 'commentPreview'});
+
+util.addStyle(`
+  .zenzaCommentPreview {
+    border-bottom: 24px solid transparent;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    overflow: auto;
+  }
+  .zenzaCommentPreview:hover {
+    background: black;
+  }
+  .zenzaCommentPreview.is-updating {
+    transition: opacity 0.2s ease;
+    opacity: 0.3;
+    cursor: wait;
+  }
+  .zenzaCommentPreview.is-updating * {
+    pointer-evnets: none;
+  }
+  .listContainer {
+    bottom: auto;
+    padding: 4px;
+    pointer-events: none;
+  }
+  .zenzaCommentPreview:hover .listContainer {
+    pointer-events: auto;
+  }
+  .listContainer .nicoChat {
+    position: absolute;
+    left: 0;
+    display: block;
+    width: 100%;
+    height: ${CommentPreviewView.ITEM_HEIGHT}px;
+    padding: 2px 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    animation-duration: var(--duration);
+    animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
+    animation-name: preview-text-inview;
+    animation-timing-function: linear;
+    animation-play-state: paused !important;
+  }
+  @keyframes preview-text-inview {
+    0% {
+      color: #ffc;
+    }
+    100% {
+      color: #ffc;
+    }
+  }
+
+  .listContainer:hover .nicoChat.odd {
+    background: #333;
+  }
+  .listContainer .nicoChat.fork1 .vposTime {
+    color: #6f6;
+  }
+  .listContainer .nicoChat.fork2 .vposTime {
+    color: #66f;
+  }
+
+  .listContainer .nicoChat .no,
+  .listContainer .nicoChat .date,
+  .listContainer .nicoChat .userId {
+    display: none;
+  }
+
+  .listContainer .nicoChat:hover .no,
+  .listContainer .nicoChat:hover .date,
+  .listContainer .nicoChat:hover .userId {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .listContainer .nicoChat .text {
+    color: inherit !important;
+  }
+  .listContainer .nicoChat:hover .text {
+    color: #fff !important;
+  }
+
+  .listContainer .nicoChat .text:hover {
+    text-decoration: underline;
+  }
+
+  .listContainer .nicoChat .addFilter {
+    display: none;
+    position: absolute;
+    font-size: 10px;
+    color: #fff;
+    background: #666;
+    cursor: pointer;
+    top: 0;
+  }
+
+  .listContainer .nicoChat:hover .addFilter {
+    display: inline-block;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 2px #333;
+  }
+
+  .listContainer .nicoChat .addFilter.addUserIdFilter {
+    right: 8px;
+    width: 48px;
+  }
+  .listContainer .nicoChat .addFilter.addWordFilter {
+    right: 64px;
+    width: 48px;
+  }
+  .listContainer .nicoChat .addFilter:active {
+    transform: translateY(2px);
+  }
+
+  .zenzaScreenMode_sideView .zenzaCommentPreview,
+  .zenzaScreenMode_small .zenzaCommentPreview {
+    background: rgba(0, 0, 0, 0.9);
+  }
+`, {className: 'commentPreview list'});
+
+util.addStyle(`
+  .zenzaCommentPreview {
+    bottom: 24px;
+    box-sizing: border-box;
+    height: 140px;
+    z-index: 160;
+    transition: none;
+    color: #fff;
+    opacity: 0.6;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    contain: layout style size paint;
+    filter: drop-shadow(0 0 1px #000);
+  }
+  .listContainer {
+    bottom: auto;
+    width: 100%;
+    height: 100% !important;
+    margin: auto;
+    border: none;
+    contain: layout style size paint;
+  }
+  .listContainer .nicoChat {
+    display: block;
+    top: auto !important;
+    font-size: 16px;
+    line-height: 18px;
+    height: 18px;
+    white-space: nowrap;
+  }
+  .listContainer .nicoChat:nth-child(n + 8) {
+    transform: translateY(-144px);
+  }
+  .listContainer .nicoChat:nth-child(n + 16) {
+    transform: translateY(-288px);
+  }
+  .listContainer .nicoChat .text {
+    display: inline-block;
+    text-shadow: 1px 1px 1px #fff;
+
+    transform: translateX(260px);
+    visibility: hidden;
+    will-change: transform;
+    animation-duration: var(--duration);
+    animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
+    animation-play-state: paused !important;
+    animation-name: preview-text-moving;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  .listContainer .nicoChat .vposTime,
+  .listContainer .nicoChat .addFilter {
+    display: none !important;
+  }
+
+  @keyframes preview-text-moving {
+    0% {
+      visibility: visible;
+    }
+    100% {
+      visibility: hidden;
+      transform: translateX(85px) translateX(-100%);
+    }
+  }
+
+`, {className: 'commentPreview hover', disabled: true});
+
+
+  class CommentPreview {
+    constructor(params) {
+      this._model = new CommentPreviewModel({});
       this._view = new CommentPreviewView({
         model:      this._model,
-        $container: param.$container
-      });
-      var self = this;
-      this._view.on('command', function(command, param) {
-        self.emit('command', command, param);
+        $container: params.$container
       });
 
       this.reset();
-    },
-    reset: function() {
-      this._left = 0;
+    }
+    reset() {
       this._model.reset();
       this._view.hide();
-    },
-    setChatList: function(chatList) {
-      this._model.setChatList(chatList);
-    },
-    setCurrentTime: function(sec) {
-      this._model.setCurrentTime(sec);
-    },
-    show: function(left) {
-      this._left = left;
-      this._isShow = true;
-      if (this._isEnable) {
-        this._view.show(left);
-      }
-    },
-    hide: function() {
-      this._isShow = false;
-      this._view.hide();
-    },
-    setIsEnable: function(v) {
-      if (v !== this._isEnable) {
-        this._isEnable = v;
-        if (v && this._isShow) {
-          this.show(this._left);
+    }
+    set chatList(chatList) {
+      this._model.chatList = chatList;
+    }
+    set currentTime(sec) {
+      this._model.currentTime = sec;
+    }
+    update(left) {
+      this._view.update(left);
+    }
+    hide() {
+    }
+    set mode(v) {
+      if (v === this._mode) { return; }
+      this._mode = v;
+      this._view.mode = v;
+    }
+    get mode() {
+      return this._mode;
+    }
+  }
+
+  class SeekBarToolTip {
+    constructor(params) {
+      this._$container = params.$container;
+      this._storyboard = params.storyboard;
+      this._initializeDom(params.$container);
+
+      this._boundOnRepeat = this._onRepeat.bind(this);
+      this._boundOnMouseUp = this._onMouseUp.bind(this);
+    }
+    _initializeDom($container) {
+      util.addStyle(SeekBarToolTip.__css__);
+      const $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
+
+      this._currentTime = $view.find('.currentTime')[0];
+      TextLabel.create({
+        container: this._currentTime,
+        name: 'currentTimeLabel',
+        text: '00:00',
+        style: {
+          widthPx: 50,
+          heightPx: 16,
+          fontFamily: 'monospace',
+          fontWeight: '',
+          fontSizePx: 12,
+          color: '#ccc'
         }
+      }).then(label => this.currentTimeLabel = label);
+
+      $view
+        .on('mousedown',this._onMouseDown.bind(this))
+        .on('click', e => { e.stopPropagation(); e.preventDefault(); });
+
+      this._seekBarThumbnail = new SeekBarThumbnail({
+        storyboard: this._storyboard,
+        container: $view.find('.seekBarThumbnailContainer')[0]
+      });
+
+      $container.append($view);
+    }
+    _onMouseDown(e) {
+      e.stopPropagation();
+      const target = e.target.closest('[data-command]');
+      if (!target) {
+        return;
+      }
+      const {command, param, repeat} = target.dataset;
+      if (!command) { return; }
+
+      util.dispatchCommand(e.target, command, param);
+      if (repeat === 'on') {
+        this._beginRepeat(command, param);
       }
     }
-  });
+    _onMouseUp(e) {
+      e.preventDefault();
+      this._endRepeat();
+    }
+    _beginRepeat(command, param) {
+      this._repeatCommand = command;
+      this._repeatParam   = param;
 
-  var SeekBarToolTip = function() { this.initialize.apply(this, arguments); };
-  _.extend(SeekBarToolTip.prototype, AsyncEmitter.prototype);
+      util.$('body')
+        .on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
+      this._$view
+        .on('mouseleave', this._boundOnMouseUp)
+        .on('mouseup', this._boundOnMouseUp);
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+      }
+      this._repeatTimer = window.setInterval(this._boundOnRepeat, 200);
+      this._isRepeating = true;
+    }
+    _endRepeat() {
+      this._isRepeating = false;
+      if (this._repeatTimer) {
+        window.clearInterval(this._repeatTimer);
+        this._repeatTimer = null;
+      }
+      util.$('body').off('mouseup.zenzaSeekbarToolTip');
+      this._$view.off('mouseleave').off('mouseup');
+    }
+    _onRepeat() {
+      if (!this._isRepeating) {
+        this._endRepeat();
+        return;
+      }
+      util.dispatchCommand(this._$view[0], this._repeatCommand, this._repeatParam);
+    }
+    update(sec, left) {
+      const timeText = util.secToTime(sec);
+      if (this._timeText === timeText) { return; }
+      this._timeText = timeText;
+      this.currentTimeLabel && (this.currentTimeLabel.text = timeText);
+      const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
+      const vw = window.innerWidth;
+      left = Math.max(0, Math.min(left - w / 2, vw - w));
+      this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
+      this._seekBarThumbnail.currentTime = sec;
+    }
+  }
+
+
   SeekBarToolTip.__css__ = (`
     .seekBarToolTip {
       position: absolute;
       display: inline-block;
+      visibility: hidden;
       z-index: 300;
       position: absolute;
       box-sizing: border-box;
-      bottom: 16px;
+      bottom: 24px;
       left: 0;
       width: 180px;
       white-space: nowrap;
       font-size: 10px;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.3);
       z-index: 150;
       opacity: 0;
       border: 1px solid #666;
       border-radius: 8px;
-      padding: 4px 4px 10px 4px;
-      transform: translate3d(0, 0, 0);
-      transition: transform 0.1s steps(1, start) 0, opacity 0.2s ease 0.5s;
+      padding: 8px 4px 0;
+      transform: translate3d(var(--trans-x-pp), 0, 10px);
+      transition: --trans-x-pp 0.1s, opacity 0.2s ease 0.5s;
       pointer-events: none;
     }
 
-    .fullScreen .seekBarToolTip {
-      bottom: 10px;
-    }
-
-    .dragging                .seekBarToolTip {
-      opacity: 1;
-      pointer-events: none;
-    }
-
+    .is-wheelSeeking .seekBarToolTip,
+    .is-dragging .seekBarToolTip,
     .seekBarContainer:hover  .seekBarToolTip {
       opacity: 1;
+      visibility: visible;
+    }
+
+    .seekBarToolTipInner {
+      padding-bottom: 10px;
       pointer-events: auto;
-    }
-
-    .fullScreen .seekBarContainer:not(:hover) .seekBarToolTip {
-      left: -100vw !important;
-    }
-
-    .seekBarToolTip .seekBarToolTipInner {
-      font-size: 0 !important;
-    }
-
-    .seekBarToolTip .seekBarToolTipButtonContainer {
+      display: flex;
       text-align: center;
+      vertical-aligm: middle;
       width: 100%;
     }
+    .is-wheelSeeking .seekBarToolTipInner,
+    .is-dragging .seekBarToolTipInner {
+      pointer-events: none;
+    }
 
-    .seekBarToolTip .seekBarToolTipButtonContainer>* {
+    .seekBarToolTipInner>* {
       flex: 1;
     }
 
@@ -2416,12 +2381,6 @@ var CONSTANT = {};
       display: inline-block;
       height: 16px;
       margin: 4px 0;
-      padding: 0 8px;
-      color: #ccc;
-      text-align: center;
-      font-size: 12px;
-      line-height: 16px;
-      text-shadow: 0 0 4px #fff, 0 0 8px #fc9;
     }
 
     .seekBarToolTip .controlButton {
@@ -2434,6 +2393,7 @@ var CONSTANT = {};
       margin: 0;
       cursor: pointer;
     }
+
     .seekBarToolTip .controlButton * {
       cursor: pointer;
     }
@@ -2447,24 +2407,17 @@ var CONSTANT = {};
       font-size: 16px;
     }
 
-    .seekBarToolTip .controlButton.enableCommentPreview {
+    .seekBarToolTip .controlButton.toggleCommentPreview {
       opacity: 0.5;
     }
 
-    .enableCommentPreview .seekBarToolTip .controlButton.enableCommentPreview {
+    .enableCommentPreview .seekBarToolTip .controlButton.toggleCommentPreview {
       opacity: 1;
       background: rgba(0,0,0,0.01);
     }
 
-    .seekBarToolTip .seekBarThumbnailContainer {
-      pointer-events: none;
-      position: absolute;
-      top: 0; left: 50%;
-      transform: translate(-50%, -100%);
-    }
-    .seekBarContainer:not(.enableCommentPreview) .seekBarToolTip.storyboard {
-      border-top: none;
-      border-radius: 0 0 8px 8px;
+    .is-fullscreen .seekBarToolTip {
+      bottom: 10px;
     }
   `).trim();
 
@@ -2478,11 +2431,11 @@ var CONSTANT = {};
           </div>
 
           <div class="currentTime"></div>
-          
-          <div class="controlButton enableCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
+
+          <div class="controlButton toggleCommentPreview" data-command="toggleConfig" data-param="enableCommentPreview" title="コメントのプレビュー表示">
             <div class="menuButtonInner">💬</div>
           </div>
-          
+
 
           <div class="controlButton forwardSeek" data-command="seekBy" data-param="5" title="5秒進む" data-repeat="on">
             <div class="controlButtonInner">⇨</div>
@@ -2492,273 +2445,280 @@ var CONSTANT = {};
     </div>
   `).trim();
 
-  _.assign(SeekBarToolTip .prototype, {
-    initialize: function(params) {
-      this._$container = params.$container;
-      this._storyboard = params.storyboard;
-      this._initializeDom(params.$container);
 
-      //this.update = ZenzaWatch.util.createDrawCallFunc(this.update.bind(this));
-
-      this._boundOnRepeat = this._onRepeat.bind(this);
-      this._boundOnMouseUp = this._onMouseUp.bind(this);
-    },
-    _initializeDom: function($container) {
-      ZenzaWatch.util.addStyle(SeekBarToolTip.__css__);
-      var $view = this._$view = $(SeekBarToolTip.__tpl__);
-
-      this._$currentTime = $view.find('.currentTime');
-
-      $view
-        .on('mousedown',this._onMouseDown.bind(this))
-        .on('click', function(e) { e.stopPropagation(); e.preventDefault(); });
-
-      this._seekBarThumbnail = this._storyboard.getSeekBarThumbnail({
-        $container: $view.find('.seekBarThumbnailContainer')
-      });
-      this._seekBarThumbnail.on('visible', v => {
-        $view.toggleClass('storyboard', v);
-      });
-
-      $container.append($view);
-    },
-    _onMouseDown: function(e) {
-      e.stopPropagation();
-      var $target = $(e.target).closest('.controlButton');
-      var command = $target.attr('data-command');
-      if (!command) { return; }
-
-      var param   = $target.attr('data-param');
-      var repeat  = $target.attr('data-repeat') === 'on';
-
-      this.emit('command', command, param);
-      if (repeat) {
-        this._beginRepeat(command, param);
+  class SmoothSeekBarPointer {
+    constructor(params) {
+      this._pointer = params.pointer;
+      this._currentTime = 0;
+      this._duration = 1;
+      this._playbackRate = 1;
+      this._isSmoothMode = true;
+      this._isPausing = true;
+      this._isSeeking = false;
+      this._isStalled = false;
+      if (!this._pointer.animate && !('registerProperty' in CSS)) {
+        this._isSmoothMode = false;
       }
-    },
-    _onMouseUp: function(e) {
-      e.preventDefault();
-      this._endRepeat();
-    },
-    _beginRepeat(command, param) {
-      this._repeatCommand = command;
-      this._repeatParam   = param;
-
-      $('body').on('mouseup.zenzaSeekbarToolTip', this._boundOnMouseUp);
-      this._$view.on('mouseleave mouseup', this._boundOnMouseUp);
-
-      this._repeatTimer = window.setInterval(this._boundOnRepeat, 200);
-      this._isRepeating = true;
-    },
-    _endRepeat: function() {
-      this.isRepeating = false;
-      if (this._repeatTimer) {
-        window.clearInterval(this._repeatTimer);
-        this._repeatTimer = null;
-      }
-      $('body').off('mouseup.zenzaSeekbarToolTip');
-      this._$view.off('mouseleave mouseup');
-    },
-    _onRepeat: function() {
-      if (!this._isRepeating) {
-        this._endRepeat();
+      this._pointer.classList.toggle('is-notSmooth', !this._isSmoothMode);
+      params.playerState.onkey('isPausing', v => this.isPausing = v);
+      params.playerState.onkey('isSeeking', v => this.isSeeking = v);
+      params.playerState.onkey('isStalled', v => this.isStalled = v);
+     }
+    get currentTime() {
+      return this._currentTime;
+    }
+    set currentTime(v) {
+      if (!this._isSmoothMode) {
+        const per = Math.min(100, this._timeToPer(v));
+        this._pointer.style.setProperty('--trans-x-pp', cssUtil.vw(per));
+        // this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
         return;
       }
-      this.emit('command', this._repeatCommand, this._repeatParam);
-    },
-    update: function(sec, left) {
-      var m = Math.floor(sec / 60);
-      var s = (Math.floor(sec) % 60 + 100).toString().substr(1);
-      var timeText = [m, s].join(':');
-      if (this._timeText !== timeText) {
-        this._timeText = timeText;
-        this._$currentTime.text(timeText);
-        var w  = this._$view.outerWidth();
-        var vw = this._$container.innerWidth();
-        left = Math.max(0, Math.min(left - w / 2, vw - w));
-        this._$view.css({
-          'transform': 'translate3d(' + left + 'px, 0, 0)'
-        });
-      }
-      this._seekBarThumbnail.setCurrentTime(sec);
-    }
-  });
-
-
-
-
-
-//===END===
-  var Lark = function() { this.initialize.apply(this, arguments); };
-  _.extend(Lark.prototype, AsyncEmitter.prototype);
-  _.assign(Lark.prototype, {
-    initialize: function(params) {
-      this._player = params.player;
-      this._playerConfig = params.playerConfig;
-      this._volume =
-        parseFloat(params.volume || this._playerConfig.getValue('speakLarkVolume'), 10);
-      this._lang = params.lang || ZenzaWatch.util.getPageLanguage();
-      this._enabled = false;
-      this._timer = null;
-      this._timeoutTimer = null;
-      this._kidoku = [];
-
-      this._player.on('commentParsed', _.debounce(this._onCommentParsed.bind(this), 500));
-      this._playerConfig.on('update-speakLark', _.bind(function(v) {
-        if (v) { this.enable(); } else { this.disable(); }
-      }, this));
-      this._playerConfig.on('update-speakLarkVolume', _.bind(function(v) {
-        this._volume = Math.max(0, Math.min(1.0, parseFloat(v, 10)));
-        if (!this._msg) { return; }
-        this._msg.volume = this._volume;
-      }, this));
-
-      ZenzaWatch.debug.lark = this;
-
-      this._bind = {
-        _onTimeout: _.debounce(_.bind(this._onTimeout, this), 6000)
-      };
-    },
-    _initApi: function() {
-      if (this._msg) { return true; }
-      if (!window.SpeechSynthesisUtterance) { return false; }
-      this._msg = new window.SpeechSynthesisUtterance();
-      this._msg.lang = this._lang;
-      this._msg.volume = this._volume;
-      this._msg.onend   = _.bind(this._onSpeakEnd, this);
-      this._msg.onerror = _.bind(this._onSpeakErr, this);
-      return true;
-    },
-    _onCommentParsed: function() {
-      //window.console.log('%conCommentParsed:', 'background: #f88;');
-      this._speaking = false;
-      if (this._playerConfig.getValue('speakLark')) {
-        this.enable();
-      }
-    },
-    speak: function(text, option) {
-      if (!this._msg) { return; }
-      //if (window.speechSynthesis.speaking) { return; }
-      if (this._speaking) { return; }
-      if (option.volume) { this._msg.volume = option.volume; }
-      if (option.rate)   { this._msg.rate   = option.rate; }
-
-      if (window.speechSynthesis.speaking) {
-        console.log('speak cancel: ', this._msg.text);
-        window.speechSynthesis.cancel();
-      }
-      text = this._replaceWWW(text);
-      this._msg.text = text;
-      this._msg.pitch = Math.random() * 2;
-      this._speaking = true;
-      //console.log('%cspeak: "%s"', 'background: #f88;', text, this._msg);
-      this._lastSpeakAt = Date.now();
-      this._bind._onTimeout();
-
-      window.speechSynthesis.speak(this._msg);
-    },
-    _onSpeakEnd: function() {
-      if (!window.speechSynthesis.speaking) {
-        this._speaking = false;
-      }
-      this._onTimer();
-    },
-    _onSpeakErr: function(e) {
-      window.console.log('speak error: ', e, this._msg.text);
-      this._speaking = false;
-      this._onTimer();
-    },
-    _onTimeout: function() {
-      if (window.speechSynthesis.speaking) {
-        var past = Date.now() - this._lastSpeakAt;
-        console.log('speak timeout: ', past, this._msg.text);
-      }
-      this._speaking = false;
-    },
-    enable: function() {
-      if (!this._initApi()) { return; }
-
-      this._kidoku = [];
-      this._enabled = true;
-      var chatList = this._player.getChatList();
-      this._chatList = chatList.top.concat(chatList.naka, chatList.bottom);
-      window.speechSynthesis.cancel();
-      if (this._timer) {
-        window.clearInterval(this._timer);
-      }
-      this._timer = window.setInterval(this._onTimer.bind(this), 300);
-    },
-    disable: function() {
-      this._enabled = false;
-      this._speaking = false;
-      this._chatList = [];
-      if (this._timer) {
-        window.clearInterval(this._timer);
-        this._timer = null;
-      }
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-    },
-    _onTimer: function() {
-      if (!this._player.isPlaying()) { return; }
-      if (this._speaking) { return; }
-      var one = this._selectOne();
-      if (!one) { return; }
-      this.speak(one.text, {rate: one.rate});
-    },
-    _getInviewChat: function() {
-      var player = this._player;
-      var vpos = player.getCurrentTime() * 100;
-      var result = [];
-      var chatList = this._chatList;
-      for (var i = 0, len = chatList.length; i < len; i++) {
-        var chat = chatList[i];
-        var vp = chat.getVpos();
-        if (chat.isInvisible()) { continue; }
-        if (vp - vpos > -250 && vp - vpos < 150) {
-          result.push(chat);
+      if (document.hidden) { return; }
+      if (this._currentTime === v) {
+        if (this.isPlaying) {
+          this._animation.currentTime = v;
+          this.isStalled = true;
+          return;
+        }
+      } else {
+        if (this.isStalled) {
+          this.isStalled = false;
         }
       }
-      return result;
-    },
-    _selectOne: function() {
-      var inviewChat = this._getInviewChat();
-      var sample = _.shuffle(_.difference(inviewChat, this._kidoku));
-      if (sample.length < 1) { return null; }
-      var chat = sample[0];
-      var text = chat.getText();
+      this._currentTime = v;
 
-      // コメントが多い時は早口
-      var count = Math.max(1, Math.min(inviewChat.length, 40));
-      this._kidoku.unshift(chat);
-      this._kidoku.splice(5);
-      return {
-        text: text,
-        rate: 0.5 + Math.max(0, Math.min(4, count / 15))
-      };
-    },
-    _replaceWWW: function(text) {
-      text = text.trim();
-
-      text = text.replace(/([~〜～])/g, 'ー');
-      text = text.replace(/([\(（].*?[）\)])/g, 'ー'); // ほとんど顔文字なので
-
-      text = text.replace(/([wWＷｗ])+$/i, function(m) {
-        return 'わら'.repeat(Math.min(3, m.length));
-      });
-
-      text = text.replace(/([8８])+$/i, function(m) {
-        return 'ぱち'.repeat(Math.min(3, m.length));
-      });
-
-      return text;
+      // 誤差が一定以上になったときのみ補正する
+      // videoのcurrentTimeは秒. Animation APIのcurrentTimeはミリ秒
+      if (this._animation &&
+        Math.abs(v * 1000 - this._animation.currentTime) > 300) {
+        this._animation.currentTime = v * 1000;
+      }
     }
-  });
-  
-  ZenzaWatch.debug.Lark = Lark;
+    _timeToPer(time) {
+      return (time / Math.max(this._duration, 1)) * 100;
+    }
+    set duration(v) {
+      if (this._duration === v) { return; }
+      this._duration = v;
+      this.refresh();
+    }
+    set playbackRate(v) {
+      if (this._playbackRate === v) { return; }
+      this._playbackRate = v;
+      if (!this._animation) { return; }
+      this._animation.playbackRate = v;
+    }
+    get isPausing() {
+      return this._isPausing;
+    }
+    set isPausing(v) {
+      if (this._isPausing === v) { return; }
+      this._isPausing = v;
+      this._updatePlaying();
+    }
+    get isSeeking() {
+      return this._isSeeking;
+    }
+    set isSeeking(v) {
+      if (this._isSeeking === v) { return; }
+      this._isSeeking = v;
+      this._updatePlaying();
+    }
+    get isStalled() {
+      return this._isStalled;
+    }
+    set isStalled(v) {
+      if (this._isStalled === v) { return; }
+      this._isStalled = v;
+      this._updatePlaying();
+    }
+    get isPlaying() {
+      return !this.isPausing && !this.isStalled && !this.isSeeking;
+    }
+    _updatePlaying() {
+      if (!this._animation) { return; }
+      if (this.isPlaying) {
+        this._animation.play();
+      } else {
+        this._animation.pause();
+      }
+    }
+    refresh() {
+      if (!this._isSmoothMode) { return; }
+      if (this._animation) {
+        this._animation.finish();
+      }
+      this._animation = this._pointer.animate([
+        {'--trans-x-pp': 0},
+        {'--trans-x-pp': cssUtil.vw(100)}
+      ], {duration: this._duration * 1000, fill: 'backwards'});
+      this._animation.currentTime = this._currentTime * 1000;
+      this._animation.playbackRate = this._playbackRate;
+      if (this.isPlaying) {
+        this._animation.play();
+      } else {
+        this._animation.pause();
+      }
+    }
+  }
 
 
+  class WheelSeeker extends BaseViewComponent {
+    static get template() {
+      return `
+        <div class="root" style="display: none;">
+        </div>
+      `;
+    }
 
+    constructor(params) {
+      super({
+        parentNode: params.parentNode,
+        name: 'WheelSeeker',
+        template: '<div class="WheelSeeker"></div>',
+        shadow: WheelSeeker.template
+      });
+      Object.assign(this._props, {
+        watchElement: params.watchElement,
+        isActive: false,
+        pos: 0,
+        ax: 0,
+        lastWheelTime: 0,
+        duration: 1
+      });
+      this._bound.onWheel = _.throttle(this.onWheel.bind(this), 50);
+      this._bound.onMouseUp = this.onMouseUp.bind(this);
+      this._bound.dispatchSeek =this.dispatchSeek.bind(this);
 
+      this._props.watchElement.addEventListener(
+        'wheel', this._bound.onWheel, {passive: false});
+    }
+
+    _initDom(...args) {
+      super._initDom(...args);
+
+      this._elm = Object.assign({}, this._elm, {
+        root: this._shadow || this._view,
+        // pointer: (this._shadow || this._view).querySelector('.pointer')
+      });
+      this._shadow.addEventListener('contextmenu', e => {
+        e.stopPropagation();
+        e.preventDefault();
+      });
+    }
+
+    enable() {
+      document.addEventListener(
+        'mouseup', this._bound.onMouseUp, {capture: true, once: true});
+      this.refresh();
+      this.dispatchCommand('wheelSeek-start');
+      this._elm.root.style.display = '';
+      this._props.isActive = true;
+      this._props.ax = 0;
+      this._props.lastWheelTime = performance.now();
+    }
+
+    disable() {
+      document.removeEventListener('mouseup', this._bound.onMouseUp);
+      this.dispatchCommand('wheelSeek-end');
+      this.dispatchCommand('seek', this.currentTime);
+      this._props.isActive = false;
+      setTimeout(() => {
+        this._elm.root.style.display = 'none';
+      }, 300);
+    }
+
+    onWheel(e) {
+      let {buttons, deltaY} = e;
+
+      if (!deltaY) { return; }
+      deltaY = Math.abs(deltaY) >= 100 ? deltaY / 50 : deltaY;
+      if (this.isActive) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!buttons && !e.shiftKey) {
+          return this.disable();
+        }
+        let pos = this._props.pos;
+        let ax = this._props.ax;
+        const deltaReversed = ax * deltaY < 0 ;//lastDelta * deltaY < 0;
+        const now = performance.now();
+        const seconds = ((now - this._props.lastWheelTime) / 1000);
+        this._props.lastWheelTime = now;
+        if (deltaReversed) {
+          ax = deltaY > 0 ? 0.5 : -0.5;
+        } else {
+          ax =
+            ax *
+            Math.pow(1.15, Math.abs(deltaY)) * // speedup
+            Math.pow(0.8, Math.floor(seconds/0.1)) // speeddown
+          ;
+          ax = Math.min(20, Math.abs(ax)) * (ax > 0 ? 1: -1);
+          pos += ax; // / 100;
+        }
+        pos = Math.min(100, Math.max(0, pos));
+
+        this._props.ax = ax;
+        this.pos = pos;
+        this._bound.dispatchSeek();
+      } else if (buttons || e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.enable();
+        this._props.ax = deltaY > 0 ? 0.5 : -0.5;
+      }
+    }
+
+    onMouseUp(e) {
+      if (!this.isActive) { return; }
+      e.preventDefault();
+      e.stopPropagation();
+      this.disable();
+    }
+
+    dispatchSeek() {
+      this.dispatchCommand('wheelSeek', this.currentTime);
+    }
+
+    refresh() {
+      // this._elm.pointer.style.transform = `translateX(${this._props.pos}%)`;
+    }
+
+    get isActive() {
+      return this._props.isActive;
+    }
+    get duration() {
+      return this._props.duration;
+    }
+    set duration(v) {
+      this._props.duration = v;
+    }
+    get pos() {
+      return this._props.pos;
+    }
+    set pos(v) {
+      this._props.pos = v;
+      if (this.isActive) {
+        this.refresh();
+      }
+    }
+    get currentTime() {
+      return this.duration * this.pos / 100;
+    }
+    set currentTime(v) {
+      this.pos = v / this.duration * 100;
+    }
+  }
+
+//===END===
+
+export {
+  VideoControlBar,
+  HeatMapWorker,
+  CommentPreviewModel,
+  CommentPreviewView,
+  CommentPreview,
+  SeekBarToolTip
+};
 

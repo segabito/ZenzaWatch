@@ -1,0 +1,33 @@
+{
+  "presets": [
+//    "es2015"
+    //    ["@babel/preset-env", {
+    //      "targets": {
+    //        "browsers": "last 2 Chrome versions",
+    //        "node": "current"
+    //      }
+    //    }]
+  ],
+  "env": {
+    "test": {
+      "presets": [
+        [
+          "es2015"
+        ]
+      ]
+    },
+    "development": {
+      "presets": [
+        [
+          "@babel/preset-env",
+          {
+            "targets": {
+              "browsers": "Chrome 52",
+              "node": "current"
+            }
+          }
+        ]
+      ]
+    }
+  }
+}
