@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.7
+// @version     0.5.8
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -3636,20 +3636,42 @@ Object.assign(util, textUtil);
       };
     })();
 
-    const getNgEnv = () => {
+    const waitForDom = (query, timeout = 30000) => {
+      const now = Date.now();
+      return new Promise(async (ok, ng) => {
+        while (now + timeout > Date.now()) {
+          const dom = document.querySelector(query);
+          console.log('waitForDom', query, dom, now + timeout, Date.now());
+          if (dom) {
+            return ok(dom);
+          }
+          await new Promise(wait => setTimeout(wait, 1000));
+        }
+        ng('timeout');
+      });
+    };
+
+    const getNgEnv = async () => {
       if (location.host === 'www.nicovideo.jp' &&
          (location.pathname.startsWith('/ranking') ||
           location.pathname.startsWith('/tag')     ||
           location.pathname.startsWith('/search'))
       ) {
+        if (document.querySelector('#MatrixRanking-app')) {
+          await waitForDom('.RankingMatrixVideosRow');
+        }
         return {
           query:
-            '.item[data-video-id]:not(.is-ng-wait), .item_cell[data-video-id]:not(.is-ng-wait), .VideoItem:not(.is-ng-wait), .RankingMainVideo[data-video-id]:not(.is-ng-wait)',
+            '.item[data-video-id]:not(.is-ng-wait), .item_cell[data-video-id]:not(.is-ng-wait), '+
+            '.VideoItem:not(.is-ng-wait), .RankingMainVideo[data-video-id]:not(.is-ng-wait)',
           container:
             Array.from(
               document.querySelectorAll(
-                '.contentBody .list, .container.column1024-0, .RankingMatrixVideosRow, .RankingMainContainer, .RankingVideoListContainer')
-            )
+                '.contentBody .list, .container.column1024-0,'+
+                '.RankingMatrixVideosRow, '+
+                '.RankingMainContainer, .RankingVideoListContainer')
+            ),
+          subtree: false
         };
       }
       if (location.host === 'www.nicovideo.jp' &&
@@ -3739,7 +3761,10 @@ Object.assign(util, textUtil);
           watchId = m[1];
         }
 
-        if (!watchId) { return ignore(); }
+        if (!watchId) {
+          item.classList.add('.no-watch-id');
+          return ignore();
+        }
 
         item.classList.add('is-ng-queue');
         onInview(item, watchId);
@@ -3756,8 +3781,8 @@ Object.assign(util, textUtil);
       return intersectionObserver;
     };
 
-    const initNgDom = ({intersectionObserver, query, closest, container}) => {
-
+    const initNgDom = ({intersectionObserver, query, closest, container, subtree}) => {
+      subtree = typeof subtree !== 'boolean' ? false : subtree;
       if (!container) { return; }
       util.addStyle(__ng_css__);
 
@@ -3784,32 +3809,31 @@ Object.assign(util, textUtil);
       };
       update();
 
-      const onUpdate = _.throttle(update, 1000);
-
       if (!container) { return; }
       const mutationObserver = new MutationObserver(mutations => {
         for (const record of mutations) {
           const container = record.target;
           if (record.addedNodes && record.addedNodes.length) {
-            onUpdate(container);
+            update(container);
           }
         }
       });
 
       const containers = Array.isArray(container) ? container : [container];
       containers.forEach(container => {
+        container.dataset.isWatching = 1;
         mutationObserver.observe(
           container,
-          {childList: true, characterData: false, attributes: false, subtree: false}
+          {childList: true, characterData: false, attributes: false, subtree}
         );
       });
 
     };
 
-    const initNg = params => {
+    const initNg = async params => {
       if (!window.IntersectionObserver) { return; }
 
-      let {query, container, closest} = params ? params : getNgEnv();
+      let {query, container, closest, subtree} = params ? params : await getNgEnv();
 
       if (!query) { return; }
 
@@ -3880,7 +3904,7 @@ Object.assign(util, textUtil);
 
       const intersectionObserver = initIntersectionObserver(onItemInview);
 
-      initNgDom({intersectionObserver, query, container, closest});
+      initNgDom({intersectionObserver, query, container, closest, subtree});
 
       return intersectionObserver;
     };
