@@ -31,20 +31,20 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.9
+// @version        2.4.13
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
 import {AntiPrototypeJs} from '../packages/lib/src/infra/AntiPrototype-js';
-import {Emitter} from '../packages/lib/src/Emitter';
-import {Config} from './Config';
-import {uQuery} from '../packages/lib/src/uQuery';
+import {Emitter, Handler, EmitterInitFunc, PromiseHandler} from '../packages/lib/src/Emitter';
+import {Config, NaviConfig} from './Config';
+import {uQuery, uq} from '../packages/lib/src/uQuery';
 import {util} from './util';
 import {components} from '../packages/components/src/index';
 import {State} from './State';
 import {api, NicoVideoApi} from './loader/api';
 import {VideoInfoModel} from './VideoInfo';
-import {VideoSearch} from '../packages/lib/src/nico/VideoSearch';
+import {VideoSearch, NicoSearchApiV2Loader} from '../packages/lib/src/nico/VideoSearch';
 import {TagEditApi} from '../packages/lib/src/nico/TagEditApi';
 import {StoryboardInfoLoader} from '../packages/lib/src/nico/StoryboardInfoLoader';
 import {ThreadLoader} from '../packages/lib/src/nico/ThreadLoader';
@@ -72,7 +72,7 @@ import {SettingPanel} from './SettingPanel';
 import {TagListView} from './TagListView';
 import {VideoInfoPanel} from './VideoInfoPanel';
 import {GinzaSlayer} from './GinzaSlayer';
-import {initializer} from './initializer';
+import {initialize} from './initializer';
 import {CustomElements} from '../packages/zenza/src/parts/CustomElements';
 import {CONSTANT} from './constant';
 import {TextLabel} from '../packages/lib/src/ui/TextLabel';
@@ -80,6 +80,8 @@ import {parseThumbInfo} from '../packages/lib/src/nico/parseThumbInfo';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {ENV,VER} from './ZenzaWatchIndex';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
+import {netUtil} from '../packages/lib/src/infra/netUtil';
+import {initCssProps} from '../packages/zenza/src/init/inintCssProps';
 //@require AntiPrototypeJs
 AntiPrototypeJs();
 (() => {
@@ -94,6 +96,7 @@ AntiPrototypeJs();
 })();
 
 (function (window) {
+  const self = window;
   'use strict';
   const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
@@ -113,7 +116,8 @@ AntiPrototypeJs();
 
     console.log(
       `%c${PRODUCT}@${ENV} v${VER}`,
-      `font-family: "AppleMyungjo"; font-size: 200%; background: #039393; color: #ffc; padding: 8px; text-shadow: 2px 2px #888;`
+      'font-family: Chalkduster; font-size: 200%; background: #039393; color: #ffc; padding: 8px; text-shadow: 2px 2px #888;',
+      '(ﾟ∀ﾟ) ｾﾞﾝｻﾞ!'
     );
 
 //@require Config
@@ -220,7 +224,7 @@ ZenzaWatch.api.StoryboardInfoLoader = StoryboardInfoLoader;
 
 //@require GinzaSlayer
 
-//@require initializer
+//@require initialize
 
 //@require CustomElements
 
@@ -235,7 +239,7 @@ ZenzaWatch.modules.TextLabel = TextLabel;
       return initialize();
     }
 
-    NicoVideoApi.configBridge(Config).then(() => {
+    uq.ready().then(() => NicoVideoApi.configBridge(Config)).then(() => {
       window.console.log('%cZenzaWatch Bridge: %s', 'background: lightgreen;', location.host);
       if (document.getElementById('siteHeaderNotification')) {
         return initialize();
@@ -278,4 +282,4 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 //@require boot
   boot(monkey, PRODUCT, START_PAGE_QUERY);
 
-})(window.unsafeWindow || window);
+})(globalThis ? globalThis.window : window);

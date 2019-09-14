@@ -180,7 +180,7 @@ const workerUtil = (() => {
       if (!cache) {
         const src = `
         const PID = '${window && window.name || 'self'}:${location.href}:${name}:${Date.now().toString(16).toUpperCase()}';
-        console.log('%cinit "%s"', 'font-weight: bold;', self.name || '');
+        console.log('%cinit %s %s', 'font-weight: bold;', self.name || '', '${PRODUCT}', location.origin);
         (${func.toString()})(self);
         `;
         const blob = new Blob([src], {type: 'text/javascript'});

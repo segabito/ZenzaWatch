@@ -9,7 +9,8 @@
 // @match       *://sp.nicovideo.jp/watch/*
 // @exclude     *://ads*.nicovideo.jp/*
 // @exclude     *://www.nicovideo.jp/favicon.ico*
-// @version     0.3.0
+// @exclude     *://www.nicovideo.jp/robots.txt*
+// @version     0.3.1
 // @grant       none
 // @author      名無しさん
 // @license     public domain

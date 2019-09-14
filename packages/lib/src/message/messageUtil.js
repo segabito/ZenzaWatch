@@ -56,7 +56,14 @@ const WindowMessageEmitter = messageUtil.WindowMessageEmitter = ((safeOrigins = 
       }
       const message = body.params;
       if (type === 'blogParts') { // 互換のための対応
-        global.external.sendOrExecCommand(message.command, message.params.watchId);
+        const command = global.config.props.enableSingleton ?
+          (command === 'send' ? 'open' : 'send') : message.command;
+
+        if (command === 'send') {
+          global.external.sendOrExecCommand('open', message.params.watchId);
+        } else {
+          global.external.execCommand('open', message.params.watchId);
+        }
         return;
       } else if (body.command !== 'message' || !body.params.command) {
         return;

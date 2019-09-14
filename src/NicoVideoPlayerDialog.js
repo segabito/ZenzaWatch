@@ -303,7 +303,8 @@ class NicoVideoPlayerDialogView extends Emitter {
       $playerContainer: $container,
       playerConfig: config,
       player: this._dialog,
-      playerState: this._state
+      playerState: this._state,
+      currentTimeGetter: this._currentTimeGetter
     });
     this._videoControlBar.on('command', onCommand);
 
@@ -329,8 +330,7 @@ class NicoVideoPlayerDialogView extends Emitter {
     }
     this._videoInfoPanel = new VideoInfoPanel({
       dialog: this,
-      node: this._$playerContainer,
-      currentTimeGetter: this._currentTimeGetter
+      node: this._$playerContainer
     });
     this._videoInfoPanel.on('command', this._onCommand.bind(this));
     return this._videoInfoPanel;
@@ -1264,6 +1264,10 @@ NicoVideoPlayerDialogView.__css__ = `
   `.trim();
 
 NicoVideoPlayerDialogView.__tpl__ = (`
+<!--
+
+
+-->
     <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog zen-family zen-root">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
@@ -1275,6 +1279,10 @@ NicoVideoPlayerDialogView.__tpl__ = (`
         </div>
       </div>
     </div>
+<!--
+
+
+-->
   `).trim();
 /**
  * TODO: 分割 まにあわなくなっても知らんぞー

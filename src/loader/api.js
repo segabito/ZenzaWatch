@@ -16,6 +16,7 @@ import {PlaybackPosition} from '../../packages/lib/src/nico/PlaybackPosition';
 import {VideoInfoLoader} from '../../packages/lib/src/nico/VideoInfoLoader';
 import {ThumbInfoLoader} from '../../packages/lib/src/nico/ThumbInfoLoader';
 import {MylistApiLoader} from '../../packages/lib/src/nico/MylistApiLoader';
+import {uq} from '../../packages/lib/src/uQuery';
 
 //===BEGIN===
 //@require CacheStorage
@@ -47,12 +48,14 @@ if (location.host !== 'www.nicovideo.jp') {
     }
   }
 
-  NicoVideoApi = new NVGate({
-    baseUrl: 'https://www.nicovideo.jp/favicon.ico',
-    origin: 'https://www.nicovideo.jp/',
-    type: 'nicovideoApi',
-    suffix: location.href
-  });
+  // uq.ready().then(() => {
+    NicoVideoApi = new NVGate({
+      baseUrl: 'https://www.nicovideo.jp/robots.txt',
+      origin: 'https://www.nicovideo.jp/',
+      type: 'nicovideoApi',
+      suffix: location.href
+    });
+  // });
 }
 
 if (ZenzaWatch && ZenzaWatch.api) {

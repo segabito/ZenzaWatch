@@ -22,6 +22,12 @@ const uQuery = (() => {
     }
     document.addEventListener('DOMContentLoaded', resolve, {once: true});
   };
+  const waitForComplete = resolve => {
+    if (['complete'].includes(document.readyState)) {
+      return resolve();
+    }
+    window.addEventListener('load', resolve, {once: true});
+  };
 
   const isTagLiteral = (t,...args) =>
     Array.isArray(t) &&
@@ -651,6 +657,7 @@ const uQuery = (() => {
     html: (...args) => new $Array(createDom(...args).children),
     isTL: isTagLiteral,
     ready: (func = () => {}) => emitter.promise('domReady', waitForDom).then(() => func()),
+    complete: (func = () => {}) => emitter.promise('domComplete', waitForComplete).then(() => func()),
     each: (arr, callback) => Array.from(arr).forEach((a, i) => callback.apply(a, [i, a])),
     proxy: (func, ...args) => func.bind(...args),
     fn: {

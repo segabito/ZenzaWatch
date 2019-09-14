@@ -180,9 +180,10 @@ const IndexedDbStorage = (() => {
     return controller;
   };
 
-  const workers = {};
+  const workers = new Map;
   const open = async ({name, ver, stores}, func) => {
-    if (!workers[name]) {
+    let worker;
+    if (func) {
       let _func = workerFunc;
       if (func) {
         _func = `
@@ -192,9 +193,12 @@ const IndexedDbStorage = (() => {
         })
         `;
       }
-      workers[name] = workerUtil.createCrossMessageWorker(_func, {name: `IndexedDb[${name}]`});
+      worker = workers.get(func) || workerUtil.createCrossMessageWorker(_func, {name: `IndexedDb[${name}]`});
+      workers.set(func, worker);
+    } else {
+      worker = workers.get(workerFunc) || workerUtil.createCrossMessageWorker(workerFunc, {name: 'IndexedDb'});
+      workers.set(workerFunc, worker);
     }
-    const worker = workers[name];
 
     worker.post({command: 'init', params: {name, ver, stores}});
 

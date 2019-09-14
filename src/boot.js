@@ -11,7 +11,7 @@ const boot = async (monkey, PRODUCT, START_PAGE_QUERY) => {
   const host = window.location.host || '';
   const name = window.name || '';
   const href = (location.href || '').replace(/#.*$/, '');
-  if (href === 'https://www.nicovideo.jp/favicon.ico' &&
+  if (href === 'https://www.nicovideo.jp/robots.txt' &&
     name.startsWith(`nicovideoApi${PRODUCT}Loader`)) {
     GateAPI.nicovideo();
   } else if (host.match(/^smile-.*?\.nicovideo\.jp$/)) {

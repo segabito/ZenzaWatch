@@ -27,6 +27,7 @@ const gate = () => {
     try {
       const msg = {id, type, token, url, sessionId, body};
       if (!this.port) {
+        // console.info(`%c2. port connect [${window.name.split('#')[0]} ${PRODUCT}]`, 'background: #039393; color: gold; font-size: 120%;');
         msg.body = {command: 'initialized', params: msg.body};
         parent.postMessage(msg, origin, [this.channel.port2]);
         this.port = this.channel.port1;
@@ -137,10 +138,11 @@ const gate = () => {
       throw new Error(`unknown name "${window.name}"`);
     }
     const PID = `${window && window.name || 'self'}:${location.host}:${name}:${Date.now().toString(16).toUpperCase()}`;
+    // console.info(`%c1. port open [${window.name.split('#')[0]} ${PRODUCT}]`, 'background: #039393; color: gold; font-size: 120%;');
 
     type = type || window.name.replace(new RegExp(`/(${PRODUCT}|)Loader$/`), '');
     const origin = document.referrer || window.name.split('#')[1];
-    console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name, {prefix, type});
+    console.log('%cCrossDomainPort: host:%s window:%s', 'background: lightgreen;', location.host, window.name.split('#')[0]);
 
     if (!isWhiteHost(origin)) {
       throw new Error(`disable bridge "${origin}"`);
@@ -150,6 +152,7 @@ const gate = () => {
     window.history.replaceState(null, null, location.pathname);
     const port = post({status: 'ok', command: 'initialized'}, {type, token: TOKEN, origin});
     workerUtil && workerUtil.env({TOKEN, PRODUCT});
+    // console.info(`%c3. port init OK [${window.name.split('#')[0]} ${PRODUCT}]`, 'background: #039393; color: gold; font-size: 120%;');
     return {port, TOKEN, origin, type, PID};
   };
 
@@ -158,71 +161,3 @@ const gate = () => {
 
 //===END===
 export {gate};
-
-// const xmlHttp = options => {
-//   try {
-//     //window.console.log('xmlHttp bridge: ', options.url, options);
-//     let req = new XMLHttpRequest();
-//     let method = options.method || options.type || 'GET';
-//     let xhrFields = options.xhrFields || {};
-
-//     if (typeof xhrFields.withCredentials === 'boolean') {
-//       req.withCredentials = xhrFields.withCredentials;
-//     }
-
-//     req.onreadystatechange = () => {
-//       if (req.readyState === 4) {
-//         if (typeof options.onload === 'function') options.onload(req);
-//       }
-//     };
-//     req.open(method, options.url, true);
-
-//     if (options.headers) {
-//       for (let h in options.headers) {
-//         req.setRequestHeader(h, options.headers[h]);
-//       }
-//     }
-
-//     req.send(options.data || null);
-//   } catch (e) {
-//     window.console.error(e);
-//   }
-// };
-// const ajax = (params, sessionId) => {
-//   let timeoutTimer = null, isTimeout = false;
-//   const {url, options} = params;
-//   const command = 'loadUrl';
-//   if (!url || !isWhiteHost(url) || !isNicoServiceHost(url)) {
-//     return;
-//   }
-
-//   xmlHttp({
-//     url,
-//     method: options.method || options.type || 'GET',
-//     data: options.data,
-//     headers: options.headers || [],
-//     xhrFields: options.xhrFields,
-//     onload: resp => {
-//       if (isTimeout) {
-//         return;
-//       } else {
-//         window.clearTimeout(timeoutTimer);
-//       }
-
-//       try {
-//         post(
-//           {status: 'ok', command, params: {body: resp.responseText}}, {sessionId});
-//       } catch (e) {
-//         console.log(
-//           '%cError: parent.postMessage - ',
-//           'color: red; background: yellow',
-//           e, event.origin, event.data);
-//       }
-//     }
-//   });
-
-//   timeoutTimer = window.setTimeout(() => {
-//     isTimeout = true;
-//     post({status: 'timeout', command, params}, {sessionId});
-//   }, 30000);
-// };

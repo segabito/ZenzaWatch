@@ -27,27 +27,40 @@ class CrossDomainGate extends Emitter {
       return this.promise('initialize');
     }
     this._initializeStatus = 'initializing';
+    const append = () => {
+      if (!this.loaderFrame.parentNode) {
+        console.warn('frame removed');
+        this.port = null;
+        this._initializeCrossDomainGate();
+      }
+    };
+    setTimeout(append,  5 * 1000);
+    setTimeout(append, 10 * 1000);
+    setTimeout(append, 20 * 1000);
+    setTimeout(append, 30 * 1000);
     setTimeout(() => {
       if (this._initializeStatus === 'done') {
         return;
       }
       this.emitReject('initialize', {
-        status: 'timeout', message: `CrossDomainGate初期化タイムアウト (${this._type})`
+        status: 'timeout', message: `CrossDomainGate初期化タイムアウト (type: ${this._type}, status: ${this._initializeStatus})`
       });
+      console.warn(`CrossDomainGate初期化タイムアウト (type: ${this._type}, status: ${this._initializeStatus})`);
     }, 60 * 1000);
     this._initializeCrossDomainGate();
     return this.promise('initialize');
   }
   _initializeCrossDomainGate() {
-    window.console.time(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
-    const loaderFrame = document.createElement('iframe');
+    // window.console.info(`%c1. CrossDomainGate open ${this.name} ${PRODUCT}`, 'background: orange; color: green; font-size: 120%');
+    window.console.time(`GATE OPEN: ${this.name} ${PRODUCT}`);
+    const loaderFrame = this.loaderFrame = document.createElement('iframe');
     loaderFrame.referrerPolicy = 'origin';
     loaderFrame.sandbox = 'allow-scripts allow-same-origin';
     loaderFrame.loading = 'eager';
     loaderFrame.name = `${this._type}${PRODUCT}Loader${this._suffix ? `#${this._suffix}` : ''}`;
     loaderFrame.className = `xDomainLoaderFrame ${this._type}`;
     loaderFrame.style.cssText = `
-      position: fixed; left: -100vw; pointer-events: none;user-select: none;`;
+      position: fixed; left: -100vw; pointer-events: none;user-select: none; contain: strict;`;
     (document.body || document.documentElement).append(loaderFrame);
 
     this._loaderWindow = loaderFrame.contentWindow;
@@ -55,10 +68,11 @@ class CrossDomainGate extends Emitter {
       if (event.source !== this._loaderWindow) {
         return;
       }
+      // window.console.info(`%c2. CrossDomainGate onInitialMessage [${this.name} ${PRODUCT}]`, 'background: orange; color: green; font-size: 120%');
       window.removeEventListener('message', onInitialMessage);
       this._onMessage(event);
     };
-    window.addEventListener('message', onInitialMessage);
+    window.addEventListener('message', onInitialMessage, {capture: true});
     this._loaderWindow.location.replace(this._baseUrl + '#' + TOKEN);
   }
   _onMessage(event) {
@@ -75,6 +89,7 @@ class CrossDomainGate extends Emitter {
       port.addEventListener('message', this._onMessage.bind(this));
       port.start();
       port.postMessage({body: {command: 'ok'}, token: TOKEN});
+      // window.console.info(`%c3. CrossDomainGate MessageChannel OK [${this.name} ${PRODUCT}]`, 'background: orange; color: green; font-size: 120%');
     }
     return this._onCommand(body, sessionId);
   }
@@ -84,9 +99,10 @@ class CrossDomainGate extends Emitter {
         if (this._initializeStatus !== 'done') {
           this._initializeStatus = 'done';
           const originalBody = params;
-          window.console.timeEnd(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
+          window.console.timeEnd(`GATE OPEN: ${this.name} ${PRODUCT}`);
           const result = this._onCommand(originalBody, sessionId);
           this.emitResolve('initialize', {status: 'ok'});
+          // window.console.info(`%c4. CrossDomainGate init OK [${this.name} ${PRODUCT}]`, 'background: orange; color: green; font-size: 120%');
           return result;
         }
         break;

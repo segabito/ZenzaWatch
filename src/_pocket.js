@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.6
+// @version     0.5.7
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -3957,7 +3957,7 @@ const thumbInfoApi = async function() {
     const watchId = params.url.split('/').reverse()[0];
     const expiresAt = Date.now() - (params.options.expireTime || 0);
     const cache = await db.get(watchId);
-    if (cache && cache.thumbInfo.status === 'ok' && cache.updatedAt < expiresAt) {
+    if (cache && cache.thumbInfo.status === 'ok' && cache.updatedAt > expiresAt) {
       return post({status: 'ok', command, params: cache.thumbInfo}, {sessionId});
     }
 

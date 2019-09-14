@@ -40,13 +40,13 @@ CONSTANT.BASE_CSS_VARS = (() => {
     'hatsune-color': '#039393',
     'enabled-button-color': '#9cf'
   };
-  let dt = new Date().toISOString();
+  const dt = new Date().toISOString();
   // if (/^\d{4}-(03-09|08-31)/.test(dt)) {
     vars['scrollbar-thumb-color'] = vars['hatsune-color'];
   // }
 
   return '#zenzaVideoPlayerDialog, .zenzaRoot {\n' +
-      Object.keys(vars).map(key => `--${key}: ${vars[key]};`).join('\n') +
+      Object.keys(vars).map(key => `--${key}:${vars[key]};`).join('\n') +
   '\n}';
 })();
 CONSTANT.COMMON_CSS = `
@@ -214,6 +214,7 @@ CONSTANT.SCROLLBAR_CSS = `
   .zenzaCommentPreview::-webkit-scrollbar,
   .mylistSelectMenuInner::-webkit-scrollbar {
     background: var(--scrollbar-bg-color);
+    width: 16px;
   }
 
   .videoInfoTab::-webkit-scrollbar-thumb,
@@ -222,6 +223,7 @@ CONSTANT.SCROLLBAR_CSS = `
   .mylistSelectMenuInner::-webkit-scrollbar-thumb {
     border-radius: 0;
     background: var(--scrollbar-thumb-color);
+    will-change: transform;
   }
 
   .videoInfoTab::-webkit-scrollbar-button,
