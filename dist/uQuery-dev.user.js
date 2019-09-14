@@ -16,8 +16,14 @@ const AntiPrototypeJs = function() {
 	if (this.promise || !window.Prototype || window.PureArray) {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
+	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
+		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
+		delete document.getElementsByClassName;
+	}
 	const f = document.createElement('iframe');
 	f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
+	f.id = 'prototype';
+	f.loading = 'eager';
 	Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
 	return this.promise = new Promise(res => {
 		f.onload = res;
@@ -25,11 +31,10 @@ const AntiPrototypeJs = function() {
 	}).then(() => {
 		window.PureArray = f.contentWindow.Array;
 		delete window.Array.prototype.toJSON;
-		delete window.Array.prototype.toJSON;
 		delete window.String.prototype.toJSON;
 		f.remove();
 		return Promise.resolve(window.PureArray);
-	});
+	}).catch(err => console.error(err));
 }.bind({promise: null});
 AntiPrototypeJs().then(() => {
 // Promise.resolve().then(() => {
@@ -286,6 +291,12 @@ const uQuery = (() => {
 			return resolve();
 		}
 		document.addEventListener('DOMContentLoaded', resolve, {once: true});
+	};
+	const waitForComplete = resolve => {
+		if (['complete'].includes(document.readyState)) {
+			return resolve();
+		}
+		window.addEventListener('load', resolve, {once: true});
 	};
 	const isTagLiteral = (t,...args) =>
 		Array.isArray(t) &&
@@ -845,6 +856,7 @@ const uQuery = (() => {
 		html: (...args) => new $Array(createDom(...args).children),
 		isTL: isTagLiteral,
 		ready: (func = () => {}) => emitter.promise('domReady', waitForDom).then(() => func()),
+		complete: (func = () => {}) => emitter.promise('domComplete', waitForComplete).then(() => func()),
 		each: (arr, callback) => Array.from(arr).forEach((a, i) => callback.apply(a, [i, a])),
 		proxy: (func, ...args) => func.bind(...args),
 		fn: {

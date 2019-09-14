@@ -9,7 +9,8 @@
 // @match       *://sp.nicovideo.jp/watch/*
 // @exclude     *://ads*.nicovideo.jp/*
 // @exclude     *://www.nicovideo.jp/favicon.ico*
-// @version     0.3.0
+// @exclude     *://www.nicovideo.jp/robots.txt*
+// @version     0.3.1
 // @grant       none
 // @author      名無しさん
 // @license     public domain
@@ -34,7 +35,7 @@
 
   const monkey = (PRODUCT) => {
     'use strict';
-    var VER = '0.3.0';
+    var VER = '0.3.1';
     const ENV = 'STABLE';
 
     let ZenzaWatch = null;
@@ -123,6 +124,13 @@ const css = {
 			try {
 				(definition.window || window).CSS.registerProperty(definition);
 			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+		}
+	},
+	setProps(element, ...args) {
+		for (const {prop, value} of args) {
+			try {
+				element.style.setProperty(prop, value);
+			} catch (err) { console.warn('element.style.setProperty fail', {prop, value}, element, err); }
 		}
 	},
 	addModule: async function(func, options = {}) {

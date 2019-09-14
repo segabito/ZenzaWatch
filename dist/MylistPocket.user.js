@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.6
+// @version     0.5.7
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -38,8 +38,14 @@ const AntiPrototypeJs = function() {
 	if (this.promise || !window.Prototype || window.PureArray) {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
+	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
+		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
+		delete document.getElementsByClassName;
+	}
 	const f = document.createElement('iframe');
 	f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
+	f.id = 'prototype';
+	f.loading = 'eager';
 	Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
 	return this.promise = new Promise(res => {
 		f.onload = res;
@@ -47,11 +53,10 @@ const AntiPrototypeJs = function() {
 	}).then(() => {
 		window.PureArray = f.contentWindow.Array;
 		delete window.Array.prototype.toJSON;
-		delete window.Array.prototype.toJSON;
 		delete window.String.prototype.toJSON;
 		f.remove();
 		return Promise.resolve(window.PureArray);
-	});
+	}).catch(err => console.error(err));
 }.bind({promise: null});
 AntiPrototypeJs().then(() => {
   const PRODUCT = 'MylistPocket';
@@ -1856,6 +1861,13 @@ const css = {
 			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
 		}
 	},
+	setProps(element, ...args) {
+		for (const {prop, value} of args) {
+			try {
+				element.style.setProperty(prop, value);
+			} catch (err) { console.warn('element.style.setProperty fail', {prop, value}, element, err); }
+		}
+	},
 	addModule: async function(func, options = {}) {
 		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
 			return;
@@ -3051,27 +3063,39 @@ class CrossDomainGate extends Emitter {
 			return this.promise('initialize');
 		}
 		this._initializeStatus = 'initializing';
+		const append = () => {
+			if (!this.loaderFrame.parentNode) {
+				console.warn('frame removed');
+				this.port = null;
+				this._initializeCrossDomainGate();
+			}
+		};
+		setTimeout(append,  5 * 1000);
+		setTimeout(append, 10 * 1000);
+		setTimeout(append, 20 * 1000);
+		setTimeout(append, 30 * 1000);
 		setTimeout(() => {
 			if (this._initializeStatus === 'done') {
 				return;
 			}
 			this.emitReject('initialize', {
-				status: 'timeout', message: `CrossDomainGate初期化タイムアウト (${this._type})`
+				status: 'timeout', message: `CrossDomainGate初期化タイムアウト (type: ${this._type}, status: ${this._initializeStatus})`
 			});
+			console.warn(`CrossDomainGate初期化タイムアウト (type: ${this._type}, status: ${this._initializeStatus})`);
 		}, 60 * 1000);
 		this._initializeCrossDomainGate();
 		return this.promise('initialize');
 	}
 	_initializeCrossDomainGate() {
-		window.console.time(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
-		const loaderFrame = document.createElement('iframe');
+		window.console.time(`GATE OPEN: ${this.name} ${PRODUCT}`);
+		const loaderFrame = this.loaderFrame = document.createElement('iframe');
 		loaderFrame.referrerPolicy = 'origin';
 		loaderFrame.sandbox = 'allow-scripts allow-same-origin';
 		loaderFrame.loading = 'eager';
 		loaderFrame.name = `${this._type}${PRODUCT}Loader${this._suffix ? `#${this._suffix}` : ''}`;
 		loaderFrame.className = `xDomainLoaderFrame ${this._type}`;
 		loaderFrame.style.cssText = `
-			position: fixed; left: -100vw; pointer-events: none;user-select: none;`;
+			position: fixed; left: -100vw; pointer-events: none;user-select: none; contain: strict;`;
 		(document.body || document.documentElement).append(loaderFrame);
 		this._loaderWindow = loaderFrame.contentWindow;
 		const onInitialMessage = event => {
@@ -3081,7 +3105,7 @@ class CrossDomainGate extends Emitter {
 			window.removeEventListener('message', onInitialMessage);
 			this._onMessage(event);
 		};
-		window.addEventListener('message', onInitialMessage);
+		window.addEventListener('message', onInitialMessage, {capture: true});
 		this._loaderWindow.location.replace(this._baseUrl + '#' + TOKEN);
 	}
 	_onMessage(event) {
@@ -3106,7 +3130,7 @@ class CrossDomainGate extends Emitter {
 				if (this._initializeStatus !== 'done') {
 					this._initializeStatus = 'done';
 					const originalBody = params;
-					window.console.timeEnd(`GATE OPEN TYPE: ${this.name} ${PRODUCT}`);
+					window.console.timeEnd(`GATE OPEN: ${this.name} ${PRODUCT}`);
 					const result = this._onCommand(originalBody, sessionId);
 					this.emitResolve('initialize', {status: 'ok'});
 					return result;
@@ -5517,7 +5541,7 @@ const workerUtil = (() => {
 			if (!cache) {
 				const src = `
 				const PID = '${window && window.name || 'self'}:${location.href}:${name}:${Date.now().toString(16).toUpperCase()}';
-				console.log('%cinit "%s"', 'font-weight: bold;', self.name || '');
+				console.log('%cinit %s %s', 'font-weight: bold;', self.name || '', '${PRODUCT}', location.origin);
 				(${func.toString()})(self);
 				`;
 				const blob = new Blob([src], {type: 'text/javascript'});
@@ -5840,9 +5864,10 @@ const IndexedDbStorage = (() => {
 		};
 		return controller;
 	};
-	const workers = {};
+	const workers = new Map;
 	const open = async ({name, ver, stores}, func) => {
-		if (!workers[name]) {
+		let worker;
+		if (func) {
 			let _func = workerFunc;
 			if (func) {
 				_func = `
@@ -5852,9 +5877,12 @@ const IndexedDbStorage = (() => {
 				})
 				`;
 			}
-			workers[name] = workerUtil.createCrossMessageWorker(_func, {name: `IndexedDb[${name}]`});
+			worker = workers.get(func) || workerUtil.createCrossMessageWorker(_func, {name: `IndexedDb[${name}]`});
+			workers.set(func, worker);
+		} else {
+			worker = workers.get(workerFunc) || workerUtil.createCrossMessageWorker(workerFunc, {name: 'IndexedDb'});
+			workers.set(workerFunc, worker);
 		}
-		const worker = workers[name];
 		worker.post({command: 'init', params: {name, ver, stores}});
 		const post = (command, data, storeName, transfer) => {
 			const params = {data, name, storeName, transfer};
@@ -6048,7 +6076,7 @@ const gate = () => {
 		const PID = `${window && window.name || 'self'}:${location.host}:${name}:${Date.now().toString(16).toUpperCase()}`;
 		type = type || window.name.replace(new RegExp(`/(${PRODUCT}|)Loader$/`), '');
 		const origin = document.referrer || window.name.split('#')[1];
-		console.log('%cCrossDomainGate: %s', 'background: lightgreen;', location.host, window.name, {prefix, type});
+		console.log('%cCrossDomainPort: host:%s window:%s', 'background: lightgreen;', location.host, window.name.split('#')[0]);
 		if (!isWhiteHost(origin)) {
 			throw new Error(`disable bridge "${origin}"`);
 		}
@@ -6080,7 +6108,7 @@ const gate = () => {
     const watchId = params.url.split('/').reverse()[0];
     const expiresAt = Date.now() - (params.options.expireTime || 0);
     const cache = await db.get(watchId);
-    if (cache && cache.thumbInfo.status === 'ok' && cache.updatedAt < expiresAt) {
+    if (cache && cache.thumbInfo.status === 'ok' && cache.updatedAt > expiresAt) {
       return post({status: 'ok', command, params: cache.thumbInfo}, {sessionId});
     }
 
