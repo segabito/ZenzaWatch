@@ -21,7 +21,8 @@
 // @match          https://www.upload.nicovideo.jp/garage/*
 // @match          https://www.google.co.jp/search*
 // @match          https://www.google.com/search*
-// @match          https://*.bing.com/*
+// @match          https://*.bing.com/search*
+// @match          https://feedly.com/*
 // @exclude        *://ads.nicovideo.jp/*
 // @exclude        *://www.nicovideo.jp/watch/*?edit=*
 // @exclude        *://ch.nicovideo.jp/tool/*
