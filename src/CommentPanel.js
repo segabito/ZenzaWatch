@@ -196,7 +196,7 @@ class CommentListView extends Emitter {
 
     this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
     this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
-    this._container.addEventListener('wheel', this._onWheel.bind(this), {passive: true});
+    this._container.addEventListener('wheel', _.throttle(this._onWheel.bind(this), 100), {passive: true});
     this._container.addEventListener('scroll', this._onScroll.bind(this), {passive: true});
     this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
 
@@ -339,6 +339,7 @@ class CommentListView extends Emitter {
   }
   _onWheel() {
     this.isActive = true;
+    this._scrollTop = this._container.scrollTop;
     this.addClass('is-active');
   }
   _onMouseOut() {
@@ -365,7 +366,7 @@ class CommentListView extends Emitter {
       return;
     }
     const itemHeight = CommentListView.ITEM_HEIGHT;
-    const scrollTop = this._container.scrollTop;
+    const scrollTop = this._scrollTop;
     const innerHeight = this._innerHeight;
     const windowBottom = scrollTop + innerHeight;
     const itemViews = this._itemViews;
@@ -395,8 +396,6 @@ class CommentListView extends Emitter {
 
 
     this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
-
-
     this._appendNewItems();
   }
   _appendNewItems() {
@@ -809,6 +808,7 @@ const CommentListItemView = (() => {
       .commentListItem {
         position: absolute;
         display: inline-block;
+        will-change: transform;
         width: 100%;
         height: 40px;
         line-height: 20px;
@@ -818,7 +818,7 @@ const CommentListItemView = (() => {
         padding: 0;
         background: #222;
         z-index: 50;
-        contain: layout style paint;
+        contain: strict;
       }
 
       .is-active .commentListItem {
@@ -844,7 +844,6 @@ const CommentListItemView = (() => {
         color: #ccc;
         font-size: 12px;
         left: 80px;
-        /* font-family: cursive; */
       }
       .commentListItem .nicoru-icon {
         position: absolute;
@@ -923,6 +922,7 @@ const CommentListItemView = (() => {
         z-index: 60;
         height: auto;
         box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
+        contain: layout style paint;
       }
 
       .is-active .commentListItem:hover .text {
@@ -940,16 +940,6 @@ const CommentListItemView = (() => {
       .commentListItem.fork2 .text,
       .commentListItem.fork1 .text {
         font-weight: bolder;
-      }
-
-      .begin ~ .commentListItem .text {
-        color: #ffe;
-        font-weight: bolder;
-      }
-
-      .end ~ .commentListItem .text {
-        color: #ccc;
-        font-weight: normal;
       }
 
       .commentListItem.subThread {
@@ -1000,7 +990,7 @@ const CommentListItemView = (() => {
           <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
         </p>
         <p class="text"></p>
-        <span class="progress-negi" style="position: absolute; will-change: transform; contain: paint layout style size;"></span>
+        <span class="progress-negi" style="position: absolute; will-change: transform; contain: strict;"></span>
       </div>
     `).trim();
 

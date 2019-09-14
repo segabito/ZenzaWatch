@@ -5,6 +5,7 @@ import {NicoSearchApiV2Loader} from '../packages/lib/src/nico/VideoSearch';
 import {Emitter} from './baselib';
 import {RecommendAPILoader, UploadedVideoApiLoader} from './loader/api';
 import {cssUtil} from '../packages/lib/src/css/css';
+import {sleep} from '../packages/lib/src/infra/sleep';
 
 const MylistPocketDetector = {
   detect: () => { return Promise.resolve(); }
@@ -827,8 +828,9 @@ class VideoListView extends Emitter {
         .on('drop', this._onBodyDropFile.bind(this));
     }
 
-    MylistPocketDetector.detect().then(pocket => {
+    MylistPocketDetector.detect().then(async pocket => {
       this._pocket = pocket;
+      await sleep.idle;
       $body.addClass('is-pocketReady');
       if (pocket.external.observe && this._enablePocketWatch) {
         pocket.external.observe({

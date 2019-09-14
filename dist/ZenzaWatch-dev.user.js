@@ -32,7 +32,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.14
+// @version        2.4.15
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -89,7 +89,7 @@ AntiPrototypeJs();
     const util = {};
     let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.4.14';
+    var VER = '2.4.15';
     const ENV = 'DEV';
 
 
@@ -15876,8 +15876,8 @@ class NicoCommentCss3PlayerView extends Emitter {
 			}
 			cssUtil.registerProps(
 				{name: '--dokaben-scale', syntax: '<number>', initialValue: 1, inherits: true, window: win},
-				{name: '--chat-trans-x', syntax: '<length-percentage>', initialValue: '0px',  inherits: false, window: win},
-				{name: '--chat-trans-y', syntax: '<length-percentage>', initialValue: '-50%', inherits: false, window: win},
+				{name: '--chat-trans-x', syntax: '<length-percentage>', initialValue: 0,  inherits: false, window: win},
+				{name: '--chat-trans-y', syntax: '<length-percentage>', initialValue: 0, inherits: false, window: win},
 				{name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
 				{name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win},
 				{name: '--layer-scale',  syntax: '<number>', initialValue: 1, inherits: false, window: win}
@@ -17647,7 +17647,7 @@ class CommentListView extends Emitter {
 		this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
 		this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
 		this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
-		this._container.addEventListener('wheel', this._onWheel.bind(this), {passive: true});
+		this._container.addEventListener('wheel', _.throttle(this._onWheel.bind(this), 100), {passive: true});
 		this._container.addEventListener('scroll', this._onScroll.bind(this), {passive: true});
 		this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
 		w.addEventListener('resize', this._onResize.bind(this));
@@ -17776,6 +17776,7 @@ class CommentListView extends Emitter {
 	}
 	_onWheel() {
 		this.isActive = true;
+		this._scrollTop = this._container.scrollTop;
 		this.addClass('is-active');
 	}
 	_onMouseOut() {
@@ -17802,7 +17803,7 @@ class CommentListView extends Emitter {
 			return;
 		}
 		const itemHeight = CommentListView.ITEM_HEIGHT;
-		const scrollTop = this._container.scrollTop;
+		const scrollTop = this._scrollTop;
 		const innerHeight = this._innerHeight;
 		const windowBottom = scrollTop + innerHeight;
 		const itemViews = this._itemViews;
@@ -18206,6 +18207,7 @@ const CommentListItemView = (() => {
 			.commentListItem {
 				position: absolute;
 				display: inline-block;
+				will-change: transform;
 				width: 100%;
 				height: 40px;
 				line-height: 20px;
@@ -18215,7 +18217,7 @@ const CommentListItemView = (() => {
 				padding: 0;
 				background: #222;
 				z-index: 50;
-				contain: layout style paint;
+				contain: strict;
 			}
 			.is-active .commentListItem {
 				pointer-events: auto;
@@ -18238,7 +18240,6 @@ const CommentListItemView = (() => {
 				color: #ccc;
 				font-size: 12px;
 				left: 80px;
-				/* font-family: cursive; */
 			}
 			.commentListItem .nicoru-icon {
 				position: absolute;
@@ -18313,6 +18314,7 @@ const CommentListItemView = (() => {
 				z-index: 60;
 				height: auto;
 				box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
+				contain: layout style paint;
 			}
 			.is-active .commentListItem:hover .text {
 				white-space: normal;
@@ -18328,14 +18330,6 @@ const CommentListItemView = (() => {
 			.commentListItem.fork2 .text,
 			.commentListItem.fork1 .text {
 				font-weight: bolder;
-			}
-			.begin ~ .commentListItem .text {
-				color: #ffe;
-				font-weight: bolder;
-			}
-			.end ~ .commentListItem .text {
-				color: #ccc;
-				font-weight: normal;
 			}
 			.commentListItem.subThread {
 				opacity: 0.6;
@@ -18379,7 +18373,7 @@ const CommentListItemView = (() => {
 					<span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
 				</p>
 				<p class="text"></p>
-				<span class="progress-negi" style="position: absolute; will-change: transform; contain: paint layout style size;"></span>
+				<span class="progress-negi" style="position: absolute; will-change: transform; contain: strict;"></span>
 			</div>
 		`).trim();
 	let counter = 0;
@@ -19889,8 +19883,9 @@ class VideoListView extends Emitter {
 				.on('dragleave', this._onBodyDragLeaveFile.bind(this))
 				.on('drop', this._onBodyDropFile.bind(this));
 		}
-		MylistPocketDetector.detect().then(pocket => {
+		MylistPocketDetector.detect().then(async pocket => {
 			this._pocket = pocket;
+			await sleep.idle;
 			$body.addClass('is-pocketReady');
 			if (pocket.external.observe && this._enablePocketWatch) {
 				pocket.external.observe({
