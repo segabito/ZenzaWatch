@@ -21,6 +21,7 @@
     "self": true,
     "PRODUCT": true,
     "TOKEN": true,
-    "global": true
+    "global": true,
+    "globalThis": true
   }
 }

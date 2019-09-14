@@ -13,4 +13,5 @@ node_modules/
 session/*
 .idea/*
 ./lib/*
+./botsu/*
 package-lock.json

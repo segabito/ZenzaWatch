@@ -38,6 +38,9 @@ module.exports = {
     "$": true,
     "describe": true,
     "it": true,
-    "beforeEach": true
+    "beforeEach": true,
+    "global": true,
+    "globalThis": true,
+    "jQuery": true
   }
 };
