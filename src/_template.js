@@ -173,6 +173,8 @@ const global = {
 //@require util
 ZenzaWatch.lib.$ = uQuery;
 workerUtil.env({netUtil, global});
+//@require initCssProps
+initCssProps();
 //@require components
 //@require State
 //@require api

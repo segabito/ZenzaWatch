@@ -95,7 +95,6 @@ class NicoChatCss3View {
   }
 
   static _buildNakaCss(chat, type, currentTime, playbackRate) {
-    let scaleCss;
     let id = chat.id;
     let commentVer = chat.commentVer;
     let duration = chat.duration / playbackRate;
@@ -126,13 +125,11 @@ class NicoChatCss3View {
         (1000 + beginL * 1000 + chat.fork * 1000000);
     zIndex = isSub ? zIndex: zIndex * 2;
     // let time3d = '0';//`${delay * 10}px`; //${chat.time3dp * 100}px`;
-    let opacity = chat.opacity !== 1 ? `opacity: ${chat.opacity};` : '';
+    const opacity = chat.opacity !== 1 ? `opacity: ${chat.opacity};` : '';
 
     // 4:3ベースに計算されたタイミングを16:9に補正する
     // scale無指定だとChromeでフォントがぼけるので1.0の時も指定だけする
     // TODO: 環境によって重くなるようだったらオプションにする
-    scaleCss =
-      (scale === 1.0) ? 'scale3d(1, 1, 1)' : `scale3d(${scale}, ${scaleY}, 1)`;
     const outerScreenWidth = CommentLayer.SCREEN.OUTER_WIDTH_FULL;
     const screenDiff = outerScreenWidth - screenWidth;
     const leftPos = screenWidth + screenDiff / 2;
@@ -147,16 +144,17 @@ class NicoChatCss3View {
     ) {
         isAlignMiddle = true;
     }
-    let top = isAlignMiddle ? '50%' : `${ypos}px`;
-    // let transY = isAlignMiddle ? 'translateY(-50%)' : '';
+    const top = isAlignMiddle ? '50%' : `${ypos}px`;
+    const isScaled = scale !== 1.0 || scaleY !== 1.0;
 
     const inline = `
-      --chat-trans-x: -${outerScreenWidth + chat.width*scale}px;
-      --chat-trans-y: ${isAlignMiddle ? '-50' : '0'}%;
-      --chat-scale-x: ${scale === 1.0 ? 1 : scale};
-      --chat-scale-y: ${scale === 1.0 ? 1 : scaleY};
+      --chat-trans-x: -${outerScreenWidth + chat.width * scale}px;
+      ${isAlignMiddle ? '--chat-trans-y: -50%' : ''};
+      ${isScaled ?
+        `--chat-scale-x: ${scale};--chat-scale-y: ${scaleY};` : ''}
+      display: inline-block;
       position: absolute;
-      will-change: transform, opacity;
+      will-change: transform;
       contain: layout style paint;
       line-height: 1.235;
       z-index: ${zIndex};
@@ -166,38 +164,17 @@ class NicoChatCss3View {
       ${lineHeightCss}
       ${opacity}
       font-size: ${fontSizePx}px;
-      animation-name: idou-props;
+      animation-name: ${(isAlignMiddle || isScaled) ? 'idou-props-scale' : 'idou-props'};
       animation-duration: ${duration}s;
       animation-delay: ${delay}s;
       ${reverse}
-      ${chat.isReverse ?
-        `transform:
-          translateX(var(--chat-trans-x))
-          scale(var(--chat-scale-x), var(--chat-scale-y))
-          translateY(var(--chat-trans-y));` :
-        `transform:
-          translate(0, 0)
-          scale(var(--chat-scale-x), var(--chat-scale-y))
-          translateY(var(--chat-trans-y));`
-      }
+      transform:
+        translateX(0)
+        ${isScaled ? 'scale(var(--chat-scale-x), var(--chat-scale-y))' : ''}
+        ${isAlignMiddle ? 'translateY(var(--chat-trans-y))' : ''}
+        ;
     `;
 
-    // const keyframes = `
-    //   @keyframes idou-${id} {
-    //     0%   {
-    //       visibility: visible;
-    //       transform:
-    //         translate3d(0, 0, 0) ${scaleCss} ${transY};
-    //     }
-    //     100% {
-    //       visibility: hidden;
-    //       transform:
-    //         translate3d(-${outerScreenWidth + chat.width*scale}px, 0, 0)
-    //         ${scaleCss}
-    //         ${transY};
-    //     }
-    //   }
-    // `.trim();
     return {inline, keyframes: ''};
   }
   /**

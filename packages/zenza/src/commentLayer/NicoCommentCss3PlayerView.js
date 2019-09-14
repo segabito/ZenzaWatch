@@ -102,8 +102,8 @@ class NicoCommentCss3PlayerView extends Emitter {
       }
       cssUtil.registerProps(
         {name: '--dokaben-scale', syntax: '<number>', initialValue: 1, inherits: true, window: win},
-        {name: '--chat-trans-x', syntax: '<length>', initialValue: '0px', inherits: false, window: win},
-        {name: '--chat-trans-y', syntax: '<percentage>', initialValue: '-50%', inherits: false, window: win},
+        {name: '--chat-trans-x', syntax: '<length-percentage>', initialValue: '0px',  inherits: false, window: win},
+        {name: '--chat-trans-y', syntax: '<length-percentage>', initialValue: '-50%', inherits: false, window: win},
         {name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
         {name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win},
         {name: '--layer-scale',  syntax: '<number>', initialValue: 1, inherits: false, window: win}
@@ -687,17 +687,27 @@ body.in-capture .commentLayer {
 @keyframes idou-props {
   0%   {
     visibility: visible;
+    transform: translateX(0);
+  }
+  100% {
+    visibility: hidden;
+    transform: translateX(var(--chat-trans-x));
+  }
+}
+@keyframes idou-props-scale {
+  0%   {
+    visibility: visible;
     transform:
-      translate(0, 0)
+      translateX(0)
       scale(var(--chat-scale-x), var(--chat-scale-y))
-      translateY(var(--chat-trans-y));
+      translateY(-50%);
   }
   100% {
     visibility: hidden;
     transform:
       translateX(var(--chat-trans-x))
       scale(var(--chat-scale-x), var(--chat-scale-y))
-      translateY(var(--chat-trans-y));
+      translateY(-50%);
   }
 }
 

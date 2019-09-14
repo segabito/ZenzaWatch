@@ -22,7 +22,8 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._playerConfig        = params.playerConfig;
       this._$playerContainer    = params.$playerContainer;
       this._playerState         = params.playerState;
-      let player = this._player = params.player;
+      this._currentTimeGetter   = params.currentTimeGetter;
+      const player = this._player = params.player;
 
       player.on('open',           this._onPlayerOpen.bind(this));
       player.on('canPlay',        this._onPlayerCanPlay.bind(this));
@@ -43,9 +44,9 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       global.debug.videoControlBar = this;
     }
     _initializeDom() {
-      let $view = this._$view = util.$.html(VideoControlBar.__tpl__);
-      let $container = this._$playerContainer;
-      let config = this._playerConfig;
+      const $view = this._$view = util.$.html(VideoControlBar.__tpl__);
+      const $container = this._$playerContainer;
+      const config = this._playerConfig;
       this._view = $view[0];
 
       const mq = $view.mapQuery({
@@ -273,7 +274,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       e.stopPropagation();
     }
     _posToTime(pos) {
-      let width = window.innerWidth;
+      const width = this._innerWidth = this._innerWidth || window.innerWidth;
       return this._duration * (pos / Math.max(width, 1));
     }
     _timeToPos(time) {
@@ -833,17 +834,19 @@ util.addStyle(`
   }
 
   .seekBarPointer {
+    --width-pp: 12px;
+    --trans-x-pp: 0;
     position: absolute;
     display: inline-block;
     top: 50%;
     left: 0;
-    width: 12px;
+    width: var(--width-pp);
     background: rgba(255, 255, 255, 0.7);
     height: calc(100% + 2px);
     z-index: 200;
     box-shadow: 0 0 4px #ffc inset;
     pointer-events: none;
-    transform: translate3d(-6px, -50%, 0);
+    transform: translate(calc(var(--trans-x-pp) - var(--width-pp) / 2), -50%);
     will-change: transform;
     mix-blend-mode: lighten;
   }
@@ -867,11 +870,6 @@ util.addStyle(`
     border-radius: 100%;
     box-shadow: 0 0 8px #ffc inset, 0 0 8px #ffc;
     pointer-events: none;
-  }
-
-  @keyframes seekBarPointerMove {
-    0%   { transform: translate3d(-6px, -50%, 0) translate3d(0, 0, 0); }
-    100% { transform: translate3d(-6px, -50%, 0) translate3d(100vw, 0, 0); }
   }
 
   .seekBarContainer .seekBar .seekRange {
@@ -1734,6 +1732,10 @@ util.addStyle(`
       this.applyView = bounce.raf(this.applyView.bind(this));
     }
     _initializeDom($parent) {
+      cssUtil.registerProps(
+        {name: '--buffer-range-left', syntax: '<percentage>', initialValue: '0%',inherits: false},
+        {name: '--buffer-range-scale', syntax: '<number>', initialValue: 0, inherits: false},
+      );
       const $view = util.$.html(CommentPreviewView.__tpl__);
       const view = this._view = $view[0];
       this._list = view.querySelector('.listContainer');
@@ -1742,10 +1744,6 @@ util.addStyle(`
         .on('scroll',
         _.throttle(this._onScroll.bind(this), 50, {trailing: false}), {passive: true});
 
-      cssUtil.registerProps(
-        {name: '--buffer-range-left', syntax: '<percentage>', initialValue: '0%',inherits: false},
-        {name: '--buffer-range-scale', syntax: '<number>', initialValue: 0, inherits: false},
-      );
       $parent.append($view);
     }
     set mode(v) {
@@ -2455,10 +2453,10 @@ util.addStyle(`
       this._duration = 1;
       this._playbackRate = 1;
       this._isSmoothMode = true;
-      this._isPausing = false;
+      this._isPausing = true;
       this._isSeeking = false;
       this._isStalled = false;
-      if (!this._pointer.animate) {
+      if (!this._pointer.animate && !('registerProperty' in CSS)) {
         this._isSmoothMode = false;
       }
       this._pointer.classList.toggle('is-notSmooth', !this._isSmoothMode);
@@ -2472,7 +2470,9 @@ util.addStyle(`
     set currentTime(v) {
       if (!this._isSmoothMode) {
         const per = Math.min(100, this._timeToPer(v));
-        this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
+        this._pointer.style.setProperty('--trans-x-pp', cssUtil.vw(per));
+        // this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
+        return;
       }
       if (document.hidden) { return; }
       if (this._currentTime === v) {
@@ -2491,7 +2491,7 @@ util.addStyle(`
       // 誤差が一定以上になったときのみ補正する
       // videoのcurrentTimeは秒. Animation APIのcurrentTimeはミリ秒
       if (this._animation &&
-        Math.abs(v * 1000 - this._animation.currentTime) > 500) {
+        Math.abs(v * 1000 - this._animation.currentTime) > 300) {
         this._animation.currentTime = v * 1000;
       }
     }
@@ -2550,13 +2550,15 @@ util.addStyle(`
         this._animation.finish();
       }
       this._animation = this._pointer.animate([
-        {transform: 'translate(-6px, -50%)'},
-        {transform: 'translate(-6px, -50%) translate(100vw, 0)'}
+        {'--trans-x-pp': 0},
+        {'--trans-x-pp': cssUtil.vw(100)}
       ], {duration: this._duration * 1000, fill: 'backwards'});
       this._animation.currentTime = this._currentTime * 1000;
       this._animation.playbackRate = this._playbackRate;
-      if (!this._isPausing) {
+      if (this.isPlaying) {
         this._animation.play();
+      } else {
+        this._animation.pause();
       }
     }
   }

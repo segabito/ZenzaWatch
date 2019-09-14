@@ -77,7 +77,7 @@ const OffscreenLayer = config => {
     frame.style.position = 'fixed';
     frame.style.top = '200vw';
     frame.style.left = '200vh';
-    document.body.append(frame);
+    (document.body || document.documentElement).append(frame);
 
 
     let layer;

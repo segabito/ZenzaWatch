@@ -105,7 +105,7 @@ class CommentListModel extends Emitter {
     }
     this._currentSortKey = key;
     this._isDesc = isDesc;
-    this.onUpdate();
+    this.onUpdate(true);
   }
   sort() {
     this.sortBy(this._currentSortKey, this._isDesc);
@@ -113,8 +113,8 @@ class CommentListModel extends Emitter {
   getCurrentSortKey() {
     return this._currentSortKey;
   }
-  onUpdate() {
-    this.emitAsync('update', this._items);
+  onUpdate(replaceAll = false) {
+    this.emitAsync('update', this._items, replaceAll);
   }
   getInViewIndex(sec) {
     return Math.max(0, _.sortedLastIndex(this._positions, sec + 1) - 1);
@@ -196,6 +196,7 @@ class CommentListView extends Emitter {
 
     this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
     this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
+    this._container.addEventListener('wheel', this._onWheel.bind(this), {passive: true});
     this._container.addEventListener('scroll', this._onScroll.bind(this), {passive: true});
     this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
 
@@ -203,15 +204,19 @@ class CommentListView extends Emitter {
     this._innerHeight = w.innerHeight;
 
     this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
-    //this._appendNewItems = bounce.raf(this._appendNewItems.bind(this));
+    this._appendNewItems = bounce.raf(this._appendNewItems.bind(this));
     cssUtil.registerProps(
-      {name: '--current-time', syntax: '<time>', initialValue: '0s', inherits: true, window: w},
-      {name: '--duration', syntax: '<time>', initialValue: '4s', inherits: true, window: w},
-      {name: '--scroll-top',   syntax: '<length>', initialValue: '0px', inherits: true, window: w},
-      {name: '--vpos-time', syntax: '<time>', initialValue: '0s', inherits: true, window: w},
-      {name: '--zenza-comment-panel-header-height',   syntax: '<length>', initialValue: '64px', inherits: true}
+      {name: '--current-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w},
+      {name: '--duration', syntax: '<time>', initialValue: cssUtil.s(4), inherits: true, window: w},
+      {name: '--scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--time-scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--inner-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--list-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      {name: '--height-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
+      {name: '--trans-y-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
+      {name: '--vpos-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w}
     );
-
+    body.style.setProperty('--inner-height', this._innerHeight);
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 
     // 互換用
@@ -223,14 +228,13 @@ class CommentListView extends Emitter {
     window.console.time('update commentlistView');
     this.addClass('updating');
     itemList = Array.isArray(itemList) ? itemList : [itemList];
-    let itemViews = [];
-    this._isActive = false;
+    this.isActive = false;
 
     if (replaceAll) {
       this._scrollTop = 0;
     }
 
-    itemViews = itemList.map((item, i) =>
+    const itemViews = itemList.map((item, i) =>
       new this._ItemView({item: item, index: i, height: CommentListView.ITEM_HEIGHT})
     );
 
@@ -239,8 +243,10 @@ class CommentListView extends Emitter {
     window.setTimeout(() => {
       if (!this._list) { return; }
       this._list.textContent = '';
-      this._list.style.height =
-        `${CommentListView.ITEM_HEIGHT * itemViews.length + 100}px`;
+      this._body.style.setProperty('--list-height',
+          Math.max(CommentListView.ITEM_HEIGHT * itemViews.length + 100,
+          this._innerHeight)
+        );
       this._inviewItemList.clear();
       this._$menu.removeClass('show');
       this._refreshInviewElements();
@@ -270,7 +276,7 @@ class CommentListView extends Emitter {
       return;
     }
     this._$menu
-      .css('transform', `translate3d(0, ${item.dataset.top}px, 0)`)
+      .css('transform', `translate(0, ${item.dataset.top}px)`)
       .attr('data-item-id', item.dataset.itemId)
       .addClass('show');
   }
@@ -324,17 +330,24 @@ class CommentListView extends Emitter {
     this.emit('command', 'select', null, itemId);
   }
   _onMouseMove() {
+    this.isActive = true;
+    this.addClass('is-active');
   }
   _onMouseOver() {
-    this._isActive = true;
-    this.addClass('active');
+    this.isActive = true;
+    this.addClass('is-active');
+  }
+  _onWheel() {
+    this.isActive = true;
+    this.addClass('is-active');
   }
   _onMouseOut() {
-    this._isActive = false;
-    this.removeClass('active');
+    this.isActive = false;
+    this.removeClass('is-active');
   }
   _onResize() {
     this._innerHeight = this._window.innerHeight;
+    this._body.style.setProperty('--inner-height', this._innerHeight);
     this._refreshInviewElements();
   }
   _onScroll() {
@@ -351,17 +364,16 @@ class CommentListView extends Emitter {
     if (!this._list) {
       return;
     }
-    let itemHeight = CommentListView.ITEM_HEIGHT;
-    let scrollTop = this._container.scrollTop;
-    let innerHeight = this._innerHeight;
-    let windowBottom = scrollTop + innerHeight;
-    let itemViews = this._itemViews;
-    let startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
-    let endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
-    let i;
+    const itemHeight = CommentListView.ITEM_HEIGHT;
+    const scrollTop = this._container.scrollTop;
+    const innerHeight = this._innerHeight;
+    const windowBottom = scrollTop + innerHeight;
+    const itemViews = this._itemViews;
+    const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
+    const endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
 
     const newItems = [], inviewItemList = this._inviewItemList;
-    for (i = startIndex; i < endIndex; i++) {
+    for (let i = startIndex; i < endIndex; i++) {
       if (inviewItemList.has(i) || !itemViews[i]) {
         continue;
       }
@@ -369,7 +381,7 @@ class CommentListView extends Emitter {
       inviewItemList.set(i, itemViews[i]);
     }
 
-    if (newItems.length < 1) {
+    if (!newItems.length) {
       return;
     }
 
@@ -389,14 +401,14 @@ class CommentListView extends Emitter {
   }
   _appendNewItems() {
     if (this._newItems) {
-      const f = document.createDocumentFragment();
+      const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
       f.append(...this._newItems.map(i => i.viewElement));
       this._list.append(f);
     }
     this._newItems = null;
   }
   _updatePerspective() {
-    let keys = Object.keys(this._inviewItemList);
+    const keys = Object.keys(this._inviewItemList);
     let avr = 0;
     if (!this._inviewItemList.size) {
       avr = 50;
@@ -439,8 +451,10 @@ class CommentListView extends Emitter {
     if (typeof v === 'number') {
       this._scrollTop = v;
       this._container.scrollTop = v;
+      this._body.style.setProperty('--scroll-top', v);
     } else {
       this._scrollTop = this._container.scrollTop;
+      this._body.style.setProperty('--scroll-top', this._scrollTop);
       return this._scrollTop;
     }
   }
@@ -456,14 +470,14 @@ class CommentListView extends Emitter {
       return;
     }
 
-    if (!this._isActive) {
-      const itemHeight = CommentListView.ITEM_HEIGHT;
-      const top = Math.max(0, view.top - innerHeight + itemHeight);
-      this.scrollTop(top);
+    const itemHeight = CommentListView.ITEM_HEIGHT;
+    const top = Math.max(0, view.top - innerHeight + itemHeight);
+    this._body.style.setProperty('--time-scroll-top', top);
+    if (!this.isActive) {
+        this.scrollTop(top);
     }
     requestAnimationFrame(() => {
-      this._container.style.setProperty('--current-time', css.s(sec));
-      this._container.style.setProperty('--scroll-top', css.px(view.top));
+      this._body.style.setProperty('--current-time', css.s(sec));
     });
   }
   showItemDetail(item) {
@@ -523,7 +537,11 @@ CommentListView.__tpl__ = (`
     overflow: auto;
     overscroll-behavior: contain;
     will-change: transform;
-    /*transition: --current-time 0.2s linear;*/
+    scrollbar-width: 16px;
+  }
+  #listContainerInner {
+    height: calc(var(--list-height) * 1px);
+    min-height: calc(100vh + 100px);
   }
 
   .is-debug #listContainerInner {
@@ -650,6 +668,40 @@ CommentListView.__tpl__ = (`
     user-select: none;
   }
 
+  .timeBar {
+    position: fixed;
+    visibility: hidden;
+    z-index: 100;
+    right: 0;
+    top: 1px;
+    width: 14px;
+    --height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
+    --trans-y-pp: calc( 1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height) - 2px);
+    height: var(--height-pp);
+    min-height: 16px;
+    max-height: 100vh;
+    transform: translateY(var(--trans-y-pp));
+    transition: transform 0.2s;
+    pointer-events: none;
+    will-change: transform;
+    border: 1px solid #e12885;/*#FC6c6c;*/
+  }
+  .timeBar::after {
+    width: calc(100% + 6px);
+    height: calc(100% + 6px);
+    left: -3px;
+    top: -3px;
+    content: '';
+    position: absolute;
+    border: 2px solid #2b2b2b;
+    outline: 2px solid #2b2b2b;
+    outline-offset: -5px;
+    box-sizing: border-box;
+  }
+  body:hover .timeBar {
+    visibility: visible;
+  }
+
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body class="zenzaRoot">
@@ -662,6 +714,7 @@ CommentListView.__tpl__ = (`
     <div class="text"></div>
     <div class="command close" data-command="hideItemDetail">O K</div>
   </div>
+  <div class="timeBar"></div>
   <div id="listContainer">
     <div class="listMenu">
       <span class="menuButton itemDetailRequest"
@@ -669,9 +722,7 @@ CommentListView.__tpl__ = (`
       <span class="menuButton clipBoard"        data-command="clipBoard" title="クリップボードにコピー">copy</span>
       <span class="menuButton addUserIdFilter"  data-command="addUserIdFilter" title="NGユーザー">NGuser</span>
       <span class="menuButton addWordFilter"    data-command="addWordFilter" title="NGワード">NGword</span>
-
     </div>
-
     <div id="listContainerInner"></div>
   </div>
 </body>
@@ -770,7 +821,7 @@ const CommentListItemView = (() => {
         contain: layout style paint;
       }
 
-      .active .commentListItem {
+      .is-active .commentListItem {
         pointer-events: auto;
       }
 
@@ -838,7 +889,7 @@ const CommentListItemView = (() => {
         text-overflow: ellipsis;
         color: #888;
         margin: 0;
-        padding: 0 8px 0 4px;
+        padding: 0 8px 0;
       }
       .commentListItem[data-valhalla="1"] .info {
         color: #f88;
@@ -857,7 +908,7 @@ const CommentListItemView = (() => {
         text-overflow: ellipsis;
         color: #ccc;
         margin: 0;
-        padding: 0 4px;
+        padding: 0 8px;
         font-family: '游ゴシック', 'Yu Gothic', 'YuGothic', arial, 'Menlo';
         font-feature-settings: "palt" 1;
       }
@@ -866,7 +917,7 @@ const CommentListItemView = (() => {
         font-weight: bold;
       }
 
-      .active .commentListItem:hover {
+      .is-active .commentListItem:hover {
         overflow-x: hidden;
         overflow-y: visible;
         z-index: 60;
@@ -874,7 +925,7 @@ const CommentListItemView = (() => {
         box-shadow: 2px 2px 2px #000, 2px -2px 2px #000;
       }
 
-      .active .commentListItem:hover .text {
+      .is-active .commentListItem:hover .text {
         white-space: normal;
         word-break: break-all;
         height: auto;
@@ -905,7 +956,7 @@ const CommentListItemView = (() => {
         opacity: 0.6;
       }
 
-      .commentListItem.active {
+      .commentListItem.is-active {
         outline: dashed 2px #ff8;
         outline-offset: 4px;
       }
@@ -914,47 +965,42 @@ const CommentListItemView = (() => {
       .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
       .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
 
-      .commentListItem .pointer {
+      .commentListItem .progress-negi {
         position: absolute;
-        width: 4px;
+        width: 2px;
         height: 100%;
         bottom: 0;
         right: 0;
         pointer-events: none;
-        background: #fff;
-        will-change: transform, opacity;
-        transform-origin: left top;
+        background: #888;
+        will-change: transform;
         transition: transform var(--duration) linear;
-        visibility: hidden;
-        opacity: 0.3;
         animation-duration: var(--duration);
         animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
-        animation-name: pointer-moving;
+        animation-name: negi-moving;
         animation-timing-function: linear;
         animation-fill-mode: forwards;
         animation-play-state: paused !important;
         contain: paint layout style size;
       }
-      @keyframes pointer-moving {
-        0% {
-          visibility: visible;
-        }
-        100% {
-          visibility: hidden;
-        }
+      @keyframes negi-moving {
+        0% { background: #ebe194;}
+        50% { background: #fff; }
+        80% { background: #fff; }
+        100% { background: #039393; }
       }
 
     `).trim();
 
 
   const TPL = (`
-      <div class="commentListItem">
+      <div class="commentListItem" style="position: absolute;">
         <img src="${NICORU}" class="nicoru-icon" data-command="nicoru" title="Nicorü">
         <p class="info">
           <span class="timepos"></span>&nbsp;&nbsp;<span class="date"></span>
         </p>
         <p class="text"></p>
-        <span class="pointer"></span>
+        <span class="progress-negi" style="position: absolute; will-change: transform; contain: paint layout style size;"></span>
       </div>
     `).trim();
 
@@ -1246,7 +1292,7 @@ class CommentPanelView extends Emitter {
     this._timeMachineView.update(threadInfo);
   }
   _onCommentPanelStatusUpdate() {
-    let commentPanel = this._commentPanel;
+    const commentPanel = this._commentPanel;
     const $view = this._$view
       .toggleClass('autoScroll', commentPanel.isAutoScroll);
 
@@ -1818,6 +1864,7 @@ TimeMachineView._shadow_ = (`
         .dateTimeInput {
           display: block;
           font-size: 16px;
+          min-width: 256px;
         }
         .submitContainer {
           text-align: right;
@@ -1869,7 +1916,7 @@ TimeMachineView.__tpl__ = ('<div class="TimeMachineView"></div>').trim();
 
 //===END===
 
-
+// tb = ZenzaWatch.debug.getFrameBodies().find(b => b.classList.contains('commentList')).querySelector('.timeBar');[...tb.computedStyleMap().entries()].filter(([key, vars]) => key.startsWith('--')).forEach(([key, vars]) => console.log(key, ...vars))
 export {
   CommentPanel
 };

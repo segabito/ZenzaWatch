@@ -58,24 +58,10 @@ const {initialize} = (() => {
     ]).then(() => window.console.timeEnd('init Workers'));
   };
 
-  const initCssProps = () => {
-    cssUtil.registerProps(
-      {name: '--current-time', syntax: '<time>',   initialValue: '1s', inherits: true},
-      {name: '--scroll-top',   syntax: '<length>', initialValue: '0px',inherits: true},
-      {name: '--vpos-time',    syntax: '<time>',   initialValue: '1s', inherits: true},
-      {name: '--duration',     syntax: '<time>',   initialValue: '4s', inherits: true},
-      {name: '--trans-x-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
-      {name: '--trans-y-pp', syntax: '<length-percentage>', initialValue: '0px',inherits: false},
-      {name: '--width-pp',   syntax: '<length-percentage>', initialValue: '0px', inherits: true},
-      {name: '--height-pp',  syntax: '<length-percentage>', initialValue: '0px', inherits: true}
-    );
-  };
-
 //@require replaceRedirectLinks
 
   const initialize = async function (){
     window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
-    initCssProps();
 
     util.dispatchCustomEvent(
       document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});

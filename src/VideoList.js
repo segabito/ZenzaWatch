@@ -589,7 +589,7 @@ const VideoListItemView = (() => {
         const t = document.createElement('template');
         t.id = `VideoListItemView-template${Date.now()}`;
         t.innerHTML = TPL;
-        document.body.appendChild(t);
+        // document.body.append(t);
         const tc = t.content;
         template = {
           t,
@@ -785,6 +785,7 @@ class VideoListView extends Emitter {
     cssUtil.registerProps(
       {name: '--list-length',  syntax: '<integer>', initialValue: 1, inherits: true, window: w},
       {name: '--active-index', syntax: '<integer>', initialValue: 1, inherits: true, window: w},
+      {name: '--progress', syntax: '<length-percentage>', initialValue: cssUtil.px(0), inherits: true, window: w},
     );
 
     const container = this._container = doc.querySelector('#listContainer');
@@ -1237,7 +1238,7 @@ VideoListView.__tpl__ = (`
     border-radius: 0;
     bottom: auto;
     right: 0;
-    transform: translateY(calc(var(--progress) * -1));
+    transform: translateY(calc(var(--progress) * -1%));
     background: none;
     opacity: 0.5;
     color: #f99;
@@ -2724,7 +2725,6 @@ class Playlist extends VideoList {
   }
 
 }
-cssUtil.registerProps({name: '--progress', syntax: '<number>', initialValue: 1, inherits: false});
 
 //===END===
 

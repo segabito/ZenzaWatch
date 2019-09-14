@@ -38,6 +38,13 @@ const css = {
       } catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
     }
   },
+  setProps(element, ...args) {
+    for (const {prop, value} of args) {
+      try {
+        element.style.setProperty(prop, value);
+      } catch (err) { console.warn('element.style.setProperty fail', {prop, value}, element, err); }
+    }
+  },
   addModule: async function(func, options = {}) {
     if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
       return;

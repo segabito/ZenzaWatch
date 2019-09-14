@@ -3544,11 +3544,6 @@ class VariablesMapper {
 
   constructor({config, element}){
     this.config = config;
-    css.registerProps(
-      {name: '--zenza-ui-scale',              syntax: '<number>', initialValue: 1,  inherits: true},
-      {name: '--zenza-control-bar-height',    syntax: '<length>', initialValue: '48px', inherits: true},
-      {name: '--zenza-comment-layer-opacity', syntax: '<number>', initialValue: 1,  inherits: true}
-    );
 
     this.state = {
       menuScale: 0,
