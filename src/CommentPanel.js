@@ -10,6 +10,7 @@ import {css} from '../packages/lib/src/css/css';
 import {uq} from '../packages/lib/src/uQuery';
 import {Clipboard} from '../packages/lib/src/dom/Clipboard';
 import {cssUtil} from '../packages/lib/src/css/css';
+import {env} from '../packages/lib/src/infra/env';
 
 //===BEGIN===
 
@@ -175,6 +176,7 @@ class CommentListView extends Emitter {
       body.classList.add(this._className);
     }
     this._container = doc.querySelector('#listContainer');
+    this._$container = uq(this._container);
     this._list = doc.getElementById('listContainerInner');
     if (this._html) {
       this._list.innerHTML = this._html;
@@ -189,16 +191,20 @@ class CommentListView extends Emitter {
       .on('keydown', e => global.emitter.emit('keydown', e))
       .on('keyup', e => global.emitter.emit('keyup', e))
       .toggleClass('is-guest', !nicoUtil.isLogin())
-      .toggleClass('is-premium', nicoUtil.isPremium());
+      .toggleClass('is-premium', nicoUtil.isPremium())
+      .toggleClass('is-firefox', env.isFirefox());
 
     this._$menu.on('click', this._onMenuClick.bind(this));
     this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
 
-    this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
-    this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
-    this._container.addEventListener('wheel', _.throttle(this._onWheel.bind(this), 100), {passive: true});
-    this._container.addEventListener('scroll', this._onScroll.bind(this), {passive: true});
-    this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
+    this._onScroll = this._onScroll.bind(this);
+    this._onScrolling = _.throttle(this._onScrolling.bind(this), 100);
+    this._onScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
+    this._container.addEventListener('scroll', this._onScroll, {passive: true});
+
+    this._$container.on('mouseover', this._onMouseOver.bind(this))
+      .on('mouseleave', this._onMouseOut.bind(this))
+      .on('wheel', _.throttle(this._onWheel.bind(this), 100), {passive: true});
 
     w.addEventListener('resize', this._onResize.bind(this));
     this._innerHeight = w.innerHeight;
@@ -231,7 +237,7 @@ class CommentListView extends Emitter {
     this.isActive = false;
 
     if (replaceAll) {
-      this._scrollTop = 0;
+      this._scrollTop = this._container ? this._container.scrollTop : 0;
     }
 
     const itemViews = itemList.map((item, i) =>
@@ -244,8 +250,7 @@ class CommentListView extends Emitter {
       if (!this._list) { return; }
       this._list.textContent = '';
       this._body.style.setProperty('--list-height',
-          Math.max(CommentListView.ITEM_HEIGHT * itemViews.length + 100,
-          this._innerHeight)
+          Math.max(CommentListView.ITEM_HEIGHT * itemViews.length, this._innerHeight) + 100
         );
       this._inviewItemList.clear();
       this._$menu.removeClass('show');
@@ -340,14 +345,17 @@ class CommentListView extends Emitter {
   _onWheel() {
     this.isActive = true;
     this._scrollTop = this._container.scrollTop;
+    this._body.style.setProperty('--scroll-top', this._scrollTop);
     this.addClass('is-active');
   }
   _onMouseOut() {
     this.isActive = false;
+    this._scrollTop = this._container.scrollTop;
     this.removeClass('is-active');
   }
   _onResize() {
     this._innerHeight = this._window.innerHeight;
+    this._scrollTop = this._container.scrollTop;
     this._body.style.setProperty('--inner-height', this._innerHeight);
     this._refreshInviewElements();
   }
@@ -355,11 +363,18 @@ class CommentListView extends Emitter {
     if (!this.hasClass('is-scrolling')) {
       this.addClass('is-scrolling');
     }
+    this._onScrolling();
+    this._onScrollEnd();
+  }
+  _onScrolling() {
+    this._scrollTop = this._container.scrollTop;
+    this._body.style.setProperty('--scroll-top', this._scrollTop);
     this._refreshInviewElements();
-    this._debouncedOnScrollEnd();
   }
   _onScrollEnd() {
     this.removeClass('is-scrolling');
+    this._scrollTop = this._container.scrollTop;
+    this._body.style.setProperty('--scroll-top', this._scrollTop);
   }
   _refreshInviewElements() {
     if (!this._list) {
@@ -450,7 +465,7 @@ class CommentListView extends Emitter {
     if (typeof v === 'number') {
       this._scrollTop = v;
       this._container.scrollTop = v;
-      this._body.style.setProperty('--scroll-top', v);
+      this._scrollTop = this._container.scrollTop;
     } else {
       this._scrollTop = this._container.scrollTop;
       this._body.style.setProperty('--scroll-top', this._scrollTop);
@@ -525,6 +540,19 @@ CommentListView.__tpl__ = (`
     pointer-events: none;
   }
 
+  .is-firefox .virtualScrollBarContainer {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 16px;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    contain: strict;
+    pointer-events: none;
+  }
+
   #listContainer {
     position: absolute;
     top: -1px;
@@ -533,11 +561,17 @@ CommentListView.__tpl__ = (`
     padding: 0;
     width: 100vw;
     height: 100vh;
-    overflow: auto;
+    overflow-y: scroll;
+    overflow-x: hidden;
     overscroll-behavior: contain;
     will-change: transform;
     scrollbar-width: 16px;
+    scrollbar-color: #039393;
   }
+  .is-firefox #listContainer {
+    will-change: auto;
+  }
+
   #listContainerInner {
     height: calc(var(--list-height) * 1px);
     min-height: calc(100vh + 100px);
@@ -670,20 +704,20 @@ CommentListView.__tpl__ = (`
   .timeBar {
     position: fixed;
     visibility: hidden;
-    z-index: 100;
+    z-index: 110;
     right: 0;
     top: 1px;
     width: 14px;
     --height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
     --trans-y-pp: calc( 1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height) - 2px);
     height: var(--height-pp);
-    min-height: 16px;
     max-height: 100vh;
     transform: translateY(var(--trans-y-pp));
     transition: transform 0.2s;
     pointer-events: none;
     will-change: transform;
-    border: 1px solid #e12885;/*#FC6c6c;*/
+    border: 1px dashed #e12885;
+    opacity: 0.8;
   }
   .timeBar::after {
     width: calc(100% + 6px);
@@ -700,6 +734,27 @@ CommentListView.__tpl__ = (`
   body:hover .timeBar {
     visibility: visible;
   }
+  .virtualScrollBar {
+    display: none;
+  }
+
+  /*.is-firefox .virtualScrollBar {
+    display: inline-block;
+    position: fixed;
+    z-index: 100;
+    right: 0;
+    top: 0px;
+    width: 16px;
+    --height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
+    --trans-y-pp: calc( 1px * var(--inner-height) * var(--scroll-top) / var(--list-height));
+    height: var(--height-pp);
+    background: #039393;
+    max-height: 100vh;
+    transform: translateY(var(--trans-y-pp));
+    pointer-events: none;
+    will-change: transform;
+    z-index: 110;
+  }*/
 
 </style>
 <style id="listItemStyle">%CSS%</style>
@@ -713,7 +768,7 @@ CommentListView.__tpl__ = (`
     <div class="text"></div>
     <div class="command close" data-command="hideItemDetail">O K</div>
   </div>
-  <div class="timeBar"></div>
+  <div class="virtualScrollBarContainer"><div class="virtualScrollBar"></div></div><div class="timeBar"></div>
   <div id="listContainer">
     <div class="listMenu">
       <span class="menuButton itemDetailRequest"
@@ -819,6 +874,11 @@ const CommentListItemView = (() => {
         background: #222;
         z-index: 50;
         contain: strict;
+      }
+      .is-firefox .commentListItem {
+        contain: layout !important;
+        width: calc(100vw - 16px);
+        will-change: auto;
       }
 
       .is-active .commentListItem {
@@ -1003,7 +1063,7 @@ const CommentListItemView = (() => {
         const t = document.createElement('template');
         t.id = 'CommentListItemView-template' + Date.now();
         t.innerHTML = TPL;
-        document.body.append(t);
+        // document.body.append(t);
         template = {
           t,
           clone: () => {
