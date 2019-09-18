@@ -675,15 +675,6 @@ body.in-capture .commentLayer {
   }
 }
 
-@keyframes idou-var {
-  0%   {
-    visibility: visible;
-    transform: var(--transform-start);
-  }
-  100% {
-    transform: var(--transform-end);
-  }
-}
 @keyframes idou-props {
   0%   {
     visibility: visible;
@@ -694,7 +685,21 @@ body.in-capture .commentLayer {
     transform: translateX(var(--chat-trans-x));
   }
 }
-@keyframes idou-props-scale {
+@keyframes idou-props-scaled {
+  0%   {
+    visibility: visible;
+    transform:
+      translateX(0)
+      scale(var(--chat-scale-x), var(--chat-scale-y));
+  }
+  100% {
+    visibility: hidden;
+    transform:
+      translateX(var(--chat-trans-x))
+      scale(var(--chat-scale-x), var(--chat-scale-y));
+  }
+}
+@keyframes idou-props-scaled-middle {
   0%   {
     visibility: visible;
     transform:

@@ -484,9 +484,9 @@ class ContextMenu extends BaseViewComponent {
     this._onBeforeShow(x, y);
 
     view.style.left =
-      cssUtil.px(Math.max(0, Math.min(x, window.innerWidth - view.offsetWidth)));
+      cssUtil.px(Math.max(0, Math.min(x, global.innerWidth - view.offsetWidth)));
     view.style.top =
-      cssUtil.px(Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)));
+      cssUtil.px(Math.max(0, Math.min(y + 20, global.innerHeight - view.offsetHeight)));
     this.setState({isOpen: true});
     global.emitter.emitAsync('showMenu');
   }
@@ -536,245 +536,245 @@ class ContextMenu extends BaseViewComponent {
 }
 
 ContextMenu.__css__ = (`
-    .zenzaPlayerContextMenu {
-      position: fixed;
-      background: rgba(255, 255, 255, 0.8);
-      overflow: visible;
-      padding: 8px;
-      border: 1px outset #333;
-      box-shadow: 2px 2px 4px #000;
-      transition: opacity 0.3s ease;
-      min-width: 200px;
-      z-index: 150000;
-      user-select: none;
-      color: #000;
-    }
-    .zenzaPlayerContextMenu.is-Open {
-      display: block;
-      opacity: 0.5;
-    }
-    .zenzaPlayerContextMenu.is-Open:hover {
-      opacity: 1;
-    }
-    .is-fullscreen .zenzaPlayerContextMenu {
-      position: absolute;
-    }
+  .zenzaPlayerContextMenu {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.8);
+    overflow: visible;
+    padding: 8px;
+    border: 1px outset #333;
+    box-shadow: 2px 2px 4px #000;
+    transition: opacity 0.3s ease;
+    min-width: 200px;
+    z-index: 150000;
+    user-select: none;
+    color: #000;
+  }
+  .zenzaPlayerContextMenu.is-Open {
+    display: block;
+    opacity: 0.5;
+  }
+  .zenzaPlayerContextMenu.is-Open:hover {
+    opacity: 1;
+  }
+  .is-fullscreen .zenzaPlayerContextMenu {
+    position: absolute;
+  }
 
-    .zenzaPlayerContextMenu:not(.is-Open) {
-      display: none;
-      /*left: -9999px;
-      top: -9999px;
-      opacity: 0;*/
-    }
+  .zenzaPlayerContextMenu:not(.is-Open) {
+    display: none;
+    /*left: -9999px;
+    top: -9999px;
+    opacity: 0;*/
+  }
 
-    .zenzaPlayerContextMenu ul {
-      padding: 0;
-      margin: 0;
-    }
+  .zenzaPlayerContextMenu ul {
+    padding: 0;
+    margin: 0;
+  }
 
-    .zenzaPlayerContextMenu ul li {
-      position: relative;
-      line-height: 120%;
-      margin: 2px;
-      overflow-y: visible;
-      white-space: nowrap;
-      cursor: pointer;
-      padding: 2px 14px;
-      list-style-type: none;
-      float: inherit;
-    }
-    .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
-    .is-flipV          .zenzaPlayerContextMenu li.toggle-flipV:before,
-    .is-flipH          .zenzaPlayerContextMenu li.toggle-flipH:before,
-    .zenzaPlayerContextMenu ul                 li.selected:before {
-      content: '✔';
-      left: -10px;
-      color: #000 !important;
-      position: absolute;
-    }
-    .zenzaPlayerContextMenu ul li:hover {
-      background: #336;
-      color: #fff;
-    }
-    .zenzaPlayerContextMenu ul li.separator {
-      border: 1px outset;
-      height: 2px;
-      width: 90%;
-    }
-    .zenzaPlayerContextMenu.show {
-      opacity: 0.8;
-    }
-    .zenzaPlayerContextMenu .listInner {
-    }
+  .zenzaPlayerContextMenu ul li {
+    position: relative;
+    line-height: 120%;
+    margin: 2px;
+    overflow-y: visible;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 2px 14px;
+    list-style-type: none;
+    float: inherit;
+  }
+  .is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
+  .is-flipV          .zenzaPlayerContextMenu li.toggle-flipV:before,
+  .is-flipH          .zenzaPlayerContextMenu li.toggle-flipH:before,
+  .zenzaPlayerContextMenu ul                 li.selected:before {
+    content: '✔';
+    left: -10px;
+    color: #000 !important;
+    position: absolute;
+  }
+  .zenzaPlayerContextMenu ul li:hover {
+    background: #336;
+    color: #fff;
+  }
+  .zenzaPlayerContextMenu ul li.separator {
+    border: 1px outset;
+    height: 2px;
+    width: 90%;
+  }
+  .zenzaPlayerContextMenu.show {
+    opacity: 0.8;
+  }
+  .zenzaPlayerContextMenu .listInner {
+  }
 
-    .zenzaPlayerContextMenu .controlButtonContainer {
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      width: 110%;
-      transform: translate(-50%, 0);
-      white-space: nowrap;
-    }
-    .zenzaPlayerContextMenu .controlButtonContainerFlex {
-      display: flex;
-    }
+  .zenzaPlayerContextMenu .controlButtonContainer {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    width: 110%;
+    transform: translate(-50%, 0);
+    white-space: nowrap;
+  }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex {
+    display: flex;
+  }
 
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton {
-      flex: 1;
-      height: 48px;
-      font-size: 24px;
-      line-height: 46px;
-      border: 1px solid;
-      border-radius: 4px;
-      color: #333;
-      background: rgba(192, 192, 192, 0.95);
-      cursor: pointer;
-      transition: transform 0.1s, box-shadow 0.1s;
-      box-shadow: 0 0 0;
-      opacity: 1;
-      margin: auto;
-    }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton {
+    flex: 1;
+    height: 48px;
+    font-size: 24px;
+    line-height: 46px;
+    border: 1px solid;
+    border-radius: 4px;
+    color: #333;
+    background: rgba(192, 192, 192, 0.95);
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 0 0;
+    opacity: 1;
+    margin: auto;
+  }
 
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.screenShot {
-      flex: 1;
-      font-size: 24px;
-    }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.screenShot {
+    flex: 1;
+    font-size: 24px;
+  }
 
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
-      flex: 2;
-      font-size: 14px;
-    }
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate010,
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate100,
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate200 {
-      flex: 3;
-      font-size: 24px;
-    }
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek5s {
-      flex: 2;
-    }
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek15s {
-      flex: 3;
-    }
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:hover {
-      transform: translate(0px, -4px);
-      box-shadow: 0px 4px 2px #666;
-    }
-    .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:active {
-      transform: none;
-      box-shadow: 0 0 0;
-      border: 1px inset;
-    }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
+    flex: 2;
+    font-size: 14px;
+  }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate010,
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate100,
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate200 {
+    flex: 3;
+    font-size: 24px;
+  }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek5s {
+    flex: 2;
+  }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek15s {
+    flex: 3;
+  }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:hover {
+    transform: translate(0px, -4px);
+    box-shadow: 0px 4px 2px #666;
+  }
+  .zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:active {
+    transform: none;
+    box-shadow: 0 0 0;
+    border: 1px inset;
+  }
 
-    [data-command="picture-in-picture"] {
-      display: none;
-    }
-    .is-pictureInPictureEnabled [data-command="picture-in-picture"] {
-      display: block;
-    }
+  [data-command="picture-in-picture"] {
+    display: none;
+  }
+  .is-pictureInPictureEnabled [data-command="picture-in-picture"] {
+    display: block;
+  }
 
   `).trim();
 
 ContextMenu.__tpl__ = (`
-    <div class="zenzaPlayerContextMenu">
-      <div class="controlButtonContainer">
-        <div class="controlButtonContainerFlex">
-          <div class="controlButton command screenShot" data-command="screenShot"
-            data-param="0.1" data-type="number" data-is-no-close="true">
-            &#128247;<div class="tooltip">スクリーンショット</div>
-          </div>
-          <div class="empty-area-top" style="flex:4;" data-is-no-close="true"></div>
+  <div class="zenzaPlayerContextMenu">
+    <div class="controlButtonContainer">
+      <div class="controlButtonContainerFlex">
+        <div class="controlButton command screenShot" data-command="screenShot"
+          data-param="0.1" data-type="number" data-is-no-close="true">
+          &#128247;<div class="tooltip">スクリーンショット</div>
         </div>
-        <div class="controlButtonContainerFlex">
-          <div class="controlButton command rate010 playbackRate" data-command="playbackRate"
-            data-param="0.1" data-type="number" data-repeat="on">
-            &#128034;<div class="tooltip">コマ送り(0.1倍)</div>
-          </div>
-          <div class="controlButton command rate050 playbackRate" data-command="playbackRate"
-            data-param="0.5" data-type="number" data-repeat="on">
-            <div class="tooltip">0.5倍速</div>
-          </div>
-          <div class="controlButton command rate075 playbackRate" data-command="playbackRate"
-            data-param="0.75" data-type="number" data-repeat="on">
-            <div class="tooltip">0.75倍速</div>
-          </div>
+        <div class="empty-area-top" style="flex:4;" data-is-no-close="true"></div>
+      </div>
+      <div class="controlButtonContainerFlex">
+        <div class="controlButton command rate010 playbackRate" data-command="playbackRate"
+          data-param="0.1" data-type="number" data-repeat="on">
+          &#128034;<div class="tooltip">コマ送り(0.1倍)</div>
+        </div>
+        <div class="controlButton command rate050 playbackRate" data-command="playbackRate"
+          data-param="0.5" data-type="number" data-repeat="on">
+          <div class="tooltip">0.5倍速</div>
+        </div>
+        <div class="controlButton command rate075 playbackRate" data-command="playbackRate"
+          data-param="0.75" data-type="number" data-repeat="on">
+          <div class="tooltip">0.75倍速</div>
+        </div>
 
-          <div class="controlButton command rate100 playbackRate" data-command="playbackRate"
-            data-param="1.0" data-type="number" data-repeat="on">
-            &#9655;<div class="tooltip">標準速</div>
-          </div>
+        <div class="controlButton command rate100 playbackRate" data-command="playbackRate"
+          data-param="1.0" data-type="number" data-repeat="on">
+          &#9655;<div class="tooltip">標準速</div>
+        </div>
 
-          <div class="controlButton command rate125 playbackRate" data-command="playbackRate"
-            data-param="1.25" data-type="number" data-repeat="on">
-            <div class="tooltip">1.25倍速</div>
-          </div>
-          <div class="controlButton command rate150 playbackRate" data-command="playbackRate"
-            data-param="1.5" data-type="number" data-repeat="on">
-            <div class="tooltip">1.5倍速</div>
-          </div>
-          <div class="controlButton command rate200 playbackRate" data-command="playbackRate"
-            data-param="2.0" data-type="number" data-repeat="on">
-            &#128007;<div class="tooltip">2倍速</div>
-          </div>
+        <div class="controlButton command rate125 playbackRate" data-command="playbackRate"
+          data-param="1.25" data-type="number" data-repeat="on">
+          <div class="tooltip">1.25倍速</div>
         </div>
-        <div class="controlButtonContainerFlex seekToResumePoint">
-          <div class="controlButton command"
-          data-command="seekToResumePoint"
-          >▼ここまで見た
-            <div class="tooltip">レジューム位置にジャンプ</div>
-          </div>
+        <div class="controlButton command rate150 playbackRate" data-command="playbackRate"
+          data-param="1.5" data-type="number" data-repeat="on">
+          <div class="tooltip">1.5倍速</div>
         </div>
-        <div class="controlButtonContainerFlex">
-          <div class="controlButton command seek5s"
-            data-command="seekBy" data-param="-5" data-type="number" data-repeat="on"
-            >⇦
-              <div class="tooltip">5秒戻る</div>
-          </div>
-          <div class="controlButton command seek15s"
-            data-command="seekBy" data-param="-15" data-type="number" data-repeat="on"
-            >⇦
-              <div class="tooltip">15秒戻る</div>
-          </div>
-          <div class="controlButton command seek15s"
-            data-command="seekBy" data-param="15" data-type="number" data-repeat="on"
-            >⇨
-              <div class="tooltip">15秒進む</div>
-          </div>
-          <div class="controlButton command seek5s"
-            data-command="seekBy" data-param="5" data-type="number" data-repeat="on"
-            >⇨
-              <div class="tooltip">5秒進む</div>
-          </div>
+        <div class="controlButton command rate200 playbackRate" data-command="playbackRate"
+          data-param="2.0" data-type="number" data-repeat="on">
+          &#128007;<div class="tooltip">2倍速</div>
         </div>
       </div>
-      <div class="listInner">
-        <ul>
-          <li class="command" data-command="togglePlay">停止/再開</li>
-          <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
-          <hr class="separator">
-          <li class="command toggleLoop"        data-config="loop" data-command="toggle-loop">リピート</li>
-          <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
-          <li class="command toggleShowComment" data-config="showComment" data-command="toggle-showComment">コメントを表示</li>
-          <li class="command" data-command="picture-in-picture">P in P</li>
-          <hr class="separator">
-
-          <li class="command forPremium toggle-flipH" data-command="toggle-flipH">左右反転</li>
-          <li class="command toggle-flipV"            data-command="toggle-flipV">上下反転</li>
-
-          <hr class="separator">
-
-          <li class="command"
-            data-command="reload">動画のリロード</li>
-          <li class="command"
-            data-command="copy-video-watch-url">動画URLをコピー</li>
-          <li class="command debug" data-config="debug"
-            data-command="toggle-debug">デバッグ</li>
-          <li class="command mymemory"
-            data-command="saveMymemory">コメントの保存</li>
-        </ul>
+      <div class="controlButtonContainerFlex seekToResumePoint">
+        <div class="controlButton command"
+        data-command="seekToResumePoint"
+        >▼ここまで見た
+          <div class="tooltip">レジューム位置にジャンプ</div>
+        </div>
+      </div>
+      <div class="controlButtonContainerFlex">
+        <div class="controlButton command seek5s"
+          data-command="seekBy" data-param="-5" data-type="number" data-repeat="on"
+          >⇦
+            <div class="tooltip">5秒戻る</div>
+        </div>
+        <div class="controlButton command seek15s"
+          data-command="seekBy" data-param="-15" data-type="number" data-repeat="on"
+          >⇦
+            <div class="tooltip">15秒戻る</div>
+        </div>
+        <div class="controlButton command seek15s"
+          data-command="seekBy" data-param="15" data-type="number" data-repeat="on"
+          >⇨
+            <div class="tooltip">15秒進む</div>
+        </div>
+        <div class="controlButton command seek5s"
+          data-command="seekBy" data-param="5" data-type="number" data-repeat="on"
+          >⇨
+            <div class="tooltip">5秒進む</div>
+        </div>
       </div>
     </div>
-  `).trim();
+    <div class="listInner">
+      <ul>
+        <li class="command" data-command="togglePlay">停止/再開</li>
+        <li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
+        <hr class="separator">
+        <li class="command toggleLoop"        data-config="loop" data-command="toggle-loop">リピート</li>
+        <li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
+        <li class="command toggleShowComment" data-config="showComment" data-command="toggle-showComment">コメントを表示</li>
+        <li class="command" data-command="picture-in-picture">P in P</li>
+        <hr class="separator">
+
+        <li class="command forPremium toggle-flipH" data-command="toggle-flipH">左右反転</li>
+        <li class="command toggle-flipV"            data-command="toggle-flipV">上下反転</li>
+
+        <hr class="separator">
+
+        <li class="command"
+          data-command="reload">動画のリロード</li>
+        <li class="command"
+          data-command="copy-video-watch-url">動画URLをコピー</li>
+        <li class="command debug" data-config="debug"
+          data-command="toggle-debug">デバッグ</li>
+        <li class="command mymemory"
+          data-command="saveMymemory">コメントの保存</li>
+      </ul>
+    </div>
+  </div>
+`).trim();
 
 
 /**
@@ -788,7 +788,6 @@ class VideoPlayer extends Emitter {
   }
 
   _initialize(params) {
-    //console.log('%cinitialize VideoPlayer... ', 'background: cyan', options);
     this._id = 'video' + Math.floor(Math.random() * 100000);
     this._resetVideo(params);
 

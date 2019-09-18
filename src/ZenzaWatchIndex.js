@@ -39,7 +39,8 @@ const global = {
   PRODUCT,
   TOKEN,
   config: Config,
-  api: ZenzaWatch.api
+  api: ZenzaWatch.api,
+  innerWidth: 100, innerHeight: 100
 };
 const Navi = Object.assign({}, ZenzaWatch);
 const ENV = 'dev';

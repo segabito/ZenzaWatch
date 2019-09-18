@@ -397,22 +397,22 @@ class NicoVideoPlayerDialogView extends Emitter {
     if (!this._state.isOpen) {
       return;
     }
-    let $container = this._$playerContainer;
-    let $header = $container.find('.zenzaWatchVideoHeaderPanel');
-    let config = this._playerConfig;
+    const $container = this._$playerContainer;
+    const [header] = $container.find('.zenzaWatchVideoHeaderPanel');
+    const config = this._playerConfig;
 
     // 画面の縦幅にシークバー分の余裕がある時は常時表示
     const update = () => {
-      const w = window.innerWidth, h = window.innerHeight;
+      const w = global.innerWidth, h = global.innerHeight;
       const vMargin = h - w * this._aspectRatio;
 
-      const controlBarMode = config.getValue('fullscreenControlBarMode');
+      const controlBarMode = config.props.fullscreenControlBarMode;
       if (controlBarMode === 'always-hide') {
         this.toggleClass('showVideoControlBar', false);
         return;
       }
-      let videoControlBarHeight = this._varMapper.videoControlBarHeight;
-      let showVideoHeaderPanel = vMargin >= videoControlBarHeight + $header[0].offsetHeight * 2;
+      const videoControlBarHeight = this._varMapper.videoControlBarHeight;
+      const showVideoHeaderPanel = vMargin >= videoControlBarHeight + header.offsetHeight * 2;
       let showVideoControlBar;
       switch (controlBarMode) {
         case 'always-show':
@@ -1465,10 +1465,10 @@ class NicoVideoPlayerDialog extends Emitter {
         break;
       case 'seek':
       case 'seekTo':
-        this.currentTime=param * 1;
+        this.currentTime = param * 1;
         break;
       case 'seekBy':
-        this.currentTime=this.currentTime + param * 1;
+        this.currentTime = this.currentTime + param * 1;
         break;
       case 'seekPrevFrame':
       case 'seekNextFrame':
@@ -2032,7 +2032,7 @@ class NicoVideoPlayerDialog extends Emitter {
     if (!this._nicoVideoPlayer) {
       return 0;
     }
-    let ct = this._nicoVideoPlayer.currentTime * 1;
+    const ct = this._nicoVideoPlayer.currentTime * 1;
     if (!this._state.isError && ct > 0) {
       this._lastCurrentTime = ct;
     }

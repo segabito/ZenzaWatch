@@ -1878,7 +1878,7 @@ util.addStyle(`
       }
       const width = this._mode === 'list' ?
         CommentPreviewView.WIDTH : CommentPreviewView.HOVER_WIDTH;
-      const containerWidth = window.innerWidth;
+      const containerWidth = this._innerWidth = this._innerWidth || window.innerWidth;
 
       left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
       this._left = left;
@@ -2321,7 +2321,7 @@ util.addStyle(`
       this._timeText = timeText;
       this.currentTimeLabel && (this.currentTimeLabel.text = timeText);
       const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
-      const vw = window.innerWidth;
+      const vw = this._innerWidth = this._innerWidth || window.innerWidth;
       left = Math.max(0, Math.min(left - w / 2, vw - w));
       this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
       this._seekBarThumbnail.currentTime = sec;
@@ -2456,7 +2456,7 @@ util.addStyle(`
       this._isPausing = true;
       this._isSeeking = false;
       this._isStalled = false;
-      if (!this._pointer.animate && !('registerProperty' in CSS)) {
+      if (!this._pointer.animate || !('registerProperty' in CSS)) {
         this._isSmoothMode = false;
       }
       this._pointer.classList.toggle('is-notSmooth', !this._isSmoothMode);
@@ -2470,8 +2470,7 @@ util.addStyle(`
     set currentTime(v) {
       if (!this._isSmoothMode) {
         const per = Math.min(100, this._timeToPer(v));
-        this._pointer.style.setProperty('--trans-x-pp', cssUtil.vw(per));
-        // this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
+        this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
         return;
       }
       if (document.hidden) { return; }

@@ -135,21 +135,19 @@ class StoryboardView extends Emitter {
     view.closest('.zen-root')
       .addEventListener('touchend', () => this.isHover = false, {passive: true});
 
-    this._innerWidth = window.innerWidth;
     window.addEventListener('resize',
       _.throttle(() => {
-        const width = this._innerWidth = window.innerWidth;
         if (this.canvas) {
-          this.canvas.resize({width, height: this._model.cellHeight});
+          this.canvas.resize({width: global.innerWidth, height: this._model.cellHeight});
         }
       }, 500), {passive: true});
   }
   _onBoardClick(e) {
     const model = this._model;
-    const innerWidth = model.cellCount * model.cellWidth;
+    const totalWidth = model.cellCount * model.cellWidth;
     const x = e.clientX + this._scrollLeft;
     const duration = model.duration;
-    const sec = x / innerWidth * duration;
+    const sec = x / totalWidth * duration;
 
     const view = this._view;
     this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(-1000));
@@ -158,10 +156,10 @@ class StoryboardView extends Emitter {
   }
   _onBoardMouseMove(e) {
     const model = this._model;
-    const innerWidth = model.cellCount * model.cellWidth;
+    const totalWidth = model.cellCount * model.cellWidth;
     const x = e.clientX + this._scrollLeft;
     const duration = model.duration;
-    const sec = x / innerWidth * duration;
+    const sec = x / totalWidth * duration;
 
     const time = textUtil.secToTime(sec);
     if (this.cursorTimeLabel && this.cursorTimeLabel.text !== time) {
@@ -276,11 +274,11 @@ class StoryboardView extends Emitter {
         name: 'StoryboardCanvasView'
       }).then(v => {
         this.canvas = v;
-        this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+        this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
       });
     } else {
       this.canvas.setInfo(infoRawData);
-      this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+      this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
     }
 
     this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
@@ -334,12 +332,12 @@ class StoryboardView extends Emitter {
     }
 
     if (forceUpdate) {
-      this.scrollLeft(targetLeft - this._innerWidth * per, true);
+      this.scrollLeft(targetLeft - global.innerWidth * per, true);
     } else {
       if (this.isHover) {
         return;
       }
-      this.scrollLeft(targetLeft - this._innerWidth * per);
+      this.scrollLeft(targetLeft - global.innerWidth * per);
     }
   }
   get currentTime() {

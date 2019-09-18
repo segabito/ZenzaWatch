@@ -156,6 +156,7 @@ class NicoChatCss3View {
       position: absolute;
       will-change: transform;
       contain: layout style paint;
+      visibility: hidden;
       line-height: 1.235;
       z-index: ${zIndex};
       top: ${top};
@@ -164,14 +165,12 @@ class NicoChatCss3View {
       ${lineHeightCss}
       ${opacity}
       font-size: ${fontSizePx}px;
-      animation-name: ${(isAlignMiddle || isScaled) ? 'idou-props-scale' : 'idou-props'};
+      animation-name: idou-props${(isScaled || isAlignMiddle) ? '-scaled' : ''}${isAlignMiddle ? '-middle' : ''};
       animation-duration: ${duration}s;
       animation-delay: ${delay}s;
       ${reverse}
       transform:
         translateX(0)
-        ${isScaled ? 'scale(var(--chat-scale-x), var(--chat-scale-y))' : ''}
-        ${isAlignMiddle ? 'translateY(var(--chat-trans-y))' : ''}
         ;
     `;
 

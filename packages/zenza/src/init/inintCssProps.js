@@ -1,5 +1,6 @@
 import {cssUtil} from '../../../lib/src/css/css';
 import {CONSTANT} from '../../../../src/constant';
+import {global} from '../../../../src/ZenzaWatchIndex';
 //===BEGIN===
 const initCssProps = () => {
   const LEN = '<length>';
@@ -12,6 +13,10 @@ const initCssProps = () => {
   const TP = 'transparent';
   const inherits = true;
   cssUtil.registerProps(
+    {name: '--inner-width',
+      syntax: NUM, initialValue: 100,  inherits},
+    {name: '--inner-height',
+      syntax: NUM, initialValue: 100, inherits},
     {name: '--zenza-ui-scale',
       syntax: NUM, initialValue: 1,  inherits},
     {name: '--zenza-control-bar-height',
@@ -59,6 +64,8 @@ const initCssProps = () => {
     {name: '--enabled-button-color',
       syntax: CL, initialValue: TP, inherits}
   );
+  document.documentElement.style.setProperty('--inner-width', global.innerWidth);
+  document.documentElement.style.setProperty('--inner-height', global.innerHeight);
 };
 
 //===END===
