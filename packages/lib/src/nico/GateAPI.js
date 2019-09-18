@@ -6,7 +6,7 @@ const PRODUCT = 'ZenzaWatch';
 //===BEGIN===
 
 const GateAPI = (() => {
-  const {Handler, PromiseHandler, Emitter, EmitterInitFunc, workerUtil, parseThumbInfo} = window.ZenzaLib || {};
+  const {dimport, Handler, PromiseHandler, Emitter, EmitterInitFunc, workerUtil, parseThumbInfo} = window.ZenzaLib || {};
 //@require gate
   const {post, parseUrl, xFetch, uFetch, init} = gate();
   const {IndexedDbStorage} = window.ZenzaLib;
@@ -65,7 +65,6 @@ const GateAPI = (() => {
     //   console.log('disable bridge', origin);
     //   return;
     // }
-    console.log('enable bridge', origin);
 
 
     let isOk = false;
@@ -82,6 +81,11 @@ const GateAPI = (() => {
     };
 
     const PREFIX = PRODUCT || 'ZenzaWatch';
+
+    // const kvs = dimport('std:kv-storage')
+    //   .then(({StorageArea}) => new StorageArea(PREFIX)).catch(() => null);
+    const kvs = null;
+
     const dumpConfig = (params, sessionId) => {
       if (!params.keys) {
         return;
@@ -89,7 +93,12 @@ const GateAPI = (() => {
       const prefix = params.prefix || PREFIX;
       const config = {};
       const {keys, command} = params;
-      keys.forEach(key => {
+      keys.forEach(async key => {
+        if (kvs) {
+          const value = await kvs.get(key);
+          (value !== undefined) && (config[key] = value);
+          return;
+        }
         const storageKey = `${prefix}_${key}`;
         if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
@@ -104,6 +113,10 @@ const GateAPI = (() => {
 
     const saveConfig = params => {
       if (!params.key) {
+        return;
+      }
+      if (kvs) {
+        kvs.set(params.key, params.value);
         return;
       }
       const prefix = params.prefix || PREFIX;
