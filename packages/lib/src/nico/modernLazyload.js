@@ -19,21 +19,25 @@
     const LazyImage = window.Nico && window.Nico.LazyImage;
     if (!LazyImage) { return; }
     const isInitialized = !!LazyImage.pageObserver;
-    console.log('override Nico.LazyImage...');
+    console.log('override Nico.LazyImage...', {isInitialized});
     if (isInitialized) {
       clearInterval(LazyImage.pageObserver);
     }
-
     Object.assign(LazyImage, {
+      isInitialized: false,
       waitings: {
         get length() { return 0; },
         push(v) { return v; },
         splice() { return []; }
       },
       initialize() {
+        this.isInitialized = true;
         this._setPageObserver();
       },
       reset() {
+        if (this.isInitialized) { return; }
+        console.log('reset and initialize');
+        this.initialize();
       },
       enqueue() {
         if (!this.intersectionObserver) {
