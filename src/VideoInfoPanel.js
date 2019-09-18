@@ -17,6 +17,7 @@ import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {css} from '../packages/lib/src/css/css';
 import {uq} from '../packages/lib/src/uQuery';
 import {domEvent} from '../packages/lib/src/dom/domEvent';
+import {VideoListItem} from './VideoList';
 
 const VideoItemObserver = {
   observe: () => {}
@@ -146,7 +147,7 @@ class VideoInfoPanel extends Emitter {
     this._description.textContent = '';
     this._zenTubeUrl = null;
     const watchLink = watchLink => {
-      let videoId = watchLink.textContent.replace('watch/', '');
+      const videoId = watchLink.textContent.replace('watch/', '');
 
       if (
         !/^(sm|nm|so|)[0-9]+$/.test(videoId) ||
@@ -177,7 +178,7 @@ class VideoInfoPanel extends Emitter {
       } else {
         const vitem = document.createElement('zenza-video-item');
         vitem.dataset.videoId = videoId;
-        watchLink.insertAdjacentElement('afterend', vitem);
+        watchLink.after(vitem);
         watchLink.classList.remove('watch');
       }
     };
@@ -216,7 +217,7 @@ class VideoInfoPanel extends Emitter {
     const $description = uq(`<zenza-video-description>${html}</zenza-video-description>`);
     for (const a of $description.query('a')) {
       a.classList.add('noHoverMenu');
-      let href = a.href;
+      const href = a.href;
       if (a.classList.contains('watch')) {
         watchLink(a);
       } else if (a.classList.contains('seekTime')) {
@@ -225,6 +226,7 @@ class VideoInfoPanel extends Emitter {
         mylistLink(a);
       } else if (/^https?:\/\/((www\.|)youtube\.com\/watch|youtu\.be)/.test(href)) {
         youtube(a);
+        this._zenTubeUrl = href;
       }
     }
     for (const e of

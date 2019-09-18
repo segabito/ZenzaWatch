@@ -531,6 +531,12 @@ class ContextMenu extends BaseViewComponent {
       global.emitter.emitAsync('videoContextMenu.addonMenuReady.list',
         view.find('.listInner ul'), handler
       );
+      global.emitter.emitResolve('videoContextMenu.addonMenuReady',
+        {vier: view.find('.empty-area-top'), handler}
+      );
+      global.emitter.emitResolve('videoContextMenu.addonMenuReady.list',
+        {view: view.find('.listInner ul'), handler}
+      );
     }
   }
 }

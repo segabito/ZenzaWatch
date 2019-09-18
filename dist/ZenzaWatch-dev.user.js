@@ -7808,6 +7808,7 @@ const {YouTubeWrapper} = (() => {
 			this._player.pauseVideo();
 			this._player.setPlaybackQuality(best);
 			this._player.playVideo();
+			window.console.info('bestQuality', {levels, best, current: this._player.getPlaybackQuality()});
 		}
 		_onSeekEnd() {
 			this._isSeeking = false;
@@ -7853,7 +7854,7 @@ const {YouTubeWrapper} = (() => {
 		set volume(v) {
 			if (this._volume !== v) {
 				this._volume = v;
-				this._player.volume = v * 100;
+				this._player.setVolume(v * 100);
 				this.emit('volumeChange', v);
 			}
 		}
@@ -8365,6 +8366,12 @@ class ContextMenu extends BaseViewComponent {
 			);
 			global.emitter.emitAsync('videoContextMenu.addonMenuReady.list',
 				view.find('.listInner ul'), handler
+			);
+			global.emitter.emitResolve('videoContextMenu.addonMenuReady',
+				{vier: view.find('.empty-area-top'), handler}
+			);
+			global.emitter.emitResolve('videoContextMenu.addonMenuReady.list',
+				{view: view.find('.listInner ul'), handler}
 			);
 		}
 	}
@@ -26852,7 +26859,7 @@ class VideoInfoPanel extends Emitter {
 		this._description.textContent = '';
 		this._zenTubeUrl = null;
 		const watchLink = watchLink => {
-			let videoId = watchLink.textContent.replace('watch/', '');
+			const videoId = watchLink.textContent.replace('watch/', '');
 			if (
 				!/^(sm|nm|so|)[0-9]+$/.test(videoId) ||
 				!['www.nicovideo.jp'].includes(watchLink.hostname) || !watchLink.pathname.startsWith('/watch/')) {
@@ -26881,7 +26888,7 @@ class VideoInfoPanel extends Emitter {
 			} else {
 				const vitem = document.createElement('zenza-video-item');
 				vitem.dataset.videoId = videoId;
-				watchLink.insertAdjacentElement('afterend', vitem);
+				watchLink.after(vitem);
 				watchLink.classList.remove('watch');
 			}
 		};
@@ -26918,7 +26925,7 @@ class VideoInfoPanel extends Emitter {
 		const $description = uq(`<zenza-video-description>${html}</zenza-video-description>`);
 		for (const a of $description.query('a')) {
 			a.classList.add('noHoverMenu');
-			let href = a.href;
+			const href = a.href;
 			if (a.classList.contains('watch')) {
 				watchLink(a);
 			} else if (a.classList.contains('seekTime')) {
@@ -26927,6 +26934,7 @@ class VideoInfoPanel extends Emitter {
 				mylistLink(a);
 			} else if (/^https?:\/\/((www\.|)youtube\.com\/watch|youtu\.be)/.test(href)) {
 				youtube(a);
+				this._zenTubeUrl = href;
 			}
 		}
 		for (const e of

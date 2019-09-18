@@ -210,7 +210,7 @@ const {YouTubeWrapper} = (() => {
       this._player.pauseVideo();
       this._player.setPlaybackQuality(best);
       this._player.playVideo();
-      // window.console.info('bestQuality', levels, best, current);
+      window.console.info('bestQuality', {levels, best, current: this._player.getPlaybackQuality()});
     }
 
     _onSeekEnd() {
@@ -268,7 +268,7 @@ const {YouTubeWrapper} = (() => {
     set volume(v) {
       if (this._volume !== v) {
         this._volume = v;
-        this._player.volume = v * 100;
+        this._player.setVolume(v * 100);
         this.emit('volumeChange', v);
       }
     }
