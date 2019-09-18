@@ -32,7 +32,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.15
+// @version        2.4.20
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -79,7 +79,7 @@ AntiPrototypeJs();
   const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
   const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
-  const monkey = (PRODUCT, START_PAGE_QUERY) /*** (｀・ω・´)9m ***/ => {
+  const monkey = async (PRODUCT, START_PAGE_QUERY) /*** (｀・ω・´)9m ***/ => {
     const Array = window.PureArray ? window.PureArray : window.Array;
     let console = window.console;
     let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
@@ -87,9 +87,9 @@ AntiPrototypeJs();
     let CONFIG = null;
     const dll = {};
     const util = {};
-    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
+    let {dimport, workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.4.15';
+    var VER = '2.4.20';
     const ENV = 'DEV';
 
 
@@ -422,8 +422,18 @@ class DataStorage {
 	static create(defaultData, options = {}) {
 		return new DataStorage(defaultData, options);
 	}
+	static clone(dataStorage) {
+		const options = {
+			prefix:  dataStorage.prefix,
+			storage: dataStorage.storage,
+			ignoreExportKeys: dataStorage.options.ignoreExportKeys,
+			readonly: dataStorage.readonly
+		};
+		return DataStorage.create(dataStorage.default, options);
+	}
 	constructor(defaultData, options = {}) {
-		this._default = defaultData;
+		this.options = options;
+		this.default = defaultData;
 		this._data = Object.assign({}, defaultData);
 		this.prefix = `${options.prefix || 'DATA'}_`;
 		this.storage = options.storage || localStorage;
@@ -433,8 +443,10 @@ class DataStorage {
 		this._changed = new Map();
 		this._onChange = bounce.time(this._onChange.bind(this));
 		objUtil.bridge(this, new Emitter());
-		this.restore();
-		this.props = this._makeProps(defaultData);
+		this.restore().then(() => {
+			this.props = this._makeProps(defaultData);
+			this.emitResolve('restore');
+		});
 		this.logger = (self || window).console;
 		this.consoleSubscriber = {
 			next: (v, ...args) => this.logger.log('next', v, ...args),
@@ -479,9 +491,9 @@ class DataStorage {
 	offkey(key, callback) {
 		this.off(`update-${key}`, callback);
 	}
-	restore(storage) {
+	async restore(storage) {
 		storage = storage || this.storage;
-		Object.keys(this._default).forEach(key => {
+		Object.keys(this.default).forEach(key => {
 			const storageKey = this.getStorageKey(key);
 			if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
 				try {
@@ -490,7 +502,7 @@ class DataStorage {
 					window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
 				}
 			} else {
-				this._data[key] = this._default[key];
+				this._data[key] = this.default[key];
 			}
 		});
 	}
@@ -500,7 +512,7 @@ class DataStorage {
 	getStorageKey(key) {
 		return `${this.prefix}${key}`;
 	}
-	refresh(key, storage) {
+	async refresh(key, storage) {
 		storage = storage || this.storage;
 		key = this.getNativeKey(key);
 		const storageKey = this.getStorageKey(key);
@@ -520,6 +532,12 @@ class DataStorage {
 		key = this.getNativeKey(key);
 		return this._data[key];
 	}
+	deleteValue(key) {
+		key = this.getNativeKey(key);
+		const storageKey = this.getStorageKey(key);
+		this.storage.removeItem(storageKey);
+		this._data[key] = this.default[key];
+	}
 	setValue(key, value) {
 		const _key = key;
 		key = this.getNativeKey(key);
@@ -528,9 +546,7 @@ class DataStorage {
 		}
 		const storageKey = this.getStorageKey(key);
 		const storage = this.storage;
-		if (!this.readonly && storage[StorageWriter.writer]) {
-			storage[StorageWriter.writer](storageKey, value);
-		} else if (!this.readonly) {
+		if (!this.readonly) {
 			try {
 				storage[storageKey] = JSON.stringify(value);
 			} catch (e) {
@@ -551,7 +567,7 @@ class DataStorage {
 	}
 	export(isAll = false) {
 		const result = {};
-		const _default = this._default;
+		const _default = this.default;
 		Object.keys(this.props)
 			.filter(key => isAll || (_default[key] !== this._data[key]))
 			.forEach(key => result[key] = this.getValue(key));
@@ -576,14 +592,14 @@ class DataStorage {
 	clear() {
 		this.silently = true;
 		const storage = this.storage;
-		Object.keys(this._default)
+		Object.keys(this.default)
 			.filter(key => !this._ignoreExportKeys.includes(key)).forEach(key => {
 				const storageKey = this.getStorageKey(key);
 				try {
 					if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
 						delete storage[storageKey];
 					}
-					this._data[key] = this._default[key];
+					this._data[key] = this.default[key];
 				} catch (e) {}
 		});
 		this.silently = false;
@@ -655,6 +671,59 @@ class DataStorage {
 	unwatch() {
 		this.consoleSubscription && this.consoleSubscription.unsubscribe();
 		this.consoleSubscription = null;
+	}
+}
+class KVSDataStorage extends DataStorage {
+	constructor(defaultData, options = {}) {
+		super(defaultData, options);
+	}
+	getStorageKey(key) {
+		return key;
+	}
+	async restore(storage) {
+		storage = storage || this.storage;
+		const dbs = this.options.dbStorage.export();
+		for (const key of Object.keys(dbs)) {
+			const value = dbs[key];
+			this.storage.set(key, value);
+			this.dbStorage.deleteValue(key);
+		}
+		for (const key of Object.keys(this.default)) {
+			const storageKey = key;
+			const value = await this.storage.get(storageKey);
+			if (value !== undefined) {
+					this._data[key] = value;
+			} else {
+				this._data[key] = this.default[key];
+			}
+		}
+	}
+	async refresh(key, storage) {
+		storage = storage || this.storage;
+		key = this.getNativeKey(key);
+		const storageKey = key;
+		const value = await this.storage.get(storageKey);
+		if (value !== undefined) {
+			this._data[key] = value;
+		}
+		return this._data[key];
+	}
+	setValue(key, value) {
+		const _key = key;
+		key = this.getNativeKey(key);
+		if (this._data[key] === value || arguments.length < 2 || value === undefined) {
+			return;
+		}
+		const storageKey = key;
+		const storage = this.storage;
+		if (!this.readonly) {
+			storage.set(storageKey, value);
+		}
+		this._data[key] = value;
+		if (!this.silently) {
+			this._changed.set(_key, value);
+			this._onChange();
+		}
 	}
 }
 const Config = (() => {
@@ -798,7 +867,7 @@ const Config = (() => {
 		DEFAULT_CONFIG.enableVideoSession = true;
 		DEFAULT_CONFIG['uaa.enable'] = false;
 	}
-	return new DataStorage(
+	return DataStorage.create(
 		DEFAULT_CONFIG,
 		{
 			prefix: PRODUCT,
@@ -810,7 +879,9 @@ const Config = (() => {
 })();
 Config.exportConfig = () => Config.export();
 Config.importConfig = v => Config.import(v);
+Config.clearConfig = () => Config.clear();
 const NaviConfig = Config;
+await Config.promise('restore');
 const uQuery = (() => {
 	const endMap = new WeakMap();
 	const elementEventsMap = new WeakMap();
@@ -1246,7 +1317,7 @@ const uQuery = (() => {
 		val(v = undef) {
 			const htmls = this.getHtmls();
 			for (const elm of htmls) {
-				if (!elm.hasAttribute('value')) {
+				if (!('value' in elm)) {
 					continue;
 				}
 				if (v === undef) {
@@ -1645,8 +1716,16 @@ const global = {
   notify: msg => ZenzaWatch.external.execCommand('notify', msg),
   alert: msg => ZenzaWatch.external.execCommand('alert', msg),
   config: Config,
-  api: ZenzaWatch.api
+  api: ZenzaWatch.api,
+  innerWidth: window.innerWidth,
+  innerHeight: window.innerHeight
 };
+WindowResizeObserver.subscribe((width, height) => {
+  global.innerWidth  = width;
+  global.innerHeight = height;
+  document.documentElement.style.setProperty('--inner-width', width);
+  document.documentElement.style.setProperty('--inner-height', height);
+});
 const reg = (() => {
 	const $ = Symbol('$');
 	const undef = Symbol.for('undefined');
@@ -2261,8 +2340,6 @@ const BroadcastEmitter = messageUtil.BroadcastEmitter = (() => {
 		const req = {id: PRODUCT, body: {command: 'message', params: body}, sessionId};
 		if (channel) {
 			channel.postMessage(req);
-		} else if (location.host === 'www.nicovideo.jp') {
-			Config.setValue('message', {body, sessionId});
 		} else if (location.host !== 'www.nicovideo.jp' &&
 			NicoVideoApi && NicoVideoApi.sendMessage) {
 			return NicoVideoApi.sendMessage(body, !!sessionId, sessionId);
@@ -3453,34 +3530,6 @@ class StyleSwitcher {
 	}
 }
 util.StyleSwitcher = StyleSwitcher;
-const dimport = Object.assign(url => {
-	if (dimport.map[url]) {
-		return dimport.map[url];
-	}
-	const now = Date.now();
-	const callbackName = `dimport_${now}`;
-	const loader = `
-		import * as module${now} from "${url}";
-		console.log('%cdynamic import from "${url}"',
-			'font-weight: bold; background: #333; color: #ff9; display: block; padding: 4px; width: 100%;');
-		window.${callbackName}(module${now});
-		`.trim();
-	window.console.time(`"${url}" import time`);
-	const p = new Promise(res => {
-		const s = document.createElement('script');
-		s.type = 'module';
-		s.append(document.createTextNode(loader));
-		s.dataset.import = url;
-		window[callbackName] = module => {
-			window.console.timeEnd(`"${url}" import time`);
-			res(module);
-			delete window[callbackName];
-		};
-		document.head.append(s);
-	});
-	dimport.map[url] = p;
-	return p;
-}, {map: {}});
 util.dimport = dimport;
 const VideoItemObserver = (() => {
 	let intersectionObserver;
@@ -3885,6 +3934,10 @@ const initCssProps = () => {
 	const TP = 'transparent';
 	const inherits = true;
 	cssUtil.registerProps(
+		{name: '--inner-width',
+			syntax: NUM, initialValue: 100,  inherits},
+		{name: '--inner-height',
+			syntax: NUM, initialValue: 100, inherits},
 		{name: '--zenza-ui-scale',
 			syntax: NUM, initialValue: 1,  inherits},
 		{name: '--zenza-control-bar-height',
@@ -3932,6 +3985,8 @@ const initCssProps = () => {
 		{name: '--enabled-button-color',
 			syntax: CL, initialValue: TP, inherits}
 	);
+	document.documentElement.style.setProperty('--inner-width', global.innerWidth);
+	document.documentElement.style.setProperty('--inner-height', global.innerHeight);
 };
 initCssProps();
 class BaseCommandElement extends HTMLElement {
@@ -8268,9 +8323,9 @@ class ContextMenu extends BaseViewComponent {
 		const view = this._view;
 		this._onBeforeShow(x, y);
 		view.style.left =
-			cssUtil.px(Math.max(0, Math.min(x, window.innerWidth - view.offsetWidth)));
+			cssUtil.px(Math.max(0, Math.min(x, global.innerWidth - view.offsetWidth)));
 		view.style.top =
-			cssUtil.px(Math.max(0, Math.min(y + 20, window.innerHeight - view.offsetHeight)));
+			cssUtil.px(Math.max(0, Math.min(y + 20, global.innerHeight - view.offsetHeight)));
 		this.setState({isOpen: true});
 		global.emitter.emitAsync('showMenu');
 	}
@@ -8315,230 +8370,230 @@ class ContextMenu extends BaseViewComponent {
 	}
 }
 ContextMenu.__css__ = (`
-		.zenzaPlayerContextMenu {
-			position: fixed;
-			background: rgba(255, 255, 255, 0.8);
-			overflow: visible;
-			padding: 8px;
-			border: 1px outset #333;
-			box-shadow: 2px 2px 4px #000;
-			transition: opacity 0.3s ease;
-			min-width: 200px;
-			z-index: 150000;
-			user-select: none;
-			color: #000;
-		}
-		.zenzaPlayerContextMenu.is-Open {
-			display: block;
-			opacity: 0.5;
-		}
-		.zenzaPlayerContextMenu.is-Open:hover {
-			opacity: 1;
-		}
-		.is-fullscreen .zenzaPlayerContextMenu {
-			position: absolute;
-		}
-		.zenzaPlayerContextMenu:not(.is-Open) {
-			display: none;
-			/*left: -9999px;
-			top: -9999px;
-			opacity: 0;*/
-		}
-		.zenzaPlayerContextMenu ul {
-			padding: 0;
-			margin: 0;
-		}
-		.zenzaPlayerContextMenu ul li {
-			position: relative;
-			line-height: 120%;
-			margin: 2px;
-			overflow-y: visible;
-			white-space: nowrap;
-			cursor: pointer;
-			padding: 2px 14px;
-			list-style-type: none;
-			float: inherit;
-		}
-		.is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
-		.is-flipV          .zenzaPlayerContextMenu li.toggle-flipV:before,
-		.is-flipH          .zenzaPlayerContextMenu li.toggle-flipH:before,
-		.zenzaPlayerContextMenu ul                 li.selected:before {
-			content: '✔';
-			left: -10px;
-			color: #000 !important;
-			position: absolute;
-		}
-		.zenzaPlayerContextMenu ul li:hover {
-			background: #336;
-			color: #fff;
-		}
-		.zenzaPlayerContextMenu ul li.separator {
-			border: 1px outset;
-			height: 2px;
-			width: 90%;
-		}
-		.zenzaPlayerContextMenu.show {
-			opacity: 0.8;
-		}
-		.zenzaPlayerContextMenu .listInner {
-		}
-		.zenzaPlayerContextMenu .controlButtonContainer {
-			position: absolute;
-			bottom: 100%;
-			left: 50%;
-			width: 110%;
-			transform: translate(-50%, 0);
-			white-space: nowrap;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex {
-			display: flex;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton {
-			flex: 1;
-			height: 48px;
-			font-size: 24px;
-			line-height: 46px;
-			border: 1px solid;
-			border-radius: 4px;
-			color: #333;
-			background: rgba(192, 192, 192, 0.95);
-			cursor: pointer;
-			transition: transform 0.1s, box-shadow 0.1s;
-			box-shadow: 0 0 0;
-			opacity: 1;
-			margin: auto;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.screenShot {
-			flex: 1;
-			font-size: 24px;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
-			flex: 2;
-			font-size: 14px;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate010,
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate100,
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate200 {
-			flex: 3;
-			font-size: 24px;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek5s {
-			flex: 2;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek15s {
-			flex: 3;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:hover {
-			transform: translate(0px, -4px);
-			box-shadow: 0px 4px 2px #666;
-		}
-		.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:active {
-			transform: none;
-			box-shadow: 0 0 0;
-			border: 1px inset;
-		}
-		[data-command="picture-in-picture"] {
-			display: none;
-		}
-		.is-pictureInPictureEnabled [data-command="picture-in-picture"] {
-			display: block;
-		}
+	.zenzaPlayerContextMenu {
+		position: fixed;
+		background: rgba(255, 255, 255, 0.8);
+		overflow: visible;
+		padding: 8px;
+		border: 1px outset #333;
+		box-shadow: 2px 2px 4px #000;
+		transition: opacity 0.3s ease;
+		min-width: 200px;
+		z-index: 150000;
+		user-select: none;
+		color: #000;
+	}
+	.zenzaPlayerContextMenu.is-Open {
+		display: block;
+		opacity: 0.5;
+	}
+	.zenzaPlayerContextMenu.is-Open:hover {
+		opacity: 1;
+	}
+	.is-fullscreen .zenzaPlayerContextMenu {
+		position: absolute;
+	}
+	.zenzaPlayerContextMenu:not(.is-Open) {
+		display: none;
+		/*left: -9999px;
+		top: -9999px;
+		opacity: 0;*/
+	}
+	.zenzaPlayerContextMenu ul {
+		padding: 0;
+		margin: 0;
+	}
+	.zenzaPlayerContextMenu ul li {
+		position: relative;
+		line-height: 120%;
+		margin: 2px;
+		overflow-y: visible;
+		white-space: nowrap;
+		cursor: pointer;
+		padding: 2px 14px;
+		list-style-type: none;
+		float: inherit;
+	}
+	.is-playlistEnable .zenzaPlayerContextMenu li.togglePlaylist:before,
+	.is-flipV          .zenzaPlayerContextMenu li.toggle-flipV:before,
+	.is-flipH          .zenzaPlayerContextMenu li.toggle-flipH:before,
+	.zenzaPlayerContextMenu ul                 li.selected:before {
+		content: '✔';
+		left: -10px;
+		color: #000 !important;
+		position: absolute;
+	}
+	.zenzaPlayerContextMenu ul li:hover {
+		background: #336;
+		color: #fff;
+	}
+	.zenzaPlayerContextMenu ul li.separator {
+		border: 1px outset;
+		height: 2px;
+		width: 90%;
+	}
+	.zenzaPlayerContextMenu.show {
+		opacity: 0.8;
+	}
+	.zenzaPlayerContextMenu .listInner {
+	}
+	.zenzaPlayerContextMenu .controlButtonContainer {
+		position: absolute;
+		bottom: 100%;
+		left: 50%;
+		width: 110%;
+		transform: translate(-50%, 0);
+		white-space: nowrap;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex {
+		display: flex;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton {
+		flex: 1;
+		height: 48px;
+		font-size: 24px;
+		line-height: 46px;
+		border: 1px solid;
+		border-radius: 4px;
+		color: #333;
+		background: rgba(192, 192, 192, 0.95);
+		cursor: pointer;
+		transition: transform 0.1s, box-shadow 0.1s;
+		box-shadow: 0 0 0;
+		opacity: 1;
+		margin: auto;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.screenShot {
+		flex: 1;
+		font-size: 24px;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.playbackRate {
+		flex: 2;
+		font-size: 14px;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate010,
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate100,
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.rate200 {
+		flex: 3;
+		font-size: 24px;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek5s {
+		flex: 2;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton.seek15s {
+		flex: 3;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:hover {
+		transform: translate(0px, -4px);
+		box-shadow: 0px 4px 2px #666;
+	}
+	.zenzaPlayerContextMenu .controlButtonContainerFlex > .controlButton:active {
+		transform: none;
+		box-shadow: 0 0 0;
+		border: 1px inset;
+	}
+	[data-command="picture-in-picture"] {
+		display: none;
+	}
+	.is-pictureInPictureEnabled [data-command="picture-in-picture"] {
+		display: block;
+	}
 	`).trim();
 ContextMenu.__tpl__ = (`
-		<div class="zenzaPlayerContextMenu">
-			<div class="controlButtonContainer">
-				<div class="controlButtonContainerFlex">
-					<div class="controlButton command screenShot" data-command="screenShot"
-						data-param="0.1" data-type="number" data-is-no-close="true">
-						&#128247;<div class="tooltip">スクリーンショット</div>
-					</div>
-					<div class="empty-area-top" style="flex:4;" data-is-no-close="true"></div>
+	<div class="zenzaPlayerContextMenu">
+		<div class="controlButtonContainer">
+			<div class="controlButtonContainerFlex">
+				<div class="controlButton command screenShot" data-command="screenShot"
+					data-param="0.1" data-type="number" data-is-no-close="true">
+					&#128247;<div class="tooltip">スクリーンショット</div>
 				</div>
-				<div class="controlButtonContainerFlex">
-					<div class="controlButton command rate010 playbackRate" data-command="playbackRate"
-						data-param="0.1" data-type="number" data-repeat="on">
-						&#128034;<div class="tooltip">コマ送り(0.1倍)</div>
-					</div>
-					<div class="controlButton command rate050 playbackRate" data-command="playbackRate"
-						data-param="0.5" data-type="number" data-repeat="on">
-						<div class="tooltip">0.5倍速</div>
-					</div>
-					<div class="controlButton command rate075 playbackRate" data-command="playbackRate"
-						data-param="0.75" data-type="number" data-repeat="on">
-						<div class="tooltip">0.75倍速</div>
-					</div>
-					<div class="controlButton command rate100 playbackRate" data-command="playbackRate"
-						data-param="1.0" data-type="number" data-repeat="on">
-						&#9655;<div class="tooltip">標準速</div>
-					</div>
-					<div class="controlButton command rate125 playbackRate" data-command="playbackRate"
-						data-param="1.25" data-type="number" data-repeat="on">
-						<div class="tooltip">1.25倍速</div>
-					</div>
-					<div class="controlButton command rate150 playbackRate" data-command="playbackRate"
-						data-param="1.5" data-type="number" data-repeat="on">
-						<div class="tooltip">1.5倍速</div>
-					</div>
-					<div class="controlButton command rate200 playbackRate" data-command="playbackRate"
-						data-param="2.0" data-type="number" data-repeat="on">
-						&#128007;<div class="tooltip">2倍速</div>
-					</div>
+				<div class="empty-area-top" style="flex:4;" data-is-no-close="true"></div>
+			</div>
+			<div class="controlButtonContainerFlex">
+				<div class="controlButton command rate010 playbackRate" data-command="playbackRate"
+					data-param="0.1" data-type="number" data-repeat="on">
+					&#128034;<div class="tooltip">コマ送り(0.1倍)</div>
 				</div>
-				<div class="controlButtonContainerFlex seekToResumePoint">
-					<div class="controlButton command"
-					data-command="seekToResumePoint"
-					>▼ここまで見た
-						<div class="tooltip">レジューム位置にジャンプ</div>
-					</div>
+				<div class="controlButton command rate050 playbackRate" data-command="playbackRate"
+					data-param="0.5" data-type="number" data-repeat="on">
+					<div class="tooltip">0.5倍速</div>
 				</div>
-				<div class="controlButtonContainerFlex">
-					<div class="controlButton command seek5s"
-						data-command="seekBy" data-param="-5" data-type="number" data-repeat="on"
-						>⇦
-							<div class="tooltip">5秒戻る</div>
-					</div>
-					<div class="controlButton command seek15s"
-						data-command="seekBy" data-param="-15" data-type="number" data-repeat="on"
-						>⇦
-							<div class="tooltip">15秒戻る</div>
-					</div>
-					<div class="controlButton command seek15s"
-						data-command="seekBy" data-param="15" data-type="number" data-repeat="on"
-						>⇨
-							<div class="tooltip">15秒進む</div>
-					</div>
-					<div class="controlButton command seek5s"
-						data-command="seekBy" data-param="5" data-type="number" data-repeat="on"
-						>⇨
-							<div class="tooltip">5秒進む</div>
-					</div>
+				<div class="controlButton command rate075 playbackRate" data-command="playbackRate"
+					data-param="0.75" data-type="number" data-repeat="on">
+					<div class="tooltip">0.75倍速</div>
+				</div>
+				<div class="controlButton command rate100 playbackRate" data-command="playbackRate"
+					data-param="1.0" data-type="number" data-repeat="on">
+					&#9655;<div class="tooltip">標準速</div>
+				</div>
+				<div class="controlButton command rate125 playbackRate" data-command="playbackRate"
+					data-param="1.25" data-type="number" data-repeat="on">
+					<div class="tooltip">1.25倍速</div>
+				</div>
+				<div class="controlButton command rate150 playbackRate" data-command="playbackRate"
+					data-param="1.5" data-type="number" data-repeat="on">
+					<div class="tooltip">1.5倍速</div>
+				</div>
+				<div class="controlButton command rate200 playbackRate" data-command="playbackRate"
+					data-param="2.0" data-type="number" data-repeat="on">
+					&#128007;<div class="tooltip">2倍速</div>
 				</div>
 			</div>
-			<div class="listInner">
-				<ul>
-					<li class="command" data-command="togglePlay">停止/再開</li>
-					<li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
-					<hr class="separator">
-					<li class="command toggleLoop"        data-config="loop" data-command="toggle-loop">リピート</li>
-					<li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
-					<li class="command toggleShowComment" data-config="showComment" data-command="toggle-showComment">コメントを表示</li>
-					<li class="command" data-command="picture-in-picture">P in P</li>
-					<hr class="separator">
-					<li class="command forPremium toggle-flipH" data-command="toggle-flipH">左右反転</li>
-					<li class="command toggle-flipV"            data-command="toggle-flipV">上下反転</li>
-					<hr class="separator">
-					<li class="command"
-						data-command="reload">動画のリロード</li>
-					<li class="command"
-						data-command="copy-video-watch-url">動画URLをコピー</li>
-					<li class="command debug" data-config="debug"
-						data-command="toggle-debug">デバッグ</li>
-					<li class="command mymemory"
-						data-command="saveMymemory">コメントの保存</li>
-				</ul>
+			<div class="controlButtonContainerFlex seekToResumePoint">
+				<div class="controlButton command"
+				data-command="seekToResumePoint"
+				>▼ここまで見た
+					<div class="tooltip">レジューム位置にジャンプ</div>
+				</div>
+			</div>
+			<div class="controlButtonContainerFlex">
+				<div class="controlButton command seek5s"
+					data-command="seekBy" data-param="-5" data-type="number" data-repeat="on"
+					>⇦
+						<div class="tooltip">5秒戻る</div>
+				</div>
+				<div class="controlButton command seek15s"
+					data-command="seekBy" data-param="-15" data-type="number" data-repeat="on"
+					>⇦
+						<div class="tooltip">15秒戻る</div>
+				</div>
+				<div class="controlButton command seek15s"
+					data-command="seekBy" data-param="15" data-type="number" data-repeat="on"
+					>⇨
+						<div class="tooltip">15秒進む</div>
+				</div>
+				<div class="controlButton command seek5s"
+					data-command="seekBy" data-param="5" data-type="number" data-repeat="on"
+					>⇨
+						<div class="tooltip">5秒進む</div>
+				</div>
 			</div>
 		</div>
-	`).trim();
+		<div class="listInner">
+			<ul>
+				<li class="command" data-command="togglePlay">停止/再開</li>
+				<li class="command" data-command="seekTo" data-param="0">先頭に戻る</li>
+				<hr class="separator">
+				<li class="command toggleLoop"        data-config="loop" data-command="toggle-loop">リピート</li>
+				<li class="command togglePlaylist"    data-command="togglePlaylist">連続再生</li>
+				<li class="command toggleShowComment" data-config="showComment" data-command="toggle-showComment">コメントを表示</li>
+				<li class="command" data-command="picture-in-picture">P in P</li>
+				<hr class="separator">
+				<li class="command forPremium toggle-flipH" data-command="toggle-flipH">左右反転</li>
+				<li class="command toggle-flipV"            data-command="toggle-flipV">上下反転</li>
+				<hr class="separator">
+				<li class="command"
+					data-command="reload">動画のリロード</li>
+				<li class="command"
+					data-command="copy-video-watch-url">動画URLをコピー</li>
+				<li class="command debug" data-config="debug"
+					data-command="toggle-debug">デバッグ</li>
+				<li class="command mymemory"
+					data-command="saveMymemory">コメントの保存</li>
+			</ul>
+		</div>
+	</div>
+`).trim();
 class VideoPlayer extends Emitter {
 	constructor(params) {
 		super();
@@ -9439,31 +9494,29 @@ class StoryboardView extends Emitter {
 		this._container.append(view);
 		view.closest('.zen-root')
 			.addEventListener('touchend', () => this.isHover = false, {passive: true});
-		this._innerWidth = window.innerWidth;
 		window.addEventListener('resize',
 			_.throttle(() => {
-				const width = this._innerWidth = window.innerWidth;
 				if (this.canvas) {
-					this.canvas.resize({width, height: this._model.cellHeight});
+					this.canvas.resize({width: global.innerWidth, height: this._model.cellHeight});
 				}
 			}, 500), {passive: true});
 	}
 	_onBoardClick(e) {
 		const model = this._model;
-		const innerWidth = model.cellCount * model.cellWidth;
+		const totalWidth = model.cellCount * model.cellWidth;
 		const x = e.clientX + this._scrollLeft;
 		const duration = model.duration;
-		const sec = x / innerWidth * duration;
+		const sec = x / totalWidth * duration;
 		const view = this._view;
 		this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(-1000));
 		domEvent.dispatchCommand(view, 'seekTo', sec);
 	}
 	_onBoardMouseMove(e) {
 		const model = this._model;
-		const innerWidth = model.cellCount * model.cellWidth;
+		const totalWidth = model.cellCount * model.cellWidth;
 		const x = e.clientX + this._scrollLeft;
 		const duration = model.duration;
-		const sec = x / innerWidth * duration;
+		const sec = x / totalWidth * duration;
 		const time = textUtil.secToTime(sec);
 		if (this.cursorTimeLabel && this.cursorTimeLabel.text !== time) {
 			this.cursorTimeLabel.text = time;
@@ -9567,11 +9620,11 @@ class StoryboardView extends Emitter {
 				name: 'StoryboardCanvasView'
 			}).then(v => {
 				this.canvas = v;
-				this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+				this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
 			});
 		} else {
 			this.canvas.setInfo(infoRawData);
-			this.canvas.resize({width: this._innerWidth, height: model.cellHeight});
+			this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
 		}
 		this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
 		this._bone.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
@@ -9619,12 +9672,12 @@ class StoryboardView extends Emitter {
 			this._pointerLeftChanged = true;
 		}
 		if (forceUpdate) {
-			this.scrollLeft(targetLeft - this._innerWidth * per, true);
+			this.scrollLeft(targetLeft - global.innerWidth * per, true);
 		} else {
 			if (this.isHover) {
 				return;
 			}
-			this.scrollLeft(targetLeft - this._innerWidth * per);
+			this.scrollLeft(targetLeft - global.innerWidth * per);
 		}
 	}
 	get currentTime() {
@@ -10185,16 +10238,11 @@ const StoryboardWorker = (() => {
 					bctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
 					bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
 				}
-				if (this.bufferCanvas.transferToImageBitmap && this.canvas.transferFromImageBitmap) {
-					this.canvas.transferFromImageBitmap(this.bufferCanvas.transferToImageBitmap());
-				} else {
 					this.ctx.beginPath();
 					this.ctx.drawImage(this.bufferCanvas,
 						0, 0, width, height,
 						0, 0, width, height
 					);
-					this.ctx.commit && this.ctx.commit();
-				}
 			}
 			cls() {
 				this.bufferCtx.clearRect(0, 0, this.width, this.height);
@@ -12452,7 +12500,7 @@ const HeatMap = HeatMapInitFunc({
 			}
 			const width = this._mode === 'list' ?
 				CommentPreviewView.WIDTH : CommentPreviewView.HOVER_WIDTH;
-			const containerWidth = window.innerWidth;
+			const containerWidth = this._innerWidth = this._innerWidth || window.innerWidth;
 			left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
 			this._left = left;
 			this.applyView();
@@ -12857,7 +12905,7 @@ util.addStyle(`
 			this._timeText = timeText;
 			this.currentTimeLabel && (this.currentTimeLabel.text = timeText);
 			const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
-			const vw = window.innerWidth;
+			const vw = this._innerWidth = this._innerWidth || window.innerWidth;
 			left = Math.max(0, Math.min(left - w / 2, vw - w));
 			this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
 			this._seekBarThumbnail.currentTime = sec;
@@ -12972,7 +13020,7 @@ util.addStyle(`
 			this._isPausing = true;
 			this._isSeeking = false;
 			this._isStalled = false;
-			if (!this._pointer.animate && !('registerProperty' in CSS)) {
+			if (!this._pointer.animate || !('registerProperty' in CSS)) {
 				this._isSmoothMode = false;
 			}
 			this._pointer.classList.toggle('is-notSmooth', !this._isSmoothMode);
@@ -12986,7 +13034,7 @@ util.addStyle(`
 		set currentTime(v) {
 			if (!this._isSmoothMode) {
 				const per = Math.min(100, this._timeToPer(v));
-				this._pointer.style.setProperty('--trans-x-pp', cssUtil.vw(per));
+				this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
 				return;
 			}
 			if (document.hidden) { return; }
@@ -14537,6 +14585,7 @@ class NicoChatCss3View {
 			position: absolute;
 			will-change: transform;
 			contain: layout style paint;
+			visibility: hidden;
 			line-height: 1.235;
 			z-index: ${zIndex};
 			top: ${top};
@@ -14545,14 +14594,12 @@ class NicoChatCss3View {
 			${lineHeightCss}
 			${opacity}
 			font-size: ${fontSizePx}px;
-			animation-name: ${(isAlignMiddle || isScaled) ? 'idou-props-scale' : 'idou-props'};
+			animation-name: idou-props${(isScaled || isAlignMiddle) ? '-scaled' : ''}${isAlignMiddle ? '-middle' : ''};
 			animation-duration: ${duration}s;
 			animation-delay: ${delay}s;
 			${reverse}
 			transform:
 				translateX(0)
-				${isScaled ? 'scale(var(--chat-scale-x), var(--chat-scale-y))' : ''}
-				${isAlignMiddle ? 'translateY(var(--chat-trans-y))' : ''}
 				;
 		`;
 		return {inline, keyframes: ''};
@@ -16381,15 +16428,6 @@ body.in-capture .commentLayer {
 		transform: translate3d(-50%, 0, 0) perspective(200px) rotateX(90deg) scale(var(--dokaben-scale));
 	}
 }
-@keyframes idou-var {
-	0%   {
-		visibility: visible;
-		transform: var(--transform-start);
-	}
-	100% {
-		transform: var(--transform-end);
-	}
-}
 @keyframes idou-props {
 	0%   {
 		visibility: visible;
@@ -16400,7 +16438,21 @@ body.in-capture .commentLayer {
 		transform: translateX(var(--chat-trans-x));
 	}
 }
-@keyframes idou-props-scale {
+@keyframes idou-props-scaled {
+	0%   {
+		visibility: visible;
+		transform:
+			translateX(0)
+			scale(var(--chat-scale-x), var(--chat-scale-y));
+	}
+	100% {
+		visibility: hidden;
+		transform:
+			translateX(var(--chat-trans-x))
+			scale(var(--chat-scale-x), var(--chat-scale-y));
+	}
+}
+@keyframes idou-props-scaled-middle {
 	0%   {
 		visibility: visible;
 		transform:
@@ -17630,6 +17682,7 @@ class CommentListView extends Emitter {
 			body.classList.add(this._className);
 		}
 		this._container = doc.querySelector('#listContainer');
+		this._$container = uq(this._container);
 		this._list = doc.getElementById('listContainerInner');
 		if (this._html) {
 			this._list.innerHTML = this._html;
@@ -17642,14 +17695,17 @@ class CommentListView extends Emitter {
 			.on('keydown', e => global.emitter.emit('keydown', e))
 			.on('keyup', e => global.emitter.emit('keyup', e))
 			.toggleClass('is-guest', !nicoUtil.isLogin())
-			.toggleClass('is-premium', nicoUtil.isPremium());
+			.toggleClass('is-premium', nicoUtil.isPremium())
+			.toggleClass('is-firefox', env.isFirefox());
 		this._$menu.on('click', this._onMenuClick.bind(this));
 		this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
-		this._container.addEventListener('mouseover', this._onMouseOver.bind(this));
-		this._container.addEventListener('mouseleave', this._onMouseOut.bind(this));
-		this._container.addEventListener('wheel', _.throttle(this._onWheel.bind(this), 100), {passive: true});
-		this._container.addEventListener('scroll', this._onScroll.bind(this), {passive: true});
-		this._debouncedOnScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
+		this._onScroll = this._onScroll.bind(this);
+		this._onScrolling = _.throttle(this._onScrolling.bind(this), 100);
+		this._onScrollEnd = _.debounce(this._onScrollEnd.bind(this), 500);
+		this._container.addEventListener('scroll', this._onScroll, {passive: true});
+		this._$container.on('mouseover', this._onMouseOver.bind(this))
+			.on('mouseleave', this._onMouseOut.bind(this))
+			.on('wheel', _.throttle(this._onWheel.bind(this), 100), {passive: true});
 		w.addEventListener('resize', this._onResize.bind(this));
 		this._innerHeight = w.innerHeight;
 		this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
@@ -17677,7 +17733,7 @@ class CommentListView extends Emitter {
 		itemList = Array.isArray(itemList) ? itemList : [itemList];
 		this.isActive = false;
 		if (replaceAll) {
-			this._scrollTop = 0;
+			this._scrollTop = this._container ? this._container.scrollTop : 0;
 		}
 		const itemViews = itemList.map((item, i) =>
 			new this._ItemView({item: item, index: i, height: CommentListView.ITEM_HEIGHT})
@@ -17687,8 +17743,7 @@ class CommentListView extends Emitter {
 			if (!this._list) { return; }
 			this._list.textContent = '';
 			this._body.style.setProperty('--list-height',
-					Math.max(CommentListView.ITEM_HEIGHT * itemViews.length + 100,
-					this._innerHeight)
+					Math.max(CommentListView.ITEM_HEIGHT * itemViews.length, this._innerHeight) + 100
 				);
 			this._inviewItemList.clear();
 			this._$menu.removeClass('show');
@@ -17777,14 +17832,17 @@ class CommentListView extends Emitter {
 	_onWheel() {
 		this.isActive = true;
 		this._scrollTop = this._container.scrollTop;
+		this._body.style.setProperty('--scroll-top', this._scrollTop);
 		this.addClass('is-active');
 	}
 	_onMouseOut() {
 		this.isActive = false;
+		this._scrollTop = this._container.scrollTop;
 		this.removeClass('is-active');
 	}
 	_onResize() {
 		this._innerHeight = this._window.innerHeight;
+		this._scrollTop = this._container.scrollTop;
 		this._body.style.setProperty('--inner-height', this._innerHeight);
 		this._refreshInviewElements();
 	}
@@ -17792,11 +17850,18 @@ class CommentListView extends Emitter {
 		if (!this.hasClass('is-scrolling')) {
 			this.addClass('is-scrolling');
 		}
+		this._onScrolling();
+		this._onScrollEnd();
+	}
+	_onScrolling() {
+		this._scrollTop = this._container.scrollTop;
+		this._body.style.setProperty('--scroll-top', this._scrollTop);
 		this._refreshInviewElements();
-		this._debouncedOnScrollEnd();
 	}
 	_onScrollEnd() {
 		this.removeClass('is-scrolling');
+		this._scrollTop = this._container.scrollTop;
+		this._body.style.setProperty('--scroll-top', this._scrollTop);
 	}
 	_refreshInviewElements() {
 		if (!this._list) {
@@ -17881,7 +17946,7 @@ class CommentListView extends Emitter {
 		if (typeof v === 'number') {
 			this._scrollTop = v;
 			this._container.scrollTop = v;
-			this._body.style.setProperty('--scroll-top', v);
+			this._scrollTop = this._container.scrollTop;
 		} else {
 			this._scrollTop = this._container.scrollTop;
 			this._body.style.setProperty('--scroll-top', this._scrollTop);
@@ -17949,6 +18014,18 @@ CommentListView.__tpl__ = (`
 	body.is-scrolling #listContainerInner *{
 		pointer-events: none;
 	}
+	.is-firefox .virtualScrollBarContainer {
+		content: '';
+		position: fixed;
+		top: 0;
+		right: 0;
+		width: 16px;
+		height: 100vh;
+		background: rgba(0, 0, 0, 0.6);
+		z-index: 100;
+		contain: strict;
+		pointer-events: none;
+	}
 	#listContainer {
 		position: absolute;
 		top: -1px;
@@ -17957,10 +18034,15 @@ CommentListView.__tpl__ = (`
 		padding: 0;
 		width: 100vw;
 		height: 100vh;
-		overflow: auto;
+		overflow-y: scroll;
+		overflow-x: hidden;
 		overscroll-behavior: contain;
 		will-change: transform;
 		scrollbar-width: 16px;
+		scrollbar-color: #039393;
+	}
+	.is-firefox #listContainer {
+		will-change: auto;
 	}
 	#listContainerInner {
 		height: calc(var(--list-height) * 1px);
@@ -18088,20 +18170,20 @@ CommentListView.__tpl__ = (`
 	.timeBar {
 		position: fixed;
 		visibility: hidden;
-		z-index: 100;
+		z-index: 110;
 		right: 0;
 		top: 1px;
 		width: 14px;
 		--height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
 		--trans-y-pp: calc( 1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height) - 2px);
 		height: var(--height-pp);
-		min-height: 16px;
 		max-height: 100vh;
 		transform: translateY(var(--trans-y-pp));
 		transition: transform 0.2s;
 		pointer-events: none;
 		will-change: transform;
-		border: 1px solid #e12885;/*#FC6c6c;*/
+		border: 1px dashed #e12885;
+		opacity: 0.8;
 	}
 	.timeBar::after {
 		width: calc(100% + 6px);
@@ -18118,6 +18200,26 @@ CommentListView.__tpl__ = (`
 	body:hover .timeBar {
 		visibility: visible;
 	}
+	.virtualScrollBar {
+		display: none;
+	}
+	/*.is-firefox .virtualScrollBar {
+		display: inline-block;
+		position: fixed;
+		z-index: 100;
+		right: 0;
+		top: 0px;
+		width: 16px;
+		--height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
+		--trans-y-pp: calc( 1px * var(--inner-height) * var(--scroll-top) / var(--list-height));
+		height: var(--height-pp);
+		background: #039393;
+		max-height: 100vh;
+		transform: translateY(var(--trans-y-pp));
+		pointer-events: none;
+		will-change: transform;
+		z-index: 110;
+	}*/
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body class="zenzaRoot">
@@ -18130,7 +18232,7 @@ CommentListView.__tpl__ = (`
 		<div class="text"></div>
 		<div class="command close" data-command="hideItemDetail">O K</div>
 	</div>
-	<div class="timeBar"></div>
+	<div class="virtualScrollBarContainer"><div class="virtualScrollBar"></div></div><div class="timeBar"></div>
 	<div id="listContainer">
 		<div class="listMenu">
 			<span class="menuButton itemDetailRequest"
@@ -18218,6 +18320,11 @@ const CommentListItemView = (() => {
 				background: #222;
 				z-index: 50;
 				contain: strict;
+			}
+			.is-firefox .commentListItem {
+				contain: layout !important;
+				width: calc(100vw - 16px);
+				will-change: auto;
 			}
 			.is-active .commentListItem {
 				pointer-events: auto;
@@ -18384,7 +18491,6 @@ const CommentListItemView = (() => {
 				const t = document.createElement('template');
 				t.id = 'CommentListItemView-template' + Date.now();
 				t.innerHTML = TPL;
-				document.body.append(t);
 				template = {
 					t,
 					clone: () => {
@@ -21990,19 +22096,19 @@ class NicoVideoPlayerDialogView extends Emitter {
 		if (!this._state.isOpen) {
 			return;
 		}
-		let $container = this._$playerContainer;
-		let $header = $container.find('.zenzaWatchVideoHeaderPanel');
-		let config = this._playerConfig;
+		const $container = this._$playerContainer;
+		const [header] = $container.find('.zenzaWatchVideoHeaderPanel');
+		const config = this._playerConfig;
 		const update = () => {
-			const w = window.innerWidth, h = window.innerHeight;
+			const w = global.innerWidth, h = global.innerHeight;
 			const vMargin = h - w * this._aspectRatio;
-			const controlBarMode = config.getValue('fullscreenControlBarMode');
+			const controlBarMode = config.props.fullscreenControlBarMode;
 			if (controlBarMode === 'always-hide') {
 				this.toggleClass('showVideoControlBar', false);
 				return;
 			}
-			let videoControlBarHeight = this._varMapper.videoControlBarHeight;
-			let showVideoHeaderPanel = vMargin >= videoControlBarHeight + $header[0].offsetHeight * 2;
+			const videoControlBarHeight = this._varMapper.videoControlBarHeight;
+			const showVideoHeaderPanel = vMargin >= videoControlBarHeight + header.offsetHeight * 2;
 			let showVideoControlBar;
 			switch (controlBarMode) {
 				case 'always-show':
@@ -22950,10 +23056,10 @@ class NicoVideoPlayerDialog extends Emitter {
 				break;
 			case 'seek':
 			case 'seekTo':
-				this.currentTime=param * 1;
+				this.currentTime = param * 1;
 				break;
 			case 'seekBy':
-				this.currentTime=this.currentTime + param * 1;
+				this.currentTime = this.currentTime + param * 1;
 				break;
 			case 'seekPrevFrame':
 			case 'seekNextFrame':
@@ -23475,7 +23581,7 @@ class NicoVideoPlayerDialog extends Emitter {
 		if (!this._nicoVideoPlayer) {
 			return 0;
 		}
-		let ct = this._nicoVideoPlayer.currentTime * 1;
+		const ct = this._nicoVideoPlayer.currentTime * 1;
 		if (!this._state.isError && ct > 0) {
 			this._lastCurrentTime = ct;
 		}
@@ -30089,6 +30195,40 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 
   }; // end of monkey
 (() => {
+const dimport = Object.assign(url => {
+	if (dimport.map[url]) {
+		return dimport.map[url];
+	}
+	try {
+		const now = Date.now();
+		const callbackName = `dimport_${now}`;
+		const loader = `
+			import * as module${now} from "${url}";
+			console.log('%cdynamic import from "${url}"',
+				'font-weight: bold; background: #333; color: #ff9; display: block; padding: 4px; width: 100%;');
+			window.${callbackName}(module${now});
+			`.trim();
+		window.console.time(`"${url}" import time`);
+		const p = new Promise((ok, ng) => {
+			const s = document.createElement('script');
+			s.type = 'module';
+			s.onerror = ng;
+			s.append(document.createTextNode(loader));
+			s.dataset.import = url;
+			window[callbackName] = module => {
+				window.console.timeEnd(`"${url}" import time`);
+				ok(module);
+				delete window[callbackName];
+			};
+			document.head.append(s);
+		});
+		dimport.map[url] = p;
+		return p;
+	} catch (e) {
+		console.warn(url, e);
+		return Promise.reject(e);
+	}
+}, {map: {}});
 function EmitterInitFunc() {
 class Handler { //extends Array {
 	constructor(...args) {
@@ -31698,7 +31838,7 @@ const VideoSessionWorker = (() => {
 })();
 
   window.ZenzaLib = Object.assign(window.ZenzaLib || {}, {
-    workerUtil,
+    workerUtil, dimport,
     IndexedDbStorage, WatchInfoCacheDb,
     Handler, PromiseHandler, Emitter, EmitterInitFunc,
     parseThumbInfo, StoryboardCacheDb, VideoSessionWorker
@@ -31706,7 +31846,7 @@ const VideoSessionWorker = (() => {
 })();
 
 const GateAPI = (() => {
-	const {Handler, PromiseHandler, Emitter, EmitterInitFunc, workerUtil, parseThumbInfo} = window.ZenzaLib || {};
+	const {dimport, Handler, PromiseHandler, Emitter, EmitterInitFunc, workerUtil, parseThumbInfo} = window.ZenzaLib || {};
 const gate = () => {
 	const post = function(body, {type, token, sessionId, origin} = {}) {
 		sessionId = sessionId || '';
@@ -31931,7 +32071,6 @@ const ThumbInfoCacheDb = (() => {
 	};
 	const nicovideo = () => {
 		const {port, type, TOKEN, PID} = init({prefix: `nicovideoApi${PRODUCT}Loader`, type: 'nicovideoApi'});
-		console.log('enable bridge', origin);
 		let isOk = false;
 		const pushHistory = ({path, title = ''}) => {
 			window.history.replaceState(null, title, path);
@@ -31942,6 +32081,7 @@ const ThumbInfoCacheDb = (() => {
 			}
 		};
 		const PREFIX = PRODUCT || 'ZenzaWatch';
+		const kvs = null;
 		const dumpConfig = (params, sessionId) => {
 			if (!params.keys) {
 				return;
@@ -31949,7 +32089,12 @@ const ThumbInfoCacheDb = (() => {
 			const prefix = params.prefix || PREFIX;
 			const config = {};
 			const {keys, command} = params;
-			keys.forEach(key => {
+			keys.forEach(async key => {
+				if (kvs) {
+					const value = await kvs.get(key);
+					(value !== undefined) && (config[key] = value);
+					return;
+				}
 				const storageKey = `${prefix}_${key}`;
 				if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
 					try {
@@ -31963,6 +32108,10 @@ const ThumbInfoCacheDb = (() => {
 		};
 		const saveConfig = params => {
 			if (!params.key) {
+				return;
+			}
+			if (kvs) {
+				kvs.set(params.key, params.value);
 				return;
 			}
 			const prefix = params.prefix || PREFIX;
@@ -32197,20 +32346,25 @@ const boot = async (monkey, PRODUCT, START_PAGE_QUERY) => {
 		const LazyImage = window.Nico && window.Nico.LazyImage;
 		if (!LazyImage) { return; }
 		const isInitialized = !!LazyImage.pageObserver;
-		console.log('override Nico.LazyImage...');
+		console.log('override Nico.LazyImage...', {isInitialized});
 		if (isInitialized) {
 			clearInterval(LazyImage.pageObserver);
 		}
 		Object.assign(LazyImage, {
+			isInitialized: false,
 			waitings: {
 				get length() { return 0; },
 				push(v) { return v; },
 				splice() { return []; }
 			},
 			initialize() {
+				this.isInitialized = true;
 				this._setPageObserver();
 			},
 			reset() {
+				if (this.isInitialized) { return; }
+				console.log('reset and initialize');
+				this.initialize();
 			},
 			enqueue() {
 				if (!this.intersectionObserver) {

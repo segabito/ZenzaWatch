@@ -9,7 +9,6 @@
 // @grant       none
 // @noframes
 // ==/UserScript==
-/* eslint-disable */
 
 
 // 推奨

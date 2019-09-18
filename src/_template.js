@@ -32,7 +32,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.15
+// @version        2.4.20
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -83,6 +83,8 @@ import {ENV,VER} from './ZenzaWatchIndex';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {netUtil} from '../packages/lib/src/infra/netUtil';
 import {initCssProps} from '../packages/zenza/src/init/inintCssProps';
+import {WindowResizeObserver} from '../packages/lib/src/infra/Observable';
+import {dimport} from '../packages/lib/src/infra/dimport';
 //@require AntiPrototypeJs
 AntiPrototypeJs();
 (() => {
@@ -102,7 +104,7 @@ AntiPrototypeJs();
   const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
   const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
-  const monkey = (PRODUCT, START_PAGE_QUERY) /*** (｀・ω・´)9m ***/ => {
+  const monkey = async (PRODUCT, START_PAGE_QUERY) /*** (｀・ω・´)9m ***/ => {
     const Array = window.PureArray ? window.PureArray : window.Array;
     let console = window.console;
     let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
@@ -110,7 +112,7 @@ AntiPrototypeJs();
     let CONFIG = null;
     const dll = {};
     const util = {};
-    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
+    let {dimport, workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
     //@version
     //@environment
@@ -122,6 +124,7 @@ AntiPrototypeJs();
     );
 
 //@require Config
+await Config.promise('restore');
 //@require uQuery
 
     const ZenzaWatch = {
@@ -169,8 +172,16 @@ const global = {
   notify: msg => ZenzaWatch.external.execCommand('notify', msg),
   alert: msg => ZenzaWatch.external.execCommand('alert', msg),
   config: Config,
-  api: ZenzaWatch.api
+  api: ZenzaWatch.api,
+  innerWidth: window.innerWidth,
+  innerHeight: window.innerHeight
 };
+WindowResizeObserver.subscribe((width, height) => {
+  global.innerWidth  = width;
+  global.innerHeight = height;
+  document.documentElement.style.setProperty('--inner-width', width);
+  document.documentElement.style.setProperty('--inner-height', height);
+});
 //@require util
 ZenzaWatch.lib.$ = uQuery;
 workerUtil.env({netUtil, global});
@@ -264,6 +275,7 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 
   }; // end of monkey
 (() => {
+//@require dimport
 //@require Emitter
 //@require workerUtil
 //@require IndexedDbStorage
@@ -273,7 +285,7 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 //@require VideoSessionWorker
 
   window.ZenzaLib = Object.assign(window.ZenzaLib || {}, {
-    workerUtil,
+    workerUtil, dimport,
     IndexedDbStorage, WatchInfoCacheDb,
     Handler, PromiseHandler, Emitter, EmitterInitFunc,
     parseThumbInfo, StoryboardCacheDb, VideoSessionWorker

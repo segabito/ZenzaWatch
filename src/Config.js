@@ -198,7 +198,7 @@ const Config = (() => {
     DEFAULT_CONFIG['uaa.enable'] = false;
   }
 
-  return new DataStorage(
+  return DataStorage.create(
     DEFAULT_CONFIG,
     {
       prefix: PRODUCT,
@@ -210,6 +210,7 @@ const Config = (() => {
 })();
 Config.exportConfig = () => Config.export();
 Config.importConfig = v => Config.import(v);
+Config.clearConfig = () => Config.clear();
 const NaviConfig = Config;
 
 //===END===

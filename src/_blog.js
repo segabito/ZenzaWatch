@@ -8,7 +8,6 @@
 // @license        public domain
 // @version        0.0.3
 // ==/UserScript==
-/* eslint-disable */
 
 
 (function(window) {

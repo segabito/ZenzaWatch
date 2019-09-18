@@ -2597,8 +2597,18 @@ class DataStorage {
 	static create(defaultData, options = {}) {
 		return new DataStorage(defaultData, options);
 	}
+	static clone(dataStorage) {
+		const options = {
+			prefix:  dataStorage.prefix,
+			storage: dataStorage.storage,
+			ignoreExportKeys: dataStorage.options.ignoreExportKeys,
+			readonly: dataStorage.readonly
+		};
+		return DataStorage.create(dataStorage.default, options);
+	}
 	constructor(defaultData, options = {}) {
-		this._default = defaultData;
+		this.options = options;
+		this.default = defaultData;
 		this._data = Object.assign({}, defaultData);
 		this.prefix = `${options.prefix || 'DATA'}_`;
 		this.storage = options.storage || localStorage;
@@ -2608,8 +2618,10 @@ class DataStorage {
 		this._changed = new Map();
 		this._onChange = bounce.time(this._onChange.bind(this));
 		objUtil.bridge(this, new Emitter());
-		this.restore();
-		this.props = this._makeProps(defaultData);
+		this.restore().then(() => {
+			this.props = this._makeProps(defaultData);
+			this.emitResolve('restore');
+		});
 		this.logger = (self || window).console;
 		this.consoleSubscriber = {
 			next: (v, ...args) => this.logger.log('next', v, ...args),
@@ -2654,9 +2666,9 @@ class DataStorage {
 	offkey(key, callback) {
 		this.off(`update-${key}`, callback);
 	}
-	restore(storage) {
+	async restore(storage) {
 		storage = storage || this.storage;
-		Object.keys(this._default).forEach(key => {
+		Object.keys(this.default).forEach(key => {
 			const storageKey = this.getStorageKey(key);
 			if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
 				try {
@@ -2665,7 +2677,7 @@ class DataStorage {
 					window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
 				}
 			} else {
-				this._data[key] = this._default[key];
+				this._data[key] = this.default[key];
 			}
 		});
 	}
@@ -2675,7 +2687,7 @@ class DataStorage {
 	getStorageKey(key) {
 		return `${this.prefix}${key}`;
 	}
-	refresh(key, storage) {
+	async refresh(key, storage) {
 		storage = storage || this.storage;
 		key = this.getNativeKey(key);
 		const storageKey = this.getStorageKey(key);
@@ -2695,6 +2707,12 @@ class DataStorage {
 		key = this.getNativeKey(key);
 		return this._data[key];
 	}
+	deleteValue(key) {
+		key = this.getNativeKey(key);
+		const storageKey = this.getStorageKey(key);
+		this.storage.removeItem(storageKey);
+		this._data[key] = this.default[key];
+	}
 	setValue(key, value) {
 		const _key = key;
 		key = this.getNativeKey(key);
@@ -2703,9 +2721,7 @@ class DataStorage {
 		}
 		const storageKey = this.getStorageKey(key);
 		const storage = this.storage;
-		if (!this.readonly && storage[StorageWriter.writer]) {
-			storage[StorageWriter.writer](storageKey, value);
-		} else if (!this.readonly) {
+		if (!this.readonly) {
 			try {
 				storage[storageKey] = JSON.stringify(value);
 			} catch (e) {
@@ -2726,7 +2742,7 @@ class DataStorage {
 	}
 	export(isAll = false) {
 		const result = {};
-		const _default = this._default;
+		const _default = this.default;
 		Object.keys(this.props)
 			.filter(key => isAll || (_default[key] !== this._data[key]))
 			.forEach(key => result[key] = this.getValue(key));
@@ -2751,14 +2767,14 @@ class DataStorage {
 	clear() {
 		this.silently = true;
 		const storage = this.storage;
-		Object.keys(this._default)
+		Object.keys(this.default)
 			.filter(key => !this._ignoreExportKeys.includes(key)).forEach(key => {
 				const storageKey = this.getStorageKey(key);
 				try {
 					if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
 						delete storage[storageKey];
 					}
-					this._data[key] = this._default[key];
+					this._data[key] = this.default[key];
 				} catch (e) {}
 		});
 		this.silently = false;
@@ -2830,6 +2846,59 @@ class DataStorage {
 	unwatch() {
 		this.consoleSubscription && this.consoleSubscription.unsubscribe();
 		this.consoleSubscription = null;
+	}
+}
+class KVSDataStorage extends DataStorage {
+	constructor(defaultData, options = {}) {
+		super(defaultData, options);
+	}
+	getStorageKey(key) {
+		return key;
+	}
+	async restore(storage) {
+		storage = storage || this.storage;
+		const dbs = this.options.dbStorage.export();
+		for (const key of Object.keys(dbs)) {
+			const value = dbs[key];
+			this.storage.set(key, value);
+			this.dbStorage.deleteValue(key);
+		}
+		for (const key of Object.keys(this.default)) {
+			const storageKey = key;
+			const value = await this.storage.get(storageKey);
+			if (value !== undefined) {
+					this._data[key] = value;
+			} else {
+				this._data[key] = this.default[key];
+			}
+		}
+	}
+	async refresh(key, storage) {
+		storage = storage || this.storage;
+		key = this.getNativeKey(key);
+		const storageKey = key;
+		const value = await this.storage.get(storageKey);
+		if (value !== undefined) {
+			this._data[key] = value;
+		}
+		return this._data[key];
+	}
+	setValue(key, value) {
+		const _key = key;
+		key = this.getNativeKey(key);
+		if (this._data[key] === value || arguments.length < 2 || value === undefined) {
+			return;
+		}
+		const storageKey = key;
+		const storage = this.storage;
+		if (!this.readonly) {
+			storage.set(storageKey, value);
+		}
+		this._data[key] = value;
+		if (!this.silently) {
+			this._changed.set(_key, value);
+			this._onChange();
+		}
 	}
 }
 // already required
@@ -5050,7 +5119,8 @@ class CrossDomainGate extends Emitter {
       return intersectionObserver;
     };
 
-    const init = () => {
+    const init = async () => {
+      await config.promise('restore');
       initDom();
       initZenzaBridge();
 

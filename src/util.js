@@ -262,7 +262,6 @@ class FrameLayer extends Emitter {
 //@require BaseViewComponent
 //@require StyleSwitcher
 util.StyleSwitcher = StyleSwitcher;
-//@require dimport
 util.dimport = dimport;
 //@require VideoItemObserver
 util.VideoItemObserver = VideoItemObserver;

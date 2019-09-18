@@ -3909,7 +3909,8 @@ Object.assign(util, textUtil);
       return intersectionObserver;
     };
 
-    const init = () => {
+    const init = async () => {
+      await config.promise('restore');
       initDom();
       initZenzaBridge();
 

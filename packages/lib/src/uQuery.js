@@ -503,7 +503,7 @@ const uQuery = (() => {
     val(v = undef) {
       const htmls = this.getHtmls();
       for (const elm of htmls) {
-        if (!elm.hasAttribute('value')) {
+        if (!('value' in elm)) {
           continue;
         }
         if (v === undef) {

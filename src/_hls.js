@@ -27,7 +27,6 @@
 // @require        https://cdn.jsdelivr.net/npm/hls.js@latest
 // @run-at         document-start
 // ==/UserScript==
-/* eslint-disable */
 
 
 const MODULES = `
@@ -168,6 +167,7 @@ AntiPrototypeJs().then(() => {
       const now = Date.now();
       const callbackName = `dimport_${now}`;
       const loader = `
+        import * as module${now} from "${url}";
         console.log('%cdynamic import from "${url}"',
           'font-weight: bold; background: #333; color: #ff9; display: block; padding: 4px; width: 100%;');
         window.${callbackName}(module${now});
