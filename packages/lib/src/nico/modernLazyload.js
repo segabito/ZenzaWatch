@@ -43,9 +43,9 @@
         if (!this.intersectionObserver) {
           this.initialize();
         }
-        const items = document.querySelectorAll(`.${this.className}:not(.is-loading)`);
+        const items = document.querySelectorAll(`.${this.className}:not(.is-lazy-loading)`);
         for (const item of items) {
-          item.classList.add('is-loading');
+          item.classList.add('is-lazy-loading');
           this.intersectionObserver.observe(item);
         }
       },
@@ -54,7 +54,7 @@
           throw new Error('無視していいエラー'); // override前のメソッドから呼ばれたので例外を投げて強制ストップ
         }
         const src = item.getAttribute(this.attrName);
-        item.classList.remove(this.className, 'is-loading');
+        item.classList.remove(this.className, 'is-lazy-loading');
         if (src && item.getAttribute(this.adjustAttrName)) {
           this._adjustSizeAndLoad(item, src);
         } else {
@@ -126,6 +126,7 @@
     if (isInitialized) {
       LazyImage.initialize();
     }
+    // window.addEventListener('scroll', () => {LazyImage.initialize();}, {passive: true, once: true});
   };
 
 
