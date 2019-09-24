@@ -250,6 +250,8 @@ const {Emitter} = (() => {
     hasPromise(name) {
       return this._promise && !!this._promise[name];
     }
+    addEventListener(...args) { return this.on(...args); }
+    removeEventListener(...args) { return this.off(...args);}
   }
   Emitter.totalCount = totalCount;
   Emitter.warnings = warnings;
