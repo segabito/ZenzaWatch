@@ -28,7 +28,7 @@ class StoryboardView extends Emitter {
     /** @type {StoryboardInfoModel} */
     const sb = this._model = params.model;
 
-    this.isHover = false;
+    this._isHover = false;
     this._currentUrl = '';
     this._lastPage = -1;
     this._lastMs = -1;
@@ -45,6 +45,21 @@ class StoryboardView extends Emitter {
 
     global.emitter.on('DialogPlayerClose', () => frame.disable());
   }
+  get isHover() {
+    return this._isHover;
+  }
+  set isHover(v) {
+    this._isHover = v;
+    this.updateAnimation();
+  }
+  updateAnimation() {
+    if (!this.canvas || !MediaTimeline.isSharable) { return; }
+    if (this._isHover) {
+      this.canvas.stopAnimation();
+    } else if (!this._isHover && this._isEnable) {
+      this.canvas.startAnimation();
+    }
+  }
   enable() {
     this._isEnable = true;
     if (this._view && this._model.isAvailable) {
@@ -59,6 +74,7 @@ class StoryboardView extends Emitter {
     ClassList(this._body).add('zenzaStoryboardOpen');
     ClassList(this._container).add('zenzaStoryboardOpen');
     this._requestAnimationFrame.enable();
+    this.updateAnimation();
   }
   close() {
     if (!this._view) {
@@ -68,6 +84,7 @@ class StoryboardView extends Emitter {
     ClassList(this._body).remove('zenzaStoryboardOpen');
     ClassList(this._container).remove('zenzaStoryboardOpen');
     this._requestAnimationFrame.disable();
+    this.updateAnimation();
   }
   disable() {
     this._isEnable = false;
@@ -243,7 +260,7 @@ class StoryboardView extends Emitter {
       if (Math.abs(this._scrollLeft - left) < 1) {
         return;
       }
-      this.isEnable && this.canvas && (this.canvas.scrollLeft = left);
+      this.isEnable && this.canvas && !this.canvas.isAnimating && (this.canvas.scrollLeft = left);
 
       this._scrollLeft = left;
       this._scrollLeftChanged = true;
@@ -270,15 +287,19 @@ class StoryboardView extends Emitter {
     const model = this._model;
     const infoRawData = model.rawData;
     if (!this.canvas) {
-      StoryboardWorker.createBoard({
+      this.canvas = StoryboardWorker.createBoard({
         container: this._view.querySelector('.storyboardCanvasContainer'),
         canvas: this._view.querySelector('.storyboardCanvas'),
         info: infoRawData,
         name: 'StoryboardCanvasView'
-      }).then(v => {
-        this.canvas = v;
-        this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
       });
+      this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
+      if (MediaTimeline.isSharable) {
+        const mt = MediaTimeline.get('main');
+        this.canvas.currentTime = mt.currentTime;
+        this.canvas.sharedMemory({buffer: mt.buffer, MAP: MediaTimeline.MAP});
+        this.canvas.startAnimation();
+      }
     } else {
       this.canvas.setInfo(infoRawData);
       this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
@@ -328,9 +349,8 @@ class StoryboardView extends Emitter {
     const ms = sec * 1000;
     const duration = Math.max(1, model.duration);
     const per = ms / (duration * 1000);
-    const width = model.cellWidth;
-    const totalWidth = model.cellCount * width;
-    const targetLeft = totalWidth * per;
+    const totalWidth = model.cellCount * model.cellWidth;
+    const targetLeft = Math.min(Math.max(0, totalWidth * per), totalWidth - global.innerWidth);
 
     if (this._pointerLeft !== targetLeft) {
       this._pointerLeft = targetLeft;
@@ -338,12 +358,12 @@ class StoryboardView extends Emitter {
     }
 
     if (forceUpdate) {
-      this.scrollLeft(targetLeft - global.innerWidth * per, true);
+      this.scrollLeft(Math.max(0, targetLeft - global.innerWidth * per), true);
     } else {
       if (this.isHover) {
         return;
       }
-      this.scrollLeft(targetLeft - global.innerWidth * per);
+      this.scrollLeft(Math.max(0, targetLeft - global.innerWidth * per));
     }
   }
   get currentTime() {
@@ -370,7 +390,7 @@ class StoryboardView extends Emitter {
 StoryboardView.__tpl__ = `
   <div id="storyboardContainer" class="storyboardContainer">
     <div class="cursorTime"></div>
-    <div class="storyboardCanvasContainer"><canvas class="storyboardCanvas" height="90"></canvas></div>
+    <div class="storyboardCanvasContainer"><canvas class="storyboardCanvas is-loading" height="90"></canvas></div>
     <div class="storyboardPointer"></div>
     <div class="storyboardInner"><div class="storyboardInner-bone"></div></div>
     <div class="failMessage"></div>
@@ -446,6 +466,12 @@ StoryboardView.__css__ = (`
   .storyboardCanvas {
     width: 100%;
     height: 100%;
+    opacity: 1;
+    transition: opacity 0.5s ease 0.5s;
+  }
+  .storyboardCanvas.is-loading {
+    opacity: 0;
+    transition: none;
   }
 
   .storyboardContainer .storyboardInner {

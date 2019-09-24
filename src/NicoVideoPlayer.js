@@ -6,6 +6,9 @@ import {CONSTANT} from './constant';
 import {Emitter} from './baselib';
 import {NicoChatFilter} from '../packages/zenza/src/commentLayer/NicoChatFilter';
 import {cssUtil} from '../packages/lib/src/css/css';
+import {MediaTimeline} from '../packages/lib/src/dom/MediaTimeline';
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
 
 //===BEGIN===
 
@@ -791,6 +794,7 @@ class VideoPlayer extends Emitter {
   constructor(params) {
     super();
     this._initialize(params);
+    global.debug.timeline = MediaTimeline.register('main', this);
   }
 
   _initialize(params) {
