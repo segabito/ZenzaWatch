@@ -37,12 +37,12 @@ const Observable = (() => {
     }
     filter(func) {
       const _func = this._filterFunc;
-      this._filterFunc = _func ? func : arg => func(_func(arg));
+      this._filterFunc = _func ? (arg => _func(arg) && func(arg)) : func;
       return this;
     }
     map(func) {
       const _func = this._mapFunc;
-      this._mapFunc = _func ? func : arg => func(_func(arg));
+      this._mapFunc = _func ? arg => func(_func(arg)) : func;
       return this;
     }
     get closed() {
