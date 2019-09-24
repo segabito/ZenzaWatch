@@ -101,7 +101,7 @@ class StoryboardView extends Emitter {
     this._cursorTime = view.querySelector('.cursorTime');
     this._pointer = view.querySelector('.storyboardPointer');
     this._inner = inner;
-    TextLabel.create({
+    this.cursorTimeLabel = TextLabel.create({
       container: this._cursorTime,
       name: 'cursorTimeLabel',
       text: '00:00',
@@ -113,7 +113,7 @@ class StoryboardView extends Emitter {
         fontSizePx: 13.3,
         color: '#000'
       }
-    }).then(label => this.cursorTimeLabel = label);
+    });
 
      uq(inner)
       .on('click', this._onBoardClick.bind(this))
@@ -388,8 +388,8 @@ StoryboardView.__css__ = (`
     right: 0;
     width: 100vw;
     box-sizing: border-box;
-    border-top: 2px solid #ccc;
-    background: #222;
+    /*border-top: 2px solid #ccc;
+    background: rgba(32, 32, 32, 0.3);*/
     z-index: 9005;
     overflow: hidden;
     pointer-events: none;

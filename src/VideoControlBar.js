@@ -79,18 +79,18 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
         fontSizePx: 12,
         color: '#fff'
       };
-      TextLabel.create({
+      this.currentTimeLabel = TextLabel.create({
         container: $view.find('.currentTimeLabel')[0],
         name: 'currentTimeLabel',
         text: '00:00',
         style: timeStyle
-      }).then(label => this.currentTimeLabel = label);
-      TextLabel.create({
+      });
+      this.durationLabel = TextLabel.create({
         container: $view.find('.durationLabel')[0],
         name: 'durationLabel',
         text: '00:00',
         style: timeStyle
-      }).then(label => this.durationLabel = label);
+      });
 
       this._$seekBar
         .on('mousedown', this._onSeekBarMouseDown.bind(this))
@@ -439,7 +439,7 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       const currentTimeText = util.secToTime(sec);
       if (this._currentTimeText !== currentTimeText) {
         this._currentTimeText = currentTimeText;
-        this.currentTimeLabel && (this.currentTimeLabel.text = currentTimeText);
+        this.currentTimeLabel.text = currentTimeText;
       }
       this._pointer.currentTime = sec;
     }
@@ -455,9 +455,9 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       this._seekRange.max = sec;
 
       if (sec === 0 || isNaN(sec)) {
-        this.durationLabel && (this.durationLabel.text = '--:--');
+        this.durationLabel.text = '--:--';
       } else {
-        this.durationLabel && (this.durationLabel.text = util.secToTime(sec));
+        this.durationLabel.text = util.secToTime(sec);
       }
       this.emit('durationChange');
     }
@@ -2244,7 +2244,7 @@ util.addStyle(`
       const $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
 
       this._currentTime = $view.find('.currentTime')[0];
-      TextLabel.create({
+      this.currentTimeLabel = TextLabel.create({
         container: this._currentTime,
         name: 'currentTimeLabel',
         text: '00:00',
@@ -2256,7 +2256,7 @@ util.addStyle(`
           fontSizePx: 12,
           color: '#ccc'
         }
-      }).then(label => this.currentTimeLabel = label);
+      });
 
       $view
         .on('mousedown',this._onMouseDown.bind(this))
