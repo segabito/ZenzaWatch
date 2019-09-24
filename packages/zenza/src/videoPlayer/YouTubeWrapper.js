@@ -199,7 +199,7 @@ const {YouTubeWrapper} = (() => {
       this._player.pauseVideo();
     }
 
-    get isPaused() {
+    get paused() {
       return window.YT ?
         this.playerState !== window.YT.PlayerState.PLAYING : true;
     }

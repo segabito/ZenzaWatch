@@ -2566,8 +2566,8 @@ class NicoVideoPlayerDialog extends Emitter {
   get isPlaying() {
     return this._state.isPlaying;
   }
-  get isPaused() {
-    return this._nicoVideoPlayer ? this._nicoVideoPlayer.isPaused : true;
+  get paused() {
+    return this._nicoVideoPlayer ? this._nicoVideoPlayer.paused : true;
   }
   togglePlay() {
     if (!this._state.isError && this._nicoVideoPlayer) {
