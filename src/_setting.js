@@ -31,6 +31,9 @@ const $ = uq;
     window.ZenzaAdvancedSettings = {
       config: Config
     };
+    const global = {
+      PRODUCT
+    };
 
     let panel;
 

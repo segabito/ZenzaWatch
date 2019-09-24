@@ -22,61 +22,39 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.0.15
+// @version        0.0.16
 // @noframes
 // @require        https://cdn.jsdelivr.net/npm/hls.js@latest
 // @run-at         document-start
 // ==/UserScript==
 
+import {AntiPrototypeJs} from '../packages/lib/src/infra/AntiPrototype-js';
+import {Emitter} from '../packages/lib/src/Emitter';
+import {workerUtil} from '../packages/lib/src/infra/workerUtil';
 
 const MODULES = `
 const ZenzaHLSmodules = {ErrorEvent, MediaError, HTMLDialogElement: window.HTMLDialogElement || HTMLDivElement, DOMException};
 `;
 // hls.js@latest だと再生が始まらない動画がたまにある。 0.8.9ならok
 
-const AntiPrototypeJs = function() {
-  if (this.promise || !window.Prototype || window.PureArray) {
-    return this.promise || Promise.resolve(window.PureArray || window.Array);
-  }
-  if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
-    console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
-    // delete document.getElementsByClassName;
-  } else {
-    return Promise.resolve();
-  }
-  // jQuery && !jQuery.browser && jQuery.noConflict(true);
-  const f = document.createElement('iframe');
-  f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
-  f.id = 'prototype';
-  f.loading = 'eager';
-  Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
-  return this.promise = new Promise(res => {
-    f.onload = res;
-    document.documentElement.append(f);
-  }).then(() => {
-    window.PureArray = f.contentWindow.Array;
-    // 副作用あるかも？
-    delete window.Array.prototype.toJSON;
-    delete window.String.prototype.toJSON;
-    f.remove();
-    return Promise.resolve(window.PureArray);
-  }).catch(err => console.error(err));
-}.bind({promise: null});
+//@require AntiPrototypeJs
+AntiPrototypeJs();
 
 AntiPrototypeJs().then(() => {
   const PRODUCT = 'ZenzaWatchHLS';
   const monkey = (PRODUCT, {ErrorEvent, MediaError, HTMLDialogElement, DOMException}) => {
+    const window = globalThis ? globalThis.window : window;
     const console = window.console;
     const VER = '0.0.1';
     const PopupMessage = {debug: () =>{}};
     const Array = window.PureArray || window.Array;
     let primaryVideo;
 
-    let util = {fetch: (...args) => window.fetch(...args)};
     console.log(`%c${PRODUCT} v:%s`, 'background: cyan;', VER);
 
     console.time('ZenzaWatch HLS');
-
+//@require Emitter
+//@require workerUtil
 
     const DEFAULT_CONFIG = {
       // hls.js 以外のパラメータ
@@ -189,36 +167,6 @@ AntiPrototypeJs().then(() => {
       return p;
     }, {map: {}});
 
-    class Emitter {
-      on(name, callback) {
-        if (!this._events) { this._events = {}; }
-        name = name.toLowerCase();
-        if (!this._events[name]) {
-          this._events[name] = [];
-        }
-        this._events[name].push(callback);
-      }
-
-      clear(name) {
-        if (!this._events) { this._events = {}; }
-        if (name) {
-          this._events[name] = [];
-        } else {
-          this._events = {};
-        }
-      }
-
-      emit(name, ...args) {
-        if (!this._events) { this._events = {}; }
-        name = name.toLowerCase();
-        if (!this._events.hasOwnProperty(name)) { return; }
-        const e = this._events[name];
-        for (let i =0, len = e.length; i < len; i++) {
-          e[i](...args);
-        }
-      }
-    }
-
 
     const Config = (() => {
       const config = {}, emitter = new Emitter();
@@ -249,7 +197,7 @@ AntiPrototypeJs().then(() => {
             config[key] = value;
             localStorage[storageKey] = JSON.stringify(value);
             emitter.emit(`update-${key}`, value);
-            emitter.emit(`update`, {key, value});
+            emitter.emit('update', {key, value});
           }
         },
         on: (...args) => { emitter.on(...args); },
@@ -312,7 +260,7 @@ AntiPrototypeJs().then(() => {
 
 
     const StorageWorker = function(self) {
-      let Config = {
+      const Config = {
         cache_expire_time: 6 * 60 * 60 * 1000
       };
 
@@ -338,16 +286,16 @@ AntiPrototypeJs().then(() => {
             return Promise.resolve(this.db);
           }
           return new Promise((resolve, reject) => {
-            let req = indexedDB.open(this.name, this.ver);
+            const req = indexedDB.open(this.name, this.ver);
             req.onupgradeneeded = e => {
-              let db = e.target.result;
+              const db = e.target.result;
 
               if(db.objectStoreNames.contains(this.name)) {
                 db.deleteObjectStore(this.name);
               }
 
-              let [meta] = this.storeNames;
-              let store = db.createObjectStore(meta,
+              const [meta] = this.storeNames;
+              const store = db.createObjectStore(meta,
                 {keyPath: 'expiresAt', autoIncrement: false});
               store.createIndex('hash', 'hash', {unique: true});
               store.createIndex('videoId', 'videoId', {unique: false});
@@ -356,12 +304,9 @@ AntiPrototypeJs().then(() => {
             req.onsuccess = e => {
               this.db = e.target.result;
               resolve(this.db);
-              // this.db.close();
             };
 
-            req.onerror = e => {
-              reject(e);
-            };
+            req.onerror = reject;
 
           });
         }
@@ -376,10 +321,10 @@ AntiPrototypeJs().then(() => {
 
         async getStore({mode} = {mode: 'readwrite'}) {
           return new Promise(async (resolve, reject) => {
-            let db = await this.constructor.init();
-            let [data] = this.constructor.storeNames;
+            const db = await this.constructor.init();
+            const [data] = this.constructor.storeNames;
             // window.console.log('getStore', this.storeName, mode);
-            let tx = db.transaction(this.constructor.storeNames, mode);
+            const tx = db.transaction(this.constructor.storeNames, mode);
             tx.oncomplete = resolve;
             tx.onerror = reject;
             return resolve({
@@ -389,46 +334,55 @@ AntiPrototypeJs().then(() => {
           });
         }
 
-        async putRecord(store, record) {
+        putRecord(store, record) {
           return new Promise((resolve, reject) => {
-            let req = store.put(record);
+            const req = store.put(record);
             req.onsuccess = e => {
               resolve(e.target.result);
             };
-            req.onerror = e => {
-              reject(null);
-            };
+            req.onerror = reject;
           });
         }
 
-        async getRecord(store, key, {index, timeout}) {
+        getRecord(store, key, {index, timeout}) {
           return new Promise((resolve, reject) => {
-            let req =
+            const req =
               index ?
                 store.index(index).get(key) : store.get(key);
             req.onsuccess = e => {
               resolve(e.target.result);
             };
-            req.onerror = e => {
-              reject(null);
-            };
+            req.onerror = reject;
             if (timeout) {
-              setTimeout(() => {
-                reject(`timeout: key${key}`);
-              }, timeout);
+              setTimeout(() => reject(`timeout: key${key}`), timeout);
             }
           });
         }
 
-        async deleteRecord(store, key, {index}) {
+        getCount(store, key, {index, timeout}) {
+          return new Promise((resolve, reject) => {
+            const req =
+              index ?
+                store.index(index).count(key) : store.count(key);
+            req.onsuccess = e => {
+              resolve(req.result);
+            };
+            req.onerror = err => resolve;
+            if (timeout) {
+              setTimeout(() => reject(`timeout: key${key}`), timeout);
+            }
+          });
+        }
+
+        deleteRecord(store, key, {index}) {
           return new Promise((resolve, reject) => {
             let deleted = 0;
-            let range = IDBKeyRange.only(key);
-            let req =
+            const range = IDBKeyRange.only(key);
+            const req =
               index ?
                 store.index(index).openCursor(range) : store.openCursor(range);
             req.onsuccess = e =>  {
-              let result = e.target.result;
+              const result = e.target.result;
               if (!result) {
                 return resolve(deleted > 0);
               }
@@ -436,17 +390,15 @@ AntiPrototypeJs().then(() => {
               deleted++;
               result.continue();
             };
-            req.onerror = e => {
-              reject(null);
-            };
+            req.onerror = reject;
           });
         }
 
         async load({hash}) {
           try {
-            let {store} =
+            const {store} =
               await this.getStore({mode: 'readonly'});
-            let meta = await this.getRecord(store, hash,
+            const meta = await this.getRecord(store, hash,
               {index: 'hash', timeout: 3000});
             // this.constructor.close();
             if (!meta) {
@@ -459,10 +411,20 @@ AntiPrototypeJs().then(() => {
           }
         }
 
+        async hasData({hash}) {
+          try {
+            const {store} = await this.getStore({mode: 'readonly'});
+            return 0 < await this.getCount(store, hash, {index: 'hash', timeout: 3000});
+          } catch(e) {
+            console.warn('exeption', e);
+            return false;
+          }
+        }
+
         async save({hash, videoId, meta}, buffer) {
-          let now = Date.now();
-          let expiresAt = now + this.constructor.expireTime;
-          let record = {
+          const now = Date.now();
+          const expiresAt = now + this.constructor.expireTime;
+          const record = {
             expiresAt,
             hash,
             videoId,
@@ -472,10 +434,10 @@ AntiPrototypeJs().then(() => {
             buffer
           };
           // console.log('save', record);
-          let {transaction, store} = await this.getStore();
+          const {transaction, store} = await this.getStore();
           try {
             await this.deleteRecord(store, hash, {index: 'hash', record});
-            let result = await this.putRecord(store, record);
+            const result = await this.putRecord(store, record);
             transaction.commit && transaction.commit();
             this.constructor.close();
             return result;
@@ -490,14 +452,14 @@ AntiPrototypeJs().then(() => {
           if (this.isBusy) {
             return;
           }
-          let now = Date.now();
-          let {store, transaction} = await this.getStore();
+          const now = Date.now();
+          const {store, transaction} = await this.getStore();
           this.isBusy = true;
-          let timekey = `storage gc:${new Date().toLocaleString()}`;
+          const timekey = `storage gc:${new Date().toLocaleString()}`;
           console.time(timekey);
           return new Promise((resolve, reject) => {
-            let range = IDBKeyRange.upperBound(now);
-            let req = store.delete(range);
+            const range = IDBKeyRange.upperBound(now);
+            const req = store.delete(range);
             req.onsuccess = e => {
               this.isBusy = false;
               this.constructor.close();
@@ -510,6 +472,7 @@ AntiPrototypeJs().then(() => {
               this.isBusy = false;
             };
           }).catch((e) => {
+            this.isBusy = false;
             console.error('gc fail', e);
             store.clear();
           });
@@ -517,9 +480,9 @@ AntiPrototypeJs().then(() => {
 
         async clear() {
           console.time('storage clear');
-          let {store} = await this.getStore();
+          const {store} = await this.getStore();
           return new Promise((resolve, reject) => {
-            let req = store.clear();
+            const req = store.clear();
             req.onsuccess = e => {
               console.timeEnd('storage clear');
               resolve();
@@ -538,21 +501,25 @@ AntiPrototypeJs().then(() => {
         },
         async load(...args) {
           try {
-            let result = await IndexDBStorage.getInstance().load(...args);
+            const result = await IndexDBStorage.getInstance().load(...args);
             // console.log('Storage load result', result);
             if (!result) {
               return null;
             }
-            let buffer = result.buffer;
+            const buffer = result.buffer;
             return {meta: result.meta, buffer};
           } catch(e) {
             console.warn('Storage load fail', e);
             return null;
           }
         },
+        async hasData(...args) {
+          const result = await IndexDBStorage.getInstance().hasData(...args);
+          return {result};
+        },
         async gc() {
           if (navigator && navigator.locks) {
-            return await navigator.locks.request('ZenzaHLS_GC', {ifAvailable: true}, async (lock) => {
+            return await navigator.locks.request('ZenzaHLS_GC', {ifAvailable: true}, async lock => {
               if (!lock) {
                 return;
               }
@@ -568,10 +535,10 @@ AntiPrototypeJs().then(() => {
         }
       };
 
-      self.onmessage = async (e) => {
+      self.onmessage = async e => {
         let result;
-        let data = e.data.data;
-        let id = e.data.id;
+        const data = e.data.data;
+        const id = e.data.id;
         let status = 'ok';
         try {
           switch (e.data.command) {
@@ -588,25 +555,31 @@ AntiPrototypeJs().then(() => {
                 return self.postMessage({id, status, result: null}, []);
               }
               return self.postMessage({id, status, result: result.meta, buffer: result.buffer}, [result.buffer]);
-            case 'gc':
+            case 'hasData':
+                result = await Storage.hasData(data);
+                if (!result) {
+                  return self.postMessage({id, status, result: false});
+                }
+                return self.postMessage({id, status, result});
+              case 'gc':
               Storage.gc();
               return self.postMessage({id, status, result: null});
             case 'clear':
               result = await Storage.clear();
               return self.postMessage({id, status, result});
           }
-        } catch (e) {
+        } catch (err) {
           status = 'fail';
-          return self.postMessage({id, status, result: e});
+          return self.postMessage({e, id, status, result: err});
         }
       };
     };
 
     const createWebWorker = (func, {type, name} = {}) => {
-      let src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
+      const src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
 
-      let blob = new Blob([src], {type: 'text/javascript'});
-      let url = URL.createObjectURL(blob);
+      const blob = new Blob([src], {type: 'text/javascript'});
+      const url = URL.createObjectURL(blob);
 
       if (type === 'SharedWorker') {
         return new SharedWorker(url, {name});
@@ -617,9 +590,9 @@ AntiPrototypeJs().then(() => {
     const Storage = {
       request: {},
       worker: null,
-      onMessage: function(e) {
-        let id = e.data.id;
-        let request = this.request[id];
+      onMessage(e) {
+        const id = e.data.id;
+        const request = this.request[id];
         if (!request) {
           window.console.warn('unkwnown request id', id);
           return;
@@ -636,14 +609,14 @@ AntiPrototypeJs().then(() => {
             return request.resolve(e.data.result);
         }
       },
-      getId: function() {
+      getId() {
         return `id:${Math.random()}-${performance.now()}`;
       },
-      sendRequest: async function(command, data, buffer = null) {
+      async sendRequest(command, data, buffer = null) {
         if (window.Prototype) {
           return Promise.resolve(null);
         }
-        let id = this.getId();
+        const id = this.getId();
         // window.console.info('sendrequest', command, data, buffer);
         return new Promise(resolve => {
           this.request[id] = {id, command, resolve};
@@ -654,23 +627,26 @@ AntiPrototypeJs().then(() => {
           }
         });
       },
-      setConfig: async function(config) {
+      async setConfig(config) {
         return this.sendRequest('config', config);
       },
-      save: async function({hash, videoId, meta}, buffer) {
+      async save({hash, videoId, meta}, buffer) {
         return this.sendRequest('save', {hash, videoId, meta}, buffer);
       },
-      load: async function({hash}) {
+      async load({hash}) {
         return await this.sendRequest('load', {hash});
       },
-      gc: function() {
+      async hasData({hash}) {
+        return await this.sendRequest('hasData', {hash});
+      },
+      async gc() {
         if (Config.get('enable_db_cache') && !window.Prototype) {
           return this.sendRequest('gc', {});
         } else {
           return Promise.resolve();
         }
       },
-      clear: async function() {
+      async clear() {
         return this.sendRequest('clear', {});
       }
     };
@@ -699,21 +675,12 @@ AntiPrototypeJs().then(() => {
       // readonly の Event.target を無理やり書き換える (意味ないかも)
       const overrideTarget = (event, target) => {
         return event;
-        const p = new Proxy(event, {
-          get: function(t, name){
-            if (name === 'target') {
-              return target;
-            }
-            return t[name];
-          }
-        });
-        return p;
       };
 
       let FragmentLoaderClass;
       const createFragmentLoader = (Hls) => {
 
-        const xhrSetup = function(xhr, url) {
+        const xhrSetup = (xhr, url) => {
           //xhr.timeout = config.timeout + 1000;
           //xhr.setRequestHeader('Cache-Control', 'force-cache');
           xhr.ontimeout = () => {
@@ -721,7 +688,94 @@ AntiPrototypeJs().then(() => {
           };
           xhr.open('GET', url, true);
         };
+        const frag2hash = fragment => {
+          const url = fragment.url;
+          const levels = this.levels;
 
+          const [path, videoId, level, sn] =
+              /\/nicovideo-([a-z0-9]+)_.*\/([\d]+)\/ts\/([\d]+)\.ts/.exec(url);
+          let rel = '';
+          if (fragment.levelkey && fragment.levelkey.reluri) {
+            const m = /h=(.*?)&/.exec(fragment.levelkey.reluri);
+            rel = m ? `-${m[1]}` : '';
+          }
+          if (levels && levels[fragment.level]) {
+            const {width, height, bitrate, attrs} = levels[fragment.level];
+            const fps = attrs['FRAME-RATE'] ? `${attrs['FRAME-RATE']}fps` : '(unknown)fps';
+            return {hash: `${videoId}-${width}x${height}-${bitrate}bps-${fps}-${sn}${rel}`, videoId};
+          }
+          return {hash: `${videoId}-${fragment.level}-${sn}${rel}`, videoId};
+        };
+
+        const hasCache = async fragment => {
+          const {hash} = frag2hash(fragment);
+          return await Storage.hasData({hash});
+        };
+
+        const preloadFragment = async (fragment, url) => {
+          if (fragment.hasCache) {
+            return true;
+          }
+          if (await hasCache(fragment)) {
+            fragment.hasCache = true;
+            return true;
+          }
+          if (fragment.failed >= 3) {
+            return false;
+          }
+          const {level, sn} = fragment;
+
+          const {hash, videoId} = frag2hash(fragment);
+
+          const abc = new AbortController();
+          const debounceTimeout = debounce(() => abc.abort(), 30000);
+
+          const params = {
+            method: 'GET',
+            // mode: 'cors',
+            // credentials: 'same-origin',
+            cache: 'force-cache',
+            signal: abc.signal,
+          };
+          const request = new Request(url, params);
+          debounceTimeout();
+          let res;
+          for (let i = 0; i < 3; i++) {
+            res = await fetch(request, params).catch(e => ({e}));
+            if (res.ok && res.status !== 206) {
+              break;
+            }
+            fragment.failed = i;
+            const status = res.status;
+            console.warn('fetch fail', {i, res, url, request, params});
+            if (status >= 400 && status < 499) {
+              break;
+            }
+            await new Promise(res => setTimeout(res, 3000));
+          }
+          if (!res.ok) {
+            return;
+          }
+          const data = await res.arrayBuffer();
+          debounceTimeout.cancel();
+
+          const buffer = data.slice();
+          fragment.hasCache = true;
+          Storage.save({
+            hash,
+            videoId,
+            meta: {
+              contentLength: buffer.length,
+              sn,
+              resp: { url },
+              level,
+              total: buffer.length,
+              stats,
+              url: context.url
+            }
+          }, buffer);
+          return true;
+        };
 
         // hls.config.fLoader にはクラスのインスタンスではなく定義を渡す
         // loaderはexportされていないため、Hls.DefaultConfig.loader経由で継承する
@@ -730,35 +784,12 @@ AntiPrototypeJs().then(() => {
         let BLOCK_INTERVAL = 3000;
         class FragmentLoader extends Hls.DefaultConfig.loader {
 
-          static frag2hash(fragment) {
-            const url = fragment.url;
-            const levels = this.levels;
-
-            let [path, videoId, level, sn] =
-                /\/nicovideo-([a-z0-9]+)_.*\/([\d]+)\/ts\/([\d]+)\.ts/.exec(url);
-            let rel = '';
-            if (fragment.levelkey && fragment.levelkey.reluri) {
-              let m = /h=(.*?)&/.exec(fragment.levelkey.reluri);
-              rel = m ? `-${m[1]}` : '';
-            }
-            if (levels && levels[fragment.level]) {
-              let {width, height, bitrate, attrs} = levels[fragment.level];
-              let fps = attrs['FRAME-RATE'] ? `${attrs['FRAME-RATE']}fps` : '(unknown)fps';
-              return {hash: `${videoId}-${width}x${height}-${bitrate}bps-${fps}-${sn}${rel}`, videoId};
-            }
-            return {hash: `${videoId}-${fragment.level}-${sn}${rel}`, videoId};
-          }
 
           constructor(config) {
             super(config);
             this._config = config;
             this._isAborted = false;
             this._isDestroyed = false;
-//            this.xhrSetup = (xhr, url) => {
-//              xhr.open('GET', url, true);
-//              xhr.setRequestHeader('Access-Control-Request-Headers', 'Content-Length');
-//              window.console.log('xhrSetup', xhr, url);
-//            };
             Storage.gc();
           }
 
@@ -777,22 +808,21 @@ AntiPrototypeJs().then(() => {
 
             const frag = context.frag;
             const level = frag.level;
-            const storage = this._storage;
 
-            const {hash, videoId} = this.constructor.frag2hash(frag);
+            const {hash, videoId} = frag2hash(frag);
 
             const {onSuccess, onError} = callbacks;
             if (!context.rangeStart && !context.rangeEnd) {
 
-              callbacks.onSuccess = async function(resp, stats, context, details = null) {
-                let status = details instanceof XMLHttpRequest ? details.status : 200;
+              callbacks.onSuccess = async (resp, stats, context, details = null) => {
+                const status = details instanceof XMLHttpRequest ? details.status : 200;
 
                 if (status === 206
                //     buffer.byteLength !== contentLength
                 ) {
-                  console.warn('CONTENT LENGTH MISMATCH!', buffer.byteLength, frag.loaded);//, contentLength);
+                  console.warn('CONTENT LENGTH MISMATCH!', resp.data.slice().length, frag.loaded);//, contentLength);
                 } else if (Config.get('enable_db_cache') && !window.Prototype) {
-                  let buffer = resp.data.slice();
+                  const buffer = resp.data.slice();
                   frag.hasCache = true;
                   Storage.save({
                     hash,
@@ -815,11 +845,12 @@ AntiPrototypeJs().then(() => {
               };
 
               // prototype.js のあるページでは動かないどころかブラクラ化する
-              if (Config.get('enable_db_cache') && !window.Prototype) {
+              if (Config.get('enable_db_cache')) {
                 // console.log('***load', hash, Config.get('enable_db_cache'),window.Prototype);
-                let [meta, buffer] = await Storage.load({hash});
+                const [meta, buffer] = await Storage.load({hash});
                 // console.log('cache?', !!meta, hash);
                 if (meta) {
+                  frag.hasCache = true;
                   return callbacks.onSuccess(
                     {url: meta.url, data: buffer }, meta.stats, context, null);
                 }
@@ -894,8 +925,9 @@ AntiPrototypeJs().then(() => {
         }
 
 
-        class FetchLoader {
+        class FetchLoader extends Hls.DefaultConfig.loader {
           constructor(config) {
+            super(config);
             this.config = config;
             this.onTimeout = this.onTimeout.bind(this);
           }
@@ -918,27 +950,94 @@ AntiPrototypeJs().then(() => {
             this.abort();
           }
 
-          load(context, config, callbacks) {
+          async load(context, config, callbacks) {
+            if (!context.frag || !/\.ts/.test(context.url)) {
+              window.console.info('unknown context', context.url, context);
+              return super.load(context, config, callbacks);
+            }
             this.context = context;
             this.config = config;
             this.callbacks = callbacks;
             this.stats = { loader: 'fetch', trequest: performance.now(), retry: 0, loaded: 0 };
             this.retryDelay = config.retryDelay;
+
+
+            this._load(context, config, callbacks);
+          }
+
+          async _load(context, config, callbacks) {
+            const frag = context.frag;
+            const level = frag.level;
+            const {hash, videoId} = frag2hash(frag);
+            const {onSuccess, onError} = callbacks;
+            if (!context.rangeStart && !context.rangeEnd) {
+
+              callbacks.onSuccess = async (resp, stats, context, details = null) => {
+                const status = details instanceof XMLHttpRequest ? details.status : 200;
+
+                if (status === 206
+               //     buffer.byteLength !== contentLength
+                ) {
+                  console.warn('CONTENT LENGTH MISMATCH!', resp.data.length, frag.loaded);//, contentLength);
+                } else if (Config.get('enable_db_cache') && !window.Prototype) {
+                  const buffer = resp.data.slice();
+                  frag.hasCache = true;
+                  Storage.save({
+                    hash,
+                    videoId,
+                    meta: {
+                      contentLength: context.frag.loaded,
+                      sn: context.frag.sn,
+                      resp: {
+                        url: resp.url
+                      },
+                      level,
+                      total: context.frag.loaded,
+                      stats,
+                      url: context.url
+                    }
+                  }, buffer);
+                }
+
+                onSuccess(resp, stats, context, details);
+              };
+
+              // prototype.js のあるページでは動かないどころかブラクラ化する
+              if (Config.get('enable_db_cache')) {
+                // console.log('***load', hash, Config.get('enable_db_cache'),window.Prototype);
+                const [meta, buffer] = await Storage.load({hash});
+                // console.log('cache?', !!meta, hash);
+                if (meta) {
+                  return callbacks.onSuccess(
+                    {url: meta.url, data: buffer }, meta.stats, context, null);
+                }
+              }
+            }
+
+            callbacks.onError = (resp /* = {code, text} */, context, xhr) => {
+              if (this._isAborted) {
+                console.warn('error after aborted', resp, context);
+                onError({code: 0, text: `error after aborted ${resp.code}: ${resp.text}`}, context, xhr);
+                return;
+              }
+              onError(resp, context, xhr);
+            };
+
             this.loadInternal(context, config, callbacks);
           }
 
           async loadInternal() {
-            let {stats, context, config, callbacks} = this;
+            const {stats, context, config, callbacks} = this;
             let url = context.url;
 
-            let headers = {};
+            const headers = {};
 
             if (context.rangeEnd) {
               headers['Range'] = `bytes=${context.rangeStart}-${context.rangeEnd - 1}`;
             }
 
             const abc = this.abortController = new AbortController();
-            let params = {
+            const params = {
               // method: 'GET',
               // mode: 'cors',
               // credentials: 'same-origin',
@@ -947,11 +1046,11 @@ AntiPrototypeJs().then(() => {
               headers: new Headers(headers)
             };
 
-            let debounceTimeout = debounce(this.onTimeout, this.config.timeout);
+            const debounceTimeout = debounce(this.onTimeout, this.config.timeout);
             this.timeoutTimer = debounceTimeout;
-            let onProgress = this.onProgress.bind(this);
+            // const onProgress = this.onProgress.bind(this);
 
-            let request = new Request(url, params);
+            const request = new Request(url, params);
             let data;
 
             try {
@@ -963,6 +1062,7 @@ AntiPrototypeJs().then(() => {
                 if (res.ok) {
                   break;
                 }
+                const status = res.status;
                 console.warn('fetch fail', i, res, url, request, params);
                 if (status >= 400 && status < 499) {
                   break;
@@ -977,34 +1077,35 @@ AntiPrototypeJs().then(() => {
               debounceTimeout();
 
               url = res.url;
-              stats.total = parseInt(res.headers.get('content-length'), 10);
+              stats.total = parseInt(res.headers.get('Content-Length'), 10);
               stats.loaded = 0;
               stats.tfirst = Math.max(stats.trequest, performance.now());
 
-              if (context.responseType !== 'arraybuffer') {
+              if ((context.responseType || 'arrayBuffer').toLowerCase() !== 'arraybuffer') {
                 data = await res.text();
               } else {
-                data = await new Response(new ReadableStream({
-                    start(controller) {
-                      const reader = res.body.getReader();
-                      let result, value, done;
-                      const read = async () => {
-                        do {
-                          result = await reader.read();
-                          // let {value, done} = result;
-                          debounceTimeout();
+                data = await res.arrayBuffer();
+                // data = await new Response(new ReadableStream({
+                //     start(controller) {
+                //       const reader = res.body.getReader();
+                //       let result, value, done;
+                //       const read = async () => {
+                //         do {
+                //           result = await reader.read();
+                //           // let {value, done} = result;
+                //           debounceTimeout();
 
-                          let value = result.value;
-                          stats.loaded += value.byteLength;
-                          controller.enqueue(value);
-                          onProgress(value);
-                        } while (!result.done);
-                        controller.close();
-                      };
-                      read();
-                    }
-                  })
-                ).arrayBuffer();
+                //           const value = result.value;
+                //           stats.loaded += value.byteLength;
+                //           controller.enqueue(value);
+                //           onProgress(value);
+                //         } while (!result.done);
+                //         controller.close();
+                //       };
+                //       read();
+                //     }
+                //   })
+                // ).arrayBuffer();
               }
             } catch (e) {
               callbacks.onError({ text: e.message }, context);
@@ -1015,7 +1116,7 @@ AntiPrototypeJs().then(() => {
             this.abortController = null;
 
             if (data) {
-              let len = typeof data === 'string' ? data.length : data.byteLength;
+              const len = typeof data === 'string' ? data.length : data.byteLength;
               Object.assign(stats, {
                 success: true,
                 tload: Math.max(stats.tfirst, performance.now()),
@@ -1038,7 +1139,7 @@ AntiPrototypeJs().then(() => {
            * @param {ArrayBuffer} data
            */
           onProgress(data) {
-            let onProgress = this.callbacks.onProgress;
+            const onProgress = this.callbacks.onProgress;
             if (onProgress) {
               onProgress(this.stats, this.context, data, null);
             }
@@ -1048,6 +1149,9 @@ AntiPrototypeJs().then(() => {
 
 
         FragmentLoaderClass = FragmentLoader;
+        FragmentLoaderClass.frag2hash = frag2hash;
+        FragmentLoaderClass.hasCache = hasCache;
+        FragmentLoaderClass.preloadFragment = FragmentLoaderClass;
         return FragmentLoaderClass;
       };
       /** @param  */
@@ -1062,7 +1166,7 @@ AntiPrototypeJs().then(() => {
         }
       };
       const overrideKeyloader = (hls) => {
-        keyloader = hls.coreComponents.find(h => h.hasOwnProperty('decryptkey'));
+        const keyloader = hls.coreComponents.find(h => h.hasOwnProperty('decryptkey'));
         if (!keyloader) {
           console.warn('keyloader not founnd', hls.coreComponents);
           return;
@@ -1090,26 +1194,6 @@ AntiPrototypeJs().then(() => {
           return this.loadsuccess_org(response, stats, context);
         }.bind(keyloader);
 
-        ////////////////////
-
-        // const keyCache = {};
-        // keyloader = hls.coreComponents.find(h => h.hasOwnProperty('decryptkey'));
-
-        // keyloader.onKeyLoading_org = keyloader.onKeyLoading.bind(keyloader)
-        // keyloader.onKeyLoading = function(data) {
-        //   let uri = data.frag.decryptdata.uri;
-        //   if (keyCache[uri] && uri === this.decrypturl) {
-        //     this.decryptkey = keyCache[uri];
-        //   }
-        //   return this.onKeyLoading_org(data);
-        // }.bind(keyloader);
-
-        // keyloader.loadsuccess_org = keyloader.loadsuccess.bind(keyloader);
-        // keyloader.loadsuccess = function(response, stats, context) {
-        //  this.loadsuccess_org(response, stats, context);
-        //  keyCache[this.decrypturl] = this.decryptkey;
-        // }.bind(keyloader);
-
       };
 
       let idCounter = 0;
@@ -1136,6 +1220,7 @@ AntiPrototypeJs().then(() => {
               video {
                 width: 100%;
                 height: 100%;
+                contain: strict;
               }
               .label {
                 position: absolute;
@@ -1150,7 +1235,7 @@ AntiPrototypeJs().then(() => {
                 font-family: 'Arial Black';
                 pointer-events: none;
                 mix-blend-mode: luminosity;
-                transition: 0.2s opacity, 0.4s box-shadow;
+                transition: 0.2s opacity;
                 opacity: 0.5;
               }
 
@@ -1646,7 +1731,7 @@ AntiPrototypeJs().then(() => {
           );
 
           switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
+            case Hls.ErrorTypes.NETWORK_ERROR: {
               if (this._isBufferCompleted) { return; }
               const code = data.response ? data.response.code : 0;
 
@@ -1661,6 +1746,7 @@ AntiPrototypeJs().then(() => {
                 this._isForbidden403 = true;
                 //this._hls.stopLoad();
               }
+            }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               if ([Hls.ErrorDetails.BUFFER_STALLED_ERROR,
@@ -1687,7 +1773,7 @@ AntiPrototypeJs().then(() => {
 
         _onHLSJSFatalError(e, data) {
           console.error('%cHls.Events.ERROR: FATAL', 'background: cyan;', this._id,  data);
-          let code = 0;
+          let code;
           // サンプルコードではここで自動リカバーしているが、
           // サーバーの障害でエラーが起きてる場合は追加攻撃になりかねないので、やめておく
           switch (data.type) {
@@ -1735,7 +1821,7 @@ AntiPrototypeJs().then(() => {
         };
         s.src = `https://cdn.jsdelivr.net/npm/hls.js@${Config.get('hls_js_ver')}`;
         // console.info('load hls.js from', s.src);
-        document.documentElement.append(s);
+        (document.head || document.documentElement).append(s);
       } else {
         console.info('hls.js ready:', window.Hls.version);
       }
@@ -2205,13 +2291,14 @@ AntiPrototypeJs().then(() => {
             case 'toggle':
               this.toggle();
               break;
-            case 'save':
+            case 'save': {
               const config = {};
               Object.keys(this._elm).forEach(key => {
                 config[key] = this._elm[key].value;
               });
               this.dispatchEvent(
                 new CustomEvent('save', {detail: {config}}));
+            }
               break;
             case 'reset':
               this.dispatchEvent(new CustomEvent('reset'));
@@ -2424,72 +2511,42 @@ AntiPrototypeJs().then(() => {
 
     const ZenzaDetector = (() => {
       let ZenzaWatch = null;
-      let beforePromise, beforeResolve;
-      let afterPromise, afterResolve;
+      let emitter;
 
-      let initialize = () => {
-        initialize = () => {};
+      const initialize = () => {
+        if (emitter) { return; }
+        emitter = new Emitter();
         const onBeforeZenzaReady = () => {
-          if (ZenzaWatch && ZenzaWatch.debug.isHLSSupported) {
-            return;
-          }
           ZenzaWatch = window.ZenzaWatch;
-          beforeResolve && beforeResolve(ZenzaWatch);
+          emitter.emitResolve('beforeReady', ZenzaWatch);
         };
 
         const onZenzaReady = () => {
           ZenzaWatch = window.ZenzaWatch;
-          beforeResolve && beforeResolve(ZenzaWatch);
-          afterResolve && afterResolve(ZenzaWatch);
+          emitter.emitResolve('beforeReady', ZenzaWatch);
+          emitter.emitResolve('afterReady', ZenzaWatch);
         };
 
-        if (window.ZenzaWatch && window.ZenzaWatch.ready) {
-          window.console.log('ZenzaWatch is Ready ZenzaHLS');
+        if (window.ZenzaWatch) {
           onBeforeZenzaReady();
-          onZenzaReady();
-        } else {
-          if (window.ZenzaWatch) {
-            onBeforeZenzaReady();
+          if (window.ZenzaWatch.ready) {
+            return onZenzaReady();
           }
-          document.addEventListener('DOMContentLoaded', () => {
-            if (window.ZenzaWatch && window.ZenzaWatch.ready) {
-              onBeforeZenzaReady();
-              onZenzaReady();
-              return;
-            }
-            document.body.addEventListener('BeforeZenzaWatchInitialize', z => {
-              // window.console.log('BeforeZenzaWatchInitialize ZenzaHLS', z);
-              onBeforeZenzaReady(z);
-            }, {once: true});
-            document.body.addEventListener('ZenzaWatchInitialize', () => {
-              // window.console.log('ZenzaWatchInitialize ZenzaHLS');
-              onZenzaReady();
-            }, {once: true});
-          });
         }
+        window.addEventListener('BeforeZenzaWatchInitialize', onBeforeZenzaReady, {once: true});
+        window.addEventListener('ZenzaWatchInitialize', onZenzaReady, {once: true});
       };
 
       const detect = (timing = 'ready') => {
         initialize();
-        if (window.ZenzaWatch && window.ZenzaWatch.ready) {
-          return Promise.resolve(window.ZenzaWatch);
-        } else if (timing === 'beforeready') {
-          if (!beforePromise) {
-            beforePromise = new Promise(res => { beforeResolve = res; });
-          }
-          return beforePromise;
+        if (timing === 'beforeready') {
+          return emitter.promise('beforeReady');
         } else {
-          if (!afterPromise) {
-            afterPromise = new Promise(res => { afterResolve = res; });
-          }
-          return afterPromise;
+          return emitter.promise('afterReady');
         }
       };
 
-      return {
-        initialize: initialize,
-        detect: detect
-      };
+      return { initialize, detect};
     })();
 
     const initDebug = ({hlsConfig, html, render, ZenzaWatch}) => {
@@ -2585,8 +2642,7 @@ AntiPrototypeJs().then(() => {
             fragLoadingRetryDelay: 5000,
             fragLoadingMaxRetry: 3,
             levelLoadingMaxRetry: 1,
-            abrEwmaDefaultEstimate:
-            ZenzaWatch.debug.hlsConfig.abrEwmaDefaultEstimate,
+            abrEwmaDefaultEstimate: ZenzaWatch.debug.hlsConfig.abrEwmaDefaultEstimate,
             startLevel: lastLevel
           };
           video.addEventListener('init-hls-js', ({detail: {hls}}) => {
@@ -2636,8 +2692,7 @@ AntiPrototypeJs().then(() => {
       }).then(ZenzaWatch => {
 
         Promise.all([
-          dimport('https://unpkg.com/lit-html?module'),
-        //  import('https://cdn.rawgit.com/lodash/lodash/4.17.4-es/lodash.default.js')
+          dimport('https://unpkg.com/lit-html?module')
         ]).then(([{html, render}]) => {
           initDebug({hlsConfig, html, render, ZenzaWatch});
         });
@@ -2649,14 +2704,6 @@ AntiPrototypeJs().then(() => {
     init();
   };
 
-  if (window !== window.top) {
-    if (!/^ZenzaWatchHLS_.*_Loader$/.test(window.name)) {
-      return;
-    }
-    if (!/^smile[a-z0-9-]+\.nicovideo\.jp$/.test(location.host)) {
-      return;
-    }
-  }
   try {
     if (Hls) {
       console.log('hls.js@%s required', Hls.version);

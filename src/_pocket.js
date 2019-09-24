@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.8
+// @version     0.5.9
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -70,6 +70,11 @@ AntiPrototypeJs().then(() => {
     window.MylistPocket = MylistPocket;
 
     const protocol = location.protocol;
+    const global = {
+      debug: MylistPocket.debug,
+      TOKEN,
+      PRODUCT
+    };
 
     const __css__ = (`
       a[href*='watch/'] > g-img {
@@ -1828,6 +1833,7 @@ AntiPrototypeJs().then(() => {
 
       return util;
     })();
+//@require bounce
 //@require css
 Object.assign(util, css);
 Object.assign(util, workerUtil);
@@ -1905,7 +1911,6 @@ Object.assign(util, textUtil);
     //@require objUtil
     //@require StorageWriter
     //@require DataStorage
-    //@require bounce
 
     const config = (() => {
       const DEFAULT_CONFIG = {

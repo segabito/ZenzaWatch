@@ -235,6 +235,8 @@ const {Emitter} = (() => {
 		hasPromise(name) {
 			return this._promise && !!this._promise[name];
 		}
+		addEventListener(...args) { return this.on(...args); }
+		removeEventListener(...args) { return this.off(...args);}
 	}
 	Emitter.totalCount = totalCount;
 	Emitter.warnings = warnings;
@@ -335,12 +337,12 @@ const Observable = (() => {
 		}
 		filter(func) {
 			const _func = this._filterFunc;
-			this._filterFunc = _func ? func : arg => func(_func(arg));
+			this._filterFunc = _func ? (arg => _func(arg) && func(arg)) : func;
 			return this;
 		}
 		map(func) {
 			const _func = this._mapFunc;
-			this._mapFunc = _func ? func : arg => func(_func(arg));
+			this._mapFunc = _func ? arg => func(_func(arg)) : func;
 			return this;
 		}
 		get closed() {
@@ -523,9 +525,12 @@ const bounce = {
 	raf(func) {
 		let reqId = null;
 		let lastArgs = null;
+		let promise = new PromiseHandler();
 		const callback = () => {
-			func(...lastArgs);
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
 			reqId = lastArgs = null;
+			promise = new PromiseHandler();
 		};
 		const result =  (...args) => {
 			if (reqId) {
@@ -533,6 +538,7 @@ const bounce = {
 			}
 			lastArgs = args;
 			reqId = requestAnimationFrame(callback);
+			return promise;
 		};
 		result[this.origin] = func;
 		return result;
@@ -540,13 +546,15 @@ const bounce = {
 	idle(func, time) {
 		let reqId = null;
 		let lastArgs = null;
+		let promise = new PromiseHandler();
 		const [caller, canceller] =
 			(time === undefined && window.requestIdleCallback) ?
 			[window.requestIdleCallback, window.cancelIdleCallback] : [window.setTimeout, window.clearTimeout];
 		const callback = () => {
-			reqId = null;
-			func(...lastArgs);
-			lastArgs = null;
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
+			reqId = lastArgs = null;
+			promise = new PromiseHandler();
 		};
 		const result = (...args) => {
 			if (reqId) {
@@ -554,6 +562,7 @@ const bounce = {
 			}
 			lastArgs = args;
 			reqId = caller(callback, time);
+			return promise;
 		};
 		result[this.origin] = func;
 		return result;
@@ -561,6 +570,42 @@ const bounce = {
 	time(func, time = 0) {
 		return this.idle(func, time);
 	}
+};
+const throttle = (func, interval) => {
+	let lastTime = 0;
+	let timer;
+	let promise = new PromiseHandler();
+	const result = (...args) => {
+		const now = performance.now();
+		const timeDiff = now - lastTime;
+		if (timeDiff < interval) {
+			if (!timer) {
+				timer = setTimeout(() => {
+					lastTime = performance.now();
+					timer = null;
+					const lastResult = func(...args);
+					promise.resolve({lastResult, lastArgs: args});
+					promise = new PromiseHandler();
+				}, Math.max(interval - timeDiff, 0));
+			}
+			return;
+		}
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		lastTime = now;
+		const lastResult = func(...args);
+		promise.resolve({lastResult, lastArgs: args});
+		promise = new PromiseHandler();
+};
+	result.cancel = () => {
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		promise.resolve({lastResult: null, lastArgs: null});
+		promise = new PromiseHandler();
+	};
+	return result;
 };
 class DataStorage {
 	static create(defaultData, options = {}) {
@@ -1113,6 +1158,44 @@ const uQuery = (() => {
 	const isNodeList = e => {
 		return e instanceof NodeList || (e && e[Symbol.toStringTag] === 'NodeList');
 	};
+	class RafCaller {
+		constructor(elm, methods = []) {
+			this.elm = elm;
+			methods.forEach(method => {
+				const task = elm[method].bind(elm);
+				task._name = method;
+				this[method] = (...args) => {
+					this.enqueue(task, ...args);
+					return elm;
+				};
+			});
+		}
+		get promise() {
+			return this.constructor.promise;
+		}
+		enqueue(task, ...args) {
+			this.constructor.taskList.push([task, ...args]);
+			this.constructor.exec();
+		}
+		cancel() {
+			this.constructor.taskList.length = 0;
+		}
+	}
+	RafCaller.promise = new PromiseHandler();
+	RafCaller.taskList = [];
+	RafCaller.exec = bounce.raf(function() {
+		const taskList = this.taskList.concat();
+		this.taskList.length = 0;
+		for (const [task, ...args] of taskList) {
+			try {
+				task(...args);
+			} catch (err) {
+				console.warn('RafCaller task fail', {task, args});
+			}
+		}
+		this.promise.resolve();
+		this.promise = new PromiseHandler();
+	}.bind(RafCaller));
 	class $Array extends Array {
 		get [Symbol.toStringTag]() {
 			return '$Array';
@@ -1146,6 +1229,16 @@ const uQuery = (() => {
 			} else {
 				this[0] = elm;
 			}
+		}
+		get raf() {
+			if (!this._raf) {
+				this._raf = new RafCaller(this, [
+					'addClass','removeClass','toggleClass','css','setAttribute','attr','data','prop',
+					'val','focus','blur','insert','append','appendChild','prepend','after','before',
+					'text','appendTo','prependTo','remove','show','hide'
+				]);
+			}
+			return this._raf;
 		}
 		get htmls() {
 			return this.filter(isHTMLElement);
@@ -1613,67 +1706,82 @@ const uQuery = (() => {
 })();
 const uq = uQuery;
 const $ = uq;
-const css = {
-	addStyle: (styles, option, document = window.document) => {
-		const elm = document.createElement('style');
-		elm.type = 'text/css';
-		if (typeof option === 'string') {
-			elm.id = option;
-		} else if (option) {
-			Object.assign(elm, option);
-		}
-		elm.classList.add(PRODUCT);
-		elm.append(styles.toString());
-		(document.head || document.body || document.documentElement).append(elm);
-		elm.disabled = option && option.disabled;
-		elm.dataset.switch = elm.disabled ? 'off' : 'on';
-		return elm;
-	},
-	registerProps(...args) {
-		if (!CSS || !('registerProperty' in CSS)) {
-			return;
-		}
-		for (const definition of args) {
-			try {
-				(definition.window || window).CSS.registerProperty(definition);
-			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
-		}
-	},
-	setProps(element, ...args) {
-		for (const {prop, value} of args) {
+const css = (() => {
+	const setPropsTask = [];
+	const applySetProps = bounce.raf(() => {
+		const tasks = setPropsTask.concat();
+		setPropsTask.length = 0;
+		for (const [element, prop, value] of tasks) {
 			try {
 				element.style.setProperty(prop, value);
-			} catch (err) { console.warn('element.style.setProperty fail', {prop, value}, element, err); }
+			} catch (err) {
+				console.warn('element.style.setProperty fail', {prop, value}, element, err);
+			}
 		}
-	},
-	addModule: async function(func, options = {}) {
-		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
-			return;
-		}
-		this.set.add(func);
-		const src =
-		`(${func.toString()})(
-			this,
-			registerPaint,
-			${JSON.stringify(options.config || {}, null, 2)}
-			);`;
-		const blob = new Blob([src], {type: 'text/javascript'});
-		const url = URL.createObjectURL(blob);
-		await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
-		return true;
-	}.bind({set: new WeakSet}),
-	number:  value => CSS.number  ? CSS.number(value) : value,
-	s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
-	ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
-	pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
-	px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
-	percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
-	vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
-	vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
-};
+	});
+	const css = {
+		addStyle: (styles, option, document = window.document) => {
+			const elm = document.createElement('style');
+			elm.type = 'text/css';
+			if (typeof option === 'string') {
+				elm.id = option;
+			} else if (option) {
+				Object.assign(elm, option);
+			}
+			elm.classList.add(global.PRODUCT);
+			elm.append(styles.toString());
+			(document.head || document.body || document.documentElement).append(elm);
+			elm.disabled = option && option.disabled;
+			elm.dataset.switch = elm.disabled ? 'off' : 'on';
+			return elm;
+		},
+		registerProps(...args) {
+			if (!CSS || !('registerProperty' in CSS)) {
+				return;
+			}
+			for (const definition of args) {
+				try {
+					(definition.window || window).CSS.registerProperty(definition);
+				} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+			}
+		},
+		setProps(...tasks) {
+			setPropsTask.push(...tasks);
+			return setPropsTask.length ? applySetProps() : Promise.resolve();
+		},
+		addModule: async function(func, options = {}) {
+			if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
+				return;
+			}
+			this.set.add(func);
+			const src =
+			`(${func.toString()})(
+				this,
+				registerPaint,
+				${JSON.stringify(options.config || {}, null, 2)}
+				);`;
+			const blob = new Blob([src], {type: 'text/javascript'});
+			const url = URL.createObjectURL(blob);
+			await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
+			return true;
+		}.bind({set: new WeakSet}),
+		number:  value => CSS.number  ? CSS.number(value) : value,
+		s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
+		ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
+		pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
+		px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
+		percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
+		vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
+		vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
+	};
+	return css;
+})();
 const cssUtil = css;
     window.ZenzaAdvancedSettings = {
       config: Config
+    };
+    const global = {
+      PRODUCT
     };
 
     let panel;

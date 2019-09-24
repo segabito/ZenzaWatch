@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.8
+// @version     0.5.9
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -35,28 +35,35 @@
 /* eslint-disable */
 
 const AntiPrototypeJs = function() {
-	if (this.promise || !window.Prototype || window.PureArray) {
+	if (this.promise !== null || !window.Prototype || window.PureArray) {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
 	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
 		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
 		delete document.getElementsByClassName;
 	}
+	const waitForDom = new Promise(resolve => {
+		if (['interactive', 'complete'].includes(document.readyState)) {
+			return resolve();
+		}
+		document.addEventListener('DOMContentLoaded', resolve, {once: true});
+	});
 	const f = document.createElement('iframe');
-	f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
-	f.id = 'prototype';
-	f.loading = 'eager';
-	Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
-	return this.promise = new Promise(res => {
-		f.onload = res;
-		document.documentElement.append(f);
-	}).then(() => {
-		window.PureArray = f.contentWindow.Array;
-		delete window.Array.prototype.toJSON;
-		delete window.String.prototype.toJSON;
-		f.remove();
-		return Promise.resolve(window.PureArray);
-	}).catch(err => console.error(err));
+	return this.promise = waitForDom
+		.then(() => new Promise(res => {
+			f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
+			f.id = 'prototype';
+			f.loading = 'eager';
+			Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
+			f.onload = res;
+			([...document.querySelectorAll('body')].reverse()[0]).append(f);
+		})).then(() => {
+			window.PureArray = f.contentWindow.Array;
+			delete window.Array.prototype.toJSON;
+			delete window.String.prototype.toJSON;
+			f.remove();
+			return Promise.resolve(window.PureArray);
+		}).catch(err => console.error(err));
 }.bind({promise: null});
 AntiPrototypeJs().then(() => {
   const PRODUCT = 'MylistPocket';
@@ -77,6 +84,11 @@ AntiPrototypeJs().then(() => {
     window.MylistPocket = MylistPocket;
 
     const protocol = location.protocol;
+    const global = {
+      debug: MylistPocket.debug,
+      TOKEN,
+      PRODUCT
+    };
 
     const __css__ = (`
       a[href*='watch/'] > g-img {
@@ -1835,64 +1847,163 @@ AntiPrototypeJs().then(() => {
 
       return util;
     })();
-const css = {
-	addStyle: (styles, option, document = window.document) => {
-		const elm = document.createElement('style');
-		elm.type = 'text/css';
-		if (typeof option === 'string') {
-			elm.id = option;
-		} else if (option) {
-			Object.assign(elm, option);
-		}
-		elm.classList.add(PRODUCT);
-		elm.append(styles.toString());
-		(document.head || document.body || document.documentElement).append(elm);
-		elm.disabled = option && option.disabled;
-		elm.dataset.switch = elm.disabled ? 'off' : 'on';
-		return elm;
+const bounce = {
+	origin: Symbol('origin'),
+	raf(func) {
+		let reqId = null;
+		let lastArgs = null;
+		let promise = new PromiseHandler();
+		const callback = () => {
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
+			reqId = lastArgs = null;
+			promise = new PromiseHandler();
+		};
+		const result =  (...args) => {
+			if (reqId) {
+				cancelAnimationFrame(reqId);
+			}
+			lastArgs = args;
+			reqId = requestAnimationFrame(callback);
+			return promise;
+		};
+		result[this.origin] = func;
+		return result;
 	},
-	registerProps(...args) {
-		if (!CSS || !('registerProperty' in CSS)) {
+	idle(func, time) {
+		let reqId = null;
+		let lastArgs = null;
+		let promise = new PromiseHandler();
+		const [caller, canceller] =
+			(time === undefined && window.requestIdleCallback) ?
+			[window.requestIdleCallback, window.cancelIdleCallback] : [window.setTimeout, window.clearTimeout];
+		const callback = () => {
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
+			reqId = lastArgs = null;
+			promise = new PromiseHandler();
+		};
+		const result = (...args) => {
+			if (reqId) {
+				reqId = canceller(reqId);
+			}
+			lastArgs = args;
+			reqId = caller(callback, time);
+			return promise;
+		};
+		result[this.origin] = func;
+		return result;
+	},
+	time(func, time = 0) {
+		return this.idle(func, time);
+	}
+};
+const throttle = (func, interval) => {
+	let lastTime = 0;
+	let timer;
+	let promise = new PromiseHandler();
+	const result = (...args) => {
+		const now = performance.now();
+		const timeDiff = now - lastTime;
+		if (timeDiff < interval) {
+			if (!timer) {
+				timer = setTimeout(() => {
+					lastTime = performance.now();
+					timer = null;
+					const lastResult = func(...args);
+					promise.resolve({lastResult, lastArgs: args});
+					promise = new PromiseHandler();
+				}, Math.max(interval - timeDiff, 0));
+			}
 			return;
 		}
-		for (const definition of args) {
-			try {
-				(definition.window || window).CSS.registerProperty(definition);
-			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+		if (timer) {
+			timer = clearTimeout(timer);
 		}
-	},
-	setProps(element, ...args) {
-		for (const {prop, value} of args) {
+		lastTime = now;
+		const lastResult = func(...args);
+		promise.resolve({lastResult, lastArgs: args});
+		promise = new PromiseHandler();
+};
+	result.cancel = () => {
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		promise.resolve({lastResult: null, lastArgs: null});
+		promise = new PromiseHandler();
+	};
+	return result;
+};
+const css = (() => {
+	const setPropsTask = [];
+	const applySetProps = bounce.raf(() => {
+		const tasks = setPropsTask.concat();
+		setPropsTask.length = 0;
+		for (const [element, prop, value] of tasks) {
 			try {
 				element.style.setProperty(prop, value);
-			} catch (err) { console.warn('element.style.setProperty fail', {prop, value}, element, err); }
+			} catch (err) {
+				console.warn('element.style.setProperty fail', {prop, value}, element, err);
+			}
 		}
-	},
-	addModule: async function(func, options = {}) {
-		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
-			return;
-		}
-		this.set.add(func);
-		const src =
-		`(${func.toString()})(
-			this,
-			registerPaint,
-			${JSON.stringify(options.config || {}, null, 2)}
-			);`;
-		const blob = new Blob([src], {type: 'text/javascript'});
-		const url = URL.createObjectURL(blob);
-		await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
-		return true;
-	}.bind({set: new WeakSet}),
-	number:  value => CSS.number  ? CSS.number(value) : value,
-	s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
-	ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
-	pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
-	px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
-	percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
-	vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
-	vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
-};
+	});
+	const css = {
+		addStyle: (styles, option, document = window.document) => {
+			const elm = document.createElement('style');
+			elm.type = 'text/css';
+			if (typeof option === 'string') {
+				elm.id = option;
+			} else if (option) {
+				Object.assign(elm, option);
+			}
+			elm.classList.add(global.PRODUCT);
+			elm.append(styles.toString());
+			(document.head || document.body || document.documentElement).append(elm);
+			elm.disabled = option && option.disabled;
+			elm.dataset.switch = elm.disabled ? 'off' : 'on';
+			return elm;
+		},
+		registerProps(...args) {
+			if (!CSS || !('registerProperty' in CSS)) {
+				return;
+			}
+			for (const definition of args) {
+				try {
+					(definition.window || window).CSS.registerProperty(definition);
+				} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+			}
+		},
+		setProps(...tasks) {
+			setPropsTask.push(...tasks);
+			return setPropsTask.length ? applySetProps() : Promise.resolve();
+		},
+		addModule: async function(func, options = {}) {
+			if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
+				return;
+			}
+			this.set.add(func);
+			const src =
+			`(${func.toString()})(
+				this,
+				registerPaint,
+				${JSON.stringify(options.config || {}, null, 2)}
+				);`;
+			const blob = new Blob([src], {type: 'text/javascript'});
+			const url = URL.createObjectURL(blob);
+			await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
+			return true;
+		}.bind({set: new WeakSet}),
+		number:  value => CSS.number  ? CSS.number(value) : value,
+		s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
+		ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
+		pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
+		px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
+		percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
+		vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
+		vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
+	};
+	return css;
+})();
 const cssUtil = css;
 Object.assign(util, css);
 Object.assign(util, workerUtil);
@@ -2366,12 +2477,12 @@ const Observable = (() => {
 		}
 		filter(func) {
 			const _func = this._filterFunc;
-			this._filterFunc = _func ? func : arg => func(_func(arg));
+			this._filterFunc = _func ? (arg => _func(arg) && func(arg)) : func;
 			return this;
 		}
 		map(func) {
 			const _func = this._mapFunc;
-			this._mapFunc = _func ? func : arg => func(_func(arg));
+			this._mapFunc = _func ? arg => func(_func(arg)) : func;
 			return this;
 		}
 		get closed() {
@@ -2549,50 +2660,7 @@ const Observable = (() => {
 })();
 const WindowResizeObserver = Observable.fromEvent(window, 'resize')
 	.map(o => { return {width: window.innerWidth, height: window.innerHeight}; });
-const bounce = {
-	origin: Symbol('origin'),
-	raf(func) {
-		let reqId = null;
-		let lastArgs = null;
-		const callback = () => {
-			func(...lastArgs);
-			reqId = lastArgs = null;
-		};
-		const result =  (...args) => {
-			if (reqId) {
-				cancelAnimationFrame(reqId);
-			}
-			lastArgs = args;
-			reqId = requestAnimationFrame(callback);
-		};
-		result[this.origin] = func;
-		return result;
-	},
-	idle(func, time) {
-		let reqId = null;
-		let lastArgs = null;
-		const [caller, canceller] =
-			(time === undefined && window.requestIdleCallback) ?
-			[window.requestIdleCallback, window.cancelIdleCallback] : [window.setTimeout, window.clearTimeout];
-		const callback = () => {
-			reqId = null;
-			func(...lastArgs);
-			lastArgs = null;
-		};
-		const result = (...args) => {
-			if (reqId) {
-				reqId = canceller(reqId);
-			}
-			lastArgs = args;
-			reqId = caller(callback, time);
-		};
-		result[this.origin] = func;
-		return result;
-	},
-	time(func, time = 0) {
-		return this.idle(func, time);
-	}
-};
+// already required
 class DataStorage {
 	static create(defaultData, options = {}) {
 		return new DataStorage(defaultData, options);
@@ -2901,7 +2969,6 @@ class KVSDataStorage extends DataStorage {
 		}
 	}
 }
-// already required
 
     const config = (() => {
       const DEFAULT_CONFIG = {
@@ -5380,6 +5447,8 @@ const {Emitter} = (() => {
 		hasPromise(name) {
 			return this._promise && !!this._promise[name];
 		}
+		addEventListener(...args) { return this.on(...args); }
+		removeEventListener(...args) { return this.off(...args);}
 	}
 	Emitter.totalCount = totalCount;
 	Emitter.warnings = warnings;

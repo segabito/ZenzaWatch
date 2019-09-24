@@ -10,17 +10,17 @@
 // ==/UserScript==
 
 
-(function(window) {
-  const addStyle = function(styles, id) {
+(window => {
+  const addStyle = (styles, id) => {
     const elm = document.createElement('style');
     elm.type = 'text/css';
     if (id) { elm.id = id; }
-    elm.append(styles.toString());
+    elm.append(styles);
     document.head.append(elm);
     return elm;
   };
 
-  const postMessage = function(type, message, token) {
+  const postMessage = (type, message, token) => {
     const origin = document.referrer;
     const {command, watchId} = message;
     try {
@@ -61,11 +61,11 @@
     }
   `).trim();
 
-  const blogPartsApi = function() {
-    const watchId = location.href.split('/').reverse()[0];
+  const blogPartsApi = () => {
+    const [watchId] = location.href.split('/').reverse();
 
-    const parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    const [,,parentHost] = document.referrer.split('/');
+    if (!parentHost.endsWith('.nicovideo.jp')) {
       window.console.log('disable bridge');
       return;
     }
@@ -75,7 +75,7 @@
     button.innerHTML = '<span>Zen</span>';
     button.id = 'zenzaButton';
     document.body.append(button);
-    button.onclick = (e) => {
+    button.onclick = e => {
       postMessage('blogParts', {
         command: e.shiftKey ? 'send' : 'open',
         watchId

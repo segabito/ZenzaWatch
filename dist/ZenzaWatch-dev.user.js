@@ -32,34 +32,42 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.20
+// @version        2.4.25
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
 /* eslint-disable */
+
 const AntiPrototypeJs = function() {
-	if (this.promise || !window.Prototype || window.PureArray) {
+	if (this.promise !== null || !window.Prototype || window.PureArray) {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
 	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
 		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
 		delete document.getElementsByClassName;
 	}
+	const waitForDom = new Promise(resolve => {
+		if (['interactive', 'complete'].includes(document.readyState)) {
+			return resolve();
+		}
+		document.addEventListener('DOMContentLoaded', resolve, {once: true});
+	});
 	const f = document.createElement('iframe');
-	f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
-	f.id = 'prototype';
-	f.loading = 'eager';
-	Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
-	return this.promise = new Promise(res => {
-		f.onload = res;
-		document.documentElement.append(f);
-	}).then(() => {
-		window.PureArray = f.contentWindow.Array;
-		delete window.Array.prototype.toJSON;
-		delete window.String.prototype.toJSON;
-		f.remove();
-		return Promise.resolve(window.PureArray);
-	}).catch(err => console.error(err));
+	return this.promise = waitForDom
+		.then(() => new Promise(res => {
+			f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
+			f.id = 'prototype';
+			f.loading = 'eager';
+			Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
+			f.onload = res;
+			([...document.querySelectorAll('body')].reverse()[0]).append(f);
+		})).then(() => {
+			window.PureArray = f.contentWindow.Array;
+			delete window.Array.prototype.toJSON;
+			delete window.String.prototype.toJSON;
+			f.remove();
+			return Promise.resolve(window.PureArray);
+		}).catch(err => console.error(err));
 }.bind({promise: null});
 AntiPrototypeJs();
 (() => {
@@ -75,6 +83,7 @@ AntiPrototypeJs();
 
 (function (window) {
   const self = window;
+  const document = window.document;
   'use strict';
   const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
@@ -85,19 +94,30 @@ AntiPrototypeJs();
     let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
     let TOKEN = 'r:' + (Math.random());
     let CONFIG = null;
+    const NICORU = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAGh0lEQVRIS3VWeWxUxxn/zbxjvWuvvV4vXp9g43OddTB2EYEWnEuKgl3USqRHIpRIbVS7KapUmSbUIUpBBIjdtGpKHan9p0IkkQhNGtlUFaWFkGIi4WJq8BqMbQ4fuz7WV3bt3fdmXjWza8uozZOe3ryZb77fd/zm+4bgfx8VgCmmczN21HocoefiLFYfnI3VzBtBu5jP0HKWcjJtvbpiuzgd9Z6emL/076Sa1b0raska/WJMATBgp6/MM9o+MjO1y7QWV0W2Fmly/MVdY3VOJU4UZ607Ozhd0AJ8FgCgAOAALCG0AiC+4uUObXOT13mvYyQcFuv8t3sL2PbKdJrr0qnTpkj5xRizJubivHtgge87OSoU0mK3G6HFDc1R49p7SUMFgLUCIIRYul59yKENHQxGomj/fr6xd0e2lu3RAUIBzgEujUqYQhNbJ6fjOHlp0mj5YEzLSXUgapQcXoj3vZH0hAkpGTcbrWvKtA90BCMRs6ullO7akkW5YWEuwqSzKTpBio0mHQfiJgfnFuw2CqJSnL06wxva7vCc1FR1dqmyOcZ7hCdq0oOnfcXu6/0j4Sl0tpTyhq3rqBU3cerSFE6cC8KhEzzzqAs/3ZUPm41iaGwJv+oag6YAlBLs/2Yh8nId6Oqe5I3td2ixex1GwpuqgL8HJECZp7xzcPp2Q9v38o2WbxVq3OQyQ8c+foDXz0zIUHxnSzr++KMyONNVdPfPY/ubA6uJvnm8GlXr7TJ07Z+MGfs/HNPKPOVdg9O3G0luxpO104vXegw+y4MnNlNvlgZmchBQvNM5iv0fjktFP9jpwm9eKkFaqoqrtxaw5Y0AqrwU/SGOW21+lBc4pFwobCDnlWtco5nU49xcR/y5/rduTNw48O7eAuMnjfkaMxgoIbAsgl93jqIlCfByvQvvvPgwQE2+gt4xhoG2alQU2mEaFlSd4nedY8a+k6OaP9d/lFRkl1y+NTm07eqRKlZX5lRYjIOKXFoEh8/cx5sfB6VljZuceH9fuQzRlf55bFsTov63q+FbnwSwUfQMLrKvtfYrFdkl3cSl50fn4mP28RM1Vm6WTpgJECJYaOHcf+Zxvm8WCgX8hWnYs9UDTSeYmInj054wrCS7dte54XbqYJxBUalYt/Je6RW6l0SSra+X6PjrgWo4UxVwJgASfCeEgHHhDaAKMnMLMjvCAvGKheSXi7EFUAVYjDA8e7QP/xqKyyNjPVVpw6c/98ORokpuCwCx73zfPL4YXJTeVBWmoqE2CwolmF00cerzEJbiDAYDvrvNg5I8OxiDXI8um9j99g2cH4iBKMQTYda0I/RejZXt0gmXIbJkDg59dA+//CQkvXnpGxno+GEZUlIohsdjKPnZ9VWanjtQjqc3uWEaDKpGMDkXt7xNvUJ3lJS6vZfvhEPbAm3VrHK9Q3mIRV2jaPkgQdOWZz04+nwxVBvFg4llbGntQ1Ya0B/kuPB6Ber9GassGrgfZb79fUqp29tNavK9b/WOhQ6c+nGR8fzjXs2McZlU4cHac9D8pAut3y6CQ1cwMrWMHYcCyEkDhsMc/2ytwOPVSQAbxfsXQsYLv7+r1eR7jxKfZ0NtYPp+z/YSjf+ttZqmrcnDkT/fx8EziRCJx5+nSQovxS0MTsqWIZ9//KICTzyaATALX8Y4njnSxy8PGdTnWV8nS4XPm9oZCEUaTu/baOzZ6dWMZROaQvH5wByO/WUcMcPEcpzDYFx6JkB0lUBXKSrzHHhtdyHysjQQjeKjS1PGc+8Oaz5valcgFGmUAFl6ViVR5gLTSwz9xx/hvo3p1Fw2ZagiMY54XNQmskpfsUcCEQJ7CpHGKDYFgeEFXvXqTeqxK7CYyzcTnxlYLddFmY6mu7PRDkUhZuD4I7Rsg1NW1ITF4lxQIHk+Em1EeJM4BtBUDN5b5L5Xb3LGLLUo09F8dza6tlzLNseK3eqhkbB5UFh4/rVyo97v0hSdyNhaPEHdxAG0QETDUQhY3MLFG3PGU8duy35a7FYPj4TNhxqO3LPSMjdmak3jC0bHMgNe3uniL9bnsMoCB013UKqpiTZmmNxaiHI+MBrlf7oYVP7w2RxNUYC8dK15eNb4vy1zBUQ2/dw03edKZe2BENuV4AnBC485UZpjk393gjGcuiIuA4mS4vMqZ+ciSsvEl/GvbPqrlFtpoWLisQ1abYxbe649MJ8AsAmAvLYAWAJwfXOBesGmkNNX7hlfeW35LyB037N9NspNAAAAAElFTkSuQmCC';
     const dll = {};
     const util = {};
     let {dimport, workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
-    var VER = '2.4.20';
+    var VER = '2.4.25';
     const ENV = 'DEV';
 
 
     console.log(
-      `%c${PRODUCT}@${ENV} v${VER}`,
+      `%c${PRODUCT}@${ENV} v${VER}%c  (ﾟ∀ﾟ) ｾﾞﾝｻﾞ!  %cNicorü? %c田%c \n\nplatform: ${navigator.platform}\nua: ${navigator.userAgent}`,
       'font-family: Chalkduster; font-size: 200%; background: #039393; color: #ffc; padding: 8px; text-shadow: 2px 2px #888;',
-      '(ﾟ∀ﾟ) ｾﾞﾝｻﾞ!'
+      '',
+      'font-family: "Chalkboard SE", Chalkduster,HeadLineA; font-size: 24px;',
+      'display: inline-block; font-size: 24px; color: transparent; background-repeat: no-repeat; background-position: center; background-size: contain;' +
+      `background-image: url(${NICORU});`,
+      'line-height: 1.25; font-weight: bold; '
     );
+    console.nicoru =
+      console.log.bind(console,
+        '%c田',
+        'display: inline-block; font-size: 120%; color: transparent; background-repeat: no-repeat; background-position: center; background-size: contain;' +
+        `background-image: url(${NICORU})`
+        );
 
 const StorageWriter = (() => {
 	const func = function(self) {
@@ -191,12 +211,12 @@ const Observable = (() => {
 		}
 		filter(func) {
 			const _func = this._filterFunc;
-			this._filterFunc = _func ? func : arg => func(_func(arg));
+			this._filterFunc = _func ? (arg => _func(arg) && func(arg)) : func;
 			return this;
 		}
 		map(func) {
 			const _func = this._mapFunc;
-			this._mapFunc = _func ? func : arg => func(_func(arg));
+			this._mapFunc = _func ? arg => func(_func(arg)) : func;
 			return this;
 		}
 		get closed() {
@@ -379,9 +399,12 @@ const bounce = {
 	raf(func) {
 		let reqId = null;
 		let lastArgs = null;
+		let promise = new PromiseHandler();
 		const callback = () => {
-			func(...lastArgs);
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
 			reqId = lastArgs = null;
+			promise = new PromiseHandler();
 		};
 		const result =  (...args) => {
 			if (reqId) {
@@ -389,6 +412,7 @@ const bounce = {
 			}
 			lastArgs = args;
 			reqId = requestAnimationFrame(callback);
+			return promise;
 		};
 		result[this.origin] = func;
 		return result;
@@ -396,13 +420,15 @@ const bounce = {
 	idle(func, time) {
 		let reqId = null;
 		let lastArgs = null;
+		let promise = new PromiseHandler();
 		const [caller, canceller] =
 			(time === undefined && window.requestIdleCallback) ?
 			[window.requestIdleCallback, window.cancelIdleCallback] : [window.setTimeout, window.clearTimeout];
 		const callback = () => {
-			reqId = null;
-			func(...lastArgs);
-			lastArgs = null;
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
+			reqId = lastArgs = null;
+			promise = new PromiseHandler();
 		};
 		const result = (...args) => {
 			if (reqId) {
@@ -410,6 +436,7 @@ const bounce = {
 			}
 			lastArgs = args;
 			reqId = caller(callback, time);
+			return promise;
 		};
 		result[this.origin] = func;
 		return result;
@@ -417,6 +444,42 @@ const bounce = {
 	time(func, time = 0) {
 		return this.idle(func, time);
 	}
+};
+const throttle = (func, interval) => {
+	let lastTime = 0;
+	let timer;
+	let promise = new PromiseHandler();
+	const result = (...args) => {
+		const now = performance.now();
+		const timeDiff = now - lastTime;
+		if (timeDiff < interval) {
+			if (!timer) {
+				timer = setTimeout(() => {
+					lastTime = performance.now();
+					timer = null;
+					const lastResult = func(...args);
+					promise.resolve({lastResult, lastArgs: args});
+					promise = new PromiseHandler();
+				}, Math.max(interval - timeDiff, 0));
+			}
+			return;
+		}
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		lastTime = now;
+		const lastResult = func(...args);
+		promise.resolve({lastResult, lastArgs: args});
+		promise = new PromiseHandler();
+};
+	result.cancel = () => {
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		promise.resolve({lastResult: null, lastArgs: null});
+		promise = new PromiseHandler();
+	};
+	return result;
 };
 class DataStorage {
 	static create(defaultData, options = {}) {
@@ -969,6 +1032,44 @@ const uQuery = (() => {
 	const isNodeList = e => {
 		return e instanceof NodeList || (e && e[Symbol.toStringTag] === 'NodeList');
 	};
+	class RafCaller {
+		constructor(elm, methods = []) {
+			this.elm = elm;
+			methods.forEach(method => {
+				const task = elm[method].bind(elm);
+				task._name = method;
+				this[method] = (...args) => {
+					this.enqueue(task, ...args);
+					return elm;
+				};
+			});
+		}
+		get promise() {
+			return this.constructor.promise;
+		}
+		enqueue(task, ...args) {
+			this.constructor.taskList.push([task, ...args]);
+			this.constructor.exec();
+		}
+		cancel() {
+			this.constructor.taskList.length = 0;
+		}
+	}
+	RafCaller.promise = new PromiseHandler();
+	RafCaller.taskList = [];
+	RafCaller.exec = bounce.raf(function() {
+		const taskList = this.taskList.concat();
+		this.taskList.length = 0;
+		for (const [task, ...args] of taskList) {
+			try {
+				task(...args);
+			} catch (err) {
+				console.warn('RafCaller task fail', {task, args});
+			}
+		}
+		this.promise.resolve();
+		this.promise = new PromiseHandler();
+	}.bind(RafCaller));
 	class $Array extends Array {
 		get [Symbol.toStringTag]() {
 			return '$Array';
@@ -1002,6 +1103,16 @@ const uQuery = (() => {
 			} else {
 				this[0] = elm;
 			}
+		}
+		get raf() {
+			if (!this._raf) {
+				this._raf = new RafCaller(this, [
+					'addClass','removeClass','toggleClass','css','setAttribute','attr','data','prop',
+					'val','focus','blur','insert','append','appendChild','prepend','after','before',
+					'text','appendTo','prependTo','remove','show','hide'
+				]);
+			}
+			return this._raf;
 		}
 		get htmls() {
 			return this.filter(isHTMLElement);
@@ -1709,7 +1820,6 @@ CONSTANT.SCROLLBAR_CSS = `
 		display: none;
 	}
 `.trim();
-const NICORU = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAGh0lEQVRIS3VWeWxUxxn/zbxjvWuvvV4vXp9g43OddTB2EYEWnEuKgl3USqRHIpRIbVS7KapUmSbUIUpBBIjdtGpKHan9p0IkkQhNGtlUFaWFkGIi4WJq8BqMbQ4fuz7WV3bt3fdmXjWza8uozZOe3ryZb77fd/zm+4bgfx8VgCmmczN21HocoefiLFYfnI3VzBtBu5jP0HKWcjJtvbpiuzgd9Z6emL/076Sa1b0raska/WJMATBgp6/MM9o+MjO1y7QWV0W2Fmly/MVdY3VOJU4UZ607Ozhd0AJ8FgCgAOAALCG0AiC+4uUObXOT13mvYyQcFuv8t3sL2PbKdJrr0qnTpkj5xRizJubivHtgge87OSoU0mK3G6HFDc1R49p7SUMFgLUCIIRYul59yKENHQxGomj/fr6xd0e2lu3RAUIBzgEujUqYQhNbJ6fjOHlp0mj5YEzLSXUgapQcXoj3vZH0hAkpGTcbrWvKtA90BCMRs6ullO7akkW5YWEuwqSzKTpBio0mHQfiJgfnFuw2CqJSnL06wxva7vCc1FR1dqmyOcZ7hCdq0oOnfcXu6/0j4Sl0tpTyhq3rqBU3cerSFE6cC8KhEzzzqAs/3ZUPm41iaGwJv+oag6YAlBLs/2Yh8nId6Oqe5I3td2ixex1GwpuqgL8HJECZp7xzcPp2Q9v38o2WbxVq3OQyQ8c+foDXz0zIUHxnSzr++KMyONNVdPfPY/ubA6uJvnm8GlXr7TJ07Z+MGfs/HNPKPOVdg9O3G0luxpO104vXegw+y4MnNlNvlgZmchBQvNM5iv0fjktFP9jpwm9eKkFaqoqrtxaw5Y0AqrwU/SGOW21+lBc4pFwobCDnlWtco5nU49xcR/y5/rduTNw48O7eAuMnjfkaMxgoIbAsgl93jqIlCfByvQvvvPgwQE2+gt4xhoG2alQU2mEaFlSd4nedY8a+k6OaP9d/lFRkl1y+NTm07eqRKlZX5lRYjIOKXFoEh8/cx5sfB6VljZuceH9fuQzRlf55bFsTov63q+FbnwSwUfQMLrKvtfYrFdkl3cSl50fn4mP28RM1Vm6WTpgJECJYaOHcf+Zxvm8WCgX8hWnYs9UDTSeYmInj054wrCS7dte54XbqYJxBUalYt/Je6RW6l0SSra+X6PjrgWo4UxVwJgASfCeEgHHhDaAKMnMLMjvCAvGKheSXi7EFUAVYjDA8e7QP/xqKyyNjPVVpw6c/98ORokpuCwCx73zfPL4YXJTeVBWmoqE2CwolmF00cerzEJbiDAYDvrvNg5I8OxiDXI8um9j99g2cH4iBKMQTYda0I/RejZXt0gmXIbJkDg59dA+//CQkvXnpGxno+GEZUlIohsdjKPnZ9VWanjtQjqc3uWEaDKpGMDkXt7xNvUJ3lJS6vZfvhEPbAm3VrHK9Q3mIRV2jaPkgQdOWZz04+nwxVBvFg4llbGntQ1Ya0B/kuPB6Ber9GassGrgfZb79fUqp29tNavK9b/WOhQ6c+nGR8fzjXs2McZlU4cHac9D8pAut3y6CQ1cwMrWMHYcCyEkDhsMc/2ytwOPVSQAbxfsXQsYLv7+r1eR7jxKfZ0NtYPp+z/YSjf+ttZqmrcnDkT/fx8EziRCJx5+nSQovxS0MTsqWIZ9//KICTzyaATALX8Y4njnSxy8PGdTnWV8nS4XPm9oZCEUaTu/baOzZ6dWMZROaQvH5wByO/WUcMcPEcpzDYFx6JkB0lUBXKSrzHHhtdyHysjQQjeKjS1PGc+8Oaz5valcgFGmUAFl6ViVR5gLTSwz9xx/hvo3p1Fw2ZagiMY54XNQmskpfsUcCEQJ7CpHGKDYFgeEFXvXqTeqxK7CYyzcTnxlYLddFmY6mu7PRDkUhZuD4I7Rsg1NW1ITF4lxQIHk+Em1EeJM4BtBUDN5b5L5Xb3LGLLUo09F8dza6tlzLNseK3eqhkbB5UFh4/rVyo97v0hSdyNhaPEHdxAG0QETDUQhY3MLFG3PGU8duy35a7FYPj4TNhxqO3LPSMjdmak3jC0bHMgNe3uniL9bnsMoCB013UKqpiTZmmNxaiHI+MBrlf7oYVP7w2RxNUYC8dK15eNb4vy1zBUQ2/dw03edKZe2BENuV4AnBC485UZpjk393gjGcuiIuA4mS4vMqZ+ciSsvEl/GvbPqrlFtpoWLisQ1abYxbe649MJ8AsAmAvLYAWAJwfXOBesGmkNNX7hlfeW35LyB037N9NspNAAAAAElFTkSuQmCC';
 const global = {
   emitter, debug,
   external: ZenzaWatch.external, PRODUCT, TOKEN, CONSTANT,
@@ -1718,14 +1828,9 @@ const global = {
   config: Config,
   api: ZenzaWatch.api,
   innerWidth: window.innerWidth,
-  innerHeight: window.innerHeight
+  innerHeight: window.innerHeight,
+  NICORU
 };
-WindowResizeObserver.subscribe((width, height) => {
-  global.innerWidth  = width;
-  global.innerHeight = height;
-  document.documentElement.style.setProperty('--inner-width', width);
-  document.documentElement.style.setProperty('--inner-height', height);
-});
 const reg = (() => {
 	const $ = Symbol('$');
 	const undef = Symbol.for('undefined');
@@ -1909,68 +2014,80 @@ for (const k of Object.keys(window.console)) {
 	if (typeof window.console[k] !== 'function') {continue;}
 	dummyConsole[k] = _.noop;
 }
-['assert', 'error', 'warn'].forEach(k =>
+['assert', 'error', 'warn', 'nicoru'].forEach(k =>
 	dummyConsole[k] = window.console[k].bind(window.console));
-console = Config.getValue('debug') ? window.console : dummyConsole;
+console = Config.props.debug ? window.console : dummyConsole;
 Config.onkey('debug', v => console = v ? window.console : dummyConsole);
-const css = {
-	addStyle: (styles, option, document = window.document) => {
-		const elm = document.createElement('style');
-		elm.type = 'text/css';
-		if (typeof option === 'string') {
-			elm.id = option;
-		} else if (option) {
-			Object.assign(elm, option);
-		}
-		elm.classList.add(PRODUCT);
-		elm.append(styles.toString());
-		(document.head || document.body || document.documentElement).append(elm);
-		elm.disabled = option && option.disabled;
-		elm.dataset.switch = elm.disabled ? 'off' : 'on';
-		return elm;
-	},
-	registerProps(...args) {
-		if (!CSS || !('registerProperty' in CSS)) {
-			return;
-		}
-		for (const definition of args) {
-			try {
-				(definition.window || window).CSS.registerProperty(definition);
-			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
-		}
-	},
-	setProps(element, ...args) {
-		for (const {prop, value} of args) {
+const css = (() => {
+	const setPropsTask = [];
+	const applySetProps = bounce.raf(() => {
+		const tasks = setPropsTask.concat();
+		setPropsTask.length = 0;
+		for (const [element, prop, value] of tasks) {
 			try {
 				element.style.setProperty(prop, value);
-			} catch (err) { console.warn('element.style.setProperty fail', {prop, value}, element, err); }
+			} catch (err) {
+				console.warn('element.style.setProperty fail', {prop, value}, element, err);
+			}
 		}
-	},
-	addModule: async function(func, options = {}) {
-		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
-			return;
-		}
-		this.set.add(func);
-		const src =
-		`(${func.toString()})(
-			this,
-			registerPaint,
-			${JSON.stringify(options.config || {}, null, 2)}
-			);`;
-		const blob = new Blob([src], {type: 'text/javascript'});
-		const url = URL.createObjectURL(blob);
-		await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
-		return true;
-	}.bind({set: new WeakSet}),
-	number:  value => CSS.number  ? CSS.number(value) : value,
-	s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
-	ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
-	pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
-	px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
-	percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
-	vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
-	vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
-};
+	});
+	const css = {
+		addStyle: (styles, option, document = window.document) => {
+			const elm = document.createElement('style');
+			elm.type = 'text/css';
+			if (typeof option === 'string') {
+				elm.id = option;
+			} else if (option) {
+				Object.assign(elm, option);
+			}
+			elm.classList.add(global.PRODUCT);
+			elm.append(styles.toString());
+			(document.head || document.body || document.documentElement).append(elm);
+			elm.disabled = option && option.disabled;
+			elm.dataset.switch = elm.disabled ? 'off' : 'on';
+			return elm;
+		},
+		registerProps(...args) {
+			if (!CSS || !('registerProperty' in CSS)) {
+				return;
+			}
+			for (const definition of args) {
+				try {
+					(definition.window || window).CSS.registerProperty(definition);
+				} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+			}
+		},
+		setProps(...tasks) {
+			setPropsTask.push(...tasks);
+			return setPropsTask.length ? applySetProps() : Promise.resolve();
+		},
+		addModule: async function(func, options = {}) {
+			if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
+				return;
+			}
+			this.set.add(func);
+			const src =
+			`(${func.toString()})(
+				this,
+				registerPaint,
+				${JSON.stringify(options.config || {}, null, 2)}
+				);`;
+			const blob = new Blob([src], {type: 'text/javascript'});
+			const url = URL.createObjectURL(blob);
+			await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
+			return true;
+		}.bind({set: new WeakSet}),
+		number:  value => CSS.number  ? CSS.number(value) : value,
+		s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
+		ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
+		pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
+		px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
+		percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
+		vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
+		vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
+	};
+	return css;
+})();
 const cssUtil = css;
 Object.assign(util, css);
 const textUtil = {
@@ -3390,11 +3507,11 @@ class BaseViewComponent extends Emitter {
 	}
 	_initDom(params) {
 		const {parentNode, name, template, css: style, shadow} = params;
-		let tplId = `${PRODUCT}${name}Template`;
+		const tplId = `${PRODUCT}${name}Template`;
 		let tpl = BaseViewComponent[tplId];
 		if (!tpl) {
 			if (style) {
-				css.addStyle(style, `${name}Style`);
+				cssUtil.addStyle(style, `${name}Style`);
 			}
 			tpl = document.createElement('template');
 			tpl.innerHTML = template;
@@ -3414,7 +3531,7 @@ class BaseViewComponent extends Emitter {
 		}
 	}
 	_attachShadow({host, shadow, name, mode = 'open'}) {
-		let tplId = `${PRODUCT}${name}Shadow`;
+		const tplId = `${PRODUCT}${name}Shadow`;
 		let tpl = BaseViewComponent[tplId];
 		if (!tpl) {
 			tpl = document.createElement('template');
@@ -3437,7 +3554,7 @@ class BaseViewComponent extends Emitter {
 		const node = document.importNode(tpl.content, true);
 		const style = node.querySelector('style');
 		style.remove();
-		css.addStyle(style.innerHTML, `${name}Shadow`);
+		cssUtil.addStyle(style.innerHTML, `${name}Shadow`);
 		host.append(node);
 		this._shadow = this._shadowRoot = host.querySelector('.root');
 		this._isDummyShadow = true;
@@ -3487,18 +3604,24 @@ class BaseViewComponent extends Emitter {
 		));
 	}
 	toggleClass(className, v) {
-		(className || '').split(/\s+/).forEach(c => {
-			this._view.classList.toggle(c, v);
-			if (this._shadow) {
-				this._shadow.classList.toggle(c, this._view.classList.contains(c));
+		const vc = ClassList(this._view);
+		const sc = this._shadow ? ClassList(this._shadow) : null;
+		(className || '').trim().split(/\s+/).forEach(c => {
+			vc.toggle(c, v);
+			if (sc) {
+				sc.toggle(c, vc.contains(c));
 			}
 		});
 	}
 	addClass(name) {
-		this.toggleClass(name, true);
+		const names = name.trim().split(/[\s]+/);
+		ClassList(this._view).add(...names);
+		this._shadow && ClassList(this._shadow).add(...names);
 	}
 	removeClass(name) {
-		this.toggleClass(name, false);
+		const names = name.trim().split(/[\s]+/);
+		ClassList(this._view).remove(...names);
+		this._shadow && ClassList(this._shadow).remove(...names);
 	}
 }
 class StyleSwitcher {
@@ -3989,6 +4112,14 @@ const initCssProps = () => {
 	document.documentElement.style.setProperty('--inner-height', global.innerHeight);
 };
 initCssProps();
+WindowResizeObserver.subscribe(({width, height}) => {
+  global.innerWidth  = width;
+  global.innerHeight = height;
+  cssUtil.setProps(
+    [document.documentElement, '--inner-width', width],
+    [document.documentElement, '--inner-height', height]
+  );
+});
 class BaseCommandElement extends HTMLElement {
 	static toAttributeName(camel) {
 		return 'data-' + camel.replace(/([A-Z])/g, s =>  '-' + s.toLowerCase());
@@ -7169,7 +7300,155 @@ class TagEditApi {
 	}
 }
 Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
-// global.api.StoryboardCacheDb = StoryboardCacheDb;
+/*
+* アニメーション基準用の時間ゲッターとしてはperformance.now()よりWeb Animations APIのほうが優れている。
+* ところでFirefoxはperformance.now()の精度を2msに落としてるのにWAAPIでマイクロ秒が取れちゃうけどいいの？
+*/
+class MediaTimeline {
+	constructor(options = {}) {
+		this.buffer = new (self.SharedArrayBuffer || ArrayBuffer)(Float32Array.BYTES_PER_ELEMENT * 100);
+		this.fview = new Float32Array(this.buffer);
+		this.iview = new Int32Array(this.buffer);
+		const span = document.createElement('span');
+		this.anime = span.animate ?
+			span.animate([], {duration: 3 * 24 * 60 * 60 * 1000}) :
+			{currentTime: 0, playbackRate: 1, paused: true};
+		this.isWAAvailable = !!span.animate;
+		this.interval = options.interval || 200;
+		this.onTimer = this.onTimer.bind(this);
+		this.onRaf = this.onRaf.bind(this);
+		this.eventMap = this.initEventMap();
+		if (options.media) {
+			this.attach(options.media);
+		}
+	}
+	initEventMap() {
+		const map = {
+			'pause': e => {
+				this.paused = true;
+				this.currentTime = this.media.currentTime;
+			},
+			'play': e => {
+				this.currentTime = this.media.currentTime;
+				this.paused = false;
+			},
+			'seeked': e => {
+				this.currentTime = this.media.currentTime;
+			},
+			'ratechange': e => {
+				this.playbackRate = this.media.playbackRate;
+				this.currentTime = this.media.currentTime;
+			}
+		};
+		return objUtil.toMap(map);
+	}
+	attach(media) {
+		if (this.media) {
+			this.detach();
+		}
+		this.media = media;
+		this.currentTime  = media.currentTime;
+		this.playbackRate = media.playbackRate;
+		this.duration     = media.duration;
+		this.paused       = media.paused;
+		this.timer = setInterval(this.onTimer, this.interval);
+		for (const [eventName, handler] of this.eventMap) {
+			media.addEventListener(eventName, handler, {passive: true});
+		}
+	}
+	detach() {
+		const media = this.media;
+		for (const [eventName, handler] of this.eventMap) {
+			media.removeEventListener(eventName, handler);
+		}
+		this.media = null;
+		clearInterval(this.timer);
+	}
+	onTimer() {
+		const media = this.media;
+		const diff = Math.abs(media.currentTime - this.anime.currentTime / 1000);
+		if (!this.isWAAvailable || diff >= this.interval || media.paused !== this.paused) {
+			this.currentTime  = media.currentTime;
+			this.playbackRate = media.playbackRate;
+			this.paused       = media.paused;
+		}
+	}
+	onRaf() {
+		this.currentTime = Math.min(this.anime.currentTime / 1000, this.media.duration);
+		this.timestamp = Math.round(performance.now() * 1000);
+		!this.media.paused && (this.raf = requestAnimationFrame(this.onRaf));
+	}
+	get timestamp() {
+		try {
+			return Atomics.load(this.iview, MediaTimeline.MAP.timestamp);
+		} catch(e) {
+			return this.iview[MediaTimeline.MAP.timestamp];
+		}
+	}
+	set timestamp(v) {
+		try {
+			Atomics.store(this.iview, MediaTimeline.MAP.timestamp, v);
+			Atomics.wake(this.iview, MediaTimeline.MAP.timestamp);
+		} catch(e) {
+			this.iview[MediaTimeline.MAP.timestamp] = v;
+		}
+	}
+	get currentTime() {
+		return this.fview[MediaTimeline.MAP.currentTime];
+	}
+	set currentTime(v) {
+		v = isNaN(v) ? 0 : v;
+		this.fview[MediaTimeline.MAP.currentTime] = v;
+		this.anime.currentTime = v * 1000;
+	}
+	get duration() {
+		return this.fview[MediaTimeline.MAP.duration];
+	}
+	set duration(v) {
+		this.fview[MediaTimeline.MAP.duration] = v;
+	}
+	get playbackRate() {
+		return this.fview[MediaTimeline.MAP.playbackRate];
+	}
+	set playbackRate(v) {
+		this.fview[MediaTimeline.MAP.playbackRate] = v;
+		(this.anime.playbackRate !== v) && (this.anime.playbackRate = v);
+	}
+	get paused() {
+		return this.iview[MediaTimeline.MAP.paused] !== 0;
+	}
+	set paused(v) {
+		this.iview[MediaTimeline.MAP.paused] = v ? 1 : 0;
+		if (!this.isWAAvailable) { return; }
+		if (v) {
+			this.anime.pause();
+			cancelAnimationFrame(this.raf);
+			this.timestamp = 0;
+		} else {
+			this.anime.play();
+			requestAnimationFrame(this.onRaf);
+		}
+	}
+}
+MediaTimeline.MAP = {
+	currentTime: 0,
+	duration: 1,
+	playbackRate: 2,
+	paused: 3,
+	timestamp: 10
+};
+MediaTimeline.isSharable = ('SharedArrayBuffer' in window) && ('timeline' in document);
+MediaTimeline.register = function(name = 'main', media = null) {
+	if (!this.map.has(name)) {
+		const mt = new MediaTimeline({media});
+		this.map.set(name, mt);
+		return mt;
+	}
+	const mt = this.map.get(name);
+	media && mt.attach(media);
+	return mt;
+}.bind({map: new Map()});
+MediaTimeline.get = name => MediaTimeline.register(name);
 WatchInfoCacheDb.api(NicoVideoApi);
 StoryboardCacheDb.api(NicoVideoApi);
 
@@ -7798,7 +8077,7 @@ const {YouTubeWrapper} = (() => {
 		pause() {
 			this._player.pauseVideo();
 		}
-		get isPaused() {
+		get paused() {
 			return window.YT ?
 				this.playerState !== window.YT.PlayerState.PLAYING : true;
 		}
@@ -8176,7 +8455,7 @@ class NicoVideoPlayer extends Emitter {
 	get isPlaying() {
 		return !!this._isPlaying;
 	}
-	get isPaused() {
+	get paused() {
 		return this._videoPlayer.paused;
 	}
 	get isSeeking() {
@@ -8605,6 +8884,7 @@ class VideoPlayer extends Emitter {
 	constructor(params) {
 		super();
 		this._initialize(params);
+		global.debug.timeline = MediaTimeline.register('main', this);
 	}
 	_initialize(params) {
 		this._id = 'video' + Math.floor(Math.random() * 100000);
@@ -8617,15 +8897,15 @@ class VideoPlayer extends Emitter {
 		this._canPlay = false;
 	}
 	addClass(className) {
-		this._body.classList.add(...className.split(/\s/));
+		this.classList.add(...className.split(/\s/));
 	}
 	removeClass(className) {
-		this._body.classList.remove(...className.split(/\s/));
+		this.classList.remove(...className.split(/\s/));
 	}
 	toggleClass(className, v) {
-		const body = this._body;
+		const classList = this.classList;
 		className.split(/[ ]+/).forEach(name => {
-			body.classList.toggle(name, v);
+			classList.toggle(name, v);
 		});
 	}
 	_resetVideo(params) {
@@ -8658,6 +8938,7 @@ class VideoPlayer extends Emitter {
 			.attr(options);
 		body.id = 'ZenzaWatchVideoPlayerContainer';
 		this._body = body;
+		this.classList = ClassList(body);
 		body.append(video);
 		video.pause();
 		this._video = video;
@@ -8883,7 +9164,7 @@ class VideoPlayer extends Emitter {
 	get isPlaying() {
 		return !!this._isPlaying && !!this._canPlay;
 	}
-	get isPaused() {
+	get paused() {
 		return this._video.paused;
 	}
 	set thumbnail(url) {
@@ -9404,7 +9685,7 @@ class StoryboardView extends Emitter {
 		console.log('%c initialize StoryboardView', 'background: lightgreen;');
 		this._container = params.container;
 		const sb = this._model = params.model;
-		this.isHover = false;
+		this._isHover = false;
 		this._currentUrl = '';
 		this._lastPage = -1;
 		this._lastMs = -1;
@@ -9418,6 +9699,21 @@ class StoryboardView extends Emitter {
 		);
 		global.emitter.on('DialogPlayerClose', () => frame.disable());
 	}
+	get isHover() {
+		return this._isHover;
+	}
+	set isHover(v) {
+		this._isHover = v;
+		this.updateAnimation();
+	}
+	updateAnimation() {
+		if (!this.canvas || !MediaTimeline.isSharable) { return; }
+		if (this._isHover) {
+			this.canvas.stopAnimation();
+		} else if (!this._isHover && this._isEnable) {
+			this.canvas.startAnimation();
+		}
+	}
 	enable() {
 		this._isEnable = true;
 		if (this._view && this._model.isAvailable) {
@@ -9428,19 +9724,21 @@ class StoryboardView extends Emitter {
 		if (!this._view) {
 			return;
 		}
-		this._view.classList.add('is-open');
-		this._body.classList.add('zenzaStoryboardOpen');
-		this._container.classList.add('zenzaStoryboardOpen');
+		ClassList(this._view).add('is-open');
+		ClassList(this._body).add('zenzaStoryboardOpen');
+		ClassList(this._container).add('zenzaStoryboardOpen');
 		this._requestAnimationFrame.enable();
+		this.updateAnimation();
 	}
 	close() {
 		if (!this._view) {
 			return;
 		}
-		this._view.classList.remove('is-open');
-		this._body.classList.remove('zenzaStoryboardOpen');
-		this._container.classList.remove('zenzaStoryboardOpen');
+		ClassList(this._view).remove('is-open');
+		ClassList(this._body).remove('zenzaStoryboardOpen');
+		ClassList(this._container).remove('zenzaStoryboardOpen');
 		this._requestAnimationFrame.disable();
+		this.updateAnimation();
 	}
 	disable() {
 		this._isEnable = false;
@@ -9463,7 +9761,7 @@ class StoryboardView extends Emitter {
 		if (this._body) { return; }
 		window.console.log('%cStoryboardView.initializeStoryboard', 'background: lightgreen;');
 		this._body = document.body;
-		css.addStyle(StoryboardView.__css__);
+		cssUtil.addStyle(StoryboardView.__css__);
 		const view = this._view = uq.html(StoryboardView.__tpl__)[0];
 		const inner = this._inner = view.querySelector('.storyboardInner');
 		this._bone = view.querySelector('.storyboardInner-bone');
@@ -9471,7 +9769,7 @@ class StoryboardView extends Emitter {
 		this._cursorTime = view.querySelector('.cursorTime');
 		this._pointer = view.querySelector('.storyboardPointer');
 		this._inner = inner;
-		TextLabel.create({
+		this.cursorTimeLabel = TextLabel.create({
 			container: this._cursorTime,
 			name: 'cursorTimeLabel',
 			text: '00:00',
@@ -9483,7 +9781,7 @@ class StoryboardView extends Emitter {
 				fontSizePx: 13.3,
 				color: '#000'
 			}
-		}).then(label => this.cursorTimeLabel = label);
+		});
 		uq(inner)
 			.on('click', this._onBoardClick.bind(this))
 			.on('mousemove', this._onBoardMouseMove.bind(this))
@@ -9515,7 +9813,7 @@ class StoryboardView extends Emitter {
 		const duration = model.duration;
 		const sec = x / totalWidth * duration;
 		const view = this._view;
-		this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(-1000));
+		cssUtil.setProps([this._cursorTime, '--trans-x-pp', cssUtil.px(-1000)]);
 		domEvent.dispatchCommand(view, 'seekTo', sec);
 	}
 	_onBoardMouseMove(e) {
@@ -9528,7 +9826,7 @@ class StoryboardView extends Emitter {
 		if (this.cursorTimeLabel && this.cursorTimeLabel.text !== time) {
 			this.cursorTimeLabel.text = time;
 		}
-		this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(e.x));
+		cssUtil.setProps([this._cursorTime, '--trans-x-pp', cssUtil.px(e.x)]);
 		this.isHover = true;
 		this._isMouseMoving = true;
 	}
@@ -9577,7 +9875,7 @@ class StoryboardView extends Emitter {
 		this._scrollLeft = 0;
 		this._initializeStoryboard(this._model);
 		this.close();
-		this._view.classList.remove('is-success', 'is-fail');
+		ClassList(this._view).remove('is-success', 'is-fail');
 		if (this._model.status === 'ok') {
 			this._updateSuccess();
 		} else {
@@ -9598,50 +9896,58 @@ class StoryboardView extends Emitter {
 			if (Math.abs(this._scrollLeft - left) < 1) {
 				return;
 			}
-			this.isEnable && this.canvas && (this.canvas.scrollLeft = left);
+			this.isEnable && this.canvas && !this.canvas.isAnimating && (this.canvas.scrollLeft = left);
 			this._scrollLeft = left;
 			this._scrollLeftChanged = true;
 		}
 	}
 	_updateSuccess() {
 		const view = this._view;
-		view.classList.add('is-success');
+		const cl = ClassList(view);
+		cl.add('is-success');
 		window.console.time('createStoryboardDOM');
 		this._updateSuccessDom();
 		window.console.timeEnd('createStoryboardDOM');
 		if (this._isEnable) {
-			view.classList.add('opening', 'is-open');
+			cl.add('opening', 'is-open');
 			this.scrollLeft(0);
 			this.open();
-			window.setTimeout(() => view.classList.remove('opening'), 1000);
+			window.setTimeout(() => cl.remove('opening'), 1000);
 		}
 	}
 	_updateSuccessDom() {
 		const model = this._model;
 		const infoRawData = model.rawData;
 		if (!this.canvas) {
-			StoryboardWorker.createBoard({
+			this.canvas = StoryboardWorker.createBoard({
 				container: this._view.querySelector('.storyboardCanvasContainer'),
 				canvas: this._view.querySelector('.storyboardCanvas'),
 				info: infoRawData,
 				name: 'StoryboardCanvasView'
-			}).then(v => {
-				this.canvas = v;
-				this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
 			});
+			this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
+			if (MediaTimeline.isSharable) {
+				const mt = MediaTimeline.get('main');
+				this.canvas.currentTime = mt.currentTime;
+				this.canvas.sharedMemory({buffer: mt.buffer, MAP: MediaTimeline.MAP});
+				this.canvas.startAnimation();
+			}
 		} else {
 			this.canvas.setInfo(infoRawData);
 			this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
 		}
-		this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
-		this._bone.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
-		this._inner.style.height = cssUtil.px(model.cellHeight + 8);
-		this._pointer.style.setProperty('--width-pp', cssUtil.px(model.cellWidth));
-		this._pointer.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
+		cssUtil.setProps(
+			[this._bone,    '--width-pp',  cssUtil.px(model.cellCount * model.cellWidth)],
+			[this._bone,    '--height-pp', cssUtil.px(model.cellHeight)],
+			[this._pointer, '--width-pp',  cssUtil.px(model.cellWidth)],
+			[this._pointer, '--height-pp', cssUtil.px(model.cellHeight)],
+			[this._inner,   '--height-pp', cssUtil.px(model.cellHeight + 8)]
+		);
 	}
 	_updateFail() {
-		this._view.classList.remove('is-uccess');
-		this._view.classList.add('is-fail');
+		const cl = ClassList(this._view);
+		cl.remove('is-uccess');
+		cl.add('is-fail');
 	}
 	clear() {
 	}
@@ -9655,7 +9961,8 @@ class StoryboardView extends Emitter {
 			this._pointerLeftChanged = true;
 		}
 		if (this._pointerLeftChanged) {
-			this._pointer.style.setProperty('--trans-x-pp', cssUtil.px(this._pointerLeft - this._scrollLeft));
+			cssUtil.setProps([this._pointer, '--trans-x-pp',
+				cssUtil.px(this._pointerLeft - this._scrollLeft)]);
 			this._pointerLeftChanged = false;
 		}
 	}
@@ -9671,20 +9978,19 @@ class StoryboardView extends Emitter {
 		const ms = sec * 1000;
 		const duration = Math.max(1, model.duration);
 		const per = ms / (duration * 1000);
-		const width = model.cellWidth;
-		const totalWidth = model.cellCount * width;
-		const targetLeft = totalWidth * per;
+		const totalWidth = model.cellCount * model.cellWidth;
+		const targetLeft = Math.min(Math.max(0, totalWidth * per), totalWidth - global.innerWidth);
 		if (this._pointerLeft !== targetLeft) {
 			this._pointerLeft = targetLeft;
 			this._pointerLeftChanged = true;
 		}
 		if (forceUpdate) {
-			this.scrollLeft(targetLeft - global.innerWidth * per, true);
+			this.scrollLeft(Math.max(0, targetLeft - global.innerWidth * per), true);
 		} else {
 			if (this.isHover) {
 				return;
 			}
-			this.scrollLeft(targetLeft - global.innerWidth * per);
+			this.scrollLeft(Math.max(0, targetLeft - global.innerWidth * per));
 		}
 	}
 	get currentTime() {
@@ -9703,13 +10009,13 @@ class StoryboardView extends Emitter {
 			return;
 		}
 		this.close();
-		this._view.classList.remove('is-open', 'is-fail');
+		ClassList(this._view).remove('is-open', 'is-fail');
 	}
 }
 StoryboardView.__tpl__ = `
 	<div id="storyboardContainer" class="storyboardContainer">
 		<div class="cursorTime"></div>
-		<div class="storyboardCanvasContainer"><canvas class="storyboardCanvas" height="90"></canvas></div>
+		<div class="storyboardCanvasContainer"><canvas class="storyboardCanvas is-loading" height="90"></canvas></div>
 		<div class="storyboardPointer"></div>
 		<div class="storyboardInner"><div class="storyboardInner-bone"></div></div>
 		<div class="failMessage"></div>
@@ -9725,8 +10031,8 @@ StoryboardView.__css__ = (`
 		right: 0;
 		width: 100vw;
 		box-sizing: border-box;
-		border-top: 2px solid #ccc;
-		background: #222;
+		/*border-top: 2px solid #ccc;
+		background: rgba(32, 32, 32, 0.3);*/
 		z-index: 9005;
 		overflow: hidden;
 		pointer-events: none;
@@ -9776,17 +10082,24 @@ StoryboardView.__css__ = (`
 	.storyboardCanvas {
 		width: 100%;
 		height: 100%;
+		opacity: 1;
+		transition: opacity 0.5s ease 0.5s;
+	}
+	.storyboardCanvas.is-loading {
+		opacity: 0;
+		transition: none;
 	}
 	.storyboardContainer .storyboardInner {
+		--height-pp: 98px;
+		height: var(--height-pp);
 		display: none;
 		overflow: hidden;
-		background: rgba(32, 32, 32, 0.5);
+		/*background: rgba(32, 32, 32, 0.5);*/
 		margin: 0;
 		contain: strict;
 		width: 100vw;
 		will-change: transform;
 		overscroll-behavior: contain;
-		padding-bottom: 8px;
 	}
 	.storyboardContainer.is-success .storyboardInner {
 		display: block;
@@ -9860,35 +10173,33 @@ class SeekBarThumbnail {
 		this.hide();
 	}
 	get isVisible() {
-		return this._view ? this._view.classList.contains('is-visible') : false;
+		return this._view ? this.classList.contains('is-visible') : false;
 	}
 	show() {
 		if (!this._view) {
 			return;
 		}
-		this._view.classList.add('is-visible');
+		this.classList.add('is-visible');
 	}
 	hide() {
 		if (!this._view) {
 			return;
 		}
-		this._view.classList.remove('is-visible');
+		this.classList.remove('is-visible');
 	}
 	initializeView(model) {
 		this.initializeView = _.noop;
 		if (!SeekBarThumbnail.styleAdded) {
-			css.addStyle(SeekBarThumbnail.__css__);
+			cssUtil.addStyle(SeekBarThumbnail.__css__);
 			SeekBarThumbnail.styleAdded = true;
 		}
 		const view = this._view = uQuery.html(SeekBarThumbnail.__tpl__)[0];
-		StoryboardWorker.createThumbnail({
+		this.classList = ClassList(view);
+		this.thumbnail = StoryboardWorker.createThumbnail({
 			container: view.querySelector('.zenzaSeekThumbnail-image'),
 			canvas: view.querySelector('.zenzaSeekThumbnail-thumbnail'),
 			info: model.rawData,
 			name: 'StoryboardThumbnail'
-		}).then(thumbnail => {
-			this.thumbnail = thumbnail;
-			thumbnail.currentTime = this._currentTime;
 		});
 		if (this._container) {
 			this._container.append(view);
@@ -9942,14 +10253,6 @@ SeekBarThumbnail.__css__ = (`
 		margin: 0 auto 4px;
 		z-index: 100;
 	}
-	/*.zenzaSeekThumbnail-image {
-		background: none repeat scroll 0 0 #999;
-		border: 0;
-		margin: auto;
-		transform-origin: center top;
-		transition: background-position 0.1s steps(1, start) 0;
-		opacity: 0.8;
-	}*/
 `).trim();
 const StoryboardWorker = (() => {
 	const func = function(self) {
@@ -10147,14 +10450,22 @@ const StoryboardWorker = (() => {
 				this._info = null;
 				this.lastPos = {};
 				this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+				this.bitmapCtx = canvas.getContext('bitmaprenderer');
 				this.bufferCanvas = getCanvas(canvas.width, canvas.height);
 				this.bufferCtx = this.bufferCanvas.getContext('2d', {alpha: false, desynchronized: true});
 				this.images = ImageCacheMap;
 				this.totalWidth = 0;
 				this.isReady = false;
 				this.boards = [];
+				this.isAnimating = false;
+				this.raf = null;
 				this.cls();
-				info && this.setInfo(info);
+				this.onRequestAnimationFrame = this.onRequestAnimationFrame.bind(this);
+				if (info) {
+					this.isInitialized = this.setInfo(info);
+				} else {
+					this.isInitialized = Promise.resolve();
+				}
 			}
 			get info() { return this._info; }
 			set info(infoRawData) { this.setInfo(infoRawData); }
@@ -10165,6 +10476,7 @@ const StoryboardWorker = (() => {
 				if (!info.isAvailable) {
 					return this.cls();
 				}
+				console.time('BoardView setInfo');
 				const cols = info.cols;
 				const rows = info.rows;
 				const pageWidth  = info.pageWidth;
@@ -10205,12 +10517,23 @@ const StoryboardWorker = (() => {
 				this.height = info.cellHeight;
 				this._currentTime = -1;
 				this.cls();
+				console.timeEnd('BoardView setInfo');
 				this.isReady = true;
+				this.reDraw();
+			}
+			reDraw() {
+				const left = this._scrollLeft;
+				this._scrollLeft = -1;
+				this.scrollLeft = left;
 			}
 			get scrollLeft() {
 				return this._scrollLeft;
 			}
 			set scrollLeft(left) {
+				if (this._scrollLeft === left) {
+					return;
+				}
+				this._scrollLeft = left;
 				if (!this.info || !this.info.isAvailable || !this.isReady) {
 					return;
 				}
@@ -10223,7 +10546,7 @@ const StoryboardWorker = (() => {
 				const bctx = this.bufferCtx;
 				bctx.beginPath();
 				if (isOutrange) {
-					bctx.fillStyle = 'rgb(32, 32, 32)';
+					bctx.fillStyle = 'rgba(32, 32, 32, 0.3)';
 					bctx.fillRect(0, 0, width, height);
 				}
 				for (const board of this.boards) {
@@ -10239,17 +10562,19 @@ const StoryboardWorker = (() => {
 						);
 					}
 				}
-				const scrollBarLength = width / totalWidth * width;
+				const scrollBarLength = width * width / totalWidth;
 				if (scrollBarLength < width) {
-					const scrollBarLeft = left / totalWidth * width;
+					const scrollBarLeft = width * left / totalWidth;
 					bctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
 					bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
 				}
+				if (this.bufferCanvas.transferToImageBitmap && this.bitmapCtx && this.bitmapCtx.transferFromImageBitmap) {
+					const bitmap = this.bufferCanvas.transferToImageBitmap();
+					this.bitmapCtx.transferFromImageBitmap(bitmap);
+				} else {
 					this.ctx.beginPath();
-					this.ctx.drawImage(this.bufferCanvas,
-						0, 0, width, height,
-						0, 0, width, height
-					);
+					this.ctx.drawImage(this.bufferCanvas, 0, 0, width, height,0, 0, width, height);
+				}
 			}
 			cls() {
 				this.bufferCtx.clearRect(0, 0, this.width, this.height);
@@ -10270,15 +10595,82 @@ const StoryboardWorker = (() => {
 				this.canvas.height = height;
 				this.bufferCanvas.height = height;
 			}
-			async setCurrentTime(time) {
-				const r = time / Math.max(this.info.duration, 1);
-				const left = this.totalWidth * r - this.width / 2;
+			setCurrentTime(sec) {
+				const ms = sec * 1000;
+				const duration = Math.max(1, this.info.duration);
+				const per = ms / (duration * 1000);
+				const r = sec / duration;
+				const left = Math.min(Math.max(this.totalWidth * r - this.width * per, 0), this.totalWidth - this.width);
 				this.scrollLeft = left;
 			}
 			resize({width, height}) {
 				width && (this.width = width);
 				height && (this.height = height);
-				this.cls();
+				if (this.isReady) {
+					this.reDraw();
+				} else {
+					this.cls();
+				}
+			}
+			sharedMemory({buffer, MAP}) {
+				const view = new Float32Array(buffer);
+				const iview = new Int32Array(buffer);
+				this.buffer = {
+					get currentTime() {
+						return view[MAP.currentTime];
+					},
+					get timestamp() {
+						return iview[MAP.timestamp];
+					},
+					wait() {
+						const tm = Atomics.load(iview, MAP.timestamp);
+						Atomics.wait(iview, MAP.timestamp, tm, 3000);
+						return Atomics.load(iview, MAP.timestamp);
+					},
+					get duration() {
+						return view[MAP.duration];
+					},
+					get playbackRate() {
+						return view[MAP.playbackRate];
+					},
+					get paused() {
+						return iview[MAP.paused] !== 0;
+					}
+				};
+			}
+			onRequestAnimationFrame() {
+				this.currentTime = this.buffer.currentTime;
+				this.isAnimating && (this.raf = requestAnimationFrame(this.onRequestAnimationFrame));
+			}
+			async execAnimation() { // SharedArrayBufferで遊びたかっただけ. 最適化の余地はありそう
+				this.isAnimating = true;
+				const buffer = this.buffer;
+				while (this.isAnimating) {
+					while (!this.isReady) {
+						await new Promise(res => setTimeout(res, 500));
+					}
+					while (this.isReady && this.isAnimating && !buffer.paused) {
+						buffer.wait();
+						this.currentTime = this.buffer.currentTime;
+						await new Promise(res => setTimeout(res, 8));
+					}
+					if (!this.isAnimating) { return; }
+					await new Promise(res => setTimeout(res, 1000));
+				}
+			}
+			startAnimation() {
+				if (!this.buffer || this.isAnimating) { return; }
+				this.currentTime = this.buffer.currentTime;
+				this.execAnimation();
+			}
+			stopAnimation() {
+				cancelAnimationFrame(this.raf);
+				this.isAnimating = false;
+			}
+			dispose() {
+				this.stopAnimation();
+				this.isReady = false;
+				this.boards.length = 0;
 			}
 		}
 		class ThumbnailView {
@@ -10291,13 +10683,23 @@ const StoryboardWorker = (() => {
 				this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
 				this.images = ImageCacheMap;
 				this.cls();
+				this.isInitialized = Promise.resolve();
+				this.isAnimating = false;
 			}
 			get info() { return this._info; }
 			set info(info) {
+				this.isReady = false;
 				this.info && this.info.imageUrls.forEach(url => this.images.release(url));
 				this._info.update(info);
 				this._currentTime = -1;
 				this.cls();
+				if (!info.isAvailable) {
+					return;
+				}
+				this.isReady = true;
+			}
+			async setInfo(info) {
+				this.info = info;
 			}
 			cls() {
 				this.ctx.clearRect(0, 0, this.width, this.height);
@@ -10343,20 +10745,40 @@ const StoryboardWorker = (() => {
 				this.info && this.info.imageUrls.forEach(url => this.images.release(url));
 				this.info = null;
 			}
+			sharedMemory() {}
+			async execAnimation() {
+				while (this.isAnimating) {
+					while (!this.isReady) {
+						await new Promise(res => setTimeout(res, 500));
+					}
+					await this.setCurrentTime((this.currentTime + this.info.interval / 1000) % this.info.duration);
+					if (!this.isAnimating) { return; }
+					await new Promise(res => setTimeout(res, 1000));
+				}
+			}
+			startAnimation() {
+				if (this.isAnimating) { return; }
+				this.isAnimating = true;
+				this.execAnimation();
+			}
+			stopAnimation() {
+				this.isAnimating = false;
+			}
 		}
 		const getId = function() {return `Storyboard-${this.id++}`;}.bind({id: 0});
-		const createView = ({canvas, info, name}, type = 'thumbnail') => {
+		const createView = async ({canvas, info, name}, type = 'thumbnail') => {
 			const id = getId();
 			const view = type === 'thumbnail' ?
 				new ThumbnailView({canvas, info, name}) :
 				new BoardView({canvas, info, name});
 			items[id] = view;
+			await view.isInitialized;
 			return {status: 'ok', id};
 		};
-		const info = ({id, info}) => {
+		const info = async ({id, info}) => {
 			const item = items[id];
 			if (!item) { throw new Error(`unknown id:${id}`); }
-			item.info = info;
+			await item.setInfo(info);
 			return {status: 'ok'};
 		};
 		const currentTime = ({id, currentTime}) => {
@@ -10390,6 +10812,24 @@ const StoryboardWorker = (() => {
 			delete items[id];
 			return {status: 'ok'};
 		};
+		const sharedMemory = ({id, buffer, MAP}) => {
+			const item = items[id];
+			if (!item) { throw new Error(`unknown id:${id}`); }
+			item.sharedMemory({buffer, MAP});
+			return {status: 'ok'};
+		};
+		const startAnimation = ({id, interval}) => {
+			const item = items[id];
+			if (!item) { throw new Error(`unknown id:${id}`); }
+			item.startAnimation();
+			return {status: 'ok'};
+		};
+		const stopAnimation = ({id, interval}) => {
+			const item = items[id];
+			if (!item) { throw new Error(`unknown id:${id}`); }
+			item.stopAnimation();
+			return {status: 'ok'};
+		};
 		self.onmessage = async ({command, params}) => {
 			switch (command) {
 				case 'createThumbnail':
@@ -10408,7 +10848,13 @@ const StoryboardWorker = (() => {
 					return cls(params);
 				case 'dispose':
 					return dispose(params);
-			}
+				case 'sharedMemory':
+					return sharedMemory(params);
+				case 'startAnimation':
+					return startAnimation(params);
+				case 'stopAnimation':
+					return stopAnimation(params);
+				}
 		};
 	};
 	const isOffscreenCanvasAvailable = !!HTMLCanvasElement.prototype.transferControlToOffscreen;
@@ -10430,7 +10876,7 @@ const StoryboardWorker = (() => {
 		}
 		return worker;
 	};
-	const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
+	const createView = ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
 		style = style || {};
 		ratio = ratio || window.devicePixelRatio || 1;
 		name = name || 'Storyboard';
@@ -10445,27 +10891,39 @@ const StoryboardWorker = (() => {
 			style.heightPx && (canvas.height = Math.max(style.heightPx));
 		}
 		canvas.dataset.name = name;
-		const worker = await initWorker();
+		canvas.classList.add('is-loading');
 		const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
-		const init = await worker.post(
-			{command:
-				type === 'thumbnail' ? 'createThumbnail' : 'createBoard',
-				params: {canvas: layer, info, style, name}},
-			{transfer: [layer]}
-		);
-		const id = init.id;
-		let currentTime = -1, scrollLeft = -1;
+		const promiseSetup = (async () => {
+			const worker = await initWorker();
+			const result = await worker.post(
+				{command:
+					type === 'thumbnail' ? 'createThumbnail' : 'createBoard',
+					params: {canvas: layer, info, style, name}},
+				{transfer: [layer]}
+			);
+			canvas.classList.remove('is-loading');
+			return result.id;
+		})();
+		let currentTime = -1, scrollLeft = -1, isAnimating = false;
+		const post = async ({command, params}, transfer = {}) => {
+			const id = await promiseSetup;
+			params = params || {};
+			params.id = id;
+			return worker.post({command, params}, transfer);
+		};
 		const result = {
 			container,
 			canvas,
 			setInfo(info) {
 				currentTime = -1;
 				scrollLeft = -1;
-				return worker.post({command: 'info', params: {id, info}});
+				canvas.classList.add('is-loading');
+				return post({command: 'info', params: {info}})
+					.then(() => canvas.classList.remove('is-loading'));
 			},
 			resize({width, height}) {
 				scrollLeft = -1;
-				return worker.post({command: 'resize', params: {id, width, height}});
+				return post({command: 'resize', params: {width, height}});
 			},
 			get scrollLeft() {
 				return scrollLeft;
@@ -10473,7 +10931,7 @@ const StoryboardWorker = (() => {
 			set scrollLeft(left) {
 				if (scrollLeft === left) { return; }
 				scrollLeft = left;
-				worker.post({command: 'scrollLeft', params: {id, scrollLeft}});
+				post({command: 'scrollLeft', params: {scrollLeft}});
 			},
 			get currentTime() {
 				return currentTime;
@@ -10481,10 +10939,24 @@ const StoryboardWorker = (() => {
 			set currentTime(time) {
 				if (currentTime === time) { return; }
 				currentTime = time;
-				worker.post({command: 'currentTime', params: {id, currentTime}});
+				post({command: 'currentTime', params: {currentTime}});
 			},
 			dispose() {
-				worker.post({command: 'dispose', params: {id}});
+				post({command: 'dispose', params: {}});
+			},
+			sharedMemory({MAP, buffer}) {
+				post({command: 'sharedMemory', params: {MAP, buffer}});
+			},
+			startAnimation() {
+				isAnimating = true;
+				post({command: 'startAnimation', params: {}});
+			},
+			stopAnimation() {
+				isAnimating = false;
+				post({command: 'stopAnimation', params: {}});
+			},
+			get isAnimating() {
+				return isAnimating;
 			}
 		};
 		return result;
@@ -10631,18 +11103,18 @@ class Storyboard extends Emitter {
 				fontSizePx: 12,
 				color: '#fff'
 			};
-			TextLabel.create({
+			this.currentTimeLabel = TextLabel.create({
 				container: $view.find('.currentTimeLabel')[0],
 				name: 'currentTimeLabel',
 				text: '00:00',
 				style: timeStyle
-			}).then(label => this.currentTimeLabel = label);
-			TextLabel.create({
+			});
+			this.durationLabel = TextLabel.create({
 				container: $view.find('.durationLabel')[0],
 				name: 'durationLabel',
 				text: '00:00',
 				style: timeStyle
-			}).then(label => this.durationLabel = label);
+			});
 			this._$seekBar
 				.on('mousedown', this._onSeekBarMouseDown.bind(this))
 				.on('mousemove', this._onSeekBarMouseMove.bind(this));
@@ -10651,7 +11123,7 @@ class Storyboard extends Emitter {
 				.on('command', this._onCommandEvent.bind(this));
 			HeatMapWorker.init({container: this._seekBar}).then(hm => this._heatMap = hm);
 			const updateHeatMapVisibility =
-				v => this._$seekBarContainer.toggleClass('noHeatMap', !v);
+				v => this._$seekBarContainer.raf.toggleClass('noHeatMap', !v);
 			updateHeatMapVisibility(this._playerConfig.props.enableHeatMap);
 			this._playerConfig.onkey('enableHeatMap', updateHeatMapVisibility);
 			global.emitter.on('heatMapUpdate', heatMap => {
@@ -10670,7 +11142,7 @@ class Storyboard extends Emitter {
 				$container: this._$seekBarContainer
 			});
 			const updateEnableCommentPreview = v => {
-				this._$seekBarContainer.toggleClass('enableCommentPreview', v);
+				this._$seekBarContainer.raf.toggleClass('enableCommentPreview', v);
 				this._commentPreview.mode = v ? 'list' : 'hover';
 			};
 			updateEnableCommentPreview(config.props.enableCommentPreview);
@@ -10712,11 +11184,11 @@ class Storyboard extends Emitter {
 			const updatePlaybackRate = rate => {
 				label.textContent = `x${rate}`;
 				$menu.find('.selected').removeClass('selected');
-				let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
+				const fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
 				$rates.forEach(item => {
-					let r = parseFloat(item.dataset.param, 10);
+					const r = parseFloat(item.dataset.param, 10);
 					if (fr === r) {
-						item.classList.add('selected');
+						ClassList(item).add('selected');
 					}
 				});
 				this._pointer.playbackRate = rate;
@@ -10748,11 +11220,11 @@ class Storyboard extends Emitter {
 				$select.find('.select-dmc-' + value).addClass('selected');
 			};
 			const onVideoServerType = (type, videoSessionInfo) => {
-				$button.removeClass('is-smile-playing is-dmc-playing')
-					.addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
+				$button.raf.removeClass('is-smile-playing is-dmc-playing')
+					.raf.addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
 				$select.find('.serverType').removeClass('selected');
 				$select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
-				$current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+				$current.raf.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
 			};
 			updateSmileVideoQuality(config.props.smileVideoQuality);
 			updateDmcVideoQuality(config.props.dmcVideoQuality);
@@ -10770,12 +11242,12 @@ class Storyboard extends Emitter {
 					window.console.log('start-seek-start');
 					this._isWheelSeeking = true;
 					this._wheelSeeker.currentTime = this._player.currentTime;
-					this._view.classList.add('is-wheelSeeking');
+					ClassList(this._view).add('is-wheelSeeking');
 					break;
 				case 'wheelSeek-end':
 					window.console.log('start-seek-end');
 					this._isWheelSeeking = false;
-					this._view.classList.remove('is-wheelSeeking');
+					ClassList(this._view).remove('is-wheelSeeking');
 					break;
 				case 'wheelSeek':
 					this._onWheelSeek(e.detail.param);
@@ -10873,8 +11345,8 @@ class Storyboard extends Emitter {
 			if (!this._isDragging) {
 				e.stopPropagation();
 			}
-			let left = e.offsetX;
-			let sec = this._posToTime(left);
+			const left = e.offsetX;
+			const sec = this._posToTime(left);
 			this._seekBarMouseX = left;
 			this._commentPreview.currentTime = sec;
 			this._commentPreview.update(left);
@@ -10895,12 +11367,12 @@ class Storyboard extends Emitter {
 		}
 		_beginMouseDrag() {
 			this._bindDragEvent();
-			this._$view.addClass('is-dragging');
+			ClassList(this._view).add('is-dragging');
 			this._isDragging = true;
 		}
 		_endMouseDrag() {
 			this._unbindDragEvent();
-			this._$view.removeClass('is-dragging');
+			ClassList(this._view).remove('is-dragging');
 			this._isDragging = false;
 		}
 		_onBodyMouseUp(e) {
@@ -10934,14 +11406,21 @@ class Storyboard extends Emitter {
 		}
 		_onLoadVideoInfo(videoInfo) {
 			this.duration = videoInfo.duration;
+			const [view] = this._$view;
 			if (!this._isFirstVideoInitialized) {
 				this._isFirstVideoInitialized = true;
 				const handler = (command, param) => this.emit('command', command, param);
 				global.emitter.emitAsync('videoControBar.addonMenuReady',
-					this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
+					view.querySelector('.controlItemContainer.left .scalingUI'), handler
 				);
 				global.emitter.emitAsync('seekBar.addonMenuReady',
-					this._$view[0].querySelector('.seekBar'), handler
+					view.querySelector('.seekBar'), handler
+				);
+				global.emitter.emitResolve('videoControBar.addonMenuReady',
+					{container: view.querySelector('.controlItemContainer.left .scalingUI'), handler}
+				);
+				global.emitter.emitResolve('seekBar.addonMenuReady',
+					{container: view.querySelector('.seekBar'), handler}
 				);
 			}
 			this._resumePointer.setAttribute('duration', videoInfo.duration);
@@ -10959,7 +11438,7 @@ class Storyboard extends Emitter {
 			const currentTimeText = util.secToTime(sec);
 			if (this._currentTimeText !== currentTimeText) {
 				this._currentTimeText = currentTimeText;
-				this.currentTimeLabel && (this.currentTimeLabel.text = currentTimeText);
+				this.currentTimeLabel.text = currentTimeText;
 			}
 			this._pointer.currentTime = sec;
 		}
@@ -10974,9 +11453,9 @@ class Storyboard extends Emitter {
 			this._wheelSeeker.duration = sec;
 			this._seekRange.max = sec;
 			if (sec === 0 || isNaN(sec)) {
-				this.durationLabel && (this.durationLabel.text = '--:--');
+				this.durationLabel.text = '--:--';
 			} else {
-				this.durationLabel && (this.durationLabel.text = util.secToTime(sec));
+				this.durationLabel.text = util.secToTime(sec);
 			}
 			this.emit('durationChange');
 		}
@@ -10995,8 +11474,10 @@ class Storyboard extends Emitter {
 								this._bufferEnd   !== end) {
 							const perLeft = (this._timeToPer(start) - 1);
 							const scaleX = (this._timeToPer(width) + 2) / 100;
-							bufferRange.style.setProperty('--buffer-range-left', cssUtil.percent(perLeft));
-							bufferRange.style.setProperty('--buffer-range-scale', scaleX);
+							cssUtil.setProps(
+								[bufferRange, '--buffer-range-left', cssUtil.percent(perLeft)],
+								[bufferRange, '--buffer-range-scale', scaleX]
+							);
 							this._bufferStart = start;
 							this._bufferEnd   = end;
 						}
@@ -11008,7 +11489,7 @@ class Storyboard extends Emitter {
 		resetBufferedRange() {
 			this._bufferStart = 0;
 			this._bufferEnd = 0;
-			this._bufferRange.style.setProperty('--buffer-range-scale', 0);
+			cssUtil.setProps([this._bufferRange, '--buffer-range-scale', 0]);
 		}
 		_hideMenu() {
 			document.body.focus();
@@ -12514,10 +12995,11 @@ const HeatMap = HeatMapInitFunc({
 		}
 		applyView() {
 			const view = this._view;
-			const vs = view.style;
-			vs.setProperty('--current-time', cssUtil.s(this._currentTime));
-			vs.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
-			vs.setProperty('--trans-x-pp', cssUtil.px(this._left));
+			cssUtil.setProps(
+				[view, '--current-time', cssUtil.s(this._currentTime)],
+				[view, '--scroll-top', cssUtil.px(this._scrollTop)],
+				[view, '--trans-x-pp', cssUtil.px(this._left)]
+			);
 			if (this._newListElements && this._newListElements.childElementCount) {
 				this._list.append(this._newListElements);
 			}
@@ -12837,7 +13319,7 @@ util.addStyle(`
 			util.addStyle(SeekBarToolTip.__css__);
 			const $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
 			this._currentTime = $view.find('.currentTime')[0];
-			TextLabel.create({
+			this.currentTimeLabel = TextLabel.create({
 				container: this._currentTime,
 				name: 'currentTimeLabel',
 				text: '00:00',
@@ -12849,7 +13331,7 @@ util.addStyle(`
 					fontSizePx: 12,
 					color: '#ccc'
 				}
-			}).then(label => this.currentTimeLabel = label);
+			});
 			$view
 				.on('mousedown',this._onMouseDown.bind(this))
 				.on('click', e => { e.stopPropagation(); e.preventDefault(); });
@@ -12914,7 +13396,7 @@ util.addStyle(`
 			const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
 			const vw = this._innerWidth = this._innerWidth || window.innerWidth;
 			left = Math.max(0, Math.min(left - w / 2, vw - w));
-			this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
+			cssUtil.setProps([this._$view[0], '--trans-x-pp', cssUtil.px(left)]);
 			this._seekBarThumbnail.currentTime = sec;
 		}
 	}
@@ -12937,8 +13419,8 @@ util.addStyle(`
 			border: 1px solid #666;
 			border-radius: 8px;
 			padding: 8px 4px 0;
-			transform: translate3d(var(--trans-x-pp), 0, 10px);
-			transition: --trans-x-pp 0.1s, opacity 0.2s ease 0.5s;
+			will-change: transform;
+			transform: translate(var(--trans-x-pp), 0);
 			pointer-events: none;
 		}
 		.is-wheelSeeking .seekBarToolTip,
@@ -15874,8 +16356,8 @@ class NicoCommentCss3PlayerView extends Emitter {
 		this._lastCurrentTime = 0;
 		this._isShow = true;
 		this._aspectRatio = 9 / 16;
-		this._inViewTable = new Map();
-		this._inSlotTable = new Map();
+		this._inViewTable = new Set();
+		this._inSlotTable = new Set();
 		this._domTable = new Map();
 		this._playbackRate = params.playbackRate || 1.0;
 		this._isPaused = undefined;
@@ -15939,17 +16421,18 @@ class NicoCommentCss3PlayerView extends Emitter {
 			this.window = win;
 			this.document = doc;
 			this.fragment = doc.createDocumentFragment();
-			this._gcFragment = doc.createElement('div');
-			this._gcFragment.hidden = true;
+			this.subFragment = doc.createDocumentFragment();
+			this.removingElements = win.Array();
+			this.gcFragment = doc.createElement('div');
+			this.gcFragment.hidden = true;
 			this._optionStyle = doc.getElementById('optionCss');
 			this._style = doc.getElementById('nicoChatAnimationDefinition');
-			this._keyframesContainer = doc.getElementById('keyframesContainer');
 			const commentLayer = this.commentLayer = doc.getElementById('commentLayer');
 			const subLayer = this.subLayer = doc.createElement('div');
 			subLayer.className = 'subLayer';
 			commentLayer.append(subLayer);
-			doc.body.classList.toggle('debug', Config.props.debug);
-			Config.onkey('debug', v => doc.body.classList.toggle('debug', v));
+			ClassList(doc.body).toggle('debug', Config.props.debug);
+			Config.onkey('debug', v => ClassList(doc.body).toggle('debug', v));
 			NicoComment.offscreenLayer.get().then(layer => { this._optionStyle.innerHTML = layer.optionCss; });
 			global.emitter.on('updateOptionCss', newCss => {
 				this._optionStyle.innerHTML = newCss;
@@ -15980,9 +16463,10 @@ class NicoCommentCss3PlayerView extends Emitter {
 			}
 			const updateTextShadow = type => {
 				const types = ['shadow-type2', 'shadow-type3', 'shadow-stroke', 'shadow-dokaben'];
-				types.forEach(t => doc.body.classList.toggle(t, t === type));
+				const cl = ClassList(doc.body);
+				types.forEach(t => cl.toggle(t, t === type));
 			};
-			updateTextShadow(this._config.getValue('textShadowType'));
+			updateTextShadow(this._config.props.textShadowType);
 			this._config.onkey('textShadowType', _.debounce(updateTextShadow, 100));
 			window.console.timeEnd('initialize NicoCommentCss3PlayerView');
 		};
@@ -16010,7 +16494,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 		}
 	}
 	_getIframe () {
-		let reserved = document.getElementsByClassName('reservedFrame');
+		const reserved = document.getElementsByClassName('reservedFrame');
 		let iframe;
 		if (reserved && reserved.length > 0) {
 			iframe = reserved[0];
@@ -16064,7 +16548,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 		this.clear();
 	}
 	_onCurrentTime (sec) {
-		let REFRESH_THRESHOLD = 1;
+		const REFRESH_THRESHOLD = 1;
 		this._lastCurrentTime = this._currentTime;
 		this._currentTime = sec;
 		if (this._lastCurrentTime === this._currentTime) {
@@ -16083,13 +16567,13 @@ class NicoCommentCss3PlayerView extends Emitter {
 		if (!this.commentLayer) {
 			return;
 		}
-		this.commentLayer.classList.add(name);
+		ClassList(this.commentLayer).add(name);
 	}
 	_removeClass (name) {
 		if (!this.commentLayer) {
 			return;
 		}
-		this.commentLayer.classList.remove(name);
+		ClassList(this.commentLayer).remove(name);
 	}
 	_setStall (v) {
 		if (v) {
@@ -16115,9 +16599,9 @@ class NicoCommentCss3PlayerView extends Emitter {
 			this.commentLayer.textContent = '';
 			this.subLayer.textContent = '';
 			this.commentLayer.append(this.subLayer);
-			this._gcFragment.textContent = '';
-			this._keyframesContainer.textContent = '';
+			this.gcFragment.textContent = '';
 			this.fragment.textContent = '';
+			this.subFragment.textContent = '';
 		}
 		if (this._style) {
 			this._style.textContent = '';
@@ -16140,96 +16624,76 @@ class NicoCommentCss3PlayerView extends Emitter {
 			vm.getGroup(NicoChat.TYPE.BOTTOM).inViewMembers,
 			vm.getGroup(NicoChat.TYPE.TOP).inViewMembers
 		].flat();
-		const css = [], dom = [], subDom = [];
+		const dom = [], subDom = [], newView = [];
+		const inSlotTable = this._inSlotTable, inViewTable = this._inViewTable;
 		const ct = this._currentTime;
-		const newView = [];
 		for (let i = 0, len = inView.length; i < len; i++) {
 			const nicoChat = inView[i];
-			const domId = nicoChat.id;
-			if (this._inViewTable.has(domId)) {
+			if (inViewTable.has(nicoChat)) {
 				continue;
 			}
-			this._inViewTable.set(domId, nicoChat);
-			this._inSlotTable.set(domId, nicoChat);
+			inViewTable.add(nicoChat);
+			inSlotTable.add(nicoChat);
 			newView.push(nicoChat);
 		}
 		if (newView.length > 1) {
 			newView.sort(NicoChat.SORT_FUNCTION);
 		}
+		const doc = this.document, playbackRate = this._playbackRate;
+		const domTable = this._domTable;
 		for (let i = 0, len = newView.length; i < len; i++) {
 			const nicoChat = newView[i];
 			const type = nicoChat.type;
 			const size = nicoChat.size;
-			const cssText = NicoChatCss3View.buildChatCss(nicoChat, type, ct, this._playbackRate);
-			const element = NicoChatCss3View.buildChatDom(nicoChat, type, size, cssText, this.document);
-			this._domTable.set(nicoChat.id, element);
+			const cssText = NicoChatCss3View.buildChatCss(nicoChat, type, ct, playbackRate);
+			const element = NicoChatCss3View.buildChatDom(nicoChat, type, size, cssText, doc);
+			domTable.set(nicoChat, element);
 			(nicoChat.isSubThread ? subDom : dom).push(element);
 		}
-		if (newView.length > 0) {
-			const inSlotTable = this._inSlotTable, currentTime = this._currentTime;
-			const outViewIds = [];
-			const margin = 2 / NicoChatViewModel.SPEED_RATE;
-			for (const key of inSlotTable.keys()) {
-				const chat = inSlotTable.get(key);
-				if (currentTime - margin < chat.endRightTiming) {
-					continue;
-				}
-				inSlotTable.delete(key);
-				outViewIds.push(key);
-			}
-			this._updateDom(dom, subDom, css, outViewIds);
-		}
-	}
-	_updateDom(dom, subDom, css, outViewIds) {
-		const fragment = this.fragment;
-		if (dom.length) {
-			fragment.append(...dom);
-			this.commentLayer.append(fragment);
-		}
-		if (subDom.length) {
-			fragment.append(...subDom);
-			this.subLayer.append(fragment);
-		}
-		this._removeOutviewElements(outViewIds);
-		this._gcInviewElements();
-	}
-	/*
-	* アニメーションが終わっているはずの要素を除去
-	*/
-	_removeOutviewElements(outViewIds) {
-		if (!this.document || !outViewIds.length) {
+		if (!newView.length) {
 			return;
 		}
-		const dt = this._domTable;
-		const elements = [];
-		for (const id of outViewIds) {
-			const elm = dt.get(id);
-			elm && (elements.push(elm));
+		dom.length    && this.fragment.append(...dom);
+		subDom.length && this.subFragment.append(...subDom);
+		const currentTime = this._currentTime;
+		const margin = 2 / NicoChatViewModel.SPEED_RATE;
+		for (const nicoChat of inSlotTable) {
+			if (currentTime - margin < nicoChat.endRightTiming) {
+				continue;
+			}
+			const elm = domTable.get(nicoChat);
+			elm && this.removingElements.push(elm);
+			inSlotTable.delete(nicoChat);
 		}
-		if (elements.length < 1) { return; }
-		const fragment = this.fragment;
-		fragment.append(...elements);
-		this._gcFragment.append(fragment);
+		this._updateDom(dom, subDom);
+	}
+	_updateDom() {
+		this._gcInviewElements();
+		if (this.removingElements.length) {
+			this.gcFragment.append(...this.removingElements);
+			this.removingElements.length = 0;
+		}
+		if (this.fragment.firstElementChild) {
+			this.commentLayer.append(this.fragment);
+		}
+		if (this.subFragment.firstElementChild) {
+			this.subLayer.append(this.subFragment);
+		}
 	}
 	/*
 	* 古い順に要素を除去していく
 	*/
-	_gcInviewElements (/*outViewIds*/) {
+	_gcInviewElements () {
 		if (!this.commentLayer || !this._style) {
 			return;
 		}
 		const max = NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT;
 		const commentLayer = this.commentLayer;
-		let inViewElements;
-		const elements = [];
-		inViewElements = this.window.Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
+		const elements = this.removingElements;
+		const inViewElements = this.window.Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
 		for (let i = inViewElements.length - max - 1; i >= 0; i--) {
 			elements.push(inViewElements[i]);
 		}
-		if (elements.length < 1) { return; }
-		const fragment = this.fragment;
-		fragment.append(...elements);
-		this._gcFragment.append(fragment);
 	}
 	buildHtml (currentTime) {
 		window.console.time('buildHtml');
@@ -16254,19 +16718,19 @@ class NicoCommentCss3PlayerView extends Emitter {
 	_buildGroupHtml (m, currentTime = 0) {
 		const result = [];
 		for (let i = 0, len = m.length; i < len; i++) {
-			let chat = m[i];
-			let type = chat.type;
-			let cssText = NicoChatCss3View.buildChatCss(chat, type, currentTime);
-			let element = NicoChatCss3View.buildChatHtml(chat, type, cssText, this.document);
+			const chat = m[i];
+			const type = chat.type;
+			const cssText = NicoChatCss3View.buildChatCss(chat, type, currentTime);
+			const element = NicoChatCss3View.buildChatHtml(chat, type, cssText, this.document);
 			result.push(element);
 		}
 		return result.join('\n');
 	}
 	_buildGroupCss (m, currentTime) {
-		let result = [];
+		const result = [];
 		for (let i = 0, len = m.length; i < len; i++) {
-			let chat = m[i];
-			let type = chat.type;
+			const chat = m[i];
+			const type = chat.type;
 			result.push(NicoChatCss3View.buildChatCss(chat, type, currentTime));
 		}
 		return result.join('\n');
@@ -16276,7 +16740,6 @@ class NicoCommentCss3PlayerView extends Emitter {
 			this._isShow = true;
 			this.refresh();
 		}
-		console.log('show!');
 	}
 	hide () {
 		this.clear();
@@ -16369,7 +16832,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
 /* eslint-disable */
 NicoCommentCss3PlayerView.__TPL__ = ((Config) => {
-	let ownerShadowColor = Config.getValue('commentLayer.ownerCommentShadowColor');
+	let ownerShadowColor = Config.props['commentLayer.ownerCommentShadowColor'];
 	ownerShadowColor = ownerShadowColor.replace(/([^a-z^0-9^#])/ig, '');
 	let textShadowColor = '#000';
 	let textShadowColor2 = '#fff';
@@ -17548,6 +18011,7 @@ class CommentListModel extends Emitter {
 		this._currentSortKey = 'vpos';
 		this._isDesc = false;
 		this._currentTime = 0;
+		this._currentIndex = -1;
 	}
 	setItem(itemList) {
 		this._items = Array.isArray(itemList) ? itemList : [itemList];
@@ -17556,12 +18020,13 @@ class CommentListModel extends Emitter {
 		this._items = [];
 		this._positions = [];
 		this._currentTime = 0;
+		this._currentIndex = -1;
 		this.emit('update', [], true);
 	}
 	setChatList(chatList) {
 		chatList = chatList.top.concat(chatList.naka, chatList.bottom);
-		let items = [];
-		let positions = [];
+		const items = [];
+		const positions = [];
 		for (let i = 0, len = chatList.length; i < len; i++) {
 			items.push(new CommentListItem(chatList[i]));
 			positions.push(parseFloat(chatList[i].vpos, 10) / 100);
@@ -17569,28 +18034,28 @@ class CommentListModel extends Emitter {
 		this._items = items;
 		this._positions = positions.sort((a, b) => a - b);
 		this._currentTime = 0;
+		this._currentIndex = -1;
 		this.sort();
 		this.emit('update', this._items, true);
 	}
 	removeItemByIndex(index) {
-		let target = this._getItemByIndex(index);
+		const target = this._getItemByIndex(index);
 		if (!target) {
 			return;
 		}
-		this._items = _.reject(this._items, item => item === target);
+		this._items = this._items.filter(item => item !== target);
 	}
-	getLength() {
+	get length() {
 		return this._items.length;
 	}
 	_getItemByIndex(index) {
-		let item = this._items[index];
-		return item;
+		return this._items[index];
 	}
 	indexOf(item) {
 		return (this._items || []).indexOf(item);
 	}
 	getItemByIndex(index) {
-		let item = this._getItemByIndex(index);
+		const item = this._getItemByIndex(index);
 		if (!item) {
 			return null;
 		}
@@ -17601,9 +18066,9 @@ class CommentListModel extends Emitter {
 		return this._items.find(item => item.itemId === itemId);
 	}
 	removeItem(item) {
-		let beforeLen = this._items.length;
-		_.pull(this._items, item);
-		let afterLen = this._items.length;
+		const beforeLen = this._items.length;
+		this._items = this._items.filter(i => i !== item); //_.pull(this._items, item);
+		const afterLen = this._items.length;
 		if (beforeLen !== afterLen) {
 			this.emit('update', this._items);
 		}
@@ -17619,7 +18084,7 @@ class CommentListModel extends Emitter {
 			user: 'userId',
 			nicoru: 'nicoru'
 		};
-		let func = table[key];
+		const func = table[key];
 		if (!func) {
 			return;
 		}
@@ -17634,7 +18099,7 @@ class CommentListModel extends Emitter {
 	sort() {
 		this.sortBy(this._currentSortKey, this._isDesc);
 	}
-	getCurrentSortKey() {
+	get currentSortKey() {
 		return this._currentSortKey;
 	}
 	onUpdate(replaceAll = false) {
@@ -17646,9 +18111,11 @@ class CommentListModel extends Emitter {
 	set currentTime(sec) {
 		if (this._currentTime !== sec && typeof sec === 'number') {
 			this._currentTime = sec;
-			if (this._currentSortKey === 'vpos') {
-				this.emit('currentTimeUpdate', sec, this.getInViewIndex(sec));
+			const inviewIndex = this.getInViewIndex(sec);
+			if (this._currentSortKey === 'vpos' && this._currentIndex !== inviewIndex) {
+				this.emit('currentTimeUpdate', sec, inviewIndex);
 			}
+			this._currentIndex = inviewIndex;
 		}
 	}
 	get currentTime() {return this._currentTime;}
@@ -17660,10 +18127,12 @@ class CommentListView extends Emitter {
 		this._itemCss = CommentListItemView.CSS;
 		this._className = params.className || 'commentList';
 		this._retryGetIframeCount = 0;
-		this._cache = {};
 		this._maxItems = 100000;
 		this._inviewItemList = new Map;
 		this._scrollTop = 0;
+		this.newItems = [];
+		this.removedItems = [];
+		this._innerHeight = 100;
 		this._model = params.model;
 		if (this._model) {
 			this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
@@ -17684,9 +18153,10 @@ class CommentListView extends Emitter {
 		const doc = this._document = w.document;
 		this._window = w;
 		const body = this._body = doc.body;
+		const classList = this.classList = ClassList(body);
 		const $body = this._$body = uq(body);
 		if (this._className) {
-			body.classList.add(this._className);
+			classList.add(this._className);
 		}
 		this._container = doc.querySelector('#listContainer');
 		this._$container = uq(this._container);
@@ -17728,13 +18198,13 @@ class CommentListView extends Emitter {
 			{name: '--trans-y-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
 			{name: '--vpos-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w}
 		);
-		body.style.setProperty('--inner-height', this._innerHeight);
+		cssUtil.setProps([body,'--inner-height', this._innerHeight]);
 		this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 		global.debug.$commentList = uq(this._list);
 		global.debug.getCommentPanelItems = () =>
 			Array.from(doc.querySelectorAll('.commentListItem'));
 	}
-	_onModelUpdate(itemList, replaceAll) {
+	async _onModelUpdate(itemList, replaceAll) {
 		window.console.time('update commentlistView');
 		this.addClass('updating');
 		itemList = Array.isArray(itemList) ? itemList : [itemList];
@@ -17746,17 +18216,14 @@ class CommentListView extends Emitter {
 			new this._ItemView({item: item, index: i, height: CommentListView.ITEM_HEIGHT})
 		);
 		this._itemViews = itemViews;
-		window.setTimeout(() => {
-			if (!this._list) { return; }
-			this._list.textContent = '';
-			this._body.style.setProperty('--list-height',
-					Math.max(CommentListView.ITEM_HEIGHT * itemViews.length, this._innerHeight) + 100
-				);
-			this._inviewItemList.clear();
-			this._$menu.removeClass('show');
-			this._refreshInviewElements();
-			this.hideItemDetail();
-		}, 0);
+		await cssUtil.setProps([this._body, '--list-height',
+			Math.max(CommentListView.ITEM_HEIGHT * itemViews.length, this._innerHeight) + 100]);
+		if (!this._list) { return; }
+		this._list.textContent = '';
+		this._inviewItemList.clear();
+		this._$menu.removeClass('show');
+		this._refreshInviewElements();
+		this.hideItemDetail();
 		window.setTimeout(() => {
 			this.removeClass('updating');
 			this.emit('update');
@@ -17838,19 +18305,18 @@ class CommentListView extends Emitter {
 	}
 	_onWheel() {
 		this.isActive = true;
-		this._scrollTop = this._container.scrollTop;
-		this._body.style.setProperty('--scroll-top', this._scrollTop);
+		this.scrollTop();
 		this.addClass('is-active');
 	}
 	_onMouseOut() {
 		this.isActive = false;
-		this._scrollTop = this._container.scrollTop;
+		this.scrollTop();
 		this.removeClass('is-active');
 	}
 	_onResize() {
 		this._innerHeight = this._window.innerHeight;
-		this._scrollTop = this._container.scrollTop;
-		this._body.style.setProperty('--inner-height', this._innerHeight);
+		cssUtil.setProps([this._body, '--inner-height', this._innerHeight]);
+		this.scrollTop();
 		this._refreshInviewElements();
 	}
 	_onScroll() {
@@ -17861,14 +18327,12 @@ class CommentListView extends Emitter {
 		this._onScrollEnd();
 	}
 	_onScrolling() {
-		this._scrollTop = this._container.scrollTop;
-		this._body.style.setProperty('--scroll-top', this._scrollTop);
+		this.scrollTop();
 		this._refreshInviewElements();
 	}
 	_onScrollEnd() {
 		this.removeClass('is-scrolling');
-		this._scrollTop = this._container.scrollTop;
-		this._body.style.setProperty('--scroll-top', this._scrollTop);
+		this.scrollTop();
 	}
 	_refreshInviewElements() {
 		if (!this._list) {
@@ -17881,34 +18345,43 @@ class CommentListView extends Emitter {
 		const itemViews = this._itemViews;
 		const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
 		const endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
-		const newItems = [], inviewItemList = this._inviewItemList;
+		let changed = 0;
+		const newItems = this.newItems, inviewItemList = this._inviewItemList;
 		for (let i = startIndex; i < endIndex; i++) {
 			if (inviewItemList.has(i) || !itemViews[i]) {
 				continue;
 			}
-			newItems.push(itemViews[i]);
+			changed++;
+			newItems.push(itemViews[i].viewElement);
 			inviewItemList.set(i, itemViews[i]);
 		}
-		if (!newItems.length) {
-			return;
-		}
+		const removedItems = this.removedItems;
 		for (const i of inviewItemList.keys()) {
 			if (i >= startIndex && i <= endIndex) {
 				continue;
 			}
-			inviewItemList.get(i).remove();
+			changed++;
+			removedItems.push(inviewItemList.get(i));
 			inviewItemList.delete(i);
 		}
-		this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
+		if (changed < 1) {
+			return;
+		}
 		this._appendNewItems();
 	}
 	_appendNewItems() {
-		if (this._newItems) {
-			const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
-			f.append(...this._newItems.map(i => i.viewElement));
-			this._list.append(f);
+		if (this.removedItems.length) {
+			const f = this._gcFragment = this._gcFragment || document.createDocumentFragment();
+			f.append(...this.removedItems);
+			f.textContent = '';
+			this.removedItems.length = 0;
 		}
-		this._newItems = null;
+		if (this.newItems.length) {
+			const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
+			f.append(...this.newItems);
+			this._list.append(f);
+			this.newItems.length = 0;
+		}
 	}
 	_updatePerspective() {
 		const keys = Object.keys(this._inviewItemList);
@@ -17929,38 +18402,37 @@ class CommentListView extends Emitter {
 		this._list.style.transform = `translateZ(-${avr}px)`;
 	}
 	addClass(className) {
-		this.toggleClass(className, true);
+		this.classList.add(className);
 	}
 	removeClass(className) {
-		this.toggleClass(className, false);
+		this.classList.remove(className);
 	}
 	toggleClass(className, v) {
 		if (!this._body) {
 			return;
 		}
-		this._body.classList.toggle(className, v);
+		this.classList.toggle(className, v);
 	}
 	hasClass(className) {
-		return this._body.classList.contains(className);
+		return this.classList.contains(className);
 	}
 	find(query) {
 		return this._document.querySelectorAll(query);
 	}
 	scrollTop(v) {
 		if (!this._window) {
-			return 0;
+			return;
 		}
 		if (typeof v === 'number') {
-			this._scrollTop = v;
-			this._container.scrollTop = v;
-			this._scrollTop = this._container.scrollTop;
+			this._container.scrollTop = this._scrollTop = v;
 		} else {
 			this._scrollTop = this._container.scrollTop;
-			this._body.style.setProperty('--scroll-top', this._scrollTop);
-			return this._scrollTop;
+			cssUtil.setProps(
+				[this._body, '--scroll-top', this._scrollTop]
+			);
 		}
 	}
-	setCurrentPoint(sec, idx) {
+	setCurrentPoint(sec, idx, isAutoScroll) {
 		if (!this._window || !this._itemViews) {
 			return;
 		}
@@ -17973,13 +18445,13 @@ class CommentListView extends Emitter {
 		}
 		const itemHeight = CommentListView.ITEM_HEIGHT;
 		const top = Math.max(0, view.top - innerHeight + itemHeight);
-		this._body.style.setProperty('--time-scroll-top', top);
-		if (!this.isActive) {
+		cssUtil.setProps(
+			[this._body, '--time-scroll-top', top],
+			[this._body, '--current-time', css.s(sec)]
+		);
+		if (!this.isActive && isAutoScroll) {
 				this.scrollTop(top);
 		}
-		requestAnimationFrame(() => {
-			this._body.style.setProperty('--current-time', css.s(sec));
-		});
 	}
 	showItemDetail(item) {
 		const $d = this._$itemDetail;
@@ -18174,6 +18646,7 @@ CommentListView.__tpl__ = (`
 		margin: auto;
 		user-select: none;
 	}
+	.is-firefox .timeBar { display: none !important; }
 	.timeBar {
 		position: fixed;
 		visibility: hidden;
@@ -18181,8 +18654,9 @@ CommentListView.__tpl__ = (`
 		right: 0;
 		top: 1px;
 		width: 14px;
-		--height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
-		--trans-y-pp: calc( 1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height) - 2px);
+		--height-pp:  calc(1px * var(--inner-height) * var(--inner-height) / var(--list-height));
+		--trans-y-pp: calc(1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height));
+		min-height: 10px;
 		height: var(--height-pp);
 		max-height: 100vh;
 		transform: translateY(var(--trans-y-pp));
@@ -18655,17 +19129,17 @@ CommentListItem._itemId = 0;
 class CommentPanelView extends Emitter {
 	constructor(params) {
 		super();
-		this._$container = params.$container;
-		this._model = params.model;
-		this._commentPanel = params.commentPanel;
+		this.$container = params.$container;
+		this.model = params.model;
+		this.commentPanel = params.commentPanel;
 		css.addStyle(CommentPanelView.__css__);
-		let $view = this._$view = uq.html(CommentPanelView.__tpl__);
-		this._$container.append($view);
-		const $menu = this._$menu = this._$view.find('.commentPanel-menu');
+		const $view = this.$view = uq.html(CommentPanelView.__tpl__);
+		this.$container.append($view);
+		const $menu = this._$menu = this.$view.find('.commentPanel-menu');
 		global.debug.commentPanelView = this;
-		let listView = this._listView = new CommentListView({
-			container: this._$view.find('.commentPanel-frame')[0],
-			model: this._model,
+		const listView = this._listView = new CommentListView({
+			container: this.$view.find('.commentPanel-frame')[0],
+			model: this.model,
 			className: 'commentList',
 			builder: CommentListItemView,
 			itemCss: CommentListItemView.__css__
@@ -18675,27 +19149,26 @@ class CommentPanelView extends Emitter {
 			parentNode: document.querySelector('.timeMachineContainer')
 		});
 		this._timeMachineView.on('command', this._onCommand.bind(this));
-		this._commentPanel.on('threadInfo',
+		this.commentPanel.on('threadInfo',
 			_.debounce(this._onThreadInfo.bind(this), 100));
-		this._commentPanel.on('update',
+		this.commentPanel.on('update',
 			_.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
-		this._commentPanel.on('itemDetailResp',
+		this.commentPanel.on('itemDetailResp',
 			_.debounce(item => listView.showItemDetail(item), 100));
 		this._onCommentPanelStatusUpdate();
-		this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
-		this._$view.on('click', this._onCommentListCommandClick.bind(this));
+		this.model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
+		this.$view.on('click', this._onCommentListCommandClick.bind(this));
 		global.emitter.on('hideHover', () => $menu.removeClass('show'));
 	}
 	toggleClass(className, v) {
-		this._view.toggleClass(className, v);
-		this._$view.toggleClass(className, v);
+		this.$view.raf.toggleClass(className, v);
 	}
 	_onModelCurrentTimeUpdate(sec, viewIndex) {
-		if (!this._$view){ //} || !this._$view.is(':visible')) {
+		if (!this.$view){
 			return;
 		}
 		this._lastCurrentTime = sec;
-		this._listView.setCurrentPoint(sec, viewIndex);
+		this._listView.setCurrentPoint(sec, viewIndex, this.commentPanel.isAutoScroll);
 	}
 	_onCommand(command, param, itemId) {
 		switch (command) {
@@ -18716,10 +19189,10 @@ class CommentPanelView extends Emitter {
 		if (!command) {
 			return;
 		}
-		const $view = this._$view;
+		const $view = this.$view;
 		const setUpdating = () => {
 			document.activeElement.blur();
-			$view.addClass('updating');
+			$view.raf.addClass('updating');
 			window.setTimeout(() => $view.removeClass('updating'), 1000);
 		};
 		switch (command) {
@@ -18740,12 +19213,11 @@ class CommentPanelView extends Emitter {
 		this._timeMachineView.update(threadInfo);
 	}
 	_onCommentPanelStatusUpdate() {
-		const commentPanel = this._commentPanel;
-		const $view = this._$view
-			.toggleClass('autoScroll', commentPanel.isAutoScroll);
+		const commentPanel = this.commentPanel;
+		const $view = this.$view.raf.toggleClass('autoScroll', commentPanel.isAutoScroll);
 		const langClass = `lang-${commentPanel.getLanguage()}`;
 		if (!$view.hasClass(langClass)) {
-			$view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
+			$view.raf.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
 		}
 	}
 }
@@ -19033,7 +19505,7 @@ class CommentPanel extends Emitter {
 		}
 	}
 	set currentTime(sec) {
-		if (!this._view || !this._autoScroll || this._player.currentTab !== 'comment') {
+		if (!this._view || this._player.currentTab !== 'comment') {
 			return;
 		}
 		this._model.currentTime = sec;
@@ -19127,10 +19599,8 @@ class TimeMachineView extends BaseViewComponent {
 		this._updateTimestamp();
 	}
 	_padTime(time) {
-		let pad = v => {
-			return v.toString().padStart(2, '0');
-		};
-		let dt = new Date(time);
+		const pad = v => v.toString().padStart(2, '0');
+		const dt = new Date(time);
 		return {
 			yyyy: dt.getFullYear(),
 			mm: pad(dt.getMonth() + 1),
@@ -19141,11 +19611,11 @@ class TimeMachineView extends BaseViewComponent {
 		};
 	}
 	_toDate(time) {
-		let {yyyy, mm, dd, h, m} = this._padTime(time);
+		const {yyyy, mm, dd, h, m} = this._padTime(time);
 		return `${yyyy}/${mm}/${dd} ${h}:${m}`;
 	}
 	_toTDate(time) {
-		let {yyyy, mm, dd, h, m, s} = this._padTime(time);
+		const {yyyy, mm, dd, h, m, s} = this._padTime(time);
 		return `${yyyy}-${mm}-${dd}T${h}:${m}:${s}`;
 	}
 	_onSubmit() {
@@ -19819,6 +20289,7 @@ const VideoListItemView = (() => {
 		}
 		constructor(item) {
 			this.initialize(item);
+			this.toggleClass = bounce.raf(this.toggleClass.bind(this));
 		}
 		initialize(item) {
 			this._item = item.item;
@@ -19916,6 +20387,7 @@ class VideoListView extends Emitter {
 	constructor(...args) {
 		super();
 		this.initialize(...args);
+		this.toggleClass = bounce.raf(this.toggleClass.bind(this));
 	}
 	get hasFocus() {
 		return this._hasFocus;
@@ -19959,7 +20431,7 @@ class VideoListView extends Emitter {
 		cssUtil.registerProps(
 			{name: '--list-length',  syntax: '<integer>', initialValue: 1, inherits: true, window: w},
 			{name: '--active-index', syntax: '<integer>', initialValue: 1, inherits: true, window: w},
-			{name: '--progress', syntax: '<length-percentage>', initialValue: cssUtil.px(0), inherits: true, window: w},
+			{name: '--progress', syntax: '<length-percentage>', initialValue: cssUtil.percent(0), inherits: true, window: w},
 		);
 		const container = this._container = doc.querySelector('#listContainer');
 		const list = this._list = doc.getElementById('listContainerInner');
@@ -20235,13 +20707,15 @@ class VideoListView extends Emitter {
 	_updateCSSVars() {
 		if (this._document) {
 			const body = this._document.body;
-			body.style.setProperty('--list-length', cssUtil.number(this._model.length));
-			body.style.setProperty('--active-index', cssUtil.number(this._model.activeIndex));
+			cssUtil.setProps(
+				[body, '--list-length', cssUtil.number(this._model.length)],
+				[body, '--active-index', cssUtil.number(this._model.activeIndex)]
+			);
 		}
 	}
 	_onClick(e) {
 		e.stopPropagation();
-		ZenzaWatch.emitter.emitAsync('hideHover');
+		global.emitter.emitAsync('hideHover');
 		let target = e.target.closest('.command');
 		let item = e.target.closest('.videoItem');
 		if (!target) {
@@ -20378,7 +20852,7 @@ VideoListView.__tpl__ = (`
 		border-radius: 0;
 		bottom: auto;
 		right: 0;
-		transform: translateY(calc(var(--progress) * -1%));
+		transform: translateY(calc(var(--progress) * -1));
 		background: none;
 		opacity: 0.5;
 		color: #f99;
@@ -21722,23 +22196,40 @@ class Playlist extends VideoList {
 
 class ClassListWrapper {
 	constructor(element) {
+		this.applyNow = this.apply.bind(this);
+		this.apply = bounce.raf(this.applyNow);
+		if (element) {
+			this.setElement(element);
+		} else {
+			this._next = new Set;
+			this._last = new Set;
+		}
+	}
+	setElement(element) {
+		if (this._element) {
+			this.applyNow();
+		}
 		this._element = element;
-		this._next = Array.from(element.classList).sort();
-		this._last = this._next;
-		this.apply = bounce.raf(this.apply.bind(this));
+		this._next = new Set(element.classList);
+		this._last = new Set(this._next);
+		return this;
 	}
 	add(...names) {
-		this._next.push(...names.filter(name => !this._next.includes(name)));
+		for (const name of names) {
+			this._next.add(name);
+		}
 		this.apply();
-		return true;
+		return this;
 	}
 	remove(...names) {
-		this._next = this._next.filter(name => !names.includes(name));
+		for (const name of names) {
+			this._next.delete(name);
+		}
 		this.apply();
-		return false;
+		return this;
 	}
 	contains(name) {
-		return this._next.includes(name);
+		return this._next.has(name);
 	}
 	toggle(name, v) {
 		if (v !== undefined) {
@@ -21746,21 +22237,36 @@ class ClassListWrapper {
 		} else {
 			v = !this.contains(name);
 		}
-		return v ? this.add(name) : this.remove(name);
+		v ? this.add(name) : this.remove(name);
+		return this;
 	}
 	apply() {
-		const last = this._last.join(',');
-		const next = this._next.sort().join(',');
+		const last = [...this._last].sort().join(',');
+		const next = [...this._next].sort().join(',');
 		if (next === last) { return; }
-		const added   = this._next.filter(name => !this._last.includes(name));
-		const removed = this._last.filter(name => !this._next.includes(name));
-		if (added.length)   { this._element.classList.add(...added); }
-		if (removed.length) { this._element.classList.remove(...removed); }
-		this._next = Array.from(this._element.classList).sort();
-		this._last = this._next.concat();
+		const element = this._element;
+		const added = [], removed = [];
+		for (const name of this._next) {
+			if (!this._last.has(name)) { added.push(name); }
+		}
+		for (const name of this._last) {
+			if (!this._next.has(name)) { removed.push(name); }
+		}
+		if (removed.length) { element.classList.remove(...removed); }
+		if (added.length)   { element.classList.add(...added); }
+		this._last = this._next;
+		this._next = new Set(element.classList);
 		return this;
 	}
 }
+const ClassList = function(element) {
+	if (this.map.has(element)) {
+		return this.map.get(element);
+	}
+	const m = new ClassListWrapper(element);
+	this.map.set(element, m);
+	return m;
+}.bind({map: new WeakMap()});
 class PlayerConfig {
 	static getInstance(config) {
 		if (!PlayerConfig.instance) {
@@ -21934,12 +22440,12 @@ class NicoVideoPlayerDialogView extends Emitter {
 		this._$body = util.$('body, html');
 		const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
 		const container = $container[0];
-		const classList = this._classList = new ClassListWrapper(container);
+		const classList = this.classList = ClassList(container);
 		container.addEventListener('click', e => {
 			global.emitter.emitAsync('hideHover');
 			if (
 				e.target.classList.contains('touchWrapper') &&
-				config.getValue('enableTogglePlayOnClick') &&
+				config.props.enableTogglePlayOnClick &&
 				!classList.contains('menuOpen')) {
 				onCommand('togglePlay');
 			}
@@ -21953,7 +22459,7 @@ class NicoVideoPlayerDialogView extends Emitter {
 			this._onCommand(e.detail.command, e.detail.param);
 		});
 		container.addEventListener('focusin', e => {
-			let target = (e.path && e.path.length) ? e.path[0] : e.target;
+			const target = (e.path && e.path.length) ? e.path[0] : e.target;
 			if (target.dataset.hasSubmenu) {
 				classList.add('menuOpen');
 			}
@@ -21976,7 +22482,7 @@ class NicoVideoPlayerDialogView extends Emitter {
 				if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') {
 					return;
 				}
-				if (config.getValue('enableDblclickClose')) {
+				if (config.props.enableDblclickClose) {
 					this.emit('command', 'close');
 				}
 			})
@@ -22059,12 +22565,16 @@ class NicoVideoPlayerDialogView extends Emitter {
 	}
 	async _onPaste(e) {
 		const isZen = !!e.target.closest('.zenzaVideoPlayerDialog');
-		window.console.log('onPaste', e.target, isZen);
+		window.console.log('onPaste', {e, isZen});
 		if (!isZen && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
 			return;
 		}
 		let text;
-		try { text = await navigator.clipboard.readText(); } catch(e) { window.console.warn(e); }
+		try { text = await navigator.clipboard.readText(); }
+		catch(err) {
+			window.console.warn(err, navigator.clipboard);
+			text = e.clipboardData.getData('text/plain');
+		}
 		if (!text) {
 			return;
 		}
@@ -22251,7 +22761,7 @@ class NicoVideoPlayerDialogView extends Emitter {
 		const table = this._getStateClassNameTable();
 		const state = this._state;
 		for (const [key, className] of table) {
-			this._classList.toggle(className, state[key]);
+			this.classList.toggle(className, state[key]);
 		}
 		if (this._state.isOpen) {
 			this._applyScreenMode();
@@ -22271,14 +22781,13 @@ class NicoVideoPlayerDialogView extends Emitter {
 		const screenMode = `zenzaScreenMode_${this._state.screenMode}`;
 		if (!force && this._lastScreenMode === screenMode) { return; }
 		this._lastScreenMode = screenMode;
-		const body = this._$body;
 		const modes = this._getScreenModeClassNameTable();
 		const isFull = util.fullscreen.now();
 		Object.assign(document.body.dataset, {
 			screenMode: this._state.screenMode,
 			fullscreen: isFull ? 'yes' : 'no'
 		});
-		modes.forEach(m => body.toggleClass(m, m === screenMode && !isFull));
+		modes.forEach(m => this._$body.raf.toggleClass(m, m === screenMode && !isFull));
 		this._updateScreenModeStyle();
 	}
 	_updateScreenModeStyle() {
@@ -22315,25 +22824,25 @@ class NicoVideoPlayerDialogView extends Emitter {
 		util.StyleSwitcher.update({on, off});
 	}
 	show() {
-		this._$dialog.addClass('is-open');
+		ClassList(this._$dialog[0]).add('is-open');
 		if (!Fullscreen.now()) {
-			document.body.classList.remove('fullscreen');
+			ClassList(document.body).remove('fullscreen');
 		}
-		this._$body.addClass('showNicoVideoPlayerDialog');
+		this._$body.raf.addClass('showNicoVideoPlayerDialog');
 		util.StyleSwitcher.update({on: 'style.zenza-open'});
 		this._updateScreenModeStyle();
 	}
 	hide() {
-		this._$dialog.removeClass('is-open');
+		ClassList(this._$dialog[0]).remove('is-open');
 		this._settingPanel.hide();
-		this._$body.removeClass('showNicoVideoPlayerDialog');
+		this._$body.raf.removeClass('showNicoVideoPlayerDialog');
 		util.StyleSwitcher.update({off: 'style.zenza-open, style.screenMode', on: 'link[href*="watch.css"]'});
 		this._clearClass();
 	}
 	_clearClass() {
 		const modes = this._getScreenModeClassNameTable().join(' ');
 		this._lastScreenMode = '';
-		this._$body.removeClass(modes);
+		this._$body.raf.removeClass(modes);
 	}
 	_setThumbnail(thumbnail) {
 		if (thumbnail) {
@@ -22352,23 +22861,23 @@ class NicoVideoPlayerDialogView extends Emitter {
 		return this._$playerContainer;
 	}
 	css(key, val) {
-		this._$playerContainer.css(key, val);
+		this._$playerContainer.raf.css(key, val);
 	}
 	addClass(name) {
-		const cls = name.split(/\s+/).filter(cn => !this._classList.contains(cn));
+		const cls = name.split(/\s+/).filter(cn => !this.classList.contains(cn));
 		if (!cls.length) { return; }
-		return this._classList.add(...cls);
+		return this.classList.add(...cls);
 	}
 	removeClass(name) {
-		const cls = name.split(/\s+/).filter(cn => this._classList.contains(cn));
+		const cls = name.split(/\s+/).filter(cn => this.classList.contains(cn));
 		if (!cls.length) { return; }
-		return this._classList.remove(...cls);
+		return this.classList.remove(...cls);
 	}
 	toggleClass(name, v) {
 		if (typeof v === 'boolean') {
 			return v ? this.addClass(name) : this.removeClass(name);
 		}
-		name.split(/\s+/).forEach(n => this._classList.toggle(n));
+		name.split(/\s+/).forEach(n => this.classList.toggle(n));
 	}
 	hasClass(name) {
 		const container = this._$playerContainer[0];
@@ -22885,8 +23394,6 @@ NicoVideoPlayerDialogView.__css__ = `
 	}
 	`.trim();
 NicoVideoPlayerDialogView.__tpl__ = (`
-<!--
--->
 		<div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog zen-family zen-root">
 			<div class="zenzaVideoPlayerDialogInner">
 				<div class="menuContainer"></div>
@@ -22897,8 +23404,6 @@ NicoVideoPlayerDialogView.__tpl__ = (`
 				</div>
 			</div>
 		</div>
-<!--
--->
 	`).trim();
 class NicoVideoPlayerDialog extends Emitter {
 	constructor(params) {
@@ -23074,10 +23579,10 @@ class NicoVideoPlayerDialog extends Emitter {
 				this.execCommand('seekBy', command === 'seekNextFrame' ? 1/60 : -1/60);
 				break;
 			case 'seekRelativePercent': {
-				let dur = this._videoInfo.duration;
-				let mv = Math.abs(param.movePerX) > 10 ?
+				const dur = this._videoInfo.duration;
+				const mv = Math.abs(param.movePerX) > 10 ?
 					(param.movePerX / 2) : (param.movePerX / 8);
-				let pos = this.currentTime + (mv * dur / 100);
+				const pos = this.currentTime + (mv * dur / 100);
 				this.currentTime=Math.min(Math.max(0, pos), dur);
 				break;
 			}
@@ -23491,7 +23996,7 @@ class NicoVideoPlayerDialog extends Emitter {
 		global.emitter.emit('commentChange');
 	}
 	_onCommentFilterChange(filter) {
-		let config = this._playerConfig;
+		const config = this._playerConfig;
 		config.setValue('enableFilter', filter.isEnable);
 		config.setValue('wordFilter', filter.wordFilterList);
 		config.setValue('userIdFilter', filter.userIdFilterList);
@@ -23957,7 +24462,7 @@ class NicoVideoPlayerDialog extends Emitter {
 		} else if (this._playlist) {
 			this._playlist.toggleEnable(false);
 		}
-		let isAutoCloseFullScreen =
+		const isAutoCloseFullScreen =
 			this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
 				this._videoWatchOptions.isAutoCloseFullScreen :
 				this._playerConfig.getValue('autoCloseFullScreen');
@@ -24087,8 +24592,8 @@ class NicoVideoPlayerDialog extends Emitter {
 	get isPlaying() {
 		return this._state.isPlaying;
 	}
-	get isPaused() {
-		return this._nicoVideoPlayer ? this._nicoVideoPlayer.isPaused : true;
+	get paused() {
+		return this._nicoVideoPlayer ? this._nicoVideoPlayer.paused : true;
 	}
 	togglePlay() {
 		if (!this._state.isError && this._nicoVideoPlayer) {
@@ -24980,7 +25485,8 @@ class VariablesMapper {
 	shouldUpdate(state, nextState) {
 		return Object.keys(state).some(key => state[key] !== nextState[key]);
 	}
-	setVar(key, value) { this.element.style.setProperty(key, value); }
+	setVar(key, value) {
+		cssUtil.setProps([this.element, key, value]); }
 	update() {
 		const state = this.state;
 		const nextState = this.nextState;
@@ -26803,20 +27309,20 @@ class VideoInfoPanel extends Emitter {
 		view.addEventListener('command', this._onCommandEvent.bind(this));
 		view.addEventListener('click', this._onClick.bind(this));
 		view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
-		$icon.on('load', () => $icon.removeClass('is-loading'));
-		view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+		$icon.on('load', () => $icon.raf.removeClass('is-loading'));
+		$view.raf.addClass(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
 		global.emitter.on('fullscreenStatusChange', isFull => {
-			view.classList.toggle('is-fullscreen', isFull);
-			view.classList.toggle('is-notFullscreen', !isFull);
+			$view.raf.toggleClass('is-fullscreen', isFull);
+			$view.raf.toggleClass('is-notFullscreen', !isFull);
 		});
-		view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
-		global.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
-		css.registerProps(
+		view.addEventListener('touchenter', () => $view.raf.addClass('is-slideOpen'), {passive: true});
+		global.emitter.on('hideHover', () => $view.raf.removeClass('is-slideOpen'));
+		cssUtil.registerProps(
 			{name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
 		);
 		MylistPocketDetector.detect().then(pocket => {
 			this._pocket = pocket;
-			view.classList.add('is-pocketReady');
+			$view.raf.addClass('is-pocketReady');
 		});
 		if (window.customElements) {
 			VideoItemObserver.observe({container: this._description});
@@ -26845,10 +27351,10 @@ class VideoInfoPanel extends Emitter {
 		}
 		this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
 		this._$view
-			.removeClass('userVideo channelVideo initializing')
-			.toggleClass('is-community', this._videoInfo.isCommunityVideo)
-			.toggleClass('is-mymemory', this._videoInfo.isMymemory)
-			.addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
+			.raf.removeClass('userVideo channelVideo initializing')
+			.raf.toggleClass('is-community', this._videoInfo.isCommunityVideo)
+			.raf.toggleClass('is-mymemory', this._videoInfo.isMymemory)
+			.raf.addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
 		this._ichibaItemView.clear();
 		this._ichibaItemView.videoId = videoInfo.videoId;
 		this._uaaView.clear();
@@ -26858,7 +27364,7 @@ class VideoInfoPanel extends Emitter {
 	async _updateVideoDescription(html) {
 		this._description.textContent = '';
 		this._zenTubeUrl = null;
-		const watchLink = watchLink => {
+		const decorateWatchLink = watchLink => {
 			const videoId = watchLink.textContent.replace('watch/', '');
 			if (
 				!/^(sm|nm|so|)[0-9]+$/.test(videoId) ||
@@ -26927,7 +27433,7 @@ class VideoInfoPanel extends Emitter {
 			a.classList.add('noHoverMenu');
 			const href = a.href;
 			if (a.classList.contains('watch')) {
-				watchLink(a);
+				decorateWatchLink(a);
 			} else if (a.classList.contains('seekTime')) {
 				seekTime(a);
 			} else if (/^mylist\//.test(a.textContent)) {
@@ -26948,7 +27454,7 @@ class VideoInfoPanel extends Emitter {
 		}
 		this._description.append($description[0]);
 	}
-	_onVideoCanPlay(watchId, videoInfo, options) {
+	async _onVideoCanPlay(watchId, videoInfo, options) {
 		if (!this._relatedVideoList) {
 			this._relatedVideoList = new RelatedVideoList({
 				container: this._$view.find('.relatedVideoContainer')[0]
@@ -26956,36 +27462,36 @@ class VideoInfoPanel extends Emitter {
 			this._relatedVideoList.on('command', this._onCommand.bind(this));
 		}
 		if (this._config.props.autoZenTube && this._zenTubeUrl && !options.isAutoZenTubeDisabled) {
-			window.setTimeout(() => {
+			sleep(100).then(() => {
 				window.console.info('%cAuto ZenTube', this._zenTubeUrl);
 				this.emit('command', 'setVideo', this._zenTubeUrl);
-			}, 100);
-		}
-		const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
-		RecommendAPILoader.load({videoId: videoInfo.videoId}).then(data => {
-			const items = data.items || [];
-			(items || []).forEach(item => {
-				if (item.contentType !== 'video') {
-					return;
-				}
-				const content = item.content;
-				relatedVideo.push({
-					_format: 'recommendApi',
-					_data: item,
-					id: item.id,
-					title: content.title,
-					length_seconds: content.duration,
-					num_res: content.count.comment,
-					mylist_counter: content.count.mylist,
-					view_counter: content.count.view,
-					thumbnail_url: content.thumbnail.url,
-					first_retrieve: content.registeredAt,
-					has_data: true,
-					is_translated: false
-				});
 			});
-			this._relatedVideoList.update(relatedVideo, watchId);
-		});
+		}
+		await sleep.idle();
+		const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
+		const data = await RecommendAPILoader.load({videoId: videoInfo.videoId}).catch(() => ({}));
+		const items = data.items || [];
+		for (const item of items) {
+			if (item.contentType && item.contentType !== 'video') {
+				continue;
+			}
+			const content = item.content;
+			relatedVideo.push({
+				_format: 'recommendApi',
+				_data: item,
+				id: item.id,
+				title: content.title,
+				length_seconds: content.duration,
+				num_res: content.count.comment,
+				mylist_counter: content.count.mylist,
+				view_counter: content.count.view,
+				thumbnail_url: content.thumbnail.url,
+				first_retrieve: content.registeredAt,
+				has_data: true,
+				is_translated: false
+			});
+		}
+		this._relatedVideoList.update(relatedVideo, watchId);
 	}
 	_onVideoCountUpdate(...args) {
 		if (!this._videoHeaderPanel) {
@@ -27046,8 +27552,8 @@ class VideoInfoPanel extends Emitter {
 	}
 	clear() {
 		this._videoHeaderPanel.clear();
-		this._$view.addClass('initializing');
-		this._$ownerIcon.addClass('is-loading');
+		this._$view.raf.addClass('initializing');
+		this._$ownerIcon.raf.addClass('is-loading');
 		this._description.textContent = '';
 	}
 	selectTab(tabName) {
@@ -27762,7 +28268,7 @@ class VideoHeaderPanel extends Emitter {
 			return;
 		}
 		this._isInitialized = true;
-		css.addStyle(VideoHeaderPanel.__css__);
+		cssUtil.addStyle(VideoHeaderPanel.__css__);
 		const $view = this._$view = uq.html(VideoHeaderPanel.__tpl__);
 		const view = $view[0];
 		this._videoTitle = $view.find('.videoTitle')[0];
@@ -27778,15 +28284,15 @@ class VideoHeaderPanel extends Emitter {
 			parentNode: view.querySelector('.relatedInfoMenuContainer'),
 			isHeader: true
 		});
-		this._relatedInfoMenu.on('open', () => $view.addClass('is-relatedMenuOpen'));
-		this._relatedInfoMenu.on('close', () => $view.removeClass('is-relatedMenuOpen'));
+		this._relatedInfoMenu.on('open', () => $view.raf.addClass('is-relatedMenuOpen'));
+		this._relatedInfoMenu.on('close', () => $view.raf.removeClass('is-relatedMenuOpen'));
 		this._videoMetaInfo = new VideoMetaInfo({
 			parentNode: view.querySelector('.videoMetaInfoContainer'),
 		});
-		view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+		$view.raf.addClass(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
 		global.emitter.on('fullScreenStatusChange', isFull => {
-			view.classList.toggle('is-fullscreen', isFull);
-			view.classList.toggle('is-notFullscreen', !isFull);
+			$view.raf.toggleClass('is-fullscreen', isFull);
+			$view.raf.toggleClass('is-notFullscreen', !isFull);
 		});
 		window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
 	}
@@ -27804,12 +28310,12 @@ class VideoHeaderPanel extends Emitter {
 		});
 		this._relatedInfoMenu.update(videoInfo);
 		this._$view
-			.removeClass('userVideo channelVideo initializing')
-			.toggleClass('is-community', this._videoInfo.isCommunityVideo)
-			.toggleClass('is-mymemory', this._videoInfo.isMymemory)
-			.toggleClass('has-Parent', this._videoInfo.hasParentVideo)
-			.addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
-			.css('display', '');
+			.raf.removeClass('userVideo channelVideo initializing')
+			.raf.toggleClass('is-community', this._videoInfo.isCommunityVideo)
+			.raf.toggleClass('is-mymemory', this._videoInfo.isMymemory)
+			.raf.toggleClass('has-Parent', this._videoInfo.hasParentVideo)
+			.raf.addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
+			.raf.css('display', '');
 		if (videoInfo.series && videoInfo.series.thumbnailUrl) {
 			this._seriesCover.style.backgroundImage = `url("${videoInfo.series.thumbnailUrl}")`;
 		} else {
@@ -27826,7 +28332,7 @@ class VideoHeaderPanel extends Emitter {
 		const isOnscreen = view.classList.contains('is-onscreen');
 		const height = rect.bottom - rect.top;
 		const top = isOnscreen ? (rect.top - height) : rect.top;
-		view.classList.toggle('is-onscreen', top < -32);
+		this._$view.raf.toggleClass('is-onscreen', top < -32);
 	}
 	appendTo(node) {
 		this._initializeDom();
@@ -27836,7 +28342,7 @@ class VideoHeaderPanel extends Emitter {
 		if (!this._$view) {
 			return;
 		}
-		this._$view.removeClass('show');
+		this._$view.raf.removeClass('show');
 	}
 	close() {
 	}
@@ -27844,7 +28350,7 @@ class VideoHeaderPanel extends Emitter {
 		if (!this._$view) {
 			return;
 		}
-		this._$view.addClass('initializing');
+		this._$view.raf.addClass('initializing');
 		this._videoTitle.textContent = '';
 	}
 	getPublicStatusDom() {
@@ -28097,11 +28603,10 @@ class VideoSearchForm extends Emitter {
 	_initDom({parentNode}) {
 		let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
 		if (!tpl) {
-			css.addStyle(VideoSearchForm.__css__);
+			cssUtil.addStyle(VideoSearchForm.__css__);
 			tpl = document.createElement('template');
 			tpl.innerHTML = VideoSearchForm.__tpl__;
 			tpl.id = 'zenzaVideoSearchPanelTemplate';
-			document.body.appendChild(tpl);
 		}
 		const view = document.importNode(tpl.content, true);
 		this._view = view.querySelector('*');
@@ -28113,7 +28618,7 @@ class VideoSearchForm extends Emitter {
 		const config = this._config;
 		const form = this._form;
 		form['ownerOnly'].checked = config.props.ownerOnly;
-		let confMode = config.props.mode;
+		const confMode = config.props.mode;
 		if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
 			form['mode'].value = confMode;
 		} else if (typeof confMode === 'boolean') {
@@ -28510,11 +29015,8 @@ class IchibaItemView extends BaseViewComponent {
 			.catch(this._onIchibaLoadFail.bind(this));
 	}
 	clear() {
-		this.removeClass('is-loading');
-		this.removeClass('is-success');
-		this.removeClass('is-fail');
-		this.removeClass('is-empty');
-		this._listContainer.innerHTML = '';
+		this.removeClass('is-loading is-success is-fail is-empty');
+		this._listContainer.textContent = '';
 	}
 	_onIchibaLoad(data) {
 		this.removeClass('is-loading');
@@ -28730,7 +29232,7 @@ class UaaView extends BaseViewComponent {
 		if (!this._elm.body) {
 			return;
 		}
-		this._elm.body.innerHTML = '';
+		this._elm.body.textContent = '';
 	}
 	_onLoad(videoId, result) {
 		if (this._props.videoId !== videoId) {
@@ -28741,7 +29243,7 @@ class UaaView extends BaseViewComponent {
 		if (!data || data.sponsors.length < 1) {
 			return;
 		}
-		const df = document.createDocumentFragment();
+		const df = this.df = this.df || document.createDocumentFragment();
 		const div = document.createElement('div');
 		div.className = 'screenshots';
 		let idx = 0, screenshots = 0;
@@ -28805,7 +29307,7 @@ class UaaView extends BaseViewComponent {
 				ct.drawImage(screenshot, 0, 0);
 				df.classList.add('has-screenshot');
 				df.classList.remove('clickable', 'other');
-				df.appendChild(cv);
+				df.append(cv);
 			}).catch(() => {});
 		} else if (bgkeyframe) {
 			const sec = parseFloat(bgkeyframe);
@@ -28815,7 +29317,7 @@ class UaaView extends BaseViewComponent {
 		} else {
 			df.classList.add('other');
 		}
-		df.appendChild(contact);
+		df.append(contact);
 		return df;
 	}
 	_onFail(videoId) {
@@ -29024,7 +29526,7 @@ class RelatedInfoMenu extends BaseViewComponent {
 	}
 	_initDom(...args) {
 		super._initDom(...args);
-		this._view.classList.toggle('is-Edge', /edge/i.test(navigator.userAgent));
+		ClassList(this._view).toggle('is-Edge', /edge/i.test(navigator.userAgent));
 		const shadow = this._shadow || this._view;
 		this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
 		this._elm.summary = shadow.querySelector('summary');
@@ -30024,7 +30526,7 @@ CustomElements.initialize = (() => {
 const TextLabel = (() => {
 	const func = function(self) {
 		const items = {};
-		const getId = function() {return `id-${this.id++}`;}.bind({id: 0});
+		const getId = function() {return `id-${this.id++}${Math.random()}`;}.bind({id: 0});
 		const create = async ({canvas, style}) => {
 			const id = getId();
 			const ctx = canvas.getContext('2d', {
@@ -30108,7 +30610,23 @@ const TextLabel = (() => {
 	};
 	const NAME = 'TextLabelWorker';
 	let worker;
-	const create = async ({container, canvas, ratio, name, style, text}) => {
+	const initWorker = async () => {
+		if (worker) { return worker; }
+		if (!isOffscreenCanvasAvailable) {
+			if (!worker) {
+				worker = {
+					name: NAME,
+					onmessage: () => {},
+					post: ({command, params}) => worker.onmessage({command, params})
+				};
+				func(worker);
+			}
+		} else {
+			worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
+		}
+		return worker;
+	};
+	const create = ({container, canvas, ratio, name, style, text}) => {
 		style = style || {};
 		ratio = Math.max(ratio || window.devicePixelRatio || 2, 2);
 		style.ratio = style.ratio || ratio;
@@ -30129,42 +30647,40 @@ const TextLabel = (() => {
 		style.fontFamily = style.fontFamily || containerStyle.fontFamily;
 		style.fontWeight = style.fontWeight || containerStyle.fontWeight;
 		style.color      = style.color      || containerStyle.color;
-		if (!isOffscreenCanvasAvailable) {
-			if (!worker) {
-				worker = {
-					name: NAME,
-					onmessage: () => {},
-					post: ({command, params}) => worker.onmessage({command, params})
-				};
-				func(worker);
-			}
-		} else {
-			worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
-		}
-		const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
-		const init = await worker.post(
-			{command: 'create', params: {canvas: layer, style, name}},
-			{transfer: [layer]}
-		);
-		const id = init.id;
+		const promiseSetup = (async () => {
+			const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
+			const worker = await initWorker();
+			const result = await worker.post(
+				{command: 'create', params: {canvas: layer, style, name}},
+				{transfer: [layer]}
+			);
+			return result.id;
+		})();
+		const init = {text};
+		const post = async ({command, params}, transfer = {}) => {
+			const id = await promiseSetup;
+			params = params || {};
+			params.id = id;
+			return worker.post({command, params}, transfer);
+		};
 		const result = {
 			container,
 			canvas,
 			style() {
 				init.text = '';
 				const style = getContainerStyle({container, canvas});
-				return worker.post({command: 'style', params: {id, style, name}});
+				return post({command: 'style', params: {style, name}});
 			},
 			async drawText(text) {
 				if (init.text === text) {
 					return;
 				}
-				const result = await worker.post({command: 'drawText', params: {id, text}});
+				const result = await post({command: 'drawText', params: {text}});
 				init.text = result.text;
 			},
 			get text() { return init.text; },
 			set text(t) { this.drawText(t); },
-			dispose: () => worker.post({command: 'dispose', params: {id}})
+			dispose: () => worker.post({command: 'dispose'})
 		};
 		text && (result.text = text);
 		return result;
@@ -30455,6 +30971,8 @@ const {Emitter} = (() => {
 		hasPromise(name) {
 			return this._promise && !!this._promise[name];
 		}
+		addEventListener(...args) { return this.on(...args); }
+		removeEventListener(...args) { return this.off(...args);}
 	}
 	Emitter.totalCount = totalCount;
 	Emitter.warnings = warnings;
@@ -31234,8 +31752,8 @@ const VideoSessionWorker = (() => {
 			low: /_(360p)$/
 		};
 		const util = {
-			fetch(url, params = {}) {
-				if (!location.origin.endsWith('.nicovideo.jp')) {
+			fetch(url, params = {}) { // ブラウザによっては location.origin は 'blob:' しか入らない
+				if (!location.origin.endsWith('.nicovideo.jp') && !/^blob:https?:\/\/[a-z0-9]+\.nicovideo\.jp\//.test(location.href)) {
 					return self.xFetch(url, params);
 				}
 				const racers = [];
@@ -32378,9 +32896,9 @@ const boot = async (monkey, PRODUCT, START_PAGE_QUERY) => {
 				if (!this.intersectionObserver) {
 					this.initialize();
 				}
-				const items = document.querySelectorAll(`.${this.className}:not(.is-loading)`);
+				const items = document.querySelectorAll(`.${this.className}:not(.is-lazy-loading)`);
 				for (const item of items) {
-					item.classList.add('is-loading');
+					item.classList.add('is-lazy-loading');
 					this.intersectionObserver.observe(item);
 				}
 			},
@@ -32389,7 +32907,7 @@ const boot = async (monkey, PRODUCT, START_PAGE_QUERY) => {
 					throw new Error('無視していいエラー'); // override前のメソッドから呼ばれたので例外を投げて強制ストップ
 				}
 				const src = item.getAttribute(this.attrName);
-				item.classList.remove(this.className, 'is-loading');
+				item.classList.remove(this.className, 'is-lazy-loading');
 				if (src && item.getAttribute(this.adjustAttrName)) {
 					this._adjustSizeAndLoad(item, src);
 				} else {

@@ -11,30 +11,36 @@
 // @noframes
 // ==/UserScript==
 /* eslint-disable */
-
 const AntiPrototypeJs = function() {
-	if (this.promise || !window.Prototype || window.PureArray) {
+	if (this.promise !== null || !window.Prototype || window.PureArray) {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
 	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
 		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
 		delete document.getElementsByClassName;
 	}
+	const waitForDom = new Promise(resolve => {
+		if (['interactive', 'complete'].includes(document.readyState)) {
+			return resolve();
+		}
+		document.addEventListener('DOMContentLoaded', resolve, {once: true});
+	});
 	const f = document.createElement('iframe');
-	f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
-	f.id = 'prototype';
-	f.loading = 'eager';
-	Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
-	return this.promise = new Promise(res => {
-		f.onload = res;
-		document.documentElement.append(f);
-	}).then(() => {
-		window.PureArray = f.contentWindow.Array;
-		delete window.Array.prototype.toJSON;
-		delete window.String.prototype.toJSON;
-		f.remove();
-		return Promise.resolve(window.PureArray);
-	}).catch(err => console.error(err));
+	return this.promise = waitForDom
+		.then(() => new Promise(res => {
+			f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
+			f.id = 'prototype';
+			f.loading = 'eager';
+			Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
+			f.onload = res;
+			([...document.querySelectorAll('body')].reverse()[0]).append(f);
+		})).then(() => {
+			window.PureArray = f.contentWindow.Array;
+			delete window.Array.prototype.toJSON;
+			delete window.String.prototype.toJSON;
+			f.remove();
+			return Promise.resolve(window.PureArray);
+		}).catch(err => console.error(err));
 }.bind({promise: null});
 AntiPrototypeJs().then(() => {
 // Promise.resolve().then(() => {
@@ -271,6 +277,8 @@ const {Emitter} = (() => {
 		hasPromise(name) {
 			return this._promise && !!this._promise[name];
 		}
+		addEventListener(...args) { return this.on(...args); }
+		removeEventListener(...args) { return this.off(...args);}
 	}
 	Emitter.totalCount = totalCount;
 	Emitter.warnings = warnings;
@@ -279,6 +287,93 @@ const {Emitter} = (() => {
 	return {Handler, PromiseHandler, Emitter};
 }
 const {Handler, PromiseHandler, Emitter} = EmitterInitFunc();
+const bounce = {
+	origin: Symbol('origin'),
+	raf(func) {
+		let reqId = null;
+		let lastArgs = null;
+		let promise = new PromiseHandler();
+		const callback = () => {
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
+			reqId = lastArgs = null;
+			promise = new PromiseHandler();
+		};
+		const result =  (...args) => {
+			if (reqId) {
+				cancelAnimationFrame(reqId);
+			}
+			lastArgs = args;
+			reqId = requestAnimationFrame(callback);
+			return promise;
+		};
+		result[this.origin] = func;
+		return result;
+	},
+	idle(func, time) {
+		let reqId = null;
+		let lastArgs = null;
+		let promise = new PromiseHandler();
+		const [caller, canceller] =
+			(time === undefined && window.requestIdleCallback) ?
+			[window.requestIdleCallback, window.cancelIdleCallback] : [window.setTimeout, window.clearTimeout];
+		const callback = () => {
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
+			reqId = lastArgs = null;
+			promise = new PromiseHandler();
+		};
+		const result = (...args) => {
+			if (reqId) {
+				reqId = canceller(reqId);
+			}
+			lastArgs = args;
+			reqId = caller(callback, time);
+			return promise;
+		};
+		result[this.origin] = func;
+		return result;
+	},
+	time(func, time = 0) {
+		return this.idle(func, time);
+	}
+};
+const throttle = (func, interval) => {
+	let lastTime = 0;
+	let timer;
+	let promise = new PromiseHandler();
+	const result = (...args) => {
+		const now = performance.now();
+		const timeDiff = now - lastTime;
+		if (timeDiff < interval) {
+			if (!timer) {
+				timer = setTimeout(() => {
+					lastTime = performance.now();
+					timer = null;
+					const lastResult = func(...args);
+					promise.resolve({lastResult, lastArgs: args});
+					promise = new PromiseHandler();
+				}, Math.max(interval - timeDiff, 0));
+			}
+			return;
+		}
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		lastTime = now;
+		const lastResult = func(...args);
+		promise.resolve({lastResult, lastArgs: args});
+		promise = new PromiseHandler();
+};
+	result.cancel = () => {
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		promise.resolve({lastResult: null, lastArgs: null});
+		promise = new PromiseHandler();
+	};
+	return result;
+};
 const uQuery = (() => {
 	const endMap = new WeakMap();
 	const elementEventsMap = new WeakMap();
@@ -366,6 +461,44 @@ const uQuery = (() => {
 	const isNodeList = e => {
 		return e instanceof NodeList || (e && e[Symbol.toStringTag] === 'NodeList');
 	};
+	class RafCaller {
+		constructor(elm, methods = []) {
+			this.elm = elm;
+			methods.forEach(method => {
+				const task = elm[method].bind(elm);
+				task._name = method;
+				this[method] = (...args) => {
+					this.enqueue(task, ...args);
+					return elm;
+				};
+			});
+		}
+		get promise() {
+			return this.constructor.promise;
+		}
+		enqueue(task, ...args) {
+			this.constructor.taskList.push([task, ...args]);
+			this.constructor.exec();
+		}
+		cancel() {
+			this.constructor.taskList.length = 0;
+		}
+	}
+	RafCaller.promise = new PromiseHandler();
+	RafCaller.taskList = [];
+	RafCaller.exec = bounce.raf(function() {
+		const taskList = this.taskList.concat();
+		this.taskList.length = 0;
+		for (const [task, ...args] of taskList) {
+			try {
+				task(...args);
+			} catch (err) {
+				console.warn('RafCaller task fail', {task, args});
+			}
+		}
+		this.promise.resolve();
+		this.promise = new PromiseHandler();
+	}.bind(RafCaller));
 	class $Array extends Array {
 		get [Symbol.toStringTag]() {
 			return '$Array';
@@ -399,6 +532,16 @@ const uQuery = (() => {
 			} else {
 				this[0] = elm;
 			}
+		}
+		get raf() {
+			if (!this._raf) {
+				this._raf = new RafCaller(this, [
+					'addClass','removeClass','toggleClass','css','setAttribute','attr','data','prop',
+					'val','focus','blur','insert','append','appendChild','prepend','after','before',
+					'text','appendTo','prependTo','remove','show','hide'
+				]);
+			}
+			return this._raf;
 		}
 		get htmls() {
 			return this.filter(isHTMLElement);

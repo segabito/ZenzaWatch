@@ -41,6 +41,8 @@ module.exports = {
     "beforeEach": true,
     "global": true,
     "globalThis": true,
-    "jQuery": true
+    "jQuery": true,
+    "SharedArrayBuffer": true,
+    "Atomics": true
   }
 };
