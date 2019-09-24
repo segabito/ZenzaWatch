@@ -807,17 +807,17 @@ class VideoPlayer extends Emitter {
   }
 
   addClass(className) {
-    this._body.classList.add(...className.split(/\s/));
+    this.classList.add(...className.split(/\s/));
   }
 
   removeClass(className) {
-    this._body.classList.remove(...className.split(/\s/));
+    this.classList.remove(...className.split(/\s/));
   }
 
   toggleClass(className, v) {
-    const body = this._body;
+    const classList = this.classList;
     className.split(/[ ]+/).forEach(name => {
-      body.classList.toggle(name, v);
+      classList.toggle(name, v);
     });
   }
 
@@ -854,6 +854,7 @@ class VideoPlayer extends Emitter {
       .attr(options);
     body.id = 'ZenzaWatchVideoPlayerContainer';
     this._body = body;
+    this.classList = ClassList(body);
     body.append(video);
     video.pause();
 

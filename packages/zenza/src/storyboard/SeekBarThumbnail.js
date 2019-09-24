@@ -1,7 +1,8 @@
-import {css} from '../../../lib/src/css/css';
+import {cssUtil} from '../../../lib/src/css/css';
 import {uQuery} from '../../../lib/src/uQuery';
 import {global} from '../../../../src/ZenzaWatchIndex';
 import {StoryboardWorker} from './StoryboardWorker';
+import {ClassList} from '../../../lib/src/dom/ClassListWrapper';
 //===BEGIN===
 class SeekBarThumbnail {
   constructor(params) {
@@ -31,37 +32,35 @@ class SeekBarThumbnail {
     this.hide();
   }
   get isVisible() {
-    return this._view ? this._view.classList.contains('is-visible') : false;
+    return this._view ? this.classList.contains('is-visible') : false;
   }
   show() {
     if (!this._view) {
       return;
     }
-    this._view.classList.add('is-visible');
+    this.classList.add('is-visible');
   }
   hide() {
     if (!this._view) {
       return;
     }
-    this._view.classList.remove('is-visible');
+    this.classList.remove('is-visible');
   }
   initializeView(model) {
     this.initializeView = _.noop;
 
     if (!SeekBarThumbnail.styleAdded) {
-      css.addStyle(SeekBarThumbnail.__css__);
+      cssUtil.addStyle(SeekBarThumbnail.__css__);
       SeekBarThumbnail.styleAdded = true;
     }
     const view = this._view = uQuery.html(SeekBarThumbnail.__tpl__)[0];
+    this.classList = ClassList(view);
 
-    StoryboardWorker.createThumbnail({
+    this.thumbnail = StoryboardWorker.createThumbnail({
       container: view.querySelector('.zenzaSeekThumbnail-image'),
       canvas: view.querySelector('.zenzaSeekThumbnail-thumbnail'),
       info: model.rawData,
       name: 'StoryboardThumbnail'
-    }).then(thumbnail => {
-      this.thumbnail = thumbnail;
-      thumbnail.currentTime = this._currentTime;
     });
 
     if (this._container) {
@@ -123,16 +122,6 @@ SeekBarThumbnail.__css__ = (`
     margin: 0 auto 4px;
     z-index: 100;
   }
-
-  /*.zenzaSeekThumbnail-image {
-    background: none repeat scroll 0 0 #999;
-    border: 0;
-    margin: auto;
-    transform-origin: center top;
-    transition: background-position 0.1s steps(1, start) 0;
-    opacity: 0.8;
-  }*/
-
 `).trim();
 
 //===END===

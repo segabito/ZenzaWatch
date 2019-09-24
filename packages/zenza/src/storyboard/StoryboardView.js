@@ -2,12 +2,14 @@ import {Emitter} from '../../../lib/src/Emitter';
 import {StoryboardInfoModel} from './StoryboardInfoModel';
 import {global} from '../../../../src/ZenzaWatchIndex';
 import {RequestAnimationFrame} from '../../../lib/src/infra/RequestAnimationFrame';
-import {css, cssUtil} from '../../../lib/src/css/css';
+import {cssUtil} from '../../../lib/src/css/css';
 import {textUtil} from '../../../lib/src/text/textUtil';
 import {uq} from '../../../lib/src/uQuery';
 import {domEvent} from '../../../lib/src/dom/domEvent';
 import {TextLabel} from '../../../lib/src/ui/TextLabel';
 import {StoryboardWorker} from './StoryboardWorker';
+import {MediaTimeline} from '../../../lib/src/dom/MediaTimeline';
+import {ClassList} from '../../../lib/src/dom/ClassListWrapper';
 
 // import {bounce} from '';
 //===BEGIN===
@@ -53,18 +55,18 @@ class StoryboardView extends Emitter {
     if (!this._view) {
       return;
     }
-    this._view.classList.add('is-open');
-    this._body.classList.add('zenzaStoryboardOpen');
-    this._container.classList.add('zenzaStoryboardOpen');
+    ClassList(this._view).add('is-open');
+    ClassList(this._body).add('zenzaStoryboardOpen');
+    ClassList(this._container).add('zenzaStoryboardOpen');
     this._requestAnimationFrame.enable();
   }
   close() {
     if (!this._view) {
       return;
     }
-    this._view.classList.remove('is-open');
-    this._body.classList.remove('zenzaStoryboardOpen');
-    this._container.classList.remove('zenzaStoryboardOpen');
+    ClassList(this._view).remove('is-open');
+    ClassList(this._body).remove('zenzaStoryboardOpen');
+    ClassList(this._container).remove('zenzaStoryboardOpen');
     this._requestAnimationFrame.disable();
   }
   disable() {
@@ -90,7 +92,7 @@ class StoryboardView extends Emitter {
 
     this._body = document.body;
 
-    css.addStyle(StoryboardView.__css__);
+    cssUtil.addStyle(StoryboardView.__css__);
     const view = this._view = uq.html(StoryboardView.__tpl__)[0];
 
     const inner = this._inner = view.querySelector('.storyboardInner');
@@ -150,7 +152,7 @@ class StoryboardView extends Emitter {
     const sec = x / totalWidth * duration;
 
     const view = this._view;
-    this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(-1000));
+    cssUtil.setProps([this._cursorTime, '--trans-x-pp', cssUtil.px(-1000)]);
 
     domEvent.dispatchCommand(view, 'seekTo', sec);
   }
@@ -165,7 +167,7 @@ class StoryboardView extends Emitter {
     if (this.cursorTimeLabel && this.cursorTimeLabel.text !== time) {
       this.cursorTimeLabel.text = time;
     }
-    this._cursorTime.style.setProperty('--trans-x-pp', cssUtil.px(e.x));
+    cssUtil.setProps([this._cursorTime, '--trans-x-pp', cssUtil.px(e.x)]);
 
     this.isHover = true;
     this._isMouseMoving = true;
@@ -219,7 +221,7 @@ class StoryboardView extends Emitter {
     this._initializeStoryboard(this._model);
 
     this.close();
-    this._view.classList.remove('is-success', 'is-fail');
+    ClassList(this._view).remove('is-success', 'is-fail');
     if (this._model.status === 'ok') {
       this._updateSuccess();
     } else {
@@ -249,17 +251,18 @@ class StoryboardView extends Emitter {
   }
   _updateSuccess() {
     const view = this._view;
-    view.classList.add('is-success');
+    const cl = ClassList(view);
+    cl.add('is-success');
 
     window.console.time('createStoryboardDOM');
     this._updateSuccessDom();
     window.console.timeEnd('createStoryboardDOM');
 
     if (this._isEnable) {
-      view.classList.add('opening', 'is-open');
+      cl.add('opening', 'is-open');
       this.scrollLeft(0);
       this.open();
-      window.setTimeout(() => view.classList.remove('opening'), 1000);
+      window.setTimeout(() => cl.remove('opening'), 1000);
     }
 
   }
@@ -281,16 +284,18 @@ class StoryboardView extends Emitter {
       this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
     }
 
-    this._bone.style.setProperty('--width-pp',  cssUtil.px(model.cellCount * model.cellWidth));
-    this._bone.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
-    this._inner.style.height = cssUtil.px(model.cellHeight + 8);
-
-    this._pointer.style.setProperty('--width-pp', cssUtil.px(model.cellWidth));
-    this._pointer.style.setProperty('--height-pp', cssUtil.px(model.cellHeight));
+    cssUtil.setProps(
+      [this._bone,    '--width-pp',  cssUtil.px(model.cellCount * model.cellWidth)],
+      [this._bone,    '--height-pp', cssUtil.px(model.cellHeight)],
+      [this._pointer, '--width-pp',  cssUtil.px(model.cellWidth)],
+      [this._pointer, '--height-pp', cssUtil.px(model.cellHeight)],
+      [this._inner,   '--height-pp', cssUtil.px(model.cellHeight + 8)]
+    );
   }
   _updateFail() {
-    this._view.classList.remove('is-uccess');
-    this._view.classList.add('is-fail');
+    const cl = ClassList(this._view);
+    cl.remove('is-uccess');
+    cl.add('is-fail');
   }
   clear() {
   }
@@ -305,7 +310,8 @@ class StoryboardView extends Emitter {
       this._pointerLeftChanged = true;
     }
     if (this._pointerLeftChanged) {
-      this._pointer.style.setProperty('--trans-x-pp', cssUtil.px(this._pointerLeft - this._scrollLeft));
+      cssUtil.setProps([this._pointer, '--trans-x-pp',
+        cssUtil.px(this._pointerLeft - this._scrollLeft)]);
       this._pointerLeftChanged = false;
     }
   }
@@ -356,7 +362,7 @@ class StoryboardView extends Emitter {
       return;
     }
     this.close();
-    this._view.classList.remove('is-open', 'is-fail');
+    ClassList(this._view).remove('is-open', 'is-fail');
   }
 
 }
@@ -443,15 +449,16 @@ StoryboardView.__css__ = (`
   }
 
   .storyboardContainer .storyboardInner {
+    --height-pp: 98px;
+    height: var(--height-pp);
     display: none;
     overflow: hidden;
-    background: rgba(32, 32, 32, 0.5);
+    /*background: rgba(32, 32, 32, 0.5);*/
     margin: 0;
     contain: strict;
     width: 100vw;
     will-change: transform;
     overscroll-behavior: contain;
-    padding-bottom: 8px;
   }
   .storyboardContainer.is-success .storyboardInner {
     display: block;

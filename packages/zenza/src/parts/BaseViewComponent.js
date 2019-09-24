@@ -1,6 +1,8 @@
 import {Emitter} from '../../../lib/src/Emitter';
 import {PRODUCT} from '../../../../src/ZenzaWatchIndex';
-import {css} from '../../../lib/src/css/css';
+import {cssUtil} from '../../../lib/src/css/css';
+import {bounce} from '../../../lib/src/infra/bounce';
+import {ClassList} from '../../../lib/src/dom/ClassListWrapper';
 //===BEGIN===
 
 class BaseViewComponent extends Emitter {
@@ -24,11 +26,11 @@ class BaseViewComponent extends Emitter {
 
   _initDom(params) {
     const {parentNode, name, template, css: style, shadow} = params;
-    let tplId = `${PRODUCT}${name}Template`;
+    const tplId = `${PRODUCT}${name}Template`;
     let tpl = BaseViewComponent[tplId];
     if (!tpl) {
       if (style) {
-        css.addStyle(style, `${name}Style`);
+        cssUtil.addStyle(style, `${name}Style`);
       }
       tpl = document.createElement('template');
       tpl.innerHTML = template;
@@ -51,7 +53,7 @@ class BaseViewComponent extends Emitter {
   }
 
   _attachShadow({host, shadow, name, mode = 'open'}) {
-    let tplId = `${PRODUCT}${name}Shadow`;
+    const tplId = `${PRODUCT}${name}Shadow`;
     let tpl = BaseViewComponent[tplId];
     if (!tpl) {
       tpl = document.createElement('template');
@@ -77,7 +79,7 @@ class BaseViewComponent extends Emitter {
     const node = document.importNode(tpl.content, true);
     const style = node.querySelector('style');
     style.remove();
-    css.addStyle(style.innerHTML, `${name}Shadow`);
+    cssUtil.addStyle(style.innerHTML, `${name}Shadow`);
     host.append(node);
     this._shadow = this._shadowRoot = host.querySelector('.root');
     this._isDummyShadow = true;
@@ -137,20 +139,26 @@ class BaseViewComponent extends Emitter {
   }
 
   toggleClass(className, v) {
-    (className || '').split(/\s+/).forEach(c => {
-      this._view.classList.toggle(c, v);
-      if (this._shadow) {
-        this._shadow.classList.toggle(c, this._view.classList.contains(c));
+    const vc = ClassList(this._view);
+    const sc = this._shadow ? ClassList(this._shadow) : null;
+    (className || '').trim().split(/\s+/).forEach(c => {
+      vc.toggle(c, v);
+      if (sc) {
+        sc.toggle(c, vc.contains(c));
       }
     });
   }
 
   addClass(name) {
-    this.toggleClass(name, true);
+    const names = name.trim().split(/[\s]+/);
+    ClassList(this._view).add(...names);
+    this._shadow && ClassList(this._shadow).add(...names);
   }
 
   removeClass(name) {
-    this.toggleClass(name, false);
+    const names = name.trim().split(/[\s]+/);
+    ClassList(this._view).remove(...names);
+    this._shadow && ClassList(this._shadow).remove(...names);
   }
 }
 

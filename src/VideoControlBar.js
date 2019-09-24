@@ -10,7 +10,7 @@ import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 import {cssUtil} from '../packages/lib/src/css/css';
 import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationFrame';
-
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
 //===BEGIN===
 
   class VideoControlBar extends Emitter {
@@ -102,7 +102,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
 
       HeatMapWorker.init({container: this._seekBar}).then(hm => this._heatMap = hm);
       const updateHeatMapVisibility =
-        v => this._$seekBarContainer.toggleClass('noHeatMap', !v);
+        v => this._$seekBarContainer.raf.toggleClass('noHeatMap', !v);
       updateHeatMapVisibility(this._playerConfig.props.enableHeatMap);
       this._playerConfig.onkey('enableHeatMap', updateHeatMapVisibility);
       global.emitter.on('heatMapUpdate', heatMap => {
@@ -124,7 +124,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
         $container: this._$seekBarContainer
       });
       const updateEnableCommentPreview = v => {
-        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
+        this._$seekBarContainer.raf.toggleClass('enableCommentPreview', v);
         this._commentPreview.mode = v ? 'list' : 'hover';
       };
 
@@ -172,11 +172,11 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       const updatePlaybackRate = rate => {
         label.textContent = `x${rate}`;
         $menu.find('.selected').removeClass('selected');
-        let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
+        const fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $rates.forEach(item => {
-          let r = parseFloat(item.dataset.param, 10);
+          const r = parseFloat(item.dataset.param, 10);
           if (fr === r) {
-            item.classList.add('selected');
+            ClassList(item).add('selected');
           }
         });
         this._pointer.playbackRate = rate;
@@ -213,11 +213,11 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       };
 
       const onVideoServerType = (type, videoSessionInfo) => {
-        $button.removeClass('is-smile-playing is-dmc-playing')
-          .addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
+        $button.raf.removeClass('is-smile-playing is-dmc-playing')
+          .raf.addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
         $select.find('.serverType').removeClass('selected');
         $select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
-        $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+        $current.raf.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
       };
 
       updateSmileVideoQuality(config.props.smileVideoQuality);
@@ -237,12 +237,12 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
           window.console.log('start-seek-start');
           this._isWheelSeeking = true;
           this._wheelSeeker.currentTime = this._player.currentTime;
-          this._view.classList.add('is-wheelSeeking');
+          ClassList(this._view).add('is-wheelSeeking');
           break;
         case 'wheelSeek-end':
           window.console.log('start-seek-end');
           this._isWheelSeeking = false;
-          this._view.classList.remove('is-wheelSeeking');
+          ClassList(this._view).remove('is-wheelSeeking');
           break;
         case 'wheelSeek':
           this._onWheelSeek(e.detail.param);
@@ -343,8 +343,8 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       if (!this._isDragging) {
         e.stopPropagation();
       }
-      let left = e.offsetX;
-      let sec = this._posToTime(left);
+      const left = e.offsetX;
+      const sec = this._posToTime(left);
       this._seekBarMouseX = left;
 
       this._commentPreview.currentTime = sec;
@@ -369,12 +369,12 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
     }
     _beginMouseDrag() {
       this._bindDragEvent();
-      this._$view.addClass('is-dragging');
+      ClassList(this._view).add('is-dragging');
       this._isDragging = true;
     }
     _endMouseDrag() {
       this._unbindDragEvent();
-      this._$view.removeClass('is-dragging');
+      ClassList(this._view).remove('is-dragging');
       this._isDragging = false;
     }
     _onBodyMouseUp(e) {
@@ -476,8 +476,10 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
                 this._bufferEnd   !== end) {
               const perLeft = (this._timeToPer(start) - 1);
               const scaleX = (this._timeToPer(width) + 2) / 100;
-              bufferRange.style.setProperty('--buffer-range-left', cssUtil.percent(perLeft));
-              bufferRange.style.setProperty('--buffer-range-scale', scaleX);
+              cssUtil.setProps(
+                [bufferRange, '--buffer-range-left', cssUtil.percent(perLeft)],
+                [bufferRange, '--buffer-range-scale', scaleX]
+              );
               this._bufferStart = start;
               this._bufferEnd   = end;
             }
@@ -489,7 +491,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
     resetBufferedRange() {
       this._bufferStart = 0;
       this._bufferEnd = 0;
-      this._bufferRange.style.setProperty('--buffer-range-scale', 0);
+      cssUtil.setProps([this._bufferRange, '--buffer-range-scale', 0]);
     }
     _hideMenu() {
       document.body.focus();
@@ -1886,10 +1888,11 @@ util.addStyle(`
     }
     applyView() {
       const view = this._view;
-      const vs = view.style;
-      vs.setProperty('--current-time', cssUtil.s(this._currentTime));
-      vs.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
-      vs.setProperty('--trans-x-pp', cssUtil.px(this._left));
+      cssUtil.setProps(
+        [view, '--current-time', cssUtil.s(this._currentTime)],
+        [view, '--scroll-top', cssUtil.px(this._scrollTop)],
+        [view, '--trans-x-pp', cssUtil.px(this._left)]
+      );
       if (this._newListElements && this._newListElements.childElementCount) {
         this._list.append(this._newListElements);
       }
@@ -2323,7 +2326,7 @@ util.addStyle(`
       const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
       const vw = this._innerWidth = this._innerWidth || window.innerWidth;
       left = Math.max(0, Math.min(left - w / 2, vw - w));
-      this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
+      cssUtil.setProps([this._$view[0], '--trans-x-pp', cssUtil.px(left)]);
       this._seekBarThumbnail.currentTime = sec;
     }
   }
@@ -2348,8 +2351,8 @@ util.addStyle(`
       border: 1px solid #666;
       border-radius: 8px;
       padding: 8px 4px 0;
-      transform: translate3d(var(--trans-x-pp), 0, 10px);
-      transition: --trans-x-pp 0.1s, opacity 0.2s ease 0.5s;
+      will-change: transform;
+      transform: translate(var(--trans-x-pp), 0);
       pointer-events: none;
     }
 

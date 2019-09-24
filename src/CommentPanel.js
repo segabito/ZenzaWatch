@@ -11,6 +11,7 @@ import {uq} from '../packages/lib/src/uQuery';
 import {Clipboard} from '../packages/lib/src/dom/Clipboard';
 import {cssUtil} from '../packages/lib/src/css/css';
 import {env} from '../packages/lib/src/infra/env';
+import {ClassListWrapper, ClassList} from '../packages/lib/src/dom/ClassListWrapper';
 
 //===BEGIN===
 
@@ -171,9 +172,10 @@ class CommentListView extends Emitter {
     const doc = this._document = w.document;
     this._window = w;
     const body = this._body = doc.body;
+    const classList = this.classList = ClassList(body);
     const $body = this._$body = uq(body);
     if (this._className) {
-      body.classList.add(this._className);
+      classList.add(this._className);
     }
     this._container = doc.querySelector('#listContainer');
     this._$container = uq(this._container);
@@ -222,7 +224,7 @@ class CommentListView extends Emitter {
       {name: '--trans-y-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
       {name: '--vpos-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w}
     );
-    body.style.setProperty('--inner-height', this._innerHeight);
+    cssUtil.setProps([body,'--inner-height', this._innerHeight]);
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 
     // 互換用
@@ -246,17 +248,15 @@ class CommentListView extends Emitter {
 
     this._itemViews = itemViews;
 
-    window.setTimeout(() => {
-      if (!this._list) { return; }
-      this._list.textContent = '';
-      this._body.style.setProperty('--list-height',
-          Math.max(CommentListView.ITEM_HEIGHT * itemViews.length, this._innerHeight) + 100
-        );
-      this._inviewItemList.clear();
-      this._$menu.removeClass('show');
-      this._refreshInviewElements();
-      this.hideItemDetail();
-    }, 0);
+    await cssUtil.setProps([this._body, '--list-height',
+      Math.max(CommentListView.ITEM_HEIGHT * itemViews.length, this._innerHeight) + 100]);
+
+    if (!this._list) { return; }
+    this._list.textContent = '';
+    this._inviewItemList.clear();
+    this._$menu.removeClass('show');
+    this._refreshInviewElements();
+    this.hideItemDetail();
 
     window.setTimeout(() => {
       this.removeClass('updating');
@@ -344,19 +344,18 @@ class CommentListView extends Emitter {
   }
   _onWheel() {
     this.isActive = true;
-    this._scrollTop = this._container.scrollTop;
-    this._body.style.setProperty('--scroll-top', this._scrollTop);
+    this.scrollTop();
     this.addClass('is-active');
   }
   _onMouseOut() {
     this.isActive = false;
-    this._scrollTop = this._container.scrollTop;
+    this.scrollTop();
     this.removeClass('is-active');
   }
   _onResize() {
     this._innerHeight = this._window.innerHeight;
-    this._scrollTop = this._container.scrollTop;
-    this._body.style.setProperty('--inner-height', this._innerHeight);
+    cssUtil.setProps([this._body, '--inner-height', this._innerHeight]);
+    this.scrollTop();
     this._refreshInviewElements();
   }
   _onScroll() {
@@ -367,14 +366,12 @@ class CommentListView extends Emitter {
     this._onScrollEnd();
   }
   _onScrolling() {
-    this._scrollTop = this._container.scrollTop;
-    this._body.style.setProperty('--scroll-top', this._scrollTop);
+    this.scrollTop();
     this._refreshInviewElements();
   }
   _onScrollEnd() {
     this.removeClass('is-scrolling');
-    this._scrollTop = this._container.scrollTop;
-    this._body.style.setProperty('--scroll-top', this._scrollTop);
+    this.scrollTop();
   }
   _refreshInviewElements() {
     if (!this._list) {
@@ -388,38 +385,46 @@ class CommentListView extends Emitter {
     const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
     const endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
 
-    const newItems = [], inviewItemList = this._inviewItemList;
+    let changed = 0;
+    const newItems = this.newItems, inviewItemList = this._inviewItemList;
     for (let i = startIndex; i < endIndex; i++) {
       if (inviewItemList.has(i) || !itemViews[i]) {
         continue;
       }
-      newItems.push(itemViews[i]);
+      changed++;
+      newItems.push(itemViews[i].viewElement);
       inviewItemList.set(i, itemViews[i]);
     }
 
-    if (!newItems.length) {
-      return;
-    }
-
+    const removedItems = this.removedItems;
     for (const i of inviewItemList.keys()) {
       if (i >= startIndex && i <= endIndex) {
         continue;
       }
-      inviewItemList.get(i).remove();
+      changed++;
+      removedItems.push(inviewItemList.get(i));
       inviewItemList.delete(i);
     }
 
+    if (changed < 1) {
+      return;
+    }
 
-    this._newItems = this._newItems ? this._newItems.concat(newItems) : newItems;
     this._appendNewItems();
   }
   _appendNewItems() {
-    if (this._newItems) {
-      const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
-      f.append(...this._newItems.map(i => i.viewElement));
-      this._list.append(f);
+    if (this.removedItems.length) {
+      const f = this._gcFragment = this._gcFragment || document.createDocumentFragment();
+      f.append(...this.removedItems);
+      f.textContent = '';
+      this.removedItems.length = 0;
     }
-    this._newItems = null;
+    if (this.newItems.length) {
+      const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
+      f.append(...this.newItems);
+      this._list.append(f);
+      this.newItems.length = 0;
+    }
   }
   _updatePerspective() {
     const keys = Object.keys(this._inviewItemList);
@@ -440,39 +445,38 @@ class CommentListView extends Emitter {
     this._list.style.transform = `translateZ(-${avr}px)`;
   }
   addClass(className) {
-    this.toggleClass(className, true);
+    this.classList.add(className);
   }
   removeClass(className) {
-    this.toggleClass(className, false);
+    this.classList.remove(className);
   }
   toggleClass(className, v) {
     if (!this._body) {
       return;
     }
-    this._body.classList.toggle(className, v);
+    this.classList.toggle(className, v);
   }
   hasClass(className) {
-    return this._body.classList.contains(className);
+    return this.classList.contains(className);
   }
   find(query) {
     return this._document.querySelectorAll(query);
   }
   scrollTop(v) {
     if (!this._window) {
-      return 0;
+      return;
     }
 
     if (typeof v === 'number') {
-      this._scrollTop = v;
-      this._container.scrollTop = v;
-      this._scrollTop = this._container.scrollTop;
+      this._container.scrollTop = this._scrollTop = v;
     } else {
       this._scrollTop = this._container.scrollTop;
-      this._body.style.setProperty('--scroll-top', this._scrollTop);
-      return this._scrollTop;
+      cssUtil.setProps(
+        [this._body, '--scroll-top', this._scrollTop]
+      );
     }
   }
-  setCurrentPoint(sec, idx) {
+  setCurrentPoint(sec, idx, isAutoScroll) {
     if (!this._window || !this._itemViews) {
       return;
     }
@@ -486,13 +490,13 @@ class CommentListView extends Emitter {
 
     const itemHeight = CommentListView.ITEM_HEIGHT;
     const top = Math.max(0, view.top - innerHeight + itemHeight);
-    this._body.style.setProperty('--time-scroll-top', top);
-    if (!this.isActive) {
+    cssUtil.setProps(
+      [this._body, '--time-scroll-top', top],
+      [this._body, '--current-time', css.s(sec)]
+    );
+    if (!this.isActive && isAutoScroll) {
         this.scrollTop(top);
     }
-    requestAnimationFrame(() => {
-      this._body.style.setProperty('--current-time', css.s(sec));
-    });
   }
   showItemDetail(item) {
     const $d = this._$itemDetail;
@@ -1286,8 +1290,7 @@ class CommentPanelView extends Emitter {
     global.emitter.on('hideHover', () => $menu.removeClass('show'));
   }
   toggleClass(className, v) {
-    this._view.toggleClass(className, v);
-    this._$view.toggleClass(className, v);
+    this.$view.raf.toggleClass(className, v);
   }
   _onModelCurrentTimeUpdate(sec, viewIndex) {
     if (!this._$view){ //} || !this._$view.is(':visible')) {
@@ -1317,10 +1320,10 @@ class CommentPanelView extends Emitter {
       return;
     }
 
-    const $view = this._$view;
+    const $view = this.$view;
     const setUpdating = () => {
       document.activeElement.blur();
-      $view.addClass('updating');
+      $view.raf.addClass('updating');
       window.setTimeout(() => $view.removeClass('updating'), 1000);
     };
 
@@ -1342,13 +1345,12 @@ class CommentPanelView extends Emitter {
     this._timeMachineView.update(threadInfo);
   }
   _onCommentPanelStatusUpdate() {
-    const commentPanel = this._commentPanel;
-    const $view = this._$view
-      .toggleClass('autoScroll', commentPanel.isAutoScroll);
+    const commentPanel = this.commentPanel;
+    const $view = this.$view.raf.toggleClass('autoScroll', commentPanel.isAutoScroll);
 
     const langClass = `lang-${commentPanel.getLanguage()}`;
     if (!$view.hasClass(langClass)) {
-      $view.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
+      $view.raf.removeClass('lang-ja_JP lang-en_US lang-zh_TW').addClass(langClass);
     }
   }
 }

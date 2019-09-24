@@ -6,8 +6,8 @@
 // $('div').find('.thumbnail').walk.src = '';
 // $('.message').walk.textContent = 'hello';
 // $('span').walk.style.color = 'blue';
-
-import {Emitter} from './Emitter';
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {Emitter, PromiseHandler} from './Emitter';
 //===BEGIN===
 const uQuery = (() => {
   const endMap = new WeakMap();
@@ -108,6 +108,46 @@ const uQuery = (() => {
     return e instanceof NodeList || (e && e[Symbol.toStringTag] === 'NodeList');
   };
 
+
+  class RafCaller {
+    constructor(elm, methods = []) {
+      this.elm = elm;
+      methods.forEach(method => {
+        const task = elm[method].bind(elm);
+        task._name = method;
+        this[method] = (...args) => {
+          this.enqueue(task, ...args);
+          return elm;
+        };
+      });
+    }
+    get promise() {
+      return this.constructor.promise;
+    }
+    enqueue(task, ...args) {
+      this.constructor.taskList.push([task, ...args]);
+      this.constructor.exec();
+    }
+    cancel() {
+      this.constructor.taskList.length = 0;
+    }
+  }
+  RafCaller.promise = new PromiseHandler();
+  RafCaller.taskList = [];
+  RafCaller.exec = bounce.raf(function() {
+    const taskList = this.taskList.concat();
+    this.taskList.length = 0;
+    for (const [task, ...args] of taskList) {
+      try {
+        task(...args);
+      } catch (err) {
+        console.warn('RafCaller task fail', {task, args});
+      }
+    }
+    this.promise.resolve();
+    this.promise = new PromiseHandler();
+  }.bind(RafCaller));
+
   class $Array extends Array {
 
     get [Symbol.toStringTag]() {
@@ -149,7 +189,16 @@ const uQuery = (() => {
         this[0] = elm;
       }
     }
-
+    get raf() {
+      if (!this._raf) {
+        this._raf = new RafCaller(this, [
+          'addClass','removeClass','toggleClass','css','setAttribute','attr','data','prop',
+          'val','focus','blur','insert','append','appendChild','prepend','after','before',
+          'text','appendTo','prependTo','remove','show','hide'
+        ]);
+      }
+      return this._raf;
+    }
     get htmls() {
       return this.filter(isHTMLElement);
     }

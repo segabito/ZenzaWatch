@@ -6,6 +6,9 @@ import {Emitter} from './baselib';
 import {RecommendAPILoader, UploadedVideoApiLoader} from './loader/api';
 import {cssUtil} from '../packages/lib/src/css/css';
 import {sleep} from '../packages/lib/src/infra/sleep';
+import {bounce} from '../packages/lib/src/infra/bounce';
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
+import {uq} from '../packages/lib/src/uQuery';
 
 const MylistPocketDetector = {
   detect: () => { return Promise.resolve(); }
@@ -90,16 +93,12 @@ class VideoListModel extends Emitter {
     if (!item) {
       return;
     }
-    this._items = this._items.filter(i => {
-      return i !== item;
-    });
+    this._items = this._items.filter(i => i !== item);
   }
 
   removePlayedItem() {
     const beforeLen = this._items.length;
-    this._items = this._items.filter(item => {
-      return item.isActive || !item.isPlayed;
-    });
+    this._items = this._items.filter(item => item.isActive || !item.isPlayed);
     const afterLen = this._items.length;
     if (beforeLen !== afterLen) {
       this.emit('update', this._items);
@@ -107,19 +106,13 @@ class VideoListModel extends Emitter {
   }
 
   resetPlayedItemFlag() {
-    this._items.forEach(item => {
-      if (item.isPlayed) {
-        item.isPlayed = false;
-      }
-    });
+    this._items.forEach(item => item.isPlayed = false);
     this.onUpdate();
   }
 
   removeNonActiveItem() {
     const beforeLen = this._items.length;
-    this._items = this._items.filter(item => {
-      return item.isActive;
-    });
+    this._items = this._items.filter(item => item.isActive);
     const afterLen = this._items.length;
     if (beforeLen !== afterLen) {
       this.emit('update', this._items);
@@ -154,9 +147,7 @@ class VideoListModel extends Emitter {
 
   findByItemId(itemId) {
     itemId = parseInt(itemId, 10);
-    const item = this._items.find(item => {
-      return item.itemId === itemId;
-    });
+    const item = this._items.find(item => item.itemId === itemId);
     if (item && !this._boundSet.has(item)) {
       this._boundSet.add(item);
       item.on('update', this._boundOnItemUpdate);
@@ -166,9 +157,7 @@ class VideoListModel extends Emitter {
 
   findByWatchId(watchId) {
     watchId = watchId + '';
-    const item = this._items.find(item => {
-      return item.watchId === watchId;
-    });
+    const item = this._items.find(item => item.watchId === watchId);
     if (item && !this._boundSet.has(item)) {
       this._boundSet.add(item);
       item.on('update', this._boundOnItemUpdate);
@@ -204,7 +193,7 @@ class VideoListModel extends Emitter {
   }
 
   uniq(item) {
-    this._items.forEach((i) => {
+    this._items.forEach(i => {
       if (i === item) {
         return;
       }
@@ -221,10 +210,7 @@ class VideoListModel extends Emitter {
   }
 
   unserialize(itemDataList) {
-    const items = [];
-    itemDataList.forEach(itemData => {
-      items.push(new VideoListItem(itemData));
-    });
+    const items = itemDataList.map(itemData => new VideoListItem(itemData));
     this.setItem(items);
   }
 
@@ -663,6 +649,7 @@ const VideoListItemView = (() => {
       pocketInfo.dataset.param = watchId;
 
       this._view = template.clone();
+      this.classList = ClassList(this._view);
     }
 
     rebuild(item) {
@@ -719,7 +706,7 @@ const VideoListItemView = (() => {
       if (!this._view) {
         this.build();
       }
-      this._view.classList.toggle(className, v);
+      this.classList.toggle(className, v);
     }
   }
 
@@ -769,7 +756,7 @@ class VideoListView extends Emitter {
     this._initializeView(params);
   }
   _initializeView(params) {
-    let html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
+    const html = VideoListView.__tpl__.replace('%CSS%', this._itemCss);
     this._frame = new FrameLayer({
       container: params.container,
       html: html,
@@ -786,7 +773,7 @@ class VideoListView extends Emitter {
     cssUtil.registerProps(
       {name: '--list-length',  syntax: '<integer>', initialValue: 1, inherits: true, window: w},
       {name: '--active-index', syntax: '<integer>', initialValue: 1, inherits: true, window: w},
-      {name: '--progress', syntax: '<length-percentage>', initialValue: cssUtil.px(0), inherits: true, window: w},
+      {name: '--progress', syntax: '<length-percentage>', initialValue: cssUtil.percent(0), inherits: true, window: w},
     );
 
     const container = this._container = doc.querySelector('#listContainer');
@@ -797,8 +784,8 @@ class VideoListView extends Emitter {
       this._documentFragment = null;
     }
     $body.on('click', this._onClick.bind(this))
-      .on('keydown', e => ZenzaWatch.emitter.emit('keydown', e))
-      .on('keyup', e => ZenzaWatch.emitter.emit('keyup', e));
+      .on('keydown', e => global.emitter.emit('keydown', e))
+      .on('keyup', e => global.emitter.emit('keyup', e));
     w.addEventListener('focus', () => this._hasFocus = true);
     w.addEventListener('blur', () => this._hasFocus = false);
     this._updateCSSVars();
@@ -807,15 +794,16 @@ class VideoListView extends Emitter {
       $body.on('mousedown', this._onBodyMouseDown.bind(this), {passive: true});
     }
 
+    const ccl = ClassList(container);
     const onScroll = () => {
-     if (!container.classList.contains('is-scrolling')) {
-       container.classList.add('is-scrolling');
+     if (!ccl.contains('is-scrolling')) {
+       ccl.add('is-scrolling');
      }
      onScrollEnd();
     };
     const onScrollEnd = _.debounce(() => {
-     if (container.classList.contains('is-scrolling')) {
-       container.classList.remove('is-scrolling');
+     if (ccl.contains('is-scrolling')) {
+       ccl.remove('is-scrolling');
      }
     }, 500);
     container.addEventListener('scroll', onScroll, {passive: true});
@@ -831,7 +819,7 @@ class VideoListView extends Emitter {
     MylistPocketDetector.detect().then(async pocket => {
       this._pocket = pocket;
       await sleep.idle;
-      $body.addClass('is-pocketReady');
+      $body.raf.addClass('is-pocketReady');
       if (pocket.external.observe && this._enablePocketWatch) {
         pocket.external.observe({
           query: 'a.videoLink',
@@ -842,7 +830,7 @@ class VideoListView extends Emitter {
     });
   }
   _onBodyMouseDown(e) {
-    let item = e.target.closest('.videoItem');
+    const item = e.target.closest('.videoItem');
     if (!item) {
       return;
     }
@@ -877,21 +865,21 @@ class VideoListView extends Emitter {
     if (!this._dragging) {
       return;
     }
-    let x = e.pageX - this._dragOffset.x;
-    let y = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
-    let translate = `translate(${x}px, ${y}px)`;
+    const x = e.pageX - this._dragOffset.x;
+    const y = e.pageY - this._dragOffset.y + (this.scrollTop() - this._dragOffset.st);
+    const translate = `translate(${x}px, ${y}px)`;
 
     if (x * x + y * y < 100) {
       return;
     }
 
-    this._$body.addClass('dragging');
+    this._$body.raf.addClass('dragging');
     util.$(this._dragging)
-      .addClass('dragging')
-      .css('transform', translate);
+      .raf.addClass('dragging')
+      .raf.css('transform', translate);
 
     this._$body.find('.dragover').removeClass('dragover');
-    let target = e.target.closest('.videoItem');
+    const target = e.target.closest('.videoItem');
     if (!target) {
       return;
     }
@@ -901,17 +889,17 @@ class VideoListView extends Emitter {
   _onBodyMouseUp(e) {
     this._unbindDragStartEvents();
 
-    let dragging = this._dragging;
+    const dragging = this._dragging;
     this._endBodyMouseDragging();
     if (!dragging) {
       return;
     }
 
-    let target = e.target.closest('.videoItem') || this._dragTarget;
+    const target = e.target.closest('.videoItem') || this._dragTarget;
     if (!target) {
       return;
     }
-    let srcId = dragging.dataset.itemId, destId = target.dataset.itemId;
+    const srcId = dragging.dataset.itemId, destId = target.dataset.itemId;
     if (srcId === destId) {
       return;
     }
@@ -928,7 +916,7 @@ class VideoListView extends Emitter {
   }
   _endBodyMouseDragging() {
     this._unbindDragStartEvents();
-    this._$body.removeClass('dragging');
+    this._$body.raf.removeClass('dragging');
 
     this._dragTarget = null;
     this._$body.find('.dragover').removeClass('dragover');
@@ -940,29 +928,29 @@ class VideoListView extends Emitter {
   _onBodyDragOverFile(e) {
     e.preventDefault();
     e.stopPropagation();
-    this._$body.addClass('drag-over');
+    this._$body.raf.addClass('drag-over');
   }
   _onBodyDragEnterFile(e) {
     e.preventDefault();
     e.stopPropagation();
-    this._$body.addClass('drag-over');
+    this._$body.raf.addClass('drag-over');
   }
   _onBodyDragLeaveFile(e) {
     e.preventDefault();
     e.stopPropagation();
-    this._$body.removeClass('drag-over');
+    this._$body.raf.removeClass('drag-over');
   }
   _onBodyDropFile(e) {
     e.preventDefault();
     e.stopPropagation();
-    this._$body.removeClass('drag-over');
+    this._$body.raf.removeClass('drag-over');
 
-    let file = e.originalEvent.dataTransfer.files[0];
+    const file = e.originalEvent.dataTransfer.files[0];
     if (!/\.playlist\.json$/.test(file.name)) {
       return;
     }
 
-    let fileReader = new FileReader();
+    const fileReader = new FileReader();
     fileReader.onload = ev => {
       window.console.log('file data: ', ev.target.result);
       this.emit('filedrop', ev.target.result, file.name);
@@ -1003,7 +991,7 @@ class VideoListView extends Emitter {
 
       if (this._list) {
         this._list.textContent = '';
-        this._list.appendChild(f);
+        this._list.append(f);
         this._documentFragment = null;
         this._setInviewObserver();
       } else {
@@ -1031,10 +1019,10 @@ class VideoListView extends Emitter {
     if (this._intersectionObserver) {
       this._intersectionObserver.disconnect();
     }
-    let images = [...this._document.querySelectorAll('.lazy-load')];
+    const images = [...this._document.querySelectorAll('.lazy-load')];
     if (!images.length) { return; }
-    let onInview = this._onImageInview_bind || this._onImageInview.bind(this);
-    let observer = this._intersectionObserver = new window.IntersectionObserver(onInview);
+    const onInview = this._onImageInview_bind || this._onImageInview.bind(this);
+    const observer = this._intersectionObserver = new IntersectionObserver(onInview);
     images.forEach(img => observer.observe(img));
   }
   _onImageInview(entries) {
@@ -1048,8 +1036,7 @@ class VideoListView extends Emitter {
       if (!src) {
         return;
       }
-      thumbnail.style.backgroundImage = `url(${src})`;
-      // thumbnail.style.backgroundColor = 'transparent';
+      uq(thumbnail).raf.css('backgroundImage', `url(${src})`);
     });
   }
   _onModelItemUpdate(item, key, value) {
@@ -1085,24 +1072,25 @@ class VideoListView extends Emitter {
     }
   }
   _updateCSSVars() {
-    if (this._document) {
-      const body = this._document.body;
-      body.style.setProperty('--list-length', cssUtil.number(this._model.length));
-      body.style.setProperty('--active-index', cssUtil.number(this._model.activeIndex));
-    }
+    if (!this._document) { return; }
+    const body = this._document.body;
+    cssUtil.setProps(
+      [body, '--list-length', cssUtil.number(this._model.length)],
+      [body, '--active-index', cssUtil.number(this._model.activeIndex)]
+    );
   }
   _onClick(e) {
     e.stopPropagation();
-    ZenzaWatch.emitter.emitAsync('hideHover');
-    let target = e.target.closest('.command');
-    let item = e.target.closest('.videoItem');
+    global.emitter.emitAsync('hideHover');
+    const target = e.target.closest('.command');
+    const item = e.target.closest('.videoItem');
     if (!target) {
       return;
     }
     e.stopPropagation();
     e.preventDefault();
-    let {command, param} = target.dataset;
-    let {itemId} = item ? item.dataset : {};
+    const {command, param} = target.dataset;
+    const {itemId} = item ? item.dataset : {};
     switch (command) {
       case 'deflistAdd':
         this.emit('deflistAdd', param, itemId);
@@ -1134,7 +1122,7 @@ class VideoListView extends Emitter {
     if (!this._$body) {
       return;
     }
-    this._$body.toggleClass(className, v);
+    ClassList(this._$body[0]).toggle(className, v);
   }
   scrollTop(v) {
     if (!this._container) {
@@ -1153,7 +1141,7 @@ class VideoListView extends Emitter {
     if (typeof itemId === 'object') {
       itemId = itemId.itemId;
     }
-    let $target = this._$body.find(`.item${itemId}`);
+    const $target = this._$body.find(`.item${itemId}`);
     if (!$target.length) {
       return;
     }
@@ -1240,7 +1228,7 @@ VideoListView.__tpl__ = (`
     border-radius: 0;
     bottom: auto;
     right: 0;
-    transform: translateY(calc(var(--progress) * -1%));
+    transform: translateY(calc(var(--progress) * -1));
     background: none;
     opacity: 0.5;
     color: #f99;
@@ -1611,13 +1599,8 @@ class RelatedVideoList extends VideoList {
       this._initializeView();
     }
     this._watchId = watchId;
-    let items = [];
-    listData.forEach(itemData => {
-      if (!itemData.id) {
-        return;
-      }
-      items.push(new VideoListItem(itemData));
-    });
+    const items = listData
+      .filter(itemData => itemData.id).map(itemData => new VideoListItem(itemData));
     if (!items.length) {
       return;
     }
@@ -1649,7 +1632,8 @@ class PlaylistView extends Emitter {
     this._playlist = params.playlist;
 
     util.addStyle(PlaylistView.__css__);
-    let $view = this._$view = util.$.html(PlaylistView.__tpl__);
+    const $view = this._$view = util.$.html(PlaylistView.__tpl__);
+    this.classList = ClassList($view[0]);
     this._container.append($view[0]);
     const mq = $view.mapQuery({
       _index: '.playlist-index', _length: '.playlist-length',
@@ -1662,7 +1646,7 @@ class PlaylistView extends Emitter {
 
     global.debug.playlistView = this._$view;
 
-    let listView = this._listView = new VideoListView({
+    const listView = this._listView = new VideoListView({
       container: this._playlistFrame,
       model: this._model,
       className: 'playlist',
@@ -1679,9 +1663,9 @@ class PlaylistView extends Emitter {
       _.debounce(this._onPlaylistStatusUpdate.bind(this), 100));
 
     this._$view.on('click', this._onPlaylistCommandClick.bind(this));
-    ZenzaWatch.emitter.on('hideHover', () => {
-      this._$menu.removeClass('show');
-      this._$fileDrop.removeClass('show');
+    global.emitter.on('hideHover', () => {
+      this._$menu.raf.removeClass('show');
+      this._$fileDrop.raf.removeClass('show');
     });
     util.$('.zenzaVideoPlayerDialog')
       .on('dragover', this._onDragOverFile.bind(this))
@@ -1698,8 +1682,7 @@ class PlaylistView extends Emitter {
     ].forEach(func => this[func] = listView[func].bind(listView));
   }
   toggleClass(className, v) {
-    this._view.toggleClass(className, v);
-    this._$view.toggleClass(className, v);
+    this.classList.toggle(className, v);
   }
   _onCommand(command, param, itemId) {
     switch (command) {
@@ -1712,29 +1695,29 @@ class PlaylistView extends Emitter {
     this.emit('deflistAdd', watchId, itemId);
   }
   _onPlaylistCommandClick(e) {
-    let target = e.target.closest('.playlist-command');
+    const target = e.target.closest('.playlist-command');
     if (!target) {
       return;
     }
-    let {command, param} = target.dataset;
+    const {command, param} = target.dataset;
     e.stopPropagation();
     if (!command) {
       return;
     }
     switch (command) {
       case 'importFileMenu':
-        this._$menu.removeClass('show');
+        this._$menu.raf.removeClass('show');
         this._$fileDrop.addClass('show');
         return;
       case 'toggleMenu':
         e.stopPropagation();
         e.preventDefault();
-        this._$menu.addClass('show');
+        this._$menu.raf.addClass('show');
         return;
       case 'shuffle':
       case 'sortBy':
-        this._$view.addClass('shuffle');
-        window.setTimeout(() => this._$view.removeClass('shuffle'), 1000);
+        this.classList.add('shuffle');
+        window.setTimeout(() => this.classList.remove('shuffle'), 1000);
         this.emit('command', command, param);
         break;
       default:
@@ -1744,9 +1727,8 @@ class PlaylistView extends Emitter {
   }
   _onPlaylistStatusUpdate() {
     const playlist = this._playlist;
-    this._$view
-      .toggleClass('enable', playlist.isEnable)
-      .toggleClass('loop', playlist.isLoop)
+    this.classList.toggle('enable', playlist.isEnable)
+    this.classList.toggle('loop', playlist.isLoop)
     ;
     this._index.textContent = playlist.getIndex() + 1;
     this._length.textContent = playlist.length;
@@ -2055,7 +2037,7 @@ const PlaylistSession = (storage => {
       }
     },
     restore() {
-      let data = storage.getItem(KEY);
+      const data = storage.getItem(KEY);
       if (!data) {
         return null;
       }
@@ -2071,7 +2053,7 @@ const PlaylistSession = (storage => {
 
 class Playlist extends VideoList {
   initialize(params) {
-    this._thumbInfoLoader = params.loader || ZenzaWatch.api.ThumbInfoLoader;
+    this._thumbInfoLoader = params.loader || global.api.ThumbInfoLoader;
     this._container = params.container;
 
     this._index = -1;
@@ -2080,9 +2062,9 @@ class Playlist extends VideoList {
 
     this._model = new PlaylistModel({});
 
-    ZenzaWatch.debug.playlist = this;
+    global.debug.playlist = this;
     this.on('update', _.debounce(() => PlaylistSession.save(this.serialize()), 3000));
-    ZenzaWatch.emitter.on('tabChange', tab => {
+    global.emitter.on('tabChange', tab => {
       if (tab === 'playlist') {
         this.scrollToActiveItem();
       }
@@ -2178,18 +2160,18 @@ class Playlist extends VideoList {
     }
   }
   _onExportFileCommand() {
-    let dt = new Date();
-    let title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます',
+    const dt = new Date();
+    const title = prompt('プレイリストを保存\nプレイヤーにドロップすると復元されます',
       util.dateToString(dt) + 'のプレイリスト');
     if (!title) {
       return;
     }
 
-    let data = JSON.stringify(this.serialize(), null, 2);
+    const data = JSON.stringify(this.serialize(), null, 2);
 
-    let blob = new Blob([data], {'type': 'text/html'});
-    let url = window.URL.createObjectURL(blob);
-    let a = document.createElement('a');
+    const blob = new Blob([data], {'type': 'text/html'});
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
     Object.assign(a, {
       download: title + '.playlist.json',
       rel: 'noopener',
@@ -2209,8 +2191,8 @@ class Playlist extends VideoList {
     this.unserialize(JSON.parse(fileData));
 
     window.setTimeout(() => {
-      let index = Math.max(0, fileData.index || 0);
-      let item = this._model.getItemByIndex(index);
+      const index = Math.max(0, fileData.index || 0);
+      const item = this._model.getItemByIndex(index);
       if (item) {
         this.setIndex(index, true);
         this.emit('command', 'openNow', item.watchId);
@@ -2218,12 +2200,12 @@ class Playlist extends VideoList {
     }, 2000);
   }
   _onMoveItem(srcItemId, destItemId) {
-    let srcItem = this._model.findByItemId(srcItemId);
-    let destItem = this._model.findByItemId(destItemId);
+    const srcItem = this._model.findByItemId(srcItemId);
+    const destItem = this._model.findByItemId(destItemId);
     if (!srcItem || !destItem) {
       return;
     }
-    let destIndex = this._model.indexOf(destItem);
+    const destIndex = this._model.indexOf(destItem);
     this._model.removeItem(srcItem);
     this._model.insertItem(srcItem, destIndex);
     this._refreshIndex();
@@ -2396,7 +2378,7 @@ class Playlist extends VideoList {
     return this._nicoSearchApiLoader
       .searchMore(word, options, limit).then(result => {
         window.console.timeEnd('loadSearchVideos' + word);
-        let items = result.list || [];
+        const items = result.list || [];
         let videoListItems = items
           .filter(item => {
             return (item.item_data &&
@@ -2648,9 +2630,7 @@ class Playlist extends VideoList {
   removePlayedItem() {
     this._model.removePlayedItem();
     this._refreshIndex(true);
-    setTimeout(() => {
-      this._view.scrollToItem(this._activeItem);
-    }, 1000);
+    setTimeout(() => this._view.scrollToItem(this._activeItem), 1000);
   }
   removeNonActiveItem() {
     this._model.removeNonActiveItem();
@@ -2661,8 +2641,8 @@ class Playlist extends VideoList {
     if (!this.hasNext) {
       return null;
     }
-    let index = this.getIndex();
-    let len = this.length;
+    const index = this.getIndex();
+    const len = this.length;
     if (len < 1) {
       return null;
     }
@@ -2677,8 +2657,8 @@ class Playlist extends VideoList {
     return this._activeItem ? this._activeItem.watchId : null;
   }
   selectPrevious() {
-    let index = this.getIndex();
-    let len = this.length;
+    const index = this.getIndex();
+    const len = this.length;
     if (len < 1) {
       return null;
     }

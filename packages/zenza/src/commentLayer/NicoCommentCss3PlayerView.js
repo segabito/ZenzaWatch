@@ -12,6 +12,7 @@ import {NicoChatCss3View} from './NicoChatCss3View';
 import {NicoChatViewModel} from './NicoChatViewModel';
 import {watchResize} from '../../../lib/src/dom/watchResize';
 import {cssUtil} from '../../../lib/src/css/css';
+import {ClassList} from '../../../lib/src/dom/ClassListWrapper';
 //===BEGIN===
 /**
  * ニコニコ動画のコメントをCSS3アニメーションだけで再現出来るよ
@@ -124,6 +125,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       // Config直接参照してるのは手抜き
       doc.body.classList.toggle('debug', Config.props.debug);
       Config.onkey('debug', v => doc.body.classList.toggle('debug', v));
+      ClassList(doc.body).toggle('debug', Config.props.debug);
       // 手抜きその2
       NicoComment.offscreenLayer.get().then(layer => { this._optionStyle.innerHTML = layer.optionCss; });
       global.emitter.on('updateOptionCss', newCss => {
@@ -161,9 +163,10 @@ class NicoCommentCss3PlayerView extends Emitter {
 
       const updateTextShadow = type => {
         const types = ['shadow-type2', 'shadow-type3', 'shadow-stroke', 'shadow-dokaben'];
-        types.forEach(t => doc.body.classList.toggle(t, t === type));
+        const cl = ClassList(doc.body);
+        types.forEach(t => cl.toggle(t, t === type));
       };
-      updateTextShadow(this._config.getValue('textShadowType'));
+      updateTextShadow(this._config.props.textShadowType);
       this._config.onkey('textShadowType', _.debounce(updateTextShadow, 100));
 
       window.console.timeEnd('initialize NicoCommentCss3PlayerView');
@@ -276,13 +279,13 @@ class NicoCommentCss3PlayerView extends Emitter {
     if (!this.commentLayer) {
       return;
     }
-    this.commentLayer.classList.add(name);
+    ClassList(this.commentLayer).add(name);
   }
   _removeClass (name) {
     if (!this.commentLayer) {
       return;
     }
-    this.commentLayer.classList.remove(name);
+    ClassList(this.commentLayer).remove(name);
   }
   _setStall (v) {
     if (v) {
@@ -382,41 +385,29 @@ class NicoCommentCss3PlayerView extends Emitter {
     }
   }
 
-  _updateDom(dom, subDom, css, outViewIds) {
-    const fragment = this.fragment;
-    if (dom.length) {
-      fragment.append(...dom);
-      this.commentLayer.append(fragment);
-    }
-    if (subDom.length) {
-      fragment.append(...subDom);
-      this.subLayer.append(fragment);
-    }
-    this._removeOutviewElements(outViewIds);
+  _updateDom() {
+    // performance.mark('updateDom:start-add');
+    // this._removeOutviewElements(outViewChats);
     this._gcInviewElements();
-  }
-  /*
-  * アニメーションが終わっているはずの要素を除去
-  */
-  _removeOutviewElements(outViewIds) {
-    if (!this.document || !outViewIds.length) {
-      return;
+    if (this.removingElements.length) {
+      this.gcFragment.append(...this.removingElements);
+      this.removingElements.length = 0;
     }
-    const dt = this._domTable;
-    const elements = [];
-    for (const id of outViewIds) {
-      const elm = dt.get(id);
-      elm && (elements.push(elm));
+    if (this.fragment.firstElementChild) {
+      this.commentLayer.append(this.fragment);
     }
-    if (elements.length < 1) { return; }
-    const fragment = this.fragment;
-    fragment.append(...elements);
-    this._gcFragment.append(fragment);
+    if (this.subFragment.firstElementChild) {
+      this.subLayer.append(this.subFragment);
+    }
+    // performance.mark('updateDom:end-add');
+    // performance.mark('updateDom:start-remove');
+    // performance.mark('updateDom:end-remove');
+    // performance.measure('updateDom');
   }
   /*
   * 古い順に要素を除去していく
   */
-  _gcInviewElements (/*outViewIds*/) {
+  _gcInviewElements () {
     if (!this.commentLayer || !this._style) {
       return;
     }
@@ -492,7 +483,6 @@ class NicoCommentCss3PlayerView extends Emitter {
       this._isShow = true;
       this.refresh();
     }
-    console.log('show!');
   }
   hide () {
     this.clear();

@@ -14,10 +14,11 @@ import {sleep} from '../packages/lib/src/infra/sleep';
 import {Fullscreen} from '../packages/lib/src/dom/Fullscreen';
 import {textUtil} from '../packages/lib/src/text/textUtil';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
-import {css} from '../packages/lib/src/css/css';
+import {css, cssUtil} from '../packages/lib/src/css/css';
 import {uq} from '../packages/lib/src/uQuery';
 import {domEvent} from '../packages/lib/src/dom/domEvent';
 import {VideoListItem} from './VideoList';
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
 
 const VideoItemObserver = {
   observe: () => {}
@@ -46,6 +47,7 @@ class VideoInfoPanel extends Emitter {
 
     const $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
     const view = this._view = $view[0];
+    const classList = this.classList = ClassList(view);
 
     const $icon = this._$ownerIcon = $view.find('.ownerIcon');
     this._$ownerName = $view.find('.ownerName');
@@ -78,22 +80,22 @@ class VideoInfoPanel extends Emitter {
     view.addEventListener('command', this._onCommandEvent.bind(this));
     view.addEventListener('click', this._onClick.bind(this));
     view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
-    $icon.on('load', () => $icon.removeClass('is-loading'));
+    $icon.on('load', () => $icon.raf.removeClass('is-loading'));
 
-    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
     global.emitter.on('fullscreenStatusChange', isFull => {
-      view.classList.toggle('is-fullscreen', isFull);
-      view.classList.toggle('is-notFullscreen', !isFull);
+      classList.toggle('is-fullscreen', isFull);
+      classList.toggle('is-notFullscreen', !isFull);
     });
 
-    view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
-    global.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
-    css.registerProps(
+    view.addEventListener('touchenter', () => classList.add('is-slideOpen'), {passive: true});
+    global.emitter.on('hideHover', () => classList.remove('is-slideOpen'));
+    cssUtil.registerProps(
       {name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
     );
     MylistPocketDetector.detect().then(pocket => {
       this._pocket = pocket;
-      view.classList.add('is-pocketReady');
+      classList.add('is-pocketReady');
     });
     if (window.customElements) {
       VideoItemObserver.observe({container: this._description});
@@ -125,11 +127,11 @@ class VideoInfoPanel extends Emitter {
     }
     this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
 
-    this._$view
-      .removeClass('userVideo channelVideo initializing')
-      .toggleClass('is-community', this._videoInfo.isCommunityVideo)
-      .toggleClass('is-mymemory', this._videoInfo.isMymemory)
-      .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
+    const classList = this.classList;
+    classList.remove('userVideo', 'channelVideo', 'initializing');
+    classList.toggle('is-community', this._videoInfo.isCommunityVideo);
+    classList.toggle('is-mymemory', this._videoInfo.isMymemory);
+    classList.add(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
 
     this._ichibaItemView.clear();
     this._ichibaItemView.videoId = videoInfo.videoId;
@@ -344,8 +346,8 @@ class VideoInfoPanel extends Emitter {
   }
   clear() {
     this._videoHeaderPanel.clear();
-    this._$view.addClass('initializing');
-    this._$ownerIcon.addClass('is-loading');
+    this._$view.raf.addClass('initializing');
+    this._$ownerIcon.raf.addClass('is-loading');
     this._description.textContent = '';
   }
   selectTab(tabName) {
@@ -1147,9 +1149,10 @@ class VideoHeaderPanel extends Emitter {
       return;
     }
     this._isInitialized = true;
-    css.addStyle(VideoHeaderPanel.__css__);
+    cssUtil.addStyle(VideoHeaderPanel.__css__);
     const $view = this._$view = uq.html(VideoHeaderPanel.__tpl__);
     const view = $view[0];
+    const classList = this.classList = ClassList(view);
 
     this._videoTitle = $view.find('.videoTitle')[0];
     this._searchForm = new VideoSearchForm({
@@ -1167,17 +1170,17 @@ class VideoHeaderPanel extends Emitter {
       parentNode: view.querySelector('.relatedInfoMenuContainer'),
       isHeader: true
     });
-    this._relatedInfoMenu.on('open', () => $view.addClass('is-relatedMenuOpen'));
-    this._relatedInfoMenu.on('close', () => $view.removeClass('is-relatedMenuOpen'));
+    this._relatedInfoMenu.on('open', () => classList.add('is-relatedMenuOpen'));
+    this._relatedInfoMenu.on('close', () => classList.remove('is-relatedMenuOpen'));
 
     this._videoMetaInfo = new VideoMetaInfo({
       parentNode: view.querySelector('.videoMetaInfoContainer'),
     });
 
-    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
     global.emitter.on('fullScreenStatusChange', isFull => {
-      view.classList.toggle('is-fullscreen', isFull);
-      view.classList.toggle('is-notFullscreen', !isFull);
+      classList.toggle('is-fullscreen', isFull);
+      classList.toggle('is-notFullscreen', !isFull);
     });
 
     window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
@@ -1200,13 +1203,13 @@ class VideoHeaderPanel extends Emitter {
 
     this._relatedInfoMenu.update(videoInfo);
 
-    this._$view
-      .removeClass('userVideo channelVideo initializing')
-      .toggleClass('is-community', this._videoInfo.isCommunityVideo)
-      .toggleClass('is-mymemory', this._videoInfo.isMymemory)
-      .toggleClass('has-Parent', this._videoInfo.hasParentVideo)
-      .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
-      .css('display', '');
+    const classList = this.classList;
+    classList.remove('userVideo', 'channelVideo', 'initializing');
+    classList.toggle('is-community', this._videoInfo.isCommunityVideo);
+    classList.toggle('is-mymemory', this._videoInfo.isMymemory);
+    classList.toggle('has-Parent', this._videoInfo.hasParentVideo);
+    classList.add(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
+    this._$view.raf.css('display', '');
 
     if (videoInfo.series && videoInfo.series.thumbnailUrl) {
       this._seriesCover.style.backgroundImage = `url("${videoInfo.series.thumbnailUrl}")`;
@@ -1222,10 +1225,10 @@ class VideoHeaderPanel extends Emitter {
   _onResize() {
     const view = this._$view[0];
     const rect = view.getBoundingClientRect();
-    const isOnscreen = view.classList.contains('is-onscreen');
+    const isOnscreen = this.classList.contains('is-onscreen');
     const height = rect.bottom - rect.top;
     const top = isOnscreen ? (rect.top - height) : rect.top;
-    view.classList.toggle('is-onscreen', top < -32);
+    this.classList.toggle('is-onscreen', top < -32);
   }
   appendTo(node) {
     this._initializeDom();
@@ -1235,7 +1238,7 @@ class VideoHeaderPanel extends Emitter {
     if (!this._$view) {
       return;
     }
-    this._$view.removeClass('show');
+    this.classList.remove('show');
   }
   close() {
   }
@@ -1243,7 +1246,7 @@ class VideoHeaderPanel extends Emitter {
     if (!this._$view) {
       return;
     }
-    this._$view.addClass('initializing');
+    this.classList.add('initializing');
 
     this._videoTitle.textContent = '';
   }
@@ -1532,11 +1535,10 @@ class VideoSearchForm extends Emitter {
   _initDom({parentNode}) {
     let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
     if (!tpl) {
-      css.addStyle(VideoSearchForm.__css__);
+      cssUtil.addStyle(VideoSearchForm.__css__);
       tpl = document.createElement('template');
       tpl.innerHTML = VideoSearchForm.__tpl__;
       tpl.id = 'zenzaVideoSearchPanelTemplate';
-      document.body.appendChild(tpl);
     }
     const view = document.importNode(tpl.content, true);
 
@@ -2013,11 +2015,8 @@ class IchibaItemView extends BaseViewComponent {
   }
 
   clear() {
-    this.removeClass('is-loading');
-    this.removeClass('is-success');
-    this.removeClass('is-fail');
-    this.removeClass('is-empty');
-    this._listContainer.innerHTML = '';
+    this.removeClass('is-loading is-success is-fail is-empty');
+    this._listContainer.textContent = '';
   }
 
   _onIchibaLoad(data) {
@@ -2275,7 +2274,7 @@ class UaaView extends BaseViewComponent {
     if (!this._elm.body) {
       return;
     }
-    this._elm.body.innerHTML = '';
+    this._elm.body.textContent = '';
   }
 
   _onLoad(videoId, result) {
@@ -2609,7 +2608,7 @@ class RelatedInfoMenu extends BaseViewComponent {
   _initDom(...args) {
     super._initDom(...args);
 
-    this._view.classList.toggle('is-Edge', /edge/i.test(navigator.userAgent));
+    ClassList(this._view).toggle('is-Edge', /edge/i.test(navigator.userAgent));
     const shadow = this._shadow || this._view;
     this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
     this._elm.summary = shadow.querySelector('summary');

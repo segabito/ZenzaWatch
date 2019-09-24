@@ -18,14 +18,14 @@ import {ThreadLoader} from './loader/ThreadLoader';
 import {sleep} from '../packages/lib/src/infra/sleep';
 import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
 import {PlayerState} from './State';
-import {ClassListWrapper} from '../packages/lib/src/dom/ClassListMapper';
+import {ClassListWrapper, ClassList} from '../packages/lib/src/dom/ClassListWrapper';
 import {objUtil} from '../packages/lib/src/infra/objUtil';
 import {reg} from '../packages/lib/src/text/reg';
 import {bounce} from '../packages/lib/src/infra/bounce';
 import {MylistApiLoader} from '../packages/lib/src/nico/MylistApiLoader';
 import {ThumbInfoLoader} from '../packages/lib/src/nico/ThumbInfoLoader';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
-import {css} from '../packages/lib/src/css/css';
+import {css, cssUtil} from '../packages/lib/src/css/css';
 
 //===BEGIN===
 //@require ClassListWrapper
@@ -211,7 +211,7 @@ class NicoVideoPlayerDialogView extends Emitter {
 
     const $container = this._$playerContainer = $dialog.find('.zenzaPlayerContainer');
     const container = $container[0];
-    const classList = this._classList = new ClassListWrapper(container);
+    const classList = this.classList = ClassList(container);
 
     container.addEventListener('click', e => {
       global.emitter.emitAsync('hideHover');
@@ -551,7 +551,7 @@ class NicoVideoPlayerDialogView extends Emitter {
     const table = this._getStateClassNameTable();
     const state = this._state;
     for (const [key, className] of table) {
-      this._classList.toggle(className, state[key]);
+      this.classList.toggle(className, state[key]);
     }
 
     if (this._state.isOpen) {
@@ -572,14 +572,13 @@ class NicoVideoPlayerDialogView extends Emitter {
     const screenMode = `zenzaScreenMode_${this._state.screenMode}`;
     if (!force && this._lastScreenMode === screenMode) { return; }
     this._lastScreenMode = screenMode;
-    const body = this._$body;
     const modes = this._getScreenModeClassNameTable();
     const isFull = util.fullscreen.now();
     Object.assign(document.body.dataset, {
       screenMode: this._state.screenMode,
       fullscreen: isFull ? 'yes' : 'no'
     });
-    modes.forEach(m => body.toggleClass(m, m === screenMode && !isFull));
+    modes.forEach(m => this._$body.raf.toggleClass(m, m === screenMode && !isFull));
     this._updateScreenModeStyle();
   }
   _updateScreenModeStyle() {
@@ -616,25 +615,25 @@ class NicoVideoPlayerDialogView extends Emitter {
     util.StyleSwitcher.update({on, off});
   }
   show() {
-    this._$dialog.addClass('is-open');
+    ClassList(this._$dialog[0]).add('is-open');
     if (!Fullscreen.now()) {
-      document.body.classList.remove('fullscreen');
+      ClassList(document.body).remove('fullscreen');
     }
-    this._$body.addClass('showNicoVideoPlayerDialog');
+    this._$body.raf.addClass('showNicoVideoPlayerDialog');
     util.StyleSwitcher.update({on: 'style.zenza-open'});
     this._updateScreenModeStyle();
   }
   hide() {
-    this._$dialog.removeClass('is-open');
+    ClassList(this._$dialog[0]).remove('is-open');
     this._settingPanel.hide();
-    this._$body.removeClass('showNicoVideoPlayerDialog');
+    this._$body.raf.removeClass('showNicoVideoPlayerDialog');
     util.StyleSwitcher.update({off: 'style.zenza-open, style.screenMode', on: 'link[href*="watch.css"]'});
     this._clearClass();
   }
   _clearClass() {
     const modes = this._getScreenModeClassNameTable().join(' ');
     this._lastScreenMode = '';
-    this._$body.removeClass(modes);
+    this._$body.raf.removeClass(modes);
   }
   _setThumbnail(thumbnail) {
     if (thumbnail) {
@@ -655,23 +654,23 @@ class NicoVideoPlayerDialogView extends Emitter {
     return this._$playerContainer;
   }
   css(key, val) {
-    this._$playerContainer.css(key, val);
+    this._$playerContainer.raf.css(key, val);
   }
   addClass(name) {
-    const cls = name.split(/\s+/).filter(cn => !this._classList.contains(cn));
+    const cls = name.split(/\s+/).filter(cn => !this.classList.contains(cn));
     if (!cls.length) { return; }
-    return this._classList.add(...cls);
+    return this.classList.add(...cls);
   }
   removeClass(name) {
-    const cls = name.split(/\s+/).filter(cn => this._classList.contains(cn));
+    const cls = name.split(/\s+/).filter(cn => this.classList.contains(cn));
     if (!cls.length) { return; }
-    return this._classList.remove(...cls);
+    return this.classList.remove(...cls);
   }
   toggleClass(name, v) {
     if (typeof v === 'boolean') {
       return v ? this.addClass(name) : this.removeClass(name);
     }
-    name.split(/\s+/).forEach(n => this._classList.toggle(n));
+    name.split(/\s+/).forEach(n => this.classList.toggle(n));
   }
   hasClass(name) {
     const container = this._$playerContainer[0];
@@ -1264,10 +1263,6 @@ NicoVideoPlayerDialogView.__css__ = `
   `.trim();
 
 NicoVideoPlayerDialogView.__tpl__ = (`
-<!--
-
-
--->
     <div id="zenzaVideoPlayerDialog" class="zenzaVideoPlayerDialog zen-family zen-root">
       <div class="zenzaVideoPlayerDialogInner">
         <div class="menuContainer"></div>
@@ -1279,10 +1274,6 @@ NicoVideoPlayerDialogView.__tpl__ = (`
         </div>
       </div>
     </div>
-<!--
-
-
--->
   `).trim();
 /**
  * TODO: 分割 まにあわなくなっても知らんぞー
@@ -3568,7 +3559,8 @@ class VariablesMapper {
     return Object.keys(state).some(key => state[key] !== nextState[key]);
   }
 
-  setVar(key, value) { this.element.style.setProperty(key, value); }
+  setVar(key, value) {
+    cssUtil.setProps([this.element, key, value]); }
 
   update() {
     const state = this.state;
