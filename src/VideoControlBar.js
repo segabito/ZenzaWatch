@@ -410,16 +410,23 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
     }
     _onLoadVideoInfo(videoInfo) {
       this.duration = videoInfo.duration;
+      const [view] = this._$view;
 
       if (!this._isFirstVideoInitialized) {
         this._isFirstVideoInitialized = true;
         const handler = (command, param) => this.emit('command', command, param);
 
         global.emitter.emitAsync('videoControBar.addonMenuReady',
-          this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
+          view.querySelector('.controlItemContainer.left .scalingUI'), handler
         );
         global.emitter.emitAsync('seekBar.addonMenuReady',
-          this._$view[0].querySelector('.seekBar'), handler
+          view.querySelector('.seekBar'), handler
+        );
+        global.emitter.emitResolve('videoControBar.addonMenuReady',
+          {container: view.querySelector('.controlItemContainer.left .scalingUI'), handler}
+        );
+        global.emitter.emitResolve('seekBar.addonMenuReady',
+          {container: view.querySelector('.seekBar'), handler}
         );
       }
 

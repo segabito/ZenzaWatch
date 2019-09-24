@@ -148,7 +148,7 @@ class VideoInfoPanel extends Emitter {
   async _updateVideoDescription(html) {
     this._description.textContent = '';
     this._zenTubeUrl = null;
-    const watchLink = watchLink => {
+    const decorateWatchLink = watchLink => {
       const videoId = watchLink.textContent.replace('watch/', '');
 
       if (
@@ -221,7 +221,7 @@ class VideoInfoPanel extends Emitter {
       a.classList.add('noHoverMenu');
       const href = a.href;
       if (a.classList.contains('watch')) {
-        watchLink(a);
+        decorateWatchLink(a);
       } else if (a.classList.contains('seekTime')) {
         seekTime(a);
       } else if (/^mylist\//.test(a.textContent)) {
@@ -244,7 +244,7 @@ class VideoInfoPanel extends Emitter {
     this._description.append($description[0]);
 
   }
-  _onVideoCanPlay(watchId, videoInfo, options) {
+  async _onVideoCanPlay(watchId, videoInfo, options) {
     // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
     if (!this._relatedVideoList) {
       this._relatedVideoList = new RelatedVideoList({
@@ -254,37 +254,36 @@ class VideoInfoPanel extends Emitter {
     }
 
     if (this._config.props.autoZenTube && this._zenTubeUrl && !options.isAutoZenTubeDisabled) {
-      window.setTimeout(() => {
+      sleep(100).then(() => {
         window.console.info('%cAuto ZenTube', this._zenTubeUrl);
         this.emit('command', 'setVideo', this._zenTubeUrl);
-      }, 100);
-    }
-    const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
-    RecommendAPILoader.load({videoId: videoInfo.videoId}).then(data => {
-      const items = data.items || [];
-      (items || []).forEach(item => {
-        if (item.contentType !== 'video') {
-          return;
-        }
-        const content = item.content;
-        relatedVideo.push({
-          _format: 'recommendApi',
-          _data: item,
-          id: item.id,
-          title: content.title,
-          length_seconds: content.duration,
-          num_res: content.count.comment,
-          mylist_counter: content.count.mylist,
-          view_counter: content.count.view,
-          thumbnail_url: content.thumbnail.url,
-          first_retrieve: content.registeredAt,
-          has_data: true,
-          is_translated: false
-        });
       });
-      this._relatedVideoList.update(relatedVideo, watchId);
-    });
-
+    }
+    await sleep.idle();
+    const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
+    const data = await RecommendAPILoader.load({videoId: videoInfo.videoId}).catch(() => ({}));
+    const items = data.items || [];
+    for (const item of items) {
+      if (item.contentType && item.contentType !== 'video') {
+        continue;
+      }
+      const content = item.content;
+      relatedVideo.push({
+        _format: 'recommendApi',
+        _data: item,
+        id: item.id,
+        title: content.title,
+        length_seconds: content.duration,
+        num_res: content.count.comment,
+        mylist_counter: content.count.mylist,
+        view_counter: content.count.view,
+        thumbnail_url: content.thumbnail.url,
+        first_retrieve: content.registeredAt,
+        has_data: true,
+        is_translated: false
+      });
+    }
+    this._relatedVideoList.update(relatedVideo, watchId);
   }
   _onVideoCountUpdate(...args) {
     if (!this._videoHeaderPanel) {
@@ -1554,7 +1553,7 @@ class VideoSearchForm extends Emitter {
     const form = this._form;
 
     form['ownerOnly'].checked = config.props.ownerOnly;
-    let confMode = config.props.mode;
+    const confMode = config.props.mode;
     if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
       form['mode'].value = confMode;
     } else if (typeof confMode === 'boolean') {
@@ -2287,7 +2286,7 @@ class UaaView extends BaseViewComponent {
       return;
     }
 
-    const df = document.createDocumentFragment();
+    const df = this.df = this.df || document.createDocumentFragment();
     const div = document.createElement('div');
     div.className = 'screenshots';
     let idx = 0, screenshots = 0;
@@ -2318,7 +2317,7 @@ class UaaView extends BaseViewComponent {
     });
 
     this._elm.body.innerHTML = '';
-    this._elm.body.appendChild(df);
+    this._elm.body.append(df);
 
     this.setState({isExist: true});
   }
@@ -2359,7 +2358,7 @@ class UaaView extends BaseViewComponent {
         df.classList.add('has-screenshot');
         df.classList.remove('clickable', 'other');
 
-        df.appendChild(cv);
+        df.append(cv);
       }).catch(() => {});
     } else if (bgkeyframe) {
       const sec = parseFloat(bgkeyframe);
@@ -2369,7 +2368,7 @@ class UaaView extends BaseViewComponent {
     } else {
       df.classList.add('other');
     }
-    df.appendChild(contact);
+    df.append(contact);
     return df;
   }
 

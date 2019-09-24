@@ -25,6 +25,7 @@ class CommentListModel extends Emitter {
     this._currentSortKey = 'vpos';
     this._isDesc = false;
     this._currentTime = 0;
+    this._currentIndex = -1;
   }
   setItem(itemList) {
     this._items = Array.isArray(itemList) ? itemList : [itemList];
@@ -33,12 +34,13 @@ class CommentListModel extends Emitter {
     this._items = [];
     this._positions = [];
     this._currentTime = 0;
+    this._currentIndex = -1;
     this.emit('update', [], true);
   }
   setChatList(chatList) {
     chatList = chatList.top.concat(chatList.naka, chatList.bottom);
-    let items = [];
-    let positions = [];
+    const items = [];
+    const positions = [];
     for (let i = 0, len = chatList.length; i < len; i++) {
       items.push(new CommentListItem(chatList[i]));
       positions.push(parseFloat(chatList[i].vpos, 10) / 100);
@@ -46,29 +48,29 @@ class CommentListModel extends Emitter {
     this._items = items;
     this._positions = positions.sort((a, b) => a - b);
     this._currentTime = 0;
+    this._currentIndex = -1;
 
     this.sort();
     this.emit('update', this._items, true);
   }
   removeItemByIndex(index) {
-    let target = this._getItemByIndex(index);
+    const target = this._getItemByIndex(index);
     if (!target) {
       return;
     }
-    this._items = _.reject(this._items, item => item === target);
+    this._items = this._items.filter(item => item !== target);
   }
-  getLength() {
+  get length() {
     return this._items.length;
   }
   _getItemByIndex(index) {
-    let item = this._items[index];
-    return item;
+    return this._items[index];
   }
   indexOf(item) {
     return (this._items || []).indexOf(item);
   }
   getItemByIndex(index) {
-    let item = this._getItemByIndex(index);
+    const item = this._getItemByIndex(index);
     if (!item) {
       return null;
     }
@@ -79,9 +81,9 @@ class CommentListModel extends Emitter {
     return this._items.find(item => item.itemId === itemId);
   }
   removeItem(item) {
-    let beforeLen = this._items.length;
-    _.pull(this._items, item);
-    let afterLen = this._items.length;
+    const beforeLen = this._items.length;
+    this._items = this._items.filter(i => i !== item); //_.pull(this._items, item);
+    const afterLen = this._items.length;
     if (beforeLen !== afterLen) {
       this.emit('update', this._items);
     }
@@ -97,7 +99,7 @@ class CommentListModel extends Emitter {
       user: 'userId',
       nicoru: 'nicoru'
     };
-    let func = table[key];
+    const func = table[key];
     if (!func) {
       return;
     }
@@ -112,7 +114,7 @@ class CommentListModel extends Emitter {
   sort() {
     this.sortBy(this._currentSortKey, this._isDesc);
   }
-  getCurrentSortKey() {
+  get currentSortKey() {
     return this._currentSortKey;
   }
   onUpdate(replaceAll = false) {
@@ -124,9 +126,11 @@ class CommentListModel extends Emitter {
   set currentTime(sec) {
     if (this._currentTime !== sec && typeof sec === 'number') {
       this._currentTime = sec;
-      if (this._currentSortKey === 'vpos') {
-        this.emit('currentTimeUpdate', sec, this.getInViewIndex(sec));
+      const inviewIndex = this.getInViewIndex(sec);
+      if (this._currentSortKey === 'vpos' && this._currentIndex !== inviewIndex) {
+        this.emit('currentTimeUpdate', sec, inviewIndex);
       }
+      this._currentIndex = inviewIndex;
     }
   }
   get currentTime() {return this._currentTime;}
@@ -145,10 +149,12 @@ class CommentListView extends Emitter {
 
     this._retryGetIframeCount = 0;
 
-    this._cache = {};
     this._maxItems = 100000;
     this._inviewItemList = new Map;
     this._scrollTop = 0;
+    this.newItems = [];
+    this.removedItems = [];
+    this._innerHeight = 100;
 
     this._model = params.model;
     if (this._model) {
@@ -232,7 +238,7 @@ class CommentListView extends Emitter {
     global.debug.getCommentPanelItems = () =>
       Array.from(doc.querySelectorAll('.commentListItem'));
   }
-  _onModelUpdate(itemList, replaceAll) {
+  async _onModelUpdate(itemList, replaceAll) {
     window.console.time('update commentlistView');
     this.addClass('updating');
     itemList = Array.isArray(itemList) ? itemList : [itemList];
@@ -705,6 +711,7 @@ CommentListView.__tpl__ = (`
     user-select: none;
   }
 
+  .is-firefox .timeBar { display: none !important; }
   .timeBar {
     position: fixed;
     visibility: hidden;
@@ -712,8 +719,9 @@ CommentListView.__tpl__ = (`
     right: 0;
     top: 1px;
     width: 14px;
-    --height-pp: calc( 1px * var(--inner-height) * var(--inner-height) / var(--list-height) );
-    --trans-y-pp: calc( 1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height) - 2px);
+    --height-pp:  calc(1px * var(--inner-height) * var(--inner-height) / var(--list-height));
+    --trans-y-pp: calc(1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height));
+    min-height: 10px;
     height: var(--height-pp);
     max-height: 100vh;
     transform: translateY(var(--trans-y-pp));
@@ -1249,21 +1257,21 @@ CommentListItem._itemId = 0;
 class CommentPanelView extends Emitter {
   constructor(params) {
     super();
-    this._$container = params.$container;
-    this._model = params.model;
-    this._commentPanel = params.commentPanel;
+    this.$container = params.$container;
+    this.model = params.model;
+    this.commentPanel = params.commentPanel;
 
     css.addStyle(CommentPanelView.__css__);
-    let $view = this._$view = uq.html(CommentPanelView.__tpl__);
-    this._$container.append($view);
+    const $view = this.$view = uq.html(CommentPanelView.__tpl__);
+    this.$container.append($view);
 
-    const $menu = this._$menu = this._$view.find('.commentPanel-menu');
+    const $menu = this._$menu = this.$view.find('.commentPanel-menu');
 
     global.debug.commentPanelView = this;
 
-    let listView = this._listView = new CommentListView({
-      container: this._$view.find('.commentPanel-frame')[0],
-      model: this._model,
+    const listView = this._listView = new CommentListView({
+      container: this.$view.find('.commentPanel-frame')[0],
+      model: this.model,
       className: 'commentList',
       builder: CommentListItemView,
       itemCss: CommentListItemView.__css__
@@ -1275,17 +1283,17 @@ class CommentPanelView extends Emitter {
     });
     this._timeMachineView.on('command', this._onCommand.bind(this));
 
-    this._commentPanel.on('threadInfo',
+    this.commentPanel.on('threadInfo',
       _.debounce(this._onThreadInfo.bind(this), 100));
-    this._commentPanel.on('update',
+    this.commentPanel.on('update',
       _.debounce(this._onCommentPanelStatusUpdate.bind(this), 100));
-    this._commentPanel.on('itemDetailResp',
+    this.commentPanel.on('itemDetailResp',
       _.debounce(item => listView.showItemDetail(item), 100));
     this._onCommentPanelStatusUpdate();
 
-    this._model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
+    this.model.on('currentTimeUpdate', this._onModelCurrentTimeUpdate.bind(this));
 
-    this._$view.on('click', this._onCommentListCommandClick.bind(this));
+    this.$view.on('click', this._onCommentListCommandClick.bind(this));
 
     global.emitter.on('hideHover', () => $menu.removeClass('show'));
   }
@@ -1293,12 +1301,12 @@ class CommentPanelView extends Emitter {
     this.$view.raf.toggleClass(className, v);
   }
   _onModelCurrentTimeUpdate(sec, viewIndex) {
-    if (!this._$view){ //} || !this._$view.is(':visible')) {
+    if (!this.$view){
       return;
     }
 
     this._lastCurrentTime = sec;
-    this._listView.setCurrentPoint(sec, viewIndex);
+    this._listView.setCurrentPoint(sec, viewIndex, this.commentPanel.isAutoScroll);
   }
   _onCommand(command, param, itemId) {
     switch (command) {
@@ -1663,7 +1671,7 @@ class CommentPanel extends Emitter {
     }
   }
   set currentTime(sec) {
-    if (!this._view || !this._autoScroll || this._player.currentTab !== 'comment') {
+    if (!this._view || this._player.currentTab !== 'comment') {
       return;
     }
     this._model.currentTime = sec;
@@ -1777,10 +1785,8 @@ class TimeMachineView extends BaseViewComponent {
   }
 
   _padTime(time) {
-    let pad = v => {
-      return v.toString().padStart(2, '0');
-    };
-    let dt = new Date(time);
+    const pad = v => v.toString().padStart(2, '0');
+    const dt = new Date(time);
     return {
       yyyy: dt.getFullYear(),
       mm: pad(dt.getMonth() + 1),
@@ -1792,12 +1798,12 @@ class TimeMachineView extends BaseViewComponent {
   }
 
   _toDate(time) {
-    let {yyyy, mm, dd, h, m} = this._padTime(time);
+    const {yyyy, mm, dd, h, m} = this._padTime(time);
     return `${yyyy}/${mm}/${dd} ${h}:${m}`;
   }
 
   _toTDate(time) {
-    let {yyyy, mm, dd, h, m, s} = this._padTime(time);
+    const {yyyy, mm, dd, h, m, s} = this._padTime(time);
     return `${yyyy}-${mm}-${dd}T${h}:${m}:${s}`;
   }
 

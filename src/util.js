@@ -76,10 +76,10 @@ for (const k of Object.keys(window.console)) {
   if (typeof window.console[k] !== 'function') {continue;}
   dummyConsole[k] = _.noop;
 }
-['assert', 'error', 'warn'].forEach(k =>
+['assert', 'error', 'warn', 'nicoru'].forEach(k =>
   dummyConsole[k] = window.console[k].bind(window.console));
 
-console = Config.getValue('debug') ? window.console : dummyConsole;
+console = Config.props.debug ? window.console : dummyConsole;
 Config.onkey('debug', v => console = v ? window.console : dummyConsole);
 
 

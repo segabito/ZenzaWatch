@@ -217,7 +217,7 @@ class NicoVideoPlayerDialogView extends Emitter {
       global.emitter.emitAsync('hideHover');
       if (
         e.target.classList.contains('touchWrapper') &&
-        config.getValue('enableTogglePlayOnClick') &&
+        config.props.enableTogglePlayOnClick &&
         !classList.contains('menuOpen')) {
         onCommand('togglePlay');
       }
@@ -231,7 +231,7 @@ class NicoVideoPlayerDialogView extends Emitter {
       this._onCommand(e.detail.command, e.detail.param);
     });
     container.addEventListener('focusin', e => {
-      let target = (e.path && e.path.length) ? e.path[0] : e.target;
+      const target = (e.path && e.path.length) ? e.path[0] : e.target;
       if (target.dataset.hasSubmenu) {
         classList.add('menuOpen');
       }
@@ -258,7 +258,7 @@ class NicoVideoPlayerDialogView extends Emitter {
         if (!e.target || e.target.id !== 'zenzaVideoPlayerDialog') {
           return;
         }
-        if (config.getValue('enableDblclickClose')) {
+        if (config.props.enableDblclickClose) {
           this.emit('command', 'close');
         }
       })
@@ -1467,10 +1467,10 @@ class NicoVideoPlayerDialog extends Emitter {
         this.execCommand('seekBy', command === 'seekNextFrame' ? 1/60 : -1/60);
         break;
       case 'seekRelativePercent': {
-        let dur = this._videoInfo.duration;
-        let mv = Math.abs(param.movePerX) > 10 ?
+        const dur = this._videoInfo.duration;
+        const mv = Math.abs(param.movePerX) > 10 ?
           (param.movePerX / 2) : (param.movePerX / 8);
-        let pos = this.currentTime + (mv * dur / 100);
+        const pos = this.currentTime + (mv * dur / 100);
         this.currentTime=Math.min(Math.max(0, pos), dur);
         break;
       }
@@ -1913,7 +1913,7 @@ class NicoVideoPlayerDialog extends Emitter {
     global.emitter.emit('commentChange');
   }
   _onCommentFilterChange(filter) {
-    let config = this._playerConfig;
+    const config = this._playerConfig;
     config.setValue('enableFilter', filter.isEnable);
     config.setValue('wordFilter', filter.wordFilterList);
     config.setValue('userIdFilter', filter.userIdFilterList);
@@ -2434,7 +2434,7 @@ class NicoVideoPlayerDialog extends Emitter {
       this._playlist.toggleEnable(false);
     }
 
-    let isAutoCloseFullScreen =
+    const isAutoCloseFullScreen =
       this._videoWatchOptions.hasKey('autoCloseFullScreen') ?
         this._videoWatchOptions.isAutoCloseFullScreen :
         this._playerConfig.getValue('autoCloseFullScreen');

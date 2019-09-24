@@ -21,6 +21,7 @@ class ClassListWrapper {
     return this;
   }
   add(...names) {
+    names = names.map(name => name.trim().split(/\s+/)).flat();
     for (const name of names) {
       this._next.add(name);
     }
@@ -28,6 +29,7 @@ class ClassListWrapper {
     return this;
   }
   remove(...names) {
+    names = names.map(name => name.trim().split(/\s+/)).flat();
     for (const name of names) {
       this._next.delete(name);
     }
@@ -43,7 +45,8 @@ class ClassListWrapper {
     } else {
       v = !this.contains(name);
     }
-    v ? this.add(name) : this.remove(name);
+    const names = name.trim().split(/\s+/);
+    v ? this.add(...names) : this.remove(...names);
     return this;
   }
   apply() {
