@@ -352,12 +352,16 @@ class NicoVideoPlayerDialogView extends Emitter {
   }
   async _onPaste(e) {
     const isZen = !!e.target.closest('.zenzaVideoPlayerDialog');
-    window.console.log('onPaste', e.target, isZen);
+    window.console.log('onPaste', {e, isZen});
     if (!isZen && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
       return;
     }
     let text;
-    try { text = await navigator.clipboard.readText(); } catch(e) { window.console.warn(e); }
+    try { text = await navigator.clipboard.readText(); }
+    catch(err) {
+      window.console.warn(err, navigator.clipboard);
+      text = e.clipboardData.getData('text/plain');
+    }
     if (!text) {
       return;
     }
