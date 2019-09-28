@@ -28,7 +28,6 @@ import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {css, cssUtil} from '../packages/lib/src/css/css';
 
 //===BEGIN===
-//@require ClassListWrapper
 
 class PlayerConfig {
   static getInstance(config) {
@@ -2043,14 +2042,14 @@ class NicoVideoPlayerDialog extends Emitter {
   }
   get id() { return this._id;}
   get isLastOpenedPlayer() {
-    return this.getId() === this._playerConfig.getValue('lastPlayerId', true);
+    return this.id === this._playerConfig.props.lastPlayerId;
   }
   refreshLastPlayerId() {
     if (this.isLastOpenedPlayer) {
       return;
     }
-    this._playerConfig.setValue('lastPlayerId', '');
-    this._playerConfig.setValue('lastPlayerId', this.getId());
+    this._playerConfig.props.lastPlayerId = '';
+    this._playerConfig.props.lastPlayerId = this.id;
   }
   async _onVideoInfoLoaderLoad(requestId, videoInfoData) {
     console.log('VideoInfoLoader.load!', requestId, this._watchId, videoInfoData);
@@ -2270,7 +2269,7 @@ class NicoVideoPlayerDialog extends Emitter {
       return;
     }
     window.console.timeEnd('動画選択から再生可能までの時間 watchId=' + this._watchId);
-    this._playerConfig.setValue('lastWatchId', this._watchId);
+    this._playerConfig.props.lastWatchId = this._watchId;
     WatchInfoCacheDb.put(this._watchId, {watchCount: 1});
 
     if (this._videoWatchOptions.isPlaylistStartRequest) {

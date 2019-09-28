@@ -147,6 +147,9 @@ const {initialize} = (() => {
       } else if (command  === 'notifyClose' && isOpen) {
         result = player.refreshLastPlayerId();
         return;
+      } else if (command  === 'notifyOpen') {
+        config.refresh('lastPlayerId');
+        return;
       } else if (command ==='pushHistory') {
         const {path, title} = params;
         WatchPageHistory.pushHistoryAgency(path, title);
@@ -212,6 +215,7 @@ const {initialize} = (() => {
     });
 
     player.on('close', () => BroadcastEmitter.notifyClose());
+    player.on('open', () => BroadcastEmitter.notifyOpen());
   };
 
   const initializeExternal = dialog => {

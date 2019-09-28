@@ -108,7 +108,9 @@ class DataStorage {
         try {
           this._data[key] = JSON.parse(storage[storageKey]);
         } catch (e) {
-          window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+          console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+          delete storage[storageKey];
+          this._data[key] = this.default[key];
         }
       } else {
         this._data[key] = this.default[key];
@@ -132,16 +134,13 @@ class DataStorage {
       try {
         this._data[key] = JSON.parse(storage[storageKey]);
       } catch (e) {
-        window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+        console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
       }
     }
     return this._data[key];
   }
 
-  getValue(key, refresh) {
-    if (refresh) {
-      return this.refresh(key);
-    }
+  getValue(key) {
     key = this.getNativeKey(key);
     return this._data[key];
   }
@@ -156,7 +155,7 @@ class DataStorage {
   setValue(key, value) {
     const _key = key;
     key = this.getNativeKey(key);
-    if (this._data[key] === value || arguments.length < 2) {
+    if (this._data[key] === value || value === undefined) {
       return;
     }
     const storageKey = this.getStorageKey(key);
@@ -305,6 +304,10 @@ class DataStorage {
 
 }
 
+
+
+//===END===
+
 class KVSDataStorage extends DataStorage {
   constructor(defaultData, options = {}) {
     super(defaultData, options);
@@ -333,7 +336,7 @@ class KVSDataStorage extends DataStorage {
     }
   }
 
-  async refresh(key, storage) {
+  async refresh(key, storage) { // TODOOOOOO
     storage = storage || this.storage;
     key = this.getNativeKey(key);
     const storageKey = key;
@@ -364,9 +367,5 @@ class KVSDataStorage extends DataStorage {
   }
 
 }
-
-
-
-//===END===
 
 export {DataStorage};

@@ -154,8 +154,8 @@ const BroadcastEmitter = messageUtil.BroadcastEmitter = (() => {
     const req = {id: PRODUCT, body: {command: 'message', params: body}, sessionId};
     if (channel) {
       channel.postMessage(req);
-    // } else if (location.host === 'www.nicovideo.jp') {
-      // Config.setValue('message', {body, sessionId});
+    } else if (location.host === 'www.nicovideo.jp') {
+      Config.setValue('message', {body, sessionId});
     } else if (location.host !== 'www.nicovideo.jp' &&
       NicoVideoApi && NicoVideoApi.sendMessage) {
       return NicoVideoApi.sendMessage(body, !!sessionId, sessionId);
@@ -214,6 +214,7 @@ const BroadcastEmitter = messageUtil.BroadcastEmitter = (() => {
   };
 
   bcast.notifyClose = () => bcast.sendMessage({command: 'notifyClose'});
+  bcast.notifyOpen = playerId => bcast.sendMessage({command: 'notifyOpen', params: {playerId}});
 
   if (ZenzaWatch && ZenzaWatch.debug) {
     ZenzaWatch.debug.hello = bcast.hello;
