@@ -16,6 +16,8 @@ const uQuery = (() => {
   const elementsEventMap = new WeakMap();
   const HAS_CSSTOM = (window.CSS && CSS.number) ? true : false;
   const toCamel = p => p.replace(/-./g, s => s.charAt(1).toUpperCase());
+  const toSnake = p => p.replace(/[A-Z]/g, s => `-${s.charAt(1).toLowerCase()}`);
+  const isStyleValue = val => ('px' in CSS) && val instanceof CSSStyleValue;
   const emitter = new Emitter();
   const UNDEF = Symbol('undefined');
   const waitForDom = resolve => {
@@ -352,39 +354,47 @@ const uQuery = (() => {
         name => htmls.every(elm => elm.classList.contains(name)));
     }
 
-    _css(key, val) {
+    _css(props) {
       const htmls = this.getHtmls();
-      if (HAS_CSSTOM) {
-        if (/(width|height|top|left)$/i.test(key) && /^[0-9+.]+$/.test(val)) {
-          val = CSS.px(val);
-        }
-        try {
-          for (const e of htmls) {
-            if (val === '') { e.attributeStyleMap.delete(key); }
-            else { e.attributeStyleMap.set(key, val); }
-          }
-        } catch (e) {
-          window.console.warn('invalid style prop', key, val, e);
-        }
-       return this;
-      }
-      const camelKey = toCamel(key);
-      if (/(width|height|top|left)$/i.test(key) && /^[0-9+.]+$/.test(val)) {
-        val = `${val}px`;
-      }
 
-      for (const e of htmls) {
-        e.style[camelKey] = val;
+      for (const element of htmls) {
+        const style = element.style;
+        const map = element.attributeStyleMap;
+        for (let [key, val] of ((props instanceof Map) ? props : Object.entries(props))) {
+          const isNumber = /^[0-9+.]+$/.test(val);
+          if (isNumber && /(width|height|top|left)$/i.test(key)) {
+            val = HAS_CSSTOM ? CSS.px(val) : `${val}px`;
+          }
+          try {
+            if (HAS_CSSTOM && isStyleValue(val)) {
+              key = toSnake(key);
+              map.set(key, val);
+            } else {
+              key = toCamel(key);
+              style[key] = val;
+            }
+          } catch (err) {
+            console.warn('uQuery.css fail', {key, val, isNumber});
+          }
+        }
       }
       return this;
     }
 
-    css(key, val) {
+    css(key, val = UNDEF) {
       if (typeof key === 'string') {
-        return this._css(key, val);
-      }
-      for (const k of Object.keys(key)) {
-        this._css(k, key[k]);
+        if (val !== UNDEF) {
+          return this._css({[key]: val});
+        } else {
+          const element = this.firstElement;
+          if (HAS_CSSTOM) {
+            return element.attributeStyleMap.get(toSnake(key));
+          } else {
+            return element.style[toCamel(key)];
+          }
+        }
+      } else if (key !== null && typeof key === 'object') {
+        return this._css(key);
       }
       return this;
     }
