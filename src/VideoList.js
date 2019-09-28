@@ -1753,7 +1753,7 @@ class PlaylistView extends Emitter {
     e.stopPropagation();
     this._$fileDrop.removeClass('show drag-over');
 
-    const file = e.originalEvent.dataTransfer.files[0];
+    const file = (e.originalEvent || e).dataTransfer.files[0];
     if (!/\.playlist\.json$/.test(file.name)) {
       return;
     }
@@ -1769,7 +1769,7 @@ class PlaylistView extends Emitter {
   _onImportFileSelect(e) {
     e.preventDefault();
 
-    const file = e.originalEvent.target.files[0];
+    const file = (e.originalEvent || e).target.files[0];
     if (!/\.playlist\.json$/.test(file.name)) {
       return;
     }
