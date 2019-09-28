@@ -43,6 +43,10 @@ module.exports = {
     "globalThis": true,
     "jQuery": true,
     "SharedArrayBuffer": true,
-    "Atomics": true
+    "Atomics": true,
+    "CSSUnitValue": true,
+    "CSSImageValue": true,
+    "CSSStyleValue": true,
+    "CSSKeywordValue": true
   }
 };
