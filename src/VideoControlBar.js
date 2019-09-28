@@ -11,6 +11,7 @@ import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 import {cssUtil} from '../packages/lib/src/css/css';
 import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationFrame';
 import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
+import {VideoControlState} from './State';
 //===BEGIN===
 
   class VideoControlBar extends Emitter {
@@ -23,7 +24,8 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       this._$playerContainer    = params.$playerContainer;
       this._playerState         = params.playerState;
       this._currentTimeGetter   = params.currentTimeGetter;
-      const player = this._player = params.player;
+      const player = this.player = params.player;
+      this.state = new VideoControlState();
 
       player.on('open',           this._onPlayerOpen.bind(this));
       player.on('canPlay',        this._onPlayerCanPlay.bind(this));
@@ -34,7 +36,6 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
 
-      this._isWheelSeeking = false;
       this._initializeDom();
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
@@ -48,6 +49,7 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       const $container = this._$playerContainer;
       const config = this._playerConfig;
       this._view = $view[0];
+      const classList = this.classList = ClassList(this._view);
 
       const mq = $view.mapQuery({
         _seekBarContainer: '.seekBarContainer',
@@ -82,13 +84,13 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       this.currentTimeLabel = TextLabel.create({
         container: $view.find('.currentTimeLabel')[0],
         name: 'currentTimeLabel',
-        text: '00:00',
+        text: '--:--',
         style: timeStyle
       });
       this.durationLabel = TextLabel.create({
         container: $view.find('.durationLabel')[0],
         name: 'durationLabel',
-        text: '00:00',
+        text: '--:--',
         style: timeStyle
       });
 
@@ -100,24 +102,26 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
         .on('click', this._onClick.bind(this))
         .on('command', this._onCommandEvent.bind(this));
 
-      HeatMapWorker.init({container: this._seekBar}).then(hm => this._heatMap = hm);
+      HeatMapWorker.init({container: this._seekBar}).then(hm => this.heatMap = hm);
       const updateHeatMapVisibility =
         v => this._$seekBarContainer.raf.toggleClass('noHeatMap', !v);
       updateHeatMapVisibility(this._playerConfig.props.enableHeatMap);
       this._playerConfig.onkey('enableHeatMap', updateHeatMapVisibility);
-      global.emitter.on('heatMapUpdate', heatMap => {
-        WatchInfoCacheDb.put(this._player.watchId, {heatMap});
-      });
+      global.emitter.on('heatMapUpdate',
+        heatMap => WatchInfoCacheDb.put(this.player.watchId, {heatMap}));
 
-      this._storyboard = new Storyboard({
+      this.storyboard = new Storyboard({
         playerConfig: config,
-        player: this._player,
+        player: this.player,
+        state: this.state,
         container: $view[0]
       });
+      this.state.onkey('isStoryboardAvailable',
+        v => classList.toggle('is-storyboardAvailable', v));
 
       this._seekBarToolTip = new SeekBarToolTip({
         $container: this._$seekBarContainer,
-        storyboard: this._storyboard
+        storyboard: this.storyboard
       });
 
       this._commentPreview = new CommentPreview({
@@ -160,17 +164,28 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       });
 
       $container.append($view);
-      this._width = window.innerWidth;
     }
     _initializePlaybackRateSelectMenu() {
       const config = this._playerConfig;
-      const $btn  = this._$playbackRateMenu;
-      const [label] = $btn.find('.controlButtonInner');
       const $menu = this._$playbackRateSelectMenu;
       const $rates = $menu.find('.playbackRate');
+      const style = {
+        widthPx: 48,
+        heightPx: 30,
+        fontFamily: '"ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif',
+        fontWeight: '',
+        fontSizePx: 18,
+        color: '#fff'
+      };
+      const rateLabel = TextLabel.create({
+        container: this._$playbackRateMenu.find('.controlButtonInner')[0],
+        name: 'currentTimeLabel',
+        text: '',
+        style
+      });
 
       const updatePlaybackRate = rate => {
-        label.textContent = `x${rate}`;
+        rateLabel.text = `x${Math.round(rate * 100) / 100}`;
         $menu.find('.selected').removeClass('selected');
         const fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $rates.forEach(item => {
@@ -225,24 +240,24 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       config.onkey('forceEconomy',    updateSmileVideoQuality);
       config.onkey('dmcVideoQuality', updateDmcVideoQuality);
 
-      this._player.on('videoServerType', onVideoServerType);
+      this.player.on('videoServerType', onVideoServerType);
     }
     _onCommandEvent(e) {
       const command = e.detail.command;
       switch (command) {
         case 'toggleStoryboard':
-          this._storyboard.toggle();
+          this.storyboard.toggle();
           break;
         case 'wheelSeek-start':
           window.console.log('start-seek-start');
-          this._isWheelSeeking = true;
-          this._wheelSeeker.currentTime = this._player.currentTime;
-          ClassList(this._view).add('is-wheelSeeking');
+          this.state.isWheelSeeking = true;
+          this._wheelSeeker.currentTime = this.player.currentTime;
+          this.classList.add('is-wheelSeeking');
           break;
         case 'wheelSeek-end':
           window.console.log('start-seek-end');
-          this._isWheelSeeking = false;
-          ClassList(this._view).remove('is-wheelSeeking');
+          this.state.isWheelSeeking = false;
+          this.classList.remove('is-wheelSeeking');
           break;
         case 'wheelSeek':
           this._onWheelSeek(e.detail.param);
@@ -265,7 +280,7 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       }
       switch (command) {
         case 'toggleStoryboard':
-          this._storyboard.toggle();
+          this.storyboard.toggle();
           break;
         default:
           util.dispatchCommand(target, command, param);
@@ -274,11 +289,11 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       e.stopPropagation();
     }
     _posToTime(pos) {
-      const width = this._innerWidth = this._innerWidth || window.innerWidth;
+      const width = global.innerWidth;
       return this._duration * (pos / Math.max(width, 1));
     }
     _timeToPos(time) {
-      return this._width * (time / Math.max(this._duration, 1));
+      return global.innerWidth * (time / Math.max(this._duration, 1));
     }
     _timeToPer(time) {
       return (time / Math.max(this._duration, 1)) * 100;
@@ -287,31 +302,31 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       this._startTimer();
       this.duration = 0;
       this.currentTime = 0;
-      this._heatMap && this._heatMap.reset();
-      this._storyboard.reset();
+      this.heatMap && this.heatMap.reset();
+      this.storyboard.reset();
       this.resetBufferedRange();
     }
     _onPlayerCanPlay(watchId, videoInfo) {
-      const duration = this._player.duration;
+      const duration = this.player.duration;
       this.duration = duration;
-      this._storyboard.onVideoCanPlay(watchId, videoInfo);
+      this.storyboard.onVideoCanPlay(watchId, videoInfo);
 
-      this._heatMap && (this._heatMap.duration = duration);
+      this.heatMap && (this.heatMap.duration = duration);
     }
     _onCommentParsed() {
-      this._chatList = this._player.chatList;
-      this._heatMap && (this._heatMap.chatList = this._chatList);
-      this._commentPreview.chatList = this._chatList;
+      const chatList = this.player.chatList;
+      this.heatMap && (this.heatMap.chatList = chatList);
+      this._commentPreview.chatList = chatList;
     }
     _onCommentChange() {
-      this._chatList = this._player.chatList;
-      this._heatMap && (this._heatMap.chatList = this._chatList);
-      this._commentPreview.chatList = this._chatList;
+      const chatList = this.player.chatList;
+      this.heatMap && (this.heatMap.chatList = chatList);
+      this._commentPreview.chatList = chatList;
     }
     _onPlayerDurationChange() {
       this._pointer.duration = this._playerState.videoInfo.duration;
       this._wheelSeeker.duration = this._playerState.videoInfo.duration;
-      this._heatMap && (this._heatMap.chatList = this._chatList);
+      this.heatMap && (this.heatMap.chatList = this.player.chatList);
     }
     _onPlayerClose() {
       this._stopTimer();
@@ -329,10 +344,10 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
     }
     _onSeekRangeInput(e) {
       const sec = e.target.value * 1;
-      const left = sec / (e.target.max * 1) * this._width;
+      const left = sec / (e.target.max * 1) * global.innerWidth;
       util.dispatchCommand(e.target, 'seek', sec);
       this._seekBarToolTip.update(sec, left);
-      this._storyboard.setCurrentTime(sec, true);
+      this.storyboard.setCurrentTime(sec, true);
     }
     _onSeekBarMouseDown(e) {
       // e.preventDefault();
@@ -340,7 +355,7 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       this._beginMouseDrag(e);
     }
     _onSeekBarMouseMove(e) {
-      if (!this._isDragging) {
+      if (!this.state.isDragging) {
         e.stopPropagation();
       }
       const left = e.offsetX;
@@ -353,7 +368,7 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       this._seekBarToolTip.update(sec, left);
     }
     _onWheelSeek(sec) {
-      if (!this._isWheelSeeking) {
+      if (!this.state.isWheelSeeking) {
         return;
       }
       sec = sec * 1;
@@ -365,17 +380,17 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
       this._commentPreview.update(left);
 
       this._seekBarToolTip.update(sec, left);
-      this._storyboard.setCurrentTime(sec, true);
+      this.storyboard.setCurrentTime(sec, true);
     }
     _beginMouseDrag() {
       this._bindDragEvent();
-      ClassList(this._view).add('is-dragging');
-      this._isDragging = true;
+      this.classList.add('is-dragging');
+      this.state.isDragging = true;
     }
     _endMouseDrag() {
       this._unbindDragEvent();
-      ClassList(this._view).remove('is-dragging');
-      this._isDragging = false;
+      this.classList.remove('is-dragging');
+      this.state.isDragging = false;
     }
     _onBodyMouseUp(e) {
       if ((e.button === 0 && e.shiftKey)) {
@@ -400,13 +415,13 @@ import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
     _onTimer() {
       this._timerCount++;
 
-      const player = this._player;
-      const currentTime = this._isWheelSeeking ?
+      const player = this.player;
+      const currentTime = this.state.isWheelSeeking ?
         this._wheelSeeker.currentTime : player.currentTime;
       if (this._timerCount % 6 === 0) {
         this.currentTime = currentTime;
       }
-      this._storyboard.currentTime = currentTime;
+      this.storyboard.currentTime = currentTime;
     }
     _onLoadVideoInfo(videoInfo) {
       this.duration = videoInfo.duration;
@@ -997,8 +1012,8 @@ util.addStyle(`
   .playbackRateMenu {
     bottom: 0;
     width: auto;
-    min-width: 40px;
-    height:    32px;
+    width: 48px;
+    height: 32px;
     line-height: 30px;
     font-size: 18px;
     white-space: nowrap;
@@ -1145,11 +1160,11 @@ util.addStyle(`
     visibility: hidden;
     pointer-events: none;
   }
-  .storyboardAvailable .toggleStoryboard {
+  .is-storyboardAvailable .toggleStoryboard {
     visibility: visible;
     pointer-events: auto;
   }
-  .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
+  .zenzaStoryboardOpen .is-storyboardAvailable .toggleStoryboard {
     color: var(--enabled-button-color);
   }
 
@@ -1513,7 +1528,7 @@ util.addStyle(`
             </div>
 
             <div class="playbackRateMenu controlButton" tabindex="-1" data-has-submenu="1">
-              <div class="controlButtonInner">x1</div>
+              <div class="controlButtonInner"></div>
               <div class="tooltip">再生速度</div>
               <div class="playbackRateSelectMenu zenzaPopupMenu zenzaSubMenu">
                 <div class="triangle"></div>
@@ -1887,7 +1902,7 @@ util.addStyle(`
       }
       const width = this._mode === 'list' ?
         CommentPreviewView.WIDTH : CommentPreviewView.HOVER_WIDTH;
-      const containerWidth = this._innerWidth = this._innerWidth || window.innerWidth;
+      const containerWidth = this._innerWidth = this._innerWidth || global.innerWidth;
 
       left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
       this._left = left;

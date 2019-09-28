@@ -239,9 +239,7 @@ const StoryboardWorker = (() => {
         this.isReady = false;
         this.boards = [];
         this.isAnimating = false;
-        this.raf = null;
         this.cls();
-        this.onRequestAnimationFrame = this.onRequestAnimationFrame.bind(this);
         if (info) {
           this.isInitialized = this.setInfo(info);
         } else {
@@ -269,8 +267,10 @@ const StoryboardWorker = (() => {
         const cellHeight = info.cellHeight;
 
         this.height = cellHeight;
-        this.totalWidth = info.cellCount * info.cellWidth;
-        // this.boards.forEach(board => board.image && board.image.close && board.image.close());
+        this.totalWidth = Math.ceil(info.duration * 1000 / info.cellIntervalMs) * cellWidth;
+        // info.cellCount * info.cellWidth;
+
+        this.boards.forEach(board => board.image && board.image.close && board.image.close());
         this.boards = (await Promise.all(this._info.imageUrls.map(async (url, idx) => {
           const image = await this.images.get(url);
           const boards = [];
@@ -292,7 +292,7 @@ const StoryboardWorker = (() => {
             }
 
             boards.push({
-              image: canvas, //.transferToImageBitmap(), // ImageBitmapじゃないほうが速い？気のせい？
+              image: canvas, //.transferToImageBitmap ? canvas.transferToImageBitmap() : canvas, // ImageBitmapじゃないほうが速い？気のせい？
               left:  idx * boardWidth + row * pageWidth,
               right: idx * boardWidth + row * pageWidth + pageWidth,
               width: pageWidth
@@ -318,6 +318,7 @@ const StoryboardWorker = (() => {
         return this._scrollLeft;
       }
       set scrollLeft(left) {
+        left = Math.max(0, Math.min(this.totalWidth - this.width, left));
         if (this._scrollLeft === left) {
           return;
         }
@@ -328,36 +329,33 @@ const StoryboardWorker = (() => {
         const width =  this.width;
         const height = this.height;
         const totalWidth = this.totalWidth;
-        left = Math.max(-width / 2, Math.min(totalWidth - width / 2, left));
         const right = left + width;
-        const isOutrange = (left < 0 || left > totalWidth - width);
 
         const bctx = this.bufferCtx;
         bctx.beginPath();
-        if (isOutrange) {
-          bctx.fillStyle = 'rgba(32, 32, 32, 0.3)';
-          bctx.fillRect(0, 0, width, height);
-        }
         for (const board of this.boards) {
-          if (
-            (left <= board.left  && board.left <= right) ||
-            (left <= board.right && board.right <= right) ||
-            (board.left <= left  && right <= board.right)
-          ) {
-            const dx = board.left - left;
-            bctx.drawImage(board.image,
-              0,  0, board.width, height,
-              dx, 0, board.width, height
-            );
-          }
+          if (board.right < left) { continue; }
+          if (board.left > right) { break; }
+          const dx = board.left - left;
+          bctx.drawImage(board.image,
+            0,  0, board.width, height,
+            dx, 0, board.width, height
+          );
         }
         const scrollBarLength = width * width / totalWidth;
-        // const scrollBarMovableLength = width - scrollBarLength;
         if (scrollBarLength < width) {
           const scrollBarLeft = width * left / totalWidth;
           bctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
           bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
         }
+        if (this.isAnimating && this._currentTime >= 0) {
+          bctx.fillStyle = 'rgba(255, 255, 144, 0.5)';
+          const cellWidth = this.info.cellWidth;
+          const cellIndex = this._currentTime * 1000 / this.info.cellIntervalMs;
+          const pointerLeft = cellWidth * cellIndex - left - cellWidth / 2;
+          bctx.fillRect(pointerLeft, 0, cellWidth, height);
+        }
+
         if (this.bufferCanvas.transferToImageBitmap && this.bitmapCtx && this.bitmapCtx.transferFromImageBitmap) {
           const bitmap = this.bufferCanvas.transferToImageBitmap();
           this.bitmapCtx.transferFromImageBitmap(bitmap);
@@ -387,13 +385,19 @@ const StoryboardWorker = (() => {
         this.bufferCanvas.height = height;
       }
       setCurrentTime(sec) {
-        const ms = sec * 1000;
+        this._currentTime = sec;
         const duration = Math.max(1, this.info.duration);
-        const per = ms / (duration * 1000);
-        const r = sec / duration;
-        const left = Math.min(Math.max(this.totalWidth * r - this.width * per, 0), this.totalWidth - this.width);
-        this.scrollLeft = left;
+        const per = sec / duration;
+        const intervalMs = this.info.cellIntervalMs;
+        const totalWidth = this.totalWidth;
+        const innerWidth = this.width;
+        const cellWidth = this.info.cellWidth;
+        const cellIndex = this._currentTime * 1000 / intervalMs;
+        const scrollLeft = Math.min(Math.max(cellWidth * cellIndex - innerWidth * per, 0), totalWidth - innerWidth);
+//        const scrollLeft = Math.min(Math.max(totalWidth * r - innerWidth * per, 0), totalWidth - innerWidth);
+        this.scrollLeft = scrollLeft;
       }
+
       resize({width, height}) {
         width && (this.width = width);
         height && (this.height = height);
@@ -431,11 +435,6 @@ const StoryboardWorker = (() => {
         };
       }
 
-      onRequestAnimationFrame() {
-        this.currentTime = this.buffer.currentTime;
-        this.isAnimating && (this.raf = requestAnimationFrame(this.onRequestAnimationFrame));
-      }
-
       async execAnimation() { // SharedArrayBufferで遊びたかっただけ. 最適化の余地はありそう
         this.isAnimating = true;
         const buffer = this.buffer;
@@ -446,22 +445,21 @@ const StoryboardWorker = (() => {
           while (this.isReady && this.isAnimating && !buffer.paused) {
             buffer.wait();
             this.currentTime = this.buffer.currentTime;
-            await new Promise(res => setTimeout(res, 8));
+            await new Promise(res => requestAnimationFrame(res)); // 結局raf安定だった
           }
           if (!this.isAnimating) { return; }
           await new Promise(res => setTimeout(res, 1000));
         }
       }
       startAnimation() {
-        // console.log('startAnimation', this.buffer, this.animation, this.isReady);
         if (!this.buffer || this.isAnimating) { return; }
         this.currentTime = this.buffer.currentTime;
         this.execAnimation();
       }
-      stopAnimation() {
-        // console.log('stopAnimation', this.buffer, this.animation);
-        cancelAnimationFrame(this.raf);
+      async stopAnimation() {
         this.isAnimating = false;
+        await new Promise(res => requestAnimationFrame(res));
+        this.reDraw();
       }
 
       dispose() {
@@ -522,19 +520,19 @@ const StoryboardWorker = (() => {
         this.lastPos = pos;
         this._currentTime = time;
         const {url, row, col} = pos;
-        const width = this.info.cellWidth;
-        const height = this.info.cellHeight;
+        const cellWidth = this.info.cellWidth;
+        const cellHeight = this.info.cellHeight;
         const image = await this.images.get(url);
-        const imageLeft = col * width;
-        const imageTop = row * height;
-        const scale = Math.min(this.width / width, this.height / height);
+        const imageLeft = col * cellWidth;
+        const imageTop = row * cellHeight;
+        const scale = Math.min(this.width / cellWidth, this.height / cellHeight);
         this.cls();
         this.ctx.drawImage(
           image,
-          imageLeft, imageTop, width, height,
-          (this.width  - width * scale) / 2,
-          (this.height - height * scale) / 2,
-          width * scale, height * scale
+          imageLeft, imageTop, cellWidth, cellHeight,
+          (this.width  - cellWidth * scale) / 2,
+          (this.height - cellHeight * scale) / 2,
+          cellWidth * scale, cellHeight * scale
         );
 
       }

@@ -6,6 +6,7 @@ import {SeekBarThumbnail} from './SeekBarThumbnail';
 import {StoryboardWorker} from './StoryboardWorker';
 import {global} from '../../../../src/ZenzaWatchIndex';
 import {nicoUtil} from '../../../lib/src/nico/nicoUtil';
+import {ClassList} from '../../../lib/src/dom/ClassListWrapper';
 
 //===BEGIN===
 //@require StoryboardInfoModel
@@ -19,36 +20,37 @@ class Storyboard extends Emitter {
     this.initialize(...args);
   }
   initialize(params) {
-    this._playerConfig = params.playerConfig;
-    this._container = params.container;
-    this._loader = params.loader || StoryboardInfoLoader;
+    this.config = params.playerConfig;
+    this.container = params.container;
+    this.state = params.state;
+    this.loader = params.loader || StoryboardInfoLoader;
     /** @type {StoryboardInfoModel} */
-    this._model = new StoryboardInfoModel({});
+    this.model = new StoryboardInfoModel({});
     global.debug.storyboard = this;
   }
   _initializeStoryboard() {
-    this._initializeStoryboard = _.noop;
-
-    if (!this._view) {
-      this._view = new StoryboardView({
-        model: this._model,
-        container: this._container,
-        enable: this._playerConfig.props.enableStoryboardBar
-      });
+    if (this.view) {
+      return;
     }
+    this.view = new StoryboardView({
+      model: this.model,
+      container: this.container,
+      enable: this.config.props.enableStoryboardBar,
+      state: this.state
+    });
     this.emitResolve('dom-ready');
   }
   reset() {
-    if (!this._model) { return; }
-    this._container.classList.remove('storyboardAvailable');
-    this._model.reset();
-    this.emit('reset', this._model);
+    if (!this.model) { return; }
+    this.state.isStoryboardAvailable = false;
+    this.model.reset();
+    this.emit('reset', this.model);
   }
   onVideoCanPlay(watchId, videoInfo) {
     if (!nicoUtil.isPremium()) {
       return;
     }
-    if (!this._playerConfig.props.enableStoryboard) {
+    if (!this.config.props.enableStoryboard) {
       return;
     }
 
@@ -67,30 +69,30 @@ class Storyboard extends Emitter {
   }
   _onStoryboardInfoLoad(resuestId, rawData) {
     if (resuestId !== this._requestId) {return;} // video changed
-    this._model.update(rawData);
-    this.emit('update', this._model);
+    this.model.update(rawData);
+    this.emit('update', this.model);
 
-    this._container.classList.toggle('storyboardAvailable', this._model.isAvailable);
+    this.state.isStoryboardAvailable = true;
   }
   _onStoryboardInfoLoadFail(resuestId, err) {
     console.warn('onStoryboardInfoFail',this._watchId, err);
     if (resuestId !== this._requestId) {return;} // video changed
-    this._model.update(null);
-    this.emit('update', this._model);
-    this._container.classList.remove('storyboardAvailable');
+    this.model.update(null);
+    this.emit('update', this.model);
+    this.state.isStoryboardAvailable = false;
   }
   setCurrentTime(sec, forceUpdate) {
-    if (this._view && this._model.isAvailable) {
-      this._view.setCurrentTime(sec, forceUpdate);
+    if (this.view && this.model.isAvailable) {
+      this.view.setCurrentTime(sec, forceUpdate);
     }
   }
   set currentTime(sec) {
     this.setCurrentTime(sec);
   }
   toggle() {
-    if (!this._view) { return; }
-    this._view.toggle();
-    this._playerConfig.props.enableStoryboardBar = this._view.isEnable;
+    if (!this.view) { return; }
+    this.view.toggle();
+    this.config.props.enableStoryboardBar = this.view.isEnable;
   }
 }
 

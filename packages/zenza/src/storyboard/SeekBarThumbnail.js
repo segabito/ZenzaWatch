@@ -24,6 +24,7 @@ class SeekBarThumbnail {
     }
 
     this.thumbnail ? this.thumbnail.setInfo(model.rawData) : this.initializeView(model);
+    // this.thumbnail.resize({width: model.cellWidth, height: model.cellHeight});
 
     this.isAvailable = true;
     this.show();
@@ -47,7 +48,7 @@ class SeekBarThumbnail {
     this.classList.remove('is-visible');
   }
   initializeView(model) {
-    this.initializeView = _.noop;
+    if (this.thumbnail) { return; }
 
     if (!SeekBarThumbnail.styleAdded) {
       cssUtil.addStyle(SeekBarThumbnail.__css__);
@@ -81,7 +82,7 @@ SeekBarThumbnail.BASE_HEIGHT = 90;
 
 SeekBarThumbnail.__tpl__ = (`
   <div class="zenzaSeekThumbnail">
-    <div class="zenzaSeekThumbnail-image"><canvas width="320" height="180" class="zenzaSeekThumbnail-thumbnail"></canvas></div>
+    <div class="zenzaSeekThumbnail-image"><canvas width="160" height="90" class="zenzaSeekThumbnail-thumbnail"></canvas></div>
   </div>
 `).trim();
 
@@ -102,10 +103,6 @@ SeekBarThumbnail.__css__ = (`
     opacity: 0.8;
     margin: auto;
     background: #999;
-  }
-  .zenzaSeekThumbnail-thumbnail {
-    width: 100%;
-    height: 100%;
   }
 
   .enableCommentPreview .zenzaSeekThumbnail {

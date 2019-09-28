@@ -195,9 +195,22 @@ class PlayerState extends BaseState {
   }
 }
 
+class VideoControlState extends BaseState {
+  constructor(state = {}) {
+    super(Object.assign({
+      isSeeking: false,
+      isDragging: false,
+      isWheelSeeking: false,
+      isStoryboardAvailable: false
+    }, state));
+    this.name = 'VideoControl';
+  }
+
+}
 //===END===
 
 export {
   BaseState,
-  PlayerState
+  PlayerState,
+  VideoControlState
 };

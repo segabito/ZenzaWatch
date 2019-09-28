@@ -1,7 +1,6 @@
 import {Emitter} from '../../../lib/src/Emitter';
 import {StoryboardInfoModel} from './StoryboardInfoModel';
 import {global} from '../../../../src/ZenzaWatchIndex';
-import {RequestAnimationFrame} from '../../../lib/src/infra/RequestAnimationFrame';
 import {cssUtil} from '../../../lib/src/css/css';
 import {textUtil} from '../../../lib/src/text/textUtil';
 import {uq} from '../../../lib/src/uQuery';
@@ -29,21 +28,17 @@ class StoryboardView extends Emitter {
     const sb = this._model = params.model;
 
     this._isHover = false;
-    this._currentUrl = '';
-    this._lastPage = -1;
-    this._lastMs = -1;
-    this._lastGetMs = -1;
     this._scrollLeft = 0;
-    this._isEnable = _.isBoolean(params.enable) ? params.enable : true;
+    this._pointerLeft = 0;
+    this.isOpen = false;
+    this.isEnable = _.isBoolean(params.enable) ? params.enable : true;
+    this.totalWidth = global.innerWidth;
+    this.state = params.state;
+    this.state.onkey('isDragging', () => this.updateAnimation());
 
     sb.on('update', this._onStoryboardUpdate.bind(this));
     sb.on('reset', this._onStoryboardReset.bind(this));
 
-    const frame = this._requestAnimationFrame = new RequestAnimationFrame(
-      this._onRequestAnimationFrame.bind(this), 3
-    );
-
-    global.emitter.on('DialogPlayerClose', () => frame.disable());
   }
   get isHover() {
     return this._isHover;
@@ -54,14 +49,14 @@ class StoryboardView extends Emitter {
   }
   updateAnimation() {
     if (!this.canvas || !MediaTimeline.isSharable) { return; }
-    if (this._isHover) {
-      this.canvas.stopAnimation();
-    } else if (!this._isHover && this._isEnable) {
+    if (!this.isHover && this.isOpen && !this.state.isDragging) {
       this.canvas.startAnimation();
+    } else {
+      this.canvas.stopAnimation();
     }
   }
   enable() {
-    this._isEnable = true;
+    this.isEnable = true;
     if (this._view && this._model.isAvailable) {
       this.open();
     }
@@ -70,41 +65,39 @@ class StoryboardView extends Emitter {
     if (!this._view) {
       return;
     }
+    this.isOpen = true;
     ClassList(this._view).add('is-open');
     ClassList(this._body).add('zenzaStoryboardOpen');
     ClassList(this._container).add('zenzaStoryboardOpen');
-    this._requestAnimationFrame.enable();
     this.updateAnimation();
+    this.updatePointer();
   }
   close() {
     if (!this._view) {
       return;
     }
+    this.isOpen = false;
     ClassList(this._view).remove('is-open');
     ClassList(this._body).remove('zenzaStoryboardOpen');
     ClassList(this._container).remove('zenzaStoryboardOpen');
-    this._requestAnimationFrame.disable();
     this.updateAnimation();
   }
   disable() {
-    this._isEnable = false;
+    this.isEnable = false;
     this.close();
   }
   toggle(v) {
     if (typeof v === 'boolean') {
-      this._isEnable = !v;
+      this.isEnable = !v;
     }
-    if (this._isEnable) {
+    if (this.isEnable) {
       this.disable();
     } else {
       this.enable();
     }
   }
-  get isEnable() {
-    return !!this._isEnable;
-  }
   _initializeStoryboard() {
-    if (this._body) { return; }
+    if (this._view) { return; }
     window.console.log('%cStoryboardView.initializeStoryboard', 'background: lightgreen;');
 
     this._body = document.body;
@@ -113,8 +106,6 @@ class StoryboardView extends Emitter {
     const view = this._view = uq.html(StoryboardView.__tpl__)[0];
 
     const inner = this._inner = view.querySelector('.storyboardInner');
-    this._bone = view.querySelector('.storyboardInner-bone');
-    this._failMessage = view.querySelector('.failMessage');
     this._cursorTime = view.querySelector('.cursorTime');
     this._pointer = view.querySelector('.storyboardPointer');
     this._inner = inner;
@@ -132,18 +123,14 @@ class StoryboardView extends Emitter {
       }
     });
 
-     uq(inner)
+    const onHoverIn = () => this.isHover = true;
+    const onHoverOut = () => this.isHover = false;
+    uq(inner)
       .on('click', this._onBoardClick.bind(this))
       .on('mousemove', this._onBoardMouseMove.bind(this))
       .on('mousemove', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
       .on('wheel', this._onMouseWheel.bind(this))
-      .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300));
-
-    const onHoverIn = () => this.isHover = true;
-
-    const onHoverOut = () => this.isHover = false;
-
-    uq(inner)
+      .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300))
       .on('mouseenter', onHoverIn)
       .on('mouseleave',  _.debounce(onHoverOut, 1000))
       .on('touchstart', this._onTouchStart.bind(this))
@@ -160,37 +147,33 @@ class StoryboardView extends Emitter {
           this.canvas.resize({width: global.innerWidth, height: this._model.cellHeight});
         }
       }, 500), {passive: true});
+
+    this.emitResolve('dom-ready');
+  }
+  _parsePointerEvent(event) {
+    const model = this._model;
+    const left = event.offsetX + this._scrollLeft;
+    const cellIndex = left / model.cellWidth;
+    const sec = cellIndex * model.cellIntervalMs / 1000;
+    return {sec, x: event.x};
   }
   _onBoardClick(e) {
-    const model = this._model;
-    const totalWidth = model.cellCount * model.cellWidth;
-    const x = e.clientX + this._scrollLeft;
-    const duration = model.duration;
-    const sec = x / totalWidth * duration;
-
-    const view = this._view;
+    const {sec} = this._parsePointerEvent(e);
     cssUtil.setProps([this._cursorTime, '--trans-x-pp', cssUtil.px(-1000)]);
 
-    domEvent.dispatchCommand(view, 'seekTo', sec);
+    domEvent.dispatchCommand(this._view, 'seekTo', sec);
   }
   _onBoardMouseMove(e) {
-    const model = this._model;
-    const totalWidth = model.cellCount * model.cellWidth;
-    const x = e.clientX + this._scrollLeft;
-    const duration = model.duration;
-    const sec = x / totalWidth * duration;
+    const {sec, x} = this._parsePointerEvent(e);
 
-    const time = textUtil.secToTime(sec);
-    if (this.cursorTimeLabel && this.cursorTimeLabel.text !== time) {
-      this.cursorTimeLabel.text = time;
-    }
-    cssUtil.setProps([this._cursorTime, '--trans-x-pp', cssUtil.px(e.x)]);
+    this.cursorTimeLabel.text = textUtil.secToTime(sec);
+    cssUtil.setProps([this._cursorTime, '--trans-x-pp', cssUtil.px(x)]);
 
     this.isHover = true;
-    this._isMouseMoving = true;
+    this.isMouseMoving = true;
   }
   _onBoardMouseMoveEnd(e) {
-    this._isMouseMoving = false;
+    this.isMouseMoving = false;
   }
   _onMouseWheel(e) {
     // 縦ホイールで左右スクロールできるようにする
@@ -203,36 +186,35 @@ class StoryboardView extends Emitter {
     }
     e.preventDefault();
     this.isHover = true;
-    this._isMouseMoving = true;
-    const left = this.scrollLeft();
-    this.scrollLeft(left + delta * 5, true);
+    this.isMouseMoving = true;
+    // this.setScrollLeft(this.scrollLeft + delta * 5, true);
+    this.scrollLeft += delta * 5;
   }
-  _onMouseWheelEnd(e) {
-    this._isMouseMoving = false;
+  _onMouseWheelEnd() {
+    this.isMouseMoving = false;
   }
   _onTouchStart(e) {
     this.isHover = true;
-    this._isMouseMoving = true;
+    this.isMouseMoving = true;
     e.stopPropagation();
   }
-  _onTouchEnd(e) {
+  _onTouchEnd() {
   }
   _onTouchMove(e) {
     e.stopPropagation();
     this.isHover = true;
-    this._isMouseMoving = true;
-    this._isTouchMoving = true;
+    this.isMouseMoving = true;
+    this.isTouchMoving = true;
     this._bouncedOnToucheMoveEnd();
   }
   _onTouchMoveEnd() {
-    this._isTouchMoving = false;
-    this._isMouseMoving = false;
+    this.isTouchMoving = false;
+    this.isMouseMoving = false;
   }
-  _onTouchCancel(e) {
+  _onTouchCancel() {
   }
   update() {
     this.isHover = false;
-    this._timerCount = 0;
     this._scrollLeft = 0;
 
     this._initializeStoryboard(this._model);
@@ -245,26 +227,47 @@ class StoryboardView extends Emitter {
       this._updateFail();
     }
   }
-  scrollLeft(left, forceUpdate) {
-    const inner = this._inner;
-    if (!inner) {
-      return 0;
+  get isCanvasAnimating() {
+    return this.isEnable && this.canvas.isAnimating;
+  }
+  get scrollLeft() {
+    return this._scrollLeft;
+  }
+  set scrollLeft(left) {
+    left = Math.min(Math.max(0, left), this.totalWidth - global.innerWidth);
+
+    if (this._scrollLeft === left) {
+      return;
     }
 
-    if (forceUpdate) {
-      this._requestAnimationFrame.execOnce();
+    this._scrollLeftChanged = true;
+    this._scrollLeft = left;
+    !this.isCanvasAnimating && (this.canvas.scrollLeft = left);
+    this.updatePointer();
+  }
+  get pointerLeft() {
+    return this._pointerLeft;
+  }
+  set pointerLeft(left) {
+    if (this._pointerLeft === left) {
+      return;
     }
-    if (left === undefined) {
-      return this._scrollLeft;
-    } else {
-      if (Math.abs(this._scrollLeft - left) < 1) {
-        return;
-      }
-      this.isEnable && this.canvas && !this.canvas.isAnimating && (this.canvas.scrollLeft = left);
-
-      this._scrollLeft = left;
-      this._scrollLeftChanged = true;
+    this._pointerLeftChanged = true;
+    this._pointerLeft = left;
+    this.updatePointer();
+  }
+  async updatePointer() {
+    if (!this.isOpen || this._pointerUpdating ||
+      (!this._pointerLeftChanged && !this._scrollLeftChanged)) {
+      return;
     }
+    this._pointerUpdating = true;
+    await this.promise('dom-ready');
+    this._pointerLeftChanged = false;
+    this._scrollLeftChanged = false;
+    await cssUtil.setProps([this._pointer, '--trans-x-pp',
+      cssUtil.px(this._pointerLeft - this._scrollLeft -  this._model.cellWidth / 2)]);
+    this._pointerUpdating = false;
   }
   _updateSuccess() {
     const view = this._view;
@@ -275,13 +278,13 @@ class StoryboardView extends Emitter {
     this._updateSuccessDom();
     window.console.timeEnd('createStoryboardDOM');
 
-    if (this._isEnable) {
-      cl.add('opening', 'is-open');
-      this.scrollLeft(0);
-      this.open();
-      window.setTimeout(() => cl.remove('opening'), 1000);
+    if (!this.isEnable) {
+      return;
     }
-
+    cl.add('opening', 'is-open');
+    this.scrollLeft = 0;
+    this.open();
+    window.setTimeout(() => cl.remove('opening'), 1000);
   }
   _updateSuccessDom() {
     const model = this._model;
@@ -298,43 +301,21 @@ class StoryboardView extends Emitter {
         const mt = MediaTimeline.get('main');
         this.canvas.currentTime = mt.currentTime;
         this.canvas.sharedMemory({buffer: mt.buffer, MAP: MediaTimeline.MAP});
-        this.canvas.startAnimation();
       }
     } else {
       this.canvas.setInfo(infoRawData);
       this.canvas.resize({width: global.innerWidth, height: model.cellHeight});
     }
 
+    this.totalWidth = Math.ceil(model.duration * 1000 / model.cellIntervalMs) * model.cellWidth;
     cssUtil.setProps(
-      [this._bone,    '--width-pp',  cssUtil.px(model.cellCount * model.cellWidth)],
-      [this._bone,    '--height-pp', cssUtil.px(model.cellHeight)],
       [this._pointer, '--width-pp',  cssUtil.px(model.cellWidth)],
       [this._pointer, '--height-pp', cssUtil.px(model.cellHeight)],
       [this._inner,   '--height-pp', cssUtil.px(model.cellHeight + 8)]
     );
   }
   _updateFail() {
-    const cl = ClassList(this._view);
-    cl.remove('is-uccess');
-    cl.add('is-fail');
-  }
-  clear() {
-  }
-  _onRequestAnimationFrame() {
-    if (!this._view || !this._model.isAvailable) {
-      return;
-    }
-
-    if (this._scrollLeftChanged) {
-      this._inner.scrollLeft = this._scrollLeft;
-      this._scrollLeftChanged = false;
-      this._pointerLeftChanged = true;
-    }
-    if (this._pointerLeftChanged) {
-      cssUtil.setProps([this._pointer, '--trans-x-pp',
-        cssUtil.px(this._pointerLeft - this._scrollLeft)]);
-      this._pointerLeftChanged = false;
-    }
+    ClassList(this._view).remove('is-uccess').add('is-fail');
   }
   setCurrentTime(sec, forceUpdate) {
     const model = this._model;
@@ -346,33 +327,27 @@ class StoryboardView extends Emitter {
     }
 
     this._currentTime = sec;
-    const ms = sec * 1000;
     const duration = Math.max(1, model.duration);
-    const per = ms / (duration * 1000);
-    const totalWidth = model.cellCount * model.cellWidth;
-    const targetLeft = Math.min(Math.max(0, totalWidth * per), totalWidth - global.innerWidth);
+    const per = sec / duration;
+    const intervalMs = model.cellIntervalMs;
+    const totalWidth = this.totalWidth;
+    const innerWidth = global.innerWidth;
 
-    if (this._pointerLeft !== targetLeft) {
-      this._pointerLeft = targetLeft;
-      this._pointerLeftChanged = true;
-    }
+    const cellWidth = model.cellWidth;
+    const cellIndex = sec * 1000 / intervalMs;
+    const scrollLeft =
+      Math.min(Math.max(cellWidth * cellIndex - innerWidth * per, 0), totalWidth - innerWidth);
 
-    if (forceUpdate) {
-      this.scrollLeft(Math.max(0, targetLeft - global.innerWidth * per), true);
-    } else {
-      if (this.isHover) {
-        return;
-      }
-      this.scrollLeft(Math.max(0, targetLeft - global.innerWidth * per));
+    if (forceUpdate || !this.isHover) {
+      this.scrollLeft = scrollLeft;
     }
+    this.pointerLeft = cellWidth * cellIndex;
   }
   get currentTime() {
     return this._currentTime;
   }
   set currentTime(sec) {
     this.setCurrentTime(sec);
-  }
-  _onScroll() {
   }
   _onStoryboardUpdate() {
     this.update();
@@ -392,8 +367,7 @@ StoryboardView.__tpl__ = `
     <div class="cursorTime"></div>
     <div class="storyboardCanvasContainer"><canvas class="storyboardCanvas is-loading" height="90"></canvas></div>
     <div class="storyboardPointer"></div>
-    <div class="storyboardInner"><div class="storyboardInner-bone"></div></div>
-    <div class="failMessage"></div>
+    <div class="storyboardInner"></div>
   </div>
   `.trim();
 
@@ -408,8 +382,6 @@ StoryboardView.__css__ = (`
     right: 0;
     width: 100vw;
     box-sizing: border-box;
-    /*border-top: 2px solid #ccc;
-    background: rgba(32, 32, 32, 0.3);*/
     z-index: 9005;
     overflow: hidden;
     pointer-events: none;
@@ -479,22 +451,13 @@ StoryboardView.__css__ = (`
     height: var(--height-pp);
     display: none;
     overflow: hidden;
-    /*background: rgba(32, 32, 32, 0.5);*/
     margin: 0;
     contain: strict;
     width: 100vw;
-    will-change: transform;
     overscroll-behavior: contain;
   }
   .storyboardContainer.is-success .storyboardInner {
     display: block;
-  }
-  .storyboardInner-bone {
-    contain: strict;
-    pointer-events: none;
-    width:  var(--width-pp);
-    height: var(--height-pp);
-    visibility: hidden;
   }
 
   .storyboardContainer .cursorTime {
@@ -519,6 +482,7 @@ StoryboardView.__css__ = (`
   }
 
   .storyboardPointer {
+    visibility: hidden;
     position: absolute;
     top: 0;
     z-index: 100;
@@ -528,17 +492,18 @@ StoryboardView.__css__ = (`
     --trans-x-pp: -100%;
     width: var(--width-pp);
     height: var(--height-pp);
-    transform: translate3d(calc( var(--trans-x-pp) - var(--width-pp) / 2), 0, 0);
-    transition: --trans-x-pp 0.1s linear;
+    will-change: transform;
+    transform: translate(var(--trans-x-pp), 0);
     background: #ff9;
     opacity: 0.5;
   }
 
   .storyboardContainer:hover .storyboardPointer {
+    visibility: visible;
     transition: --trans-x-pp 0.4s ease-out;
   }
 
-    `).trim();
+`).trim();
 
 //===END===
 export {StoryboardView};

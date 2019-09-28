@@ -72,9 +72,9 @@ class MediaTimeline {
   }
   onTimer() {
     const media = this.media;
-    const diff = Math.abs(media.currentTime - this.anime.currentTime / 1000);
-    if (!this.isWAAvailable || diff >= this.interval || media.paused !== this.paused) {
-      // console.warn('fix diff', {media: media.currentTime, anime: this.anime.currentTime / 1000, diff, interval: this.interval});
+    const diff = Math.abs(media.currentTime * 1000 - this.anime.currentTime);
+    if (!this.isWAAvailable || diff >= this.interval * 3 || media.paused !== this.paused) {
+      // console.warn('fix diff', diff);
       this.currentTime  = media.currentTime;
       this.playbackRate = media.playbackRate;
       this.paused       = media.paused;
@@ -95,7 +95,7 @@ class MediaTimeline {
   set timestamp(v) {
     try {
       Atomics.store(this.iview, MediaTimeline.MAP.timestamp, v);
-      Atomics.wake(this.iview, MediaTimeline.MAP.timestamp);
+      Atomics.notify(this.iview, MediaTimeline.MAP.timestamp);
     } catch(e) {
       this.iview[MediaTimeline.MAP.timestamp] = v;
     }
@@ -144,12 +144,11 @@ MediaTimeline.MAP = {
   paused: 3,
   timestamp: 10
 };
-MediaTimeline.isSharable = ('SharedArrayBuffer' in window) && ('timeline' in document);
+MediaTimeline.isSharable = ('SharedArrayBuffer' in self) && ('timeline' in document);
 MediaTimeline.register = function(name = 'main', media = null) {
   if (!this.map.has(name)) {
     const mt = new MediaTimeline({media});
     this.map.set(name, mt);
-    // window.mt = mt;
     return mt;
   }
   const mt = this.map.get(name);
