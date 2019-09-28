@@ -11,11 +11,13 @@ import {Emitter, PromiseHandler} from './Emitter';
 //===BEGIN===
 const uQuery = (() => {
   const endMap = new WeakMap();
-  const elementEventsMap = new WeakMap();
+  const emptyMap = new Map();
+  const emptySet = new Set();
+  const elementsEventMap = new WeakMap();
   const HAS_CSSTOM = (window.CSS && CSS.number) ? true : false;
   const toCamel = p => p.replace(/-./g, s => s.charAt(1).toUpperCase());
   const emitter = new Emitter();
-  const undef = Symbol('undef');
+  const UNDEF = Symbol('undefined');
   const waitForDom = resolve => {
     if (['interactive', 'complete'].includes(document.readyState)) {
       return resolve();
@@ -394,15 +396,16 @@ const uQuery = (() => {
       eventName = eventName.trim();
       const elementEventName = eventName.split('.')[0];
       // window.console.log({eventName, callback, options}, this.concat());
-      for (const e of this.filter(isEventTarget)) {
-        const elementEvents = elementEventsMap.get(e) || {};
-        const listeners = elementEvents[eventName] = elementEvents[eventName] || [];
-        if (!listeners.includes(callback)) {
-          listeners.push(callback);
-        }
-        elementEventsMap.set(e, elementEvents);
+      for (const element of this.filter(isEventTarget)) {
+        const elementEvents = elementsEventMap.get(element) || new Map;
+        const listenerSet = elementEvents.get(eventName) || new Set;
+        elementEvents.set(eventName, listenerSet);
+        elementsEventMap.set(element, elementEvents);
 
-        e.addEventListener(elementEventName, callback, options);
+        if (!listenerSet.has(callback)) {
+          listenerSet.add(callback);
+          element.addEventListener(elementEventName, callback, options);
+        }
       }
       return this;
     }
@@ -428,33 +431,40 @@ const uQuery = (() => {
       });
     }
 
-    off(eventName, callback) {
+    off(eventName = UNDEF, callback = UNDEF) {
 
-      if (!eventName) {
-        for (const e of this.filter(isEventTarget)) {
-          const elementEvents = elementEventsMap.get(e) || {};
-          for (const eventName of Object.keys(elementEvents)) {
-            this.off(eventName);
+      if (eventName === UNDEF) {
+        for (const element of this.filter(isEventTarget)) {
+          const eventListenerMap = elementsEventMap.get(element) || emptyMap;
+          for (const [eventName, listenerSet] of eventListenerMap) {
+            for (const listener of listenerSet) {
+              element.removeEventListener(eventName, listener);
+            }
+            listenerSet.clear();
           }
-          elementEventsMap.delete(e);
+          eventListenerMap.clear();
+          elementsEventMap.delete(element);
         }
         return this;
       }
 
       eventName = eventName.trim();
       const [elementEventName, eventKey] = eventName.split('.');
-      if (!callback) {
-        for (const e of this.filter(isEventTarget)) {
-          const elementEvents = elementEventsMap.get(e) || {};
-
-          for (let cb of (elementEvents[eventName] || [])) {
-            e.removeEventListener(elementEventName, cb);
+      if (callback === UNDEF) {
+        for (const element of this.filter(isEventTarget)) {
+          const eventListenerMap = elementsEventMap.get(element) || emptyMap;
+          const listenerSet = eventListenerMap.get(eventName) || emptySet;
+          for (const listener of listenerSet) {
+            element.removeEventListener(elementEventName, listener);
           }
-          delete elementEvents[eventName];
 
-          for (const key of Object.keys(elementEvents)) {
-            if ((!eventKey && key.startsWith(`${elementEventName}.`)) || (!elementEventName && key.endsWith(`.${eventKey}`))
-            ) {
+          listenerSet.clear();
+          eventListenerMap.delete(eventName);
+
+          for (const [key] of eventListenerMap) {
+            if (
+              (!eventKey && key.startsWith(`${elementEventName}.`)) ||
+              (!elementEventName && key.endsWith(`.${eventKey}`))) {
               this.off(key);
             }
           }
@@ -462,27 +472,27 @@ const uQuery = (() => {
         return this;
       }
 
-      for (const e of this.filter(isEventTarget)) {
-        const elementEvents = elementEventsMap.get(e) || {};
-        elementEvents[eventName] = (elementEvents[eventName] || []).find(cb => {
-          return cb !== callback;
-        });
-        let found = Object.keys(elementEvents).find(key => {
-          const listeners = elementEvents[key] || [];
-          if (key.startsWith(`${elementEventName}.`) && listeners.includes(callback)) {
-            return true;
+      for (const element of this.filter(isEventTarget)) {
+        const eventListenerMap = elementsEventMap.get(element) || new Map;
+        eventListenerMap.set(eventName, (eventListenerMap.get(eventName) || new Set));
+        for (const [key, listenerSet] of eventListenerMap) {
+          if (key !== eventName && !key.startsWith(`${elementEventName}.`)) {
+            continue;
           }
-        });
-        if (found) { continue; }
-        e.removeEventListener(elementEventName, callback);
+          if (!listenerSet.has(callback)) {
+            continue;
+          }
+          listenerSet.delete(callback);
+          element.removeEventListener(elementEventName, callback);
+        }
       }
 
       return this;
     }
 
-    _setAttribute(key, val = undef) {
+    _setAttribute(key, val = UNDEF) {
       const htmls = this.getHtmls();
-      if (val === null || val === '' || val === undef) {
+      if (val === null || val === '' || val === UNDEF) {
         for (const e of htmls) {
           e.removeAttribute(key);
         }
@@ -494,7 +504,7 @@ const uQuery = (() => {
       return this;
     }
 
-    setAttribute(key, val = undef) {
+    setAttribute(key, val = UNDEF) {
       if (typeof key === 'string') {
         return this._setAttribute(key, val);
       }
@@ -504,23 +514,23 @@ const uQuery = (() => {
       return this;
     }
 
-    attr(key, val = undef) {
-      if (val !== undef || typeof key === 'object') {
+    attr(key, val = UNDEF) {
+      if (val !== UNDEF || typeof key === 'object') {
         return this.setAttribute(key, val);
       }
       const found = this.find(e => e.hasAttribute && e.hasAttribute(key));
       return found ? found.getAttribute(key) : null;
     }
 
-    data(key, val = undef) {
+    data(key, val = UNDEF) {
       if (typeof key === 'object') {
         for (const k of Object.keys(key)) {
           this.data(k, JSON.stringify(key[k]));
         }
         return this;
       }
-      key = `data-${key.toLowerCase()}`;
-      if (val !== undef) {
+      key = `data-${toSnake(key)}`;
+      if (val !== UNDEF) {
         return this.setAttribute(key, JSON.stringify(val));
       }
       const found = this.find(e => e.hasAttribute && e.hasAttribute(key));
@@ -532,13 +542,13 @@ const uQuery = (() => {
       }
     }
 
-    prop(key, val = undef) {
+    prop(key, val = UNDEF) {
       if (typeof key === 'object') {
         for (const k of Object.keys(key)) {
           this.prop(k, key[k]);
         }
         return this;
-      } else if (val !== undef) {
+      } else if (val !== UNDEF) {
         for (const elm of this) {
           elm[key] = val;
         }
@@ -549,19 +559,19 @@ const uQuery = (() => {
       }
     }
 
-    val(v = undef) {
+    val(v = UNDEF) {
       const htmls = this.getHtmls();
       for (const elm of htmls) {
         if (!('value' in elm)) {
           continue;
         }
-        if (v === undef) {
+        if (v === UNDEF) {
           return elm.value;
         } else {
           elm.value = v;
         }
       }
-      return v === undef ? '' : this;
+      return v === UNDEF ? '' : this;
     }
 
     hasFocus() {
@@ -615,9 +625,9 @@ const uQuery = (() => {
       return this.insert('before', ...args);
     }
 
-    text(text = undef) {
+    text(text = UNDEF) {
       const fn = this.firstNode;
-      if (text !== undef) {
+      if (text !== UNDEF) {
         fn && (fn.textContent = text);
       } else {
         return this.htmls.find(e => e.textContent) || '';
