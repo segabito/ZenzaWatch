@@ -291,7 +291,7 @@ class NicoVideoPlayerDialogView extends Emitter {
     this.commentInput.on('esc', () => this._escBlockExpiredAt = Date.now() + 1000 * 2);
 
     this.settingPanel = new SettingPanel({
-      $playerContainer: $container,
+      $parent: $container,
       playerConfig: config,
       player: this._dialog
     });

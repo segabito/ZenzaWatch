@@ -1635,7 +1635,7 @@ class PlaylistView extends Emitter {
     const mq = $view.mapQuery({
       _index: '.playlist-index', _length: '.playlist-length',
       _menu: '.playlist-menu', _fileDrop: '.playlist-file-drop',
-      _fileSelect: '.playlist-import-file-select',
+      _fileSelect: '.import-playlist-file-select',
       _playlistFrame: '.playlist-frame'
     });
     Object.assign(this, mq.e);
@@ -1927,7 +1927,7 @@ PlaylistView.__css__ = (`
       border: 1px dotted #888;
     }
 
-    .playlist-import-file-select {
+    .import-playlist-file-select {
       position: absolute;
       text-indent: -9999px;
       width: 100%;
@@ -1976,7 +1976,7 @@ PlaylistView.__tpl__ = (`
               <li class="playlist-command" data-command="exportFile">ファイルに保存 &#x1F4BE;</li>
 
               <li class="playlist-command" data-command="importFileMenu">
-                <input type="file" class="playlist-import-file-select" accept=".json">
+                <input type="file" class="import-playlist-file-select" accept=".json">
                 ファイルから読み込む
               </li>
 

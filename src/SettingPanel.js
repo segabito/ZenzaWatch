@@ -1,11 +1,12 @@
 import * as _ from 'lodash';
 import {Emitter} from '../packages/lib/src/Emitter';
-import {css} from '../packages/lib/src/css/css';
+import {cssUtil} from '../packages/lib/src/css/css';
 import {uq} from '../packages/lib/src/uQuery';
+import {domEvent} from '../packages/lib/src/dom/domEvent';
 
 //===BEGIN===
 
-class SettingPanel extends Emitter{
+class SettingPanel extends Emitter {
   constructor(params) {
     super();
     this._params = params;
@@ -17,7 +18,7 @@ class SettingPanel extends Emitter{
     }
     const params = this._params;
     this._playerConfig = params.playerConfig;
-    this._$playerContainer = params.$playerContainer;
+    this._$parent = params.$parent;
     this._player = params.player;
 
     this._playerConfig.on('change', this._onPlayerConfigChange.bind(this));
@@ -27,11 +28,11 @@ class SettingPanel extends Emitter{
     this._initialized = true;
   }
   _initializeDom () {
-    const $container = this._$playerContainer;
+    const $parent = this._$parent;
 
-    css.addStyle(SettingPanel.__css__);
+    cssUtil.addStyle(SettingPanel.__css__);
     const $view = this._$view = uq.html(SettingPanel.__tpl__);
-    $view.appendTo($container[0]);
+    $view.appendTo($parent[0]);
     this.elm = $view.mapQuery({
       $check: 'input[type=checkbox]',
       $radio: 'input[type=radio]',
@@ -39,19 +40,21 @@ class SettingPanel extends Emitter{
       $filterEdit: '.filterEdit',
       wordFilter: '.wordFilterEdit',
       userIdFilter: '.userIdFilterEdit',
-      commandFilter: '.commandFilterEdit'
+      commandFilter: '.commandFilterEdit',
+      fileSelect: '.import-config-file-select'
     }).result;
 
-    $view.on('click', e => e.stopPropagation())
+    $view.on('click', this._onClick.bind(this))
       .on('wheel', e => e.stopPropagation(), {passive: true})
       .on('paste', e => e.stopPropagation());
 
-    const {$check, $radio, $text} = this.elm;
+    const {$check, $radio, $text, $filterEdit} = this.elm;
     $check.on('change', this._onToggleItemChange.bind(this));
     $radio.on('change', this._onRadioItemChange.bind(this));
     $text.on('change', this._onInputItemChange.bind(this));
+    $filterEdit.on('change', this._onFilterEditChange.bind(this));
 
-    // ZenzaWatch.emitter.on('hideHover', () => this.hide());
+    this.elm.fileSelect.addEventListener('change', this._onImportFileSelect.bind(this));
   }
   _initializeCommentFilterEdit() {
     this.elm.$filterEdit.on('change', e =>
@@ -86,6 +89,19 @@ class SettingPanel extends Emitter{
       elm.value = val;
     }
   }
+  _onClick(e) {
+    const target = e.target.closest('[data-command]');
+    e.stopPropagation();
+
+    if (!target) {
+      return;
+    }
+
+    let {command, type = 'string', param} = target.dataset;
+    if (type !== 'string') { param = JSON.parse(param); }
+
+    domEvent.dispatchCommand(target, command, param);
+  }
   _onPlayerConfigChange(changed) {
     const keys = [
       'wordFilter', 'userIdFilter', 'commandFilter',
@@ -116,6 +132,11 @@ class SettingPanel extends Emitter{
     const val = e.target.value;
     this._playerConfig.props[name] = val;
   }
+  _onFilterEditChange(e) {
+    const command = e.target.dataset.commandName;
+    const param = e.target.value;
+    domEvent.dispatchCommand(e.target, command, param);
+  }
   toggle(v) {
     if (v !== false) {
       this.initialize();
@@ -137,6 +158,28 @@ class SettingPanel extends Emitter{
   hide () {
     this.toggle(false);
   }
+  async _onImportFileSelect(e) {
+    e.preventDefault();
+
+    const file = e.target.files[0];
+    if (!/\.config\.json$/.test(file.name)) {
+      return;
+    }
+    if (!confirm(`ファイル "${file.name}" で書き換えますか？`)) {
+      return;
+    }
+
+    domEvent.dispatchCommand(e.target, 'close');
+
+    const fileReader = new FileReader();
+    fileReader.onload = ev => {
+      this._playerConfig.importJson(ev.target.result);
+      location.reload();
+    };
+
+    fileReader.readAsText(file);
+  }
+
 }
 SettingPanel.__css__ = (`
   .zenzaSettingPanel {
@@ -292,6 +335,40 @@ SettingPanel.__css__ = (`
     border-radius: 8px;
     }
 
+  .zenzaSettingPanel .import-export {
+    padding: 8px;
+    text-align: center;
+  }
+
+  .zenzaSettingPanel .export-config-button {
+    display: inline-block;
+  }
+
+  .zenzaSettingPanel  .import-config-file-select {
+    position: absolute;
+    text-indent: -9999px;
+    width: 160px;
+    padding: 8px;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .zenzaSettingPanel  .import-config-file-select-label {
+    pointer-events: none;
+    user-select: none;
+  }
+  .zenzaSettingPanel .import-config-file-select-label,
+  .zenzaSettingPanel .export-config-button {
+    display: inline-block;
+    width: 160px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #000;
+    background: #ccc;
+    border: 0;
+  }
   `).trim();
 
 SettingPanel.__tpl__ = (`
@@ -352,7 +429,7 @@ SettingPanel.__tpl__ = (`
       <div class="overrideWatchLinkControl control toggle forPremium">
         <label>
           <input type="checkbox" class="checkbox" data-setting-name="enableStoryboard">
-          シークバーにサムネイルを表示 (重いかも)
+          シークバーにサムネイルを表示 <small>(※ プレミアム)</small>
         </label>
       </div>
 
@@ -583,17 +660,23 @@ SettingPanel.__tpl__ = (`
         <p>NGワード</p>
         <textarea
           class="filterEdit wordFilterEdit"
-          data-command="setWordFilterList"></textarea>
+          data-command-name="setWordFilterList"></textarea>
         <p>NGコマンド</p>
         <textarea
           class="filterEdit commandFilterEdit"
-          data-command="setCommandFilterList"></textarea>
+          data-command-name="setCommandFilterList"></textarea>
         <p>NGユーザー</p>
         <textarea
           class="filterEdit userIdFilterEdit"
-          data-command="setUserIdFilterList"></textarea>
+          data-command-name="setUserIdFilterList"></textarea>
       </div>
 
+      <p class="caption">インポート・エクスポート</p>
+      <div class="import-export">
+        <button class="export-config-button" data-command="export-config">ファイルに保存</button>
+        <input type="file" class="import-config-file-select" accept=".json" data-command="nop">
+        <div class="import-config-file-select-label">ファイルから読み込む</div>
+      </div>
     </div>
   </div>
   `).trim();

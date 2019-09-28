@@ -200,8 +200,9 @@ class DataStorage {
   import(data) {
     Object.keys(this.props)
       .forEach(key => {
-        console.log('import data: %s=%s', key, data[key]);
-        this.setValueSilently(key, data[key]);
+        const val = data.hasOwnProperty(key) ? data[key] : this.default[key];
+        console.log('import data: %s=%s', key, val);
+        this.setValueSilently(key, val);
     });
   }
 
@@ -213,15 +214,15 @@ class DataStorage {
     return Object.keys(this.props);
   }
 
-  clear() {
+  clearConfig() {
     this.silently = true;
     const storage = this.storage;
-
     Object.keys(this.default)
       .filter(key => !this._ignoreExportKeys.includes(key)).forEach(key => {
         const storageKey = this.getStorageKey(key);
         try {
           if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
+            console.nicoru('delete storage', storageKey, storage[storageKey]);
             delete storage[storageKey];
           }
           this._data[key] = this.default[key];

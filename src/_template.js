@@ -32,7 +32,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.25
+// @version        2.4.27
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -87,7 +87,7 @@ import {WindowResizeObserver} from '../packages/lib/src/infra/Observable';
 import {dimport} from '../packages/lib/src/infra/dimport';
 import {MediaTimeline} from '../packages/lib/src/dom/MediaTimeline';
 import {cssUtil} from '../packages/lib/src/css/css';
-
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
 //@require AntiPrototypeJs
 AntiPrototypeJs();
 (() => {
@@ -133,7 +133,7 @@ AntiPrototypeJs();
     );
     console.nicoru =
       console.log.bind(console,
-        '%c田',
+        '%c田 ',
         'display: inline-block; font-size: 120%; color: transparent; background-repeat: no-repeat; background-position: center; background-size: contain;' +
         `background-image: url(${NICORU})`
         );
@@ -192,6 +192,7 @@ const global = {
   innerHeight: window.innerHeight,
   NICORU
 };
+//@require ClassList
 //@require util
 ZenzaWatch.lib.$ = uQuery;
 workerUtil.env({netUtil, global});
@@ -201,8 +202,8 @@ WindowResizeObserver.subscribe(({width, height}) => {
   global.innerWidth  = width;
   global.innerHeight = height;
   cssUtil.setProps(
-    [document.documentElement, '--inner-width', width],
-    [document.documentElement, '--inner-height', height]
+    [document.documentElement, '--inner-width', cssUtil.number(width)],
+    [document.documentElement, '--inner-height', cssUtil.number(height)]
   );
 });
 //@require components

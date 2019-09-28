@@ -210,7 +210,21 @@ const Config = (() => {
 })();
 Config.exportConfig = () => Config.export();
 Config.importConfig = v => Config.import(v);
-Config.clearConfig = () => Config.clear();
+Config.exportToFile = () => {
+  const json = Config.exportJson();
+  const blob = new Blob([json], {'type': 'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  Object.assign(a, {
+    download: `${new Date().toLocaleString().replace(/[:/]/g, '_')}_ZenzaWatch.config.json`,
+    rel: 'noopener',
+    href: url
+  });
+  (document.body || document.documentElemennt).append(a);
+  a.click();
+  setTimeout(() => a.remove(), 1000);
+
+};
 const NaviConfig = Config;
 
 //===END===
