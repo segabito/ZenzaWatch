@@ -3,6 +3,7 @@ import {util} from '../../../../src/util';
 import {NicoTextParser} from './NicoTextParser';
 // import {NicoChatViewModel} from './NicoChatViewModel';
 import {global} from '../../../../src/ZenzaWatchIndex';
+import {cssUtil} from '../../../lib/src/css/css';
 //===BEGIN===
 // フォントサイズ計算用の非表示レイヤーを取得
 // 変なCSSの影響を受けないように、DOM的に隔離されたiframe内で計算する。
@@ -27,7 +28,9 @@ const OffscreenLayer = config => {
         background: #fff;
 
         white-space: pre;
-
+        pointer-events: none;
+        user-select: none;
+        contain: strict;
     "></div>
     </body></html>
       `).trim();
@@ -145,9 +148,10 @@ const OffscreenLayer = config => {
         fontCommand = fontCommand ? `cmd-${fontCommand}` : '';
         span.className = `nicoChat ${type} ${size} ${fontCommand} ${ver}`;
       },
-      setFontSizePixel: pixel => {
-        span.style.fontSize = `${pixel}px`;
-      },
+      setFontSizePixel:
+        (span.attributeStyleMap ?
+          pixel => span.attributeStyleMap.set('font-size', CSS.px(pixel)) :
+          pixel => span.style.fontSize = `${pixel}px`),
       getOriginalWidth: () => span.offsetWidth,
       getWidth: () => span.offsetWidth * scale,
       getOriginalHeight: () => span.offsetHeight,

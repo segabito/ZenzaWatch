@@ -649,7 +649,6 @@ const VideoListItemView = (() => {
       pocketInfo.dataset.param = watchId;
 
       this._view = template.clone();
-      this.classList = ClassList(this._view);
     }
 
     rebuild(item) {
@@ -706,7 +705,7 @@ const VideoListItemView = (() => {
       if (!this._view) {
         this.build();
       }
-      this.classList.toggle(className, v);
+      this._view.classList.toggle(className, v);
     }
   }
 
@@ -750,8 +749,6 @@ class VideoListView extends Emitter {
       this._model.on('item-update', this._onModelItemUpdate.bind(this));
       this._model.on('item-remove', this._onModelItemRemove.bind(this));
     }
-
-    this._enableLazyLoadImage = window.IntersectionObserver ? true : false;
 
     this._initializeView(params);
   }
@@ -966,12 +963,11 @@ class VideoListView extends Emitter {
     const itemViews = [];
 
     for (const item of itemList) {
-      let id = item.itemId;
-      if (this._itemViewCache.has(id)) {
+      // const id = item.itemId;
+      if (this._itemViewCache.has(item)) {
         itemViews.push(this._itemViewCache.get(item));
       } else {
-        const isLazy = this._enableLazyLoadImage;
-        const itemView = new this._ItemView({item, enableLazyLoadImage: isLazy});
+        const itemView = new this._ItemView({item, enableLazyLoadImage: true});
         this._itemViewCache.set(item, itemView);
         itemViews.push(itemView);
       }
@@ -1013,7 +1009,7 @@ class VideoListView extends Emitter {
     this._itemViewCache.delete(item);
   }
   _setInviewObserver() {
-    if (!this._enableLazyLoadImage || !this._document) {
+    if (!this._document) {
       return;
     }
     if (this._intersectionObserver) {
@@ -1021,7 +1017,8 @@ class VideoListView extends Emitter {
     }
     const images = [...this._document.querySelectorAll('.lazy-load')];
     if (!images.length) { return; }
-    const onInview = this._onImageInview_bind || this._onImageInview.bind(this);
+    const onInview = this._boundOnImageInview =
+      this._boundOnImageInview || this._onImageInview.bind(this);
     const observer = this._intersectionObserver = new IntersectionObserver(onInview);
     images.forEach(img => observer.observe(img));
   }
@@ -1036,7 +1033,7 @@ class VideoListView extends Emitter {
       if (!src) {
         return;
       }
-      uq(thumbnail).raf.css('backgroundImage', `url(${src})`);
+      uq(thumbnail).raf.css('background-image', `url(${src})`);
     });
   }
   _onModelItemUpdate(item, key, value) {
@@ -1577,7 +1574,7 @@ class VideoList extends Emitter {
       return;
     }
 
-    let item = this._model.findByItemId(itemId);
+    const item = this._model.findByItemId(itemId);
 
     const unlock = () => {
       item.isUpdating = false;
@@ -1727,9 +1724,8 @@ class PlaylistView extends Emitter {
   }
   _onPlaylistStatusUpdate() {
     const playlist = this._playlist;
-    this.classList.toggle('enable', playlist.isEnable)
-    this.classList.toggle('loop', playlist.isLoop)
-    ;
+    this.classList.toggle('enable', playlist.isEnable);
+    this.classList.toggle('loop', playlist.isLoop);
     this._index.textContent = playlist.getIndex() + 1;
     this._length.textContent = playlist.length;
   }

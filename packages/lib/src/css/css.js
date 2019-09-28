@@ -19,8 +19,8 @@ const css = (() => {
     for (const [element, prop, value] of tasks) {
       try {
         element.style.setProperty(prop, value);
-      } catch (err) {
-        console.warn('element.style.setProperty fail', {prop, value}, element, err);
+      } catch (error) {
+        console.warn('element.style.setProperty fail', {element, prop, value, error});
       }
     }
   });
@@ -78,6 +78,7 @@ const css = (() => {
       await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
       return true;
     }.bind({set: new WeakSet}),
+    escape:  value => CSS.escape  ? CSS.escape(value) : value.replace(/([\.#()[\]])/g, '\\$1'),
     number:  value => CSS.number  ? CSS.number(value) : value,
     s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
     ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
@@ -86,6 +87,9 @@ const css = (() => {
     percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
     vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
     vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
+    trans:   value => self.CSSStyleValue ? CSSStyleValue.parse('transform', value) : value,
+    word:    value => self.CSSKeywordValue ? new CSSKeywordValue(value) : value,
+    image:   value => self.CSSStyleValue ? CSSStyleValue.parse('background-image', value) : value,
   };
   return css;
 })();

@@ -237,8 +237,11 @@ class CommentListView extends Emitter {
     global.debug.$commentList = uq(this._list);
     global.debug.getCommentPanelItems = () =>
       Array.from(doc.querySelectorAll('.commentListItem'));
+    this.emitResolve('frame-ready');
   }
   async _onModelUpdate(itemList, replaceAll) {
+    await this.promise('frame-ready');
+
     window.console.time('update commentlistView');
     this.addClass('updating');
     itemList = Array.isArray(itemList) ? itemList : [itemList];
@@ -451,16 +454,13 @@ class CommentListView extends Emitter {
     this._list.style.transform = `translateZ(-${avr}px)`;
   }
   addClass(className) {
-    this.classList.add(className);
+    this.classList && this.classList.add(className);
   }
   removeClass(className) {
-    this.classList.remove(className);
+    this.classList && this.classList.remove(className);
   }
   toggleClass(className, v) {
-    if (!this._body) {
-      return;
-    }
-    this.classList.toggle(className, v);
+    this.classList && this.classList.toggle(className, v);
   }
   hasClass(className) {
     return this.classList.contains(className);
@@ -477,9 +477,7 @@ class CommentListView extends Emitter {
       this._container.scrollTop = this._scrollTop = v;
     } else {
       this._scrollTop = this._container.scrollTop;
-      cssUtil.setProps(
-        [this._body, '--scroll-top', this._scrollTop]
-      );
+      cssUtil.setProps([this._body, '--scroll-top', this._scrollTop]);
     }
   }
   setCurrentPoint(sec, idx, isAutoScroll) {

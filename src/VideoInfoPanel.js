@@ -345,7 +345,7 @@ class VideoInfoPanel extends Emitter {
   }
   clear() {
     this._videoHeaderPanel.clear();
-    this._$view.raf.addClass('initializing');
+    this.classList.add('initializing');
     this._$ownerIcon.raf.addClass('is-loading');
     this._description.textContent = '';
   }
@@ -2343,7 +2343,7 @@ class UaaView extends BaseViewComponent {
       contact.setAttribute('title', `${data.message}(${textUtil.secToTime(sec)})`);
 
       this._props.videoInfo.getCurrentVideo()
-        .then(url => VideoCaptureUtil.capture(url, sec))
+        .then(url => ZenzaWatch.util.VideoCaptureUtil.capture(url, sec))
         .then(screenshot => {
         const cv = document.createElement('canvas');
         const ct = cv.getContext('2d');

@@ -512,7 +512,7 @@ class ContextMenu extends BaseViewComponent {
     const view = util.$(this._view);
     view.find('.selected').removeClass('selected');
     view.find('.playbackRate').forEach(elm => {
-      const p = parseFloat(elm.getAttribute('data-param'), 10);
+      const p = parseFloat(elm.dataset.param, 10);
       if (Math.abs(p - pr) < 0.01) {
         elm.classList.add('selected');
       }
@@ -875,7 +875,7 @@ class VideoPlayer extends Emitter {
 
     this.volume = volume;
     this.muted = params.mute;
-    this.playbackRate=playbackRate;
+    this.playbackRate = playbackRate;
 
     this._touchWrapper = new TouchWrapper({
       parentElement: body
@@ -939,7 +939,7 @@ class VideoPlayer extends Emitter {
   _onCanPlay(...args) {
     console.log('%c_onCanPlay:', 'background: cyan; color: blue;', ...args);
 
-    this.playbackRate= this.playbackRate;
+    this.playbackRate = this.playbackRate;
     // リピート時にも飛んでくるっぽいので初回だけにする
     if (!this._canPlay) {
       this._canPlay = true;
@@ -1070,9 +1070,6 @@ class VideoPlayer extends Emitter {
 
   _onSeeked() {
     console.log('%c_onSeeked:', 'background: cyan;', arguments);
-
-    // なぜかシークのたびにリセットされるので再設定 (Chromeだけ？)
-    // this.playbackRate = this.playbackRate;
 
     this.emit('seeked', this._video.currentTime);
   }
@@ -1305,7 +1302,7 @@ class VideoPlayer extends Emitter {
     //if (!ZenzaWatch.util.isPremium()) { v = Math.min(1, v); }
     // たまにリセットされたり反映されなかったりする？
     this._playbackRate = v;
-    let video = this._video;
+    const video = this._video;
     video.playbackRate = 1;
     window.setTimeout(() => video.playbackRate = parseFloat(v), 100);
   }

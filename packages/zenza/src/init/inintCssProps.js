@@ -14,15 +14,15 @@ const initCssProps = () => {
   const inherits = true;
   cssUtil.registerProps(
     {name: '--inner-width',
-      syntax: NUM, initialValue: 100,  inherits},
+      syntax: NUM, initialValue: cssUtil.number(100), inherits},
     {name: '--inner-height',
-      syntax: NUM, initialValue: 100, inherits},
+      syntax: NUM, initialValue: cssUtil.number(100), inherits},
     {name: '--zenza-ui-scale',
-      syntax: NUM, initialValue: 1,  inherits},
+      syntax: NUM, initialValue: cssUtil.number(1), inherits},
     {name: '--zenza-control-bar-height',
       syntax: LEN, initialValue: cssUtil.px(48), inherits},
     {name: '--zenza-comment-layer-opacity',
-      syntax: NUM, initialValue: 1,  inherits},
+      syntax: NUM, initialValue: cssUtil.number(1),  inherits},
     {name: '--zenza-comment-panel-header-height',
       syntax: LEN, initialValue: cssUtil.px(64), inherits},
     {name: '--sideView-left-margin',
@@ -38,7 +38,7 @@ const initCssProps = () => {
     {name: '--duration',
       syntax: TM,  initialValue: cssUtil.s(4), inherits},
     {name: '--playback-rate',
-      syntax: NUM, initialValue: 1, inherits},
+      syntax: NUM, initialValue: cssUtil.number(1), inherits},
     {name: '--trans-x-pp',
       syntax: LP, initialValue: PX0, inherits: false},
     {name: '--trans-y-pp',
@@ -64,8 +64,10 @@ const initCssProps = () => {
     {name: '--enabled-button-color',
       syntax: CL, initialValue: TP, inherits}
   );
-  document.documentElement.style.setProperty('--inner-width', global.innerWidth);
-  document.documentElement.style.setProperty('--inner-height', global.innerHeight);
+  cssUtil.setProps(
+    [document.documentElement, '--inner-width', cssUtil.number(global.innerWidth)],
+    [document.documentElement, '--inner-height', cssUtil.number(global.innerHeight)]
+  );
 };
 
 //===END===

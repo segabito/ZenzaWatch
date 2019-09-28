@@ -156,7 +156,7 @@ class RangeBarElement extends HTMLElement {
   }
 }
 cssUtil.registerProps(
-  {name: '--range-percent', syntax: '<percentage>', initialValue: '0%', inherits: true}
+  {name: '--range-percent', syntax: '<percentage>', initialValue: cssUtil.percent(0), inherits: true}
 );
 if (window.customElements) {
   customElements.get('zenza-range-bar') || window.customElements.define('zenza-range-bar', RangeBarElement);

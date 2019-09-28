@@ -14,8 +14,8 @@ const objUtil = (() => {
         return obj;
       }
       const map = new mapper();
-      for(const key of Object.keys(obj)) {
-        map.set(key, obj[key]);
+      for(const [key, val] of Object.entries(obj)) {
+        map.set(key, val);
       }
       return map;
     },

@@ -141,7 +141,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         const aspectRatio = Math.max(this._aspectRatio, 9 / 16);
         const targetHeight = Math.min(h, w * aspectRatio);
         const scale = targetHeight / 384;
-        commentLayer.style.setProperty('--layer-scale', scale);
+        cssUtil.setProps([commentLayer, '--layer-scale', cssUtil.number(scale)]);
       };
 
       const chkSizeInit = () => {

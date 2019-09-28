@@ -263,49 +263,49 @@ class NicoVideoPlayerDialogView extends Emitter {
       })
       .toggleClass('is-guest', !util.isLogin());
 
-    this._hoverMenu = new VideoHoverMenu({
+    this.hoverMenu = new VideoHoverMenu({
       playerContainer: container,
       playerState: state
     });
 
-    this._commentInput = new CommentInputPanel({
+    this.commentInput = new CommentInputPanel({
       $playerContainer: $container,
       playerConfig: config
     });
 
-    this._commentInput.on('post', (e, chat, cmd) =>
+    this.commentInput.on('post', (e, chat, cmd) =>
       this.emit('postChat', e, chat, cmd));
 
     let hasPlaying = false;
-    this._commentInput.on('focus', isAutoPause => {
+    this.commentInput.on('focus', isAutoPause => {
       hasPlaying = state.isPlaying;
       if (isAutoPause) {
         this.emit('command', 'pause');
       }
     });
-    this._commentInput.on('blur', isAutoPause => {
+    this.commentInput.on('blur', isAutoPause => {
       if (isAutoPause && hasPlaying && state.isOpen) {
         this.emit('command', 'play');
       }
     });
-    this._commentInput.on('esc', () => this._escBlockExpiredAt = Date.now() + 1000 * 2);
+    this.commentInput.on('esc', () => this._escBlockExpiredAt = Date.now() + 1000 * 2);
 
-    this._settingPanel = new SettingPanel({
+    this.settingPanel = new SettingPanel({
       $playerContainer: $container,
       playerConfig: config,
       player: this._dialog
     });
-    this._settingPanel.on('command', onCommand);
+    this.settingPanel.on('command', onCommand);
 
     await sleep.idle();
-    this._videoControlBar = new VideoControlBar({
+    this.videoControlBar = new VideoControlBar({
       $playerContainer: $container,
       playerConfig: config,
       player: this._dialog,
       playerState: this._state,
       currentTimeGetter: this._currentTimeGetter
     });
-    this._videoControlBar.on('command', onCommand);
+    this.videoControlBar.on('command', onCommand);
 
     this._$errorMessageContainer = $container.find('.errorMessageContainer');
 
@@ -324,15 +324,15 @@ class NicoVideoPlayerDialogView extends Emitter {
     this.emitResolve('dom-ready');
   }
   _initializeVideoInfoPanel() {
-    if (this._videoInfoPanel) {
-      return this._videoInfoPanel;
+    if (this.videoInfoPanel) {
+      return this.videoInfoPanel;
     }
-    this._videoInfoPanel = new VideoInfoPanel({
+    this.videoInfoPanel = new VideoInfoPanel({
       dialog: this,
       node: this._$playerContainer
     });
-    this._videoInfoPanel.on('command', this._onCommand.bind(this));
-    return this._videoInfoPanel;
+    this.videoInfoPanel.on('command', this._onCommand.bind(this));
+    return this.videoInfoPanel;
   }
   _onCommand(command, param) {
     switch (command) {
@@ -393,8 +393,8 @@ class NicoVideoPlayerDialogView extends Emitter {
   }
   _initializeResponsive() {
     window.addEventListener('resize', _.debounce(this._updateResponsive.bind(this), 500));
-    this._varMapper = new VariablesMapper({config: this._playerConfig});
-    this._varMapper.on('update', () => this._updateResponsive());
+    this.varMapper = new VariablesMapper({config: this._playerConfig});
+    this.varMapper.on('update', () => this._updateResponsive());
   }
   _updateResponsive() {
     if (!this._state.isOpen) {
@@ -414,7 +414,7 @@ class NicoVideoPlayerDialogView extends Emitter {
         this.toggleClass('showVideoControlBar', false);
         return;
       }
-      const videoControlBarHeight = this._varMapper.videoControlBarHeight;
+      const videoControlBarHeight = this.varMapper.videoControlBarHeight;
       const showVideoHeaderPanel = vMargin >= videoControlBarHeight + header.offsetHeight * 2;
       let showVideoControlBar;
       switch (controlBarMode) {
@@ -458,11 +458,11 @@ class NicoVideoPlayerDialogView extends Emitter {
     this._setThumbnail();
   }
   _onVideoInfoLoad(videoInfo) {
-    this._videoInfoPanel.update(videoInfo);
+    this.videoInfoPanel.update(videoInfo);
   }
   _onVideoInfoFail(videoInfo) {
     if (videoInfo) {
-      this._videoInfoPanel.update(videoInfo);
+      this.videoInfoPanel.update(videoInfo);
     }
   }
   _onVideoServerType(type, sessionInfo) {
@@ -628,7 +628,7 @@ class NicoVideoPlayerDialogView extends Emitter {
   }
   hide() {
     ClassList(this._$dialog[0]).remove('is-open');
-    this._settingPanel.hide();
+    this.settingPanel.hide();
     this._$body.raf.removeClass('showNicoVideoPlayerDialog');
     util.StyleSwitcher.update({off: 'style.zenza-open, style.screenMode', on: 'link[href*="watch.css"]'});
     this._clearClass();
@@ -648,10 +648,10 @@ class NicoVideoPlayerDialogView extends Emitter {
   }
   focusToCommentInput() {
     // 即フォーカスだと入力欄に"C"が入ってしまうのを雑に対処
-    window.setTimeout(() => this._commentInput.focus(), 0);
+    window.setTimeout(() => this.commentInput.focus(), 0);
   }
   toggleSettingPanel() {
-    this._settingPanel.toggle();
+    this.settingPanel.toggle();
   }
   get$Container() {
     return this._$playerContainer;
@@ -660,42 +660,34 @@ class NicoVideoPlayerDialogView extends Emitter {
     this._$playerContainer.raf.css(key, val);
   }
   addClass(name) {
-    const cls = name.split(/\s+/).filter(cn => !this.classList.contains(cn));
-    if (!cls.length) { return; }
-    return this.classList.add(...cls);
+    return this.classList.add(name);
   }
   removeClass(name) {
-    const cls = name.split(/\s+/).filter(cn => this.classList.contains(cn));
-    if (!cls.length) { return; }
-    return this.classList.remove(...cls);
+    return this.classList.remove(name);
   }
   toggleClass(name, v) {
-    if (typeof v === 'boolean') {
-      return v ? this.addClass(name) : this.removeClass(name);
-    }
-    name.split(/\s+/).forEach(n => this.classList.toggle(n));
+    this.classList.toggle(name, v);
   }
   hasClass(name) {
-    const container = this._$playerContainer[0];
-    return container.classList.contains(name);
+    return this.classList.contains(name);
   }
   appendTab(name, title) {
-    return this._videoInfoPanel.appendTab(name, title);
+    return this.videoInfoPanel.appendTab(name, title);
   }
   selectTab(name) {
     this._playerConfig.props.videoInfoPanelTab = name;
     this._state.currentTab = name;
-    this._videoInfoPanel.selectTab(name);
+    this.videoInfoPanel.selectTab(name);
     global.emitter.emit('tabChange', name);
   }
   execCommand(command, param) {
     this.emit('command', command, param);
   }
   blinkTab(name) {
-    this._videoInfoPanel.blinkTab(name);
+    this.videoInfoPanel.blinkTab(name);
   }
   clearPanel() {
-    this._videoInfoPanel.clear();
+    this.videoInfoPanel.clear();
   }
 }
 

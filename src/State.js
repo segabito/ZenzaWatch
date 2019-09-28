@@ -6,25 +6,28 @@ import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 //===BEGIN===
 
 class BaseState extends Emitter {
-  constructor() {
+  constructor(state) {
     super();
 
     this._name = '';
-    this._state = {};
-    this._props = {};
+    this._state = state;
     this._changed = new Map;
     this._boundOnChange = bounce.time(this._onChange.bind(this));
+    this.defineProps(state);
   }
 
-  _defineProperty() {
-    Object.keys(this._state).forEach(key => {
-      Object.defineProperty(
-        this,
-        key, {
-          get: () => this._state[key],
-          set: v => this._setState(key, v)
-        });
+  defineProps(state = {}) {
+    const self = this;
+    const def = {};
+    Object.keys(state).sort()
+      .forEach(key => {
+        def[key] = {
+          enumerable: !key.startsWith('_'),
+          get() { return self._state[key]; },
+          set(val) { self.setState(key, val); }
+        };
     });
+    Object.defineProperties(this, def);
   }
 
   onkey(key, func) {return this.on(`update-${key}`, func);}
@@ -32,10 +35,10 @@ class BaseState extends Emitter {
 
   _onChange() {
     const changed = this._changed;
-    this.emit('change', changed, changed.size);
     if (!changed.size) {
       return;
     }
+    this.emit('change', changed, changed.size);
     for (const [key, val] of changed) {
       this.emit('update', key, val);
       this.emit(`update-${key}`, val);
@@ -47,15 +50,14 @@ class BaseState extends Emitter {
     if (typeof key === 'string') {
       return this._setState(key, val);
     }
-    for (const k of (key instanceof Map ? key : Object.keys(key))) {
-      this._setState(k, key[k]);
+    for (const [k, v] of (key instanceof Map ? key : Object.entries(key))) {
+      this._setState(k, v);
     }
   }
 
   _setState(key, val) {
     if (!this._state.hasOwnProperty(key)) {
-      window.console.warn('%cUnknown property %s = %s', 'background: yellow;', key, val);
-      console.trace();
+      console.warn('%cUnknown property %s = %s', 'background: yellow;', key, val);
     }
     if (this._state[key] === val) {
       return;
@@ -74,9 +76,7 @@ class PlayerState extends BaseState {
     return PlayerState.instance;
   }
   constructor(config) {
-    super();
-    this._name = 'Player';
-    this._state = {
+    super({
       isAbort: false,
       isBackComment: config.props.backComment,
       isChanging: false,
@@ -119,9 +119,8 @@ class PlayerState extends BaseState {
       thumbnail: '',
       videoCount: {},
       videoSession: {}
-    };
-
-    this._defineProperty();
+    });
+    this._name = 'Player';
   }
 
   set videoInfo(videoInfo) {

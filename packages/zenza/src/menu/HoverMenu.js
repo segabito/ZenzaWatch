@@ -1,6 +1,7 @@
 import {ZenzaWatch} from '../../../../src/ZenzaWatchIndex';
 import {uq} from '../../../lib/src/uQuery';
 import {nicoUtil} from '../../../lib/src/nico/nicoUtil';
+import {cssUtil} from '../../../lib/src/css/css';
 //===BEGIN===
 
 class HoverMenu {
@@ -88,8 +89,8 @@ class HoverMenu {
 
     const offset = target.getBoundingClientRect();
     this._$view.css({
-      top: offset.top + window.pageYOffset,
-      left: offset.left + window.pageXOffset
+      top: cssUtil.px(offset.top + window.pageYOffset),
+      left: cssUtil.px(offset.left + window.pageXOffset)
     }).addClass('show');
     document.body.addEventListener('click', () => this._$view.removeClass('show'), {once: true});
   }

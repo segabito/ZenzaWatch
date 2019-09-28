@@ -1,5 +1,6 @@
 import {uq} from '../../../lib/src/uQuery';
 import {textUtil} from '../../../lib/src/text/textUtil';
+import {cssUtil} from '../../../lib/src/css';
 
 //===BEGIN===
 const replaceRedirectLinks = async () => {
@@ -24,8 +25,8 @@ const replaceRedirectLinks = async () => {
   if (window.Nico && window.Nico.onReady) {
     window.Nico.onReady(() => {
       let shuffleButton;
-      let query = 'a[href*="continuous=1"]';
-      let addShufflePlaylistLink = _.debounce(() => {
+      const query = 'a[href*="continuous=1"]';
+      const addShufflePlaylistLink = _.debounce(() => {
         if (shuffleButton) {
           return;
         }
@@ -33,13 +34,13 @@ const replaceRedirectLinks = async () => {
         if (!$a.length) {
           return false;
         }
-        let a = $a[0];
-        let search = (a.search || '').substr(1);
-        let css = {
+        const a = $a[0];
+        const search = (a.search || '').substr(1);
+        const css = {
           'display': 'inline-block',
           'padding': '8px 6px'
         };
-        let $shuffle = uq.html(a.outerHTML).text('シャッフル再生')
+        const $shuffle = uq.html(a.outerHTML).text('シャッフル再生')
           .addClass('zenzaPlaylistShuffleStart')
           .attr('href', `//www.nicovideo.jp/watch/1470321133?${search}&shuffle=1`)
           .css(css);
@@ -52,8 +53,8 @@ const replaceRedirectLinks = async () => {
       const container = uq('#myContBody, #SYS_box_mylist_header')[0];
       if (!container) { return; }
       new MutationObserver(records => {
-        for (let rec of records) {
-          let changed = [].concat(Array.from(rec.addedNodes),Array.from(rec.removedNodes));
+        for (const rec of records) {
+          const changed = [].concat(Array.from(rec.addedNodes), Array.from(rec.removedNodes));
           if (changed.some(i => i.querySelector && i.querySelector(query))) {
             shuffleButton = null;
             addShufflePlaylistLink();
@@ -115,7 +116,7 @@ const replaceRedirectLinks = async () => {
       if (m) {
         let $a =
         uq('<a class="more zen" rel="noopener" target="_blank">watch</a>')
-            .css('right', '128px')
+            .css('right', cssUtil.px(128))
             .attr('href', `//www.nicovideo.jp/watch/so${m[1]}`);
 
         uq(video).find('.more').after($a);

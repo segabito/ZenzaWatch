@@ -93,26 +93,28 @@
         img.src = src;
       },
       _setPageObserver() {
-        this.intersectionObserver && this.intersectionObserver.disconnect();
-        const intersectionObserver = this.intersectionObserver = new IntersectionObserver(entries => {
-          const inviews =
-            entries.filter(entry => entry.isIntersecting).map(entry => entry.target);
-            for (const item of inviews) {
-              intersectionObserver.unobserve(item);
-              this._loadImage(item);
-            }
-        }, { rootMargin: `${this.margin}px`});
+        if (!this.intersectionObserver) {
+          const intersectionObserver = this.intersectionObserver = new IntersectionObserver(entries => {
+            const inviews =
+              entries.filter(entry => entry.isIntersecting).map(entry => entry.target);
+              for (const item of inviews) {
+                intersectionObserver.unobserve(item);
+                this._loadImage(item);
+              }
+          }, { rootMargin: `${this.margin}px`});
+        }
 
-        this.mutationObserver && this.mutationObserver.disconnect();
-        const mutationObserver = this.mutationObserver = new MutationObserver(mutations => {
-          const isAdded = mutations.find(
-            mutation => mutation.addedNodes && mutation.addedNodes.length > 0);
-          if (isAdded) { this.enqueue(); }
-        });
-        mutationObserver.observe(
-          document.body,
-          {childList: true, characterData: false, attributes: false, subtree: true}
-        );
+        if (!this.mutationObserver) {
+          const mutationObserver = this.mutationObserver = new MutationObserver(mutations => {
+            const isAdded = mutations.find(
+              mutation => mutation.addedNodes && mutation.addedNodes.length > 0);
+            if (isAdded) { this.enqueue(); }
+          });
+          mutationObserver.observe(
+            document.body,
+            {childList: true, characterData: false, attributes: false, subtree: true}
+          );
+        }
 
         this.enqueue();
       },
