@@ -51,7 +51,7 @@ const TextLabel = (() => {
       ctx.textBaseline = 'bottom';
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillText(text, left, top);
-      ctx.commit && ctx.commit();
+      // ctx.commit && ctx.commit();
       return {id, text};
     };
 
