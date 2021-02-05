@@ -629,7 +629,7 @@ SettingPanel.__tpl__ = (`
               縁取り2 (対応ブラウザのみ。やや重い)
           </label>
 
-          <label>
+          <label style="font-family: 'dokaben_ver2_1' !important;">
             <input type="radio"
               name="textShadowType"
               data-setting-name="commentLayer.textShadowType"

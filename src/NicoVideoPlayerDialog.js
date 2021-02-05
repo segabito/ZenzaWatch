@@ -196,7 +196,6 @@ class NicoVideoPlayerDialogView extends Emitter {
     dialog.on('loadVideoInfoFail', this._onVideoInfoFail.bind(this));
     dialog.on('videoServerType', this._onVideoServerType.bind(this));
 
-
     this._initializeDom();
     this._state.on('update', this._onPlayerStateUpdate.bind(this));
     this._state.onkey('videoInfo', this._onVideoInfoLoad.bind(this));
@@ -291,12 +290,12 @@ class NicoVideoPlayerDialogView extends Emitter {
     });
     this.commentInput.on('esc', () => this._escBlockExpiredAt = Date.now() + 1000 * 2);
 
-    this.settingPanel = new SettingPanel({
-      $parent: $container,
-      playerConfig: config,
-      player: this._dialog
-    });
-    this.settingPanel.on('command', onCommand);
+    // this.settingPanel = new SettingPanel({
+    //   $parent: $container,
+    //   playerConfig: config,
+    //   player: this._dialog
+    // });
+    // this.settingPanel.on('command', onCommand);
 
     await sleep.idle();
     this.videoControlBar = new VideoControlBar({
@@ -630,7 +629,7 @@ class NicoVideoPlayerDialogView extends Emitter {
   }
   hide() {
     ClassList(this._$dialog[0]).remove('is-open');
-    this.settingPanel.hide();
+    this.settingPanel && this.settingPanel.close();
     this._$body.raf.removeClass('showNicoVideoPlayerDialog');
     util.StyleSwitcher.update({off: 'style.zenza-open, style.screenMode', on: 'link[href*="watch.css"]'});
     this._clearClass();
@@ -653,6 +652,11 @@ class NicoVideoPlayerDialogView extends Emitter {
     window.setTimeout(() => this.commentInput.focus(), 0);
   }
   toggleSettingPanel() {
+    if (!this.settingPanel) {
+      this.settingPanel = document.createElement('zenza-setting-panel');
+      this.settingPanel.config = this._playerConfig;
+      this._$playerContainer.append(this.settingPanel);
+    }
     this.settingPanel.toggle();
   }
   get$Container() {
@@ -2732,7 +2736,6 @@ class VideoHoverMenu {
     $mc.on('mousedown', this._onMouseDown.bind(this));
 
     global.emitter.on('hideHover', this._hideMenu.bind(this));
-    this._initializeNgSettingMenu();
     await this._initializeMylistSelectMenu();
   }
   async _initializeMylistSelectMenu() {
@@ -2780,30 +2783,6 @@ class VideoHoverMenu {
     });
 
     menu.querySelector('.mylistSelectMenuInner').append(ul);
-  }
-  _initializeNgSettingMenu() {
-    const state = this._state;
-    const menu = this._container.querySelector('.ngSettingSelectMenu');
-
-    const enableFilterItems = Array.from(menu.querySelectorAll('.update-enableFilter'));
-    const updateEnableFilter = v => {
-      enableFilterItems.forEach(item => {
-        const p = JSON.parse(item.dataset.param);
-        item.classList.toggle('selected', v === p);
-      });
-      menu.classList.toggle('is-enableFilter', v);
-    };
-    updateEnableFilter(state.isEnableFilter);
-    state.onkey('isEnableFilter', updateEnableFilter);
-
-    const sharedNgItems = Array.from(menu.querySelectorAll('.sharedNgLevel'));
-    const updateNgLevel = level => {
-      sharedNgItems.forEach(item => {
-        item.classList.toggle('selected', level === item.getAttribute('data-param'));
-      });
-    };
-    updateNgLevel(state.sharedNgLevel);
-    state.onkey('sharedNgLevel', updateNgLevel);
   }
   _onMouseDown(e) {
     e.stopPropagation();
@@ -3149,40 +3128,6 @@ class VideoHoverMenu {
       }
 
 
-    .ngSettingMenu {
-      display: none;
-      left: 80px;
-    }
-      .is-showComment .ngSettingMenu {
-        display: block;
-      }
-      .ngSettingMenu .menuButtonInner {
-        font-size: 18px;
-      }
-
-    .ngSettingSelectMenu {
-      white-space: nowrap;
-      bottom: 0px;
-      left: 32px;
-      font-size: 18px;
-    }
-      .ngSettingMenu:active .ngSettingSelectMenu {
-        transition: none;
-      }
-      .ngSettingSelectMenu .triangle {
-        transform: rotate(45deg);
-        left: -8px;
-        bottom: 3px;
-      }
-      .ngSettingSelectMenu .sharedNgLevelSelect {
-        display: none;
-      }
-
-      .ngSettingSelectMenu.is-enableFilter .sharedNgLevelSelect {
-        display: block;
-      }
-
-
     .menuItemContainer .mylistButton {
       font-size: 21px;
     }
@@ -3258,7 +3203,7 @@ class VideoHoverMenu {
         overflow-y: auto;
         overflow-x: hidden;
         max-height: 50vh;
-        overscroll-behavior: contain;
+        overscroll-behavior: none;
       }
 
       .mylistSelectMenu .triangle {
@@ -3538,44 +3483,6 @@ VideoHoverMenu.__tpl__ = (`
           <div class="showCommentSwitch menuButton" data-command="toggle-showComment">
             <div class="tooltip">コメント表示ON/OFF(V)</div>
             <div class="menuButtonInner">💬</div>
-          </div>
-
-          <div class="ngSettingMenu menuButton" data-command="nop"
-            data-has-submenu="1" tabindex="-1">
-            <div class="tooltip">NG設定</div>
-            <div class="menuButtonInner">NG</div>
-
-              <div class="ngSettingSelectMenu selectMenu zenzaPopupMenu">
-                <div class="triangle"></div>
-                <p class="caption">NG設定</p>
-                <ul>
-                  <li class="update-enableFilter"
-                    data-command="update-enableFilter"
-                    data-param="true"  data-type="bool"><span>ON</span></li>
-                  <li class="update-enableFilter"
-                    data-command="update-enableFilter"
-                    data-param="false" data-type="bool"><span>OFF</span></li>
-                </ul>
-                <p class="caption sharedNgLevelSelect">NG共有設定</p>
-                <ul class="sharedNgLevelSelect">
-                  <li class="sharedNgLevel max"
-                    data-command="update-sharedNgLevel"
-                    data-param="MAX"><span>最強</span></li>
-                  <li class="sharedNgLevel high"
-                    data-command="update-sharedNgLevel"
-                    data-param="HIGH"><span>強</span></li>
-                  <li class="sharedNgLevel mid"
-                    data-command="update-sharedNgLevel"
-                    data-param="MID"><span>中</span></li>
-                  <li class="sharedNgLevel low"
-                    data-command="update-sharedNgLevel"
-                    data-param="LOW"><span>弱</span></li>
-                  <li class="sharedNgLevel none"
-                    data-command="update-sharedNgLevel"
-                    data-param="NONE"><span>なし</span></li>
-                </ul>
-              </div>
-
           </div>
         </div>
       </div>
