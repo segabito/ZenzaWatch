@@ -1,5 +1,5 @@
 import {IndexedDbStorage} from '../infra/IndexedDbStorage';
-import {NicoVideoApi} from '../../../../src/loader/api';
+import {NicoVideoApi} from './loader';
 
 //===BEGIN===
 const StoryboardCacheDb = (() => {

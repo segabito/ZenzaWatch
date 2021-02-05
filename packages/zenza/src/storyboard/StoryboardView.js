@@ -130,11 +130,11 @@ class StoryboardView extends Emitter {
       .on('mousemove', this._onBoardMouseMove.bind(this))
       .on('mousemove', _.debounce(this._onBoardMouseMoveEnd.bind(this), 300))
       .on('wheel', this._onMouseWheel.bind(this))
-      .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300))
+      .on('wheel', _.debounce(this._onMouseWheelEnd.bind(this), 300), {passive: true})
       .on('mouseenter', onHoverIn)
       .on('mouseleave',  _.debounce(onHoverOut, 1000))
-      .on('touchstart', this._onTouchStart.bind(this))
-      .on('touchmove', this._onTouchMove.bind(this));
+      .on('touchstart', this._onTouchStart.bind(this), {passive: true})
+      .on('touchmove', this._onTouchMove.bind(this), {passive: true});
     this._bouncedOnToucheMoveEnd = _.debounce(this._onTouchMoveEnd.bind(this), 2000);
 
     this._container.append(view);
@@ -242,7 +242,7 @@ class StoryboardView extends Emitter {
 
     this._scrollLeftChanged = true;
     this._scrollLeft = left;
-    !this.isCanvasAnimating && (this.canvas.scrollLeft = left);
+    !this.isCanvasAnimating && (this.isOpen || this.state.isDragging) && (this.canvas.scrollLeft = left);
     this.updatePointer();
   }
   get pointerLeft() {
@@ -256,16 +256,16 @@ class StoryboardView extends Emitter {
     this._pointerLeft = left;
     this.updatePointer();
   }
-  async updatePointer() {
-    if (!this.isOpen || this._pointerUpdating ||
+  updatePointer() {
+    if (!this._pointer || !this.isOpen || this._pointerUpdating ||
+      (this.isCanvasAnimating && !this.isHover) ||
       (!this._pointerLeftChanged && !this._scrollLeftChanged)) {
       return;
     }
     this._pointerUpdating = true;
-    await this.promise('dom-ready');
     this._pointerLeftChanged = false;
     this._scrollLeftChanged = false;
-    await cssUtil.setProps([this._pointer, '--trans-x-pp',
+    cssUtil.setProps([this._pointer, '--trans-x-pp',
       cssUtil.px(this._pointerLeft - this._scrollLeft -  this._model.cellWidth / 2)]);
     this._pointerUpdating = false;
   }
@@ -454,7 +454,7 @@ StoryboardView.__css__ = (`
     margin: 0;
     contain: strict;
     width: 100vw;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
   }
   .storyboardContainer.is-success .storyboardInner {
     display: block;
@@ -463,13 +463,14 @@ StoryboardView.__css__ = (`
   .storyboardContainer .cursorTime {
     display: none;
     position: absolute;
-    top: 0;
+    top: 12px;
     left: 0;
+    width: 54px; height: 29px;
     z-index: 9010;
     background: #ffc;
     pointer-events: none;
-    padding: 0;
-    transform: translate3d(var(--trans-x-pp), 30px, 0) translate(-50%, -100%);
+    contain: strict;
+    transform: translate(var(--trans-x-pp), 30px) translate(-50%, -100%);
   }
   .storyboardContainer:hover .cursorTime {
     transition: --trans-x-pp 0.1s ease-out;

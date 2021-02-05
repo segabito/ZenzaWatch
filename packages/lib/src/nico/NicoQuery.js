@@ -116,8 +116,8 @@ class NicoQuery {
     let [id, p] = (vars || '').split('?');
     id = decodeURIComponent(id || '');
     const params = textUtil.parseQuery(p || '');
-    Object.keyf(params).forEach(key => {
-      params[key] = JSON.parse(params[key]);
+    Object.keys(params).forEach(key => {
+      try { params[key] = JSON.parse(params[key]);} catch(e) {}
     });
     return {
       type,
@@ -130,7 +130,7 @@ class NicoQuery {
     const p = Object.keys(params)
     .sort()
     .filter(key => !!params[key] && key !== 'title')
-    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(JSON.stringify(key))}`);
+    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(JSON.stringify(params[key]))}`);
     // .map(key => `${encodeURIComponent(key)}=${
     //   typeof params[key] === 'string' ?
     //     encodeURIComponent(`"${escape(params[key])}"`) :
@@ -148,6 +148,7 @@ class NicoQuery {
     }
 
     const {type, id, params} = query;
+    // self.console.info('NicoQ.query', JSON.stringify(query), query, query.toString());
     const _req = {
       query: query.toString(),
       type,
@@ -217,8 +218,8 @@ class NicoQuery {
   }
 
   toString() {
-    const {type, id, params} = this;
-    return NicoQuery.build(type, id, params);
+    // const {type, id, params} = this;
+    return NicoQuery.build(this.type, this.id, this.params);
   }
 
   get title() {

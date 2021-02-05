@@ -295,8 +295,8 @@ class DataStorage {
 
   // for debug
   watch() {
-    if (this.consoleSubscription) { return; }
-    return this.consoleSubscription = this.subscribe();
+    // if (this.consoleSubscription) { return; }
+    // return this.consoleSubscription = this.subscribe();
   }
   unwatch() {
     this.consoleSubscription && this.consoleSubscription.unsubscribe();

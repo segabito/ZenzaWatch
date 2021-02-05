@@ -20,9 +20,7 @@ const textUtil = {
   },
   parseUrl: url => {
     url = url || 'https://unknown.example.com/';
-    const a = document.createElement('a');
-    a.href = url;
-    return a;
+    return Object.assign(document.createElement('a'), {href: url});
   },
   decodeBase64: str => {
     try {

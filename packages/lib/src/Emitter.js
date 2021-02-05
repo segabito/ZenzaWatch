@@ -131,12 +131,14 @@ const {Emitter} = (() => {
       name = name.toLowerCase();
       let e = this._events.get(name);
       if (!e) {
-        e = this._events.set(name, new Handler(callback));
+        const handler = new Handler(callback);
+        handler.name = name;
+        e = this._events.set(name, handler);
       } else {
         e.add(callback);
       }
       if (e.length > 10) {
-        // console.warn('listener count > 10', name, e, callback);
+        console.warn('listener count > 10', name, e, callback);
         !Emitter.warnings.includes(this) && Emitter.warnings.push(this);
       }
       return this;
@@ -233,7 +235,7 @@ const {Emitter} = (() => {
       if (!this._promise.has(name)) {
         this._promise.set(name, new PromiseHandler());
       }
-      this._promise.get(name).resolve(...args);
+      return this._promise.get(name).resolve(...args);
     }
     emitReject(name, ...args) {
       if (!this._promise) {
@@ -242,7 +244,7 @@ const {Emitter} = (() => {
       if (!this._promise.has(name)) {
         this._promise.set(name, new PromiseHandler);
       }
-      this._promise.get(name).reject(...args);
+      return this._promise.get(name).reject(...args);
     }
     resetPromise(name) {
       if (!this._promise) { return; }
