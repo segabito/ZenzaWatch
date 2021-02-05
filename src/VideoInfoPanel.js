@@ -1,11 +1,8 @@
-import * as $ from 'jquery';
-import * as _ from 'lodash';
 import {ZenzaWatch, global} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {Config, MylistPocketDetector} from './util';
-import {IchibaLoader} from './loader/api';
-import {UaaLoader} from './loader/api';
-import {RecommendAPILoader} from './loader/api';
+import {Config} from './Config';
+import {IchibaLoader} from '../packages/lib/src/nico/loader';
+import {UaaLoader} from '../packages/lib/src/nico/loader';
 import {RelatedVideoList} from './VideoList';
 import {TagListView} from './TagListView';
 import {BaseViewComponent} from '../packages/zenza/src/parts/BaseViewComponent';
@@ -17,9 +14,8 @@ import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {css, cssUtil} from '../packages/lib/src/css/css';
 import {uq} from '../packages/lib/src/uQuery';
 import {domEvent} from '../packages/lib/src/dom/domEvent';
-import {VideoListItem} from './VideoList';
 import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
-
+import {MylistPocketDetector} from '../packages/zenza/src/init/MylistPocketDetector';
 const VideoItemObserver = {
   observe: () => {}
 };
@@ -125,7 +121,7 @@ class VideoInfoPanel extends Emitter {
       Object.assign(label.dataset, videoInfo.series);
       this._seriesList.append(label);
     }
-    this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
+    this._updateVideoDescription(videoInfo.description, videoInfo.series);
 
     const classList = this.classList;
     classList.remove('userVideo', 'channelVideo', 'initializing');
@@ -145,9 +141,20 @@ class VideoInfoPanel extends Emitter {
   /**
    * 説明文中のurlの自動リンク等の処理
    */
-  async _updateVideoDescription(html) {
+  async _updateVideoDescription(html, series = null) {
     this._description.textContent = '';
     this._zenTubeUrl = null;
+    if (series) {
+      if (series.prevVideo || series.nextVideo) {
+        html += `<br><br>「${textUtil.escapeHtml(series.title)}」 シリーズ前後の動画`;
+      }
+      if (series.prevVideo) {
+        html += `<br>前の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.prevVideo.id}">${series.prevVideo.id}</a>`;
+      }
+      if (series.nextVideo) {
+        html += `<br>次の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.nextVideo.id}">${series.nextVideo.id}</a>`;
+      }
+    }
     const decorateWatchLink = watchLink => {
       const videoId = watchLink.textContent.replace('watch/', '');
 
@@ -260,30 +267,7 @@ class VideoInfoPanel extends Emitter {
       });
     }
     await sleep.idle();
-    const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
-    const data = await RecommendAPILoader.load({videoId: videoInfo.videoId}).catch(() => ({}));
-    const items = data.items || [];
-    for (const item of items) {
-      if (item.contentType && item.contentType !== 'video') {
-        continue;
-      }
-      const content = item.content;
-      relatedVideo.push({
-        _format: 'recommendApi',
-        _data: item,
-        id: item.id,
-        title: content.title,
-        length_seconds: content.duration,
-        num_res: content.count.comment,
-        mylist_counter: content.count.mylist,
-        view_counter: content.count.view,
-        thumbnail_url: content.thumbnail.url,
-        first_retrieve: content.registeredAt,
-        has_data: true,
-        is_translated: false
-      });
-    }
-    this._relatedVideoList.update(relatedVideo, watchId);
+    this._relatedVideoList.fetchRecommend(videoInfo.videoId, watchId, videoInfo);
   }
   _onVideoCountUpdate(...args) {
     if (!this._videoHeaderPanel) {
@@ -404,7 +388,7 @@ css.addStyle(`
     height: calc(100% - 32px);
     overflow-x: hidden;
     overflow-y: visible;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
     text-align: left;
   }
   .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {
@@ -800,6 +784,14 @@ css.addStyle(`
 
   .zenzaWatchVideoInfoPanel .seriesList {
     padding: 0 8px;
+  }
+
+  zenza-video-item,
+  zenza-video-series-label,
+  zenza-vieo-description,
+  .UaaView,
+  .ZenzaIchibaItemView {
+    content-visibility: auto;
   }
 
   `, {className: 'videoInfoPanel'});

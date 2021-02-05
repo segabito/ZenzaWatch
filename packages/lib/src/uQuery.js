@@ -6,7 +6,7 @@
 // $('div').find('.thumbnail').walk.src = '';
 // $('.message').walk.textContent = 'hello';
 // $('span').walk.style.color = 'blue';
-import {bounce} from '../packages/lib/src/infra/bounce';
+import {bounce, throttle} from './infra/bounce';
 import {Emitter, PromiseHandler} from './Emitter';
 //===BEGIN===
 const uQuery = (() => {
@@ -138,7 +138,7 @@ const uQuery = (() => {
   }
   RafCaller.promise = new PromiseHandler();
   RafCaller.taskList = [];
-  RafCaller.exec = bounce.raf(function() {
+  RafCaller.exec = throttle.raf(function() {
     const taskList = this.taskList.concat();
     this.taskList.length = 0;
     for (const [task, ...args] of taskList) {

@@ -165,13 +165,15 @@ const Observable = (() => {
       callback(p);
       return this.subscribe({
         next: arg => {
-          p.resolve(arg);
+          const lp = p;
           p = new PromiseHandler();
+          lp.resolve(arg);
           callback(p);
         },
         error: arg => {
-          p.reject(arg);
+          const lp = p;
           p = new PromiseHandler();
+          lp.reject(arg);
           callback(p);
       }});
     }

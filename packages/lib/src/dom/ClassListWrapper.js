@@ -1,9 +1,9 @@
-import {bounce} from '../infra/bounce';
+import {bounce, throttle} from '../infra/bounce';
 //===BEGIN===
 class ClassListWrapper {
   constructor(element) {
     this.applyNow = this.apply.bind(this);
-    this.apply = bounce.raf(this.applyNow);
+    this.apply = throttle.raf(this.applyNow);
     if (element) {
       this.setElement(element);
     } else {
@@ -22,18 +22,26 @@ class ClassListWrapper {
   }
   add(...names) {
     names = names.map(name => name.trim().split(/\s+/)).flat();
+    let changed = false;
     for (const name of names) {
-      this._next.add(name);
+      if (!this._next.has(name)) {
+        changed = true;
+        this._next.add(name);
+      }
     }
-    this.apply();
+    changed && this.apply();
     return this;
   }
   remove(...names) {
     names = names.map(name => name.trim().split(/\s+/)).flat();
+    let changed = false;
     for (const name of names) {
-      this._next.delete(name);
+      if (this._next.has(name)) {
+        changed = true;
+        this._next.delete(name);
+      }
     }
-    this.apply();
+    changed && this.apply();
     return this;
   }
   contains(name) {
@@ -71,6 +79,7 @@ class ClassListWrapper {
 
 const ClassList = function(element) {
   if (this.map.has(element)) {
+    // self.console.log('ClassListhas cache', element);
     return this.map.get(element);
   }
   const m = new ClassListWrapper(element);

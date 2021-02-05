@@ -1,6 +1,6 @@
 // const PRODUCT = 'Zenza';
 import {global} from '../../../../src/ZenzaWatchIndex';
-import {bounce} from '../infra/bounce';
+import {bounce, throttle} from '../infra/bounce';
 //===BEGIN===
 /**
  * @typedef registerPropertyDefinition
@@ -10,12 +10,20 @@ import {bounce} from '../infra/bounce';
  * @property {boolean?} inherits
  */
 
-
 const css = (() => {
   const setPropsTask = [];
-  const applySetProps = bounce.raf(() => {
+  // let applyCount = 0;
+  const applySetProps = throttle.raf(
+    () => {
     const tasks = setPropsTask.concat();
     setPropsTask.length = 0;
+    // performance.mark(`applySetProps:${applyCount}`);
+    // if (applyCount > 0) {
+    //   performance.measure(
+    //     'applySetProps',
+    //     `applySetProps:${applyCount - 1}`, `applySetProps:${applyCount}`);
+    // }
+    // applyCount++;
     for (const [element, prop, value] of tasks) {
       try {
         element.style.setProperty(prop, value);
@@ -26,15 +34,15 @@ const css = (() => {
   });
   const css = {
     addStyle: (styles, option, document = window.document) => {
-      const elm = document.createElement('style');
-      elm.type = 'text/css';
+      const elm = Object.assign(document.createElement('style'), {
+        type: 'text/css'
+      }, typeof option === 'string' ? {id: option} : (option || {}));
       if (typeof option === 'string') {
         elm.id = option;
       } else if (option) {
         Object.assign(elm, option);
       }
       elm.classList.add(global.PRODUCT);
-
       elm.append(styles.toString());
       (document.head || document.body || document.documentElement).append(elm);
       elm.disabled = option && option.disabled;
