@@ -1,4 +1,4 @@
-import {bounce} from '../../../lib/src/infra/bounce';
+import {throttle} from '../../../lib/src/infra/bounce';
 import {uq} from '../../../lib/src/uQuery';
 import {cssUtil} from '../../../lib/src/css/css';
 import {domEvent} from '../../../lib/src/dom/domEvent';
@@ -49,12 +49,7 @@ class RangeBarElement extends HTMLElement {
           position: absolute;
           display: inline-block;
           vertical-align: middle;
-          background-color: var(--back-color);
-          background:
-            linear-gradient(to right,
-              var(--fore-color), var(--fore-color) var(--range-percent),
-              var(--back-color) 0, var(--back-color)
-            );
+          background-color: var(--back-color) !important;
           contain: style layout size;
           pointer-events: none;
         }
@@ -78,13 +73,23 @@ class RangeBarElement extends HTMLElement {
         .tooltip:empty { display: none !mportant; }
         #root:active .tooltip { display: inline-block; }
       </style>
-      <div class="meter"><div class="tooltip"></div></div>
+      <div class="meter" style="background:
+      linear-gradient(to right,
+        var(--fore-color), var(--fore-color) var(--range-percent),
+        var(--back-color) 0, var(--back-color)
+      ) !important;"><div class="tooltip"></div></div>
     </div>`;
   }
 
   constructor() {
     super();
-    this.update = bounce.raf(this.update.bind(this));
+    this.update = throttle.raf(this.update.bind(this));
+    this.onChange = this.onChange.bind(this);
+    this.onKey = e => e.preventDefault();
+    this.onFocus = e => {
+      console.warn('focus');
+      e.target.blur();
+    };
     this._value = this.getAttribute('value') || '';
   }
 
@@ -105,6 +110,7 @@ class RangeBarElement extends HTMLElement {
 
   update() {
     if (!this.rangeInput) { return; }
+    this.rangeInput.blur();
     const range = this.rangeInput;
     const min   = range.min * 1;
     const max   = range.max * 1;
@@ -140,7 +146,7 @@ class RangeBarElement extends HTMLElement {
     this.initShadow();
     this.meter.after(range);
     this.update();
-    uq(range).on('input', this.onChange.bind(this));
+    uq(range).on('input', this.onChange);
   }
 
   get value() {
