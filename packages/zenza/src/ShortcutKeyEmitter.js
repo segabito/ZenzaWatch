@@ -52,9 +52,11 @@ class ShortcutKeyEmitter {
     });
 
     const onKeyDown = e => {
-      if (e.target.tagName === 'SELECT' ||
-        e.target.tagName === 'INPUT' ||
-        e.target.tagName === 'TEXTAREA') {
+      const target = (e.path && e.path[0]) ? e.path[0] : e.target;
+
+      if (target.tagName === 'SELECT' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA') {
         return;
       }
 
@@ -204,9 +206,10 @@ class ShortcutKeyEmitter {
     };
 
     const onKeyUp = e => {
-      if (e.target.tagName === 'SELECT' ||
-        e.target.tagName === 'INPUT' ||
-        e.target.tagName === 'TEXTAREA') {
+      const target = (e.path && e.path[0]) ? e.path[0] : e.target;
+      if (target.tagName === 'SELECT' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA') {
         return;
       }
 

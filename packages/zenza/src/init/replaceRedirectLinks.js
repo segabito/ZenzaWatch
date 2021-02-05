@@ -1,6 +1,7 @@
 import {uq} from '../../../lib/src/uQuery';
 import {textUtil} from '../../../lib/src/text/textUtil';
 import {cssUtil} from '../../../lib/src/css';
+import {nicoUtil} from '../../../lib/src/nico/nicoUtil';
 
 //===BEGIN===
 const replaceRedirectLinks = async () => {
@@ -63,6 +64,37 @@ const replaceRedirectLinks = async () => {
         }
       }).observe(container, {childList: true});
     });
+  }
+  if (location.host === 'www.nicovideo.jp' && nicoUtil.getMypageVer() === 'spa') {
+    await uq.ready(); // DOMContentLoaded
+    let shuffleButton;
+    const query = '.ContinuousPlayButton';
+    const addShufflePlaylistLink = async () => {
+      const lp = location.pathname;
+      if (!lp.startsWith('/my/watchlater') && !lp.includes('/mylist')) {
+        return;
+      }
+      if (shuffleButton && shuffleButton[0].parentNode && shuffleButton[0].parentNode.parentNode) {
+        return;
+      }
+      const $a = uq(query);
+      if (!$a.length) {
+        return false;
+      }
+      if (!shuffleButton) {
+        const $shuffle = uq.html($a[0].outerHTML).text('シャッフル再生')
+          .addClass('zenzaPlaylistShuffleStart');
+        shuffleButton = $shuffle;
+      }
+      const mylistId = lp.replace(/^.*\//, '');
+      const playlistType = mylistId ? 'mylist' : 'deflist';
+      shuffleButton.attr('href',
+        `//www.nicovideo.jp/watch/1470321133?group_id=${mylistId}&playlist_type=${playlistType}&continuous=1&shuffle=1`);
+
+      $a.before(shuffleButton);
+      return true;
+    };
+    setInterval(addShufflePlaylistLink, 1000);
   }
 
   if (location.host === 'www.nicovideo.jp' &&

@@ -57,7 +57,7 @@
         item.classList.remove(this.className, 'is-lazy-loading');
         if (src && item.getAttribute(this.adjustAttrName)) {
           this._adjustSizeAndLoad(item, src);
-        } else {
+        } else if (src) {
           item.setAttribute('src', src);
         }
         item.setAttribute(this.attrName, '');
@@ -70,27 +70,14 @@
         });
       },
       _adjustSizeAndLoad(item, src) {
-        const img = document.createElement('img');
-        img.addEventListener('load', () => {
-          let itemWidth = item.offsetWidth;
-          let itemHeight = item.offsetHeight;
-          const imageWidth = img.width;
-          const imageHeight = img.height;
-          if (imageWidth >= imageHeight) {
-            itemHeight = itemHeight / imageWidth * imageHeight;
-          } else {
-            itemWidth = itemWidth / imageHeight * imageWidth;
-          }
+        const img = new Image();
+        img.src = src;
+        img.decode.then(() => {
           requestAnimationFrame(() => {
-            Object.assign(item.style, {
-              width: `${itemWidth}px`,
-              height: `${itemHeight}px`
-            });
+            item.style.objectFit = 'contain';
             item.setAttribute('src', src);
           });
-        }, {once: true});
-
-        img.src = src;
+        });
       },
       _setPageObserver() {
         if (!this.intersectionObserver) {

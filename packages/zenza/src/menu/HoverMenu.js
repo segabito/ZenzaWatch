@@ -21,7 +21,8 @@ class HoverMenu {
       this._overrideWatchLink();
     } else {
       this._onHoverEnd = _.debounce(this._onHoverEnd.bind(this), 500);
-      $view.on('click', this._onClick.bind(this));
+      $view.on(
+        location.host.includes('google') ? 'mouseup' : 'click', this._onClick.bind(this));
       ZenzaWatch.emitter.on('hideHover', () => $view.removeClass('show'));
       uq('body')
         .on('mouseover', this._onHover.bind(this))
@@ -132,6 +133,23 @@ class HoverMenu {
     ZenzaWatch.external.send(watchId, Object.assign({query: this._query}, params));
   }
   _overrideWatchLink () {
+    if (!!document.querySelector('.UserPageHeader')) {
+      console.nicoru('user page');
+      const blockNavigation = e => {
+        if (e.ctrlKey) { return; }
+        e.preventDefault();
+        // e.stopPropagation();
+      };
+      uq('body').on('mouseover', e => {
+          const target = e.target;
+          if (target.tagName !== 'A' || !target.closest('.NicorepoItem_video')) {
+            return;
+          }
+          // console.nicoru('mouseover', target.tagName);
+          target.removeEventListener('click', blockNavigation);
+          target.addEventListener('click', blockNavigation);
+      });
+    }
     uq('body').on('click', e => {
       if (e.ctrlKey) {
         return;
@@ -140,6 +158,11 @@ class HoverMenu {
       if (!target || target.classList.contains('noHoverMenu')) {
         return;
       }
+      if (target.closest('.NicorepoItem_video')) {
+        // console.nicoru('nicorepoi', target, target.href);
+        e.stopPropagation();
+        // history.pushState(null, null, target.href);
+      }
       let href = target.dataset.href || target.href;
       let watchId = nicoUtil.getWatchId(href);
       let host = target.hostname;
@@ -147,7 +170,6 @@ class HoverMenu {
         return;
       }
       this._query = nicoUtil.parseWatchQuery((target.search || '').substr(1));
-
       if (!watchId || !watchId.match(/^[a-z0-9]+$/)) {
         return;
       }
