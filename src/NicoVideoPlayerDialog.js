@@ -2,7 +2,7 @@ import * as $ from 'jquery';
 import * as _ from 'lodash';
 import {global} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {PlaybackPosition, VideoInfoLoader, NVWatchCaller} from './loader/api';
+import {PlaybackPosition, VideoInfoLoader, NVWatchCaller} from '../packages/lib/src/nico/loader';
 import {Fullscreen, ShortcutKeyEmitter, util} from './util';
 import {NicoVideoPlayer} from './NicoVideoPlayer';
 import {VideoFilter, VideoInfoModel} from './VideoInfo';
@@ -26,6 +26,7 @@ import {MylistApiLoader} from '../packages/lib/src/nico/MylistApiLoader';
 import {ThumbInfoLoader} from '../packages/lib/src/nico/ThumbInfoLoader';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {css, cssUtil} from '../packages/lib/src/css/css';
+import {LikeApi} from '../packages/lib/src/nico/LikeApi.js';
 
 //===BEGIN===
 
@@ -510,6 +511,7 @@ class NicoVideoPlayerDialogView extends Emitter {
       isSeeking: 'is-seeking',
       isPausing: 'is-pausing',
 //      isStalled: 'is-stalled',
+      isLiked: 'is-liked',
       isChanging: 'is-changing',
       isUpdatingDeflist: 'is-updatingDeflist',
       isUpdatingMylist: 'is-updatingMylist',
@@ -1442,6 +1444,8 @@ class NicoVideoPlayerDialog extends Emitter {
       case 'togglePlaylist':
           this._playlist.toggleEnable();
         break;
+      case 'toggle-like':
+        return this._onToggleLike();
       case 'mylistAdd':
         return this._onMylistAdd(param.mylistId, param.mylistName);
       case 'mylistRemove':
@@ -1843,6 +1847,25 @@ class NicoVideoPlayerDialog extends Emitter {
         window.clearTimeout(timer);
         timer = window.setTimeout(unlock, 2000);
       });
+  }
+  _onToggleLike() {
+    if (!util.isLogin()) { return; }
+    const videoId = this._videoInfo.videoId;
+    const isLiked = this._videoInfo.isLiked;
+    (isLiked ? LikeApi.unlike(videoId) : LikeApi.like(videoId))
+      .then(result => {
+      const message = result.data ? (result.data.thanksMessage || '') : '';
+      if (message) {
+        this.execCommand('notify', `${message}`);
+      } else {
+        this.execCommand('notify',
+          isLiked ? '(･A･)ﾉｼ' : '(･∀･)ｨｨﾈ!!');
+      }
+      this._state.isLiked = this._videoInfo.isLiked = !isLiked;
+    }).catch(err => {
+      console.warn(err);
+      this.execCommand('alert', 'いいね！できなかった');
+    });
   }
   _onMylistAdd(groupId, mylistName) {
     if (this._state.isUpdatingMylist || !util.isLogin()) {
@@ -2798,6 +2821,9 @@ class VideoHoverMenu {
         }
         util.dispatchCommand(target, command);
         break;
+      case 'toggle-like':
+        util.dispatchCommand(target, command);
+        break;
       case 'mylistAdd': {
         command = (e.shiftKey || e.which > 1) ? 'mylistRemove' : 'mylistAdd';
         const {mylistId, mylistName} = target.dataset;
@@ -2863,6 +2889,11 @@ class VideoHoverMenu {
 }
 
   util.addStyle(`
+    .hoverMenuContainer {
+      user-select: none;
+      contain: style size;
+    }
+
     .menuItemContainer {
       box-sizing: border-box;
       position: absolute;
@@ -2891,7 +2922,7 @@ class VideoHoverMenu {
       }
 
       .menuItemContainer.rightTop {
-        width: 200px;
+        width: 240px;
         height: 40px;
         right: 0px;
         top: 0;
@@ -2998,13 +3029,14 @@ class VideoHoverMenu {
       opacity: 0;
       transition:
         opacity 0.4s ease,
-        box-shadow 0.2s ease,
+        box-shadow 0.2s ease 1s,
         background 0.4s ease;
       box-sizing: border-box;
       text-align: center;
       text-shadow: none;
       user-select: none;
-      will-change: transform;
+      will-change: transform, opacity;
+      contain: style size layout;
     }
       .menuButton:focus-within,
       .menuButton:hover {
@@ -3046,6 +3078,9 @@ class VideoHoverMenu {
         display: none;
       }
 
+      .menuButtonInner {
+        will-change: opacity;
+      }
 
       .menuButton:active .zenzaPopupMenu {
         transform: translate(0, -2px);
@@ -3079,9 +3114,7 @@ class VideoHoverMenu {
         opacity: 0.8;
         background: rgba(80, 80, 80, 0.5);
         border: 1px solid #888;
-        transition:
-          box-shadow 0.2s ease,
-          background 0.4s ease;
+        transition: box-shadow 0.2s ease;
       }
       .is-mouseMoving .menuButton .menuButtonInner {
         opacity: 0.8;
@@ -3155,12 +3188,15 @@ class VideoHoverMenu {
     }
 
     .mylistButton.mylistAddMenu {
-      left: 40px;
+      left: 80px;
       top: 0;
     }
     .mylistButton.deflistAdd {
-      left: 80px;
+      left: 120px;
       top: 0;
+    }
+    .zenzaTweetButton {
+      left: 40px;
     }
 
     @keyframes spinX {
@@ -3291,6 +3327,51 @@ class VideoHoverMenu {
         color: #fff;
       }
 
+      .toggleLikeButton {
+        transition:
+        opacity 0.4s ease,
+        box-shadow 0.2s ease 1s,
+        transform 0.2s ease 1s;
+      }
+      .toggleLikeButton:hover {
+        text-shadow: 0 0 2px deeppink;
+        background: none;
+        color: pink;
+      }
+      .is-liked .toggleLikeButton {
+        color: pink;
+      }
+      .toggleLikeButton .liked-heart {
+        display: none;
+      }
+      .is-liked .toggleLikeButton .liked-heart {
+        display: block;
+      }
+      .is-liked .toggleLikeButton .not-liked-heart {
+        display: none;
+      }
+      .toggleLikeButton .heart-effect {
+        position: absolute;
+        left: 50%; top: 50%;
+        transform: translate(-50%, -50%) scale(5);
+        text-shadow: 0 0 3px deeppink;
+        color: #fff;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          transform 0.8s ease,
+          opacity 0.8s ease,
+          visibility 0.8s ease,
+          color 0.8s ease;
+      }
+      .toggleLikeButton:active .heart-effect {
+        transition: none;
+        transform: translate(-50%, -50%) scale(0.3);
+        color: pink;
+        opacity: 0.5;
+        visibility: visible;
+      }
+
       .zenzaTweetButton:hover {
         text-shadow: 1px 1px 2px #88c;
         background: #1da1f2;
@@ -3418,6 +3499,12 @@ VideoHoverMenu.__tpl__ = (`
 
       <div class="menuItemContainer rightTop">
         <div class="scalingUI">
+          <div class="menuButton toggleLikeButton forMember" data-command="toggle-like">
+            <div class="tooltip">いいね！</div>
+            <div class="menuButtonInner"><div class="not-liked-heart"
+              >♡</div><div class="liked-heart"
+              >♥</div><div class="heart-effect">♡</div></div>
+          </div>
           <div class="menuButton zenzaTweetButton" data-command="tweet">
             <div class="tooltip">ツイート</div>
             <div class="menuButtonInner">t</div>
