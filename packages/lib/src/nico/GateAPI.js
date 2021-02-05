@@ -262,15 +262,21 @@ const GateAPI = (() => {
 
 
   const smile = () => {
-    const {port, TOKEN} = init({prefix: `storyboard${PRODUCT}`});
+    const {port, TOKEN} = init({
+      prefix: `storyboard${PRODUCT}`,
+      type: `storyboard${PRODUCT}_${location.host.split('.')[0].replace(/-/g, '_')}`
+    });
 
     const videoCapture = (src, sec) => {
       return new Promise((resolve, reject) => {
-        const v = document.createElement('video');
+        const v = Object.assign(document.createElement('video'), {
+          volume: 0, autoplay: false, controls: false
+        });
 
         v.addEventListener('loadedmetadata', () => v.currentTime = sec);
         v.addEventListener('error', err => {
           v.remove();
+          console.warn('capture fail', {src, sec, err, videoError: v.error});
           reject(err);
         });
 
@@ -288,9 +294,6 @@ const GateAPI = (() => {
         v.addEventListener('seeked', onSeeked, {once: true});
 
         document.body.append(v);
-        v.volume = 0;
-        v.autoplay = false;
-        v.controls = false;
         v.src = src;
         v.currentTime = sec;
       });
@@ -308,8 +311,8 @@ const GateAPI = (() => {
 
       videoCapture(params.src, params.sec).then(canvas => {
         const dataUrl = canvas.toDataURL('image/png');
-        //console.info('video capture success', dataUrl.length);
-        post({command, params: {dataUrl}}, {sessionId});
+        // console.info('video capture success', dataUrl.length);
+        post({status: 'ok', command, params: {dataUrl}}, {sessionId});
       });
     });
 
