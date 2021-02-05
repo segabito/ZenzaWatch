@@ -22,7 +22,7 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.0.16
+// @version        0.0.20
 // @noframes
 // @require        https://cdn.jsdelivr.net/npm/hls.js@latest
 // @run-at         document-start
@@ -40,7 +40,6 @@ const AntiPrototypeJs = function() {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
 	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
-		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
 		delete document.getElementsByClassName;
 	}
 	const waitForDom = new Promise(resolve => {
@@ -49,18 +48,19 @@ const AntiPrototypeJs = function() {
 		}
 		document.addEventListener('DOMContentLoaded', resolve, {once: true});
 	});
-	const f = document.createElement('iframe');
+	const f = Object.assign(document.createElement('iframe'), {
+		srcdoc: '<html><title>ここだけ時間が10年遅れてるスレ</title></html>',
+		id: 'prototype',
+		loading: 'eager'
+	});
+	Object.assign(f.style, {position: 'absolute', left: '-100vw', top: '-100vh'});
 	return this.promise = waitForDom
 		.then(() => new Promise(res => {
-			f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
-			f.id = 'prototype';
-			f.loading = 'eager';
-			Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
 			f.onload = res;
-			([...document.querySelectorAll('body')].reverse()[0]).append(f);
+			document.body.append(f);
 		})).then(() => {
-			window.PureArray = f.contentWindow.Array;
-			delete window.Array.prototype.toJSON;
+	window.PureArray = f.contentWindow.Array;
+	delete window.Array.prototype.toJSON;
 			delete window.String.prototype.toJSON;
 			f.remove();
 			return Promise.resolve(window.PureArray);
@@ -194,11 +194,14 @@ const {Emitter} = (() => {
 			name = name.toLowerCase();
 			let e = this._events.get(name);
 			if (!e) {
-				e = this._events.set(name, new Handler(callback));
+				const handler = new Handler(callback);
+				handler.name = name;
+				e = this._events.set(name, handler);
 			} else {
 				e.add(callback);
 			}
 			if (e.length > 10) {
+				console.warn('listener count > 10', name, e, callback);
 				!Emitter.warnings.includes(this) && Emitter.warnings.push(this);
 			}
 			return this;
@@ -266,38 +269,39 @@ const {Emitter} = (() => {
 		}
 		promise(name, callback) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			const p = this._promise[name];
+			const p = this._promise.get(name);
 			if (p) {
 				return callback ? p.addCallback(callback) : p;
 			}
-			return this._promise[name] = new PromiseHandler(callback);
+			this._promise.set(name, new PromiseHandler(callback));
+			return this._promise.get(name);
 		}
 		emitResolve(name, ...args) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			if (!this._promise[name]) {
-				this._promise[name] = new PromiseHandler();
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler());
 			}
-			this._promise[name].resolve(...args);
+			return this._promise.get(name).resolve(...args);
 		}
 		emitReject(name, ...args) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			if (!this._promise[name]) {
-				this._promise[name] = new PromiseHandler();
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler);
 			}
-			this._promise[name].reject(...args);
+			return this._promise.get(name).reject(...args);
 		}
 		resetPromise(name) {
 			if (!this._promise) { return; }
-			delete this._promise[name];
+			this._promise.delete(name);
 		}
 		hasPromise(name) {
-			return this._promise && !!this._promise[name];
+			return this._promise && this._promise.has(name);
 		}
 		addEventListener(...args) { return this.on(...args); }
 		removeEventListener(...args) { return this.off(...args);}
@@ -1779,7 +1783,6 @@ const workerUtil = (() => {
               video {
                 width: 100%;
                 height: 100%;
-                contain: strict;
               }
               .label {
                 position: absolute;
@@ -2890,11 +2893,12 @@ const workerUtil = (() => {
             .root {
               position: fixed;
               width: 640px;
+              max-height: 80vh;
               /*max-height: calc(100vh - 32px);*/
               /*top: 100vh;*/
               z-index: 10000;
               overflow-x: hidden;
-              overflow-y: visible;
+              overflow-y: auto;
               /*transform: translate(0, -32px);*/
               background: rgba(240, 240, 240, 0.95);
               color: #000;
@@ -3109,7 +3113,7 @@ const workerUtil = (() => {
     })();
 
     const initDebug = ({hlsConfig, html, render, ZenzaWatch}) => {
-      ZenzaWatch.emitter.once('videoControBar.addonMenuReady', (container, handler) => {
+      ZenzaWatch.emitter.promise('videoControBar.addonMenuReady').then(({container}) => {
         const div = html`<div class="command controlButton" data-command="toggleHLSDebug">
             <div class="controlButtonInner">hls</div>
           </div>`;
@@ -3119,9 +3123,9 @@ const workerUtil = (() => {
           }`, {className: 'ZenzaHLS'});
         container.append(div.getTemplateElement().content);
       });
-      ZenzaWatch.emitter.once('videoContextMenu.addonMenuReady.list', (menuContainer) => {
+      ZenzaWatch.emitter.promise('videoContextMenu.addonMenuReady.list').then(({container}) => {
         const li = html`<li class="command" data-command="toggleHLSDebug">HLS設定</li>`;
-        menuContainer.appendChild(li.getTemplateElement().content);
+        container.append(li.getTemplateElement().content);
       });
 
       ZenzaWatch.emitter.once('command-toggleHLSDebug', () => {
@@ -3251,7 +3255,7 @@ const workerUtil = (() => {
       }).then(ZenzaWatch => {
 
         Promise.all([
-          dimport('https://unpkg.com/lit-html?module')
+          dimport('https://unpkg.com/lit-html@1.1.2/lit-html.js?module')
         ]).then(([{html, render}]) => {
           initDebug({hlsConfig, html, render, ZenzaWatch});
         });

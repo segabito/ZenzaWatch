@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.9
+// @version     0.5.14
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -39,7 +39,6 @@ const AntiPrototypeJs = function() {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
 	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
-		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
 		delete document.getElementsByClassName;
 	}
 	const waitForDom = new Promise(resolve => {
@@ -48,18 +47,19 @@ const AntiPrototypeJs = function() {
 		}
 		document.addEventListener('DOMContentLoaded', resolve, {once: true});
 	});
-	const f = document.createElement('iframe');
+	const f = Object.assign(document.createElement('iframe'), {
+		srcdoc: '<html><title>ここだけ時間が10年遅れてるスレ</title></html>',
+		id: 'prototype',
+		loading: 'eager'
+	});
+	Object.assign(f.style, {position: 'absolute', left: '-100vw', top: '-100vh'});
 	return this.promise = waitForDom
 		.then(() => new Promise(res => {
-			f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
-			f.id = 'prototype';
-			f.loading = 'eager';
-			Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
 			f.onload = res;
-			([...document.querySelectorAll('body')].reverse()[0]).append(f);
+			document.body.append(f);
 		})).then(() => {
-			window.PureArray = f.contentWindow.Array;
-			delete window.Array.prototype.toJSON;
+	window.PureArray = f.contentWindow.Array;
+	delete window.Array.prototype.toJSON;
 			delete window.String.prototype.toJSON;
 			f.remove();
 			return Promise.resolve(window.PureArray);
@@ -385,7 +385,8 @@ AntiPrototypeJs().then(() => {
       body.BaseLayout {
         margin-top: 0 !important;
       }
-
+      ${
+      location.host === 'www.niovideo.jp' ? `
       #siteHeader {
         position: sticky;
         left: 0 !important;
@@ -487,7 +488,7 @@ AntiPrototypeJs().then(() => {
           -1px -1px 0 #fff;
 
               }
-
+      ` : ''}
     `).trim();
 
     const nicoadHideCss = `
@@ -503,14 +504,37 @@ AntiPrototypeJs().then(() => {
     const responsiveCss = `
 
       @media screen and (max-width: 1350px) {
+        .RankingGenreListContainer {
+          border-right: 0;
+          border-left: 56px solid #fafafa;
+        }
         .RankingGenreListContainer-categoryHelp {
           position: static;
         }
         .GlobalHeader#siteHeader #siteHeaderInner {
           width: 1024px;
         }
+        .RankingHeaderContainer-headerInner {
+          margin-left: 64px;
+          width: 1214px;
+        }
+        .LaneHeader {
+          flex: 1 1 160px;
+          width: 160px;
+        }
+        .LaneHeader+.LaneHeader {
+          /*margin-left: 13px;*/
+        }
+        .LaneHeader>p {
+          white-space: normal;
+          height: 32px;
+          line-height: 16px;
+        }
+        .CustomButton {
+          width: 136px;
+        }
         .MatrixRanking-body .BaseLayout-block {
-          width: ${1024 + 64 * 2}px;
+          width: ${1280}px;
         }
         .RankingMainContainer-decorateChunk+.RankingMainContainer-decorateChunk,
          .RankingMainContainer-decorateChunk>*+* {
@@ -1849,34 +1873,13 @@ AntiPrototypeJs().then(() => {
     })();
 const bounce = {
 	origin: Symbol('origin'),
-	raf(func) {
-		let reqId = null;
-		let lastArgs = null;
-		let promise = new PromiseHandler();
-		const callback = () => {
-			const lastResult = func(...lastArgs);
-			promise.resolve({lastResult, lastArgs});
-			reqId = lastArgs = null;
-			promise = new PromiseHandler();
-		};
-		const result =  (...args) => {
-			if (reqId) {
-				cancelAnimationFrame(reqId);
-			}
-			lastArgs = args;
-			reqId = requestAnimationFrame(callback);
-			return promise;
-		};
-		result[this.origin] = func;
-		return result;
-	},
 	idle(func, time) {
 		let reqId = null;
 		let lastArgs = null;
 		let promise = new PromiseHandler();
 		const [caller, canceller] =
-			(time === undefined && window.requestIdleCallback) ?
-			[window.requestIdleCallback, window.cancelIdleCallback] : [window.setTimeout, window.clearTimeout];
+			(time === undefined && self.requestIdleCallback) ?
+				[self.requestIdleCallback, self.cancelIdleCallback] : [self.setTimeout, self.clearTimeout];
 		const callback = () => {
 			const lastResult = func(...lastArgs);
 			promise.resolve({lastResult, lastArgs});
@@ -1903,28 +1906,20 @@ const throttle = (func, interval) => {
 	let timer;
 	let promise = new PromiseHandler();
 	const result = (...args) => {
+		if (timer) {
+			return promise;
+		}
 		const now = performance.now();
 		const timeDiff = now - lastTime;
-		if (timeDiff < interval) {
-			if (!timer) {
-				timer = setTimeout(() => {
-					lastTime = performance.now();
-					timer = null;
-					const lastResult = func(...args);
-					promise.resolve({lastResult, lastArgs: args});
-					promise = new PromiseHandler();
-				}, Math.max(interval - timeDiff, 0));
-			}
-			return;
-		}
-		if (timer) {
-			timer = clearTimeout(timer);
-		}
-		lastTime = now;
-		const lastResult = func(...args);
-		promise.resolve({lastResult, lastArgs: args});
-		promise = new PromiseHandler();
-};
+		timer = setTimeout(() => {
+			lastTime = performance.now();
+			timer = null;
+			const lastResult = func(...args);
+			promise.resolve({lastResult, lastArgs: args});
+			promise = new PromiseHandler();
+		}, Math.max(interval - timeDiff, 0));
+		return promise;
+	};
 	result.cancel = () => {
 		if (timer) {
 			timer = clearTimeout(timer);
@@ -1934,23 +1929,77 @@ const throttle = (func, interval) => {
 	};
 	return result;
 };
+throttle.time = (func, interval = 0) => throttle(func, interval);
+throttle.raf = function(func) {
+	let promise;
+	let cancelled = false;
+	let lastArgs = [];
+	const callRaf = res => requestAnimationFrame(res);
+	const onRaf = () => this.req = null;
+	const onCall = () => {
+		if (cancelled) {
+			cancelled = false;
+			return;
+		}
+		try { func(...lastArgs); } catch (e) { console.warn(e); }
+		promise = null;
+	};
+	const result = (...args) => {
+		lastArgs = args;
+		if (promise) {
+			return promise;
+		}
+		if (!this.req) {
+			this.req = new Promise(callRaf).then(onRaf);
+		}
+		promise = this.req.then(onCall);
+		return promise;
+	};
+	result.cancel = () => {
+		cancelled = true;
+		promise = null;
+	};
+	return result;
+}.bind({req: null, count: 0, id: 0});
+throttle.idle = func => {
+	let id;
+	const request = (self.requestIdleCallback || self.setTimeout);
+	const cancel = (self.cancelIdleCallback || self.clearTimeout);
+	const result = (...args) => {
+		if (id) {
+			return;
+		}
+		id = request(() => {
+			id = null;
+			func(...args);
+		}, 0);
+	};
+	result.cancel = () => {
+		if (id) {
+			id = cancel(id);
+		}
+	};
+	return result;
+};
 const css = (() => {
 	const setPropsTask = [];
-	const applySetProps = bounce.raf(() => {
+	const applySetProps = throttle.raf(
+		() => {
 		const tasks = setPropsTask.concat();
 		setPropsTask.length = 0;
 		for (const [element, prop, value] of tasks) {
 			try {
 				element.style.setProperty(prop, value);
-			} catch (err) {
-				console.warn('element.style.setProperty fail', {prop, value}, element, err);
+			} catch (error) {
+				console.warn('element.style.setProperty fail', {element, prop, value, error});
 			}
 		}
 	});
 	const css = {
 		addStyle: (styles, option, document = window.document) => {
-			const elm = document.createElement('style');
-			elm.type = 'text/css';
+			const elm = Object.assign(document.createElement('style'), {
+				type: 'text/css'
+			}, typeof option === 'string' ? {id: option} : (option || {}));
 			if (typeof option === 'string') {
 				elm.id = option;
 			} else if (option) {
@@ -1993,6 +2042,7 @@ const css = (() => {
 			await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
 			return true;
 		}.bind({set: new WeakSet}),
+		escape:  value => CSS.escape  ? CSS.escape(value) : value.replace(/([\.#()[\]])/g, '\\$1'),
 		number:  value => CSS.number  ? CSS.number(value) : value,
 		s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
 		ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
@@ -2001,6 +2051,9 @@ const css = (() => {
 		percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
 		vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
 		vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
+		trans:   value => self.CSSStyleValue ? CSSStyleValue.parse('transform', value) : value,
+		word:    value => self.CSSKeywordValue ? new CSSKeywordValue(value) : value,
+		image:   value => self.CSSStyleValue ? CSSStyleValue.parse('background-image', value) : value,
 	};
 	return css;
 })();
@@ -2011,7 +2064,7 @@ const nicoUtil = {
 	parseWatchQuery: query => {
 		try {
 			const result = textUtil.parseQuery(query);
-			const playlist = JSON.parse(textUtil.decodeBase64(result.playlist));
+			const playlist = JSON.parse(textUtil.decodeBase64(result.playlist) || '{}');
 			if (playlist.searchQuery) {
 				const sq = playlist.searchQuery;
 				if (sq.type === 'tag') {
@@ -2075,11 +2128,28 @@ const nicoUtil = {
 		}
 		return m ? m[1] : null;
 	},
-	isPremium: () => {
-		const h = document.getElementById('siteHeaderNotification');
-		return h && h.classList.contains('siteHeaderPremium');
+	getCommonHeader: () => {
+		try { // hoge?.fuga... はGreasyforkの文法チェックで弾かれるのでまだ使えない
+			return JSON.parse(document.querySelector('#CommonHeader[data-common-header]').dataset.commonHeader || '{}');
+		} catch (e) {
+			return {initConfig: {}};
+		}
 	},
-	isLogin: () => document.getElementsByClassName('siteHeaderLogin').length < 1,
+	isLegacyHeader: () => !document.querySelector('#CommonHeader[data-common-header]'),
+	isPremiumLegacy: () => {
+		const a = 'a[href^="https://account.nicovideo.jp/premium/register"]';
+		return !document.querySelector(`#topline ${a}, #CommonHeader ${a}`);
+},
+isLoginLegacy: () => {
+		const a = 'a[href^="https://account.nicovideo.jp/login"]';
+		return !document.querySelector(`#topline ${a}, #CommonHeader ${a}`);
+	},
+	isPremium: () =>
+		nicoUtil.isLegacyHeader() ? nicoUtil.isPremiumLegacy() :
+			!!nicoUtil.getCommonHeader().initConfig.user.isPremium,
+	isLogin: () =>
+		nicoUtil.isLegacyHeader() ? nicoUtil.isLoginLegacy() :
+			!!nicoUtil.getCommonHeader().initConfig.user.isLogin,
 	getPageLanguage: () => {
 		try {
 			let h = document.getElementsByClassName('html')[0];
@@ -2142,7 +2212,8 @@ const nicoUtil = {
 			return false;
 		}
 	},
-	getNicoHistory: window.decodeURIComponent(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''))
+	getNicoHistory: window.decodeURIComponent(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, '')),
+	getMypageVer: () => document.querySelector('#js-initial-userpage-data') ? 'spa' : 'legacy'
 };
 Object.assign(util, nicoUtil);
 const textUtil = {
@@ -2165,9 +2236,7 @@ const textUtil = {
 	},
 	parseUrl: url => {
 		url = url || 'https://unknown.example.com/';
-		const a = document.createElement('a');
-		a.href = url;
-		return a;
+		return Object.assign(document.createElement('a'), {href: url});
 	},
 	decodeBase64: str => {
 		try {
@@ -2387,6 +2456,12 @@ const reg = (() => {
     })();
 const objUtil = (() => {
 	const isObject = e => e !== null && e instanceof Object;
+	const PROPS = Symbol('PROPS');
+	const REVISION = Symbol('REVISION');
+	const CHANGED = Symbol('CHANGED');
+	const HAS = Symbol('HAS');
+	const SET = Symbol('SET');
+	const GET = Symbol('GET');
 	return {
 		bridge: (self, target, keys = null) => {
 			(keys || Object.getOwnPropertyNames(target.constructor.prototype))
@@ -2398,11 +2473,7 @@ const objUtil = (() => {
 			if (obj instanceof mapper) {
 				return obj;
 			}
-			const map = new mapper();
-			for(const key of Object.keys(obj)) {
-				map.set(key, obj[key]);
-			}
-			return map;
+			return new mapper(Object.entries(obj));
 		},
 		mapToObj: map => {
 			if (!(map instanceof Map)) {
@@ -2413,7 +2484,7 @@ const objUtil = (() => {
 				obj[key] = val;
 			}
 			return obj;
-		}
+		},
 	};
 })();
 const StorageWriter = (() => {
@@ -2603,13 +2674,15 @@ const Observable = (() => {
 			callback(p);
 			return this.subscribe({
 				next: arg => {
-					p.resolve(arg);
+					const lp = p;
 					p = new PromiseHandler();
+					lp.resolve(arg);
 					callback(p);
 				},
 				error: arg => {
-					p.reject(arg);
+					const lp = p;
 					p = new PromiseHandler();
+					lp.reject(arg);
 					callback(p);
 			}});
 		}
@@ -2742,7 +2815,9 @@ class DataStorage {
 				try {
 					this._data[key] = JSON.parse(storage[storageKey]);
 				} catch (e) {
-					window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+					console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+					delete storage[storageKey];
+					this._data[key] = this.default[key];
 				}
 			} else {
 				this._data[key] = this.default[key];
@@ -2763,15 +2838,12 @@ class DataStorage {
 			try {
 				this._data[key] = JSON.parse(storage[storageKey]);
 			} catch (e) {
-				window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+				console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
 			}
 		}
 		return this._data[key];
 	}
-	getValue(key, refresh) {
-		if (refresh) {
-			return this.refresh(key);
-		}
+	getValue(key) {
 		key = this.getNativeKey(key);
 		return this._data[key];
 	}
@@ -2784,7 +2856,7 @@ class DataStorage {
 	setValue(key, value) {
 		const _key = key;
 		key = this.getNativeKey(key);
-		if (this._data[key] === value || arguments.length < 2) {
+		if (this._data[key] === value || value === undefined) {
 			return;
 		}
 		const storageKey = this.getStorageKey(key);
@@ -2822,8 +2894,9 @@ class DataStorage {
 	import(data) {
 		Object.keys(this.props)
 			.forEach(key => {
-				console.log('import data: %s=%s', key, data[key]);
-				this.setValueSilently(key, data[key]);
+				const val = data.hasOwnProperty(key) ? data[key] : this.default[key];
+				console.log('import data: %s=%s', key, val);
+				this.setValueSilently(key, val);
 		});
 	}
 	importJson(json) {
@@ -2832,7 +2905,7 @@ class DataStorage {
 	getKeys() {
 		return Object.keys(this.props);
 	}
-	clear() {
+	clearConfig() {
 		this.silently = true;
 		const storage = this.storage;
 		Object.keys(this.default)
@@ -2840,6 +2913,7 @@ class DataStorage {
 				const storageKey = this.getStorageKey(key);
 				try {
 					if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
+						console.nicoru('delete storage', storageKey, storage[storageKey]);
 						delete storage[storageKey];
 					}
 					this._data[key] = this.default[key];
@@ -2908,65 +2982,10 @@ class DataStorage {
 		return observable.subscribe(subscriber);
 	}
 	watch() {
-		if (this.consoleSubscription) { return; }
-		return this.consoleSubscription = this.subscribe();
 	}
 	unwatch() {
 		this.consoleSubscription && this.consoleSubscription.unsubscribe();
 		this.consoleSubscription = null;
-	}
-}
-class KVSDataStorage extends DataStorage {
-	constructor(defaultData, options = {}) {
-		super(defaultData, options);
-	}
-	getStorageKey(key) {
-		return key;
-	}
-	async restore(storage) {
-		storage = storage || this.storage;
-		const dbs = this.options.dbStorage.export();
-		for (const key of Object.keys(dbs)) {
-			const value = dbs[key];
-			this.storage.set(key, value);
-			this.dbStorage.deleteValue(key);
-		}
-		for (const key of Object.keys(this.default)) {
-			const storageKey = key;
-			const value = await this.storage.get(storageKey);
-			if (value !== undefined) {
-					this._data[key] = value;
-			} else {
-				this._data[key] = this.default[key];
-			}
-		}
-	}
-	async refresh(key, storage) {
-		storage = storage || this.storage;
-		key = this.getNativeKey(key);
-		const storageKey = key;
-		const value = await this.storage.get(storageKey);
-		if (value !== undefined) {
-			this._data[key] = value;
-		}
-		return this._data[key];
-	}
-	setValue(key, value) {
-		const _key = key;
-		key = this.getNativeKey(key);
-		if (this._data[key] === value || arguments.length < 2 || value === undefined) {
-			return;
-		}
-		const storageKey = key;
-		const storage = this.storage;
-		if (!this.readonly) {
-			storage.set(storageKey, value);
-		}
-		this._data[key] = value;
-		if (!this.silently) {
-			this._changed.set(_key, value);
-			this._onChange();
-		}
 	}
 }
 
@@ -3295,7 +3314,7 @@ class CrossDomainGate extends Emitter {
 	}
 	videoCapture(src, sec) {
 		return this._postMessage({command: 'videoCapture', params: {src, sec}})
-			.then(result => Promise.resolve(result.params.dataUrl));
+			.then(result => Promise.resolve(result.dataUrl));
 	}
 	_fetch(url, options) {
 		return this._postMessage({command: 'fetch', params: {url, options}});
@@ -3778,7 +3797,7 @@ class CrossDomainGate extends Emitter {
       _init() {
         this._view = document.querySelector('.mylistPocketHoverMenu');
 
-        this._view.addEventListener('click',     this._onClick.bind(this));
+        this._view.addEventListener(location.host.includes('google') ? 'mouseup' : 'click', this._onClick.bind(this));
         this._view.addEventListener('mousedown', this._onMousedown.bind(this));
         this._view.addEventListener('contextmenu', this._onContextMenu.bind(this));
 
@@ -5110,7 +5129,7 @@ class CrossDomainGate extends Emitter {
     const initNg = async params => {
       if (!window.IntersectionObserver) { return; }
 
-      let {query, container, closest, subtree} = params ? params : await getNgEnv();
+      let {query, container, closest, subtree, callback} = params ? params : await getNgEnv();
 
       if (!query) { return; }
 
@@ -5141,6 +5160,10 @@ class CrossDomainGate extends Emitter {
               }
               item.classList.add('is-ng-failed', info ? info.code : 'is-no-data');
             } else {
+              if (callback) {
+                return callback(item,
+                  {watchId, info, isNg: ngChecker.isNg(info), isFav: favChecker.isMatch(info)});
+              }
               item.classList.add(
                 ngChecker.isNg(info) ? 'is-ng-rejected' : 'is-ng-resolved');
               if (favChecker.isMatch(info)) {
@@ -5342,11 +5365,14 @@ const {Emitter} = (() => {
 			name = name.toLowerCase();
 			let e = this._events.get(name);
 			if (!e) {
-				e = this._events.set(name, new Handler(callback));
+				const handler = new Handler(callback);
+				handler.name = name;
+				e = this._events.set(name, handler);
 			} else {
 				e.add(callback);
 			}
 			if (e.length > 10) {
+				console.warn('listener count > 10', name, e, callback);
 				!Emitter.warnings.includes(this) && Emitter.warnings.push(this);
 			}
 			return this;
@@ -5414,38 +5440,39 @@ const {Emitter} = (() => {
 		}
 		promise(name, callback) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			const p = this._promise[name];
+			const p = this._promise.get(name);
 			if (p) {
 				return callback ? p.addCallback(callback) : p;
 			}
-			return this._promise[name] = new PromiseHandler(callback);
+			this._promise.set(name, new PromiseHandler(callback));
+			return this._promise.get(name);
 		}
 		emitResolve(name, ...args) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			if (!this._promise[name]) {
-				this._promise[name] = new PromiseHandler();
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler());
 			}
-			this._promise[name].resolve(...args);
+			return this._promise.get(name).resolve(...args);
 		}
 		emitReject(name, ...args) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			if (!this._promise[name]) {
-				this._promise[name] = new PromiseHandler();
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler);
 			}
-			this._promise[name].reject(...args);
+			return this._promise.get(name).reject(...args);
 		}
 		resetPromise(name) {
 			if (!this._promise) { return; }
-			delete this._promise[name];
+			this._promise.delete(name);
 		}
 		hasPromise(name) {
-			return this._promise && !!this._promise[name];
+			return this._promise && this._promise.has(name);
 		}
 		addEventListener(...args) { return this.on(...args); }
 		removeEventListener(...args) { return this.off(...args);}

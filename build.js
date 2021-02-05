@@ -17,6 +17,9 @@ var templates = [
   { src: '_hls.js',      dist: 'dist/ZenzaHLS.user.js',              dev: false },
   { src: '_gamepad.js',  dist: 'dist/ZenzaGamePad.user.js',          dev: false },
   { src: '_blog.js',     dist: 'dist/ZenzaBlogPartsButton.user.js',  dev: false },
+  { src: '_captube.js',  dist: 'dist/CapTube.user.js',               dev: false },
+  { src: '_my4.js',      dist: 'dist/MylistFilter.user.js',          dev: false },
+  { src: '_heatsync.js', dist: 'dist/HeatSync.user.js',              dev: false },
   // { src: '_navi.js',    dist: 'dist/Navi.user.js', dev: false },
   // { src: '_yomi.js',    dist: 'dist/Yomi.user.js', dev: false },
   // { src: '_vc.js',    dist: 'dist/VoiceControl.user.js', dev: false }
@@ -36,6 +39,9 @@ const DEV_HEADER = {
   '_hls.js': {},
   '_gamepad.js': {},
   '_blog.js': {},
+  '_captube.js': {},
+  '_my4.js': {},
+  '_heatsync': {},
 };
 
 let REQMAP = {};
