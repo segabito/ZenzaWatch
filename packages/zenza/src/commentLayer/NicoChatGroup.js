@@ -7,7 +7,7 @@ class NicoChatGroup extends Emitter {
     super();
     this.initialize(...args);
   }
-  initialize(nicoComment, type, params) {
+  initialize(type, params) {
     this._type = type;
 
     this._nicoChatFilter = params.nicoChatFilter;
@@ -66,10 +66,10 @@ class NicoChatGroup extends Emitter {
   get currentTime() {return this._currentTime;}
   set currentTime(sec) {
     this._currentTime = sec;
-    let m = this._members;
-    for (let i = 0, len = m.length; i < len; i++) {
-      m[i].currentTime = sec;
-    }
+    // let m = this._members;
+    // for (let i = 0, len = m.length; i < len; i++) {
+    //   m[i].currentTime = sec;
+    // }
   }
   setSharedNgLevel(level) {
     if (NicoChatFilter.SHARED_NG_LEVEL[level] && this._sharedNgLevel !== level) {

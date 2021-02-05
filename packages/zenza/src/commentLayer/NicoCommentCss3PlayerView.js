@@ -1,7 +1,7 @@
 import {Emitter} from '../../../lib/src/Emitter';
 import {NicoChatFilter} from './NicoChatFilter';
 import {ZenzaWatch, global, Config} from '../../../../src/ZenzaWatchIndex';
-import {bounce} from '../../../lib/src/infra/bounce';
+import {bounce, throttle} from '../../../lib/src/infra/bounce';
 import {NicoChat} from './NicoChat';
 import {NicoComment} from './NicoComment';
 import {NicoTextParser} from './NicoTextParser';
@@ -49,7 +49,7 @@ class NicoCommentCss3PlayerView extends Emitter {
 
     this._config = Config.namespace('commentLayer');
 
-    this._updateDom = bounce.raf(this._updateDom.bind(this));
+    this._updateDom = throttle.raf(this._updateDom.bind(this));
 
     // ウィンドウが非表示の時にブラウザが描画をサボっているので、
     // 表示になったタイミングで粛正する
@@ -63,7 +63,7 @@ class NicoCommentCss3PlayerView extends Emitter {
   }
   _initializeView (params, retryCount) {
     if (retryCount === 0) {
-      window.console.time('initialize NicoCommentCss3PlayerView');
+      self.console.time('initialize NicoCommentCss3PlayerView');
     }
     this._style = null;
     this.commentLayer = null;
@@ -89,8 +89,8 @@ class NicoCommentCss3PlayerView extends Emitter {
         win = iframe.contentWindow;
         doc = iframe.contentWindow.document;
       } catch (e) {
-        window.console.error(e);
-        window.console.log('変な広告に乗っ取られました');
+        self.console.error(e);
+        self.console.log('変な広告に乗っ取られました');
         iframe.remove();
         this._view = null;
         global.debug.commentLayer = null;
@@ -101,25 +101,24 @@ class NicoCommentCss3PlayerView extends Emitter {
         }
         return;
       }
-      cssUtil.registerProps(
-        {name: '--dokaben-scale', syntax: '<number>', initialValue: 1, inherits: true, window: win},
-        {name: '--chat-trans-x', syntax: '<length-percentage>', initialValue: 0,  inherits: false, window: win},
-        {name: '--chat-trans-y', syntax: '<length-percentage>', initialValue: 0, inherits: false, window: win},
-        {name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
-        {name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win},
-        {name: '--layer-scale',  syntax: '<number>', initialValue: 1, inherits: false, window: win}
-      );
+      // cssUtil.registerProps(
+      //   {name: '--dokaben-scale', syntax: '<number>', initialValue: 1, inherits: true, window: win},
+      //   {name: '--chat-trans-x', syntax: '<length-percentage>', initialValue: 0, inherits: false, window: win},
+      //   {name: '--chat-trans-y', syntax: '<length-percentage>', initialValue: 0, inherits: false, window: win},
+      //   {name: '--chat-scale-x', syntax: '<number>', initialValue: 1, inherits: false, window: win},
+      //   {name: '--chat-scale-y', syntax: '<number>', initialValue: 1, inherits: false, window: win},
+      //   {name: '--layer-scale',  syntax: '<number>', initialValue: 1, inherits: false, window: win}
+      // );
 
       this.window = win;
       this.document = doc;
       this.fragment = doc.createDocumentFragment();
       this.subFragment = doc.createDocumentFragment();
       this.removingElements = win.Array();
-      this.gcFragment = doc.createElement('div');
-      this.gcFragment.hidden = true;
       this._optionStyle = doc.getElementById('optionCss');
       this._style = doc.getElementById('nicoChatAnimationDefinition');
       const commentLayer = this.commentLayer = doc.getElementById('commentLayer');
+      const commentLayerOuter = doc.getElementById('commentLayerOuter');
       const subLayer = this.subLayer = doc.createElement('div');
       subLayer.className = 'subLayer';
       commentLayer.append(subLayer);
@@ -141,7 +140,7 @@ class NicoCommentCss3PlayerView extends Emitter {
         const aspectRatio = Math.max(this._aspectRatio, 9 / 16);
         const targetHeight = Math.min(h, w * aspectRatio);
         const scale = targetHeight / 384;
-        cssUtil.setProps([commentLayer, '--layer-scale', cssUtil.number(scale)]);
+        cssUtil.setProps([commentLayerOuter, '--layer-scale', cssUtil.number(scale)]);
       };
 
       const chkSizeInit = () => {
@@ -168,8 +167,16 @@ class NicoCommentCss3PlayerView extends Emitter {
       };
       updateTextShadow(this._config.props.textShadowType);
       this._config.onkey('textShadowType', _.debounce(updateTextShadow, 100));
-
-      window.console.timeEnd('initialize NicoCommentCss3PlayerView');
+      this._config.onkey('easyCommentOpacity',
+        _.debounce(
+          v => {
+            console.nicoru('update easyCommentOpacity', v, this._config.easyCommentOpacity, commentLayerOuter);
+            cssUtil.setProps(
+            [commentLayerOuter, '--easy-comment-opacity', cssUtil.number(v * 1)]);
+          }
+        , 100)
+      );
+      self.console.timeEnd('initialize NicoCommentCss3PlayerView');
     };
 
     this._view = iframe;
@@ -200,31 +207,9 @@ class NicoCommentCss3PlayerView extends Emitter {
     }
   }
   _getIframe () {
-    const reserved = document.getElementsByClassName('reservedFrame');
-    let iframe;
-    if (reserved && reserved.length > 0) {
-      iframe = reserved[0];
-      document.body.removeChild(iframe);
-      iframe.style.position = '';
-      iframe.style.left = '';
-    } else {
-      iframe = document.createElement('iframe');
-    }
-    try {
-      iframe.srcdocType = iframe.srcdocType || (typeof iframe.srcdoc);
-      iframe.srcdoc = '<html></html>';
-    } catch (e) {
-      // 行儀の悪い広告にiframeを乗っ取られた？
-      this._retryGetIframeCount++;
-      window.console.error('Error: ', e);
-      if (this._retryGetIframeCount < 5) {
-        window.console.log('変な広告に乗っ取られたのでリトライ', this._retryGetIframeCount);
-        return this._getIframe();
-      } else {
-        PopupMessage.alert('コメントレイヤーの生成に失敗しました');
-      }
-    }
-//    iframe.setAttribute('allow', 'vr');
+    const iframe = document.createElement('iframe');
+    iframe.srcdocType = iframe.srcdocType || (typeof iframe.srcdoc);
+    iframe.srcdoc = '<html></html>';
     return iframe;
   }
   _onCommand (command, param) {
@@ -264,6 +249,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     if (this._lastCurrentTime === this._currentTime) {
       // pauseでもないのにcurrentTimeの更新が途絶えたらロードが詰まった扱い
       if (!this._isPaused) {
+        // this._currentTime && console.warn('stalled', this._currentTime);
         this._setStall(true);
       }
     } else if (this._currentTime < this._lastCurrentTime ||
@@ -288,6 +274,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     ClassList(this.commentLayer).remove(name);
   }
   _setStall (v) {
+    this.isStalled = !!v;
     if (v) {
       this._addClass('is-stalled');
     } else {
@@ -311,7 +298,6 @@ class NicoCommentCss3PlayerView extends Emitter {
       this.commentLayer.textContent = '';
       this.subLayer.textContent = '';
       this.commentLayer.append(this.subLayer);
-      this.gcFragment.textContent = '';
       this.fragment.textContent = '';
       this.subFragment.textContent = '';
     }
@@ -322,13 +308,14 @@ class NicoCommentCss3PlayerView extends Emitter {
     this._inViewTable.clear();
     this._inSlotTable.clear();
     this._domTable.clear();
+    this.isUpdating = false;
   }
   refresh () {
     this.clear();
     this._updateInviewElements();
   }
   _updateInviewElements () {
-    if (!this.commentLayer || !this._style || !this._isShow || document.hidden) {
+    if (this.isUpdating || !this.commentLayer || !this._style || !this._isShow || document.hidden) {
       return;
     }
 
@@ -372,11 +359,12 @@ class NicoCommentCss3PlayerView extends Emitter {
     if (!newView.length) {
       return;
     }
+    this.isUpdating = true;
     dom.length    && this.fragment.append(...dom);
     subDom.length && this.subFragment.append(...subDom);
     const currentTime = this._currentTime;
 
-    const margin = 2 / NicoChatViewModel.SPEED_RATE;
+    const margin = 2 * NicoChatViewModel.SPEED_RATE;
     for (const nicoChat of inSlotTable) {
       if (currentTime - margin < nicoChat.endRightTiming) {
         continue;
@@ -385,23 +373,28 @@ class NicoCommentCss3PlayerView extends Emitter {
       elm && this.removingElements.push(elm);
       inSlotTable.delete(nicoChat);
     }
-    this._updateDom(dom, subDom);
+    this._updateDom();
   }
 
   _updateDom() {
     // performance.mark('updateDom:start-add');
     // this._removeOutviewElements(outViewChats);
-    this._gcInviewElements();
-    if (this.removingElements.length) {
-      this.gcFragment.append(...this.removingElements);
-      this.removingElements.length = 0;
-    }
     if (this.fragment.firstElementChild) {
       this.commentLayer.append(this.fragment);
     }
     if (this.subFragment.firstElementChild) {
       this.subLayer.append(this.subFragment);
     }
+    this._gcInviewElements();
+    if (this.removingElements.length) {
+      for (const e of this.removingElements) { e.remove(); }
+      this.removingElements.length = 0;
+    }
+    for (const e of this.commentLayer.querySelectorAll('.hidden')) {
+      e.classList.remove('hidden');
+      e.style.contentVisibility = 'visible';
+    }
+    this.isUpdating = false;
     // performance.mark('updateDom:end-add');
     // performance.mark('updateDom:start-remove');
     // performance.mark('updateDom:end-remove');
@@ -419,14 +412,17 @@ class NicoCommentCss3PlayerView extends Emitter {
 
     const commentLayer = this.commentLayer;
     const elements = this.removingElements;
-    const inViewElements = this.window.Array.from(commentLayer.querySelectorAll('.nicoChat.fork0'));
+    const af = this.window.Array.from; // prototype.js汚染を警戒
+    let inViewElements =  // 表示上限オーバー時、かんたんコメントが優先的に消えるように
+      af(commentLayer.querySelectorAll('.nicoChat.fork2'))
+        .concat(af(commentLayer.querySelectorAll('.nicoChat.fork0')));
     for (let i = inViewElements.length - max - 1; i >= 0; i--) {
       elements.push(inViewElements[i]);
     }
   }
 
   buildHtml (currentTime) {
-    window.console.time('buildHtml');
+    self.console.time('buildHtml');
 
     const vm = this._viewModel;
     currentTime = currentTime || vm.currentTime;
@@ -447,7 +443,7 @@ class NicoCommentCss3PlayerView extends Emitter {
       .replace('%CSS%', '')
       .replace('%MSG%', html.join(''));
 
-    window.console.timeEnd('buildHtml');
+    self.console.timeEnd('buildHtml');
     return tpl;
   }
   _buildGroupHtml (m, currentTime = 0) {
@@ -571,7 +567,7 @@ class NicoCommentCss3PlayerView extends Emitter {
     const foot =
       (`
 <g style="background-color: #333; overflow: hidden; width: ${w}; height: ${h}; padding: 0 69px;" class="shadow-dokaben in-capture paused">
-  <g class="commentLayerOuter" width="682" height="384">
+  <g id="commentLayerOuter" class="commentLayerOuter" width="682" height="384">
     <g class="commentLayer is-stalled" id="commentLayer" width="544" height="384">
     </g>
   </g>
@@ -588,8 +584,9 @@ NicoCommentCss3PlayerView.MAX_DISPLAY_COMMENT = 40;
 NicoCommentCss3PlayerView.__TPL__ = ((Config) => {
   let ownerShadowColor = Config.props['commentLayer.ownerCommentShadowColor'];
   ownerShadowColor = ownerShadowColor.replace(/([^a-z^0-9^#])/ig, '');
+  let easyCommentOpacity = Config.props['commentLayer.easyCommentOpacity'];
   let textShadowColor = '#000';
-  let textShadowColor2 = '#fff';
+  // let textShadowColor2 = '#fff';
   let textShadowGray = '#888';
   return (`
 <!DOCTYPE html>
@@ -605,6 +602,10 @@ NicoCommentCss3PlayerView.__TPL__ = ((Config) => {
 body {
   pointer-events: none;
   user-select: none;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 body.in-capture .commentLayerOuter {
   overflow: hidden;
@@ -702,30 +703,33 @@ body.in-capture .commentLayer {
 
 .commentLayerOuter {
   position: fixed;
-  top: 50%;
-  left: 50%;
+  top: 50vh;
+  left: 50vw;
   width: 672px;
-  padding: 0 64px;
   height: 384px;
-  right: 0;
-  bottom: 0;
-  transform: translate3d(-50%, -50%, 0);
-  box-sizing: border-box;
+  transform: translate3d(-${672 / 2}px, -${384 / 2}px, 0);
+  contain: layout style size;
 }
 
 .saved .commentLayerOuter {
   background: #333;
+  position: absolute;
+  top: auto; right: auto; bottom: auto;
+  left: 50%;
+  transform: translate(-50%, 0);
+  contain: layout style size;
+  overflow: visible;
 }
 
 .commentLayer {
-  position: relative;
+  position: absolute;
   width: 544px;
   height: 384px;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  left: 50%;
+  top: 50%;
+  will-change: transform;
+  transform: translate(-${544 / 2}px, -${384 / 2}px) scale(var(--layer-scale, 1));
   contain: layout style size;
-  transform: scale(var(--layer-scale));
 }
 
 .subLayer {
@@ -738,17 +742,18 @@ body.in-capture .commentLayer {
 
 .debug .commentLayer {
   outline: 1px solid green;
-  transform: none !important;
 }
 
 .nicoChat {
+  position: absolute;
+  display: inline-block;
   line-height: 1.235;
   visibility: hidden;
   text-shadow: 1px 1px 0 ${textShadowColor};
   transform-origin: 0 0;
   animation-timing-function: linear;
-  animation-fill-mode: forwards;
-  will-change: transform, opacity;
+  /*animation-fill-mode: forwards;*/
+  will-change: transform;
   contain: layout style paint;
   color: #fff;
 
@@ -812,6 +817,7 @@ body.in-capture .commentLayer {
 .nicoChat.ue, .nicoChat.shita {
   animation-name: fixed;
   visibility: hidden;
+  will-change: transform, opacity;
 }
 
 .nicoChat.ue.html5, .nicoChat.shita.html5 {
@@ -935,7 +941,7 @@ body.in-capture .commentLayer {
 }
 
 .nicoChat.fork2 {
-  outline: dotted 1px #000088;
+  opacity: var(--easy-comment-opacity, ${easyCommentOpacity}) !important;
 }
 
 .nicoChat.blink {
@@ -1010,7 +1016,7 @@ spacer {
 </head>
 <body style="background-color: unset !important; background: none !important;">
 <div hidden="true" id="keyframesContainer"></div>
-<div class="commentLayerOuter">
+<div id="commentLayerOuter" class="commentLayerOuter">
 <div class="commentLayer" id="commentLayer">%MSG%</div>
 </div>
 </body></html>

@@ -1,9 +1,10 @@
 import _ from 'lodash';
 import {global} from './ZenzaWatchIndex';
-import {BaseViewComponent, FrameLayer} from './util';
+import {BaseViewComponent} from './util';
+import {FrameLayer} from '../packages/zenza/src/parts/FrameLayer';
 import {CONSTANT, NICORU} from './constant';
 import {Emitter} from './baselib';
-import {bounce} from '../packages/lib/src/infra/bounce';
+import {bounce, throttle} from '../packages/lib/src/infra/bounce';
 import {textUtil} from '../packages/lib/src/text/textUtil';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {css} from '../packages/lib/src/css/css';
@@ -11,7 +12,7 @@ import {uq} from '../packages/lib/src/uQuery';
 import {Clipboard} from '../packages/lib/src/dom/Clipboard';
 import {cssUtil} from '../packages/lib/src/css/css';
 import {env} from '../packages/lib/src/infra/env';
-import {ClassListWrapper, ClassList} from '../packages/lib/src/dom/ClassListWrapper';
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
 
 //===BEGIN===
 
@@ -152,6 +153,7 @@ class CommentListView extends Emitter {
     this._maxItems = 100000;
     this._inviewItemList = new Map;
     this._scrollTop = 0;
+    this.timeScrollTop = 0;
     this.newItems = [];
     this.removedItems = [];
     this._innerHeight = 100;
@@ -161,23 +163,24 @@ class CommentListView extends Emitter {
       this._model.on('update', _.debounce(this._onModelUpdate.bind(this), 500));
     }
 
-    this.scrollTop = bounce.raf(this.scrollTop.bind(this));
+    // this.syncScrollTop = throttle.raf(this.syncScrollTop.bind(this));
+    this.setScrollTop = throttle.raf(this.setScrollTop.bind(this));
     this._initializeView(params, 0);
   }
   async _initializeView(params) {
     const html = CommentListView.__tpl__.replace('%CSS%', this._itemCss);
-    const frame = new FrameLayer({
+    const frame = this.frameLayer = new FrameLayer({
       container: params.container,
       html,
       className: 'commentListFrame'
     });
-    // this._frame.on('load', this._onIframeLoad.bind(this));
-    this._onIframeLoad(await frame.promise('GetReady!'));
+    const contentWindow = await frame.wait();
+    this._initFrame(contentWindow);
   }
-  _onIframeLoad(w) {
-    const doc = this._document = w.document;
-    this._window = w;
-    const body = this._body = doc.body;
+  _initFrame(w) {
+    this.contentWindow = w;
+    const doc = this.document = w.document;
+    const body = this.body = doc.body;
     const classList = this.classList = ClassList(body);
     const $body = this._$body = uq(body);
     if (this._className) {
@@ -201,6 +204,16 @@ class CommentListView extends Emitter {
       .toggleClass('is-guest', !nicoUtil.isLogin())
       .toggleClass('is-premium', nicoUtil.isPremium())
       .toggleClass('is-firefox', env.isFirefox());
+    // this.frameLayer.addEventBridge('keydown').addEventBridge('keyup');
+    this.frameLayer.frame.addEventListener('visibilitychange', e => {
+      const {isVisible} = e.detail;
+      if (!isVisible) { return; }
+      if (this.isAutoScroll) {
+        this.setScrollTop(this.timeScrollTop);
+      }
+      this._refreshInviewElements();
+    });
+
 
     this._$menu.on('click', this._onMenuClick.bind(this));
     this._$itemDetail.on('click', this._onItemDetailClick.bind(this));
@@ -218,18 +231,18 @@ class CommentListView extends Emitter {
     this._innerHeight = w.innerHeight;
 
     this._refreshInviewElements = _.throttle(this._refreshInviewElements.bind(this), 100);
-    this._appendNewItems = bounce.raf(this._appendNewItems.bind(this));
-    cssUtil.registerProps(
-      {name: '--current-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w},
-      {name: '--duration', syntax: '<time>', initialValue: cssUtil.s(4), inherits: true, window: w},
-      {name: '--scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
-      {name: '--time-scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
-      {name: '--inner-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
-      {name: '--list-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
-      {name: '--height-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
-      {name: '--trans-y-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
-      {name: '--vpos-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w}
-    );
+    this._appendNewItems = throttle.raf(this._appendNewItems.bind(this));
+    // cssUtil.registerProps(
+      // {name: '--current-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w},
+      // {name: '--duration', syntax: '<time>', initialValue: cssUtil.s(4), inherits: true, window: w},
+      // {name: '--scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      // {name: '--time-scroll-top',   syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      // {name: '--inner-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      // {name: '--list-height', syntax: '<number>', initialValue: 0, inherits: true, window: w},
+      // {name: '--height-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
+      // {name: '--trans-y-pp', syntax: '<length>', initialValue: cssUtil.px(0), inherits: true, window: w},
+      // {name: '--vpos-time', syntax: '<time>', initialValue: cssUtil.s(0), inherits: true, window: w}
+    // );
     cssUtil.setProps([body,'--inner-height', this._innerHeight]);
     this._debouncedOnItemClick = _.debounce(this._onItemClick.bind(this), 300);
 
@@ -240,7 +253,10 @@ class CommentListView extends Emitter {
     this.emitResolve('frame-ready');
   }
   async _onModelUpdate(itemList, replaceAll) {
-    await this.promise('frame-ready');
+    if (!this._isFrameReady) {
+      await this.promise('frame-ready');
+    }
+    this._isFrameReady = true;
 
     window.console.time('update commentlistView');
     this.addClass('updating');
@@ -257,7 +273,7 @@ class CommentListView extends Emitter {
 
     this._itemViews = itemViews;
 
-    await cssUtil.setProps([this._body, '--list-height',
+    await cssUtil.setProps([this.body, '--list-height',
       Math.max(CommentListView.ITEM_HEIGHT * itemViews.length, this._innerHeight) + 100]);
 
     if (!this._list) { return; }
@@ -353,47 +369,47 @@ class CommentListView extends Emitter {
   }
   _onWheel() {
     this.isActive = true;
-    this.scrollTop();
+    // this.syncScrollTop();
     this.addClass('is-active');
   }
   _onMouseOut() {
     this.isActive = false;
-    this.scrollTop();
+    // this.syncScrollTop();
     this.removeClass('is-active');
   }
   _onResize() {
-    this._innerHeight = this._window.innerHeight;
-    cssUtil.setProps([this._body, '--inner-height', this._innerHeight]);
-    this.scrollTop();
+    this._innerHeight = this.contentWindow.innerHeight;
+    cssUtil.setProps([this.body, '--inner-height', this._innerHeight]);
+    // this.syncScrollTop();
     this._refreshInviewElements();
   }
-  _onScroll() {
+  _onScroll(e) {
     if (!this.hasClass('is-scrolling')) {
       this.addClass('is-scrolling');
     }
+    // self.console.log('scroll', this._container.scrollTop, e);
     this._onScrolling();
     this._onScrollEnd();
   }
   _onScrolling() {
-    this.scrollTop();
+    this.syncScrollTop();
     this._refreshInviewElements();
   }
   _onScrollEnd() {
     this.removeClass('is-scrolling');
-    this.scrollTop();
+    // this.syncScrollTop();
   }
   _refreshInviewElements() {
-    if (!this._list) {
+    if (!this._list || !this.frameLayer.isVisible) {
       return;
     }
     const itemHeight = CommentListView.ITEM_HEIGHT;
     const scrollTop = this._scrollTop;
     const innerHeight = this._innerHeight;
     const windowBottom = scrollTop + innerHeight;
-    const itemViews = this._itemViews;
+    const itemViews = this._itemViews || [];
     const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 10);
     const endIndex = Math.min(itemViews.length, Math.floor(windowBottom / itemHeight) + 10);
-
     let changed = 0;
     const newItems = this.newItems, inviewItemList = this._inviewItemList;
     for (let i = startIndex; i < endIndex; i++) {
@@ -411,7 +427,7 @@ class CommentListView extends Emitter {
         continue;
       }
       changed++;
-      removedItems.push(inviewItemList.get(i));
+      removedItems.push(inviewItemList.get(i).viewElement);
       inviewItemList.delete(i);
     }
 
@@ -423,17 +439,17 @@ class CommentListView extends Emitter {
   }
   _appendNewItems() {
     if (this.removedItems.length) {
-      const f = this._gcFragment = this._gcFragment || document.createDocumentFragment();
-      f.append(...this.removedItems);
-      f.textContent = '';
+      for (const e of this.removedItems) { e.remove(); }
       this.removedItems.length = 0;
     }
-    if (this.newItems.length) {
-      const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
-      f.append(...this.newItems);
-      this._list.append(f);
-      this.newItems.length = 0;
+    if (!this.newItems.length) {
+      return;
     }
+    const f = this._appendFragment = this._appendFragment || document.createDocumentFragment();
+    f.append(...this.newItems);
+    this._list.append(f);
+    for (const e of this.newItems) { e.style.contentVisibility = 'visible'; }
+    this.newItems.length = 0;
   }
   _updatePerspective() {
     const keys = Object.keys(this._inviewItemList);
@@ -466,22 +482,30 @@ class CommentListView extends Emitter {
     return this.classList.contains(className);
   }
   find(query) {
-    return this._document.querySelectorAll(query);
+    return this.document.querySelectorAll(query);
   }
-  scrollTop(v) {
-    if (!this._window) {
+  syncScrollTop() {
+    if (!this.contentWindow || !this.frameLayer.isVisible) {
       return;
     }
-
-    if (typeof v === 'number') {
-      this._container.scrollTop = this._scrollTop = v;
-    } else {
+    if (this.isActive) {
       this._scrollTop = this._container.scrollTop;
-      cssUtil.setProps([this._body, '--scroll-top', this._scrollTop]);
     }
   }
+  setScrollTop(v) {
+    if (!this.contentWindow) {
+      return;
+    }
+    this._scrollTop = v;
+    if (!this.frameLayer.isVisible) {
+      return;
+    }
+    // this._container.removeEventListener('scroll', this._onScroll);
+    this._container.scrollTop = v;
+    // this._container.addEventListener('scroll', this._onScroll, {passive: true});
+  }
   setCurrentPoint(sec, idx, isAutoScroll) {
-    if (!this._window || !this._itemViews) {
+    if (!this.contentWindow || !this._itemViews || !this.frameLayer.isVisible) {
       return;
     }
     const innerHeight = this._innerHeight;
@@ -494,12 +518,14 @@ class CommentListView extends Emitter {
 
     const itemHeight = CommentListView.ITEM_HEIGHT;
     const top = Math.max(0, view.top - innerHeight + itemHeight);
-    cssUtil.setProps(
-      [this._body, '--time-scroll-top', top],
-      [this._body, '--current-time', css.s(sec)]
-    );
+    this.timeScrollTop = top;
+    this.isAutoScroll = isAutoScroll;
+    // cssUtil.setProps(
+    //   [this.body, '--time-scroll-top', top],
+    //   [this.body, '--current-time', css.s(sec)]
+    // );
     if (!this.isActive && isAutoScroll) {
-        this.scrollTop(top);
+        this.setScrollTop(top);
     }
   }
   showItemDetail(item) {
@@ -571,7 +597,7 @@ CommentListView.__tpl__ = (`
     height: 100vh;
     overflow-y: scroll;
     overflow-x: hidden;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
     will-change: transform;
     scrollbar-width: 16px;
     scrollbar-color: #039393;
@@ -616,7 +642,7 @@ CommentListView.__tpl__ = (`
     min-width: 280px;
     max-height: 100%;
     overflow-y: scroll;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
     font-size: 14px;
     transform: translate(-50%, -50%);
     opacity: 0;
@@ -710,7 +736,7 @@ CommentListView.__tpl__ = (`
   }
 
   .is-firefox .timeBar { display: none !important; }
-  .timeBar {
+  /*.timeBar {
     position: fixed;
     visibility: hidden;
     z-index: 110;
@@ -718,12 +744,11 @@ CommentListView.__tpl__ = (`
     top: 1px;
     width: 14px;
     --height-pp:  calc(1px * var(--inner-height) * var(--inner-height) / var(--list-height));
-    --trans-y-pp: calc(1px * var(--inner-height) * var(--time-scroll-top) / var(--list-height));
+    --trans-y-pp: calc((1px * var(--inner-height) - var(--height-pp)) * var(--time-scroll-top) / var(--list-height));
     min-height: 10px;
     height: var(--height-pp);
     max-height: 100vh;
     transform: translateY(var(--trans-y-pp));
-    transition: transform 0.2s;
     pointer-events: none;
     will-change: transform;
     border: 1px dashed #e12885;
@@ -740,15 +765,15 @@ CommentListView.__tpl__ = (`
     outline: 2px solid #2b2b2b;
     outline-offset: -5px;
     box-sizing: border-box;
-  }
+  }*/
   body:hover .timeBar {
     visibility: visible;
   }
   .virtualScrollBar {
     display: none;
   }
-
-  /*.is-firefox .virtualScrollBar {
+/*
+  .is-firefox .virtualScrollBar {
     display: inline-block;
     position: fixed;
     z-index: 100;
@@ -764,8 +789,8 @@ CommentListView.__tpl__ = (`
     pointer-events: none;
     will-change: transform;
     z-index: 110;
-  }*/
-
+  }
+*/
 </style>
 <style id="listItemStyle">%CSS%</style>
 <body class="zenzaRoot">
@@ -1005,9 +1030,8 @@ const CommentListItemView = (() => {
         text-shadow: 1px 1px 0 #008800, -1px -1px 0 #008800 !important;
       }
       .commentListItem.fork2 .timepos {
-        text-shadow: 1px 1px 0 #880000, -1px -1px 0 #880000 !important;
+        opacity: 0.6;
       }
-      .commentListItem.fork2 .text,
       .commentListItem.fork1 .text {
         font-weight: bolder;
       }
@@ -1024,7 +1048,7 @@ const CommentListItemView = (() => {
       .font-gothic .text {font-family: "游ゴシック", "Yu Gothic", 'YuGothic', "ＭＳ ゴシック", "IPAMonaPGothic", sans-serif, Arial, Menlo;}
       .font-mincho .text {font-family: "游明朝体", "Yu Mincho", 'YuMincho', Simsun, Osaka-mono, "Osaka−等幅", "ＭＳ 明朝", "ＭＳ ゴシック", "モトヤLシーダ3等幅", 'Hiragino Mincho ProN', monospace;}
       .font-defont .text {font-family: 'Yu Gothic', 'YuGothic', "ＭＳ ゴシック", "MS Gothic", "Meiryo", "ヒラギノ角ゴ", "IPAMonaPGothic", sans-serif, monospace, Menlo; }
-
+/*
       .commentListItem .progress-negi {
         position: absolute;
         width: 2px;
@@ -1034,7 +1058,6 @@ const CommentListItemView = (() => {
         pointer-events: none;
         background: #888;
         will-change: transform;
-        transition: transform var(--duration) linear;
         animation-duration: var(--duration);
         animation-delay: calc(var(--vpos-time) - var(--current-time) - 1s);
         animation-name: negi-moving;
@@ -1049,7 +1072,7 @@ const CommentListItemView = (() => {
         80% { background: #fff; }
         100% { background: #039393; }
       }
-
+*/
     `).trim();
 
 
@@ -1113,11 +1136,9 @@ const CommentListItemView = (() => {
       commentListItem.className =
         `commentListItem no${item.no} item${this._id} ${oden} fork${item.fork} font-${font} ${item.isSubThread ? 'subThread' : ''}`;
       commentListItem.classList.toggle('nicotta', item.nicotta);
-      commentListItem.style.cssText = `
-          top: ${this.top}px;
-          --duration: ${item.duration}s;
-          --vpos-time: ${item.vpos / 100}s;
-        `;
+      commentListItem.style.cssText = `top: ${this.top}px; content-visibility: hidden;`;
+          /*--duration: ${item.duration}s;
+          --vpos-time: ${item.vpos / 100}s;*/
       // commentListItem.style.transform = `translateZ(${time3dp}px)`;
       //commentListItem.setAttribute('data-time-3dp', time3dp);
 

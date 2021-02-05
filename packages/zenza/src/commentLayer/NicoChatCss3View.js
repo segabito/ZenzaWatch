@@ -14,7 +14,7 @@ class NicoChatCss3View {
   static buildChatDom (chat, type, size, cssText, document = window.document) {
     const span = document.createElement('span');
     const ver = chat.commentVer;
-    const className = ['nicoChat', type, size];
+    const className = ['nicoChat', 'hidden', type, size];
     if (ver === 'html5') {
       className.push(ver);
     }
@@ -172,6 +172,7 @@ class NicoChatCss3View {
       transform:
         translateX(0)
         ;
+      content-visibility: hidden;
     `;
 
     return {inline, keyframes: ''};
@@ -237,6 +238,7 @@ class NicoChatCss3View {
       animation-duration: ${duration / 0.95}s;
       animation-delay: ${delay}s;
       --dokaben-scale: ${scale};
+      content-visibility: hidden;
     `.trim();
     return {inline};
   }

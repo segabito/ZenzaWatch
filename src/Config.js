@@ -53,6 +53,10 @@ const Config = (() => {
     wordRegFilterFlags: 'i',
     userIdFilter: '',
     commandFilter: '',
+    removeNgMatchedUser: false, // NGにマッチしたユーザーのコメント全部消す
+    'filter.fork0': true, // 通常コメント
+    'filter.fork1': true, // 投稿者コメント
+    'filter.fork2': true, // かんたんコメント
 
     videoTagFilter: '',
     videoOwnerFilter: '',
@@ -92,6 +96,7 @@ const Config = (() => {
     'commentLayer.textShadowType': '', // フォントの修飾タイプ
     'commentLayer.enableSlotLayoutEmulation': false,
     'commentLayer.ownerCommentShadowColor': '#008800', // 投稿者コメントの影の色
+    'commentLayer.easyCommentOpacity': 0.5, // かんたんコメントの透明度
 
     overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
     enableGinzaSlayer: false, // まだ実験中
@@ -214,8 +219,7 @@ Config.exportToFile = () => {
   const json = Config.exportJson();
   const blob = new Blob([json], {'type': 'text/html'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  Object.assign(a, {
+  const a = Object.assign(document.createElement('a'), {
     download: `${new Date().toLocaleString().replace(/[:/]/g, '_')}_ZenzaWatch.config.json`,
     rel: 'noopener',
     href: url

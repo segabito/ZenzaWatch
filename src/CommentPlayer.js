@@ -31,7 +31,6 @@ import {NicoCommentCss3PlayerView} from '../packages/zenza/src/commentLayer/Nico
 class NicoCommentPlayer extends Emitter {
   constructor(params) {
     super();
-    // this._offScreen = await NicoComment.offScreenLayer.get();////params.offScreenLayer;
 
     this._model = new NicoComment(params);
     this._viewModel = new NicoCommentViewModel(this._model);
