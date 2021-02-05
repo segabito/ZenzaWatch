@@ -528,14 +528,14 @@ util.addStyle(`
     position: fixed;
     bottom: 0;
     left: 0;
-    transform: translate3d(0, 0, 0);
     width: 100vw;
     height: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
     z-index: 150000;
     background: #000;
     transition: opacity 0.3s ease, transform 0.3s ease;
     user-select: none;
-    contain: layout;
+    contain: layout style size;
+    will-change: transform;
   }
 
   .videoControlBar * {
@@ -858,19 +858,20 @@ util.addStyle(`
   }
 
   .seekBarPointer {
-    --width-pp: 12px;
-    --trans-x-pp: 0;
+    /*--width-pp: 12px;
+    --trans-x-pp: 0;*/
     position: absolute;
     display: inline-block;
-    top: 50%;
+    top: -1px;
     left: 0;
-    width: var(--width-pp);
+    width: 12px;
     background: rgba(255, 255, 255, 0.7);
     height: calc(100% + 2px);
     z-index: 200;
     box-shadow: 0 0 4px #ffc inset;
     pointer-events: none;
-    transform: translate(calc(var(--trans-x-pp) - var(--width-pp) / 2), -50%);
+    transform: translateX(-6px);
+    /*transform: translate(calc(var(--trans-x-pp) - var(--width-pp) / 2), -50%);*/
     will-change: transform;
     mix-blend-mode: lighten;
   }
@@ -972,6 +973,7 @@ util.addStyle(`
   .resumePointer {
     position: absolute;
     mix-blend-mode: color-dodge;
+    will-change: transform;
     top: 0;
     z-index: 200;
   }
@@ -2574,8 +2576,8 @@ util.addStyle(`
         this._animation.finish();
       }
       this._animation = this._pointer.animate([
-        {'--trans-x-pp': 0},
-        {'--trans-x-pp': cssUtil.vw(100)}
+        {transform: 'translateX(-6px)'},
+        {transform: `translateX(${global.innerWidth - 6}px)`}
       ], {duration: this._duration * 1000, fill: 'backwards'});
       this._animation.currentTime = this._currentTime * 1000;
       this._animation.playbackRate = this._playbackRate;
