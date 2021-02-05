@@ -6,20 +6,16 @@ import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 //===BEGIN===
 
 class BaseState extends Emitter {
-  constructor(state) {
-    super();
-
-    this._name = '';
-    this._state = state;
-    this._changed = new Map;
-    this._boundOnChange = bounce.time(this._onChange.bind(this));
-    this.defineProps(state);
+  static getInstance() {
+    if (!this.instance) {
+      this.instance = new this.constructor();
+    }
+    return this.instance;
   }
 
-  defineProps(state = {}) {
-    const self = this;
+  static defineProps(self, props = {}) {
     const def = {};
-    Object.keys(state).sort()
+    Object.keys(props).sort()
       .forEach(key => {
         def[key] = {
           enumerable: !key.startsWith('_'),
@@ -27,7 +23,21 @@ class BaseState extends Emitter {
           set(val) { self.setState(key, val); }
         };
     });
-    Object.defineProperties(this, def);
+    Object.defineProperties(self, def);
+  }
+
+  constructor(state) {
+    super();
+
+    this._name = '';
+    this._state = state;
+    this._changed = new Map;
+    this._timestamp = performance.now();
+    this._boundOnChange = _.debounce(this._onChange.bind(this), 0);
+    this.constructor.defineProps(this, state);
+  }
+  _updateTimestamp() {
+    return this._timestamp = performance.now();
   }
 
   onkey(key, func) {return this.on(`update-${key}`, func);}
@@ -80,6 +90,7 @@ class PlayerState extends BaseState {
       isAbort: false,
       isBackComment: config.props.backComment,
       isChanging: false,
+      isCanPlay: false,
       isChannel: false,
       isShowComment: config.props.showComment,
       isCommentReady: false,
@@ -90,10 +101,12 @@ class PlayerState extends BaseState {
       isDmcAvailable: false,
       isDmcPlaying: false,
       isError: false,
+      isEnded: false,
       isLoading: false,
       isLoop: config.props.loop,
       isMute: config.props.mute,
       isMymemory: false,
+      isLiked: false,
       isOpen: false,
       isPausing: true,
       isPlaylistEnable: false,
@@ -120,7 +133,7 @@ class PlayerState extends BaseState {
       videoCount: {},
       videoSession: {}
     });
-    this._name = 'Player';
+    this.name = 'Player';
   }
 
   set videoInfo(videoInfo) {
@@ -153,6 +166,7 @@ class PlayerState extends BaseState {
       isLoading: true,
       isPlaying: false,
       isPausing: true,
+      isCanPlay: false,
       isSeeking: false,
       isStalled: false,
       isError: false,
@@ -160,13 +174,14 @@ class PlayerState extends BaseState {
       isMymemory: false,
       isCommunity: false,
       isChannel: false,
+      isEnded: false,
       currentSrc: CONSTANT.BLANK_VIDEO_URL
     });
   }
 
   setVideoCanPlay() {
     this.setState({
-      isStalled: false, isLoading: false, isPausing: true, isNotPlayed: true, isError: false, isSeeking: false
+      isStalled: false, isLoading: false, isPausing: true, isNotPlayed: true, isError: false, isSeeking: false, isCanPlay: true, isEnded: false
     });
   }
 
@@ -174,10 +189,12 @@ class PlayerState extends BaseState {
     this.setState({
       isPlaying: true,
       isPausing: false,
+      isCanPlay: false,
       isLoading: false,
       isNotPlayed: false,
       isError: false,
-      isStalled: false
+      isStalled: false,
+      isEnded: false
     });
   }
 
@@ -186,7 +203,7 @@ class PlayerState extends BaseState {
   }
 
   setVideoEnded() {
-    this.setState({isPlaying: false, isPausing: true, isSeeking: false});
+    this.setState({isPlaying: false, isPausing: true, isSeeking: false, isEnded: true});
   }
 
   setVideoErrorOccurred() {
@@ -204,7 +221,6 @@ class VideoControlState extends BaseState {
     }, state));
     this.name = 'VideoControl';
   }
-
 }
 //===END===
 

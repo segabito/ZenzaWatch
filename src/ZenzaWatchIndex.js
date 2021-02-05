@@ -1,5 +1,6 @@
 import {Emitter, Handler} from './baselib';
 import {Config} from './Config';
+import {dll} from '../packages/components/src/dll';
 const TOKEN = Math.random();
 
 const PRODUCT = 'ZenzaWatch';
@@ -20,6 +21,7 @@ const ZenzaWatch = {
   },
   api: {},
   external: {},
+  dll,
   lib: {},
   modules: {
     Emitter,
@@ -40,7 +42,8 @@ const global = {
   TOKEN,
   config: Config,
   api: ZenzaWatch.api,
-  innerWidth: 100, innerHeight: 100
+  innerWidth: 100, innerHeight: 100,
+  dll
 };
 const Navi = Object.assign({}, ZenzaWatch);
 const ENV = 'dev';
@@ -53,5 +56,6 @@ export {
   TOKEN,
   global,
   ENV,
-  VER
+  VER,
+  dll
 };

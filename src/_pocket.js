@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.9
+// @version     0.5.14
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -371,7 +371,8 @@ AntiPrototypeJs().then(() => {
       body.BaseLayout {
         margin-top: 0 !important;
       }
-
+      ${
+      location.host === 'www.niovideo.jp' ? `
       #siteHeader {
         position: sticky;
         left: 0 !important;
@@ -473,7 +474,7 @@ AntiPrototypeJs().then(() => {
           -1px -1px 0 #fff;
 
               }
-
+      ` : ''}
     `).trim();
 
     const nicoadHideCss = `
@@ -489,14 +490,37 @@ AntiPrototypeJs().then(() => {
     const responsiveCss = `
 
       @media screen and (max-width: 1350px) {
+        .RankingGenreListContainer {
+          border-right: 0;
+          border-left: 56px solid #fafafa;
+        }
         .RankingGenreListContainer-categoryHelp {
           position: static;
         }
         .GlobalHeader#siteHeader #siteHeaderInner {
           width: 1024px;
         }
+        .RankingHeaderContainer-headerInner {
+          margin-left: 64px;
+          width: 1214px;
+        }
+        .LaneHeader {
+          flex: 1 1 160px;
+          width: 160px;
+        }
+        .LaneHeader+.LaneHeader {
+          /*margin-left: 13px;*/
+        }
+        .LaneHeader>p {
+          white-space: normal;
+          height: 32px;
+          line-height: 16px;
+        }
+        .CustomButton {
+          width: 136px;
+        }
         .MatrixRanking-body .BaseLayout-block {
-          width: ${1024 + 64 * 2}px;
+          width: ${1280}px;
         }
         .RankingMainContainer-decorateChunk+.RankingMainContainer-decorateChunk,
          .RankingMainContainer-decorateChunk>*+* {
@@ -2506,7 +2530,7 @@ Object.assign(util, textUtil);
       _init() {
         this._view = document.querySelector('.mylistPocketHoverMenu');
 
-        this._view.addEventListener('click',     this._onClick.bind(this));
+        this._view.addEventListener(location.host.includes('google') ? 'mouseup' : 'click', this._onClick.bind(this));
         this._view.addEventListener('mousedown', this._onMousedown.bind(this));
         this._view.addEventListener('contextmenu', this._onContextMenu.bind(this));
 
@@ -3838,7 +3862,7 @@ Object.assign(util, textUtil);
     const initNg = async params => {
       if (!window.IntersectionObserver) { return; }
 
-      let {query, container, closest, subtree} = params ? params : await getNgEnv();
+      let {query, container, closest, subtree, callback} = params ? params : await getNgEnv();
 
       if (!query) { return; }
 
@@ -3869,6 +3893,10 @@ Object.assign(util, textUtil);
               }
               item.classList.add('is-ng-failed', info ? info.code : 'is-no-data');
             } else {
+              if (callback) {
+                return callback(item,
+                  {watchId, info, isNg: ngChecker.isNg(info), isFav: favChecker.isMatch(info)});
+              }
               item.classList.add(
                 ngChecker.isNg(info) ? 'is-ng-rejected' : 'is-ng-resolved');
               if (favChecker.isMatch(info)) {

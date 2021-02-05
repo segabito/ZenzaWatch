@@ -2,8 +2,8 @@
 // @name        ZenzaWatch 上級者用設定
 // @namespace   https://github.com/segabito/
 // @description1 ZenzaWatchの上級者向け設定。変更する時だけ有効にすればOK
-// @include     *//www.nicovideo.jp/my/*
-// @version     0.3.0
+// @include     *//www.nicovideo.jp/my*
+// @version     0.3.2
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
@@ -42,11 +42,11 @@ const $ = uq;
     `).trim();
 
     const __css__ = (`
-      .userDetail .openZenzaAdvancedSettingPanel {
+      .openZenzaAdvancedSettingPanel {
         display: inline-block;
         position: absolute;
-        top: 8px;
-        right: 148px;
+        top: 30px;
+        right: 0;
         padding: 2px 8px;
         text-align: center;
         background: #fff;
@@ -54,8 +54,12 @@ const $ = uq;
         color: #0033cc;
         cursor: pointer;
       }
+      .userDetail .openZenzaAdvancedSettingPanel {
+        top: 8px;
+        right: 148px;
+      }
 
-      .userDetail .openZenzaAdvancedSettingPanel:active {
+      .openZenzaAdvancedSettingPanel:active {
         background: #ccc;
       }
 
@@ -599,7 +603,7 @@ const $ = uq;
 
 
     const initializePanel = () => {
-      Config.watch();
+      // Config.watch();
       panel = new SettingPanel({
         playerConfig: Config,
         $container: $('body')
@@ -610,7 +614,10 @@ const $ = uq;
       const $button = $(__tpl__);
       cssUtil.addStyle(__css__);
 
-      $('.accountEdit').after($button);
+      document.querySelector('#js-initial-userpage-data') ?
+        $('.Dropdown-button').before($button) :
+        $('.accountEdit').after($button);
+
       $button.on('click', e => {
         initializePanel();
         panel.toggle();

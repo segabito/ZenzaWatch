@@ -26,12 +26,23 @@ const boot = async (monkey, PRODUCT, START_PAGE_QUERY) => {
     await AntiPrototypeJs();
     if (window.ZenzaLib) {
       window.ZenzaJQuery = window.ZenzaLib.$;
-      const script = document.createElement('script');
-      script.id = `${PRODUCT}Loader`;
-      script.setAttribute('type', 'text/javascript');
-      script.setAttribute('charset', 'UTF-8');
-      script.append(
-        `(${monkey})('${PRODUCT}', '${encodeURIComponent(START_PAGE_QUERY)}');`);
+      const blob = new Blob([
+        `(${monkey})('${PRODUCT}', '${encodeURIComponent(START_PAGE_QUERY)}');`
+      ], {type: 'text/javascript'});
+      const src = URL.createObjectURL(blob);
+      const handler = () => {
+        URL.revokeObjectURL(src);
+        script.remove();
+      };
+      const script = Object.assign(document.createElement('script'), {
+        id: `${PRODUCT}Loader`,
+        type: 'text/javascript',
+        src,
+        onload: handler,
+        onerror: handler
+      });
+      // script.append(
+      //   `(${monkey})('${PRODUCT}', '${encodeURIComponent(START_PAGE_QUERY)}');`);
       document.head.append(script);
     }
 //@require ../packages/lib/src/nico/modernLazyload.js

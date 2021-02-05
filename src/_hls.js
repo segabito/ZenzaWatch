@@ -22,7 +22,7 @@
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.0.16
+// @version        0.0.20
 // @noframes
 // @require        https://cdn.jsdelivr.net/npm/hls.js@latest
 // @run-at         document-start
@@ -1220,7 +1220,6 @@ AntiPrototypeJs().then(() => {
               video {
                 width: 100%;
                 height: 100%;
-                contain: strict;
               }
               .label {
                 position: absolute;
@@ -2331,11 +2330,12 @@ AntiPrototypeJs().then(() => {
             .root {
               position: fixed;
               width: 640px;
+              max-height: 80vh;
               /*max-height: calc(100vh - 32px);*/
               /*top: 100vh;*/
               z-index: 10000;
               overflow-x: hidden;
-              overflow-y: visible;
+              overflow-y: auto;
               /*transform: translate(0, -32px);*/
               background: rgba(240, 240, 240, 0.95);
               color: #000;
@@ -2550,7 +2550,7 @@ AntiPrototypeJs().then(() => {
     })();
 
     const initDebug = ({hlsConfig, html, render, ZenzaWatch}) => {
-      ZenzaWatch.emitter.once('videoControBar.addonMenuReady', (container, handler) => {
+      ZenzaWatch.emitter.promise('videoControBar.addonMenuReady').then(({container}) => {
         const div = html`<div class="command controlButton" data-command="toggleHLSDebug">
             <div class="controlButtonInner">hls</div>
           </div>`;
@@ -2560,9 +2560,9 @@ AntiPrototypeJs().then(() => {
           }`, {className: 'ZenzaHLS'});
         container.append(div.getTemplateElement().content);
       });
-      ZenzaWatch.emitter.once('videoContextMenu.addonMenuReady.list', (menuContainer) => {
+      ZenzaWatch.emitter.promise('videoContextMenu.addonMenuReady.list').then(({container}) => {
         const li = html`<li class="command" data-command="toggleHLSDebug">HLS設定</li>`;
-        menuContainer.appendChild(li.getTemplateElement().content);
+        container.append(li.getTemplateElement().content);
       });
 
       ZenzaWatch.emitter.once('command-toggleHLSDebug', () => {
@@ -2692,7 +2692,7 @@ AntiPrototypeJs().then(() => {
       }).then(ZenzaWatch => {
 
         Promise.all([
-          dimport('https://unpkg.com/lit-html?module')
+          dimport('https://unpkg.com/lit-html@1.1.2/lit-html.js?module')
         ]).then(([{html, render}]) => {
           initDebug({hlsConfig, html, render, ZenzaWatch});
         });

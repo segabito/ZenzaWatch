@@ -32,7 +32,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.27
+// @version        2.6.2
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -43,7 +43,8 @@ import {uQuery, uq} from '../packages/lib/src/uQuery';
 import {util} from './util';
 import {components} from '../packages/components/src/index';
 import {State} from './State';
-import {api, NicoVideoApi} from './loader/api';
+import {VideoInfoLoader} from '../packages/lib/src/nico/loader';
+import {ThumbInfoLoader, MylistApiLoader, UploadedVideoApiLoader, CacheStorage, CrossDomainGate, IchibaLoader, UaaLoader, PlaybackPosition, NicoVideoApi, RecommendAPILoader, NVWatchCaller, CommonsTreeLoader, NicoRssLoader, MatrixRankingLoader} from '../packages/lib/src/nico/loader';
 import {VideoInfoModel} from './VideoInfo';
 import {VideoSearch, NicoSearchApiV2Loader} from '../packages/lib/src/nico/VideoSearch';
 import {TagEditApi} from '../packages/lib/src/nico/TagEditApi';
@@ -63,13 +64,13 @@ import {CommentLayoutWorker} from '../packages/zenza/src/commentLayer/CommentLay
 import {SlotLayoutWorker} from '../packages/zenza/src/commentLayer/SlotLayoutWorker';
 import {NicoScripter} from '../packages/zenza/src/commentLayer/NicoScripter';
 import {CommentPanel} from './CommentPanel';
-import {VideoList} from './VideoList';
+import {PlayList} from '../packages/zenza/src/Playlist/PlayList';
 import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
 import {StoryboardCacheDb} from '../packages/lib/src/nico/StoryboardCacheDb';
 import {NicoVideoPlayerDialog} from './NicoVideoPlayerDialog';
 import {RootDispatcher} from './RootDispatcher';
 import {CommentInputPanel} from './CommentInputPanel';
-import {SettingPanel} from './SettingPanel';
+// import {SettingPanel} from './SettingPanel';
 import {TagListView} from './TagListView';
 import {VideoInfoPanel} from './VideoInfoPanel';
 import {GinzaSlayer} from './GinzaSlayer';
@@ -88,6 +89,7 @@ import {dimport} from '../packages/lib/src/infra/dimport';
 import {MediaTimeline} from '../packages/lib/src/dom/MediaTimeline';
 import {cssUtil} from '../packages/lib/src/css/css';
 import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
+import {domUtil} from '../packages/lib/src/dom/domUtil';
 //@require AntiPrototypeJs
 AntiPrototypeJs();
 (() => {
@@ -119,6 +121,7 @@ AntiPrototypeJs();
     const util = {};
     let {dimport, workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
+
     //@version
     //@environment
 
@@ -133,7 +136,7 @@ AntiPrototypeJs();
     );
     console.nicoru =
       console.log.bind(console,
-        '%c田 ',
+        '%c　 ',
         'display: inline-block; font-size: 120%; color: transparent; background-repeat: no-repeat; background-position: center; background-size: contain;' +
         `background-image: url(${NICORU})`
         );
@@ -145,7 +148,7 @@ await Config.promise('restore');
     const ZenzaWatch = {
       version: VER,
       env: ENV,
-      debug: {},
+      debug: {WatchInfoCacheDb, StoryboardCacheDb},
       api: {},
       init: {},
       lib: { $: window.ZenzaLib.$ || $, _ },
@@ -157,6 +160,15 @@ await Config.promise('restore');
       state: {},
       dll
     };
+    Promise.all([//https://unpkg.com/lit-html@1.1.2/lit-html.js?module
+      dimport('https://unpkg.com/lit-html@1.1.2/lit-html.js?module'),
+      dimport('https://unpkg.com/lit-html@1.1.2/directives/repeat?module'),
+      dimport('https://unpkg.com/lit-html@1.1.2/directives/class-map?module')
+    ]).then(([lit, ...directives]) => {
+      dll.lit = lit;
+      dll.directives = Object.assign({}, ...directives);
+      emitter.emitResolve('lit-html', dll.lit);
+    });
 
     const Navi = {
       version: VER,
@@ -190,9 +202,11 @@ const global = {
   api: ZenzaWatch.api,
   innerWidth: window.innerWidth,
   innerHeight: window.innerHeight,
-  NICORU
+  NICORU,
+  dll
 };
 //@require ClassList
+//@require domUtil
 //@require util
 ZenzaWatch.lib.$ = uQuery;
 workerUtil.env({netUtil, global});
@@ -208,11 +222,29 @@ WindowResizeObserver.subscribe(({width, height}) => {
 });
 //@require components
 //@require State
-//@require api
+//@require VideoInfoLoader
 //@require VideoInfoModel
 //@require VideoSearch
 //@require TagEditApi
-Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
+Object.assign(ZenzaWatch.api, {
+  VideoInfoLoader,
+  ThumbInfoLoader,
+  MylistApiLoader,
+  UploadedVideoApiLoader,
+  CacheStorage,
+  IchibaLoader,
+  UaaLoader,
+  PlaybackPosition,
+  NicoVideoApi,
+  RecommendAPILoader,
+  NVWatchCaller,
+  CommonsTreeLoader,
+  NicoRssLoader,
+  MatrixRankingLoader,
+  NicoSearchApiV2Loader
+});
+ZenzaWatch.init.mylistApiLoader = MylistApiLoader;
+ZenzaWatch.init.UploadedVideoApiLoader = UploadedVideoApiLoader;
 //@require MediaTimeline
 WatchInfoCacheDb.api(NicoVideoApi);
 StoryboardCacheDb.api(NicoVideoApi);
@@ -241,15 +273,13 @@ ZenzaWatch.api.StoryboardInfoLoader = StoryboardInfoLoader;
 
 //@require CommentPanel
 
-//@require VideoList
+//@require PlayList
 
 //@require NicoVideoPlayerDialog
 
 //@require RootDispatcher
 
 //@require CommentInputPanel
-
-//@require SettingPanel
 
 //@require TagListView
 
@@ -281,9 +311,10 @@ ZenzaWatch.modules.TextLabel = TextLabel;
         .then(r => r.text())
         .then(result => {
           const $dom = util.$(`<div>${result}</div>`);
-          const isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
-          const isPremium =
-            $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
+
+          const userData = JSON.parse($dom.find('#CommonHeader')[0].dataset.commonHeader).initConfig.user;
+          const isLogin = !!userData.isLogin;
+          const isPremium = !!userData.isPremium;
           window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
           nicoUtil.isLogin = () => isLogin;
           nicoUtil.isPremium = util.isPremium = () => isPremium;

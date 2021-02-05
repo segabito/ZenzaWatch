@@ -47,16 +47,22 @@ class NicoVideoPlayer extends Emitter {
 
     this._commentPlayer = new NicoCommentPlayer({
       // offScreenLayer: params.offScreenLayer,
-      enableFilter: params.enableFilter,
-      wordFilter: params.wordFilter,
-      wordRegFilter: params.wordRegFilter,
-      wordRegFilterFlags: params.wordRegFilterFlags,
-      userIdFilter: params.userIdFilter,
-      commandFilter: params.commandFilter,
+      filter: {
+        enableFilter: conf.props.enableFilter,
+        wordFilter: conf.props.wordFilter,
+        wordRegFilter: conf.props.wordRegFilter,
+        wordRegFilterFlags: conf.props.wordRegFilterFlags,
+        userIdFilter: conf.props.userIdFilter,
+        commandFilter: conf.props.commandFilter,
+        removeNgMatchedUser: conf.props.removeNgMatchedUser,
+        fork0: conf.props['filter.fork0'],
+        fork1: conf.props['filter.fork1'],
+        fork2: conf.props['filter.fork2'],
+        sharedNgLevel: conf.props.sharedNgLevel
+      },
       showComment: conf.props.showComment,
       debug: conf.props.debug,
       playbackRate,
-      sharedNgLevel: conf.props.sharedNgLevel
     });
     this._commentPlayer.on('command', onCommand);
 
@@ -72,6 +78,7 @@ class NicoVideoPlayer extends Emitter {
 
     this._initializeEvents();
 
+    this._onTimer = this._onTimer.bind(this);
     this._beginTimer();
 
     global.debug.nicoVideoPlayer = this;
@@ -79,13 +86,13 @@ class NicoVideoPlayer extends Emitter {
   _beginTimer() {
     this._stopTimer();
     this._videoWatchTimer =
-      window.setInterval(this._onTimer.bind(this), 100);
+      self.setInterval(this._onTimer, 100);
   }
   _stopTimer() {
     if (!this._videoWatchTimer) {
       return;
     }
-    window.clearInterval(this._videoWatchTimer);
+    self.clearInterval(this._videoWatchTimer);
     this._videoWatchTimer = null;
   }
   _initializeEvents() {
@@ -535,10 +542,10 @@ class ContextMenu extends BaseViewComponent {
         view.find('.listInner ul'), handler
       );
       global.emitter.emitResolve('videoContextMenu.addonMenuReady',
-        {vier: view.find('.empty-area-top'), handler}
+        {container: view.find('.empty-area-top'), handler}
       );
       global.emitter.emitResolve('videoContextMenu.addonMenuReady.list',
-        {view: view.find('.listInner ul'), handler}
+        {container: view.find('.listInner ul'), handler}
       );
     }
   }
@@ -1429,7 +1436,6 @@ VideoPlayer.__css__ = `
 
     .videoPlayer.is-youtube iframe {
       display: block;
-      border: 1px dotted;
     }
 
 

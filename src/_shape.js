@@ -10,12 +10,13 @@
 // @exclude     *://ads*.nicovideo.jp/*
 // @exclude     *://www.nicovideo.jp/favicon.ico*
 // @exclude     *://www.nicovideo.jp/robots.txt*
-// @version     0.3.1
+// @version     0.3.2
 // @grant       none
 // @author      名無しさん
 // @license     public domain
 // ==/UserScript==
 import {css} from '../packages/lib/src/css/css';
+import {throttle} from '../packages/lib/src/infra/bounce';
 
 // chrome://flags/#enable-experimental-web-platform-features
 
@@ -99,6 +100,7 @@ interval: ${config.interval}        // マスクの更新間隔
       const url = URL.createObjectURL(blob);
       return new Worker(url, options);
     };
+//@require throttle
 //@require css
 
     const 業務 = function(self) {
@@ -655,16 +657,16 @@ interval: ${config.interval}        // マスクの更新間隔
         li.innerHTML = `<a href="javascript:;">${PRODUCT}設定</a>`;
         li.style.whiteSpace = 'nowrap';
         li.addEventListener('click', () => dialog.toggle());
-        document.querySelector('#siteHeaderRightMenuContainer').append(li);
+        document.querySelector('#siteHeaderRightMenuContainer') && document.querySelector('#siteHeaderRightMenuContainer').append(li);
       }, document.querySelector('#siteHeaderRightMenuContainer') ? 1000 : 15000);
 
       ZenzaDetector.detect().then(zen => {
         console.log('ZenzaWatch found ver.%s', zen.version);
         ZenzaWatch = zen;
-        ZenzaWatch.emitter.on('videoControBar.addonMenuReady', (container, handler) => {
+        ZenzaWatch.emitter.promise('videoControBar.addonMenuReady').then(({container}) => {
           container.append(createToggleButton(config, dialog));
         });
-        ZenzaWatch.emitter.on('videoContextMenu.addonMenuReady.list', (menuContainer) => {
+        ZenzaWatch.emitter.promise('videoContextMenu.addonMenuReady.list').then(({container}) => {
           const faceMenu = document.createElement('li');
           faceMenu.className = 'command';
           faceMenu.dataset.command = 'nop';
@@ -686,7 +688,7 @@ interval: ${config.interval}        // マスクの更新間隔
             textMenu.classList.toggle('selected', config.textDetection);
           });
 
-          menuContainer.append(faceMenu, textMenu);
+          container.append(faceMenu, textMenu);
         });
 
       });
