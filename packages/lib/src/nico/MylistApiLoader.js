@@ -45,166 +45,57 @@ const MylistApiLoader = (() => {
         cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
       }
     }
-    async getDeflistItems(options = {}) {
-      const url = 'https://www.nicovideo.jp/api/deflist/list';
-      const cacheKey = 'deflistItems';
-      const sortItem = this.sortItem;
+    async getDeflistItems(options = {}, { frontendId, frontendVersion }) {
+      const url = `https://nvapi.nicovideo.jp/v1/users/me/watch-later?sortOrder=${options.order}&sortKey=${options.sort}`;
 
-      let cacheData = cacheStorage.getItem(cacheKey);
+      // nvapi でソートされた結果をもらうのでそのままキャッシュする
+      const cacheKey = `watchLaterItems, order: ${options.order} ${options.sort}`;
+      const cacheData = cacheStorage.getItem(cacheKey);
       if (cacheData) {
-        if (options.sort) {
-          cacheData = sortItem(cacheData, options.sort, 'www');
-        }
         return cacheData;
       }
 
-      const result = await netUtil.fetch(url, {credentials: 'include'}).then(r => r.json())
-          .catch(e => { throw new Error('とりあえずマイリストの取得失敗(2)', e); });
-      if (result.status !== 'ok' || (!result.list && !result.mylistitem)) {
+      // nvapi に X-Frontend-Id header が必要
+      const result = await netUtil.fetch(url, {
+        headers: { 'X-Frontend-Id': frontendId, 'X-Frontend-Version': frontendVersion },
+        credentials: 'include',
+      }).then(r => r.json())
+        .catch(e => { throw new Error('とりあえずマイリストの取得失敗(2)', e); });
+      if (result.meta.status !== 200 || !result.data.watchLater) {
         throw new Error('とりあえずマイリストの取得失敗(1)', result);
       }
 
-      let data = result.list || result.mylistitem;
+      const data = result.data.watchLater.items;
       cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-      if (options.sort) {
-        data = sortItem(data, options.sort, 'www');
-      }
       return data;
     }
-    async getMylistItems(groupId, options = {}) {
+    async getMylistItems(groupId, options = {}, { frontendId = 6, frontendVersion = 0 } = {}) {
       if (groupId === 'deflist') {
         return this.getDeflistItems(options);
       }
-      // flapiじゃないと自分のマイリストしか取れないことが発覚
-      const url = `https://flapi.nicovideo.jp/api/watch/mylistvideo?id=${groupId}`;
-      const cacheKey = `mylistItems: ${groupId}`;
-      const sortItem = this.sortItem;
+      const url = `https://nvapi.nicovideo.jp/v2/mylists/${groupId}?sortOrder=${options.order}&sortKey=${options.sort}`;
 
+      // nvapi でソートされた結果をもらうのでそのままキャッシュする
+      const cacheKey = `mylistItems: ${groupId}, order: ${options.order} ${options.sort}`;
       const cacheData = cacheStorage.getItem(cacheKey);
       if (cacheData) {
-        return options.sort ? sortItem(cacheData, options.sort, 'flapi') : cacheData;
+        return cacheData;
       }
 
-      const result = await netUtil.fetch(url, {credentials: 'include'})
-        .then(r => r.json())
+      // nvapi に X-Frontend-Id header が必要
+      const result = await netUtil.fetch(url, {
+        headers: { 'X-Frontend-Id': frontendId, 'X-Frontend-Version': frontendVersion },
+        credentials: 'include',
+      }).then(r => r.json())
         .catch(e => { throw new Error('マイリストの取得失敗(2)', e); });
 
-      if (result.status !== 'ok' || (!result.list && !result.mylistitem)) {
+      if (result.meta.status !== 200 || !result.data.mylist) {
         throw new Error('マイリストの取得失敗(1)', result);
       }
 
-      let data = result.list || result.mylistitem;
-      data.id = groupId;
+      const data = result.data.mylist.items;
       cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-      if (options.sort) {
-        data = sortItem(data, options.sort, 'flapi');
-      }
       return data;
-    }
-    sortItem(items, sortId, format) {
-      // wwwの時とflapiの時で微妙にフォーマットが違うのでめんどくさい
-      // 自分以外のマイリストが開けるのはflapiだけの模様
-      // 編集時にはitem_idが必要なのだが、それはwwwのほうにしか入ってない
-      // flapiに統一したい
-      sortId = parseInt(sortId, 10);
-
-      let sortKey = ([
-        'create_time', 'create_time',
-        'mylist_comment', 'mylist_comment', // format = wwwの時はdescription
-        'title', 'title',
-        'first_retrieve', 'first_retrieve',
-        'view_counter', 'view_counter',
-        'thread_update_time', 'thread_update_time',
-        'num_res', 'num_res',
-        'mylist_counter', 'mylist_counter',
-        'length_seconds', 'length_seconds'
-      ])[sortId];
-
-      if (format === 'www' && sortKey === 'mylist_comment') {
-        sortKey = 'description';
-      }
-      if (format === 'www' && sortKey === 'thread_update_time') {
-        sortKey = 'update_time';
-      }
-
-      let order;
-      switch (sortKey) {
-        // 偶数がascで奇数がdescかと思ったら特に統一されてなかった
-        case 'first_retrieve':
-        case 'thread_update_time':
-        case 'update_time':
-          order = (sortId % 2 === 1) ? 'asc' : 'desc';
-          break;
-        // 数値系は偶数がdesc
-        case 'num_res':
-        case 'mylist_counter':
-        case 'view_counter':
-        case 'length_seconds':
-          order = (sortId % 2 === 1) ? 'asc' : 'desc';
-          break;
-        default:
-          order = (sortId % 2 === 0) ? 'asc' : 'desc';
-      }
-
-      //window.console.log('sortKey?', sortId, sortKey, order);
-      if (!sortKey) {
-        return items;
-      }
-
-      let getKeyFunc = (function (sortKey, format) {
-        switch (sortKey) {
-          case 'create_time':
-          case 'description':
-          case 'mylist_comment':
-          case 'update_time':
-            return item => item[sortKey];
-          case 'num_res':
-          case 'mylist_counter':
-          case 'view_counter':
-          case 'length_seconds':
-            if (format === 'flapi') {
-              return item => item[sortKey] * 1;
-            } else {
-              return item => item.item_data[sortKey] * 1;
-            }
-          default:
-            if (format === 'flapi') {
-              return item => item[sortKey];
-            } else {
-              return item => item.item_data[sortKey];
-            }
-        }
-      })(sortKey, format);
-
-      let compareFunc = (function (order, getKey) {
-        switch (order) {
-          // sortKeyが同一だった場合は動画IDでソートする
-          // 銀魂など、一部公式チャンネル動画向けの対応
-          case 'asc':
-            return function (a, b) {
-              let ak = getKey(a), bk = getKey(b);
-              if (ak !== bk) {
-                return ak > bk ? 1 : -1;
-              }
-              else {
-                return a.id > b.id ? 1 : -1;
-              }
-            };
-          case 'desc':
-            return function (a, b) {
-              let ak = getKey(a), bk = getKey(b);
-              if (ak !== bk) {
-                return (ak < bk) ? 1 : -1;
-              }
-              else {
-                return a.id < b.id ? 1 : -1;
-              }
-            };
-        }
-      })(order, getKeyFunc);
-
-      items.sort(compareFunc);
-      return items;
     }
     async getMylistList() {
       const url = 'https://www.nicovideo.jp/api/mylistgroup/list';
