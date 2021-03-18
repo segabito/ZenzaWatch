@@ -53,22 +53,18 @@ const nicoUtil = {
             }
           })(new Date(context.minRegisteredAt).getTime());
         }
-        if (context.maxDuration) {
+        if (context.maxDuration || context.minDuration) {
           result.l_range = context.maxDuration === 300 ? L_RANGE.U_5MIN : L_RANGE.O_20MIN;
         }
-        // {"type":"search","context":{"keyword":"\u0001\u0002","sortKey":"lastCommentTime","sortOrder":"desc","page":1,"pageSize":32}
-        // {"type":"search","context":{"tag":"\u0001\u0002","sortKey":"lastCommentTime","sortOrder":"desc","page":1,"pageSize":32}}
         return result;
       }
 
       if (playlist.type === 'mylist') {
         result.playlist_type = 'mylist';
         result.group_id = context.mylistId;
-        // {"type":"mylist","context":{"mylistId":0000,"sortKey":"addedAt","sortOrder":"desc"}
       } else if (playlist.type === 'watchlater') {
         result.playlist_type = 'deflist';
         result.group_id = 'deflist';
-        // {"type":"watchlater","context":{"sortKey":"addedAt","sortOrder":"desc"}}
       }
       result.order = context.sortOrder;
       result.sort = context.sortKey;
