@@ -6,7 +6,7 @@ const PRODUCT = 'ZenzaWatch';
 //===BEGIN===
 
 const GateAPI = (() => {
-  const {Handler, PromiseHandler, Emitter, EmitterInitFunc, workerUtil, parseThumbInfo} = window.ZenzaLib || {};
+  const {dimport, Handler, PromiseHandler, Emitter, EmitterInitFunc, workerUtil, parseThumbInfo} = window.ZenzaLib || {};
 //@require gate
   const {post, parseUrl, xFetch, uFetch, init} = gate();
   const {IndexedDbStorage} = window.ZenzaLib;
@@ -65,7 +65,6 @@ const GateAPI = (() => {
     //   console.log('disable bridge', origin);
     //   return;
     // }
-    console.log('enable bridge', origin);
 
 
     let isOk = false;
@@ -82,6 +81,11 @@ const GateAPI = (() => {
     };
 
     const PREFIX = PRODUCT || 'ZenzaWatch';
+
+    // const kvs = dimport('std:kv-storage')
+    //   .then(({StorageArea}) => new StorageArea(PREFIX)).catch(() => null);
+    const kvs = null;
+
     const dumpConfig = (params, sessionId) => {
       if (!params.keys) {
         return;
@@ -89,7 +93,12 @@ const GateAPI = (() => {
       const prefix = params.prefix || PREFIX;
       const config = {};
       const {keys, command} = params;
-      keys.forEach(key => {
+      keys.forEach(async key => {
+        if (kvs) {
+          const value = await kvs.get(key);
+          (value !== undefined) && (config[key] = value);
+          return;
+        }
         const storageKey = `${prefix}_${key}`;
         if (localStorage.hasOwnProperty(storageKey) || localStorage[storageKey] !== undefined) {
           try {
@@ -104,6 +113,10 @@ const GateAPI = (() => {
 
     const saveConfig = params => {
       if (!params.key) {
+        return;
+      }
+      if (kvs) {
+        kvs.set(params.key, params.value);
         return;
       }
       const prefix = params.prefix || PREFIX;
@@ -249,15 +262,21 @@ const GateAPI = (() => {
 
 
   const smile = () => {
-    const {port, TOKEN} = init({prefix: `storyboard${PRODUCT}`});
+    const {port, TOKEN} = init({
+      prefix: `storyboard${PRODUCT}`,
+      type: `storyboard${PRODUCT}_${location.host.split('.')[0].replace(/-/g, '_')}`
+    });
 
     const videoCapture = (src, sec) => {
       return new Promise((resolve, reject) => {
-        const v = document.createElement('video');
+        const v = Object.assign(document.createElement('video'), {
+          volume: 0, autoplay: false, controls: false
+        });
 
         v.addEventListener('loadedmetadata', () => v.currentTime = sec);
         v.addEventListener('error', err => {
           v.remove();
+          console.warn('capture fail', {src, sec, err, videoError: v.error});
           reject(err);
         });
 
@@ -275,9 +294,6 @@ const GateAPI = (() => {
         v.addEventListener('seeked', onSeeked, {once: true});
 
         document.body.append(v);
-        v.volume = 0;
-        v.autoplay = false;
-        v.controls = false;
         v.src = src;
         v.currentTime = sec;
       });
@@ -295,8 +311,8 @@ const GateAPI = (() => {
 
       videoCapture(params.src, params.sec).then(canvas => {
         const dataUrl = canvas.toDataURL('image/png');
-        //console.info('video capture success', dataUrl.length);
-        post({command, params: {dataUrl}}, {sessionId});
+        // console.info('video capture success', dataUrl.length);
+        post({status: 'ok', command, params: {dataUrl}}, {sessionId});
       });
     });
 

@@ -1,6 +1,7 @@
 import {createVideoElement} from '../../../zenza/src/videoPlayer/createVideoElement';
 import {sleep} from '../infra/sleep';
 import {CrossDomainGate} from '../infra/CrossDomainGate';
+import {PRODUCT} from '../../../../src/ZenzaWatchIndex';
 //===BEGIN===
 
 const VideoCaptureUtil = (() => {
@@ -16,7 +17,7 @@ const VideoCaptureUtil = (() => {
     crossDomainGates[server] = new CrossDomainGate({
       baseUrl,
       origin: `https://${server}/`,
-      type: 'storyboard_' + server.split('.')[0].replace(/-/g, '_')
+      type: `storyboard${PRODUCT}_${server.split('.')[0].replace(/-/g, '_')}`
     });
 
     return crossDomainGates[server];
@@ -58,8 +59,7 @@ const VideoCaptureUtil = (() => {
 
       const gate = initializeByServer(server, fileId);
 
-      const dataUrl = gate.videoCapture(src, sec);//.then(dataUrl => {
-        //window.console.info('video capture success ', dataUrl.length);
+      const dataUrl = await gate.videoCapture(src, sec);
 
       const bin = atob(dataUrl.split(',')[1]);
       const buf = new Uint8Array(bin.length);
@@ -142,7 +142,7 @@ const VideoCaptureUtil = (() => {
     canvas.width = width;
     canvas.height = height;
 
-    const {canvas: videoCanvas} = await videoToCanvas(video);//.then(({canvas}) => {
+    const {canvas: videoCanvas} = await videoToCanvas(video);
 
     ct.fillStyle = 'rgb(0, 0, 0)';
     ct.fillRect(0, 0, width, height);
@@ -248,17 +248,66 @@ VideoCaptureUtil.capture = function(src, sec) {
     .catch(e => { reject(e); return e; });
 }.bind({});
 
-VideoCaptureUtil.capTube = ({title, videoId, author}) => {
+VideoCaptureUtil.initCapTube = function() {
   const iframe = document.querySelector(
     '#ZenzaWatchVideoPlayerContainer iframe[title^=YouTube]');
   if (!iframe) {
-    return;
+    return null;
   }
-  const command = 'capture';
-  iframe.contentWindow.postMessage(
-    JSON.stringify({command, title, videoId, author}),
-    'https://www.youtube.com'
-  );
+  if (this.bridge) {
+    return this.bridge;
+  }
+
+  const cw = iframe.contentWindow;
+  const promises = this.promises;
+  self.addEventListener('message', e => {
+    if (e.source !== cw) { return; }
+    const {id, body, sessionId, status} = e.data;
+    const {command, params} = body;
+    if (id !== 'CapTube') {
+      return;
+    }
+    switch (command) {
+      case 'commandResult':
+        if (promises[sessionId]) {
+          if (status === 'ok') {
+            promises[sessionId].resolve(params.result);
+          } else {
+            promises[sessionId].reject(params.result);
+          }
+          delete promises[sessionId];
+        }
+        return;
+    }
+  });
+  const post = (body, options = {}) => {
+    const sessionId = `send:CapTube:${this.sessionId++}`;
+    return new Promise((resolve, reject) => {
+        promises[sessionId] = {resolve, reject};
+        cw.postMessage({body, sessionId}, location.href, options.transfer);
+        if (typeof options.timeout === 'number') {
+          setTimeout(() => {
+            reject({status: 'fail', message: 'timeout'});
+            delete promises[sessionId];
+          }, options.timeout);
+        }
+      }).finally(() => { delete promises[sessionId]; });
+  };
+  return this.bridge = {post};
+}.bind({promises: {}, sessionId: 1, bridge: null});
+
+VideoCaptureUtil.capTube = ({title, videoId, author}) => {
+  const tube = VideoCaptureUtil.initCapTube();
+  if (!tube) { return; }
+  const command = 'capTube';
+  tube.post({command, params: {title, videoId, author}}, {timeout: 30000});
+};
+
+VideoCaptureUtil.capTubeThumbnail = (width = 320, height = 180, type = 'image/webp') => {
+  const tube = VideoCaptureUtil.initCapTube();
+  if (!tube) { return; }
+  const command = 'capTubeThumbnail';
+  tube.post({command, params: {width, height, type}}, {timeout: 30000});
 };
 
 

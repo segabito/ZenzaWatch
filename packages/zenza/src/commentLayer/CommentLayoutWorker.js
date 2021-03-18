@@ -118,7 +118,7 @@ const CommentLayoutWorker = (config => {
     const findCollisionStartIndex = (target, members) => {
       const tl = target.beginLeft;
       const tr = target.endRight;
-      const fork = target.fork;
+      const layerId = target.layerId;
       for (let i = 0, len = members.length; i < len; i++) {
         const o = members[i];
         const ol = o.beginLeft;
@@ -129,7 +129,7 @@ const CommentLayoutWorker = (config => {
           return -1;
         }
 
-        if (fork !== o.fork || o.invisible || o.isOverflow) {
+        if (layerId !== o.layerId || o.invisible || o.isOverflow) {
           continue;
         }
 

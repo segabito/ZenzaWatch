@@ -1,6 +1,7 @@
 // import * as _ from 'lodash';
 // const emitter;
 import {global} from '../../../../src/ZenzaWatchIndex';
+import {ClassList} from './ClassListWrapper';
 //===BEGIN===
 const Fullscreen = {
   now() {
@@ -42,9 +43,10 @@ const Fullscreen = {
   },
   _handleEvents() {
     this._handleEvnets = _.noop;
+    const cl = ClassList(document.body);
     const handle = () => {
       const isFull = this.now();
-      document.body.classList.toggle('is-fullscreen', isFull);
+      cl.toggle('is-fullscreen', isFull);
       global.emitter.emit('fullscreenStatusChange', isFull);
     };
     document.addEventListener('webkitfullscreenchange', handle, false);

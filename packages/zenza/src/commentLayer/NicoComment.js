@@ -24,14 +24,14 @@ class NicoComment extends Emitter {
     super();
     this._currentTime = 0;
 
-    params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params);
+    params.nicoChatFilter = this._nicoChatFilter = new NicoChatFilter(params.filter || {});
     this._nicoChatFilter.on('change', this._onFilterChange.bind(this));
 
     NicoComment.offscreenLayer.get().then(async offscreen => {
       params.offScreen = offscreen;
-      this.topGroup = new NicoChatGroup(this, NicoChat.TYPE.TOP, params);
-      this.nakaGroup = new NicoChatGroup(this, NicoChat.TYPE.NAKA, params);
-      this.bottomGroup = new NicoChatGroup(this, NicoChat.TYPE.BOTTOM, params);
+      this.topGroup = new NicoChatGroup(NicoChat.TYPE.TOP, params);
+      this.nakaGroup = new NicoChatGroup(NicoChat.TYPE.NAKA, params);
+      this.bottomGroup = new NicoChatGroup(NicoChat.TYPE.BOTTOM, params);
 
       this.nicoScripter = new NicoScripter();
       this.nicoScripter.on('command', (command, param) => this.emit('command', command, param));
@@ -91,14 +91,15 @@ class NicoComment extends Emitter {
       nicoChats.push(nicoChat);
     }
     nicoChats = []
-      .concat(...
-        nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork < 1 && c.isSubThread)
+      .concat(... // fork0 通常のコメント fork1 投稿者コメント fork2 かんたんコメント
+        nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork !== 1 && c.isSubThread)
           .splice(maxCommentsByDuration))
       .concat(...
-        nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork < 1 && !c.isSubThread)
+        nicoChats.filter(c => (c.isPatissier || c.isCA) && c.fork !== 1 && !c.isSubThread)
           .splice(maxCommentsByDuration))
-      .concat(...nicoChats.filter(c => !(c.isPatissier || c.isCA) || c.fork > 0));
-      window.console.timeLog('コメントのパース処理', 'NicoChat created');
+      .concat(...nicoChats.filter(c => !(c.isPatissier || c.isCA) || c.fork === 1));
+      window.console.timeLog && window.console.timeLog('コメントのパース処理', 'NicoChat created');
+    nicoChats.filter(chat => chat.fork === 2).forEach(chat => chat.size = NicoChat.SIZE.SMALL);
 
     if (_.isObject(options.replacement) && _.size(options.replacement) > 0) {
       window.console.time('コメント置換フィルタ適用');

@@ -92,9 +92,6 @@ CustomElements.initialize = (() => {
 *, *::after, *::before {
   box-sizing: border-box;
   user-select: none;
-  --color: #fea;
-  --bg-color: rgba(0, 0, 0, 0.7);
-  --pointer-color: rgba(255, 128, 128, 0.6);
 }
 
 :host(.owner-comment) * {
@@ -112,11 +109,11 @@ CustomElements.initialize = (() => {
   height: 16px;
   top: calc(100% - 2px);
   left: 50%;
-  color: var(--color);
+  color: var(--color, #fea);
   border-style: solid;
   border-width: 8px;
   border-color:
-    var(--pointer-color)
+    var(--pointer-color, rgba(255, 128, 128, 0.6))
     transparent
     transparent
     transparent;
@@ -132,7 +129,7 @@ CustomElements.initialize = (() => {
   padding: 2px 4px;
   background: rgba(0, 0, 0, 0.8);
   border-radius: 4px;
-  border-color: var(--pointer-color);
+  border-color: var(--pointer-color, rgba(255, 128, 128, 0.6));
   border-style: solid;
   opacity: 0.5;
 }
@@ -179,7 +176,7 @@ CustomElements.initialize = (() => {
       const per = this.props.time / Math.max(this.props.duration, 1) * 100;
       this.hidden = per <= 0;
       this.setAttribute('data-param', this.props.time);
-      this._root.style.transform = `translate(${per}vw, 0) translateX(-50%)`;
+      this._root.style.transform = `translate(${per}vw, 0) translateX(-50%) scale(var(--scale-pp, 1.2))`;
       this._label.style.transform = `translate(-${per}%, 0)`;
     }
 

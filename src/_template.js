@@ -32,7 +32,7 @@
 // @exclude        *://ext.nicovideo.jp/thumb_channel/*
 // @grant          none
 // @author         segabito
-// @version        2.4.14
+// @version        2.6.2
 // @run-at         document-body
 // @require        https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js
 // ==/UserScript==
@@ -43,7 +43,8 @@ import {uQuery, uq} from '../packages/lib/src/uQuery';
 import {util} from './util';
 import {components} from '../packages/components/src/index';
 import {State} from './State';
-import {api, NicoVideoApi} from './loader/api';
+import {VideoInfoLoader} from '../packages/lib/src/nico/loader';
+import {ThumbInfoLoader, MylistApiLoader, UploadedVideoApiLoader, CacheStorage, CrossDomainGate, IchibaLoader, UaaLoader, PlaybackPosition, NicoVideoApi, RecommendAPILoader, NVWatchCaller, CommonsTreeLoader, NicoRssLoader, MatrixRankingLoader} from '../packages/lib/src/nico/loader';
 import {VideoInfoModel} from './VideoInfo';
 import {VideoSearch, NicoSearchApiV2Loader} from '../packages/lib/src/nico/VideoSearch';
 import {TagEditApi} from '../packages/lib/src/nico/TagEditApi';
@@ -63,19 +64,19 @@ import {CommentLayoutWorker} from '../packages/zenza/src/commentLayer/CommentLay
 import {SlotLayoutWorker} from '../packages/zenza/src/commentLayer/SlotLayoutWorker';
 import {NicoScripter} from '../packages/zenza/src/commentLayer/NicoScripter';
 import {CommentPanel} from './CommentPanel';
-import {VideoList} from './VideoList';
+import {PlayList} from '../packages/zenza/src/Playlist/PlayList';
 import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
 import {StoryboardCacheDb} from '../packages/lib/src/nico/StoryboardCacheDb';
 import {NicoVideoPlayerDialog} from './NicoVideoPlayerDialog';
 import {RootDispatcher} from './RootDispatcher';
 import {CommentInputPanel} from './CommentInputPanel';
-import {SettingPanel} from './SettingPanel';
+// import {SettingPanel} from './SettingPanel';
 import {TagListView} from './TagListView';
 import {VideoInfoPanel} from './VideoInfoPanel';
 import {GinzaSlayer} from './GinzaSlayer';
 import {initialize} from './initializer';
 import {CustomElements} from '../packages/zenza/src/parts/CustomElements';
-import {CONSTANT} from './constant';
+import {CONSTANT, NICORU} from './constant';
 import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 import {parseThumbInfo} from '../packages/lib/src/nico/parseThumbInfo';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
@@ -83,6 +84,12 @@ import {ENV,VER} from './ZenzaWatchIndex';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 import {netUtil} from '../packages/lib/src/infra/netUtil';
 import {initCssProps} from '../packages/zenza/src/init/inintCssProps';
+import {WindowResizeObserver} from '../packages/lib/src/infra/Observable';
+import {dimport} from '../packages/lib/src/infra/dimport';
+import {MediaTimeline} from '../packages/lib/src/dom/MediaTimeline';
+import {cssUtil} from '../packages/lib/src/css/css';
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
+import {domUtil} from '../packages/lib/src/dom/domUtil';
 //@require AntiPrototypeJs
 AntiPrototypeJs();
 (() => {
@@ -98,36 +105,50 @@ AntiPrototypeJs();
 
 (function (window) {
   const self = window;
+  const document = window.document;
   'use strict';
   const PRODUCT = 'ZenzaWatch';
 // 公式プレイヤーがurlを書き換えてしまうので読み込んでおく
   const START_PAGE_QUERY = (location.search ? location.search.substring(1) : '');
-  const monkey = (PRODUCT, START_PAGE_QUERY) /*** (｀・ω・´)9m ***/ => {
+  const monkey = async (PRODUCT, START_PAGE_QUERY) /*** (｀・ω・´)9m ***/ => {
     const Array = window.PureArray ? window.PureArray : window.Array;
     let console = window.console;
     let $ = window.ZenzaJQuery || window.jQuery, _ = window.ZenzaLib ? window.ZenzaLib._ : window._;
     let TOKEN = 'r:' + (Math.random());
     let CONFIG = null;
+    const NICORU = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAGh0lEQVRIS3VWeWxUxxn/zbxjvWuvvV4vXp9g43OddTB2EYEWnEuKgl3USqRHIpRIbVS7KapUmSbUIUpBBIjdtGpKHan9p0IkkQhNGtlUFaWFkGIi4WJq8BqMbQ4fuz7WV3bt3fdmXjWza8uozZOe3ryZb77fd/zm+4bgfx8VgCmmczN21HocoefiLFYfnI3VzBtBu5jP0HKWcjJtvbpiuzgd9Z6emL/076Sa1b0raska/WJMATBgp6/MM9o+MjO1y7QWV0W2Fmly/MVdY3VOJU4UZ607Ozhd0AJ8FgCgAOAALCG0AiC+4uUObXOT13mvYyQcFuv8t3sL2PbKdJrr0qnTpkj5xRizJubivHtgge87OSoU0mK3G6HFDc1R49p7SUMFgLUCIIRYul59yKENHQxGomj/fr6xd0e2lu3RAUIBzgEujUqYQhNbJ6fjOHlp0mj5YEzLSXUgapQcXoj3vZH0hAkpGTcbrWvKtA90BCMRs6ullO7akkW5YWEuwqSzKTpBio0mHQfiJgfnFuw2CqJSnL06wxva7vCc1FR1dqmyOcZ7hCdq0oOnfcXu6/0j4Sl0tpTyhq3rqBU3cerSFE6cC8KhEzzzqAs/3ZUPm41iaGwJv+oag6YAlBLs/2Yh8nId6Oqe5I3td2ixex1GwpuqgL8HJECZp7xzcPp2Q9v38o2WbxVq3OQyQ8c+foDXz0zIUHxnSzr++KMyONNVdPfPY/ubA6uJvnm8GlXr7TJ07Z+MGfs/HNPKPOVdg9O3G0luxpO104vXegw+y4MnNlNvlgZmchBQvNM5iv0fjktFP9jpwm9eKkFaqoqrtxaw5Y0AqrwU/SGOW21+lBc4pFwobCDnlWtco5nU49xcR/y5/rduTNw48O7eAuMnjfkaMxgoIbAsgl93jqIlCfByvQvvvPgwQE2+gt4xhoG2alQU2mEaFlSd4nedY8a+k6OaP9d/lFRkl1y+NTm07eqRKlZX5lRYjIOKXFoEh8/cx5sfB6VljZuceH9fuQzRlf55bFsTov63q+FbnwSwUfQMLrKvtfYrFdkl3cSl50fn4mP28RM1Vm6WTpgJECJYaOHcf+Zxvm8WCgX8hWnYs9UDTSeYmInj054wrCS7dte54XbqYJxBUalYt/Je6RW6l0SSra+X6PjrgWo4UxVwJgASfCeEgHHhDaAKMnMLMjvCAvGKheSXi7EFUAVYjDA8e7QP/xqKyyNjPVVpw6c/98ORokpuCwCx73zfPL4YXJTeVBWmoqE2CwolmF00cerzEJbiDAYDvrvNg5I8OxiDXI8um9j99g2cH4iBKMQTYda0I/RejZXt0gmXIbJkDg59dA+//CQkvXnpGxno+GEZUlIohsdjKPnZ9VWanjtQjqc3uWEaDKpGMDkXt7xNvUJ3lJS6vZfvhEPbAm3VrHK9Q3mIRV2jaPkgQdOWZz04+nwxVBvFg4llbGntQ1Ya0B/kuPB6Ber9GassGrgfZb79fUqp29tNavK9b/WOhQ6c+nGR8fzjXs2McZlU4cHac9D8pAut3y6CQ1cwMrWMHYcCyEkDhsMc/2ytwOPVSQAbxfsXQsYLv7+r1eR7jxKfZ0NtYPp+z/YSjf+ttZqmrcnDkT/fx8EziRCJx5+nSQovxS0MTsqWIZ9//KICTzyaATALX8Y4njnSxy8PGdTnWV8nS4XPm9oZCEUaTu/baOzZ6dWMZROaQvH5wByO/WUcMcPEcpzDYFx6JkB0lUBXKSrzHHhtdyHysjQQjeKjS1PGc+8Oaz5valcgFGmUAFl6ViVR5gLTSwz9xx/hvo3p1Fw2ZagiMY54XNQmskpfsUcCEQJ7CpHGKDYFgeEFXvXqTeqxK7CYyzcTnxlYLddFmY6mu7PRDkUhZuD4I7Rsg1NW1ITF4lxQIHk+Em1EeJM4BtBUDN5b5L5Xb3LGLLUo09F8dza6tlzLNseK3eqhkbB5UFh4/rVyo97v0hSdyNhaPEHdxAG0QETDUQhY3MLFG3PGU8duy35a7FYPj4TNhxqO3LPSMjdmak3jC0bHMgNe3uniL9bnsMoCB013UKqpiTZmmNxaiHI+MBrlf7oYVP7w2RxNUYC8dK15eNb4vy1zBUQ2/dw03edKZe2BENuV4AnBC485UZpjk393gjGcuiIuA4mS4vMqZ+ciSsvEl/GvbPqrlFtpoWLisQ1abYxbe649MJ8AsAmAvLYAWAJwfXOBesGmkNNX7hlfeW35LyB037N9NspNAAAAAElFTkSuQmCC';
     const dll = {};
     const util = {};
-    let {workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
+    let {dimport, workerUtil, IndexedDbStorage, Handler, PromiseHandler, Emitter, parseThumbInfo, WatchInfoCacheDb, StoryboardCacheDb, VideoSessionWorker} = window.ZenzaLib;
     START_PAGE_QUERY = encodeURIComponent(START_PAGE_QUERY);
+
     //@version
     //@environment
 
     console.log(
-      `%c${PRODUCT}@${ENV} v${VER}`,
+      `%c${PRODUCT}@${ENV} v${VER}%c  (ﾟ∀ﾟ) ｾﾞﾝｻﾞ!  %cNicorü? %c田%c \n\nplatform: ${navigator.platform}\nua: ${navigator.userAgent}`,
       'font-family: Chalkduster; font-size: 200%; background: #039393; color: #ffc; padding: 8px; text-shadow: 2px 2px #888;',
-      '(ﾟ∀ﾟ) ｾﾞﾝｻﾞ!'
+      '',
+      'font-family: "Chalkboard SE", Chalkduster,HeadLineA; font-size: 24px;',
+      'display: inline-block; font-size: 24px; color: transparent; background-repeat: no-repeat; background-position: center; background-size: contain;' +
+      `background-image: url(${NICORU});`,
+      'line-height: 1.25; font-weight: bold; '
     );
+    console.nicoru =
+      console.log.bind(console,
+        '%c　 ',
+        'display: inline-block; font-size: 120%; color: transparent; background-repeat: no-repeat; background-position: center; background-size: contain;' +
+        `background-image: url(${NICORU})`
+        );
 
 //@require Config
+await Config.promise('restore');
 //@require uQuery
 
     const ZenzaWatch = {
       version: VER,
       env: ENV,
-      debug: {},
+      debug: {WatchInfoCacheDb, StoryboardCacheDb},
       api: {},
       init: {},
       lib: { $: window.ZenzaLib.$ || $, _ },
@@ -139,6 +160,15 @@ AntiPrototypeJs();
       state: {},
       dll
     };
+    Promise.all([//https://unpkg.com/lit-html@1.1.2/lit-html.js?module
+      dimport('https://unpkg.com/lit-html@1.1.2/lit-html.js?module'),
+      dimport('https://unpkg.com/lit-html@1.1.2/directives/repeat?module'),
+      dimport('https://unpkg.com/lit-html@1.1.2/directives/class-map?module')
+    ]).then(([lit, ...directives]) => {
+      dll.lit = lit;
+      dll.directives = Object.assign({}, ...directives);
+      emitter.emitResolve('lit-html', dll.lit);
+    });
 
     const Navi = {
       version: VER,
@@ -169,21 +199,53 @@ const global = {
   notify: msg => ZenzaWatch.external.execCommand('notify', msg),
   alert: msg => ZenzaWatch.external.execCommand('alert', msg),
   config: Config,
-  api: ZenzaWatch.api
+  api: ZenzaWatch.api,
+  innerWidth: window.innerWidth,
+  innerHeight: window.innerHeight,
+  NICORU,
+  dll
 };
+//@require ClassList
+//@require domUtil
 //@require util
 ZenzaWatch.lib.$ = uQuery;
 workerUtil.env({netUtil, global});
 //@require initCssProps
 initCssProps();
+WindowResizeObserver.subscribe(({width, height}) => {
+  global.innerWidth  = width;
+  global.innerHeight = height;
+  cssUtil.setProps(
+    [document.documentElement, '--inner-width', cssUtil.number(width)],
+    [document.documentElement, '--inner-height', cssUtil.number(height)]
+  );
+});
 //@require components
 //@require State
-//@require api
+//@require VideoInfoLoader
 //@require VideoInfoModel
 //@require VideoSearch
 //@require TagEditApi
-Object.assign(ZenzaWatch.api, {NicoSearchApiV2Loader});
-// global.api.StoryboardCacheDb = StoryboardCacheDb;
+Object.assign(ZenzaWatch.api, {
+  VideoInfoLoader,
+  ThumbInfoLoader,
+  MylistApiLoader,
+  UploadedVideoApiLoader,
+  CacheStorage,
+  IchibaLoader,
+  UaaLoader,
+  PlaybackPosition,
+  NicoVideoApi,
+  RecommendAPILoader,
+  NVWatchCaller,
+  CommonsTreeLoader,
+  NicoRssLoader,
+  MatrixRankingLoader,
+  NicoSearchApiV2Loader
+});
+ZenzaWatch.init.mylistApiLoader = MylistApiLoader;
+ZenzaWatch.init.UploadedVideoApiLoader = UploadedVideoApiLoader;
+//@require MediaTimeline
 WatchInfoCacheDb.api(NicoVideoApi);
 StoryboardCacheDb.api(NicoVideoApi);
 
@@ -211,15 +273,13 @@ ZenzaWatch.api.StoryboardInfoLoader = StoryboardInfoLoader;
 
 //@require CommentPanel
 
-//@require VideoList
+//@require PlayList
 
 //@require NicoVideoPlayerDialog
 
 //@require RootDispatcher
 
 //@require CommentInputPanel
-
-//@require SettingPanel
 
 //@require TagListView
 
@@ -251,9 +311,10 @@ ZenzaWatch.modules.TextLabel = TextLabel;
         .then(r => r.text())
         .then(result => {
           const $dom = util.$(`<div>${result}</div>`);
-          const isLogin = $dom.find('.siteHeaderLogin, #siteHeaderLogin').length < 1;
-          const isPremium =
-            $dom.find('#siteHeaderNotification').hasClass('siteHeaderPremium');
+
+          const userData = JSON.parse($dom.find('#CommonHeader')[0].dataset.commonHeader).initConfig.user;
+          const isLogin = !!userData.isLogin;
+          const isPremium = !!userData.isPremium;
           window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);
           nicoUtil.isLogin = () => isLogin;
           nicoUtil.isPremium = util.isPremium = () => isPremium;
@@ -264,6 +325,7 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 
   }; // end of monkey
 (() => {
+//@require dimport
 //@require Emitter
 //@require workerUtil
 //@require IndexedDbStorage
@@ -273,7 +335,7 @@ ZenzaWatch.modules.TextLabel = TextLabel;
 //@require VideoSessionWorker
 
   window.ZenzaLib = Object.assign(window.ZenzaLib || {}, {
-    workerUtil,
+    workerUtil, dimport,
     IndexedDbStorage, WatchInfoCacheDb,
     Handler, PromiseHandler, Emitter, EmitterInitFunc,
     parseThumbInfo, StoryboardCacheDb, VideoSessionWorker

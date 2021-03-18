@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.7
+// @version     0.5.14
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -70,6 +70,11 @@ AntiPrototypeJs().then(() => {
     window.MylistPocket = MylistPocket;
 
     const protocol = location.protocol;
+    const global = {
+      debug: MylistPocket.debug,
+      TOKEN,
+      PRODUCT
+    };
 
     const __css__ = (`
       a[href*='watch/'] > g-img {
@@ -366,7 +371,8 @@ AntiPrototypeJs().then(() => {
       body.BaseLayout {
         margin-top: 0 !important;
       }
-
+      ${
+      location.host === 'www.niovideo.jp' ? `
       #siteHeader {
         position: sticky;
         left: 0 !important;
@@ -468,7 +474,7 @@ AntiPrototypeJs().then(() => {
           -1px -1px 0 #fff;
 
               }
-
+      ` : ''}
     `).trim();
 
     const nicoadHideCss = `
@@ -484,14 +490,37 @@ AntiPrototypeJs().then(() => {
     const responsiveCss = `
 
       @media screen and (max-width: 1350px) {
+        .RankingGenreListContainer {
+          border-right: 0;
+          border-left: 56px solid #fafafa;
+        }
         .RankingGenreListContainer-categoryHelp {
           position: static;
         }
         .GlobalHeader#siteHeader #siteHeaderInner {
           width: 1024px;
         }
+        .RankingHeaderContainer-headerInner {
+          margin-left: 64px;
+          width: 1214px;
+        }
+        .LaneHeader {
+          flex: 1 1 160px;
+          width: 160px;
+        }
+        .LaneHeader+.LaneHeader {
+          /*margin-left: 13px;*/
+        }
+        .LaneHeader>p {
+          white-space: normal;
+          height: 32px;
+          line-height: 16px;
+        }
+        .CustomButton {
+          width: 136px;
+        }
         .MatrixRanking-body .BaseLayout-block {
-          width: ${1024 + 64 * 2}px;
+          width: ${1280}px;
         }
         .RankingMainContainer-decorateChunk+.RankingMainContainer-decorateChunk,
          .RankingMainContainer-decorateChunk>*+* {
@@ -1828,6 +1857,7 @@ AntiPrototypeJs().then(() => {
 
       return util;
     })();
+//@require bounce
 //@require css
 Object.assign(util, css);
 Object.assign(util, workerUtil);
@@ -1905,7 +1935,6 @@ Object.assign(util, textUtil);
     //@require objUtil
     //@require StorageWriter
     //@require DataStorage
-    //@require bounce
 
     const config = (() => {
       const DEFAULT_CONFIG = {
@@ -2501,7 +2530,7 @@ Object.assign(util, textUtil);
       _init() {
         this._view = document.querySelector('.mylistPocketHoverMenu');
 
-        this._view.addEventListener('click',     this._onClick.bind(this));
+        this._view.addEventListener(location.host.includes('google') ? 'mouseup' : 'click', this._onClick.bind(this));
         this._view.addEventListener('mousedown', this._onMousedown.bind(this));
         this._view.addEventListener('contextmenu', this._onContextMenu.bind(this));
 
@@ -3636,20 +3665,42 @@ Object.assign(util, textUtil);
       };
     })();
 
-    const getNgEnv = () => {
+    const waitForDom = (query, timeout = 30000) => {
+      const now = Date.now();
+      return new Promise(async (ok, ng) => {
+        while (now + timeout > Date.now()) {
+          const dom = document.querySelector(query);
+          console.log('waitForDom', query, dom, now + timeout, Date.now());
+          if (dom) {
+            return ok(dom);
+          }
+          await new Promise(wait => setTimeout(wait, 1000));
+        }
+        ng('timeout');
+      });
+    };
+
+    const getNgEnv = async () => {
       if (location.host === 'www.nicovideo.jp' &&
          (location.pathname.startsWith('/ranking') ||
           location.pathname.startsWith('/tag')     ||
           location.pathname.startsWith('/search'))
       ) {
+        if (document.querySelector('#MatrixRanking-app')) {
+          await waitForDom('.RankingMatrixVideosRow');
+        }
         return {
           query:
-            '.item[data-video-id]:not(.is-ng-wait), .item_cell[data-video-id]:not(.is-ng-wait), .VideoItem:not(.is-ng-wait), .RankingMainVideo[data-video-id]:not(.is-ng-wait)',
+            '.item[data-video-id]:not(.is-ng-wait), .item_cell[data-video-id]:not(.is-ng-wait), '+
+            '.VideoItem:not(.is-ng-wait), .RankingMainVideo[data-video-id]:not(.is-ng-wait)',
           container:
             Array.from(
               document.querySelectorAll(
-                '.contentBody .list, .container.column1024-0, .RankingMatrixVideosRow, .RankingMainContainer, .RankingVideoListContainer')
-            )
+                '.contentBody .list, .container.column1024-0,'+
+                '.RankingMatrixVideosRow, '+
+                '.RankingMainContainer, .RankingVideoListContainer')
+            ),
+          subtree: false
         };
       }
       if (location.host === 'www.nicovideo.jp' &&
@@ -3739,7 +3790,10 @@ Object.assign(util, textUtil);
           watchId = m[1];
         }
 
-        if (!watchId) { return ignore(); }
+        if (!watchId) {
+          item.classList.add('.no-watch-id');
+          return ignore();
+        }
 
         item.classList.add('is-ng-queue');
         onInview(item, watchId);
@@ -3756,8 +3810,8 @@ Object.assign(util, textUtil);
       return intersectionObserver;
     };
 
-    const initNgDom = ({intersectionObserver, query, closest, container}) => {
-
+    const initNgDom = ({intersectionObserver, query, closest, container, subtree}) => {
+      subtree = typeof subtree !== 'boolean' ? false : subtree;
       if (!container) { return; }
       util.addStyle(__ng_css__);
 
@@ -3784,32 +3838,31 @@ Object.assign(util, textUtil);
       };
       update();
 
-      const onUpdate = _.throttle(update, 1000);
-
       if (!container) { return; }
       const mutationObserver = new MutationObserver(mutations => {
         for (const record of mutations) {
           const container = record.target;
           if (record.addedNodes && record.addedNodes.length) {
-            onUpdate(container);
+            update(container);
           }
         }
       });
 
       const containers = Array.isArray(container) ? container : [container];
       containers.forEach(container => {
+        container.dataset.isWatching = 1;
         mutationObserver.observe(
           container,
-          {childList: true, characterData: false, attributes: false, subtree: false}
+          {childList: true, characterData: false, attributes: false, subtree}
         );
       });
 
     };
 
-    const initNg = params => {
+    const initNg = async params => {
       if (!window.IntersectionObserver) { return; }
 
-      let {query, container, closest} = params ? params : getNgEnv();
+      let {query, container, closest, subtree, callback} = params ? params : await getNgEnv();
 
       if (!query) { return; }
 
@@ -3840,6 +3893,10 @@ Object.assign(util, textUtil);
               }
               item.classList.add('is-ng-failed', info ? info.code : 'is-no-data');
             } else {
+              if (callback) {
+                return callback(item,
+                  {watchId, info, isNg: ngChecker.isNg(info), isFav: favChecker.isMatch(info)});
+              }
               item.classList.add(
                 ngChecker.isNg(info) ? 'is-ng-rejected' : 'is-ng-resolved');
               if (favChecker.isMatch(info)) {
@@ -3880,12 +3937,13 @@ Object.assign(util, textUtil);
 
       const intersectionObserver = initIntersectionObserver(onItemInview);
 
-      initNgDom({intersectionObserver, query, container, closest});
+      initNgDom({intersectionObserver, query, container, closest, subtree});
 
       return intersectionObserver;
     };
 
-    const init = () => {
+    const init = async () => {
+      await config.promise('restore');
       initDom();
       initZenzaBridge();
 

@@ -53,6 +53,10 @@ const Config = (() => {
     wordRegFilterFlags: 'i',
     userIdFilter: '',
     commandFilter: '',
+    removeNgMatchedUser: false, // NGにマッチしたユーザーのコメント全部消す
+    'filter.fork0': true, // 通常コメント
+    'filter.fork1': true, // 投稿者コメント
+    'filter.fork2': true, // かんたんコメント
 
     videoTagFilter: '',
     videoOwnerFilter: '',
@@ -92,6 +96,7 @@ const Config = (() => {
     'commentLayer.textShadowType': '', // フォントの修飾タイプ
     'commentLayer.enableSlotLayoutEmulation': false,
     'commentLayer.ownerCommentShadowColor': '#008800', // 投稿者コメントの影の色
+    'commentLayer.easyCommentOpacity': 0.5, // かんたんコメントの透明度
 
     overrideGinza: false,     // 動画視聴ページでもGinzaの代わりに起動する
     enableGinzaSlayer: false, // まだ実験中
@@ -198,7 +203,7 @@ const Config = (() => {
     DEFAULT_CONFIG['uaa.enable'] = false;
   }
 
-  return new DataStorage(
+  return DataStorage.create(
     DEFAULT_CONFIG,
     {
       prefix: PRODUCT,
@@ -210,6 +215,20 @@ const Config = (() => {
 })();
 Config.exportConfig = () => Config.export();
 Config.importConfig = v => Config.import(v);
+Config.exportToFile = () => {
+  const json = Config.exportJson();
+  const blob = new Blob([json], {'type': 'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {
+    download: `${new Date().toLocaleString().replace(/[:/]/g, '_')}_ZenzaWatch.config.json`,
+    rel: 'noopener',
+    href: url
+  });
+  (document.body || document.documentElemennt).append(a);
+  a.click();
+  setTimeout(() => a.remove(), 1000);
+
+};
 const NaviConfig = Config;
 
 //===END===

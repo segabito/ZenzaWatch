@@ -6,16 +6,20 @@
 // $('div').find('.thumbnail').walk.src = '';
 // $('.message').walk.textContent = 'hello';
 // $('span').walk.style.color = 'blue';
-
-import {Emitter} from './Emitter';
+import {bounce, throttle} from './infra/bounce';
+import {Emitter, PromiseHandler} from './Emitter';
 //===BEGIN===
 const uQuery = (() => {
   const endMap = new WeakMap();
-  const elementEventsMap = new WeakMap();
+  const emptyMap = new Map();
+  const emptySet = new Set();
+  const elementsEventMap = new WeakMap();
   const HAS_CSSTOM = (window.CSS && CSS.number) ? true : false;
   const toCamel = p => p.replace(/-./g, s => s.charAt(1).toUpperCase());
+  const toSnake = p => p.replace(/[A-Z]/g, s => `-${s.charAt(1).toLowerCase()}`);
+  const isStyleValue = val => ('px' in CSS) && val instanceof CSSStyleValue;
   const emitter = new Emitter();
-  const undef = Symbol('undef');
+  const UNDEF = Symbol('undefined');
   const waitForDom = resolve => {
     if (['interactive', 'complete'].includes(document.readyState)) {
       return resolve();
@@ -108,6 +112,46 @@ const uQuery = (() => {
     return e instanceof NodeList || (e && e[Symbol.toStringTag] === 'NodeList');
   };
 
+
+  class RafCaller {
+    constructor(elm, methods = []) {
+      this.elm = elm;
+      methods.forEach(method => {
+        const task = elm[method].bind(elm);
+        task._name = method;
+        this[method] = (...args) => {
+          this.enqueue(task, ...args);
+          return elm;
+        };
+      });
+    }
+    get promise() {
+      return this.constructor.promise;
+    }
+    enqueue(task, ...args) {
+      this.constructor.taskList.push([task, ...args]);
+      this.constructor.exec();
+    }
+    cancel() {
+      this.constructor.taskList.length = 0;
+    }
+  }
+  RafCaller.promise = new PromiseHandler();
+  RafCaller.taskList = [];
+  RafCaller.exec = throttle.raf(function() {
+    const taskList = this.taskList.concat();
+    this.taskList.length = 0;
+    for (const [task, ...args] of taskList) {
+      try {
+        task(...args);
+      } catch (err) {
+        console.warn('RafCaller task fail', {task, args});
+      }
+    }
+    this.promise.resolve();
+    this.promise = new PromiseHandler();
+  }.bind(RafCaller));
+
   class $Array extends Array {
 
     get [Symbol.toStringTag]() {
@@ -149,7 +193,16 @@ const uQuery = (() => {
         this[0] = elm;
       }
     }
-
+    get raf() {
+      if (!this._raf) {
+        this._raf = new RafCaller(this, [
+          'addClass','removeClass','toggleClass','css','setAttribute','attr','data','prop',
+          'val','focus','blur','insert','append','appendChild','prepend','after','before',
+          'text','appendTo','prependTo','remove','show','hide'
+        ]);
+      }
+      return this._raf;
+    }
     get htmls() {
       return this.filter(isHTMLElement);
     }
@@ -301,39 +354,47 @@ const uQuery = (() => {
         name => htmls.every(elm => elm.classList.contains(name)));
     }
 
-    _css(key, val) {
+    _css(props) {
       const htmls = this.getHtmls();
-      if (HAS_CSSTOM) {
-        if (/(width|height|top|left)$/i.test(key) && /^[0-9+.]+$/.test(val)) {
-          val = CSS.px(val);
-        }
-        try {
-          for (const e of htmls) {
-            if (val === '') { e.attributeStyleMap.delete(key); }
-            else { e.attributeStyleMap.set(key, val); }
-          }
-        } catch (e) {
-          window.console.warn('invalid style prop', key, val, e);
-        }
-       return this;
-      }
-      const camelKey = toCamel(key);
-      if (/(width|height|top|left)$/i.test(key) && /^[0-9+.]+$/.test(val)) {
-        val = `${val}px`;
-      }
 
-      for (const e of htmls) {
-        e.style[camelKey] = val;
+      for (const element of htmls) {
+        const style = element.style;
+        const map = element.attributeStyleMap;
+        for (let [key, val] of ((props instanceof Map) ? props : Object.entries(props))) {
+          const isNumber = /^[0-9+.]+$/.test(val);
+          if (isNumber && /(width|height|top|left)$/i.test(key)) {
+            val = HAS_CSSTOM ? CSS.px(val) : `${val}px`;
+          }
+          try {
+            if (HAS_CSSTOM && isStyleValue(val)) {
+              key = toSnake(key);
+              map.set(key, val);
+            } else {
+              key = toCamel(key);
+              style[key] = val;
+            }
+          } catch (err) {
+            console.warn('uQuery.css fail', {key, val, isNumber});
+          }
+        }
       }
       return this;
     }
 
-    css(key, val) {
+    css(key, val = UNDEF) {
       if (typeof key === 'string') {
-        return this._css(key, val);
-      }
-      for (const k of Object.keys(key)) {
-        this._css(k, key[k]);
+        if (val !== UNDEF) {
+          return this._css({[key]: val});
+        } else {
+          const element = this.firstElement;
+          if (HAS_CSSTOM) {
+            return element.attributeStyleMap.get(toSnake(key));
+          } else {
+            return element.style[toCamel(key)];
+          }
+        }
+      } else if (key !== null && typeof key === 'object') {
+        return this._css(key);
       }
       return this;
     }
@@ -345,15 +406,16 @@ const uQuery = (() => {
       eventName = eventName.trim();
       const elementEventName = eventName.split('.')[0];
       // window.console.log({eventName, callback, options}, this.concat());
-      for (const e of this.filter(isEventTarget)) {
-        const elementEvents = elementEventsMap.get(e) || {};
-        const listeners = elementEvents[eventName] = elementEvents[eventName] || [];
-        if (!listeners.includes(callback)) {
-          listeners.push(callback);
-        }
-        elementEventsMap.set(e, elementEvents);
+      for (const element of this.filter(isEventTarget)) {
+        const elementEvents = elementsEventMap.get(element) || new Map;
+        const listenerSet = elementEvents.get(eventName) || new Set;
+        elementEvents.set(eventName, listenerSet);
+        elementsEventMap.set(element, elementEvents);
 
-        e.addEventListener(elementEventName, callback, options);
+        if (!listenerSet.has(callback)) {
+          listenerSet.add(callback);
+          element.addEventListener(elementEventName, callback, options);
+        }
       }
       return this;
     }
@@ -379,33 +441,40 @@ const uQuery = (() => {
       });
     }
 
-    off(eventName, callback) {
+    off(eventName = UNDEF, callback = UNDEF) {
 
-      if (!eventName) {
-        for (const e of this.filter(isEventTarget)) {
-          const elementEvents = elementEventsMap.get(e) || {};
-          for (const eventName of Object.keys(elementEvents)) {
-            this.off(eventName);
+      if (eventName === UNDEF) {
+        for (const element of this.filter(isEventTarget)) {
+          const eventListenerMap = elementsEventMap.get(element) || emptyMap;
+          for (const [eventName, listenerSet] of eventListenerMap) {
+            for (const listener of listenerSet) {
+              element.removeEventListener(eventName, listener);
+            }
+            listenerSet.clear();
           }
-          elementEventsMap.delete(e);
+          eventListenerMap.clear();
+          elementsEventMap.delete(element);
         }
         return this;
       }
 
       eventName = eventName.trim();
       const [elementEventName, eventKey] = eventName.split('.');
-      if (!callback) {
-        for (const e of this.filter(isEventTarget)) {
-          const elementEvents = elementEventsMap.get(e) || {};
-
-          for (let cb of (elementEvents[eventName] || [])) {
-            e.removeEventListener(elementEventName, cb);
+      if (callback === UNDEF) {
+        for (const element of this.filter(isEventTarget)) {
+          const eventListenerMap = elementsEventMap.get(element) || emptyMap;
+          const listenerSet = eventListenerMap.get(eventName) || emptySet;
+          for (const listener of listenerSet) {
+            element.removeEventListener(elementEventName, listener);
           }
-          delete elementEvents[eventName];
 
-          for (const key of Object.keys(elementEvents)) {
-            if ((!eventKey && key.startsWith(`${elementEventName}.`)) || (!elementEventName && key.endsWith(`.${eventKey}`))
-            ) {
+          listenerSet.clear();
+          eventListenerMap.delete(eventName);
+
+          for (const [key] of eventListenerMap) {
+            if (
+              (!eventKey && key.startsWith(`${elementEventName}.`)) ||
+              (!elementEventName && key.endsWith(`.${eventKey}`))) {
               this.off(key);
             }
           }
@@ -413,27 +482,27 @@ const uQuery = (() => {
         return this;
       }
 
-      for (const e of this.filter(isEventTarget)) {
-        const elementEvents = elementEventsMap.get(e) || {};
-        elementEvents[eventName] = (elementEvents[eventName] || []).find(cb => {
-          return cb !== callback;
-        });
-        let found = Object.keys(elementEvents).find(key => {
-          const listeners = elementEvents[key] || [];
-          if (key.startsWith(`${elementEventName}.`) && listeners.includes(callback)) {
-            return true;
+      for (const element of this.filter(isEventTarget)) {
+        const eventListenerMap = elementsEventMap.get(element) || new Map;
+        eventListenerMap.set(eventName, (eventListenerMap.get(eventName) || new Set));
+        for (const [key, listenerSet] of eventListenerMap) {
+          if (key !== eventName && !key.startsWith(`${elementEventName}.`)) {
+            continue;
           }
-        });
-        if (found) { continue; }
-        e.removeEventListener(elementEventName, callback);
+          if (!listenerSet.has(callback)) {
+            continue;
+          }
+          listenerSet.delete(callback);
+          element.removeEventListener(elementEventName, callback);
+        }
       }
 
       return this;
     }
 
-    _setAttribute(key, val = undef) {
+    _setAttribute(key, val = UNDEF) {
       const htmls = this.getHtmls();
-      if (val === null || val === '' || val === undef) {
+      if (val === null || val === '' || val === UNDEF) {
         for (const e of htmls) {
           e.removeAttribute(key);
         }
@@ -445,7 +514,7 @@ const uQuery = (() => {
       return this;
     }
 
-    setAttribute(key, val = undef) {
+    setAttribute(key, val = UNDEF) {
       if (typeof key === 'string') {
         return this._setAttribute(key, val);
       }
@@ -455,23 +524,23 @@ const uQuery = (() => {
       return this;
     }
 
-    attr(key, val = undef) {
-      if (val !== undef || typeof key === 'object') {
+    attr(key, val = UNDEF) {
+      if (val !== UNDEF || typeof key === 'object') {
         return this.setAttribute(key, val);
       }
       const found = this.find(e => e.hasAttribute && e.hasAttribute(key));
       return found ? found.getAttribute(key) : null;
     }
 
-    data(key, val = undef) {
+    data(key, val = UNDEF) {
       if (typeof key === 'object') {
         for (const k of Object.keys(key)) {
           this.data(k, JSON.stringify(key[k]));
         }
         return this;
       }
-      key = `data-${key.toLowerCase()}`;
-      if (val !== undef) {
+      key = `data-${toSnake(key)}`;
+      if (val !== UNDEF) {
         return this.setAttribute(key, JSON.stringify(val));
       }
       const found = this.find(e => e.hasAttribute && e.hasAttribute(key));
@@ -483,13 +552,13 @@ const uQuery = (() => {
       }
     }
 
-    prop(key, val = undef) {
+    prop(key, val = UNDEF) {
       if (typeof key === 'object') {
         for (const k of Object.keys(key)) {
           this.prop(k, key[k]);
         }
         return this;
-      } else if (val !== undef) {
+      } else if (val !== UNDEF) {
         for (const elm of this) {
           elm[key] = val;
         }
@@ -500,19 +569,19 @@ const uQuery = (() => {
       }
     }
 
-    val(v = undef) {
+    val(v = UNDEF) {
       const htmls = this.getHtmls();
       for (const elm of htmls) {
-        if (!elm.hasAttribute('value')) {
+        if (!('value' in elm)) {
           continue;
         }
-        if (v === undef) {
+        if (v === UNDEF) {
           return elm.value;
         } else {
           elm.value = v;
         }
       }
-      return v === undef ? '' : this;
+      return v === UNDEF ? '' : this;
     }
 
     hasFocus() {
@@ -566,9 +635,9 @@ const uQuery = (() => {
       return this.insert('before', ...args);
     }
 
-    text(text = undef) {
+    text(text = UNDEF) {
       const fn = this.firstNode;
-      if (text !== undef) {
+      if (text !== UNDEF) {
         fn && (fn.textContent = text);
       } else {
         return this.htmls.find(e => e.textContent) || '';

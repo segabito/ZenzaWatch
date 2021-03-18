@@ -13,45 +13,616 @@
 // @match          *://uad.nicovideo.jp/*
 // @match          *://*.nicovideo.jp/smile*
 // @match          *://site.nicovideo.jp/*
+// @match          *://anime.nicovideo.jp/*
 // @exclude        *://ads.nicovideo.jp/*
 // @exclude        *://www.upload.nicovideo.jp/*
 // @exclude        *://www.nicovideo.jp/watch/*?edit=*
-// @exclude        *://www.nicovideo.jp/mylist/*
 // @exclude        *://ch.nicovideo.jp/tool/*
 // @exclude        *://flapi.nicovideo.jp/*
 // @exclude        *://dic.nicovideo.jp/p/*
 // @grant          none
 // @author         segabito macmoto
-// @version        0.0.2
+// @version        0.0.20
 // @noframes
+// @require        https://cdn.jsdelivr.net/npm/hls.js@latest
 // @run-at         document-start
 // ==/UserScript==
+/* eslint-disable */
 
 
 const MODULES = `
-//import {html, render} from 'https://cdn.jsdelivr.net/npm/lit-html@0.9.0/lit-html.js';
-//import * as _ from 'https://cdn.rawgit.com/lodash/lodash/4.17.4-es/lodash.default.min.js';
-//
-const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
+const ZenzaHLSmodules = {ErrorEvent, MediaError, HTMLDialogElement: window.HTMLDialogElement || HTMLDivElement, DOMException};
 `;
 // hls.js@latest だと再生が始まらない動画がたまにある。 0.8.9ならok
 
-(() => {
+const AntiPrototypeJs = function() {
+	if (this.promise !== null || !window.Prototype || window.PureArray) {
+		return this.promise || Promise.resolve(window.PureArray || window.Array);
+	}
+	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
+		delete document.getElementsByClassName;
+	}
+	const waitForDom = new Promise(resolve => {
+		if (['interactive', 'complete'].includes(document.readyState)) {
+			return resolve();
+		}
+		document.addEventListener('DOMContentLoaded', resolve, {once: true});
+	});
+	const f = Object.assign(document.createElement('iframe'), {
+		srcdoc: '<html><title>ここだけ時間が10年遅れてるスレ</title></html>',
+		id: 'prototype',
+		loading: 'eager'
+	});
+	Object.assign(f.style, {position: 'absolute', left: '-100vw', top: '-100vh'});
+	return this.promise = waitForDom
+		.then(() => new Promise(res => {
+			f.onload = res;
+			document.body.append(f);
+		})).then(() => {
+	window.PureArray = f.contentWindow.Array;
+	delete window.Array.prototype.toJSON;
+			delete window.String.prototype.toJSON;
+			f.remove();
+			return Promise.resolve(window.PureArray);
+		}).catch(err => console.error(err));
+}.bind({promise: null});
+AntiPrototypeJs();
+
+AntiPrototypeJs().then(() => {
   const PRODUCT = 'ZenzaWatchHLS';
   const monkey = (PRODUCT, {ErrorEvent, MediaError, HTMLDialogElement, DOMException}) => {
+    const window = globalThis ? globalThis.window : window;
     const console = window.console;
     const VER = '0.0.1';
     const PopupMessage = {debug: () =>{}};
+    const Array = window.PureArray || window.Array;
     let primaryVideo;
 
-    let util = {fetch: (...args) => { return window.fetch(...args); }};
     console.log(`%c${PRODUCT} v:%s`, 'background: cyan;', VER);
 
     console.time('ZenzaWatch HLS');
+function EmitterInitFunc() {
+class Handler { //extends Array {
+	constructor(...args) {
+		this._list = args;
+	}
+	get length() {
+		return this._list.length;
+	}
+	exec(...args) {
+		if (!this._list.length) {
+			return;
+		} else if (this._list.length === 1) {
+			this._list[0](...args);
+			return;
+		}
+		for (let i = this._list.length - 1; i >= 0; i--) {
+			this._list[i](...args);
+		}
+	}
+	execMethod(name, ...args) {
+		if (!this._list.length) {
+			return;
+		} else if (this._list.length === 1) {
+			this._list[0][name](...args);
+			return;
+		}
+		for (let i = this._list.length - 1; i >= 0; i--) {
+			this._list[i][name](...args);
+		}
+	}
+	add(member) {
+		if (this._list.includes(member)) {
+			return this;
+		}
+		this._list.unshift(member);
+		return this;
+	}
+	remove(member) {
+		this._list = this._list.filter(m => m !== member);
+		return this;
+	}
+	clear() {
+		this._list.length = 0;
+		return this;
+	}
+	get isEmpty() {
+		return this._list.length < 1;
+	}
+	*[Symbol.iterator]() {
+		const list = this._list || [];
+		for (const member of list) {
+			yield member;
+		}
+	}
+	next() {
+		return this[Symbol.iterator]();
+	}
+}
+Handler.nop = () => {/*     ( ˘ω˘ ) スヤァ    */};
+const PromiseHandler = (() => {
+	const id = function() { return `Promise${this.id++}`; }.bind({id: 0});
+	class PromiseHandler extends Promise {
+		constructor(callback = () => {}) {
+			const key = new Object({id: id(), callback, status: 'pending'});
+			const cb = function(res, rej) {
+				const resolve = (...args) => { this.status = 'resolved'; this.value = args; res(...args); };
+				const reject  = (...args) => { this.status = 'rejected'; this.value = args; rej(...args); };
+				if (this.result) {
+					return this.result.then(resolve, reject);
+				}
+				Object.assign(this, {resolve, reject});
+				return callback(resolve, reject);
+			}.bind(key);
+			super(cb);
+			this.resolve = this.resolve.bind(this);
+			this.reject = this.reject.bind(this);
+			this.key = key;
+		}
+		resolve(...args) {
+			if (this.key.resolve) {
+				this.key.resolve(...args);
+			} else {
+				this.key.result = Promise.resolve(...args);
+			}
+			return this;
+		}
+		reject(...args) {
+			if (this.key.reject) {
+				this.key.reject(...args);
+			} else {
+				this.key.result = Promise.reject(...args);
+			}
+			return this;
+		}
+		addCallback(callback) {
+			Promise.resolve().then(() => callback(this.resolve, this.reject));
+			return this;
+		}
+	}
+	return PromiseHandler;
+})();
+const {Emitter} = (() => {
+	let totalCount = 0;
+	let warnings = [];
+	class Emitter {
+		on(name, callback) {
+			if (!this._events) {
+				Emitter.totalCount++;
+				this._events = new Map();
+			}
+			name = name.toLowerCase();
+			let e = this._events.get(name);
+			if (!e) {
+				const handler = new Handler(callback);
+				handler.name = name;
+				e = this._events.set(name, handler);
+			} else {
+				e.add(callback);
+			}
+			if (e.length > 10) {
+				console.warn('listener count > 10', name, e, callback);
+				!Emitter.warnings.includes(this) && Emitter.warnings.push(this);
+			}
+			return this;
+		}
+		off(name, callback) {
+			if (!this._events) {
+				return;
+			}
+			name = name.toLowerCase();
+			const e = this._events.get(name);
+			if (!this._events.has(name)) {
+				return;
+			} else if (!callback) {
+				this._events.delete(name);
+			} else {
+				e.remove(callback);
+				if (e.isEmpty) {
+					this._events.delete(name);
+				}
+			}
+			if (this._events.size < 1) {
+				delete this._events;
+			}
+			return this;
+		}
+		once(name, func) {
+			const wrapper = (...args) => {
+				func(...args);
+				this.off(name, wrapper);
+				wrapper._original = null;
+			};
+			wrapper._original = func;
+			return this.on(name, wrapper);
+		}
+		clear(name) {
+			if (!this._events) {
+				return;
+			}
+			if (name) {
+				this._events.delete(name);
+			} else {
+				delete this._events;
+				Emitter.totalCount--;
+			}
+			return this;
+		}
+		emit(name, ...args) {
+			if (!this._events) {
+				return;
+			}
+			name = name.toLowerCase();
+			const e = this._events.get(name);
+			if (!e) {
+				return;
+			}
+			e.exec(...args);
+			return this;
+		}
+		emitAsync(...args) {
+			if (!this._events) {
+				return;
+			}
+			setTimeout(() => this.emit(...args), 0);
+			return this;
+		}
+		promise(name, callback) {
+			if (!this._promise) {
+				this._promise = new Map;
+			}
+			const p = this._promise.get(name);
+			if (p) {
+				return callback ? p.addCallback(callback) : p;
+			}
+			this._promise.set(name, new PromiseHandler(callback));
+			return this._promise.get(name);
+		}
+		emitResolve(name, ...args) {
+			if (!this._promise) {
+				this._promise = new Map;
+			}
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler());
+			}
+			return this._promise.get(name).resolve(...args);
+		}
+		emitReject(name, ...args) {
+			if (!this._promise) {
+				this._promise = new Map;
+			}
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler);
+			}
+			return this._promise.get(name).reject(...args);
+		}
+		resetPromise(name) {
+			if (!this._promise) { return; }
+			this._promise.delete(name);
+		}
+		hasPromise(name) {
+			return this._promise && this._promise.has(name);
+		}
+		addEventListener(...args) { return this.on(...args); }
+		removeEventListener(...args) { return this.off(...args);}
+	}
+	Emitter.totalCount = totalCount;
+	Emitter.warnings = warnings;
+	return {Emitter};
+})();
+	return {Handler, PromiseHandler, Emitter};
+}
+const {Handler, PromiseHandler, Emitter} = EmitterInitFunc();
+const workerUtil = (() => {
+	let config, TOKEN, PRODUCT = 'ZenzaWatch?', netUtil, CONSTANT, NAME = '';
+	let global = null, external = null;
+	const isAvailable = !!(window.Blob && window.Worker && window.URL);
+	const messageWrapper = function(self) {
+		const _onmessage = self.onmessage || (() => {});
+		const promises = {};
+		const onMessage = async function(self, type, e) {
+			const {body, sessionId, status} = e.data;
+			const {command, params} = body;
+			try {
+				let result;
+				switch (command) {
+					case 'commandResult':
+						if (promises[sessionId]) {
+							if (status === 'ok') {
+									promises[sessionId].resolve(params.result);
+							} else {
+								promises[sessionId].reject(params.result);
+							}
+							delete promises[sessionId];
+						}
+					return;
+					case 'ping':
+						result = {now: Date.now(), NAME, PID, url: location.href};
+						break;
+					case 'port': {
+						const port = e.ports[0];
+						portMap[params.name] = port;
+						port.addEventListener('message', onMessage.bind({}, port, params.name));
+						bindFunc(port, 'MessageChannel');
+						if (params.ping) {
+							console.time('ping:' + sessionId);
+							port.ping().then(result => {
+								console.timeEnd('ping:' + sessionId);
+								console.log('ok %smec', Date.now() - params.now, params);
+							}).catch(err => {
+								console.timeEnd('ping:' + sessionId);
+								console.warn('ping fail', {err, data: e.data});
+							});
+						}
+					}
+						return;
+					case 'broadcast': {
+						if (!BroadcastChannel) { return; }
+						const channel = new BroadcastChannel(`${params.name}`);
+						channel.addEventListener('message', onMessage.bind({}, channel, 'BroadcastChannel'));
+						bindFunc(channel, 'BroadcastChannel');
+						bcast[params.basename] = channel;
+					}
+						return;
+					case 'env':
+						({config, TOKEN, PRODUCT, CONSTANT} = params);
+						return;
+					default:
+						result = await _onmessage({command, params}, type, PID);
+						break;
+					}
+				self.postMessage({body:
+					{command: 'commandResult', params:
+						{command, result}}, sessionId, TYPE: type, PID, status: 'ok'
+					});
+			} catch(err) {
+				console.error('failed', {err, command, params, sessionId, TYPE: type, PID, data: e.data});
+				self.postMessage({body:
+						{command: 'commandResult', params: {command, result: err.message || null}},
+						sessionId, TYPE: type, PID, status: err.status || 'fail'
+					});
+			}
+		};
+		self.onmessage = onMessage.bind({}, self, self.name);
+		self.onconnect = e => {
+			const port = e.ports[0];
+			port.onmessage = self.onmessage;
+			port.start();
+		};
+		const bindFunc = (self, type = 'Worker') => {
+			const post = function(self, body, options = {}) {
+				const sessionId = `recv:${NAME}:${type}:${this.sessionId++}`;
+				return new Promise((resolve, reject) => {
+					promises[sessionId] = {resolve, reject};
+					self.postMessage({body, sessionId, PID}, options.transfer);
+					if (typeof options.timeout === 'number') {
+						setTimeout(() => {
+							reject({status: 'fail', message: 'timeout'});
+							delete promises[sessionId];
+						}, options.timeout);
+					}
+				}).finally(() => { delete promises[sessionId]; });
+			};
+			const emit = function(self, eventName, data = null) {
+				self.post({command: 'emit', params: {eventName, data}});
+			};
+			const notify = function(self, message) {
+				self.post({command: 'notify', params: {message}});
+			};
+			const alert = function(self, message) {
+				self.post({command: 'alert', params: {message}});
+			};
+			const ping = async function(self, options = {}) {
+				const timekey = `PING "${self.name}"`;
+				console.log(timekey);
+				let result;
+				options.timeout = options.timeout || 10000;
+				try {
+					console.time(timekey);
+					result = await self.post({command: 'ping', params: {now: Date.now(), NAME, PID, url: location.href}}, options);
+					console.timeEnd(timekey);
+				} catch (e) {
+					console.timeEnd(timekey);
+					console.warn('ping fail', e);
+				}
+				return result;
+			};
+			self.post = post.bind({sessionId: 0}, this.port || self);
+			self.emit = emit.bind({}, self);
+			self.notify = notify.bind({}, self);
+			self.alert = alert.bind({}, self);
+			self.ping = ping.bind({}, self);
+			return self;
+		};
+		bindFunc(self);
+		self.xFetch = async (url, options = {}) => {
+			options = {...options, ...{signal: null}}; // remove AbortController
+			if (url.startsWith(location.origin)) {
+				return fetch(url, options);
+			}
+			const result = await self.post({command: 'fetch', params: {url, options}});
+			const {buffer, init, headers} = result;
+			const _headers = new Headers();
+			(headers || []).forEach(a => _headers.append(...a));
+			const _init = {
+				status: init.status,
+				statusText: init.statusText || '',
+				headers: _headers
+			};
+			return new Response(buffer, _init);
+		};
+	};
+	const workerUtil = {
+		isAvailable,
+		js: (q, ...args) => {
+			const strargs = args.map(a => typeof a === 'string' ? a : a.toString);
+			return String.raw(q, ...strargs);
+		},
+		env: params => {
+			({config, TOKEN, PRODUCT, netUtil, CONSTANT, global} =
+				Object.assign({config, TOKEN, PRODUCT, netUtil, CONSTANT, global}, params));
+			if (global) { ({config, TOKEN, PRODUCT, CONSTANT} = global); }
+		},
+		create: function(func, options = {}) {
+			let cache = this.urlMap.get(func);
+			const name = options.name || 'Worker';
+			if (!cache) {
+				const src = `
+				const PID = '${window && window.name || 'self'}:${location.href}:${name}:${Date.now().toString(16).toUpperCase()}';
+				console.log('%cinit %s %s', 'font-weight: bold;', self.name || '', '${PRODUCT}', location.origin);
+				(${func.toString()})(self);
+				`;
+				const blob = new Blob([src], {type: 'text/javascript'});
+				const url = URL.createObjectURL(blob);
+				this.urlMap.set(func, url);
+				cache = url;
+			}
+			if (options.type === 'SharedWorker') {
+				const w = this.workerMap.get(func) || new SharedWorker(cache);
+				this.workerMap.set(func, w);
+				return w;
+			}
+			return new Worker(cache, options);
+		}.bind({urlMap: new Map(), workerMap: new Map()}),
+		createCrossMessageWorker: function(func, options = {}) {
+			const promises = this.promises;
+			const name = options.name || 'Worker';
+			const PID = `${window && window.name || 'self'}:${location.host}:${name}:${Date.now().toString(16).toUpperCase()}`;
+			const _func = `
+			function (self) {
+			let config = {}, PRODUCT, TOKEN, CONSTANT, NAME = decodeURI('${encodeURI(name)}'), bcast = {}, portMap = {};
+			const {Handler, PromiseHandler, Emitter} = (${EmitterInitFunc.toString()})();
+			(${func.toString()})(self);
+			//===================================
+			(${messageWrapper.toString()})(self);
+			}
+			`;
+			const worker = workerUtil.create(_func, options);
+			const self = options.type === 'SharedWorker' ? worker.port : worker;
+			self.name = name;
+			const onMessage = async function(self, e) {
+				const {body, sessionId, status} = e.data;
+				const {command, params} = body;
+				try {
+					let result = 'ok';
+					let transfer = null;
+					switch (command) {
+						case 'commandResult':
+							if (promises[sessionId]) {
+								if (status === 'ok') {
+									promises[sessionId].resolve(params.result);
+								} else {
+									promises[sessionId].reject(params.result);
+								}
+								delete promises[sessionId];
+							}
+							return;
+						case 'ping':
+								result = {now: Date.now(), NAME, PID, url: location.href};
+								console.timeLog && console.timeLog(params.NAME, 'PONG');
+								break;
+						case 'emit':
+							global && global.emitter.emitAsync(params.eventName, params.data);
+							break;
+						case 'fetch':
+							result = await (netUtil || window).fetch(params.url,
+								Object.assign({}, params.options || {}, {_format: 'arraybuffer'}));
+							transfer = [result.buffer];
+							break;
+						case 'notify':
+							global && global.notify(params.message);
+							break;
+						case 'alert':
+							global && global.alert(params.message);
+							break;
+						default:
+							self.oncommand && (result = await self.oncommand({command, params}));
+							break;
+					}
+					self.postMessage({body: {command: 'commandResult', params: {command, result}}, sessionId, status: 'ok'}, transfer);
+				} catch (err) {
+					console.error('failed', {err, command, params, sessionId});
+					self.postMessage({body: {command: 'commandResult', params: {command, result: err.message || null}}, sessionId, status: err.status || 'fail'});
+				}
+			};
+			const bindFunc = (self, type = 'Worker') => {
+				const post = function(self, body, options = {}) {
+					const sessionId = `send:${name}:${type}:${this.sessionId++}`;
+					return new Promise((resolve, reject) => {
+							promises[sessionId] = {resolve, reject};
+							self.postMessage({body, sessionId, TYPE: type, PID}, options.transfer);
+							if (typeof options.timeout === 'number') {
+								setTimeout(() => {
+									reject({status: 'fail', message: 'timeout'});
+									delete promises[sessionId];
+								}, options.timeout);
+							}
+						}).finally(() => { delete promises[sessionId]; });
+				};
+				const ping = async function(self, options = {}) {
+					const timekey = `PING "${self.name}" total time`;
+					window.console.log(`PING "${self.name}"...`);
+					let result;
+					options.timeout = options.timeout || 10000;
+					try {
+					window.console.time(timekey);
+					result = await self.post({command: 'ping', params: {now: Date.now(), NAME: self.name, PID, url: location.href}}, options);
+					window.console.timeEnd(timekey);
+					} catch (e) {
+						console.timeEnd(timekey);
+						console.warn('ping fail', e);
+					}
+					return result;
+				};
+				self.post = post.bind({sessionId: 0}, self);
+				self.ping = ping.bind({}, self);
+				self.addEventListener('message', onMessage.bind({sessionId: 0}, self));
+				self.start && self.start();
+			};
+			bindFunc(self);
+			if (config) {
+				self.post({
+					command: 'env',
+					params: {config: config.export(true), TOKEN, PRODUCT, CONSTANT}
+				});
+			}
+			self.addPort = (port, options = {}) => {
+				const name = options.name || 'MessageChannel';
+				return self.post({command: 'port', params: {port, name}}, {transfer: [port]});
+			};
+			const channel = new MessageChannel();
+			self.addPort(channel.port2);
+			bindFunc(channel.port1, {name: 'MessageChannel'});
+			self.bridge = async (worker, options = {}) => {
+				const name = options.name || 'MessageChannelBridge';
+				const channel = new MessageChannel();
+				await self.addPort(channel.port1, {name: worker.name || name});
+				await worker.addPort(channel.port2, {name: self.name || name});
+				console.log('ping self -> other', await channel.port1.ping());
+				console.log('ping other -> self', await channel.port2.ping());
+			};
+			self.BroadcastChannel = basename => {
+				const name = `${basename || 'Broadcast'}${TOKEN || Date.now().toString(16)}`;
+				self.post({command: 'broadcast', params: {basename, name}});
+				const channel = new BroadcastChannel(name);
+				channel.addEventListener('message', onMessage.bind({}, channel, 'BroadcastChannel'));
+				bindFunc(channel, 'BroadcastChannel');
+				return name;
+			};
+			self.ping()
+				.catch(result => console.warn('FAIL', result));
+			return self;
+		}.bind({
+			sessionId: 0,
+			promises: {}
+		})
+	};
+	return workerUtil;
+})();
 
     const DEFAULT_CONFIG = {
       // hls.js 以外のパラメータ
-      segment_duration: 5000, // dmc
+      segment_duration: 4000, // dmc!
       use_native_hls: true,   // SafariなどブラウザがHLS対応だったらそっちを使う
       show_video_label: false, //
       autoAbrEwmaDefaultEstimate: true,
@@ -128,37 +699,36 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
       return Object.assign({}, DEFAULT_CONFIG);
     });
 
-    class Emitter {
-      on(name, callback) {
-        if (!this._events) { this._events = {}; }
-        name = name.toLowerCase();
-        if (!this._events[name]) {
-          this._events[name] = [];
-        }
-        this._events[name].push(callback);
+    const dimport = Object.assign(url => {
+      if (window.ZenzaWatch && window.ZenzaWatch.util && window.ZenzaWatch.util.dimport) {
+        return window.ZenzaWatch.util.dimport(url);
       }
-
-      clear(name) {
-        if (!this._events) { this._events = {}; }
-        if (name) {
-          this._events[name] = [];
-        } else {
-          this._events = {};
-        }
+      if (dimport.map[url]) {
+        return dimport.map[url];
       }
-
-      emit(name, ...args) {
-        if (!this._events) { this._events = {}; }
-        name = name.toLowerCase();
-        if (!this._events.hasOwnProperty(name)) { return; }
-        const e = this._events[name];
-        //const arg = Array.prototype.slice.call(arguments, 1);
-        for (let i =0, len = e.length; i < len; i++) {
-          //e[i].apply(null, arg);
-          e[i](...args);
-        }
-      }
-    }
+      const now = Date.now();
+      const callbackName = `dimport_${now}`;
+      const loader = `
+        console.log('%cdynamic import from "${url}"',
+          'font-weight: bold; background: #333; color: #ff9; display: block; padding: 4px; width: 100%;');
+        window.${callbackName}(module${now});
+        `.trim();
+      console.time(`"${url}" import time`);
+      const p = new Promise(res => {
+        const s = document.createElement('script');
+        s.type = 'module';
+        s.append(document.createTextNode(loader));
+        s.dataset.import = url;
+        window[callbackName] = module => {
+          console.timeEnd(`"${url}" import time`);
+          res(module);
+          delete window[callbackName];
+        };
+        document.documentElement.append(s);
+      });
+      dimport.map[url] = p;
+      return p;
+    }, {map: {}});
 
 
     const Config = (() => {
@@ -190,7 +760,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             config[key] = value;
             localStorage[storageKey] = JSON.stringify(value);
             emitter.emit(`update-${key}`, value);
-            emitter.emit(`update`, {key, value});
+            emitter.emit('update', {key, value});
           }
         },
         on: (...args) => { emitter.on(...args); },
@@ -227,11 +797,11 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           lastArgs = args;
           if (!timer) {
             timer = setTimeout(() => {
-              func.apply(null, lastArgs);
-              lastTime = now;
+              lastTime = performance.now();
               timer = null;
+              func.apply(null, lastArgs);
               lastArgs = null;
-            }, interval - timeDiff);
+            }, Math.max(interval - timeDiff, 0));
           }
           return;
         }
@@ -253,7 +823,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
 
     const StorageWorker = function(self) {
-      let Config = {
+      const Config = {
         cache_expire_time: 6 * 60 * 60 * 1000
       };
 
@@ -279,16 +849,16 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             return Promise.resolve(this.db);
           }
           return new Promise((resolve, reject) => {
-            let req = indexedDB.open(this.name, this.ver);
+            const req = indexedDB.open(this.name, this.ver);
             req.onupgradeneeded = e => {
-              let db = e.target.result;
+              const db = e.target.result;
 
               if(db.objectStoreNames.contains(this.name)) {
                 db.deleteObjectStore(this.name);
               }
 
-              let [meta] = this.storeNames;
-              let store = db.createObjectStore(meta,
+              const [meta] = this.storeNames;
+              const store = db.createObjectStore(meta,
                 {keyPath: 'expiresAt', autoIncrement: false});
               store.createIndex('hash', 'hash', {unique: true});
               store.createIndex('videoId', 'videoId', {unique: false});
@@ -297,12 +867,9 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             req.onsuccess = e => {
               this.db = e.target.result;
               resolve(this.db);
-              // this.db.close();
             };
 
-            req.onerror = e => {
-              reject(e);
-            };
+            req.onerror = reject;
 
           });
         }
@@ -317,10 +884,10 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
         async getStore({mode} = {mode: 'readwrite'}) {
           return new Promise(async (resolve, reject) => {
-            let db = await this.constructor.init();
-            let [data] = this.constructor.storeNames;
+            const db = await this.constructor.init();
+            const [data] = this.constructor.storeNames;
             // window.console.log('getStore', this.storeName, mode);
-            let tx = db.transaction(this.constructor.storeNames, mode);
+            const tx = db.transaction(this.constructor.storeNames, mode);
             tx.oncomplete = resolve;
             tx.onerror = reject;
             return resolve({
@@ -330,46 +897,55 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           });
         }
 
-        async putRecord(store, record) {
+        putRecord(store, record) {
           return new Promise((resolve, reject) => {
-            let req = store.put(record);
+            const req = store.put(record);
             req.onsuccess = e => {
               resolve(e.target.result);
             };
-            req.onerror = e => {
-              reject(null);
-            };
+            req.onerror = reject;
           });
         }
 
-        async getRecord(store, key, {index, timeout}) {
+        getRecord(store, key, {index, timeout}) {
           return new Promise((resolve, reject) => {
-            let req =
+            const req =
               index ?
                 store.index(index).get(key) : store.get(key);
             req.onsuccess = e => {
               resolve(e.target.result);
             };
-            req.onerror = e => {
-              reject(null);
-            };
+            req.onerror = reject;
             if (timeout) {
-              setTimeout(() => {
-                reject(`timeout: key${key}`);
-              }, timeout);
+              setTimeout(() => reject(`timeout: key${key}`), timeout);
             }
           });
         }
 
-        async deleteRecord(store, key, {index}) {
+        getCount(store, key, {index, timeout}) {
+          return new Promise((resolve, reject) => {
+            const req =
+              index ?
+                store.index(index).count(key) : store.count(key);
+            req.onsuccess = e => {
+              resolve(req.result);
+            };
+            req.onerror = err => resolve;
+            if (timeout) {
+              setTimeout(() => reject(`timeout: key${key}`), timeout);
+            }
+          });
+        }
+
+        deleteRecord(store, key, {index}) {
           return new Promise((resolve, reject) => {
             let deleted = 0;
-            let range = IDBKeyRange.only(key);
-            let req =
+            const range = IDBKeyRange.only(key);
+            const req =
               index ?
                 store.index(index).openCursor(range) : store.openCursor(range);
             req.onsuccess = e =>  {
-              let result = e.target.result;
+              const result = e.target.result;
               if (!result) {
                 return resolve(deleted > 0);
               }
@@ -377,17 +953,15 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               deleted++;
               result.continue();
             };
-            req.onerror = e => {
-              reject(null);
-            };
+            req.onerror = reject;
           });
         }
 
         async load({hash}) {
           try {
-            let {store} =
+            const {store} =
               await this.getStore({mode: 'readonly'});
-            let meta = await this.getRecord(store, hash,
+            const meta = await this.getRecord(store, hash,
               {index: 'hash', timeout: 3000});
             // this.constructor.close();
             if (!meta) {
@@ -400,10 +974,20 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           }
         }
 
+        async hasData({hash}) {
+          try {
+            const {store} = await this.getStore({mode: 'readonly'});
+            return 0 < await this.getCount(store, hash, {index: 'hash', timeout: 3000});
+          } catch(e) {
+            console.warn('exeption', e);
+            return false;
+          }
+        }
+
         async save({hash, videoId, meta}, buffer) {
-          let now = Date.now();
-          let expiresAt = now + this.constructor.expireTime;
-          let record = {
+          const now = Date.now();
+          const expiresAt = now + this.constructor.expireTime;
+          const record = {
             expiresAt,
             hash,
             videoId,
@@ -413,10 +997,11 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             buffer
           };
           // console.log('save', record);
-          let {transaction, store} = await this.getStore();
+          const {transaction, store} = await this.getStore();
           try {
             await this.deleteRecord(store, hash, {index: 'hash', record});
-            let result = await this.putRecord(store, record);
+            const result = await this.putRecord(store, record);
+            transaction.commit && transaction.commit();
             this.constructor.close();
             return result;
           } catch (e) {
@@ -430,19 +1015,19 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           if (this.isBusy) {
             return;
           }
-          let now = Date.now();
-          let {store} = await this.getStore();
+          const now = Date.now();
+          const {store, transaction} = await this.getStore();
           this.isBusy = true;
-          let deleted = 0;
-          let timekey = `storage gc:${new Date().toLocaleString()}`;
+          const timekey = `storage gc:${new Date().toLocaleString()}`;
           console.time(timekey);
           return new Promise((resolve, reject) => {
-            let range = IDBKeyRange.upperBound(now);
-            let req = store.delete(range);
+            const range = IDBKeyRange.upperBound(now);
+            const req = store.delete(range);
             req.onsuccess = e => {
               this.isBusy = false;
               this.constructor.close();
               console.timeEnd(timekey);
+              transaction.commit && transaction.commit();
               resolve();
             };
             req.onerror = e => {
@@ -450,6 +1035,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               this.isBusy = false;
             };
           }).catch((e) => {
+            this.isBusy = false;
             console.error('gc fail', e);
             store.clear();
           });
@@ -457,9 +1043,9 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
         async clear() {
           console.time('storage clear');
-          let {store} = await this.getStore();
+          const {store} = await this.getStore();
           return new Promise((resolve, reject) => {
-            let req = store.clear();
+            const req = store.clear();
             req.onsuccess = e => {
               console.timeEnd('storage clear');
               resolve();
@@ -478,21 +1064,25 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
         },
         async load(...args) {
           try {
-            let result = await IndexDBStorage.getInstance().load(...args);
+            const result = await IndexDBStorage.getInstance().load(...args);
             // console.log('Storage load result', result);
             if (!result) {
               return null;
             }
-            let buffer = result.buffer;
+            const buffer = result.buffer;
             return {meta: result.meta, buffer};
           } catch(e) {
             console.warn('Storage load fail', e);
             return null;
           }
         },
+        async hasData(...args) {
+          const result = await IndexDBStorage.getInstance().hasData(...args);
+          return {result};
+        },
         async gc() {
           if (navigator && navigator.locks) {
-            return await navigator.locks.request('ZenzaHLS_GC', {ifAvailable: true}, async (lock) => {
+            return await navigator.locks.request('ZenzaHLS_GC', {ifAvailable: true}, async lock => {
               if (!lock) {
                 return;
               }
@@ -508,10 +1098,10 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
         }
       };
 
-      self.onmessage = async (e) => {
+      self.onmessage = async e => {
         let result;
-        let data = e.data.data;
-        let id = e.data.id;
+        const data = e.data.data;
+        const id = e.data.id;
         let status = 'ok';
         try {
           switch (e.data.command) {
@@ -528,38 +1118,44 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
                 return self.postMessage({id, status, result: null}, []);
               }
               return self.postMessage({id, status, result: result.meta, buffer: result.buffer}, [result.buffer]);
-            case 'gc':
+            case 'hasData':
+                result = await Storage.hasData(data);
+                if (!result) {
+                  return self.postMessage({id, status, result: false});
+                }
+                return self.postMessage({id, status, result});
+              case 'gc':
               Storage.gc();
               return self.postMessage({id, status, result: null});
             case 'clear':
               result = await Storage.clear();
               return self.postMessage({id, status, result});
           }
-        } catch (e) {
+        } catch (err) {
           status = 'fail';
-          return self.postMessage({id, status, result: e});
+          return self.postMessage({e, id, status, result: err});
         }
       };
     };
 
-    const createWebWorker = (func, type = '') => {
-      let src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
+    const createWebWorker = (func, {type, name} = {}) => {
+      const src = func.toString().replace(/^function.*?{/, '').replace(/}$/, '');
 
-      let blob = new Blob([src], {type: 'text/javascript'});
-      let url = URL.createObjectURL(blob);
+      const blob = new Blob([src], {type: 'text/javascript'});
+      const url = URL.createObjectURL(blob);
 
       if (type === 'SharedWorker') {
-        return new SharedWorker(url);
+        return new SharedWorker(url, {name});
       }
-      return new Worker(url);
+      return new Worker(url, {name});
     };
 
     const Storage = {
       request: {},
       worker: null,
-      onMessage: function(e) {
-        let id = e.data.id;
-        let request = this.request[id];
+      onMessage(e) {
+        const id = e.data.id;
+        const request = this.request[id];
         if (!request) {
           window.console.warn('unkwnown request id', id);
           return;
@@ -576,14 +1172,14 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             return request.resolve(e.data.result);
         }
       },
-      getId: function() {
+      getId() {
         return `id:${Math.random()}-${performance.now()}`;
       },
-      sendRequest: async function(command, data, buffer = null) {
+      async sendRequest(command, data, buffer = null) {
         if (window.Prototype) {
           return Promise.resolve(null);
         }
-        let id = this.getId();
+        const id = this.getId();
         // window.console.info('sendrequest', command, data, buffer);
         return new Promise(resolve => {
           this.request[id] = {id, command, resolve};
@@ -594,23 +1190,30 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           }
         });
       },
-      setConfig: async function(config) {
+      async setConfig(config) {
         return this.sendRequest('config', config);
       },
-      save: async function({hash, videoId, meta}, buffer) {
+      async save({hash, videoId, meta}, buffer) {
         return this.sendRequest('save', {hash, videoId, meta}, buffer);
       },
-      load: async function({hash}) {
+      async load({hash}) {
         return await this.sendRequest('load', {hash});
       },
-      gc: function() {
-        return this.sendRequest('gc', {});
+      async hasData({hash}) {
+        return await this.sendRequest('hasData', {hash});
       },
-      clear: async function() {
+      async gc() {
+        if (Config.get('enable_db_cache') && !window.Prototype) {
+          return this.sendRequest('gc', {});
+        } else {
+          return Promise.resolve();
+        }
+      },
+      async clear() {
         return this.sendRequest('clear', {});
       }
     };
-    Storage.worker = createWebWorker(StorageWorker);
+    Storage.worker = createWebWorker(StorageWorker, {name: 'ZenzaWatchHLSWorker'});
     Storage.worker.addEventListener('message', Storage.onMessage.bind(Storage));
     Storage.setConfig({cache_expire_time: Config.get('cache_expire_time')});
     Storage.gc = debounce(Storage.gc.bind(Storage), 10 * 1000);
@@ -635,21 +1238,12 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
       // readonly の Event.target を無理やり書き換える (意味ないかも)
       const overrideTarget = (event, target) => {
         return event;
-        const p = new Proxy(event, {
-          get: function(t, name){
-            if (name === 'target') {
-              return target;
-            }
-            return t[name];
-          }
-        });
-        return p;
       };
 
       let FragmentLoaderClass;
       const createFragmentLoader = (Hls) => {
 
-        const xhrSetup = function(xhr, url) {
+        const xhrSetup = (xhr, url) => {
           //xhr.timeout = config.timeout + 1000;
           //xhr.setRequestHeader('Cache-Control', 'force-cache');
           xhr.ontimeout = () => {
@@ -657,7 +1251,94 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           };
           xhr.open('GET', url, true);
         };
+        const frag2hash = fragment => {
+          const url = fragment.url;
+          const levels = this.levels;
 
+          const [path, videoId, level, sn] =
+              /\/nicovideo-([a-z0-9]+)_.*\/([\d]+)\/ts\/([\d]+)\.ts/.exec(url);
+          let rel = '';
+          if (fragment.levelkey && fragment.levelkey.reluri) {
+            const m = /h=(.*?)&/.exec(fragment.levelkey.reluri);
+            rel = m ? `-${m[1]}` : '';
+          }
+          if (levels && levels[fragment.level]) {
+            const {width, height, bitrate, attrs} = levels[fragment.level];
+            const fps = attrs['FRAME-RATE'] ? `${attrs['FRAME-RATE']}fps` : '(unknown)fps';
+            return {hash: `${videoId}-${width}x${height}-${bitrate}bps-${fps}-${sn}${rel}`, videoId};
+          }
+          return {hash: `${videoId}-${fragment.level}-${sn}${rel}`, videoId};
+        };
+
+        const hasCache = async fragment => {
+          const {hash} = frag2hash(fragment);
+          return await Storage.hasData({hash});
+        };
+
+        const preloadFragment = async (fragment, url) => {
+          if (fragment.hasCache) {
+            return true;
+          }
+          if (await hasCache(fragment)) {
+            fragment.hasCache = true;
+            return true;
+          }
+          if (fragment.failed >= 3) {
+            return false;
+          }
+          const {level, sn} = fragment;
+
+          const {hash, videoId} = frag2hash(fragment);
+
+          const abc = new AbortController();
+          const debounceTimeout = debounce(() => abc.abort(), 30000);
+
+          const params = {
+            method: 'GET',
+            // mode: 'cors',
+            // credentials: 'same-origin',
+            cache: 'force-cache',
+            signal: abc.signal,
+          };
+          const request = new Request(url, params);
+          debounceTimeout();
+          let res;
+          for (let i = 0; i < 3; i++) {
+            res = await fetch(request, params).catch(e => ({e}));
+            if (res.ok && res.status !== 206) {
+              break;
+            }
+            fragment.failed = i;
+            const status = res.status;
+            console.warn('fetch fail', {i, res, url, request, params});
+            if (status >= 400 && status < 499) {
+              break;
+            }
+            await new Promise(res => setTimeout(res, 3000));
+          }
+          if (!res.ok) {
+            return;
+          }
+          const data = await res.arrayBuffer();
+          debounceTimeout.cancel();
+
+          const buffer = data.slice();
+          fragment.hasCache = true;
+          Storage.save({
+            hash,
+            videoId,
+            meta: {
+              contentLength: buffer.length,
+              sn,
+              resp: { url },
+              level,
+              total: buffer.length,
+              stats,
+              url: context.url
+            }
+          }, buffer);
+          return true;
+        };
 
         // hls.config.fLoader にはクラスのインスタンスではなく定義を渡す
         // loaderはexportされていないため、Hls.DefaultConfig.loader経由で継承する
@@ -666,19 +1347,6 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
         let BLOCK_INTERVAL = 3000;
         class FragmentLoader extends Hls.DefaultConfig.loader {
 
-          static frag2hash(fragment) {
-            const url = fragment.url;
-            const levels = this.levels;
-
-            let [path, videoId, level, sn] =
-                /\/nicovideo-([a-z0-9]+)_.*\/([\d]+)\/ts\/([\d]+)\.ts/.exec(url);
-            if (levels && levels[fragment.level]) {
-              let {width, height, bitrate, attrs} = levels[fragment.level];
-              let fps = attrs['FRAME-RATE'] ? `${attrs['FRAME-RATE']}fps` : '(unknown)fps';
-              return {hash: `${videoId}-${width}x${height}-${bitrate}bps-${fps}-${sn}`, videoId};
-            }
-            return {hash: `${videoId}-${fragment.level}-${sn}`, videoId};
-          }
 
           constructor(config) {
             super(config);
@@ -703,23 +1371,21 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
             const frag = context.frag;
             const level = frag.level;
-            const storage = this._storage;
 
-            const {hash, videoId} = this.constructor.frag2hash(frag);
+            const {hash, videoId} = frag2hash(frag);
 
             const {onSuccess, onError} = callbacks;
             if (!context.rangeStart && !context.rangeEnd) {
 
-              callbacks.onSuccess = async function(resp, stats, context, details = null) {
-                let blob = new Blob([resp.data]);
-                let buffer = resp.data.slice();
-                let status = details instanceof XMLHttpRequest ? details.status : 200;
+              callbacks.onSuccess = async (resp, stats, context, details = null) => {
+                const status = details instanceof XMLHttpRequest ? details.status : 200;
 
                 if (status === 206
                //     buffer.byteLength !== contentLength
                 ) {
-                  console.warn('CONTENT LENGTH MISMATCH!', buffer.byteLength, frag.loaded);//, contentLength);
+                  console.warn('CONTENT LENGTH MISMATCH!', resp.data.slice().length, frag.loaded);//, contentLength);
                 } else if (Config.get('enable_db_cache') && !window.Prototype) {
+                  const buffer = resp.data.slice();
                   frag.hasCache = true;
                   Storage.save({
                     hash,
@@ -742,11 +1408,12 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               };
 
               // prototype.js のあるページでは動かないどころかブラクラ化する
-              if (Config.get('enable_db_cache') && !window.Prototype) {
+              if (Config.get('enable_db_cache')) {
                 // console.log('***load', hash, Config.get('enable_db_cache'),window.Prototype);
-                let [meta, buffer] = await Storage.load({hash});
+                const [meta, buffer] = await Storage.load({hash});
                 // console.log('cache?', !!meta, hash);
                 if (meta) {
+                  frag.hasCache = true;
                   return callbacks.onSuccess(
                     {url: meta.url, data: buffer }, meta.stats, context, null);
                 }
@@ -820,8 +1487,276 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
         }
 
+
+        class FetchLoader extends Hls.DefaultConfig.loader {
+          constructor(config) {
+            super(config);
+            this.config = config;
+            this.onTimeout = this.onTimeout.bind(this);
+          }
+
+          abort () {
+            if (!this.stats.success) {
+              this.stats.aborted = true;
+            }
+            if (this.abortController) {
+              this.abortController.abort();
+            }
+            this.abortController = null;
+            if (this.timeoutTimer) {
+              this.timeoutTimer.cancel();
+            }
+            this.timeoutTimer = null;
+          }
+
+          destroy () {
+            this.abort();
+          }
+
+          async load(context, config, callbacks) {
+            if (!context.frag || !/\.ts/.test(context.url)) {
+              window.console.info('unknown context', context.url, context);
+              return super.load(context, config, callbacks);
+            }
+            this.context = context;
+            this.config = config;
+            this.callbacks = callbacks;
+            this.stats = { loader: 'fetch', trequest: performance.now(), retry: 0, loaded: 0 };
+            this.retryDelay = config.retryDelay;
+
+
+            this._load(context, config, callbacks);
+          }
+
+          async _load(context, config, callbacks) {
+            const frag = context.frag;
+            const level = frag.level;
+            const {hash, videoId} = frag2hash(frag);
+            const {onSuccess, onError} = callbacks;
+            if (!context.rangeStart && !context.rangeEnd) {
+
+              callbacks.onSuccess = async (resp, stats, context, details = null) => {
+                const status = details instanceof XMLHttpRequest ? details.status : 200;
+
+                if (status === 206
+               //     buffer.byteLength !== contentLength
+                ) {
+                  console.warn('CONTENT LENGTH MISMATCH!', resp.data.length, frag.loaded);//, contentLength);
+                } else if (Config.get('enable_db_cache') && !window.Prototype) {
+                  const buffer = resp.data.slice();
+                  frag.hasCache = true;
+                  Storage.save({
+                    hash,
+                    videoId,
+                    meta: {
+                      contentLength: context.frag.loaded,
+                      sn: context.frag.sn,
+                      resp: {
+                        url: resp.url
+                      },
+                      level,
+                      total: context.frag.loaded,
+                      stats,
+                      url: context.url
+                    }
+                  }, buffer);
+                }
+
+                onSuccess(resp, stats, context, details);
+              };
+
+              // prototype.js のあるページでは動かないどころかブラクラ化する
+              if (Config.get('enable_db_cache')) {
+                // console.log('***load', hash, Config.get('enable_db_cache'),window.Prototype);
+                const [meta, buffer] = await Storage.load({hash});
+                // console.log('cache?', !!meta, hash);
+                if (meta) {
+                  return callbacks.onSuccess(
+                    {url: meta.url, data: buffer }, meta.stats, context, null);
+                }
+              }
+            }
+
+            callbacks.onError = (resp /* = {code, text} */, context, xhr) => {
+              if (this._isAborted) {
+                console.warn('error after aborted', resp, context);
+                onError({code: 0, text: `error after aborted ${resp.code}: ${resp.text}`}, context, xhr);
+                return;
+              }
+              onError(resp, context, xhr);
+            };
+
+            this.loadInternal(context, config, callbacks);
+          }
+
+          async loadInternal() {
+            const {stats, context, config, callbacks} = this;
+            let url = context.url;
+
+            const headers = {};
+
+            if (context.rangeEnd) {
+              headers['Range'] = `bytes=${context.rangeStart}-${context.rangeEnd - 1}`;
+            }
+
+            const abc = this.abortController = new AbortController();
+            const params = {
+              // method: 'GET',
+              // mode: 'cors',
+              // credentials: 'same-origin',
+              cache: 'force-cache',
+              signal: abc.signal,
+              headers: new Headers(headers)
+            };
+
+            const debounceTimeout = debounce(this.onTimeout, this.config.timeout);
+            this.timeoutTimer = debounceTimeout;
+            // const onProgress = this.onProgress.bind(this);
+
+            const request = new Request(url, params);
+            let data;
+
+            try {
+              debounceTimeout();
+
+              let res;
+              for (let i = 0; i < Math.min(config.maxRetry, 3); i++) {
+                res = await fetch(request, params);
+                if (res.ok) {
+                  break;
+                }
+                const status = res.status;
+                console.warn('fetch fail', i, res, url, request, params);
+                if (status >= 400 && status < 499) {
+                  break;
+                }
+                await new Promise(res => setTimeout(res, this.retryDelay));
+              }
+
+              if (!res.ok) {
+                throw new Error('fetch, bad network response. ' + res);
+              }
+
+              debounceTimeout();
+
+              url = res.url;
+              stats.total = parseInt(res.headers.get('Content-Length'), 10);
+              stats.loaded = 0;
+              stats.tfirst = Math.max(stats.trequest, performance.now());
+
+              if ((context.responseType || 'arrayBuffer').toLowerCase() !== 'arraybuffer') {
+                data = await res.text();
+              } else {
+                data = await res.arrayBuffer();
+                // data = await new Response(new ReadableStream({
+                //     start(controller) {
+                //       const reader = res.body.getReader();
+                //       let result, value, done;
+                //       const read = async () => {
+                //         do {
+                //           result = await reader.read();
+                //           // let {value, done} = result;
+                //           debounceTimeout();
+
+                //           const value = result.value;
+                //           stats.loaded += value.byteLength;
+                //           controller.enqueue(value);
+                //           onProgress(value);
+                //         } while (!result.done);
+                //         controller.close();
+                //       };
+                //       read();
+                //     }
+                //   })
+                // ).arrayBuffer();
+              }
+            } catch (e) {
+              callbacks.onError({ text: e.message }, context);
+            }
+
+            debounceTimeout.cancel();
+            this.timeoutTimer = null;
+            this.abortController = null;
+
+            if (data) {
+              const len = typeof data === 'string' ? data.length : data.byteLength;
+              Object.assign(stats, {
+                success: true,
+                tload: Math.max(stats.tfirst, performance.now()),
+                loaded: len,
+                total: len
+              });
+              callbacks.onSuccess({url, data}, stats, context);
+            } else {
+              this.abort();
+            }
+          }
+
+          onTimeout() {
+            console.warn('request timeout', this.stats, this.context);
+            this.abort();
+            this.callbacks.onTimeout(this.stats, this.context, null);
+          }
+
+          /**
+           * @param {ArrayBuffer} data
+           */
+          onProgress(data) {
+            const onProgress = this.callbacks.onProgress;
+            if (onProgress) {
+              onProgress(this.stats, this.context, data, null);
+            }
+          }
+
+        }
+
+
         FragmentLoaderClass = FragmentLoader;
+        FragmentLoaderClass.frag2hash = frag2hash;
+        FragmentLoaderClass.hasCache = hasCache;
+        FragmentLoaderClass.preloadFragment = FragmentLoaderClass;
         return FragmentLoaderClass;
+      };
+      /** @param  */
+      const objectUrlMap = {}; // {url: ObjectURL, time: number}
+      const keyclean = () => {
+        const keys = Object.keys(objectUrlMap)
+          .sort((a, b) => a.time - b.time);
+        while (keys.length > 100) {
+          const key = keys.shift();
+          URL.revokeObjectURL(objectUrlMap[key].url);
+          delete objectUrlMap[key];
+        }
+      };
+      const overrideKeyloader = (hls) => {
+        const keyloader = hls.coreComponents.find(h => h.hasOwnProperty('decryptkey'));
+        if (!keyloader) {
+          console.warn('keyloader not founnd', hls.coreComponents);
+          return;
+        }
+        keyloader.onKeyLoading_org = keyloader.onKeyLoading.bind(keyloader)
+        keyloader.onKeyLoading = function(data) {
+          const uri = data.frag.decryptdata.uri;
+          const objUrl = objectUrlMap[uri].url;
+          if (objUrl) {
+            data.frag.decryptdata.uri = objUrl;
+          }
+          return this.onKeyLoading_org(data);
+
+        }.bind(keyloader);
+
+        keyloader.loadsuccess_org = keyloader.loadsuccess.bind(keyloader);
+        keyloader.loadsuccess = function(response, stats, context) {
+          if (this.decrypturl.startsWith('blob')) {
+            return this.loadsuccess_org(response, stats, context);
+          }
+          const blob = new Blob([new DataView(response.data)]);
+          objectUrlMap[this.decrypturl] =
+            {url: URL.createObjectURL(blob), time: Date.now()};
+          keyclean();
+          return this.loadsuccess_org(response, stats, context);
+        }.bind(keyloader);
+
       };
 
       let idCounter = 0;
@@ -862,7 +1797,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
                 font-family: 'Arial Black';
                 pointer-events: none;
                 mix-blend-mode: luminosity;
-                transition: 0.2s opacity, 0.4s box-shadow;
+                transition: 0.2s opacity;
                 opacity: 0.5;
               }
 
@@ -900,6 +1835,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           this._hlsConfig = {};
           this._videoCount = 0;
           this._id = `id:${idCounter++}`;
+          this._bufferStats = [];
 
           this._playerMode = PLAYER_MODE.DEFAULT;
           this._eventWrapperMap = new Map();
@@ -1182,6 +2118,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           this._isSeeking = false;
           this._isBufferCompleted = false;
           this._throttledCurrentTime.cancel();
+          this._bufferStats = [];
         }
 
         get _useNativeHLS() {
@@ -1233,6 +2170,10 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             this._hls.stopLoad();
             this._hls.detachMedia();
             this._hls.destroy();
+            if (this._fragmentLoader) {
+              delete this._hlsConfig.fLoader;
+              delete this._fragmentLoader;
+            }
             this._hls = null;
           }
         }
@@ -1249,7 +2190,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             //}
             this._fragmentLoader = createFragmentLoader(Hls);
             this._hlsConfig.fLoader = this._fragmentLoader;
-            let hls = new Hls(this._hlsConfig);
+            const hls = new Hls(this._hlsConfig);
             this._hls = hls;
 
             this._hls.on(Hls.Events.MANIFEST_PARSED,
@@ -1262,12 +2203,15 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               this._onHLSJSError.bind(this));
             this._hls.on(Hls.Events.FRAG_LOADED,
               this._onHLSJSFragLoaded.bind(this));
+            // this._hls.on(Hls.Events.FRAG_BUFFERED,
+            //   this._onHLSJSFragBuffered.bind(this));
             this._hls.on(Hls.Events.BUFFER_EOS,
               this._onHLSJSBufferEOS.bind(this));
             this.dispatchEvent(new CustomEvent('init-hls-js', {detail: {hls: hls}}));
             this._hls.on(Hls.Events.MEDIA_ATTACHED, () => {
               this._hls.loadSource(src);
             });
+            // overrideKeyloader(hls);
             this._hls.attachMedia(this._video);
           }
           return this._hls;
@@ -1277,7 +2221,9 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           //console.log('%cHls.Events.MANIFEST_PARSED', 'background: cyan;', this._src);
           this._manifest = data;
           this._levelData = [];
-          this._fragmentLoader.levels = data.levels;
+          if (this._fragmentLoader) {
+            this._fragmentLoader.levels = data.levels;
+          }
           this.dispatchEvent(new Event('loadedmetadata'));
           this.dispatchEvent(new Event('canplay'));
         }
@@ -1285,6 +2231,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
         _onHLSJSLevelLoaded(eventName, data) {
           //console.log('%cHls.Events.LEVEL_LOADED', 'background: cyan;', this._src);//, data);
           this._levelData[data.level] = data.details;
+          this._bufferStats.length = data.details.endSN || 0;
         }
 
         _onHLSJSLevelSwitched()  {
@@ -1308,6 +2255,16 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               bitrate: level.bitrate
             }}));
           }
+        }
+
+        _onHLSJSFragBuffered(eventName, data) {
+          const { trequest, tfirst, tbuffered, total} = data.stats;
+          const { duration, level, sn } = data.frag;
+          const totalTime = tbuffered - trequest;
+          const transferKbps = Math.round((total * 8) / ((tbuffered - trequest) - (tfirst - trequest)));
+          const dataKbps = Math.round((total * 8) / duration);
+          this._bufferStats[sn] = {totalTime, transferKbps, dataKbps, level, sn};
+          // console.log('rate', {totalTime, transferKbps, dataKbps, level, sn});
         }
 
         _blinkLabel() {
@@ -1336,7 +2293,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           );
 
           switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
+            case Hls.ErrorTypes.NETWORK_ERROR: {
               if (this._isBufferCompleted) { return; }
               const code = data.response ? data.response.code : 0;
 
@@ -1351,6 +2308,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
                 this._isForbidden403 = true;
                 //this._hls.stopLoad();
               }
+            }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               if ([Hls.ErrorDetails.BUFFER_STALLED_ERROR,
@@ -1377,7 +2335,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
 
         _onHLSJSFatalError(e, data) {
           console.error('%cHls.Events.ERROR: FATAL', 'background: cyan;', this._id,  data);
-          let code = 0;
+          let code;
           // サンプルコードではここで自動リカバーしているが、
           // サーバーの障害でエラーが起きてる場合は追加攻撃になりかねないので、やめておく
           switch (data.type) {
@@ -1419,15 +2377,14 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
       }
       if (!Hls) {
         const s = document.createElement('script');
-        s.src = `https://cdn.jsdelivr.net/npm/hls.js@${Config.get('hls_js_ver')}`;
-        console.info('load hls.js from', s.src);
         s.onload = () => {
           Hls = window.Hls;
           console.info('hls.js loaded:', window.Hls.version);
         };
-        document.body.appendChild(s);
+        s.src = `https://cdn.jsdelivr.net/npm/hls.js@${Config.get('hls_js_ver')}`;
+        // console.info('load hls.js from', s.src);
+        (document.head || document.documentElement).append(s);
       } else {
-        Hls = window.Hls;
         console.info('hls.js ready:', window.Hls.version);
       }
       return ZenzaVideoElement;
@@ -1832,7 +2789,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             this._root.close();
           }
         }
-        
+
         toggle() {
           if (!this._root) { return; }
           if (this.isOpen) {
@@ -1896,13 +2853,14 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             case 'toggle':
               this.toggle();
               break;
-            case 'save':
+            case 'save': {
               const config = {};
               Object.keys(this._elm).forEach(key => {
                 config[key] = this._elm[key].value;
               });
               this.dispatchEvent(
                 new CustomEvent('save', {detail: {config}}));
+            }
               break;
             case 'reset':
               this.dispatchEvent(new CustomEvent('reset'));
@@ -1935,11 +2893,12 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
             .root {
               position: fixed;
               width: 640px;
+              max-height: 80vh;
               /*max-height: calc(100vh - 32px);*/
               /*top: 100vh;*/
               z-index: 10000;
               overflow-x: hidden;
-              overflow-y: visible;
+              overflow-y: auto;
               /*transform: translate(0, -32px);*/
               background: rgba(240, 240, 240, 0.95);
               color: #000;
@@ -1989,7 +2948,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
               cursor: pointer;
               white-space: nowrap;
             }
-            
+
             button[data-command="clear-cache"] {
               width: auto;
             }
@@ -2114,61 +3073,47 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
     };
 
     const ZenzaDetector = (() => {
-      let isReady = false;
       let ZenzaWatch = null;
-      const emitter = new Emitter();
+      let emitter;
 
-      let initialize = () => {
-        initialize = () => {};
+      const initialize = () => {
+        if (emitter) { return; }
+        emitter = new Emitter();
         const onBeforeZenzaReady = () => {
           ZenzaWatch = window.ZenzaWatch;
-          ZenzaWatch.debug.isHLSSupported = true;
-          //ZenzaWatch.debug.VideoSession = VideoSession;
-
-          emitter.emit('beforeready', ZenzaWatch);
+          emitter.emitResolve('beforeReady', ZenzaWatch);
         };
 
         const onZenzaReady = () => {
-          isReady = true;
-          emitter.emit('ready', ZenzaWatch);
+          ZenzaWatch = window.ZenzaWatch;
+          emitter.emitResolve('beforeReady', ZenzaWatch);
+          emitter.emitResolve('afterReady', ZenzaWatch);
         };
 
-        if (window.ZenzaWatch && window.ZenzaWatch.ready) {
-          //window.console.log('ZenzaWatch is Ready ZenzaHLS');
+        if (window.ZenzaWatch) {
           onBeforeZenzaReady();
-          onZenzaReady();
-        } else {
-          document.body.addEventListener('BeforeZenzaWatchInitialize', () => {
-            //window.console.log('BeforeZenzaWatchInitialize ZenzaHLS');
-            onBeforeZenzaReady();
-          }, {once: true});
-          document.body.addEventListener('ZenzaWatchInitialize', () => {
-            //window.console.log('ZenzaWatchInitialize ZenzaHLS');
-            onZenzaReady();
-          }, {once: true});
+          if (window.ZenzaWatch.ready) {
+            return onZenzaReady();
+          }
         }
+        window.addEventListener('BeforeZenzaWatchInitialize', onBeforeZenzaReady, {once: true});
+        window.addEventListener('ZenzaWatchInitialize', onZenzaReady, {once: true});
       };
 
       const detect = (timing = 'ready') => {
         initialize();
-        return new Promise(res => {
-          if (isReady || (timing === 'beforeready' && ZenzaWatch)) {
-            return res(ZenzaWatch);
-          }
-          emitter.on(timing, () => {
-            res(ZenzaWatch);
-          });
-        });
+        if (timing === 'beforeready') {
+          return emitter.promise('beforeReady');
+        } else {
+          return emitter.promise('afterReady');
+        }
       };
 
-      return {
-        initialize: initialize,
-        detect: detect
-      };
+      return { initialize, detect};
     })();
 
     const initDebug = ({hlsConfig, html, render, ZenzaWatch}) => {
-      ZenzaWatch.emitter.once('videoControBar.addonMenuReady', (container, handler) => {
+      ZenzaWatch.emitter.promise('videoControBar.addonMenuReady').then(({container}) => {
         const div = html`<div class="command controlButton" data-command="toggleHLSDebug">
             <div class="controlButtonInner">hls</div>
           </div>`;
@@ -2178,9 +3123,9 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           }`, {className: 'ZenzaHLS'});
         container.append(div.getTemplateElement().content);
       });
-      ZenzaWatch.emitter.once('videoContextMenu.addonMenuReady.list', (menuContainer) => {
+      ZenzaWatch.emitter.promise('videoContextMenu.addonMenuReady.list').then(({container}) => {
         const li = html`<li class="command" data-command="toggleHLSDebug">HLS設定</li>`;
-        menuContainer.appendChild(li.getTemplateElement().content);
+        container.append(li.getTemplateElement().content);
       });
 
       ZenzaWatch.emitter.once('command-toggleHLSDebug', () => {
@@ -2223,7 +3168,7 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
         });
 
         ZenzaWatch.debug.hlsDebugDialog = d;
-        document.body.appendChild(d);
+        document.body.append(d);
         d.open();
 
         ZenzaWatch.emitter.on('command-toggleHLSDebug', () => {
@@ -2240,9 +3185,62 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
         hlsConfig[key] = value;
       });
 
+      let lastLevel = -1;
+      const createVideoElement = usecase => {
+        if (!window.customElements) {
+          return document.createElement('video');
+        }
+        const video =  document.createElement('zenza-video');
+        if (usecase === 'capture') {
+          //return null;
+          // 静止画キャプチャ用なのにどんどんバッファするのは無駄なので抑える
+          video.setAttribute('data-usecase', 'capture');
+          video.hlsConfig = {
+            autoStartLoad: false,
+            // maxBufferSize: 0,
+            // maxBufferLength: 5,
+            // maxMaxBufferLength: 5,
+            manifestLoadingRetryDelay: 5000,
+            levelLoadingRetryDelay: 5000,
+            fragLoadingRetryDelay: 5000,
+            fragLoadingMaxRetry: 3,
+            levelLoadingMaxRetry: 1,
+            abrEwmaDefaultEstimate: ZenzaWatch.debug.hlsConfig.abrEwmaDefaultEstimate,
+            startLevel: lastLevel
+          };
+          video.addEventListener('init-hls-js', ({detail: {hls}}) => {
+            hls.autoLevelCapping = lastLevel;
+          });
+        } else {
+          video.setAttribute('show-video-label', Config.get('show_video_label') ? 'on' : 'off');
+          video.hlsConfig = hlsConfig;
+          video.addEventListener('levelswitched', e => {
+            const detail = e.detail;
+            //const kbps = Math.round(detail.bitrate * 10 / 1024) / 10;
+            //console.log('Hls.Events.LEVEL_SWITCHED level: %s, size: %sx%s, %sKbps',
+            //  detail.level,
+            //  detail.width,
+            //  detail.height,
+            //  kbps
+            //);
+            lastLevel = detail.level;
+            if (Config.get('autoAbrEwmaDefaultEstimate')) {
+              ZenzaWatch.debug.hlsConfig.abrEwmaDefaultEstimate =
+                Math.round(detail.bitrate * 0.8);
+            }
+          });
+          primaryVideo = video;
+        }
+        video.setAttribute('use-native-hls', Config.get('use_native_hls') ? 'yes' : 'no');
+        return video;
+      };
+
+      window.ZenzaHLS = {
+        createVideoElement
+      };
 
       ZenzaDetector.detect('beforeready').then(ZenzaWatch => {
-        util = ZenzaWatch.util;
+        ZenzaWatch.debug.isHLSSupported = true;
 
         ZenzaWatch.debug.hlsConfig = {};
         Object.keys(Config.raw).forEach(key => {
@@ -2252,65 +3250,13 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
           });
         });
 
-        let lastLevel = -1;
-        ZenzaWatch.debug.createVideoElement = usecase => {
-          if (!window.customElements) {
-            return document.createElement('video');
-          }
-          const video =  document.createElement('zenza-video');
-          if (usecase === 'capture') {
-            //return null;
-            // 静止画キャプチャ用なのにどんどんバッファするのは無駄なので抑える
-            video.setAttribute('data-usecase', 'capture');
-            video.hlsConfig = {
-              autoStartLoad: false,
-              // maxBufferSize: 0,
-              // maxBufferLength: 5,
-              // maxMaxBufferLength: 5,
-              manifestLoadingRetryDelay: 5000,
-              levelLoadingRetryDelay: 5000,
-              fragLoadingRetryDelay: 5000,
-              fragLoadingMaxRetry: 3,
-              levelLoadingMaxRetry: 1,
-              abrEwmaDefaultEstimate:
-                ZenzaWatch.debug.hlsConfig.abrEwmaDefaultEstimate,
-              startLevel: lastLevel
-            };
-            video.addEventListener('init-hls-js', ({detail: {hls}}) => {
-              hls.autoLevelCapping = lastLevel;
-            });
-          } else {
-            video.setAttribute('show-video-label', Config.get('show_video_label') ? 'on' : 'off');
-            video.hlsConfig = hlsConfig;
-            video.addEventListener('levelswitched', e => {
-              const detail = e.detail;
-              //const kbps = Math.round(detail.bitrate * 10 / 1024) / 10;
-              //console.log('Hls.Events.LEVEL_SWITCHED level: %s, size: %sx%s, %sKbps',
-              //  detail.level,
-              //  detail.width,
-              //  detail.height,
-              //  kbps
-              //);
-              lastLevel = detail.level;
-              if (Config.get('autoAbrEwmaDefaultEstimate')) {
-                ZenzaWatch.debug.hlsConfig.abrEwmaDefaultEstimate =
-                  Math.round(detail.bitrate * 0.8);
-              }
-            });
-            primaryVideo = video;
-          }
-          video.setAttribute('use-native-hls', Config.get('use_native_hls') ? 'yes' : 'no');
-          return video;
-        };
+        ZenzaWatch.debug.createVideoElement = createVideoElement;
         return ZenzaWatch;
       }).then(ZenzaWatch => {
-        console.time('dynamic import');
 
         Promise.all([
-          import('https://cdn.jsdelivr.net/npm/lit-html@0.9.0/lit-html.min.js'),
-        //  import('https://cdn.rawgit.com/lodash/lodash/4.17.4-es/lodash.default.js')
+          dimport('https://unpkg.com/lit-html@1.1.2/lit-html.js?module')
         ]).then(([{html, render}]) => {
-          console.timeEnd('dynamic import');
           initDebug({hlsConfig, html, render, ZenzaWatch});
         });
         console.timeEnd('ZenzaWatch HLS');
@@ -2321,28 +3267,43 @@ const modules = {ErrorEvent, MediaError, HTMLDialogElement, DOMException};
     init();
   };
 
-  if (window !== window.top) {
-    if (!/^ZenzaWatchHLS_.*_Loader$/.test(window.name)) {
-      return;
+  try {
+    if (Hls) {
+      console.log('hls.js@%s required', Hls.version);
+      window.Hls = Hls;
+    } else
+    if (window && !window.Hls) {
+      const hlsjs = document.createElement('script');
+      hlsjs.id = 'HLSJS_Loader';
+      hlsjs.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+      hlsjs.onerror = e => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <h2>* ZenzaWatch HLS *</h2>
+          <a href="${hlsjs.src}" target="_blank">${hlsjs.src}</a> の読み込みに失敗しました。<br>
+          他のアドオン等でブロックされている可能性があります。`;
+        div.onclick = () => {
+          div.remove();
+        };
+        Object.assign(div.style, {
+          position: 'fixed', zIndex: '100000',
+          bottom: '32px', left: '32px', padding: '8px',
+          background: 'rgba(153, 0, 0, 0.8)', color: '#fff', fontWeight: 'bold'
+        });
+        document.documentElement.append(div);
+      };
+      document.documentElement.append(hlsjs);
     }
-    if (!/^smile[a-z0-9-]+\.nicovideo\.jp$/.test(location.host)) {
-      return;
-    }
+  } catch (e) {
+    console.warn('ZenzaHLS: ', e);
   }
-  if (!document.body) {
-    return;
-  }
-
-  let script = document.createElement('script');
+  const script = document.createElement('script');
   script.id = 'ZenzaWatchHLSLoader';
-  script.setAttribute('type', 'module');
   script.setAttribute('charset', 'UTF-8');
-  script.appendChild(
-    document.createTextNode(`
-      ${MODULES}
-      (${monkey})('${PRODUCT}', modules);
-    ` )
-  );
-  document.body.appendChild(script);
-})();
+  script.append(`
+    ${MODULES}
+    (${monkey})('${PRODUCT}', ZenzaHLSmodules);
+  `);
+  document.documentElement.append(script);
+});
 

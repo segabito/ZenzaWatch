@@ -19,29 +19,33 @@
     const LazyImage = window.Nico && window.Nico.LazyImage;
     if (!LazyImage) { return; }
     const isInitialized = !!LazyImage.pageObserver;
-    console.log('override Nico.LazyImage...');
+    console.log('override Nico.LazyImage...', {isInitialized});
     if (isInitialized) {
       clearInterval(LazyImage.pageObserver);
     }
-
     Object.assign(LazyImage, {
+      isInitialized: false,
       waitings: {
         get length() { return 0; },
         push(v) { return v; },
         splice() { return []; }
       },
       initialize() {
+        this.isInitialized = true;
         this._setPageObserver();
       },
       reset() {
+        if (this.isInitialized) { return; }
+        console.log('reset and initialize');
+        this.initialize();
       },
       enqueue() {
         if (!this.intersectionObserver) {
           this.initialize();
         }
-        const items = document.querySelectorAll(`.${this.className}:not(.is-loading)`);
+        const items = document.querySelectorAll(`.${this.className}:not(.is-lazy-loading)`);
         for (const item of items) {
-          item.classList.add('is-loading');
+          item.classList.add('is-lazy-loading');
           this.intersectionObserver.observe(item);
         }
       },
@@ -50,10 +54,10 @@
           throw new Error('無視していいエラー'); // override前のメソッドから呼ばれたので例外を投げて強制ストップ
         }
         const src = item.getAttribute(this.attrName);
-        item.classList.remove(this.className, 'is-loading');
+        item.classList.remove(this.className, 'is-lazy-loading');
         if (src && item.getAttribute(this.adjustAttrName)) {
           this._adjustSizeAndLoad(item, src);
-        } else {
+        } else if (src) {
           item.setAttribute('src', src);
         }
         item.setAttribute(this.attrName, '');
@@ -66,49 +70,38 @@
         });
       },
       _adjustSizeAndLoad(item, src) {
-        const img = document.createElement('img');
-        img.addEventListener('load', () => {
-          let itemWidth = item.offsetWidth;
-          let itemHeight = item.offsetHeight;
-          const imageWidth = img.width;
-          const imageHeight = img.height;
-          if (imageWidth >= imageHeight) {
-            itemHeight = itemHeight / imageWidth * imageHeight;
-          } else {
-            itemWidth = itemWidth / imageHeight * imageWidth;
-          }
+        const img = new Image();
+        img.src = src;
+        img.decode.then(() => {
           requestAnimationFrame(() => {
-            Object.assign(item.style, {
-              width: `${itemWidth}px`,
-              height: `${itemHeight}px`
-            });
+            item.style.objectFit = 'contain';
             item.setAttribute('src', src);
           });
-        }, {once: true});
-
-        img.src = src;
+        });
       },
       _setPageObserver() {
-        this.intersectionObserver && this.intersectionObserver.disconnect();
-        const intersectionObserver = this.intersectionObserver = new IntersectionObserver(entries => {
-          const inviews =
-            entries.filter(entry => entry.isIntersecting).map(entry => entry.target);
-            for (const item of inviews) {
-              intersectionObserver.unobserve(item);
-              this._loadImage(item);
-            }
-        }, { rootMargin: `${this.margin}px`});
+        if (!this.intersectionObserver) {
+          const intersectionObserver = this.intersectionObserver = new IntersectionObserver(entries => {
+            const inviews =
+              entries.filter(entry => entry.isIntersecting).map(entry => entry.target);
+              for (const item of inviews) {
+                intersectionObserver.unobserve(item);
+                this._loadImage(item);
+              }
+          }, { rootMargin: `${this.margin}px`});
+        }
 
-        this.mutationObserver && this.mutationObserver.disconnect();
-        const mutationObserver = this.mutationObserver = new MutationObserver(mutations => {
-          const isAdded = mutations.find(
-            mutation => mutation.addedNodes && mutation.addedNodes.length > 0);
-          if (isAdded) { this.enqueue(); }
-        });
-        mutationObserver.observe(
-          document.body,
-          {childList: true, characterData: false, attributes: false, subtree: true}
-        );
+        if (!this.mutationObserver) {
+          const mutationObserver = this.mutationObserver = new MutationObserver(mutations => {
+            const isAdded = mutations.find(
+              mutation => mutation.addedNodes && mutation.addedNodes.length > 0);
+            if (isAdded) { this.enqueue(); }
+          });
+          mutationObserver.observe(
+            document.body,
+            {childList: true, characterData: false, attributes: false, subtree: true}
+          );
+        }
 
         this.enqueue();
       },
@@ -122,6 +115,7 @@
     if (isInitialized) {
       LazyImage.initialize();
     }
+    // window.addEventListener('scroll', () => {LazyImage.initialize();}, {passive: true, once: true});
   };
 
 

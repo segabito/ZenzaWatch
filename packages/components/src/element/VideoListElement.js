@@ -2,7 +2,7 @@ import {BaseCommandElement} from './BaseCommandElement.js';
 import {util} from '../util/util.js';
 // import {VideoItemElement, VideoItemProps} from './VideoItemElement';
 import {VideoSearchFormElement} from './VideoSearchFormElement';
-import {defineElement} from '../../../lib/src/defineElement';
+import {defineElement} from '../../../lib/src/dom/defineElement';
 // console.info('BaseCommandElement', BaseCommandElement);
 const {ItemDataConverter} = util;
 
@@ -14,7 +14,9 @@ const {VideoListElement} = (() => {
   const SortSelectorProps = {
     type: '',
     sortKey: '',
-    defaultSortKey: ''
+    defaultSortKey: '',
+    // ownerFilter: false,
+    query: ''
   };
   const SortSelectorAttributes = Object.keys(SortSelectorProps).map(prop => BaseCommandElement.toAttributeName(prop));
 
@@ -260,7 +262,7 @@ const {VideoListElement} = (() => {
         height: 100%;
         overflow-x: hidden;
         overflow-y: auto;
-        overscroll-behavior: contain;
+        overscroll-behavior: none;
         contain: strict;
       }
 
@@ -452,6 +454,7 @@ const {VideoListElement} = (() => {
       const sortKey = req.sort || '-f';
       this.state.sortKey = sortKey;
       this.state.userSorted = true;
+      // this.state.ownerFilter = !!req.ownerFilter;
       this.state.items = items.concat();
       this.props.items = items;
       Object.assign(this.dataset, {
@@ -460,7 +463,8 @@ const {VideoListElement} = (() => {
         title,
         query,
         sortKey,
-        defaultSortKey: sortKey
+        defaultSortKey: sortKey,
+        // ownerFilter: JSON.stringify(this.state.ownerFilter)
       });
     }
 
@@ -468,6 +472,12 @@ const {VideoListElement} = (() => {
     attributeChangedCallback(attr, oldValue, newValue) {
       switch (attr) {
         case 'data-api-response': {
+          // self.console.info('data-api-response', {attr, newValue});
+          if (!newValue) {
+            this.props.items = this.state.items = [];
+            // this.render();
+            return;
+          }
           const data = JSON.parse(newValue);
           if (!data._req || data.status !== 'ok') {
             return;
@@ -489,6 +499,7 @@ const {VideoListElement} = (() => {
               this._applyVideoSearch(data);
               break;
           }
+          // this.render();
           this.refreshObserver();
           return;
         }

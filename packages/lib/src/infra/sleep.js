@@ -10,7 +10,8 @@ const sleep = Object.assign(function(time = 0) {
     return () => new Promise(res => setTimeout(res, 0));
   }),
   raf: () => new Promise(res => requestAnimationFrame(res)),
-  promise: () => Promise.resolve()
+  promise: () => Promise.resolve(),
+  resolve: Promise.resolve()
 });
 //===END===
 export {sleep};

@@ -4,13 +4,15 @@ import {CONSTANT} from './constant';
 import {SeekBarThumbnail, Storyboard} from './StoryBoard';
 import {util, BaseViewComponent} from './util';
 import {Emitter} from './baselib';
-import {bounce} from '../packages/lib/src/infra/bounce';
+import {throttle, bounce} from '../packages/lib/src/infra/bounce';
 import {HeatMapWorker} from '../packages/zenza/src/heatMap/HeatMapWorker';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
 import {TextLabel} from '../packages/lib/src/ui/TextLabel';
 import {cssUtil} from '../packages/lib/src/css/css';
 import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationFrame';
-
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
+import {VideoControlState} from './State';
+import {WindowResizeObserver} from '../packages/lib/src/infra/Observable';
 //===BEGIN===
 
   class VideoControlBar extends Emitter {
@@ -23,7 +25,8 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._$playerContainer    = params.$playerContainer;
       this._playerState         = params.playerState;
       this._currentTimeGetter   = params.currentTimeGetter;
-      const player = this._player = params.player;
+      const player = this.player = params.player;
+      this.state = new VideoControlState();
 
       player.on('open',           this._onPlayerOpen.bind(this));
       player.on('canPlay',        this._onPlayerCanPlay.bind(this));
@@ -33,13 +36,14 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       player.on('loadVideoInfo',  this._onLoadVideoInfo.bind(this));
       player.on('commentParsed',  _.debounce(this._onCommentParsed.bind(this), 500));
       player.on('commentChange',  _.debounce(this._onCommentChange.bind(this), 100));
+      Promise.all([
+        player.promise('firstVideoInitialized'), this.promise('dom-ready')
+      ]).then(() => this._onFirstVideoInitialized());
 
-      this._isWheelSeeking = false;
       this._initializeDom();
       this._initializePlaybackRateSelectMenu();
       this._initializeVolumeControl();
       this._initializeVideoServerTypeSelectMenu();
-      this._isFirstVideoInitialized = false;
 
       global.debug.videoControlBar = this;
     }
@@ -48,6 +52,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       const $container = this._$playerContainer;
       const config = this._playerConfig;
       this._view = $view[0];
+      const classList = this.classList = ClassList(this._view);
 
       const mq = $view.mapQuery({
         _seekBarContainer: '.seekBarContainer',
@@ -61,11 +66,14 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
         _resumePointer: 'zenza-seekbar-label',
         _bufferRange: '.bufferRange',
         _seekRange: '.seekRange',
-        _seekBarPointer: '.seekBarPointer'
+        _seekBarPointer: '.seekBarPointer',
+        resumePointers: 'zenza-seekbar-label',
       });
       Object.assign(this, mq.e, {_currentTime: 0});
       Object.assign(this, mq.$);
-      util.$(this._seekRange).on('input', this._onSeekRangeInput.bind(this));
+      util.$(this._seekRange)
+        .on('input', this._onSeekRangeInput.bind(this))
+        .on('change', e => e.target.blur());
 
       this._pointer = new SmoothSeekBarPointer({
         pointer: this._seekBarPointer,
@@ -79,18 +87,18 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
         fontSizePx: 12,
         color: '#fff'
       };
-      TextLabel.create({
+      this.currentTimeLabel = TextLabel.create({
         container: $view.find('.currentTimeLabel')[0],
         name: 'currentTimeLabel',
-        text: '00:00',
+        text: '--:--',
         style: timeStyle
-      }).then(label => this.currentTimeLabel = label);
-      TextLabel.create({
+      });
+      this.durationLabel = TextLabel.create({
         container: $view.find('.durationLabel')[0],
         name: 'durationLabel',
-        text: '00:00',
+        text: '--:--',
         style: timeStyle
-      }).then(label => this.durationLabel = label);
+      });
 
       this._$seekBar
         .on('mousedown', this._onSeekBarMouseDown.bind(this))
@@ -100,31 +108,33 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
         .on('click', this._onClick.bind(this))
         .on('command', this._onCommandEvent.bind(this));
 
-      HeatMapWorker.init({container: this._seekBar}).then(hm => this._heatMap = hm);
+      HeatMapWorker.init({container: this._seekBar}).then(hm => this.heatMap = hm);
       const updateHeatMapVisibility =
-        v => this._$seekBarContainer.toggleClass('noHeatMap', !v);
+        v => this._$seekBarContainer.raf.toggleClass('noHeatMap', !v);
       updateHeatMapVisibility(this._playerConfig.props.enableHeatMap);
       this._playerConfig.onkey('enableHeatMap', updateHeatMapVisibility);
-      global.emitter.on('heatMapUpdate', heatMap => {
-        WatchInfoCacheDb.put(this._player.watchId, {heatMap});
-      });
+      global.emitter.on('heatMapUpdate',
+        heatMap => WatchInfoCacheDb.put(this.player.watchId, {heatMap}));
 
-      this._storyboard = new Storyboard({
+      this.storyboard = new Storyboard({
         playerConfig: config,
-        player: this._player,
+        player: this.player,
+        state: this.state,
         container: $view[0]
       });
+      this.state.onkey('isStoryboardAvailable',
+        v => classList.toggle('is-storyboardAvailable', v));
 
       this._seekBarToolTip = new SeekBarToolTip({
         $container: this._$seekBarContainer,
-        storyboard: this._storyboard
+        storyboard: this.storyboard
       });
 
       this._commentPreview = new CommentPreview({
         $container: this._$seekBarContainer
       });
       const updateEnableCommentPreview = v => {
-        this._$seekBarContainer.toggleClass('enableCommentPreview', v);
+        this._$seekBarContainer.raf.toggleClass('enableCommentPreview', v);
         this._commentPreview.mode = v ? 'list' : 'hover';
       };
 
@@ -160,23 +170,35 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       });
 
       $container.append($view);
-      this._width = window.innerWidth;
+      this.emitResolve('dom-ready');
     }
     _initializePlaybackRateSelectMenu() {
       const config = this._playerConfig;
-      const $btn  = this._$playbackRateMenu;
-      const [label] = $btn.find('.controlButtonInner');
       const $menu = this._$playbackRateSelectMenu;
       const $rates = $menu.find('.playbackRate');
+      const style = {
+        widthPx: 48,
+        heightPx: 30,
+        fontFamily: '"ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif',
+        fontWeight: '',
+        fontSizePx: 18,
+        color: '#fff'
+      };
+      const rateLabel = TextLabel.create({
+        container: this._$playbackRateMenu.find('.controlButtonInner')[0],
+        name: 'currentTimeLabel',
+        text: '',
+        style
+      });
 
       const updatePlaybackRate = rate => {
-        label.textContent = `x${rate}`;
+        rateLabel.text = `x${Math.round(rate * 100) / 100}`;
         $menu.find('.selected').removeClass('selected');
-        let fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
+        const fr = Math.floor( parseFloat(rate, 10) * 100) / 100;
         $rates.forEach(item => {
-          let r = parseFloat(item.dataset.param, 10);
+          const r = parseFloat(item.dataset.param, 10);
           if (fr === r) {
-            item.classList.add('selected');
+            ClassList(item).add('selected');
           }
         });
         this._pointer.playbackRate = rate;
@@ -213,11 +235,11 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       };
 
       const onVideoServerType = (type, videoSessionInfo) => {
-        $button.removeClass('is-smile-playing is-dmc-playing')
-          .addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
+        $button.raf.removeClass('is-smile-playing is-dmc-playing')
+          .raf.addClass(`is-${type === 'dmc' ? 'dmc' : 'smile'}-playing`);
         $select.find('.serverType').removeClass('selected');
         $select.find(`.select-server-${type === 'dmc' ? 'dmc' : 'smile'}`).addClass('selected');
-        $current.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
+        $current.raf.text(type !== 'dmc' ? '----' : videoSessionInfo.videoFormat.replace(/^.*h264_/, ''));
       };
 
       updateSmileVideoQuality(config.props.smileVideoQuality);
@@ -225,24 +247,24 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       config.onkey('forceEconomy',    updateSmileVideoQuality);
       config.onkey('dmcVideoQuality', updateDmcVideoQuality);
 
-      this._player.on('videoServerType', onVideoServerType);
+      this.player.on('videoServerType', onVideoServerType);
     }
     _onCommandEvent(e) {
       const command = e.detail.command;
       switch (command) {
         case 'toggleStoryboard':
-          this._storyboard.toggle();
+          this.storyboard.toggle();
           break;
         case 'wheelSeek-start':
           window.console.log('start-seek-start');
-          this._isWheelSeeking = true;
-          this._wheelSeeker.currentTime = this._player.currentTime;
-          this._view.classList.add('is-wheelSeeking');
+          this.state.isWheelSeeking = true;
+          this._wheelSeeker.currentTime = this.player.currentTime;
+          this.classList.add('is-wheelSeeking');
           break;
         case 'wheelSeek-end':
           window.console.log('start-seek-end');
-          this._isWheelSeeking = false;
-          this._view.classList.remove('is-wheelSeeking');
+          this.state.isWheelSeeking = false;
+          this.classList.remove('is-wheelSeeking');
           break;
         case 'wheelSeek':
           this._onWheelSeek(e.detail.param);
@@ -265,7 +287,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       }
       switch (command) {
         case 'toggleStoryboard':
-          this._storyboard.toggle();
+          this.storyboard.toggle();
           break;
         default:
           util.dispatchCommand(target, command, param);
@@ -274,11 +296,11 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       e.stopPropagation();
     }
     _posToTime(pos) {
-      const width = this._innerWidth = this._innerWidth || window.innerWidth;
+      const width = global.innerWidth;
       return this._duration * (pos / Math.max(width, 1));
     }
     _timeToPos(time) {
-      return this._width * (time / Math.max(this._duration, 1));
+      return global.innerWidth * (time / Math.max(this._duration, 1));
     }
     _timeToPer(time) {
       return (time / Math.max(this._duration, 1)) * 100;
@@ -287,31 +309,31 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._startTimer();
       this.duration = 0;
       this.currentTime = 0;
-      this._heatMap && this._heatMap.reset();
-      this._storyboard.reset();
+      this.heatMap && this.heatMap.reset();
+      this.storyboard.reset();
       this.resetBufferedRange();
     }
     _onPlayerCanPlay(watchId, videoInfo) {
-      const duration = this._player.duration;
+      const duration = this.player.duration;
       this.duration = duration;
-      this._storyboard.onVideoCanPlay(watchId, videoInfo);
+      this.storyboard.onVideoCanPlay(watchId, videoInfo);
 
-      this._heatMap && (this._heatMap.duration = duration);
+      this.heatMap && (this.heatMap.duration = duration);
     }
     _onCommentParsed() {
-      this._chatList = this._player.chatList;
-      this._heatMap && (this._heatMap.chatList = this._chatList);
-      this._commentPreview.chatList = this._chatList;
+      const chatList = this.player.chatList;
+      this.heatMap && (this.heatMap.chatList = chatList);
+      this._commentPreview.chatList = chatList;
     }
     _onCommentChange() {
-      this._chatList = this._player.chatList;
-      this._heatMap && (this._heatMap.chatList = this._chatList);
-      this._commentPreview.chatList = this._chatList;
+      const chatList = this.player.chatList;
+      this.heatMap && (this.heatMap.chatList = chatList);
+      this._commentPreview.chatList = chatList;
     }
     _onPlayerDurationChange() {
       this._pointer.duration = this._playerState.videoInfo.duration;
       this._wheelSeeker.duration = this._playerState.videoInfo.duration;
-      this._heatMap && (this._heatMap.chatList = this._chatList);
+      this.heatMap && (this.heatMap.chatList = this.player.chatList);
     }
     _onPlayerClose() {
       this._stopTimer();
@@ -329,10 +351,10 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
     }
     _onSeekRangeInput(e) {
       const sec = e.target.value * 1;
-      const left = sec / (e.target.max * 1) * this._width;
+      const left = sec / (e.target.max * 1) * global.innerWidth;
       util.dispatchCommand(e.target, 'seek', sec);
       this._seekBarToolTip.update(sec, left);
-      this._storyboard.setCurrentTime(sec, true);
+      this.storyboard.setCurrentTime(sec, true);
     }
     _onSeekBarMouseDown(e) {
       // e.preventDefault();
@@ -340,11 +362,11 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._beginMouseDrag(e);
     }
     _onSeekBarMouseMove(e) {
-      if (!this._isDragging) {
+      if (!this.state.isDragging) {
         e.stopPropagation();
       }
-      let left = e.offsetX;
-      let sec = this._posToTime(left);
+      const left = e.offsetX;
+      const sec = this._posToTime(left);
       this._seekBarMouseX = left;
 
       this._commentPreview.currentTime = sec;
@@ -353,7 +375,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._seekBarToolTip.update(sec, left);
     }
     _onWheelSeek(sec) {
-      if (!this._isWheelSeeking) {
+      if (!this.state.isWheelSeeking) {
         return;
       }
       sec = sec * 1;
@@ -365,17 +387,17 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._commentPreview.update(left);
 
       this._seekBarToolTip.update(sec, left);
-      this._storyboard.setCurrentTime(sec, true);
+      this.storyboard.setCurrentTime(sec, true);
     }
     _beginMouseDrag() {
       this._bindDragEvent();
-      this._$view.addClass('is-dragging');
-      this._isDragging = true;
+      this.classList.add('is-dragging');
+      this.state.isDragging = true;
     }
     _endMouseDrag() {
       this._unbindDragEvent();
-      this._$view.removeClass('is-dragging');
-      this._isDragging = false;
+      this.classList.remove('is-dragging');
+      this.state.isDragging = false;
     }
     _onBodyMouseUp(e) {
       if ((e.button === 0 && e.shiftKey)) {
@@ -400,31 +422,48 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
     _onTimer() {
       this._timerCount++;
 
-      const player = this._player;
-      const currentTime = this._isWheelSeeking ?
+      const player = this.player;
+      const currentTime = this.state.isWheelSeeking ?
         this._wheelSeeker.currentTime : player.currentTime;
       if (this._timerCount % 6 === 0) {
         this.currentTime = currentTime;
       }
-      this._storyboard.currentTime = currentTime;
+      this.storyboard.currentTime = currentTime;
     }
     _onLoadVideoInfo(videoInfo) {
       this.duration = videoInfo.duration;
+      const [view] = this._$view;
 
-      if (!this._isFirstVideoInitialized) {
-        this._isFirstVideoInitialized = true;
-        const handler = (command, param) => this.emit('command', command, param);
-
-        global.emitter.emitAsync('videoControBar.addonMenuReady',
-          this._$view[0].querySelector('.controlItemContainer.left .scalingUI'), handler
-        );
-        global.emitter.emitAsync('seekBar.addonMenuReady',
-          this._$view[0].querySelector('.seekBar'), handler
-        );
+      const resumePoints = videoInfo.resumePoints;
+      for (let i = 0, len = this.$resumePointers.length; i < len; i++) {
+        const pointer = this.$resumePointers[i];
+        const resume = resumePoints[i];
+        if (!resume) {
+          pointer.hidden = true;
+          continue;
+        }
+        pointer.setAttribute('duration', videoInfo.duration);
+        pointer.setAttribute('time', resume.time);
+        pointer.setAttribute('text', `${resume.now} ここまで見た`);
+        if (i > 0) {
+          cssUtil.setProps(
+            [pointer, '--pointer-color', 'rgba(128, 128, 255, 0.6)'],
+            [pointer, '--color', '#aef']);
+        } else{
+          cssUtil.setProps([pointer, '--scale-pp', 1.7]);
+        }
       }
-
-      this._resumePointer.setAttribute('duration', videoInfo.duration);
-      this._resumePointer.setAttribute('time', videoInfo.initialPlaybackTime);
+    }
+    async _onFirstVideoInitialized(watchId) {
+      const [view] = this._$view;
+      const handler = (command, param) => this.emit('command', command, param);
+      const ge = global.emitter; // emitAsync は互換用に残してる
+      ge.emitResolve('videoControBar.addonMenuReady',
+        {container: view.querySelector('.controlItemContainer.left .scalingUI'), handler}
+      ).then(({container, handler}) => ge.emitAsync('videoControBar.addonMenuReady', container, handler));
+      ge.emitResolve('seekBar.addonMenuReady',
+        {container: view.querySelector('.seekBar'), handler}
+      ).then(({container, handle}) => ge.emitAsync('seekBar.addonMenuReady', container, handle));
     }
     get currentTime() {
       return this._currentTime;
@@ -439,7 +478,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       const currentTimeText = util.secToTime(sec);
       if (this._currentTimeText !== currentTimeText) {
         this._currentTimeText = currentTimeText;
-        this.currentTimeLabel && (this.currentTimeLabel.text = currentTimeText);
+        this.currentTimeLabel.text = currentTimeText;
       }
       this._pointer.currentTime = sec;
     }
@@ -455,9 +494,9 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
       this._seekRange.max = sec;
 
       if (sec === 0 || isNaN(sec)) {
-        this.durationLabel && (this.durationLabel.text = '--:--');
+        this.durationLabel.text = '--:--';
       } else {
-        this.durationLabel && (this.durationLabel.text = util.secToTime(sec));
+        this.durationLabel.text = util.secToTime(sec);
       }
       this.emit('durationChange');
     }
@@ -476,8 +515,10 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
                 this._bufferEnd   !== end) {
               const perLeft = (this._timeToPer(start) - 1);
               const scaleX = (this._timeToPer(width) + 2) / 100;
-              bufferRange.style.setProperty('--buffer-range-left', cssUtil.percent(perLeft));
-              bufferRange.style.setProperty('--buffer-range-scale', scaleX);
+              cssUtil.setProps(
+                [bufferRange, '--buffer-range-left', cssUtil.percent(perLeft)],
+                [bufferRange, '--buffer-range-scale', scaleX]
+              );
               this._bufferStart = start;
               this._bufferEnd   = end;
             }
@@ -489,7 +530,7 @@ import {RequestAnimationFrame} from '../packages/lib/src/infra/RequestAnimationF
     resetBufferedRange() {
       this._bufferStart = 0;
       this._bufferEnd = 0;
-      this._bufferRange.style.setProperty('--buffer-range-scale', 0);
+      cssUtil.setProps([this._bufferRange, '--buffer-range-scale', 0]);
     }
     _hideMenu() {
       document.body.focus();
@@ -504,14 +545,14 @@ util.addStyle(`
     position: fixed;
     bottom: 0;
     left: 0;
-    transform: translate3d(0, 0, 0);
     width: 100vw;
     height: var(--zenza-control-bar-height, ${VideoControlBar.BASE_HEIGHT}px);
     z-index: 150000;
     background: #000;
     transition: opacity 0.3s ease, transform 0.3s ease;
     user-select: none;
-    contain: layout;
+    contain: layout style size;
+    will-change: transform;
   }
 
   .videoControlBar * {
@@ -559,9 +600,6 @@ util.addStyle(`
     left: 50%;
     height: 40px;
     transform: translate(-50%, 0);
-    background:
-      linear-gradient(to bottom,
-      transparent, transparent 4px, #222 0, #222 30px, transparent 0, transparent);
     white-space: nowrap;
     overflow: visible;
     transition: transform 0.2s ease, left 0.2s ease;
@@ -573,6 +611,9 @@ util.addStyle(`
   .controlItemContainer.center .scalingUI > div{
     display: flex;
     align-items: center;
+    background:
+      linear-gradient(to bottom,
+      transparent, transparent 4px, #222 0, #222 30px, transparent 0, transparent);
     height: 32px;
   }
 
@@ -834,19 +875,20 @@ util.addStyle(`
   }
 
   .seekBarPointer {
-    --width-pp: 12px;
-    --trans-x-pp: 0;
+    /*--width-pp: 12px;
+    --trans-x-pp: 0;*/
     position: absolute;
     display: inline-block;
-    top: 50%;
+    top: -1px;
     left: 0;
-    width: var(--width-pp);
+    width: 12px;
     background: rgba(255, 255, 255, 0.7);
     height: calc(100% + 2px);
     z-index: 200;
     box-shadow: 0 0 4px #ffc inset;
     pointer-events: none;
-    transform: translate(calc(var(--trans-x-pp) - var(--width-pp) / 2), -50%);
+    transform: translateX(-6px);
+    /*transform: translate(calc(var(--trans-x-pp) - var(--width-pp) / 2), -50%);*/
     will-change: transform;
     mix-blend-mode: lighten;
   }
@@ -948,6 +990,7 @@ util.addStyle(`
   .resumePointer {
     position: absolute;
     mix-blend-mode: color-dodge;
+    will-change: transform;
     top: 0;
     z-index: 200;
   }
@@ -988,8 +1031,8 @@ util.addStyle(`
   .playbackRateMenu {
     bottom: 0;
     width: auto;
-    min-width: 40px;
-    height:    32px;
+    width: 48px;
+    height: 32px;
     line-height: 30px;
     font-size: 18px;
     white-space: nowrap;
@@ -1136,11 +1179,11 @@ util.addStyle(`
     visibility: hidden;
     pointer-events: none;
   }
-  .storyboardAvailable .toggleStoryboard {
+  .is-storyboardAvailable .toggleStoryboard {
     visibility: visible;
     pointer-events: auto;
   }
-  .zenzaStoryboardOpen .storyboardAvailable .toggleStoryboard {
+  .zenzaStoryboardOpen .is-storyboardAvailable .toggleStoryboard {
     color: var(--enabled-button-color);
   }
 
@@ -1466,8 +1509,11 @@ util.addStyle(`
           <input type="range" class="seekRange" min="0" step="any">
           <canvas width="200" height="10" class="heatMap zenzaHeatMap"></canvas>
         </div>
-        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た">
-        </zenza-seekbar-label>
+        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た"></zenza-seekbar-label>
+        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た"></zenza-seekbar-label>
+        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た"></zenza-seekbar-label>
+        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た"></zenza-seekbar-label>
+        <zenza-seekbar-label class="resumePointer" data-command="seekTo" data-text="ここまで見た"></zenza-seekbar-label>
       </div>
 
       <div class="controlItemContainer left">
@@ -1504,7 +1550,7 @@ util.addStyle(`
             </div>
 
             <div class="playbackRateMenu controlButton" tabindex="-1" data-has-submenu="1">
-              <div class="controlButtonInner">x1</div>
+              <div class="controlButtonInner"></div>
               <div class="tooltip">再生速度</div>
               <div class="playbackRateSelectMenu zenzaPopupMenu zenzaSubMenu">
                 <div class="triangle"></div>
@@ -1729,7 +1775,7 @@ util.addStyle(`
 
       this._left = 0;
       this.update = _.throttle(this.update.bind(this), 200);
-      this.applyView = bounce.raf(this.applyView.bind(this));
+      this.applyView = throttle.raf(this.applyView.bind(this));
     }
     _initializeDom($parent) {
       cssUtil.registerProps(
@@ -1878,7 +1924,7 @@ util.addStyle(`
       }
       const width = this._mode === 'list' ?
         CommentPreviewView.WIDTH : CommentPreviewView.HOVER_WIDTH;
-      const containerWidth = window.innerWidth;
+      const containerWidth = this._innerWidth = this._innerWidth || global.innerWidth;
 
       left = Math.min(Math.max(0, left - CommentPreviewView.WIDTH / 2), containerWidth - width);
       this._left = left;
@@ -1886,10 +1932,11 @@ util.addStyle(`
     }
     applyView() {
       const view = this._view;
-      const vs = view.style;
-      vs.setProperty('--current-time', cssUtil.s(this._currentTime));
-      vs.setProperty('--scroll-top', cssUtil.px(this._scrollTop));
-      vs.setProperty('--trans-x-pp', cssUtil.px(this._left));
+      cssUtil.setProps(
+        [view, '--current-time', cssUtil.s(this._currentTime)],
+        [view, '--scroll-top', cssUtil.px(this._scrollTop)],
+        [view, '--trans-x-pp', cssUtil.px(this._left)]
+      );
       if (this._newListElements && this._newListElements.childElementCount) {
         this._list.append(this._newListElements);
       }
@@ -2241,7 +2288,7 @@ util.addStyle(`
       const $view = this._$view = util.$.html(SeekBarToolTip.__tpl__);
 
       this._currentTime = $view.find('.currentTime')[0];
-      TextLabel.create({
+      this.currentTimeLabel = TextLabel.create({
         container: this._currentTime,
         name: 'currentTimeLabel',
         text: '00:00',
@@ -2253,7 +2300,7 @@ util.addStyle(`
           fontSizePx: 12,
           color: '#ccc'
         }
-      }).then(label => this.currentTimeLabel = label);
+      });
 
       $view
         .on('mousedown',this._onMouseDown.bind(this))
@@ -2321,9 +2368,9 @@ util.addStyle(`
       this._timeText = timeText;
       this.currentTimeLabel && (this.currentTimeLabel.text = timeText);
       const w  = this.offsetWidth = this.offsetWidth || this._$view[0].offsetWidth;
-      const vw = window.innerWidth;
+      const vw = this._innerWidth = this._innerWidth || window.innerWidth;
       left = Math.max(0, Math.min(left - w / 2, vw - w));
-      this._$view[0].style.setProperty('--trans-x-pp', cssUtil.px(left));
+      cssUtil.setProps([this._$view[0], '--trans-x-pp', cssUtil.px(left)]);
       this._seekBarThumbnail.currentTime = sec;
     }
   }
@@ -2348,8 +2395,8 @@ util.addStyle(`
       border: 1px solid #666;
       border-radius: 8px;
       padding: 8px 4px 0;
-      transform: translate3d(var(--trans-x-pp), 0, 10px);
-      transition: --trans-x-pp 0.1s, opacity 0.2s ease 0.5s;
+      will-change: transform;
+      transform: translate(var(--trans-x-pp), 0);
       pointer-events: none;
     }
 
@@ -2452,27 +2499,32 @@ util.addStyle(`
       this._currentTime = 0;
       this._duration = 1;
       this._playbackRate = 1;
-      this._isSmoothMode = true;
+      // this._isSmoothMode = (!!this._pointer.animate && 'registerProperty' in CSS);
+      this._isSmoothMode = false;
       this._isPausing = true;
       this._isSeeking = false;
       this._isStalled = false;
-      if (!this._pointer.animate && !('registerProperty' in CSS)) {
-        this._isSmoothMode = false;
-      }
+      this.refresh = throttle.raf(this.refresh.bind(this));
+      this.transformLeft = 0;
+      this.applyTransform = throttle.raf(() => {
+        const per = Math.min(100, this._timeToPer(this._currentTime));
+        this._pointer.style.transform = `translateX(${global.innerWidth * per / 100 - 6}px)`;
+      });
       this._pointer.classList.toggle('is-notSmooth', !this._isSmoothMode);
       params.playerState.onkey('isPausing', v => this.isPausing = v);
       params.playerState.onkey('isSeeking', v => this.isSeeking = v);
       params.playerState.onkey('isStalled', v => this.isStalled = v);
+      if (this._isSmoothMode) {
+        WindowResizeObserver.subscribe(() => this.refresh());
+      }
      }
     get currentTime() {
       return this._currentTime;
     }
     set currentTime(v) {
       if (!this._isSmoothMode) {
-        const per = Math.min(100, this._timeToPer(v));
-        this._pointer.style.setProperty('--trans-x-pp', cssUtil.vw(per));
-        // this._pointer.style.transform = `translate3d(${per}vw, 0, 0) translate3d(-50%, -50%, 0)`;
-        return;
+        this._currentTime = v;
+        return this.applyTransform();
       }
       if (document.hidden) { return; }
       if (this._currentTime === v) {
@@ -2550,8 +2602,8 @@ util.addStyle(`
         this._animation.finish();
       }
       this._animation = this._pointer.animate([
-        {'--trans-x-pp': 0},
-        {'--trans-x-pp': cssUtil.vw(100)}
+        {transform: 'translateX(-6px)'},
+        {transform: `translateX(${global.innerWidth - 6}px)`}
       ], {duration: this._duration * 1000, fill: 'backwards'});
       this._animation.currentTime = this._currentTime * 1000;
       this._animation.playbackRate = this._playbackRate;

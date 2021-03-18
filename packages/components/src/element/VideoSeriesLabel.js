@@ -1,4 +1,5 @@
 import {BaseCommandElement} from './BaseCommandElement.js';
+import {textUtil} from '../../../lib/src/text/textUtil';
 // import {util} from '../util/util.js';
 // console.info('BaseCommandElement', BaseCommandElement);
 const dll = {};
@@ -42,6 +43,7 @@ const {VideoSeriesProps, VideoSeriesLabel} = (() => {
       const title = props.title || `series/${props.id}`;
       const url = `https://www.nicovideo.jp/series/${props.id}`;
       const thumbnail = props.thumbnailUrl? props.thumbnailUrl : DEFAULT_THUMBNAIL;
+      const updatedAt = textUtil.dateToString(props.updatedAt);
 
       return html`
     <div id="root" @click=${events.onClick}>
@@ -172,6 +174,7 @@ const {VideoSeriesProps, VideoSeriesLabel} = (() => {
           <div class="title">
             <p>動画シリーズ</p>
             <a class="seriesLink" href="${url}" data-command="open-window" data-param="${url}">${title}</a>
+            <p clas="updatedAt">${updatedAt}</p>
           </div>
         </div>
       </div>

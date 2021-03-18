@@ -6,7 +6,7 @@ const nicoUtil = {
   parseWatchQuery: query => {
     try {
       const result = textUtil.parseQuery(query);
-      const playlist = JSON.parse(textUtil.decodeBase64(result.playlist));
+      const playlist = JSON.parse(textUtil.decodeBase64(result.playlist) || '{}');
       if (playlist.searchQuery) {
         const sq = playlist.searchQuery;
         if (sq.type === 'tag') {
@@ -75,11 +75,28 @@ const nicoUtil = {
     }
     return m ? m[1] : null;
   },
-  isPremium: () => {
-    const h = document.getElementById('siteHeaderNotification');
-    return h && h.classList.contains('siteHeaderPremium');
+  getCommonHeader: () => {
+    try { // hoge?.fuga... はGreasyforkの文法チェックで弾かれるのでまだ使えない
+      return JSON.parse(document.querySelector('#CommonHeader[data-common-header]').dataset.commonHeader || '{}');
+    } catch (e) {
+      return {initConfig: {}};
+    }
   },
-  isLogin: () => document.getElementsByClassName('siteHeaderLogin').length < 1,
+  isLegacyHeader: () => !document.querySelector('#CommonHeader[data-common-header]'),
+  isPremiumLegacy: () => {
+    const a = 'a[href^="https://account.nicovideo.jp/premium/register"]';
+    return !document.querySelector(`#topline ${a}, #CommonHeader ${a}`);
+	},
+	isLoginLegacy: () => {
+    const a = 'a[href^="https://account.nicovideo.jp/login"]';
+    return !document.querySelector(`#topline ${a}, #CommonHeader ${a}`);
+  },
+  isPremium: () =>
+    nicoUtil.isLegacyHeader() ? nicoUtil.isPremiumLegacy() :
+      !!nicoUtil.getCommonHeader().initConfig.user.isPremium,
+  isLogin: () =>
+    nicoUtil.isLegacyHeader() ? nicoUtil.isLoginLegacy() :
+      !!nicoUtil.getCommonHeader().initConfig.user.isLogin,
   getPageLanguage: () => {
     try {
       let h = document.getElementsByClassName('html')[0];
@@ -144,7 +161,8 @@ const nicoUtil = {
       return false;
     }
   },
-  getNicoHistory: window.decodeURIComponent(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''))
+  getNicoHistory: window.decodeURIComponent(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, '')),
+  getMypageVer: () => document.querySelector('#js-initial-userpage-data') ? 'spa' : 'legacy'
 };
 
 //===END===

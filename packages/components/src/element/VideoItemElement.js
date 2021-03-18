@@ -89,6 +89,7 @@ const {VideoItemElement, VideoItemProps} = (() => {
         background-color: var(--list-bg-color, #666);
         box-sizing: border-box;
         user-select: none;
+        content-visibility: auto;
       }
 
       .videoItem {

@@ -1,11 +1,8 @@
-import * as $ from 'jquery';
-import * as _ from 'lodash';
 import {ZenzaWatch, global} from './ZenzaWatchIndex';
 import {CONSTANT} from './constant';
-import {Config, MylistPocketDetector} from './util';
-import {IchibaLoader} from './loader/api';
-import {UaaLoader} from './loader/api';
-import {RecommendAPILoader} from './loader/api';
+import {Config} from './Config';
+import {IchibaLoader} from '../packages/lib/src/nico/loader';
+import {UaaLoader} from '../packages/lib/src/nico/loader';
 import {RelatedVideoList} from './VideoList';
 import {TagListView} from './TagListView';
 import {BaseViewComponent} from '../packages/zenza/src/parts/BaseViewComponent';
@@ -14,10 +11,11 @@ import {sleep} from '../packages/lib/src/infra/sleep';
 import {Fullscreen} from '../packages/lib/src/dom/Fullscreen';
 import {textUtil} from '../packages/lib/src/text/textUtil';
 import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
-import {css} from '../packages/lib/src/css/css';
+import {css, cssUtil} from '../packages/lib/src/css/css';
 import {uq} from '../packages/lib/src/uQuery';
 import {domEvent} from '../packages/lib/src/dom/domEvent';
-
+import {ClassList} from '../packages/lib/src/dom/ClassListWrapper';
+import {MylistPocketDetector} from '../packages/zenza/src/init/MylistPocketDetector';
 const VideoItemObserver = {
   observe: () => {}
 };
@@ -45,6 +43,7 @@ class VideoInfoPanel extends Emitter {
 
     const $view = this._$view = uq.html(VideoInfoPanel.__tpl__);
     const view = this._view = $view[0];
+    const classList = this.classList = ClassList(view);
 
     const $icon = this._$ownerIcon = $view.find('.ownerIcon');
     this._$ownerName = $view.find('.ownerName');
@@ -77,22 +76,22 @@ class VideoInfoPanel extends Emitter {
     view.addEventListener('command', this._onCommandEvent.bind(this));
     view.addEventListener('click', this._onClick.bind(this));
     view.addEventListener('wheel', e => e.stopPropagation(), {passive: true});
-    $icon.on('load', () => $icon.removeClass('is-loading'));
+    $icon.on('load', () => $icon.raf.removeClass('is-loading'));
 
-    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
     global.emitter.on('fullscreenStatusChange', isFull => {
-      view.classList.toggle('is-fullscreen', isFull);
-      view.classList.toggle('is-notFullscreen', !isFull);
+      classList.toggle('is-fullscreen', isFull);
+      classList.toggle('is-notFullscreen', !isFull);
     });
 
-    view.addEventListener('touchenter', () => view.classList.add('is-slideOpen'), {passive: true});
-    global.emitter.on('hideHover', () => view.classList.remove('is-slideOpen'));
-    css.registerProps(
+    view.addEventListener('touchenter', () => classList.add('is-slideOpen'), {passive: true});
+    global.emitter.on('hideHover', () => classList.remove('is-slideOpen'));
+    cssUtil.registerProps(
       {name: '--base-description-color', syntax: '<color>', initialValue: '#888', inherits: true}
     );
     MylistPocketDetector.detect().then(pocket => {
       this._pocket = pocket;
-      view.classList.add('is-pocketReady');
+      classList.add('is-pocketReady');
     });
     if (window.customElements) {
       VideoItemObserver.observe({container: this._description});
@@ -122,13 +121,13 @@ class VideoInfoPanel extends Emitter {
       Object.assign(label.dataset, videoInfo.series);
       this._seriesList.append(label);
     }
-    this._updateVideoDescription(videoInfo.description, videoInfo.isChannel);
+    this._updateVideoDescription(videoInfo.description, videoInfo.series);
 
-    this._$view
-      .removeClass('userVideo channelVideo initializing')
-      .toggleClass('is-community', this._videoInfo.isCommunityVideo)
-      .toggleClass('is-mymemory', this._videoInfo.isMymemory)
-      .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
+    const classList = this.classList;
+    classList.remove('userVideo', 'channelVideo', 'initializing');
+    classList.toggle('is-community', this._videoInfo.isCommunityVideo);
+    classList.toggle('is-mymemory', this._videoInfo.isMymemory);
+    classList.add(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
 
     this._ichibaItemView.clear();
     this._ichibaItemView.videoId = videoInfo.videoId;
@@ -142,11 +141,22 @@ class VideoInfoPanel extends Emitter {
   /**
    * 説明文中のurlの自動リンク等の処理
    */
-  async _updateVideoDescription(html) {
+  async _updateVideoDescription(html, series = null) {
     this._description.textContent = '';
     this._zenTubeUrl = null;
-    const watchLink = watchLink => {
-      let videoId = watchLink.textContent.replace('watch/', '');
+    if (series) {
+      if (series.prevVideo || series.nextVideo) {
+        html += `<br><br>「${textUtil.escapeHtml(series.title)}」 シリーズ前後の動画`;
+      }
+      if (series.prevVideo) {
+        html += `<br>前の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.prevVideo.id}">${series.prevVideo.id}</a>`;
+      }
+      if (series.nextVideo) {
+        html += `<br>次の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.nextVideo.id}">${series.nextVideo.id}</a>`;
+      }
+    }
+    const decorateWatchLink = watchLink => {
+      const videoId = watchLink.textContent.replace('watch/', '');
 
       if (
         !/^(sm|nm|so|)[0-9]+$/.test(videoId) ||
@@ -177,7 +187,7 @@ class VideoInfoPanel extends Emitter {
       } else {
         const vitem = document.createElement('zenza-video-item');
         vitem.dataset.videoId = videoId;
-        watchLink.insertAdjacentElement('afterend', vitem);
+        watchLink.after(vitem);
         watchLink.classList.remove('watch');
       }
     };
@@ -216,15 +226,16 @@ class VideoInfoPanel extends Emitter {
     const $description = uq(`<zenza-video-description>${html}</zenza-video-description>`);
     for (const a of $description.query('a')) {
       a.classList.add('noHoverMenu');
-      let href = a.href;
+      const href = a.href;
       if (a.classList.contains('watch')) {
-        watchLink(a);
+        decorateWatchLink(a);
       } else if (a.classList.contains('seekTime')) {
         seekTime(a);
       } else if (/^mylist\//.test(a.textContent)) {
         mylistLink(a);
       } else if (/^https?:\/\/((www\.|)youtube\.com\/watch|youtu\.be)/.test(href)) {
         youtube(a);
+        this._zenTubeUrl = href;
       }
     }
     for (const e of
@@ -240,7 +251,7 @@ class VideoInfoPanel extends Emitter {
     this._description.append($description[0]);
 
   }
-  _onVideoCanPlay(watchId, videoInfo, options) {
+  async _onVideoCanPlay(watchId, videoInfo, options) {
     // 動画の再生を優先するため、比較的どうでもいい要素はこのタイミングで初期化するのがよい
     if (!this._relatedVideoList) {
       this._relatedVideoList = new RelatedVideoList({
@@ -250,37 +261,13 @@ class VideoInfoPanel extends Emitter {
     }
 
     if (this._config.props.autoZenTube && this._zenTubeUrl && !options.isAutoZenTubeDisabled) {
-      window.setTimeout(() => {
+      sleep(100).then(() => {
         window.console.info('%cAuto ZenTube', this._zenTubeUrl);
         this.emit('command', 'setVideo', this._zenTubeUrl);
-      }, 100);
-    }
-    const relatedVideo = [VideoListItem.createByVideoInfoModel(videoInfo).serialize()];
-    RecommendAPILoader.load({videoId: videoInfo.videoId}).then(data => {
-      const items = data.items || [];
-      (items || []).forEach(item => {
-        if (item.contentType !== 'video') {
-          return;
-        }
-        const content = item.content;
-        relatedVideo.push({
-          _format: 'recommendApi',
-          _data: item,
-          id: item.id,
-          title: content.title,
-          length_seconds: content.duration,
-          num_res: content.count.comment,
-          mylist_counter: content.count.mylist,
-          view_counter: content.count.view,
-          thumbnail_url: content.thumbnail.url,
-          first_retrieve: content.registeredAt,
-          has_data: true,
-          is_translated: false
-        });
       });
-      this._relatedVideoList.update(relatedVideo, watchId);
-    });
-
+    }
+    await sleep.idle();
+    this._relatedVideoList.fetchRecommend(videoInfo.videoId, watchId, videoInfo);
   }
   _onVideoCountUpdate(...args) {
     if (!this._videoHeaderPanel) {
@@ -342,8 +329,8 @@ class VideoInfoPanel extends Emitter {
   }
   clear() {
     this._videoHeaderPanel.clear();
-    this._$view.addClass('initializing');
-    this._$ownerIcon.addClass('is-loading');
+    this.classList.add('initializing');
+    this._$ownerIcon.raf.addClass('is-loading');
     this._description.textContent = '';
   }
   selectTab(tabName) {
@@ -401,7 +388,7 @@ css.addStyle(`
     height: calc(100% - 32px);
     overflow-x: hidden;
     overflow-y: visible;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
     text-align: left;
   }
   .zenzaWatchVideoInfoPanel .tabs.relatedVideoTab.activeTab {
@@ -799,6 +786,14 @@ css.addStyle(`
     padding: 0 8px;
   }
 
+  zenza-video-item,
+  zenza-video-series-label,
+  zenza-vieo-description,
+  .UaaView,
+  .ZenzaIchibaItemView {
+    content-visibility: auto;
+  }
+
   `, {className: 'videoInfoPanel'});
 
 css.addStyle(`
@@ -1145,9 +1140,10 @@ class VideoHeaderPanel extends Emitter {
       return;
     }
     this._isInitialized = true;
-    css.addStyle(VideoHeaderPanel.__css__);
+    cssUtil.addStyle(VideoHeaderPanel.__css__);
     const $view = this._$view = uq.html(VideoHeaderPanel.__tpl__);
     const view = $view[0];
+    const classList = this.classList = ClassList(view);
 
     this._videoTitle = $view.find('.videoTitle')[0];
     this._searchForm = new VideoSearchForm({
@@ -1165,17 +1161,17 @@ class VideoHeaderPanel extends Emitter {
       parentNode: view.querySelector('.relatedInfoMenuContainer'),
       isHeader: true
     });
-    this._relatedInfoMenu.on('open', () => $view.addClass('is-relatedMenuOpen'));
-    this._relatedInfoMenu.on('close', () => $view.removeClass('is-relatedMenuOpen'));
+    this._relatedInfoMenu.on('open', () => classList.add('is-relatedMenuOpen'));
+    this._relatedInfoMenu.on('close', () => classList.remove('is-relatedMenuOpen'));
 
     this._videoMetaInfo = new VideoMetaInfo({
       parentNode: view.querySelector('.videoMetaInfoContainer'),
     });
 
-    view.classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
+    classList.add(Fullscreen.now() ? 'is-fullscreen' : 'is-notFullscreen');
     global.emitter.on('fullScreenStatusChange', isFull => {
-      view.classList.toggle('is-fullscreen', isFull);
-      view.classList.toggle('is-notFullscreen', !isFull);
+      classList.toggle('is-fullscreen', isFull);
+      classList.toggle('is-notFullscreen', !isFull);
     });
 
     window.addEventListener('resize', _.debounce(this._onResize.bind(this), 500));
@@ -1198,13 +1194,13 @@ class VideoHeaderPanel extends Emitter {
 
     this._relatedInfoMenu.update(videoInfo);
 
-    this._$view
-      .removeClass('userVideo channelVideo initializing')
-      .toggleClass('is-community', this._videoInfo.isCommunityVideo)
-      .toggleClass('is-mymemory', this._videoInfo.isMymemory)
-      .toggleClass('has-Parent', this._videoInfo.hasParentVideo)
-      .addClass(videoInfo.isChannel ? 'channelVideo' : 'userVideo')
-      .css('display', '');
+    const classList = this.classList;
+    classList.remove('userVideo', 'channelVideo', 'initializing');
+    classList.toggle('is-community', this._videoInfo.isCommunityVideo);
+    classList.toggle('is-mymemory', this._videoInfo.isMymemory);
+    classList.toggle('has-Parent', this._videoInfo.hasParentVideo);
+    classList.add(videoInfo.isChannel ? 'channelVideo' : 'userVideo');
+    this._$view.raf.css('display', '');
 
     if (videoInfo.series && videoInfo.series.thumbnailUrl) {
       this._seriesCover.style.backgroundImage = `url("${videoInfo.series.thumbnailUrl}")`;
@@ -1220,10 +1216,10 @@ class VideoHeaderPanel extends Emitter {
   _onResize() {
     const view = this._$view[0];
     const rect = view.getBoundingClientRect();
-    const isOnscreen = view.classList.contains('is-onscreen');
+    const isOnscreen = this.classList.contains('is-onscreen');
     const height = rect.bottom - rect.top;
     const top = isOnscreen ? (rect.top - height) : rect.top;
-    view.classList.toggle('is-onscreen', top < -32);
+    this.classList.toggle('is-onscreen', top < -32);
   }
   appendTo(node) {
     this._initializeDom();
@@ -1233,7 +1229,7 @@ class VideoHeaderPanel extends Emitter {
     if (!this._$view) {
       return;
     }
-    this._$view.removeClass('show');
+    this.classList.remove('show');
   }
   close() {
   }
@@ -1241,7 +1237,7 @@ class VideoHeaderPanel extends Emitter {
     if (!this._$view) {
       return;
     }
-    this._$view.addClass('initializing');
+    this.classList.add('initializing');
 
     this._videoTitle.textContent = '';
   }
@@ -1530,11 +1526,10 @@ class VideoSearchForm extends Emitter {
   _initDom({parentNode}) {
     let tpl = document.getElementById('zenzaVideoSearchPanelTemplate');
     if (!tpl) {
-      css.addStyle(VideoSearchForm.__css__);
+      cssUtil.addStyle(VideoSearchForm.__css__);
       tpl = document.createElement('template');
       tpl.innerHTML = VideoSearchForm.__tpl__;
       tpl.id = 'zenzaVideoSearchPanelTemplate';
-      document.body.appendChild(tpl);
     }
     const view = document.importNode(tpl.content, true);
 
@@ -1550,7 +1545,7 @@ class VideoSearchForm extends Emitter {
     const form = this._form;
 
     form['ownerOnly'].checked = config.props.ownerOnly;
-    let confMode = config.props.mode;
+    const confMode = config.props.mode;
     if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
       form['mode'].value = confMode;
     } else if (typeof confMode === 'boolean') {
@@ -2011,11 +2006,8 @@ class IchibaItemView extends BaseViewComponent {
   }
 
   clear() {
-    this.removeClass('is-loading');
-    this.removeClass('is-success');
-    this.removeClass('is-fail');
-    this.removeClass('is-empty');
-    this._listContainer.innerHTML = '';
+    this.removeClass('is-loading is-success is-fail is-empty');
+    this._listContainer.textContent = '';
   }
 
   _onIchibaLoad(data) {
@@ -2273,7 +2265,7 @@ class UaaView extends BaseViewComponent {
     if (!this._elm.body) {
       return;
     }
-    this._elm.body.innerHTML = '';
+    this._elm.body.textContent = '';
   }
 
   _onLoad(videoId, result) {
@@ -2286,7 +2278,7 @@ class UaaView extends BaseViewComponent {
       return;
     }
 
-    const df = document.createDocumentFragment();
+    const df = this.df = this.df || document.createDocumentFragment();
     const div = document.createElement('div');
     div.className = 'screenshots';
     let idx = 0, screenshots = 0;
@@ -2317,7 +2309,7 @@ class UaaView extends BaseViewComponent {
     });
 
     this._elm.body.innerHTML = '';
-    this._elm.body.appendChild(df);
+    this._elm.body.append(df);
 
     this.setState({isExist: true});
   }
@@ -2343,7 +2335,7 @@ class UaaView extends BaseViewComponent {
       contact.setAttribute('title', `${data.message}(${textUtil.secToTime(sec)})`);
 
       this._props.videoInfo.getCurrentVideo()
-        .then(url => VideoCaptureUtil.capture(url, sec))
+        .then(url => ZenzaWatch.util.VideoCaptureUtil.capture(url, sec))
         .then(screenshot => {
         const cv = document.createElement('canvas');
         const ct = cv.getContext('2d');
@@ -2358,7 +2350,7 @@ class UaaView extends BaseViewComponent {
         df.classList.add('has-screenshot');
         df.classList.remove('clickable', 'other');
 
-        df.appendChild(cv);
+        df.append(cv);
       }).catch(() => {});
     } else if (bgkeyframe) {
       const sec = parseFloat(bgkeyframe);
@@ -2368,7 +2360,7 @@ class UaaView extends BaseViewComponent {
     } else {
       df.classList.add('other');
     }
-    df.appendChild(contact);
+    df.append(contact);
     return df;
   }
 
@@ -2607,7 +2599,7 @@ class RelatedInfoMenu extends BaseViewComponent {
   _initDom(...args) {
     super._initDom(...args);
 
-    this._view.classList.toggle('is-Edge', /edge/i.test(navigator.userAgent));
+    ClassList(this._view).toggle('is-Edge', /edge/i.test(navigator.userAgent));
     const shadow = this._shadow || this._view;
     this._elm.body = shadow.querySelector('.RelatedInfoMenuBody');
     this._elm.summary = shadow.querySelector('summary');

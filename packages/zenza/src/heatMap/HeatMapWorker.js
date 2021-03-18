@@ -36,7 +36,8 @@ class HeatMapModel {
   }
   getHeatMap() {
     const chatList =
-      this._chat.top.concat(this._chat.naka, this._chat.bottom);
+      this._chat.top.concat(this._chat.naka, this._chat.bottom)
+        .filter(chat => chat.fork !== 2); // かんたんコメント除外
     const duration = this._duration;
     if (duration < 1) { return []; }
     const map = new Array(Math.max(Math.min(this.resolution, Math.floor(duration)), 1));
@@ -51,6 +52,12 @@ class HeatMapModel {
       let pos = nicoChat.vpos;
       let mpos = Math.min(Math.floor(pos * ratio / 100), map.length -1);
       map[mpos]++;
+    }
+    for (i = 0; i < Math.min(length, 20); i++) {// 先頭付近は「うぽつ」などで一極集中しがちなのでリミットを設ける
+      map[i] = Math.min(5, map[i]);
+    }
+    for (; i < Math.min(length, 60); i++) {
+      map[i] = Math.min(10, map[i]);
     }
     map.length = length;
     return map;

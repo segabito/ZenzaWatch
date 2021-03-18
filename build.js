@@ -9,10 +9,17 @@ var watchDirs = [
 ];
 
 var templates = [
-  { src: '_template.js', dist: 'dist/ZenzaWatch.user.js', dev: true },
-  { src: '_uquery.js', dist: 'dist/uQuery.user.js', dev: true },
-  { src: '_pocket.js', dist: 'dist/MylistPocket.user.js', dev: false },
-  { src: '_shape.js', dist: 'dist/MaskedWatch.user.js', dev: false },
+  { src: '_template.js', dist: 'dist/ZenzaWatch.user.js',            dev: true  },
+  { src: '_uquery.js',   dist: 'dist/uQuery.user.js',                dev: false },
+  { src: '_pocket.js',   dist: 'dist/MylistPocket.user.js',          dev: false },
+  { src: '_shape.js',    dist: 'dist/MaskedWatch.user.js',           dev: false },
+  { src: '_setting.js',  dist: 'dist/ZenzaAdvancedSettings.user.js', dev: false },
+  { src: '_hls.js',      dist: 'dist/ZenzaHLS.user.js',              dev: false },
+  { src: '_gamepad.js',  dist: 'dist/ZenzaGamePad.user.js',          dev: false },
+  { src: '_blog.js',     dist: 'dist/ZenzaBlogPartsButton.user.js',  dev: false },
+  { src: '_captube.js',  dist: 'dist/CapTube.user.js',               dev: false },
+  { src: '_my4.js',      dist: 'dist/MylistFilter.user.js',          dev: false },
+  { src: '_heatsync.js', dist: 'dist/HeatSync.user.js',              dev: false },
   // { src: '_navi.js',    dist: 'dist/Navi.user.js', dev: false },
   // { src: '_yomi.js',    dist: 'dist/Yomi.user.js', dev: false },
   // { src: '_vc.js',    dist: 'dist/VoiceControl.user.js', dev: false }
@@ -23,21 +30,18 @@ const DEV_HEADER = {
     name: '// @name           ZenzaWatch DEV版',
     description: '// @description    ZenzaWatchの開発 先行バージョン'
   },
-  '_uquery.js': {
-
-  },
-  '_pocket.js': {
-
-  },
-  '_yomi.js': {
-
-  },
-  '_vc.js': {
-
-  },
-  '_shape.js': {
-
-  }
+  '_uquery.js': {},
+  '_pocket.js': {},
+  '_yomi.js': {},
+  '_vc.js': {},
+  '_shape.js': {},
+  '_setting.js': {},
+  '_hls.js': {},
+  '_gamepad.js': {},
+  '_blog.js': {},
+  '_captube.js': {},
+  '_my4.js': {},
+  '_heatsync': {},
 };
 
 let REQMAP = {};

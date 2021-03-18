@@ -1,5 +1,5 @@
-import * as _ from 'lodash';
-import {util} from './util';
+import {textUtil} from '../packages/lib/src/text/textUtil';
+import {PromiseHandler} from '../packages/lib/src/Emitter';
 
 //===BEGIN===
 //
@@ -180,9 +180,9 @@ class VideoFilter {
 }
 
 class VideoInfoModel {
-  constructor(videoInfoData) {
-    this._update(videoInfoData);
-    this._currentVideoPromise = [];
+  constructor(videoInfoData, localCacheData = {}) {
+    this._update(videoInfoData, localCacheData);
+    this._currentVideoPromise = null;
   }
 
   update(videoInfoModel) {
@@ -190,8 +190,9 @@ class VideoInfoModel {
     return true;
   }
 
-  _update(info) {
+  _update(info, localCacheData = {}) {
     this._rawData = info;
+    this._cacheData = localCacheData;
     this._watchApiData = info.watchApiData;
     this._videoDetail = info.watchApiData.videoDetail;
     this._flashvars = info.watchApiData.flashvars;   // flashに渡す情報
@@ -204,6 +205,8 @@ class VideoInfoModel {
     this._watchAuthKey = info.watchAuthKey;
     this._seekToken = info.seekToken;
     this._resumeInfo = info.resumeInfo || {};
+    this._currentVideo = null;
+    this._currentVideoPromise = null;
     return true;
   }
 
@@ -237,6 +240,10 @@ class VideoInfoModel {
     return this._rawData.thumbnail;
   }
 
+  get largeThumbnnail() {
+    return this._videoDetail.largeThumbnnail;
+  }
+
   get videoUrl() {
     return (this._flvInfo.url || '');//.replace(/^http:/, '');
   }
@@ -253,19 +260,15 @@ class VideoInfoModel {
    * @return Promise
    */
   getCurrentVideo() {
-    if (this._currentVideo) {
-      return Promise.resolve(this._currentVideo);
+    if (this._currentVideoPromise) {
+      return this._currentVideoPromise;
     }
-    return new Promise((resolve, reject) => {
-      this._currentVideoPromise.push({resolve, reject});
-    });
+    return this._currentVideoPromise = new PromiseHandler();
   }
 
   setCurrentVideo(v) {
     this._currentVideo = v;
-    this._currentVideoPromise.forEach(p => {
-      p.resolve(this._currentVideo);
-    });
+    this._currentVideoPromise && this._currentVideoPromise.resolve(v);
   }
 
   get isEconomy() {
@@ -341,6 +344,17 @@ class VideoInfoModel {
 
   get isCommunityVideo() {
     return !!(!this.isChannel && this._videoDetail.communityId);
+  }
+
+  get isPremiumOnly() {
+    return !!this._videoDetail.isPremiumOnly;
+  }
+
+  get isLiked() {
+    return !!this._videoDetail.isLiked;
+  }
+  set isLiked(v) {
+    this._videoDetail.isLiked = v;
   }
 
   get hasParentVideo() {
@@ -420,6 +434,18 @@ class VideoInfoModel {
     return Object.assign({}, series, {thumbnailUrl});
   }
 
+  get firstVideo() {
+    return this.series ? this.series.firstVideo : null;
+  }
+
+  get prevVideo() {
+    return this.series ? this.series.prevVideo : null;
+  }
+
+  get nextVideo() {
+    return this.series ? this.series.nextVideo : null;
+  }
+
   get relatedVideoItems() {
     return this._relatedVideo.playlist || [];
   }
@@ -428,7 +454,7 @@ class VideoInfoModel {
     if (!this._flvInfo.ng_up || this._flvInfo.ng_up === '') {
       return null;
     }
-    return util.parseQuery(
+    return textUtil.parseQuery(
       this._flvInfo.ng_up || ''
     );
   }
@@ -462,10 +488,21 @@ class VideoInfoModel {
   }
 
   get initialPlaybackTime() {
-    if (!this._resumeInfo || !this._resumeInfo.initialPlaybackPosition) {
-      return 0;
-    }
-    return parseFloat(this._resumeInfo.initialPlaybackPosition, 10);
+    return this.resumePoints[0] && (this.resumePoints[0].time || 0);
+  }
+
+  get resumePoints() {
+    const duration = this.duration;
+    const MARGIN = 10;
+    const resumePoints =
+      ((this._cacheData && this._cacheData.resume) ? this._cacheData.resume : [])
+        .filter(({now, time}) => time > MARGIN && time < duration - MARGIN)
+        .map(({now, time}) => { return {now: new Date().toLocaleString(), time}; })
+        .reverse();
+    const lastResumePoint = this._resumeInfo ? this._resumeInfo.initialPlaybackPosition : 0;
+
+    lastResumePoint && resumePoints.unshift({now: '前回', time: lastResumePoint});
+    return resumePoints;
   }
 
   get csrfToken() {

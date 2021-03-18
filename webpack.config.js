@@ -33,7 +33,7 @@ module.exports = {
   devServer: {
     contentBase: path.resolve(__dirname, 'test/browser'),
     headers: {
-      "Access-Control-Allow-Origin": "http://www.nicovideo.jp",
+      "Access-Control-Allow-Origin": "https://www.nicovideo.jp",
       "Access-Control-Allow-Credentials": "true",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, x-id, Content-Length, X-Requested-With",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS"

@@ -18,8 +18,8 @@ const VideoSessionWorker = (() => {
     };
 
     const util = {
-      fetch(url, params = {}) {
-        if (!location.origin.endsWith('.nicovideo.jp')) {
+      fetch(url, params = {}) { // ブラウザによっては location.origin は 'blob:' しか入らない
+        if (!location.origin.endsWith('.nicovideo.jp') && !/^blob:https?:\/\/[a-z0-9]+\.nicovideo\.jp\//.test(location.href)) {
           return self.xFetch(url, params);
         }
         const racers = [];

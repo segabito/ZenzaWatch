@@ -42,7 +42,7 @@ class BaseCommandElement extends HTMLElement {
   }
 
   static async getTemplate(state = {}, props = {}, events = {}) {
-    let {html} = dll.lit || await this.importLit();
+    const {html} = dll.lit || await this.importLit();
     return html`<div id="root" data-state="${JSON.stringify(state)}"
       data-props="${JSON.stringify(props)}" @click=${events.onClick}></div>`;
   }
@@ -66,7 +66,7 @@ class BaseCommandElement extends HTMLElement {
 
   get _initialProps() {
     const props = {};
-    for (let key of Object.keys(this.constructor.propTypes)) {
+    for (const key of Object.keys(this.constructor.propTypes)) {
       if (!this.dataset[key]) { continue; }
       const type = typeof this.constructor.propTypes[key];
       props[key] = type !== 'string' ? JSON.parse(this.dataset[key]) : this.dataset[key];
@@ -78,7 +78,7 @@ class BaseCommandElement extends HTMLElement {
     if (!this._isConnected) {
       return;
     }
-    let {render} = dll.lit || await this.constructor.importLit();
+    const {render} = dll.lit || await this.constructor.importLit();
     if (!this._shadow) {
       this._shadow = this.attachShadow({mode: 'open'});
     }
@@ -117,7 +117,7 @@ class BaseCommandElement extends HTMLElement {
       this._root.removeEventListener('command', this._boundOnCommand);
       this._root = null;
     }
-    let {render} = dll.lit || await this.constructor.importLit();
+    const {render} = dll.lit || await this.constructor.importLit();
     render('', this._shadow);
     this._shadow = null;
   }
@@ -161,7 +161,7 @@ class BaseCommandElement extends HTMLElement {
   }
 
   onUIEvent(e) {
-    let target = e.target.closest('[data-command]');
+    const target = e.target.closest('[data-command]');
     if (!target) {
       return;
     }

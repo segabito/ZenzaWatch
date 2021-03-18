@@ -212,7 +212,6 @@ const MylistApiLoader = (() => {
 
       const cacheData = cacheStorage.getItem(cacheKey);
       if (cacheData) {
-        console.log('cache exists: ', cacheKey, cacheData);
         return cacheData;
       }
 

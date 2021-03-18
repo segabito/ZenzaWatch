@@ -14,7 +14,7 @@ class NicoChatCss3View {
   static buildChatDom (chat, type, size, cssText, document = window.document) {
     const span = document.createElement('span');
     const ver = chat.commentVer;
-    const className = ['nicoChat', type, size];
+    const className = ['nicoChat', 'hidden', type, size];
     if (ver === 'html5') {
       className.push(ver);
     }
@@ -156,6 +156,7 @@ class NicoChatCss3View {
       position: absolute;
       will-change: transform;
       contain: layout style paint;
+      visibility: hidden;
       line-height: 1.235;
       z-index: ${zIndex};
       top: ${top};
@@ -164,15 +165,14 @@ class NicoChatCss3View {
       ${lineHeightCss}
       ${opacity}
       font-size: ${fontSizePx}px;
-      animation-name: ${(isAlignMiddle || isScaled) ? 'idou-props-scale' : 'idou-props'};
+      animation-name: idou-props${(isScaled || isAlignMiddle) ? '-scaled' : ''}${isAlignMiddle ? '-middle' : ''};
       animation-duration: ${duration}s;
       animation-delay: ${delay}s;
       ${reverse}
       transform:
         translateX(0)
-        ${isScaled ? 'scale(var(--chat-scale-x), var(--chat-scale-y))' : ''}
-        ${isAlignMiddle ? 'translateY(var(--chat-trans-y))' : ''}
         ;
+      content-visibility: hidden;
     `;
 
     return {inline, keyframes: ''};
@@ -238,6 +238,7 @@ class NicoChatCss3View {
       animation-duration: ${duration / 0.95}s;
       animation-delay: ${delay}s;
       --dokaben-scale: ${scale};
+      content-visibility: hidden;
     `.trim();
     return {inline};
   }

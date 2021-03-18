@@ -160,7 +160,7 @@ class NicoChat {
     props.isPremium = data.premium ? '1' : '0';
     props.isSubThread = (options.mainThreadId && props.thread !== options.mainThreadId);
     props.layerId = typeof data.layerId === 'number' ?
-      data.layerId : (/* this.props.thread * 10 + */ props.fork * 1);
+      data.layerId : (props.fork*1 % 2 /* fork2を0と同じレイヤーにするダメ対応. fork3とか4とか来たらまた考える */);
     props.uniqNo =
       (data.no                 %   10000) +
       (data.fork               *  100000) +
@@ -197,7 +197,9 @@ class NicoChat {
     const maxv =
       props.isNicoScript ?
         Math.min(props.vpos, options.videoDuration * 100) :
-        Math.min(props.vpos, (1 + options.videoDuration - props.duration) * 100);
+        Math.min(props.vpos,
+          (1 + options.videoDuration - props.duration) * 100 +
+            Math.random() * 40 - 20);
     const minv = Math.max(maxv, 0);
     props.vpos = minv;
   }

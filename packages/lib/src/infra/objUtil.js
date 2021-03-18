@@ -1,7 +1,13 @@
-
+import {bounce} from './bounce';
 //===BEGIN===
 const objUtil = (() => {
   const isObject = e => e !== null && e instanceof Object;
+  const PROPS = Symbol('PROPS');
+  const REVISION = Symbol('REVISION');
+  const CHANGED = Symbol('CHANGED');
+  const HAS = Symbol('HAS');
+  const SET = Symbol('SET');
+  const GET = Symbol('GET');
   return {
     bridge: (self, target, keys = null) => {
       (keys || Object.getOwnPropertyNames(target.constructor.prototype))
@@ -13,11 +19,7 @@ const objUtil = (() => {
       if (obj instanceof mapper) {
         return obj;
       }
-      const map = new mapper();
-      for(const key of Object.keys(obj)) {
-        map.set(key, obj[key]);
-      }
-      return map;
+      return new mapper(Object.entries(obj));
     },
     mapToObj: map => {
       if (!(map instanceof Map)) {
@@ -28,7 +30,130 @@ const objUtil = (() => {
         obj[key] = val;
       }
       return obj;
-    }
+    },
+    // makeProps(self, defaultProps = {}, options = {}) {
+    //   let {scope, onChange, root, parent} =
+    //     {...{scope: [], root: self}, ...options};
+    //     typeof self[REVISION] === 'number' && (self[REVISION] = 0);
+    //   const def = {};
+    //   const props = new Map;
+    //   const changed = parent ? parent[CHANGED] : new Map;
+    //   const changeset = new Map;
+    //   const haskey = new Set;
+    //   self[PROPS] = props;
+    //   self[CHANGED] = changed;
+    //   self[HAS] = key => haskey.has(key);
+
+    //   const _onChange = options.onChange = options.onChange || bounce.time(() => {
+    //     changeset.clear();
+    //     for (const [key, val] of changed) {
+    //       changeset.set(key, val);
+    //     }
+    //     changed.clear();
+    //     onChange(changeset);
+    //   });
+
+    //   const getValue = key => {
+    //     if (key.includes('.')) {
+    //       return key.split('.').reduce((child, key) => {
+    //         return (child !== null && child[HAS](key)) ? child[GET](key) : null;
+    //       }, self);
+    //     }
+    //     return props.get(key);
+    //   };
+    //   self[GET] = getValue;
+
+    //   const setValue = (key, value) => {
+    //     const rev = self[REVISION];
+    //     if (key.includes('.')) {
+    //       const keys = key.split('.');
+    //       const len = keys.length - 1;
+    //       keys.reduce((child, key, idx) => {
+    //         if (idx === len) {
+    //           child[SET](key, value) && self[REVISION]++;
+    //           return;
+    //         }
+    //         return (child !== null && child[HAS](key)) ? child[GET](key) : null;
+    //       }, self);
+    //       return rev !== self[REVISION];
+    //     }
+
+    //     const current = props.get(key);
+    //     const rkey = scope.length ? `${scope.join('.')}.${key}` : key;
+    //     // const pkey = scope.length ? `${scope[0]}.${key}` : key;
+    //     if (value !== current) {
+    //       if (isObject(value)) {
+    //         if (Array.isArray(value) && value.length !== current.length) {
+    //           for (let i = current.length, len = value.length; i < len; i++) {
+    //             haskey.delete('' + i);
+    //           }
+    //           current.length = Math.max(value.length, current.length);
+    //           self[REVISION]++;
+    //         }
+    //         for (const [k, v] of (value instanceof Map ? value : Object.entries(value))) {
+    //           current[SET](k, v) && self[REVISION]++;
+    //         }
+    //         if (rev !== current[REVISION]) {
+    //           self[REVISION]++;
+    //           changed.set(rkey, value);
+    //           onChange && _onChange();
+    //         }
+    //       } else {
+    //         props.set(key, current);
+    //         self[REVISION]++;
+    //         changed.set(rkey, {parent, target: self, value, scope});
+    //         onChange && _onChange();
+    //       }
+    //     }
+    //     return rev !== self[REVISION];
+    //   };
+    //   self[SET] = setValue;
+
+    //   Object.keys(defaultProps).sort()
+    //     .forEach(key => {
+    //       haskey.add(key);
+    //       const val = defaultProps[key];
+    //       if (key.includes('.')) {
+    //         const ns = key.slice(0, key.indexOf('.'));
+    //         if (!props.has(key)) {
+    //           const nprops =
+    //             Object.keys(defaultProps).filter(key => key.includes(ns)).reduce((nprops, key) => {
+    //               nprops[key] = defaultProps[key];
+    //               return nprops;
+    //             }, {});
+    //           props.set(ns,
+    //             this.makeProps(
+    //               {},
+    //               nprops,
+    //               {...options, ...{scope: [...scope, ns], root, parent: self}})
+    //             );
+    //         }
+    //       } else if (isObject(val)) {
+    //         const ns = key;
+    //         const nprops = val;
+    //         props.set(ns,
+    //           this.makeProps(
+    //             Array.isArray(val) ? [] : {},
+    //             nprops,
+    //             {...options, ...{scope: [...scope, ns], root, parent: self}})
+    //         );
+    //       } else {
+    //         props.set(key, val);
+    //       }
+
+    //       def[key] = {
+    //         enumerable: !!key.startsWith('_'),
+    //         get() {
+    //           return getValue(key);
+    //         },
+    //         set(value) {
+    //           return setValue(key, value);
+    //         }
+    //       };
+    //   });
+    //   Object.defineProperties(self, def);
+    //   return self;
+    // }
   };
 })();
 

@@ -131,12 +131,14 @@ const {Emitter} = (() => {
       name = name.toLowerCase();
       let e = this._events.get(name);
       if (!e) {
-        e = this._events.set(name, new Handler(callback));
+        const handler = new Handler(callback);
+        handler.name = name;
+        e = this._events.set(name, handler);
       } else {
         e.add(callback);
       }
       if (e.length > 10) {
-        // console.warn('listener count > 10', name, e, callback);
+        console.warn('listener count > 10', name, e, callback);
         !Emitter.warnings.includes(this) && Emitter.warnings.push(this);
       }
       return this;
@@ -217,39 +219,42 @@ const {Emitter} = (() => {
     }
     promise(name, callback) {
       if (!this._promise) {
-        this._promise = {};
+        this._promise = new Map;
       }
-      const p = this._promise[name];
+      const p = this._promise.get(name);
       if (p) {
         return callback ? p.addCallback(callback) : p;
       }
-      return this._promise[name] = new PromiseHandler(callback);
+      this._promise.set(name, new PromiseHandler(callback));
+      return this._promise.get(name);
     }
     emitResolve(name, ...args) {
       if (!this._promise) {
-        this._promise = {};
+        this._promise = new Map;
       }
-      if (!this._promise[name]) {
-        this._promise[name] = new PromiseHandler();
+      if (!this._promise.has(name)) {
+        this._promise.set(name, new PromiseHandler());
       }
-      this._promise[name].resolve(...args);
+      return this._promise.get(name).resolve(...args);
     }
     emitReject(name, ...args) {
       if (!this._promise) {
-        this._promise = {};
+        this._promise = new Map;
       }
-      if (!this._promise[name]) {
-        this._promise[name] = new PromiseHandler();
+      if (!this._promise.has(name)) {
+        this._promise.set(name, new PromiseHandler);
       }
-      this._promise[name].reject(...args);
+      return this._promise.get(name).reject(...args);
     }
     resetPromise(name) {
       if (!this._promise) { return; }
-      delete this._promise[name];
+      this._promise.delete(name);
     }
     hasPromise(name) {
-      return this._promise && !!this._promise[name];
+      return this._promise && this._promise.has(name);
     }
+    addEventListener(...args) { return this.on(...args); }
+    removeEventListener(...args) { return this.off(...args);}
   }
   Emitter.totalCount = totalCount;
   Emitter.warnings = warnings;

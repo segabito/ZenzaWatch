@@ -7,6 +7,7 @@ class NicoChatFilter extends Emitter {
   constructor(params) {
     super();
     this._sharedNgLevel = params.sharedNgLevel || NicoChatFilter.SHARED_NG_LEVEL.MID;
+    this._removeNgMatchedUser = params.removeNgMatchedUser || false;
 
     this._wordFilterList = [];
     this._userIdFilterList = [];
@@ -14,6 +15,9 @@ class NicoChatFilter extends Emitter {
     this.wordFilterList = params.wordFilter || '';
     this.userIdFilterList = params.userIdFilter || '';
     this.commandFilterList = params.commandFilter || '';
+    this._fork0 = typeof params.fork0 === 'boolean' ? params.fork0 : true;
+    this._fork1 = typeof params.fork1 === 'boolean' ? params.fork1 : true;
+    this._fork2 = typeof params.fork2 === 'boolean' ? params.fork2 : true;
 
     this._enable = typeof params.enableFilter === 'boolean' ? params.enableFilter : true;
 
@@ -28,25 +32,56 @@ class NicoChatFilter extends Emitter {
       this.setWordRegFilter(params.wordRegFilter, params.wordRegFilterFlags);
     }
   }
-  set isEnable(v) {
-    v = !!v;
-    if (this._enable !== v) {
-      this._enable = v;
-      this._onChange();
-    }
-  }
   get isEnable() {
     return this._enable;
   }
+  set isEnable(v) {
+    if (this._enable === v) {
+      return;
+    }
+    this._enable = !!v;
+    this._onChange();
+  }
+  get removeNgMatchedUser() {
+    return this._removeNgMatchedUser;
+  }
+  set removeNgMatchedUser(v) {
+    if (this._removeNgMatchedUser === v) {
+      return;
+    }
+    this._removeNgMatchedUser = !!v;
+    this.refresh();
+  }
+  get fork0() { return this._fork0; }
+  set fork0(v) {
+    v = !!v;
+    if (this._fork0 === v) { return; }
+    this._fork0 = v;
+    this.refresh();
+  }
+  get fork1() { return this._fork1; }
+  set fork1(v) {
+    v = !!v;
+    if (this._fork1 === v) { return; }
+    this._fork1 = v;
+    this.refresh();
+  }
+  get fork2() { return this._fork2; }
+  set fork2(v) {
+    v = !!v;
+    if (this._fork2 === v) { return; }
+    this._fork2 = v;
+    this.refresh();
+  }
+  refresh() { this._onChange(); }
   addWordFilter(text) {
     let before = this._wordFilterList.join('\n');
     this._wordFilterList.push((text || '').trim());
     this._wordFilterList = [...new Set(this._wordFilterList)];
     let after = this._wordFilterList.join('\n');
-    if (before !== after) {
-      this._wordReg = null;
-      this._onChange();
-    }
+    if (before === after) { return; }
+    this._wordReg = null;
+    this._onChange();
   }
   set wordFilterList(list) {
     list = [...new Set(typeof list === 'string' ? list.trim().split('\n') : list)];
@@ -60,11 +95,10 @@ class NicoChatFilter extends Emitter {
     tmp = _.compact(tmp);
     let after = tmp.join('\n');
 
-    if (before !== after) {
-      this._wordReg = null;
-      this._wordFilterList = tmp;
-      this._onChange();
-    }
+    if (before === after) { return; }
+    this._wordReg = null;
+    this._wordFilterList = tmp;
+    this._onChange();
   }
   get wordFilterList() {
     return this._wordFilterList;
@@ -90,10 +124,9 @@ class NicoChatFilter extends Emitter {
     this._userIdFilterList.push(text);
     this._userIdFilterList = [...new Set(this._userIdFilterList)];
     const after = this._userIdFilterList.join('\n');
-    if (before !== after) {
-      this._userIdReg = null;
-      this._onChange();
-    }
+    if (before === after) { return; }
+    this._userIdReg = null;
+    this._onChange();
   }
   set userIdFilterList(list) {
     list = [...new Set(typeof list === 'string' ? list.trim().split('\n') : list)];
@@ -107,11 +140,10 @@ class NicoChatFilter extends Emitter {
     tmp = _.compact(tmp);
     let after = tmp.join('\n');
 
-    if (before !== after) {
-      this._userIdReg = null;
-      this._userIdFilterList = tmp;
-      this._onChange();
-    }
+    if (before === after) { return; }
+    this._userIdReg = null;
+    this._userIdFilterList = tmp;
+    this._onChange();
   }
   get userIdFilterList() {
     return this._userIdFilterList;
@@ -121,10 +153,9 @@ class NicoChatFilter extends Emitter {
     this._commandFilterList.push(text);
     this._commandFilterList = [...new Set(this._commandFilterList)];
     let after = this._commandFilterList.join('\n');
-    if (before !== after) {
-      this._commandReg = null;
-      this._onChange();
-    }
+    if (before === after) { return; }
+    this._commandReg = null;
+    this._onChange();
   }
   set commandFilterList(list) {
     list = [...new Set(typeof list === 'string' ? list.trim().split('\n') : list)];
@@ -138,11 +169,10 @@ class NicoChatFilter extends Emitter {
     tmp = _.compact(tmp);
     let after = tmp.join('\n');
 
-    if (before !== after) {
-      this._commandReg = null;
-      this._commandFilterList = tmp;
-      this._onChange();
-    }
+    if (before === after) { return; }
+    this._commandReg = null;
+    this._commandFilterList = tmp;
+    this._onChange();
   }
   get commandFilterList() {
     return this._commandFilterList;
@@ -178,7 +208,7 @@ class NicoChatFilter extends Emitter {
 
     if (Config.getValue('debug')) {
       return nicoChat => {
-        if (nicoChat.fork > 0) {
+        if (nicoChat.fork === 1) {
           return true;
         }
         const score = nicoChat.score;
@@ -244,7 +274,7 @@ class NicoChatFilter extends Emitter {
     }
 
     return nicoChat => {
-      if (nicoChat.fork > 0) {
+      if (nicoChat.fork === 1) { //fork1 投稿者コメントはNGしない
         return true;
       }
       const text = nicoChat.text;
@@ -266,6 +296,18 @@ class NicoChatFilter extends Emitter {
     window.console.time(timeKey);
     let filterFunc = this.getFilterFunc();
     let result = nicoChatArray.filter(filterFunc);
+    if (before.length !== result.length && this._removeNgMatchedUser) {
+      let removedUserIds =
+        nicoChatArray.filter(chat => !result.includes(chat)).map(chat => chat.userId);
+      result = result.filter(chat => !removedUserIds.includes(chat.userId));
+    }
+    if (!this.fork0 || !this.fork1 || !this.fork2) {
+      const allows = [];
+      this._fork0 && allows.push(0);
+      this._fork1 && allows.push(1);
+      this._fork2 && allows.push(2);
+      result = result.filter(chat => allows.includes(chat.fork));
+    }
     window.console.timeEnd(timeKey);
     window.console.log('NG判定結果: %s/%s', result.length, before);
     return result;

@@ -26,7 +26,7 @@
 // @exclude     *://dic.nicovideo.jp/p/*
 // @exclude     *://ext.nicovideo.jp/thumb/*
 // @exclude     *://ext.nicovideo.jp/thumb_channel/*
-// @version     0.5.7
+// @version     0.5.14
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -35,28 +35,35 @@
 /* eslint-disable */
 
 const AntiPrototypeJs = function() {
-	if (this.promise || !window.Prototype || window.PureArray) {
+	if (this.promise !== null || !window.Prototype || window.PureArray) {
 		return this.promise || Promise.resolve(window.PureArray || window.Array);
 	}
 	if (document.getElementsByClassName.toString().indexOf('B,A') >= 0) {
-		console.info('%cI don\'t like prototype.js 1.5.x', 'font-family: "Arial Black";');
 		delete document.getElementsByClassName;
 	}
-	const f = document.createElement('iframe');
-	f.srcdoc = '<html><title>ここだけ時間が10年遅れてるスレ</title></html>';
-	f.id = 'prototype';
-	f.loading = 'eager';
-	Object.assign(f.style, { position: 'absolute', left: '-100vw', top: '-100vh' });
-	return this.promise = new Promise(res => {
-		f.onload = res;
-		document.documentElement.append(f);
-	}).then(() => {
-		window.PureArray = f.contentWindow.Array;
-		delete window.Array.prototype.toJSON;
-		delete window.String.prototype.toJSON;
-		f.remove();
-		return Promise.resolve(window.PureArray);
-	}).catch(err => console.error(err));
+	const waitForDom = new Promise(resolve => {
+		if (['interactive', 'complete'].includes(document.readyState)) {
+			return resolve();
+		}
+		document.addEventListener('DOMContentLoaded', resolve, {once: true});
+	});
+	const f = Object.assign(document.createElement('iframe'), {
+		srcdoc: '<html><title>ここだけ時間が10年遅れてるスレ</title></html>',
+		id: 'prototype',
+		loading: 'eager'
+	});
+	Object.assign(f.style, {position: 'absolute', left: '-100vw', top: '-100vh'});
+	return this.promise = waitForDom
+		.then(() => new Promise(res => {
+			f.onload = res;
+			document.body.append(f);
+		})).then(() => {
+	window.PureArray = f.contentWindow.Array;
+	delete window.Array.prototype.toJSON;
+			delete window.String.prototype.toJSON;
+			f.remove();
+			return Promise.resolve(window.PureArray);
+		}).catch(err => console.error(err));
 }.bind({promise: null});
 AntiPrototypeJs().then(() => {
   const PRODUCT = 'MylistPocket';
@@ -77,6 +84,11 @@ AntiPrototypeJs().then(() => {
     window.MylistPocket = MylistPocket;
 
     const protocol = location.protocol;
+    const global = {
+      debug: MylistPocket.debug,
+      TOKEN,
+      PRODUCT
+    };
 
     const __css__ = (`
       a[href*='watch/'] > g-img {
@@ -373,7 +385,8 @@ AntiPrototypeJs().then(() => {
       body.BaseLayout {
         margin-top: 0 !important;
       }
-
+      ${
+      location.host === 'www.niovideo.jp' ? `
       #siteHeader {
         position: sticky;
         left: 0 !important;
@@ -475,7 +488,7 @@ AntiPrototypeJs().then(() => {
           -1px -1px 0 #fff;
 
               }
-
+      ` : ''}
     `).trim();
 
     const nicoadHideCss = `
@@ -491,14 +504,37 @@ AntiPrototypeJs().then(() => {
     const responsiveCss = `
 
       @media screen and (max-width: 1350px) {
+        .RankingGenreListContainer {
+          border-right: 0;
+          border-left: 56px solid #fafafa;
+        }
         .RankingGenreListContainer-categoryHelp {
           position: static;
         }
         .GlobalHeader#siteHeader #siteHeaderInner {
           width: 1024px;
         }
+        .RankingHeaderContainer-headerInner {
+          margin-left: 64px;
+          width: 1214px;
+        }
+        .LaneHeader {
+          flex: 1 1 160px;
+          width: 160px;
+        }
+        .LaneHeader+.LaneHeader {
+          /*margin-left: 13px;*/
+        }
+        .LaneHeader>p {
+          white-space: normal;
+          height: 32px;
+          line-height: 16px;
+        }
+        .CustomButton {
+          width: 136px;
+        }
         .MatrixRanking-body .BaseLayout-block {
-          width: ${1024 + 64 * 2}px;
+          width: ${1280}px;
         }
         .RankingMainContainer-decorateChunk+.RankingMainContainer-decorateChunk,
          .RankingMainContainer-decorateChunk>*+* {
@@ -1835,64 +1871,192 @@ AntiPrototypeJs().then(() => {
 
       return util;
     })();
-const css = {
-	addStyle: (styles, option, document = window.document) => {
-		const elm = document.createElement('style');
-		elm.type = 'text/css';
-		if (typeof option === 'string') {
-			elm.id = option;
-		} else if (option) {
-			Object.assign(elm, option);
-		}
-		elm.classList.add(PRODUCT);
-		elm.append(styles.toString());
-		(document.head || document.body || document.documentElement).append(elm);
-		elm.disabled = option && option.disabled;
-		elm.dataset.switch = elm.disabled ? 'off' : 'on';
-		return elm;
+const bounce = {
+	origin: Symbol('origin'),
+	idle(func, time) {
+		let reqId = null;
+		let lastArgs = null;
+		let promise = new PromiseHandler();
+		const [caller, canceller] =
+			(time === undefined && self.requestIdleCallback) ?
+				[self.requestIdleCallback, self.cancelIdleCallback] : [self.setTimeout, self.clearTimeout];
+		const callback = () => {
+			const lastResult = func(...lastArgs);
+			promise.resolve({lastResult, lastArgs});
+			reqId = lastArgs = null;
+			promise = new PromiseHandler();
+		};
+		const result = (...args) => {
+			if (reqId) {
+				reqId = canceller(reqId);
+			}
+			lastArgs = args;
+			reqId = caller(callback, time);
+			return promise;
+		};
+		result[this.origin] = func;
+		return result;
 	},
-	registerProps(...args) {
-		if (!CSS || !('registerProperty' in CSS)) {
+	time(func, time = 0) {
+		return this.idle(func, time);
+	}
+};
+const throttle = (func, interval) => {
+	let lastTime = 0;
+	let timer;
+	let promise = new PromiseHandler();
+	const result = (...args) => {
+		if (timer) {
+			return promise;
+		}
+		const now = performance.now();
+		const timeDiff = now - lastTime;
+		timer = setTimeout(() => {
+			lastTime = performance.now();
+			timer = null;
+			const lastResult = func(...args);
+			promise.resolve({lastResult, lastArgs: args});
+			promise = new PromiseHandler();
+		}, Math.max(interval - timeDiff, 0));
+		return promise;
+	};
+	result.cancel = () => {
+		if (timer) {
+			timer = clearTimeout(timer);
+		}
+		promise.resolve({lastResult: null, lastArgs: null});
+		promise = new PromiseHandler();
+	};
+	return result;
+};
+throttle.time = (func, interval = 0) => throttle(func, interval);
+throttle.raf = function(func) {
+	let promise;
+	let cancelled = false;
+	let lastArgs = [];
+	const callRaf = res => requestAnimationFrame(res);
+	const onRaf = () => this.req = null;
+	const onCall = () => {
+		if (cancelled) {
+			cancelled = false;
 			return;
 		}
-		for (const definition of args) {
-			try {
-				(definition.window || window).CSS.registerProperty(definition);
-			} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+		try { func(...lastArgs); } catch (e) { console.warn(e); }
+		promise = null;
+	};
+	const result = (...args) => {
+		lastArgs = args;
+		if (promise) {
+			return promise;
 		}
-	},
-	setProps(element, ...args) {
-		for (const {prop, value} of args) {
+		if (!this.req) {
+			this.req = new Promise(callRaf).then(onRaf);
+		}
+		promise = this.req.then(onCall);
+		return promise;
+	};
+	result.cancel = () => {
+		cancelled = true;
+		promise = null;
+	};
+	return result;
+}.bind({req: null, count: 0, id: 0});
+throttle.idle = func => {
+	let id;
+	const request = (self.requestIdleCallback || self.setTimeout);
+	const cancel = (self.cancelIdleCallback || self.clearTimeout);
+	const result = (...args) => {
+		if (id) {
+			return;
+		}
+		id = request(() => {
+			id = null;
+			func(...args);
+		}, 0);
+	};
+	result.cancel = () => {
+		if (id) {
+			id = cancel(id);
+		}
+	};
+	return result;
+};
+const css = (() => {
+	const setPropsTask = [];
+	const applySetProps = throttle.raf(
+		() => {
+		const tasks = setPropsTask.concat();
+		setPropsTask.length = 0;
+		for (const [element, prop, value] of tasks) {
 			try {
 				element.style.setProperty(prop, value);
-			} catch (err) { console.warn('element.style.setProperty fail', {prop, value}, element, err); }
+			} catch (error) {
+				console.warn('element.style.setProperty fail', {element, prop, value, error});
+			}
 		}
-	},
-	addModule: async function(func, options = {}) {
-		if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
-			return;
-		}
-		this.set.add(func);
-		const src =
-		`(${func.toString()})(
-			this,
-			registerPaint,
-			${JSON.stringify(options.config || {}, null, 2)}
-			);`;
-		const blob = new Blob([src], {type: 'text/javascript'});
-		const url = URL.createObjectURL(blob);
-		await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
-		return true;
-	}.bind({set: new WeakSet}),
-	number:  value => CSS.number  ? CSS.number(value) : value,
-	s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
-	ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
-	pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
-	px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
-	percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
-	vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
-	vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
-};
+	});
+	const css = {
+		addStyle: (styles, option, document = window.document) => {
+			const elm = Object.assign(document.createElement('style'), {
+				type: 'text/css'
+			}, typeof option === 'string' ? {id: option} : (option || {}));
+			if (typeof option === 'string') {
+				elm.id = option;
+			} else if (option) {
+				Object.assign(elm, option);
+			}
+			elm.classList.add(global.PRODUCT);
+			elm.append(styles.toString());
+			(document.head || document.body || document.documentElement).append(elm);
+			elm.disabled = option && option.disabled;
+			elm.dataset.switch = elm.disabled ? 'off' : 'on';
+			return elm;
+		},
+		registerProps(...args) {
+			if (!CSS || !('registerProperty' in CSS)) {
+				return;
+			}
+			for (const definition of args) {
+				try {
+					(definition.window || window).CSS.registerProperty(definition);
+				} catch (err) { console.warn('CSS.registerProperty fail', definition, err); }
+			}
+		},
+		setProps(...tasks) {
+			setPropsTask.push(...tasks);
+			return setPropsTask.length ? applySetProps() : Promise.resolve();
+		},
+		addModule: async function(func, options = {}) {
+			if (!CSS || !('paintWorklet' in CSS) || this.set.has(func)) {
+				return;
+			}
+			this.set.add(func);
+			const src =
+			`(${func.toString()})(
+				this,
+				registerPaint,
+				${JSON.stringify(options.config || {}, null, 2)}
+				);`;
+			const blob = new Blob([src], {type: 'text/javascript'});
+			const url = URL.createObjectURL(blob);
+			await CSS.paintWorklet.addModule(url).then(() => URL.revokeObjectURL(url));
+			return true;
+		}.bind({set: new WeakSet}),
+		escape:  value => CSS.escape  ? CSS.escape(value) : value.replace(/([\.#()[\]])/g, '\\$1'),
+		number:  value => CSS.number  ? CSS.number(value) : value,
+		s:       value => CSS.s       ? CSS.s(value) :  `${value}s`,
+		ms:      value => CSS.ms      ? CSS.ms(value) : `${value}ms`,
+		pt:      value => CSS.pt      ? CSS.pt(value) : `${value}pt`,
+		px:      value => CSS.px      ? CSS.px(value) : `${value}px`,
+		percent: value => CSS.percent ? CSS.percent(value) : `${value}%`,
+		vh:      value => CSS.vh      ? CSS.vh(value) : `${value}vh`,
+		vw:      value => CSS.vw      ? CSS.vw(value) : `${value}vw`,
+		trans:   value => self.CSSStyleValue ? CSSStyleValue.parse('transform', value) : value,
+		word:    value => self.CSSKeywordValue ? new CSSKeywordValue(value) : value,
+		image:   value => self.CSSStyleValue ? CSSStyleValue.parse('background-image', value) : value,
+	};
+	return css;
+})();
 const cssUtil = css;
 Object.assign(util, css);
 Object.assign(util, workerUtil);
@@ -1900,7 +2064,7 @@ const nicoUtil = {
 	parseWatchQuery: query => {
 		try {
 			const result = textUtil.parseQuery(query);
-			const playlist = JSON.parse(textUtil.decodeBase64(result.playlist));
+			const playlist = JSON.parse(textUtil.decodeBase64(result.playlist) || '{}');
 			if (playlist.searchQuery) {
 				const sq = playlist.searchQuery;
 				if (sq.type === 'tag') {
@@ -1964,11 +2128,28 @@ const nicoUtil = {
 		}
 		return m ? m[1] : null;
 	},
-	isPremium: () => {
-		const h = document.getElementById('siteHeaderNotification');
-		return h && h.classList.contains('siteHeaderPremium');
+	getCommonHeader: () => {
+		try { // hoge?.fuga... はGreasyforkの文法チェックで弾かれるのでまだ使えない
+			return JSON.parse(document.querySelector('#CommonHeader[data-common-header]').dataset.commonHeader || '{}');
+		} catch (e) {
+			return {initConfig: {}};
+		}
 	},
-	isLogin: () => document.getElementsByClassName('siteHeaderLogin').length < 1,
+	isLegacyHeader: () => !document.querySelector('#CommonHeader[data-common-header]'),
+	isPremiumLegacy: () => {
+		const a = 'a[href^="https://account.nicovideo.jp/premium/register"]';
+		return !document.querySelector(`#topline ${a}, #CommonHeader ${a}`);
+},
+isLoginLegacy: () => {
+		const a = 'a[href^="https://account.nicovideo.jp/login"]';
+		return !document.querySelector(`#topline ${a}, #CommonHeader ${a}`);
+	},
+	isPremium: () =>
+		nicoUtil.isLegacyHeader() ? nicoUtil.isPremiumLegacy() :
+			!!nicoUtil.getCommonHeader().initConfig.user.isPremium,
+	isLogin: () =>
+		nicoUtil.isLegacyHeader() ? nicoUtil.isLoginLegacy() :
+			!!nicoUtil.getCommonHeader().initConfig.user.isLogin,
 	getPageLanguage: () => {
 		try {
 			let h = document.getElementsByClassName('html')[0];
@@ -2031,7 +2212,8 @@ const nicoUtil = {
 			return false;
 		}
 	},
-	getNicoHistory: window.decodeURIComponent(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, ''))
+	getNicoHistory: window.decodeURIComponent(document.cookie.replace(/^.*(nicohistory[^;+]).*?/, '')),
+	getMypageVer: () => document.querySelector('#js-initial-userpage-data') ? 'spa' : 'legacy'
 };
 Object.assign(util, nicoUtil);
 const textUtil = {
@@ -2054,9 +2236,7 @@ const textUtil = {
 	},
 	parseUrl: url => {
 		url = url || 'https://unknown.example.com/';
-		const a = document.createElement('a');
-		a.href = url;
-		return a;
+		return Object.assign(document.createElement('a'), {href: url});
 	},
 	decodeBase64: str => {
 		try {
@@ -2276,6 +2456,12 @@ const reg = (() => {
     })();
 const objUtil = (() => {
 	const isObject = e => e !== null && e instanceof Object;
+	const PROPS = Symbol('PROPS');
+	const REVISION = Symbol('REVISION');
+	const CHANGED = Symbol('CHANGED');
+	const HAS = Symbol('HAS');
+	const SET = Symbol('SET');
+	const GET = Symbol('GET');
 	return {
 		bridge: (self, target, keys = null) => {
 			(keys || Object.getOwnPropertyNames(target.constructor.prototype))
@@ -2287,11 +2473,7 @@ const objUtil = (() => {
 			if (obj instanceof mapper) {
 				return obj;
 			}
-			const map = new mapper();
-			for(const key of Object.keys(obj)) {
-				map.set(key, obj[key]);
-			}
-			return map;
+			return new mapper(Object.entries(obj));
 		},
 		mapToObj: map => {
 			if (!(map instanceof Map)) {
@@ -2302,7 +2484,7 @@ const objUtil = (() => {
 				obj[key] = val;
 			}
 			return obj;
-		}
+		},
 	};
 })();
 const StorageWriter = (() => {
@@ -2366,12 +2548,12 @@ const Observable = (() => {
 		}
 		filter(func) {
 			const _func = this._filterFunc;
-			this._filterFunc = _func ? func : arg => func(_func(arg));
+			this._filterFunc = _func ? (arg => _func(arg) && func(arg)) : func;
 			return this;
 		}
 		map(func) {
 			const _func = this._mapFunc;
-			this._mapFunc = _func ? func : arg => func(_func(arg));
+			this._mapFunc = _func ? arg => func(_func(arg)) : func;
 			return this;
 		}
 		get closed() {
@@ -2492,13 +2674,15 @@ const Observable = (() => {
 			callback(p);
 			return this.subscribe({
 				next: arg => {
-					p.resolve(arg);
+					const lp = p;
 					p = new PromiseHandler();
+					lp.resolve(arg);
 					callback(p);
 				},
 				error: arg => {
-					p.reject(arg);
+					const lp = p;
 					p = new PromiseHandler();
+					lp.reject(arg);
 					callback(p);
 			}});
 		}
@@ -2549,56 +2733,23 @@ const Observable = (() => {
 })();
 const WindowResizeObserver = Observable.fromEvent(window, 'resize')
 	.map(o => { return {width: window.innerWidth, height: window.innerHeight}; });
-const bounce = {
-	origin: Symbol('origin'),
-	raf(func) {
-		let reqId = null;
-		let lastArgs = null;
-		const callback = () => {
-			func(...lastArgs);
-			reqId = lastArgs = null;
-		};
-		const result =  (...args) => {
-			if (reqId) {
-				cancelAnimationFrame(reqId);
-			}
-			lastArgs = args;
-			reqId = requestAnimationFrame(callback);
-		};
-		result[this.origin] = func;
-		return result;
-	},
-	idle(func, time) {
-		let reqId = null;
-		let lastArgs = null;
-		const [caller, canceller] =
-			(time === undefined && window.requestIdleCallback) ?
-			[window.requestIdleCallback, window.cancelIdleCallback] : [window.setTimeout, window.clearTimeout];
-		const callback = () => {
-			reqId = null;
-			func(...lastArgs);
-			lastArgs = null;
-		};
-		const result = (...args) => {
-			if (reqId) {
-				reqId = canceller(reqId);
-			}
-			lastArgs = args;
-			reqId = caller(callback, time);
-		};
-		result[this.origin] = func;
-		return result;
-	},
-	time(func, time = 0) {
-		return this.idle(func, time);
-	}
-};
+// already required
 class DataStorage {
 	static create(defaultData, options = {}) {
 		return new DataStorage(defaultData, options);
 	}
+	static clone(dataStorage) {
+		const options = {
+			prefix:  dataStorage.prefix,
+			storage: dataStorage.storage,
+			ignoreExportKeys: dataStorage.options.ignoreExportKeys,
+			readonly: dataStorage.readonly
+		};
+		return DataStorage.create(dataStorage.default, options);
+	}
 	constructor(defaultData, options = {}) {
-		this._default = defaultData;
+		this.options = options;
+		this.default = defaultData;
 		this._data = Object.assign({}, defaultData);
 		this.prefix = `${options.prefix || 'DATA'}_`;
 		this.storage = options.storage || localStorage;
@@ -2608,8 +2759,10 @@ class DataStorage {
 		this._changed = new Map();
 		this._onChange = bounce.time(this._onChange.bind(this));
 		objUtil.bridge(this, new Emitter());
-		this.restore();
-		this.props = this._makeProps(defaultData);
+		this.restore().then(() => {
+			this.props = this._makeProps(defaultData);
+			this.emitResolve('restore');
+		});
 		this.logger = (self || window).console;
 		this.consoleSubscriber = {
 			next: (v, ...args) => this.logger.log('next', v, ...args),
@@ -2654,18 +2807,20 @@ class DataStorage {
 	offkey(key, callback) {
 		this.off(`update-${key}`, callback);
 	}
-	restore(storage) {
+	async restore(storage) {
 		storage = storage || this.storage;
-		Object.keys(this._default).forEach(key => {
+		Object.keys(this.default).forEach(key => {
 			const storageKey = this.getStorageKey(key);
 			if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
 				try {
 					this._data[key] = JSON.parse(storage[storageKey]);
 				} catch (e) {
-					window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+					console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+					delete storage[storageKey];
+					this._data[key] = this.default[key];
 				}
 			} else {
-				this._data[key] = this._default[key];
+				this._data[key] = this.default[key];
 			}
 		});
 	}
@@ -2675,7 +2830,7 @@ class DataStorage {
 	getStorageKey(key) {
 		return `${this.prefix}${key}`;
 	}
-	refresh(key, storage) {
+	async refresh(key, storage) {
 		storage = storage || this.storage;
 		key = this.getNativeKey(key);
 		const storageKey = this.getStorageKey(key);
@@ -2683,29 +2838,30 @@ class DataStorage {
 			try {
 				this._data[key] = JSON.parse(storage[storageKey]);
 			} catch (e) {
-				window.console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
+				console.error('config parse error key:"%s" value:"%s" ', key, storage[storageKey], e);
 			}
 		}
 		return this._data[key];
 	}
-	getValue(key, refresh) {
-		if (refresh) {
-			return this.refresh(key);
-		}
+	getValue(key) {
 		key = this.getNativeKey(key);
 		return this._data[key];
+	}
+	deleteValue(key) {
+		key = this.getNativeKey(key);
+		const storageKey = this.getStorageKey(key);
+		this.storage.removeItem(storageKey);
+		this._data[key] = this.default[key];
 	}
 	setValue(key, value) {
 		const _key = key;
 		key = this.getNativeKey(key);
-		if (this._data[key] === value || arguments.length < 2) {
+		if (this._data[key] === value || value === undefined) {
 			return;
 		}
 		const storageKey = this.getStorageKey(key);
 		const storage = this.storage;
-		if (!this.readonly && storage[StorageWriter.writer]) {
-			storage[StorageWriter.writer](storageKey, value);
-		} else if (!this.readonly) {
+		if (!this.readonly) {
 			try {
 				storage[storageKey] = JSON.stringify(value);
 			} catch (e) {
@@ -2726,7 +2882,7 @@ class DataStorage {
 	}
 	export(isAll = false) {
 		const result = {};
-		const _default = this._default;
+		const _default = this.default;
 		Object.keys(this.props)
 			.filter(key => isAll || (_default[key] !== this._data[key]))
 			.forEach(key => result[key] = this.getValue(key));
@@ -2738,8 +2894,9 @@ class DataStorage {
 	import(data) {
 		Object.keys(this.props)
 			.forEach(key => {
-				console.log('import data: %s=%s', key, data[key]);
-				this.setValueSilently(key, data[key]);
+				const val = data.hasOwnProperty(key) ? data[key] : this.default[key];
+				console.log('import data: %s=%s', key, val);
+				this.setValueSilently(key, val);
 		});
 	}
 	importJson(json) {
@@ -2748,17 +2905,18 @@ class DataStorage {
 	getKeys() {
 		return Object.keys(this.props);
 	}
-	clear() {
+	clearConfig() {
 		this.silently = true;
 		const storage = this.storage;
-		Object.keys(this._default)
+		Object.keys(this.default)
 			.filter(key => !this._ignoreExportKeys.includes(key)).forEach(key => {
 				const storageKey = this.getStorageKey(key);
 				try {
 					if (storage.hasOwnProperty(storageKey) || storage[storageKey] !== undefined) {
+						console.nicoru('delete storage', storageKey, storage[storageKey]);
 						delete storage[storageKey];
 					}
-					this._data[key] = this._default[key];
+					this._data[key] = this.default[key];
 				} catch (e) {}
 		});
 		this.silently = false;
@@ -2824,15 +2982,12 @@ class DataStorage {
 		return observable.subscribe(subscriber);
 	}
 	watch() {
-		if (this.consoleSubscription) { return; }
-		return this.consoleSubscription = this.subscribe();
 	}
 	unwatch() {
 		this.consoleSubscription && this.consoleSubscription.unsubscribe();
 		this.consoleSubscription = null;
 	}
 }
-// already required
 
     const config = (() => {
       const DEFAULT_CONFIG = {
@@ -3159,7 +3314,7 @@ class CrossDomainGate extends Emitter {
 	}
 	videoCapture(src, sec) {
 		return this._postMessage({command: 'videoCapture', params: {src, sec}})
-			.then(result => Promise.resolve(result.params.dataUrl));
+			.then(result => Promise.resolve(result.dataUrl));
 	}
 	_fetch(url, options) {
 		return this._postMessage({command: 'fetch', params: {url, options}});
@@ -3642,7 +3797,7 @@ class CrossDomainGate extends Emitter {
       _init() {
         this._view = document.querySelector('.mylistPocketHoverMenu');
 
-        this._view.addEventListener('click',     this._onClick.bind(this));
+        this._view.addEventListener(location.host.includes('google') ? 'mouseup' : 'click', this._onClick.bind(this));
         this._view.addEventListener('mousedown', this._onMousedown.bind(this));
         this._view.addEventListener('contextmenu', this._onContextMenu.bind(this));
 
@@ -4777,20 +4932,42 @@ class CrossDomainGate extends Emitter {
       };
     })();
 
-    const getNgEnv = () => {
+    const waitForDom = (query, timeout = 30000) => {
+      const now = Date.now();
+      return new Promise(async (ok, ng) => {
+        while (now + timeout > Date.now()) {
+          const dom = document.querySelector(query);
+          console.log('waitForDom', query, dom, now + timeout, Date.now());
+          if (dom) {
+            return ok(dom);
+          }
+          await new Promise(wait => setTimeout(wait, 1000));
+        }
+        ng('timeout');
+      });
+    };
+
+    const getNgEnv = async () => {
       if (location.host === 'www.nicovideo.jp' &&
          (location.pathname.startsWith('/ranking') ||
           location.pathname.startsWith('/tag')     ||
           location.pathname.startsWith('/search'))
       ) {
+        if (document.querySelector('#MatrixRanking-app')) {
+          await waitForDom('.RankingMatrixVideosRow');
+        }
         return {
           query:
-            '.item[data-video-id]:not(.is-ng-wait), .item_cell[data-video-id]:not(.is-ng-wait), .VideoItem:not(.is-ng-wait), .RankingMainVideo[data-video-id]:not(.is-ng-wait)',
+            '.item[data-video-id]:not(.is-ng-wait), .item_cell[data-video-id]:not(.is-ng-wait), '+
+            '.VideoItem:not(.is-ng-wait), .RankingMainVideo[data-video-id]:not(.is-ng-wait)',
           container:
             Array.from(
               document.querySelectorAll(
-                '.contentBody .list, .container.column1024-0, .RankingMatrixVideosRow, .RankingMainContainer, .RankingVideoListContainer')
-            )
+                '.contentBody .list, .container.column1024-0,'+
+                '.RankingMatrixVideosRow, '+
+                '.RankingMainContainer, .RankingVideoListContainer')
+            ),
+          subtree: false
         };
       }
       if (location.host === 'www.nicovideo.jp' &&
@@ -4880,7 +5057,10 @@ class CrossDomainGate extends Emitter {
           watchId = m[1];
         }
 
-        if (!watchId) { return ignore(); }
+        if (!watchId) {
+          item.classList.add('.no-watch-id');
+          return ignore();
+        }
 
         item.classList.add('is-ng-queue');
         onInview(item, watchId);
@@ -4897,8 +5077,8 @@ class CrossDomainGate extends Emitter {
       return intersectionObserver;
     };
 
-    const initNgDom = ({intersectionObserver, query, closest, container}) => {
-
+    const initNgDom = ({intersectionObserver, query, closest, container, subtree}) => {
+      subtree = typeof subtree !== 'boolean' ? false : subtree;
       if (!container) { return; }
       util.addStyle(__ng_css__);
 
@@ -4925,32 +5105,31 @@ class CrossDomainGate extends Emitter {
       };
       update();
 
-      const onUpdate = _.throttle(update, 1000);
-
       if (!container) { return; }
       const mutationObserver = new MutationObserver(mutations => {
         for (const record of mutations) {
           const container = record.target;
           if (record.addedNodes && record.addedNodes.length) {
-            onUpdate(container);
+            update(container);
           }
         }
       });
 
       const containers = Array.isArray(container) ? container : [container];
       containers.forEach(container => {
+        container.dataset.isWatching = 1;
         mutationObserver.observe(
           container,
-          {childList: true, characterData: false, attributes: false, subtree: false}
+          {childList: true, characterData: false, attributes: false, subtree}
         );
       });
 
     };
 
-    const initNg = params => {
+    const initNg = async params => {
       if (!window.IntersectionObserver) { return; }
 
-      let {query, container, closest} = params ? params : getNgEnv();
+      let {query, container, closest, subtree, callback} = params ? params : await getNgEnv();
 
       if (!query) { return; }
 
@@ -4981,6 +5160,10 @@ class CrossDomainGate extends Emitter {
               }
               item.classList.add('is-ng-failed', info ? info.code : 'is-no-data');
             } else {
+              if (callback) {
+                return callback(item,
+                  {watchId, info, isNg: ngChecker.isNg(info), isFav: favChecker.isMatch(info)});
+              }
               item.classList.add(
                 ngChecker.isNg(info) ? 'is-ng-rejected' : 'is-ng-resolved');
               if (favChecker.isMatch(info)) {
@@ -5021,12 +5204,13 @@ class CrossDomainGate extends Emitter {
 
       const intersectionObserver = initIntersectionObserver(onItemInview);
 
-      initNgDom({intersectionObserver, query, container, closest});
+      initNgDom({intersectionObserver, query, container, closest, subtree});
 
       return intersectionObserver;
     };
 
-    const init = () => {
+    const init = async () => {
+      await config.promise('restore');
       initDom();
       initZenzaBridge();
 
@@ -5181,11 +5365,14 @@ const {Emitter} = (() => {
 			name = name.toLowerCase();
 			let e = this._events.get(name);
 			if (!e) {
-				e = this._events.set(name, new Handler(callback));
+				const handler = new Handler(callback);
+				handler.name = name;
+				e = this._events.set(name, handler);
 			} else {
 				e.add(callback);
 			}
 			if (e.length > 10) {
+				console.warn('listener count > 10', name, e, callback);
 				!Emitter.warnings.includes(this) && Emitter.warnings.push(this);
 			}
 			return this;
@@ -5253,39 +5440,42 @@ const {Emitter} = (() => {
 		}
 		promise(name, callback) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			const p = this._promise[name];
+			const p = this._promise.get(name);
 			if (p) {
 				return callback ? p.addCallback(callback) : p;
 			}
-			return this._promise[name] = new PromiseHandler(callback);
+			this._promise.set(name, new PromiseHandler(callback));
+			return this._promise.get(name);
 		}
 		emitResolve(name, ...args) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			if (!this._promise[name]) {
-				this._promise[name] = new PromiseHandler();
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler());
 			}
-			this._promise[name].resolve(...args);
+			return this._promise.get(name).resolve(...args);
 		}
 		emitReject(name, ...args) {
 			if (!this._promise) {
-				this._promise = {};
+				this._promise = new Map;
 			}
-			if (!this._promise[name]) {
-				this._promise[name] = new PromiseHandler();
+			if (!this._promise.has(name)) {
+				this._promise.set(name, new PromiseHandler);
 			}
-			this._promise[name].reject(...args);
+			return this._promise.get(name).reject(...args);
 		}
 		resetPromise(name) {
 			if (!this._promise) { return; }
-			delete this._promise[name];
+			this._promise.delete(name);
 		}
 		hasPromise(name) {
-			return this._promise && !!this._promise[name];
+			return this._promise && this._promise.has(name);
 		}
+		addEventListener(...args) { return this.on(...args); }
+		removeEventListener(...args) { return this.off(...args);}
 	}
 	Emitter.totalCount = totalCount;
 	Emitter.warnings = warnings;

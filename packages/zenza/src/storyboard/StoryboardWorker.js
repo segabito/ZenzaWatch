@@ -231,14 +231,20 @@ const StoryboardWorker = (() => {
         this._info = null;
         this.lastPos = {};
         this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
+        this.bitmapCtx = canvas.getContext('bitmaprenderer');
         this.bufferCanvas = getCanvas(canvas.width, canvas.height);
         this.bufferCtx = this.bufferCanvas.getContext('2d', {alpha: false, desynchronized: true});
         this.images = ImageCacheMap;
         this.totalWidth = 0;
         this.isReady = false;
         this.boards = [];
+        this.isAnimating = false;
         this.cls();
-        info && this.setInfo(info);
+        if (info) {
+          this.isInitialized = this.setInfo(info);
+        } else {
+          this.isInitialized = Promise.resolve();
+        }
       }
       get info() { return this._info; }
 
@@ -252,6 +258,7 @@ const StoryboardWorker = (() => {
         if (!info.isAvailable) {
           return this.cls();
         }
+        console.time('BoardView setInfo');
         const cols = info.cols;
         const rows = info.rows;
         const pageWidth  = info.pageWidth;
@@ -260,8 +267,10 @@ const StoryboardWorker = (() => {
         const cellHeight = info.cellHeight;
 
         this.height = cellHeight;
-        this.totalWidth = info.cellCount * info.cellWidth;
-        // this.boards.forEach(board => board.image && board.image.close && board.image.close());
+        this.totalWidth = Math.ceil(info.duration * 1000 / info.cellIntervalMs) * cellWidth;
+        // info.cellCount * info.cellWidth;
+
+        this.boards.forEach(board => board.image && board.image.close && board.image.close());
         this.boards = (await Promise.all(this._info.imageUrls.map(async (url, idx) => {
           const image = await this.images.get(url);
           const boards = [];
@@ -283,7 +292,7 @@ const StoryboardWorker = (() => {
             }
 
             boards.push({
-              image: canvas, //.transferToImageBitmap(), // ImageBitmapじゃないほうが速い？気のせい？
+              image: canvas, //.transferToImageBitmap ? canvas.transferToImageBitmap() : canvas, // ImageBitmapじゃないほうが速い？気のせい？
               left:  idx * boardWidth + row * pageWidth,
               right: idx * boardWidth + row * pageWidth + pageWidth,
               width: pageWidth
@@ -296,61 +305,64 @@ const StoryboardWorker = (() => {
         this.height = info.cellHeight;
         this._currentTime = -1;
         this.cls();
+        console.timeEnd('BoardView setInfo');
         this.isReady = true;
+        this.reDraw();
+      }
+      reDraw() {
+        const left = this._scrollLeft;
+        this._scrollLeft = -1;
+        this.scrollLeft = left;
       }
       get scrollLeft() {
         return this._scrollLeft;
       }
       set scrollLeft(left) {
+        left = Math.max(0, Math.min(this.totalWidth - this.width, left));
+        if (this._scrollLeft === left) {
+          return;
+        }
+        this._scrollLeft = left;
         if (!this.info || !this.info.isAvailable || !this.isReady) {
           return;
         }
-
         const width =  this.width;
         const height = this.height;
         const totalWidth = this.totalWidth;
-        left = Math.max(-width / 2, Math.min(totalWidth - width / 2, left));
         const right = left + width;
-        const isOutrange = (left < 0 || left > totalWidth - width);
 
         const bctx = this.bufferCtx;
         bctx.beginPath();
-        if (isOutrange) {
-          bctx.fillStyle = 'rgb(32, 32, 32)';
-          bctx.fillRect(0, 0, width, height);
-        }
         for (const board of this.boards) {
-          if (
-            (left <= board.left  && board.left <= right) ||
-            (left <= board.right && board.right <= right) ||
-            (board.left <= left  && right <= board.right)
-          ) {
-            const dx = board.left - left;
-            bctx.drawImage(board.image,
-              0,  0, board.width, height,
-              dx, 0, board.width, height
-            );
-          }
+          if (board.right < left) { continue; }
+          if (board.left > right) { break; }
+          const dx = board.left - left;
+          bctx.drawImage(board.image,
+            0,  0, board.width, height,
+            dx, 0, board.width, height
+          );
         }
-        const scrollBarLength = width / totalWidth * width;
+        const scrollBarLength = width * width / totalWidth;
         if (scrollBarLength < width) {
-          const scrollBarLeft = left / totalWidth * width;
+          const scrollBarLeft = width * left / totalWidth;
           bctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
           bctx.fillRect(scrollBarLeft, height - SCROLL_BAR_WIDTH, scrollBarLength, SCROLL_BAR_WIDTH);
         }
+        if (this.isAnimating && this._currentTime >= 0) {
+          bctx.fillStyle = 'rgba(255, 255, 144, 0.5)';
+          const cellWidth = this.info.cellWidth;
+          const cellIndex = this._currentTime * 1000 / this.info.cellIntervalMs;
+          const pointerLeft = cellWidth * cellIndex - left - cellWidth / 2;
+          bctx.fillRect(pointerLeft, 0, cellWidth, height);
+        }
 
-        // requestAnimationFrame(() => {
-        if (this.bufferCanvas.transferToImageBitmap && this.canvas.transferFromImageBitmap) {
-          this.canvas.transferFromImageBitmap(this.bufferCanvas.transferToImageBitmap());
+        if (this.bufferCanvas.transferToImageBitmap && this.bitmapCtx && this.bitmapCtx.transferFromImageBitmap) {
+          const bitmap = this.bufferCanvas.transferToImageBitmap();
+          this.bitmapCtx.transferFromImageBitmap(bitmap);
         } else {
           this.ctx.beginPath();
-          this.ctx.drawImage(this.bufferCanvas,
-             0, 0, width, height,
-             0, 0, width, height
-          );
-          this.ctx.commit && this.ctx.commit();
+          this.ctx.drawImage(this.bufferCanvas, 0, 0, width, height,0, 0, width, height);
         }
-        // });
       }
 
       cls() {
@@ -372,15 +384,88 @@ const StoryboardWorker = (() => {
         this.canvas.height = height;
         this.bufferCanvas.height = height;
       }
-      async setCurrentTime(time) {
-        const r = time / Math.max(this.info.duration, 1);
-        const left = this.totalWidth * r - this.width / 2;
-        this.scrollLeft = left;
+      setCurrentTime(sec) {
+        this._currentTime = sec;
+        const duration = Math.max(1, this.info.duration);
+        const per = sec / duration;
+        const intervalMs = this.info.cellIntervalMs;
+        const totalWidth = this.totalWidth;
+        const innerWidth = this.width;
+        const cellWidth = this.info.cellWidth;
+        const cellIndex = this._currentTime * 1000 / intervalMs;
+        const scrollLeft = Math.min(Math.max(cellWidth * cellIndex - innerWidth * per, 0), totalWidth - innerWidth);
+//        const scrollLeft = Math.min(Math.max(totalWidth * r - innerWidth * per, 0), totalWidth - innerWidth);
+        this.scrollLeft = scrollLeft;
       }
+
       resize({width, height}) {
         width && (this.width = width);
         height && (this.height = height);
-        this.cls();
+        if (this.isReady) {
+          this.reDraw();
+        } else {
+          this.cls();
+        }
+      }
+
+      sharedMemory({buffer, MAP}) {
+        const view = new Float32Array(buffer);
+        const iview = new Int32Array(buffer);
+        this.buffer = {
+          get currentTime() {
+            return view[MAP.currentTime];
+          },
+          get timestamp() {
+            return iview[MAP.timestamp];
+          },
+          wait() {
+            const tm = Atomics.load(iview, MAP.timestamp);
+            Atomics.wait(iview, MAP.timestamp, tm, 3000);
+            return Atomics.load(iview, MAP.timestamp);
+          },
+          get duration() {
+            return view[MAP.duration];
+          },
+          get playbackRate() {
+            return view[MAP.playbackRate];
+          },
+          get paused() {
+            return iview[MAP.paused] !== 0;
+          }
+        };
+      }
+
+      async execAnimation() { // SharedArrayBufferで遊びたかっただけ. 最適化の余地はありそう
+        this.isAnimating = true;
+        const buffer = this.buffer;
+        while (this.isAnimating) {
+          while (!this.isReady) {
+            await new Promise(res => setTimeout(res, 500));
+          }
+          while (this.isReady && this.isAnimating && !buffer.paused) {
+            buffer.wait();
+            this.currentTime = this.buffer.currentTime;
+            await new Promise(res => requestAnimationFrame(res)); // 結局raf安定だった
+          }
+          if (!this.isAnimating) { return; }
+          await new Promise(res => setTimeout(res, 1000));
+        }
+      }
+      startAnimation() {
+        if (!this.buffer || this.isAnimating) { return; }
+        this.currentTime = this.buffer.currentTime;
+        this.execAnimation();
+      }
+      async stopAnimation() {
+        this.isAnimating = false;
+        await new Promise(res => requestAnimationFrame(res));
+        this.reDraw();
+      }
+
+      dispose() {
+        this.stopAnimation();
+        this.isReady = false;
+        this.boards.length = 0;
       }
     }
 
@@ -394,15 +479,25 @@ const StoryboardWorker = (() => {
         this.ctx = canvas.getContext('2d', {alpha: false, desynchronized: true});
         this.images = ImageCacheMap;
         this.cls();
+        this.isInitialized = Promise.resolve();
+        this.isAnimating = false;
       }
       get info() { return this._info; }
 
       set info(info) {
+        this.isReady = false;
         this.info && this.info.imageUrls.forEach(url => this.images.release(url));
 
         this._info.update(info);
         this._currentTime = -1;
         this.cls();
+        if (!info.isAvailable) {
+          return;
+        }
+        this.isReady = true;
+      }
+      async setInfo(info) {
+        this.info = info;
       }
       cls() {
         this.ctx.clearRect(0, 0, this.width, this.height);
@@ -413,6 +508,7 @@ const StoryboardWorker = (() => {
       get height() {return this.canvas.height;}
       set width(width) {this.canvas.width = width;}
       set height(height) {this.canvas.height = height;}
+
       async setCurrentTime(time) {
         time > this.info.duration && (time = this.info.duration);
         time < 0 && (time = 0);
@@ -424,19 +520,19 @@ const StoryboardWorker = (() => {
         this.lastPos = pos;
         this._currentTime = time;
         const {url, row, col} = pos;
-        const width = this.info.cellWidth;
-        const height = this.info.cellHeight;
+        const cellWidth = this.info.cellWidth;
+        const cellHeight = this.info.cellHeight;
         const image = await this.images.get(url);
-        const imageLeft = col * width;
-        const imageTop = row * height;
-        const scale = Math.min(this.width / width, this.height / height);
+        const imageLeft = col * cellWidth;
+        const imageTop = row * cellHeight;
+        const scale = Math.min(this.width / cellWidth, this.height / cellHeight);
         this.cls();
         this.ctx.drawImage(
           image,
-          imageLeft, imageTop, width, height,
-          (this.width  - width * scale) / 2,
-          (this.height - height * scale) / 2,
-          width * scale, height * scale
+          imageLeft, imageTop, cellWidth, cellHeight,
+          (this.width  - cellWidth * scale) / 2,
+          (this.height - cellHeight * scale) / 2,
+          cellWidth * scale, cellHeight * scale
         );
 
       }
@@ -450,24 +546,44 @@ const StoryboardWorker = (() => {
         this.info && this.info.imageUrls.forEach(url => this.images.release(url));
         this.info = null;
       }
+      sharedMemory() {}
 
+      async execAnimation() {
+        while (this.isAnimating) {
+          while (!this.isReady) {
+            await new Promise(res => setTimeout(res, 500));
+          }
+          await this.setCurrentTime((this.currentTime + this.info.interval / 1000) % this.info.duration);
+          if (!this.isAnimating) { return; }
+          await new Promise(res => setTimeout(res, 1000));
+        }
+      }
+      startAnimation() {
+        if (this.isAnimating) { return; }
+        this.isAnimating = true;
+        this.execAnimation();
+      }
+      stopAnimation() {
+        this.isAnimating = false;
+      }
     }
 
     const getId = function() {return `Storyboard-${this.id++}`;}.bind({id: 0});
 
-    const createView = ({canvas, info, name}, type = 'thumbnail') => {
+    const createView = async ({canvas, info, name}, type = 'thumbnail') => {
       const id = getId();
       const view = type === 'thumbnail' ?
         new ThumbnailView({canvas, info, name}) :
         new BoardView({canvas, info, name});
       items[id] = view;
+      await view.isInitialized;
       return {status: 'ok', id};
     };
 
-    const info = ({id, info}) => {
+    const info = async ({id, info}) => {
       const item = items[id];
       if (!item) { throw new Error(`unknown id:${id}`); }
-      item.info = info;
+      await item.setInfo(info);
       return {status: 'ok'};
     };
 
@@ -507,6 +623,27 @@ const StoryboardWorker = (() => {
       return {status: 'ok'};
     };
 
+    const sharedMemory = ({id, buffer, MAP}) => {
+      const item = items[id];
+      if (!item) { throw new Error(`unknown id:${id}`); }
+      item.sharedMemory({buffer, MAP});
+      return {status: 'ok'};
+    };
+
+    const startAnimation = ({id, interval}) => {
+      const item = items[id];
+      if (!item) { throw new Error(`unknown id:${id}`); }
+      item.startAnimation();
+      return {status: 'ok'};
+    };
+
+    const stopAnimation = ({id, interval}) => {
+      const item = items[id];
+      if (!item) { throw new Error(`unknown id:${id}`); }
+      item.stopAnimation();
+      return {status: 'ok'};
+    };
+
     self.onmessage = async ({command, params}) => {
       switch (command) {
         case 'createThumbnail':
@@ -525,7 +662,13 @@ const StoryboardWorker = (() => {
           return cls(params);
         case 'dispose':
           return dispose(params);
-      }
+        case 'sharedMemory':
+          return sharedMemory(params);
+        case 'startAnimation':
+          return startAnimation(params);
+        case 'stopAnimation':
+          return stopAnimation(params);
+        }
     };
   };
 
@@ -551,7 +694,7 @@ const StoryboardWorker = (() => {
     return worker;
   };
 
-  const createView = async ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
+  const createView = ({container, canvas, info, ratio, name, style}, type = 'thumbnail') => {
     style = style || {};
     ratio = ratio || window.devicePixelRatio || 1;
     name = name || 'Storyboard';
@@ -566,19 +709,31 @@ const StoryboardWorker = (() => {
       style.heightPx && (canvas.height = Math.max(style.heightPx));
     }
     canvas.dataset.name = name;
+    canvas.classList.add('is-loading');
 
-    const worker = await initWorker();
+    // const worker = await ;
 
     const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
 
-    const init = await worker.post(
-      {command:
-        type === 'thumbnail' ? 'createThumbnail' : 'createBoard',
-        params: {canvas: layer, info, style, name}},
-      {transfer: [layer]}
-    );
-    const id = init.id;
-    let currentTime = -1, scrollLeft = -1;
+    const promiseSetup = (async () => {
+      const worker = await initWorker();
+      const result = await worker.post(
+        {command:
+          type === 'thumbnail' ? 'createThumbnail' : 'createBoard',
+          params: {canvas: layer, info, style, name}},
+        {transfer: [layer]}
+      );
+      canvas.classList.remove('is-loading');
+      return result.id;
+    })();
+    let currentTime = -1, scrollLeft = -1, isAnimating = false;
+
+    const post = async ({command, params}, transfer = {}) => {
+      const id = await promiseSetup;
+      params = params || {};
+      params.id = id;
+      return worker.post({command, params}, transfer);
+    };
 
     const result = {
       container,
@@ -586,11 +741,13 @@ const StoryboardWorker = (() => {
       setInfo(info) {
         currentTime = -1;
         scrollLeft = -1;
-        return worker.post({command: 'info', params: {id, info}});
+        canvas.classList.add('is-loading');
+        return post({command: 'info', params: {info}})
+          .then(() => canvas.classList.remove('is-loading'));
       },
       resize({width, height}) {
         scrollLeft = -1;
-        return worker.post({command: 'resize', params: {id, width, height}});
+        return post({command: 'resize', params: {width, height}});
       },
       get scrollLeft() {
         return scrollLeft;
@@ -598,7 +755,7 @@ const StoryboardWorker = (() => {
       set scrollLeft(left) {
         if (scrollLeft === left) { return; }
         scrollLeft = left;
-        worker.post({command: 'scrollLeft', params: {id, scrollLeft}});
+        post({command: 'scrollLeft', params: {scrollLeft}});
       },
       get currentTime() {
         return currentTime;
@@ -606,10 +763,24 @@ const StoryboardWorker = (() => {
       set currentTime(time) {
         if (currentTime === time) { return; }
         currentTime = time;
-        worker.post({command: 'currentTime', params: {id, currentTime}});
+        post({command: 'currentTime', params: {currentTime}});
       },
       dispose() {
-        worker.post({command: 'dispose', params: {id}});
+        post({command: 'dispose', params: {}});
+      },
+      sharedMemory({MAP, buffer}) {
+        post({command: 'sharedMemory', params: {MAP, buffer}});
+      },
+      startAnimation() {
+        isAnimating = true;
+        post({command: 'startAnimation', params: {}});
+      },
+      stopAnimation() {
+        isAnimating = false;
+        post({command: 'stopAnimation', params: {}});
+      },
+      get isAnimating() {
+        return isAnimating;
       }
     };
     return result;

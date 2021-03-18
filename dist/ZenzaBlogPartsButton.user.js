@@ -6,37 +6,36 @@
 // @grant          none
 // @author         segabito macmoto
 // @license        public domain
-// @version        0.0.2
+// @version        0.0.3
 // ==/UserScript==
+/* eslint-disable */
 
 
-(function() {
-  const addStyle = function(styles, id) {
+(window => {
+  const addStyle = (styles, id) => {
     const elm = document.createElement('style');
-    //window.setTimeout(function() {
-      elm.type = 'text/css';
-      if (id) { elm.id = id; }
-
-      var text = styles.toString();
-      text = document.createTextNode(text);
-      elm.appendChild(text);
-      var head = document.getElementsByTagName('head');
-      head = head[0];
-      head.appendChild(elm);
-    //}, 0);
+    elm.type = 'text/css';
+    if (id) { elm.id = id; }
+    elm.append(styles);
+    document.head.append(elm);
     return elm;
   };
 
-  const postMessage = function(type, message, token) {
+  const postMessage = (type, message, token) => {
     const origin = document.referrer;
+    const {command, watchId} = message;
     try {
-      parent.postMessage(JSON.stringify({
+          parent.postMessage(JSON.stringify({ // 互換のため冗長
           id: 'ZenzaWatch',
-          type: type, // '',
+          type,
+          token,
           body: {
-            token: token,
+            token,
             url: location.href,
-            message: message
+            message: {command, watchId},
+            command: 'message', params: {
+              command, params: { watchId }
+            }
           }
         }),
         origin);
@@ -63,11 +62,11 @@
     }
   `).trim();
 
-  const blogPartsApi = function() {
-    const watchId = location.href.split('/').reverse()[0];
+  const blogPartsApi = () => {
+    const [watchId] = location.href.split('/').reverse();
 
-    const parentHost = document.referrer.split('/')[2];
-    if (!parentHost.match(/^[a-z0-9]*\.nicovideo\.jp$/)) {
+    const [,,parentHost] = document.referrer.split('/');
+    if (!parentHost.endsWith('.nicovideo.jp')) {
       window.console.log('disable bridge');
       return;
     }
@@ -76,14 +75,14 @@
     const button = document.createElement('button');
     button.innerHTML = '<span>Zen</span>';
     button.id = 'zenzaButton';
-    document.body.appendChild(button);
-    button.onclick = (e) => {
+    document.body.append(button);
+    button.onclick = e => {
       postMessage('blogParts', {
         command: e.shiftKey ? 'send' : 'open',
-        watchId: watchId
+        watchId
       });
     };
   };
 
   blogPartsApi();
-})();
+})(globalThis ? globalThis.window : window);

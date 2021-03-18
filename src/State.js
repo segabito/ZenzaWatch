@@ -6,25 +6,38 @@ import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 //===BEGIN===
 
 class BaseState extends Emitter {
-  constructor() {
+  static getInstance() {
+    if (!this.instance) {
+      this.instance = new this.constructor();
+    }
+    return this.instance;
+  }
+
+  static defineProps(self, props = {}) {
+    const def = {};
+    Object.keys(props).sort()
+      .forEach(key => {
+        def[key] = {
+          enumerable: !key.startsWith('_'),
+          get() { return self._state[key]; },
+          set(val) { self.setState(key, val); }
+        };
+    });
+    Object.defineProperties(self, def);
+  }
+
+  constructor(state) {
     super();
 
     this._name = '';
-    this._state = {};
-    this._props = {};
+    this._state = state;
     this._changed = new Map;
-    this._boundOnChange = bounce.time(this._onChange.bind(this));
+    this._timestamp = performance.now();
+    this._boundOnChange = _.debounce(this._onChange.bind(this), 0);
+    this.constructor.defineProps(this, state);
   }
-
-  _defineProperty() {
-    Object.keys(this._state).forEach(key => {
-      Object.defineProperty(
-        this,
-        key, {
-          get: () => this._state[key],
-          set: v => this._setState(key, v)
-        });
-    });
+  _updateTimestamp() {
+    return this._timestamp = performance.now();
   }
 
   onkey(key, func) {return this.on(`update-${key}`, func);}
@@ -32,10 +45,10 @@ class BaseState extends Emitter {
 
   _onChange() {
     const changed = this._changed;
-    this.emit('change', changed, changed.size);
     if (!changed.size) {
       return;
     }
+    this.emit('change', changed, changed.size);
     for (const [key, val] of changed) {
       this.emit('update', key, val);
       this.emit(`update-${key}`, val);
@@ -47,15 +60,14 @@ class BaseState extends Emitter {
     if (typeof key === 'string') {
       return this._setState(key, val);
     }
-    for (const k of (key instanceof Map ? key : Object.keys(key))) {
-      this._setState(k, key[k]);
+    for (const [k, v] of (key instanceof Map ? key : Object.entries(key))) {
+      this._setState(k, v);
     }
   }
 
   _setState(key, val) {
     if (!this._state.hasOwnProperty(key)) {
-      window.console.warn('%cUnknown property %s = %s', 'background: yellow;', key, val);
-      console.trace();
+      console.warn('%cUnknown property %s = %s', 'background: yellow;', key, val);
     }
     if (this._state[key] === val) {
       return;
@@ -74,12 +86,11 @@ class PlayerState extends BaseState {
     return PlayerState.instance;
   }
   constructor(config) {
-    super();
-    this._name = 'Player';
-    this._state = {
+    super({
       isAbort: false,
       isBackComment: config.props.backComment,
       isChanging: false,
+      isCanPlay: false,
       isChannel: false,
       isShowComment: config.props.showComment,
       isCommentReady: false,
@@ -90,10 +101,12 @@ class PlayerState extends BaseState {
       isDmcAvailable: false,
       isDmcPlaying: false,
       isError: false,
+      isEnded: false,
       isLoading: false,
       isLoop: config.props.loop,
       isMute: config.props.mute,
       isMymemory: false,
+      isLiked: false,
       isOpen: false,
       isPausing: true,
       isPlaylistEnable: false,
@@ -119,9 +132,8 @@ class PlayerState extends BaseState {
       thumbnail: '',
       videoCount: {},
       videoSession: {}
-    };
-
-    this._defineProperty();
+    });
+    this.name = 'Player';
   }
 
   set videoInfo(videoInfo) {
@@ -154,6 +166,7 @@ class PlayerState extends BaseState {
       isLoading: true,
       isPlaying: false,
       isPausing: true,
+      isCanPlay: false,
       isSeeking: false,
       isStalled: false,
       isError: false,
@@ -161,13 +174,14 @@ class PlayerState extends BaseState {
       isMymemory: false,
       isCommunity: false,
       isChannel: false,
+      isEnded: false,
       currentSrc: CONSTANT.BLANK_VIDEO_URL
     });
   }
 
   setVideoCanPlay() {
     this.setState({
-      isStalled: false, isLoading: false, isPausing: true, isNotPlayed: true, isError: false, isSeeking: false
+      isStalled: false, isLoading: false, isPausing: true, isNotPlayed: true, isError: false, isSeeking: false, isCanPlay: true, isEnded: false
     });
   }
 
@@ -175,10 +189,12 @@ class PlayerState extends BaseState {
     this.setState({
       isPlaying: true,
       isPausing: false,
+      isCanPlay: false,
       isLoading: false,
       isNotPlayed: false,
       isError: false,
-      isStalled: false
+      isStalled: false,
+      isEnded: false
     });
   }
 
@@ -187,7 +203,7 @@ class PlayerState extends BaseState {
   }
 
   setVideoEnded() {
-    this.setState({isPlaying: false, isPausing: true, isSeeking: false});
+    this.setState({isPlaying: false, isPausing: true, isSeeking: false, isEnded: true});
   }
 
   setVideoErrorOccurred() {
@@ -195,9 +211,21 @@ class PlayerState extends BaseState {
   }
 }
 
+class VideoControlState extends BaseState {
+  constructor(state = {}) {
+    super(Object.assign({
+      isSeeking: false,
+      isDragging: false,
+      isWheelSeeking: false,
+      isStoryboardAvailable: false
+    }, state));
+    this.name = 'VideoControl';
+  }
+}
 //===END===
 
 export {
   BaseState,
-  PlayerState
+  PlayerState,
+  VideoControlState
 };

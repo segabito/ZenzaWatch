@@ -5,7 +5,7 @@ const TextLabel = (() => {
   const func = function(self) {
     const items = {};
 
-    const getId = function() {return `id-${this.id++}`;}.bind({id: 0});
+    const getId = function() {return `id-${this.id++}${Math.random()}`;}.bind({id: 0});
 
     const create = async ({canvas, style}) => {
       const id = getId();
@@ -51,7 +51,7 @@ const TextLabel = (() => {
       ctx.textBaseline = 'bottom';
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillText(text, left, top);
-      ctx.commit && ctx.commit();
+      // ctx.commit && ctx.commit();
       return {id, text};
     };
 
@@ -99,7 +99,23 @@ const TextLabel = (() => {
   const NAME = 'TextLabelWorker';
 
   let worker;
-  const create = async ({container, canvas, ratio, name, style, text}) => {
+  const initWorker = async () => {
+    if (worker) { return worker; }
+    if (!isOffscreenCanvasAvailable) {
+      if (!worker) {
+        worker = {
+          name: NAME,
+          onmessage: () => {},
+          post: ({command, params}) => worker.onmessage({command, params})
+        };
+        func(worker);
+      }
+    } else {
+      worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
+    }
+    return worker;
+  };
+  const create = ({container, canvas, ratio, name, style, text}) => {
     style = style || {};
     // 大した負荷じゃないしRetina前提にしてしまう
     ratio = Math.max(ratio || window.devicePixelRatio || 2, 2);
@@ -123,25 +139,23 @@ const TextLabel = (() => {
     style.fontWeight = style.fontWeight || containerStyle.fontWeight;
     style.color      = style.color      || containerStyle.color;
 
-    if (!isOffscreenCanvasAvailable) {
-      if (!worker) {
-        worker = {
-          name: NAME,
-          onmessage: () => {},
-          post: ({command, params}) => worker.onmessage({command, params})
-        };
-        func(worker);
-      }
-    } else {
-      worker = worker || workerUtil.createCrossMessageWorker(func, {name: NAME});
-    }
-    const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
 
-    const init = await worker.post(
-      {command: 'create', params: {canvas: layer, style, name}},
-      {transfer: [layer]}
-    );
-    const id = init.id;
+    const promiseSetup = (async () => {
+      const layer = isOffscreenCanvasAvailable ? canvas.transferControlToOffscreen() : canvas;
+      const worker = await initWorker();
+      const result = await worker.post(
+        {command: 'create', params: {canvas: layer, style, name}},
+        {transfer: [layer]}
+      );
+      return result.id;
+    })();
+    const init = {text};
+    const post = async ({command, params}, transfer = {}) => {
+      const id = await promiseSetup;
+      params = params || {};
+      params.id = id;
+      return worker.post({command, params}, transfer);
+    };
 
     const result = {
       container,
@@ -149,18 +163,18 @@ const TextLabel = (() => {
       style() {
         init.text = '';
         const style = getContainerStyle({container, canvas});
-        return worker.post({command: 'style', params: {id, style, name}});
+        return post({command: 'style', params: {style, name}});
       },
       async drawText(text) {
         if (init.text === text) {
           return;
         }
-        const result = await worker.post({command: 'drawText', params: {id, text}});
+        const result = await post({command: 'drawText', params: {text}});
         init.text = result.text;
       },
       get text() { return init.text; },
       set text(t) { this.drawText(t); },
-      dispose: () => worker.post({command: 'dispose', params: {id}})
+      dispose: () => worker.post({command: 'dispose'})
     };
     text && (result.text = text);
     return result;

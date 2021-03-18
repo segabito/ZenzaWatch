@@ -23,6 +23,10 @@ import {VideoSessionWorker} from '../packages/lib/src/nico/VideoSessionWorker';
 import {StoryboardCacheDb} from '../packages/lib/src/nico/StoryboardCacheDb';
 import {CommentLayoutWorker} from '../packages/zenza/src/commentLayer/CommentLayoutWorker';
 import {WatchInfoCacheDb} from '../packages/lib/src/nico/WatchInfoCacheDb';
+import {domEvent} from '../packages/lib/src/dom/domEvent';
+import {uq} from '../packages/lib/src/uQuery';
+// import {domUtil} from '../packages/lib/src/dom/domUtil';
+import {textUtil} from '../packages/lib/src/text/textUtil';
 const START_PAGE_QUERY = 'hoge=fuga';
 
 //===BEGIN===
@@ -63,25 +67,30 @@ const {initialize} = (() => {
   const initialize = async function (){
     window.console.log('%cinitialize ZenzaWatch...', 'background: lightgreen; ');
 
-    util.dispatchCustomEvent(
+    domEvent.dispatchCustomEvent(
       document.body, 'BeforeZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});
-    util.addStyle(CONSTANT.COMMON_CSS, {className: 'common'});
+    cssUtil.addStyle(CONSTANT.COMMON_CSS, {className: 'common'});
     initializeBySite();
     replaceRedirectLinks();
 
-    const query = util.parseQuery(START_PAGE_QUERY);
+    const query = textUtil.parseQuery(START_PAGE_QUERY);
 
-    await util.$.ready(); // DOMContentLoaded
+    await uq.ready(); // DOMContentLoaded
     const isWatch = util.isGinzaWatchUrl() &&
       (!!document.getElementById('watchAPIDataContainer') ||
         !!document.getElementById('js-initial-watch-data'));
 
     const hoverMenu = global.debug.hoverMenu = new HoverMenu({playerConfig: Config});
 
-    await Promise.all([NicoComment.offscreenLayer.get(Config), initWorker()]);
-
+    await Promise.all([
+      NicoComment.offscreenLayer.get(Config),
+      global.emitter.promise('lit-html'),
+      initWorker()
+    ]);
+    document.body.classList.toggle('is-watch', isWatch);
     const dialog = initializeDialogPlayer(Config);
     hoverMenu.setPlayer(dialog);
+
 
     // watchページか？
     if (isWatch) {
@@ -95,7 +104,6 @@ const {initialize} = (() => {
 
     initializeMessage(dialog);
     WatchPageHistory.initialize(dialog);
-
     initializeExternal(dialog, Config, hoverMenu);
 
     if (!isWatch) {
@@ -107,7 +115,7 @@ const {initialize} = (() => {
     window.ZenzaWatch.ready = true;
     global.emitter.emitAsync('ready');
     global.emitter.emitResolve('init');
-    util.dispatchCustomEvent(
+    domEvent.dispatchCustomEvent(
       document.body, 'ZenzaWatchInitialize', window.ZenzaWatch, {bubbles: true, composed: true});
   };
 
@@ -146,6 +154,9 @@ const {initialize} = (() => {
         result = bcast.emitResolve('ping', params);
       } else if (command  === 'notifyClose' && isOpen) {
         result = player.refreshLastPlayerId();
+        return;
+      } else if (command  === 'notifyOpen') {
+        config.refresh('lastPlayerId');
         return;
       } else if (command ==='pushHistory') {
         const {path, title} = params;
@@ -212,6 +223,7 @@ const {initialize} = (() => {
     });
 
     player.on('close', () => BroadcastEmitter.notifyClose());
+    player.on('open', () => BroadcastEmitter.notifyOpen());
   };
 
   const initializeExternal = dialog => {

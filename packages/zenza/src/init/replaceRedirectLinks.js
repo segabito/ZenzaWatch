@@ -1,5 +1,7 @@
 import {uq} from '../../../lib/src/uQuery';
 import {textUtil} from '../../../lib/src/text/textUtil';
+import {cssUtil} from '../../../lib/src/css';
+import {nicoUtil} from '../../../lib/src/nico/nicoUtil';
 
 //===BEGIN===
 const replaceRedirectLinks = async () => {
@@ -24,8 +26,8 @@ const replaceRedirectLinks = async () => {
   if (window.Nico && window.Nico.onReady) {
     window.Nico.onReady(() => {
       let shuffleButton;
-      let query = 'a[href*="continuous=1"]';
-      let addShufflePlaylistLink = _.debounce(() => {
+      const query = 'a[href*="continuous=1"]';
+      const addShufflePlaylistLink = _.debounce(() => {
         if (shuffleButton) {
           return;
         }
@@ -33,13 +35,13 @@ const replaceRedirectLinks = async () => {
         if (!$a.length) {
           return false;
         }
-        let a = $a[0];
-        let search = (a.search || '').substr(1);
-        let css = {
+        const a = $a[0];
+        const search = (a.search || '').substr(1);
+        const css = {
           'display': 'inline-block',
           'padding': '8px 6px'
         };
-        let $shuffle = uq.html(a.outerHTML).text('シャッフル再生')
+        const $shuffle = uq.html(a.outerHTML).text('シャッフル再生')
           .addClass('zenzaPlaylistShuffleStart')
           .attr('href', `//www.nicovideo.jp/watch/1470321133?${search}&shuffle=1`)
           .css(css);
@@ -52,8 +54,8 @@ const replaceRedirectLinks = async () => {
       const container = uq('#myContBody, #SYS_box_mylist_header')[0];
       if (!container) { return; }
       new MutationObserver(records => {
-        for (let rec of records) {
-          let changed = [].concat(Array.from(rec.addedNodes),Array.from(rec.removedNodes));
+        for (const rec of records) {
+          const changed = [].concat(Array.from(rec.addedNodes), Array.from(rec.removedNodes));
           if (changed.some(i => i.querySelector && i.querySelector(query))) {
             shuffleButton = null;
             addShufflePlaylistLink();
@@ -62,6 +64,37 @@ const replaceRedirectLinks = async () => {
         }
       }).observe(container, {childList: true});
     });
+  }
+  if (location.host === 'www.nicovideo.jp' && nicoUtil.getMypageVer() === 'spa') {
+    await uq.ready(); // DOMContentLoaded
+    let shuffleButton;
+    const query = '.ContinuousPlayButton';
+    const addShufflePlaylistLink = async () => {
+      const lp = location.pathname;
+      if (!lp.startsWith('/my/watchlater') && !lp.includes('/mylist')) {
+        return;
+      }
+      if (shuffleButton && shuffleButton[0].parentNode && shuffleButton[0].parentNode.parentNode) {
+        return;
+      }
+      const $a = uq(query);
+      if (!$a.length) {
+        return false;
+      }
+      if (!shuffleButton) {
+        const $shuffle = uq.html($a[0].outerHTML).text('シャッフル再生')
+          .addClass('zenzaPlaylistShuffleStart');
+        shuffleButton = $shuffle;
+      }
+      const mylistId = lp.replace(/^.*\//, '');
+      const playlistType = mylistId ? 'mylist' : 'deflist';
+      shuffleButton.attr('href',
+        `//www.nicovideo.jp/watch/1470321133?group_id=${mylistId}&playlist_type=${playlistType}&continuous=1&shuffle=1`);
+
+      $a.before(shuffleButton);
+      return true;
+    };
+    setInterval(addShufflePlaylistLink, 1000);
   }
 
   if (location.host === 'www.nicovideo.jp' &&
@@ -115,7 +148,7 @@ const replaceRedirectLinks = async () => {
       if (m) {
         let $a =
         uq('<a class="more zen" rel="noopener" target="_blank">watch</a>')
-            .css('right', '128px')
+            .css('right', cssUtil.px(128))
             .attr('href', `//www.nicovideo.jp/watch/so${m[1]}`);
 
         uq(video).find('.more').after($a);

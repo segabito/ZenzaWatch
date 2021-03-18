@@ -1,6 +1,7 @@
 import {BaseCommandElement} from './BaseCommandElement.js';
 import {util} from '../util/util.js';
 import {VideoItemElement, VideoItemProps} from './VideoItemElement';
+import {NicoQuery} from '../../../lib/src/nico/NicoQuery';
 
 //===BEGIN===
 const {VideoSearchFormElement} = (() => {
@@ -151,8 +152,8 @@ const {VideoSearchFormElement} = (() => {
             .searchInputFoot {
               white-space: nowrap;
               padding: 4px;
-              display: flex;
-              justify-content: space-between;
+              /*display: flex;
+              justify-content: space-between;*/
             }
 
               .searchSortSelect,
@@ -163,17 +164,36 @@ const {VideoSearchFormElement} = (() => {
                 height: 32px;
               }
 
-              .ownerLabel {
+              .ownerFilterTabs {
+                background: #444;
+                padding: 0;
+              }
+              .ownerFilterTabs input[type=radio] {
+                outline: none;
+                position: absolute;
+                left: -9999px;
+              }
+
+              .ownerFilterTab {
                 height: 32px;
                 line-height: 32px;
                 cursor: pointer;
                 padding: 0 16px;
+                color: #888;
+                display: inline-block;
+                border-style: solid;
+                border-color: #666;
+                border-width: 1px 1px 0 1px;
               }
 
-              .ownerLabel input {
-                transform: scale(1.4);
-                vertical-align: middle;
+              .ownerFilterTabs input:checked+.ownerFilterTab {
+                /*font-weight: bold;*/
+                color: #ccc;
+                background: #666;
+                border-color: currentColor;
+                border-style: outset;
               }
+
 
 
           </style>
@@ -217,19 +237,27 @@ const {VideoSearchFormElement} = (() => {
           </div>
 
           <div class="searchInputFoot">
-            <select name="sort" class="searchSortSelect">
-              <option value="-f" ?selected=${state.sort === '-f'}>投稿の新しい順</option>
-              <option value="-h" ?selected=${state.sort === '-h'}>人気順</option>
-              <option value="-n" ?selected=${state.sort === '-n'}>最新コメント</option>
-              <option value="-r" ?selected=${state.sort === '-r'}>コメント数</option>
-              <option value="-m" ?selected=${state.sort === '-m'}>マイリスト数</option>
-              <option value="-l" ?selected=${state.sort === '-l'}>長い順</option>
-              <option value="+l" ?selected=${state.sort === '+l'}>短い順</option>
-            </select>
-            <label class="ownerLabel">
-              <input type="checkbox" name="ownerFilter" ?checked=${state.ownerFilter}>
-              投稿者の動画のみ
-            </label>
+            <div>
+              <select name="sort" class="searchSortSelect">
+                <option value="-f" ?selected=${state.sort === '-f'}>投稿の新しい順</option>
+                <option value="-h" ?selected=${state.sort === '-h'}>人気順</option>
+                <option value="-n" ?selected=${state.sort === '-n'}>最新コメント</option>
+                <option value="-r" ?selected=${state.sort === '-r'}>コメント数</option>
+                <option value="-m" ?selected=${state.sort === '-m'}>マイリスト数</option>
+                <option value="-l" ?selected=${state.sort === '-l'}>長い順</option>
+                <option value="+l" ?selected=${state.sort === '+l'}>短い順</option>
+              </select>
+            </div>
+            <div class="ownerFilterTabs">
+              <input id="ownerFilterDisable" type="radio" name="ownerFilter" value="all" ?checked=${!state.ownerFilter}>
+              <label class="ownerFilterTab" for="ownerFilterDisable">
+                全動画から
+              </label>
+              <input id="ownerFilterEnable" type="radio" name="ownerFilter" value="owner" ?checked=${state.ownerFilter}>
+              <label class="ownerFilterTab" for="ownerFilterEnable">
+                投稿者の動画から
+              </label>
+            </div>
           </div>
 
         </form>
@@ -240,6 +268,7 @@ const {VideoSearchFormElement} = (() => {
     get query() {
       const params = Object.assign({}, this.state);
       delete params.word;
+      // self.console.log('self.query', JSON.stringify({type: this.state.type, id: this.word, params}));
       return new util.NicoQuery({type: this.state.type, id: this.word, params});
     }
 
@@ -268,7 +297,9 @@ const {VideoSearchFormElement} = (() => {
       await super.connectedCallback();
       if (this._root) {
         this._form = this._root.querySelector('form');
+        this._submit = this._root.querySelector('.searchSubmit');
       }
+      // self.console.log('connectedCallback', this.query);
     }
 
     attributeChangedCallback(attr, oldValue, newValue) {
@@ -299,13 +330,10 @@ const {VideoSearchFormElement} = (() => {
     }
 
     _applyQuery(query) {
-      const [type, vars] = query.split('/');
-      let [word, p] = (vars || '').split('?');
-      word = decodeURIComponent(word || '');
-      const params = util.parseQuery(p || '');
+      const {type, id, params} = NicoQuery.parse(query);
       Object.assign(this.dataset, {
-        word,
-        type
+        type,
+        word: id
       });
       Object.keys(params).forEach(key => {
         if (this.dataset[key] !== params[key]) {
@@ -317,8 +345,9 @@ const {VideoSearchFormElement} = (() => {
     _onChange(e) {
       switch (e.target.name) {
         case 'ownerFilter':
-          this.state.ownerFilter = e.target.checked;
-          this._form.word.focus();
+          this.state.ownerFilter = e.target.value === 'owner';
+          // this._form.word.focus();
+          this._submit.click();
           break;
         default:
           this.state[e.target.name] = e.target.value;

@@ -1,7 +1,7 @@
-import {Emitter, PromiseHandler} from '../Emitter';
-import {global, ZenzaWatch, PRODUCT, TOKEN} from '../../../../src/ZenzaWatchIndex';
+import {Emitter} from '../Emitter';
+import {global, PRODUCT} from '../../../../src/ZenzaWatchIndex';
 import {Config} from '../../../../src/Config';
-import {NicoVideoApi} from '../../../../src/loader/api';
+import {NicoVideoApi} from '../nico/NicoVideoApi';
 
 //===BEGIN===
 const messageUtil = {};
@@ -57,7 +57,7 @@ const WindowMessageEmitter = messageUtil.WindowMessageEmitter = ((safeOrigins = 
       const message = body.params;
       if (type === 'blogParts') { // 互換のための対応
         const command = global.config.props.enableSingleton ?
-          (command === 'send' ? 'open' : 'send') : message.command;
+          (message.command === 'send' ? 'open' : 'send') : message.command;
 
         if (command === 'send') {
           global.external.sendOrExecCommand('open', message.params.watchId);
@@ -70,14 +70,14 @@ const WindowMessageEmitter = messageUtil.WindowMessageEmitter = ((safeOrigins = 
       }
       emitter.emit('message', message, type, sessionId);
     } catch (err) {
-      console.log(
+      console.error(
         '%cNicoCommentLayer.Error: window.onMessage  - ',
         'color: red; background: yellow',
         err,
         e
       );
-      console.log('%corigin: ', 'background: yellow;', e.origin);
-      console.log('%cdata: ', 'background: yellow;', e.data);
+      console.error('%corigin: ', 'background: yellow;', e.origin);
+      console.error('%cdata: ', 'background: yellow;', e.data);
       console.trace();
     }
   };
@@ -95,8 +95,8 @@ const BroadcastEmitter = messageUtil.BroadcastEmitter = (() => {
   // const promises = bcast.promises = {};
 
   const channel =
-    (window.BroadcastChannel && location.host === 'www.nicovideo.jp') ?
-      (new window.BroadcastChannel(PRODUCT)) : null;
+    (self.BroadcastChannel && location.host === 'www.nicovideo.jp') ?
+      (new self.BroadcastChannel(PRODUCT)) : null;
 
   /**
    * @param {StorageEvent} e
@@ -214,22 +214,21 @@ const BroadcastEmitter = messageUtil.BroadcastEmitter = (() => {
   };
 
   bcast.notifyClose = () => bcast.sendMessage({command: 'notifyClose'});
+  bcast.notifyOpen = playerId => bcast.sendMessage({command: 'notifyOpen', params: {playerId}});
 
-  if (ZenzaWatch && ZenzaWatch.debug) {
-    ZenzaWatch.debug.hello = bcast.hello;
-    ZenzaWatch.debug.ping = ({timeout, force} = {}) => {
-      window.console.time('ping');
-      return bcast.ping({timeout, force}).then(result => {
-        window.console.timeEnd('ping');
-        window.console.info('ping result: ok', result);
-        return result;
-      }).catch(result => {
-        window.console.timeEnd('ping');
-        window.console.error('ping fail: ', result);
-        return result;
-      });
-    };
-  }
+  global.debug.hello = bcast.hello;
+  global.debug.ping = ({timeout, force} = {}) => {
+    window.console.time('ping');
+    return bcast.ping({timeout, force}).then(result => {
+      window.console.timeEnd('ping');
+      window.console.info('ping result: ok', result);
+      return result;
+    }).catch(result => {
+      window.console.timeEnd('ping');
+      window.console.error('ping fail: ', result);
+      return result;
+    });
+  };
 
   if (location.host === 'www.nicovideo.jp') {
     if (channel) {

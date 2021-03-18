@@ -136,7 +136,7 @@ class CrossDomainGate extends Emitter {
   }
   videoCapture(src, sec) {
     return this._postMessage({command: 'videoCapture', params: {src, sec}})
-      .then(result => Promise.resolve(result.params.dataUrl));
+      .then(result => Promise.resolve(result.dataUrl));
   }
   _fetch(url, options) {
     return this._postMessage({command: 'fetch', params: {url, options}});

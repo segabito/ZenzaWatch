@@ -2,6 +2,7 @@ import {netUtil} from '../infra/netUtil';
 import {textUtil} from '../text/textUtil';
 import {nicoUtil} from '../nico/nicoUtil';
 import {Emitter} from '../Emitter';
+import {CacheStorage} from '../infra/CacheStorage';
 
 const Config = {
   getValue: () => {}
@@ -224,6 +225,7 @@ const VideoInfoLoader = (function () {
         description_original: data.video.originalDescription,
         postedAt: data.video.postedDateTime,
         thumbnail: data.video.thumbnailURL,
+        largeThumbnail: data.video.largeThumbnailURL,
         length: data.video.duration,
 
         commons_tree_exists: !!data.video.isCommonsTreeExists,
@@ -234,6 +236,8 @@ const VideoInfoLoader = (function () {
         isChannel: data.channel && data.channel.id,
         isMymemory: data.context.isMyMemory, // 大文字小文字注意
         communityId: data.community ? data.community.id : null,
+        isPremiumOnly: data.context.isPremiumOnly,
+        isLiked: data.context.isLiked,
         channelId,
 
         commentCount: data.thread.commentCount,

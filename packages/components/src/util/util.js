@@ -1,7 +1,7 @@
 const util = {};
 import {NicoQuery, ItemDataConverter} from '../../../lib/src/nico/NicoQuery';
 import {dimport} from '../../../lib/src/infra/dimport';
-import {defineElement} from '../../../lib/src/defineElement';
+import {defineElement} from '../../../lib/src/dom/defineElement';
 import {textUtil} from '../../../lib/src/text/textUtil';
 import {uQuery} from '../../../lib/src/uQuery';
 // import * as _ from 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.core.min.js';

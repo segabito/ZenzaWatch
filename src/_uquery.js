@@ -10,7 +10,7 @@
 // @license        public domain
 // @noframes
 // ==/UserScript==
-
+import {bounce} from '../packages/lib/src/infra/bounce';
 //@require ../packages/lib/src/infra/AntiPrototype-js.js
 AntiPrototypeJs().then(() => {
 // Promise.resolve().then(() => {
@@ -29,6 +29,7 @@ AntiPrototypeJs().then(() => {
 //@version
 //@environment
 //@require ../packages/lib/src/Emitter.js
+//@require bounce
 //@require ../packages/lib/src/uQuery.js
 
   // eslint-disable-next-line no-undef

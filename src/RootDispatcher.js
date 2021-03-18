@@ -38,6 +38,9 @@ const RootDispatcher = (() => {
         case 'tweet':
           nicoUtil.openTweetWindow(playerState.videoInfo);
           break;
+        case 'export-config':
+          config.exportToFile();
+          break;
         case 'toggleConfig': {
           config.props[params] = !config.props[params];
           break;

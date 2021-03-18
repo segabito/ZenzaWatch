@@ -3,12 +3,13 @@
 // @namespace   https://github.com/segabito/
 // @description ZenzaWatchをゲームパッドで操作
 // @include     *://*.nicovideo.jp/*
-// @version     1.3.9
+// @version     1.5.3
 // @author      segabito macmoto
 // @license     public domain
 // @grant       none
 // @noframes
 // ==/UserScript==
+/* eslint-disable */
 
 
 // 推奨
@@ -17,12 +18,12 @@
 // DualShock4
 // USBサターンパッド
 // 8bitdo FC30系
+// Joy-Con L R
 
 
+(async (window) => {
 
-(function() {
-
-  var monkey = function(ZenzaWatch) {
+  const monkey = (ZenzaWatch) => {
     if (!window.navigator.getGamepads) {
       window.console.log('%cGamepad APIがサポートされていません', 'background: red; color: yellow;');
       return;
@@ -32,6 +33,60 @@
     const CONSTANT = {
       BASE_Z_INDEX: 150000
     };
+
+    const ButtonMapJoyConL = {
+      Y: 0,
+      B: 1,
+      X: 2,
+      A: 3,
+      SUP: 4,
+      SDN: 5,
+      SEL: 8,
+      CAP: 13,
+      LR: 14,
+      META: 15,
+      PUSH: 10
+    };
+    const ButtonMapJoyConR = {
+      Y: 3,
+      B: 2,
+      X: 1,
+      A: 0,
+      SUP: 5,
+      SDN: 4,
+      SEL: 9,
+      CAP: 12,
+      LR: 14,
+      META: 15,
+      PUSH: 11
+    };
+
+    const JoyConAxisCenter = +1.28571;
+
+    const AxisMapJoyConL = {
+      CENTER: JoyConAxisCenter,
+      UP:     +0.71429,
+      U_R:    +1.00000,
+      RIGHT:  -1.00000,
+      D_R:    -0.71429,
+      DOWN:   -0.42857,
+      D_L:    -0.14286,
+      LEFT:   +0.14286,
+      U_L:    +0.42857,
+    };
+
+    const AxisMapJoyConR = {
+      CENTER: JoyConAxisCenter,
+      UP:     -0.42857,
+      U_R:    -0.14286,
+      RIGHT:  +0.14286,
+      D_R:    +0.42857,
+      DOWN:   +0.71429,
+      D_L:    +1.00000,
+      LEFT:   -1.00000,
+      U_L:    -0.71429,
+    };
+
     let _ = window._ || ZenzaWatch.lib._;
     let $ = window.jQuery || ZenzaWatch.lib.$;
     let util = ZenzaWatch.util;
@@ -49,6 +104,17 @@
 
     let isPauseButtonDown = false;
     let isRate1ButtonDown = false;
+    let isMetaButtonDown = false;
+
+    const getVideo = () => {
+      return document.querySelector('.zenzaWatchVideoElement');
+    };
+
+    const video = {
+      get duration() {
+        return getVideo().duration;
+      }
+    };
 
     const Config = (() => {
       const prefix = PRODUCT + '_config_';
@@ -58,14 +124,14 @@
         debug: false,
         enabled: true,
         needFocus: false,
-        deviceIndex: 1
+        deviceIndex: 0
        };
 
       const config = {};
 
       emitter.refresh = (emitChange = false) => {
         Object.keys(defaultConfig).forEach(key => {
-          var storageKey = prefix + key;
+          const storageKey = prefix + key;
           if (localStorage.hasOwnProperty(storageKey)) {
             try {
               let lastValue = config[key];
@@ -88,16 +154,16 @@
       };
       emitter.refresh();
 
-      emitter.get = function(key, refresh) {
+      emitter.get = (key, refresh) => {
         if (refresh) {
           emitter.refreshValue(key);
         }
         return config[key];
       };
 
-      emitter.set = function(key, value) {
-        if (config[key] !== value && arguments.length >= 2) {
-          let storageKey = prefix + key;
+      emitter.set = (key, value = undefined) => {
+        if (config[key] !== value && value !== undefined) {
+          const storageKey = prefix + key;
           localStorage.setItem(storageKey, JSON.stringify(value));
           config[key] = value;
           emitter.emit(key, value);
@@ -278,14 +344,15 @@
         super._initDom(...args);
         const v = this._shadow;
 
-        this._elm.enabled = v.querySelector('*[data-config-name="enabled"]');
-        this._elm.needFocus = v.querySelector('*[data-config-name="needFocus"]');
+        this._elm.enabled = v.querySelector('[data-config-name="enabled"]');
+        this._elm.needFocus = v.querySelector('[data-config-name="needFocus"]');
+        this._elm.deviceIndex = v.querySelector('[data-config-name="deviceIndex"]');
 
         const onChange = e => {
           const target = e.target, name = target.getAttribute('data-config-name');
           switch (target.tagName) {
-            case 'INPUT':
             case 'SELECT':
+            case 'INPUT':
               if (target.type === 'checkbox') {
                 Config.set(name, target.checked);
               } else {
@@ -303,6 +370,7 @@
 
         this._elm.enabled.addEventListener('change', onChange);
         this._elm.needFocus.addEventListener('change', onChange);
+        this._elm.deviceIndex.addEventListener('change', onChange);
 
         v.querySelector('.closeButton')
           .addEventListener('click', this.hide.bind(this));
@@ -352,6 +420,7 @@
       _onBeforeShow() {
         this._elm.enabled.checked   = !!Config.get('enabled');
         this._elm.needFocus.checked = !!Config.get('needFocus');
+        this._elm.deviceIndex.value = Config.get('deviceIndex');
       }
     }
 
@@ -385,13 +454,12 @@
           display: block;
           opacity: 0;
         }
-        
+
         .ZenzaGamePadConfigPanel.is-Open.is-Visible {
           opacity: 1;
         }
 
         .title {
-          margin: 0;
           font-weight: bolder;
           font-size: 120%;
           font-family: 'arial black';
@@ -445,6 +513,19 @@
           </label>
         </div>
 
+        <div class="deviceIndex">
+          <label>
+            デバイス番号
+            <select class="deviceIndexSelector"
+                data-config-name="deviceIndex" data-type="number">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+            <small>(※リロードが必要)</small>
+          </label>
+        </div>
 
         <div class="closeButtonContainer">
           <button class="closeButton" type="button">
@@ -480,7 +561,7 @@
       }
     }
 
-    
+
 
     ToggleButton.__shadow__ = `
       <style>
@@ -496,9 +577,11 @@
           vertical-align: middle;
         }
         .controlButton:hover {
-          text-shadow: 0 0 8px #ff9;
           cursor: pointer;
           opacity: 1;
+        }
+        .controlButton .controlButtonInner {
+          filter: grayscale(100%);
         }
         .heatSyncSwitch {
           font-size: 16px;
@@ -509,7 +592,7 @@
         }
         .is-Enabled .controlButtonInner {
           color: #aef;
-          text-shadow: 0 0 4px #fea, 0 0 8px orange;
+          filter: none;
         }
 
         .controlButton .tooltip {
@@ -542,7 +625,7 @@
 
       </style>
       <div class="heatSyncSwitch controlButton root command" data-command="toggleZenzaGamePadConfig">
-        <div class="controlButtonInner" title="ZenzaGamePad">GP</div>
+        <div class="controlButtonInner" title="ZenzaGamePad">&#x1F3AE;</div>
         <div class="tooltip">ZenzaGamePad</div>
       </div>
     `.trim();
@@ -550,27 +633,40 @@
 
 
 
-    var execCommand = function(command, param) {
+    const execCommand = (command, param) =>
       ZenzaWatch.external.execCommand(command, param);
-    };
 
-    var speedUp = function() {
+    const speedUp = () => {
       // TODO:
       // configを直接参照するのはお行儀が悪いのでexternalのインターフェースをつける
-      var current = parseFloat(ZenzaWatch.config.getValue('playbackRate'), 10);
+      const current = parseFloat(ZenzaWatch.config.getValue('playbackRate'), 10);
       window.console.log('speedUp', current);
       execCommand('playbackRate', Math.floor(Math.min(current + 0.1, 3) * 10) / 10);
     };
 
-    var speedDown = function() {
+    const speedDown = () => {
       // TODO:
       // configを直接参照するのはお行儀が悪いのでexternalのインターフェースをつける
-      var current = parseFloat(ZenzaWatch.config.getValue('playbackRate'), 10);
+      const current = parseFloat(ZenzaWatch.config.getValue('playbackRate'), 10);
       window.console.log('speedDown', current);
       execCommand('playbackRate', Math.floor(Math.max(current - 0.1, 0.1) * 10) / 10);
     };
 
-    var swapABXY_FC30 = function(btn) {
+    const scrollUp = () => {
+      document.documentElement.scrollTop =
+        Math.max(0, document.documentElement.scrollTop - window.innerHeight / 5);
+    };
+
+    const scrollDown = () => {
+      document.documentElement.scrollTop =
+        document.documentElement.scrollTop + window.innerHeight / 5;
+    };
+
+    const scrollToVideo = () => {
+      getVideo().scrollIntoView({behavior: 'smooth', block: 'center'});
+    };
+
+    const swapABXY_FC30 = btn => {
       switch (btn) {
         case 0: return 1;
         case 1: return 0;
@@ -580,16 +676,20 @@
       return btn;
     };
 
-    var onButtonDown = function(button, deviceId) {
+
+    const onButtonDown = (button, deviceId) => {
       if (!isZenzaWatchOpen) { return; }
       if (deviceId.match(/Vendor: 04b4 Product: 010a/i)) {
         //USB Gamepad (Vendor: 04b4 Product: 010a)"
         return onButtonDownSaturn(button, deviceId);
-      }
-      // FC30なのにみんなVendor違うってどういうことだよ
-      // 8Bitdo FC30 Pro (Vendor: 1002 Product: 9000)
+      } else
       if (deviceId.match(/Vendor: (3810|05a0|1235|1002)/i)) {
+        // FC30なのにみんなVendor違うってどういうことだよ
+        // 8Bitdo FC30 Pro (Vendor: 1002 Product: 9000)
         return onButtonDownFC30(button, deviceId);
+      } else
+      if (deviceId.match(/Vendor: 057e Product: 200[67]/i)) {
+        return onButtonDownJoyCon(button, deviceId);
       }
 
       switch (button) {
@@ -598,10 +698,10 @@
           execCommand('togglePlay');
           break;
         case 1: // B
-          execCommand('toggleMute');
+          execCommand('toggle-mute');
           break;
         case 2: // X
-          execCommand('toggleComment');
+          execCommand('toggle-showComment');
           break;
         case 3: // Y
           isRate1ButtonDown = true;
@@ -629,6 +729,7 @@
           execCommand('seek', 0);
           break;
         case 11: // Rスティック
+          execCommand('toggle-fullscreen');
           break;
         case 12: // up
           if (isPauseButtonDown) {
@@ -639,7 +740,7 @@
           break;
         case 13: // down
           if (isPauseButtonDown) {
-            speedUp();
+            speedDown();
           } else {
             execCommand('volumeDown');
           }
@@ -661,17 +762,17 @@
       }
     };
 
-    var onButtonDownSaturn = function(button, deviceId) {
+    const onButtonDownSaturn = (button, deviceId) => {
       switch (button) {
         case 0: // A
           isPauseButtonDown = true;
           execCommand('togglePlay');
           break;
         case 1: // B
-          execCommand('toggleMute');
+          execCommand('toggle-mute');
           break;
         case 2: // C
-          execCommand('toggleComment');
+          execCommand('toggle-showComment');
           break;
         case 3: // X
           execCommand('playbackRate', 0.5);
@@ -695,30 +796,101 @@
        }
     };
 
-    var onButtonDownFC30 = function(button, deviceId) {
+    const onButtonDownJoyCon = (button, deviceId) => {
+      const ButtonMap = deviceId.match(/Vendor: 057e Product: 2006/i) ?
+        ButtonMapJoyConL : ButtonMapJoyConR;
+      switch (button) {
+        case ButtonMap.Y:
+          if (isPauseButtonDown) {
+            execCommand('seekPrevFrame');
+          } else {
+            execCommand('toggle-showComment');
+          }
+          break;
+        case ButtonMap.B:
+          isPauseButtonDown = true;
+          execCommand('togglePlay');
+          break;
+        case ButtonMap.X:
+          if (isMetaButtonDown) {
+            execCommand('playbackRate', 2);
+          } else {
+            isRate1ButtonDown = true;
+            execCommand('playbackRate', 0.1);
+          }
+          break;
+        case ButtonMap.A:
+          if (isPauseButtonDown) {
+            execCommand('seekNextFrame');
+          } else {
+            execCommand('toggle-mute');
+          }
+           break;
+        case ButtonMap.SUP:
+          if (isMetaButtonDown) {
+            scrollUp();
+          } else {
+            execCommand('playPreviousVideo');
+          }
+          break;
+        case ButtonMap.SDN:
+          if (isMetaButtonDown) {
+            scrollDown();
+          } else {
+            execCommand('playNextVideo');
+          }
+          break;
+        case ButtonMap.SEL:
+          if (isMetaButtonDown) {
+            execCommand('toggle-loop');
+          } else {
+            execCommand('deflistAdd');
+          }
+          break;
+        case ButtonMap.CAP:
+          execCommand('screenShot');
+          break;
+        case ButtonMap.PUSH:
+          if (isMetaButtonDown) {
+            scrollToVideo();
+          } else {
+            execCommand('seek', 0);
+          }
+          break;
+        case ButtonMap.LR:
+          execCommand('toggle-fullscreen');
+          break;
+        case ButtonMap.META:
+          isMetaButtonDown = true;
+          break;
+      }
+    };
+
+
+    const onButtonDownFC30 = (button, deviceId) => {
       if (deviceId.match(/Product: (3232)/i)) { // FC30 Zero / FC30
         button = swapABXY_FC30(button);
       }
 
       switch (button) {
         case 0: // B
-          execCommand('toggleMute');
+          execCommand('toggle-mute');
           break;
         case 1: // A
           isPauseButtonDown = true;
           execCommand('togglePlay');
           break;
         case 2: // ???
-          //execCommand('toggleComment');
+          //execCommand('toggle-showComment');
           break;
         case 3: // X
           isRate1ButtonDown = true;
           execCommand('playbackRate', 0.1);
           break;
         case 4: // Y
-          execCommand('toggleComment');
+          execCommand('toggle-showComment');
           break;
-        case 5: // 
+        case 5: //
           break;
         case 6: // L1
           if (isPauseButtonDown) {
@@ -751,63 +923,39 @@
           break;
         case 14: // Rスティック
           break;
-          
+
        }
     };
 
 
-    var onButtonUp = function(button, deviceId) {
+    const onButtonUp = (button, deviceId) => {
       if (!isZenzaWatchOpen) { return; }
       if (deviceId.match(/Vendor: 04b4 Product: 010a/i)) {
         //USB Gamepad (Vendor: 04b4 Product: 010a)"
         return onButtonUpSaturn(button, deviceId);
-      }
-      // 8Bitdo FC30 Pro (Vendor: 1002 Product: 9000)
+      } else
       if (deviceId.match(/Vendor: (3810|05a0|1235|1002)/i)) {
+        // 8Bitdo FC30 Pro (Vendor: 1002 Product: 9000)
         return onButtonUpFC30(button, deviceId);
+      } else
+      if (deviceId.match(/Vendor: 057e Product: 200[67]/i)) {
+        return onButtonUpJoyCon(button, deviceId);
       }
-
       switch (button) {
         case 0: // A
           isPauseButtonDown = false;
-          break;
-        case 1: // B
-          break;
-        case 2: // X
           break;
         case 3: // Y
           isRate1ButtonDown = false;
           execCommand('playbackRate', 1.0);
           break;
-        case 4: // LB
-          break;
-        case 5: // RB
-          break;
-        case 6: // LT
-          break;
         case 7: // RT
           execCommand('playbackRate', 1.5);
-          break;
-        case 8: // しいたけの左 ビューボタン (Back)
-          break;
-        case 9: // しいたけの右 メニューボタン (Start)
-          break;
-        case 10: // Lスティック
-          break;
-        case 11: // Rスティック
-          break;
-        case 12: // up
-          break;
-        case 13: // down
-          break;
-        case 14: // left
-          break;
-        case 15: // right
           break;
       }
     };
 
-    var onButtonUpSaturn = function(button, deviceId) {
+    const onButtonUpSaturn = (button, deviceId) => {
       switch (button) {
         case 0: // A
           isPauseButtonDown = false;
@@ -834,7 +982,7 @@
        }
     };
 
-    var onButtonUpFC30 = function(button, deviceId) {
+    const onButtonUpFC30 = (button, deviceId) => {
       if (deviceId.match(/Product: (3232)/i)) { // FC30Zero / FC30
         button = swapABXY_FC30(button);
       }
@@ -876,9 +1024,31 @@
        }
     };
 
+    const onButtonUpJoyCon = (button, deviceId) => {
+      const ButtonMap = deviceId.match(/Vendor: 057e Product: 2006/i) ?
+        ButtonMapJoyConL : ButtonMapJoyConR;
+      switch (button) {
+        case ButtonMap.Y:
+          break;
+        case ButtonMap.B:
+          isPauseButtonDown = false;
+          break;
+        case ButtonMap.X:
+          isRate1ButtonDown = false;
+          execCommand('playbackRate', 1);
+          break;
+        case ButtonMap.META:
+          isMetaButtonDown = false;
+          break;
+      }
+    };
 
-    var onButtonRepeat = function(button) {
+    const onButtonRepeat = (button, deviceId) => {
       if (!isZenzaWatchOpen) { return; }
+
+      if (deviceId.match(/Vendor: 057e Product: 200[67]/i)) { // Joy-Con
+        return onButtonRepeatJoyCon(button, deviceId);
+      }
 
       switch (button) {
         case 12: // up
@@ -912,11 +1082,47 @@
       }
     };
 
-    var onAxisChange = function(axis, value, deviceId) {
+    const onButtonRepeatJoyCon = (button, deviceId) => {
+      const ButtonMap = deviceId.match(/Vendor: 057e Product: 2006/i) ?
+        ButtonMapJoyConL : ButtonMapJoyConR;
+      switch (button) {
+        case ButtonMap.Y:
+          if (isMetaButtonDown) {
+            execCommand('seekBy', -15);
+          } else if (isPauseButtonDown) {
+            execCommand('seekPrevFrame');
+          }
+          break;
+
+        case ButtonMap.A:
+          if (isMetaButtonDown) {
+            execCommand('seekBy', 15);
+          } else if (isPauseButtonDown) {
+            execCommand('seekNextFrame');
+          }
+          break;
+        case ButtonMap.SUP:
+          if (isMetaButtonDown) {
+            scrollUp();
+          } else {
+            execCommand('playPreviousVideo');
+          }
+          break;
+        case ButtonMap.SDN:
+          if (isMetaButtonDown) {
+            scrollDown();
+          } else {
+            execCommand('playNextVideo');
+          }
+          break;
+      }
+    };
+
+    const onAxisChange = (axis, value, deviceId) => {
       if (!isZenzaWatchOpen) { return; }
       if (Math.abs(value) < 0.1) { return; }
 
-      var isFC30 = deviceId.match(/Vendor: 3810/i) ? true : false;
+      const isFC30 = deviceId.match(/Vendor: 3810/i) ? true : false;
       if (isFC30) {
         switch (axis) {
           case 3: // L2なぜか反応する
@@ -928,10 +1134,15 @@
         }
       }
 
+      if (deviceId.match(/Vendor: 057e Product: 200[67]/i)) { // Joy-Con
+        return;
+      }
+
       switch (axis) {
-        case 0: // Lスティック X
-          var step = isRate1ButtonDown ? 1 : 5;
+        case 0: {// Lスティック X
+          const step = isRate1ButtonDown ? 1 : 5;
           execCommand('seekBy', (value < 0 ? -1 : 1) * step);
+        }
           break;
         case 1: // Lスティック Y
           if (isPauseButtonDown) {
@@ -950,13 +1161,22 @@
       }
     };
 
-    var onAxisRepeat = function(axis, value) {
+    const onAxisRepeat = (axis, value, deviceId) => {
       if (!isZenzaWatchOpen) { return; }
       if (Math.abs(value) < 0.1) { return; }
+
+      if (deviceId.match(/Vendor: 057e Product: 2006/i)) { // Joy-Con (L)
+        return;
+      } else
+      if (deviceId.match(/Vendor: 057e Product: 2007/i)) { // Joy-Con (R)
+        return;
+      }
+
       switch (axis) {
-        case 0: // Lスティック X
-          var step = isRate1ButtonDown ? 1 : +5;
+        case 0: {// Lスティック X
+          const step = isRate1ButtonDown ? 1 : +5;
           execCommand('seekBy', (value < 0 ? -1 : 1) * step);
+        }
           break;
         case 1: // Lスティック Y
           if (isPauseButtonDown) {
@@ -975,127 +1195,150 @@
       }
     };
 
-    var onPovChange = function(pov) {
+    const onPovChange = (pov, deviceId) => {
       switch(pov) {
-        case 'up':
-          execCommand('volumeUp');
+        case 'UP':
+          if (isMetaButtonDown) {
+            speedUp();
+          } else {
+            execCommand('volumeUp');
+          }
           break;
-        case 'down':
-          execCommand('volumeDown');
+        case 'DOWN':
+          if (isMetaButtonDown) {
+            speedDown();
+          } else {
+            execCommand('volumeDown');
+          }
           break;
-        case 'left':
-          execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
+        case 'LEFT':
+          execCommand('seekBy', isRate1ButtonDown || isMetaButtonDown ? -1 : -5);
           break;
-        case 'right':
-          execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
+        case 'RIGHT':
+          execCommand('seekBy', isRate1ButtonDown || isMetaButtonDown ? +1 : +5);
           break;
       }
     };
 
-    var onPovRepeat = function(pov) {
-      switch(pov) {
-        case 'up':
-          execCommand('volumeUp');
-          break;
-        case 'down':
-          execCommand('volumeDown');
-          break;
-        case 'left':
-          execCommand('seekBy', isRate1ButtonDown ? -1 : -5);
-          break;
-        case 'right':
-          execCommand('seekBy', isRate1ButtonDown ? +1 : +5);
-          break;
+    const onPovRepeat = onPovChange;
+
+    class PollingTimer {
+      constructor(callback, interval) {
+        this._timer = null;
+        this._callback = callback;
+        if (typeof interval === 'number') {
+          this.changeInterval(interval);
+        }
       }
-    };
-
-
-
-    var PollingTimer = (function() {
-      var id = 0;
-      var PollingTimer = function(callback, interval) {
-        this._id = id++;
-        this.initialize(callback, interval);
-      };
-      _.assign(PollingTimer.prototype, {
-        initialize: function(callback, interval) {
-          this._timer = null;
-          this._callback = callback;
-          if (typeof interval === 'number') {
-            this.changeInterval(interval);
-          }
-        },
-        changeInterval: function(interval) {
-          if (this._timer) {
-            if (this._currentInterval === interval) {
-              return;
-            }
-            window.clearInterval(this._timer);
-          }
-          console.log('%cupdate Interval:%s', 'background: lightblue;', interval);
-          this._currentInterval = interval;
-          this._timer = window.setInterval(this._callback, interval);
-        },
-        pause: function() {
-          window.clearInterval(this._timer);
-          this._timer = null;
-        },
-        start: function() {
-          if (typeof this._currentInterval !== 'number') {
+      changeInterval(interval) {
+        if (this._timer) {
+          if (this._currentInterval === interval) {
             return;
           }
-          this.changeInterval(this._currentInterval);
+          window.clearInterval(this._timer);
         }
-      });
-      return PollingTimer;
-    })();
+        console.log('%cupdate Interval:%s', 'background: lightblue;', interval);
+        this._currentInterval = interval;
+        this._timer = window.setInterval(this._callback, interval);
+      }
+      pause() {
+        window.clearInterval(this._timer);
+        this._timer = null;
+      }
+      start() {
+        if (typeof this._currentInterval !== 'number') {
+          return;
+        }
+        this.changeInterval(this._currentInterval);
+      }
+    }
 
-    let GamePadModel = (function($, _, emitter) {
-      class GamePadModel extends emitter {
+    const GamePadModel = ((Emitter) => {
+      class GamePad extends Emitter {
         constructor(gamepadStatus) {
           super();
           this._gamepadStatus = gamepadStatus;
           this._buttons = [];
           this._axes = [];
           this._pov = '';
+          this._lastTimestamp = 0;
           this._povRepeat = 0;
           this.initialize(gamepadStatus);
         }
-      }
-      _.assign(GamePadModel.prototype, {
-        initialize: function(gamepadStatus) {
+
+        get isConnected() {
+          return this._gamepadStatus.connected ? true : false;
+        }
+
+        get deviceId() {
+          return this._id;
+        }
+
+        get deviceIndex() {
+          return this._index;
+        }
+
+        get buttonCount() {
+          return this._buttons ? this._buttons.length : 0;
+        }
+
+        get axisCount() {
+          return this._axes ? this._axes.length : 0;
+        }
+
+        get pov() {
+          return this._pov;
+        }
+
+        get x() {
+          return this._axes.length > 0 ? this._axes[0] : 0;
+        }
+
+        get y() {
+          return this._axes.length > 1 ? this._axes[1] : 0;
+        }
+
+        get z() {
+          return this._axes.length > 2 ? this._axes[2] : 0;
+        }
+
+        initialize(gamepadStatus) {
           this._buttons.length = gamepadStatus.buttons.length;
           this._axes.length = gamepadStatus.axes.length;
           this._id = gamepadStatus.id;
           this._index = gamepadStatus.index;
+          this._isRepeating = false;
           this.reset();
-        },
-        reset: function() {
-          var i, len;
+        }
+        reset() {
           this._pov = '';
           this._povRepeat = 0;
 
-          for (i = 0, len = this._gamepadStatus.buttons.length + 16; i < len; i++) {
+          for (let i = 0, len = this._gamepadStatus.buttons.length + 16; i < len; i++) {
             this._buttons[i] = {pressed: false, repeat: 0};
           }
-          for (i = 0, len = this._gamepadStatus.axes.length; i < len; i++) {
+          for (let i = 0, len = this._gamepadStatus.axes.length + 16; i < len; i++) {
             this._axes[i] = {value: null, repeat: 0};
           }
-        },
-        update: function() {
-          var gamepadStatus = (navigator.getGamepads())[this._index];
+        }
+        update() {
+          const gamepadStatus = (navigator.getGamepads())[this._index];
           // gp || this._gamepadStatus;
           if (!gamepadStatus) { console.log('no status'); return; }
+          if (!this._isRepeating && this._lastTimestamp === gamepadStatus.timestamp) {
+            return;
+          }
           this._gamepadStatus = gamepadStatus;
+          this._lastTimestamp = gamepadStatus.timestamp;
 
-          var buttons = gamepadStatus.buttons, axes = gamepadStatus.axes;
-          var i, len, axis;
+          const buttons = gamepadStatus.buttons, axes = gamepadStatus.axes;
+          let isRepeating = false;
 
-          for (i = 0, len = Math.min(this._buttons.length, buttons.length); i < len; i++) {
-            var buttonStatus = buttons[i].pressed ? 1 : 0;
+          for (let i = 0, len = Math.min(this._buttons.length, buttons.length); i < len; i++) {
+            const buttonStatus = buttons[i].pressed ? 1 : 0;
 
             if (this._buttons[i].pressed !== buttonStatus) {
-              var eventName = (buttonStatus === 1) ? 'onButtonDown' : 'onButtonUp';
+              const eventName = (buttonStatus === 1) ? 'onButtonDown' : 'onButtonUp';
               //console.log('%cbutton%s:%s', 'background: lightblue;', i, buttonStatus, 0);
               this.emit(eventName, i, 0);
               this.emit('onButtonStatusChange', i, buttonStatus);
@@ -1103,6 +1346,7 @@
             this._buttons[i].pressed = buttonStatus;
             if (buttonStatus) {
               this._buttons[i].repeat++;
+              isRepeating = true;
               if (this._buttons[i].repeat % 5 === 0) {
                 //console.log('%cbuttonRepeat%s', 'background: lightblue;', i);
                 this.emit('onButtonRepeat', i);
@@ -1111,192 +1355,201 @@
               this._buttons[i].repeat = 0;
             }
           }
-          for (i = 0, len = Math.min(8, this._axes.length); i < len; i++) {
-            axis = Math.round(axes[i] * 1000) / 1000;
+          for (let i = 0, len = Math.min(8, this._axes.length); i < len; i++) {
+            const axis = Math.round(axes[i] * 1000) / 1000;
 
             if (this._axes[i].value === null) {
               this._axes[i].value = axis;
               continue;
             }
 
-            var diff = Math.round(Math.abs(axis - this._axes[i].value));
+            const diff = Math.round(Math.abs(axis - this._axes[i].value));
             if (diff >= 1) {
-              //window.console.log(
-              //  '%c%s %s',
-              //  'background: lightblue;', 'onAxisChange',
-              //  i, axis, 0, this._axes[i]);
               this.emit('onAxisChange', i, axis);
             }
             if (Math.abs(axis) <= 0.1 && this._axes[i].repeat > 0) {
               this._axes[i].repeat = 0;
-              //this.emit('onAxisRelease', i);
             } else if (Math.abs(axis) > 0.1) {
               this._axes[i].repeat++;
-              //if (this._axes[i].repeat % 5 === 0) {
-              //  //window.console.log('%caxisRepeat%s:%s', 'background: lightblue;', i, axis);
-              //  this.emit('onAxisRepeat', i, axis);
-              //}
+              isRepeating = true;
             } else {
               this._axes[i].repeat = 0;
             }
             this._axes[i].value = axis;
-            
+
           }
 
-          // ハットスイッチ？ FC30だけ？
-          if (axes[9]) {
-            var p = Math.round(axes[9] * 1000);
-            var d;
-            if (p < -500) {        d = 'up';
-            } else if (p < 0) {    d = 'right';
-            } else if (p > 3000) { d = '';
-            } else if (p > 500){   d = 'left';
-            } else {               d = 'down'; }
+          if (typeof axes[9] !== 'number') {
+            this._isRepeating = isRepeating;
+            return;
+          }
+          let pov = '';
+          if (this._id.match(/Vendor: 057e Product: 200[67]/i)) {
+            const b = 100000;
+            const axis = Math.trunc(axes[9] * b);
+            const margin = b / 10;
+            const AxisMap = this._id.match(/Vendor: 057e Product: 2006/i) ? AxisMapJoyConL : AxisMapJoyConR;
+            if (Math.abs(JoyConAxisCenter * b - axis) <= margin) {
+              pov = '';
+            } else {
+              Object.keys(AxisMap).forEach(key => {
+                if (Math.abs(AxisMap[key] * b - axis) <= margin) {
+                  pov = key;
+                }
+              });
+            }
 
-            //if (d) { window.console.log('pov?:', axes[9], d, p); }
-
-            if (this._pov !== d) {
-              this._pov = d;
-              this._povRepeat = 0;
-              this.emit('onPovChange', this._pov);
-            } else if (d !== '') {
-              this._povRepeat++;
-              if (this._povRepeat % 5 === 0) {
-                this.emit('onPovRepeat', this._pov);
-              }
+          } else if (this._id.match(/Vendor: (3810|05a0|1235|1002)/i)) {
+            const p = Math.round(axes[9] * 1000);
+            if (p < -500) {        pov = 'UP';
+            } else if (p < 0) {    pov = 'RIGHT';
+            } else if (p > 3000) { pov = '';
+            } else if (p > 500){   pov = 'LEFT';
+            } else {               pov = 'DOWN'; }
+          }
+          if (this._pov !== pov) {
+            this._pov = pov;
+            this._povRepeat = 0;
+            isRepeating = pov !== '';
+            this.emit('onPovChange', this._pov);
+          } else if (pov !== '') {
+            this._povRepeat++;
+            isRepeating = true;
+            if (this._povRepeat % 5 === 0) {
+              this.emit('onPovRepeat', this._pov);
             }
           }
+          this._isRepeating = isRepeating;
           //console.log(JSON.stringify(this.dump()));
-        },
-        dump: function() {
-          var gamepadStatus = this._gamepadStatus, buttons = gamepadStatus.buttons, axes = gamepadStatus.axes;
-          var i, len, btmp = [], atmp = [];
-          for (i = 0, len = axes.length; i < len; i++) {
+        }
+        dump() {
+          const gamepadStatus = this._gamepadStatus, buttons = gamepadStatus.buttons, axes = gamepadStatus.axes;
+          const  btmp = [], atmp = [];
+          for (let i = 0, len = axes.length; i < len; i++) {
             atmp.push('ax' + i + ': ' + axes[i]);
           }
-          for (i = 0, len = buttons.length; i < len; i++) {
+          for (let i = 0, len = buttons.length; i < len; i++) {
             btmp.push('bt' + i + ': ' + (buttons[i].pressed ? 1 : 0));
           }
           return atmp.join('\n') + '\n' + btmp.join(', ');
-        },
-        getX: function() {
+        }
+        getX() {
           return this._axes.length > 0 ? this._axes[0] : 0;
-        },
-        getY: function() {
+        }
+        getY() {
           return this._axes.length > 1 ? this._axes[1] : 0;
-        },
-        getZ: function() {
+        }
+        getZ() {
           return this._axes.length > 2 ? this._axes[2] : 0;
-        },
-        getButtonCount: function() {
+        }
+        getButtonCount() {
           return this._buttons ? this._buttons.length : 0;
-        },
-        getButtonStatus: function(index) {
+        }
+        getButtonStatus(index) {
           return this._buttons[index] || 0;
-        },
-        getAxisCount: function() {
+        }
+        getAxisCount() {
           return this._axes ? this._axes.length : 0;
-        },
-        getAxisValue: function(index) {
+        }
+        getAxisValue(index) {
           return this._axes[index] || 0;
-        },
-        isConnected: function() {
-          return !!this._gamepadStatus.connected;
-        },
-        getDeviceIndex: function() {
+        }
+        getDeviceIndex() {
           return this._index;
-        },
-        getDeviceId: function() {
+        }
+        getDeviceId() {
           return this._id;
-        },
-        getPov: function() {
+        }
+        getPov() {
           return this._pov;
-        },
-        release: function() {
+        }
+        release() {
           // TODO: clear events
         }
-      });
+      }
 
-      return GamePadModel;
-    })($, _, Emitter);
+      return GamePad;
+    })(Emitter);
 
-    var ZenzaGamePad = (function ($, PollingTimer, GamePadModel) {
-      var primaryGamepad = null;
-      var pollingTimer = null;
-      var ZenzaGamePad = ZenzaWatch.modules ?
+    const ZenzaGamePad = (($, PollingTimer, GamePadModel) => {
+      let activeGamepad = null;
+      let pollingTimer = null;
+      let ZenzaGamePad = ZenzaWatch.modules ?
         new ZenzaWatch.modules.Emitter() : new Emitter();
 
-      const padIndex = localStorage['ZenzaGamePadpadIndex'] || 0;
+      const padIndex = Config.get('deviceIndex') * 1;
 
-      var detectGamepad = function() {
-        if (primaryGamepad) {
+      const detectGamepad = () => {
+        if (activeGamepad) {
           return;
         }
-        var gamepads = navigator.getGamepads();
-        if (gamepads.length > 0) {
-          var pad = _.find(gamepads, (pad) => {
-            return  pad &&
-                    pad.id &&
-                    pad.index === padIndex &&
-                    // windowsにDualShock4を繋ぐとあらわれる謎のデバイス
-                    !pad.id.match(/Vendor: 00ff/i);
-          });
-          if (!pad) { return; }
-          window.console.log(
-            '%cdetect gamepad index: %s, id: "%s"',
-            'background: lightgreen; font-weight: bolder;',
-            pad.index, pad.id
-          );
-
-          var gamepad = new GamePadModel(pad);
-          primaryGamepad = gamepad;
-
-          var self = ZenzaGamePad;
-          var onButtonDown = function(number) {
-            self.emit('onButtonDown', number, gamepad.getDeviceIndex());
-          };
-          var onButtonRepeat = function(number) {
-            self.emit('onButtonRepeat', number, gamepad.getDeviceIndex());
-          };
-          var onButtonUp = function(number) {
-            self.emit('onButtonUp', number, gamepad.getDeviceIndex());
-          };
-          var onAxisChange = function(number, value) {
-            self.emit('onAxisChange', number, value, gamepad.getDeviceIndex());
-          };
-          var onAxisRepeat = function(number, value) {
-            self.emit('onAxisRepeat', number, value, gamepad.getDeviceIndex());
-          };
-          var onAxisRelease = function(number) {
-            self.emit('onAxisRelease', number, gamepad.getDeviceIndex());
-          };
-          var onPovChange = function(pov) {
-            self.emit('onPovChange', pov, gamepad.getDeviceIndex());
-          };
-          var onPovRepeat = function(pov) {
-            self.emit('onPovRepeat', pov, gamepad.getDeviceIndex());
-          };
-
-
-          gamepad.on('onButtonDown',   onButtonDown);
-          gamepad.on('onButtonRepeat', onButtonRepeat);
-          gamepad.on('onButtonUp',     onButtonUp);
-          gamepad.on('onAxisChange',   onAxisChange);
-          gamepad.on('onAxisRepeat',   onAxisRepeat);
-          gamepad.on('onAxisRelease',  onAxisRelease);
-          gamepad.on('onPovChange',    onPovChange);
-          gamepad.on('onPovRepeat',    onPovRepeat);
-
-          self.emit('onDeviceConnect', gamepad.getDeviceIndex(), gamepad.getDeviceId());
-
-          pollingTimer.changeInterval(30);
+        const gamepads = navigator.getGamepads();
+        if (gamepads.length < 1) {
+          return;
         }
+        const pad = Array.from(gamepads).find(pad => {
+          return  pad &&
+                  pad.connected &&
+                  pad.id &&
+                  pad.index === padIndex &&
+                  // windowsにDualShock4を繋ぐとあらわれる謎のデバイス
+                  !pad.id.match(/Vendor: 00ff/i);
+        });
+        if (!pad) { return; }
+        window.console.log(
+          '%cdetect gamepad index: %s, id: "%s"',
+          'background: lightgreen; font-weight: bolder;',
+          pad.index, pad.id
+        );
+        const gamepad = new GamePadModel(pad);
+        activeGamepad = gamepad;
+
+        const self = ZenzaGamePad;
+        const onButtonDown = number => {
+          self.emit('onButtonDown', number, gamepad.deviceIndex);
+        };
+        const onButtonRepeat = number => {
+          self.emit('onButtonRepeat', number, gamepad.deviceIndex);
+        };
+        const onButtonUp = number => {
+          self.emit('onButtonUp', number, gamepad.deviceIndex);
+        };
+        const onAxisChange = (number, value) => {
+          self.emit('onAxisChange', number, value, gamepad.deviceIndex);
+        };
+        const onAxisRepeat = (number, value) => {
+          self.emit('onAxisRepeat', number, value, gamepad.deviceIndex);
+        };
+        const onAxisRelease = number => {
+          self.emit('onAxisRelease', number, gamepad.deviceIndex);
+        };
+        const onPovChange = pov => {
+          self.emit('onPovChange', pov, gamepad.deviceIndex);
+        };
+        const onPovRepeat = pov => {
+          self.emit('onPovRepeat', pov, gamepad.deviceIndex);
+        };
+
+
+        gamepad.on('onButtonDown',   onButtonDown);
+        gamepad.on('onButtonRepeat', onButtonRepeat);
+        gamepad.on('onButtonUp',     onButtonUp);
+        gamepad.on('onAxisChange',   onAxisChange);
+        gamepad.on('onAxisRepeat',   onAxisRepeat);
+        gamepad.on('onAxisRelease',  onAxisRelease);
+        gamepad.on('onPovChange',    onPovChange);
+        gamepad.on('onPovRepeat',    onPovRepeat);
+
+        self.emit('onDeviceConnect', gamepad.getDeviceIndex(), gamepad.getDeviceId());
+
+        pollingTimer.changeInterval(30);
       };
 
 
-      var onGamepadConnectStatusChange = function(e, isConnected) {
-        console.log('onGamepadConnetcStatusChange', e, isConnected);
-        if (e.gamepad.index !== 0) {
+      const onGamepadConnectStatusChange = (e, isConnected) => {
+        const padIndex = Config.get('deviceIndex') * 1;
+        console.log('onGamepadConnetcStatusChange', e, e.gamepad.index, isConnected);
+        if (e.gamepad.index !== padIndex) {
           return;
         }
 
@@ -1304,76 +1557,78 @@
           console.log('%cgamepad connected id:"%s"', 'background: lightblue;', e.gamepad.id);
           detectGamepad();
         } else {
-          ZenzaGamePad.emit('onDeviceDisconnect', primaryGamepad.getDeviceIndex());
-          if (primaryGamepad) {
-            primaryGamepad.release();
+          ZenzaGamePad.emit('onDeviceDisconnect', activeGamepad.getDeviceIndex());
+          if (activeGamepad) {
+            activeGamepad.release();
           }
-          primaryGamepad = null;
+          activeGamepad = null;
           console.log('%cgamepad disconneced id:"%s"', 'background: lightblue;', e.gamepad.id);
         }
       };
 
-      var initializeTimer = function() {
+      const initializeTimer = () => {
         console.log('%cinitializeGamepadTimer', 'background: lightgreen;');
-        let onTimerInterval = function() {
+        const onTimerInterval = () => {
           if (!Config.get('enabled')) {
             return;
           }
           if (Config.get('needFocus') && !document.hasFocus()) {
             return;
           }
-          if (!primaryGamepad) {
+          if (!activeGamepad) {
             detectGamepad();
             return;
           }
-          if (!primaryGamepad.isConnected) {
+          if (!activeGamepad.isConnected) {
             return;
           }
-          primaryGamepad.update();
+          activeGamepad.update();
         };
         pollingTimer = new PollingTimer(onTimerInterval, 1000);
       };
 
-      var initializeGamepadConnectEvent = function() {
+      const initializeGamepadConnectEvent = () => {
         console.log('%cinitializeGamepadConnectEvent', 'background: lightgreen;');
 
         window.addEventListener('gamepadconnected',
-          function(e) { onGamepadConnectStatusChange(e, true); }, false);
+          e => onGamepadConnectStatusChange(e, true));
         window.addEventListener('gamepaddisconnected',
-          function(e) { onGamepadConnectStatusChange(e, false); }, false);
+          e => onGamepadConnectStatusChange(e, false));
 
-        if (primaryGamepad) {
+        if (activeGamepad) {
           return;
         }
         window.setTimeout(detectGamepad, 1000);
       };
 
-      ZenzaGamePad.startDetect = function() {
+      ZenzaGamePad.startDetect = () => {
         ZenzaGamePad.startDetect = _.noop;
         initializeTimer();
         initializeGamepadConnectEvent();
       };
 
-      ZenzaGamePad.startPolling = function() {
+      ZenzaGamePad.startPolling = () => {
         if (pollingTimer) { pollingTimer.start(); }
       };
-      ZenzaGamePad.stopPolling = function() {
+      ZenzaGamePad.stopPolling = () => {
         if (pollingTimer) { pollingTimer.pause(); }
       };
 
       return ZenzaGamePad;
     })($, PollingTimer, GamePadModel);
 
+    let hasInitGamePad = false;
+    const initGamePad = () => {
+      if (hasInitGamePad) { return; }
+      hasInitGamePad = true;
 
-    var initGamePad = function() {
-      initGamePad = _.noop;
-
-      var isActivated = false;
-      var deviceId, deviceIndex;
-      var notifyDetect = function() {
-        if (!document.hasFocus()) { return; }
+      let isActivated = false;
+      let isDetected = false;
+      let deviceId, deviceIndex;
+      const notifyDetect = () => {
+        if (!document.hasFocus() || isDetected) { return; }
         isActivated = true;
-        notifyDetect = _.noop;
+        isDetected = true;
 
         // 初めてボタンかキーが押されたタイミングで通知する
         execCommand(
@@ -1382,50 +1637,47 @@
         );
       };
 
-      var _onButtonDown = function(number /*, deviceIndex*/) {
+      const _onButtonDown = number => {
         notifyDetect();
         if (!isActivated) { return; }
         onButtonDown(number, deviceId);
-        //console.log('%conButtonDown: number=%s, device=%s', 'background: lightblue;', number, deviceIndex);
       };
-      var _onButtonRepeat = function(number /*, deviceIndex*/) {
+      const _onButtonRepeat = number => {
         if (!isActivated) { return; }
         onButtonRepeat(number, deviceId);
-        //console.log('%conButtonRepeat: number=%s, device=%s', 'background: lightblue;', number, deviceIndex);
       };
-      var _onButtonUp = function(number /*, deviceIndex*/) {
-        //console.log('%conButtonUp: number=%s, device=%s', 'background: lightblue;', number, deviceIndex);
+      const _onButtonUp = number => {
         if (!isActivated) { return; }
         onButtonUp(number, deviceId);
       };
-      var _onAxisChange = function(number, value /*, deviceIndex */) {
+      const _onAxisChange = (number, value) => {
         notifyDetect();
         if (!isActivated) { return; }
         onAxisChange(number, value, deviceId);
-        //console.log('%conAxisChange: number=%s, value=%s, device=%s', 'background: lightblue;', number, value, deviceIndex);
       };
-      var _onAxisRepeat = function(number, value /*, deviceIndex */) {
-        //console.log('%conAxisChange: number=%s, value=%s, device=%s', 'background: lightblue;', number, value, deviceIndex);
+      const _onAxisRepeat = (number, value) => {
         if (!isActivated) { return; }
         onAxisRepeat(number, value, deviceId);
       };
-      var _onAxisRelease = function(/* number, deviceIndex */) {
+      const _onAxisRelease = () => {
         if (!isActivated) { return; }
       };
 
-      var _onPovChange = function(pov /*, deviceIndex */) {
+      const _onPovChange = pov => {
         notifyDetect();
         if (!isActivated) { return; }
         onPovChange(pov, deviceId);
       };
 
-      var _onPovRepeat = function(pov /*, deviceIndex */) {
+      const _onPovRepeat = pov => {
         if (!isActivated) { return; }
         onPovRepeat(pov, deviceId);
       };
 
-      var bindEvents = function() {
-        bindEvents = _.noop;
+      let hasBound = false;
+      const bindEvents = () => {
+        if (hasBound) { return; }
+        hasBound = true;
 
         ZenzaGamePad.on('onButtonDown',   _onButtonDown);
         ZenzaGamePad.on('onButtonRepeat', _onButtonRepeat);
@@ -1437,7 +1689,7 @@
         ZenzaGamePad.on('onPovRepeat',    _onPovRepeat);
       };
 
-      var onDeviceConnect = function(index, id) {
+      const onDeviceConnect = (index, id) => {
          deviceIndex = index;
          deviceId = id;
 
@@ -1450,28 +1702,34 @@
       window.ZenzaWatch.ZenzaGamePad = ZenzaGamePad;
     };
 
-    var onZenzaWatchOpen = function() {
+    const onZenzaWatchOpen = () => {
       isZenzaWatchOpen = true;
       initGamePad();
       ZenzaGamePad.startPolling();
     };
 
-    var onZenzaWatchClose = function() {
+    const onZenzaWatchClose = () => {
       isZenzaWatchOpen = false;
       ZenzaGamePad.stopPolling();
     };
 
 
-    let initialize = function() {
+    const initialize = async () => {
       ZenzaWatch.emitter.on('DialogPlayerOpen',  onZenzaWatchOpen);
       ZenzaWatch.emitter.on('DialogPlayerClose', onZenzaWatchClose);
 
-      ZenzaWatch.emitter.on('videoControBar.addonMenuReady', (container, handler) => {
+      const initButton = (container, handler) => {
         ZenzaGamePad.configPanel = new ConfigPanel({parentNode: document.querySelector('#zenzaVideoPlayerDialog')});
-        let toggleButton = new ToggleButton({parentNode: container});
+        const toggleButton = new ToggleButton({parentNode: container});
         toggleButton.on('command', handler);
         toggleButton.refresh();
-      });
+      };
+      if (ZenzaWatch.emitter.promise) {
+        const {container, handler} = await ZenzaWatch.emitter.promise('videoControBar.addonMenuReady');
+        initButton(container, handler);
+      } else {
+        ZenzaWatch.emitter.on('videoControBar.addonMenuReady', initButton);
+      }
       ZenzaWatch.emitter.on('command-toggleZenzaGamePadConfig', () => {
         ZenzaGamePad.configPanel.toggle();
       });
@@ -1481,27 +1739,28 @@
     initialize();
   };
 
-  var loadMonkey = function() {
-    var script = document.createElement('script');
+  const loadMonkey = () => {
+    const script = document.createElement('script');
     script.id = 'ZenzaGamePadLoader';
     script.setAttribute('type', 'text/javascript');
     script.setAttribute('charset', 'UTF-8');
-    script.appendChild(document.createTextNode('(' + monkey + ')(window.ZenzaWatch);'));
-    document.body.appendChild(script);
+    script.append(`(${monkey})(window.ZenzaWatch);`);
+    document.head.append(script);
   };
 
-  var waitForZenzaWatch = function() {
-    if (window.ZenzaWatch && window.ZenzaWatch.ready) {
-      window.console.log('ZenzaWatch is Ready');
-      loadMonkey();
-    } else {
-      document.body.addEventListener('ZenzaWatchInitialize', () => {
-      //document.body.addEventListener('ZenzaWatchReady', function() {
-        window.console.log('onZenzaWatchInitialize');
-        loadMonkey();
-      }, {once: true});
-    }
-  };
-  waitForZenzaWatch();
-
+const ZenzaDetector = (() => {
+	const promise =
+		(window.ZenzaWatch && window.ZenzaWatch.ready) ?
+			Promise.resolve(window.ZenzaWatch) :
+			new Promise(resolve => {
+				[window, (document.body || document.documentElement)]
+					.forEach(e => e.addEventListener('ZenzaWatchInitialize', () => {
+						resolve(window.ZenzaWatch);
+					}));
+			});
+	return {detect: () => promise};
 })();
+await ZenzaDetector.detect();
+loadMonkey();
+
+})(globalThis ? globalThis.window : window);
