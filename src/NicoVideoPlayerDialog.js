@@ -1710,6 +1710,9 @@ class NicoVideoPlayerDialog extends Emitter {
   _onPlaylistSetMylist(mylistId, option) {
 
     option = Object.assign({watchId: this._watchId}, option || {});
+    // デフォルトで古い順にする
+    option.order = option.order == null ? 'asc' : option.order;
+    option.sort = option.sort == null ? 'registeredAt' : option.sort;
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
     option.insert = this._playlist.isEnable;
