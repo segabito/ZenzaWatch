@@ -63,8 +63,8 @@ const VideoSessionWorker = (() => {
 
         let videos = [];
         let availableVideos =
-          dmcInfo.quality.videos.filter(v => v.available)
-            .sort((a, b) => b.level_index - a.level_index);
+            dmcInfo.videos.filter(v => v.isAvailable)
+                .sort((a, b) => b.levelIndex - a.levelIndex);
         let reg = VIDEO_QUALITY[this._videoQuality] || VIDEO_QUALITY.auto;
         if (reg === VIDEO_QUALITY.auto) {
           videos = availableVideos.map(v => v.id);
@@ -95,7 +95,12 @@ const VideoSessionWorker = (() => {
         if (this._useHLS) {
           parameters.segment_duration = 6000;//Config.getValue('video.hls.segmentDuration');
           if (dmcInfo.encryption){
-            parameters.encryption = dmcInfo.encryption;
+            parameters.encryption = {
+              hls_encryption_v1 : {
+                encrypted_key : dmcInfo.encryption.encryptedKey,
+                key_uri : dmcInfo.encryption.keyUri
+              }
+            };
           }
         } else if (!dmcInfo.protocols.includes('http')) {
           throw new Error('HLSに未対応');
