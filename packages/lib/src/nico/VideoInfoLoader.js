@@ -227,7 +227,7 @@ const VideoInfoLoader = (function () {
         largeThumbnail: data.video.thumbnail.player,
         length: data.video.duration,
 
-        commons_tree_exists: !!data.video.isCommonsTreeExists,
+        commons_tree_exists: !!data.external.commons.hasContentTree,
 
         width: data.video.width,
         height: data.video.height,
