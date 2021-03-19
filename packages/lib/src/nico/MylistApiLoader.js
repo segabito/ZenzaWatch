@@ -327,18 +327,18 @@ const MylistApiLoader = (() => {
         code: result.error.code
       });
     }
-    async _addDeflistItem(watchId, description, isRetry) {
-      let url = 'https://www.nicovideo.jp/api/deflist/add';
-      let body = `item_id=${watchId}&token=${token}`;
+    async _addDeflistItem(watchId, description, isRetry, frontendId, frontendVersion) {
+      let url = 'https://nvapi.nicovideo.jp/v1/users/me/watch-later';
+      let body = `watchId=${watchId}&memo=`;
       if (description) {
-        body += `&description=${encodeURIComponent(description)}`;
+        body += `${encodeURIComponent(description)}`;
       }
       let cacheKey = 'deflistItems';
 
       const result = await netUtil.fetch(url, {
         method: 'POST',
         body,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Frontend-Id': frontendId, 'X-Frontend-Version': frontendVersion, 'X-Request-With': 'https://www.nicovideo.jp' },
         credentials: 'include'
       }).then(r => r.json())
         .catch(err => {
@@ -347,7 +347,7 @@ const MylistApiLoader = (() => {
               result: err
             });
           });
-      if (result.status && result.status === 'ok') {
+      if (result.meta.status && ( result.meta.status === 200 || result.meta.status === 201 )) {
         cacheStorage.removeItem(cacheKey);
         emitter.emitAsync('deflistAdd', watchId, description);
         return {
@@ -357,7 +357,7 @@ const MylistApiLoader = (() => {
         };
       }
 
-      if (!result.status || !result.error) {
+      if (!result.meta.status || !result.error) { // result.errorが残っているかは不明
         throw new Error('とりあえずマイリスト登録失敗(100)', {
           status: 'fail',
           result,
@@ -393,15 +393,16 @@ const MylistApiLoader = (() => {
         message: 'とりあえずマイリストの先頭に移動'
       };
     }
-    addDeflistItem(watchId, description) {
-      return this._addDeflistItem(watchId, description, false);
+    addDeflistItem(watchId, description, frontendId, frontendVersion) {
+      return this._addDeflistItem(watchId, description, false,frontendId, frontendVersion);
     }
-    async addMylistItem(watchId, groupId, description) {
-      const url = 'https://www.nicovideo.jp/api/mylist/add';
-      let body = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
+    async addMylistItem(watchId, groupId, description, frontendId, frontendVersion) {
+      //const url = 'https://www.nicovideo.jp/api/mylist/add';
+      let body = 'itemId=' + watchId + '&description=';//+ '&token=' + token + '&group_id=' + groupId;
       if (description) {
-        body += '&description=' + encodeURIComponent(description);
+        body += encodeURIComponent(description);
       }
+      const url = 'https://nvapi.nicovideo.jp/v1/users/me/mylists/' + groupId + '/items?' + body ;
       const cacheKey = `mylistItems: ${groupId}`;
 
       const result = await netUtil.fetch(url, {
@@ -417,14 +418,14 @@ const MylistApiLoader = (() => {
           });
         });
 
-      if (result.status && result.status === 'ok') {
+      if (result.meta.status && result.meta.status === 200) {
         cacheStorage.removeItem(cacheKey);
         // マイリストに登録したらとりあえずマイリストから除去(=移動)
         this.removeDeflistItem(watchId).catch(() => {});
         return {status: 'ok', result, message: 'マイリスト登録'};
       }
 
-      if (!result.status || !result.error) {
+      if (!result.meta.status /*|| !result.error*/) {
         throw new Error('マイリスト登録失敗(100)', {status: 'fail', result});
       }
 
