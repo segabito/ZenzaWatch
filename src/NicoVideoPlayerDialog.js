@@ -2494,7 +2494,8 @@ class NicoVideoPlayerDialog extends Emitter {
     PlaybackPosition.record(
       contextWatchId,
       ct,
-      vi.csrfToken
+      vi.msgInfo.frontendId,
+      vi.msgInfo.frontendVersion
     ).catch(e => {
       window.console.warn('save playback fail', e);
     });
