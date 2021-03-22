@@ -30,6 +30,7 @@ const OffscreenLayer = config => {
         white-space: pre;
         pointer-events: none;
         user-select: none;
+        visibility: hidden;
         contain: strict;
     "></div>
     </body></html>
