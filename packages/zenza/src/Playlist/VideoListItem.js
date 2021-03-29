@@ -40,6 +40,24 @@ class VideoListItem {
   }
 
   static createByMylistItem(item) {
+    if (item.content) {
+      const content = item.content || {};
+      return new VideoListItem({
+        _format: 'mylistItemRiapi',
+        id: content.id,
+        uniq_id: content.id,
+        title: content.title,
+        length_seconds: content.duration,
+        num_res: content.count.comment,
+        mylist_counter: content.count.mylist,
+        view_counter: content.count.view,
+        like: content.count.like,
+        thumbnail_url: content.thumbnail.url,
+        first_retrieve: content.registeredAt,
+        lastResBody: content.latestCommentSummary
+      });
+    }
+
     if (item.item_data) {
       const item_data = item.item_data || {};
       return new VideoListItem({
