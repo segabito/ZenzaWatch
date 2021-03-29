@@ -40,21 +40,21 @@ class VideoListItem {
   }
 
   static createByMylistItem(item) {
-    if (item.video) {
-      const video = item.video || {};
+    if (item.content) {
+      const content = item.content || {};
       return new VideoListItem({
         _format: 'mylistItemRiapi',
-        id: item.itemId,
-        uniq_id: video.id,
-        title: video.title,
-        length_seconds: video.duration,
-        num_res: video.count.comment,
-        mylist_counter: video.count.mylist,
-        view_counter: video.count.view,
-        like: video.count.like,
-        thumbnail_url: video.thumbnail.url,
-        first_retrieve: video.registeredAt,
-        lastResBody: video.latestCommentSummary
+        id: content.id,
+        uniq_id: content.id,
+        title: content.title,
+        length_seconds: content.duration,
+        num_res: content.count.comment,
+        mylist_counter: content.count.mylist,
+        view_counter: content.count.view,
+        like: content.count.like,
+        thumbnail_url: content.thumbnail.url,
+        first_retrieve: content.registeredAt,
+        lastResBody: content.latestCommentSummary
       });
     }
 

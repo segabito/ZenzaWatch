@@ -45,8 +45,8 @@ const MylistApiLoader = (() => {
         cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
       }
     }
-    async getDeflistItems(options = {}, { frontendId, frontendVersion }) {
-      const url = `https://nvapi.nicovideo.jp/v1/users/me/watch-later?sortOrder=${options.order}&sortKey=${options.sort}`;
+    async getDeflistItems(options = {}, frontendId = 6, frontendVersion = 0) {
+      const url = `https://nvapi.nicovideo.jp/v1/playlist/watch-later?sortOrder=${options.order}&sortKey=${options.sort}`;
 
       // nvapi でソートされた結果をもらうのでそのままキャッシュする
       const cacheKey = `watchLaterItems, order: ${options.order} ${options.sort}`;
@@ -61,19 +61,19 @@ const MylistApiLoader = (() => {
         credentials: 'include',
       }).then(r => r.json())
         .catch(e => { throw new Error('とりあえずマイリストの取得失敗(2)', e); });
-      if (result.meta.status !== 200 || !result.data.watchLater) {
+      if (result.meta.status !== 200 || !result.data.items) {
         throw new Error('とりあえずマイリストの取得失敗(1)', result);
       }
 
-      const data = result.data.watchLater.items;
+      const data = result.data.items;
       cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
       return data;
     }
     async getMylistItems(groupId, options = {}, { frontendId = 6, frontendVersion = 0 } = {}) {
       if (groupId === 'deflist') {
-        return this.getDeflistItems(options);
+        return this.getDeflistItems(options, frontendId, frontendVersion);
       }
-      const url = `https://nvapi.nicovideo.jp/v2/mylists/${groupId}?sortOrder=${options.order}&sortKey=${options.sort}`;
+      const url = `https://nvapi.nicovideo.jp/v1/playlist/mylist/${groupId}?sortOrder=${options.order}&sortKey=${options.sort}`;
 
       // nvapi でソートされた結果をもらうのでそのままキャッシュする
       const cacheKey = `mylistItems: ${groupId}, order: ${options.order} ${options.sort}`;
@@ -89,11 +89,11 @@ const MylistApiLoader = (() => {
       }).then(r => r.json())
         .catch(e => { throw new Error('マイリストの取得失敗(2)', e); });
 
-      if (result.meta.status !== 200 || !result.data.mylist) {
+      if (result.meta.status !== 200 || !result.data.items) {
         throw new Error('マイリストの取得失敗(1)', result);
       }
 
-      const data = result.data.mylist.items;
+      const data = result.data.items;
       cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
       return data;
     }
