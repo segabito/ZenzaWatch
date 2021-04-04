@@ -1,14 +1,15 @@
-import { BaseCommandElement } from './element/BaseCommandElement';
 import { VideoItemElement } from './element/VideoItemElement';
 import { VideoSeriesLabel } from './element/VideoSeriesLabel';
 import { RangeBarElement }  from './element/RangeBarElement';
+import { SettingPanelElement }  from './element/SettingPanelElement';
 
 //===BEGIN===
-//@require ./element/BaseCommandElement.js
-//@require ./element/VideoItemElement.js
-//@require ./element/VideoSeriesLabel.js
-//@require ./element/NoWebComponent.js
-//@require ./element/RangeBarElement.js
+//@require element/BaseCommandElement.js
+//@require VideoItemElement
+//@require VideoSeriesLabel
+//@require RangeBarElement
+//@require element/DialogElement.js
+//@require SettingPanelElement
 
 const components = (() => {
   if (window.customElements) {
@@ -16,10 +17,10 @@ const components = (() => {
   }
 
   return {
-    BaseCommandElement,
     VideoItemElement,
     VideoSeriesLabel,
-    RangeBarElement
+    RangeBarElement,
+    SettingPanelElement
   };
 })();
 
