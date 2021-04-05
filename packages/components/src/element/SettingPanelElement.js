@@ -638,6 +638,10 @@ const {SettingPanelElement} = (() => {
     }
 
   }
+
+  if (window.customElements) {
+    customElements.get('zenza-setting-panel') || customElements.define('zenza-setting-panel', SettingPanelElement);
+  }
   return {SettingPanelElement};
 })();
 
