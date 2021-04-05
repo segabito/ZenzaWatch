@@ -307,8 +307,7 @@ const VideoInfoLoader = (function () {
 
 
   const parseWatchApiData = function (src) {
-    const dom = document.createElement('div');
-    dom.innerHTML = src;
+    const dom = new DOMParser().parseFromString(src, 'text/html');
     if (dom.querySelector('#watchAPIDataContainer')) {
       return parseFromGinza(dom);
     } else if (dom.querySelector('#js-initial-watch-data')) {
@@ -342,8 +341,7 @@ const VideoInfoLoader = (function () {
     }).then(() => netUtil.fetch(url, {credentials: 'include'}))
       .then(res => res.text())
       .then(html => {
-        const dom = document.createElement('div');
-        dom.innerHTML = html;
+        const dom = new DOMParser().parseFromString(html, 'text/html');
         const data = parseFromHtml5Watch(dom);
         //window.console.info('linkedChannelData', data);
         originalData.dmcInfo = data.dmcInfo;
