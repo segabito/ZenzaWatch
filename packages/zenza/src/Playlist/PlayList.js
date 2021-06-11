@@ -241,7 +241,7 @@ class PlayList extends VideoList {
     const items = videoListItemsRawData.map(raw => new VideoListItem(raw));
     return this._insertAll(items, options);
   }
-  loadFromMylist(mylistId, options) {
+  loadFromMylist(mylistId, options, msgInfo) {
     this._initializeView();
 
     if (!this._mylistApiLoader) {
@@ -250,7 +250,7 @@ class PlayList extends VideoList {
     window.console.time('loadMylist: ' + mylistId);
 
     return this._mylistApiLoader
-      .getMylistItems(mylistId, options).then(items => {
+      .getMylistItems(mylistId, options, msgInfo).then(items => {
         window.console.timeEnd('loadMylist: ' + mylistId);
         let videoListItems = items.filter(item => {
           // マイリストはitem_typeがint

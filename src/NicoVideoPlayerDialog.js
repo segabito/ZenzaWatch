@@ -88,9 +88,8 @@ class VideoWatchOptions {
   get mylistLoadOptions() {
     let options = {};
     let query = this.query;
-    if (query.mylist_sort) {
-      options.sort = query.mylist_sort;
-    }
+    options.order = query.order;
+    options.sort = query.sort;
     options.group_id = query.group_id;
     options.watchId = this._watchId;
     return options;
@@ -1712,7 +1711,8 @@ class NicoVideoPlayerDialog extends Emitter {
 
     option = Object.assign({watchId: this._watchId}, option || {});
     // デフォルトで古い順にする
-    option.sort = isNaN(option.sort) ? 7 : option.sort;
+    option.order = option.order == null ? 'asc' : option.order;
+    option.sort = option.sort == null ? 'registeredAt' : option.sort;
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
     option.insert = this._playlist.isEnable;
@@ -1720,7 +1720,7 @@ class NicoVideoPlayerDialog extends Emitter {
     let query = this._videoWatchOptions.query;
     option.shuffle = parseInt(query.shuffle, 10) === 1;
 
-    this._playlist.loadFromMylist(mylistId, option).then(result => {
+    this._playlist.loadFromMylist(mylistId, option, this._videoInfo.msgInfo).then(result => {
         this.execCommand('notify', result.message);
         this._state.currentTab = 'playlist';
         this._playlist.insertCurrentVideo(this._videoInfo);
@@ -2313,9 +2313,9 @@ class NicoVideoPlayerDialog extends Emitter {
       console.log('playlist option:', option);
 
       if (query.playlist_type === 'mylist') {
-        this._playlist.loadFromMylist(option.group_id, option);
+        this._playlist.loadFromMylist(option.group_id, option, this._videoInfo.msgInfo);
       } else if (query.playlist_type === 'deflist') {
-        this._playlist.loadFromMylist('deflist', option);
+        this._playlist.loadFromMylist('deflist', option, this._videoInfo.msgInfo);
       } else if (query.playlist_type === 'tag' || query.playlist_type === 'search') {
         let word = query.tag || query.keyword;
         option.searchType = query.tag ? 'tag' : '';
