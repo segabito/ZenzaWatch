@@ -3,7 +3,7 @@ import {BaseViewComponent} from '../packages/zenza/src/parts/BaseViewComponent';
 import {TagEditApi} from '../packages/lib/src/nico/TagEditApi';
 import {Config} from './Config';
 import {textUtil} from '../packages/lib/src/text/textUtil';
-
+import {nicoUtil} from '../packages/lib/src/nico/nicoUtil';
 
 //===BEGIN===
 
@@ -36,6 +36,7 @@ class TagListView extends BaseViewComponent {
       tagInput: v.querySelector('.tagInputText'),
       form: v.querySelector('form')
     });
+
     this._elm.tagInput.addEventListener('keydown', this._onTagInputKeyDown.bind(this));
     this._elm.form.addEventListener('submit', this._onTagInputSubmit.bind(this));
     v.addEventListener('keydown', e => {
@@ -54,6 +55,7 @@ class TagListView extends BaseViewComponent {
 
   _onCommand(command, param) {
     switch (command) {
+
       case 'refresh':
         this._refreshTag();
         break;
@@ -82,16 +84,22 @@ class TagListView extends BaseViewComponent {
         break;
       case 'removeTag': {
         let elm = this._elm.videoTags.querySelector(`.tagItem[data-tag-id="${param}"]`);
+        
+        console.error('なんか失敗してる');
+        console.error(elm);
+        console.error(param);
         if (!elm) {
           return;
         }
         elm.classList.add('is-Removing');
         let data = JSON.parse(elm.getAttribute('data-tag'));
-        this._removeTag(param, data.tag);
+        this._removeTag(param, data.name);
         break;
       }
       case 'tag-search':
         this._onTagSearch(param);
+        break;
+      case 'none':
         break;
       default:
         super._onCommand(command, param);
@@ -154,7 +162,11 @@ class TagListView extends BaseViewComponent {
     tagList.forEach(tag => {
       tags.push(this._createTag(tag));
     });
-    tags.push(this._createToggleInput());
+    if (nicoUtil.isLogin()) {
+      tags.push(this._createToggleInput());
+    } else {
+      tags.push(`<span class="text">ログインしていません</span>`);
+    }
     this.setState({isEmpty: tagList.length < 1});
     this._elm.videoTagsInner.innerHTML = tags.join('');
   }
@@ -281,6 +293,7 @@ class TagListView extends BaseViewComponent {
       'https://live.nicovideo.jp/img/2012/watch/tag_icon002.png' :
       'https://live.nicovideo.jp/img/2012/watch/tag_icon003.png' ;
     let icon = `<img class="dicIcon" src="${src}">`;
+    
     let hasNicodic = hasDic ? 1 : 0;
     return (
       `<zenza-tag-item-menu
@@ -292,13 +305,20 @@ class TagListView extends BaseViewComponent {
   }
 
   _createDeleteButton(id) {
-    return `<span target="_blank" class="deleteButton command" title="削除" data-command="removeTag" data-param="${id}">ー</span>`;
+  
+    let deletTag = '';
+    if(nicoUtil.isLogin()){
+      deletTag = `<span target="_blank" class="deleteButton command" title="削除" data-command="removeTag" data-param="${id}">－</span>`;
+    }else{
+      deletTag = `<span target="_blank" class="deleteButton command" title="ログインしてください" data-command="none" data-param="${id}">×</span>`;
+    }
+    return deletTag;
   }
 
   _createLink(text) {
     let href = `//www.nicovideo.jp/tag/${encodeURIComponent(text)}`;
     // タグはエスケープされた物が来るのでそのままでつっこんでいいはずだが、
-    // 古いのはけっこういい加減なデータもあったりして信頼できない
+    // 古いのはけっこういい加減なデータもあったりして信頼できない        
     text = textUtil.escapeToZenkaku(textUtil.unescapeHtml(text));
     return `<a class="tagLink" href="${href}">${text}</a>`;
   }
@@ -311,16 +331,30 @@ class TagListView extends BaseViewComponent {
   }
 
   _createTag(tag) {
+    let tagName = tag.name;
+    let dic = this._createDicIcon(tagName, !!tag.isNicodicArticleExists);
+    let del = this._createDeleteButton(tagName);
+    let link = this._createLink(tagName);
+    let search = this._createSearch(tagName);
+    let data = textUtil.escapeHtml(JSON.stringify(tag));
+    // APIごとに形式が統一されてなくてひどい
+    let className = (tag.isLocked || tag.isLockedBySystem === 1 || tag.lck === '1')  ? 'tagItem is-Locked' : 'tagItem';
+    
+    return `<li class="${className}" data-tag="${data}" data-tag-id="${tagName}">${dic}${del}${link}${search}</li>`;
+  
+  
+  /*
     let text = tag.tag;
     let dic = this._createDicIcon(text, !!tag.dic);
-    let del = this._createDeleteButton(tag.id);
+    let del = this._createDeleteButton(tag.tag);
     let link = this._createLink(text);
     let search = this._createSearch(text);
     let data = textUtil.escapeHtml(JSON.stringify(tag));
     // APIごとに形式が統一されてなくてひどい
     let className = (tag.lock || tag.owner_lock === 1 || tag.lck === '1') ? 'tagItem is-Locked' : 'tagItem';
     className = (tag.cat) ? `${className} is-Category` : className;
-    return `<li class="${className}" data-tag="${data}" data-tag-id="${tag.id}">${dic}${del}${link}${search}</li>`;
+    return `<li class="${className}" data-tag="${data}" data-tag-id="${tag.tag}">${dic}${del}${link}${search}</li>`;
+*/
   }
 
   _onTagInputKeyDown(e) {
@@ -384,6 +418,7 @@ class TagListView extends BaseViewComponent {
 
 
 }
+
 
 TagListView.__shadow__ = (`
     <style>
@@ -569,7 +604,7 @@ TagListView.__shadow__ = (`
       .TagListView.is-Editing .is-Locked .deleteButton {
         visibility: hidden;
       }
-
+      
       .TagListView .is-Removing .deleteButton {
         background: #666;
       }

@@ -139,7 +139,7 @@ const VideoInfoLoader = (function () {
     const isDmc = !!dmcInfo && !!dmcInfo.movie.session;
     const csrfToken = null;
     const watchAuthKey = null;
-    const playlistToken = env.playlistToken;
+    const playlistToken = env.playlistToken; //項目は残ってるけど値は出なくなってる
     const context = data.context;
     const commentComposite = data.comment;
     const threads = commentComposite.threads.map(t => Object.assign({}, t));
@@ -181,18 +181,36 @@ const VideoInfoLoader = (function () {
     const playlist = {playlist: []};
 
     const tagList = [];
+    
     data.tag.items.forEach(t => {
       tagList.push({
         _data: t,
-        id: t.id,
-        tag: t.name,
-        dic: t.isNicodicArticleExists,
-        lock: t.isLocked, // 形式が統一されてない悲しみを吸収
-        owner_lock: t.isLocked ? 1 : 0,
-        lck: t.isLocked ? '1' : '0',
-        cat: t.isCategory
+        //id: t.id, //ID廃止
+        //tag: t.name, //移行期間措置
+        name: t.name,
+        isNicodicArticleExists: t.isNicodicArticleExists,
+        isLocked: t.isLocked, // 形式が統一されてない悲しみを吸収
+        isLockedBySystem: t.isLocked ? 1 : 0
+        //lck: t.isLocked ? '1' : '0', //lckもいらない
+        //cat: t.isCategory カテゴリ廃止
       });
     });
+      
+    /*
+      FLASHは廃止になりました
+      data.tag.items.forEach(t => {
+        tagList.push({
+          _data: t,
+          id: t.id,
+          tag: t.name,
+          dic: t.isNicodicArticleExists,
+          lock: t.isLocked, // 形式が統一されてない悲しみを吸収
+          owner_lock: t.isLocked ? 1 : 0,
+          lck: t.isLocked ? '1' : '0',
+          cat: t.isCategory
+        });
+      });
+    */
     let channelInfo = null, channelId = null;
     if (data.channel) {
       channelInfo = {

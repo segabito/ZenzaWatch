@@ -3496,7 +3496,7 @@ VideoHoverMenu.__tpl__ = (`
 
       <div class="menuItemContainer onErrorMenu">
         <div class="menuButton openGinzaMenu" data-command="openGinza">
-          <div class="menuButtonInner">GINZAで視聴</div>
+          <div class="menuButtonInner">(Re)で視聴</div>
         </div>
 
         <div class="menuButton reloadMenu for-nicovideo" data-command="reload">

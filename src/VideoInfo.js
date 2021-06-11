@@ -159,8 +159,9 @@ class VideoFilter {
     let isNg = false;
     let isChannel = videoInfo.isChannel;
     let ngTag = this.ngTag;
+
     videoInfo.tagList.forEach(tag => {
-      let text = (tag.tag || '').toLowerCase();
+      let text = (tag.name || '').toLowerCase();
       if (ngTag.includes(text)) {
         isNg = true;
       }
@@ -170,7 +171,7 @@ class VideoFilter {
     }
 
     let owner = videoInfo.owner;
-    let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
+    let ownerId = owner.id;
     if (ownerId && this.ngOwner.includes(ownerId)) {
       isNg = true;
     }

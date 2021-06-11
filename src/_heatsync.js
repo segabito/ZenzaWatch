@@ -350,7 +350,7 @@ import {ZenzaDetector} from '../packages/components/src/util/ZenzaDetector';
 
       _onVideoInfoLoad(videoInfo) {
         const tags = (videoInfo.tagList || [])
-          .map(t => { return t.tag.toUpperCase(); });
+          .map(t => { return t.name.toUpperCase(); });
         this._tags = tags;
       }
 
