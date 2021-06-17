@@ -27182,9 +27182,6 @@ class TagListView extends BaseViewComponent {
 				break;
 			case 'removeTag': {
 				let elm = this._elm.videoTags.querySelector(`.tagItem[data-tag-id="${param}"]`);
-				console.error('なんか失敗してる');
-				console.error(elm);
-				console.error(param);
 				if (!elm) {
 					return;
 				}
