@@ -6,7 +6,7 @@ import {PromiseHandler} from '../packages/lib/src/Emitter';
 class DmcInfo {
   constructor(rawData) {
     this._rawData = rawData;
-    this._session = rawData.session_api;
+    this._session = rawData.movie.session;
   }
 
   get apiUrl() {
@@ -22,11 +22,11 @@ class DmcInfo {
   }
 
   get videos() {
-    return this._session.videos;
+    return this._rawData.movie.videos;
   }
 
   get quality() {
-    return this._rawData.quality;
+    return this._rawData.movie.quality;
   }
 
   get signature() {
@@ -38,23 +38,23 @@ class DmcInfo {
   }
 
   get serviceUserId() {
-    return this._session.service_user_id;
+    return this._session.serviceUserId;
   }
 
   get contentId() {
-    return this._session.content_id;
+    return this._session.contentId;
   }
 
   get playerId() {
-    return this._session.player_id;
+    return this._session.playerId;
   }
 
   get recipeId() {
-    return this._session.recipe_id;
+    return this._session.recipeId;
   }
 
   get heartBeatLifeTimeMs() {
-    return this._session.heartbeat_lifetime;
+    return this._session.heartbeatLifetime;
   }
 
   get protocols() {
@@ -66,7 +66,7 @@ class DmcInfo {
   }
 
   get contentKeyTimeout() {
-    return this._session.content_key_timeout;
+    return this._session.contentKeyTimeout;
   }
 
   get priority() {
@@ -74,7 +74,7 @@ class DmcInfo {
   }
 
   get authTypes() {
-    return this._session.auth_types;
+    return this._session.authTypes;
   }
 
   get videoFormatList() {
@@ -90,11 +90,11 @@ class DmcInfo {
   }
 
   get transferPreset() {
-    return (this._session.transfer_presets || [''])[0] || '';
+    return (this._session.transferPresets || [''])[0] || '';
   }
 
   get heartbeatLifeTime() {
-    return this._session.heartbeat_lifetime || 120 * 1000;
+    return this._session.heartbeatLifetime || 120 * 1000;
   }
 
   get importVersion() {
@@ -102,7 +102,7 @@ class DmcInfo {
   }
 
   get trackingId() {
-    return this._rawData.tracking_id || '';
+    return this._rawData.trackingId || '';
   }
 
   get encryption() {
@@ -159,8 +159,9 @@ class VideoFilter {
     let isNg = false;
     let isChannel = videoInfo.isChannel;
     let ngTag = this.ngTag;
+
     videoInfo.tagList.forEach(tag => {
-      let text = (tag.tag || '').toLowerCase();
+      let text = (tag.name || '').toLowerCase();
       if (ngTag.includes(text)) {
         isNg = true;
       }
@@ -170,7 +171,7 @@ class VideoFilter {
     }
 
     let owner = videoInfo.owner;
-    let ownerId = isChannel ? ('ch' + owner.id) : owner.id;
+    let ownerId = owner.id;
     if (ownerId && this.ngOwner.includes(ownerId)) {
       isNg = true;
     }
@@ -199,7 +200,7 @@ class VideoInfoModel {
     this._viewerInfo = info.viewerInfo;               // 閲覧者(＝おまいら)の情報
     this._flvInfo = info.flvInfo;
     this._msgInfo = info.msgInfo;
-    this._dmcInfo = (info.dmcInfo && info.dmcInfo.session_api) ? new DmcInfo(info.dmcInfo) : null;
+    this._dmcInfo = (info.dmcInfo && info.dmcInfo.movie.session) ? new DmcInfo(info.dmcInfo) : null;
     this._relatedVideo = info.playlist; // playlistという名前だが実質は関連動画
     this._playlistToken = info.playlistToken;
     this._watchAuthKey = info.watchAuthKey;
@@ -250,7 +251,7 @@ class VideoInfoModel {
 
   get storyboardUrl() {
     let url = this._flvInfo.url;
-    if (!url.match(/smile\?m=/) || url.match(/^rtmp/)) {
+    if (!url || !url.match(/smile\?m=/) || url.match(/^rtmp/)) {
       return null;
     }
     return url;
@@ -311,7 +312,7 @@ class VideoInfoModel {
   }
 
   get threadId() { // watchIdと同一とは限らない
-    return this._videoDetail.thread_id;
+    return this._msgInfo.threadId;
   }
 
   get videoSize() {
@@ -435,15 +436,15 @@ class VideoInfoModel {
   }
 
   get firstVideo() {
-    return this.series ? this.series.firstVideo : null;
+    return this.series ? this.series.video.first : null;
   }
 
   get prevVideo() {
-    return this.series ? this.series.prevVideo : null;
+    return this.series ? this.series.video.prev : null;
   }
 
   get nextVideo() {
-    return this.series ? this.series.nextVideo : null;
+    return this.series ? this.series.video.next : null;
   }
 
   get relatedVideoItems() {

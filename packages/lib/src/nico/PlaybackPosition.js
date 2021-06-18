@@ -2,15 +2,18 @@ import {netUtil} from '../infra/netUtil';
 
 //===BEGIN===
 const PlaybackPosition = {
-  record: (watchId, playbackPosition, csrfToken) => {
-    const url = 'https://flapi.nicovideo.jp/api/record_current_playback_position';
+  record: (watchId, playbackPosition, frontendId, frontendVersion) => {
+    const url = 'https://nvapi.nicovideo.jp/v1/users/me/watch/history/playback-position';
     const body =
-      `watch_id=${watchId}&playback_position=${playbackPosition}&csrf_token=${csrfToken}`;
+        `watchId=${watchId}&seconds=${playbackPosition}`;
     return netUtil.fetch(url, {
-      method: 'POST',
+      method: 'PUT',
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Frontend-Id': frontendId,
+        'X-Frontend-Version': frontendVersion,
+        'X-Request-With': 'https://www.nicovideo.jp'
       },
       body
     });

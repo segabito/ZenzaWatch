@@ -179,7 +179,7 @@ const workerUtil = (() => {
       const name = options.name || 'Worker';
       if (!cache) {
         const src = `
-        const PID = '${window && window.name || 'self'}:${location.href}:${name}:${Date.now().toString(16).toUpperCase()}';
+        const PID = '${window && window.name || 'self'}:${location.href.replace(/\'/g, '\\\'')}:${name}:${Date.now().toString(16).toUpperCase()}';
         console.log('%cinit %s %s', 'font-weight: bold;', self.name || '', '${PRODUCT}', location.origin);
         (${func.toString()})(self);
         `;

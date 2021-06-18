@@ -1,17 +1,31 @@
 import {util} from '../../../../src/util';
-
 //===BEGIN===
 
 class TagEditApi {
 
   load(videoId) {
-    const url = `/tag_edit/${videoId}/?res_type=json&cmd=tags&_=${Date.now()}`;
-    return this._fetch(url, {credentials: 'include'});
+
+    const url = `https://nvapi.nicovideo.jp/v1/videos/${videoId}/tags?_language=ja-jp`;
+    //const url = `/tag_edit/${videoId}/?res_type=json&cmd=tags&_=${Date.now()}`;
+    const options = {
+      method: 'GET',
+      credentials: 'include',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Frontend-Id': 6, 'X-Frontend-Version': 0, 'X-Request-With': 'https://www.nicovideo.jp' }
+    };
+    return this._fetch(url, options).then(result => {
+      return result.data;
+    }).catch(result => {
+      throw new Error('タグ一覧の取得失敗', {result, status: 'fail'});
+    });
   }
 
-  add({videoId, tag, csrfToken, watchAuthKey, ownerLock = 0}) {
-    const url = `/tag_edit/${videoId}/`;
+  async add({videoId, tag, csrfToken, watchAuthKey, ownerLock = 0}) {
 
+
+    const encodedTag = encodeURIComponent(tag);
+    const url = `https://nvapi.nicovideo.jp/v1/videos/${videoId}/tags?_language=ja-jp&tag=${encodedTag}`;
+    //const url = `/tag_edit/${videoId}/`;
+/*
     const body = this._buildQuery({
       cmd: 'add',
       tag,
@@ -21,38 +35,54 @@ class TagEditApi {
       owner_lock: ownerLock,
       res_type: 'json'
     });
-
+*/
     const options = {
       method: 'POST',
       credentials: 'include',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Frontend-Id': 6, 'X-Frontend-Version': 0, 'X-Request-With': 'https://www.nicovideo.jp' }
     };
 
-    return this._fetch(url, options);
+    return await this._fetch(url, options).then(result => {
+      return result.data;
+    }).catch(result => {
+      throw new Error('タグの追加失敗', {result, status: 'fail'});
+    });
+
+    //return await this.load(videoId);
   }
 
-  remove({videoId, tag = '', id, csrfToken, watchAuthKey, ownerLock = 0}) {
-    const url = `/tag_edit/${videoId}/`;
+  async remove({videoId, tag = '', id, csrfToken, watchAuthKey, ownerLock = 0}) {
 
+    const encodedTag = encodeURIComponent(tag);
+    const url = `https://nvapi.nicovideo.jp/v1/videos/${videoId}/tags?_language=ja-jp&tag=${encodedTag}`;
+
+
+    //const url = `/tag_edit/${videoId}/`;
+/*
     const body = this._buildQuery({
       cmd: 'remove',
-      tag, // いらないかも
+      tag, // いらないかも →というかこれだけ必要というか
       id,
       token: csrfToken,
       watch_auth_key: watchAuthKey,
       owner_lock: ownerLock,
       res_type: 'json'
     });
-
+*/
     const options = {
-      method: 'POST',
+      method: 'DELETE',
       credentials: 'include',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Frontend-Id': 6, 'X-Frontend-Version': 0, 'X-Request-With': 'https://www.nicovideo.jp' }
+      
     };
 
-    return this._fetch(url, options);
+    return await this._fetch(url, options).then(result => {
+      return result.data;
+    }).catch(result => {
+      throw new Error('タグの削除失敗', {result, status: 'fail'});
+    });
+    //return await this.load(videoId);
+    
   }
 
   _buildQuery(params) {
@@ -63,9 +93,11 @@ class TagEditApi {
     return t.join('&');
   }
 
-  _fetch(url, options) {
-    return util.fetch(url, options).then(result => {
+  async _fetch(url, options) {
+    return await util.fetch(url, options).then(result => {
       return result.json();
+    }).catch(result => {
+      throw new Error('タグ一覧の取得失敗', {result, status: 'fail'});
     });
   }
 }

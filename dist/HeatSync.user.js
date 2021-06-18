@@ -15,7 +15,7 @@
 // @exclude     *://ch.nicovideo.jp/tool/*
 // @exclude     *://flapi.nicovideo.jp/*
 // @exclude     *://dic.nicovideo.jp/p/*
-// @version     0.0.18
+// @version     0.0.18 Another.1
 // @grant       none
 // @author      segabito macmoto
 // @license     public domain
@@ -591,7 +591,7 @@ const ZenzaDetector = (() => {
 
       _onVideoInfoLoad(videoInfo) {
         const tags = (videoInfo.tagList || [])
-          .map(t => { return t.tag.toUpperCase(); });
+          .map(t => { return t.name.toUpperCase(); });
         this._tags = tags;
       }
 
