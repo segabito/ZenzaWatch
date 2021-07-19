@@ -310,9 +310,9 @@ ZenzaWatch.modules.TextLabel = TextLabel;
       NicoVideoApi.fetch('https://www.nicovideo.jp/',{credentials: 'include'})
         .then(r => r.text())
         .then(result => {
-          const $dom = util.$(`<div>${result}</div>`);
+          const dom = new DOMParser().parseFromString(result, 'text/html');
 
-          const userData = JSON.parse($dom.find('#CommonHeader')[0].dataset.commonHeader).initConfig.user;
+          const userData = JSON.parse(dom.querySelector('#CommonHeader').dataset.commonHeader).initConfig.user;
           const isLogin = !!userData.isLogin;
           const isPremium = !!userData.isPremium;
           window.console.log('isLogin: %s isPremium: %s', isLogin, isPremium);

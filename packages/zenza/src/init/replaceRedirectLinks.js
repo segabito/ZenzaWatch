@@ -88,8 +88,7 @@ const replaceRedirectLinks = async () => {
       }
       const mylistId = lp.replace(/^.*\//, '');
       const playlistType = mylistId ? 'mylist' : 'deflist';
-      shuffleButton.attr('href',
-        `//www.nicovideo.jp/watch/1470321133?group_id=${mylistId}&playlist_type=${playlistType}&continuous=1&shuffle=1`);
+      shuffleButton.attr('href', $a[0].href + '&shuffle=1');
 
       $a.before(shuffleButton);
       return true;
@@ -106,9 +105,7 @@ const replaceRedirectLinks = async () => {
     $target.attr('href', href);
     let $shuffle = $autoPlay.clone();
     let a = $target[0];
-    $shuffle.find('a').attr({
-      'href': '/watch/1483135673' + a.search + '&shuffle=1'
-    }).text('シャッフル再生');
+    $shuffle.find('a').attr('href', href + '&shuffle=1').text('シャッフル再生');
     $autoPlay.after($shuffle);
 
     // ニコニ広告枠のリンクを置き換える

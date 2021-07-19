@@ -1706,6 +1706,20 @@ AntiPrototypeJs().then(() => {
     const __ng_css__ = `
       /* .item_cell 将棋盤ランキング  .item 従来のランキングと検索 */
 
+      .VideoItem.NC-VideoCard.is-ng-rejected,
+      .item_cell.is-ng-rejected {
+       opacity: 0;
+       pointer-events: none;
+       visibility: hidden;
+      } 
+
+      .VideoItem.VideoCard.is-ng-rejected,
+      .item_cell.is-ng-rejected {
+       opacity: 0;
+       pointer-events: none;
+       visibility: hidden;
+      } 
+
       .RankingMainVideo.is-ng-wait,
       .RankingBaseItem.is-ng-wait,
       .item_cell.is-ng-wait .item,

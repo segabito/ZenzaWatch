@@ -43,168 +43,103 @@ const MylistApiLoader = (() => {
       token = t;
       if (cacheStorage) {
         cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
+      }else{
+        cacheStorage = new CacheStorage(sessionStorage);
+        cacheStorage.setItem('csrfToken', token, TOKEN_EXPIRE_TIME);
       }
     }
-    async getDeflistItems(options = {}) {
-      const url = 'https://www.nicovideo.jp/api/deflist/list';
-      const cacheKey = 'deflistItems';
-      const sortItem = this.sortItem;
+    
+    // どうにもトークンが取れなくなっていたので、専用の関数作成。
+    // 一応、キャッシュもされている(はず)
+    async _getCsrfToken(){
 
-      let cacheData = cacheStorage.getItem(cacheKey);
-      if (cacheData) {
-        if (options.sort) {
-          cacheData = sortItem(cacheData, options.sort, 'www');
+        if (!cacheStorage) {
+            cacheStorage = new CacheStorage(sessionStorage);
         }
+        
+        token = cacheStorage.getItem('csrfToken');
+        
+        //キャッシュにあったらそこで返す
+        if (token) {
+            console.log('cached token exists', token);
+        }else{
+        
+            //そもそもemit元からは取れる物がないんだから、
+            //マイリストページからトークン持ってくるしかないでしょ
+            const tokenUrl = 'https://www.nicovideo.jp/my/mylist';
+            const result = await netUtil.fetch( tokenUrl, {
+            cledentials: 'include'
+            }).then(r => r.text()).catch(result => {
+                throw new Error('マイリストトークン取得失敗', {result, status: 'fail'});
+            });
+
+            const dom = new DOMParser().parseFromString(result, 'text/html');
+            const initUserpageDataContena = dom.querySelector('#js-initial-userpage-data');
+            const env = JSON.parse(initUserpageDataContena.getAttribute('data-environment'));
+
+            this.setCsrfToken(env.csrfToken); 
+        }
+
+        return token;
+
+    }
+    async getDeflistItems(options = {}, frontendId = 6, frontendVersion = 0) {
+
+      options.order = options.order == null ? 'asc' : options.order;
+      options.sort = options.sort == null ? 'registeredAt' : options.sort;
+      const url = `https://nvapi.nicovideo.jp/v1/playlist/watch-later?sortOrder=${options.order}&sortKey=${options.sort}`;
+
+      // nvapi でソートされた結果をもらうのでそのままキャッシュする
+      const cacheKey = `watchLaterItems, order: ${options.order} ${options.sort}`;
+      const cacheData = cacheStorage.getItem(cacheKey);
+      if (cacheData) {
         return cacheData;
       }
 
-      const result = await netUtil.fetch(url, {credentials: 'include'}).then(r => r.json())
-          .catch(e => { throw new Error('とりあえずマイリストの取得失敗(2)', e); });
-      if (result.status !== 'ok' || (!result.list && !result.mylistitem)) {
+      // nvapi に X-Frontend-Id header が必要
+      const result = await netUtil.fetch(url, {
+        headers: {'X-Frontend-Id': frontendId, 'X-Frontend-Version': frontendVersion},
+        credentials: 'include'
+      }).then(r => r.json())
+        .catch(e => { throw new Error('とりあえずマイリストの取得失敗(2)', e); });
+      if (result.meta.status !== 200 || !result.data.items) {
         throw new Error('とりあえずマイリストの取得失敗(1)', result);
       }
 
-      let data = result.list || result.mylistitem;
+      const data = result.data.items;
       cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-      if (options.sort) {
-        data = sortItem(data, options.sort, 'www');
-      }
       return data;
     }
-    async getMylistItems(groupId, options = {}) {
+    async getMylistItems(groupId, options = {}, { frontendId = 6, frontendVersion = 0 } = {}) {
       if (groupId === 'deflist') {
-        return this.getDeflistItems(options);
+        return this.getDeflistItems(options, frontendId, frontendVersion);
       }
-      // flapiじゃないと自分のマイリストしか取れないことが発覚
-      const url = `https://flapi.nicovideo.jp/api/watch/mylistvideo?id=${groupId}`;
-      const cacheKey = `mylistItems: ${groupId}`;
-      const sortItem = this.sortItem;
 
+      options.order = options.order == null ? 'asc' : options.order;
+      options.sort = options.sort == null ? 'registeredAt' : options.sort;
+      const url = `https://nvapi.nicovideo.jp/v1/playlist/mylist/${groupId}?sortOrder=${options.order}&sortKey=${options.sort}`;
+
+      // nvapi でソートされた結果をもらうのでそのままキャッシュする
+      const cacheKey = `mylistItems: ${groupId}, order: ${options.order} ${options.sort}`;
       const cacheData = cacheStorage.getItem(cacheKey);
       if (cacheData) {
-        return options.sort ? sortItem(cacheData, options.sort, 'flapi') : cacheData;
+        return cacheData;
       }
 
-      const result = await netUtil.fetch(url, {credentials: 'include'})
-        .then(r => r.json())
+      // nvapi に X-Frontend-Id header が必要
+      const result = await netUtil.fetch(url, {
+        headers: { 'X-Frontend-Id': frontendId, 'X-Frontend-Version': frontendVersion },
+        credentials: 'include',
+      }).then(r => r.json())
         .catch(e => { throw new Error('マイリストの取得失敗(2)', e); });
 
-      if (result.status !== 'ok' || (!result.list && !result.mylistitem)) {
+      if (result.meta.status !== 200 || !result.data.items) {
         throw new Error('マイリストの取得失敗(1)', result);
       }
 
-      let data = result.list || result.mylistitem;
-      data.id = groupId;
+      const data = result.data.items;
       cacheStorage.setItem(cacheKey, data, CACHE_EXPIRE_TIME);
-      if (options.sort) {
-        data = sortItem(data, options.sort, 'flapi');
-      }
       return data;
-    }
-    sortItem(items, sortId, format) {
-      // wwwの時とflapiの時で微妙にフォーマットが違うのでめんどくさい
-      // 自分以外のマイリストが開けるのはflapiだけの模様
-      // 編集時にはitem_idが必要なのだが、それはwwwのほうにしか入ってない
-      // flapiに統一したい
-      sortId = parseInt(sortId, 10);
-
-      let sortKey = ([
-        'create_time', 'create_time',
-        'mylist_comment', 'mylist_comment', // format = wwwの時はdescription
-        'title', 'title',
-        'first_retrieve', 'first_retrieve',
-        'view_counter', 'view_counter',
-        'thread_update_time', 'thread_update_time',
-        'num_res', 'num_res',
-        'mylist_counter', 'mylist_counter',
-        'length_seconds', 'length_seconds'
-      ])[sortId];
-
-      if (format === 'www' && sortKey === 'mylist_comment') {
-        sortKey = 'description';
-      }
-      if (format === 'www' && sortKey === 'thread_update_time') {
-        sortKey = 'update_time';
-      }
-
-      let order;
-      switch (sortKey) {
-        // 偶数がascで奇数がdescかと思ったら特に統一されてなかった
-        case 'first_retrieve':
-        case 'thread_update_time':
-        case 'update_time':
-          order = (sortId % 2 === 1) ? 'asc' : 'desc';
-          break;
-        // 数値系は偶数がdesc
-        case 'num_res':
-        case 'mylist_counter':
-        case 'view_counter':
-        case 'length_seconds':
-          order = (sortId % 2 === 1) ? 'asc' : 'desc';
-          break;
-        default:
-          order = (sortId % 2 === 0) ? 'asc' : 'desc';
-      }
-
-      //window.console.log('sortKey?', sortId, sortKey, order);
-      if (!sortKey) {
-        return items;
-      }
-
-      let getKeyFunc = (function (sortKey, format) {
-        switch (sortKey) {
-          case 'create_time':
-          case 'description':
-          case 'mylist_comment':
-          case 'update_time':
-            return item => item[sortKey];
-          case 'num_res':
-          case 'mylist_counter':
-          case 'view_counter':
-          case 'length_seconds':
-            if (format === 'flapi') {
-              return item => item[sortKey] * 1;
-            } else {
-              return item => item.item_data[sortKey] * 1;
-            }
-          default:
-            if (format === 'flapi') {
-              return item => item[sortKey];
-            } else {
-              return item => item.item_data[sortKey];
-            }
-        }
-      })(sortKey, format);
-
-      let compareFunc = (function (order, getKey) {
-        switch (order) {
-          // sortKeyが同一だった場合は動画IDでソートする
-          // 銀魂など、一部公式チャンネル動画向けの対応
-          case 'asc':
-            return function (a, b) {
-              let ak = getKey(a), bk = getKey(b);
-              if (ak !== bk) {
-                return ak > bk ? 1 : -1;
-              }
-              else {
-                return a.id > b.id ? 1 : -1;
-              }
-            };
-          case 'desc':
-            return function (a, b) {
-              let ak = getKey(a), bk = getKey(b);
-              if (ak !== bk) {
-                return (ak < bk) ? 1 : -1;
-              }
-              else {
-                return a.id < b.id ? 1 : -1;
-              }
-            };
-        }
-      })(order, getKeyFunc);
-
-      items.sort(compareFunc);
-      return items;
     }
     async getMylistList() {
       const url = 'https://www.nicovideo.jp/api/mylistgroup/list';
@@ -227,9 +162,14 @@ const MylistApiLoader = (() => {
       return data;
     }
     async findDeflistItemByWatchId(watchId) {
-      const items = await this.getDeflistItems().catch(() => []);
+    // const items = await this.getDeflistItems().catch(() => []);
+      const items = await this.getDeflistItems().catch(e => { throw new Error('とりあえずマイリストの取得失敗(3)', e); });
+
       for (let i = 0, len = items.length; i < len; i++) {
-        let item = items[i], wid = item.id || item.item_data.watch_id;
+        
+        //返ってくるJsonのフォーマットまるっきり変わってるじゃないですかやだー ちなみにwatchIdはitemIdだった
+        //let item = items[i], wid = item.id || item.item_data.watch_id;
+        let item = items[i], wid = item.content.id ;
         if (wid === watchId) {
           return item;
         }
@@ -240,6 +180,7 @@ const MylistApiLoader = (() => {
       const items = await this._getMylistItemsFromWapi(groupId).catch(() => []);
       for (let i = 0, len = items.length; i < len; i++) {
         let item = items[i], wid = item.id || item.item_data.watch_id;
+        
         if (wid === watchId) {
           return item;
         }
@@ -249,7 +190,7 @@ const MylistApiLoader = (() => {
     async _getMylistItemsFromWapi(groupId) {
       // めんどくさいが、マイリスト取得APIは2種類ある
       // こっちは自分のマイリストだけを取る奴。 編集にはこっちが必要。
-      const url = `https://www.nicovideo.jp/api/mylist/list?group_id=${groupId}}`;
+      const url = `https://www.nicovideo.jp/api/mylist/list?group_id=${groupId}`;
 
       const result = await netUtil.fetch(url, {credentials: 'include'})
         .then(r => r.json())
@@ -261,11 +202,19 @@ const MylistApiLoader = (() => {
       return result.mylistitem;
     }
     async removeDeflistItem(watchId) {
-      const item = await this.findDeflistItemByWatchId(watchId).catch(() => {
-        throw new Error('動画が見つかりません');
+    
+      const item = await this.findDeflistItemByWatchId(watchId).catch(result => {
+        throw new Error('動画が見つかりません', {result, status: 'fail'});
       });
+      
+      //トークン取得処理追加
+      await this._getCsrfToken().catch(result => {
+          throw new Error('トークンの取得に失敗しました', {result, status: 'fail'});
+      });
+      
       const url = 'https://www.nicovideo.jp/api/deflist/delete';
-      const body = `id_list[0][]=${item.item_id}&token=${token}`;
+      //const body = `id_list[0][]=${item.item_Id}&token=${token}`;
+      const body = `id_list[0][]=${item.watchId}&token=${token}`;
       const cacheKey = 'deflistItems';
       const req = {
         method: 'POST',
@@ -277,7 +226,7 @@ const MylistApiLoader = (() => {
       const result = await netUtil.fetch(url, req)
         .then(r => r.json()).catch(e => e || {});
 
-      if (result && result.status && result.status === 'ok') {
+      if (result && result.status && result.status === 'ok' ) {
         cacheStorage.removeItem(cacheKey);
         emitter.emitAsync('deflistRemove', watchId);
         return {
@@ -287,11 +236,16 @@ const MylistApiLoader = (() => {
         };
       }
 
-      throw new Error(result.error.description, {
-        status: 'fail', result, code: result.error.code
-      });
+        throw new Error(result.error.description, {
+          status: 'fail', result, code: result.error.code
+        });
+
     }
     async removeMylistItem(watchId, groupId) {
+      //トークン取得処理追加
+      await this._getCsrfToken().catch(result => {
+          throw new Error('トークンの取得に失敗しました', {result, status: 'fail'});
+        });
       const item = await this.findMylistItemByWatchId(watchId, groupId).catch(result => {
           throw new Error('動画が見つかりません', {result, status: 'fail'});
         });
@@ -327,18 +281,22 @@ const MylistApiLoader = (() => {
         code: result.error.code
       });
     }
-    async _addDeflistItem(watchId, description, isRetry) {
-      let url = 'https://www.nicovideo.jp/api/deflist/add';
-      let body = `item_id=${watchId}&token=${token}`;
+
+//nvapiに frontendId と frontendVersion の値が必要
+    async _addDeflistItem(watchId, description, isRetry, { frontendId = 6, frontendVersion = 0 } = {}) {
+//    async _addDeflistItem(watchId, description, isRetry, frontendId, frontendVersion) {
+
+      let url = 'https://nvapi.nicovideo.jp/v1/users/me/watch-later';
+      let body = `watchId=${watchId}&memo=`;
       if (description) {
-        body += `&description=${encodeURIComponent(description)}`;
+        body += `${encodeURIComponent(description)}`;
       }
       let cacheKey = 'deflistItems';
 
       const result = await netUtil.fetch(url, {
         method: 'POST',
         body,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Frontend-Id': frontendId, 'X-Frontend-Version': frontendVersion, 'X-Request-With': 'https://www.nicovideo.jp' },
         credentials: 'include'
       }).then(r => r.json())
         .catch(err => {
@@ -347,7 +305,7 @@ const MylistApiLoader = (() => {
               result: err
             });
           });
-      if (result.status && result.status === 'ok') {
+      if (result.meta.status && ( result.meta.status === 200 || result.meta.status === 201 )) {
         cacheStorage.removeItem(cacheKey);
         emitter.emitAsync('deflistAdd', watchId, description);
         return {
@@ -355,9 +313,31 @@ const MylistApiLoader = (() => {
           result,
           message: 'とりあえずマイリスト登録'
         };
+      }else if(result.meta.status && result.meta.status === 409){
+      
+          /**
+           すでに登録されている場合は、いったん削除して再度追加(先頭に移動)
+           例えば、とりマイの300番目に登録済みだった場合に「登録済みです」と言われても探すのがダルいし、
+           他の動画を追加していけば、そのうち押し出されて消えてしまう。
+           なので、重複時にエラーを出すのではなく、「消してから追加」することによって先頭に持ってくる。
+           登録済みの場合、409が返ってくるようになったのでこちらで処理
+           */
+          await this.removeDeflistItem(watchId).catch(err => {
+              throw new Error('とりあえずマイリスト登録失敗(101)', {
+                status: 'fail',
+                result: err.result,
+                code: err.code
+              });
+            });
+          const added = await this._addDeflistItem(watchId, description, true);
+          return {
+            status: 'ok',
+            result: added,
+            message: 'とりあえずマイリストの先頭に移動'
+          };
       }
 
-      if (!result.status || !result.error) {
+      if (!result.meta.status || !result.error) { // result.errorが残っているかは不明
         throw new Error('とりあえずマイリスト登録失敗(100)', {
           status: 'fail',
           result,
@@ -373,12 +353,15 @@ const MylistApiLoader = (() => {
         });
       }
 
-      /**
-       すでに登録されている場合は、いったん削除して再度追加(先頭に移動)
-        例えば、とりマイの300番目に登録済みだった場合に「登録済みです」と言われても探すのがダルいし、
-        他の動画を追加していけば、そのうち押し出されて消えてしまう。
-        なので、重複時にエラーを出すのではなく、「消してから追加」することによって先頭に持ってくる。
-        */
+
+// APIの動作が、「追加済みのものは409を返す」処理になっているため、上に移動しました
+//      /**
+//       すでに登録されている場合は、いったん削除して再度追加(先頭に移動)
+//        例えば、とりマイの300番目に登録済みだった場合に「登録済みです」と言われても探すのがダルいし、
+//        他の動画を追加していけば、そのうち押し出されて消えてしまう。
+//        なので、重複時にエラーを出すのではなく、「消してから追加」することによって先頭に持ってくる。
+//        */
+/*
       await self.removeDeflistItem(watchId).catch(err => {
           throw new Error('とりあえずマイリスト登録失敗(101)', {
             status: 'fail',
@@ -392,22 +375,26 @@ const MylistApiLoader = (() => {
         result: added,
         message: 'とりあえずマイリストの先頭に移動'
       };
+*/
     }
-    addDeflistItem(watchId, description) {
-      return this._addDeflistItem(watchId, description, false);
+    addDeflistItem(watchId, description, frontendId, frontendVersion) {
+      return this._addDeflistItem(watchId, description, false,frontendId, frontendVersion);
     }
-    async addMylistItem(watchId, groupId, description) {
-      const url = 'https://www.nicovideo.jp/api/mylist/add';
-      let body = 'item_id=' + watchId + '&token=' + token + '&group_id=' + groupId;
+
+//nvapiに frontendId と frontendVersion の値が必要
+    async addMylistItem(watchId, groupId, description, { frontendId = 6, frontendVersion = 0 } = {}) {
+      //const url = 'https://www.nicovideo.jp/api/mylist/add';
+      let body = 'itemId=' + watchId + '&description=';//+ '&token=' + token + '&group_id=' + groupId;
       if (description) {
-        body += '&description=' + encodeURIComponent(description);
+        body += encodeURIComponent(description);
       }
+      const url = 'https://nvapi.nicovideo.jp/v1/users/me/mylists/' + groupId + '/items?' + body ;
       const cacheKey = `mylistItems: ${groupId}`;
 
       const result = await netUtil.fetch(url, {
         method: 'POST',
         body,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: {  'Content-Type': 'application/x-www-form-urlencoded', 'X-Frontend-Id': frontendId, 'X-Frontend-Version': frontendVersion, 'X-Request-With': 'https://www.nicovideo.jp'},
         credentials: 'include'
       }).then(r => r.json())
         .catch(err => {
@@ -417,14 +404,14 @@ const MylistApiLoader = (() => {
           });
         });
 
-      if (result.status && result.status === 'ok') {
+      if (result.meta.status && ( result.meta.status === 200 || result.meta.status === 201 )) {
         cacheStorage.removeItem(cacheKey);
         // マイリストに登録したらとりあえずマイリストから除去(=移動)
         this.removeDeflistItem(watchId).catch(() => {});
         return {status: 'ok', result, message: 'マイリスト登録'};
       }
 
-      if (!result.status || !result.error) {
+      if (!result.meta.status /*|| !result.error*/) {
         throw new Error('マイリスト登録失敗(100)', {status: 'fail', result});
       }
 
@@ -432,9 +419,11 @@ const MylistApiLoader = (() => {
       // とりまいと違って押し出されることがないし、
       // シリーズ物が勝手に入れ替わっても困るため
       emitter.emitAsync('mylistAdd', watchId, groupId, description);
+
       throw new Error(result.error.description, {
-        status: 'fail', result, code: result.error.code
+          status: 'fail', result, code: result.error.code
       });
+      
     }
   }
 

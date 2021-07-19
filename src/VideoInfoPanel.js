@@ -145,14 +145,14 @@ class VideoInfoPanel extends Emitter {
     this._description.textContent = '';
     this._zenTubeUrl = null;
     if (series) {
-      if (series.prevVideo || series.nextVideo) {
+      if (series.video.prev || series.video.next) {
         html += `<br><br>「${textUtil.escapeHtml(series.title)}」 シリーズ前後の動画`;
       }
-      if (series.prevVideo) {
-        html += `<br>前の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.prevVideo.id}">${series.prevVideo.id}</a>`;
+      if (series.video.prev) {
+        html += `<br>前の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.video.prev.id}">${series.video.prev.id}</a>`;
       }
-      if (series.nextVideo) {
-        html += `<br>次の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.nextVideo.id}">${series.nextVideo.id}</a>`;
+      if (series.video.next) {
+        html += `<br>次の動画 <a class="watch" href="https://www.nicovideo.jp/watch/${series.video.next.id}">${series.video.next.id}</a>`;
       }
     }
     const decorateWatchLink = watchLink => {

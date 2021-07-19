@@ -7,33 +7,67 @@ const nicoUtil = {
     try {
       const result = textUtil.parseQuery(query);
       const playlist = JSON.parse(textUtil.decodeBase64(result.playlist) || '{}');
-      if (playlist.searchQuery) {
-        const sq = playlist.searchQuery;
-        if (sq.type === 'tag') {
+      const context = playlist.context;
+      if (playlist.type === 'search') {
+        if (context.hasOwnProperty('tag')) {
           result.playlist_type = 'tag';
-          result.tag = sq.query;
+          result.tag = context.tag;
         } else {
           result.playlist_type = 'search';
-          result.keyword = sq.query;
+          result.keyword = context.keyword;
         }
-        let [order, sort] = (sq.sort || '+f').split('');
-        result.order = order === '-' ? 'a' : 'd';
-        result.sort = sort;
-        if (sq.fRange) { result.f_range = sq.fRange; }
-        if (sq.lRange) { result.l_range = sq.lRange; }
-      } else if (playlist.mylistId) {
+        result.order = context.sortOrder === 'asc' ? 'a' : 'd';
+        result.sort = ((sortKey) => {
+          switch (sortKey) {
+            case 'hotLikeAndMylist': return 'h';
+            case 'personalized': return 'p';
+            case 'registeredAt': return 'f';
+            case 'viewCount': return 'v';
+            case 'mylistCount': return 'm';
+            case 'lastCommentTime': return 'n';
+            case 'commentCount': return 'r';
+            case 'duration': return 'l';
+          }
+        })(context.sortKey);
+        const F_RANGE = {
+          U_1H: 4,
+          U_24H: 1,
+          U_1W: 2,
+          U_30D: 3
+        };
+        const L_RANGE = {
+          U_5MIN: 1,
+          O_20MIN: 2
+        };
+        if (context.minRegisteredAt) {
+          result.f_range = (time => {
+            const now = Date.now();
+            if (time > now - 1000 * 60 * 60 * 24 * 30) {
+              return F_RANGE.U_30D;
+            } else if (time > now - 1000 * 60 * 60 * 24 * 7) {
+              return F_RANGE.U_1W;
+            } else if (time > now - 1000 * 60 * 60 * 24) {
+              return F_RANGE.U_24H;
+            } else if (time > now - 1000 * 60 * 60) {
+              return F_RANGE.U_1H;
+            }
+          })(new Date(context.minRegisteredAt).getTime());
+        }
+        if (context.maxDuration || context.minDuration) {
+          result.l_range = context.maxDuration === 300 ? L_RANGE.U_5MIN : L_RANGE.O_20MIN;
+        }
+        return result;
+      }
+
+      if (playlist.type === 'mylist') {
         result.playlist_type = 'mylist';
-        result.group_id = playlist.mylistId;
-        result.order =
-          document.querySelector('select[name="sort"]') ?
-            document.querySelector('select[name="sort"]').value : '1';
-      } else if (playlist.id && playlist.id.includes('temporary_mylist')) {
+        result.group_id = context.mylistId;
+      } else if (playlist.type === 'watchlater') {
         result.playlist_type = 'deflist';
         result.group_id = 'deflist';
-        result.order =
-          document.querySelector('select[name="sort"]') ?
-            document.querySelector('select[name="sort"]').value : '1';
       }
+      result.order = context.sortOrder;
+      result.sort = context.sortKey;
 
       return result;
     } catch(e) {
