@@ -15,12 +15,14 @@ import {PlaybackPosition} from './PlaybackPosition';
 import {VideoInfoLoader} from './VideoInfoLoader';
 import {ThumbInfoLoader} from './ThumbInfoLoader';
 import {MylistApiLoader} from './MylistApiLoader';
+import {PlaylistApiLoader} from './PlaylistApiLoader';
 import {NicoVideoApi} from './NicoVideoApi';
 
 //===BEGIN===
 //@require CacheStorage
 //@require VideoInfoLoader
 //@require ThumbInfoLoader
+//@require PlaylistApiLoader
 //@require MylistApiLoader
 //@require NicoRssLoader
 //@require MatrixRankingLoader
@@ -39,6 +41,7 @@ import {NicoVideoApi} from './NicoVideoApi';
 export {
   VideoInfoLoader,
   ThumbInfoLoader,
+  PlaylistApiLoader,
   MylistApiLoader,
   UploadedVideoApiLoader,
   CacheStorage,

@@ -11,6 +11,7 @@ import {VideoListView} from './VideoListView';
 import {PlayListView} from './PlayListView';
 
 import {textUtil} from '../../../lib/src/text/textUtil';
+import {PlaylistApiLoader} from '../../../lib/src/nico/PlaylistApiLoader';
 import {MylistApiLoader} from '../../../lib/src/nico/MylistApiLoader';
 import {UploadedVideoApiLoader} from '../../../lib/src/nico/UploadedVideoApiLoader';
 //===BEGIN===
@@ -240,6 +241,49 @@ class PlayList extends VideoList {
   insertItems(videoListItemsRawData, options) {
     const items = videoListItemsRawData.map(raw => new VideoListItem(raw));
     return this._insertAll(items, options);
+  }
+  load(playlist, options, msgInfo) {
+    this._initializeView();
+
+    if (!this._playlistApiLoader) {
+      this._playlistApiLoader = PlaylistApiLoader;
+    }
+    const timeKey = `loadPlaylist: ${playlist.type} ${playlist.id || playlist.options.tag || playlist.options.keyword}`;
+    window.console.time(timeKey);
+
+    return this._playlistApiLoader
+      .load(playlist, msgInfo).then(items => {
+        window.console.timeEnd(timeKey);
+        let videoListItems = items.map(item => VideoListItem.createByMylistItem(item));
+
+        if (videoListItems.length < 1) {
+          return Promise.reject({
+            status: 'fail',
+            message: 'プレイリストの取得に失敗しました'
+          });
+        }
+
+        if (options.shuffle) {
+          videoListItems = _.shuffle(videoListItems);
+        }
+
+        if (options.insert) {
+          this._insertAll(videoListItems, options);
+        } else if (options.append) {
+          this._appendAll(videoListItems, options);
+        } else {
+          this._replaceAll(videoListItems, options);
+        }
+
+        this.emit('update');
+        return Promise.resolve({
+          status: 'ok',
+          message:
+            options.append ?
+              'プレイリストに追加しました' :
+              'プレイリストに読み込みしました'
+        });
+      });
   }
   loadFromMylist(mylistId, options, msgInfo) {
     this._initializeView();
