@@ -7,7 +7,6 @@ import {MatrixRankingLoader} from './MatrixRankingLoader';
 import {UaaLoader} from './UaaLoader';
 import {IchibaLoader} from './IchibaLoader';
 import {CommonsTreeLoader} from './CommonsTreeLoader';
-import {UploadedVideoApiLoader} from './UploadedVideoApiLoader';
 import {CrossDomainGate} from '../infra/CrossDomainGate';
 import {RecommendAPILoader} from './RecommendAPILoader';
 import {NVWatchCaller} from './NVWatchCaller';
@@ -28,7 +27,6 @@ import {NicoVideoApi} from './NicoVideoApi';
 //@require MatrixRankingLoader
 //@require IchibaLoader
 //@require CommonsTreeLoader
-//@require UploadedVideoApiLoader
 //@require UaaLoader
 //@require RecommendAPILoader
 //@require NVWatchCaller
@@ -43,7 +41,6 @@ export {
   ThumbInfoLoader,
   PlaylistApiLoader,
   MylistApiLoader,
-  UploadedVideoApiLoader,
   CacheStorage,
   CrossDomainGate,
   IchibaLoader,

@@ -4,7 +4,6 @@ import {VideoListItemView} from './VideoListItemView';
 import {PlayListModel} from './PlayListModel';
 import {VideoList} from './VideoList';
 import {RelatedVideoList} from './RelatedVideoList';
-import {RecommendAPILoader} from '../../../lib/src/nico/RecommendAPILoader';
 import {NicoSearchApiV2Loader} from '../../../lib/src/nico/VideoSearch';
 import {PlayListSession} from './PlayListSession';
 import {VideoListView} from './VideoListView';
@@ -13,7 +12,6 @@ import {PlayListView} from './PlayListView';
 import {textUtil} from '../../../lib/src/text/textUtil';
 import {PlaylistApiLoader} from '../../../lib/src/nico/PlaylistApiLoader';
 import {MylistApiLoader} from '../../../lib/src/nico/MylistApiLoader';
-import {UploadedVideoApiLoader} from '../../../lib/src/nico/UploadedVideoApiLoader';
 //===BEGIN===
 //@require VideoListItem
 //@require VideoListModel
@@ -285,107 +283,6 @@ class PlayList extends VideoList {
         });
       });
   }
-  loadFromMylist(mylistId, options, msgInfo) {
-    this._initializeView();
-
-    if (!this._mylistApiLoader) {
-      this._mylistApiLoader = MylistApiLoader;
-    }
-    window.console.time('loadMylist: ' + mylistId);
-
-    return this._mylistApiLoader
-      .getMylistItems(mylistId, options, msgInfo).then(items => {
-        window.console.timeEnd('loadMylist: ' + mylistId);
-        let videoListItems = items.filter(item => {
-          // マイリストはitem_typeがint
-          // とりまいはitem_typeがstringっていうね
-          if (item.id === null) {
-            return;
-          } // ごく稀にある？idが抹消されたレコード
-          if (item.item_data) {
-            if (parseInt(item.item_type, 10) !== 0) {
-              return;
-            } // not video
-            if (parseInt(item.item_data.deleted, 10) !== 0) {
-              return;
-            } // 削除動画を除外
-          } else {
-            if (item.thumbnail_url && item.thumbnail_url.indexOf('video_deleted') >= 0) {
-              return;
-            }
-          }
-          return true;
-        }).map(item => VideoListItem.createByMylistItem(item));
-
-        if (videoListItems.length < 1) {
-          return Promise.reject({
-            status: 'fail',
-            message: 'マイリストの取得に失敗しました'
-          });
-        }
-        if (options.shuffle) {
-          videoListItems = _.shuffle(videoListItems);
-        }
-
-        if (options.insert) {
-          this._insertAll(videoListItems, options);
-        } else if (options.append) {
-          this._appendAll(videoListItems, options);
-        } else {
-          this._replaceAll(videoListItems, options);
-        }
-
-        this.emit('update');
-        return Promise.resolve({
-          status: 'ok',
-          message:
-            options.append ?
-              'マイリストの内容をプレイリストに追加しました' :
-              'マイリストの内容をプレイリストに読み込みしました'
-        });
-      });
-  }
-  loadUploadedVideo(userId, options) {
-    this._initializeView();
-
-    if (!this._uploadedVideoApiLoader) {
-      this._uploadedVideoApiLoader = UploadedVideoApiLoader;
-    }
-
-    window.console.time('loadUploadedVideos' + userId);
-    return this._uploadedVideoApiLoader
-      .load(userId, options).then(items => {
-        window.console.timeEnd('loadUploadedVideos' + userId);
-        let videoListItems = items.map(item => VideoListItem.createByMylistItem(item));
-
-        if (videoListItems.length < 1) {
-          return Promise.reject({});
-        }
-
-        // 投稿動画一覧は新しい順に渡されるので、プレイリストではreverse＝古い順にする
-        videoListItems.reverse();
-        if (options.shuffle) {
-          videoListItems = _.shuffle(videoListItems);
-        }
-
-        if (options.insert) {
-          this._insertAll(videoListItems, options);
-        } else if (options.append) {
-          this._appendAll(videoListItems, options);
-        } else {
-          this._replaceAll(videoListItems, options);
-        }
-
-        this.emit('update');
-        return Promise.resolve({
-          status: 'ok',
-          message:
-            options.append ?
-              '投稿動画一覧をプレイリストに追加しました' :
-              '投稿動画一覧をプレイリストに読み込みしました'
-        });
-      });
-  }
   loadSearchVideo(word, options, limit = 300) {
     this._initializeView();
 
@@ -439,47 +336,6 @@ class PlayList extends VideoList {
               '検索結果をプレイリストに読み込みしました'
         });
       });
-  }
-  async loadSeriesList(seriesId, options = {}) {
-    this._initializeView();
-    const data = await RecommendAPILoader.loadSeries(seriesId, options);
-    const videoItems = [];
-    (data.items || []).forEach(item => {
-      if (item.contentType !== 'video') {
-        return;
-      }
-      const content = item.content;
-      videoItems.push(new VideoListItem({
-        _format: 'recommendApi',
-        _data: item,
-        id: item.id,
-        uniq_id: item.id,
-        title: content.title,
-        length_seconds: content.duration,
-        num_res: content.count.comment,
-        mylist_counter: content.count.mylist,
-        view_counter: content.count.view,
-        thumbnail_url: content.thumbnail.url,
-        first_retrieve: content.registeredAt,
-        has_data: true,
-        is_translated: false
-      }));
-    });
-
-    if (options.insert) {
-      this._insertAll(videoItems, options);
-    } else if (options.append) {
-      this._appendAll(videoItems, options);
-    } else {
-      this._replaceAll(videoItems, options);
-    }
-
-    this.emit('update');
-    return {
-      status: 'ok',
-      message:
-        options.append ? '動画シリーズをプレイリストに追加しました' : '動画シリーズをプレイリストに読み込みしました'
-    };
   }
   insert(watchId) {
     this._initializeView();
