@@ -1733,30 +1733,27 @@ class NicoVideoPlayerDialog extends Emitter {
   }
   _onPlaylistSetSearchVideo(params) {
 
-    let option = Object.assign({watchId: this._watchId}, params.option || {});
-    let word = params.word;
+    let option = {watchId: this._watchId};
+    let { owner, playlistSort, searchType, ...options } = params.option;
+    if (searchType === 'tag') {
+      options.tag = params.word;
+    } else {
+      options.keyword = params.word;
+    }
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
     option.insert = this._playlist.isEnable;
 
-    if (option.owner) {
-      let ownerId = parseInt(this._videoInfo.owner.id, 10);
-      if (this._videoInfo.isChannel) {
-        option.channelId = ownerId;
-      } else {
-        option.userId = ownerId;
-      }
+    if (owner) {
+      option.ownerId = parseInt(this._videoInfo.owner.id, 10);
     }
-    delete option.owner;
-
-    let query = this._videoWatchOptions.query;
-    option = Object.assign(option, query);
+    option.playlistSort = playlistSort;
 
     this._state.currentTab = 'playlist';
-    this._playlist.loadSearchVideo(word, option).then(result => {
+    this._playlist.load({ type: 'search', options }, option, this._videoInfo.msgInfo).then(result => {
         this.execCommand('notify', result.message);
         this._playlist.insertCurrentVideo(this._videoInfo);
-        global.emitter.emitAsync('searchVideo', {word, option});
+        global.emitter.emitAsync('searchVideo', { ...option, ...options });
         window.setTimeout(() => this._playlist.scrollToActiveItem(), 1000);
       },
       err => {

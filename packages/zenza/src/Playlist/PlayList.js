@@ -252,6 +252,9 @@ class PlayList extends VideoList {
     return this._playlistApiLoader
       .load(playlist, msgInfo).then(items => {
         window.console.timeEnd(timeKey);
+        if (options.ownerId) {
+          items = items.filter(item => item.content.owner.id == options.ownerId);
+        }
         let videoListItems = items.map(item => VideoListItem.createByMylistItem(item));
 
         if (videoListItems.length < 1) {
@@ -263,6 +266,8 @@ class PlayList extends VideoList {
 
         if (options.shuffle) {
           videoListItems = _.shuffle(videoListItems);
+        } else if (options.playlistSort) {
+          videoListItems.reverse();
         }
 
         if (options.insert) {
