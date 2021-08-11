@@ -266,7 +266,7 @@ class PlayList extends VideoList {
 
         if (options.shuffle) {
           videoListItems = _.shuffle(videoListItems);
-        } else if (options.playlistSort) {
+        } else if (playlist.type === 'user-uploaded' && playlist.options == null || options.playlistSort) {
           videoListItems.reverse();
         }
 

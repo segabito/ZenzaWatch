@@ -69,7 +69,7 @@ const PlaylistApiLoader = (() => {
     // ユーザー投稿
     // https://nvapi.nicovideo.jp/v1/playlist/user-uploaded/${userId}?sortOrder=${sortOrder}&sortKey=${sortKey}
     _buildUserUploadedURL(userId, options = {}) {
-      const query = new URLSearchParams(Object.assign({ sortOrder: 'asc', sortKey: 'registeredAt' }, options));
+      const query = new URLSearchParams(Object.assign({ sortOrder: 'desc', sortKey: 'registeredAt' }, options));
       return {
         url: `https://nvapi.nicovideo.jp/v1/playlist/user-uploaded/${userId}?${query.toString()}`,
         cacheKey: `playlist; user-uploaded: ${userId}, orderBy: ${query.get('sortKey')} ${query.get('sortOrder')}`,
