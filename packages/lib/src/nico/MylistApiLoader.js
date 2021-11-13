@@ -164,7 +164,7 @@ const MylistApiLoader = (() => {
       const items = await this._getDeflistItems().catch(() => []);
 
       for (let item of items) {
-        if (item.itemId === watchId) {
+        if (item.watchId === watchId) {
           return item;
         }
       }
@@ -174,7 +174,7 @@ const MylistApiLoader = (() => {
       const items = await this._getMylistItems(groupId).catch(() => []);
 
       for (let item of items) {
-        if (item.itemId === watchId) {
+        if (item.watchId === watchId) {
           return item;
         }
       }
