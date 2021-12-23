@@ -39,6 +39,11 @@ const WatchPageHistory = (() => {
     bouncedRestore();
   };
 
+  const updateOriginal = () => {
+    originalUrl = window && window.location && window.location.href;
+    originalTitle = window && window.document && window.document.title;
+  };
+
   const onVideoInfoLoad = _.debounce(({watchId, title, owner: {name}}) => {
     if (!watchId || !isOpen) {
       return;
@@ -54,7 +59,10 @@ const WatchPageHistory = (() => {
     }
   });
 
-  const onDialogOpen = () => isOpen = true;
+  const onDialogOpen = () => {
+    updateOriginal();
+    isOpen = true;
+  };
 
   const onDialogClose = () => {
     isOpen = false;
@@ -76,9 +84,9 @@ const WatchPageHistory = (() => {
     dialog.on('loadVideoInfo', onVideoInfoLoad);
 
     if (location.host !== 'www.nicovideo.jp') { return; }
-    window.addEventListener('beforeunload', restore, {passive: true});
-    window.addEventListener('error', restore, {passive: true});
-    window.addEventListener('unhandledrejection', restore, {passive: true});
+    window.addEventListener('beforeunload', () => {isOpen && restore()}, {passive: true});
+    window.addEventListener('error', () => {isOpen && restore()}, {passive: true});
+    window.addEventListener('unhandledrejection', updateOriginal, {passive: true});
   };
   // www.nicovideo.jp 以外で開いた時、
   // www.nicovideo.jp 配下のタブがあったら代わりに既読リンクの色を変える
