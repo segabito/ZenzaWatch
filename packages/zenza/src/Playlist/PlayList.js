@@ -345,7 +345,7 @@ class PlayList extends VideoList {
   loadSearchVideo(word, options, limit = 300) {
     this._initializeView();
 
-    if (!this._searchApiLoader) {
+    if (!this._nicoSearchApiLoader) {
       this._nicoSearchApiLoader = NicoSearchApiV2Loader;
     }
 

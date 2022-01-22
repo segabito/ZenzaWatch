@@ -8,7 +8,8 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
   (function () {
     // 参考: http://site.nicovideo.jp/search-api-docs/search.html
     // http://ch.nicovideo.jp/nico-lab/blomaga/ar930955
-    const BASE_URL = 'https://api.search.nicovideo.jp/api/v2/';
+    // https://site.nicovideo.jp/search-api-docs/snapshot
+    const BASE_URL = 'https://api.search.nicovideo.jp/api/v2/snapshot';
     const API_BASE_URL = `${BASE_URL}/video/contents/search`;
     const MESSAGE_ORIGIN = 'https://api.search.nicovideo.jp/';
     const SORT = {
@@ -18,6 +19,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
       m: 'mylistCounter',
       l: 'lengthSeconds',
       n: 'lastCommentTime',
+      likeCount: 'likeCounter',
       // v1からの推測で見つけたけどドキュメントにはのってないやつ
       h: '_hotMylistCounter',           // 人気が高い順
       '_hot': '_hotMylistCounter',    // 人気が高い順(↑と同じだけど互換用に残ってる)
@@ -132,8 +134,8 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
         );
         this._fields = [
           'contentId', 'title', 'description', 'tags', 'categoryTags',
-          'viewCounter', 'commentCounter', 'mylistCounter', 'lengthSeconds',
-          'startTime', 'thumbnailUrl'
+          'viewCounter', 'commentCounter', 'mylistCounter', 'likeCounter',
+          'lengthSeconds', 'startTime', 'thumbnailUrl'
         ];
         this._context = 'ZenzaWatch';
 
