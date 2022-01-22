@@ -20,10 +20,6 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
       l: 'lengthSeconds',
       n: 'lastCommentTime',
       likeCount: 'likeCounter',
-      // v1からの推測で見つけたけどドキュメントにはのってないやつ
-      h: '_hotMylistCounter',           // 人気が高い順
-      '_hot': '_hotMylistCounter',    // 人気が高い順(↑と同じだけど互換用に残ってる)
-      '_popular': '_popular',            // 並び順指定なしらしい
     };
 
     // 公式検索の日時指定パラメータ -1h -24h -1w -1m
