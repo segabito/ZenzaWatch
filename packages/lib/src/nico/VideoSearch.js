@@ -11,6 +11,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
     // https://site.nicovideo.jp/search-api-docs/snapshot
     const BASE_URL = 'https://api.search.nicovideo.jp/api/v2/snapshot';
     const API_BASE_URL = `${BASE_URL}/video/contents/search`;
+    const VERSION_URL = `${BASE_URL}/version`
     const MESSAGE_ORIGIN = 'https://api.search.nicovideo.jp/';
     const SORT = {
       f: 'startTime',
@@ -337,12 +338,40 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
     NicoSearchApiV2Query.F_RANGE = F_RANGE;
     NicoSearchApiV2Query.L_RANGE = L_RANGE;
 
+    class NicoSearchApiV2Version {
+      constructor() {
+        this.date = this._baseDate;
+      }
+
+      get isLatest() {
+        return (this.date - this._baseDate) > 0;
+      }
+
+      async update() {
+        initializeCrossDomainGate();
+        this.date = await gate.fetch(VERSION_URL)
+          .then(res => res.json())
+          .then(res => new Date(res.last_modified));
+        return this.date;
+      }
+
+      // スナップショット検索は日本時間5時の時点のデータなので、UTCの20時を取る
+      get _baseDate() {
+        let now = new Date();
+        return now.setUTCHours(now.getUTCHours() >= 20 ? 20 : -4, 0, 0);
+      }
+    }
 
     class NicoSearchApiV2Loader {
+      static version = new NicoSearchApiV2Version;
+
       static async search(word, params) {
         initializeCrossDomainGate();
         const query = new NicoSearchApiV2Query(word, params);
         const url = API_BASE_URL + '?' + query.toString();
+        const version = this.version.isLatest
+          ? this.version.date
+          : await this.version.update();
 
         return gate.fetch(url).then(res => res.text()).then(result => {
           result = NicoSearchApiV2Loader.parseResult(result);
