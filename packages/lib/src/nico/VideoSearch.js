@@ -340,7 +340,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
 
     class NicoSearchApiV2Version {
       constructor() {
-        this.date = this._baseDate;
+        this.date = this.lastUpdate = this._baseDate;
       }
 
       get isLatest() {
@@ -348,10 +348,15 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
       }
 
       async update() {
+        const now = Date.now();
+        if (now - this.lastUpdate <= 1000 * 60 * 5) {
+          return this.date;
+        }
         initializeCrossDomainGate();
-        this.date = await gate.fetch(VERSION_URL)
-          .then(res => res.json())
-          .then(res => new Date(res.last_modified));
+        const res =  await gate.fetch(VERSION_URL);
+        const body = await res.json();
+        this.date = new Date(body.last_modified);
+        this.lastUpdate = new Date(res.headers.get('Date') ?? now);
         return this.date;
       }
 
@@ -364,19 +369,38 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
 
     class NicoSearchApiV2Loader {
       static version = new NicoSearchApiV2Version;
+      static cacheStorage;
+      static CACHE_EXPIRE_TIME = 24 * 60 * 60 * 1000;
 
       static async search(word, params) {
         initializeCrossDomainGate();
         const query = new NicoSearchApiV2Query(word, params);
         const url = API_BASE_URL + '?' + query.toString();
         const version = this.version.isLatest
-          ? this.version.date
-          : await this.version.update();
+          ? this.version.date.getTime()
+          : await this.version.update().then(date => date.getTime());
+
+        if (!this.cacheStorage) {
+          this.cacheStorage = new CacheStorage(sessionStorage);
+        }
+        const cacheKey = `search: ${[
+          `words:${query.q}`,
+          `targets:${query.targets.join(',')}`,
+          `sort:${query.sort}`,
+          `filters:${query.stringfiedFilters}`,
+          `offset:${query.offset}`,
+        ].join(', ')}`;
+        const cacheData = this.cacheStorage.getItem(cacheKey);
+        if (cacheData && cacheData.version === version) {
+          return cacheData.data;
+        }
 
         return gate.fetch(url).then(res => res.text()).then(result => {
           result = NicoSearchApiV2Loader.parseResult(result);
           if (typeof result !== 'number' && result.status === 'ok') {
-            return Promise.resolve(Object.assign(result, {word, params}));
+            let data = Object.assign(result, {word, params});
+            this.cacheStorage.setItem(cacheKey, {data, version}, this.CACHE_EXPIRE_TIME);
+            return Promise.resolve(data);
           } else {
             let description;
             switch (result) {
