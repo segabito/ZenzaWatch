@@ -1544,6 +1544,7 @@ class VideoSearchForm extends Emitter {
     const config = this._config;
     const form = this._form;
 
+    config.props.ownerOnly = false;
     form['ownerOnly'].checked = config.props.ownerOnly;
     const confMode = config.props.mode;
     if (typeof confMode === 'string' && ['tag', 'keyword'].includes(confMode)) {
@@ -1714,7 +1715,7 @@ VideoSearchForm.__css__ = (`
     }
 
     .zenzaVideoSearchPanel:not(:focus-within) .focusOnly {
-      display: none;
+      opacity: 0;
     }
 
     .zenzaVideoSearchPanel .searchInputHead {
@@ -1889,13 +1890,17 @@ VideoSearchForm.__css__ = (`
         color: #ccc;
       }
 
-      .zenzaVideoSearchPanel .autoPauseLabel {
+      .zenzaVideoSearchPanel .ownerOnlyLabel {
         cursor: pointer;
       }
 
-      .zenzaVideoSearchPanel .autoPauseLabel input + span {
+      .zenzaVideoSearchPanel .ownerOnlyLabel input + span {
         display: inline-block;
         pointer-events: none;
+      }
+      .zenzaVideoSearchPanel .ownerOnlyLabel input[disabled] + span {
+        filter: brightness(80%);
+        text-decoration: line-through;
       }
 
   `).trim();
@@ -1951,8 +1956,8 @@ VideoSearchForm.__tpl__ = (`
             <option value="l">長い順</option>
             <option value="l,a">短い順</option>
           </select>
-          <label class="autoPauseLabel">
-            <input type="checkbox" name="ownerOnly" checked="checked">
+          <label class="ownerOnlyLabel">
+            <input type="checkbox" name="ownerOnly" checked="checked" disabled>
             <span>投稿者の動画のみ</span>
           </label>
         </div>

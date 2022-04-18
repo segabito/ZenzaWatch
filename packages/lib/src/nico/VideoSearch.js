@@ -8,8 +8,10 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
   (function () {
     // 参考: http://site.nicovideo.jp/search-api-docs/search.html
     // http://ch.nicovideo.jp/nico-lab/blomaga/ar930955
-    const BASE_URL = 'https://api.search.nicovideo.jp/api/v2/';
+    // https://site.nicovideo.jp/search-api-docs/snapshot
+    const BASE_URL = 'https://api.search.nicovideo.jp/api/v2/snapshot';
     const API_BASE_URL = `${BASE_URL}/video/contents/search`;
+    const VERSION_URL = `${BASE_URL}/version`
     const MESSAGE_ORIGIN = 'https://api.search.nicovideo.jp/';
     const SORT = {
       f: 'startTime',
@@ -18,10 +20,7 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
       m: 'mylistCounter',
       l: 'lengthSeconds',
       n: 'lastCommentTime',
-      // v1からの推測で見つけたけどドキュメントにはのってないやつ
-      h: '_hotMylistCounter',           // 人気が高い順
-      '_hot': '_hotMylistCounter',    // 人気が高い順(↑と同じだけど互換用に残ってる)
-      '_popular': '_popular',            // 並び順指定なしらしい
+      likeCount: 'likeCounter',
     };
 
     // 公式検索の日時指定パラメータ -1h -24h -1w -1m
@@ -132,8 +131,8 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
         );
         this._fields = [
           'contentId', 'title', 'description', 'tags', 'categoryTags',
-          'viewCounter', 'commentCounter', 'mylistCounter', 'lengthSeconds',
-          'startTime', 'thumbnailUrl'
+          'viewCounter', 'commentCounter', 'mylistCounter', 'likeCounter',
+          'lengthSeconds', 'startTime', 'thumbnailUrl'
         ];
         this._context = 'ZenzaWatch';
 
@@ -339,17 +338,69 @@ const {NicoSearchApiV2Query, NicoSearchApiV2Loader} =
     NicoSearchApiV2Query.F_RANGE = F_RANGE;
     NicoSearchApiV2Query.L_RANGE = L_RANGE;
 
+    class NicoSearchApiV2Version {
+      constructor() {
+        this.date = this.lastUpdate = this._baseDate;
+      }
+
+      get isLatest() {
+        return (this.date - this._baseDate) > 0;
+      }
+
+      async update() {
+        const now = Date.now();
+        if (now - this.lastUpdate <= 1000 * 60 * 5) {
+          return this.date;
+        }
+        initializeCrossDomainGate();
+        const res =  await gate.fetch(VERSION_URL);
+        const body = await res.json();
+        this.date = new Date(body.last_modified);
+        this.lastUpdate = new Date(res.headers.get('Date') ?? now);
+        return this.date;
+      }
+
+      // スナップショット検索は日本時間5時の時点のデータなので、UTCの20時を取る
+      get _baseDate() {
+        let now = new Date();
+        return now.setUTCHours(now.getUTCHours() >= 20 ? 20 : -4, 0, 0);
+      }
+    }
 
     class NicoSearchApiV2Loader {
+      static version = new NicoSearchApiV2Version;
+      static cacheStorage;
+      static CACHE_EXPIRE_TIME = 24 * 60 * 60 * 1000;
+
       static async search(word, params) {
         initializeCrossDomainGate();
         const query = new NicoSearchApiV2Query(word, params);
         const url = API_BASE_URL + '?' + query.toString();
+        const version = this.version.isLatest
+          ? this.version.date.getTime()
+          : await this.version.update().then(date => date.getTime());
+
+        if (!this.cacheStorage) {
+          this.cacheStorage = new CacheStorage(sessionStorage);
+        }
+        const cacheKey = `search: ${[
+          `words:${query.q}`,
+          `targets:${query.targets.join(',')}`,
+          `sort:${query.sort}`,
+          `filters:${query.stringfiedFilters}`,
+          `offset:${query.offset}`,
+        ].join(', ')}`;
+        const cacheData = this.cacheStorage.getItem(cacheKey);
+        if (cacheData && cacheData.version === version) {
+          return cacheData.data;
+        }
 
         return gate.fetch(url).then(res => res.text()).then(result => {
           result = NicoSearchApiV2Loader.parseResult(result);
           if (typeof result !== 'number' && result.status === 'ok') {
-            return Promise.resolve(Object.assign(result, {word, params}));
+            let data = Object.assign(result, {word, params});
+            this.cacheStorage.setItem(cacheKey, {data, version}, this.CACHE_EXPIRE_TIME);
+            return Promise.resolve(data);
           } else {
             let description;
             switch (result) {
