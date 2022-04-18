@@ -1900,6 +1900,7 @@ VideoSearchForm.__css__ = (`
       }
       .zenzaVideoSearchPanel .ownerOnlyLabel input[disabled] + span {
         filter: brightness(80%);
+        text-decoration: line-through;
       }
 
   `).trim();
