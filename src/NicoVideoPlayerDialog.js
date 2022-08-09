@@ -88,9 +88,7 @@ class VideoWatchOptions {
   get mylistLoadOptions() {
     let options = {};
     let query = this.query;
-    options.order = query.order;
-    options.sort = query.sort;
-    options.group_id = query.group_id;
+    options.shuffle = parseInt(query.shuffle, 10) === 1;
     options.watchId = this._watchId;
     return options;
   }
@@ -100,8 +98,7 @@ class VideoWatchOptions {
     if (eventType !== 'click' || query.continuous !== '1') {
       return false;
     }
-    if (['mylist', 'deflist', 'tag', 'search'].includes(query.playlist_type) &&
-      (query.group_id || query.order)) {
+    if (query.playlist.type) {
       return true;
     }
     return false;
@@ -1707,33 +1704,27 @@ class NicoVideoPlayerDialog extends Emitter {
   _onPlaylistInsert(watchId) {
     this._playlist.insert(watchId);
   }
-  _onPlaylistSetMylist(mylistId, option) {
+  _onPlaylistSetMylist(id) {
 
-    option = Object.assign({watchId: this._watchId}, option || {});
-    // デフォルトで古い順にする
-    option.order = option.order == null ? 'asc' : option.order;
-    option.sort = option.sort == null ? 'registeredAt' : option.sort;
+    let option = {watchId: this._watchId};
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
     option.insert = this._playlist.isEnable;
 
-    let query = this._videoWatchOptions.query;
-    option.shuffle = parseInt(query.shuffle, 10) === 1;
-
-    this._playlist.loadFromMylist(mylistId, option, this._videoInfo.msgInfo).then(result => {
+    this._playlist.load({ type: 'mylist', id }, option, this._videoInfo.msgInfo).then(result => {
         this.execCommand('notify', result.message);
         this._state.currentTab = 'playlist';
         this._playlist.insertCurrentVideo(this._videoInfo);
       },
       () => this.execCommand('alert', 'マイリストのロード失敗'));
   }
-  _onPlaylistSetUploadedVideo(userId, option) {
-    option = Object.assign({watchId: this._watchId}, option || {});
+  _onPlaylistSetUploadedVideo(id) {
+    let option = {watchId: this._watchId};
     // 通常時はプレイリストの置き換え、
     // 連続再生中はプレイリストに追加で読み込む
     option.insert = this._playlist.isEnable;
 
-    this._playlist.loadUploadedVideo(userId, option).then(result => {
+    this._playlist.load({ type: 'user-uploaded', id }, option, this._videoInfo.msgInfo).then(result => {
         this.execCommand('notify', result.message);
         this._state.currentTab = 'playlist';
         this._playlist.insertCurrentVideo(this._videoInfo);
@@ -1772,12 +1763,12 @@ class NicoVideoPlayerDialog extends Emitter {
         this.execCommand('alert', err.message || '検索失敗または該当無し: 「' + word + '」');
       });
   }
-  _onPlaylistSetSeriesVideo(id, option = {}) {
+  _onPlaylistSetSeriesVideo(id) {
 
-    option = Object.assign({watchId: this._watchId}, option || {});
+    let option = {watchId: this._watchId};
     option.insert = this._playlist.isEnable;
     this._state.currentTab = 'playlist';
-    this._playlist.loadSeriesList(id, option).then(result => {
+    this._playlist.load({ type: 'series', id }, option, this._videoInfo.msgInfo).then(result => {
       this.execCommand('notify', result.message);
       this._playlist.insertCurrentVideo(this._videoInfo);
       window.setTimeout(() => this._playlist.scrollToActiveItem(), 1000);
@@ -2309,19 +2300,11 @@ class NicoVideoPlayerDialog extends Emitter {
       option.append = this.isPlaying && this._playlist.isEnable;
 
       // //www.nicovideo.jp/watch/sm20353707 // プレイリスト開幕用動画
-      option.shuffle = parseInt(query.shuffle, 10) === 1;
       console.log('playlist option:', option);
 
-      if (query.playlist_type === 'mylist') {
-        this._playlist.loadFromMylist(option.group_id, option, this._videoInfo.msgInfo);
-      } else if (query.playlist_type === 'deflist') {
-        this._playlist.loadFromMylist('deflist', option, this._videoInfo.msgInfo);
-      } else if (query.playlist_type === 'tag' || query.playlist_type === 'search') {
-        let word = query.tag || query.keyword;
-        option.searchType = query.tag ? 'tag' : '';
-        option = Object.assign(option, query);
-        this._playlist.loadSearchVideo(word, option, this._playerConfig.props['search.limit']);
-      }
+      option.limit = this._playerConfig.props['search.limit'];
+
+      this._playlist.load(query.playlist, option, this._videoInfo.msgInfo);
       this._playlist.toggleEnable(true);
     }
     // チャンネル動画は、1本の動画がwatchId表記とvideoId表記で2本登録されてしまう。

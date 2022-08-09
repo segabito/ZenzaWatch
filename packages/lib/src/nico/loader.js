@@ -7,7 +7,6 @@ import {MatrixRankingLoader} from './MatrixRankingLoader';
 import {UaaLoader} from './UaaLoader';
 import {IchibaLoader} from './IchibaLoader';
 import {CommonsTreeLoader} from './CommonsTreeLoader';
-import {UploadedVideoApiLoader} from './UploadedVideoApiLoader';
 import {CrossDomainGate} from '../infra/CrossDomainGate';
 import {RecommendAPILoader} from './RecommendAPILoader';
 import {NVWatchCaller} from './NVWatchCaller';
@@ -15,18 +14,19 @@ import {PlaybackPosition} from './PlaybackPosition';
 import {VideoInfoLoader} from './VideoInfoLoader';
 import {ThumbInfoLoader} from './ThumbInfoLoader';
 import {MylistApiLoader} from './MylistApiLoader';
+import {PlaylistApiLoader} from './PlaylistApiLoader';
 import {NicoVideoApi} from './NicoVideoApi';
 
 //===BEGIN===
 //@require CacheStorage
 //@require VideoInfoLoader
 //@require ThumbInfoLoader
+//@require PlaylistApiLoader
 //@require MylistApiLoader
 //@require NicoRssLoader
 //@require MatrixRankingLoader
 //@require IchibaLoader
 //@require CommonsTreeLoader
-//@require UploadedVideoApiLoader
 //@require UaaLoader
 //@require RecommendAPILoader
 //@require NVWatchCaller
@@ -39,8 +39,8 @@ import {NicoVideoApi} from './NicoVideoApi';
 export {
   VideoInfoLoader,
   ThumbInfoLoader,
+  PlaylistApiLoader,
   MylistApiLoader,
-  UploadedVideoApiLoader,
   CacheStorage,
   CrossDomainGate,
   IchibaLoader,
